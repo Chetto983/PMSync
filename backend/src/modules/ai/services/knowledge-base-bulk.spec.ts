@@ -4,6 +4,8 @@ import { MistralService } from './mistral.service';
 import { EmbeddingsService } from './embeddings.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailEmbeddingQueueService } from './email-embedding.queue';
+import { QueryEmbeddingCacheService } from './query-embedding-cache.service';
+import { AttachmentContentExtractorService } from './attachment-content-extractor.service';
 
 describe('KnowledgeBaseService - Bulk Embeddings', () => {
   let service: KnowledgeBaseService;
@@ -32,6 +34,13 @@ describe('KnowledgeBaseService - Bulk Embeddings', () => {
       },
     };
     const mockEmailEmbeddingQueue = {};
+    const mockQueryEmbeddingCache = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+    };
+    const mockAttachmentContentExtractor = {
+      extractText: jest.fn().mockResolvedValue(''),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -40,6 +49,8 @@ describe('KnowledgeBaseService - Bulk Embeddings', () => {
         { provide: EmbeddingsService, useValue: mockEmbeddingsService },
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: EmailEmbeddingQueueService, useValue: mockEmailEmbeddingQueue },
+        { provide: QueryEmbeddingCacheService, useValue: mockQueryEmbeddingCache },
+        { provide: AttachmentContentExtractorService, useValue: mockAttachmentContentExtractor },
       ],
     }).compile();
 

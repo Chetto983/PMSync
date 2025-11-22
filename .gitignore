@@ -701,3 +701,4 @@ esempio/Zero-main/scripts/seed-style/styles/professional_emails.json
 esempio/Zero-main/scripts/send-emails/index.ts
 NUL
 .claude/settings.local.json
+backend/test/setup.ts

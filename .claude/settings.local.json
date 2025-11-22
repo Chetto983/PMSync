@@ -25,7 +25,8 @@
       "Bash(npx ts-node:*)",
       "Bash(npm run test:*)",
       "Bash(lsof:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(node -e:*)"
     ],
     "deny": [],
     "ask": []
