@@ -3,6 +3,7 @@ import {
   Box,
   Typography,
   IconButton,
+  Button,
   Avatar,
   Chip,
   Paper,
@@ -186,7 +187,6 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
     (t as any)?.dashboard?.email?.attachments?.tooltip ??
     'Click to open. Ctrl/Cmd+click to download.';
   const [threadData, setThreadData] = useState<Email[]>([]);
-  const [archivedEmail, setArchivedEmail] = useState<Email | null>(null);
 
   // Get full thread conversation using the new thread support
   // Subscribe to both getEmailThread and threads to ensure reactivity when WebSocket updates arrive
@@ -255,6 +255,16 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
     };
     loadThread();
   }, [email, emailStore]);
+
+  const handleFetchArchived = async () => {
+    if (!email) return;
+    try {
+      const res = await emailApi.fetchArchivedEmail(email.id);
+      setThreadData([res.data]);
+    } catch {
+      // ignore fetch errors
+    }
+  };
 
   // Use the first email in thread for primary display data
   const primaryEmail = threadEmails[0] || email;
@@ -361,19 +371,34 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         }}
       >
         {onClose && (
-          <IconButton size="small" onClick={onClose} sx={{ mr: 1 }}>
+          <IconButton size="small" onClick={onClose} sx={{ mr: 1 }} aria-label={t.common.close || 'Close'}>
             <ChevronLeft size={20} />
           </IconButton>
         )}
 
         {/* Reply/Forward Actions - Left Side */}
-        <IconButton size="small" onClick={() => onReply?.(email)} title={t.dashboard.emailView.reply}>
+        <IconButton
+          size="small"
+          onClick={() => onReply?.(email)}
+          title={t.dashboard.emailView.reply}
+          aria-label={t.dashboard.emailView.reply}
+        >
           <Reply size={18} />
         </IconButton>
-        <IconButton size="small" onClick={() => onReplyAll?.(email)} title={t.dashboard.emailView.replyAll}>
+        <IconButton
+          size="small"
+          onClick={() => onReplyAll?.(email)}
+          title={t.dashboard.emailView.replyAll}
+          aria-label={t.dashboard.emailView.replyAll}
+        >
           <ReplyAll size={18} />
         </IconButton>
-        <IconButton size="small" onClick={() => onForward?.(email)} title={t.dashboard.emailView.forward}>
+        <IconButton
+          size="small"
+          onClick={() => onForward?.(email)}
+          title={t.dashboard.emailView.forward}
+          aria-label={t.dashboard.emailView.forward}
+        >
           <Forward size={18} />
         </IconButton>
 
@@ -383,6 +408,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           size="small"
           onClick={() => onToggleStar?.(email.id, email.isStarred || false)}
           title={email.isStarred ? t.dashboard.email.bulkBar.removeStar : t.dashboard.email.bulkBar.addStar}
+          aria-label={email.isStarred ? t.dashboard.email.bulkBar.removeStar : t.dashboard.email.bulkBar.addStar}
         >
           <Star size={18} fill={email.isStarred ? '#FFB300' : 'none'} color={email.isStarred ? '#FFB300' : 'currentColor'} />
         </IconButton>
@@ -391,6 +417,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           size="small"
           onClick={() => onArchive?.(email.id)}
           title={t.dashboard.email.bulkBar.archive}
+          aria-label={t.dashboard.email.bulkBar.archive}
         >
           <Archive size={18} />
         </IconButton>
@@ -399,11 +426,12 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           size="small"
           onClick={() => onDelete?.(email.id)}
           title={t.dashboard.email.bulkBar.delete}
+          aria-label={t.dashboard.email.bulkBar.delete}
         >
           <Trash2 size={18} />
         </IconButton>
 
-        <IconButton size="small" title={t.dashboard.emailView.more}>
+        <IconButton size="small" title={t.dashboard.emailView.more} aria-label={t.dashboard.emailView.more}>
           <MoreVertical size={18} />
         </IconButton>
       </Paper>
@@ -441,8 +469,13 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 
         {(!primaryEmail.bodyHtml && !primaryEmail.bodyText) && (
           <Box sx={{ mb: 2 }}>
-            <Button variant="outlined" size="small" onClick={handleFetchArchived}>
-              Load archived content
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleFetchArchived}
+              aria-label={(t as any)?.dashboard?.emailView?.fetchArchived || 'Load archived content'}
+            >
+              {(t as any)?.dashboard?.emailView?.fetchArchived || 'Load archived content'}
             </Button>
           </Box>
         )}
@@ -565,13 +598,3 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 };
 
 export default ThreadDisplay;
-  const handleFetchArchived = async () => {
-    if (!email) return;
-    try {
-      const res = await emailApi.fetchArchivedEmail(email.id);
-      setArchivedEmail(res.data);
-      setThreadData([res.data]);
-    } catch {
-      // ignore
-    }
-  };

@@ -28,7 +28,12 @@
       "Bash(npm run:*)",
       "Bash(node -e:*)",
       "Bash(1)",
-      "Bash(node test-db.js:*)"
+      "Bash(node test-db.js:*)",
+      "Bash(dir \"d:\\MailAgent\\backend\\*.ts\" /b)",
+      "Bash(git mv:*)",
+      "Bash(git add backend/src/modules/realtime/gateways/realtime.gateway.ts)",
+      "Bash(git commit:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
