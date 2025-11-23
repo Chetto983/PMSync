@@ -285,7 +285,7 @@ export function Mailbox() {
   }, [handleEmailClickOriginal]);
 
   const listModeLabels = useMemo(() => {
-    const emailList = (t as any)?.dashboard?.email || {};
+    const emailList = (t as any)?.dashboard?.emailList || {};
     const conversationsText = (t as any)?.dashboard?.email?.conversations || {};
     return {
       list: emailList.emailListView || 'Email List',
