@@ -58,6 +58,8 @@ export interface RealtimeSyncStatus {
   status: 'started' | 'in_progress' | 'completed' | 'failed';
   progress?: number;
   error?: string;
+  processed?: number;
+  total?: number;
   timestamp: string;
 }
 
@@ -155,6 +157,42 @@ class WebSocketClient {
    */
   isConnected(): boolean {
     return this.socket?.connected ?? false;
+  }
+
+  /**
+   * Registra handler per evento close/disconnect
+   */
+  onClose(handler: () => void): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('disconnect', handler);
+    return () => this.socket?.off('disconnect', handler);
+  }
+
+  /**
+   * Rimuovi handler per evento close/disconnect
+   */
+  offClose(handler: () => void): void {
+    if (this.socket) {
+      this.socket.off('disconnect', handler);
+    }
+  }
+
+  /**
+   * Registra handler per evento error
+   */
+  onError(handler: (error: Error) => void): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('connect_error', handler);
+    return () => this.socket?.off('connect_error', handler);
+  }
+
+  /**
+   * Rimuovi handler per evento error
+   */
+  offError(handler: (error: Error) => void): void {
+    if (this.socket) {
+      this.socket.off('connect_error', handler);
+    }
   }
 
   /**
@@ -290,49 +328,6 @@ class WebSocketClient {
     return () => this.socket?.off('sync:status', handler);
   }
 
-  /**
-   * AI EVENTS
-   */
-
-  onAIClassification(handler: EventHandler<any>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('ai:classification_done', handler);
-    return () => this.socket?.off('ai:classification_done', handler);
-  }
-
-  onAITaskSuggest(handler: EventHandler<any>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('ai:task_suggest', handler);
-    return () => this.socket?.off('ai:task_suggest', handler);
-  }
-
-  onAIInsight(handler: EventHandler<any>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('ai:insight', handler);
-    return () => this.socket?.off('ai:insight', handler);
-  }
-
-  /**
-   * HITL EVENTS
-   */
-
-  onHITLApprovalRequired(handler: EventHandler<any>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('hitl:approval_required', handler);
-    return () => this.socket?.off('hitl:approval_required', handler);
-  }
-
-  onHITLApprovalGranted(handler: EventHandler<any>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('hitl:approval_granted', handler);
-    return () => this.socket?.off('hitl:approval_granted', handler);
-  }
-
-  onHITLApprovalDenied(handler: EventHandler<any>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('hitl:approval_denied', handler);
-    return () => this.socket?.off('hitl:approval_denied', handler);
-  }
 }
 
 // Singleton instance

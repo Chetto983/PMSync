@@ -60,11 +60,11 @@ export function useWebSocket(token: string | null, enabled = true) {
         }
         connectWithBackoff();
       };
-      (websocketClient as any).onClose?.(handleCloseOrError);
-      (websocketClient as any).onError?.(handleCloseOrError);
+      websocketClient.onClose(handleCloseOrError);
+      websocketClient.onError(handleCloseOrError);
       wsCleanupRef.current = () => {
-        (websocketClient as any).offClose?.(handleCloseOrError);
-        (websocketClient as any).offError?.(handleCloseOrError);
+        websocketClient.offClose(handleCloseOrError);
+        websocketClient.offError(handleCloseOrError);
       };
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
@@ -127,21 +127,10 @@ export function useWebSocket(token: string | null, enabled = true) {
     const unsubEmailUpdate = websocketClient.onEmailUpdate((data) => {
       console.log('[WS] Email update:', data);
 
-      // Handle complete email object (new format from labels service)
+      // Handle complete email object from backend
       if (data.email) {
         // Replace the entire email with the updated version from backend
         updateEmail(data.emailId || data.email.id, data.email);
-        return;
-      }
-
-      // Handle partial updates (legacy format)
-      if (data.emailId && data.updates) {
-        // If the email has moved folder, remove it from the current list to avoid stale UI
-        if (data.updates.folder) {
-          deleteEmail(data.emailId);
-          return;
-        }
-        updateEmail(data.emailId, data.updates);
       }
     });
 

@@ -365,56 +365,6 @@ describe('useWebSocket Hook - Thread Support', () => {
       );
     });
 
-    it('should handle email update with partial updates (legacy format)', () => {
-      let emailUpdateHandler: any;
-
-      (websocketClient.onEmailUpdate as jest.Mock).mockImplementation((handler) => {
-        emailUpdateHandler = handler;
-        return jest.fn();
-      });
-
-      renderHook(() => useWebSocket(mockToken, true));
-
-      const mockPartialUpdate = {
-        emailId: 'email-123',
-        updates: {
-          isRead: true,
-          isStarred: true,
-        },
-        timestamp: '2025-01-01T10:00:00Z',
-      };
-
-      emailUpdateHandler(mockPartialUpdate);
-
-      expect(mockEmailStore.updateEmail).toHaveBeenCalledWith(
-        'email-123',
-        mockPartialUpdate.updates
-      );
-    });
-
-    it('should delete email when folder update received', () => {
-      let emailUpdateHandler: any;
-
-      (websocketClient.onEmailUpdate as jest.Mock).mockImplementation((handler) => {
-        emailUpdateHandler = handler;
-        return jest.fn();
-      });
-
-      renderHook(() => useWebSocket(mockToken, true));
-
-      const mockFolderUpdate = {
-        emailId: 'email-123',
-        updates: {
-          folder: 'TRASH',
-        },
-        timestamp: '2025-01-01T10:00:00Z',
-      };
-
-      emailUpdateHandler(mockFolderUpdate);
-
-      expect(mockEmailStore.deleteEmail).toHaveBeenCalledWith('email-123');
-      expect(mockEmailStore.updateEmail).not.toHaveBeenCalled();
-    });
   });
 
   describe('Security Tests', () => {
