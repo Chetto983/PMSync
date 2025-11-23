@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
@@ -53,6 +53,12 @@ describe('Tenant Isolation (E2E)', () => {
       })
       .expect(201);
 
+    // Disable MFA for User A
+    await prisma.user.update({
+      where: { id: userAResponse.body.userId },
+      data: { isMfaEnabled: false },
+    });
+
     // Register User B
     const userBResponse = await request(app.getHttpServer())
       .post('/auth/register')
@@ -64,6 +70,12 @@ describe('Tenant Isolation (E2E)', () => {
       })
       .expect(201);
 
+    // Disable MFA for User B
+    await prisma.user.update({
+      where: { id: userBResponse.body.userId },
+      data: { isMfaEnabled: false },
+    });
+
     // Login User A
     const loginA = await request(app.getHttpServer())
       .post('/auth/login')
@@ -71,9 +83,9 @@ describe('Tenant Isolation (E2E)', () => {
         email: 'tenant-a-test@example.com',
         password: 'Test123!@#',
       })
-      .expect(200);
+      .expect(201);
 
-    userAToken = loginA.body.access_token;
+    userAToken = loginA.body.accessToken;
     tenantAId = loginA.body.user.tenantId;
     userAId = loginA.body.user.id;
 
@@ -84,9 +96,9 @@ describe('Tenant Isolation (E2E)', () => {
         email: 'tenant-b-test@example.com',
         password: 'Test123!@#',
       })
-      .expect(200);
+      .expect(201);
 
-    userBToken = loginB.body.access_token;
+    userBToken = loginB.body.accessToken;
     tenantBId = loginB.body.user.tenantId;
     userBId = loginB.body.user.id;
 

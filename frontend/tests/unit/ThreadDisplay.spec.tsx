@@ -317,11 +317,12 @@ describe('ThreadDisplay Component', () => {
         getEmailThread: jest.fn().mockReturnValue([maliciousEmail]),
       });
 
-      render(<ThreadDisplay email={maliciousEmail} />);
+      const { container } = render(<ThreadDisplay email={maliciousEmail} />);
 
       // Component should render but scripts should not execute
-      // dangerouslySetInnerHTML is used but should be sanitized by DOMPurify in production
       expect(screen.getByText(/Safe content/i)).toBeInTheDocument();
+      expect(container.querySelector('script')).toBeNull();
+      expect(container.querySelector('img[onerror]')).toBeNull();
     });
 
     it('should handle extremely long email bodies', () => {
@@ -351,6 +352,25 @@ describe('ThreadDisplay Component', () => {
       expect(() => {
         render(<ThreadDisplay email={malformedEmail} />);
       }).not.toThrow();
+    });
+  });
+
+  describe('Realtime refresh behavior', () => {
+    it('should update thread count when store thread changes', () => {
+      let emailStoreRef = {
+        getEmailThread: jest.fn(() => [mockEmail]),
+      };
+      (useEmailStore as unknown as jest.Mock).mockImplementation(() => emailStoreRef);
+
+      const { rerender, queryByText, getByText } = render(<ThreadDisplay email={mockEmail} />);
+      expect(queryByText(/messages/i)).toBeNull();
+
+      emailStoreRef = {
+        getEmailThread: jest.fn(() => mockThreadEmails),
+      };
+      rerender(<ThreadDisplay email={mockEmail} />);
+
+      expect(getByText('3 messages')).toBeInTheDocument();
     });
   });
 

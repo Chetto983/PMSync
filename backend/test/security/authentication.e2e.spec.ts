@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../../src/app.module';
+import { PrismaService } from '../../src/prisma/prisma.service';
 
 /**
  * E2E Tests for Authentication
@@ -22,7 +23,7 @@ describe('Authentication (E2E)', () => {
     await app.init();
 
     // Create a valid user and get token
-    await request(app.getHttpServer())
+    const registerResponse = await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'auth-test@example.com',
@@ -31,6 +32,13 @@ describe('Authentication (E2E)', () => {
         lastName: 'Test',
       });
 
+    // Disable MFA for test user
+    const prisma = app.get(PrismaService);
+    await prisma.user.update({
+      where: { id: registerResponse.body.userId },
+      data: { isMfaEnabled: false },
+    });
+
     const loginResponse = await request(app.getHttpServer())
       .post('/auth/login')
       .send({
@@ -38,7 +46,7 @@ describe('Authentication (E2E)', () => {
         password: 'Test123!@#',
       });
 
-    validToken = loginResponse.body.access_token;
+    validToken = loginResponse.body.accessToken;
   });
 
   afterAll(async () => {

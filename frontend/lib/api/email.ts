@@ -500,17 +500,12 @@ export const emailApi = {
 
   /**
    * Download email attachment
-   * GET /emails/:emailId/attachments/:attachmentId/download
+   * GET /email/attachments/:attachmentId/download (blob)
    */
-  downloadAttachment(emailId: string, attachmentId: string) {
-    return apiClient.get<{
-      id: string;
-      filename: string;
-      mimeType: string;
-      size: number;
-      downloadUrl: string | null;
-      message?: string;
-    }>(`/emails/${emailId}/attachments/${attachmentId}/download`);
+  downloadAttachment(attachmentId: string) {
+    return apiClient.get<Blob>(`/email/attachments/${attachmentId}/download`, {
+      responseType: 'blob',
+    });
   },
 
   // ===== AI FEATURES =====

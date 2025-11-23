@@ -8,11 +8,6 @@ import { useTranslations } from '@/lib/hooks/use-translations';
  */
 export interface ThreadActionBarProps {
   /**
-   * Thread/Email ID
-   */
-  threadId: string;
-
-  /**
    * Whether the thread is read
    */
   isRead: boolean;
@@ -84,7 +79,6 @@ export interface ThreadActionBarProps {
  * @example
  * ```tsx
  * <ThreadActionBar
- *   threadId={email.id}
  *   isStarred={email.isStarred}
  *   isImportant={email.isImportant}
  *   onToggleStar={() => handleToggleStar(email.id)}

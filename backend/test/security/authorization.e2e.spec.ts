@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
@@ -36,7 +36,7 @@ describe('Authorization / RBAC (E2E)', () => {
 
   async function setupTestUsers() {
     // Create regular user
-    await request(app.getHttpServer())
+    const userResponse = await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'user@rbac-test.com',
@@ -45,6 +45,12 @@ describe('Authorization / RBAC (E2E)', () => {
         lastName: 'User',
       });
 
+    // Disable MFA for regular user
+    await prisma.user.update({
+      where: { id: userResponse.body.userId },
+      data: { isMfaEnabled: false },
+    });
+
     const userLogin = await request(app.getHttpServer())
       .post('/auth/login')
       .send({
@@ -52,10 +58,10 @@ describe('Authorization / RBAC (E2E)', () => {
         password: 'Test123!@#',
       });
 
-    userToken = userLogin.body.access_token;
+    userToken = userLogin.body.accessToken;
 
     // Create admin user (manually update role in DB)
-    await request(app.getHttpServer())
+    const adminResponse = await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'admin@rbac-test.com',
@@ -64,10 +70,18 @@ describe('Authorization / RBAC (E2E)', () => {
         lastName: 'User',
       });
 
-    // Update user role to admin
-    await prisma.user.update({
+    // Find admin user in database to get tenantId
+    const adminUser = await prisma.user.findFirst({
       where: { email: 'admin@rbac-test.com' },
-      data: { role: 'admin' },
+    });
+
+    // Update user role to admin and disable MFA
+    await prisma.user.update({
+      where: { id: adminUser.id },
+      data: {
+        role: 'admin',
+        isMfaEnabled: false,
+      },
     });
 
     const adminLogin = await request(app.getHttpServer())
@@ -77,10 +91,10 @@ describe('Authorization / RBAC (E2E)', () => {
         password: 'Test123!@#',
       });
 
-    adminToken = adminLogin.body.access_token;
+    adminToken = adminLogin.body.accessToken;
 
     // Create super-admin user
-    await request(app.getHttpServer())
+    const superadminResponse = await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'superadmin@rbac-test.com',
@@ -89,10 +103,18 @@ describe('Authorization / RBAC (E2E)', () => {
         lastName: 'User',
       });
 
-    // Update user role to super-admin
-    await prisma.user.update({
+    // Find super-admin user in database to get their ID
+    const superadminUser = await prisma.user.findFirst({
       where: { email: 'superadmin@rbac-test.com' },
-      data: { role: 'super-admin' },
+    });
+
+    // Update user role to super-admin and disable MFA
+    await prisma.user.update({
+      where: { id: superadminUser.id },
+      data: {
+        role: 'super-admin',
+        isMfaEnabled: false,
+      },
     });
 
     const superAdminLogin = await request(app.getHttpServer())
@@ -102,7 +124,7 @@ describe('Authorization / RBAC (E2E)', () => {
         password: 'Test123!@#',
       });
 
-    superAdminToken = superAdminLogin.body.access_token;
+    superAdminToken = superAdminLogin.body.accessToken;
   }
 
   describe('Tenant Management (Super-Admin Only)', () => {

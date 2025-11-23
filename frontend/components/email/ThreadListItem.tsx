@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ListItemButton, Box, Typography, Checkbox, Chip, Divider } from '@mui/material';
 import { Paperclip, Users } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
@@ -6,6 +6,7 @@ import type { Conversation } from '@/lib/api/email';
 import { useLabelStore } from '@/stores/label-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadActionBar, ThreadAvatar, ThreadLabels } from './shared';
+import { parseEmailFrom, formatListDate } from './shared/utils';
 
 /**
  * Props for ThreadListItem component
@@ -66,10 +67,6 @@ interface ThreadListItemProps {
    */
   onClick?: () => void;
 
-  /**
-   * View mode
-   */
-  viewMode?: 'list' | 'conversation';
 }
 
 /**
@@ -84,38 +81,6 @@ function isEmail(thread: Email | Conversation): thread is Email {
  */
 function isConversation(thread: Email | Conversation): thread is Conversation {
   return 'emailCount' in thread;
-}
-
-/**
- * Parse email from field
- */
-function parseEmailFrom(from: string): { name: string; email: string } {
-  const match = from.match(/^"?([^"<]+)"?\s*<?([^>]*)>?$/);
-  if (match) {
-    return {
-      name: match[1].trim(),
-      email: match[2].trim() || match[1].trim(),
-    };
-  }
-  return { name: from, email: from };
-}
-
-/**
- * Format date for display
- */
-function formatDate(date: string | Date): string {
-  const d = new Date(date);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const hours = diff / (1000 * 60 * 60);
-
-  if (hours < 24) {
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  } else if (hours < 24 * 7) {
-    return d.toLocaleDateString('en-US', { weekday: 'short' });
-  } else {
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
 }
 
 /**
@@ -141,11 +106,17 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     onDelete,
     getProviderIcon,
     onClick,
-    viewMode: _viewMode = 'list',
   }) => {
     const [isHovered, setIsHovered] = useState(false);
+    const [isTouchDevice, setIsTouchDevice] = useState(false);
     const t = useTranslations();
     const { getLabelById } = useLabelStore();
+
+    useEffect(() => {
+      if (typeof window === 'undefined') return;
+      const touch = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+      setIsTouchDevice(touch);
+    }, []);
 
     // Extract common properties - use same ID logic as ThreadList
     // threadId: for UI/selection (thread.threadId || thread.id)
@@ -254,6 +225,8 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
           onClick={handleClick}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
+          onFocus={() => setIsHovered(true)}
+          onBlur={() => setIsHovered(false)}
           sx={{
             py: 1.5,
             px: 2,
@@ -333,7 +306,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
                 {fromData.name}
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                {formatDate(receivedAt)}
+                {formatListDate(receivedAt)}
               </Typography>
             </Box>
 
@@ -390,7 +363,6 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
           {/* Floating Action Bar */}
           {(onToggleRead || onToggleStar || onToggleImportant || onArchive || onDelete) && (
             <ThreadActionBar
-              threadId={threadId}
               isRead={isRead}
               isStarred={isStarred}
               isImportant={isImportant}
@@ -399,8 +371,8 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
               onToggleImportant={handleToggleImportant}
               onArchive={handleArchive}
               onDelete={handleDelete}
-              showOnHover
-              isHovered={isHovered}
+              showOnHover={!isTouchDevice}
+              isHovered={isHovered || isTouchDevice}
               position="center"
             />
           )}

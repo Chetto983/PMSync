@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -9,6 +9,7 @@ import {
   Stack,
   CircularProgress,
   Divider,
+  Tooltip,
 } from '@mui/material';
 import {
   ChevronLeft,
@@ -29,11 +30,13 @@ import {
   FileArchive,
   File,
 } from 'lucide-react';
+import DOMPurify from 'isomorphic-dompurify';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailStore, type Email } from '@/stores/email-store';
-import { useAuthStore } from '@/stores/auth-store';
 import { LabelSelector } from '@/components/labels';
 import { useLabelStore } from '@/stores/label-store';
+import { formatEmailHeaderDate, parseEmailFrom, scrollContainerSx } from './shared/utils';
+import { emailApi } from '@/lib/api/email';
 
 /**
  * Props for ThreadDisplay component
@@ -91,36 +94,6 @@ interface ThreadDisplayProps {
 }
 
 /**
- * Parse email from field
- */
-function parseEmailFrom(from: string): { name: string; email: string } {
-  const match = from.match(/^"?([^"<]+)"?\s*<?([^>]*)>?$/);
-  if (match) {
-    return {
-      name: match[1].trim(),
-      email: match[2].trim() || match[1].trim(),
-    };
-  }
-  return { name: from, email: from };
-}
-
-/**
- * Format date for email header
- */
-function formatEmailDate(date: string | Date): string {
-  const d = new Date(date);
-  return d.toLocaleString('en-US', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-}
-
-/**
  * Get appropriate icon based on file extension
  */
 function getFileIcon(filename: string, size = 14): React.ReactElement {
@@ -166,6 +139,13 @@ function getFileIcon(filename: string, size = 14): React.ReactElement {
 }
 
 /**
+ * Sanitize potentially unsafe HTML coming from email bodies before rendering.
+ */
+function sanitizeEmailBody(content: string): string {
+  return DOMPurify.sanitize(content);
+}
+
+/**
  * ThreadDisplay - Clean email/thread viewer
  *
  * Features:
@@ -201,17 +181,79 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   onLabelsChange,
 }) => {
   const t = useTranslations();
-  const { token } = useAuthStore();
   const { addEmailsToLabel, removeEmailFromLabel } = useLabelStore();
+  const attachmentTooltip =
+    (t as any)?.dashboard?.email?.attachments?.tooltip ??
+    'Click to open. Ctrl/Cmd+click to download.';
+  const [threadData, setThreadData] = useState<Email[]>([]);
+  const [archivedEmail, setArchivedEmail] = useState<Email | null>(null);
 
   // Get full thread conversation using the new thread support
   // Subscribe to both getEmailThread and threads to ensure reactivity when WebSocket updates arrive
   const emailStore = useEmailStore();
 
+  type Attachment = NonNullable<Email['attachments']>[number];
+
+  const handleAttachmentOpen = async (attachment: Attachment, e: React.MouseEvent) => {
+    try {
+      const response = await emailApi.downloadAttachment(attachment.id);
+      const blob = response.data;
+      const url = window.URL.createObjectURL(blob);
+
+      // Ctrl/Cmd+click triggers download; default opens in a new tab when possible.
+      if (e.ctrlKey || e.metaKey) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = attachment.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else {
+        const newWindow = window.open(url, '_blank');
+        if (newWindow) {
+          newWindow.addEventListener('load', () => {
+            setTimeout(() => window.URL.revokeObjectURL(url), 100);
+          });
+        } else {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = attachment.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to open attachment:', error);
+      alert('Failed to open attachment. Please try again.');
+    }
+  };
+
   // Calculate thread emails - will recalculate when store updates (including threads Map changes)
   const threadEmails = useMemo(() => {
     if (!email) return [];
-    return emailStore.getEmailThread(email.id);
+    const local = emailStore.getEmailThread(email.id);
+    if (local.length > 0) return local;
+    if (threadData.length > 0) return threadData;
+    return [];
+  }, [email, emailStore, threadData]);
+
+  // Fallback: load thread from API if store has none
+  useEffect(() => {
+    const loadThread = async () => {
+      if (!email || !email.threadId) return;
+      const existing = emailStore.getEmailThread(email.id);
+      if (existing.length > 0) return;
+      try {
+        const res = await emailApi.getThread(email.threadId);
+        setThreadData(res.data);
+      } catch {
+        // ignore
+      }
+    };
+    loadThread();
   }, [email, emailStore]);
 
   // Use the first email in thread for primary display data
@@ -370,25 +412,8 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
       <Box
         sx={{
           flex: 1,
-          overflow: 'auto',
           p: 3,
-          // Scrollbar per Firefox
-          scrollbarWidth: 'thin',
-          scrollbarColor: '#bdbdbd transparent',
-          // Scrollbar per Chrome, Safari, Edge
-          '&::-webkit-scrollbar': {
-            width: '8px',
-          },
-          '&::-webkit-scrollbar-track': {
-            bgcolor: 'transparent',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            bgcolor: '#bdbdbd',
-            borderRadius: '4px',
-            '&:hover': {
-              bgcolor: '#9e9e9e',
-            },
-          },
+          ...scrollContainerSx,
         }}
       >
         {/* Subject */}
@@ -414,10 +439,22 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           </Box>
         )}
 
+        {(!primaryEmail.bodyHtml && !primaryEmail.bodyText) && (
+          <Box sx={{ mb: 2 }}>
+            <Button variant="outlined" size="small" onClick={handleFetchArchived}>
+              Load archived content
+            </Button>
+          </Box>
+        )}
+
         {/* Thread Conversation - Show all emails in chronological order */}
         {threadEmails.map((threadEmail, index) => {
           const emailFromData = parseEmailFrom(threadEmail.from);
           const isLastEmail = index === threadEmails.length - 1;
+          const safeBody = sanitizeEmailBody(
+            threadEmail.bodyHtml || threadEmail.bodyText || threadEmail.snippet || ''
+          );
+          const nonInlineAttachments = threadEmail.attachments?.filter((a) => !a.isInline) ?? [];
 
           return (
             <Box key={threadEmail.id}>
@@ -436,7 +473,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
                     </Typography>
                   </Box>
                   <Typography variant="caption" color="text.secondary">
-                    {formatEmailDate(threadEmail.receivedAt)}
+                    {formatEmailHeaderDate(threadEmail.receivedAt)}
                   </Typography>
                 </Stack>
 
@@ -454,7 +491,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
               </Box>
 
               {/* Attachments */}
-              {threadEmail.attachments && threadEmail.attachments.length > 0 && threadEmail.attachments.filter(a => !a.isInline).length > 0 && (
+              {nonInlineAttachments.length > 0 && (
                 <Paper
                   elevation={0}
                   sx={{
@@ -468,74 +505,23 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
                 >
                   <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
                     <Paperclip size={16} />
-                    {threadEmail.attachments.filter(a => !a.isInline).length} {t.dashboard.email.attachment}
-                    {threadEmail.attachments.filter(a => !a.isInline).length > 1 ? 's' : ''}
+                    {nonInlineAttachments.length} {t.dashboard.email.attachment}
+                    {nonInlineAttachments.length > 1 ? 's' : ''}
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
-                    {threadEmail.attachments
-                      .filter(attachment => !attachment.isInline)
-                      .map((attachment) => {
-                        const sizeKB = Math.round(attachment.size / 1024);
-                        const sizeLabel = sizeKB > 1024
-                          ? `${(sizeKB / 1024).toFixed(1)} MB`
-                          : `${sizeKB} KB`;
+                    {nonInlineAttachments.map((attachment) => {
+                      const sizeKB = Math.round(attachment.size / 1024);
+                      const sizeLabel = sizeKB > 1024
+                        ? `${(sizeKB / 1024).toFixed(1)} MB`
+                        : `${sizeKB} KB`;
 
-                        return (
+                      return (
+                        <Tooltip key={attachment.id} title={attachmentTooltip} enterDelay={300}>
                           <Chip
-                            key={attachment.id}
                             label={`${attachment.filename} (${sizeLabel})`}
                             size="medium"
                             icon={getFileIcon(attachment.filename, 14)}
-                            onClick={async (e) => {
-                              try {
-                                if (!token) {
-                                  console.error('No auth token found');
-                                  return;
-                                }
-
-                                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-                                const response = await fetch(`${apiUrl}/email/attachments/${attachment.id}/download`, {
-                                  headers: {
-                                    'Authorization': `Bearer ${token}`,
-                                  },
-                                });
-
-                                if (!response.ok) {
-                                  throw new Error(`Download failed: ${response.status}`);
-                                }
-
-                                const blob = await response.blob();
-                                const url = window.URL.createObjectURL(blob);
-
-                                if (e.ctrlKey || e.metaKey) {
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = attachment.filename;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  window.URL.revokeObjectURL(url);
-                                } else {
-                                  const newWindow = window.open(url, '_blank');
-                                  if (newWindow) {
-                                    newWindow.addEventListener('load', () => {
-                                      setTimeout(() => window.URL.revokeObjectURL(url), 100);
-                                    });
-                                  } else {
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = attachment.filename;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    window.URL.revokeObjectURL(url);
-                                  }
-                                }
-                              } catch (error) {
-                                console.error('Failed to open attachment:', error);
-                                alert('Failed to open attachment. Please try again.');
-                              }
-                            }}
+                            onClick={(e) => handleAttachmentOpen(attachment, e)}
                             sx={{
                               cursor: 'pointer',
                               '&:hover': {
@@ -543,8 +529,9 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
                               },
                             }}
                           />
-                        );
-                      })}
+                        </Tooltip>
+                      );
+                    })}
                   </Stack>
                 </Paper>
               )}
@@ -562,9 +549,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
                     textDecoration: 'underline',
                   },
                 }}
-                dangerouslySetInnerHTML={{
-                  __html: threadEmail.bodyHtml || threadEmail.bodyText || threadEmail.snippet || '',
-                }}
+                dangerouslySetInnerHTML={{ __html: safeBody }}
               />
 
               {/* Divider between emails in thread (not after last email) */}
@@ -580,3 +565,13 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 };
 
 export default ThreadDisplay;
+  const handleFetchArchived = async () => {
+    if (!email) return;
+    try {
+      const res = await emailApi.fetchArchivedEmail(email.id);
+      setArchivedEmail(res.data);
+      setThreadData([res.data]);
+    } catch {
+      // ignore
+    }
+  };

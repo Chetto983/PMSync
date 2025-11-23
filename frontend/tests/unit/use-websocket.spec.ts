@@ -47,9 +47,13 @@ describe('useWebSocket Hook - Thread Support', () => {
   let mockContactStore: any;
   let mockFoldersStore: any;
   let mockSyncStore: any;
+  let consoleLogSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     // Setup mock stores
     mockEmailStore = {
@@ -90,6 +94,11 @@ describe('useWebSocket Hook - Thread Support', () => {
     (websocketClient.isConnected as jest.Mock).mockReturnValue(false);
   });
 
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
   describe('Connection Management', () => {
     it('should connect when token is provided and enabled', async () => {
       renderHook(() => useWebSocket(mockToken, true));
@@ -118,6 +127,78 @@ describe('useWebSocket Hook - Thread Support', () => {
       unmount();
 
       expect(websocketClient.disconnect).toHaveBeenCalled();
+    });
+  });
+
+  describe('Email Events', () => {
+    it('should add email on onEmailNew', () => {
+      let emailNewHandler: any;
+
+      (websocketClient.onEmailNew as jest.Mock).mockImplementation((handler) => {
+        emailNewHandler = handler;
+        return jest.fn();
+      });
+
+      renderHook(() => useWebSocket(mockToken, true));
+
+      emailNewHandler({ email: { id: 'email-1', subject: 'Hello' } });
+
+      expect(mockEmailStore.addEmail).toHaveBeenCalledWith({ id: 'email-1', subject: 'Hello' });
+    });
+
+    it('should update unread count on onUnreadCountUpdate', () => {
+      let unreadHandler: any;
+
+      (websocketClient.onUnreadCountUpdate as jest.Mock).mockImplementation((handler) => {
+        unreadHandler = handler;
+        return jest.fn();
+      });
+
+      renderHook(() => useWebSocket(mockToken, true));
+
+      unreadHandler({ count: 42 });
+
+      expect(mockEmailStore.setUnreadCount).toHaveBeenCalledWith(42);
+    });
+
+    it('should delete email on onEmailDelete', () => {
+      let deleteHandler: any;
+
+      (websocketClient.onEmailDelete as jest.Mock).mockImplementation((handler) => {
+        deleteHandler = handler;
+        return jest.fn();
+      });
+
+      renderHook(() => useWebSocket(mockToken, true));
+
+      deleteHandler({ emailId: 'email-9' });
+
+      expect(mockEmailStore.deleteEmail).toHaveBeenCalledWith('email-9');
+    });
+
+    it('should update folder counts on onFolderCountsUpdate', () => {
+      let folderCountsHandler: any;
+
+      (websocketClient.onFolderCountsUpdate as jest.Mock).mockImplementation((handler) => {
+        folderCountsHandler = handler;
+        return jest.fn();
+      });
+
+      renderHook(() => useWebSocket(mockToken, true));
+
+      folderCountsHandler({
+        providerId: 'p1',
+        folderId: 'INBOX',
+        totalCount: 10,
+        unreadCount: 4,
+        folderName: 'Inbox',
+      });
+
+      expect(mockFoldersStore.updateFolderCounts).toHaveBeenCalledWith('p1', 'INBOX', {
+        totalCount: 10,
+        unreadCount: 4,
+        folderName: 'Inbox',
+      });
     });
   });
 

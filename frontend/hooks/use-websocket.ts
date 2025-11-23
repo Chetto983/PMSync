@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { websocketClient } from '@/lib/websocket-client';
 import { useEmailStore } from '@/stores/email-store';
 import { useCalendarStore } from '@/stores/calendar-store';
@@ -20,6 +20,10 @@ import { useSyncStore } from '@/stores/sync-store';
  */
 export function useWebSocket(token: string | null, enabled = true) {
   const isConnectedRef = useRef(false);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wsCleanupRef = useRef<(() => void) | null>(null);
+  const retryAttemptRef = useRef(0);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
   // Store actions
   const { addEmail, updateEmail, deleteEmail, setUnreadCount, updateThread } = useEmailStore();
@@ -31,17 +35,53 @@ export function useWebSocket(token: string | null, enabled = true) {
   /**
    * Connetti al WebSocket
    */
-  const connect = useCallback(async () => {
+  const connect = useCallback(async function connectWithBackoff() {
     if (!token || !enabled || isConnectedRef.current) return;
 
     try {
-      console.log('[useWebSocket] Connecting...');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[useWebSocket] Connecting...');
+      }
+      setConnectionStatus('connecting');
       await websocketClient.connect(token);
       isConnectedRef.current = true;
-      console.log('[useWebSocket] Connected successfully');
+      retryAttemptRef.current = 0;
+      setConnectionStatus('connected');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[useWebSocket] Connected successfully');
+      }
+
+      // Listen for low-level close/error to flip status promptly
+      const handleCloseOrError = () => {
+        isConnectedRef.current = false;
+        setConnectionStatus('disconnected');
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[useWebSocket] Socket closed/error - scheduling reconnect');
+        }
+        connectWithBackoff();
+      };
+      (websocketClient as any).onClose?.(handleCloseOrError);
+      (websocketClient as any).onError?.(handleCloseOrError);
+      wsCleanupRef.current = () => {
+        (websocketClient as any).offClose?.(handleCloseOrError);
+        (websocketClient as any).offError?.(handleCloseOrError);
+      };
     } catch (error) {
-      console.error('[useWebSocket] Connection failed:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[useWebSocket] Connection failed:', error);
+      }
       isConnectedRef.current = false;
+      setConnectionStatus('disconnected');
+
+      // Basic exponential backoff for reconnect attempts
+      const nextDelay = Math.min(1000 * 2 ** retryAttemptRef.current, 30000);
+      retryAttemptRef.current += 1;
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+      retryTimeoutRef.current = setTimeout(() => {
+        connectWithBackoff();
+      }, nextDelay);
     }
   }, [token, enabled]);
 
@@ -52,7 +92,18 @@ export function useWebSocket(token: string | null, enabled = true) {
     if (isConnectedRef.current) {
       websocketClient.disconnect();
       isConnectedRef.current = false;
-      console.log('[useWebSocket] Disconnected');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[useWebSocket] Disconnected');
+      }
+    }
+    setConnectionStatus('disconnected');
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    if (wsCleanupRef.current) {
+      wsCleanupRef.current();
+      wsCleanupRef.current = null;
     }
   }, []);
 
@@ -229,7 +280,8 @@ export function useWebSocket(token: string | null, enabled = true) {
   ]);
 
   return {
-    isConnected: typeof window !== 'undefined' ? websocketClient.isConnected() : false,
+    isConnected: connectionStatus === 'connected',
+    connectionStatus,
     connect,
     disconnect,
     ping: typeof window !== 'undefined' ? websocketClient.ping.bind(websocketClient) : () => {},

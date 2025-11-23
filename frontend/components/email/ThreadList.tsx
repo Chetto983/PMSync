@@ -4,6 +4,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadListItem } from './ThreadListItem';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
+import { scrollContainerSx } from './shared/utils';
 
 /**
  * Props for ThreadList component
@@ -70,11 +71,6 @@ interface ThreadListProps {
   getProviderIcon?: (providerId: string) => React.ReactNode;
 
   /**
-   * View mode: 'list' or 'conversation'
-   */
-  viewMode?: 'list' | 'conversation';
-
-  /**
    * Callback to load more emails (infinite scroll)
    */
   onLoadMore?: () => void;
@@ -83,6 +79,16 @@ interface ThreadListProps {
    * Whether there are more emails to load
    */
   hasMore?: boolean;
+
+  /**
+   * Custom empty state title
+   */
+  emptyTitle?: string;
+
+  /**
+   * Custom empty state subtitle
+   */
+  emptySubtitle?: string;
 }
 
 /**
@@ -110,7 +116,6 @@ interface ThreadListProps {
  *   onToggleImportant={handleToggleImportant}
  *   onArchive={handleArchive}
  *   onDelete={handleDelete}
- *   viewMode="list"
  * />
  * ```
  */
@@ -127,9 +132,10 @@ export const ThreadList: React.FC<ThreadListProps> = ({
   onArchive,
   onDelete,
   getProviderIcon,
-  viewMode = 'list',
   onLoadMore,
   hasMore = false,
+  emptyTitle,
+  emptySubtitle,
 }) => {
   const t = useTranslations();
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -226,10 +232,10 @@ export const ThreadList: React.FC<ThreadListProps> = ({
         }}
       >
         <Typography variant="h6" color="text.secondary" gutterBottom>
-          No emails
+          {emptyTitle ?? 'No emails'}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {t.common.allCaughtUp}
+          {emptySubtitle ?? t.common.allCaughtUp}
         </Typography>
       </Box>
     );
@@ -240,25 +246,8 @@ export const ThreadList: React.FC<ThreadListProps> = ({
       sx={{
         width: '100%',
         height: '100%',
-        overflow: 'auto',
         p: 0,
-        // Scrollbar per Firefox
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#bdbdbd transparent',
-        // Scrollbar per Chrome, Safari, Edge
-        '&::-webkit-scrollbar': {
-          width: '8px',
-        },
-        '&::-webkit-scrollbar-track': {
-          bgcolor: 'transparent',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          bgcolor: '#bdbdbd',
-          borderRadius: '4px',
-          '&:hover': {
-            bgcolor: '#9e9e9e',
-          },
-        },
+        ...scrollContainerSx,
       }}
     >
       {threadsWithCount.map((thread) => {
@@ -278,7 +267,6 @@ export const ThreadList: React.FC<ThreadListProps> = ({
             onDelete={onDelete}
             getProviderIcon={getProviderIcon}
             onClick={() => handleThreadClick(thread)}
-            viewMode={viewMode}
           />
         );
       })}

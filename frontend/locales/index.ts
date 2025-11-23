@@ -382,9 +382,28 @@ export interface AppTranslations {
       markAsUnread: string;
       archive: string;
     };
+    realtime?: {
+      connecting?: string;
+      live?: string;
+      reconnecting?: string;
+      disconnectedNotice?: string;
+    };
+    empty?: {
+      defaultTitle?: string;
+      defaultSubtitle?: string;
+      trashTitle?: string;
+      trashSubtitle?: string;
+      sentTitle?: string;
+      sentSubtitle?: string;
+      unreadTitle?: string;
+      unreadSubtitle?: string;
+      labelTitle?: string;
+      labelSubtitle?: string;
+    };
     emailView: {
       folderLabel: string;
       attachments: string;
+      attachmentsTooltip?: string;
       to: string;
       cc: string;
       labels: string;

@@ -7,7 +7,7 @@ import {
   Clock,
   Calendar as CalendarIcon,
 } from 'lucide-react';
-import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme } from '@mui/material';
+import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Chip, Alert, Stack, Typography, Button, CircularProgress } from '@mui/material';
 import { debounce } from 'lodash-es';
 import { emailApi, type EmailListParams } from '@/lib/api/email';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
@@ -75,6 +75,30 @@ export function Mailbox() {
   const t = useTranslations();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const localText = useMemo(() => {
+    const rt = (t as any)?.dashboard?.email?.realtime || {};
+    const empty = (t as any)?.dashboard?.email?.empty || {};
+    return {
+      connection: {
+        connecting: rt.connecting ?? t?.common?.loading ?? 'Connecting...',
+        live: rt.live ?? 'Live',
+        reconnecting: rt.reconnecting ?? 'Reconnecting...',
+        warning: rt.disconnectedNotice ?? 'Realtime disconnected. Data may be stale until connection is restored.',
+      },
+      empty: {
+        defaultTitle: empty.defaultTitle ?? 'No emails',
+        defaultSubtitle: empty.defaultSubtitle ?? t?.common?.allCaughtUp ?? 'All caught up',
+        trashTitle: empty.trashTitle ?? 'Trash is empty',
+        trashSubtitle: empty.trashSubtitle ?? 'No deleted messages here.',
+        sentTitle: empty.sentTitle ?? 'No sent emails',
+        sentSubtitle: empty.sentSubtitle ?? 'Send your first message to see it here.',
+        unreadTitle: empty.unreadTitle ?? 'No unread emails',
+        unreadSubtitle: empty.unreadSubtitle ?? 'You are all caught up.',
+        labelTitle: empty.labelTitle ?? 'No emails with this label',
+        labelSubtitle: empty.labelSubtitle ?? 'Try another label or clear filters.',
+      },
+    };
+  }, [t]);
 
   // Auth store - for WebSocket token
   const { token } = useAuthStore();
@@ -99,7 +123,7 @@ export function Mailbox() {
   } = useEmailStore();
 
   // WebSocket for real-time updates (email events, folder counts, etc.)
-  useWebSocket(token, true);
+  const { isConnected, connectionStatus } = useWebSocket(token, true);
 
   // Local state for folders and UI
   const [remoteFolders, setRemoteFolders] = useState<FolderItem[]>([]);
@@ -123,20 +147,90 @@ export function Mailbox() {
     message: '',
     severity: 'info',
   });
+  const [emailStats, setEmailStats] = useState<{ total: number; unread: number; starred: number } | null>(null);
+  const [retentionStats, setRetentionStats] = useState<{ totalEmails: number; archivedEmails: number; estimatedSpaceSavedMB: number } | null>(null);
+  const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [retentionLoading, setRetentionLoading] = useState(false);
 
-  // View mode state
-  const [viewMode] = useState<'list' | 'conversation'>('list');
+  const getEmptyState = useCallback(() => {
+    if (!selectedFolderId) {
+      return { title: localText.empty.defaultTitle, subtitle: localText.empty.defaultSubtitle };
+    }
+    if (selectedFolderId === 'TRASH') {
+      return { title: localText.empty.trashTitle, subtitle: localText.empty.trashSubtitle };
+    }
+    if (selectedFolderId === 'SENT') {
+      return { title: localText.empty.sentTitle, subtitle: localText.empty.sentSubtitle };
+    }
+    if (selectedFolderId.startsWith('smart:unread')) {
+      return { title: localText.empty.unreadTitle, subtitle: localText.empty.unreadSubtitle };
+    }
+    if (selectedFolderId.startsWith('label:')) {
+      return { title: localText.empty.labelTitle, subtitle: localText.empty.labelSubtitle };
+    }
+    return { title: localText.empty.defaultTitle, subtitle: localText.empty.defaultSubtitle };
+  }, [selectedFolderId, localText]);
+
+  // Load stats, retention, sync status
+  useEffect(() => {
+    emailApi.getStats().then((stats) => {
+      setEmailStats({
+        total: stats.total,
+        unread: stats.unread,
+        starred: stats.starred,
+      });
+    }).catch(() => {});
+
+    emailApi.getRetentionStats().then((stats) => {
+      setRetentionStats({
+        totalEmails: stats.totalEmails,
+        archivedEmails: stats.archivedEmails,
+        estimatedSpaceSavedMB: stats.estimatedSpaceSavedMB,
+      });
+    }).catch(() => {});
+
+    emailApi.getSyncStatus().then((status) => {
+      setSyncStatusMessage(JSON.stringify(status));
+    }).catch(() => {});
+  }, []);
+
+  const handleSyncProviders = async () => {
+    if (!providers || providers.length === 0) return;
+    setSyncLoading(true);
+    try {
+      await Promise.all(providers.map((p) => emailApi.syncProvider(p.id)));
+      setSyncStatusMessage('Sync triggered for all providers');
+      const stats = await emailApi.getStats();
+      setEmailStats({ total: stats.total, unread: stats.unread, starred: stats.starred });
+    } catch {
+      setSyncStatusMessage('Sync failed');
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  const handleRunRetention = async () => {
+    setRetentionLoading(true);
+    try {
+      const res = await emailApi.runRetention();
+      setRetentionStats((prev) => prev ? { ...prev, archivedEmails: res.count + (prev.archivedEmails ?? 0) } : prev);
+      setSyncStatusMessage(`Retention run on ${res.count} emails`);
+    } catch {
+      setSyncStatusMessage('Retention run failed');
+    } finally {
+      setRetentionLoading(false);
+    }
+  };
 
   // Mobile sidebar state
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Refs for logging without causing dependency issues
-  const viewModeRef = useRef(viewMode);
   const storeEmailsRef = useRef(storeEmails);
 
   // Update refs on each render
   useEffect(() => {
-    viewModeRef.current = viewMode;
     storeEmailsRef.current = storeEmails;
   });
 
@@ -903,24 +997,70 @@ export function Mailbox() {
         }
         list={
           <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Bulk Action Bar */}
-            {viewMode === 'list' && (
-              <BulkActionBar
-                selectedCount={selectedIds.size}
-                totalCount={storeEmails.length}
-                onSelectAll={selectAll}
-                onClearSelection={clearSelection}
-                onMarkRead={handleBulkMarkRead}
-                onMarkUnread={handleBulkMarkUnread}
-                onDelete={handleBulkDelete}
-                onStar={handleBulkStar}
-                onUnstar={handleBulkUnstar}
-                onFlag={handleBulkFlag}
-                onUnflag={handleBulkUnflag}
-                onAddLabels={() => setLabelSelectorOpen(true)}
-                onMoveToFolder={() => setFolderSelectorOpen(true)}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 2, py: 1 }}>
+              <Chip
+                size="small"
+                label={
+                  connectionStatus === 'connecting'
+                    ? localText.connection.connecting
+                    : isConnected
+                      ? localText.connection.live
+                      : localText.connection.reconnecting
+                }
+                color={isConnected ? 'success' : 'warning'}
+                variant={isConnected ? 'filled' : 'outlined'}
               />
+            </Box>
+            {!isConnected && (
+              <Box sx={{ px: 2, pb: 1 }}>
+                <Alert severity="warning" variant="outlined">
+                  {localText.connection.warning}
+                </Alert>
+              </Box>
             )}
+            <Box sx={{ px: 2, pb: 1 }}>
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                {emailStats && (
+                  <Typography variant="caption" color="text.secondary">
+                    Total: {emailStats.total} · Unread: {emailStats.unread} · Starred: {emailStats.starred}
+                  </Typography>
+                )}
+                {retentionStats && (
+                  <Typography variant="caption" color="text.secondary">
+                    Archived: {retentionStats.archivedEmails} · Saved: {Math.round(retentionStats.estimatedSpaceSavedMB)} MB
+                  </Typography>
+                )}
+                {syncStatusMessage && (
+                  <Typography variant="caption" color="text.secondary">
+                    {syncStatusMessage}
+                  </Typography>
+                )}
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" variant="outlined" onClick={handleSyncProviders} disabled={syncLoading}>
+                    {syncLoading ? <CircularProgress size={14} /> : 'Sync now'}
+                  </Button>
+                  <Button size="small" variant="outlined" onClick={handleRunRetention} disabled={retentionLoading}>
+                    {retentionLoading ? <CircularProgress size={14} /> : 'Run retention'}
+                  </Button>
+                </Stack>
+              </Stack>
+            </Box>
+            {/* Bulk Action Bar */}
+            <BulkActionBar
+              selectedCount={selectedIds.size}
+              totalCount={storeEmails.length}
+              onSelectAll={selectAll}
+              onClearSelection={clearSelection}
+              onMarkRead={handleBulkMarkRead}
+              onMarkUnread={handleBulkMarkUnread}
+              onDelete={handleBulkDelete}
+              onStar={handleBulkStar}
+              onUnstar={handleBulkUnstar}
+              onFlag={handleBulkFlag}
+              onUnflag={handleBulkUnflag}
+              onAddLabels={() => setLabelSelectorOpen(true)}
+              onMoveToFolder={() => setFolderSelectorOpen(true)}
+            />
 
             {/* Render appropriate view based on mode */}
             <Box sx={{ flex: 1, overflow: 'hidden' }}>
@@ -937,9 +1077,10 @@ export function Mailbox() {
                 onArchive={(id) => handleArchive([id])}
                 onDelete={handleDelete}
                 getProviderIcon={getProviderIcon}
-                viewMode={viewMode}
                 onLoadMore={loadMoreEmails}
                 hasMore={_pagination.hasMore}
+                emptyTitle={getEmptyState().title}
+                emptySubtitle={getEmptyState().subtitle}
               />
             </Box>
           </Box>
