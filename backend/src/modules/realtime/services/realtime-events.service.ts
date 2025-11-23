@@ -2,22 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RealtimeGateway } from '../gateways/realtime.gateway';
 import {
-  AIEventPayload,
   CalendarEventPayload,
   ContactEventPayload,
   EmailEventPayload,
-  HITLEventPayload,
   KnownRealtimeEvent,
   RealtimeEventPayloads,
   buildTenantRoom,
 } from '../types/realtime.types';
 
 export type {
-  AIEventPayload,
   CalendarEventPayload,
   ContactEventPayload,
   EmailEventPayload,
-  HITLEventPayload,
 } from '../types/realtime.types';
 
 /**
@@ -216,56 +212,6 @@ export class RealtimeEventsService {
    */
   emitContactDelete(tenantId: string, payload: ContactEventPayload) {
     this.emitToTenant(tenantId, 'contact:delete', payload);
-  }
-
-  /**
-   * AI EVENTS
-   */
-
-  /**
-   * Emette evento per classificazione AI completata
-   */
-  emitAIClassification(tenantId: string, payload: AIEventPayload) {
-    this.emitToTenant(tenantId, 'ai:classification_done', payload);
-  }
-
-  /**
-   * Emette evento per suggerimento task da AI
-   */
-  emitAITaskSuggest(tenantId: string, payload: AIEventPayload) {
-    this.emitToTenant(tenantId, 'ai:task_suggest', payload);
-  }
-
-  /**
-   * Emette evento per insight AI
-   */
-  emitAIInsight(tenantId: string, payload: AIEventPayload) {
-    this.emitToTenant(tenantId, 'ai:insight', payload);
-  }
-
-  /**
-   * HITL EVENTS
-   */
-
-  /**
-   * Emette evento per richiesta approvazione umana
-   */
-  emitHITLApprovalRequired(tenantId: string, payload: HITLEventPayload) {
-    this.emitToTenant(tenantId, 'hitl:approval_required', payload);
-  }
-
-  /**
-   * Emette evento per approvazione concessa
-   */
-  emitHITLApprovalGranted(tenantId: string, payload: HITLEventPayload) {
-    this.emitToTenant(tenantId, 'hitl:approval_granted', payload);
-  }
-
-  /**
-   * Emette evento per approvazione negata
-   */
-  emitHITLApprovalDenied(tenantId: string, payload: HITLEventPayload) {
-    this.emitToTenant(tenantId, 'hitl:approval_denied', payload);
   }
 
   /**

@@ -17,6 +17,7 @@ export interface EmailEventPayload {
   updates?: Record<string, unknown>;
   unreadCount?: number;
   threadId?: string;
+  timestamp?: string;
 }
 
 export interface CalendarEventPayload {
@@ -27,6 +28,7 @@ export interface CalendarEventPayload {
   reason: 'event-created' | 'event-updated' | 'event-deleted';
   event?: Record<string, unknown>;
   updates?: Record<string, unknown>;
+  timestamp?: string;
 }
 
 export interface ContactEventPayload {
@@ -36,40 +38,9 @@ export interface ContactEventPayload {
   reason: 'contact-created' | 'contact-updated' | 'contact-deleted';
   contact?: Record<string, unknown>;
   updates?: Record<string, unknown>;
+  timestamp?: string;
 }
 
-export interface AIEventPayload {
-  type: 'classification' | 'task_suggestion' | 'insight';
-  emailId?: string;
-  classification?: {
-    category: string;
-    priority: string;
-    sentiment: string;
-    confidence: number;
-  };
-  task?: {
-    title: string;
-    description: string;
-    dueDate?: string;
-    priority: string;
-  };
-  insight?: {
-    message: string;
-    actionable: boolean;
-  };
-}
-
-export interface HITLEventPayload {
-  type: 'approval_required' | 'approval_granted' | 'approval_denied';
-  taskId: string;
-  task: {
-    title: string;
-    description: string;
-    type: string;
-    context?: Record<string, unknown>;
-  };
-  approvalId?: string;
-}
 
 export interface RealtimeEventPayloads {
   'email:new': EmailEventPayload;
@@ -80,8 +51,14 @@ export interface RealtimeEventPayloads {
     processed: number;
     created?: number;
     syncType?: 'full' | 'incremental' | (string & {});
+    timestamp?: string;
   };
-  'email:unread_count_update': { folder: string; count: number; providerId: string };
+  'email:unread_count_update': {
+    folder: string;
+    count: number;
+    providerId: string;
+    timestamp?: string;
+  };
   'email:folder_counts_update': {
     providerId: string;
     folderId: string;
@@ -90,19 +67,17 @@ export interface RealtimeEventPayloads {
     unreadCount: number;
     timestamp: string;
   };
-  'email:thread_update': { threadId: string; emailIds: string[] };
+  'email:thread_update': {
+    threadId: string;
+    emailIds: string[];
+    timestamp?: string;
+  };
   'calendar:event_new': CalendarEventPayload;
   'calendar:event_update': CalendarEventPayload;
   'calendar:event_delete': CalendarEventPayload;
   'contact:new': ContactEventPayload;
   'contact:update': ContactEventPayload;
   'contact:delete': ContactEventPayload;
-  'ai:classification_done': AIEventPayload;
-  'ai:task_suggest': AIEventPayload;
-  'ai:insight': AIEventPayload;
-  'hitl:approval_required': HITLEventPayload;
-  'hitl:approval_granted': HITLEventPayload;
-  'hitl:approval_denied': HITLEventPayload;
   'sync:status': {
     providerId: string;
     status: 'started' | 'in_progress' | 'completed' | 'failed';
@@ -110,6 +85,7 @@ export interface RealtimeEventPayloads {
     error?: string;
     processed?: number;
     total?: number;
+    timestamp?: string;
   };
 }
 
