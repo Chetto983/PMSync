@@ -1250,7 +1250,7 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
         noProviders: 'Collega un provider per inviare e ricevere email.',
         selectEmail: 'Seleziona una conversazione per iniziare a collaborare.',
         allAccountsLabel: 'Tutti gli account',
-        starredFolderLabel: 'Speciali',
+        starredFolderLabel: 'Preferite',
         quickFilters: {
           title: 'Filtri Rapidi',
           unread: 'Non lette',
@@ -1260,7 +1260,7 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
           important: 'Importanti',
         },
         bulkBar: {
-          selected: '{count} elementi',
+          selected: '{count} selezionate',
           markUnread: 'Segna come non letto',
           markRead: 'Segna come letto',
           delete: 'Elimina',
@@ -1891,7 +1891,7 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
         spam: 'Posta indesiderata',
         archive: 'Archivio',
         outbox: 'Posta in uscita',
-        starred: 'Speciali',
+        starred: 'Preferite',
       },
     },
     cookies: {
