@@ -1,11 +1,15 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
+import { LoggerModule } from 'nestjs-pino';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { getConfiguration } from './config/configuration';
 import { validate } from './config/env.validation';
+import { pinoLoggerConfig } from './config/logger.config';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ResponseTimeInterceptor } from './common/interceptors/response-time.interceptor';
+import { LogRotationService } from './common/services/log-rotation.service';
 import { CacheModule } from './common/services/cache.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -33,6 +37,10 @@ const config = getConfiguration();
       envFilePath: ['.env', '../.env', '../../.env'],
       validate, // Validate environment variables at startup
     }),
+    // Pino Logger - Structured logging con rotazione FIFO 2 giorni
+    LoggerModule.forRoot(pinoLoggerConfig),
+    // Schedule Module - Per cron job di rotazione log
+    ScheduleModule.forRoot(),
     // Rate limiting: configurable defaults to keep protection but avoid false positives
     ThrottlerModule.forRoot([
       {
@@ -69,6 +77,8 @@ const config = getConfiguration();
       provide: APP_INTERCEPTOR,
       useClass: ResponseTimeInterceptor,
     },
+    // Log rotation service - gestione FIFO 2 giorni
+    LogRotationService,
   ],
 })
 export class AppModule implements NestModule {
