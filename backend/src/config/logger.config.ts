@@ -39,19 +39,38 @@ export const pinoLoggerConfig: Params = {
   pinoHttp: {
     level: process.env.LOG_LEVEL || (isProduction ? 'info' : 'debug'),
 
-    // Formattazione pretty in development
+    // Formattazione pretty in development (console + file)
     transport: isDevelopment
       ? {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname',
-            singleLine: false,
-            messageFormat: '{req.method} {req.url} - {msg}',
-          },
+          targets: [
+            {
+              target: 'pino-pretty',
+              level: 'debug',
+              options: {
+                colorize: true,
+                translateTime: 'SYS:standard',
+                ignore: 'pid,hostname',
+                singleLine: false,
+                messageFormat: '{req.method} {req.url} - {msg}',
+              },
+            },
+            {
+              target: 'pino/file',
+              level: 'debug',
+              options: {
+                destination: join(LOG_DIR, 'app.log'),
+                mkdir: true,
+              },
+            },
+          ],
         }
-      : undefined,
+      : {
+          target: 'pino/file',
+          options: {
+            destination: join(LOG_DIR, 'app.log'),
+            mkdir: true,
+          },
+        },
 
     // Configurazione base Pino
     base: {
