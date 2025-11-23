@@ -4,6 +4,16 @@ Welcome to the MailAgent documentation. This index provides organized access to 
 
 ## 📚 Documentation Structure
 
+### 📅 [Changelog](CHANGELOG_2025-11.md)
+
+Latest updates and changes:
+
+- **[Novembre 2025 Changelog](CHANGELOG_2025-11.md)** - **🆕 NEW**
+  - Backend cleanup & refactoring (23 Nov 2025)
+  - Pino logger implementation with FIFO rotation
+  - Security audits and improvements
+  - Feature implementations timeline
+
 ### 🎯 [Backend Delivery & Production](.)
 
 Production deployment and backend delivery documentation:
@@ -21,6 +31,25 @@ Getting started guides and configuration instructions:
 
 - **[OAuth Complete Guide](setup/oauth-complete-guide.md)** - Comprehensive OAuth2 setup for Google and Microsoft
 - **[OAuth Vercel Deployment](setup/oauth-vercel.md)** - Production OAuth configuration for Vercel
+
+### 🪵 [Logging System](development/LOGGING_SYSTEM.md)
+
+**🆕 NEW** - Professional logging infrastructure:
+
+- **[Logging System Documentation](development/LOGGING_SYSTEM.md)** - Complete Pino logger guide
+  - Structured JSON logging
+  - FIFO rotation (2 days retention)
+  - Development pretty-print + Production JSON
+  - Automatic sensitive data redaction
+  - Multi-tenant tracking
+  - Request ID tracking
+  - Performance optimization
+
+- **[Backend Cleanup Report](development/BACKEND_CLEANUP_2025-11-23.md)** - Refactoring session report
+  - Code cleanup and reorganization
+  - Logger implementation details
+  - Commit history and changes
+  - Before/after comparisons
 
 ### 🏗️ [Architecture & Design](architecture/)
 
@@ -283,9 +312,10 @@ Improvements are welcome! When contributing:
 
 ---
 
-**Last Updated**: November 20, 2025
-**Documentation Version**: 2.2.0
+**Last Updated**: November 23, 2025
+**Documentation Version**: 2.3.0
 **Backend Status**: ✅ **100% COMPLETE - PRODUCTION READY**
 **Test Coverage**: 17.45% (Target: 70%+)
+**Logging**: ✅ **Pino Logger with FIFO Rotation**
 
 [**Main README**](../README.md) | [**Backend Delivery**](BACKEND_DELIVERY.md) | [**PRIVACY**](../PRIVACY.md) | [**Scripts**](../scripts/README.md)
