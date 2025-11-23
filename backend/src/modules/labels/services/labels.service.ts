@@ -168,11 +168,6 @@ export class LabelsService {
     });
   }
 
-  async hardDelete(tenantId: string, id: string) {
-    await this.findOne(tenantId, id);
-    await this.prisma.userLabel.delete({ where: { id } });
-  }
-
   async addEmailsToLabel(tenantId: string, labelId: string, dto: AddEmailsToLabelDto) {
     await this.findOne(tenantId, labelId);
 
@@ -202,19 +197,50 @@ export class LabelsService {
     });
 
     // Get updated emails with emailLabels relationship
-    const updatedEmails = await this.emailsService.getEmailsByIds(
-      uniqueIds,
-      tenantId,
-    );
+    // FIX: Use Prisma directly instead of emailsService to ensure correct data retrieval
+    const updatedEmails = await this.prisma.email.findMany({
+      where: {
+        id: { in: uniqueIds },
+        tenantId,
+      },
+      include: {
+        provider: {
+          select: {
+            id: true,
+            email: true,
+            providerType: true,
+          },
+        },
+        emailLabels: {
+          include: {
+            label: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+                icon: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
     // Emit realtime events for each updated email
+    console.log('[LABELS] About to emit events for', updatedEmails.length, 'emails');
     updatedEmails.forEach((email) => {
+      console.log('[LABELS] Emitting email:update', {
+        emailId: email.id,
+        providerId: email.providerId,
+        reason: 'labels-updated',
+        tenantId,
+      });
       this.realtimeEvents.emitEmailUpdate(tenantId, {
         emailId: email.id,
         providerId: email.providerId,
         folder: email.folder,
         reason: 'labels-updated',
-        email: email as any, // Include complete email object for frontend
+        email: email as any, // Include complete email object with labels
       });
     });
 
@@ -236,21 +262,42 @@ export class LabelsService {
     });
 
     // Get updated email with emailLabels relationship
-    const updatedEmails = await this.emailsService.getEmailsByIds(
-      [emailId],
-      tenantId,
-    );
-
-    const updatedEmail = updatedEmails[0];
+    // FIX: Use Prisma directly instead of emailsService to ensure correct data retrieval
+    const updatedEmail = await this.prisma.email.findUnique({
+      where: {
+        id: emailId,
+      },
+      include: {
+        provider: {
+          select: {
+            id: true,
+            email: true,
+            providerType: true,
+          },
+        },
+        emailLabels: {
+          include: {
+            label: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+                icon: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
     // Emit realtime event
-    if (updatedEmail) {
+    if (updatedEmail && updatedEmail.tenantId === tenantId) {
       this.realtimeEvents.emitEmailUpdate(tenantId, {
         emailId: updatedEmail.id,
         providerId: updatedEmail.providerId,
         folder: updatedEmail.folder,
         reason: 'labels-updated',
-        email: updatedEmail as any, // Include complete email object for frontend
+        email: updatedEmail as any, // Include complete email object with labels
       });
     }
 

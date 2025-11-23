@@ -30,8 +30,7 @@ export type Email = {
   bodyHtml?: string;
   snippet?: string;
   folder: string;
-  labels: string[]; // Old field for backward compatibility
-  emailLabels?: { label: EmailLabel }[]; // New relationship field
+  emailLabels?: { label: EmailLabel }[];
   isRead: boolean;
   isStarred: boolean;
   isFlagged: boolean;
@@ -148,7 +147,6 @@ export type Conversation = {
   to: string[];
   snippet?: string;
   folder: string;
-  labels: string[];
   isRead: boolean;
   isStarred: boolean;
   isFlagged: boolean;

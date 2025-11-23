@@ -540,7 +540,7 @@ export function Mailbox() {
         const emailsRes = await emailApi.listEmails(queryParams);
         // Filter emails by label client-side for now
         const filteredEmails = (emailsRes.data.emails || [])
-          .filter((email: any) => email.labels && email.labels.includes(labelId))
+          .filter((email: any) => email.emailLabels?.some((el: any) => el.label.id === labelId))
           .map(mapApiEmailToStore);
         setEmails(filteredEmails as any);
         setSelectedEmail(null);

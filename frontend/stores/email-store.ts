@@ -36,8 +36,7 @@ export interface Email {
   isRead: boolean;
   isStarred?: boolean;
   isImportant?: boolean;
-  labels?: string[]; // Old field for backward compatibility
-  emailLabels?: { label: EmailLabelData }[]; // New relationship field
+  emailLabels?: { label: EmailLabelData }[];
   folder?: string;
   hasAttachments?: boolean;
   attachments?: EmailAttachment[];

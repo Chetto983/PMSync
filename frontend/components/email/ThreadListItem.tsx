@@ -3,7 +3,6 @@ import { ListItemButton, Box, Typography, Checkbox, Chip, Divider } from '@mui/m
 import { Paperclip, Users } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
-import { useLabelStore } from '@/stores/label-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadActionBar, ThreadAvatar, ThreadLabels } from './shared';
 import { parseEmailFrom, formatListDate } from './shared/utils';
@@ -110,7 +109,6 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     const [isHovered, setIsHovered] = useState(false);
     const [isTouchDevice, setIsTouchDevice] = useState(false);
     const t = useTranslations();
-    const { getLabelById } = useLabelStore();
 
     useEffect(() => {
       if (typeof window === 'undefined') return;
@@ -121,7 +119,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     // Extract common properties - use same ID logic as ThreadList
     // threadId: for UI/selection (thread.threadId || thread.id)
     // emailId: for API calls (thread.id)
-    const { threadId, emailId, from, subject, snippet, receivedAt, isRead, isStarred, isImportant, labels, emailLabels } =
+    const { threadId, emailId, from, subject, snippet, receivedAt, isRead, isStarred, isImportant, emailLabels } =
       useMemo(() => {
         if (isEmail(thread)) {
           // For Email: threadId for UI, id for API
@@ -136,7 +134,6 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             isRead: thread.isRead,
             isStarred: thread.isStarred || false,
             isImportant: thread.isImportant || false,
-            labels: thread.labels || [],
             emailLabels: thread.emailLabels || undefined,
           };
         } else {
@@ -151,7 +148,6 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             isRead: thread.isRead,
             isStarred: thread.isStarred || false,
             isImportant: false,
-            labels: thread.labels || [],
             emailLabels: undefined,
           };
         }
@@ -190,30 +186,16 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
       onToggleSelect?.(threadId);
     };
 
-    // Convert labels to ThreadLabels format
+    // Convert emailLabels to ThreadLabels format
     const labelsData = useMemo(() => {
-      // If emailLabels is available (from API with relationship), use it directly
-      if (emailLabels && emailLabels.length > 0) {
-        return emailLabels.map(el => ({
-          id: el.label.id,
-          name: el.label.name,
-          color: el.label.color,
-        }));
-      }
+      if (!emailLabels || emailLabels.length === 0) return [];
 
-      // Otherwise, fall back to looking up labels by ID (backward compatibility)
-      return labels
-        .map((labelId) => {
-          const label = getLabelById(labelId);
-          if (!label) return null;
-          return {
-            id: labelId,
-            name: label.name,
-            color: label.color,
-          };
-        })
-        .filter((label): label is NonNullable<typeof label> => label !== null);
-    }, [emailLabels, labels, getLabelById]);
+      return emailLabels.map(el => ({
+        id: el.label.id,
+        name: el.label.name,
+        color: el.label.color,
+      }));
+    }, [emailLabels]);
 
     // Get email count for conversations
     const emailCount = isConversation(thread) ? thread.emailCount : undefined;
