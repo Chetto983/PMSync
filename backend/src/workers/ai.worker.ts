@@ -5,7 +5,7 @@
 
 import { Queue, Worker } from 'bullmq';
 import { NestFactory } from '@nestjs/core';
-import { Logger } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from '../app.module';
 import { MistralService } from '../modules/ai/services/mistral.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,11 +29,13 @@ const aiQueue = new Queue('ai-processing', queueOptions);
  * and application context on SIGTERM/SIGINT.
  */
 async function bootstrap() {
-  const logger = new Logger('AIWorker');
-
   const appContext = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['error', 'warn', 'log'],
+    bufferLogs: true,
   });
+
+  // Usa Pino logger
+  appContext.useLogger(appContext.get(Logger));
+  const logger = appContext.get(Logger);
 
   const prismaService = appContext.get(PrismaService);
   const mistralService = appContext.get(MistralService);
@@ -84,8 +86,7 @@ async function bootstrap() {
   logger.log('AI Worker started and listening for jobs');
 }
 
-const bootstrapLogger = new Logger('AIWorkerBootstrap');
 bootstrap().catch((error) => {
-  bootstrapLogger.error('Failed to initialise AI worker:', error);
+  console.error('Failed to initialise AI worker:', error);
   process.exit(1);
 });
