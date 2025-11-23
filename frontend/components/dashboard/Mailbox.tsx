@@ -6,6 +6,9 @@ import {
   Paperclip,
   Clock,
   Calendar as CalendarIcon,
+  MessagesSquare,
+  RefreshCcw,
+  ShieldCheck,
 } from 'lucide-react';
 import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Chip, Alert, Stack, Typography, Button, CircularProgress, Paper } from '@mui/material';
 import { debounce } from 'lodash-es';
@@ -197,9 +200,9 @@ export function Mailbox() {
       });
     }).catch(() => {});
 
-    emailApi.getSyncStatus().then((res) => {
-      setSyncStatusMessage(JSON.stringify(res.data));
-    }).catch(() => {});
+    emailApi.getSyncStatus().then(() => {
+      setSyncStatusMessage(null);
+    }).catch(() => setSyncStatusMessage(null));
   }, []);
 
   const handleSyncProviders = async () => {
@@ -642,12 +645,28 @@ export function Mailbox() {
       updatedEmail,
     });
 
-    // Update email in store with backend data
-    setEmails(
-      storeEmails.map(email =>
-        email.id === emailId ? updatedEmail : email
-      )
-    );
+    // Update/insert email in store with backend data (dedup by id)
+    const currentList = storeEmailsRef.current;
+    const updatedList = currentList.some((email) => email.id === emailId)
+      ? currentList.map((email) => (email.id === emailId ? updatedEmail : email))
+      : [updatedEmail, ...currentList];
+    setEmails(updatedList.filter((email, idx, arr) => arr.findIndex((e) => e.id === email.id) === idx));
+
+    // Ensure store state syncs immediately (and add if missing)
+    const storeApi = useEmailStore.getState();
+    if (currentList.some((email) => email.id === emailId)) {
+      storeApi.updateEmail(emailId, updatedEmail as Email);
+    } else {
+      storeApi.addEmail(updatedEmail as Email);
+    }
+
+    // Maintain thread mapping without dropping other emails in the thread
+    const threadId = (updatedEmail as Email).threadId;
+    if (threadId) {
+      const existingIds = storeApi.getThreadEmails(threadId).map((e) => e.id);
+      const mergedIds = Array.from(new Set([...existingIds, updatedEmail.id]));
+      storeApi.updateThread(threadId, mergedIds);
+    }
 
     // Also update selected email if it's the one being modified
     if (storeSelectedEmail?.id === emailId) {
@@ -659,7 +678,7 @@ export function Mailbox() {
       message: t.common.save || 'Labels updated',
       severity: 'success',
     });
-  }, [storeEmails, setEmails, storeSelectedEmail, setSelectedEmail, t]);
+  }, [storeSelectedEmail, setEmails, setSelectedEmail, t]);
 
   // Refresh emails
   const handleRefresh = useCallback(async () => {
@@ -1131,8 +1150,8 @@ export function Mailbox() {
                 borderColor: 'divider',
               }}
             >
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems="center" flexWrap="wrap">
-                <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+              <Stack spacing={1.25}>
+                <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" rowGap={0.5}>
                   <Box
                     component="span"
                     sx={{
@@ -1161,22 +1180,25 @@ export function Mailbox() {
                       Total: {emailStats.total} | Unread: {emailStats.unread} | Starred: {emailStats.starred}
                     </Typography>
                   )}
+                </Stack>
+                <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" rowGap={0.5}>
                   {retentionStats && (
                     <Typography variant="caption" color="text.secondary">
                       Archived: {retentionStats.archivedEmails} | Saved: {Math.round(retentionStats.estimatedSpaceSavedMB)} MB
                     </Typography>
                   )}
                   {syncStatusMessage && (
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
                       {syncStatusMessage}
                     </Typography>
                   )}
                 </Stack>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" rowGap={0.5}>
                   <Button
                     size="small"
                     variant={!conversationMode ? 'contained' : 'outlined'}
                     onClick={() => handleModeSwitch('list')}
+                    startIcon={<MailIcon size={16} />}
                   >
                     {listModeLabels.list}
                   </Button>
@@ -1184,24 +1206,23 @@ export function Mailbox() {
                     size="small"
                     variant={conversationMode ? 'contained' : 'outlined'}
                     onClick={() => handleModeSwitch('conversation')}
+                    startIcon={<MessagesSquare size={16} />}
                   >
                     {listModeLabels.conversation}
                   </Button>
-                  <Button size="small" variant="outlined" onClick={handleSyncProviders} disabled={syncLoading}>
+                  <Button size="small" variant="outlined" onClick={handleSyncProviders} disabled={syncLoading} startIcon={!syncLoading ? <RefreshCcw size={16} /> : undefined}>
                     {syncLoading ? <CircularProgress size={14} /> : ((t as any)?.dashboard?.email?.actions?.syncNow || 'Sync now')}
                   </Button>
-                  <Button size="small" variant="outlined" onClick={handleRunRetention} disabled={retentionLoading}>
+                  <Button size="small" variant="outlined" onClick={handleRunRetention} disabled={retentionLoading} startIcon={!retentionLoading ? <ShieldCheck size={16} /> : undefined}>
                     {retentionLoading ? <CircularProgress size={14} /> : ((t as any)?.dashboard?.email?.actions?.runRetention || 'Run retention')}
                   </Button>
                 </Stack>
-              </Stack>
-              {!isConnected && (
-                <Box sx={{ pt: 1.5 }}>
+                {!isConnected && (
                   <Alert severity="warning" variant="outlined">
                     {localText.connection.warning}
                   </Alert>
-                </Box>
-              )}
+                )}
+              </Stack>
             </Paper>
             {/* Bulk Action Bar */}
             {!conversationMode && (

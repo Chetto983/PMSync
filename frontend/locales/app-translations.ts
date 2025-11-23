@@ -474,6 +474,7 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
         folderLabel: 'Folder',
         attachments: 'Attachments',
         attachmentsTooltip: 'Click to open. Ctrl/Cmd+click to download.',
+        fetchArchived: 'Load archived content',
         to: 'To',
         cc: 'Cc',
         labels: 'Labels',
@@ -524,6 +525,11 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
         memoryLastQueryPrefix: 'Using query:',
         memoryCopyError: 'Unable to copy this memory right now.',
         memoryError: 'Unable to search memory right now.',
+      },
+      actions: {
+        syncNow: 'Sync now',
+        runRetention: 'Run retention',
+        compose: 'Compose',
       },
       calendar: {
         title: 'Calendar',
@@ -1435,6 +1441,7 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
         folderLabel: 'Cartella',
         attachments: 'Allegati',
         attachmentsTooltip: 'Clicca per aprire. Ctrl/Cmd+clic per scaricare.',
+        fetchArchived: 'Carica contenuto archiviato',
         to: 'A',
         cc: 'Cc',
         labels: 'Etichette',
@@ -1485,6 +1492,11 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
         memoryLastQueryPrefix: 'Ricerca usata:',
         memoryCopyError: 'Impossibile copiare questo elemento ora.',
         memoryError: 'Impossibile interrogare la memoria al momento.',
+      },
+      actions: {
+        syncNow: 'Sincronizza ora',
+        runRetention: 'Esegui retention',
+        compose: 'Scrivi',
       },
       calendar: {
         title: 'Calendario',

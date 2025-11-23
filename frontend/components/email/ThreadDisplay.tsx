@@ -305,6 +305,14 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 
       // Notify parent with the updated email data from backend
       onLabelsChange?.(email.id, labelIds, updatedEmail);
+
+      // Optimistically update local thread data for immediate UI feedback
+      setThreadData((prev) => {
+        if (!prev || prev.length === 0) {
+          return updatedEmail ? [updatedEmail] : prev;
+        }
+        return prev.map((item) => (item.id === email.id ? updatedEmail : item));
+      });
     } catch (error) {
       console.error('Failed to update labels:', error);
     }

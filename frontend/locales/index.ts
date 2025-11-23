@@ -404,6 +404,7 @@ export interface AppTranslations {
       folderLabel: string;
       attachments: string;
       attachmentsTooltip?: string;
+      fetchArchived?: string;
       to: string;
       cc: string;
       labels: string;
@@ -454,6 +455,11 @@ export interface AppTranslations {
       memoryLastQueryPrefix: string;
       memoryCopyError: string;
       memoryError: string;
+    };
+    actions?: {
+      syncNow?: string;
+      runRetention?: string;
+      compose?: string;
     };
     calendar: {
       title: string;

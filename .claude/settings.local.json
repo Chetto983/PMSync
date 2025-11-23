@@ -33,7 +33,11 @@
       "Bash(git mv:*)",
       "Bash(git add backend/src/modules/realtime/gateways/realtime.gateway.ts)",
       "Bash(git commit:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(if not exist logs mkdir logs)",
+      "Bash(powershell -Command:*)",
+      "Bash(node:*)",
+      "Bash(del:*)"
     ],
     "deny": [],
     "ask": []
