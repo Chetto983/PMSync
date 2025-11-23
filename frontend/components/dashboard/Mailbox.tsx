@@ -8,7 +8,6 @@ import {
   Calendar as CalendarIcon,
   MessagesSquare,
   RefreshCcw,
-  ShieldCheck,
 } from 'lucide-react';
 import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Chip, Alert, Stack, Typography, Button, CircularProgress, Paper } from '@mui/material';
 import { debounce } from 'lodash-es';
@@ -159,7 +158,6 @@ export function Mailbox() {
   const [retentionStats, setRetentionStats] = useState<{ totalEmails: number; archivedEmails: number; estimatedSpaceSavedMB: number } | null>(null);
   const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
-  const [retentionLoading, setRetentionLoading] = useState(false);
 
   const getEmptyState = useCallback(() => {
     if (!selectedFolderId) {
@@ -217,19 +215,6 @@ export function Mailbox() {
       setSyncStatusMessage('Sync failed');
     } finally {
       setSyncLoading(false);
-    }
-  };
-
-  const handleRunRetention = async () => {
-    setRetentionLoading(true);
-    try {
-      const res = await emailApi.runRetention();
-      setRetentionStats((prev) => prev ? { ...prev, archivedEmails: res.data.count + (prev.archivedEmails ?? 0) } : prev);
-      setSyncStatusMessage(`Retention run on ${res.data.count} emails`);
-    } catch {
-      setSyncStatusMessage('Retention run failed');
-    } finally {
-      setRetentionLoading(false);
     }
   };
 
@@ -1212,9 +1197,6 @@ export function Mailbox() {
                   </Button>
                   <Button size="small" variant="outlined" onClick={handleSyncProviders} disabled={syncLoading} startIcon={!syncLoading ? <RefreshCcw size={16} /> : undefined}>
                     {syncLoading ? <CircularProgress size={14} /> : ((t as any)?.dashboard?.email?.actions?.syncNow || 'Sync now')}
-                  </Button>
-                  <Button size="small" variant="outlined" onClick={handleRunRetention} disabled={retentionLoading} startIcon={!retentionLoading ? <ShieldCheck size={16} /> : undefined}>
-                    {retentionLoading ? <CircularProgress size={14} /> : ((t as any)?.dashboard?.email?.actions?.runRetention || 'Run retention')}
                   </Button>
                 </Stack>
                 {!isConnected && (
