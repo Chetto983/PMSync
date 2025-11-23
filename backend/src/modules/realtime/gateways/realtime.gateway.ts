@@ -27,6 +27,10 @@ import {
  * - CORS configurabile
  * - Heartbeat automatico
  * - Supporto eventi bidirezionali
+ *
+ * Note: process.env è usato nel decorator perché i decoratori sono valutati
+ * staticamente prima dell'iniezione di dipendenze. Questo è un pattern
+ * accettabile in NestJS per configurazioni gateway.
  */
 @WebSocketGateway({
   cors: {
