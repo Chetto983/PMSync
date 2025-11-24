@@ -169,39 +169,39 @@ export function Sidebar({
             placement="right"
             arrow
           >
-            <Link href={item.href} passHref legacyBehavior>
-              <ListItemButton
-                selected={isActive(item.href)}
+            <ListItemButton
+              component={Link}
+              href={item.href}
+              selected={isActive(item.href)}
+              sx={{
+                mb: 0.5,
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                px: collapsed ? 1.5 : 2,
+              }}
+              onClick={() => {
+                if (isMobile && onClose) {
+                  onClose();
+                }
+              }}
+            >
+              <ListItemIcon
                 sx={{
-                  mb: 0.5,
-                  justifyContent: collapsed ? 'center' : 'flex-start',
-                  px: collapsed ? 1.5 : 2,
-                }}
-                onClick={() => {
-                  if (isMobile && onClose) {
-                    onClose();
-                  }
+                  minWidth: collapsed ? 'auto' : 40,
+                  color: isActive(item.href) ? 'primary.contrastText' : 'text.secondary',
                 }}
               >
-                <ListItemIcon
-                  sx={{
-                    minWidth: collapsed ? 'auto' : 40,
-                    color: isActive(item.href) ? 'primary.contrastText' : 'text.secondary',
+                {item.icon}
+              </ListItemIcon>
+              {!collapsed && (
+                <ListItemText
+                  primary={item.label}
+                  primaryTypographyProps={{
+                    fontSize: '0.875rem',
+                    fontWeight: isActive(item.href) ? 600 : 500,
                   }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-                {!collapsed && (
-                  <ListItemText
-                    primary={item.label}
-                    primaryTypographyProps={{
-                      fontSize: '0.875rem',
-                      fontWeight: isActive(item.href) ? 600 : 500,
-                    }}
-                  />
-                )}
-              </ListItemButton>
-            </Link>
+                />
+              )}
+            </ListItemButton>
           </Tooltip>
         ))}
       </List>
@@ -234,40 +234,40 @@ export function Sidebar({
       {/* Settings */}
       <Box sx={{ p: 1 }}>
         <Tooltip title={collapsed ? t.nav.settings : ''} placement="right" arrow>
-          <Link href="/dashboard/settings" passHref legacyBehavior>
-            <ListItemButton
-              selected={isActive('/dashboard/settings')}
+          <ListItemButton
+            component={Link}
+            href="/dashboard/settings"
+            selected={isActive('/dashboard/settings')}
+            sx={{
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              px: collapsed ? 1.5 : 2,
+            }}
+            onClick={() => {
+              if (isMobile && onClose) {
+                onClose();
+              }
+            }}
+          >
+            <ListItemIcon
               sx={{
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                px: collapsed ? 1.5 : 2,
-              }}
-              onClick={() => {
-                if (isMobile && onClose) {
-                  onClose();
-                }
+                minWidth: collapsed ? 'auto' : 40,
+                color: isActive('/dashboard/settings')
+                  ? 'primary.contrastText'
+                  : 'text.secondary',
               }}
             >
-              <ListItemIcon
-                sx={{
-                  minWidth: collapsed ? 'auto' : 40,
-                  color: isActive('/dashboard/settings')
-                    ? 'primary.contrastText'
-                    : 'text.secondary',
+              <Settings size={20} />
+            </ListItemIcon>
+            {!collapsed && (
+              <ListItemText
+                primary={t.nav.settings}
+                primaryTypographyProps={{
+                  fontSize: '0.875rem',
+                  fontWeight: isActive('/dashboard/settings') ? 600 : 500,
                 }}
-              >
-                <Settings size={20} />
-              </ListItemIcon>
-              {!collapsed && (
-                <ListItemText
-                  primary={t.nav.settings}
-                  primaryTypographyProps={{
-                    fontSize: '0.875rem',
-                    fontWeight: isActive('/dashboard/settings') ? 600 : 500,
-                  }}
-                />
-              )}
-            </ListItemButton>
-          </Link>
+              />
+            )}
+          </ListItemButton>
         </Tooltip>
       </Box>
     </Box>
