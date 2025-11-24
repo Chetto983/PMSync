@@ -165,7 +165,25 @@ export const useEmailStore = create<EmailState>((set, get) => ({
   updateEmail: (id, updates) =>
     set((state) => {
       const emailIndex = state.emails.findIndex((e) => e.id === id);
-      if (emailIndex === -1) return state;
+
+      // If email doesn't exist in store, treat updates as the full email object and add it
+      if (emailIndex === -1) {
+        // If updates is a full email object (has required fields), add it to store
+        if (typeof updates === 'object' && updates !== null && 'id' in updates && 'subject' in updates) {
+          const newEmail = updates as Email;
+          // Prevent adding if already exists (race condition check)
+          if (state.emails.some((e) => e.id === newEmail.id)) {
+            return state;
+          }
+          return {
+            emails: [newEmail, ...state.emails],
+            unreadCount: !newEmail.isRead ? state.unreadCount + 1 : state.unreadCount,
+          };
+        }
+        // If it's just partial updates, ignore (can't add email with partial data)
+        console.warn(`[email-store] updateEmail called for non-existent email ${id}, ignoring`);
+        return state;
+      }
 
       const oldEmail = state.emails[emailIndex];
       const newEmail = { ...oldEmail, ...updates };
