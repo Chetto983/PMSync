@@ -1151,7 +1151,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
                     onClick={() => setAdvancedSearchOpen(true)}
                     startIcon={<Filter size={16} />}
                   >
-                    Advanced Search
+                    {t.dashboard.email.advancedSearch.title}
                   </Button>
                   <Button size="small" variant="outlined" onClick={handleSyncProviders} disabled={syncLoading} startIcon={!syncLoading ? <RefreshCcw size={16} /> : undefined}>
                     {syncLoading ? <CircularProgress size={14} /> : ((t as any)?.dashboard?.email?.actions?.syncNow || 'Sync now')}
