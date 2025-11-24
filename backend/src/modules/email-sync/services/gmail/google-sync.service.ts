@@ -193,7 +193,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
           userId: 'me',
           startHistoryId,
           pageToken,
-          historyTypes: ['messageAdded', 'messageDeleted'],
+          historyTypes: ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved'],
           maxResults: 500,
         });
 

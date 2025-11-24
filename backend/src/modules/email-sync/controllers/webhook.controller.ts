@@ -39,15 +39,20 @@ export class WebhookController {
     @Headers('x-webhook-token') webhookToken?: string,
   ) {
     try {
+      this.logger.debug('[WEBHOOK] Gmail push received, validating token...');
       this.syncAuth.validateWebhookToken(webhookToken);
-      this.logger.log('Received Gmail Pub/Sub notification');
+      this.logger.log('[WEBHOOK] Token validated, received Gmail Pub/Sub notification');
+
+      this.logger.debug('[WEBHOOK] Payload:', JSON.stringify(payload).substring(0, 200));
 
       // Decode and process the message
       await this.gmailWebhook.handleNotification(payload);
 
+      this.logger.log('[WEBHOOK] Gmail notification processed successfully');
       return { success: true };
     } catch (error) {
-      this.logger.error('Error handling Gmail webhook:', error);
+      this.logger.error('[WEBHOOK] Error handling Gmail webhook:', error);
+      this.logger.error('[WEBHOOK] Error stack:', error instanceof Error ? error.stack : 'No stack');
       // Return 200 anyway to prevent Pub/Sub retries
       return { success: false, error: 'Processing failed' };
     }

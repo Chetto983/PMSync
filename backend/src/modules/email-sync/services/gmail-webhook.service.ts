@@ -34,6 +34,8 @@ export class GmailWebhookService {
    */
   async handleNotification(message: GmailPubSubMessage): Promise<void> {
     try {
+      this.logger.debug('[GMAIL-WEBHOOK] Starting handleNotification...');
+
       // Decode the base64-encoded data
       const decodedData = Buffer.from(message.message.data, 'base64').toString(
         'utf-8',
@@ -41,7 +43,7 @@ export class GmailWebhookService {
       const data: GmailPubSubData = JSON.parse(decodedData);
 
       this.logger.log(
-        `Gmail notification for ${data.emailAddress}, historyId: ${data.historyId}`,
+        `[GMAIL-WEBHOOK] Gmail notification for ${data.emailAddress}, historyId: ${data.historyId}`,
       );
 
       // Find provider by email
@@ -62,12 +64,15 @@ export class GmailWebhookService {
 
       if (!provider) {
         this.logger.warn(
-          `No active Gmail provider found for ${data.emailAddress}`,
+          `[GMAIL-WEBHOOK] No active Gmail provider found for ${data.emailAddress}`,
         );
         return;
       }
 
+      this.logger.debug(`[GMAIL-WEBHOOK] Found provider: ${provider.id} for tenant: ${provider.tenantId}`);
+
       // Update webhook subscription stats
+      this.logger.debug(`[GMAIL-WEBHOOK] Updating subscription stats for provider ${provider.id}...`);
       await this.updateSubscriptionStats(provider.id);
 
       const lastHistoryIdRaw = (provider.metadata as any)?.historyId;
@@ -77,6 +82,10 @@ export class GmailWebhookService {
         incomingHistoryId !== undefined &&
         lastHistoryId !== undefined &&
         incomingHistoryId < lastHistoryId;
+
+      this.logger.debug(
+        `[GMAIL-WEBHOOK] History IDs - last: ${lastHistoryId}, incoming: ${incomingHistoryId}, hasGap: ${hasGap}`,
+      );
 
       // Trigger incremental sync with high priority (fallback full if gap detected)
       const syncJob: SyncJobData = {
@@ -89,20 +98,24 @@ export class GmailWebhookService {
         lastSyncedAt: provider.lastSyncedAt ?? undefined,
       };
 
+      this.logger.log(`[GMAIL-WEBHOOK] Queueing ${syncJob.syncType} sync job for ${provider.email}...`);
       await this.queueService.addSyncJob(syncJob);
+      this.logger.log(`[GMAIL-WEBHOOK] Sync job queued successfully`);
 
       // Persist latest historyId for next delta
       const newMetadata = {
         ...(provider.metadata as Record<string, any>),
         historyId: data.historyId,
       };
+      this.logger.debug(`[GMAIL-WEBHOOK] Updating provider metadata with historyId: ${data.historyId}...`);
       await this.prisma.providerConfig.update({
         where: { id: provider.id },
         data: { metadata: newMetadata },
       });
+      this.logger.debug(`[GMAIL-WEBHOOK] Provider metadata updated successfully`);
 
       this.logger.log(
-        `Triggered incremental sync for ${provider.email} via webhook`,
+        `[GMAIL-WEBHOOK] ✅ Triggered ${syncJob.syncType} sync for ${provider.email} via webhook`,
       );
     } catch (error) {
       this.logger.error('Error processing Gmail notification:', error);
