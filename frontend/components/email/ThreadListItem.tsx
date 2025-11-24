@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { ListItemButton, Box, Typography, Checkbox, Chip, Divider } from '@mui/material';
 import { Paperclip, Users } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
@@ -106,14 +106,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     getProviderIcon,
     onClick,
   }) => {
-    const [isTouchDevice, setIsTouchDevice] = useState(false);
     const t = useTranslations();
-
-    useEffect(() => {
-      if (typeof window === 'undefined') return;
-      const touch = window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-      setIsTouchDevice(touch);
-    }, []);
 
     // Extract common properties - use same ID logic as ThreadList
     // threadId: for UI/selection (thread.threadId || thread.id)
