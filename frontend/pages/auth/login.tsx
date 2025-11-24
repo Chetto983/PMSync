@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Box, Container, Stack, Typography } from '@mui/material';
+import { Box, Container, Stack, Typography, IconButton, InputAdornment } from '@mui/material';
+import { Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +22,8 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
 
   useEffect(() => {
     if (router.query.email) {
@@ -31,6 +34,15 @@ export default function LoginPage() {
   const loginCopy = translations.auth.login;
   const otpCopy = translations.auth.otp;
   const copy = step === 'login' ? loginCopy : otpCopy;
+
+  // Handle Caps Lock detection
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    setCapsLockOn(event.getModifierState('CapsLock'));
+  };
+
+  const handleKeyUp = (event: React.KeyboardEvent) => {
+    setCapsLockOn(event.getModifierState('CapsLock'));
+  };
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -116,14 +128,52 @@ export default function LoginPage() {
                   onChange={(event) => setEmail(event.target.value)}
                   required
                 />
-                <Input
-                  type="password"
-                  label={loginCopy.form.passwordLabel}
-                  placeholder={translations.common.passwordPlaceholder}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                />
+                <Box sx={{ position: 'relative' }}>
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    label={loginCopy.form.passwordLabel}
+                    placeholder={translations.common.passwordPlaceholder}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onKeyUp={handleKeyUp}
+                    required
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              aria-label="toggle password visibility"
+                              onClick={() => setShowPassword(!showPassword)}
+                              onMouseDown={(e) => e.preventDefault()}
+                              edge="end"
+                              size="small"
+                            >
+                              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
+                  {capsLockOn && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        mt: 0.5,
+                        color: 'warning.main',
+                        fontSize: '0.875rem',
+                      }}
+                    >
+                      <AlertTriangle size={16} />
+                      <Typography variant="caption" color="warning.main">
+                        Caps Lock is on
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
                 <Button type="submit" disabled={loading} fullWidth>
                   {loading ? translations.common.loading : loginCopy.form.submit}
                 </Button>
