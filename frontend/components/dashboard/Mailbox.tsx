@@ -6,12 +6,11 @@ import {
   Paperclip,
   Clock,
   Calendar as CalendarIcon,
-  MessagesSquare,
   RefreshCcw,
 } from 'lucide-react';
 import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Chip, Alert, Stack, Typography, Button, CircularProgress, Paper } from '@mui/material';
 import { debounce } from 'lodash-es';
-import { emailApi, type EmailListParams, type Conversation } from '@/lib/api/email';
+import { emailApi, type EmailListParams } from '@/lib/api/email';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { getFolders, type Folder as ProviderFolder } from '@/lib/api/folders';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -149,11 +148,6 @@ export function Mailbox() {
     message: '',
     severity: 'info',
   });
-  const [conversationMode, setConversationMode] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [convoPagination, setConvoPagination] = useState({ page: 1, hasMore: true });
-  const [conversationLoading, setConversationLoading] = useState(false);
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [emailStats, setEmailStats] = useState<{ total: number; unread: number; starred: number } | null>(null);
   const [retentionStats, setRetentionStats] = useState<{ totalEmails: number; archivedEmails: number; estimatedSpaceSavedMB: number } | null>(null);
   const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
@@ -261,25 +255,13 @@ export function Mailbox() {
     },
   });
 
-  // Wrapper to handle both Email and Conversation types
+  // Handle email click
   const handleEmailClick = useCallback((thread: any) => {
     if ('providerId' in thread) {
       handleEmailClickOriginal(thread);
-      setSelectedThreadId(thread.threadId || thread.id);
     }
   }, [handleEmailClickOriginal]);
 
-  const listModeLabels = useMemo(() => {
-    const emailList = (t as any)?.dashboard?.emailList || {};
-    const conversationsText = (t as any)?.dashboard?.email?.conversations || {};
-    return {
-      list: emailList.emailListView || 'Email List',
-      conversation: emailList.conversationView || 'Conversation View',
-      emptyTitle: conversationsText.noConversations || localText.empty.defaultTitle,
-      emptySubtitle: conversationsText.noConversationsDescription || localText.empty.defaultSubtitle,
-      failedToLoad: conversationsText.failedToLoad || 'Failed to load conversations',
-    };
-  }, [t, localText.empty.defaultSubtitle, localText.empty.defaultTitle]);
 
   // Smart Filters for quick access
   const smartFilters = useMemo<SmartFilter[]>(() => {
@@ -489,7 +471,6 @@ export function Mailbox() {
 
   // Load emails data
   const loadData = useCallback(async () => {
-    setSelectedThreadId(null);
     // Calculate active folder directly from selectedFolderId to avoid stale closure
     const currentActiveFolder = combinedFolders.find((folder) => folder.id === selectedFolderId) ||
       combinedFolders[0] ||
@@ -575,47 +556,6 @@ export function Mailbox() {
     }
   }, [combinedFolders, selectedFolderId, searchQuery, advancedFilters, setEmails, setLoading, setSelectedEmail]);
 
-  const loadConversations = useCallback(async (page = 1, append = false) => {
-    const currentActiveFolder = combinedFolders.find((folder) => folder.id === selectedFolderId) ||
-      combinedFolders[0] ||
-      null;
-
-    if (!currentActiveFolder) {
-      return;
-    }
-
-    try {
-      setConversationLoading(true);
-      const res = await emailApi.getConversations({
-        page,
-        limit: 25,
-        providerId: currentActiveFolder.queryOverrides?.providerId,
-        folder: currentActiveFolder.queryOverrides?.folder,
-      });
-      const incoming = res.data?.conversations || [];
-      setConversations((prev) => (append ? [...prev, ...incoming] : incoming));
-      setConvoPagination({
-        page,
-        hasMore: res.data?.pagination
-          ? res.data.pagination.page < res.data.pagination.totalPages
-          : false,
-      });
-      if (!append) {
-        setSelectedEmail(null);
-        setSelectedThreadId(null);
-        clearSelection();
-      }
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-      setSnackbar({
-        open: true,
-        message: listModeLabels.failedToLoad,
-        severity: 'error',
-      });
-    } finally {
-      setConversationLoading(false);
-    }
-  }, [clearSelection, combinedFolders, selectedFolderId, listModeLabels.failedToLoad, setSelectedEmail]);
 
   // Handle label changes - backend always returns updated email
   const handleLabelsChange = useCallback(async (emailId: string, labelIds: string[], updatedEmail?: any) => {
@@ -668,13 +608,9 @@ export function Mailbox() {
   // Refresh emails
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    if (conversationMode) {
-      await loadConversations(1, false);
-    } else {
-      await loadData();
-    }
+    await loadData();
     setRefreshing(false);
-  }, [conversationMode, loadConversations, loadData]);
+  }, [loadData]);
 
   // Load more emails (infinite scroll)
   const loadMoreEmails = useCallback(async () => {
@@ -718,12 +654,6 @@ export function Mailbox() {
     }
   }, [_pagination, storeLoading, combinedFolders, selectedFolderId, searchQuery, advancedFilters, appendEmails, setLoading]);
 
-  const loadMoreConversations = useCallback(async () => {
-    if (!convoPagination.hasMore || conversationLoading) return;
-
-    const nextPage = convoPagination.page + 1;
-    await loadConversations(nextPage, true);
-  }, [conversationLoading, convoPagination, loadConversations]);
 
   // Bulk operations handlers
   const handleBulkMarkRead = useCallback(async () => {
@@ -972,26 +902,22 @@ export function Mailbox() {
     // Cancel any pending debounced loads from filter changes
     debouncedLoadData.cancel();
     // Load immediately
-    if (conversationMode) {
-      loadConversations(1, false);
-    } else {
-      loadData();
-    }
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFolderId, conversationMode]);
+  }, [selectedFolderId]);
 
   // Load emails with debounce when advanced filters change
   useEffect(() => {
-    if (selectedFolderId && !conversationMode) {
+    if (selectedFolderId) {
       debouncedLoadData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [advancedFilters, conversationMode]);
+  }, [advancedFilters]);
 
   // Keyboard navigation
   useKeyboardNavigation({
     emails: storeEmails,
-    enabled: !conversationMode,
+    enabled: true,
     onDelete: handleDelete,
     onReply: handleReply,
     onToggleStar: handleToggleStar,
@@ -1052,53 +978,15 @@ export function Mailbox() {
     setComposeOpen(true);
   }, []);
 
-  const threads = conversationMode ? conversations : storeEmails;
-  const selectedListId = conversationMode
-    ? selectedThreadId || storeSelectedEmail?.threadId || undefined
-    : storeSelectedEmail?.id;
-  const listLoading = conversationMode ? conversationLoading : storeLoading;
-  const hasMoreItems = conversationMode ? convoPagination.hasMore : _pagination.hasMore;
-  const onLoadMoreThreads = conversationMode ? loadMoreConversations : loadMoreEmails;
-  const emptyState = conversationMode
-    ? { title: listModeLabels.emptyTitle, subtitle: `${listModeLabels.emptySubtitle} ${(t as any)?.dashboard?.email?.actions?.compose || ''}`.trim() }
-    : { ...getEmptyState(), subtitle: `${getEmptyState().subtitle} ${(t as any)?.dashboard?.email?.actions?.syncNow || 'Try syncing now or adjust filters.'}`.trim() };
+  const threads = storeEmails;
+  const selectedListId = storeSelectedEmail?.id;
+  const listLoading = storeLoading;
+  const hasMoreItems = _pagination.hasMore;
+  const onLoadMoreThreads = loadMoreEmails;
+  const emptyState = { ...getEmptyState(), subtitle: `${getEmptyState().subtitle} ${(t as any)?.dashboard?.email?.actions?.syncNow || 'Try syncing now or adjust filters.'}`.trim() };
 
-  const handleModeSwitch = useCallback((mode: 'list' | 'conversation') => {
-    setConversationMode(mode === 'conversation');
-    setSelectedEmail(null);
-    setSelectedThreadId(null);
-    clearSelection();
-  }, [clearSelection, setSelectedEmail]);
 
-  const mergeThreadIntoStore = useCallback((threadId: string | undefined, emails: Email[]) => {
-    if (!threadId || emails.length === 0) return;
-    const map = new Map<string, Email>();
-    storeEmailsRef.current.forEach((email) => map.set(email.id, email));
-    emails.forEach((email) => map.set(email.id, email));
-    setEmails(Array.from(map.values()));
-    useEmailStore.getState().updateThread(threadId, emails.map((email) => email.id));
-  }, [setEmails]);
 
-  const handleConversationClick = useCallback(async (conversation: Conversation) => {
-    setSelectedThreadId(conversation.threadId);
-    setConversationLoading(true);
-    try {
-      const res = await emailApi.getThread(conversation.threadId);
-      const threadEmails = (res.data || []).map(mapApiEmailToStore);
-      mergeThreadIntoStore(conversation.threadId, threadEmails as any);
-      const latestEmail = threadEmails[threadEmails.length - 1] as any;
-      setSelectedEmail(latestEmail || null);
-    } catch (error) {
-      console.error('Failed to load conversation thread:', error);
-      setSnackbar({
-        open: true,
-        message: listModeLabels.failedToLoad,
-        severity: 'error',
-      });
-    } finally {
-      setConversationLoading(false);
-    }
-  }, [listModeLabels.failedToLoad, mergeThreadIntoStore, setSelectedEmail]);
 
 
   return (
@@ -1179,22 +1067,6 @@ export function Mailbox() {
                   )}
                 </Stack>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" rowGap={0.5}>
-                  <Button
-                    size="small"
-                    variant={!conversationMode ? 'contained' : 'outlined'}
-                    onClick={() => handleModeSwitch('list')}
-                    startIcon={<MailIcon size={16} />}
-                  >
-                    {listModeLabels.list}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant={conversationMode ? 'contained' : 'outlined'}
-                    onClick={() => handleModeSwitch('conversation')}
-                    startIcon={<MessagesSquare size={16} />}
-                  >
-                    {listModeLabels.conversation}
-                  </Button>
                   <Button size="small" variant="outlined" onClick={handleSyncProviders} disabled={syncLoading} startIcon={!syncLoading ? <RefreshCcw size={16} /> : undefined}>
                     {syncLoading ? <CircularProgress size={14} /> : ((t as any)?.dashboard?.email?.actions?.syncNow || 'Sync now')}
                   </Button>
@@ -1207,44 +1079,36 @@ export function Mailbox() {
               </Stack>
             </Paper>
             {/* Bulk Action Bar */}
-            {!conversationMode && (
-              <BulkActionBar
-                selectedCount={selectedIds.size}
-                totalCount={storeEmails.length}
-                onSelectAll={selectAll}
-                onClearSelection={clearSelection}
-                onMarkRead={handleBulkMarkRead}
-                onMarkUnread={handleBulkMarkUnread}
-                onDelete={handleBulkDelete}
-                onStar={handleBulkStar}
-                onUnstar={handleBulkUnstar}
-                onFlag={handleBulkFlag}
-                onUnflag={handleBulkUnflag}
-                onAddLabels={() => setLabelSelectorOpen(true)}
-                onMoveToFolder={() => setFolderSelectorOpen(true)}
-              />
-            )}
+            <BulkActionBar
+              selectedCount={selectedIds.size}
+              totalCount={storeEmails.length}
+              onSelectAll={selectAll}
+              onClearSelection={clearSelection}
+              onMarkRead={handleBulkMarkRead}
+              onMarkUnread={handleBulkMarkUnread}
+              onDelete={handleBulkDelete}
+              onStar={handleBulkStar}
+              onUnstar={handleBulkUnstar}
+              onFlag={handleBulkFlag}
+              onUnflag={handleBulkUnflag}
+              onAddLabels={() => setLabelSelectorOpen(true)}
+              onMoveToFolder={() => setFolderSelectorOpen(true)}
+            />
 
             {/* Render appropriate view based on mode */}
             <Box sx={{ flex: 1, overflow: 'hidden' }}>
               <ThreadList
                 threads={threads}
                 selectedId={selectedListId}
-                selectedIds={conversationMode ? undefined : selectedIds}
+                selectedIds={selectedIds}
                 isLoading={listLoading}
-                onThreadClick={
-                  conversationMode
-                    ? (thread) => {
-                        void handleConversationClick(thread as Conversation);
-                      }
-                    : handleEmailClick
-                }
-                onToggleSelect={conversationMode ? undefined : toggleSelection}
-                onToggleRead={conversationMode ? undefined : handleToggleRead}
-                onToggleStar={conversationMode ? undefined : handleToggleStar}
-                onToggleImportant={conversationMode ? undefined : handleToggleImportant}
-                onArchive={conversationMode ? undefined : (id) => handleArchive([id])}
-                onDelete={conversationMode ? undefined : handleDelete}
+                onThreadClick={handleEmailClick}
+                onToggleSelect={toggleSelection}
+                onToggleRead={handleToggleRead}
+                onToggleStar={handleToggleStar}
+                onToggleImportant={handleToggleImportant}
+                onArchive={(id) => handleArchive([id])}
+                onDelete={handleDelete}
                 getProviderIcon={getProviderIcon}
                 onLoadMore={onLoadMoreThreads}
                 hasMore={hasMoreItems}
