@@ -8,8 +8,9 @@ import {
   Calendar as CalendarIcon,
   RefreshCcw,
   Filter,
+  Menu,
 } from 'lucide-react';
-import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Chip, Alert, Stack, Typography, Button, CircularProgress, Paper } from '@mui/material';
+import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Chip, Alert, Stack, Typography, Button, CircularProgress, Paper, IconButton } from '@mui/material';
 import { debounce } from 'lodash-es';
 import { emailApi, type EmailListParams } from '@/lib/api/email';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
@@ -1097,6 +1098,17 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
             >
               <Stack spacing={1.25}>
                 <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" rowGap={0.5}>
+                  {/* Hamburger Menu - Mobile Only */}
+                  {isMobile && (
+                    <IconButton
+                      size="small"
+                      onClick={() => setMobileSidebarOpen(true)}
+                      sx={{ mr: 0.5 }}
+                      aria-label="Open folders menu"
+                    >
+                      <Menu size={20} />
+                    </IconButton>
+                  )}
                   <Box
                     component="span"
                     sx={{
