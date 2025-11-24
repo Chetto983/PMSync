@@ -77,6 +77,17 @@ export class EmailSyncController {
       where: { tenantId },
     });
 
+    // Reset lastSyncedAt to force FULL sync (not incremental)
+    await this.prisma.providerConfig.updateMany({
+      where: {
+        tenantId,
+        id: { in: providers.map((p) => p.id) },
+      },
+      data: {
+        lastSyncedAt: null,
+      },
+    });
+
     // Queue sync jobs for all providers
     const syncPromises = providers.map((provider) =>
       this.schedulerService.syncProviderNow(provider.id, 'high'),
