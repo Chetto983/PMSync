@@ -6,6 +6,7 @@ import { EmbeddingsService } from '../../../ai/services/embeddings.service';
 import { MicrosoftAttachmentHandler } from './microsoft-attachment-handler';
 import { MicrosoftMessageParser, ParsedMicrosoftMessage } from './microsoft-message-parser';
 import { mergeEmailStatusMetadata } from '../../utils/email-metadata.util';
+import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 
 /**
  * Microsoft-specific batch processing service
@@ -27,6 +28,7 @@ export class MicrosoftBatchProcessor {
     private readonly microsoftAttachmentHandler: MicrosoftAttachmentHandler,
     private readonly emailEmbeddingQueue: EmailEmbeddingQueueService,
     private readonly embeddingsService: EmbeddingsService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {}
 
   /**
@@ -207,7 +209,8 @@ export class MicrosoftBatchProcessor {
             m.metadataStatus,
           );
 
-          await this.prisma.email.update({
+          // Update email and fetch full object with emailLabels
+          const updatedEmail = await this.prisma.email.update({
             where: { id: existingEmail.id },
             data: {
               labels: m.labels,
@@ -217,6 +220,22 @@ export class MicrosoftBatchProcessor {
               isDeleted: m.isDeleted,
               metadata,
             },
+            include: {
+              emailLabels: {
+                include: {
+                  label: true,
+                },
+              },
+            },
+          });
+
+          // Emit WebSocket event with full email object so frontend can update immediately
+          this.realtimeEvents.emitEmailUpdate(tenantId, {
+            emailId: updatedEmail.id,
+            providerId: updatedEmail.providerId,
+            folder: updatedEmail.folder,
+            reason: 'labels-updated',
+            email: updatedEmail as any,
           });
         }),
       );
