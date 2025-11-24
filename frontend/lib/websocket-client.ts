@@ -85,6 +85,7 @@ class WebSocketClient {
 
       if (this.isConnecting) {
         console.log('[WebSocket] Connection already in progress');
+        resolve();
         return;
       }
 

@@ -108,13 +108,26 @@ export function useWebSocket(token: string | null, enabled = true) {
   }, []);
 
   /**
-   * Setup event listeners
+   * Setup connection
    */
   useEffect(() => {
     if (!token || !enabled) return;
 
     // Connect
     connect();
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[useWebSocket] Cleaning up connection...');
+      disconnect();
+    };
+  }, [token, enabled, connect, disconnect]);
+
+  /**
+   * Setup event listeners
+   */
+  useEffect(() => {
+    if (!token || !enabled) return;
 
     // EMAIL EVENTS
     const unsubEmailNew = websocketClient.onEmailNew((data) => {
@@ -231,7 +244,7 @@ export function useWebSocket(token: string | null, enabled = true) {
 
     // Cleanup on unmount
     return () => {
-      console.log('[useWebSocket] Cleaning up...');
+      console.log('[useWebSocket] Cleaning up event listeners...');
       unsubEmailNew();
       unsubEmailUpdate();
       unsubEmailDelete();
@@ -246,13 +259,8 @@ export function useWebSocket(token: string | null, enabled = true) {
       unsubContactUpdate();
       unsubContactDelete();
       unsubSyncStatus();
-      disconnect();
     };
   }, [
-    token,
-    enabled,
-    connect,
-    disconnect,
     addEmail,
     updateEmail,
     deleteEmail,
