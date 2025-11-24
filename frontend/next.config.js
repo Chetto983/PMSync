@@ -20,6 +20,8 @@ const nextConfig = {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
+  // Server-side component config - externalize client-only packages
+  serverExternalPackages: ['dompurify'],
 };
 
 module.exports = nextConfig;

@@ -21,7 +21,8 @@
       "Bash(powershell -Command \"(Get-Content migrate-contacts-to-unified.js) -replace ''Next steps:\\`'', ''Next steps:'''''' | Set-Content migrate-contacts-to-unified.js\")",
       "Bash(node scripts/check-new-tables.js:*)",
       "Bash(curl:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

@@ -141,8 +141,13 @@ function getFileIcon(filename: string, size = 14): React.ReactElement {
 
 /**
  * Sanitize potentially unsafe HTML coming from email bodies before rendering.
+ * Client-side only to avoid SSR issues with DOMPurify.
  */
 function sanitizeEmailBody(content: string): string {
+  if (typeof window === 'undefined') {
+    // Server-side: return unsanitized (will be sanitized on client)
+    return content;
+  }
   return DOMPurify.sanitize(content);
 }
 
