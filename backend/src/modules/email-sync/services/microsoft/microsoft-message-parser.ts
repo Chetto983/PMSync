@@ -20,6 +20,7 @@ export interface ParsedMicrosoftMessage {
   labels: string[];
   isRead: boolean;
   isStarred: boolean;
+  isFlagged: boolean;
   isDeleted: boolean;
   sentAt: Date;
   receivedAt: Date;
@@ -81,6 +82,7 @@ export class MicrosoftMessageParser {
     const labels = message.categories || [];
     const isRead = !!message.isRead;
     const isStarred = message.flag?.flagStatus === 'flagged';
+    const isFlagged = message.importance === 'high';
     const folder = await this.microsoftFolderService.determineFolderFromParentId(
       message.parentFolderId,
       providerId,
@@ -111,6 +113,7 @@ export class MicrosoftMessageParser {
       labels,
       isRead,
       isStarred,
+      isFlagged,
       isDeleted,
       sentAt,
       receivedAt,

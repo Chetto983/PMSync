@@ -458,6 +458,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
       const isDeleted = labelIds.includes('TRASH');
       const isRead = !labelIds.includes('UNREAD');
       const isStarred = labelIds.includes('STARRED');
+      const isFlagged = labelIds.includes('IMPORTANT');
       const metadata = mergeEmailStatusMetadata(existing.metadata as Record<string, any> | null, isDeleted ? 'deleted' : 'active');
 
       try {
@@ -469,6 +470,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
             isDeleted,
             isRead,
             isStarred,
+            isFlagged,
             metadata,
           },
           include: {
