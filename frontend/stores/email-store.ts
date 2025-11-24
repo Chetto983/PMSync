@@ -152,10 +152,15 @@ export const useEmailStore = create<EmailState>((set, get) => ({
 
   addEmail: (email) =>
     set((state) => {
+      console.log('[Email Store] addEmail called:', { id: email.id, subject: email.subject?.substring(0, 50) });
+
       // Prevent duplicates
       if (state.emails.some((e) => e.id === email.id)) {
+        console.warn('[Email Store] Email already exists, skipping');
         return state;
       }
+
+      console.log('[Email Store] Email added successfully');
       return {
         emails: [email, ...state.emails],
         unreadCount: !email.isRead ? state.unreadCount + 1 : state.unreadCount,
@@ -164,52 +169,84 @@ export const useEmailStore = create<EmailState>((set, get) => ({
 
   updateEmail: (id, updates) =>
     set((state) => {
+      console.log('[Email Store] updateEmail called:', { id, hasFullEmail: updates && typeof updates === 'object' && 'id' in updates && 'subject' in updates });
       const emailIndex = state.emails.findIndex((e) => e.id === id);
 
-      // If email doesn't exist in store, treat updates as the full email object and add it
-      if (emailIndex === -1) {
-        // If updates is a full email object (has required fields), add it to store
-        if (typeof updates === 'object' && updates !== null && 'id' in updates && 'subject' in updates) {
-          const newEmail = updates as Email;
-          // Prevent adding if already exists (race condition check)
-          if (state.emails.some((e) => e.id === newEmail.id)) {
-            return state;
-          }
-          return {
-            emails: [newEmail, ...state.emails],
-            unreadCount: !newEmail.isRead ? state.unreadCount + 1 : state.unreadCount,
-            // Update selectedEmail if this is the currently selected email
-            selectedEmail: state.selectedEmail?.id === id ? newEmail : state.selectedEmail,
-          };
+      // If email EXISTS, update it
+      if (emailIndex !== -1) {
+        console.log('[Email Store] Email found at index:', emailIndex);
+        const oldEmail = state.emails[emailIndex];
+
+        // Check if updates is a full email object (not just partial updates)
+        const isFullEmail = typeof updates === 'object' && updates !== null &&
+                           'id' in updates && 'subject' in updates && 'from' in updates;
+
+        // If full email object, use it directly; otherwise merge with old email
+        const newEmail = isFullEmail ? (updates as Email) : { ...oldEmail, ...updates };
+        const newEmails = [...state.emails];
+        newEmails[emailIndex] = newEmail;
+
+        // Update unread count if isRead changed
+        let newUnreadCount = state.unreadCount;
+        if (oldEmail.isRead !== newEmail.isRead) {
+          newUnreadCount += newEmail.isRead ? -1 : 1;
         }
-        // If it's just partial updates, ignore (can't add email with partial data)
-        console.warn(`[email-store] updateEmail called for non-existent email ${id}, ignoring`);
-        return state;
+
+        console.log('[Email Store] Email updated successfully, labels:', (newEmail as any).emailLabels?.length ?? 0);
+        return {
+          emails: newEmails,
+          unreadCount: Math.max(0, newUnreadCount),
+          selectedEmail: state.selectedEmail?.id === id ? newEmail : state.selectedEmail,
+        };
       }
 
-      const oldEmail = state.emails[emailIndex];
-      const newEmail = { ...oldEmail, ...updates };
-      const newEmails = [...state.emails];
-      newEmails[emailIndex] = newEmail;
+      // Email doesn't exist - try to add it if updates is a full email object
+      console.log('[Email Store] Email not found, attempting to add');
+      if (typeof updates === 'object' && updates !== null && 'id' in updates && 'subject' in updates) {
+        const newEmail = updates as Email;
 
-      // Update unread count if isRead changed
-      let newUnreadCount = state.unreadCount;
-      if (oldEmail.isRead !== newEmail.isRead) {
-        newUnreadCount += newEmail.isRead ? -1 : 1;
+        // Double-check it doesn't exist (defensive check for race conditions)
+        if (state.emails.some((e) => e.id === newEmail.id)) {
+          console.warn('[Email Store] Race condition: email now exists, retrying update');
+          // Email appeared between checks - find it and update it
+          const retryIndex = state.emails.findIndex((e) => e.id === newEmail.id);
+          if (retryIndex !== -1) {
+            const updatedEmails = [...state.emails];
+            updatedEmails[retryIndex] = newEmail;
+            console.log('[Email Store] Retried successfully');
+            return {
+              emails: updatedEmails,
+              selectedEmail: state.selectedEmail?.id === id ? newEmail : state.selectedEmail,
+            };
+          }
+          return state;
+        }
+
+        // Add new email to store
+        console.log('[Email Store] Added new email to store');
+        return {
+          emails: [newEmail, ...state.emails],
+          unreadCount: !newEmail.isRead ? state.unreadCount + 1 : state.unreadCount,
+          selectedEmail: state.selectedEmail?.id === id ? newEmail : state.selectedEmail,
+        };
       }
 
-      return {
-        emails: newEmails,
-        unreadCount: Math.max(0, newUnreadCount),
-        selectedEmail: state.selectedEmail?.id === id ? newEmail : state.selectedEmail,
-      };
+      // Can't update non-existent email with partial data
+      console.warn(`[Email Store] Cannot update non-existent email ${id} with partial data, ignoring`);
+      return state;
     }),
 
   deleteEmail: (id) =>
     set((state) => {
+      console.log('[Email Store] deleteEmail called:', id);
       const email = state.emails.find((e) => e.id === id);
-      if (!email) return state;
 
+      if (!email) {
+        console.warn('[Email Store] Email not found, cannot delete');
+        return state;
+      }
+
+      console.log('[Email Store] Email deleted successfully');
       return {
         emails: state.emails.filter((e) => e.id !== id),
         unreadCount: !email.isRead ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
