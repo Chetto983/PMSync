@@ -132,6 +132,11 @@ export const ThreadActionBar: React.FC<ThreadActionBarProps> = ({
 
   const shouldShow = showOnHover ? isHovered : true;
 
+  // Don't render at all if not visible
+  if (!shouldShow) {
+    return null;
+  }
+
   return (
     <Fade in={shouldShow} timeout={200}>
       <Box
@@ -150,6 +155,7 @@ export const ThreadActionBar: React.FC<ThreadActionBarProps> = ({
           boxShadow: 2,
           p: 0.5,
           transition: 'all 0.2s ease',
+          pointerEvents: 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
       >

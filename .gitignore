@@ -702,3 +702,15 @@ esempio/Zero-main/scripts/send-emails/index.ts
 NUL
 .claude/settings.local.json
 backend/test/setup.ts
+test-provider-sync.js
+test-sync.js
+.claude/settings.local.json
+tests/smart-reply-parser.ts
+tests/test-additional.js
+tests/test-ai-search-debug.js
+tests/test-ai-search.js
+tests/test-cross-provider-sync.js
+tests/test-email-filters.js
+tests/test-label-websocket.js
+tests/test-labels.js
+tests/test-websocket.js

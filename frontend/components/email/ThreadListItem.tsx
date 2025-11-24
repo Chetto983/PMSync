@@ -360,8 +360,8 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             sx={{
               position: 'absolute',
               left: '50%',
-              top: 8,
-              transform: 'translateX(-50%)',
+              top: 50,
+              transform: 'translatey(+100%)',
               opacity: 0,
               visibility: 'hidden',
               transition: 'opacity 0.2s ease, visibility 0.2s ease',
