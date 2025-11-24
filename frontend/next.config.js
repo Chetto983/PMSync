@@ -10,9 +10,10 @@ const nextConfig = {
   // Skip static optimization for error pages to avoid SSR issues with MUI
   experimental: {
     optimizePackageImports: ['@mui/material', '@mui/icons-material'],
-    turbopack: {
-      root: __dirname,
-    },
+  },
+  // Explicit root prevents workspace root inference warnings
+  turbopack: {
+    root: __dirname,
   },
   // Skip build errors for error pages (they work fine at runtime)
   typescript: {

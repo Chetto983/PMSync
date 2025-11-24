@@ -19,6 +19,7 @@ import {
   UpdateContactDto,
   ListContactsFilters,
 } from '../services/contacts.service';
+import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { ForbiddenException } from '@nestjs/common';
@@ -29,6 +30,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 export class ContactsController {
   constructor(
     private readonly contactsService: ContactsService,
+    private readonly contactsSyncQueue: ContactsSyncQueueService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -132,6 +134,57 @@ export class ContactsController {
     return {
       success: true,
       contactsSynced: synced,
+    };
+  }
+
+  /**
+   * Trigger bulk sync for all contact-enabled providers (queued via BullMQ)
+   * POST /api/contacts/sync-all
+   *
+   * ✅ TENANT ISOLATED: Only queues jobs for the authenticated user's providers
+   */
+  @Post('sync-all')
+  async syncAllProviders(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+
+    // Get all contact-enabled providers for this tenant
+    const providers = await this.prisma.providerConfig.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        supportsContacts: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        providerType: true,
+      },
+    });
+
+    if (providers.length === 0) {
+      return {
+        success: false,
+        message: 'No contact-enabled providers found',
+        queued: 0,
+      };
+    }
+
+    // Queue sync jobs for all providers
+    const jobs = providers.map((provider) => ({
+      tenantId,
+      providerId: provider.id,
+      providerType: provider.providerType as 'google' | 'microsoft',
+      email: provider.email,
+      priority: 'normal' as const,
+    }));
+
+    await this.contactsSyncQueue.addBulkSyncJobs(jobs);
+
+    return {
+      success: true,
+      message: `Queued ${providers.length} contact sync job(s). Contacts will be synced in the background.`,
+      queued: providers.length,
+      providers: providers.map((p) => ({ id: p.id, email: p.email, type: p.providerType })),
     };
   }
 }

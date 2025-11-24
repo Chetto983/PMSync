@@ -6,7 +6,22 @@
       "Bash(git -C \"d:\\MailAgent\" commit -m \"$(cat <<''EOF''\nAdd detailed logging for email sync-back operations\n\nAdded comprehensive logging to help debug sync-back issues when deleting emails.\n\nChanges:\n- Add [BULK DELETE] log when queuing sync-back operations\n- Log number of emails being synced to providers\n- Add stack trace to error logging for better debugging\n- Help identify if sync-back is failing silently\n\nThis will help diagnose why emails deleted locally are not being removed from provider servers (Gmail, Microsoft, etc.).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git -C \"d:\\MailAgent\" commit -m \"$(cat <<''EOF''\nFix email selection bug preventing bulk operations\n\nCRITICAL FIX: The threadId extraction logic had a copy-paste error that prevented\nemail checkboxes from working correctly, breaking all bulk operations.\n\nBug:\n```typescript\nconst threadId = (''threadId'' in thread ? thread.threadId : thread.threadId) || '''';\n//                                                           ^^^^^^^^^^^^\n//                                                           Same on both sides!\n```\n\nFix:\n```typescript\nconst threadId = thread.threadId || (''id'' in thread ? thread.id : '''') || '''';\n```\n\nImpact:\n- Email selection checkboxes now work correctly\n- Bulk delete, bulk mark read/unread, bulk star, etc. all work\n- Sync-back operations now receive correct email IDs to sync to providers\n\nBefore: Selecting emails did nothing, bulk delete sent 0 emails\nAfter: Selection works, bulk operations sync correctly to Gmail/Microsoft\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(npm run start:dev:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npx prisma studio:*)",
+      "Bash(node check-folders.js:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node scripts/cleanup-duplicate-contacts.js:*)",
+      "Bash(node scripts/find-duplicate-emails.js:*)",
+      "Bash(node scripts/deduplicate-contacts-by-email.js:*)",
+      "Bash(npx prisma format:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(node scripts/migrate-contacts-to-unified.js:*)",
+      "Bash(powershell -Command \"(Get-Content migrate-contacts-to-unified.js) -replace ''Next steps:\\`'', ''Next steps:'''''' | Set-Content migrate-contacts-to-unified.js\")",
+      "Bash(node scripts/check-new-tables.js:*)",
+      "Bash(curl:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

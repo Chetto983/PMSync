@@ -151,17 +151,71 @@ export class GoogleContactsSyncService {
         )
       : null;
 
-    // Upsert contact
-    const existingContact = await this.prisma.contact.findFirst({
+    // Check if ProviderContact already exists
+    const existingProviderContact = await this.prisma.providerContact.findUnique({
       where: {
-        AND: [
-          { providerId: provider.id },
-          { externalId },
-        ],
+        providerId_externalId: {
+          providerId: provider.id,
+          externalId,
+        },
       },
+      include: { contact: true },
     });
 
-    const upsertedContact = await this.prisma.contact.upsert({
+    let unifiedContact;
+    let isNew = false;
+
+    if (existingProviderContact) {
+      // ProviderContact exists, use its unified contact
+      unifiedContact = existingProviderContact.contact;
+    } else {
+      // New contact - find or create unified contact by email
+      isNew = true;
+      const primaryEmail = emails?.find((e) => e.primary)?.value || emails?.[0]?.value;
+
+      if (primaryEmail) {
+        // Try to find existing unified contact with this email
+        unifiedContact = await this.findUnifiedContactByEmail(
+          provider.tenantId,
+          primaryEmail,
+        );
+      }
+
+      if (!unifiedContact) {
+        // Create new unified contact
+        unifiedContact = await this.prisma.contact.create({
+          data: {
+            tenantId: provider.tenantId,
+            firstName: names?.givenName,
+            lastName: names?.familyName,
+            displayName: names?.displayName,
+            middleName: names?.middleName,
+            prefix: names?.honorificPrefix,
+            suffix: names?.honorificSuffix,
+            emails: emails as any,
+            phoneNumbers: phoneNumbers as any,
+            company: organization?.name,
+            jobTitle: organization?.title,
+            department: organization?.department,
+            birthday,
+            photoUrl,
+            notes: person.biographies?.[0]?.value,
+          },
+        });
+      } else {
+        // Merge data into existing unified contact
+        await this.mergeContactData(unifiedContact.id, {
+          emails: emails as any,
+          phoneNumbers: phoneNumbers as any,
+          company: organization?.name,
+          jobTitle: organization?.title,
+          photoUrl,
+        });
+      }
+    }
+
+    // Upsert provider contact
+    await this.prisma.providerContact.upsert({
       where: {
         providerId_externalId: {
           providerId: provider.id,
@@ -169,9 +223,11 @@ export class GoogleContactsSyncService {
         },
       },
       create: {
+        contactId: unifiedContact.id,
         tenantId: provider.tenantId,
         providerId: provider.id,
         externalId,
+        rawData: person as any,
         firstName: names?.givenName,
         lastName: names?.familyName,
         displayName: names?.displayName,
@@ -204,18 +260,93 @@ export class GoogleContactsSyncService {
         birthday,
         photoUrl,
         notes: person.biographies?.[0]?.value,
+        rawData: person as any,
         metadata: person as any,
         lastSyncedAt: new Date(),
         syncVersion: { increment: 1 },
-        isDeleted: false,
       },
     });
 
-    // Return contact metadata for bulk notification
+    // Return unified contact ID for notifications
     return {
-      contactId: upsertedContact.id,
-      isNew: !existingContact,
+      contactId: unifiedContact.id,
+      isNew,
     };
+  }
+
+  /**
+   * Find unified contact by email address
+   */
+  private async findUnifiedContactByEmail(
+    tenantId: string,
+    email: string,
+  ): Promise<any | null> {
+    const contacts = await this.prisma.contact.findMany({
+      where: { tenantId, isDeleted: false },
+    });
+
+    for (const contact of contacts) {
+      if (contact.emails) {
+        const emails = JSON.parse(JSON.stringify(contact.emails));
+        if (Array.isArray(emails)) {
+          const hasEmail = emails.some(
+            (e: any) => e.value?.toLowerCase() === email.toLowerCase(),
+          );
+          if (hasEmail) {
+            return contact;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Merge contact data from provider into unified contact
+   */
+  private async mergeContactData(
+    contactId: string,
+    providerData: any,
+  ): Promise<void> {
+    const contact = await this.prisma.contact.findUnique({
+      where: { id: contactId },
+    });
+
+    if (!contact) return;
+
+    // Merge emails
+    const existingEmails = contact.emails
+      ? JSON.parse(JSON.stringify(contact.emails))
+      : [];
+    const newEmails = providerData.emails || [];
+    const allEmails = [...existingEmails, ...newEmails];
+    const uniqueEmails = Array.from(
+      new Map(allEmails.map((e: any) => [e.value?.toLowerCase(), e])).values(),
+    );
+
+    // Merge phone numbers
+    const existingPhones = contact.phoneNumbers
+      ? JSON.parse(JSON.stringify(contact.phoneNumbers))
+      : [];
+    const newPhones = providerData.phoneNumbers || [];
+    const allPhones = [...existingPhones, ...newPhones];
+    const uniquePhones = Array.from(
+      new Map(allPhones.map((p: any) => [p.value, p])).values(),
+    );
+
+    // Update unified contact with merged data
+    await this.prisma.contact.update({
+      where: { id: contactId },
+      data: {
+        emails: uniqueEmails as any,
+        phoneNumbers: uniquePhones as any,
+        // Only update these if not already set
+        company: contact.company || providerData.company,
+        jobTitle: contact.jobTitle || providerData.jobTitle,
+        photoUrl: contact.photoUrl || providerData.photoUrl,
+      },
+    });
   }
 
   /**

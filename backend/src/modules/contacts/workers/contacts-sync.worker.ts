@@ -158,8 +158,8 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
     let newContacts = 0;
     let updatedContacts = 0;
 
-    // Get initial contact count
-    const contactsBefore = await this.prisma.contact.count({
+    // Get initial provider contact count (for this specific provider)
+    const contactsBefore = await this.prisma.providerContact.count({
       where: { providerId },
     });
 
@@ -176,8 +176,8 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
         throw new Error(`Unsupported provider type: ${providerType}`);
     }
 
-    // Get final contact count
-    const contactsAfter = await this.prisma.contact.count({
+    // Get final provider contact count (for this specific provider)
+    const contactsAfter = await this.prisma.providerContact.count({
       where: { providerId },
     });
 

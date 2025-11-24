@@ -28,12 +28,16 @@ export interface ContactProviderSummary {
   displayName?: string | null;
 }
 
+export interface ProviderContact {
+  id: string;
+  providerId: string;
+  externalId: string;
+  provider: ContactProviderSummary;
+}
+
 export interface Contact {
   id: string;
   tenantId: string;
-  providerId: string;
-  externalId: string;
-  contactGroup?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   middleName?: string | null;
@@ -57,14 +61,12 @@ export interface Contact {
   isDeleted: boolean;
   isStarred: boolean;
   isFavorite: boolean;
+  tags?: string[];
   createdAt: string;
   updatedAt: string;
   metadata?: Record<string, any> | null;
-  vCardVersion?: string | null;
-  lastSyncedAt?: string | null;
-  syncVersion?: number;
-  eTag?: string | null;
-  provider?: ContactProviderSummary;
+  // Provider contacts - links to external provider contacts
+  providerContacts?: ProviderContact[];
 }
 
 export interface ListContactsParams {
@@ -121,6 +123,16 @@ export const contactsApi = {
 
   async syncProvider(providerId: string): Promise<{ success: boolean; contactsSynced: number }> {
     const response = await apiClient.post(`/contacts/sync/${providerId}`);
+    return response.data;
+  },
+
+  async syncAll(): Promise<{
+    success: boolean;
+    message: string;
+    queued: number;
+    providers?: Array<{ id: string; email: string; type: string }>;
+  }> {
+    const response = await apiClient.post('/contacts/sync-all');
     return response.data;
   },
 };

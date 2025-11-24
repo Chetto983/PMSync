@@ -14,12 +14,14 @@ import {
   Chip,
   useTheme,
   useMediaQuery,
+  Autocomplete,
 } from '@mui/material';
 import { X, Send, Paperclip, Check, FileText, Trash2 } from 'lucide-react';
 import { EditorContent } from '@tiptap/react';
 import type { SendEmailPayload, EmailAttachmentUpload } from '@/lib/api/email';
 import { emailApi } from '@/lib/api/email';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
+import { contactsApi, type Contact } from '@/lib/api/contacts';
 import { useDraftAutosave } from '@/hooks/use-draft-autosave';
 import { useComposeEditor } from '@/hooks/use-compose-editor';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -103,9 +105,9 @@ export function ComposeDialog({
   const t = useTranslations();
 
   // Form state
-  const [to, setTo] = useState('');
-  const [cc, setCc] = useState('');
-  const [bcc, setBcc] = useState('');
+  const [to, setTo] = useState<string[]>([]);
+  const [cc, setCc] = useState<string[]>([]);
+  const [bcc, setBcc] = useState<string[]>([]);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [showCc, setShowCc] = useState(false);
@@ -119,6 +121,10 @@ export function ComposeDialog({
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string>(defaultProviderId || '');
 
+  // Contacts state
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+
   // TipTap editor
   const editor = useComposeEditor({
     initialContent: body,
@@ -131,18 +137,18 @@ export function ComposeDialog({
   // Initialize form with prefill data
   useEffect(() => {
     if (open && prefillData) {
-      setTo(prefillData.to?.join(', ') || '');
-      setCc(prefillData.cc?.join(', ') || '');
-      setBcc(prefillData.bcc?.join(', ') || '');
+      setTo(prefillData.to || []);
+      setCc(prefillData.cc || []);
+      setBcc(prefillData.bcc || []);
       setSubject(prefillData.subject || '');
       setBody(prefillData.body || '');
       setShowCc(!!prefillData.cc?.length);
       setShowBcc(!!prefillData.bcc?.length);
     } else if (open && !prefillData) {
       // Reset form for new compose
-      setTo('');
-      setCc('');
-      setBcc('');
+      setTo([]);
+      setCc([]);
+      setBcc([]);
       setSubject('');
       setBody('');
       setShowCc(false);
@@ -181,13 +187,58 @@ export function ComposeDialog({
     }
   }, [defaultProviderId]);
 
-  // Parse comma-separated emails
-  const parseEmails = useCallback((emailString: string): string[] => {
-    return emailString
-      .split(',')
-      .map(e => e.trim())
-      .filter(e => e.length > 0);
+  // Fetch contacts when dialog opens
+  useEffect(() => {
+    if (open) {
+      setContactsLoading(true);
+      contactsApi.listContacts({ limit: 100 })
+        .then((response) => {
+          setContacts(response.contacts);
+        })
+        .catch((error) => {
+          console.error('Failed to load contacts:', error);
+        })
+        .finally(() => {
+          setContactsLoading(false);
+        });
+    }
+  }, [open]);
+
+  // Extract email address from "Name <email@example.com>" format
+  const extractEmail = useCallback((emailString: string): string => {
+    const match = emailString.match(/<(.+?)>/);
+    return match ? match[1] : emailString.trim();
   }, []);
+
+  // Convert array of emails (possibly in "Name <email>" format) to clean email array
+  const cleanEmailArray = useCallback((emails: string[]): string[] => {
+    return emails.map(extractEmail).filter(e => e.length > 0);
+  }, [extractEmail]);
+
+  // Get email options from contacts for autocomplete
+  const emailOptions = useMemo(() => {
+    const options: string[] = [];
+    contacts.forEach((contact) => {
+      if (contact.emails && contact.emails.length > 0) {
+        contact.emails.forEach((emailObj) => {
+          if (emailObj.value) {
+            // Format: "Display Name <email@example.com>" or just "email@example.com"
+            const displayName = contact.displayName ||
+              (contact.firstName && contact.lastName
+                ? `${contact.firstName} ${contact.lastName}`.trim()
+                : contact.firstName || contact.lastName);
+
+            if (displayName) {
+              options.push(`${displayName} <${emailObj.value}>`);
+            } else {
+              options.push(emailObj.value);
+            }
+          }
+        });
+      }
+    });
+    return options;
+  }, [contacts]);
 
   // Handle file selection
   const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -263,14 +314,14 @@ export function ComposeDialog({
 
     return {
       providerId: selectedProvider,
-      to: to ? parseEmails(to) : undefined,
-      cc: cc ? parseEmails(cc) : undefined,
-      bcc: bcc ? parseEmails(bcc) : undefined,
+      to: to.length > 0 ? cleanEmailArray(to) : undefined,
+      cc: cc.length > 0 ? cleanEmailArray(cc) : undefined,
+      bcc: bcc.length > 0 ? cleanEmailArray(bcc) : undefined,
       subject: subject || undefined,
       bodyText: body || undefined,
       bodyHtml: body ? `<p>${body.replace(/\n/g, '<br>')}</p>` : undefined,
     };
-  }, [selectedProvider, to, cc, bcc, subject, body, parseEmails]);
+  }, [selectedProvider, to, cc, bcc, subject, body, cleanEmailArray]);
 
   // Autosave draft
   const { isSaving: isDraftSaving, lastSaved } = useDraftAutosave({
@@ -301,7 +352,7 @@ export function ComposeDialog({
       return;
     }
 
-    const toEmails = parseEmails(to);
+    const toEmails = cleanEmailArray(to);
     if (toEmails.length === 0) {
       onError?.(t.dashboard.email.composer.validationTo);
       return;
@@ -318,8 +369,8 @@ export function ComposeDialog({
       const payload: SendEmailPayload = {
         providerId: selectedProvider,
         to: toEmails,
-        cc: cc ? parseEmails(cc) : undefined,
-        bcc: bcc ? parseEmails(bcc) : undefined,
+        cc: cc.length > 0 ? cleanEmailArray(cc) : undefined,
+        bcc: bcc.length > 0 ? cleanEmailArray(bcc) : undefined,
         subject: subject.trim(),
         bodyHtml: `<p>${body.replace(/\n/g, '<br>')}</p>`,
         bodyText: body,
@@ -335,9 +386,9 @@ export function ComposeDialog({
       onClose();
 
       // Reset form
-      setTo('');
-      setCc('');
-      setBcc('');
+      setTo([]);
+      setCc([]);
+      setBcc([]);
       setSubject('');
       setBody('');
       setAttachments([]);
@@ -347,11 +398,11 @@ export function ComposeDialog({
     } finally {
       setSending(false);
     }
-  }, [selectedProvider, to, cc, bcc, subject, body, prefillData, parseEmails, onClose, onSent, onError, attachments, t]);
+  }, [selectedProvider, to, cc, bcc, subject, body, prefillData, cleanEmailArray, onClose, onSent, onError, attachments, t]);
 
   // Check if form has unsaved changes
   const hasChanges = useCallback(() => {
-    return !!(to || cc || bcc || subject || body);
+    return !!(to.length > 0 || cc.length > 0 || bcc.length > 0 || subject || body);
   }, [to, cc, bcc, subject, body]);
 
   // Handle close with confirmation
@@ -427,7 +478,11 @@ export function ComposeDialog({
                 value={selectedProvider}
                 onChange={(e) => setSelectedProvider(e.target.value)}
                 disabled={sending || providers.length === 0}
-                aria-label={t.dashboard.email.composer.selectProvider}
+                slotProps={{
+                  htmlInput: {
+                    'aria-label': t.dashboard.email.composer.selectProvider
+                  }
+                }}
                 SelectProps={{
                   native: true,
                 }}
@@ -455,16 +510,30 @@ export function ComposeDialog({
               <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
                 {t.dashboard.email.composer.toLabel}
               </Typography>
-              <TextField
+              <Autocomplete
+                multiple
+                freeSolo
                 fullWidth
                 size="small"
-                placeholder={t.dashboard.email.composer.toPlaceholder}
+                options={emailOptions}
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
+                onChange={(_, newValue) => setTo(newValue)}
                 disabled={sending}
+                loading={contactsLoading}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder={t.dashboard.email.composer.toPlaceholder}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '& fieldset': { border: 'none' },
+                      },
+                    }}
+                  />
+                )}
                 sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { border: 'none' },
+                  '& .MuiAutocomplete-tag': {
+                    margin: '2px',
                   },
                 }}
               />
@@ -490,16 +559,30 @@ export function ComposeDialog({
                 <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
                   {t.dashboard.email.composer.ccLabel}
                 </Typography>
-                <TextField
+                <Autocomplete
+                  multiple
+                  freeSolo
                   fullWidth
                   size="small"
-                  placeholder={t.dashboard.email.composer.toPlaceholder}
+                  options={emailOptions}
                   value={cc}
-                  onChange={(e) => setCc(e.target.value)}
+                  onChange={(_, newValue) => setCc(newValue)}
                   disabled={sending}
+                  loading={contactsLoading}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={t.dashboard.email.composer.toPlaceholder}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { border: 'none' },
+                        },
+                      }}
+                    />
+                  )}
                   sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': { border: 'none' },
+                    '& .MuiAutocomplete-tag': {
+                      margin: '2px',
                     },
                   }}
                 />
@@ -514,16 +597,30 @@ export function ComposeDialog({
                 <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
                   {t.dashboard.email.composer.bccLabel}
                 </Typography>
-                <TextField
+                <Autocomplete
+                  multiple
+                  freeSolo
                   fullWidth
                   size="small"
-                  placeholder={t.dashboard.email.composer.toPlaceholder}
+                  options={emailOptions}
                   value={bcc}
-                  onChange={(e) => setBcc(e.target.value)}
+                  onChange={(_, newValue) => setBcc(newValue)}
                   disabled={sending}
+                  loading={contactsLoading}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={t.dashboard.email.composer.toPlaceholder}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { border: 'none' },
+                        },
+                      }}
+                    />
+                  )}
                   sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': { border: 'none' },
+                    '& .MuiAutocomplete-tag': {
+                      margin: '2px',
                     },
                   }}
                 />
@@ -639,7 +736,7 @@ export function ComposeDialog({
             variant="contained"
             startIcon={sending ? <CircularProgress size={16} /> : <Send size={16} />}
             onClick={handleSend}
-            disabled={sending || !to.trim()}
+            disabled={sending || to.length === 0}
           >
             {sending ? t.dashboard.email.composer.sending : t.dashboard.email.composer.send}
           </Button>

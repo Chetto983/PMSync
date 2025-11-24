@@ -19,7 +19,8 @@ model Tenant {
   auditLogs            AuditLog[]
   calendarEvents       CalendarEvent[]
   chatSessions         ChatSession[]
-  contacts             Contact[]
+  contacts             Contact[]             @relation("ContactToTenant")
+  providerContacts     ProviderContact[]     @relation("ProviderContactToTenant")
   emails               Email[]
   embeddings           Embedding[]
   folders              Folder[]
@@ -60,17 +61,17 @@ model User {
 }
 
 model UserPreferences {
-  id                       String   @id @default(cuid())
-  userId                   String   @unique
-  folderOrders             Json?
+  id                          String   @id @default(cuid())
+  userId                      String   @unique
+  folderOrders                Json?
   sidebarSmartFiltersExpanded Boolean  @default(true)
-  sidebarLabelsExpanded    Boolean  @default(true)
-  theme                    String?  @default("light")
-  language                 String?  @default("en")
-  emailDensity             String?  @default("comfortable")
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sidebarLabelsExpanded       Boolean  @default(true)
+  theme                       String?  @default("light")
+  language                    String?  @default("en")
+  emailDensity                String?  @default("comfortable")
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("user_preferences")
@@ -164,7 +165,7 @@ model ProviderConfig {
   lastActivityCheck        DateTime?
   refreshTokenEncryptionIv String?
   calendarEvents           CalendarEvent[]
-  contacts                 Contact[]
+  providerContacts         ProviderContact[]     @relation("ProviderContactToProvider")
   emails                   Email[]
   folders                  Folder[]
   tenant                   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -445,31 +446,98 @@ model CalendarEvent {
 }
 
 model CalendarEventAttachment {
-  id               String        @id @default(cuid())
-  eventId          String
-  filename         String
-  mimeType         String
-  size             Int
-  storageType      String        @default("s3")
-  storagePath      String?
-  fileUrl          String?
-  fileId           String?
-  iconLink         String?
-  isGoogleDrive    Boolean       @default(false)
-  isOneDrive       Boolean       @default(false)
-  createdAt        DateTime      @default(now())
-  event            CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id            String        @id @default(cuid())
+  eventId       String
+  filename      String
+  mimeType      String
+  size          Int
+  storageType   String        @default("s3")
+  storagePath   String?
+  fileUrl       String?
+  fileId        String?
+  iconLink      String?
+  isGoogleDrive Boolean       @default(false)
+  isOneDrive    Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  event         CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
   @@map("calendar_event_attachments")
 }
 
+// Unified Contact - Single source of truth for each person
+// Can be enriched by user, aggregates data from multiple providers
 model Contact {
-  id             String         @id @default(cuid())
-  tenantId       String
-  providerId     String
-  externalId     String
-  contactGroup   String?
+  id       String @id @default(cuid())
+  tenantId String
+
+  // User-enriched fields (can override provider data)
+  displayName String?
+  firstName   String?
+  lastName    String?
+  middleName  String?
+  nickname    String?
+  prefix      String?
+  suffix      String?
+
+  // Aggregated data (merged from all provider contacts)
+  emails       Json? // Array of all emails from all providers
+  phoneNumbers Json? // Array of all phone numbers
+  addresses    Json? // Array of all addresses
+
+  // Work info
+  company    String?
+  jobTitle   String?
+  department String?
+
+  // Personal info
+  birthday    DateTime?
+  anniversary DateTime?
+
+  // Social
+  websites       Json?
+  socialProfiles Json?
+
+  // User customization
+  notes     String? // User's personal notes
+  tags      String[] @default([]) // User-defined tags
+  photoUrl  String?
+  photoEtag String?
+
+  // Flags
+  isDeleted  Boolean @default(false)
+  isStarred  Boolean @default(false)
+  isFavorite Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Metadata
+  metadata Json?
+
+  // Relations
+  providerContacts ProviderContact[] // Links to provider sources
+  tenant           Tenant            @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, displayName])
+  @@index([tenantId, lastName, firstName])
+  @@index([tenantId, company])
+  @@map("unified_contacts")
+}
+
+// Provider Contact - Reference to external provider contact
+// Stores raw data as-is from provider (Google, Microsoft, etc)
+model ProviderContact {
+  id           String  @id @default(cuid())
+  contactId    String // Foreign key to unified Contact
+  tenantId     String
+  providerId   String
+  externalId   String // Provider's contact ID
+  contactGroup String?
+
+  // Raw provider data (as-is from provider API)
+  rawData        Json? // Full provider response for reference
   firstName      String?
   lastName       String?
   middleName     String?
@@ -490,25 +558,31 @@ model Contact {
   notes          String?
   photoUrl       String?
   photoEtag      String?
-  isDeleted      Boolean        @default(false)
-  isStarred      Boolean        @default(false)
-  isFavorite     Boolean        @default(false)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  metadata       Json?
-  vCardVersion   String?        @default("4.0")
-  lastSyncedAt   DateTime       @default(now())
-  syncVersion    Int            @default(1)
-  eTag           String?
-  provider       ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Provider sync metadata
+  vCardVersion String?  @default("4.0")
+  lastSyncedAt DateTime @default(now())
+  syncVersion  Int      @default(1)
+  eTag         String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Metadata
+  metadata Json?
+
+  // Relations
+  contact  Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  provider ProviderConfig @relation("ProviderContactToProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  tenant   Tenant         @relation("ProviderContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, externalId])
-  @@index([tenantId, lastName, firstName])
+  @@index([contactId])
+  @@index([tenantId])
   @@index([tenantId, displayName])
-  @@index([tenantId, company])
   @@index([contactGroup])
-  @@map("contacts")
+  @@map("provider_contacts")
 }
 
 model AuditLog {

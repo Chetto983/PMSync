@@ -9,7 +9,6 @@ import { MicrosoftContactsWebhookService } from './services/microsoft-contacts-w
 import { ContactsSyncQueueService } from './services/contacts-sync-queue.service';
 import { ContactsSyncSchedulerService } from './services/contacts-sync-scheduler.service';
 import { ContactsSyncWorker } from './workers/contacts-sync.worker';
-import { ContactsProviderFactory } from './contacts-provider.factory';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { RealtimeModule } from '../realtime/realtime.module';
@@ -35,7 +34,6 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
     ContactsSyncQueueService, // Queue service for contacts sync
     ContactsSyncSchedulerService, // Scheduler for periodic sync
     ContactsSyncWorker, // Worker to process sync jobs
-    ContactsProviderFactory,
   ],
   exports: [
     ContactsService,
@@ -45,7 +43,6 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
     MicrosoftContactsWebhookService,
     ContactsSyncQueueService,
     ContactsSyncSchedulerService,
-    ContactsProviderFactory,
   ],
 })
 export class ContactsModule {}

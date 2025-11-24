@@ -31,6 +31,8 @@ import {
   Snackbar,
   Alert as MuiAlert,
   DialogContentText,
+  Chip,
+  Link,
 } from '@mui/material';
 import {
   Search,
@@ -45,6 +47,9 @@ import {
   MessageSquare,
   Clock,
   Sparkles,
+  RefreshCw,
+  Cake,
+  Globe,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { contactsApi, type Contact } from '@/lib/api/contacts';
@@ -66,10 +71,16 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 }
 
 type ContactFormState = {
+  firstName: string;
+  lastName: string;
   displayName: string;
+  email: string;
+  phone: string;
   company: string;
   jobTitle: string;
-  email: string;
+  department: string;
+  birthday: string;
+  website: string;
   notes: string;
   providerId?: string;
 };
@@ -99,20 +110,28 @@ export function Contacts() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [tabValue, setTabValue] = useState(0);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [contactDialogMode, setContactDialogMode] = useState<'create' | 'edit'>('create');
   const [contactForm, setContactForm] = useState<ContactFormState>({
+    firstName: '',
+    lastName: '',
     displayName: '',
+    email: '',
+    phone: '',
     company: '',
     jobTitle: '',
-    email: '',
+    department: '',
+    birthday: '',
+    website: '',
     notes: '',
     providerId: undefined,
   });
   const [actionLoading, setActionLoading] = useState(false);
   const selectedContactIdRef = useRef<string | null>(null);
+  const paginationRef = useRef({ offset: 0, limit: 50, hasMore: true, total: 0 });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
   const [snackbar, setSnackbar] = useState<{
@@ -124,22 +143,63 @@ export function Contacts() {
     message: '',
     severity: 'info',
   });
+  const [syncingProviders, setSyncingProviders] = useState<Set<string>>(new Set());
+  const [pagination, setPagination] = useState({ offset: 0, limit: 50, hasMore: true, total: 0 });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     selectedContactIdRef.current = selectedContact?.id ?? null;
   }, [selectedContact]);
 
-  const loadContacts = useCallback(async () => {
+  useEffect(() => {
+    paginationRef.current = pagination;
+  }, [pagination]);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const loadContacts = useCallback(async (reset: boolean = true) => {
     try {
-      setLoading(true);
+      if (reset) {
+        setLoading(true);
+        const newPagination = { offset: 0, limit: 50, hasMore: true, total: 0 };
+        paginationRef.current = newPagination;
+        setPagination(newPagination);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const offset = reset ? 0 : paginationRef.current.offset;
       const response = await contactsApi.listContacts({
-        search: searchQuery || undefined,
-        limit: 100,
+        search: debouncedSearchQuery || undefined,
+        limit: paginationRef.current.limit,
+        offset,
       });
       const contactsData = response.contacts || [];
-      setContacts(contactsData);
 
-      if (contactsData.length === 0) {
+      if (reset) {
+        setContacts(contactsData);
+      } else {
+        setContacts((prev) => [...prev, ...contactsData]);
+      }
+
+      const newPagination = {
+        offset: offset + contactsData.length,
+        limit: paginationRef.current.limit,
+        hasMore: contactsData.length === paginationRef.current.limit,
+        total: response.total,
+      };
+      paginationRef.current = newPagination;
+      setPagination(newPagination);
+
+      if (contactsData.length === 0 && reset) {
         setSelectedContact(null);
         return;
       }
@@ -153,12 +213,47 @@ export function Contacts() {
       console.error('Failed to load contacts:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [searchQuery]);
+  }, [debouncedSearchQuery]);
+
+  const loadMore = useCallback(() => {
+    if (!loadingMore && pagination.hasMore) {
+      loadContacts(false);
+    }
+  }, [loadContacts, loadingMore, pagination.hasMore]);
 
   useEffect(() => {
     loadContacts();
   }, [loadContacts]);
+
+  // Infinite scroll with Intersection Observer
+  useEffect(() => {
+    if (!pagination.hasMore || loadingMore) return;
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && pagination.hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      {
+        root: null,
+        rootMargin: '100px',
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loadMore, pagination.hasMore, loadingMore]);
 
   const loadProviders = useCallback(async () => {
     try {
@@ -180,10 +275,16 @@ export function Contacts() {
   const openCreateContactDialog = () => {
     setContactDialogMode('create');
     setContactForm({
+      firstName: '',
+      lastName: '',
       displayName: '',
+      email: '',
+      phone: '',
       company: '',
       jobTitle: '',
-      email: '',
+      department: '',
+      birthday: '',
+      website: '',
       notes: '',
       providerId: providers[0]?.id,
     });
@@ -194,12 +295,19 @@ export function Contacts() {
     if (!selectedContact) return;
     setContactDialogMode('edit');
     setContactForm({
-      displayName: getContactName(selectedContact),
+      firstName: selectedContact.firstName || '',
+      lastName: selectedContact.lastName || '',
+      displayName: selectedContact.displayName || '',
+      email: getPrimaryEmail(selectedContact),
+      phone: getPrimaryPhone(selectedContact),
       company: selectedContact.company || '',
       jobTitle: selectedContact.jobTitle || '',
-      email: getPrimaryEmail(selectedContact),
+      department: selectedContact.department || '',
+      birthday: selectedContact.birthday ? new Date(selectedContact.birthday).toISOString().split('T')[0] : '',
+      website: selectedContact.websites?.[0]?.url || '',
       notes: selectedContact.notes || '',
-      providerId: selectedContact.providerId,
+      // Get providerId from first provider contact, or use first available provider
+      providerId: selectedContact.providerContacts?.[0]?.providerId || providers[0]?.id,
     });
     setContactDialogOpen(true);
   };
@@ -223,22 +331,38 @@ export function Contacts() {
       if (contactDialogMode === 'create') {
         await contactsApi.createContact({
           providerId: contactForm.providerId,
-          displayName: contactForm.displayName || undefined,
+          firstName: contactForm.firstName || undefined,
+          lastName: contactForm.lastName || undefined,
+          displayName: contactForm.displayName ||
+            (contactForm.firstName || contactForm.lastName
+              ? `${contactForm.firstName} ${contactForm.lastName}`.trim()
+              : undefined),
           company: contactForm.company || undefined,
           jobTitle: contactForm.jobTitle || undefined,
           notes: contactForm.notes || undefined,
           emails: contactForm.email
             ? [{ value: contactForm.email, primary: true }]
             : undefined,
+          phoneNumbers: contactForm.phone
+            ? [{ value: contactForm.phone, primary: true }]
+            : undefined,
         });
       } else if (selectedContact) {
         await contactsApi.updateContact(selectedContact.id, {
-          displayName: contactForm.displayName || undefined,
+          firstName: contactForm.firstName || undefined,
+          lastName: contactForm.lastName || undefined,
+          displayName: contactForm.displayName ||
+            (contactForm.firstName || contactForm.lastName
+              ? `${contactForm.firstName} ${contactForm.lastName}`.trim()
+              : undefined),
           company: contactForm.company || undefined,
           jobTitle: contactForm.jobTitle || undefined,
           notes: contactForm.notes || undefined,
           emails: contactForm.email
             ? [{ value: contactForm.email, primary: true }]
+            : undefined,
+          phoneNumbers: contactForm.phone
+            ? [{ value: contactForm.phone, primary: true }]
             : undefined,
         });
       }
@@ -298,6 +422,83 @@ export function Contacts() {
     }
   };
 
+  const handleSyncContacts = async () => {
+    if (providers.length === 0) {
+      setSnackbar({
+        open: true,
+        message: 'No providers connected. Please connect a provider first.',
+        severity: 'warning',
+      });
+      return;
+    }
+
+    try {
+      // Get contact-enabled providers
+      const contactProviders = providers.filter((p) => p.supportsContacts);
+
+      if (contactProviders.length === 0) {
+        setSnackbar({
+          open: true,
+          message: 'No connected providers support contacts.',
+          severity: 'warning',
+        });
+        return;
+      }
+
+      // Mark all as syncing
+      setSyncingProviders(new Set(contactProviders.map((p) => p.id)));
+
+      // Trigger bulk sync (queued via BullMQ workers - tenant isolated)
+      const result = await contactsApi.syncAll();
+
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: result.message || `Queued ${result.queued} sync job(s). Syncing in background...`,
+          severity: 'info',
+        });
+
+        // Poll for updates every 3 seconds for 30 seconds
+        let attempts = 0;
+        const maxAttempts = 10;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          try {
+            await loadContacts();
+          } catch (err) {
+            console.error('Failed to reload contacts:', err);
+          }
+
+          if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            setSyncingProviders(new Set());
+            setSnackbar({
+              open: true,
+              message: contactsCopy.alerts?.syncSuccess?.replace('{count}', 'all') ||
+                       'Contact sync completed in background',
+              severity: 'success',
+            });
+          }
+        }, 3000);
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.message || 'Failed to queue sync',
+          severity: 'error',
+        });
+        setSyncingProviders(new Set());
+      }
+    } catch (error) {
+      console.error('Failed to sync contacts:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to sync contacts from providers.',
+        severity: 'error',
+      });
+      setSyncingProviders(new Set());
+    }
+  };
+
   const handleContactClick = (contact: Contact) => {
     setSelectedContact(contact);
     setTabValue(0);
@@ -318,17 +519,6 @@ export function Contacts() {
 
   const selectedContactName = selectedContact ? getContactName(selectedContact) : '';
   const selectedContactEmail = getPrimaryEmail(selectedContact);
-  const selectedContactPhone = getPrimaryPhone(selectedContact);
-  const selectedContactLocation =
-    selectedContact?.addresses && selectedContact.addresses.length > 0
-      ? [
-          selectedContact.addresses[0].city,
-          selectedContact.addresses[0].state,
-          selectedContact.addresses[0].country,
-        ]
-          .filter(Boolean)
-          .join(', ')
-      : '';
   const selectedContactInteractionDate = selectedContact?.updatedAt
     ? new Date(selectedContact.updatedAt)
     : undefined;
@@ -348,10 +538,23 @@ export function Contacts() {
       >
         {/* Header */}
         <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
               {contactsCopy.title}
             </Typography>
+            <Tooltip title={contactsCopy.sync}>
+              <IconButton
+                size="small"
+                onClick={handleSyncContacts}
+                disabled={syncingProviders.size > 0 || providers.length === 0}
+                color="primary"
+              >
+                <RefreshCw
+                  size={18}
+                  className={syncingProviders.size > 0 ? 'animate-spin' : ''}
+                />
+              </IconButton>
+            </Tooltip>
             <Button
               variant="contained"
               size="small"
@@ -391,32 +594,61 @@ export function Contacts() {
               </Typography>
             </Box>
           ) : (
-            contacts.map((contact) => (
-              <React.Fragment key={contact.id}>
-                <ListItemButton
-                  selected={selectedContact?.id === contact.id}
-                  onClick={() => handleContactClick(contact)}
-                  sx={{ px: 2, py: 1.5 }}
-                >
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
-                      {getContactName(contact)?.[0]?.toUpperCase() || 'U'}
-                    </Avatar>
-                  </ListItemAvatar>
-                <ListItemText
-                  primary={getContactName(contact)}
-                  secondary={
-                    contact.company || getPrimaryEmail(contact) ? (
-                      <Typography variant="caption" color="text.secondary">
-                        {contact.company || getPrimaryEmail(contact)}
-                      </Typography>
-                    ) : null
-                  }
-                />
-                </ListItemButton>
-                <Divider />
-              </React.Fragment>
-            ))
+            <>
+              {contacts.map((contact) => (
+                <React.Fragment key={contact.id}>
+                  <ListItemButton
+                    selected={selectedContact?.id === contact.id}
+                    onClick={() => handleContactClick(contact)}
+                    sx={{ px: 2, py: 1.5 }}
+                  >
+                    <ListItemAvatar>
+                      <Avatar
+                        src={contact.photoUrl || undefined}
+                        sx={{ bgcolor: 'primary.main' }}
+                      >
+                        {!contact.photoUrl && (getContactName(contact)?.[0]?.toUpperCase() || 'U')}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="body2">{getContactName(contact)}</Typography>
+                          {contact.providerContacts?.map((pc) => (
+                            <Chip
+                              key={pc.id}
+                              size="small"
+                              label={pc.provider.providerType === 'google' ? 'Gmail' : 'Outlook'}
+                              sx={{
+                                height: 16,
+                                fontSize: '0.65rem',
+                                bgcolor: pc.provider.providerType === 'google' ? '#EA4335' : '#0078D4',
+                                color: 'white',
+                                '& .MuiChip-label': { px: 0.5 },
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      }
+                      secondary={
+                        contact.company || getPrimaryEmail(contact) ? (
+                          <Typography variant="caption" color="text.secondary">
+                            {contact.company || getPrimaryEmail(contact)}
+                          </Typography>
+                        ) : null
+                      }
+                    />
+                  </ListItemButton>
+                  <Divider />
+                </React.Fragment>
+              ))}
+              {/* Infinite scroll sentinel */}
+              {pagination.hasMore && (
+                <Box ref={sentinelRef} sx={{ py: 2, textAlign: 'center' }}>
+                  {loadingMore && <CircularProgress size={24} />}
+                </Box>
+              )}
+            </>
           )}
         </List>
       </Paper>
@@ -508,76 +740,274 @@ export function Contacts() {
           {/* Tab Content */}
           <Box sx={{ flex: 1, overflow: 'auto', px: 3 }}>
             <TabPanel value={tabValue} index={0}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                {contactsCopy.details.contactInformation}
-              </Typography>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 2,
-                  gridTemplateColumns: {
-                    xs: '1fr',
-                    sm: 'repeat(2, minmax(0, 1fr))',
-                  },
-                }}
-              >
+              {/* Provider Sources */}
+              {selectedContact.providerContacts && selectedContact.providerContacts.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                    {contactsCopy.details.syncedFrom}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {selectedContact.providerContacts.map((pc) => (
+                      <Chip
+                        key={pc.id}
+                        label={`${pc.provider.providerType === 'google' ? 'Gmail' : 'Outlook'}: ${pc.provider.email}`}
+                        size="small"
+                        sx={{
+                          bgcolor: pc.provider.providerType === 'google' ? '#EA4335' : '#0078D4',
+                          color: 'white',
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Email Addresses */}
+              {selectedContact.emails && selectedContact.emails.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                    {contactsCopy.details.emailAddresses}
+                  </Typography>
+                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
+                    {selectedContact.emails.map((email, idx) => (
+                      <Card variant="outlined" key={idx}>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Mail size={18} color="#0B7EFF" />
+                            <Typography variant="subtitle2" color="text.secondary">
+                              {email.type || contactsCopy.details.custom} {email.primary && `(${contactsCopy.details.primary})`}
+                            </Typography>
+                          </Box>
+                          <Link href={`mailto:${email.value}`} underline="hover">
+                            <Typography variant="body1">{email.value}</Typography>
+                          </Link>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Phone Numbers */}
+              {selectedContact.phoneNumbers && selectedContact.phoneNumbers.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                    {contactsCopy.details.phoneNumbers}
+                  </Typography>
+                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
+                    {selectedContact.phoneNumbers.map((phone, idx) => (
+                      <Card variant="outlined" key={idx}>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Phone size={18} color="#00C853" />
+                            <Typography variant="subtitle2" color="text.secondary">
+                              {phone.type || contactsCopy.details.custom} {phone.primary && `(${contactsCopy.details.primary})`}
+                            </Typography>
+                          </Box>
+                          <Link href={`tel:${phone.value}`} underline="hover">
+                            <Typography variant="body1">{phone.value}</Typography>
+                          </Link>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Addresses */}
+              {selectedContact.addresses && selectedContact.addresses.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                    {contactsCopy.details.addresses}
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {selectedContact.addresses.map((address, idx) => (
+                      <Card variant="outlined" key={idx}>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <MapPin size={18} color="#9C27B0" />
+                            <Typography variant="subtitle2" color="text.secondary">
+                              {address.type || 'Address'}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1">
+                            {[address.street, address.city, address.state, address.postalCode, address.country]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Professional Information */}
+              {(selectedContact.company || selectedContact.jobTitle || selectedContact.department) && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                    {contactsCopy.details.professional}
+                  </Typography>
+                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
+                    {selectedContact.company && (
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Building size={18} color="#FF9800" />
+                            <Typography variant="subtitle2" color="text.secondary">
+                              {contactsCopy.details.company}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1">{selectedContact.company}</Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedContact.jobTitle && (
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Building size={18} color="#FF9800" />
+                            <Typography variant="subtitle2" color="text.secondary">
+                              {contactsCopy.details.jobTitle}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1">{selectedContact.jobTitle}</Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedContact.department && (
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Building size={18} color="#FF9800" />
+                            <Typography variant="subtitle2" color="text.secondary">
+                              {contactsCopy.details.department}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1">{selectedContact.department}</Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Important Dates */}
+              {(selectedContact.birthday || selectedContact.anniversary) && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                    {contactsCopy.details.importantDates}
+                  </Typography>
+                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
+                    {selectedContact.birthday && (
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Cake size={18} color="#E91E63" />
+                            <Typography variant="subtitle2" color="text.secondary">
+                              {contactsCopy.details.birthday}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1">
+                            {new Date(selectedContact.birthday).toLocaleDateString()}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {selectedContact.anniversary && (
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Calendar size={18} color="#E91E63" />
+                            <Typography variant="subtitle2" color="text.secondary">
+                              {contactsCopy.details.anniversary}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1">
+                            {new Date(selectedContact.anniversary).toLocaleDateString()}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Websites */}
+              {selectedContact.websites && selectedContact.websites.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                    {contactsCopy.details.websites}
+                  </Typography>
+                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
+                    {selectedContact.websites.map((website, idx) => (
+                      <Card variant="outlined" key={idx}>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Globe size={18} color="#4CAF50" />
+                            <Typography variant="subtitle2" color="text.secondary">
+                              {website.type || 'Website'}
+                            </Typography>
+                          </Box>
+                          <Link href={website.url} target="_blank" rel="noopener noreferrer" underline="hover">
+                            <Typography variant="body1">{website.url}</Typography>
+                          </Link>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Social Profiles */}
+              {selectedContact.socialProfiles && selectedContact.socialProfiles.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                    {contactsCopy.details.socialProfiles}
+                  </Typography>
+                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
+                    {selectedContact.socialProfiles.map((profile, idx) => (
+                      <Card variant="outlined" key={idx}>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Globe size={18} color="#2196F3" />
+                            <Typography variant="subtitle2" color="text.secondary">
+                              {profile.platform || 'Social'}
+                            </Typography>
+                          </Box>
+                          {profile.url ? (
+                            <Link href={profile.url} target="_blank" rel="noopener noreferrer" underline="hover">
+                              <Typography variant="body1">
+                                {profile.username || profile.url}
+                              </Typography>
+                            </Link>
+                          ) : (
+                            <Typography variant="body1">{profile.username}</Typography>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Notes */}
+              {selectedContact.notes && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                    {contactsCopy.notes.title}
+                  </Typography>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="body2">{selectedContact.notes}</Typography>
+                    </CardContent>
+                  </Card>
+                </Box>
+              )}
+
+              {/* Last Interaction */}
+              <Box>
                 <Card variant="outlined">
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Mail size={18} color="#0B7EFF" />
-                      <Typography variant="subtitle2" color="text.secondary">
-                        {contactsCopy.details.email}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body1">
-                      {selectedContactEmail || contactsCopy.details.notAvailable}
-                    </Typography>
-                  </CardContent>
-                </Card>
-
-                {selectedContactPhone && (
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Phone size={18} color="#00C853" />
-                        <Typography variant="subtitle2" color="text.secondary">
-                          {contactsCopy.details.phone}
-                        </Typography>
-                      </Box>
-                      <Typography variant="body1">{selectedContactPhone}</Typography>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {selectedContact.company && (
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Building size={18} color="#FF9800" />
-                        <Typography variant="subtitle2" color="text.secondary">
-                          {contactsCopy.details.company}
-                        </Typography>
-                      </Box>
-                      <Typography variant="body1">{selectedContact.company}</Typography>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {selectedContactLocation && (
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <MapPin size={18} color="#9C27B0" />
-                        <Typography variant="subtitle2" color="text.secondary">
-                          {contactsCopy.details.location}
-                        </Typography>
-                      </Box>
-                      <Typography variant="body1">{selectedContactLocation}</Typography>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <Card variant="outlined" sx={{ gridColumn: '1 / -1' }}>
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Clock size={18} color="#757575" />
@@ -591,19 +1021,6 @@ export function Contacts() {
                   </CardContent>
                 </Card>
               </Box>
-
-              {selectedContact.notes && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    {contactsCopy.notes.title}
-                  </Typography>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="body2">{selectedContact.notes}</Typography>
-                    </CardContent>
-                  </Card>
-                </Box>
-              )}
             </TabPanel>
 
             <TabPanel value={tabValue} index={1}>
@@ -661,7 +1078,8 @@ export function Contacts() {
           {contactDialogMode === 'create' ? contactsCopy.createDialog.title : contactsCopy.editDialog.title}
         </DialogTitle>
         <DialogContent dividers>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+            {/* Provider Selection */}
             <FormControl fullWidth disabled={contactDialogMode === 'edit'}>
               <InputLabel>{contactsCopy.createDialog.provider}</InputLabel>
               <Select
@@ -679,34 +1097,106 @@ export function Contacts() {
               </Select>
             </FormControl>
 
-            <TextField
-              label={contactsCopy.createDialog.name}
-              value={contactForm.displayName}
-              onChange={(event) => handleContactFormChange('displayName', event.target.value)}
-              fullWidth
-            />
+            {/* Personal Information */}
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Personal Information
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                  <TextField
+                    label="First Name"
+                    value={contactForm.firstName}
+                    onChange={(event) => handleContactFormChange('firstName', event.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Last Name"
+                    value={contactForm.lastName}
+                    onChange={(event) => handleContactFormChange('lastName', event.target.value)}
+                    fullWidth
+                  />
+                </Box>
+                <TextField
+                  label={contactsCopy.createDialog.name}
+                  value={contactForm.displayName}
+                  onChange={(event) => handleContactFormChange('displayName', event.target.value)}
+                  fullWidth
+                  helperText="Display name (optional if first/last name provided)"
+                />
+                <TextField
+                  label="Birthday"
+                  type="date"
+                  value={contactForm.birthday}
+                  onChange={(event) => handleContactFormChange('birthday', event.target.value)}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Box>
+            </Box>
 
-            <TextField
-              label={contactsCopy.createDialog.email}
-              value={contactForm.email}
-              onChange={(event) => handleContactFormChange('email', event.target.value)}
-              fullWidth
-            />
+            {/* Contact Information */}
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Contact Information
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  label={contactsCopy.createDialog.email}
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(event) => handleContactFormChange('email', event.target.value)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Phone Number"
+                  type="tel"
+                  value={contactForm.phone}
+                  onChange={(event) => handleContactFormChange('phone', event.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  label="Website"
+                  type="url"
+                  value={contactForm.website}
+                  onChange={(event) => handleContactFormChange('website', event.target.value)}
+                  fullWidth
+                  placeholder="https://example.com"
+                />
+              </Box>
+            </Box>
 
-            <TextField
-              label={contactsCopy.createDialog.company}
-              value={contactForm.company}
-              onChange={(event) => handleContactFormChange('company', event.target.value)}
-              fullWidth
-            />
+            {/* Professional Information */}
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Professional Information
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  label={contactsCopy.createDialog.company}
+                  value={contactForm.company}
+                  onChange={(event) => handleContactFormChange('company', event.target.value)}
+                  fullWidth
+                />
+                <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                  <TextField
+                    label={contactsCopy.createDialog.jobTitle}
+                    value={contactForm.jobTitle}
+                    onChange={(event) => handleContactFormChange('jobTitle', event.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Department"
+                    value={contactForm.department}
+                    onChange={(event) => handleContactFormChange('department', event.target.value)}
+                    fullWidth
+                  />
+                </Box>
+              </Box>
+            </Box>
 
-            <TextField
-              label={contactsCopy.createDialog.jobTitle}
-              value={contactForm.jobTitle}
-              onChange={(event) => handleContactFormChange('jobTitle', event.target.value)}
-              fullWidth
-            />
-
+            {/* Notes */}
             <TextField
               label={contactsCopy.createDialog.notes}
               value={contactForm.notes}
