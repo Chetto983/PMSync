@@ -178,6 +178,8 @@ export const useEmailStore = create<EmailState>((set, get) => ({
           return {
             emails: [newEmail, ...state.emails],
             unreadCount: !newEmail.isRead ? state.unreadCount + 1 : state.unreadCount,
+            // Update selectedEmail if this is the currently selected email
+            selectedEmail: state.selectedEmail?.id === id ? newEmail : state.selectedEmail,
           };
         }
         // If it's just partial updates, ignore (can't add email with partial data)
