@@ -64,6 +64,16 @@ function mapApiEmailToStore(apiEmail: any): any {
 }
 
 /**
+ * Props for Mailbox component
+ */
+interface MailboxProps {
+  /**
+   * Initial search query from URL or external source
+   */
+  initialSearchQuery?: string;
+}
+
+/**
  * Mailbox - Modern email interface with unified components
  *
  * Uses:
@@ -74,7 +84,7 @@ function mapApiEmailToStore(apiEmail: any): any {
  * - email-store for global state
  * - Custom hooks for actions and keyboard navigation
  */
-export function Mailbox() {
+export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const t = useTranslations();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -133,7 +143,7 @@ export function Mailbox() {
   const [foldersLoading, setFoldersLoading] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
-  const [searchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
   const [, setRefreshing] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeMode, setComposeMode] = useState<'compose' | 'reply' | 'forward'>('compose');

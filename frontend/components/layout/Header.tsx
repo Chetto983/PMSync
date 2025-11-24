@@ -162,7 +162,7 @@ export function Header({
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchValue.trim()) {
-      router.push(`/dashboard/search?q=${encodeURIComponent(searchValue)}`);
+      router.push(`/dashboard/email?search=${encodeURIComponent(searchValue)}`);
     }
   };
 

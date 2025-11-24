@@ -46,6 +46,9 @@ export default function EmailPage() {
     DEFAULT_USER_SETTINGS.theme
   );
 
+  // Read search query parameter from URL
+  const searchQuery = typeof router.query.search === 'string' ? router.query.search : undefined;
+
   const resolvedThemeMode = resolveThemePreference(themePreference, prefersDarkMode);
   const theme = resolvedThemeMode === 'dark' ? darkTheme : lightTheme;
 
@@ -174,7 +177,7 @@ export default function EmailPage() {
               overflow: 'hidden',
             }}
           >
-            <Mailbox />
+            <Mailbox initialSearchQuery={searchQuery} />
           </Box>
         </Box>
       </Box>
