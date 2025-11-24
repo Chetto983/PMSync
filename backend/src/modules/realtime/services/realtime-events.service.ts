@@ -91,6 +91,9 @@ export class RealtimeEventsService {
    * Emette evento per email aggiornata (es. letta, starred, labels)
    */
   emitEmailUpdate(tenantId: string, payload: EmailEventPayload) {
+    this.logger.debug(
+      `[emitEmailUpdate] Emitting email:update event - Tenant: ${tenantId}, Reason: ${payload.reason}, EmailId: ${payload.emailId}, Has email object: ${!!payload.email}, Has emailLabels: ${!!(payload.email as any)?.emailLabels}, EmailLabels count: ${(payload.email as any)?.emailLabels?.length || 0}`
+    );
     this.bufferEmailEvent(tenantId, 'email:update', payload);
   }
 
