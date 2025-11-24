@@ -548,6 +548,9 @@ export class EmailSyncBackService {
   async syncOperationsBatch(operations: EmailSyncOperation[]): Promise<void> {
     if (!operations.length) return;
 
+    this.logger.log(`[SYNC-BACK] Starting batch sync for ${operations.length} operations`);
+    this.logger.debug(`[SYNC-BACK] Operations: ${JSON.stringify(operations.map(op => ({ operation: op.operation, externalId: op.externalId })))}`);
+
     const gmailByProvider = new Map<string, EmailSyncOperation[]>();
     const microsoftByProvider = new Map<string, EmailSyncOperation[]>();
     const otherOps: EmailSyncOperation[] = [];
@@ -608,6 +611,8 @@ export class EmailSyncBackService {
    */
   private async syncGmailBatch(provider: any, ops: EmailSyncOperation[]) {
     if (!ops.length) return;
+
+    this.logger.log(`[SYNC-BACK] Syncing ${ops.length} operations to Gmail provider ${provider.id}`);
 
     const accessToken = await this.getValidAccessToken(provider);
     const auth = new google.auth.OAuth2();
@@ -775,6 +780,8 @@ export class EmailSyncBackService {
         `gmail batchUnflag (${ids.length})`,
       );
     }
+
+    this.logger.log(`[SYNC-BACK] ✅ Gmail batch sync completed for provider ${provider.id}`);
   }
 
   /**
