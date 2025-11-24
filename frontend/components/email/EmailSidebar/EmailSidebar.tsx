@@ -222,7 +222,15 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
   const router = useRouter();
   const t = useTranslations();
   const countsByFolderId = useFoldersStore((state) => state.countsByFolderId);
-  const { labels, fetchLabels, isLoading: labelsLoading } = useLabelStore();
+  // Use explicit selectors for better re-render reliability
+  const labels = useLabelStore((state) => state.labels);
+  const fetchLabels = useLabelStore((state) => state.fetchLabels);
+  const labelsLoading = useLabelStore((state) => state.isLoading);
+
+  // Debug: Track label changes
+  useEffect(() => {
+    console.log('[EmailSidebar] Labels changed:', labels.length, labels);
+  }, [labels]);
 
   // Load labels on mount
   useEffect(() => {

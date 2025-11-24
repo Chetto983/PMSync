@@ -44,6 +44,7 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
   },
 
   createLabel: async (name: string, colorHex: string) => {
+    console.log('[Label Store] createLabel called:', { name, colorHex });
     set({ isLoading: true, error: null });
     try {
       const response = await labelsApi.createLabel({
@@ -51,18 +52,23 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
         color: hexToLabelColor(colorHex),
       });
       const newLabel = response.label;
+      console.log('[Label Store] createLabel API response:', newLabel);
       set((state) => {
+        console.log('[Label Store] createLabel - current labels:', state.labels.length);
         const newLabels = [...state.labels, newLabel];
-        return {
+        console.log('[Label Store] createLabel - new labels count:', newLabels.length);
+        const newState = {
           ...state,
           labels: newLabels,
           isLoading: false,
           error: null,
         };
+        console.log('[Label Store] createLabel - returning new state');
+        return newState;
       });
       return newLabel;
     } catch (error) {
-      console.error('Failed to create label:', error);
+      console.error('[Label Store] Failed to create label:', error);
       set((state) => ({
         ...state,
         error: 'Failed to create label',

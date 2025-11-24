@@ -60,15 +60,14 @@ const LABEL_COLORS = [
  */
 export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => {
   const t = useTranslations();
-  const {
-    labels,
-    isLoading,
-    error,
-    fetchLabels,
-    createLabel,
-    updateLabel,
-    deleteLabel,
-  } = useLabelStore();
+  // Use explicit selectors for better re-render reliability
+  const labels = useLabelStore((state) => state.labels);
+  const isLoading = useLabelStore((state) => state.isLoading);
+  const error = useLabelStore((state) => state.error);
+  const fetchLabels = useLabelStore((state) => state.fetchLabels);
+  const createLabel = useLabelStore((state) => state.createLabel);
+  const updateLabel = useLabelStore((state) => state.updateLabel);
+  const deleteLabel = useLabelStore((state) => state.deleteLabel);
 
   const [isCreating, setIsCreating] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
@@ -77,9 +76,15 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Debug: Track label changes
+  useEffect(() => {
+    console.log('[LabelManager] Labels changed:', labels.length, labels);
+  }, [labels]);
+
   // Load labels when dialog opens
   useEffect(() => {
     if (open) {
+      console.log('[LabelManager] Dialog opened, fetching labels');
       fetchLabels();
     }
   }, [open, fetchLabels]);
