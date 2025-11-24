@@ -202,11 +202,20 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
 
     return (
       <>
+        <Box
+          sx={{
+            position: 'relative',
+            '&:hover .thread-action-bar': {
+              opacity: 1,
+              visibility: 'visible',
+            },
+          }}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
         <ListItemButton
           selected={selected}
           onClick={handleClick}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
           onFocus={() => setIsHovered(true)}
           onBlur={() => setIsHovered(false)}
           sx={{
@@ -342,8 +351,22 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             </Box>
           </Box>
 
-          {/* Floating Action Bar */}
-          {(onToggleRead || onToggleStar || onToggleImportant || onArchive || onDelete) && (
+        </ListItemButton>
+
+        {/* Floating Action Bar - Outside the button */}
+        {(onToggleRead || onToggleStar || onToggleImportant || onArchive || onDelete) && (
+          <Box
+            className="thread-action-bar"
+            sx={{
+              position: 'absolute',
+              left: 'calc(100% + 8px)',
+              top: 8,
+              opacity: 0,
+              visibility: 'hidden',
+              transition: 'opacity 0.2s ease, visibility 0.2s ease',
+              zIndex: 10,
+            }}
+          >
             <ThreadActionBar
               isRead={isRead}
               isStarred={isStarred}
@@ -353,12 +376,13 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
               onToggleImportant={handleToggleImportant}
               onArchive={handleArchive}
               onDelete={handleDelete}
-              showOnHover={!isTouchDevice}
-              isHovered={isHovered || isTouchDevice}
-              position="center"
+              showOnHover={false}
+              isHovered={true}
+              position="top"
             />
-          )}
-        </ListItemButton>
+          </Box>
+        )}
+        </Box>
         <Divider />
       </>
     );
