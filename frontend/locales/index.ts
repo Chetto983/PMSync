@@ -116,6 +116,8 @@ export interface AppTranslations {
     refreshing: string;
     saving: string;
     sending: string;
+    syncAll: string;
+    syncing: string;
     otpPlaceholder: string;
     emailPlaceholder: string;
     passwordPlaceholder: string;

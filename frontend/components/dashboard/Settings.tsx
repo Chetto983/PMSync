@@ -526,7 +526,7 @@ export function Settings() {
                         onClick={handleSyncAll}
                         disabled={providersLoading || syncAllLoading || providers.length === 0}
                       >
-                        {syncAllLoading ? 'Syncing...' : 'Sync All (Purge)'}
+                        {syncAllLoading ? t.common.syncing : t.common.syncAll}
                       </Button>
                     </Stack>
                   </Stack>
