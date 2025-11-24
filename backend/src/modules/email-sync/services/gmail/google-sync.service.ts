@@ -461,7 +461,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
       const metadata = mergeEmailStatusMetadata(existing.metadata as Record<string, any> | null, isDeleted ? 'deleted' : 'active');
 
       try {
-        await this.prisma.email.update({
+        const updatedEmail = await this.prisma.email.update({
           where: { id: existing.id },
           data: {
             labels: labelIds,
@@ -471,12 +471,22 @@ export class GoogleSyncService extends BaseEmailSyncService {
             isStarred,
             metadata,
           },
+          include: {
+            emailLabels: {
+              include: {
+                label: true,
+              },
+            },
+          },
         });
 
-        this.notifyGmailMailboxChange(tenantId, providerId, 'labels-updated', {
-          emailId: existing.id,
-          externalId: messageId,
-          folder,
+        // Emit WebSocket event with full email object so frontend can update immediately
+        this.realtimeEvents.emitEmailUpdate(tenantId, {
+          emailId: updatedEmail.id,
+          providerId: updatedEmail.providerId,
+          folder: updatedEmail.folder,
+          reason: 'labels-updated',
+          email: updatedEmail as any,
         });
       } catch (updateError) {
         const message = updateError instanceof Error ? updateError.message : String(updateError);
