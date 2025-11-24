@@ -989,8 +989,9 @@ export class EmailsService {
       operation: 'delete' as const,
     }));
 
+    this.logger.log(`[BULK DELETE] Queuing sync-back for ${operations.length} emails to providers`);
     this.emailSyncBack.syncOperationsBatch(operations).catch((error) => {
-      this.logger.error(`Failed to sync bulk delete to provider: ${error.message}`);
+      this.logger.error(`[BULK DELETE] Failed to sync bulk delete to provider: ${error.message}`, error.stack);
     });
 
     // Get updated emails to emit WebSocket events
