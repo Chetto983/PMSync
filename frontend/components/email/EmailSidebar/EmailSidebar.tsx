@@ -24,7 +24,17 @@ import {
   Tag,
   Settings,
 } from 'lucide-react';
-import { useDroppable } from '@dnd-kit/core';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  useDroppable,
+  useDraggable,
+} from '@dnd-kit/core';
 import { useRouter } from 'next/router';
 import { useFoldersStore } from '@/stores/folders-store';
 import { useLabelStore } from '@/stores/label-store';
@@ -121,7 +131,7 @@ interface EmailSidebarProps {
 }
 
 /**
- * Droppable Folder Item Component
+ * Draggable & Droppable Folder Item Component
  */
 interface DroppableFolderItemProps {
   folder: FolderItem;
@@ -136,17 +146,40 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
   count,
   onSelect,
 }) => {
-  const { setNodeRef, isOver } = useDroppable({
-    id: folder.id,
+  // Make it droppable (for dropping emails into folder)
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
+    id: `droppable-${folder.id}`,
     data: {
       type: 'folder',
       folder,
     },
   });
 
+  // Make it draggable (for reordering folders)
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDraggableRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: `draggable-${folder.id}`,
+    data: {
+      type: 'folder-reorder',
+      folder,
+    },
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
   return (
     <ListItemButton
-      ref={setNodeRef}
+      ref={(node) => {
+        setDroppableRef(node);
+        setDraggableRef(node);
+      }}
       selected={isSelected}
       onClick={onSelect}
       sx={{
@@ -160,7 +193,12 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
         borderColor: isOver ? 'primary.main' : 'transparent',
         transition: 'all 0.2s ease',
         minHeight: 36,
+        opacity: isDragging ? 0.5 : 1,
+        cursor: isDragging ? 'grabbing' : 'grab',
+        ...style,
       }}
+      {...attributes}
+      {...listeners}
     >
       <ListItemIcon
         sx={{
@@ -286,6 +324,30 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
       newExpanded.add(providerId);
     }
     setExpandedProviders(newExpanded);
+  };
+
+  // Setup drag sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before dragging starts
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
+  // Handle drag end for folder reordering
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    // Only handle folder reordering (not email dropping)
+    if (active.data.current?.type !== 'folder-reorder') return;
+
+    console.log('[EmailSidebar] Folder reordered:', { from: active.id, to: over.id });
+    // TODO: Implement folder reordering logic
+    // This would require storing custom folder order in state/localStorage
   };
 
   // Get live count for a folder
@@ -608,7 +670,8 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
             </Typography>
           </Box>
         ) : (
-          folderGroups.map((group) => (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            {folderGroups.map((group) => (
             <Accordion
               key={group.providerId}
               expanded={expandedProviders.has(group.providerId)}
@@ -657,7 +720,8 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                 </List>
               </AccordionDetails>
             </Accordion>
-          ))
+          ))}
+          </DndContext>
         )}
         </List>
       </Box>
