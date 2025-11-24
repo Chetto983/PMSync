@@ -353,14 +353,15 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
 
         </ListItemButton>
 
-        {/* Floating Action Bar - Outside the button */}
+        {/* Floating Action Bar - Centered at top */}
         {(onToggleRead || onToggleStar || onToggleImportant || onArchive || onDelete) && (
           <Box
             className="thread-action-bar"
             sx={{
               position: 'absolute',
-              left: 'calc(100% + 8px)',
+              left: '50%',
               top: 8,
+              transform: 'translateX(-50%)',
               opacity: 0,
               visibility: 'hidden',
               transition: 'opacity 0.2s ease, visibility 0.2s ease',
