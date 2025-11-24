@@ -41,6 +41,12 @@ interface LabelSelectorProps {
    * Whether the selector is disabled
    */
   disabled?: boolean;
+
+  /**
+   * Optional: Pass selected labels directly (from email.emailLabels)
+   * This allows showing labels even if labelStore is not populated
+   */
+  selectedLabels?: Array<{ id: string; name: string; color?: { backgroundColor: string; textColor: string } | null }>;
 }
 
 /**
@@ -58,6 +64,7 @@ export const LabelSelector: React.FC<LabelSelectorProps> = ({
   variant = 'chips',
   onManageLabels,
   disabled = false,
+  selectedLabels: passedSelectedLabels,
 }) => {
   const t = useTranslations();
   const labelsCopy = t.dashboard.labels;
@@ -65,7 +72,7 @@ export const LabelSelector: React.FC<LabelSelectorProps> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
-  // Load labels on mount
+  // Load labels on mount (for dropdown menu)
   useEffect(() => {
     if (labels.length === 0) {
       fetchLabels();
@@ -95,7 +102,10 @@ export const LabelSelector: React.FC<LabelSelectorProps> = ({
     onLabelsChange(selectedLabelIds.filter((id) => id !== labelId));
   };
 
-  const selectedLabels = labels.filter((label) => selectedLabelIds.includes(label.id));
+  // Use passed selectedLabels if available, otherwise filter from store
+  const selectedLabels = passedSelectedLabels && passedSelectedLabels.length > 0
+    ? passedSelectedLabels
+    : labels.filter((label) => selectedLabelIds.includes(label.id));
 
   if (variant === 'button') {
     return (

@@ -469,6 +469,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           <Box sx={{ mb: 2 }}>
             <LabelSelector
               selectedLabelIds={email.emailLabels?.map(el => el.label.id) || []}
+              selectedLabels={email.emailLabels?.map(el => el.label) || []}
               onLabelsChange={handleLabelsChange}
               variant="chips"
             />
