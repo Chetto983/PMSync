@@ -245,6 +245,26 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
     return new Set(folderGroups.map((g) => g.providerId));
   });
 
+  // Track which sections are expanded (Smart Filters, Labels)
+  const [smartFiltersExpanded, setSmartFiltersExpanded] = useState(() => {
+    const saved = localStorage.getItem('sidebar-smart-filters-expanded');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  const [labelsExpanded, setLabelsExpanded] = useState(() => {
+    const saved = localStorage.getItem('sidebar-labels-expanded');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  // Save expansion states to localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebar-smart-filters-expanded', JSON.stringify(smartFiltersExpanded));
+  }, [smartFiltersExpanded]);
+
+  useEffect(() => {
+    localStorage.setItem('sidebar-labels-expanded', JSON.stringify(labelsExpanded));
+  }, [labelsExpanded]);
+
   // Default compose handler
   const handleCompose = () => {
     if (onCompose) {
@@ -322,63 +342,84 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
       {/* Smart Filters */}
       {showSmartFilters && smartFilters.length > 0 && (
         <>
-          <Box sx={{ px: 2, py: 1 }}>
-            <Stack direction="row" alignItems="center" spacing={0.5}>
-              <Filter size={14} />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ fontWeight: 600, textTransform: 'uppercase' }}
-              >
-                {t.dashboard.email.quickFilters.title}
-              </Typography>
-            </Stack>
-          </Box>
-
-          <List sx={{ px: 1, pb: 1 }}>
-            {smartFilters.map((filter) => {
-              const isSelected = selectedFolderId === filter.id;
-              return (
-                <ListItemButton
-                  key={filter.id}
-                  selected={isSelected}
-                  onClick={() => onFolderSelect(filter.id)}
-                  sx={{
-                    borderRadius: 2,
-                    mb: 0.5,
-                    mx: 1,
-                  }}
+          <Accordion
+            expanded={smartFiltersExpanded}
+            onChange={() => setSmartFiltersExpanded(!smartFiltersExpanded)}
+            disableGutters
+            elevation={0}
+            sx={{
+              '&:before': { display: 'none' },
+              '&.Mui-expanded': { margin: 0 },
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ChevronDown size={16} />}
+              sx={{
+                minHeight: 40,
+                px: 2,
+                '&.Mui-expanded': { minHeight: 40 },
+                '& .MuiAccordionSummary-content': { my: 0.5 },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={0.5}>
+                <Filter size={14} />
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontWeight: 600, textTransform: 'uppercase' }}
                 >
-                  <ListItemIcon
-                    sx={{
-                      minWidth: 36,
-                      color: filter.color || 'inherit',
-                    }}
-                  >
-                    {filter.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={filter.label}
-                    primaryTypographyProps={{
-                      fontSize: '0.875rem',
-                      fontWeight: isSelected ? 600 : 500,
-                    }}
-                  />
-                  {filter.count != null && filter.count > 0 && (
-                    <Chip
-                      label={filter.count}
-                      size="small"
+                  {t.dashboard.email.quickFilters.title}
+                </Typography>
+              </Stack>
+            </AccordionSummary>
+
+            <AccordionDetails sx={{ p: 0 }}>
+              <List sx={{ px: 1, pb: 1 }}>
+                {smartFilters.map((filter) => {
+                  const isSelected = selectedFolderId === filter.id;
+                  return (
+                    <ListItemButton
+                      key={filter.id}
+                      selected={isSelected}
+                      onClick={() => onFolderSelect(filter.id)}
                       sx={{
-                        height: 20,
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
+                        borderRadius: 2,
+                        mb: 0.5,
+                        mx: 1,
                       }}
-                    />
-                  )}
-                </ListItemButton>
-              );
-            })}
-          </List>
+                    >
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 36,
+                          color: filter.color || 'inherit',
+                        }}
+                      >
+                        {filter.icon}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={filter.label}
+                        primaryTypographyProps={{
+                          fontSize: '0.875rem',
+                          fontWeight: isSelected ? 600 : 500,
+                        }}
+                      />
+                      {filter.count != null && filter.count > 0 && (
+                        <Chip
+                          label={filter.count}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                          }}
+                        />
+                      )}
+                    </ListItemButton>
+                  );
+                })}
+              </List>
+            </AccordionDetails>
+          </Accordion>
 
           <Divider sx={{ mx: 2, mb: 1 }} />
         </>
@@ -387,92 +428,118 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
       {/* Labels Section */}
       {showLabels && (
         <>
-          <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Stack direction="row" alignItems="center" spacing={0.5}>
-              <Tag size={14} />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ fontWeight: 600, textTransform: 'uppercase' }}
-              >
-                Labels
-              </Typography>
-            </Stack>
-            {onManageLabels && (
-              <IconButton
-                size="small"
-                onClick={onManageLabels}
-                sx={{
-                  width: { xs: 44, sm: 'auto' },
-                  height: { xs: 44, sm: 'auto' },
-                }}
-              >
-                <Settings size={14} />
-              </IconButton>
-            )}
-          </Box>
-
-          <List sx={{ px: 1, pb: 1 }}>
-            {labelsLoading ? (
-              <Box sx={{ px: 2, py: 1 }}>
-                <Skeleton variant="text" width="60%" />
-                <Skeleton variant="text" width="50%" />
-              </Box>
-            ) : labels.length === 0 ? (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ px: 3, py: 1, display: 'block' }}
-              >
-                No labels yet
-              </Typography>
-            ) : (
-              labels.slice(0, 10).map((label) => {
-                const labelId = `label:${label.id}`;
-                const isSelected = selectedFolderId === labelId;
-                return (
-                  <ListItemButton
-                    key={label.id}
-                    selected={isSelected}
-                    onClick={() => onFolderSelect(labelId)}
+          <Accordion
+            expanded={labelsExpanded}
+            onChange={() => setLabelsExpanded(!labelsExpanded)}
+            disableGutters
+            elevation={0}
+            sx={{
+              '&:before': { display: 'none' },
+              '&.Mui-expanded': { margin: 0 },
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ChevronDown size={16} />}
+              sx={{
+                minHeight: 40,
+                px: 2,
+                '&.Mui-expanded': { minHeight: 40 },
+                '& .MuiAccordionSummary-content': { my: 0.5 },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flex: 1 }}>
+                <Tag size={14} />
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontWeight: 600, textTransform: 'uppercase' }}
+                >
+                  Labels
+                </Typography>
+                <Box sx={{ flex: 1 }} />
+                {onManageLabels && (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onManageLabels();
+                    }}
                     sx={{
-                      borderRadius: 2,
-                      mb: 0.5,
-                      mx: 1,
+                      width: 28,
+                      height: 28,
+                      mr: 1,
                     }}
                   >
-                    <ListItemIcon
-                      sx={{
-                        minWidth: 36,
-                      }}
-                    >
-                      <Tag size={18} color={labelColorToHex(label.color)} />
-                    </ListItemIcon>
-                    <Chip
-                      label={label.name}
-                      size="small"
-                      sx={{
-                        bgcolor: labelColorToHex(label.color),
-                        color: '#fff',
-                        fontWeight: 500,
-                        fontSize: '0.75rem',
-                      }}
-                    />
-                    <Box sx={{ flex: 1 }} />
-                  </ListItemButton>
-                );
-              })
-            )}
-            {labels.length > 10 && (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ px: 3, py: 0.5, display: 'block' }}
-              >
-                +{labels.length - 10} more
-              </Typography>
-            )}
-          </List>
+                    <Settings size={14} />
+                  </IconButton>
+                )}
+              </Stack>
+            </AccordionSummary>
+
+            <AccordionDetails sx={{ p: 0 }}>
+              <List sx={{ px: 1, pb: 1 }}>
+                {labelsLoading ? (
+                  <Box sx={{ px: 2, py: 1 }}>
+                    <Skeleton variant="text" width="60%" />
+                    <Skeleton variant="text" width="50%" />
+                  </Box>
+                ) : labels.length === 0 ? (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ px: 3, py: 1, display: 'block' }}
+                  >
+                    No labels yet
+                  </Typography>
+                ) : (
+                  labels.slice(0, 10).map((label) => {
+                    const labelId = `label:${label.id}`;
+                    const isSelected = selectedFolderId === labelId;
+                    return (
+                      <ListItemButton
+                        key={label.id}
+                        selected={isSelected}
+                        onClick={() => onFolderSelect(labelId)}
+                        sx={{
+                          borderRadius: 2,
+                          mb: 0.5,
+                          mx: 1,
+                        }}
+                      >
+                        <ListItemIcon
+                          sx={{
+                            minWidth: 36,
+                          }}
+                        >
+                          <Tag size={18} color={labelColorToHex(label.color)} />
+                        </ListItemIcon>
+                        <Chip
+                          label={label.name}
+                          size="small"
+                          sx={{
+                            bgcolor: labelColorToHex(label.color),
+                            color: '#fff',
+                            fontWeight: 500,
+                            fontSize: '0.75rem',
+                          }}
+                        />
+                        <Box sx={{ flex: 1 }} />
+                      </ListItemButton>
+                    );
+                  })
+                )}
+                {labels.length > 10 && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ px: 3, py: 0.5, display: 'block' }}
+                  >
+                    +{labels.length - 10} more
+                  </Typography>
+                )}
+              </List>
+            </AccordionDetails>
+          </Accordion>
 
           <Divider sx={{ mx: 2, mb: 1 }} />
         </>
