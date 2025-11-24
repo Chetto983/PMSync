@@ -117,26 +117,37 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const { token } = useAuthStore();
 
   // Store state
-  const {
-    emails: storeEmails,
-    selectedEmail: storeSelectedEmail,
-    isLoading: storeLoading,
-    selectedIds,
-    setEmails,
-    appendEmails,
-    setSelectedEmail,
-    setLoading,
-    toggleSelection,
-    selectAll,
-    clearSelection,
-    markAsRead: storeMarkAsRead,
-    bulkDelete: storeBulkDelete,
-    markAsStarred: storeMarkAsStarred,
-    markAsImportant: storeMarkAsImportant,
-  } = useEmailStore();
+  // Use explicit selectors for better re-render reliability
+  const storeEmails = useEmailStore((state) => state.emails);
+  const storeSelectedEmail = useEmailStore((state) => state.selectedEmail);
+  const storeLoading = useEmailStore((state) => state.isLoading);
+  const selectedIds = useEmailStore((state) => state.selectedIds);
+  const setEmails = useEmailStore((state) => state.setEmails);
+  const appendEmails = useEmailStore((state) => state.appendEmails);
+  const setSelectedEmail = useEmailStore((state) => state.setSelectedEmail);
+  const setLoading = useEmailStore((state) => state.setLoading);
+  const toggleSelection = useEmailStore((state) => state.toggleSelection);
+  const selectAll = useEmailStore((state) => state.selectAll);
+  const clearSelection = useEmailStore((state) => state.clearSelection);
+  const storeMarkAsRead = useEmailStore((state) => state.markAsRead);
+  const storeBulkDelete = useEmailStore((state) => state.bulkDelete);
+  const storeMarkAsStarred = useEmailStore((state) => state.markAsStarred);
+  const storeMarkAsImportant = useEmailStore((state) => state.markAsImportant);
 
   // WebSocket for real-time updates (email events, folder counts, etc.)
   const { isConnected, connectionStatus } = useWebSocket(token, true);
+
+  // Debug: Track email changes
+  useEffect(() => {
+    console.log('[Mailbox] Store emails changed:', storeEmails.length, 'emails');
+  }, [storeEmails]);
+
+  // Debug: Track selected email changes
+  useEffect(() => {
+    if (storeSelectedEmail) {
+      console.log('[Mailbox] Selected email changed:', storeSelectedEmail.id, 'labels:', storeSelectedEmail.emailLabels?.length);
+    }
+  }, [storeSelectedEmail]);
 
   // Local state for folders and UI
   const [remoteFolders, setRemoteFolders] = useState<FolderItem[]>([]);
