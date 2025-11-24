@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   List,
@@ -35,11 +35,13 @@ import {
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core';
+import { debounce } from 'lodash-es';
 import { useRouter } from 'next/router';
 import { useFoldersStore } from '@/stores/folders-store';
 import { useLabelStore } from '@/stores/label-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { labelColorToHex } from '@/lib/api/labels';
+import { usersApi } from '@/lib/api/users';
 
 /**
  * Folder item with provider info
@@ -303,19 +305,70 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
     return saved !== null ? JSON.parse(saved) : {};
   });
 
-  // Save expansion states to localStorage
+  // Load preferences from API on mount
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const preferences = await usersApi.getPreferences();
+
+        // Update folder orders if available from server
+        if (preferences.folderOrders) {
+          setFolderOrders(preferences.folderOrders as Record<string, string[]>);
+          localStorage.setItem('sidebar-folder-orders', JSON.stringify(preferences.folderOrders));
+        }
+
+        // Update other preferences
+        if (preferences.sidebarSmartFiltersExpanded !== undefined) {
+          setSmartFiltersExpanded(preferences.sidebarSmartFiltersExpanded);
+          localStorage.setItem('sidebar-smart-filters-expanded', JSON.stringify(preferences.sidebarSmartFiltersExpanded));
+        }
+
+        if (preferences.sidebarLabelsExpanded !== undefined) {
+          setLabelsExpanded(preferences.sidebarLabelsExpanded);
+          localStorage.setItem('sidebar-labels-expanded', JSON.stringify(preferences.sidebarLabelsExpanded));
+        }
+      } catch (error) {
+        console.error('[EmailSidebar] Failed to load preferences from server:', error);
+        // Fall back to localStorage values already loaded in state
+      }
+    };
+
+    loadPreferences();
+  }, []);
+
+  // Debounced function to save preferences to API
+  const savePreferencesToAPI = useCallback(
+    debounce(async (data: {
+      folderOrders?: Record<string, string[]>;
+      sidebarSmartFiltersExpanded?: boolean;
+      sidebarLabelsExpanded?: boolean;
+    }) => {
+      try {
+        await usersApi.updatePreferences(data);
+        console.log('[EmailSidebar] Preferences saved to server');
+      } catch (error) {
+        console.error('[EmailSidebar] Failed to save preferences to server:', error);
+      }
+    }, 1000),
+    []
+  );
+
+  // Save expansion states to localStorage and API
   useEffect(() => {
     localStorage.setItem('sidebar-smart-filters-expanded', JSON.stringify(smartFiltersExpanded));
-  }, [smartFiltersExpanded]);
+    savePreferencesToAPI({ sidebarSmartFiltersExpanded: smartFiltersExpanded });
+  }, [smartFiltersExpanded, savePreferencesToAPI]);
 
   useEffect(() => {
     localStorage.setItem('sidebar-labels-expanded', JSON.stringify(labelsExpanded));
-  }, [labelsExpanded]);
+    savePreferencesToAPI({ sidebarLabelsExpanded: labelsExpanded });
+  }, [labelsExpanded, savePreferencesToAPI]);
 
-  // Save folder orders to localStorage
+  // Save folder orders to localStorage and API
   useEffect(() => {
     localStorage.setItem('sidebar-folder-orders', JSON.stringify(folderOrders));
-  }, [folderOrders]);
+    savePreferencesToAPI({ folderOrders });
+  }, [folderOrders, savePreferencesToAPI]);
 
   // Default compose handler
   const handleCompose = () => {

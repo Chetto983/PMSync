@@ -33,29 +33,47 @@ model Tenant {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  tenantId     String
-  email        String
-  passwordHash String
-  firstName    String?
-  lastName     String?
-  role         String        @default("user")
-  isActive     Boolean       @default(true)
-  isMfaEnabled Boolean       @default(true)
-  lastLogin    DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  deletedAt    DateTime?
-  auditLogs    AuditLog[]
-  chatSessions ChatSession[]
-  messages     Message[]
-  mfaCodes     MfaCode[]
-  sessions     Session[]
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  tenantId        String
+  email           String
+  passwordHash    String
+  firstName       String?
+  lastName        String?
+  role            String           @default("user")
+  isActive        Boolean          @default(true)
+  isMfaEnabled    Boolean          @default(true)
+  lastLogin       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+  auditLogs       AuditLog[]
+  chatSessions    ChatSession[]
+  messages        Message[]
+  mfaCodes        MfaCode[]
+  sessions        Session[]
+  userPreferences UserPreferences?
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
   @@index([tenantId])
   @@map("users")
+}
+
+model UserPreferences {
+  id                       String   @id @default(cuid())
+  userId                   String   @unique
+  folderOrders             Json?
+  sidebarSmartFiltersExpanded Boolean  @default(true)
+  sidebarLabelsExpanded    Boolean  @default(true)
+  theme                    String?  @default("light")
+  language                 String?  @default("en")
+  emailDensity             String?  @default("comfortable")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_preferences")
 }
 
 model MfaCode {

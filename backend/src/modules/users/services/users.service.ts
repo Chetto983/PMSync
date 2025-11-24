@@ -117,4 +117,63 @@ export class UsersService {
       take: limit,
     });
   }
+
+  /**
+   * Get user preferences
+   */
+  async getUserPreferences(userId: string) {
+    let preferences = await this.prisma.userPreferences.findUnique({
+      where: { userId },
+    });
+
+    // Create default preferences if they don't exist
+    if (!preferences) {
+      preferences = await this.prisma.userPreferences.create({
+        data: {
+          userId,
+          folderOrders: {},
+          sidebarSmartFiltersExpanded: true,
+          sidebarLabelsExpanded: true,
+          theme: 'light',
+          language: 'en',
+          emailDensity: 'comfortable',
+        },
+      });
+    }
+
+    return preferences;
+  }
+
+  /**
+   * Update user preferences
+   */
+  async updateUserPreferences(userId: string, data: {
+    folderOrders?: Record<string, string[]>;
+    sidebarSmartFiltersExpanded?: boolean;
+    sidebarLabelsExpanded?: boolean;
+    theme?: string;
+    language?: string;
+    emailDensity?: string;
+  }) {
+    // Check if preferences exist
+    const existing = await this.prisma.userPreferences.findUnique({
+      where: { userId },
+    });
+
+    if (existing) {
+      // Update existing preferences
+      return this.prisma.userPreferences.update({
+        where: { userId },
+        data,
+      });
+    } else {
+      // Create new preferences with provided data
+      return this.prisma.userPreferences.create({
+        data: {
+          userId,
+          ...data,
+        },
+      });
+    }
+  }
 }
