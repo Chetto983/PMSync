@@ -126,10 +126,20 @@ export function useWebSocket(token: string | null, enabled = true) {
   }, [token, enabled, connect, disconnect]);
 
   /**
-   * Setup event listeners
+   * Setup event listeners - Only register AFTER connection is established
    */
   useEffect(() => {
-    if (!token || !enabled) return;
+    // CRITICAL: Only register listeners when WebSocket is connected
+    if (!token || !enabled || connectionStatus !== 'connected') {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[useWebSocket] Skipping listener setup, connection status:', connectionStatus);
+      }
+      return;
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[useWebSocket] Registering event listeners...');
+    }
 
     // EMAIL EVENTS
     const unsubEmailNew = websocketClient.onEmailNew((data) => {
@@ -266,7 +276,11 @@ export function useWebSocket(token: string | null, enabled = true) {
       });
     });
 
-    // Cleanup on unmount
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[useWebSocket] All event listeners registered successfully');
+    }
+
+    // Cleanup on unmount or when connection drops
     return () => {
       console.log('[useWebSocket] Cleaning up event listeners...');
       unsubEmailNew();
@@ -288,6 +302,7 @@ export function useWebSocket(token: string | null, enabled = true) {
       unsubSyncStatus();
     };
   }, [
+    connectionStatus, // Re-register listeners when connection state changes
     addEmail,
     updateEmail,
     deleteEmail,
@@ -304,6 +319,8 @@ export function useWebSocket(token: string | null, enabled = true) {
     handleLabelDeleted,
     updateFolderCounts,
     setSyncStatus,
+    token,
+    enabled,
   ]);
 
   return {
