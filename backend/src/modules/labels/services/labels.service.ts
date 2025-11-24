@@ -95,6 +95,10 @@ export class LabelsService {
         type: 'USER',
       },
       include: {
+        children: {
+          where: { isArchived: false },
+          orderBy: { orderIndex: 'asc' },
+        },
         _count: { select: { emailLabels: true } },
       },
     });
@@ -165,6 +169,10 @@ export class LabelsService {
       where: { id },
       data,
       include: {
+        children: {
+          where: { isArchived: false },
+          orderBy: { orderIndex: 'asc' },
+        },
         _count: { select: { emailLabels: true } },
       },
     });

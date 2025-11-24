@@ -51,14 +51,23 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
         color: hexToLabelColor(colorHex),
       });
       const newLabel = response.label;
-      set((state) => ({
-        labels: [...state.labels, newLabel],
-        isLoading: false,
-      }));
+      set((state) => {
+        const newLabels = [...state.labels, newLabel];
+        return {
+          ...state,
+          labels: newLabels,
+          isLoading: false,
+          error: null,
+        };
+      });
       return newLabel;
     } catch (error) {
       console.error('Failed to create label:', error);
-      set({ error: 'Failed to create label', isLoading: false });
+      set((state) => ({
+        ...state,
+        error: 'Failed to create label',
+        isLoading: false,
+      }));
       throw error;
     }
   },
@@ -71,16 +80,25 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
         color: colorHex ? hexToLabelColor(colorHex) : undefined,
       });
       const updatedLabel = response.label;
-      set((state) => ({
-        labels: state.labels.map((label) =>
+      set((state) => {
+        const updatedLabels = state.labels.map((label) =>
           label.id === labelId ? updatedLabel : label
-        ),
-        isLoading: false,
-      }));
+        );
+        return {
+          ...state,
+          labels: updatedLabels,
+          isLoading: false,
+          error: null,
+        };
+      });
       return updatedLabel;
     } catch (error) {
       console.error('Failed to update label:', error);
-      set({ error: 'Failed to update label', isLoading: false });
+      set((state) => ({
+        ...state,
+        error: 'Failed to update label',
+        isLoading: false,
+      }));
       throw error;
     }
   },
@@ -89,13 +107,22 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await labelsApi.deleteLabel(labelId);
-      set((state) => ({
-        labels: state.labels.filter((label) => label.id !== labelId),
-        isLoading: false,
-      }));
+      set((state) => {
+        const filteredLabels = state.labels.filter((label) => label.id !== labelId);
+        return {
+          ...state,
+          labels: filteredLabels,
+          isLoading: false,
+          error: null,
+        };
+      });
     } catch (error) {
       console.error('Failed to delete label:', error);
-      set({ error: 'Failed to delete label', isLoading: false });
+      set((state) => ({
+        ...state,
+        error: 'Failed to delete label',
+        isLoading: false,
+      }));
       throw error;
     }
   },
@@ -155,24 +182,42 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
 
   // WebSocket event handlers
   handleLabelCreated: (label: Label) => {
+    console.log('[Label Store] handleLabelCreated:', label);
     set((state) => {
       // Check if label already exists (prevent duplicates)
-      if (state.labels.some((l) => l.id === label.id)) {
+      const exists = state.labels.some((l) => l.id === label.id);
+      if (exists) {
+        console.log('[Label Store] Label already exists, skipping');
         return state;
       }
-      return { labels: [...state.labels, label] };
+      console.log('[Label Store] Adding new label to store');
+      const newLabels = [...state.labels, label];
+      return {
+        ...state,
+        labels: newLabels,
+      };
     });
   },
 
   handleLabelUpdated: (label: Label) => {
-    set((state) => ({
-      labels: state.labels.map((l) => (l.id === label.id ? label : l)),
-    }));
+    console.log('[Label Store] handleLabelUpdated:', label);
+    set((state) => {
+      const updatedLabels = state.labels.map((l) => (l.id === label.id ? label : l));
+      return {
+        ...state,
+        labels: updatedLabels,
+      };
+    });
   },
 
   handleLabelDeleted: (labelId: string) => {
-    set((state) => ({
-      labels: state.labels.filter((l) => l.id !== labelId),
-    }));
+    console.log('[Label Store] handleLabelDeleted:', labelId);
+    set((state) => {
+      const filteredLabels = state.labels.filter((l) => l.id !== labelId);
+      return {
+        ...state,
+        labels: filteredLabels,
+      };
+    });
   },
 }));
