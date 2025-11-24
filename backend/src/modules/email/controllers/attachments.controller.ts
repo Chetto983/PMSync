@@ -9,6 +9,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { Readable } from 'stream';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AttachmentOnDemandService } from '../services/attachment-on-demand.service';
 
@@ -35,22 +36,22 @@ export class AttachmentsController {
    * Download an attachment
    *
    * Flow:
-   * 1. Check if attachment is already in S3 → return signed URL (fast path)
+   * 1. Check if attachment is already in S3 → get signed URL (fast path)
    * 2. If metadata-only (storageType='pending'):
    *    - Fetch from provider (Gmail/Microsoft/IMAP)
    *    - Upload to S3
    *    - Update database record
-   *    - Return signed URL
-   * 3. Redirect browser to S3 signed URL (user downloads directly from S3)
+   * 3. Stream file from S3 through backend to frontend (proxy)
+   *    - Keeps MinIO/S3 unexposed to frontend (security)
+   *    - Uses streaming to avoid loading entire file in memory
    *
    * @param id - Attachment ID
    * @param req - HTTP request (contains authenticated user)
-   * @param res - HTTP response (for redirect)
+   * @param res - HTTP response (for streaming)
    *
    * @example
    * GET /email/attachments/abc-123/download
-   * → 302 Redirect to https://s3.amazonaws.com/bucket/file?signature=...
-   * → Browser downloads file directly from S3
+   * → Streams file content with proper Content-Disposition header
    */
   @Get(':id/download')
   async downloadAttachment(
@@ -71,13 +72,38 @@ export class AttachmentsController {
         tenantId,
       );
 
-      // Redirect to S3 signed URL (browser downloads directly from S3)
-      // This avoids proxying large files through the backend
       this.logger.log(
-        `[AttachmentsController] Redirecting to S3 signed URL for attachment ${id}: ${result.filename}`,
+        `[AttachmentsController] Proxying download from S3 for attachment ${id}: ${result.filename}`,
       );
 
-      res.redirect(result.url);
+      // Fetch file from S3 and stream to client
+      const fetch = (await import('node-fetch')).default;
+      const s3Response = await fetch(result.url);
+
+      if (!s3Response.ok) {
+        throw new Error(`Failed to fetch from S3: ${s3Response.statusText}`);
+      }
+
+      // Set response headers for file download
+      res.setHeader('Content-Type', result.mimeType || 'application/octet-stream');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${result.filename.replace(/"/g, '\\"')}"`,
+      );
+
+      // Get content length from S3 response if available
+      const contentLength = s3Response.headers.get('content-length');
+      if (contentLength) {
+        res.setHeader('Content-Length', contentLength);
+      }
+
+      // Stream the file from S3 to client (efficient memory usage)
+      if (s3Response.body) {
+        const nodeStream = Readable.from(s3Response.body as any);
+        nodeStream.pipe(res);
+      } else {
+        throw new Error('No response body from S3');
+      }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
 

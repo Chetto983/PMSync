@@ -196,12 +196,14 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 
   const handleAttachmentOpen = async (attachment: Attachment, e: React.MouseEvent) => {
     try {
+      // Download file from backend (backend proxies from S3)
       const response = await emailApi.downloadAttachment(attachment.id);
       const blob = response.data;
       const url = window.URL.createObjectURL(blob);
 
       // Ctrl/Cmd+click triggers download; default opens in a new tab when possible.
       if (e.ctrlKey || e.metaKey) {
+        // Force download
         const a = document.createElement('a');
         a.href = url;
         a.download = attachment.filename;
@@ -210,12 +212,14 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       } else {
+        // Open in new tab (browser will handle based on mime type)
         const newWindow = window.open(url, '_blank');
         if (newWindow) {
           newWindow.addEventListener('load', () => {
             setTimeout(() => window.URL.revokeObjectURL(url), 100);
           });
         } else {
+          // Popup blocked, fallback to download
           const a = document.createElement('a');
           a.href = url;
           a.download = attachment.filename;
