@@ -1,25 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git -C \"d:\\MailAgent\" add frontend/components/email/ThreadListItem.tsx)",
-      "Bash(git -C \"d:\\MailAgent\" commit:*)",
-      "Bash(git -C \"d:\\MailAgent\" commit -m \"Fix missing Italian translation for Advanced Search button\n\nChanged hardcoded ''Advanced Search'' text to use translation key.\n\nBefore: Advanced Search (English)\nAfter: t.dashboard.email.advancedSearch.title → ''Ricerca Avanzata'' (Italian)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(git restore:*)",
-      "Bash(docker-compose ps:*)",
-      "Bash(node --version:*)",
-      "Bash(npm --version:*)",
-      "Bash(cat:*)",
-      "Bash(curl:*)",
-      "Bash(node test-sync.js:*)",
-      "Bash(docker-compose:*)",
-      "Bash(netstat:*)",
-      "Bash(findstr:*)",
-      "Bash(node test-provider-sync.js:*)",
-      "Bash(node test-cross-provider-sync.js:*)",
-      "Bash(git -C \"d:\\MailAgent\" commit -m \"$(cat <<''EOF''\nFix ThreadActionBar positioning to prevent content overlap\n\nChanged action bar position from ''right: -200'' to ''left: calc(100% + 8px)''\nto ensure it appears outside the email item boundary without covering content.\n\nChanges:\n- Position action bar to the right of email item (not overlapping)\n- Add 8px spacing for visual clarity\n- Maintain hover show/hide behavior with CSS transitions\n\nBefore: Action bar overlapped email content\nAfter: Action bar appears adjacent to email item on hover\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git -C \"d:\\MailAgent\" commit -m \"Center ThreadActionBar at top of email item on hover\n\nChanged position to center horizontally using left: 50% with translateX(-50%).\nAction bar now appears centered at the top when hovering over email items.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(git -C \"d:\\MailAgent\" add frontend/components/dashboard/Mailbox.tsx)",
-      "Bash(git -C \"d:\\MailAgent\" commit -m \"Add hamburger menu button for mobile folder navigation\n\nAdded IconButton with Menu icon that appears only on mobile view.\nClicking the button opens the sidebar drawer to access folders.\n\nChanges:\n- Import Menu icon and IconButton from MUI\n- Add hamburger button at start of header\n- Only visible on mobile (isMobile check)\n- Triggers setMobileSidebarOpen(true) on click\n\nFixes missing folder navigation access on mobile devices.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
+      "Bash(git -C \"d:\\MailAgent\" add frontend/locales/index.ts frontend/locales/app-translations.ts frontend/components/dashboard/Settings.tsx)",
+      "Bash(git -C \"d:\\MailAgent\" add backend/src/modules/email/services/emails.service.ts)",
+      "Bash(git -C \"d:\\MailAgent\" commit -m \"$(cat <<''EOF''\nAdd detailed logging for email sync-back operations\n\nAdded comprehensive logging to help debug sync-back issues when deleting emails.\n\nChanges:\n- Add [BULK DELETE] log when queuing sync-back operations\n- Log number of emails being synced to providers\n- Add stack trace to error logging for better debugging\n- Help identify if sync-back is failing silently\n\nThis will help diagnose why emails deleted locally are not being removed from provider servers (Gmail, Microsoft, etc.).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git -C \"d:\\MailAgent\" commit -m \"$(cat <<''EOF''\nFix email selection bug preventing bulk operations\n\nCRITICAL FIX: The threadId extraction logic had a copy-paste error that prevented\nemail checkboxes from working correctly, breaking all bulk operations.\n\nBug:\n```typescript\nconst threadId = (''threadId'' in thread ? thread.threadId : thread.threadId) || '''';\n//                                                           ^^^^^^^^^^^^\n//                                                           Same on both sides!\n```\n\nFix:\n```typescript\nconst threadId = thread.threadId || (''id'' in thread ? thread.id : '''') || '''';\n```\n\nImpact:\n- Email selection checkboxes now work correctly\n- Bulk delete, bulk mark read/unread, bulk star, etc. all work\n- Sync-back operations now receive correct email IDs to sync to providers\n\nBefore: Selecting emails did nothing, bulk delete sent 0 emails\nAfter: Selection works, bulk operations sync correctly to Gmail/Microsoft\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(npm run start:dev:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

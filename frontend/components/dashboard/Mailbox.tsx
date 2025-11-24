@@ -730,15 +730,22 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
   // Bulk operations handlers
   const handleBulkMarkRead = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const threadIds = Array.from(selectedIds);
+    if (threadIds.length === 0) return;
+
+    // Map threadIds to email IDs for API call
+    const emailIds = storeEmails
+      .filter((e) => threadIds.includes(e.threadId || e.id))
+      .map((e) => e.id);
+
+    if (emailIds.length === 0) return;
 
     try {
-      await emailApi.bulkMarkRead(ids, true);
-      storeMarkAsRead(ids);
+      await emailApi.bulkMarkRead(emailIds, true);
+      storeMarkAsRead(emailIds);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.markRead.replace('{count}', ids.length.toString()),
+        message: t.dashboard.email.messages.markRead.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
@@ -749,23 +756,30 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeMarkAsRead, t.dashboard.email.messages.markRead, t.dashboard.email.messages.markReadFailed]);
+  }, [selectedIds, storeEmails, storeMarkAsRead, t.dashboard.email.messages.markRead, t.dashboard.email.messages.markReadFailed]);
 
   const handleBulkMarkUnread = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const threadIds = Array.from(selectedIds);
+    if (threadIds.length === 0) return;
+
+    // Map threadIds to email IDs for API call
+    const emailIds = storeEmails
+      .filter((e) => threadIds.includes(e.threadId || e.id))
+      .map((e) => e.id);
+
+    if (emailIds.length === 0) return;
 
     try {
-      await emailApi.bulkMarkRead(ids, false);
+      await emailApi.bulkMarkRead(emailIds, false);
       // Update store - we need to mark as unread
       storeEmails.forEach(email => {
-        if (ids.includes(email.id)) {
+        if (emailIds.includes(email.id)) {
           useEmailStore.getState().updateEmail(email.id, { isRead: false });
         }
       });
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.markUnread.replace('{count}', ids.length.toString()),
+        message: t.dashboard.email.messages.markUnread.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
@@ -779,20 +793,27 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   }, [selectedIds, storeEmails, t.dashboard.email.messages.markUnread, t.dashboard.email.messages.markUnreadFailed]);
 
   const handleBulkDelete = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const threadIds = Array.from(selectedIds);
+    if (threadIds.length === 0) return;
 
-    if (!window.confirm(t.dashboard.email.messages.deleteConfirm.replace('{count}', ids.length.toString()))) {
+    // Map threadIds to email IDs for API call
+    const emailIds = storeEmails
+      .filter((e) => threadIds.includes(e.threadId || e.id))
+      .map((e) => e.id);
+
+    if (emailIds.length === 0) return;
+
+    if (!window.confirm(t.dashboard.email.messages.deleteConfirm.replace('{count}', emailIds.length.toString()))) {
       return;
     }
 
     try {
-      await emailApi.bulkDelete(ids);
-      storeBulkDelete(ids);
+      await emailApi.bulkDelete(emailIds);
+      storeBulkDelete(emailIds);
       clearSelection();
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.deleted.replace('{count}', ids.length.toString()),
+        message: t.dashboard.email.messages.deleted.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
@@ -803,18 +824,25 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeBulkDelete, clearSelection, t.dashboard.email.messages.deleteConfirm, t.dashboard.email.messages.deleted, t.dashboard.email.messages.deleteFailed]);
+  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.dashboard.email.messages.deleteConfirm, t.dashboard.email.messages.deleted, t.dashboard.email.messages.deleteFailed]);
 
   const handleBulkStar = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const threadIds = Array.from(selectedIds);
+    if (threadIds.length === 0) return;
+
+    // Map threadIds to email IDs for API call
+    const emailIds = storeEmails
+      .filter((e) => threadIds.includes(e.threadId || e.id))
+      .map((e) => e.id);
+
+    if (emailIds.length === 0) return;
 
     try {
-      await emailApi.bulkStar(ids, true);
-      storeMarkAsStarred(ids, true);
+      await emailApi.bulkStar(emailIds, true);
+      storeMarkAsStarred(emailIds, true);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.starred.replace('{count}', ids.length.toString()),
+        message: t.dashboard.email.messages.starred.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
@@ -825,18 +853,25 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeMarkAsStarred, t.dashboard.email.messages.starred, t.dashboard.email.messages.starFailed]);
+  }, [selectedIds, storeEmails, storeMarkAsStarred, t.dashboard.email.messages.starred, t.dashboard.email.messages.starFailed]);
 
   const handleBulkUnstar = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const threadIds = Array.from(selectedIds);
+    if (threadIds.length === 0) return;
+
+    // Map threadIds to email IDs for API call
+    const emailIds = storeEmails
+      .filter((e) => threadIds.includes(e.threadId || e.id))
+      .map((e) => e.id);
+
+    if (emailIds.length === 0) return;
 
     try {
-      await emailApi.bulkStar(ids, false);
-      storeMarkAsStarred(ids, false);
+      await emailApi.bulkStar(emailIds, false);
+      storeMarkAsStarred(emailIds, false);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.unstarred.replace('{count}', ids.length.toString()),
+        message: t.dashboard.email.messages.unstarred.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
@@ -847,18 +882,25 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeMarkAsStarred, t.dashboard.email.messages.unstarred, t.dashboard.email.messages.unstarFailed]);
+  }, [selectedIds, storeEmails, storeMarkAsStarred, t.dashboard.email.messages.unstarred, t.dashboard.email.messages.unstarFailed]);
 
   const handleBulkFlag = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const threadIds = Array.from(selectedIds);
+    if (threadIds.length === 0) return;
+
+    // Map threadIds to email IDs for API call
+    const emailIds = storeEmails
+      .filter((e) => threadIds.includes(e.threadId || e.id))
+      .map((e) => e.id);
+
+    if (emailIds.length === 0) return;
 
     try {
-      await emailApi.bulkFlag(ids, true);
-      storeMarkAsImportant(ids, true);
+      await emailApi.bulkFlag(emailIds, true);
+      storeMarkAsImportant(emailIds, true);
       setSnackbar({
         open: true,
-        message: `Marked ${ids.length} email(s) as important`,
+        message: `Marked ${emailIds.length} email(s) as important`,
         severity: 'success',
       });
     } catch (error) {
@@ -869,18 +911,25 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeMarkAsImportant]);
+  }, [selectedIds, storeEmails, storeMarkAsImportant]);
 
   const handleBulkUnflag = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const threadIds = Array.from(selectedIds);
+    if (threadIds.length === 0) return;
+
+    // Map threadIds to email IDs for API call
+    const emailIds = storeEmails
+      .filter((e) => threadIds.includes(e.threadId || e.id))
+      .map((e) => e.id);
+
+    if (emailIds.length === 0) return;
 
     try {
-      await emailApi.bulkFlag(ids, false);
-      storeMarkAsImportant(ids, false);
+      await emailApi.bulkFlag(emailIds, false);
+      storeMarkAsImportant(emailIds, false);
       setSnackbar({
         open: true,
-        message: `Unmarked ${ids.length} email(s) as important`,
+        message: `Unmarked ${emailIds.length} email(s) as important`,
         severity: 'success',
       });
     } catch (error) {
@@ -891,19 +940,26 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeMarkAsImportant]);
+  }, [selectedIds, storeEmails, storeMarkAsImportant]);
 
   const handleBulkAddLabels = useCallback(async (labelIds: string[]) => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0 || labelIds.length === 0) return;
+    const threadIds = Array.from(selectedIds);
+    if (threadIds.length === 0 || labelIds.length === 0) return;
+
+    // Map threadIds to email IDs for API call
+    const emailIds = storeEmails
+      .filter((e) => threadIds.includes(e.threadId || e.id))
+      .map((e) => e.id);
+
+    if (emailIds.length === 0) return;
 
     try {
-      await emailApi.bulkAddLabels(ids, labelIds);
+      await emailApi.bulkAddLabels(emailIds, labelIds);
       clearSelection();
       // WebSocket will automatically update the UI with the new labels
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.labelsAdded.replace('{count}', ids.length.toString()),
+        message: t.dashboard.email.messages.labelsAdded.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
@@ -914,20 +970,27 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, clearSelection, t.dashboard.email.messages.labelsAdded, t.dashboard.email.messages.labelsFailed]);
+  }, [selectedIds, storeEmails, clearSelection, t.dashboard.email.messages.labelsAdded, t.dashboard.email.messages.labelsFailed]);
 
   const handleBulkMoveToFolder = useCallback(async (folder: string) => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
+    const threadIds = Array.from(selectedIds);
+    if (threadIds.length === 0) return;
+
+    // Map threadIds to email IDs for API call
+    const emailIds = storeEmails
+      .filter((e) => threadIds.includes(e.threadId || e.id))
+      .map((e) => e.id);
+
+    if (emailIds.length === 0) return;
 
     try {
-      await emailApi.bulkMoveToFolder(ids, folder);
+      await emailApi.bulkMoveToFolder(emailIds, folder);
       // Remove moved emails from current view
-      storeBulkDelete(ids);
+      storeBulkDelete(emailIds);
       clearSelection();
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.moved.replace('{count}', ids.length.toString()).replace('{folder}', folder),
+        message: t.dashboard.email.messages.moved.replace('{count}', emailIds.length.toString()).replace('{folder}', folder),
         severity: 'success',
       });
     } catch (error) {
@@ -938,7 +1001,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeBulkDelete, clearSelection, t.dashboard.email.messages.moved, t.dashboard.email.messages.moveFailed]);
+  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.dashboard.email.messages.moved, t.dashboard.email.messages.moveFailed]);
 
   // Load folders on mount
   useEffect(() => {
