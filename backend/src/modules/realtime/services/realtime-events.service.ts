@@ -5,6 +5,7 @@ import {
   CalendarEventPayload,
   ContactEventPayload,
   EmailEventPayload,
+  LabelEventPayload,
   KnownRealtimeEvent,
   RealtimeEventPayloads,
   buildTenantRoom,
@@ -14,6 +15,7 @@ export type {
   CalendarEventPayload,
   ContactEventPayload,
   EmailEventPayload,
+  LabelEventPayload,
 } from '../types/realtime.types';
 
 /**
@@ -212,6 +214,31 @@ export class RealtimeEventsService {
    */
   emitContactDelete(tenantId: string, payload: ContactEventPayload) {
     this.emitToTenant(tenantId, 'contact:delete', payload);
+  }
+
+  /**
+   * LABEL EVENTS
+   */
+
+  /**
+   * Emette evento per nuova label creata
+   */
+  emitLabelNew(tenantId: string, payload: LabelEventPayload) {
+    this.emitToTenant(tenantId, 'label:new', payload);
+  }
+
+  /**
+   * Emette evento per label aggiornata
+   */
+  emitLabelUpdate(tenantId: string, payload: LabelEventPayload) {
+    this.emitToTenant(tenantId, 'label:update', payload);
+  }
+
+  /**
+   * Emette evento per label eliminata
+   */
+  emitLabelDelete(tenantId: string, payload: LabelEventPayload) {
+    this.emitToTenant(tenantId, 'label:delete', payload);
   }
 
   /**

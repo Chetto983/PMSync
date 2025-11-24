@@ -45,6 +45,14 @@ export interface ContactEventPayload {
   timestamp?: string;
 }
 
+export interface LabelEventPayload {
+  labelId: string;
+  reason: 'label-created' | 'label-updated' | 'label-deleted';
+  label?: Record<string, unknown>;
+  updates?: Record<string, unknown>;
+  timestamp?: string;
+}
+
 
 export interface RealtimeEventPayloads {
   'email:new': EmailEventPayload;
@@ -82,6 +90,9 @@ export interface RealtimeEventPayloads {
   'contact:new': ContactEventPayload;
   'contact:update': ContactEventPayload;
   'contact:delete': ContactEventPayload;
+  'label:new': LabelEventPayload;
+  'label:update': LabelEventPayload;
+  'label:delete': LabelEventPayload;
   'sync:status': {
     providerId: string;
     status: 'started' | 'in_progress' | 'completed' | 'failed';

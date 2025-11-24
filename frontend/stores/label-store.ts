@@ -19,6 +19,11 @@ interface LabelStore {
   getLabelById: (labelId: string) => Label | undefined;
   getLabelByName: (name: string) => Label | undefined;
   getEmailCountForLabel: (labelId: string) => number;
+
+  // WebSocket event handlers
+  handleLabelCreated: (label: Label) => void;
+  handleLabelUpdated: (label: Label) => void;
+  handleLabelDeleted: (labelId: string) => void;
 }
 
 export const useLabelStore = create<LabelStore>((set, get) => ({
@@ -146,5 +151,28 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
     // This would need to be tracked separately or fetched from backend
     // For now, return 0 as placeholder
     return 0;
+  },
+
+  // WebSocket event handlers
+  handleLabelCreated: (label: Label) => {
+    set((state) => {
+      // Check if label already exists (prevent duplicates)
+      if (state.labels.some((l) => l.id === label.id)) {
+        return state;
+      }
+      return { labels: [...state.labels, label] };
+    });
+  },
+
+  handleLabelUpdated: (label: Label) => {
+    set((state) => ({
+      labels: state.labels.map((l) => (l.id === label.id ? label : l)),
+    }));
+  },
+
+  handleLabelDeleted: (labelId: string) => {
+    set((state) => ({
+      labels: state.labels.filter((l) => l.id !== labelId),
+    }));
   },
 }));

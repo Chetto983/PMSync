@@ -80,7 +80,7 @@ export class LabelsService {
       _max: { orderIndex: true },
     });
 
-    return this.prisma.userLabel.create({
+    const newLabel = await this.prisma.userLabel.create({
       data: {
         tenantId,
         name: dto.name,
@@ -98,6 +98,16 @@ export class LabelsService {
         _count: { select: { emailLabels: true } },
       },
     });
+
+    // Emit WebSocket event for new label
+    this.realtimeEvents.emitLabelNew(tenantId, {
+      labelId: newLabel.id,
+      reason: 'label-created',
+      label: newLabel as any,
+      timestamp: new Date().toISOString(),
+    });
+
+    return newLabel;
   }
 
   async update(tenantId: string, id: string, dto: UpdateLabelDto) {
@@ -151,20 +161,40 @@ export class LabelsService {
       }
     }
 
-    return this.prisma.userLabel.update({
+    const updatedLabel = await this.prisma.userLabel.update({
       where: { id },
       data,
       include: {
         _count: { select: { emailLabels: true } },
       },
     });
+
+    // Emit WebSocket event for updated label
+    this.realtimeEvents.emitLabelUpdate(tenantId, {
+      labelId: updatedLabel.id,
+      reason: 'label-updated',
+      label: updatedLabel as any,
+      updates: dto as any,
+      timestamp: new Date().toISOString(),
+    });
+
+    return updatedLabel;
   }
 
   async delete(tenantId: string, id: string) {
-    await this.findOne(tenantId, id);
+    const label = await this.findOne(tenantId, id);
+
     await this.prisma.userLabel.update({
       where: { id },
       data: { isArchived: true },
+    });
+
+    // Emit WebSocket event for deleted label
+    this.realtimeEvents.emitLabelDelete(tenantId, {
+      labelId: id,
+      reason: 'label-deleted',
+      label: label as any,
+      timestamp: new Date().toISOString(),
     });
   }
 

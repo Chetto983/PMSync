@@ -53,6 +53,14 @@ export interface RealtimeContactEvent {
   timestamp: string;
 }
 
+export interface RealtimeLabelEvent {
+  labelId: string;
+  reason: 'label-created' | 'label-updated' | 'label-deleted';
+  label?: any;
+  updates?: any;
+  timestamp: string;
+}
+
 export interface RealtimeSyncStatus {
   providerId: string;
   status: 'started' | 'in_progress' | 'completed' | 'failed';
@@ -328,6 +336,28 @@ class WebSocketClient {
     if (!this.socket) return () => {};
     this.socket.on('contact:delete', handler);
     return () => this.socket?.off('contact:delete', handler);
+  }
+
+  /**
+   * LABEL EVENTS
+   */
+
+  onLabelNew(handler: EventHandler<RealtimeLabelEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('label:new', handler);
+    return () => this.socket?.off('label:new', handler);
+  }
+
+  onLabelUpdate(handler: EventHandler<RealtimeLabelEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('label:update', handler);
+    return () => this.socket?.off('label:update', handler);
+  }
+
+  onLabelDelete(handler: EventHandler<RealtimeLabelEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('label:delete', handler);
+    return () => this.socket?.off('label:delete', handler);
   }
 
   /**

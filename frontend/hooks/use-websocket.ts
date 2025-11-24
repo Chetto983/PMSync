@@ -3,6 +3,7 @@ import { websocketClient } from '@/lib/websocket-client';
 import { useEmailStore } from '@/stores/email-store';
 import { useCalendarStore } from '@/stores/calendar-store';
 import { useContactStore } from '@/stores/contact-store';
+import { useLabelStore } from '@/stores/label-store';
 import { useFoldersStore } from '@/stores/folders-store';
 import { useSyncStore } from '@/stores/sync-store';
 
@@ -29,6 +30,7 @@ export function useWebSocket(token: string | null, enabled = true) {
   const { addEmail, updateEmail, deleteEmail, setUnreadCount, updateThread } = useEmailStore();
   const { addEvent, updateEvent, deleteEvent } = useCalendarStore();
   const { addContact, updateContact, deleteContact } = useContactStore();
+  const { handleLabelCreated, handleLabelUpdated, handleLabelDeleted } = useLabelStore();
   const { updateFolderCounts } = useFoldersStore();
   const { setStatus: setSyncStatus } = useSyncStore();
 
@@ -230,6 +232,28 @@ export function useWebSocket(token: string | null, enabled = true) {
       }
     });
 
+    // LABEL EVENTS
+    const unsubLabelNew = websocketClient.onLabelNew((data) => {
+      console.log('[WS] Label new:', data);
+      if (data.label) {
+        handleLabelCreated(data.label);
+      }
+    });
+
+    const unsubLabelUpdate = websocketClient.onLabelUpdate((data) => {
+      console.log('[WS] Label update:', data);
+      if (data.label) {
+        handleLabelUpdated(data.label);
+      }
+    });
+
+    const unsubLabelDelete = websocketClient.onLabelDelete((data) => {
+      console.log('[WS] Label delete:', data);
+      if (data.labelId) {
+        handleLabelDeleted(data.labelId);
+      }
+    });
+
     // SYNC STATUS
     const unsubSyncStatus = websocketClient.onSyncStatus((data) => {
       console.log('[WS] Sync status:', data);
@@ -258,6 +282,9 @@ export function useWebSocket(token: string | null, enabled = true) {
       unsubContactNew();
       unsubContactUpdate();
       unsubContactDelete();
+      unsubLabelNew();
+      unsubLabelUpdate();
+      unsubLabelDelete();
       unsubSyncStatus();
     };
   }, [
@@ -272,6 +299,9 @@ export function useWebSocket(token: string | null, enabled = true) {
     addContact,
     updateContact,
     deleteContact,
+    handleLabelCreated,
+    handleLabelUpdated,
+    handleLabelDeleted,
     updateFolderCounts,
     setSyncStatus,
   ]);
