@@ -105,24 +105,35 @@ class WebSocketClient {
         reconnectionAttempts: this.maxReconnectAttempts,
       });
 
+      let settled = false;
+
       // Connection success
-      this.socket.on('connected', (data: any) => {
+      const handleConnected = (data: any) => {
+        if (settled) return;
+        settled = true;
         console.log('[WebSocket] Connected successfully:', data);
         this.reconnectAttempts = 0;
         this.isConnecting = false;
+        this.socket?.off('connect_error', handleConnectError);
         resolve();
-      });
+      };
 
       // Connection error
-      this.socket.on('connect_error', (error: Error) => {
+      const handleConnectError = (error: Error) => {
         console.error('[WebSocket] Connection error:', error.message);
         this.reconnectAttempts++;
         this.isConnecting = false;
 
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          if (settled) return;
+          settled = true;
+          this.socket?.off('connected', handleConnected);
           reject(new Error('Max reconnection attempts reached'));
         }
-      });
+      };
+
+      this.socket.once('connected', handleConnected);
+      this.socket.on('connect_error', handleConnectError);
 
       // Disconnection
       this.socket.on('disconnect', (reason: string) => {
