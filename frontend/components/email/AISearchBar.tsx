@@ -244,7 +244,7 @@ export const AISearchBar: React.FC<AISearchBarProps> = ({
                         </Box>
                       }
                       secondary={
-                        <Box>
+                        <>
                           <Typography
                             variant="caption"
                             color="text.secondary"
@@ -272,7 +272,7 @@ export const AISearchBar: React.FC<AISearchBarProps> = ({
                           >
                             {item.snippet}
                           </Typography>
-                        </Box>
+                        </>
                       }
                     />
                   </ListItemButton>
