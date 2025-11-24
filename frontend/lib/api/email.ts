@@ -440,7 +440,7 @@ export const emailApi = {
    * GET /emails/thread/:threadId
    */
   getThread(threadId: string) {
-    return apiClient.get<Email[]>(`/emails/thread/${threadId}`);
+    return apiClient.get<Email[]>(`/emails/thread/${encodeURIComponent(threadId)}`);
   },
 
   /**
