@@ -50,7 +50,7 @@ export function useWebSocket(token: string | null, enabled = true) {
       retryAttemptRef.current = 0;
       setConnectionStatus('connected');
       if (process.env.NODE_ENV !== 'production') {
-        console.log('[useWebSocket] Connected successfully');
+        console.log('[useWebSocket] Connected successfully, connectionStatus set to: connected');
       }
 
       // Listen for low-level close/error to flip status promptly
@@ -131,9 +131,6 @@ export function useWebSocket(token: string | null, enabled = true) {
   useEffect(() => {
     // CRITICAL: Only register listeners when WebSocket is connected
     if (!token || !enabled || connectionStatus !== 'connected') {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[useWebSocket] Skipping listener setup, connection status:', connectionStatus);
-      }
       return;
     }
 
