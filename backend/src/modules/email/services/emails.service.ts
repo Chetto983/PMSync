@@ -12,6 +12,9 @@ export interface EmailListFilters {
   hasAttachments?: boolean;
   search?: string;
   from?: string;
+  to?: string;
+  subject?: string;
+  labelIds?: string[];
   startDate?: Date;
   endDate?: Date;
 }
@@ -133,6 +136,11 @@ export class EmailsService {
         ? { attachments: { some: {} } }
         : undefined),
       ...(filters.from && { from: { contains: filters.from, mode: 'insensitive' } }),
+      ...(filters.to && { to: { has: filters.to } }),
+      ...(filters.subject && { subject: { contains: filters.subject, mode: 'insensitive' } }),
+      ...(filters.labelIds && filters.labelIds.length > 0 && {
+        emailLabels: { some: { labelId: { in: filters.labelIds } } },
+      }),
       ...(filters.search && {
         OR: [
           { subject: { contains: filters.search, mode: 'insensitive' } },

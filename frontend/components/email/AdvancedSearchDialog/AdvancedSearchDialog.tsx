@@ -15,21 +15,35 @@ import {
   Typography,
   Divider,
   Stack,
+  Tabs,
+  Tab,
+  Autocomplete,
+  Chip,
 } from '@mui/material';
-import { X, Search as SearchIcon } from 'lucide-react';
+import { X, Search as SearchIcon, Sparkles, Filter } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useLabelStore } from '@/stores/label-store';
 
 /**
  * Advanced search filters
  */
 export interface AdvancedSearchFilters {
+  // Standard filters
   searchQuery?: string;
   from?: string;
+  to?: string;
+  subject?: string;
+  labelIds?: string[];
   startDate?: string;
   endDate?: string;
   hasAttachments?: boolean;
   isRead?: boolean | null; // null = both, true = read only, false = unread only
   isStarred?: boolean;
+  isImportant?: boolean;
+
+  // AI/Semantic search
+  semanticQuery?: string;
+  useAI?: boolean;
 }
 
 /**
@@ -91,7 +105,16 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
   onReset,
 }) => {
   const t = useTranslations();
+  const { labels, fetchLabels } = useLabelStore();
   const [filters, setFilters] = useState<AdvancedSearchFilters>(initialFilters);
+  const [currentTab, setCurrentTab] = useState<'standard' | 'ai'>('standard');
+
+  // Load labels on mount
+  React.useEffect(() => {
+    if (open && labels.length === 0) {
+      fetchLabels();
+    }
+  }, [open, labels.length, fetchLabels]);
 
   // Update filter value
   const updateFilter = useCallback((key: keyof AdvancedSearchFilters, value: any) => {
@@ -109,11 +132,17 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
     const emptyFilters: AdvancedSearchFilters = {
       searchQuery: '',
       from: '',
+      to: '',
+      subject: '',
+      labelIds: [],
       startDate: '',
       endDate: '',
       hasAttachments: false,
       isRead: null,
       isStarred: false,
+      isImportant: false,
+      semanticQuery: '',
+      useAI: false,
     };
     setFilters(emptyFilters);
     onReset?.();
@@ -151,29 +180,94 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
         </Box>
       </DialogTitle>
 
-      <DialogContent dividers>
-        <Stack spacing={3}>
-          {/* Search Query */}
-          <TextField
-            fullWidth
-            label={t.dashboard.email.advancedSearch.searchInSubjectBody}
-            placeholder={t.dashboard.email.advancedSearch.enterKeywords}
-            value={filters.searchQuery || ''}
-            onChange={(e) => updateFilter('searchQuery', e.target.value)}
-            InputProps={{
-              startAdornment: <SearchIcon size={18} style={{ marginRight: 8, opacity: 0.5 }} />,
-            }}
-          />
+      <DialogContent dividers sx={{ p: 0 }}>
+        {/* Tabs */}
+        <Tabs value={currentTab} onChange={(_, v) => setCurrentTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}>
+          <Tab icon={<Filter size={18} />} label="Standard Search" value="standard" iconPosition="start" />
+          <Tab icon={<Sparkles size={18} />} label="AI Search" value="ai" iconPosition="start" />
+        </Tabs>
 
-          {/* From (Sender) */}
-          <TextField
-            fullWidth
-            label={t.dashboard.email.advancedSearch.fromSender}
-            placeholder={t.dashboard.email.advancedSearch.senderPlaceholder}
-            value={filters.from || ''}
-            onChange={(e) => updateFilter('from', e.target.value)}
-            helperText={t.dashboard.email.advancedSearch.filterBySender}
-          />
+        <Box sx={{ p: 3 }}>
+          {/* Standard Search Tab */}
+          {currentTab === 'standard' && (
+            <Stack spacing={3}>
+              {/* Text Search Query */}
+              <TextField
+                fullWidth
+                label={t.dashboard.email.advancedSearch.searchInSubjectBody}
+                placeholder={t.dashboard.email.advancedSearch.enterKeywords}
+                value={filters.searchQuery || ''}
+                onChange={(e) => updateFilter('searchQuery', e.target.value)}
+                InputProps={{
+                  startAdornment: <SearchIcon size={18} style={{ marginRight: 8, opacity: 0.5 }} />,
+                }}
+              />
+
+              <Divider />
+
+              {/* From & To */}
+              <TextField
+                fullWidth
+                label={t.dashboard.email.advancedSearch.fromSender}
+                placeholder={t.dashboard.email.advancedSearch.senderPlaceholder}
+                value={filters.from || ''}
+                onChange={(e) => updateFilter('from', e.target.value)}
+                helperText={t.dashboard.email.advancedSearch.filterBySender}
+              />
+
+              <TextField
+                fullWidth
+                label="To (Recipient)"
+                placeholder="recipient@example.com"
+                value={filters.to || ''}
+                onChange={(e) => updateFilter('to', e.target.value)}
+                helperText="Filter by recipient email address"
+              />
+
+              {/* Subject */}
+              <TextField
+                fullWidth
+                label="Subject"
+                placeholder="Enter subject keywords"
+                value={filters.subject || ''}
+                onChange={(e) => updateFilter('subject', e.target.value)}
+                helperText="Filter by email subject"
+              />
+
+              {/* Labels */}
+              <Autocomplete
+                multiple
+                fullWidth
+                options={labels}
+                value={labels.filter(l => filters.labelIds?.includes(l.id))}
+                onChange={(_, newValue) => updateFilter('labelIds', newValue.map(l => l.id))}
+                getOptionLabel={(option) => option.name}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Labels"
+                    placeholder="Select labels"
+                    helperText="Filter by labels"
+                  />
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    return (
+                      <Chip
+                        key={key}
+                        label={option.name}
+                        size="small"
+                        {...tagProps}
+                        sx={{
+                          bgcolor: option.color?.backgroundColor || '#9E9E9E',
+                          color: option.color?.textColor || '#fff',
+                        }}
+                      />
+                    );
+                  })
+                }
+              />
 
           <Divider />
 
@@ -263,7 +357,64 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
               />
             </FormGroup>
           </Box>
-        </Stack>
+            </Stack>
+          )}
+
+          {/* AI Search Tab */}
+          {currentTab === 'ai' && (
+            <Stack spacing={3}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Use AI-powered semantic search to find emails by meaning, not just keywords.
+                Ask questions in natural language!
+              </Typography>
+
+              {/* Semantic Query */}
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                label="Ask AI about your emails"
+                placeholder="e.g., 'Show me urgent emails from last week about the project' or 'Find emails discussing budget concerns'"
+                value={filters.semanticQuery || ''}
+                onChange={(e) => updateFilter('semanticQuery', e.target.value)}
+                InputProps={{
+                  startAdornment: <Sparkles size={18} style={{ marginRight: 8, opacity: 0.7, color: '#9c27b0' }} />,
+                }}
+                helperText="AI will understand the context and meaning of your query"
+              />
+
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: 'action.hover',
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                }}
+              >
+                <Typography variant="caption" fontWeight={600} gutterBottom display="block">
+                  💡 Examples:
+                </Typography>
+                <Typography variant="caption" component="div" color="text.secondary" sx={{ pl: 2 }}>
+                  • &ldquo;Emails about invoice payments from this month&rdquo;<br />
+                  • &ldquo;Show conversations with John about the presentation&rdquo;<br />
+                  • &ldquo;Find emails mentioning deadlines or urgent tasks&rdquo;<br />
+                  • &ldquo;Emails discussing contract negotiations&rdquo;
+                </Typography>
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={filters.useAI || false}
+                    onChange={(e) => updateFilter('useAI', e.target.checked)}
+                  />
+                }
+                label="Enable AI semantic search (uses knowledge base)"
+              />
+            </Stack>
+          )}
+        </Box>
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2 }}>

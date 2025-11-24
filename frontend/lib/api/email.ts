@@ -95,6 +95,9 @@ export type EmailListFilters = {
   hasAttachments?: boolean;
   search?: string;
   from?: string;
+  to?: string;
+  subject?: string;
+  labelIds?: string[];
   startDate?: string;
   endDate?: string;
 };
@@ -109,6 +112,9 @@ export type EmailListParams = {
   hasAttachments?: boolean;
   search?: string;
   from?: string;
+  to?: string;
+  subject?: string;
+  labelIds?: string[];
   startDate?: string;
   endDate?: string;
 };
@@ -226,6 +232,11 @@ export const emailApi = {
     }
     if (params?.search) queryParams.append('search', params.search);
     if (params?.from) queryParams.append('from', params.from);
+    if (params?.to) queryParams.append('to', params.to);
+    if (params?.subject) queryParams.append('subject', params.subject);
+    if (params?.labelIds && params.labelIds.length > 0) {
+      queryParams.append('labelIds', params.labelIds.join(','));
+    }
     if (params?.startDate) queryParams.append('startDate', params.startDate);
     if (params?.endDate) queryParams.append('endDate', params.endDate);
 

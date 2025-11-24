@@ -7,6 +7,7 @@ import {
   Clock,
   Calendar as CalendarIcon,
   RefreshCcw,
+  Filter,
 } from 'lucide-react';
 import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Chip, Alert, Stack, Typography, Button, CircularProgress, Paper } from '@mui/material';
 import { debounce } from 'lodash-es';
@@ -28,6 +29,7 @@ import { ThreadList } from '@/components/email/ThreadList';
 import { ThreadDisplay } from '@/components/email/ThreadDisplay';
 import { ComposeDialog } from '@/components/email/ComposeDialog/ComposeDialog';
 import { AdvancedSearchDialog, type AdvancedSearchFilters } from '@/components/email/AdvancedSearchDialog';
+import { AISearchBar } from '@/components/email/AISearchBar';
 import { LabelManager } from '@/components/labels';
 import { BulkActionBar } from '@/components/email/BulkActionBar';
 import { LabelSelectorDialog } from '@/components/email/LabelSelectorDialog';
@@ -262,6 +264,26 @@ export function Mailbox() {
     }
   }, [handleEmailClickOriginal]);
 
+  // Handle AI search result click
+  const handleAISearchResultClick = useCallback(async (item: any) => {
+    if (!item.emailId) return;
+
+    try {
+      // Fetch the email by ID
+      const response = await emailApi.getEmail(item.emailId);
+      const email = response.data;
+
+      // Set as selected email to open in ThreadDisplay
+      setSelectedEmail(email);
+    } catch (error) {
+      console.error('Failed to open email from AI search:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to open email',
+        severity: 'error',
+      });
+    }
+  }, [setSelectedEmail]);
 
   // Smart Filters for quick access
   const smartFilters = useMemo<SmartFilter[]>(() => {
@@ -1089,7 +1111,21 @@ export function Mailbox() {
                     </Typography>
                   )}
                 </Stack>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" rowGap={0.5}>
+                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" rowGap={1}>
+                  {/* AI Search Bar */}
+                  <AISearchBar
+                    onResultClick={handleAISearchResultClick}
+                    placeholder="Ask AI about your emails..."
+                    size="small"
+                  />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => setAdvancedSearchOpen(true)}
+                    startIcon={<Filter size={16} />}
+                  >
+                    Advanced Search
+                  </Button>
                   <Button size="small" variant="outlined" onClick={handleSyncProviders} disabled={syncLoading} startIcon={!syncLoading ? <RefreshCcw size={16} /> : undefined}>
                     {syncLoading ? <CircularProgress size={14} /> : ((t as any)?.dashboard?.email?.actions?.syncNow || 'Sync now')}
                   </Button>

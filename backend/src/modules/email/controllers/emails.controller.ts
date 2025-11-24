@@ -69,6 +69,9 @@ export class EmailsController {
     @Query('hasAttachments') hasAttachments?: string,
     @Query('search') search?: string,
     @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('subject') subject?: string,
+    @Query('labelIds') labelIds?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
@@ -101,6 +104,9 @@ export class EmailsController {
     if (hasAttachments !== undefined) filters.hasAttachments = hasAttachments === 'true';
     if (search) filters.search = search;
     if (from) filters.from = from;
+    if (to) filters.to = to;
+    if (subject) filters.subject = subject;
+    if (labelIds) filters.labelIds = labelIds.split(',').map(id => id.trim()).filter(Boolean);
     if (startDate) filters.startDate = new Date(startDate);
     if (endDate) filters.endDate = new Date(endDate);
 
