@@ -11,10 +11,6 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['@mui/material', '@mui/icons-material'],
   },
-  // Explicit root prevents workspace root inference warnings
-  turbopack: {
-    root: __dirname,
-  },
   // Skip build errors for error pages (they work fine at runtime)
   typescript: {
     ignoreBuildErrors: false,
