@@ -32,7 +32,6 @@ import { LabelManager } from '@/components/labels';
 import { BulkActionBar } from '@/components/email/BulkActionBar';
 import { LabelSelectorDialog } from '@/components/email/LabelSelectorDialog';
 import { FolderSelectorDialog } from '@/components/email/FolderSelectorDialog';
-import { WebSocketDebugger } from '@/components/debug';
 
 interface FolderItem {
   id: string;
@@ -1236,9 +1235,6 @@ export function Mailbox() {
         onSelect={handleBulkMoveToFolder}
         selectedCount={selectedIds.size}
       />
-
-      {/* WebSocket Debug Panel */}
-      {process.env.NODE_ENV === 'development' && <WebSocketDebugger />}
     </>
   );
 }

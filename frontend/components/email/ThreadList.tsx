@@ -252,10 +252,12 @@ export const ThreadList: React.FC<ThreadListProps> = ({
     >
       {threadsWithCount.map((thread) => {
         const threadId = ('threadId' in thread ? thread.threadId : thread.id) || '';
+        // Use unique email ID for React key to prevent duplicates when emails share threadId
+        const uniqueKey = thread.id || threadId || `thread-${Math.random()}`;
 
         return (
           <ThreadListItem
-            key={threadId}
+            key={uniqueKey}
             thread={thread}
             selected={selectedId === threadId}
             multiSelected={selectedIds.has(threadId)}
