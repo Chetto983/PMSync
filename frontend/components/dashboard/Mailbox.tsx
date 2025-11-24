@@ -1142,7 +1142,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
                   {/* AI Search Bar */}
                   <AISearchBar
                     onResultClick={handleAISearchResultClick}
-                    placeholder="Ask AI about your emails..."
+                    placeholder={t.dashboard.emailList.aiSearchPlaceholder}
                     size="small"
                   />
                   <Button

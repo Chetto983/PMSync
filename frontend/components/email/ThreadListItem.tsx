@@ -371,10 +371,10 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     const nextId = 'threadId' in nextThread ? nextThread.threadId : nextThread.id;
 
     // Check if emailLabels changed (for Email type)
-    const prevLabels = 'emailLabels' in prevThread ? prevThread.emailLabels : [];
-    const nextLabels = 'emailLabels' in nextThread ? nextThread.emailLabels : [];
+    const prevLabels = ('emailLabels' in prevThread ? prevThread.emailLabels : undefined) ?? [];
+    const nextLabels = ('emailLabels' in nextThread ? nextThread.emailLabels : undefined) ?? [];
     const labelsChanged = prevLabels.length !== nextLabels.length ||
-      prevLabels.some((pl, idx) => pl.labelId !== nextLabels[idx]?.labelId);
+      prevLabels.some((pl, idx) => pl.label.id !== nextLabels[idx]?.label.id);
 
     return (
       prevId === nextId &&

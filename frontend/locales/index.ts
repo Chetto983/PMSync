@@ -375,6 +375,7 @@ export interface AppTranslations {
       threads: { singular: string; plural: string };
       inboxLabel: string;
       advancedSearch: string;
+      aiSearchPlaceholder: string;
       emailListView: string;
       conversationView: string;
       openSidebar: string;
