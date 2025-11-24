@@ -297,6 +297,12 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
     return saved !== null ? JSON.parse(saved) : true;
   });
 
+  // Track custom folder order per provider
+  const [folderOrders, setFolderOrders] = useState<Record<string, string[]>>(() => {
+    const saved = localStorage.getItem('sidebar-folder-orders');
+    return saved !== null ? JSON.parse(saved) : {};
+  });
+
   // Save expansion states to localStorage
   useEffect(() => {
     localStorage.setItem('sidebar-smart-filters-expanded', JSON.stringify(smartFiltersExpanded));
@@ -305,6 +311,11 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
   useEffect(() => {
     localStorage.setItem('sidebar-labels-expanded', JSON.stringify(labelsExpanded));
   }, [labelsExpanded]);
+
+  // Save folder orders to localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebar-folder-orders', JSON.stringify(folderOrders));
+  }, [folderOrders]);
 
   // Default compose handler
   const handleCompose = () => {
@@ -345,9 +356,43 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
     // Only handle folder reordering (not email dropping)
     if (active.data.current?.type !== 'folder-reorder') return;
 
-    console.log('[EmailSidebar] Folder reordered:', { from: active.id, to: over.id });
-    // TODO: Implement folder reordering logic
-    // This would require storing custom folder order in state/localStorage
+    // Extract folder IDs from draggable IDs (format: "draggable-{folderId}")
+    const activeFolderId = active.id.toString().replace('draggable-', '');
+    const overFolderId = over.id.toString().replace('draggable-', '').replace('droppable-', '');
+
+    // Find which provider group these folders belong to
+    const providerGroup = folderGroups.find((g) =>
+      g.folders.some((f) => f.id === activeFolderId)
+    );
+
+    if (!providerGroup) return;
+
+    // Get current order for this provider
+    const currentOrder = folderOrders[providerGroup.providerId] || providerGroup.folders.map((f) => f.id);
+
+    // Find indexes
+    const activeIndex = currentOrder.indexOf(activeFolderId);
+    const overIndex = currentOrder.indexOf(overFolderId);
+
+    if (activeIndex === -1 || overIndex === -1) return;
+
+    // Create new order by moving the active item to over position
+    const newOrder = [...currentOrder];
+    newOrder.splice(activeIndex, 1);
+    newOrder.splice(overIndex, 0, activeFolderId);
+
+    // Update state
+    setFolderOrders({
+      ...folderOrders,
+      [providerGroup.providerId]: newOrder,
+    });
+
+    console.log('[EmailSidebar] Folder reordered:', {
+      provider: providerGroup.providerEmail,
+      from: activeFolderId,
+      to: overFolderId,
+      newOrder,
+    });
   };
 
   // Get live count for a folder
@@ -357,6 +402,38 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
     const key = providerId ? `${providerId}:${folderId}` : folderId;
     const liveCounts = countsByFolderId[key];
     return liveCounts?.unreadCount;
+  };
+
+  // Apply custom folder order for a provider
+  const getSortedFolders = (group: FolderGroup): FolderItem[] => {
+    const savedOrder = folderOrders[group.providerId];
+
+    // If no custom order, return original
+    if (!savedOrder || savedOrder.length === 0) {
+      return group.folders;
+    }
+
+    // Sort folders according to saved order
+    const sorted = [...group.folders].sort((a, b) => {
+      const aIndex = savedOrder.indexOf(a.id);
+      const bIndex = savedOrder.indexOf(b.id);
+
+      // If both are in saved order, sort by their saved positions
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+
+      // If only a is in saved order, it comes first
+      if (aIndex !== -1) return -1;
+
+      // If only b is in saved order, it comes first
+      if (bIndex !== -1) return 1;
+
+      // Neither in saved order, maintain original order
+      return 0;
+    });
+
+    return sorted;
   };
 
   return (
@@ -703,7 +780,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
 
               <AccordionDetails sx={{ p: 0 }}>
                 <List sx={{ py: 0 }}>
-                  {group.folders.map((folder) => {
+                  {getSortedFolders(group).map((folder) => {
                     const displayCount = getFolderCount(folder.id, folder.providerId) ?? folder.count;
                     const isSelected = selectedFolderId === folder.id;
 
