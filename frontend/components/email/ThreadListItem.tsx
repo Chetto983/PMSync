@@ -106,7 +106,6 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     getProviderIcon,
     onClick,
   }) => {
-    const [isHovered, setIsHovered] = useState(false);
     const [isTouchDevice, setIsTouchDevice] = useState(false);
     const t = useTranslations();
 
@@ -210,14 +209,10 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
               visibility: 'visible',
             },
           }}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
         >
         <ListItemButton
           selected={selected}
           onClick={handleClick}
-          onFocus={() => setIsHovered(true)}
-          onBlur={() => setIsHovered(false)}
           sx={{
             py: 1.5,
             px: 2,
