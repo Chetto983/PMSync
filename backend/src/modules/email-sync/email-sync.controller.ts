@@ -1,19 +1,23 @@
-import { Controller, Get, Post, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../auth/guards/tenant.guard';
 import { QueueService } from './services/queue.service';
 import { SyncSchedulerService } from './services/sync-scheduler.service';
 import { WebhookLifecycleService } from './services/webhook-lifecycle.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AuthenticatedRequest } from '../../common/types/request.types';
 
 @ApiTags('Email Sync')
 @Controller('email-sync')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @ApiBearerAuth()
 export class EmailSyncController {
   constructor(
     private queueService: QueueService,
     private schedulerService: SyncSchedulerService,
     private webhookLifecycle: WebhookLifecycleService,
+    private prisma: PrismaService,
   ) {}
 
   @Get('status')
@@ -39,6 +43,52 @@ export class EmailSyncController {
     return {
       success: true,
       message: `Sync job queued for provider ${providerId}`,
+    };
+  }
+
+  @Post('sync-all')
+  @ApiOperation({ summary: 'Purge all emails and re-sync all providers (DANGEROUS)' })
+  @ApiResponse({ status: 200, description: 'All emails purged and sync jobs queued' })
+  async syncAll(@Request() req: AuthenticatedRequest) {
+    const tenantId = req.user.tenantId;
+
+    // Get all active providers for this tenant
+    const providers = await this.prisma.providerConfig.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+    });
+
+    if (providers.length === 0) {
+      return {
+        success: false,
+        message: 'No active providers found',
+      };
+    }
+
+    // Purge all emails for this tenant
+    const deletedCount = await this.prisma.email.deleteMany({
+      where: { tenantId },
+    });
+
+    // Also delete email embeddings for this tenant
+    await this.prisma.embedding.deleteMany({
+      where: { tenantId },
+    });
+
+    // Queue sync jobs for all providers
+    const syncPromises = providers.map((provider) =>
+      this.schedulerService.syncProviderNow(provider.id, 'high'),
+    );
+
+    await Promise.all(syncPromises);
+
+    return {
+      success: true,
+      deletedEmails: deletedCount.count,
+      providersQueued: providers.length,
+      message: `Purged ${deletedCount.count} emails and queued sync for ${providers.length} providers`,
     };
   }
 

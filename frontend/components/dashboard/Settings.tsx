@@ -67,6 +67,7 @@ export function Settings() {
   const [providerError, setProviderError] = useState('');
   const [providerSuccess, setProviderSuccess] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
+  const [syncAllLoading, setSyncAllLoading] = useState(false);
 
   const sections = useMemo(
     () => [
@@ -92,6 +93,35 @@ export function Settings() {
       setProvidersLoading(false);
     }
   }, [t]);
+
+  const handleSyncAll = useCallback(async () => {
+    if (!confirm('⚠️ WARNING: This will DELETE ALL emails from the database and re-sync from providers. Continue?')) {
+      return;
+    }
+
+    try {
+      setSyncAllLoading(true);
+      setProviderError('');
+      setProviderSuccess('');
+
+      const result = await providersApi.syncAll();
+
+      if (result.success) {
+        setProviderSuccess(
+          `✅ ${result.message}. Sync jobs are now running in the background.`
+        );
+        // Reload providers to update last sync time
+        await loadProviders();
+      } else {
+        setProviderError(result.message || 'Failed to sync all providers');
+      }
+    } catch (error) {
+      console.error('Failed to sync all:', error);
+      setProviderError('Failed to start sync-all operation. Please try again.');
+    } finally {
+      setSyncAllLoading(false);
+    }
+  }, [loadProviders]);
 
   useEffect(() => {
     loadProviders();
@@ -478,15 +508,27 @@ export function Settings() {
                         {mailAccountsCopy.connectedProvidersSubtitle}
                       </Typography>
                     </Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<RefreshCw size={16} />}
-                      onClick={loadProviders}
-                      disabled={providersLoading}
-                    >
-                      {providersLoading ? t.common.refreshing : t.common.refresh}
-                    </Button>
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<RefreshCw size={16} />}
+                        onClick={loadProviders}
+                        disabled={providersLoading || syncAllLoading}
+                      >
+                        {providersLoading ? t.common.refreshing : t.common.refresh}
+                      </Button>
+                      <Button
+                        variant="contained"
+                        color="warning"
+                        size="small"
+                        startIcon={<RefreshCw size={16} />}
+                        onClick={handleSyncAll}
+                        disabled={providersLoading || syncAllLoading || providers.length === 0}
+                      >
+                        {syncAllLoading ? 'Syncing...' : 'Sync All (Purge)'}
+                      </Button>
+                    </Stack>
                   </Stack>
 
                   {providersLoading ? (

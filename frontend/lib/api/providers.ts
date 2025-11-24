@@ -114,4 +114,20 @@ export const providersApi = {
   async deleteProvider(id: string): Promise<void> {
     await apiClient.delete(`/providers/${id}`);
   },
+
+  // Sync operations
+  async syncProvider(id: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post(`/email-sync/sync/${id}`);
+    return response.data;
+  },
+
+  async syncAll(): Promise<{
+    success: boolean;
+    deletedEmails: number;
+    providersQueued: number;
+    message: string;
+  }> {
+    const response = await apiClient.post('/email-sync/sync-all');
+    return response.data;
+  },
 };
