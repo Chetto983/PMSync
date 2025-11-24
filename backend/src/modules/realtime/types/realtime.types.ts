@@ -5,7 +5,11 @@ export type EmailEventReason =
   | 'message-deleted'
   | 'labels-updated'
   | 'message-sent'
-  | 'sync-complete';
+  | 'sync-complete'
+  | 'read-status-updated'
+  | 'starred-updated'
+  | 'flagged-updated'
+  | 'folder-updated';
 
 export interface EmailEventPayload {
   emailId?: string;

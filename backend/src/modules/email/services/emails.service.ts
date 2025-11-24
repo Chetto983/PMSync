@@ -675,6 +675,18 @@ export class EmailsService {
 
     // Return updated emails with all relationships
     const updatedEmails = await this.getEmailsByIds(emailIds, tenantId);
+
+    // Emit realtime update events for each email
+    for (const email of updatedEmails) {
+      this.realtimeEvents.emitEmailUpdate(tenantId, {
+        emailId: email.id,
+        providerId: email.providerId,
+        folder: email.folder,
+        email: email,
+        reason: 'read-status-updated',
+      });
+    }
+
     return { updated: result.count, emails: updatedEmails };
   }
 
@@ -973,7 +985,21 @@ export class EmailsService {
       this.logger.error(`Failed to sync bulk delete to provider: ${error.message}`);
     });
 
-    return { deleted: result.count };
+    // Get updated emails to emit WebSocket events
+    const deletedEmails = await this.getEmailsByIds(emailIds, tenantId);
+
+    // Emit realtime delete events for each email
+    for (const email of deletedEmails) {
+      this.realtimeEvents.emitEmailDelete(tenantId, {
+        emailId: email.id,
+        providerId: email.providerId,
+        folder: email.folder,
+        email: email,
+        reason: 'message-deleted',
+      });
+    }
+
+    return { deleted: result.count, emails: deletedEmails };
   }
 
   /**
@@ -1022,6 +1048,18 @@ export class EmailsService {
 
     // Return updated emails with all relationships
     const updatedEmails = await this.getEmailsByIds(emailIds, tenantId);
+
+    // Emit realtime update events for each email
+    for (const email of updatedEmails) {
+      this.realtimeEvents.emitEmailUpdate(tenantId, {
+        emailId: email.id,
+        providerId: email.providerId,
+        folder: email.folder,
+        email: email,
+        reason: 'starred-updated',
+      });
+    }
+
     return { updated: result.count, emails: updatedEmails };
   }
 
@@ -1071,6 +1109,18 @@ export class EmailsService {
 
     // Return updated emails with all relationships
     const updatedEmails = await this.getEmailsByIds(emailIds, tenantId);
+
+    // Emit realtime update events for each email
+    for (const email of updatedEmails) {
+      this.realtimeEvents.emitEmailUpdate(tenantId, {
+        emailId: email.id,
+        providerId: email.providerId,
+        folder: email.folder,
+        email: email,
+        reason: 'flagged-updated',
+      });
+    }
+
     return { updated: result.count, emails: updatedEmails };
   }
 
@@ -1142,6 +1192,18 @@ export class EmailsService {
 
     // Return updated emails with all relationships
     const updatedEmails = await this.getEmailsByIds(emailIds, tenantId);
+
+    // Emit realtime update events for each email
+    for (const email of updatedEmails) {
+      this.realtimeEvents.emitEmailUpdate(tenantId, {
+        emailId: email.id,
+        providerId: email.providerId,
+        folder: email.folder,
+        email: email,
+        reason: 'folder-updated',
+      });
+    }
+
     return { updated: result.count, emails: updatedEmails };
   }
 
