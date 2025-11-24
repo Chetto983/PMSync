@@ -31,7 +31,7 @@ import {
   FileArchive,
   File,
 } from 'lucide-react';
-import DOMPurify from 'isomorphic-dompurify';
+import DOMPurify from 'dompurify';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import { LabelSelector } from '@/components/labels';
