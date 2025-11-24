@@ -1183,6 +1183,18 @@ export class EmailsService {
 
     // Return updated emails with all relationships
     const updatedEmails = await this.getEmailsByIds(emailIds, tenantId);
+
+    // Emit realtime update events for each email
+    for (const email of updatedEmails) {
+      this.realtimeEvents.emitEmailUpdate(tenantId, {
+        emailId: email.id,
+        providerId: email.providerId,
+        folder: email.folder,
+        email: email, // Send full email object
+        reason: 'labels-updated',
+      });
+    }
+
     return { updated: result.count, emails: updatedEmails };
   }
 
@@ -1203,6 +1215,18 @@ export class EmailsService {
 
     // Return updated emails with all relationships
     const updatedEmails = await this.getEmailsByIds(emailIds, tenantId);
+
+    // Emit realtime update events for each email
+    for (const email of updatedEmails) {
+      this.realtimeEvents.emitEmailUpdate(tenantId, {
+        emailId: email.id,
+        providerId: email.providerId,
+        folder: email.folder,
+        email: email, // Send full email object
+        reason: 'labels-updated',
+      });
+    }
+
     return { deleted: result.count, emails: updatedEmails };
   }
 }

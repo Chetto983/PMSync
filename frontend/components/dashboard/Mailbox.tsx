@@ -850,7 +850,7 @@ export function Mailbox() {
     try {
       await emailApi.bulkAddLabels(ids, labelIds);
       clearSelection();
-      await handleRefresh(); // Reload to show updated labels
+      // WebSocket will automatically update the UI with the new labels
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.labelsAdded.replace('{count}', ids.length.toString()),
@@ -864,7 +864,7 @@ export function Mailbox() {
         severity: 'error',
       });
     }
-  }, [selectedIds, clearSelection, handleRefresh, t.dashboard.email.messages.labelsAdded, t.dashboard.email.messages.labelsFailed]);
+  }, [selectedIds, clearSelection, t.dashboard.email.messages.labelsAdded, t.dashboard.email.messages.labelsFailed]);
 
   const handleBulkMoveToFolder = useCallback(async (folder: string) => {
     const ids = Array.from(selectedIds);
