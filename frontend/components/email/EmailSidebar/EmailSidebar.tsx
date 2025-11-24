@@ -150,18 +150,21 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
       selected={isSelected}
       onClick={onSelect}
       sx={{
-        borderRadius: 2,
-        mb: 0.5,
-        mx: 1,
+        borderRadius: 1.5,
+        mb: 0.25,
+        mx: 0.5,
+        py: 0.75,
+        px: 1.5,
         bgcolor: isOver ? 'action.hover' : 'transparent',
         borderLeft: isOver ? 4 : 0,
         borderColor: isOver ? 'primary.main' : 'transparent',
         transition: 'all 0.2s ease',
+        minHeight: 36,
       }}
     >
       <ListItemIcon
         sx={{
-          minWidth: 36,
+          minWidth: 32,
           color: folder.color || 'inherit',
         }}
       >
@@ -170,7 +173,7 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
       <ListItemText
         primary={folder.label}
         primaryTypographyProps={{
-          fontSize: '0.875rem',
+          fontSize: '0.8125rem',
           fontWeight: isSelected ? 600 : 500,
         }}
       />
@@ -179,8 +182,8 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
           label={count}
           size="small"
           sx={{
-            height: 20,
-            fontSize: '0.75rem',
+            height: 18,
+            fontSize: '0.7rem',
             fontWeight: 600,
           }}
         />
@@ -383,14 +386,17 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                       selected={isSelected}
                       onClick={() => onFolderSelect(filter.id)}
                       sx={{
-                        borderRadius: 2,
-                        mb: 0.5,
-                        mx: 1,
+                        borderRadius: 1.5,
+                        mb: 0.25,
+                        mx: 0.5,
+                        py: 0.75,
+                        px: 1.5,
+                        minHeight: 36,
                       }}
                     >
                       <ListItemIcon
                         sx={{
-                          minWidth: 36,
+                          minWidth: 32,
                           color: filter.color || 'inherit',
                         }}
                       >
@@ -399,7 +405,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                       <ListItemText
                         primary={filter.label}
                         primaryTypographyProps={{
-                          fontSize: '0.875rem',
+                          fontSize: '0.8125rem',
                           fontWeight: isSelected ? 600 : 500,
                         }}
                       />
@@ -408,8 +414,8 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                           label={filter.count}
                           size="small"
                           sx={{
-                            height: 20,
-                            fontSize: '0.75rem',
+                            height: 18,
+                            fontSize: '0.7rem',
                             fontWeight: 600,
                           }}
                         />
@@ -501,17 +507,20 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                         selected={isSelected}
                         onClick={() => onFolderSelect(labelId)}
                         sx={{
-                          borderRadius: 2,
-                          mb: 0.5,
-                          mx: 1,
+                          borderRadius: 1.5,
+                          mb: 0.25,
+                          mx: 0.5,
+                          py: 0.75,
+                          px: 1.5,
+                          minHeight: 36,
                         }}
                       >
                         <ListItemIcon
                           sx={{
-                            minWidth: 36,
+                            minWidth: 32,
                           }}
                         >
-                          <Tag size={18} color={labelColorToHex(label.color)} />
+                          <Tag size={16} color={labelColorToHex(label.color)} />
                         </ListItemIcon>
                         <Chip
                           label={label.name}
@@ -520,7 +529,8 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                             bgcolor: labelColorToHex(label.color),
                             color: '#fff',
                             fontWeight: 500,
-                            fontSize: '0.75rem',
+                            fontSize: '0.7rem',
+                            height: 18,
                           }}
                         />
                         <Box sx={{ flex: 1 }} />
