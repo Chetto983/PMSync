@@ -772,6 +772,25 @@ export interface AppTranslations {
         location: string;
         lastInteraction: string;
         notAvailable: string;
+        syncedFrom: string;
+        emailAddresses: string;
+        phoneNumbers: string;
+        addresses: string;
+        professional: string;
+        jobTitle: string;
+        department: string;
+        importantDates: string;
+        birthday: string;
+        anniversary: string;
+        websites: string;
+        socialProfiles: string;
+        today: string;
+        yesterday: string;
+        never: string;
+        daysAgo: string;
+        primary: string;
+        custom: string;
+        main: string;
       };
       tabs: {
         details: string;
