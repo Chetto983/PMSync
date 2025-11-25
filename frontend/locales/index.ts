@@ -510,6 +510,10 @@ export interface AppTranslations {
       failedToCreateQuickEvent: string;
       colorUpdated: string;
       failedToUpdateColor: string;
+      eventUpdated: string;
+      failedToUpdateEvent: string;
+      eventDeleted: string;
+      failedToDeleteEvent: string;
     };
     providers: {
       title: string;

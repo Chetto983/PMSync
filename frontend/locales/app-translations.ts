@@ -577,6 +577,10 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
         failedToCreateQuickEvent: 'Failed to create quick event. Please try again.',
         colorUpdated: 'Calendar color updated',
         failedToUpdateColor: 'Failed to update calendar color. Please try again.',
+        eventUpdated: 'Event updated successfully',
+        failedToUpdateEvent: 'Failed to update event. Please try again.',
+        eventDeleted: 'Event deleted successfully',
+        failedToDeleteEvent: 'Failed to delete event. Please try again.',
       },
       contacts: {
         title: 'Contacts',
@@ -1569,6 +1573,10 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
         failedToCreateQuickEvent: 'Impossibile creare l\'evento rapido. Riprova.',
         colorUpdated: 'Colore del calendario aggiornato',
         failedToUpdateColor: 'Impossibile aggiornare il colore. Riprova.',
+        eventUpdated: 'Evento aggiornato con successo',
+        failedToUpdateEvent: 'Impossibile aggiornare l\'evento. Riprova.',
+        eventDeleted: 'Evento eliminato con successo',
+        failedToDeleteEvent: 'Impossibile eliminare l\'evento. Riprova.',
       },
       contacts: {
         title: 'Contatti',

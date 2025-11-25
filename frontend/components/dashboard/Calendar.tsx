@@ -40,6 +40,16 @@ import {
   ChevronDown,
   Palette,
   Menu,
+  Edit2,
+  Trash2,
+  MapPin,
+  Clock,
+  X,
+  Paperclip,
+  Download,
+  FileText,
+  Image,
+  File,
 } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -48,7 +58,7 @@ import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { useRouter } from 'next/router';
-import { calendarApi, type CreateEventDto, type CalendarInfo } from '@/lib/api/calendar';
+import { calendarApi, type CreateEventDto, type CalendarInfo, type CalendarEvent as ApiCalendarEvent, type UpdateEventDto, type CalendarEventAttachment } from '@/lib/api/calendar';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { allFullCalendarLocales, getFullCalendarLocale } from '@/locales';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -135,6 +145,12 @@ export function Calendar() {
     calendar: 'work',
     description: '',
   });
+  const [formErrors, setFormErrors] = useState<{
+    title?: string;
+    start?: string;
+    end?: string;
+    calendar?: string;
+  }>({});
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -147,6 +163,27 @@ export function Calendar() {
 
   // Mobile drawer state
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  // Event details dialog state
+  const [eventDetailsOpen, setEventDetailsOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<ApiCalendarEvent | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedEvent, setEditedEvent] = useState({
+    title: '',
+    description: '',
+    location: '',
+    start: '',
+    end: '',
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [attachments, setAttachments] = useState<CalendarEventAttachment[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [editFormErrors, setEditFormErrors] = useState<{
+    title?: string;
+    start?: string;
+    end?: string;
+  }>({});
 
   const updateCalendarHeader = useCallback(() => {
     if (calendarRef.current) {
@@ -406,12 +443,254 @@ export function Calendar() {
     setEventDialogOpen(true);
   };
 
-  const handleEventClick = (_clickInfo: EventClickArg) => {
-    // Open event details dialog (planned)
+  const handleEventClick = async (clickInfo: EventClickArg) => {
+    // Find the full event from store
+    const eventId = clickInfo.event.id;
+    const fullEvent = storeEvents.find(e => e.id === eventId);
+
+    if (fullEvent) {
+      setSelectedEvent(fullEvent);
+      setEditedEvent({
+        title: fullEvent.title,
+        description: fullEvent.description || '',
+        location: fullEvent.location || '',
+        start: fullEvent.startTime.slice(0, 16), // Format for datetime-local input
+        end: fullEvent.endTime.slice(0, 16),
+      });
+      setIsEditMode(false);
+      setAttachments([]);
+      setEventDetailsOpen(true);
+
+      // Fetch attachments for this event
+      setLoadingAttachments(true);
+      try {
+        const response = await calendarApi.listAttachments(fullEvent.id);
+        setAttachments(response.data?.attachments || []);
+      } catch (error) {
+        console.error('Failed to fetch attachments:', error);
+        setAttachments([]);
+      } finally {
+        setLoadingAttachments(false);
+      }
+    }
+  };
+
+  const handleUpdateEvent = async () => {
+    if (!selectedEvent) return;
+
+    // Validate edit form
+    const errors: typeof editFormErrors = {};
+
+    if (!editedEvent.title.trim()) {
+      errors.title = 'Title is required';
+    }
+    if (!editedEvent.start) {
+      errors.start = 'Start date/time is required';
+    }
+    if (!editedEvent.end) {
+      errors.end = 'End date/time is required';
+    }
+    if (editedEvent.start && editedEvent.end && new Date(editedEvent.end) <= new Date(editedEvent.start)) {
+      errors.end = 'End time must be after start time';
+    }
+
+    // Check for duplicate events (excluding current event)
+    if (editedEvent.title.trim() && editedEvent.start && editedEvent.end) {
+      const eventStart = new Date(editedEvent.start).getTime();
+      const eventEnd = new Date(editedEvent.end).getTime();
+      const titleLower = editedEvent.title.trim().toLowerCase();
+
+      const duplicate = storeEvents.find(existingEvent => {
+        // Skip the current event being edited
+        if (existingEvent.id === selectedEvent.id) return false;
+
+        const existingStart = new Date(existingEvent.startTime).getTime();
+        const existingEnd = new Date(existingEvent.endTime).getTime();
+        const existingTitle = existingEvent.title.toLowerCase();
+
+        // Check if title matches and times overlap
+        return existingTitle === titleLower &&
+               eventStart < existingEnd &&
+               eventEnd > existingStart;
+      });
+
+      if (duplicate) {
+        errors.title = 'An event with this title already exists at the same time';
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditFormErrors(errors);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const updateData: UpdateEventDto = {
+        title: editedEvent.title,
+        description: editedEvent.description,
+        location: editedEvent.location,
+        startTime: new Date(editedEvent.start).toISOString(),
+        endTime: new Date(editedEvent.end).toISOString(),
+      };
+
+      await calendarApi.updateEvent(selectedEvent.id, updateData);
+      await loadData();
+
+      setEventDetailsOpen(false);
+      setSelectedEvent(null);
+      setIsEditMode(false);
+      setEditFormErrors({});
+      setSnackbar({
+        open: true,
+        message: calendarCopy.eventUpdated || 'Event updated successfully',
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to update event:', error);
+      setSnackbar({
+        open: true,
+        message: calendarCopy.failedToUpdateEvent || 'Failed to update event',
+        severity: 'error',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!selectedEvent) return;
+
+    setIsDeleting(true);
+    try {
+      await calendarApi.deleteEvent(selectedEvent.id);
+      await loadData();
+
+      setEventDetailsOpen(false);
+      setSelectedEvent(null);
+      setSnackbar({
+        open: true,
+        message: calendarCopy.eventDeleted || 'Event deleted successfully',
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+      setSnackbar({
+        open: true,
+        message: calendarCopy.failedToDeleteEvent || 'Failed to delete event',
+        severity: 'error',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDownloadAttachment = async (attachment: CalendarEventAttachment) => {
+    if (!selectedEvent) return;
+
+    try {
+      // If there's a direct file URL (Google Drive, OneDrive), open it
+      if (attachment.fileUrl) {
+        window.open(attachment.fileUrl, '_blank');
+        return;
+      }
+
+      // Otherwise, get the download URL from the API
+      const response = await calendarApi.getAttachmentUrl(selectedEvent.id, attachment.id);
+      if (response.data?.url) {
+        window.open(response.data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to download attachment:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to download attachment',
+        severity: 'error',
+      });
+    }
+  };
+
+  const getAttachmentIcon = (mimeType: string) => {
+    if (mimeType.startsWith('image/')) {
+      return <Image size={16} />;
+    } else if (mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('text')) {
+      return <FileText size={16} />;
+    }
+    return <File size={16} />;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleCloseEventDetails = () => {
+    setEventDetailsOpen(false);
+    setSelectedEvent(null);
+    setIsEditMode(false);
+    setEditFormErrors({});
+  };
+
+  const validateEventForm = (event: typeof newEvent, checkDuplicate = true): { isValid: boolean; errors: typeof formErrors } => {
+    const errors: typeof formErrors = {};
+
+    // Title is required
+    if (!event.title.trim()) {
+      errors.title = 'Title is required';
+    }
+
+    // Start date/time is required
+    if (!event.start) {
+      errors.start = 'Start date/time is required';
+    }
+
+    // End date/time is required
+    if (!event.end) {
+      errors.end = 'End date/time is required';
+    }
+
+    // End time must be after start time
+    if (event.start && event.end && new Date(event.end) <= new Date(event.start)) {
+      errors.end = 'End time must be after start time';
+    }
+
+    // Check for duplicate events (same title and overlapping time)
+    if (checkDuplicate && event.title.trim() && event.start && event.end) {
+      const eventStart = new Date(event.start).getTime();
+      const eventEnd = new Date(event.end).getTime();
+      const titleLower = event.title.trim().toLowerCase();
+
+      const duplicate = storeEvents.find(existingEvent => {
+        const existingStart = new Date(existingEvent.startTime).getTime();
+        const existingEnd = new Date(existingEvent.endTime).getTime();
+        const existingTitle = existingEvent.title.toLowerCase();
+
+        // Check if title matches and times overlap
+        return existingTitle === titleLower &&
+               eventStart < existingEnd &&
+               eventEnd > existingStart;
+      });
+
+      if (duplicate) {
+        errors.title = 'An event with this title already exists at the same time';
+      }
+    }
+
+    return {
+      isValid: Object.keys(errors).length === 0,
+      errors,
+    };
   };
 
   const handleCreateEvent = async () => {
-    if (!newEvent.title) return;
+    // Validate form
+    const validation = validateEventForm(newEvent);
+    setFormErrors(validation.errors);
+
+    if (!validation.isValid) {
+      return;
+    }
 
     // Get first calendar provider (or use selected provider)
     const provider = selectedProvider
@@ -445,6 +724,7 @@ export function Calendar() {
       await loadData();
 
       setEventDialogOpen(false);
+      setFormErrors({});
       setNewEvent({
         title: '',
         start: '',
@@ -956,7 +1236,7 @@ export function Calendar() {
       </Box>
 
       {/* Create Event Dialog */}
-      <Dialog open={eventDialogOpen} onClose={() => setEventDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={eventDialogOpen} onClose={() => { setEventDialogOpen(false); setFormErrors({}); }} maxWidth="sm" fullWidth>
         <DialogTitle>{calendarCopy.createEventDialogTitle}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -964,23 +1244,41 @@ export function Calendar() {
               fullWidth
               label={calendarCopy.eventTitleLabel}
               value={newEvent.title}
-              onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+              onChange={(e) => {
+                setNewEvent({ ...newEvent, title: e.target.value });
+                if (formErrors.title) setFormErrors({ ...formErrors, title: undefined });
+              }}
+              error={!!formErrors.title}
+              helperText={formErrors.title}
+              required
             />
             <TextField
               fullWidth
               label={calendarCopy.startDateTime}
               type="datetime-local"
               value={newEvent.start}
-              onChange={(e) => setNewEvent({ ...newEvent, start: e.target.value })}
+              onChange={(e) => {
+                setNewEvent({ ...newEvent, start: e.target.value });
+                if (formErrors.start) setFormErrors({ ...formErrors, start: undefined });
+              }}
               InputLabelProps={{ shrink: true }}
+              error={!!formErrors.start}
+              helperText={formErrors.start}
+              required
             />
             <TextField
               fullWidth
               label={calendarCopy.endDateTime}
               type="datetime-local"
               value={newEvent.end}
-              onChange={(e) => setNewEvent({ ...newEvent, end: e.target.value })}
+              onChange={(e) => {
+                setNewEvent({ ...newEvent, end: e.target.value });
+                if (formErrors.end) setFormErrors({ ...formErrors, end: undefined });
+              }}
               InputLabelProps={{ shrink: true }}
+              error={!!formErrors.end}
+              helperText={formErrors.end}
+              required
             />
             <FormControl fullWidth>
               <InputLabel>{calendarCopy.calendarLabel}</InputLabel>
@@ -1017,10 +1315,198 @@ export function Calendar() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEventDialogOpen(false)}>{calendarCopy.cancelEvent}</Button>
+          <Button onClick={() => { setEventDialogOpen(false); setFormErrors({}); }}>{calendarCopy.cancelEvent}</Button>
           <Button variant="contained" onClick={handleCreateEvent}>
             {calendarCopy.saveEvent}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Event Details/Edit Dialog */}
+      <Dialog
+        open={eventDetailsOpen}
+        onClose={handleCloseEventDetails}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {isEditMode ? (calendarCopy.editEvent || 'Edit Event') : (calendarCopy.eventDetails || 'Event Details')}
+          <Box>
+            {!isEditMode && (
+              <>
+                <IconButton size="small" onClick={() => setIsEditMode(true)} sx={{ mr: 0.5 }}>
+                  <Edit2 size={18} />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={handleDeleteEvent}
+                  disabled={isDeleting}
+                >
+                  <Trash2 size={18} />
+                </IconButton>
+              </>
+            )}
+            <IconButton size="small" onClick={handleCloseEventDetails} sx={{ ml: 1 }}>
+              <X size={18} />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {selectedEvent && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              {isEditMode ? (
+                <>
+                  <TextField
+                    fullWidth
+                    label={calendarCopy.eventTitleLabel}
+                    value={editedEvent.title}
+                    onChange={(e) => {
+                      setEditedEvent({ ...editedEvent, title: e.target.value });
+                      if (editFormErrors.title) setEditFormErrors({ ...editFormErrors, title: undefined });
+                    }}
+                    required
+                    error={!!editFormErrors.title}
+                    helperText={editFormErrors.title}
+                  />
+                  <TextField
+                    fullWidth
+                    label={calendarCopy.startDateTime}
+                    type="datetime-local"
+                    value={editedEvent.start}
+                    onChange={(e) => {
+                      setEditedEvent({ ...editedEvent, start: e.target.value });
+                      if (editFormErrors.start) setEditFormErrors({ ...editFormErrors, start: undefined });
+                    }}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    required
+                    error={!!editFormErrors.start}
+                    helperText={editFormErrors.start}
+                  />
+                  <TextField
+                    fullWidth
+                    label={calendarCopy.endDateTime}
+                    type="datetime-local"
+                    value={editedEvent.end}
+                    onChange={(e) => {
+                      setEditedEvent({ ...editedEvent, end: e.target.value });
+                      if (editFormErrors.end) setEditFormErrors({ ...editFormErrors, end: undefined });
+                    }}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    required
+                    error={!!editFormErrors.end}
+                    helperText={editFormErrors.end}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Location"
+                    value={editedEvent.location}
+                    onChange={(e) => setEditedEvent({ ...editedEvent, location: e.target.value })}
+                  />
+                  <TextField
+                    fullWidth
+                    label={calendarCopy.eventDescription}
+                    multiline
+                    rows={3}
+                    value={editedEvent.description}
+                    onChange={(e) => setEditedEvent({ ...editedEvent, description: e.target.value })}
+                  />
+                </>
+              ) : (
+                <>
+                  <Typography variant="h6">{selectedEvent.title}</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                    <Clock size={16} />
+                    <Typography variant="body2">
+                      {new Date(selectedEvent.startTime).toLocaleString()} - {new Date(selectedEvent.endTime).toLocaleString()}
+                    </Typography>
+                  </Box>
+                  {selectedEvent.location && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
+                      <MapPin size={16} />
+                      <Typography variant="body2">{selectedEvent.location}</Typography>
+                    </Box>
+                  )}
+                  {selectedEvent.description && (
+                    <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                      {selectedEvent.description}
+                    </Typography>
+                  )}
+                  {selectedEvent.calendarName && (
+                    <Typography variant="caption" color="text.secondary">
+                      {calendarCopy.calendarLabel}: {selectedEvent.calendarName}
+                    </Typography>
+                  )}
+
+                  {/* Attachments section */}
+                  {(attachments.length > 0 || loadingAttachments) && (
+                    <Box sx={{ mt: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Paperclip size={16} />
+                        <Typography variant="subtitle2">
+                          Attachments ({attachments.length})
+                        </Typography>
+                      </Box>
+                      {loadingAttachments ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                          <CircularProgress size={20} />
+                        </Box>
+                      ) : (
+                        <List dense sx={{ py: 0 }}>
+                          {attachments.map((attachment) => (
+                            <ListItem
+                              key={attachment.id}
+                              sx={{
+                                px: 1,
+                                borderRadius: 1,
+                                '&:hover': { bgcolor: 'action.hover' },
+                              }}
+                              secondaryAction={
+                                <IconButton
+                                  edge="end"
+                                  size="small"
+                                  onClick={() => handleDownloadAttachment(attachment)}
+                                  title="Download"
+                                >
+                                  <Download size={16} />
+                                </IconButton>
+                              }
+                            >
+                              <ListItemIcon sx={{ minWidth: 32 }}>
+                                {getAttachmentIcon(attachment.mimeType)}
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={attachment.filename}
+                                secondary={formatFileSize(attachment.size)}
+                                primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                                secondaryTypographyProps={{ variant: 'caption' }}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      )}
+                    </Box>
+                  )}
+                </>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {isEditMode ? (
+            <>
+              <Button onClick={() => { setIsEditMode(false); setEditFormErrors({}); }}>{calendarCopy.cancelEvent}</Button>
+              <Button
+                variant="contained"
+                onClick={handleUpdateEvent}
+                disabled={isSaving}
+              >
+                {isSaving ? <CircularProgress size={20} /> : (calendarCopy.saveEvent)}
+              </Button>
+            </>
+          ) : (
+            <Button onClick={handleCloseEventDetails}>Close</Button>
+          )}
         </DialogActions>
       </Dialog>
 

@@ -2,6 +2,22 @@ import { apiClient } from '../api-client';
 
 // ===== TYPES =====
 
+export type CalendarEventAttachment = {
+  id: string;
+  eventId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  storageType: string;
+  storagePath?: string;
+  fileUrl?: string;
+  fileId?: string;
+  iconLink?: string;
+  isGoogleDrive: boolean;
+  isOneDrive: boolean;
+  createdAt: string;
+};
+
 export type CalendarEvent = {
   id: string;
   tenantId: string;
@@ -48,6 +64,7 @@ export type CalendarEvent = {
     providerType?: string;
     displayName?: string | null;
   };
+  attachments?: CalendarEventAttachment[];
 };
 
 export type CreateEventDto = {
@@ -235,6 +252,28 @@ export const calendarApi = {
     return apiClient.patch<{ success: boolean; calendarId: string; providerId: string; color?: string }>(
       `/calendar/calendars/${providerId}/${encodeURIComponent(calendarId)}`,
       data
+    );
+  },
+
+  // ===== ATTACHMENTS =====
+
+  /**
+   * List attachments for a calendar event
+   * GET /calendar/events/:eventId/attachments
+   */
+  listAttachments(eventId: string) {
+    return apiClient.get<{ total: number; attachments: CalendarEventAttachment[] }>(
+      `/calendar/events/${eventId}/attachments`
+    );
+  },
+
+  /**
+   * Get attachment download URL
+   * GET /calendar/events/:eventId/attachments/:attachmentId
+   */
+  getAttachmentUrl(eventId: string, attachmentId: string) {
+    return apiClient.get<{ url: string; filename: string; mimeType: string }>(
+      `/calendar/events/${eventId}/attachments/${attachmentId}`
     );
   },
 };
