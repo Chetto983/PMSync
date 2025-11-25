@@ -714,3 +714,5 @@ tests/test-email-filters.js
 tests/test-label-websocket.js
 tests/test-labels.js
 tests/test-websocket.js
+backend/scripts/check-providers.js
+backend/scripts/test-multi-agent.js

@@ -63,6 +63,34 @@ export interface LabelEventPayload {
   timestamp?: string;
 }
 
+/**
+ * AI Multi-Agent Event Payloads
+ */
+export interface AiActionEventPayload {
+  actionId: string;
+  userId: string;
+  agentName: string;
+  actionType: string;
+  status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+  confidence?: number;
+  severity?: 'LOW' | 'MEDIUM' | 'HIGH';
+  payload?: Record<string, unknown>;
+  reason?: string;
+  error?: string;
+  timestamp?: string;
+}
+
+export interface AiSessionEventPayload {
+  sessionId: string;
+  userId: string;
+  status: 'created' | 'message_received' | 'processing' | 'response_ready' | 'ended';
+  agentUsed?: string;
+  intent?: string;
+  pendingActionsCount?: number;
+  executedActionsCount?: number;
+  timestamp?: string;
+}
+
 
 export interface RealtimeEventPayloads {
   'email:new': EmailEventPayload;
@@ -113,6 +141,13 @@ export interface RealtimeEventPayloads {
     total?: number;
     timestamp?: string;
   };
+  // AI Multi-Agent Events
+  'ai:action:created': AiActionEventPayload;
+  'ai:action:approved': AiActionEventPayload;
+  'ai:action:rejected': AiActionEventPayload;
+  'ai:action:executed': AiActionEventPayload;
+  'ai:action:failed': AiActionEventPayload;
+  'ai:session:update': AiSessionEventPayload;
 }
 
 export type KnownRealtimeEvent = keyof RealtimeEventPayloads;

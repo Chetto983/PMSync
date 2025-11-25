@@ -60,17 +60,45 @@ model User {
 }
 
 model UserPreferences {
-  id                          String   @id @default(cuid())
-  userId                      String   @unique
+  id                          String  @id @default(cuid())
+  userId                      String  @unique
   folderOrders                Json?
-  sidebarSmartFiltersExpanded Boolean  @default(true)
-  sidebarLabelsExpanded       Boolean  @default(true)
-  theme                       String?  @default("light")
-  language                    String?  @default("en")
-  emailDensity                String?  @default("comfortable")
-  createdAt                   DateTime @default(now())
-  updatedAt                   DateTime @updatedAt
-  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sidebarSmartFiltersExpanded Boolean @default(true)
+  sidebarLabelsExpanded       Boolean @default(true)
+  theme                       String? @default("light")
+  language                    String? @default("en")
+  timezone                    String? @default("UTC")
+  emailDensity                String? @default("comfortable")
+
+  // AI Agent Preferences
+  aiSmartRepliesEnabled  Boolean @default(true)
+  aiSummarizationEnabled Boolean @default(true)
+  aiSchedulingEnabled    Boolean @default(true)
+  aiAutoApproveThreshold Float?  @default(0.9) // 0-1 confidence threshold for auto-approval
+
+  // Personalization - Job/Role
+  jobTitle    String? // "Marketing Manager", "Software Engineer"
+  jobRole     String? @default("OTHER") // EXECUTIVE, MANAGER, IC, FREELANCER, STUDENT, OTHER
+  department  String? // "Engineering", "Sales", "HR"
+  industry    String? // "Technology", "Healthcare", "Finance"
+  companySize String? @default("SMB") // SOLO, STARTUP, SMB, ENTERPRISE
+
+  // Personalization - Communication Style
+  communicationStyle String? @default("CASUAL") // FORMAL, CASUAL, TECHNICAL, CREATIVE
+  responseLength     String? @default("MODERATE") // BRIEF, MODERATE, DETAILED
+
+  // Personalization - Work Patterns
+  workingHoursStart String?  @default("09:00")
+  workingHoursEnd   String?  @default("18:00")
+  workingDays       String[] @default(["MON", "TUE", "WED", "THU", "FRI"])
+
+  // Personalization - AI Behavior
+  proactivityLevel      String? @default("MEDIUM") // LOW, MEDIUM, HIGH
+  notificationFrequency String? @default("DIGEST") // IMMEDIATE, DIGEST, MINIMAL
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("user_preferences")
@@ -662,4 +690,142 @@ model HealthCheck {
   error         String?
 
   @@map("health_checks")
+}
+
+// ============================================
+// Multi-Agent System Models
+// ============================================
+
+// Pending actions proposed by agents awaiting HITL approval
+model AgentPendingAction {
+  id                 String  @id @default(cuid())
+  sessionId          String? // ChatSession reference (optional)
+  tenantId           String
+  userId             String
+  agentName          String // Which agent proposed (EmailAgent, CalendarAgent, etc)
+  actionType         String // SEND_EMAIL, CREATE_EVENT, MERGE_CONTACTS, etc
+  payload            Json // Action-specific data
+  confidence         Float // 0.0 - 1.0 original confidence
+  adjustedConfidence Float? // After learning boost applied
+  severity           String  @default("MEDIUM") // LOW, MEDIUM, HIGH
+  status             String  @default("PENDING") // PENDING, APPROVED, EXECUTED, REJECTED, EXPIRED
+  reasoningSteps     String? // LLM reasoning explanation
+
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  expiresAt       DateTime? // Auto-expire if not actioned
+  approvedAt      DateTime?
+  approvedBy      String? // User who approved
+  executedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectedBy      String?
+  rejectionReason String?
+
+  // Relations
+  feedback AgentActionFeedback[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, userId, status])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@map("agent_pending_actions")
+}
+
+// Feedback recorded for agent actions (for learning loop)
+model AgentActionFeedback {
+  id                 String   @id @default(cuid())
+  actionId           String
+  tenantId           String
+  userId             String
+  agentName          String
+  actionType         String
+  wasApproved        Boolean
+  wasExecuted        Boolean
+  wasSuccessful      Boolean?
+  originalConfidence Float
+  adjustedConfidence Float?
+  userFeedback       String? // Optional text feedback
+  userRating         Int? // 1-5 stars (optional)
+  executionTimeMs    Int?
+  errorMessage       String?
+  contextSnapshot    Json? // Snapshot of context for analysis
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  action AgentPendingAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, agentName])
+  @@index([userId, actionType])
+  @@index([wasApproved])
+  @@index([createdAt])
+  @@index([actionId])
+  @@map("agent_action_feedback")
+}
+
+// Learning profiles for confidence adjustment over time
+model AgentLearningProfile {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  userId                String? // NULL = tenant-wide profile
+  agentName             String
+  actionType            String
+  totalAttempts         Int       @default(0)
+  approvedCount         Int       @default(0)
+  rejectedCount         Int       @default(0)
+  autoExecutedCount     Int       @default(0)
+  avgOriginalConfidence Float     @default(0.5)
+  avgAdjustedConfidence Float     @default(0.5)
+  successRate           Float     @default(0.0)
+  lastLearningAt        DateTime?
+  confidenceBoost       Float     @default(0.0) // -0.3 to +0.3 adjustment
+  metadata              Json?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([tenantId, userId, agentName, actionType])
+  @@index([tenantId])
+  @@index([agentName, actionType])
+  @@map("agent_learning_profiles")
+}
+
+// ============================================
+// User Personalization - Semantic Memory
+// ============================================
+
+// Stores embeddings of user preferences, facts, and patterns for semantic retrieval
+model UserProfileEmbedding {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+
+  // What type of memory this is
+  memoryType String @default("PREFERENCE") // PREFERENCE, FACT, PATTERN, INTERACTION, CONTACT_NOTE
+
+  // The content being embedded
+  content String // "User prefers morning meetings before 10am"
+  vector  Unsupported("vector")? // pgvector embedding
+
+  // Source of this memory
+  source     String @default("INFERRED") // EXPLICIT (user said), INFERRED (learned), BEHAVIOR (observed)
+  confidence Float  @default(0.5) // 0-1 how confident are we in this memory
+
+  // Metadata
+  category  String? // "scheduling", "email", "communication", "contacts"
+  expiresAt DateTime? // Some memories should expire
+
+  // Usage tracking
+  usageCount Int       @default(0) // How often this memory is used
+  lastUsedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, memoryType])
+  @@index([tenantId, userId, category])
+  @@index([expiresAt])
+  @@map("user_profile_embeddings")
 }

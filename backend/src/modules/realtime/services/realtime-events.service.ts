@@ -7,6 +7,8 @@ import {
   ContactEventPayload,
   EmailEventPayload,
   LabelEventPayload,
+  AiActionEventPayload,
+  AiSessionEventPayload,
   KnownRealtimeEvent,
   RealtimeEventPayloads,
   buildTenantRoom,
@@ -18,6 +20,8 @@ export type {
   ContactEventPayload,
   EmailEventPayload,
   LabelEventPayload,
+  AiActionEventPayload,
+  AiSessionEventPayload,
 } from '../types/realtime.types';
 
 /**
@@ -259,6 +263,52 @@ export class RealtimeEventsService {
    */
   emitSyncStatus(tenantId: string, payload: RealtimeEventPayloads['sync:status']) {
     this.emitToTenant(tenantId, 'sync:status', payload);
+  }
+
+  /**
+   * AI MULTI-AGENT EVENTS
+   */
+
+  /**
+   * Emette evento per nuova azione AI pending
+   */
+  emitAiActionCreated(tenantId: string, payload: AiActionEventPayload) {
+    this.emitToTenant(tenantId, 'ai:action:created', payload);
+  }
+
+  /**
+   * Emette evento per azione AI approvata
+   */
+  emitAiActionApproved(tenantId: string, payload: AiActionEventPayload) {
+    this.emitToTenant(tenantId, 'ai:action:approved', payload);
+  }
+
+  /**
+   * Emette evento per azione AI rifiutata
+   */
+  emitAiActionRejected(tenantId: string, payload: AiActionEventPayload) {
+    this.emitToTenant(tenantId, 'ai:action:rejected', payload);
+  }
+
+  /**
+   * Emette evento per azione AI eseguita con successo
+   */
+  emitAiActionExecuted(tenantId: string, payload: AiActionEventPayload) {
+    this.emitToTenant(tenantId, 'ai:action:executed', payload);
+  }
+
+  /**
+   * Emette evento per azione AI fallita
+   */
+  emitAiActionFailed(tenantId: string, payload: AiActionEventPayload) {
+    this.emitToTenant(tenantId, 'ai:action:failed', payload);
+  }
+
+  /**
+   * Emette evento per aggiornamento sessione AI
+   */
+  emitAiSessionUpdate(tenantId: string, payload: AiSessionEventPayload) {
+    this.emitToTenant(tenantId, 'ai:session:update', payload);
   }
 
   /**
