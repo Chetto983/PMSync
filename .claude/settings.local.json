@@ -35,7 +35,11 @@
       "Bash(npm test:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(powershell -Command \"cd ''d:\\MailAgent\\frontend''; npx tsc --noEmit 2>&1 | Select-Object -First 100\")",
+      "Bash(powershell -Command \"cd ''d:\\MailAgent\\frontend''; npx tsc --noEmit 2>&1 | Select-Object -First 50\")",
+      "Bash(powershell -Command \"cd ''d:\\MailAgent\\frontend''; npx tsc --noEmit 2>&1 | Select-Object -First 30\")",
+      "Bash(powershell -Command:*)"
     ],
     "deny": [],
     "ask": []

@@ -183,8 +183,8 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
       <DialogContent dividers sx={{ p: 0 }}>
         {/* Tabs */}
         <Tabs value={currentTab} onChange={(_, v) => setCurrentTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}>
-          <Tab icon={<Filter size={18} />} label="Standard Search" value="standard" iconPosition="start" />
-          <Tab icon={<Sparkles size={18} />} label="AI Search" value="ai" iconPosition="start" />
+          <Tab icon={<Filter size={18} />} label={t.dashboard.email.advancedSearch.standardSearch} value="standard" iconPosition="start" />
+          <Tab icon={<Sparkles size={18} />} label={t.dashboard.email.advancedSearch.aiSearch} value="ai" iconPosition="start" />
         </Tabs>
 
         <Box sx={{ p: 3 }}>
@@ -217,21 +217,21 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
 
               <TextField
                 fullWidth
-                label="To (Recipient)"
-                placeholder="recipient@example.com"
+                label={t.dashboard.email.advancedSearch.toRecipient}
+                placeholder={t.dashboard.email.advancedSearch.recipientPlaceholder}
                 value={filters.to || ''}
                 onChange={(e) => updateFilter('to', e.target.value)}
-                helperText="Filter by recipient email address"
+                helperText={t.dashboard.email.advancedSearch.filterByRecipient}
               />
 
               {/* Subject */}
               <TextField
                 fullWidth
-                label="Subject"
-                placeholder="Enter subject keywords"
+                label={t.dashboard.email.advancedSearch.subject}
+                placeholder={t.dashboard.email.advancedSearch.subjectPlaceholder}
                 value={filters.subject || ''}
                 onChange={(e) => updateFilter('subject', e.target.value)}
-                helperText="Filter by email subject"
+                helperText={t.dashboard.email.advancedSearch.filterBySubject}
               />
 
               {/* Labels */}
@@ -245,9 +245,9 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Labels"
-                    placeholder="Select labels"
-                    helperText="Filter by labels"
+                    label={t.dashboard.email.advancedSearch.labelsLabel}
+                    placeholder={t.dashboard.email.advancedSearch.labelsPlaceholder}
+                    helperText={t.dashboard.email.advancedSearch.filterByLabels}
                   />
                 )}
                 renderTags={(value, getTagProps) =>
@@ -364,8 +364,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
           {currentTab === 'ai' && (
             <Stack spacing={3}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Use AI-powered semantic search to find emails by meaning, not just keywords.
-                Ask questions in natural language!
+                {t.dashboard.email.advancedSearch.aiSearchDescription}
               </Typography>
 
               {/* Semantic Query */}
@@ -373,14 +372,14 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                 fullWidth
                 multiline
                 rows={4}
-                label="Ask AI about your emails"
-                placeholder="e.g., 'Show me urgent emails from last week about the project' or 'Find emails discussing budget concerns'"
+                label={t.dashboard.email.advancedSearch.aiSearchLabel}
+                placeholder={t.dashboard.email.advancedSearch.aiSearchPlaceholder}
                 value={filters.semanticQuery || ''}
                 onChange={(e) => updateFilter('semanticQuery', e.target.value)}
                 InputProps={{
                   startAdornment: <Sparkles size={18} style={{ marginRight: 8, opacity: 0.7, color: '#9c27b0' }} />,
                 }}
-                helperText="AI will understand the context and meaning of your query"
+                helperText={t.dashboard.email.advancedSearch.aiSearchHelperText}
               />
 
               <Box
@@ -393,7 +392,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                 }}
               >
                 <Typography variant="caption" fontWeight={600} gutterBottom display="block">
-                  💡 Examples:
+                  💡 {t.dashboard.email.advancedSearch.aiExamples}
                 </Typography>
                 <Typography variant="caption" component="div" color="text.secondary" sx={{ pl: 2 }}>
                   • &ldquo;Emails about invoice payments from this month&rdquo;<br />
@@ -410,7 +409,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                     onChange={(e) => updateFilter('useAI', e.target.checked)}
                   />
                 }
-                label="Enable AI semantic search (uses knowledge base)"
+                label={t.dashboard.email.advancedSearch.enableAiSearch}
               />
             </Stack>
           )}

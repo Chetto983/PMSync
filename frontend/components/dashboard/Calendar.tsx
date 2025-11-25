@@ -482,16 +482,16 @@ export function Calendar() {
     const errors: typeof editFormErrors = {};
 
     if (!editedEvent.title.trim()) {
-      errors.title = 'Title is required';
+      errors.title = calendarCopy.validation?.titleRequired || 'Title is required';
     }
     if (!editedEvent.start) {
-      errors.start = 'Start date/time is required';
+      errors.start = calendarCopy.validation?.startRequired || 'Start date/time is required';
     }
     if (!editedEvent.end) {
-      errors.end = 'End date/time is required';
+      errors.end = calendarCopy.validation?.endRequired || 'End date/time is required';
     }
     if (editedEvent.start && editedEvent.end && new Date(editedEvent.end) <= new Date(editedEvent.start)) {
-      errors.end = 'End time must be after start time';
+      errors.end = calendarCopy.validation?.endAfterStart || 'End time must be after start time';
     }
 
     // Check for duplicate events (excluding current event)
@@ -515,7 +515,7 @@ export function Calendar() {
       });
 
       if (duplicate) {
-        errors.title = 'An event with this title already exists at the same time';
+        errors.title = calendarCopy.validation?.duplicateEvent || 'An event with this title already exists at the same time';
       }
     }
 
@@ -604,7 +604,7 @@ export function Calendar() {
       console.error('Failed to download attachment:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to download attachment',
+        message: calendarCopy.failedToDownloadAttachment || 'Failed to download attachment',
         severity: 'error',
       });
     }
@@ -637,22 +637,22 @@ export function Calendar() {
 
     // Title is required
     if (!event.title.trim()) {
-      errors.title = 'Title is required';
+      errors.title = calendarCopy.validation?.titleRequired || 'Title is required';
     }
 
     // Start date/time is required
     if (!event.start) {
-      errors.start = 'Start date/time is required';
+      errors.start = calendarCopy.validation?.startRequired || 'Start date/time is required';
     }
 
     // End date/time is required
     if (!event.end) {
-      errors.end = 'End date/time is required';
+      errors.end = calendarCopy.validation?.endRequired || 'End date/time is required';
     }
 
     // End time must be after start time
     if (event.start && event.end && new Date(event.end) <= new Date(event.start)) {
-      errors.end = 'End time must be after start time';
+      errors.end = calendarCopy.validation?.endAfterStart || 'End time must be after start time';
     }
 
     // Check for duplicate events (same title and overlapping time)
@@ -673,7 +673,7 @@ export function Calendar() {
       });
 
       if (duplicate) {
-        errors.title = 'An event with this title already exists at the same time';
+        errors.title = calendarCopy.validation?.duplicateEvent || 'An event with this title already exists at the same time';
       }
     }
 
@@ -1399,7 +1399,7 @@ export function Calendar() {
                   />
                   <TextField
                     fullWidth
-                    label="Location"
+                    label={calendarCopy.location}
                     value={editedEvent.location}
                     onChange={(e) => setEditedEvent({ ...editedEvent, location: e.target.value })}
                   />
@@ -1444,7 +1444,7 @@ export function Calendar() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <Paperclip size={16} />
                         <Typography variant="subtitle2">
-                          Attachments ({attachments.length})
+                          {calendarCopy.attachments} ({attachments.length})
                         </Typography>
                       </Box>
                       {loadingAttachments ? (
@@ -1466,7 +1466,7 @@ export function Calendar() {
                                   edge="end"
                                   size="small"
                                   onClick={() => handleDownloadAttachment(attachment)}
-                                  title="Download"
+                                  title={calendarCopy.download}
                                 >
                                   <Download size={16} />
                                 </IconButton>
@@ -1505,7 +1505,7 @@ export function Calendar() {
               </Button>
             </>
           ) : (
-            <Button onClick={handleCloseEventDetails}>Close</Button>
+            <Button onClick={handleCloseEventDetails}>{calendarCopy.close}</Button>
           )}
         </DialogActions>
       </Dialog>

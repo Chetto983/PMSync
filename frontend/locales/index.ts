@@ -240,6 +240,8 @@ export interface AppTranslations {
         removeStar: string;
         addLabels: string;
         moveToFolder: string;
+        markImportant: string;
+        unmarkImportant: string;
       };
       messages: {
         loadMoreFailed: string;
@@ -335,6 +337,24 @@ export interface AppTranslations {
         resetAll: string;
         cancel: string;
         search: string;
+        // AI Search tab
+        standardSearch: string;
+        aiSearch: string;
+        toRecipient: string;
+        recipientPlaceholder: string;
+        filterByRecipient: string;
+        subject: string;
+        subjectPlaceholder: string;
+        filterBySubject: string;
+        labelsLabel: string;
+        labelsPlaceholder: string;
+        filterByLabels: string;
+        aiSearchDescription: string;
+        aiSearchLabel: string;
+        aiSearchPlaceholder: string;
+        aiSearchHelperText: string;
+        aiExamples: string;
+        enableAiSearch: string;
       };
       attachment: string;
     };
@@ -514,6 +534,22 @@ export interface AppTranslations {
       failedToUpdateEvent: string;
       eventDeleted: string;
       failedToDeleteEvent: string;
+      // Validation messages
+      validation: {
+        titleRequired: string;
+        startRequired: string;
+        endRequired: string;
+        endAfterStart: string;
+        duplicateEvent: string;
+      };
+      // UI labels
+      changeColor: string;
+      attachments: string;
+      download: string;
+      close: string;
+      allDay: string;
+      noCalendarsFound: string;
+      failedToDownloadAttachment: string;
     };
     providers: {
       title: string;
@@ -841,6 +877,10 @@ export interface AppTranslations {
         deleteError: string;
         selectProvider: string;
         failedToSave: string;
+        noProvidersConnected: string;
+        noProviderSupportsContacts: string;
+        syncCompleted: string;
+        syncQueueFailed: string;
       };
       createDialog: {
         title: string;
@@ -852,6 +892,13 @@ export interface AppTranslations {
         notes: string;
         create: string;
         cancel: string;
+        // Extended create dialog
+        personalInformation: string;
+        contactInformation: string;
+        professionalInformation: string;
+        displayNameHelper: string;
+        phoneNumber: string;
+        websitePlaceholder: string;
       };
       editDialog: {
         title: string;
@@ -870,6 +917,9 @@ export interface AppTranslations {
         success: string;
         error: string;
       };
+      // UI labels
+      edit: string;
+      close: string;
     };
     tasks: {
       title: string;

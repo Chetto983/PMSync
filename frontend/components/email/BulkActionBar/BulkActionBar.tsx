@@ -287,7 +287,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 disabled={loading !== null}
               >
                 <Flag size={18} style={{ marginRight: 8 }} />
-                Mark as Important
+                {t.dashboard.email.bulkBar.markImportant}
               </MenuItem>
             )}
             {onUnflag && (
@@ -299,7 +299,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 disabled={loading !== null}
               >
                 <Flag size={18} style={{ marginRight: 8 }} />
-                Unmark as Important
+                {t.dashboard.email.bulkBar.unmarkImportant}
               </MenuItem>
             )}
             {onAddLabels && (
