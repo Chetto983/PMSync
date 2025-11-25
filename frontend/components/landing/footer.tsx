@@ -19,29 +19,29 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   const footerLinks = {
-    product: [
-      { label: 'Features', href: '#features' },
-      { label: 'Pricing', href: '#pricing' },
-      { label: 'Integrations', href: '#automation' },
-      { label: 'Changelog', href: '#' },
+    [t.landing.footer.product.title]: [
+      { label: t.landing.footer.product.features, href: '#features' },
+      { label: t.landing.footer.product.pricing, href: '#pricing' },
+      { label: t.landing.footer.product.integrations, href: '#automation' },
+      { label: t.landing.footer.product.changelog, href: '#' },
     ],
-    company: [
-      { label: 'About', href: '#' },
-      { label: 'Blog', href: '#' },
-      { label: 'Careers', href: '#' },
-      { label: 'Contact', href: '#' },
+    [t.landing.footer.company.title]: [
+      { label: t.landing.footer.company.about, href: '#' },
+      { label: t.landing.footer.company.blog, href: '#' },
+      { label: t.landing.footer.company.careers, href: '#' },
+      { label: t.landing.footer.company.contact, href: '#' },
     ],
-    resources: [
-      { label: 'Documentation', href: '#' },
-      { label: 'API Reference', href: '#' },
-      { label: 'Support', href: '#' },
-      { label: 'Status', href: '#' },
+    [t.landing.footer.resources.title]: [
+      { label: t.landing.footer.resources.documentation, href: '#' },
+      { label: t.landing.footer.resources.apiReference, href: '#' },
+      { label: t.landing.footer.resources.support, href: '#' },
+      { label: t.landing.footer.resources.status, href: '#' },
     ],
-    legal: [
-      { label: 'Privacy', href: '#' },
-      { label: 'Terms', href: '#' },
-      { label: 'Security', href: '#' },
-      { label: 'GDPR', href: '#' },
+    [t.landing.footer.legal.title]: [
+      { label: t.landing.footer.legal.privacy, href: '#' },
+      { label: t.landing.footer.legal.terms, href: '#' },
+      { label: t.landing.footer.legal.security, href: '#' },
+      { label: t.landing.footer.legal.gdpr, href: '#' },
     ],
   };
 
@@ -169,7 +169,7 @@ export function Footer() {
             spacing={2}
           >
             <Typography variant="body2" color="text.secondary">
-              © {currentYear} {t.app.name}. All rights reserved.
+              © {currentYear} {t.app.name}. {t.landing.footer.copyright}
             </Typography>
             <Stack direction="row" spacing={3}>
               <Typography
@@ -182,7 +182,7 @@ export function Footer() {
                   '&:hover': { color: '#55cae5' },
                 }}
               >
-                Privacy Policy
+                {t.landing.footer.privacyPolicy}
               </Typography>
               <Typography
                 component={Link}
@@ -194,7 +194,7 @@ export function Footer() {
                   '&:hover': { color: '#55cae5' },
                 }}
               >
-                Terms of Service
+                {t.landing.footer.termsOfService}
               </Typography>
             </Stack>
           </Stack>

@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import {
   Box,
   Drawer,
@@ -108,42 +109,32 @@ export function Sidebar({
       >
         {!collapsed && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box
+            <Image
+              src="/Logo PMSync.svg"
+              alt={t.app.name}
+              width={32}
+              height={32}
+            />
+            <Typography
+              variant="h6"
               sx={{
-                width: 32,
-                height: 32,
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #0B7EFF 0%, #1E88E5 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
               }}
             >
-              <Typography sx={{ color: 'white', fontWeight: 700, fontSize: '1.2rem' }}>
-                M
-              </Typography>
-            </Box>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              MailAgent
+              {t.app.name}
             </Typography>
           </Box>
         )}
         {collapsed && (
-          <Box
-            sx={{
-              width: 32,
-              height: 32,
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #0B7EFF 0%, #1E88E5 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Typography sx={{ color: 'white', fontWeight: 700, fontSize: '1.2rem' }}>
-              M
-            </Typography>
-          </Box>
+          <Image
+            src="/Logo PMSync.svg"
+            alt={t.app.name}
+            width={32}
+            height={32}
+          />
         )}
         {!isMobile && onToggleCollapse && (
           <IconButton

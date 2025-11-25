@@ -91,7 +91,7 @@ export function Features() {
                 color: '#7650ce',
               }}
             >
-              Features
+              {t.landing.featuresSection.badge}
             </Typography>
           </Box>
           <Typography
@@ -104,7 +104,7 @@ export function Features() {
               letterSpacing: '-0.02em',
             }}
           >
-            Everything you need{' '}
+            {t.landing.featuresSection.title}{' '}
             <Box
               component="span"
               sx={{
@@ -113,7 +113,7 @@ export function Features() {
                 WebkitTextFillColor: 'transparent',
               }}
             >
-              in one place
+              {t.landing.featuresSection.titleHighlight}
             </Box>
           </Typography>
           <Typography
@@ -125,7 +125,7 @@ export function Features() {
               lineHeight: 1.7,
             }}
           >
-            Powerful AI-driven features designed to streamline your workflow and boost productivity
+            {t.landing.featuresSection.description}
           </Typography>
         </Stack>
 
@@ -284,9 +284,9 @@ export function Features() {
           sx={{ mt: { xs: 6, md: 10 } }}
         >
           {[
-            { icon: Bot, label: 'AI-Powered', desc: 'Smart automation' },
-            { icon: Lock, label: 'Enterprise Security', desc: 'SOC 2 & GDPR' },
-            { icon: Zap, label: 'Lightning Fast', desc: 'Sub-second sync' },
+            { icon: Bot, label: t.landing.featuresSection.bottomFeatures.aiPowered.label, desc: t.landing.featuresSection.bottomFeatures.aiPowered.desc },
+            { icon: Lock, label: t.landing.featuresSection.bottomFeatures.security.label, desc: t.landing.featuresSection.bottomFeatures.security.desc },
+            { icon: Zap, label: t.landing.featuresSection.bottomFeatures.fast.label, desc: t.landing.featuresSection.bottomFeatures.fast.desc },
           ].map((item, index) => (
             <Stack
               key={item.label}

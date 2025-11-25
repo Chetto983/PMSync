@@ -104,7 +104,7 @@ export function Modules() {
                 color: '#55cae5',
               }}
             >
-              Automation
+              {t.landing.automationSection.badge}
             </Typography>
           </Box>
           <Typography
@@ -117,7 +117,7 @@ export function Modules() {
               letterSpacing: '-0.02em',
             }}
           >
-            Built for{' '}
+            {t.landing.automationSection.title}{' '}
             <Box
               component="span"
               sx={{
@@ -126,7 +126,7 @@ export function Modules() {
                 WebkitTextFillColor: 'transparent',
               }}
             >
-              enterprise scale
+              {t.landing.automationSection.titleHighlight}
             </Box>
           </Typography>
           <Typography
@@ -134,7 +134,7 @@ export function Modules() {
             color="text.secondary"
             sx={{ maxWidth: 550, fontSize: { xs: '1rem', md: '1.15rem' }, lineHeight: 1.7 }}
           >
-            Powerful automation capabilities designed for teams that demand reliability and scale
+            {t.landing.automationSection.description}
           </Typography>
         </Stack>
 
@@ -323,7 +323,7 @@ export function Modules() {
                     }}
                   >
                     <Typography variant="body2" fontWeight={700}>
-                      Learn more
+                      {t.landing.automationSection.learnMore}
                     </Typography>
                     <ArrowRight size={18} />
                   </Stack>

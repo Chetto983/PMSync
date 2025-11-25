@@ -46,9 +46,9 @@ export function Hero() {
   const isDark = theme.palette.mode === 'dark';
 
   const productCards = [
-    { icon: Mail, label: 'Email', desc: 'Unified inbox', color: '#55cae5' },
-    { icon: Calendar, label: 'Calendar', desc: 'Smart scheduling', color: '#7650ce' },
-    { icon: Users, label: 'Contacts', desc: 'AI-enriched', color: '#b43db6' },
+    { icon: Mail, label: t.landing.productCards.email.label, desc: t.landing.productCards.email.desc, color: '#55cae5' },
+    { icon: Calendar, label: t.landing.productCards.calendar.label, desc: t.landing.productCards.calendar.desc, color: '#7650ce' },
+    { icon: Users, label: t.landing.productCards.contacts.label, desc: t.landing.productCards.contacts.desc, color: '#b43db6' },
   ];
 
   return (
@@ -442,8 +442,8 @@ export function Hero() {
             sx={{ pt: 4, opacity: 0.7 }}
           >
             {[
-              { icon: Shield, label: 'SOC 2 Compliant' },
-              { icon: Zap, label: '99.9% Uptime' },
+              { icon: Shield, label: t.landing.trustIndicators.soc2 },
+              { icon: Zap, label: t.landing.trustIndicators.uptime },
             ].map((item) => (
               <Stack
                 key={item.label}

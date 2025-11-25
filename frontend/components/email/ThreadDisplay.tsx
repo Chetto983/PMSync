@@ -11,6 +11,7 @@ import {
   CircularProgress,
   Divider,
   Tooltip,
+  useTheme,
 } from '@mui/material';
 import {
   ChevronLeft,
@@ -187,6 +188,8 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   onLabelsChange,
 }) => {
   const t = useTranslations();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const { addEmailsToLabel, removeEmailFromLabel } = useLabelStore();
   const attachmentTooltip =
     (t as any)?.dashboard?.email?.attachments?.tooltip ??
@@ -587,17 +590,31 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
                 </Paper>
               )}
 
-              {/* Email Body */}
+              {/* Email Body - Warm off-white text in dark mode for better readability
+                  Using #E8E4D9 (warm pearl/cream) - provides soft contrast without eye strain
+                  WCAG compliant: ~10:1 contrast ratio on #1E1E1E background */}
               <Box
                 sx={{
                   mb: 3,
+                  // Dark mode: warm off-white/cream text for comfortable reading
+                  color: isDark ? '#E8E4D9' : 'text.primary',
+                  '& *': {
+                    // Override inline styles that might set text color in dark mode
+                    color: isDark ? '#E8E4D9 !important' : 'inherit',
+                  },
                   '& img': {
                     maxWidth: '100%',
                     height: 'auto',
                   },
                   '& a': {
-                    color: 'primary.main',
+                    // Cyan links that complement the warm text
+                    color: isDark ? '#7dd8ec !important' : 'primary.main',
                     textDecoration: 'underline',
+                  },
+                  // Preserve readability of code blocks
+                  '& pre, & code': {
+                    color: isDark ? '#E0E0E0 !important' : 'inherit',
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
                   },
                 }}
                 dangerouslySetInnerHTML={{ __html: safeBody }}

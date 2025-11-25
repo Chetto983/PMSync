@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   AppBar,
   Toolbar,
@@ -24,7 +26,6 @@ import {
 import {
   Menu as MenuIcon,
   Mail,
-  Sparkles,
   Settings,
   LogOut,
   Moon,
@@ -74,6 +75,7 @@ export function MaterialDashboardLayout({
   const muiTheme = useTheme();
   const { theme, setTheme } = useNextTheme();
   const { user } = useAuth();
+  const t = useTranslations();
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -115,22 +117,24 @@ export function MaterialDashboardLayout({
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Toolbar sx={{ display: { md: 'none' } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box
+          <Image
+            src="/Logo PMSync.svg"
+            alt={t.app.name}
+            width={40}
+            height={40}
+            priority
+          />
+          <Typography
+            variant="h6"
+            component="div"
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 40,
-              height: 40,
-              borderRadius: 2,
-              bgcolor: 'primary.main',
-              color: 'primary.contrastText',
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
             }}
           >
-            <Sparkles size={20} />
-          </Box>
-          <Typography variant="h6" component="div">
-            MailAgent
+            {t.app.name}
           </Typography>
         </Box>
       </Toolbar>
@@ -246,22 +250,25 @@ export function MaterialDashboardLayout({
               gap: 1.5,
             }}
           >
-            <Box
+            <Image
+              src="/Logo PMSync.svg"
+              alt={t.app.name}
+              width={40}
+              height={40}
+              priority
+            />
+            <Typography
+              variant="h6"
+              noWrap
+              component="div"
               sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 40,
-                height: 40,
-                borderRadius: 2,
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
               }}
             >
-              <Sparkles size={20} />
-            </Box>
-            <Typography variant="h6" noWrap component="div">
-              MailAgent
+              {t.app.name}
             </Typography>
           </Box>
 

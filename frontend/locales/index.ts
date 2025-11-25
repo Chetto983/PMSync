@@ -40,6 +40,80 @@ interface LandingTranslations {
     primaryCta: string;
     secondaryCta: string;
   };
+  // Product cards in hero
+  productCards: {
+    email: { label: string; desc: string };
+    calendar: { label: string; desc: string };
+    contacts: { label: string; desc: string };
+  };
+  // Trust indicators in hero
+  trustIndicators: {
+    soc2: string;
+    uptime: string;
+  };
+  // Features section
+  featuresSection: {
+    badge: string;
+    title: string;
+    titleHighlight: string;
+    description: string;
+    bottomFeatures: {
+      aiPowered: { label: string; desc: string };
+      security: { label: string; desc: string };
+      fast: { label: string; desc: string };
+    };
+  };
+  // Automation/modules section
+  automationSection: {
+    badge: string;
+    title: string;
+    titleHighlight: string;
+    description: string;
+    learnMore: string;
+  };
+  // Testimonial section
+  testimonialSection: {
+    badge: string;
+    trustedCertified: string;
+  };
+  // CTA section
+  ctaSection: {
+    badge: string;
+  };
+  // Footer
+  footer: {
+    product: {
+      title: string;
+      features: string;
+      pricing: string;
+      integrations: string;
+      changelog: string;
+    };
+    company: {
+      title: string;
+      about: string;
+      blog: string;
+      careers: string;
+      contact: string;
+    };
+    resources: {
+      title: string;
+      documentation: string;
+      apiReference: string;
+      support: string;
+      status: string;
+    };
+    legal: {
+      title: string;
+      privacy: string;
+      terms: string;
+      security: string;
+      gdpr: string;
+    };
+    copyright: string;
+    privacyPolicy: string;
+    termsOfService: string;
+  };
 }
 
 interface AuthScreenCopy {

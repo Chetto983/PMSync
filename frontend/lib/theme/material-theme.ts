@@ -1,7 +1,12 @@
 import { createTheme, ThemeOptions } from '@mui/material/styles';
 
 /**
- * Material Design 3 Theme Configuration for MailAgent
+ * Material Design 3 Theme Configuration for PMSync
+ *
+ * Brand Colors:
+ * - Primary: #55cae5 (Cyan)
+ * - Secondary: #7650ce (Purple)
+ * - Accent: #b43db6 (Magenta)
  *
  * Features:
  * - Light/Dark mode support
@@ -216,22 +221,22 @@ const commonThemeOptions: ThemeOptions = {
   },
 };
 
-// Light Theme
+// Light Theme - PMSync Brand Colors
 export const lightTheme = createTheme({
   ...commonThemeOptions,
   palette: {
     mode: 'light',
     primary: {
-      main: '#3F51B5', // Indigo 500
-      light: '#5C6BC0', // Indigo 400
-      dark: '#303F9F', // Indigo 700
+      main: '#55cae5', // PMSync Cyan
+      light: '#7dd8ec',
+      dark: '#3ba8c4',
       contrastText: '#FFFFFF',
     },
     secondary: {
-      main: '#FFC107', // Amber 500
-      light: '#FFCA28', // Amber 400
-      dark: '#FFA000', // Amber 700
-      contrastText: '#000000',
+      main: '#7650ce', // PMSync Purple
+      light: '#9575d8',
+      dark: '#5a3da6',
+      contrastText: '#FFFFFF',
     },
     error: {
       main: '#F44336', // Red 500
@@ -278,22 +283,22 @@ export const lightTheme = createTheme({
   },
 });
 
-// Dark Theme
+// Dark Theme - PMSync Brand Colors
 export const darkTheme = createTheme({
   ...commonThemeOptions,
   palette: {
     mode: 'dark',
     primary: {
-      main: '#5C6BC0', // Indigo 400 (lighter for dark mode)
-      light: '#7986CB', // Indigo 300
-      dark: '#3949AB', // Indigo 600
-      contrastText: '#FFFFFF',
+      main: '#55cae5', // PMSync Cyan
+      light: '#7dd8ec',
+      dark: '#3ba8c4',
+      contrastText: '#000000',
     },
     secondary: {
-      main: '#FFCA28', // Amber 400 (lighter for dark mode)
-      light: '#FFD54F', // Amber 300
-      dark: '#FFB300', // Amber 600
-      contrastText: '#000000',
+      main: '#9575d8', // PMSync Purple (lighter for dark mode)
+      light: '#b39ddf',
+      dark: '#7650ce',
+      contrastText: '#FFFFFF',
     },
     error: {
       main: '#EF5350', // Red 400

@@ -100,7 +100,7 @@ export const it: AppTranslations = {
       eyebrow: 'Piattaforma AI per le comunicazioni',
       title: 'Controlla ogni inbox con serenità',
       subtitle:
-        'MailAgent unisce triage intelligente, bozze automatiche e assistenti vocali per risposte puntuali e coerenti.',
+        'PMSync unisce triage intelligente, bozze automatiche e assistenti vocali per risposte puntuali e coerenti.',
       primaryCta: 'Richiedi una demo',
       secondaryCta: 'Scopri il prodotto',
     },
@@ -160,15 +160,89 @@ export const it: AppTranslations = {
     ],
     testimonial: {
       quote:
-        "MailAgent ha permesso al nostro supporto di 70 persone di lavorare come se fossimo in 200. L'assistente AI scrive bozze perfette mentre il cruscotto evidenzia dove serve l'intervento umano.",
+        "PMSync ha permesso al nostro supporto di 70 persone di lavorare come se fossimo in 200. L'assistente AI scrive bozze perfette mentre il cruscotto evidenzia dove serve l'intervento umano.",
       author: 'Chiara Leone',
       role: 'Head of Service Operations, Aeris',
     },
     secondaryCta: {
       title: 'Pronti a ridisegnare le vostre email?',
-      subtitle: 'Porta ogni flusso di lavoro in un workspace AI-native con MailAgent.',
+      subtitle: 'Porta ogni flusso di lavoro in un workspace AI-native con PMSync.',
       primaryCta: 'Parla con il prodotto',
       secondaryCta: 'Scarica la scheda',
+    },
+    // Schede prodotto nell'hero
+    productCards: {
+      email: { label: 'Email', desc: 'Inbox unificata' },
+      calendar: { label: 'Calendario', desc: 'Pianificazione smart' },
+      contacts: { label: 'Contatti', desc: 'Arricchiti dall\'AI' },
+    },
+    // Indicatori di fiducia nell'hero
+    trustIndicators: {
+      soc2: 'Conforme SOC 2',
+      uptime: '99,9% Uptime',
+    },
+    // Sezione funzionalità
+    featuresSection: {
+      badge: 'Funzionalità',
+      title: 'Tutto ciò di cui hai bisogno',
+      titleHighlight: 'in un unico posto',
+      description: 'Funzionalità AI potenti progettate per semplificare il flusso di lavoro e aumentare la produttività',
+      bottomFeatures: {
+        aiPowered: { label: 'Basato su AI', desc: 'Automazione intelligente' },
+        security: { label: 'Sicurezza Enterprise', desc: 'SOC 2 e GDPR' },
+        fast: { label: 'Super Veloce', desc: 'Sync sotto il secondo' },
+      },
+    },
+    // Sezione automazione/moduli
+    automationSection: {
+      badge: 'Automazione',
+      title: 'Costruito per',
+      titleHighlight: 'scala enterprise',
+      description: 'Potenti capacità di automazione progettate per team che richiedono affidabilità e scalabilità',
+      learnMore: 'Scopri di più',
+    },
+    // Sezione testimonianze
+    testimonialSection: {
+      badge: 'Testimonianze',
+      trustedCertified: 'Affidabile e Certificato',
+    },
+    // Sezione CTA
+    ctaSection: {
+      badge: 'Inizia Oggi',
+    },
+    // Footer
+    footer: {
+      product: {
+        title: 'Prodotto',
+        features: 'Funzionalità',
+        pricing: 'Prezzi',
+        integrations: 'Integrazioni',
+        changelog: 'Changelog',
+      },
+      company: {
+        title: 'Azienda',
+        about: 'Chi siamo',
+        blog: 'Blog',
+        careers: 'Lavora con noi',
+        contact: 'Contatti',
+      },
+      resources: {
+        title: 'Risorse',
+        documentation: 'Documentazione',
+        apiReference: 'Riferimento API',
+        support: 'Supporto',
+        status: 'Stato',
+      },
+      legal: {
+        title: 'Legale',
+        privacy: 'Privacy',
+        terms: 'Termini',
+        security: 'Sicurezza',
+        gdpr: 'GDPR',
+      },
+      copyright: 'Tutti i diritti riservati.',
+      privacyPolicy: 'Informativa Privacy',
+      termsOfService: 'Termini di Servizio',
     },
   },
   auth: {
@@ -906,7 +980,7 @@ export const it: AppTranslations = {
         },
         languageTitle: 'Lingua e regione',
         languageLabel: 'Lingua',
-        languageHint: 'Questa opzione riguarda solo l\'interfaccia di MailAgent.',
+        languageHint: 'Questa opzione riguarda solo l\'interfaccia di PMSync.',
         languageOptions: {
           en: 'English (US)',
           it: 'Italiano',

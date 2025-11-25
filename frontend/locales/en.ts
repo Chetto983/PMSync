@@ -106,7 +106,7 @@ export const en: AppTranslations = {
       eyebrow: 'AI-native communications layer',
       title: 'Orchestrate every inbox with confidence',
       subtitle:
-        'MailAgent blends intelligent triage, automated drafting, and voice-ready copilots so every response is on brand and on time.',
+        'PMSync blends intelligent triage, automated drafting, and voice-ready copilots so every response is on brand and on time.',
       primaryCta: 'Book a live demo',
       secondaryCta: 'See the platform',
     },
@@ -162,15 +162,89 @@ export const en: AppTranslations = {
     ],
     testimonial: {
       quote:
-        'MailAgent let our 70-person support org operate like 200. The AI assistant drafts perfect replies, while the dashboard shows exactly where human focus is needed.',
+        'PMSync let our 70-person support org operate like 200. The AI assistant drafts perfect replies, while the dashboard shows exactly where human focus is needed.',
       author: 'Chiara Leone',
       role: 'Head of Service Operations, Aeris',
     },
     secondaryCta: {
       title: 'Ready for a material refresh of your email ops?',
-      subtitle: 'Bring every workflow into a single AI-native workspace with MailAgent.',
+      subtitle: 'Bring every workflow into a single AI-native workspace with PMSync.',
       primaryCta: 'Talk to product',
       secondaryCta: 'Download one-pager',
+    },
+    // Product cards in hero
+    productCards: {
+      email: { label: 'Email', desc: 'Unified inbox' },
+      calendar: { label: 'Calendar', desc: 'Smart scheduling' },
+      contacts: { label: 'Contacts', desc: 'AI-enriched' },
+    },
+    // Trust indicators in hero
+    trustIndicators: {
+      soc2: 'SOC 2 Compliant',
+      uptime: '99.9% Uptime',
+    },
+    // Features section
+    featuresSection: {
+      badge: 'Features',
+      title: 'Everything you need',
+      titleHighlight: 'in one place',
+      description: 'Powerful AI-driven features designed to streamline your workflow and boost productivity',
+      bottomFeatures: {
+        aiPowered: { label: 'AI-Powered', desc: 'Smart automation' },
+        security: { label: 'Enterprise Security', desc: 'SOC 2 & GDPR' },
+        fast: { label: 'Lightning Fast', desc: 'Sub-second sync' },
+      },
+    },
+    // Automation/modules section
+    automationSection: {
+      badge: 'Automation',
+      title: 'Built for',
+      titleHighlight: 'enterprise scale',
+      description: 'Powerful automation capabilities designed for teams that demand reliability and scale',
+      learnMore: 'Learn more',
+    },
+    // Testimonial section
+    testimonialSection: {
+      badge: 'Testimonials',
+      trustedCertified: 'Trusted & Certified',
+    },
+    // CTA section
+    ctaSection: {
+      badge: 'Get Started Today',
+    },
+    // Footer
+    footer: {
+      product: {
+        title: 'Product',
+        features: 'Features',
+        pricing: 'Pricing',
+        integrations: 'Integrations',
+        changelog: 'Changelog',
+      },
+      company: {
+        title: 'Company',
+        about: 'About',
+        blog: 'Blog',
+        careers: 'Careers',
+        contact: 'Contact',
+      },
+      resources: {
+        title: 'Resources',
+        documentation: 'Documentation',
+        apiReference: 'API Reference',
+        support: 'Support',
+        status: 'Status',
+      },
+      legal: {
+        title: 'Legal',
+        privacy: 'Privacy',
+        terms: 'Terms',
+        security: 'Security',
+        gdpr: 'GDPR',
+      },
+      copyright: 'All rights reserved.',
+      privacyPolicy: 'Privacy Policy',
+      termsOfService: 'Terms of Service',
     },
   },
   auth: {
@@ -908,7 +982,7 @@ export const en: AppTranslations = {
         },
         languageTitle: 'Language & Region',
         languageLabel: 'Language',
-        languageHint: 'This only affects the MailAgent interface, not email content.',
+        languageHint: 'This only affects the PMSync interface, not email content.',
         languageOptions: {
           en: 'English (US)',
           it: 'Italiano',

@@ -173,7 +173,7 @@ export function Cta() {
                     letterSpacing: 2,
                   }}
                 >
-                  Get Started Today
+                  {t.landing.ctaSection.badge}
                 </Typography>
               </Stack>
               <Typography
