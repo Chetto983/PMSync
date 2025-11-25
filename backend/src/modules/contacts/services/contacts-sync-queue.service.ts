@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/commo
 import { Queue, QueueEvents } from 'bullmq';
 import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
+import { getRedisConnectionOptions, getConfiguration } from '../../../config/configuration';
 
 export interface ContactsSyncJobData {
   tenantId: string;
@@ -80,20 +81,12 @@ export class ContactsSyncQueueService implements OnModuleInit, OnModuleDestroy {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    // Initialize Redis connection
-    const redisHost = this.configService.get<string>('REDIS_HOST', 'localhost');
-    const redisPort = this.configService.get<number>('REDIS_PORT', 6379);
-    const redisPassword = this.configService.get<string>('REDIS_PASSWORD');
+    // Initialize Redis connection using centralized config
+    const redisOptions = getRedisConnectionOptions();
+    const redisConfig = getConfiguration().redis;
+    this.redisConnection = new Redis(redisOptions);
 
-    this.redisConnection = new Redis({
-      host: redisHost,
-      port: redisPort,
-      password: redisPassword,
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-    });
-
-    this.logger.log(`Connecting to Redis at ${redisHost}:${redisPort}`);
+    this.logger.log(`Connecting to Redis at ${redisConfig.host}:${redisConfig.port}`);
 
     // Initialize HIGH priority queue
     this.highQueue = new Queue<ContactsSyncJobData>('contacts-sync-high', {

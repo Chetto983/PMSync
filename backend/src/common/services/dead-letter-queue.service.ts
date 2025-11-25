@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Queue, QueueEvents } from 'bullmq';
 import { Redis } from 'ioredis';
 import { CacheService, CacheNamespace } from './cache.service';
+import { getRedisConnectionOptions } from '../../config/configuration';
 
 /**
  * Dead Letter Queue Job Data
@@ -101,17 +102,9 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    const redisHost = this.config.get<string>('REDIS_HOST', 'localhost');
-    const redisPort = this.config.get<number>('REDIS_PORT', 6379);
-    const redisPassword = this.config.get<string>('REDIS_PASSWORD');
-
-    this.redisConnection = new Redis({
-      host: redisHost,
-      port: redisPort,
-      password: redisPassword,
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-    });
+    // Initialize Redis connection using centralized config
+    const redisOptions = getRedisConnectionOptions();
+    this.redisConnection = new Redis(redisOptions);
 
     // Initialize Dead Letter Queue
     this.dlqQueue = new Queue<DLQJobData>('dead-letter-queue', {

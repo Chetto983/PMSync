@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { createHash } from 'crypto';
+import { getConfiguration } from '../../../config/configuration';
 
 /**
  * Cache service for query embeddings to reduce Mistral API calls.
@@ -21,12 +22,15 @@ export class QueryEmbeddingCacheService implements OnModuleDestroy {
   private readonly CACHE_PREFIX = 'qemb:'; // query embedding
 
   constructor(private readonly config: ConfigService) {
+    const redisConfig = getConfiguration().redis;
+    // Use separate DB for query cache if configured
+    const queryCacheDb = this.config.get<number>('REDIS_QUERY_CACHE_DB', redisConfig.db);
+
     this.redis = new Redis({
-      host: this.config.get<string>('REDIS_HOST', 'localhost'),
-      port: this.config.get<number>('REDIS_PORT', 6379),
-      password: this.config.get<string>('REDIS_PASSWORD'),
-      // Separate DB for query cache (optional, keeps it isolated)
-      db: this.config.get<number>('REDIS_QUERY_CACHE_DB', 0),
+      host: redisConfig.host,
+      port: redisConfig.port,
+      password: redisConfig.password,
+      db: queryCacheDb,
       lazyConnect: true, // Don't connect immediately, allow error handling
     });
 

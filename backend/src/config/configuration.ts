@@ -28,7 +28,36 @@ export interface DatabaseConfig {
 export interface RedisConfig {
   host: string;
   port: number;
+  password?: string;
+  db: number;
   url: string;
+  maxRetries: number;
+  retryDelayMs: number;
+}
+
+/**
+ * Get Redis connection options for BullMQ/ioredis
+ * Use this function to get consistent Redis connection config across the app
+ */
+export interface RedisConnectionOptions {
+  host: string;
+  port: number;
+  password?: string;
+  db?: number;
+  maxRetriesPerRequest?: null;
+  enableReadyCheck?: boolean;
+}
+
+export function getRedisConnectionOptions(config?: RedisConfig): RedisConnectionOptions {
+  const redisConfig = config || getConfiguration().redis;
+  return {
+    host: redisConfig.host,
+    port: redisConfig.port,
+    password: redisConfig.password || undefined,
+    db: redisConfig.db,
+    maxRetriesPerRequest: null, // Required for BullMQ
+    enableReadyCheck: false,
+  };
 }
 
 export interface ApiConfig {
@@ -122,7 +151,15 @@ export function loadConfiguration(): Configuration {
   // Redis configuration - built from components
   const redisHost = process.env.REDIS_HOST || 'localhost';
   const redisPort = parseInt(process.env.REDIS_PORT || '6379');
-  const redisUrl = `redis://${redisHost}:${redisPort}`;
+  const redisPassword = process.env.REDIS_PASSWORD || '';
+  const redisDb = parseInt(process.env.REDIS_DB || '0');
+  const redisMaxRetries = parseInt(process.env.REDIS_MAX_RETRIES || '3');
+  const redisRetryDelayMs = parseInt(process.env.REDIS_RETRY_DELAY_MS || '1000');
+
+  // Build Redis URL with optional password
+  const redisUrl = redisPassword
+    ? `redis://:${encodeURIComponent(redisPassword)}@${redisHost}:${redisPort}/${redisDb}`
+    : `redis://${redisHost}:${redisPort}/${redisDb}`;
 
   // API configuration - built from components
   const apiHost = process.env.API_HOST || 'localhost';
@@ -197,10 +234,21 @@ export function loadConfiguration(): Configuration {
   const nodeEnv = (process.env.NODE_ENV as any) || 'development';
   const jwtSecret = process.env.JWT_SECRET;
   const aesSecretKey = process.env.AES_SECRET_KEY;
+  const debugAuthLog = (process.env.DEBUG_AUTH_LOG || 'false').toLowerCase() === 'true';
+
+  // Weak password detection patterns
+  const weakPasswords = ['mailpass', 'password', 'admin', '123456', 'postgres', 'root'];
+  const isWeakDbPassword = weakPasswords.includes(dbPassword.toLowerCase());
+  const isDefaultMinioCredentials =
+    process.env.S3_ACCESS_KEY === 'minioadmin' || process.env.S3_SECRET_KEY === 'minioadmin';
 
   if (nodeEnv === 'production') {
+    // Critical security checks - will throw and prevent startup
     if (!jwtSecret || jwtSecret === 'change-me-in-production' || jwtSecret === 'secret') {
-      throw new Error('SECURITY ERROR: JWT_SECRET must be set to a strong secret in production. Generate one with: openssl rand -base64 32');
+      throw new Error('SECURITY ERROR: JWT_SECRET must be set to a strong secret in production. Generate one with: openssl rand -base64 64');
+    }
+    if (jwtSecret.length < 32) {
+      throw new Error('SECURITY ERROR: JWT_SECRET must be at least 32 characters long');
     }
     if (!aesSecretKey || aesSecretKey === 'default-key-change-in-production') {
       throw new Error('SECURITY ERROR: AES_SECRET_KEY must be set to a strong secret in production. Generate one with: openssl rand -base64 32');
@@ -208,13 +256,31 @@ export function loadConfiguration(): Configuration {
     if (aesSecretKey.length < 32) {
       throw new Error('SECURITY ERROR: AES_SECRET_KEY must be at least 32 characters long for AES-256 encryption');
     }
+    if (isWeakDbPassword) {
+      throw new Error('SECURITY ERROR: DB_PASSWORD is too weak for production. Use a strong, unique password.');
+    }
+    if (debugAuthLog) {
+      throw new Error('SECURITY ERROR: DEBUG_AUTH_LOG must be false in production (logs sensitive auth data)');
+    }
+    if (rateLimitLimit > 1000) {
+      console.warn('\x1b[33m⚠️  WARNING: RATE_LIMIT_MAX is very high (' + rateLimitLimit + '). Consider lowering for DDoS protection.\x1b[0m');
+    }
+    if (isDefaultMinioCredentials) {
+      throw new Error('SECURITY ERROR: S3_ACCESS_KEY and S3_SECRET_KEY cannot use default MinIO credentials in production');
+    }
   } else {
-    // Development - warn about insecure defaults
+    // Development - warn about insecure defaults but don't prevent startup
     if (!jwtSecret || jwtSecret === 'change-me-in-production' || jwtSecret === 'secret') {
       console.warn('\x1b[33m⚠️  WARNING: Using default JWT_SECRET in development. Set JWT_SECRET environment variable.\x1b[0m');
     }
     if (!aesSecretKey || aesSecretKey === 'default-key-change-in-production') {
       console.warn('\x1b[33m⚠️  WARNING: Using default AES_SECRET_KEY in development. Set AES_SECRET_KEY environment variable.\x1b[0m');
+    }
+    if (isWeakDbPassword) {
+      console.warn('\x1b[33m⚠️  WARNING: DB_PASSWORD is weak. Consider using a stronger password.\x1b[0m');
+    }
+    if (isDefaultMinioCredentials) {
+      console.warn('\x1b[33m⚠️  WARNING: Using default MinIO credentials. Change for any non-local deployment.\x1b[0m');
     }
   }
 
@@ -234,7 +300,11 @@ export function loadConfiguration(): Configuration {
     redis: {
       host: redisHost,
       port: redisPort,
+      password: redisPassword || undefined,
+      db: redisDb,
       url: redisUrl,
+      maxRetries: redisMaxRetries,
+      retryDelayMs: redisRetryDelayMs,
     },
 
     api: {

@@ -9,12 +9,10 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from '../app.module';
 import { MistralService } from '../modules/ai/services/mistral.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { getRedisConnectionOptions } from '../config/configuration';
 
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: Number(process.env.REDIS_PORT || 6379),
-  password: process.env.REDIS_PASSWORD || undefined,
-};
+// Use centralized Redis configuration
+const connection = getRedisConnectionOptions();
 
 const queueOptions = { connection };
 

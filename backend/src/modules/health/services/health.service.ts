@@ -4,12 +4,13 @@ import { createClient } from 'redis';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { QueueService, QueueMetricsSummary } from '../../email-sync/services/queue.service';
+import { getConfiguration } from '../../../config/configuration';
 
 @Injectable()
 export class HealthService {
   private logger = new Logger(HealthService.name);
   private redisClient = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    url: getConfiguration().redis.url,
   });
 
   constructor(

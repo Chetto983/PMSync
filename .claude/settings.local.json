@@ -24,7 +24,18 @@
       "Bash(npm run build:*)",
       "Bash(npm uninstall:*)",
       "Bash(npm ls:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(npm install:*)",
+      "Bash(npm view:*)",
+      "Bash(npm outdated:*)",
+      "Bash(npx npm-check-updates -u)",
+      "Bash(cat:*)",
+      "Bash(node_modules/.bin/prisma generate)",
+      "Bash(node_modules/.bin/nest build:*)",
+      "Bash(npm test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
