@@ -1049,7 +1049,6 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     // Check if dropped on a valid folder
     if (!over || !active.data.current) {
-      console.log('[Mailbox] Drag cancelled - no drop target');
       return;
     }
 
@@ -1063,12 +1062,6 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     const droppedEmail = dragData.email as Email;
     const targetFolder = dropData.folder;
-
-    console.log('[Mailbox] Email dropped on folder:', {
-      emailId: droppedEmail.id,
-      targetFolder: targetFolder.label,
-      folderId: targetFolder.id,
-    });
 
     // Get list of email IDs to move (either single or bulk if selected)
     let emailIdsToMove: string[];

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   List,
@@ -198,10 +198,15 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
         borderRadius: 2,
         mb: 0.5,
         mx: 0.5,
-        // EXPANDED size when dragging emails - much easier to hit
+        // ALWAYS use expanded size when email is being dragged
+        // This ensures the collision detection area is correct (not delayed by animation)
         py: isValidDropTarget ? 1.5 : 0.75,
         px: isValidDropTarget ? 2 : 1.5,
         minHeight: isValidDropTarget ? 52 : 36,
+        // Remove transition on size to make collision box update instantly
+        transition: isValidDropTarget
+          ? 'background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s'
+          : 'all 0.2s ease-out',
         position: 'relative',
         overflow: 'visible',
         // Base styling with enhanced active state
@@ -247,10 +252,6 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
           letterSpacing: 0.5,
           opacity: 0.9,
         } : {},
-        // Smooth spring-like transitions
-        transition: isValidDropTarget
-          ? 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
-          : 'all 0.2s ease-out',
         // Visual states
         opacity: isDragging ? 0.5 : 1,
         cursor: isDragging ? 'grabbing' : isValidDropTarget ? 'copy' : 'grab',
@@ -449,8 +450,8 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
   }, []);
 
   // Debounced function to save preferences to API
-  const savePreferencesToAPI = useCallback(
-    debounce(async (data: {
+  const savePreferencesToAPI = useMemo(
+    () => debounce(async (data: {
       folderOrders?: Record<string, string[]>;
       sidebarSmartFiltersExpanded?: boolean;
       sidebarLabelsExpanded?: boolean;
