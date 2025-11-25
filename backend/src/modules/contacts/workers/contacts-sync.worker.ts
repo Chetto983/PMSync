@@ -9,6 +9,7 @@ import {
 } from '../services/contacts-sync-queue.service';
 import { GoogleContactsSyncService } from '../services/google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from '../services/microsoft-contacts-sync.service';
+import { getRedisConnectionOptions } from '../../../config/configuration';
 
 @Injectable()
 export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
@@ -32,18 +33,9 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    // Initialize Redis connection for workers
-    const redisHost = this.configService.get<string>('REDIS_HOST', 'localhost');
-    const redisPort = this.configService.get<number>('REDIS_PORT', 6379);
-    const redisPassword = this.configService.get<string>('REDIS_PASSWORD');
-
-    this.redisConnection = new Redis({
-      host: redisHost,
-      port: redisPort,
-      password: redisPassword,
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-    });
+    // Initialize Redis connection for workers using centralized config
+    const redisOptions = getRedisConnectionOptions();
+    this.redisConnection = new Redis(redisOptions);
 
     // Start workers for each priority queue with env-based concurrency
     this.startWorker('high', this.getConcurrency('HIGH'));
@@ -68,11 +60,11 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
           max: concurrency * 2, // Max jobs processed
           duration: 60000, // per minute
         },
-        lockDuration: this.configService.get<number>('CONTACTS_SYNC_WORKER_LOCK_MS', 120000), // 2 minutes
-        stalledInterval: this.configService.get<number>(
-          'CONTACTS_SYNC_WORKER_STALLED_INTERVAL_MS',
-          60000,
-        ), // 1 minute
+        lockDuration: Number(this.configService.get('CONTACTS_SYNC_WORKER_LOCK_MS')) || 120000, // 2 minutes
+        stalledInterval: Math.max(
+          1000,
+          Number(this.configService.get('CONTACTS_SYNC_WORKER_STALLED_INTERVAL_MS')) || 60000,
+        ), // minimum 1 second
       },
     );
 

@@ -36,15 +36,13 @@ export class MicrosoftContactsWebhookService {
     private readonly config: ConfigService,
     private readonly contactsSync: MicrosoftContactsSyncService,
   ) {
-    const configuredWebhookUrl =
-      this.config.get<string>('MICROSOFT_CONTACTS_WEBHOOK_URL') ??
-      this.config.get<string>('MICROSOFT_WEBHOOK_URL');
-
+    // Derive webhook URL from API_PUBLIC_URL if not explicitly set
+    const configuredWebhookUrl = this.config.get<string>('MICROSOFT_CONTACTS_WEBHOOK_URL');
     if (configuredWebhookUrl) {
       this.WEBHOOK_URL = configuredWebhookUrl;
     } else {
-      const backendUrl = this.config.get<string>('BACKEND_URL', 'http://localhost:3000');
-      this.WEBHOOK_URL = `${backendUrl}/webhooks/contacts/microsoft/notifications`;
+      const apiUrl = this.config.get<string>('API_PUBLIC_URL', 'http://localhost:3000');
+      this.WEBHOOK_URL = `${apiUrl}/webhooks/contacts/microsoft/notifications`;
     }
     this.CLIENT_STATE = this.config.get<string>('WEBHOOK_CLIENT_STATE', nanoid());
 

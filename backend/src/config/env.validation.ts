@@ -70,15 +70,17 @@ export class EnvironmentVariables {
   @IsOptional()
   JWT_EXPIRATION?: string;
 
-  // OAuth Providers
+  // OAuth Providers (Gmail/Google)
   @IsString()
-  GOOGLE_CLIENT_ID: string;
+  GMAIL_CLIENT_ID: string;
 
   @IsString()
-  GOOGLE_CLIENT_SECRET: string;
+  GMAIL_CLIENT_SECRET: string;
 
+  // Optional: derived from API_PUBLIC_URL if not set
   @IsString()
-  GOOGLE_REDIRECT_URI: string;
+  @IsOptional()
+  GOOGLE_REDIRECT_URI?: string;
 
   @IsString()
   MICROSOFT_CLIENT_ID: string;
@@ -86,8 +88,10 @@ export class EnvironmentVariables {
   @IsString()
   MICROSOFT_CLIENT_SECRET: string;
 
+  // Optional: derived from API_PUBLIC_URL if not set
   @IsString()
-  MICROSOFT_REDIRECT_URI: string;
+  @IsOptional()
+  MICROSOFT_REDIRECT_URI?: string;
 
   // Mistral AI
   @IsString()

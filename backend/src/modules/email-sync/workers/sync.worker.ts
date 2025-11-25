@@ -10,6 +10,7 @@ import { SyncAuthService } from '../services/sync-auth.service';
 import { GoogleSyncService } from '../services/gmail/google-sync.service';
 import { MicrosoftSyncService } from '../services/microsoft/microsoft-sync.service';
 import { ImapSyncService } from '../services/imap/imap-sync.service';
+import { getRedisConnectionOptions } from '../../../config/configuration';
 
 @Injectable()
 export class SyncWorker implements OnModuleInit, OnModuleDestroy {
@@ -51,18 +52,9 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    // Initialize Redis connection for workers
-    const redisHost = this.configService.get<string>('REDIS_HOST', 'localhost');
-    const redisPort = this.configService.get<number>('REDIS_PORT', 6379);
-    const redisPassword = this.configService.get<string>('REDIS_PASSWORD');
-
-    this.redisConnection = new Redis({
-      host: redisHost,
-      port: redisPort,
-      password: redisPassword,
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-    });
+    // Initialize Redis connection for workers using centralized config
+    const redisOptions = getRedisConnectionOptions();
+    this.redisConnection = new Redis(redisOptions);
 
     // Start workers for each priority queue
     this.startWorker('high', this.WORKER_CONFIG.high.concurrency);
@@ -88,10 +80,10 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
           duration: 60000, // per minute
         },
         // Long-running syncs need generous lock to avoid "missing lock" stalls
-        lockDuration: this.configService.get<number>('SYNC_WORKER_LOCK_MS', 300000),
+        lockDuration: Number(this.configService.get('SYNC_WORKER_LOCK_MS')) || 300000,
         stalledInterval: Math.max(
           1000,
-          this.configService.get<number>('SYNC_WORKER_STALLED_INTERVAL_MS', 120000),
+          Number(this.configService.get('SYNC_WORKER_STALLED_INTERVAL_MS')) || 120000,
         ),
       },
     );

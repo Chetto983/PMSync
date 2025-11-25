@@ -4,10 +4,11 @@
  * This runs automatically when Docker starts the backend
  */
 
-import { PrismaClient } from '@prisma/client';
+import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
+import { createPrismaClient } from '../src/prisma/prisma-client.factory';
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 async function main() {
   console.log('🌱 Seeding database with test data...');

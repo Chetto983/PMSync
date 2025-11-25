@@ -276,7 +276,6 @@ export class AgentService {
     let result: any;
     try {
       result = await agent.invoke({
-        input: options.prompt,
         messages: conversationMessages,
       });
     } catch (error) {

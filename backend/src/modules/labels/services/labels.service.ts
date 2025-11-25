@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PrismaPromise } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailsService } from '../../email/services/emails.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -278,7 +278,7 @@ export class LabelsService {
         providerId: email.providerId,
         folder: email.folder,
         reason: 'labels-updated',
-        email: email as any, // Include complete email object with labels
+        email: email, // Include complete email object with labels
       });
     });
 
@@ -373,7 +373,7 @@ export class LabelsService {
     });
     const allowedIds = new Set(tenantLabels.map((label) => label.id));
 
-    const updates: PrismaPromise<Prisma.BatchPayload>[] = [];
+    const updates: Prisma.PrismaPromise<Prisma.BatchPayload>[] = [];
     dto.labelIds.forEach((id, index) => {
       if (allowedIds.has(id)) {
         updates.push(
