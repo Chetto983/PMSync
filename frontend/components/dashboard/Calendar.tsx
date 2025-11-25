@@ -24,25 +24,28 @@ import {
   CircularProgress,
   Snackbar,
   Alert as MuiAlert,
+  Tooltip,
 } from '@mui/material';
 import {
   ChevronLeft,
   ChevronRight,
   Plus,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
+import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
-import enGbLocale from '@fullcalendar/core/locales/en-gb';
-import itLocale from '@fullcalendar/core/locales/it';
 import { useRouter } from 'next/router';
-import { calendarApi, type CalendarEvent, type CreateEventDto } from '@/lib/api/calendar';
+import { calendarApi, type CreateEventDto } from '@/lib/api/calendar';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
-import { resolveLocale } from '@/locales';
+import { allFullCalendarLocales, getFullCalendarLocale } from '@/locales';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { getStoredUserSettings } from '@/lib/utils/user-settings';
+import { useCalendarStore, type CalendarEvent } from '@/stores/calendar-store';
 
 interface CalendarCategory {
   id: string;
@@ -61,22 +64,37 @@ export function Calendar() {
   const calendarRef = useRef<FullCalendar>(null);
   const [currentMonth, setCurrentMonth] = useState('');
   const [currentYear, setCurrentYear] = useState('');
-  const [viewType, setViewType] = useState<'day' | 'week' | 'month'>('month');
-  const [loading, setLoading] = useState(true);
-  const [events, setEvents] = useState<EventInput[]>([]);
+  const [viewType, setViewType] = useState<'day' | 'week' | 'month' | 'list'>('month');
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [selectedProvider, _setSelectedProvider] = useState<string | undefined>();
 
+  // Use calendar store for events and real-time updates
+  // WebSocket events (calendar:event_new, calendar:event_update, calendar:event_delete)
+  // automatically update the store via useWebSocket hook
+  const {
+    events: storeEvents,
+    setEvents: setStoreEvents,
+    isLoading: loading,
+    setLoading,
+    isSyncing,
+    setLastSyncAt,
+  } = useCalendarStore();
+
   const [categories, setCategories] = useState<CalendarCategory[]>([]);
 
-  // Use useMemo to avoid accessing router during SSR
-  const localeKey = useMemo(() => {
-    const locale = router.locale ?? (typeof navigator !== 'undefined' ? navigator.language : 'en');
-    return resolveLocale(locale);
+  // Get the FullCalendar locale based on user settings, router locale, or browser locale
+  // Supports English and Italian locales
+  const calendarLocale = useMemo(() => {
+    // Priority: 1. User settings, 2. Router locale, 3. Browser locale
+    const userSettings = getStoredUserSettings();
+    const userLanguage = userSettings.language; // e.g., 'en-US', 'it-IT'
+    const browserLocale = typeof navigator !== 'undefined' ? navigator.language : 'en';
+    const appLocale = userLanguage || router.locale || browserLocale;
+    return getFullCalendarLocale(appLocale);
   }, [router.locale]);
 
-  const calendarLocale = localeKey === 'it' ? 'it' : 'en-gb';
-  const calendarLocales = useMemo(() => [enGbLocale, itLocale], []);
+  // All FullCalendar locales are available for the calendar
+  const calendarLocales = useMemo(() => allFullCalendarLocales, []);
 
   const [quickEventText, setQuickEventText] = useState('');
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
@@ -122,6 +140,8 @@ export function Calendar() {
           location: event.location,
           calendar: category?.name || event.calendarName || 'calendar',
           providerId: event.providerId,
+          calendarId: event.calendarId,
+          calendarName: event.calendarName,
         },
       };
     },
@@ -148,8 +168,8 @@ export function Calendar() {
       let endTime: Date;
 
       if (calendarRef.current) {
-        const calendarApi = calendarRef.current.getApi();
-        const view = calendarApi.view;
+        const fcApi = calendarRef.current.getApi();
+        const view = fcApi.view;
         startTime = view.activeStart;
         endTime = view.activeEnd;
       } else {
@@ -166,14 +186,16 @@ export function Calendar() {
         endTime: endTime.toISOString(),
       });
 
-      setEvents((eventsRes.data.events || []).map(convertToFullCalendarEvent));
+      // Update the store with events (real-time updates will also update the store)
+      setStoreEvents(eventsRes.data.events || []);
+      setLastSyncAt(new Date());
     } catch (error) {
       console.error('Failed to load calendar data:', error);
-      setEvents([]);
+      setStoreEvents([]);
     } finally {
       setLoading(false);
     }
-  }, [selectedProvider, convertToFullCalendarEvent]);
+  }, [selectedProvider, setStoreEvents, setLoading, setLastSyncAt]);
 
   useEffect(() => {
     updateCalendarHeader();
@@ -199,6 +221,8 @@ export function Calendar() {
         ? 'timeGridDay'
         : viewType === 'week'
         ? 'timeGridWeek'
+        : viewType === 'list'
+        ? 'listWeek'
         : 'dayGridMonth';
     calendarApi.changeView(viewName);
   }, [viewType]);
@@ -360,11 +384,18 @@ export function Calendar() {
     );
   };
 
-  const filteredEvents = events.filter((event) => {
-    const providerId = event.extendedProps?.providerId as string | undefined;
-    const category = categories.find((c) => c.id === providerId);
-    return category?.enabled !== false;
-  });
+  // Convert store events to FullCalendar format and filter by enabled categories
+  const filteredEvents = useMemo(() => {
+    return storeEvents
+      .filter((event) => {
+        // Filter out deleted/cancelled events
+        if (event.isDeleted || event.isCancelled) return false;
+        // Filter by enabled calendars/categories
+        const category = categories.find((c) => c.id === event.providerId);
+        return category?.enabled !== false;
+      })
+      .map(convertToFullCalendarEvent);
+  }, [storeEvents, categories, convertToFullCalendarEvent]);
 
   return (
     <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', overflow: 'hidden' }}>
@@ -438,7 +469,7 @@ export function Calendar() {
         </List>
 
         {/* AI Assistant - Only show if there are events */}
-        {events.length > 5 && (
+        {storeEvents.length > 5 && (
           <Box
             sx={{
               mt: 'auto',
@@ -455,7 +486,7 @@ export function Calendar() {
               </Typography>
             </Box>
             <Typography variant="body2" sx={{ fontSize: '0.75rem', mb: 1.5, opacity: 0.9 }}>
-              {calendarCopy.aiOptimizeMessage.replace('{count}', events.length.toString())}
+              {calendarCopy.aiOptimizeMessage.replace('{count}', storeEvents.length.toString())}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
@@ -473,7 +504,7 @@ export function Calendar() {
             </Box>
           </Box>
         )}
-        {events.length === 0 && !loading && (
+        {storeEvents.length === 0 && !loading && (
           <Box
             sx={{
               mt: 'auto',
@@ -517,6 +548,20 @@ export function Calendar() {
             {calendarCopy.today}
           </Button>
 
+          <Tooltip title={calendarCopy.refreshTooltip}>
+            <IconButton
+              size="small"
+              onClick={loadData}
+              disabled={loading || isSyncing}
+              sx={{ ml: 1 }}
+            >
+              <RefreshCw
+                size={18}
+                className={loading || isSyncing ? 'animate-spin' : ''}
+              />
+            </IconButton>
+          </Tooltip>
+
           <Box sx={{ flex: 1 }} />
 
           <ToggleButtonGroup
@@ -528,6 +573,7 @@ export function Calendar() {
             <ToggleButton value="day">{calendarCopy.day}</ToggleButton>
             <ToggleButton value="week">{calendarCopy.week}</ToggleButton>
             <ToggleButton value="month">{calendarCopy.month}</ToggleButton>
+            <ToggleButton value="list">{calendarCopy.list}</ToggleButton>
           </ToggleButtonGroup>
         </Box>
 
@@ -553,7 +599,7 @@ export function Calendar() {
           )}
           <FullCalendar
             ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             headerToolbar={false}
             editable={true}
@@ -565,13 +611,59 @@ export function Calendar() {
             eventClick={handleEventClick}
             height="100%"
             eventDisplay="block"
+            // Time formatting
             eventTimeFormat={{
               hour: '2-digit',
               minute: '2-digit',
               meridiem: false,
             }}
+            slotLabelFormat={{
+              hour: '2-digit',
+              minute: '2-digit',
+              meridiem: false,
+            }}
+            // Locales - all 70+ FullCalendar locales available
             locales={calendarLocales}
             locale={calendarLocale}
+            // Navigation and display
+            nowIndicator={true}
+            navLinks={true}
+            weekNumbers={true}
+            weekNumberCalculation="ISO"
+            // Time grid settings
+            slotMinTime="06:00:00"
+            slotMaxTime="22:00:00"
+            slotDuration="00:30:00"
+            // Business hours (can be customized)
+            businessHours={{
+              daysOfWeek: [1, 2, 3, 4, 5], // Monday - Friday
+              startTime: '09:00',
+              endTime: '18:00',
+            }}
+            // Drag and drop / resize
+            eventResizableFromStart={true}
+            eventDurationEditable={true}
+            eventStartEditable={true}
+            // Date/time settings
+            firstDay={1} // Monday as first day of week
+            weekends={true}
+            fixedWeekCount={false}
+            showNonCurrentDates={true}
+            // List view settings
+            listDayFormat={{
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            }}
+            listDaySideFormat={{
+              weekday: 'long',
+            }}
+            // All-day settings
+            allDaySlot={true}
+            allDayText={calendarLocale === 'it' ? 'Tutto il giorno' : 'All day'}
+            // Multi-month/day settings
+            dayMaxEventRows={3}
+            moreLinkClick="popover"
           />
         </Box>
       </Box>

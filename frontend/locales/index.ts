@@ -1,6 +1,9 @@
 export type LocaleKey = 'en' | 'it';
 import { appTranslations } from './app-translations';
 
+// Re-export FullCalendar locale utilities
+export { allFullCalendarLocales, getFullCalendarLocale } from './fullcalendar-locales';
+
 
 interface LandingFeature {
   title: string;
@@ -491,6 +494,7 @@ export interface AppTranslations {
       day: string;
       week: string;
       month: string;
+      list: string;
       eventTitle: string;
       eventTitleLabel: string;
       startDateTime: string;
