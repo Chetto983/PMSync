@@ -257,7 +257,9 @@ export function Contacts() {
       if (reset) {
         setStoreContacts(contactsData);
       } else {
-        const merged = [...storeContacts, ...contactsData];
+        // Access store state directly to avoid dependency cycle
+        const currentContacts = useContactStore.getState().contacts;
+        const merged = [...currentContacts, ...contactsData];
         setStoreContacts(merged);
       }
 
@@ -276,9 +278,11 @@ export function Contacts() {
       }
 
       const previouslySelectedId = selectedContactIdRef.current;
+      // Access store state directly to avoid dependency cycle
+      const currentContactsForSelection = useContactStore.getState().contacts;
       const updatedSelection =
-        (previouslySelectedId && (reset ? contactsData : storeContacts).find((contact) => contact.id === previouslySelectedId)) ||
-        (reset ? contactsData[0] : storeContacts[0] || contactsData[0]);
+        (previouslySelectedId && (reset ? contactsData : currentContactsForSelection).find((contact) => contact.id === previouslySelectedId)) ||
+        (reset ? contactsData[0] : currentContactsForSelection[0] || contactsData[0]);
       setSelectedContact(updatedSelection);
     } catch (error) {
       console.error('Failed to load contacts:', error);
@@ -286,7 +290,7 @@ export function Contacts() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [debouncedSearchQuery, setStoreContacts, storeContacts]);
+  }, [debouncedSearchQuery, setStoreContacts]); // Removed storeContacts - access via getState() to prevent infinite loop
 
   // Keep selection in sync with store updates (e.g., realtime)
   useEffect(() => {
