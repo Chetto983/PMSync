@@ -25,6 +25,10 @@ import {
   Snackbar,
   Alert as MuiAlert,
   Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Popover,
 } from '@mui/material';
 import {
   ChevronLeft,
@@ -32,6 +36,8 @@ import {
   Plus,
   Sparkles,
   RefreshCw,
+  ChevronDown,
+  Palette,
 } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -40,22 +46,40 @@ import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { useRouter } from 'next/router';
-import { calendarApi, type CreateEventDto } from '@/lib/api/calendar';
+import { calendarApi, type CreateEventDto, type CalendarInfo } from '@/lib/api/calendar';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { allFullCalendarLocales, getFullCalendarLocale } from '@/locales';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { getStoredUserSettings } from '@/lib/utils/user-settings';
 import { useCalendarStore, type CalendarEvent } from '@/stores/calendar-store';
 
-interface CalendarCategory {
-  id: string;
-  name: string;
+interface CalendarPreference {
+  id: string; // providerId:calendarId
+  calendarId: string;
+  calendarName: string;
+  providerId: string;
+  providerEmail: string;
+  providerType: string;
   color: string;
   enabled: boolean;
 }
 
-// Color palette for calendar categories - defined outside component to avoid re-creation
-const CATEGORY_PALETTE = ['#9C27B0', '#00C853', '#FF9800', '#0B7EFF', '#E91E63', '#3F51B5'];
+interface ProviderGroup {
+  providerId: string;
+  providerEmail: string;
+  providerType: string;
+  calendars: CalendarPreference[];
+  expanded: boolean;
+}
+
+// Color palette for calendars - defined outside component to avoid re-creation
+const CALENDAR_COLORS = [
+  '#0B7EFF', '#9C27B0', '#00C853', '#FF9800', '#E91E63',
+  '#3F51B5', '#009688', '#795548', '#607D8B', '#FF5722',
+];
+
+// Local storage key for calendar preferences
+const CALENDAR_PREFS_KEY = 'calendar-preferences';
 
 export function Calendar() {
   const router = useRouter();
@@ -80,7 +104,11 @@ export function Calendar() {
     setLastSyncAt,
   } = useCalendarStore();
 
-  const [categories, setCategories] = useState<CalendarCategory[]>([]);
+  // Calendar preferences and provider groups
+  const [calendarPrefs, setCalendarPrefs] = useState<Map<string, CalendarPreference>>(new Map());
+  const [providerGroups, setProviderGroups] = useState<ProviderGroup[]>([]);
+  const [colorPickerAnchor, setColorPickerAnchor] = useState<HTMLElement | null>(null);
+  const [colorPickerCalendarId, setColorPickerCalendarId] = useState<string | null>(null);
 
   // Get the FullCalendar locale based on user settings, router locale, or browser locale
   // Supports English and Italian locales
@@ -127,26 +155,135 @@ export function Calendar() {
   // Convert backend CalendarEvent to FullCalendar EventInput
   const convertToFullCalendarEvent = useCallback(
     (event: CalendarEvent): EventInput => {
-      const category = categories.find((c) => c.id === event.providerId);
+      const calendarKey = `${event.providerId}:${event.calendarId || 'primary'}`;
+      const pref = calendarPrefs.get(calendarKey);
       return {
         id: event.id,
         title: event.title,
         start: event.startTime,
         end: event.endTime,
         allDay: event.isAllDay,
-        backgroundColor: category?.color || '#0B7EFF',
+        backgroundColor: pref?.color || '#0B7EFF',
         extendedProps: {
           description: event.description,
           location: event.location,
-          calendar: category?.name || event.calendarName || 'calendar',
+          calendar: pref?.calendarName || event.calendarName || 'calendar',
           providerId: event.providerId,
           calendarId: event.calendarId,
           calendarName: event.calendarName,
         },
       };
     },
-    [categories]
+    [calendarPrefs]
   );
+
+  // Load UI-only preferences from localStorage (enabled state)
+  // Colors are stored in the database via the API
+  const loadEnabledState = useCallback((): Record<string, boolean> => {
+    try {
+      const saved = localStorage.getItem(CALENDAR_PREFS_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  // Save enabled state to localStorage (UI preference)
+  const saveEnabledState = useCallback((prefs: Map<string, CalendarPreference>) => {
+    try {
+      const toSave: Record<string, boolean> = {};
+      prefs.forEach((pref, key) => {
+        toSave[key] = pref.enabled;
+      });
+      localStorage.setItem(CALENDAR_PREFS_KEY, JSON.stringify(toSave));
+    } catch (e) {
+      console.warn('Failed to save calendar enabled state:', e);
+    }
+  }, []);
+
+  // Update calendar color via API
+  const updateCalendarColor = useCallback(async (calendarId: string, providerId: string, color: string) => {
+    try {
+      await calendarApi.updateCalendarPreferences(providerId, calendarId, { color });
+      // Update local state
+      setCalendarPrefs((prev) => {
+        const newPrefs = new Map(prev);
+        const key = `${providerId}:${calendarId}`;
+        const existing = newPrefs.get(key);
+        if (existing) {
+          newPrefs.set(key, { ...existing, color });
+        }
+        return newPrefs;
+      });
+      // Update provider groups
+      setProviderGroups((prev) =>
+        prev.map((group) => ({
+          ...group,
+          calendars: group.calendars.map((cal) =>
+            cal.calendarId === calendarId && cal.providerId === providerId
+              ? { ...cal, color }
+              : cal
+          ),
+        }))
+      );
+      setSnackbar({
+        open: true,
+        message: calendarCopy.colorUpdated || 'Color updated',
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to update calendar color:', error);
+      setSnackbar({
+        open: true,
+        message: calendarCopy.failedToUpdateColor || 'Failed to update color',
+        severity: 'error',
+      });
+    }
+  }, [calendarCopy]);
+
+  // Load calendars from API and merge with saved enabled state
+  const loadCalendars = useCallback(async () => {
+    try {
+      const calendarsRes = await calendarApi.listCalendars();
+      const calendars = calendarsRes.data.calendars || [];
+      const savedEnabled = loadEnabledState();
+
+      // Create calendar preferences map
+      const newPrefs = new Map<string, CalendarPreference>();
+      calendars.forEach((cal: CalendarInfo, index: number) => {
+        const key = cal.id;
+        newPrefs.set(key, {
+          id: key,
+          calendarId: cal.calendarId,
+          calendarName: cal.calendarName,
+          providerId: cal.providerId,
+          providerEmail: cal.providerEmail,
+          providerType: cal.providerType,
+          color: cal.backgroundColor || CALENDAR_COLORS[index % CALENDAR_COLORS.length],
+          enabled: savedEnabled[key] ?? true,
+        });
+      });
+      setCalendarPrefs(newPrefs);
+
+      // Group calendars by provider
+      const groupsMap = new Map<string, ProviderGroup>();
+      newPrefs.forEach((pref) => {
+        if (!groupsMap.has(pref.providerId)) {
+          groupsMap.set(pref.providerId, {
+            providerId: pref.providerId,
+            providerEmail: pref.providerEmail,
+            providerType: pref.providerType,
+            calendars: [],
+            expanded: true,
+          });
+        }
+        groupsMap.get(pref.providerId)!.calendars.push(pref);
+      });
+      setProviderGroups(Array.from(groupsMap.values()));
+    } catch (error) {
+      console.warn('Failed to load calendars:', error);
+    }
+  }, [loadEnabledState]);
 
   // Load providers and events
   const loadData = useCallback(async () => {
@@ -159,9 +296,11 @@ export function Calendar() {
         setProviders(providersRes || []);
       } catch (providerError) {
         console.warn('Failed to load providers for calendar:', providerError);
-        // Continue without providers - calendar can still work
         setProviders([]);
       }
+
+      // Load calendars from API
+      await loadCalendars();
 
       // Get date range from calendar (current view)
       let startTime: Date;
@@ -195,23 +334,11 @@ export function Calendar() {
     } finally {
       setLoading(false);
     }
-  }, [selectedProvider, setStoreEvents, setLoading, setLastSyncAt]);
+  }, [selectedProvider, setStoreEvents, setLoading, setLastSyncAt, loadCalendars]);
 
   useEffect(() => {
     updateCalendarHeader();
   }, [updateCalendarHeader]);
-
-  useEffect(() => {
-    setCategories((prev) => {
-      const map = new Map(prev.map((cat) => [cat.id, cat]));
-      return providers.map((provider, index) => ({
-        id: provider.id,
-        name: provider.email,
-        color: map.get(provider.id)?.color || CATEGORY_PALETTE[index % CATEGORY_PALETTE.length],
-        enabled: map.get(provider.id)?.enabled ?? true,
-      }));
-    });
-  }, [providers]);
 
   useEffect(() => {
     if (!calendarRef.current) return;
@@ -376,26 +503,77 @@ export function Calendar() {
     }
   };
 
-  const handleToggleCategory = (categoryId: string) => {
-    setCategories((prev) =>
-      prev.map((cat) =>
-        cat.id === categoryId ? { ...cat, enabled: !cat.enabled } : cat
+  // Toggle calendar visibility
+  const handleToggleCalendar = useCallback((calendarKey: string) => {
+    setCalendarPrefs((prev) => {
+      const newPrefs = new Map(prev);
+      const existing = newPrefs.get(calendarKey);
+      if (existing) {
+        newPrefs.set(calendarKey, { ...existing, enabled: !existing.enabled });
+      }
+      // Save enabled state to localStorage
+      saveEnabledState(newPrefs);
+      return newPrefs;
+    });
+    // Update provider groups
+    setProviderGroups((prev) =>
+      prev.map((group) => ({
+        ...group,
+        calendars: group.calendars.map((cal) =>
+          cal.id === calendarKey ? { ...cal, enabled: !cal.enabled } : cal
+        ),
+      }))
+    );
+  }, [saveEnabledState]);
+
+  // Toggle provider group expansion
+  const handleToggleProviderExpanded = useCallback((providerId: string) => {
+    setProviderGroups((prev) =>
+      prev.map((group) =>
+        group.providerId === providerId
+          ? { ...group, expanded: !group.expanded }
+          : group
       )
     );
-  };
+  }, []);
 
-  // Convert store events to FullCalendar format and filter by enabled categories
+  // Open color picker
+  const handleOpenColorPicker = useCallback((event: React.MouseEvent<HTMLElement>, calendarId: string) => {
+    event.stopPropagation();
+    setColorPickerAnchor(event.currentTarget);
+    setColorPickerCalendarId(calendarId);
+  }, []);
+
+  // Close color picker
+  const handleCloseColorPicker = useCallback(() => {
+    setColorPickerAnchor(null);
+    setColorPickerCalendarId(null);
+  }, []);
+
+  // Handle color selection
+  const handleColorSelect = useCallback((color: string) => {
+    if (colorPickerCalendarId) {
+      const pref = calendarPrefs.get(colorPickerCalendarId);
+      if (pref) {
+        updateCalendarColor(pref.calendarId, pref.providerId, color);
+      }
+    }
+    handleCloseColorPicker();
+  }, [colorPickerCalendarId, calendarPrefs, updateCalendarColor, handleCloseColorPicker]);
+
+  // Convert store events to FullCalendar format and filter by enabled calendars
   const filteredEvents = useMemo(() => {
     return storeEvents
       .filter((event) => {
         // Filter out deleted/cancelled events
         if (event.isDeleted || event.isCancelled) return false;
-        // Filter by enabled calendars/categories
-        const category = categories.find((c) => c.id === event.providerId);
-        return category?.enabled !== false;
+        // Filter by enabled calendars
+        const calendarKey = `${event.providerId}:${event.calendarId || 'primary'}`;
+        const pref = calendarPrefs.get(calendarKey);
+        return pref?.enabled !== false;
       })
       .map(convertToFullCalendarEvent);
-  }, [storeEvents, categories, convertToFullCalendarEvent]);
+  }, [storeEvents, calendarPrefs, convertToFullCalendarEvent]);
 
   return (
     <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', overflow: 'hidden' }}>
@@ -432,41 +610,108 @@ export function Calendar() {
           </Button>
         </Box>
 
-        {/* Calendars */}
+        {/* Calendars - Grouped by Provider */}
         <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-          {calendarCopy.filterTitle}
+          {calendarCopy.filterTitle || 'My Calendars'}
         </Typography>
-        <List sx={{ mb: 2 }}>
-          {categories.map((category) => (
-            <ListItem key={category.id} disablePadding sx={{ mb: 0.5 }}>
-              <ListItemIcon sx={{ minWidth: 36 }}>
-                <Checkbox
-                  size="small"
-                  checked={category.enabled}
-                  onChange={() => handleToggleCategory(category.id)}
-                  sx={{
-                    color: category.color,
-                    '&.Mui-checked': {
-                      color: category.color,
-                    },
-                  }}
-                />
-              </ListItemIcon>
-              <ListItemText
-                primary={category.name}
-                primaryTypographyProps={{ fontSize: '0.875rem' }}
-              />
-              <Box
+        <Box sx={{ mb: 2, overflow: 'auto', flex: 1 }}>
+          {providerGroups.map((group) => (
+            <Accordion
+              key={group.providerId}
+              expanded={group.expanded}
+              onChange={() => handleToggleProviderExpanded(group.providerId)}
+              disableGutters
+              elevation={0}
+              sx={{
+                '&:before': { display: 'none' },
+                bgcolor: 'transparent',
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ChevronDown size={16} />}
                 sx={{
-                  width: 12,
-                  height: 12,
+                  minHeight: 36,
+                  px: 0,
+                  '& .MuiAccordionSummary-content': { my: 0.5 },
+                }}
+              >
+                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                  {group.providerEmail}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 0 }}>
+                <List disablePadding>
+                  {group.calendars.map((cal) => (
+                    <ListItem
+                      key={cal.id}
+                      disablePadding
+                      sx={{ mb: 0.25 }}
+                      secondaryAction={
+                        <Tooltip title="Change color">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleOpenColorPicker(e, cal.id)}
+                            sx={{ p: 0.5 }}
+                          >
+                            <Palette size={14} />
+                          </IconButton>
+                        </Tooltip>
+                      }
+                    >
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        <Checkbox
+                          size="small"
+                          checked={cal.enabled}
+                          onChange={() => handleToggleCalendar(cal.id)}
+                          sx={{
+                            color: cal.color,
+                            '&.Mui-checked': { color: cal.color },
+                            p: 0.5,
+                          }}
+                        />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={cal.calendarName}
+                        primaryTypographyProps={{ fontSize: '0.8125rem', noWrap: true }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </AccordionDetails>
+            </Accordion>
+          ))}
+          {providerGroups.length === 0 && !loading && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', p: 1 }}>
+              {calendarCopy.noProviders || 'No calendars found. Add a provider in Settings.'}
+            </Typography>
+          )}
+        </Box>
+
+        {/* Color Picker Popover */}
+        <Popover
+          open={Boolean(colorPickerAnchor)}
+          anchorEl={colorPickerAnchor}
+          onClose={handleCloseColorPicker}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        >
+          <Box sx={{ p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 160 }}>
+            {CALENDAR_COLORS.map((color) => (
+              <Box
+                key={color}
+                onClick={() => handleColorSelect(color)}
+                sx={{
+                  width: 24,
+                  height: 24,
                   borderRadius: '50%',
-                  bgcolor: category.color,
+                  bgcolor: color,
+                  cursor: 'pointer',
+                  border: '2px solid transparent',
+                  '&:hover': { border: '2px solid', borderColor: 'primary.main' },
                 }}
               />
-            </ListItem>
-          ))}
-        </List>
+            ))}
+          </Box>
+        </Popover>
 
         {/* AI Assistant - Only show if there are events */}
         {storeEvents.length > 5 && (
@@ -702,18 +947,18 @@ export function Calendar() {
                 onChange={(e) => setNewEvent({ ...newEvent, calendar: e.target.value })}
                 label={calendarCopy.calendarLabel}
               >
-                {categories.map((cat) => (
-                  <MenuItem key={cat.id} value={cat.id}>
+                {Array.from(calendarPrefs.values()).map((cal) => (
+                  <MenuItem key={cal.id} value={cal.calendarId}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box
                         sx={{
                           width: 12,
                           height: 12,
                           borderRadius: '50%',
-                          bgcolor: cat.color,
+                          bgcolor: cal.color,
                         }}
                       />
-                      {cat.name}
+                      {cal.calendarName}
                     </Box>
                   </MenuItem>
                 ))}

@@ -35,6 +35,16 @@ export interface CalendarEventPayload {
   timestamp?: string;
 }
 
+export interface CalendarListPayload {
+  calendarId: string;
+  calendarName: string;
+  providerId: string;
+  providerEmail?: string;
+  color?: string;
+  reason: 'calendar-created' | 'calendar-updated' | 'calendar-deleted';
+  timestamp?: string;
+}
+
 export interface ContactEventPayload {
   contactId?: string;
   externalId?: string;
@@ -87,6 +97,7 @@ export interface RealtimeEventPayloads {
   'calendar:event_new': CalendarEventPayload;
   'calendar:event_update': CalendarEventPayload;
   'calendar:event_delete': CalendarEventPayload;
+  'calendar:list_update': CalendarListPayload;
   'contact:new': ContactEventPayload;
   'contact:update': ContactEventPayload;
   'contact:delete': ContactEventPayload;

@@ -130,6 +130,16 @@ interface EmailSidebarProps {
    * Callback to open label manager
    */
   onManageLabels?: () => void;
+
+  /**
+   * Whether an email is currently being dragged (for drop zone visuals)
+   */
+  isEmailDragging?: boolean;
+
+  /**
+   * Callback when email is dropped on a folder
+   */
+  onEmailDropToFolder?: (emailIds: string[], folderId: string, folderName: string) => void;
 }
 
 /**
@@ -140,6 +150,8 @@ interface DroppableFolderItemProps {
   isSelected: boolean;
   count: number | undefined;
   onSelect: () => void;
+  /** Whether an email is currently being dragged (for visual hints) */
+  isEmailDragging?: boolean;
 }
 
 const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
@@ -147,6 +159,7 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
   isSelected,
   count,
   onSelect,
+  isEmailDragging = false,
 }) => {
   // Make it droppable (for dropping emails into folder)
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({
@@ -176,6 +189,10 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined;
 
+  // Determine visual state based on drag context
+  const isValidDropTarget = isEmailDragging && !isDragging;
+  const isActiveDropTarget = isOver && isValidDropTarget;
+
   return (
     <ListItemButton
       ref={(node) => {
@@ -190,13 +207,59 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
         mx: 0.5,
         py: 0.75,
         px: 1.5,
-        bgcolor: isOver ? 'action.hover' : 'transparent',
-        borderLeft: isOver ? 4 : 0,
-        borderColor: isOver ? 'primary.main' : 'transparent',
-        transition: 'all 0.2s ease',
         minHeight: 36,
+        position: 'relative',
+        overflow: 'hidden',
+        // Base styling
+        bgcolor: isActiveDropTarget
+          ? 'primary.light'
+          : isOver
+            ? 'action.hover'
+            : 'transparent',
+        // Enhanced border for drop target
+        border: isActiveDropTarget
+          ? '2px dashed'
+          : isValidDropTarget
+            ? '2px dashed transparent'
+            : 'none',
+        borderColor: isActiveDropTarget
+          ? 'primary.main'
+          : 'transparent',
+        // Left accent bar when hovering
+        '&::before': isActiveDropTarget ? {
+          content: '""',
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 4,
+          bgcolor: 'primary.main',
+          borderRadius: '4px 0 0 4px',
+        } : {},
+        // Smooth transitions
+        transition: 'all 0.15s ease-in-out',
+        // Visual states
         opacity: isDragging ? 0.5 : 1,
-        cursor: isDragging ? 'grabbing' : 'grab',
+        cursor: isDragging ? 'grabbing' : isValidDropTarget ? 'copy' : 'grab',
+        // Pulse animation for valid drop targets
+        ...(isValidDropTarget && !isActiveDropTarget && {
+          animation: 'pulseDropTarget 1.5s ease-in-out infinite',
+        }),
+        // Scale up slightly when actively hovering
+        transform: isActiveDropTarget
+          ? 'scale(1.02)'
+          : undefined,
+        boxShadow: isActiveDropTarget
+          ? '0 0 0 2px rgba(25, 118, 210, 0.2), 0 4px 12px rgba(25, 118, 210, 0.15)'
+          : 'none',
+        '@keyframes pulseDropTarget': {
+          '0%, 100%': {
+            borderColor: 'transparent',
+          },
+          '50%': {
+            borderColor: 'rgba(25, 118, 210, 0.3)',
+          },
+        },
         ...style,
       }}
       {...attributes}
@@ -205,7 +268,10 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
       <ListItemIcon
         sx={{
           minWidth: 32,
-          color: folder.color || 'inherit',
+          color: isActiveDropTarget
+            ? 'primary.main'
+            : folder.color || 'inherit',
+          transition: 'color 0.15s ease',
         }}
       >
         {folder.icon}
@@ -214,7 +280,8 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
         primary={folder.label}
         primaryTypographyProps={{
           fontSize: '0.8125rem',
-          fontWeight: isSelected ? 600 : 500,
+          fontWeight: isSelected || isActiveDropTarget ? 600 : 500,
+          color: isActiveDropTarget ? 'primary.main' : 'inherit',
         }}
       />
       {count != null && count > 0 && (
@@ -261,6 +328,8 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
   showSmartFilters = true,
   showLabels = true,
   onManageLabels,
+  isEmailDragging = false,
+  onEmailDropToFolder: _onEmailDropToFolder,
 }) => {
   const router = useRouter();
   const t = useTranslations();
@@ -844,6 +913,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                         isSelected={isSelected}
                         count={displayCount}
                         onSelect={() => onFolderSelect(folder.id)}
+                        isEmailDragging={isEmailDragging}
                       />
                     );
                   })}

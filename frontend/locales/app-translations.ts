@@ -575,6 +575,8 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
         noEventsMessage: 'No events scheduled. Click on the calendar to create your first event!',
         failedToCreateEvent: 'Failed to create event. Please try again.',
         failedToCreateQuickEvent: 'Failed to create quick event. Please try again.',
+        colorUpdated: 'Calendar color updated',
+        failedToUpdateColor: 'Failed to update calendar color. Please try again.',
       },
       contacts: {
         title: 'Contacts',
@@ -1565,6 +1567,8 @@ export const appTranslations: Record<LocaleKey, AppTranslations> = {
         noEventsMessage: 'Nessun evento programmato. Clicca sul calendario per creare il tuo primo evento!',
         failedToCreateEvent: 'Impossibile creare l\'evento. Riprova.',
         failedToCreateQuickEvent: 'Impossibile creare l\'evento rapido. Riprova.',
+        colorUpdated: 'Colore del calendario aggiornato',
+        failedToUpdateColor: 'Impossibile aggiornare il colore. Riprova.',
       },
       contacts: {
         title: 'Contatti',

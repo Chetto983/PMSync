@@ -28,6 +28,46 @@ export class CalendarController {
   ) {}
 
   /**
+   * List all calendars from all providers
+   * GET /api/calendar/calendars
+   */
+  @Get('calendars')
+  @SkipThrottle()
+  async listCalendars(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+    return this.calendarService.listCalendars(tenantId);
+  }
+
+  /**
+   * Create a new calendar
+   * POST /api/calendar/calendars
+   */
+  @Post('calendars')
+  @HttpCode(HttpStatus.CREATED)
+  async createCalendar(
+    @Req() req: any,
+    @Body() data: { providerId: string; name: string; description?: string; color?: string },
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.calendarService.createCalendar(tenantId, data);
+  }
+
+  /**
+   * Update calendar preferences (name, color)
+   * PATCH /api/calendar/calendars/:providerId/:calendarId
+   */
+  @Patch('calendars/:providerId/:calendarId')
+  async updateCalendarPreferences(
+    @Req() req: any,
+    @Param('providerId') providerId: string,
+    @Param('calendarId') calendarId: string,
+    @Body() data: { name?: string; color?: string },
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.calendarService.updateCalendarPreferences(tenantId, providerId, calendarId, data);
+  }
+
+  /**
    * List calendar events
    * GET /api/calendar/events
    */

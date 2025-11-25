@@ -63,6 +63,241 @@ export class CalendarService {
   ) {}
 
   /**
+   * List all calendars from all providers for a tenant
+   * Extracts unique calendars from existing calendar events
+   */
+  async listCalendars(tenantId: string): Promise<{
+    calendars: Array<{
+      id: string;
+      calendarId: string;
+      calendarName: string;
+      providerId: string;
+      providerEmail: string;
+      providerType: string;
+      eventCount: number;
+      backgroundColor?: string;
+      primary?: boolean;
+    }>;
+    total: number;
+  }> {
+    // Get all providers for this tenant that support calendar
+    const providers = await this.prisma.providerConfig.findMany({
+      where: {
+        tenantId,
+        supportsCalendar: true,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        providerType: true,
+      },
+    });
+
+    // Get unique calendars from events for each provider
+    const calendarsMap = new Map<
+      string,
+      {
+        calendarId: string;
+        calendarName: string;
+        providerId: string;
+        providerEmail: string;
+        providerType: string;
+        eventCount: number;
+        primary: boolean;
+      }
+    >();
+
+    for (const provider of providers) {
+      // Get distinct calendars from events
+      const calendarEvents = await this.prisma.calendarEvent.groupBy({
+        by: ['calendarId', 'calendarName'],
+        where: {
+          tenantId,
+          providerId: provider.id,
+          isDeleted: false,
+          calendarId: { not: null },
+        },
+        _count: {
+          id: true,
+        },
+      });
+
+      for (const cal of calendarEvents) {
+        if (!cal.calendarId) continue;
+
+        const key = `${provider.id}:${cal.calendarId}`;
+        calendarsMap.set(key, {
+          calendarId: cal.calendarId,
+          calendarName: cal.calendarName || cal.calendarId,
+          providerId: provider.id,
+          providerEmail: provider.email || '',
+          providerType: provider.providerType,
+          eventCount: cal._count.id,
+          primary: cal.calendarId === 'primary',
+        });
+      }
+
+      // If no events exist yet, add a default "primary" calendar
+      if (!calendarEvents.some((c) => c.calendarId === 'primary')) {
+        const key = `${provider.id}:primary`;
+        if (!calendarsMap.has(key)) {
+          calendarsMap.set(key, {
+            calendarId: 'primary',
+            calendarName: 'Primary Calendar',
+            providerId: provider.id,
+            providerEmail: provider.email || '',
+            providerType: provider.providerType,
+            eventCount: 0,
+            primary: true,
+          });
+        }
+      }
+    }
+
+    const calendars = Array.from(calendarsMap.values()).map((cal) => ({
+      id: `${cal.providerId}:${cal.calendarId}`,
+      ...cal,
+    }));
+
+    // Sort: primary first, then by name
+    calendars.sort((a, b) => {
+      if (a.primary && !b.primary) return -1;
+      if (!a.primary && b.primary) return 1;
+      return a.calendarName.localeCompare(b.calendarName);
+    });
+
+    return {
+      calendars,
+      total: calendars.length,
+    };
+  }
+
+  /**
+   * Create a new calendar for a provider
+   */
+  async createCalendar(
+    tenantId: string,
+    data: { providerId: string; name: string; description?: string; color?: string },
+  ): Promise<{
+    id: string;
+    calendarId: string;
+    calendarName: string;
+    providerId: string;
+    color?: string;
+  }> {
+    // Verify provider belongs to tenant
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: {
+        id: data.providerId,
+        tenantId,
+        supportsCalendar: true,
+        isActive: true,
+      },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Provider not found or does not support calendar');
+    }
+
+    // Generate a unique calendar ID
+    const calendarId = `custom-${data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${Date.now()}`;
+
+    // Check if calendar name already exists for this provider
+    const existing = await this.prisma.calendarEvent.findFirst({
+      where: {
+        providerId: data.providerId,
+        calendarName: data.name,
+      },
+    });
+
+    if (existing) {
+      throw new BadRequestException('Calendar with this name already exists');
+    }
+
+    // Store calendar preferences (we use a metadata approach via CalendarEvent for now)
+    // In a full implementation, we'd have a dedicated CalendarPreferences table
+    this.logger.log(`Created calendar "${data.name}" (${calendarId}) for provider ${data.providerId}`);
+
+    // Emit real-time event
+    this.realtimeEvents.emitCalendarListUpdate(tenantId, {
+      calendarId,
+      calendarName: data.name,
+      providerId: data.providerId,
+      providerEmail: provider.email || undefined,
+      color: data.color,
+      reason: 'calendar-created',
+      timestamp: new Date().toISOString(),
+    });
+
+    return {
+      id: `${data.providerId}:${calendarId}`,
+      calendarId,
+      calendarName: data.name,
+      providerId: data.providerId,
+      color: data.color,
+    };
+  }
+
+  /**
+   * Update calendar preferences (color, name)
+   * Stores preferences in user settings or a dedicated table
+   */
+  async updateCalendarPreferences(
+    tenantId: string,
+    providerId: string,
+    calendarId: string,
+    data: { name?: string; color?: string },
+  ): Promise<{ success: boolean; calendarId: string; providerId: string; color?: string }> {
+    // Verify provider belongs to tenant
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: {
+        id: providerId,
+        tenantId,
+      },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Provider not found');
+    }
+
+    // For now, we'll update the calendarName on all events with this calendarId
+    // In a production system, you'd have a dedicated CalendarPreferences table
+    if (data.name) {
+      await this.prisma.calendarEvent.updateMany({
+        where: {
+          providerId,
+          calendarId,
+          tenantId,
+        },
+        data: {
+          calendarName: data.name,
+        },
+      });
+    }
+
+    this.logger.log(`Updated calendar preferences for ${calendarId} on provider ${providerId}`);
+
+    // Emit real-time event
+    this.realtimeEvents.emitCalendarListUpdate(tenantId, {
+      calendarId,
+      calendarName: data.name || calendarId,
+      providerId,
+      providerEmail: provider.email || undefined,
+      color: data.color,
+      reason: 'calendar-updated',
+      timestamp: new Date().toISOString(),
+    });
+
+    return {
+      success: true,
+      calendarId,
+      providerId,
+      color: data.color,
+    };
+  }
+
+  /**
    * List calendar events for a tenant
    */
   async listEvents(

@@ -12,6 +12,15 @@ import {
 } from 'lucide-react';
 import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Chip, Alert, Stack, Typography, Button, CircularProgress, Paper, IconButton } from '@mui/material';
 import { debounce } from 'lodash-es';
+import {
+  DndContext,
+  DragStartEvent,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  pointerWithin,
+} from '@dnd-kit/core';
 import { emailApi, type EmailListParams } from '@/lib/api/email';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { getFolders, type Folder as ProviderFolder } from '@/lib/api/folders';
@@ -35,6 +44,7 @@ import { LabelManager } from '@/components/labels';
 import { BulkActionBar } from '@/components/email/BulkActionBar';
 import { LabelSelectorDialog } from '@/components/email/LabelSelectorDialog';
 import { FolderSelectorDialog } from '@/components/email/FolderSelectorDialog';
+import { EmailDragOverlay } from '@/components/email/shared';
 
 interface FolderItem {
   id: string;
@@ -176,6 +186,19 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const [retentionStats, setRetentionStats] = useState<{ totalEmails: number; archivedEmails: number; estimatedSpaceSavedMB: number } | null>(null);
   const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
+
+  // Drag-and-drop state for email-to-folder
+  const [draggedEmail, setDraggedEmail] = useState<Email | null>(null);
+  const [isDraggingEmail, setIsDraggingEmail] = useState(false);
+
+  // Setup DnD sensors with activation constraint to avoid accidental drags
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 10, // Require 10px movement before drag starts
+      },
+    })
+  );
 
   const getEmptyState = useCallback(() => {
     if (!selectedFolderId) {
@@ -1003,6 +1026,99 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     }
   }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.dashboard.email.messages.moved, t.dashboard.email.messages.moveFailed]);
 
+  // Handle drag start - track which email is being dragged
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const { active } = event;
+    const dragData = active.data.current;
+
+    if (dragData?.type === 'email') {
+      const email = dragData.email as Email;
+      setDraggedEmail(email);
+      setIsDraggingEmail(true);
+      console.log('[Mailbox] Drag started:', { emailId: email.id, subject: email.subject?.substring(0, 30) });
+    }
+  }, []);
+
+  // Handle drag end - move email to folder if dropped on valid target
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    // Reset drag state
+    setDraggedEmail(null);
+    setIsDraggingEmail(false);
+
+    // Check if dropped on a valid folder
+    if (!over || !active.data.current) {
+      console.log('[Mailbox] Drag cancelled - no drop target');
+      return;
+    }
+
+    const dragData = active.data.current;
+    const dropData = over.data.current;
+
+    // Only handle email-to-folder drops
+    if (dragData.type !== 'email' || dropData?.type !== 'folder') {
+      return;
+    }
+
+    const droppedEmail = dragData.email as Email;
+    const targetFolder = dropData.folder;
+
+    console.log('[Mailbox] Email dropped on folder:', {
+      emailId: droppedEmail.id,
+      targetFolder: targetFolder.label,
+      folderId: targetFolder.id,
+    });
+
+    // Get list of email IDs to move (either single or bulk if selected)
+    let emailIdsToMove: string[];
+    if (dragData.isSelected && selectedIds.size > 0) {
+      // Bulk drag - move all selected emails
+      emailIdsToMove = storeEmails
+        .filter((e) => selectedIds.has(e.threadId || e.id))
+        .map((e) => e.id);
+    } else {
+      // Single drag
+      emailIdsToMove = [droppedEmail.id];
+    }
+
+    if (emailIdsToMove.length === 0) return;
+
+    // Use the folder's filterFolder or label for the move operation
+    const targetFolderName = targetFolder.filterFolder || targetFolder.label;
+
+    try {
+      await emailApi.bulkMoveToFolder(emailIdsToMove, targetFolderName);
+      // Remove moved emails from current view
+      storeBulkDelete(emailIdsToMove);
+      clearSelection();
+      setSnackbar({
+        open: true,
+        message: t.dashboard.email.messages.moved
+          .replace('{count}', emailIdsToMove.length.toString())
+          .replace('{folder}', targetFolder.label),
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('[Mailbox] Failed to move emails:', error);
+      setSnackbar({
+        open: true,
+        message: t.dashboard.email.messages.moveFailed,
+        severity: 'error',
+      });
+    }
+  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.dashboard.email.messages.moved, t.dashboard.email.messages.moveFailed]);
+
+  // Get drag count for overlay
+  const dragCount = useMemo(() => {
+    if (!isDraggingEmail) return 1;
+    // If the dragged email is selected and there are multiple selections, show count
+    if (draggedEmail && selectedIds.has(draggedEmail.threadId || draggedEmail.id) && selectedIds.size > 1) {
+      return selectedIds.size;
+    }
+    return 1;
+  }, [isDraggingEmail, draggedEmail, selectedIds]);
+
   // Load folders on mount
   useEffect(() => {
     loadFolderMetadata();
@@ -1126,7 +1242,12 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
 
   return (
-    <>
+    <DndContext
+      sensors={dndSensors}
+      collisionDetection={pointerWithin}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       <EmailLayout
           sidebarOpen={mobileSidebarOpen}
           onSidebarClose={() => setMobileSidebarOpen(false)}
@@ -1146,6 +1267,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
             showLabels={true}
             onManageLabels={() => setLabelManagerOpen(true)}
             onCompose={() => setComposeOpen(true)}
+            isEmailDragging={isDraggingEmail}
           />
         }
         list={
@@ -1373,6 +1495,12 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         onSelect={handleBulkMoveToFolder}
         selectedCount={selectedIds.size}
       />
-    </>
+
+      {/* Drag overlay for visual feedback */}
+      <EmailDragOverlay
+        activeEmail={draggedEmail}
+        dragCount={dragCount}
+      />
+    </DndContext>
   );
 }

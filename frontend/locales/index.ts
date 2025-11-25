@@ -508,6 +508,8 @@ export interface AppTranslations {
       noEventsMessage: string;
       failedToCreateEvent: string;
       failedToCreateQuickEvent: string;
+      colorUpdated: string;
+      failedToUpdateColor: string;
     };
     providers: {
       title: string;

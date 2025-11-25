@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { RealtimeGateway } from '../gateways/realtime.gateway';
 import {
   CalendarEventPayload,
+  CalendarListPayload,
   ContactEventPayload,
   EmailEventPayload,
   LabelEventPayload,
@@ -13,6 +14,7 @@ import {
 
 export type {
   CalendarEventPayload,
+  CalendarListPayload,
   ContactEventPayload,
   EmailEventPayload,
   LabelEventPayload,
@@ -189,6 +191,13 @@ export class RealtimeEventsService {
    */
   emitCalendarEventDelete(tenantId: string, payload: CalendarEventPayload) {
     this.emitToTenant(tenantId, 'calendar:event_delete', payload);
+  }
+
+  /**
+   * Emette evento per aggiornamento lista calendari (creazione, modifica, eliminazione calendario)
+   */
+  emitCalendarListUpdate(tenantId: string, payload: CalendarListPayload) {
+    this.emitToTenant(tenantId, 'calendar:list_update', payload);
   }
 
   /**

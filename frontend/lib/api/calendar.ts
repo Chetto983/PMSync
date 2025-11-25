@@ -114,6 +114,36 @@ export type CalendarSyncResult = {
   syncDuration: number;
 };
 
+// Calendar list types
+export type CalendarInfo = {
+  id: string;
+  calendarId: string;
+  calendarName: string;
+  providerId: string;
+  providerEmail: string;
+  providerType: string;
+  eventCount: number;
+  backgroundColor?: string;
+  primary?: boolean;
+};
+
+export type CalendarListResponse = {
+  calendars: CalendarInfo[];
+  total: number;
+};
+
+export type CreateCalendarDto = {
+  providerId: string;
+  name: string;
+  description?: string;
+  color?: string;
+};
+
+export type UpdateCalendarPreferencesDto = {
+  name?: string;
+  color?: string;
+};
+
 // ===== API CLIENT =====
 
 export const calendarApi = {
@@ -173,5 +203,38 @@ export const calendarApi = {
    */
   syncProvider(providerId: string) {
     return apiClient.post<CalendarSyncResult>(`/calendar/sync/${providerId}`);
+  },
+
+  // ===== CALENDAR LIST MANAGEMENT =====
+
+  /**
+   * List all calendars from all providers
+   * GET /calendar/calendars
+   */
+  listCalendars() {
+    return apiClient.get<CalendarListResponse>('/calendar/calendars');
+  },
+
+  /**
+   * Create a new calendar
+   * POST /calendar/calendars
+   */
+  createCalendar(data: CreateCalendarDto) {
+    return apiClient.post<CalendarInfo>('/calendar/calendars', data);
+  },
+
+  /**
+   * Update calendar preferences (name, color)
+   * PATCH /calendar/calendars/:providerId/:calendarId
+   */
+  updateCalendarPreferences(
+    providerId: string,
+    calendarId: string,
+    data: UpdateCalendarPreferencesDto
+  ) {
+    return apiClient.patch<{ success: boolean; calendarId: string; providerId: string; color?: string }>(
+      `/calendar/calendars/${providerId}/${encodeURIComponent(calendarId)}`,
+      data
+    );
   },
 };

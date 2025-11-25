@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { List, Box, Typography, CircularProgress } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadListItem } from './ThreadListItem';
+import { DraggableThreadListItem } from './shared';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
 import { scrollContainerSx } from './shared/utils';
@@ -89,6 +90,11 @@ interface ThreadListProps {
    * Custom empty state subtitle
    */
   emptySubtitle?: string;
+
+  /**
+   * Enable drag-to-folder functionality
+   */
+  isDragEnabled?: boolean;
 }
 
 /**
@@ -136,6 +142,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
   hasMore = false,
   emptyTitle,
   emptySubtitle,
+  isDragEnabled = true,
 }) => {
   const t = useTranslations();
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -254,22 +261,29 @@ export const ThreadList: React.FC<ThreadListProps> = ({
         const threadId = thread.threadId || ('id' in thread ? thread.id : '') || '';
         // Use unique email ID for React key to prevent duplicates when emails share threadId
         const uniqueKey = ('id' in thread ? thread.id : thread.latestEmailId) || threadId || `thread-${Math.random()}`;
+        const isMultiSelected = selectedIds.has(threadId);
 
         return (
-          <ThreadListItem
+          <DraggableThreadListItem
             key={uniqueKey}
             thread={thread}
-            selected={selectedId === threadId}
-            multiSelected={selectedIds.has(threadId)}
-            onToggleSelect={onToggleSelect}
-            onToggleRead={onToggleRead}
-            onToggleStar={onToggleStar}
-            onToggleImportant={onToggleImportant}
-            onArchive={onArchive}
-            onDelete={onDelete}
-            getProviderIcon={getProviderIcon}
-            onClick={() => handleThreadClick(thread)}
-          />
+            isDragEnabled={isDragEnabled}
+            isSelected={isMultiSelected}
+          >
+            <ThreadListItem
+              thread={thread}
+              selected={selectedId === threadId}
+              multiSelected={isMultiSelected}
+              onToggleSelect={onToggleSelect}
+              onToggleRead={onToggleRead}
+              onToggleStar={onToggleStar}
+              onToggleImportant={onToggleImportant}
+              onArchive={onArchive}
+              onDelete={onDelete}
+              getProviderIcon={getProviderIcon}
+              onClick={() => handleThreadClick(thread)}
+            />
+          </DraggableThreadListItem>
         );
       })}
 
