@@ -64,6 +64,7 @@ import { allFullCalendarLocales, getFullCalendarLocale } from '@/locales';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { getStoredUserSettings } from '@/lib/utils/user-settings';
 import { useCalendarStore, type CalendarEvent } from '@/stores/calendar-store';
+import { websocketClient, type RealtimeCalendarEvent, type RealtimeSyncStatus } from '@/lib/websocket-client';
 
 interface CalendarPreference {
   id: string; // providerId:calendarId
@@ -445,6 +446,66 @@ export function Calendar() {
     loadData(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProvider]);
+
+  // WebSocket event handling for real-time calendar updates
+  useEffect(() => {
+    const handleCalendarEventNew = async (event: RealtimeCalendarEvent) => {
+      console.log('[Calendar] WebSocket: calendar:event_new', event);
+      if (event.eventId) {
+        try {
+          const calEvent = await calendarApi.getEvent(event.eventId);
+          if (calEvent.data) {
+            useCalendarStore.getState().addEvent(calEvent.data);
+          }
+        } catch (error) {
+          console.error('Failed to fetch new calendar event:', error);
+        }
+      }
+    };
+
+    const handleCalendarEventUpdate = async (event: RealtimeCalendarEvent) => {
+      console.log('[Calendar] WebSocket: calendar:event_update', event);
+      if (event.eventId) {
+        try {
+          const calEvent = await calendarApi.getEvent(event.eventId);
+          if (calEvent.data) {
+            useCalendarStore.getState().updateEvent(event.eventId, calEvent.data);
+          }
+        } catch (error) {
+          console.error('Failed to fetch updated calendar event:', error);
+        }
+      }
+    };
+
+    const handleCalendarEventDelete = (event: RealtimeCalendarEvent) => {
+      console.log('[Calendar] WebSocket: calendar:event_delete', event);
+      if (event.eventId) {
+        useCalendarStore.getState().deleteEvent(event.eventId);
+      }
+    };
+
+    const handleSyncStatus = (event: RealtimeSyncStatus) => {
+      // Handle sync completion
+      if (event.status === 'completed') {
+        console.log('[Calendar] WebSocket: sync completed for provider', event.providerId);
+        useCalendarStore.getState().setSyncing(false);
+        useCalendarStore.getState().setLastSyncAt(new Date());
+      }
+    };
+
+    // Subscribe to events
+    const unsubNew = websocketClient.onCalendarEventNew(handleCalendarEventNew);
+    const unsubUpdate = websocketClient.onCalendarEventUpdate(handleCalendarEventUpdate);
+    const unsubDelete = websocketClient.onCalendarEventDelete(handleCalendarEventDelete);
+    const unsubSync = websocketClient.onSyncStatus(handleSyncStatus);
+
+    return () => {
+      unsubNew();
+      unsubUpdate();
+      unsubDelete();
+      unsubSync();
+    };
+  }, []);
 
   const handlePrevMonth = () => {
     if (calendarRef.current) {

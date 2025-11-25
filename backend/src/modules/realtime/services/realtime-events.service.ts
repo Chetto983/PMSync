@@ -53,16 +53,36 @@ export class RealtimeEventsService {
     string,
     Map<string, { totalCount: number; unreadCount: number }>
   >(); // providerId -> folderId -> counts snapshot
+  // Contact event buffering (similar to email events)
+  private contactEventBuffer = new Map<
+    string,
+    { event: KnownRealtimeEvent; tenantId: string; payload: ContactEventPayload }
+  >();
+  private contactBufferTimer?: NodeJS.Timeout;
+  // Calendar event buffering
+  private calendarEventBuffer = new Map<
+    string,
+    { event: KnownRealtimeEvent; tenantId: string; payload: CalendarEventPayload }
+  >();
+  private calendarBufferTimer?: NodeJS.Timeout;
   private readonly EMAIL_BUFFER_MS: number;
   private readonly EMAIL_BUFFER_MAX: number;
   private readonly FOLDER_BUFFER_MS: number;
   private readonly FOLDER_BUFFER_MAX: number;
+  private readonly CONTACT_BUFFER_MS: number;
+  private readonly CONTACT_BUFFER_MAX: number;
+  private readonly CALENDAR_BUFFER_MS: number;
+  private readonly CALENDAR_BUFFER_MAX: number;
 
   constructor(private readonly config: ConfigService) {
     this.EMAIL_BUFFER_MS = this.config.get<number>('REALTIME_EMAIL_BUFFER_MS', 200);
     this.EMAIL_BUFFER_MAX = this.config.get<number>('REALTIME_EMAIL_BUFFER_MAX', 500);
     this.FOLDER_BUFFER_MS = this.config.get<number>('REALTIME_FOLDER_BUFFER_MS', 250);
     this.FOLDER_BUFFER_MAX = this.config.get<number>('REALTIME_FOLDER_BUFFER_MAX', 200);
+    this.CONTACT_BUFFER_MS = this.config.get<number>('REALTIME_CONTACT_BUFFER_MS', 300);
+    this.CONTACT_BUFFER_MAX = this.config.get<number>('REALTIME_CONTACT_BUFFER_MAX', 200);
+    this.CALENDAR_BUFFER_MS = this.config.get<number>('REALTIME_CALENDAR_BUFFER_MS', 300);
+    this.CALENDAR_BUFFER_MAX = this.config.get<number>('REALTIME_CALENDAR_BUFFER_MAX', 100);
   }
 
   /**
@@ -174,27 +194,28 @@ export class RealtimeEventsService {
 
   /**
    * CALENDAR EVENTS
+   * Note: Calendar events are buffered to prevent event storms during bulk sync operations
    */
 
   /**
-   * Emette evento per nuovo evento calendario
+   * Emette evento per nuovo evento calendario (buffered)
    */
   emitCalendarEventNew(tenantId: string, payload: CalendarEventPayload) {
-    this.emitToTenant(tenantId, 'calendar:event_new', payload);
+    this.bufferCalendarEvent(tenantId, 'calendar:event_new', payload);
   }
 
   /**
-   * Emette evento per evento calendario aggiornato
+   * Emette evento per evento calendario aggiornato (buffered)
    */
   emitCalendarEventUpdate(tenantId: string, payload: CalendarEventPayload) {
-    this.emitToTenant(tenantId, 'calendar:event_update', payload);
+    this.bufferCalendarEvent(tenantId, 'calendar:event_update', payload);
   }
 
   /**
-   * Emette evento per evento calendario eliminato
+   * Emette evento per evento calendario eliminato (buffered)
    */
   emitCalendarEventDelete(tenantId: string, payload: CalendarEventPayload) {
-    this.emitToTenant(tenantId, 'calendar:event_delete', payload);
+    this.bufferCalendarEvent(tenantId, 'calendar:event_delete', payload);
   }
 
   /**
@@ -205,28 +226,59 @@ export class RealtimeEventsService {
   }
 
   /**
+   * Emette evento di sync calendario completato (emesso dopo il flush del buffer)
+   */
+  emitCalendarSyncComplete(tenantId: string, payload: { providerId: string; count: number }) {
+    // Flush any pending calendar events first
+    this.flushCalendarEvents();
+    // Then emit sync complete
+    this.emitToTenant(tenantId, 'sync:status', {
+      providerId: payload.providerId,
+      status: 'completed',
+      type: 'calendar',
+      count: payload.count,
+    } as any);
+  }
+
+  /**
    * CONTACT EVENTS
+   * Note: Contact events are buffered to prevent event storms during bulk sync operations
    */
 
   /**
-   * Emette evento per nuovo contatto
+   * Emette evento per nuovo contatto (buffered)
    */
   emitContactNew(tenantId: string, payload: ContactEventPayload) {
-    this.emitToTenant(tenantId, 'contact:new', payload);
+    this.bufferContactEvent(tenantId, 'contact:new', payload);
   }
 
   /**
-   * Emette evento per contatto aggiornato
+   * Emette evento per contatto aggiornato (buffered)
    */
   emitContactUpdate(tenantId: string, payload: ContactEventPayload) {
-    this.emitToTenant(tenantId, 'contact:update', payload);
+    this.bufferContactEvent(tenantId, 'contact:update', payload);
   }
 
   /**
-   * Emette evento per contatto eliminato
+   * Emette evento per contatto eliminato (buffered)
    */
   emitContactDelete(tenantId: string, payload: ContactEventPayload) {
-    this.emitToTenant(tenantId, 'contact:delete', payload);
+    this.bufferContactEvent(tenantId, 'contact:delete', payload);
+  }
+
+  /**
+   * Emette evento di sync contatti completato (emesso dopo il flush del buffer)
+   */
+  emitContactSyncComplete(tenantId: string, payload: { providerId: string; count: number }) {
+    // Flush any pending contact events first
+    this.flushContactEvents();
+    // Then emit sync complete
+    this.emitToTenant(tenantId, 'sync:status', {
+      providerId: payload.providerId,
+      status: 'completed',
+      type: 'contacts',
+      count: payload.count,
+    } as any);
   }
 
   /**
@@ -471,6 +523,84 @@ export class RealtimeEventsService {
     }
 
     this.logger.debug(`Flushed ${events.length} buffered email event(s)`);
+  }
+
+  /**
+   * Bufferizza eventi contact per ridurre spam su bulk sync.
+   */
+  private bufferContactEvent(tenantId: string, event: KnownRealtimeEvent, payload: ContactEventPayload) {
+    const dedupeKey = `${tenantId}:${event}:${payload.contactId ?? ''}`;
+    this.contactEventBuffer.set(dedupeKey, { event, tenantId, payload });
+
+    if (this.contactEventBuffer.size >= this.CONTACT_BUFFER_MAX) {
+      this.flushContactEvents();
+      return;
+    }
+
+    if (!this.contactBufferTimer) {
+      this.contactBufferTimer = setTimeout(() => {
+        this.flushContactEvents();
+      }, this.CONTACT_BUFFER_MS);
+    }
+  }
+
+  private flushContactEvents() {
+    if (this.contactBufferTimer) {
+      clearTimeout(this.contactBufferTimer);
+      this.contactBufferTimer = undefined;
+    }
+
+    if (!this.contactEventBuffer.size) {
+      return;
+    }
+
+    const events = Array.from(this.contactEventBuffer.values());
+    this.contactEventBuffer.clear();
+
+    for (const item of events) {
+      this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
+    }
+
+    this.logger.debug(`Flushed ${events.length} buffered contact event(s)`);
+  }
+
+  /**
+   * Bufferizza eventi calendar per ridurre spam su bulk sync.
+   */
+  private bufferCalendarEvent(tenantId: string, event: KnownRealtimeEvent, payload: CalendarEventPayload) {
+    const dedupeKey = `${tenantId}:${event}:${payload.eventId ?? payload.externalId ?? ''}`;
+    this.calendarEventBuffer.set(dedupeKey, { event, tenantId, payload });
+
+    if (this.calendarEventBuffer.size >= this.CALENDAR_BUFFER_MAX) {
+      this.flushCalendarEvents();
+      return;
+    }
+
+    if (!this.calendarBufferTimer) {
+      this.calendarBufferTimer = setTimeout(() => {
+        this.flushCalendarEvents();
+      }, this.CALENDAR_BUFFER_MS);
+    }
+  }
+
+  private flushCalendarEvents() {
+    if (this.calendarBufferTimer) {
+      clearTimeout(this.calendarBufferTimer);
+      this.calendarBufferTimer = undefined;
+    }
+
+    if (!this.calendarEventBuffer.size) {
+      return;
+    }
+
+    const events = Array.from(this.calendarEventBuffer.values());
+    this.calendarEventBuffer.clear();
+
+    for (const item of events) {
+      this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
+    }
+
+    this.logger.debug(`Flushed ${events.length} buffered calendar event(s)`);
   }
 
   /**

@@ -54,6 +54,7 @@ import { contactsApi, type Contact } from '@/lib/api/contacts';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useContactStore } from '@/stores/contact-store';
+import { websocketClient, type RealtimeContactEvent, type RealtimeSyncStatus } from '@/lib/websocket-client';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -310,6 +311,65 @@ export function Contacts() {
     loadContacts();
   }, [loadContacts]);
 
+  // WebSocket event handling for real-time contact updates
+  useEffect(() => {
+    const handleContactNew = async (event: RealtimeContactEvent) => {
+      console.log('[Contacts] WebSocket: contact:new', event);
+      if (event.contactId) {
+        try {
+          const contact = await contactsApi.getContact(event.contactId);
+          useContactStore.getState().addContact(contact);
+        } catch (error) {
+          console.error('Failed to fetch new contact:', error);
+        }
+      }
+    };
+
+    const handleContactUpdate = async (event: RealtimeContactEvent) => {
+      console.log('[Contacts] WebSocket: contact:update', event);
+      if (event.contactId) {
+        try {
+          const contact = await contactsApi.getContact(event.contactId);
+          useContactStore.getState().updateContact(event.contactId, contact);
+        } catch (error) {
+          console.error('Failed to fetch updated contact:', error);
+        }
+      }
+    };
+
+    const handleContactDelete = (event: RealtimeContactEvent) => {
+      console.log('[Contacts] WebSocket: contact:delete', event);
+      if (event.contactId) {
+        useContactStore.getState().deleteContact(event.contactId);
+      }
+    };
+
+    const handleSyncStatus = (event: RealtimeSyncStatus) => {
+      // Handle sync completion - clear syncing state
+      if (event.status === 'completed') {
+        console.log('[Contacts] WebSocket: sync completed for provider', event.providerId);
+        setSyncingProviders((prev) => {
+          const next = new Set(prev);
+          next.delete(event.providerId);
+          return next;
+        });
+      }
+    };
+
+    // Subscribe to events
+    const unsubNew = websocketClient.onContactNew(handleContactNew);
+    const unsubUpdate = websocketClient.onContactUpdate(handleContactUpdate);
+    const unsubDelete = websocketClient.onContactDelete(handleContactDelete);
+    const unsubSync = websocketClient.onSyncStatus(handleSyncStatus);
+
+    return () => {
+      unsubNew();
+      unsubUpdate();
+      unsubDelete();
+      unsubSync();
+    };
+  }, []);
+
   // Infinite scroll with Intersection Observer
   useEffect(() => {
     if (!pagination.hasMore || loadingMore) return;
@@ -542,28 +602,18 @@ export function Contacts() {
           severity: 'info',
         });
 
-        // Poll for updates every 3 seconds for 30 seconds
-        let attempts = 0;
-        const maxAttempts = 10;
-        const pollInterval = setInterval(async () => {
-          attempts++;
-          try {
-            await loadContacts();
-          } catch (err) {
-            console.error('Failed to reload contacts:', err);
-          }
-
-          if (attempts >= maxAttempts) {
-            clearInterval(pollInterval);
-            setSyncingProviders(new Set());
-            setSnackbar({
-              open: true,
-              message: contactsCopy.alerts?.syncSuccess?.replace('{count}', 'all') ||
-                       'Contact sync completed in background',
-              severity: 'success',
-            });
-          }
-        }, 3000);
+        // WebSocket events will handle real-time updates (contact:new, contact:update)
+        // Set a timeout to clear syncing state if no WebSocket events received
+        setTimeout(() => {
+          setSyncingProviders((prev) => {
+            if (prev.size > 0) {
+              // Reload contacts once at the end if sync is still marked as running
+              loadContacts();
+              return new Set();
+            }
+            return prev;
+          });
+        }, 60000); // 60 second timeout as fallback
       } else {
         setSnackbar({
           open: true,

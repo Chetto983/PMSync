@@ -299,33 +299,53 @@ export class MicrosoftContactsSyncService {
 
   /**
    * Find unified contact by email address
+   * Uses efficient database query with JSON path filtering
    */
   private async findUnifiedContactByEmail(
     tenantId: string,
     email: string,
   ): Promise<Contact | null> {
-    const contacts = await this.prisma.contact.findMany({
-      where: {
-        tenantId,
-        isDeleted: false,
-      },
-    });
+    const normalizedEmail = email.toLowerCase();
 
-    for (const contact of contacts) {
-      if (contact.emails) {
-        const emails = JSON.parse(JSON.stringify(contact.emails));
-        if (Array.isArray(emails)) {
-          const hasEmail = emails.some(
-            (e: any) => e.value?.toLowerCase() === email.toLowerCase(),
-          );
-          if (hasEmail) {
-            return contact;
+    // Use raw query for efficient JSON array search (PostgreSQL)
+    // This avoids loading all contacts into memory
+    try {
+      const contacts = await this.prisma.$queryRaw<Contact[]>`
+        SELECT * FROM "Contact"
+        WHERE "tenantId" = ${tenantId}
+          AND "isDeleted" = false
+          AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements("emails") AS e
+            WHERE LOWER(e->>'value') = ${normalizedEmail}
+          )
+        LIMIT 1
+      `;
+
+      return contacts.length > 0 ? contacts[0] : null;
+    } catch (error) {
+      // Fallback to in-memory search if raw query fails (e.g., different DB)
+      this.logger.warn(`Raw query failed, using fallback search: ${error}`);
+      const contacts = await this.prisma.contact.findMany({
+        where: { tenantId, isDeleted: false },
+        take: 500, // Limit to prevent memory issues
+      });
+
+      for (const contact of contacts) {
+        if (contact.emails) {
+          const emails = JSON.parse(JSON.stringify(contact.emails));
+          if (Array.isArray(emails)) {
+            const hasEmail = emails.some(
+              (e: any) => e.value?.toLowerCase() === normalizedEmail,
+            );
+            if (hasEmail) {
+              return contact;
+            }
           }
         }
       }
-    }
 
-    return null;
+      return null;
+    }
   }
 
   /**
