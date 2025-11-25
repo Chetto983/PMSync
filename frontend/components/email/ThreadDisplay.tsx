@@ -12,9 +12,13 @@ import {
   Divider,
   Tooltip,
   useTheme,
+  Collapse,
+  alpha,
 } from '@mui/material';
 import {
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Star,
   Archive,
   Trash2,
@@ -31,6 +35,8 @@ import {
   FileCode,
   FileArchive,
   File,
+  Clock,
+  Mail,
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -44,54 +50,15 @@ import { emailApi } from '@/lib/api/email';
  * Props for ThreadDisplay component
  */
 interface ThreadDisplayProps {
-  /**
-   * Email/thread to display
-   */
   email: Email | null;
-
-  /**
-   * Whether data is loading
-   */
   isLoading?: boolean;
-
-  /**
-   * Callback to close/go back
-   */
   onClose?: () => void;
-
-  /**
-   * Callback to toggle star
-   */
   onToggleStar?: (id: string, isStarred: boolean) => void;
-
-  /**
-   * Callback to archive
-   */
   onArchive?: (id: string) => void;
-
-  /**
-   * Callback to delete
-   */
   onDelete?: (id: string) => void;
-
-  /**
-   * Callback to reply
-   */
   onReply?: (email: Email) => void;
-
-  /**
-   * Callback to reply all
-   */
   onReplyAll?: (email: Email) => void;
-
-  /**
-   * Callback to forward
-   */
   onForward?: (email: Email) => void;
-
-  /**
-   * Callback when labels change
-   */
   onLabelsChange?: (emailId: string, labelIds: string[], updatedEmail?: any) => void;
 }
 
@@ -100,80 +67,327 @@ interface ThreadDisplayProps {
  */
 function getFileIcon(filename: string, size = 14): React.ReactElement {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
-
-  // Documents
-  if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt'].includes(ext)) {
-    return <FileText size={size} />;
-  }
-
-  // Images
-  if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext)) {
-    return <ImageIcon size={size} />;
-  }
-
-  // Videos
-  if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'mpeg', 'mpg'].includes(ext)) {
-    return <Video size={size} />;
-  }
-
-  // Audio
-  if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma'].includes(ext)) {
-    return <Music size={size} />;
-  }
-
-  // Spreadsheets
-  if (['xls', 'xlsx', 'csv', 'ods'].includes(ext)) {
-    return <FileSpreadsheet size={size} />;
-  }
-
-  // Code
-  if (['js', 'ts', 'tsx', 'jsx', 'html', 'css', 'json', 'xml', 'py', 'java', 'cpp', 'c', 'php', 'rb', 'go', 'rs', 'swift'].includes(ext)) {
-    return <FileCode size={size} />;
-  }
-
-  // Archives
-  if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(ext)) {
-    return <FileArchive size={size} />;
-  }
-
-  // Default
+  if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt'].includes(ext)) return <FileText size={size} />;
+  if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext)) return <ImageIcon size={size} />;
+  if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'mpeg', 'mpg'].includes(ext)) return <Video size={size} />;
+  if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma'].includes(ext)) return <Music size={size} />;
+  if (['xls', 'xlsx', 'csv', 'ods'].includes(ext)) return <FileSpreadsheet size={size} />;
+  if (['js', 'ts', 'tsx', 'jsx', 'html', 'css', 'json', 'xml', 'py', 'java', 'cpp', 'c', 'php', 'rb', 'go', 'rs', 'swift'].includes(ext)) return <FileCode size={size} />;
+  if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(ext)) return <FileArchive size={size} />;
   return <File size={size} />;
 }
 
 /**
- * Sanitize potentially unsafe HTML coming from email bodies before rendering.
- * Client-side only to avoid SSR issues with DOMPurify.
+ * Sanitize HTML for email bodies
+ * Opens all links in a new tab for security and UX
  */
 function sanitizeEmailBody(content: string): string {
-  if (typeof window === 'undefined') {
-    // Server-side: return unsanitized (will be sanitized on client)
-    return content;
-  }
-  return DOMPurify.sanitize(content);
+  if (typeof window === 'undefined') return content;
+
+  // Configure DOMPurify to add target="_blank" and rel="noopener noreferrer" to all links
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName === 'A') {
+      node.setAttribute('target', '_blank');
+      node.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+
+  const sanitized = DOMPurify.sanitize(content, {
+    ADD_ATTR: ['target', 'rel'],
+  });
+
+  // Remove the hook after use to avoid side effects
+  DOMPurify.removeHook('afterSanitizeAttributes');
+
+  return sanitized;
 }
 
 /**
- * ThreadDisplay - Clean email/thread viewer
- *
- * Features:
- * - Clean, readable layout
- * - Toolbar with common actions
- * - HTML email rendering (sanitized)
- * - Attachments display
- * - Reply/Forward actions
- * - Mobile responsive
- *
- * @example
- * ```tsx
- * <ThreadDisplay
- *   email={selectedEmail}
- *   onClose={() => setSelectedEmail(null)}
- *   onToggleStar={handleToggleStar}
- *   onArchive={handleArchive}
- *   onDelete={handleDelete}
- *   onReply={handleReply}
- * />
- * ```
+ * Format relative time for compact display
+ */
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Collapsible Email Message Component
+ */
+interface ThreadMessageProps {
+  email: Email;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onReply?: (email: Email) => void;
+  onReplyAll?: (email: Email) => void;
+  onForward?: (email: Email) => void;
+  onAttachmentOpen: (attachment: any, e: React.MouseEvent) => void;
+  attachmentTooltip: string;
+  isDark: boolean;
+}
+
+const ThreadMessage: React.FC<ThreadMessageProps> = ({
+  email,
+  isExpanded,
+  onToggle,
+  onReply,
+  onReplyAll,
+  onForward,
+  onAttachmentOpen,
+  attachmentTooltip,
+  isDark,
+}) => {
+  const emailFromData = parseEmailFrom(email.from);
+  const safeBody = sanitizeEmailBody(email.bodyHtml || email.bodyText || email.snippet || '');
+  const nonInlineAttachments = email.attachments?.filter((a) => !a.isInline) ?? [];
+  const hasAttachments = nonInlineAttachments.length > 0;
+  const isUnread = !email.isRead;
+
+  // Generate avatar color based on email
+  const avatarColors = ['#55cae5', '#7650ce', '#b43db6', '#4CAF50', '#FF9800', '#E91E63'];
+  const colorIndex = emailFromData.email?.charCodeAt(0) % avatarColors.length || 0;
+  const avatarColor = avatarColors[colorIndex];
+
+  return (
+    <Paper
+      elevation={isExpanded ? 2 : 0}
+      sx={{
+        mb: 1.5,
+        border: '1px solid',
+        borderColor: isExpanded ? 'primary.main' : isUnread ? 'primary.light' : 'divider',
+        borderRadius: 2,
+        overflow: 'hidden',
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        // Unread indicator - left border accent
+        borderLeft: isUnread ? '3px solid' : '1px solid',
+        borderLeftColor: isUnread ? 'primary.main' : isExpanded ? 'primary.main' : 'divider',
+        // Subtle background for unread
+        bgcolor: isUnread && !isExpanded ? alpha(isDark ? '#55cae5' : '#7650ce', 0.03) : 'background.paper',
+        '&:hover': {
+          borderColor: isExpanded ? 'primary.main' : 'primary.light',
+          boxShadow: isExpanded ? 3 : 1,
+          transform: isExpanded ? 'none' : 'translateX(2px)',
+        },
+      }}
+    >
+      {/* Compact Header - Always visible */}
+      <Box
+        onClick={onToggle}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          p: 1.5,
+          cursor: 'pointer',
+          bgcolor: isExpanded ? alpha(isDark ? '#55cae5' : '#7650ce', 0.04) : 'transparent',
+          transition: 'background-color 0.2s ease',
+          '&:hover': {
+            bgcolor: alpha(isDark ? '#55cae5' : '#7650ce', 0.08),
+          },
+        }}
+      >
+        {/* Avatar */}
+        <Avatar
+          sx={{
+            width: 36,
+            height: 36,
+            bgcolor: avatarColor,
+            fontSize: '0.875rem',
+            fontWeight: 600,
+          }}
+        >
+          {emailFromData.name?.[0]?.toUpperCase() || 'U'}
+        </Avatar>
+
+        {/* Sender & Preview */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: isUnread ? 700 : 500,
+                color: isUnread ? 'text.primary' : 'text.secondary',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {emailFromData.name || emailFromData.email}
+            </Typography>
+            {isUnread && (
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: 'primary.main',
+                  flexShrink: 0,
+                  boxShadow: '0 0 4px rgba(25, 118, 210, 0.5)',
+                }}
+              />
+            )}
+          </Stack>
+          {!isExpanded && (
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'block',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                mt: 0.25,
+                color: isUnread ? 'text.secondary' : alpha(isDark ? '#fff' : '#000', 0.5),
+                fontWeight: isUnread ? 500 : 400,
+              }}
+            >
+              {email.snippet || '(No preview)'}
+            </Typography>
+          )}
+        </Box>
+
+        {/* Right side: Attachments, Time, Expand icon */}
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ flexShrink: 0 }}>
+          {hasAttachments && (
+            <Tooltip title={`${nonInlineAttachments.length} attachment${nonInlineAttachments.length > 1 ? 's' : ''}`}>
+              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'text.secondary' }}>
+                <Paperclip size={14} />
+                <Typography variant="caption">{nonInlineAttachments.length}</Typography>
+              </Stack>
+            </Tooltip>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 50, textAlign: 'right' }}>
+            {formatRelativeTime(email.receivedAt)}
+          </Typography>
+          <IconButton size="small" sx={{ p: 0.5 }}>
+            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </IconButton>
+        </Stack>
+      </Box>
+
+      {/* Expanded Content */}
+      <Collapse in={isExpanded} timeout={200}>
+        <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+          {/* Full Header */}
+          <Box sx={{ px: 2, py: 1.5, bgcolor: isDark ? alpha('#fff', 0.02) : alpha('#000', 0.01) }}>
+            <Stack direction="row" alignItems="flex-start" spacing={2}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {emailFromData.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {emailFromData.email}
+                </Typography>
+                {email.to && email.to.length > 0 && (
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                    <strong>To:</strong> {email.to.join(', ')}
+                  </Typography>
+                )}
+                {email.cc && email.cc.length > 0 && (
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    <strong>Cc:</strong> {email.cc.join(', ')}
+                  </Typography>
+                )}
+              </Box>
+              <Stack direction="row" alignItems="center" spacing={0.5}>
+                <Clock size={12} color="gray" />
+                <Typography variant="caption" color="text.secondary">
+                  {formatEmailHeaderDate(email.receivedAt)}
+                </Typography>
+              </Stack>
+            </Stack>
+
+            {/* Quick Actions */}
+            <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
+              <Tooltip title="Reply">
+                <IconButton size="small" onClick={() => onReply?.(email)}>
+                  <Reply size={16} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Reply All">
+                <IconButton size="small" onClick={() => onReplyAll?.(email)}>
+                  <ReplyAll size={16} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Forward">
+                <IconButton size="small" onClick={() => onForward?.(email)}>
+                  <Forward size={16} />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          </Box>
+
+          {/* Attachments */}
+          {hasAttachments && (
+            <Box sx={{ px: 2, py: 1.5, bgcolor: isDark ? alpha('#fff', 0.02) : alpha('#000', 0.01), borderTop: '1px solid', borderColor: 'divider' }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <Paperclip size={14} />
+                <Typography variant="caption" fontWeight={600}>
+                  {nonInlineAttachments.length} Attachment{nonInlineAttachments.length > 1 ? 's' : ''}
+                </Typography>
+              </Stack>
+              <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 0.5 }}>
+                {nonInlineAttachments.map((attachment) => {
+                  const sizeKB = Math.round(attachment.size / 1024);
+                  const sizeLabel = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
+                  return (
+                    <Tooltip key={attachment.id} title={attachmentTooltip} enterDelay={300}>
+                      <Chip
+                        label={`${attachment.filename} (${sizeLabel})`}
+                        size="small"
+                        icon={getFileIcon(attachment.filename, 12)}
+                        onClick={(e) => onAttachmentOpen(attachment, e)}
+                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                      />
+                    </Tooltip>
+                  );
+                })}
+              </Stack>
+            </Box>
+          )}
+
+          {/* Email Body */}
+          <Box
+            sx={{
+              p: 2,
+              // Light background in dark mode for HTML emails
+              ...(isDark && {
+                bgcolor: '#FAFAFA',
+                color: '#1a1a1a',
+              }),
+              ...(!isDark && {
+                color: 'text.primary',
+              }),
+              '& img': { maxWidth: '100%', height: 'auto' },
+              '& a': { color: isDark ? '#1976d2' : 'primary.main', textDecoration: 'underline' },
+              '& pre, & code': {
+                backgroundColor: isDark ? '#f5f5f5' : 'rgba(0, 0, 0, 0.05)',
+                borderRadius: 1,
+                padding: '2px 4px',
+              },
+              // Typography defaults
+              fontSize: '0.9375rem',
+              lineHeight: 1.6,
+            }}
+            dangerouslySetInnerHTML={{ __html: safeBody }}
+          />
+        </Box>
+      </Collapse>
+    </Paper>
+  );
+};
+
+/**
+ * ThreadDisplay - Modern collapsible email thread viewer
+ * Inspired by Gmail, Outlook, and Apple Mail
  */
 export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   email,
@@ -191,27 +405,20 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const { addEmailsToLabel, removeEmailFromLabel } = useLabelStore();
-  const attachmentTooltip =
-    (t as any)?.dashboard?.email?.attachments?.tooltip ??
-    'Click to open. Ctrl/Cmd+click to download.';
+  const attachmentTooltip = (t as any)?.dashboard?.email?.attachments?.tooltip ?? 'Click to open. Ctrl/Cmd+click to download.';
   const [threadData, setThreadData] = useState<Email[]>([]);
-
-  // Get full thread conversation using the new thread support
-  // Subscribe to both getEmailThread and threads to ensure reactivity when WebSocket updates arrive
+  const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set());
   const emailStore = useEmailStore();
 
   type Attachment = NonNullable<Email['attachments']>[number];
 
   const handleAttachmentOpen = async (attachment: Attachment, e: React.MouseEvent) => {
     try {
-      // Download file from backend (backend proxies from S3)
       const response = await emailApi.downloadAttachment(attachment.id);
       const blob = response.data;
       const url = window.URL.createObjectURL(blob);
 
-      // Ctrl/Cmd+click triggers download; default opens in a new tab when possible.
       if (e.ctrlKey || e.metaKey) {
-        // Force download
         const a = document.createElement('a');
         a.href = url;
         a.download = attachment.filename;
@@ -220,14 +427,10 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       } else {
-        // Open in new tab (browser will handle based on mime type)
         const newWindow = window.open(url, '_blank');
         if (newWindow) {
-          newWindow.addEventListener('load', () => {
-            setTimeout(() => window.URL.revokeObjectURL(url), 100);
-          });
+          newWindow.addEventListener('load', () => setTimeout(() => window.URL.revokeObjectURL(url), 100));
         } else {
-          // Popup blocked, fallback to download
           const a = document.createElement('a');
           a.href = url;
           a.download = attachment.filename;
@@ -239,11 +442,10 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
       }
     } catch (error) {
       console.error('Failed to open attachment:', error);
-      alert('Failed to open attachment. Please try again.');
     }
   };
 
-  // Calculate thread emails - will recalculate when store updates (including threads Map changes)
+  // Thread emails calculation
   const threadEmails = useMemo(() => {
     if (!email) return [];
     const local = emailStore.getEmailThread(email.id);
@@ -252,7 +454,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
     return [];
   }, [email, emailStore, threadData]);
 
-  // Fallback: load thread from API if store has none
+  // Load thread from API if needed
   useEffect(() => {
     const loadThread = async () => {
       if (!email || !email.threadId) return;
@@ -268,61 +470,87 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
     loadThread();
   }, [email, emailStore]);
 
+  // Auto-expand: unread emails + last email (like Gmail/Outlook)
+  useEffect(() => {
+    if (threadEmails.length > 0) {
+      const toExpand = new Set<string>();
+      // Always expand the last email
+      toExpand.add(threadEmails[threadEmails.length - 1].id);
+      // Also expand any unread emails
+      threadEmails.forEach((e) => {
+        if (!e.isRead) toExpand.add(e.id);
+      });
+      setExpandedEmails(toExpand);
+    }
+  }, [threadEmails]);
+
   const handleFetchArchived = async () => {
     if (!email) return;
     try {
       const res = await emailApi.fetchArchivedEmail(email.id);
       setThreadData([res.data]);
     } catch {
-      // ignore fetch errors
+      // ignore
     }
   };
 
-  // Use the first email in thread for primary display data
+  const toggleEmail = (emailId: string) => {
+    setExpandedEmails((prev) => {
+      const next = new Set(prev);
+      if (next.has(emailId)) {
+        next.delete(emailId);
+      } else {
+        next.add(emailId);
+      }
+      return next;
+    });
+  };
+
+  const expandAll = () => setExpandedEmails(new Set(threadEmails.map((e) => e.id)));
+  const collapseAll = () => {
+    if (threadEmails.length > 0) {
+      setExpandedEmails(new Set([threadEmails[threadEmails.length - 1].id]));
+    }
+  };
+  // Collapse read messages - keep only unread + last expanded
+  const collapseRead = () => {
+    if (threadEmails.length > 0) {
+      const toExpand = new Set<string>();
+      toExpand.add(threadEmails[threadEmails.length - 1].id);
+      threadEmails.forEach((e) => {
+        if (!e.isRead) toExpand.add(e.id);
+      });
+      setExpandedEmails(toExpand);
+    }
+  };
+
   const primaryEmail = threadEmails[0] || email;
   const isThreadConversation = threadEmails.length > 1;
+  const unreadCount = threadEmails.filter((e) => !e.isRead).length;
 
   const handleLabelsChange = async (labelIds: string[]) => {
     if (!email) return;
-
-    // Get current label IDs from emailLabels relationship
-    const currentLabels = email.emailLabels?.map(el => el.label.id) || [];
-    const added = labelIds.filter(id => !currentLabels.includes(id));
-    const removed = currentLabels.filter(id => !labelIds.includes(id));
+    const currentLabels = email.emailLabels?.map((el) => el.label.id) || [];
+    const added = labelIds.filter((id) => !currentLabels.includes(id));
+    const removed = currentLabels.filter((id) => !labelIds.includes(id));
 
     try {
       let updatedEmail = email;
-
-      // Add new labels - backend returns updated emails
       if (added.length > 0) {
         for (const labelId of added) {
           const result = await addEmailsToLabel(labelId, [email.id]);
-          // Use the last returned email with all updates
-          if (result.emails && result.emails.length > 0) {
-            updatedEmail = result.emails[0];
-          }
+          if (result.emails && result.emails.length > 0) updatedEmail = result.emails[0];
         }
       }
-
-      // Remove old labels - backend returns updated email
       if (removed.length > 0) {
         for (const labelId of removed) {
           const result = await removeEmailFromLabel(labelId, email.id);
-          // Use the returned email with all updates
-          if (result.email) {
-            updatedEmail = result.email;
-          }
+          if (result.email) updatedEmail = result.email;
         }
       }
-
-      // Notify parent with the updated email data from backend
       onLabelsChange?.(email.id, labelIds, updatedEmail);
-
-      // Optimistically update local thread data for immediate UI feedback
       setThreadData((prev) => {
-        if (!prev || prev.length === 0) {
-          return updatedEmail ? [updatedEmail] : prev;
-        }
+        if (!prev || prev.length === 0) return updatedEmail ? [updatedEmail] : prev;
         return prev.map((item) => (item.id === email.id ? updatedEmail : item));
       });
     } catch (error) {
@@ -333,15 +561,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   // Loading state
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%',
-          minHeight: 400,
-        }}
-      >
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 400 }}>
         <CircularProgress />
       </Box>
     );
@@ -362,280 +582,161 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           textAlign: 'center',
         }}
       >
-        <Typography variant="h6" color="text.secondary" gutterBottom>
+        <Mail size={48} color={isDark ? '#55cae5' : '#7650ce'} strokeWidth={1.5} />
+        <Typography variant="h6" color="text.secondary" sx={{ mt: 2 }}>
           {t.dashboard.email.selectEmail}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, opacity: 0.7 }}>
+          Select an email to read
         </Typography>
       </Box>
     );
   }
 
   return (
-    <Box
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Toolbar */}
       <Paper
         elevation={0}
         sx={{
-          p: 2,
+          px: 2,
+          py: 1.5,
           borderBottom: 1,
           borderColor: 'divider',
           display: 'flex',
           alignItems: 'center',
-          gap: 1,
+          gap: 0.5,
+          flexShrink: 0,
         }}
       >
         {onClose && (
-          <IconButton size="small" onClick={onClose} sx={{ mr: 1 }} aria-label={t.common.close || 'Close'}>
+          <IconButton size="small" onClick={onClose} sx={{ mr: 0.5 }} aria-label={t.common.close || 'Close'}>
             <ChevronLeft size={20} />
           </IconButton>
         )}
 
-        {/* Reply/Forward Actions - Left Side */}
-        <IconButton
-          size="small"
-          onClick={() => onReply?.(email)}
-          title={t.dashboard.emailView.reply}
-          aria-label={t.dashboard.emailView.reply}
-        >
-          <Reply size={18} />
-        </IconButton>
-        <IconButton
-          size="small"
-          onClick={() => onReplyAll?.(email)}
-          title={t.dashboard.emailView.replyAll}
-          aria-label={t.dashboard.emailView.replyAll}
-        >
-          <ReplyAll size={18} />
-        </IconButton>
-        <IconButton
-          size="small"
-          onClick={() => onForward?.(email)}
-          title={t.dashboard.emailView.forward}
-          aria-label={t.dashboard.emailView.forward}
-        >
-          <Forward size={18} />
-        </IconButton>
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+        <Tooltip title={t.dashboard.emailView.reply}>
+          <IconButton size="small" onClick={() => onReply?.(email)}>
+            <Reply size={18} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t.dashboard.emailView.replyAll}>
+          <IconButton size="small" onClick={() => onReplyAll?.(email)}>
+            <ReplyAll size={18} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t.dashboard.emailView.forward}>
+          <IconButton size="small" onClick={() => onForward?.(email)}>
+            <Forward size={18} />
+          </IconButton>
+        </Tooltip>
 
         <Box sx={{ flex: 1 }} />
 
-        <IconButton
-          size="small"
-          onClick={() => onToggleStar?.(email.id, email.isStarred || false)}
-          title={email.isStarred ? t.dashboard.email.bulkBar.removeStar : t.dashboard.email.bulkBar.addStar}
-          aria-label={email.isStarred ? t.dashboard.email.bulkBar.removeStar : t.dashboard.email.bulkBar.addStar}
-        >
-          <Star size={18} fill={email.isStarred ? '#FFB300' : 'none'} color={email.isStarred ? '#FFB300' : 'currentColor'} />
-        </IconButton>
+        <Tooltip title={email.isStarred ? t.dashboard.email.bulkBar.removeStar : t.dashboard.email.bulkBar.addStar}>
+          <IconButton size="small" onClick={() => onToggleStar?.(email.id, email.isStarred || false)}>
+            <Star size={18} fill={email.isStarred ? '#FFB300' : 'none'} color={email.isStarred ? '#FFB300' : 'currentColor'} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t.dashboard.email.bulkBar.archive}>
+          <IconButton size="small" onClick={() => onArchive?.(email.id)}>
+            <Archive size={18} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t.dashboard.email.bulkBar.delete}>
+          <IconButton size="small" onClick={() => onDelete?.(email.id)}>
+            <Trash2 size={18} />
+          </IconButton>
+        </Tooltip>
 
-        <IconButton
-          size="small"
-          onClick={() => onArchive?.(email.id)}
-          title={t.dashboard.email.bulkBar.archive}
-          aria-label={t.dashboard.email.bulkBar.archive}
-        >
-          <Archive size={18} />
-        </IconButton>
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        <IconButton
-          size="small"
-          onClick={() => onDelete?.(email.id)}
-          title={t.dashboard.email.bulkBar.delete}
-          aria-label={t.dashboard.email.bulkBar.delete}
-        >
-          <Trash2 size={18} />
-        </IconButton>
-
-        <IconButton size="small" title={t.dashboard.emailView.more} aria-label={t.dashboard.emailView.more}>
-          <MoreVertical size={18} />
-        </IconButton>
+        <Tooltip title={t.dashboard.emailView.more}>
+          <IconButton size="small">
+            <MoreVertical size={18} />
+          </IconButton>
+        </Tooltip>
       </Paper>
 
-      {/* Email Content */}
-      <Box
-        sx={{
-          flex: 1,
-          p: 3,
-          ...scrollContainerSx,
-        }}
-      >
-        {/* Subject */}
-        <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
-          {primaryEmail.subject || '(No subject)'}
-          {isThreadConversation && (
-            <Chip
-              label={`${threadEmails.length} messages`}
-              size="small"
-              sx={{ ml: 2, fontSize: '0.75rem' }}
-            />
+      {/* Content Area */}
+      <Box sx={{ flex: 1, overflow: 'auto', ...scrollContainerSx }}>
+        {/* Subject Header */}
+        <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, lineHeight: 1.3, mb: 1 }}>
+            {primaryEmail.subject || '(No subject)'}
+          </Typography>
+
+          {/* Thread info & controls */}
+          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
+            {isThreadConversation && (
+              <>
+                <Chip
+                  icon={<Mail size={14} />}
+                  label={`${threadEmails.length} messages`}
+                  size="small"
+                  sx={{ fontWeight: 500 }}
+                />
+                {unreadCount > 0 && (
+                  <Chip
+                    label={`${unreadCount} unread`}
+                    size="small"
+                    color="primary"
+                    sx={{ fontWeight: 600 }}
+                  />
+                )}
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 20, alignSelf: 'center' }} />
+                <Button size="small" variant="text" onClick={expandAll} sx={{ minWidth: 'auto', px: 1, fontSize: '0.75rem' }}>
+                  Expand all
+                </Button>
+                <Button size="small" variant="text" onClick={collapseRead} sx={{ minWidth: 'auto', px: 1, fontSize: '0.75rem' }}>
+                  Collapse read
+                </Button>
+                <Button size="small" variant="text" onClick={collapseAll} sx={{ minWidth: 'auto', px: 1, fontSize: '0.75rem' }}>
+                  Collapse all
+                </Button>
+              </>
+            )}
+          </Stack>
+
+          {/* Labels */}
+          {onLabelsChange && email && (
+            <Box sx={{ mb: 2 }}>
+              <LabelSelector
+                selectedLabelIds={email.emailLabels?.map((el) => el.label.id) || []}
+                selectedLabels={email.emailLabels?.map((el) => el.label) || []}
+                onLabelsChange={handleLabelsChange}
+                variant="chips"
+              />
+            </Box>
           )}
-        </Typography>
 
-        {/* Labels - Show for primary email */}
-        {onLabelsChange && email && (
-          <Box sx={{ mb: 2 }}>
-            <LabelSelector
-              selectedLabelIds={email.emailLabels?.map(el => el.label.id) || []}
-              selectedLabels={email.emailLabels?.map(el => el.label) || []}
-              onLabelsChange={handleLabelsChange}
-              variant="chips"
-            />
-          </Box>
-        )}
-
-        {(!primaryEmail.bodyHtml && !primaryEmail.bodyText) && (
-          <Box sx={{ mb: 2 }}>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleFetchArchived}
-              aria-label={(t as any)?.dashboard?.emailView?.fetchArchived || 'Load archived content'}
-            >
+          {/* Load archived content button */}
+          {!primaryEmail.bodyHtml && !primaryEmail.bodyText && (
+            <Button variant="outlined" size="small" onClick={handleFetchArchived} sx={{ mb: 2 }}>
               {(t as any)?.dashboard?.emailView?.fetchArchived || 'Load archived content'}
             </Button>
-          </Box>
-        )}
+          )}
+        </Box>
 
-        {/* Thread Conversation - Show all emails in chronological order */}
-        {threadEmails.map((threadEmail, index) => {
-          const emailFromData = parseEmailFrom(threadEmail.from);
-          const isLastEmail = index === threadEmails.length - 1;
-          const safeBody = sanitizeEmailBody(
-            threadEmail.bodyHtml || threadEmail.bodyText || threadEmail.snippet || ''
-          );
-          const nonInlineAttachments = threadEmail.attachments?.filter((a) => !a.isInline) ?? [];
-
-          return (
-            <Box key={threadEmail.id}>
-              {/* Email Header */}
-              <Box sx={{ mb: 2 }}>
-                <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
-                  <Avatar sx={{ width: 40, height: 40 }}>
-                    {emailFromData.name?.[0]?.toUpperCase() || 'U'}
-                  </Avatar>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                      {emailFromData.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {emailFromData.email}
-                    </Typography>
-                  </Box>
-                  <Typography variant="caption" color="text.secondary">
-                    {formatEmailHeaderDate(threadEmail.receivedAt)}
-                  </Typography>
-                </Stack>
-
-                {threadEmail.to && threadEmail.to.length > 0 && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 7 }}>
-                    <strong>To:</strong> {threadEmail.to.join(', ')}
-                  </Typography>
-                )}
-
-                {threadEmail.cc && threadEmail.cc.length > 0 && (
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 7 }}>
-                    <strong>Cc:</strong> {threadEmail.cc.join(', ')}
-                  </Typography>
-                )}
-              </Box>
-
-              {/* Attachments */}
-              {nonInlineAttachments.length > 0 && (
-                <Paper
-                  elevation={0}
-                  sx={{
-                    mb: 2,
-                    p: 2,
-                    bgcolor: 'background.default',
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                  }}
-                >
-                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                    <Paperclip size={16} />
-                    {nonInlineAttachments.length} {t.dashboard.email.attachment}
-                    {nonInlineAttachments.length > 1 ? 's' : ''}
-                  </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
-                    {nonInlineAttachments.map((attachment) => {
-                      const sizeKB = Math.round(attachment.size / 1024);
-                      const sizeLabel = sizeKB > 1024
-                        ? `${(sizeKB / 1024).toFixed(1)} MB`
-                        : `${sizeKB} KB`;
-
-                      return (
-                        <Tooltip key={attachment.id} title={attachmentTooltip} enterDelay={300}>
-                          <Chip
-                            label={`${attachment.filename} (${sizeLabel})`}
-                            size="medium"
-                            icon={getFileIcon(attachment.filename, 14)}
-                            onClick={(e) => handleAttachmentOpen(attachment, e)}
-                            sx={{
-                              cursor: 'pointer',
-                              '&:hover': {
-                                bgcolor: 'action.hover',
-                              },
-                            }}
-                          />
-                        </Tooltip>
-                      );
-                    })}
-                  </Stack>
-                </Paper>
-              )}
-
-              {/* Email Body - Force light background in dark mode for readability
-                  Many HTML emails have embedded dark backgrounds that make them unreadable.
-                  Like Apple Mail, we wrap email content in a light container in dark mode. */}
-              <Box
-                sx={{
-                  mb: 3,
-                  // In dark mode: wrap email in light container for readability
-                  ...(isDark && {
-                    bgcolor: '#FAFAFA',
-                    borderRadius: 2,
-                    p: 2,
-                    // Force dark text colors for light background
-                    color: '#1a1a1a',
-                    '& *': {
-                      // Let email styles work naturally on light background
-                      // but ensure minimum readability
-                    },
-                  }),
-                  // Light mode: normal behavior
-                  ...(!isDark && {
-                    color: 'text.primary',
-                  }),
-                  '& img': {
-                    maxWidth: '100%',
-                    height: 'auto',
-                  },
-                  '& a': {
-                    color: isDark ? '#1976d2' : 'primary.main',
-                    textDecoration: 'underline',
-                  },
-                  // Code blocks styling
-                  '& pre, & code': {
-                    backgroundColor: isDark ? '#f5f5f5' : 'rgba(0, 0, 0, 0.05)',
-                    borderRadius: 1,
-                  },
-                }}
-                dangerouslySetInnerHTML={{ __html: safeBody }}
-              />
-
-              {/* Divider between emails in thread (not after last email) */}
-              {!isLastEmail && (
-                <Divider sx={{ my: 3 }} />
-              )}
-            </Box>
-          );
-        })}
+        {/* Thread Messages */}
+        <Box sx={{ px: 3, pb: 3 }}>
+          {threadEmails.map((threadEmail) => (
+            <ThreadMessage
+              key={threadEmail.id}
+              email={threadEmail}
+              isExpanded={expandedEmails.has(threadEmail.id)}
+              onToggle={() => toggleEmail(threadEmail.id)}
+              onReply={onReply}
+              onReplyAll={onReplyAll}
+              onForward={onForward}
+              onAttachmentOpen={handleAttachmentOpen}
+              attachmentTooltip={attachmentTooltip}
+              isDark={isDark}
+            />
+          ))}
+        </Box>
       </Box>
     </Box>
   );
