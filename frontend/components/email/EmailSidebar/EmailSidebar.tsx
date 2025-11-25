@@ -26,8 +26,15 @@ import {
 } from 'lucide-react';
 import {
   useDroppable,
-  useDraggable,
+  useDndMonitor,
 } from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { debounce } from 'lodash-es';
 import { useRouter } from 'next/router';
 import { useFoldersStore } from '@/stores/folders-store';
@@ -128,11 +135,6 @@ interface EmailSidebarProps {
    * Whether an email is currently being dragged (for drop zone visuals)
    */
   isEmailDragging?: boolean;
-
-  /**
-   * Callback when email is dropped on a folder
-   */
-  onEmailDropToFolder?: (emailIds: string[], folderId: string, folderName: string) => void;
 }
 
 /**
@@ -163,24 +165,23 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
     },
   });
 
-  // Make it draggable (for reordering folders)
+  // Make it sortable (for reordering folders) - useSortable combines drag + drop
   const {
     attributes,
     listeners,
-    setNodeRef: setDraggableRef,
+    setNodeRef: setSortableRef,
     transform,
     isDragging,
-  } = useDraggable({
-    id: `draggable-${folder.id}`,
+  } = useSortable({
+    id: folder.id,
     data: {
       type: 'folder-reorder',
       folder,
     },
   });
 
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : undefined;
+  // Get sortable transform string for drag reordering
+  const sortableTransform = CSS.Transform.toString(transform);
 
   // Determine visual state based on drag context
   const isValidDropTarget = isEmailDragging && !isDragging;
@@ -190,7 +191,7 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
     <ListItemButton
       ref={(node) => {
         setDroppableRef(node);
-        setDraggableRef(node);
+        setSortableRef(node);
       }}
       selected={isSelected}
       onClick={onSelect}
@@ -259,12 +260,14 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
         ...(isValidDropTarget && !isActiveDropTarget && {
           animation: 'breathe 1.5s ease-in-out infinite',
         }),
-        // Scale up when actively hovering - magnetic effect
-        transform: isActiveDropTarget
-          ? 'scale(1.05) translateX(4px)'
-          : isValidDropTarget
-            ? 'scale(1.02)'
-            : undefined,
+        // Transform: prioritize sortable drag transform, then visual effects
+        transform: sortableTransform
+          ? sortableTransform
+          : isActiveDropTarget
+            ? 'scale(1.05) translateX(4px)'
+            : isValidDropTarget
+              ? 'scale(1.02)'
+              : undefined,
         // Enhanced shadow for depth
         boxShadow: isActiveDropTarget
           ? '0 8px 24px rgba(25, 118, 210, 0.35), 0 0 0 3px rgba(25, 118, 210, 0.2)'
@@ -294,7 +297,6 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
             transform: 'scale(1.02)',
           },
         },
-        ...style,
       }}
       {...attributes}
       {...listeners}
@@ -373,7 +375,6 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
   showLabels = true,
   onManageLabels,
   isEmailDragging = false,
-  onEmailDropToFolder: _onEmailDropToFolder,
 }) => {
   const router = useRouter();
   const t = useTranslations();
@@ -416,6 +417,54 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
   const [folderOrders, setFolderOrders] = useState<Record<string, string[]>>(() => {
     const saved = localStorage.getItem('sidebar-folder-orders');
     return saved !== null ? JSON.parse(saved) : {};
+  });
+
+  // Listen for folder reorder drag events from parent DndContext
+  useDndMonitor({
+    onDragEnd: (event) => {
+      const { active, over } = event;
+
+      if (!over || active.id === over.id) return;
+
+      // Only handle folder reordering (type: 'folder-reorder')
+      if (active.data.current?.type !== 'folder-reorder') return;
+
+      // Get folder IDs (useSortable uses folder.id directly)
+      const activeFolderId = active.id.toString();
+      const overFolderId = over.id.toString().replace('droppable-', '');
+
+      // Find which provider group these folders belong to
+      const providerGroup = folderGroups.find((g) =>
+        g.folders.some((f) => f.id === activeFolderId)
+      );
+
+      if (!providerGroup) return;
+
+      // Get current order for this provider
+      const currentOrder = folderOrders[providerGroup.providerId] || providerGroup.folders.map((f) => f.id);
+
+      // Find indexes
+      const activeIndex = currentOrder.indexOf(activeFolderId);
+      const overIndex = currentOrder.indexOf(overFolderId);
+
+      if (activeIndex === -1 || overIndex === -1) return;
+
+      // Use arrayMove utility from @dnd-kit/sortable for cleaner reordering
+      const newOrder = arrayMove(currentOrder, activeIndex, overIndex);
+
+      // Update state
+      setFolderOrders((prev) => ({
+        ...prev,
+        [providerGroup.providerId]: newOrder,
+      }));
+
+      console.log('[EmailSidebar] Folder reordered:', {
+        provider: providerGroup.providerEmail,
+        from: activeFolderId,
+        to: overFolderId,
+        newOrder,
+      });
+    },
   });
 
   // Load preferences from API on mount
@@ -887,23 +936,28 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
               </AccordionSummary>
 
               <AccordionDetails sx={{ p: 0 }}>
-                <List sx={{ py: 0 }}>
-                  {getSortedFolders(group).map((folder) => {
-                    const displayCount = getFolderCount(folder.id, folder.providerId) ?? folder.count;
-                    const isSelected = selectedFolderId === folder.id;
+                <SortableContext
+                  items={getSortedFolders(group).map((f) => f.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <List sx={{ py: 0 }}>
+                    {getSortedFolders(group).map((folder) => {
+                      const displayCount = getFolderCount(folder.id, folder.providerId) ?? folder.count;
+                      const isSelected = selectedFolderId === folder.id;
 
-                    return (
-                      <DroppableFolderItem
-                        key={folder.id}
-                        folder={folder}
-                        isSelected={isSelected}
-                        count={displayCount}
-                        onSelect={() => onFolderSelect(folder.id)}
-                        isEmailDragging={isEmailDragging}
-                      />
-                    );
-                  })}
-                </List>
+                      return (
+                        <DroppableFolderItem
+                          key={folder.id}
+                          folder={folder}
+                          isSelected={isSelected}
+                          count={displayCount}
+                          onSelect={() => onFolderSelect(folder.id)}
+                          isEmailDragging={isEmailDragging}
+                        />
+                      );
+                    })}
+                  </List>
+                </SortableContext>
               </AccordionDetails>
             </Accordion>
           ))}
