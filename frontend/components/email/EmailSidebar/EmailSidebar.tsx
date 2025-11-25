@@ -25,13 +25,6 @@ import {
   Settings,
 } from 'lucide-react';
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core';
@@ -509,64 +502,6 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
     setExpandedProviders(newExpanded);
   };
 
-  // Setup drag sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Require 8px movement before dragging starts
-      },
-    }),
-    useSensor(KeyboardSensor)
-  );
-
-  // Handle drag end for folder reordering
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (!over || active.id === over.id) return;
-
-    // Only handle folder reordering (not email dropping)
-    if (active.data.current?.type !== 'folder-reorder') return;
-
-    // Extract folder IDs from draggable IDs (format: "draggable-{folderId}")
-    const activeFolderId = active.id.toString().replace('draggable-', '');
-    const overFolderId = over.id.toString().replace('draggable-', '').replace('droppable-', '');
-
-    // Find which provider group these folders belong to
-    const providerGroup = folderGroups.find((g) =>
-      g.folders.some((f) => f.id === activeFolderId)
-    );
-
-    if (!providerGroup) return;
-
-    // Get current order for this provider
-    const currentOrder = folderOrders[providerGroup.providerId] || providerGroup.folders.map((f) => f.id);
-
-    // Find indexes
-    const activeIndex = currentOrder.indexOf(activeFolderId);
-    const overIndex = currentOrder.indexOf(overFolderId);
-
-    if (activeIndex === -1 || overIndex === -1) return;
-
-    // Create new order by moving the active item to over position
-    const newOrder = [...currentOrder];
-    newOrder.splice(activeIndex, 1);
-    newOrder.splice(overIndex, 0, activeFolderId);
-
-    // Update state
-    setFolderOrders({
-      ...folderOrders,
-      [providerGroup.providerId]: newOrder,
-    });
-
-    console.log('[EmailSidebar] Folder reordered:', {
-      provider: providerGroup.providerEmail,
-      from: activeFolderId,
-      to: overFolderId,
-      newOrder,
-    });
-  };
-
   // Get live count for a folder
   const getFolderCount = (folderId: string, providerId?: string): number | undefined => {
     // If providerId is provided, use it to construct the composite key
@@ -919,7 +854,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
             </Typography>
           </Box>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <>
             {folderGroups.map((group) => (
             <Accordion
               key={group.providerId}
@@ -971,7 +906,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
               </AccordionDetails>
             </Accordion>
           ))}
-          </DndContext>
+          </>
         )}
         </List>
       </Box>
