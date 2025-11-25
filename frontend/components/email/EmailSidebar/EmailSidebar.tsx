@@ -204,31 +204,46 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
         py: isValidDropTarget ? 1.5 : 0.75,
         px: isValidDropTarget ? 2 : 1.5,
         minHeight: isValidDropTarget ? 52 : 36,
-        // Remove transition on size to make collision box update instantly
-        transition: isValidDropTarget
-          ? 'background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s'
-          : 'all 0.2s ease-out',
+        // Smooth transition for reordering animation
+        transition: isDragging
+          ? 'none' // No transition while actively dragging for smooth movement
+          : isValidDropTarget
+            ? 'background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s'
+            : 'transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.2s, box-shadow 0.2s',
         position: 'relative',
         overflow: 'visible',
-        // Base styling with enhanced active state
-        bgcolor: isActiveDropTarget
-          ? 'primary.main'
-          : isValidDropTarget
-            ? 'action.hover'
-            : isOver
+        // Dragging state: elevated card effect
+        ...(isDragging && {
+          bgcolor: 'primary.light',
+          boxShadow: '0 12px 28px rgba(0, 0, 0, 0.25), 0 4px 8px rgba(0, 0, 0, 0.15)',
+          border: '2px solid',
+          borderColor: 'primary.main',
+          zIndex: 1000,
+          cursor: 'grabbing',
+          // Scale up slightly when dragging
+          scale: '1.02',
+        }),
+        // Base styling with enhanced active state (not dragging)
+        ...(!isDragging && {
+          bgcolor: isActiveDropTarget
+            ? 'primary.main'
+            : isValidDropTarget
               ? 'action.hover'
+              : isOver
+                ? 'action.hover'
+                : 'transparent',
+          // Enhanced border for drop target - thicker and more visible
+          border: isActiveDropTarget
+            ? '2px solid'
+            : isValidDropTarget
+              ? '2px dashed'
+              : '2px solid transparent',
+          borderColor: isActiveDropTarget
+            ? 'primary.main'
+            : isValidDropTarget
+              ? 'primary.light'
               : 'transparent',
-        // Enhanced border for drop target - thicker and more visible
-        border: isActiveDropTarget
-          ? '2px solid'
-          : isValidDropTarget
-            ? '2px dashed'
-            : '2px solid transparent',
-        borderColor: isActiveDropTarget
-          ? 'primary.main'
-          : isValidDropTarget
-            ? 'primary.light'
-            : 'transparent',
+        }),
         // Glow effect when actively hovering
         '&::before': isActiveDropTarget ? {
           content: '""',
@@ -253,8 +268,8 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
           letterSpacing: 0.5,
           opacity: 0.9,
         } : {},
-        // Visual states
-        opacity: isDragging ? 0.5 : 1,
+        // Visual states - keep fully visible when dragging
+        opacity: 1,
         cursor: isDragging ? 'grabbing' : isValidDropTarget ? 'copy' : 'grab',
         // Breathe animation for valid drop targets
         ...(isValidDropTarget && !isActiveDropTarget && {
@@ -268,14 +283,16 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
             : isValidDropTarget
               ? 'scale(1.02)'
               : undefined,
-        // Enhanced shadow for depth
-        boxShadow: isActiveDropTarget
-          ? '0 8px 24px rgba(25, 118, 210, 0.35), 0 0 0 3px rgba(25, 118, 210, 0.2)'
-          : isValidDropTarget
-            ? '0 2px 8px rgba(0, 0, 0, 0.08)'
-            : 'none',
+        // Enhanced shadow for depth (when not dragging)
+        ...(!isDragging && {
+          boxShadow: isActiveDropTarget
+            ? '0 8px 24px rgba(25, 118, 210, 0.35), 0 0 0 3px rgba(25, 118, 210, 0.2)'
+            : isValidDropTarget
+              ? '0 2px 8px rgba(0, 0, 0, 0.08)'
+              : 'none',
+        }),
         // Z-index to pop above siblings
-        zIndex: isActiveDropTarget ? 10 : isValidDropTarget ? 5 : 'auto',
+        zIndex: isDragging ? 1000 : isActiveDropTarget ? 10 : isValidDropTarget ? 5 : 'auto',
         // Animations
         '@keyframes breathe': {
           '0%, 100%': {
@@ -304,14 +321,16 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
       <ListItemIcon
         sx={{
           minWidth: isValidDropTarget ? 36 : 32,
-          color: isActiveDropTarget
-            ? 'white'
-            : isValidDropTarget
-              ? 'primary.main'
-              : folder.color || 'inherit',
+          color: isDragging
+            ? 'primary.contrastText'
+            : isActiveDropTarget
+              ? 'white'
+              : isValidDropTarget
+                ? 'primary.main'
+                : folder.color || 'inherit',
           transition: 'all 0.2s ease',
-          // Icon bounce on active
-          transform: isActiveDropTarget ? 'scale(1.2)' : 'scale(1)',
+          // Icon bounce on active or dragging
+          transform: isDragging || isActiveDropTarget ? 'scale(1.2)' : 'scale(1)',
         }}
       >
         {folder.icon}
@@ -320,8 +339,8 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
         primary={folder.label}
         primaryTypographyProps={{
           fontSize: isValidDropTarget ? '0.875rem' : '0.8125rem',
-          fontWeight: isSelected || isActiveDropTarget ? 700 : 500,
-          color: isActiveDropTarget ? 'white' : 'inherit',
+          fontWeight: isDragging || isSelected || isActiveDropTarget ? 700 : 500,
+          color: isDragging ? 'primary.contrastText' : isActiveDropTarget ? 'white' : 'inherit',
         }}
         sx={{
           '& .MuiTypography-root': {
@@ -329,7 +348,7 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
           },
         }}
       />
-      {count != null && count > 0 && !isActiveDropTarget && (
+      {count != null && count > 0 && !isActiveDropTarget && !isDragging && (
         <Chip
           label={count}
           size="small"

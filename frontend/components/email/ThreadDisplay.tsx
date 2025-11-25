@@ -590,31 +590,40 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
                 </Paper>
               )}
 
-              {/* Email Body - Warm off-white text in dark mode for better readability
-                  Using #E8E4D9 (warm pearl/cream) - provides soft contrast without eye strain
-                  WCAG compliant: ~10:1 contrast ratio on #1E1E1E background */}
+              {/* Email Body - Force light background in dark mode for readability
+                  Many HTML emails have embedded dark backgrounds that make them unreadable.
+                  Like Apple Mail, we wrap email content in a light container in dark mode. */}
               <Box
                 sx={{
                   mb: 3,
-                  // Dark mode: warm off-white/cream text for comfortable reading
-                  color: isDark ? '#E8E4D9' : 'text.primary',
-                  '& *': {
-                    // Override inline styles that might set text color in dark mode
-                    color: isDark ? '#E8E4D9 !important' : 'inherit',
-                  },
+                  // In dark mode: wrap email in light container for readability
+                  ...(isDark && {
+                    bgcolor: '#FAFAFA',
+                    borderRadius: 2,
+                    p: 2,
+                    // Force dark text colors for light background
+                    color: '#1a1a1a',
+                    '& *': {
+                      // Let email styles work naturally on light background
+                      // but ensure minimum readability
+                    },
+                  }),
+                  // Light mode: normal behavior
+                  ...(!isDark && {
+                    color: 'text.primary',
+                  }),
                   '& img': {
                     maxWidth: '100%',
                     height: 'auto',
                   },
                   '& a': {
-                    // Cyan links that complement the warm text
-                    color: isDark ? '#7dd8ec !important' : 'primary.main',
+                    color: isDark ? '#1976d2' : 'primary.main',
                     textDecoration: 'underline',
                   },
-                  // Preserve readability of code blocks
+                  // Code blocks styling
                   '& pre, & code': {
-                    color: isDark ? '#E0E0E0 !important' : 'inherit',
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                    backgroundColor: isDark ? '#f5f5f5' : 'rgba(0, 0, 0, 0.05)',
+                    borderRadius: 1,
                   },
                 }}
                 dangerouslySetInnerHTML={{ __html: safeBody }}
