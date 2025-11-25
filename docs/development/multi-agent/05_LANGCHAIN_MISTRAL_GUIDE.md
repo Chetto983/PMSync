@@ -1235,3 +1235,16 @@ const result = await agent.invoke({ input: 'test' });
 - [INDEX.md](./INDEX.md) - Hub documentazione
 - [01_ROADMAP_DETTAGLIATA.md](./01_ROADMAP_DETTAGLIATA.md) - Piano implementazione
 - [03_ARCHITECTURE.md](./03_ARCHITECTURE.md) - Architettura sistema
+
+## External References (planning)
+- LangChain docs: https://python.langchain.com/
+- LangChain agents: https://python.langchain.com/docs/modules/agents/
+- Mistral function calling: https://docs.mistral.ai/guides/function-calling/
+- Mistral embeddings: https://docs.mistral.ai/guides/embeddings/
+- LangGraph multi-agent: https://blog.langchain.dev/langgraph-multi-agent-workflows/
+
+
+- Proactive assistant patterns: https://blog.langchain.dev/plan-and-execute-agents/; https://python.langchain.com/docs/use_cases/agent_simulations/meeting_scheduler
+
+- TypeScript/langchainjs: https://js.langchain.com/docs; https://github.com/langchain-ai/langchainjs
+- NestJS + Prisma: https://docs.nestjs.com/recipes/prisma

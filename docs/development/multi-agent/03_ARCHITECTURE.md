@@ -843,3 +843,14 @@ class CachingService {
 **Versione:** 1.0.0
 **Ultimo aggiornamento:** 2025-11-20
 **Vedi anche:** [INDEX.md](./INDEX.md) | [01_ROADMAP_DETTAGLIATA.md](./01_ROADMAP_DETTAGLIATA.md)
+
+## External References (planning)
+- Clean/hexagonal architecture: https://alistair.cockburn.us/hexagonal-architecture/
+- Multi-agent orchestration (LangGraph): https://blog.langchain.dev/langgraph-multi-agent-workflows/
+- NestJS modular architecture: https://docs.nestjs.com/modules
+- Observability (OpenTelemetry): https://opentelemetry.io/docs/instrumentation/js/
+- Security (OWASP Top 10): https://owasp.org/www-project-top-ten/
+- Proactive assistant patterns: https://blog.langchain.dev/plan-and-execute-agents/ (plan+execute); https://python.langchain.com/docs/use_cases/agent_simulations/meeting_scheduler (meeting scheduler)
+- TypeScript/NestJS best practices: https://github.com/goldbergyoni/nodebestpractices; https://docs.nestjs.com/recipes/prisma; https://docs.nestjs.com/guards (for auth/tenant guards)
+- UI/UX patterns for dashboards/inbox: https://mui.com/material-ui/ (component library); https://mui.com/x/react-data-grid/ (data grids); https://www.nngroup.com/articles/ (NN/g usability articles)
+

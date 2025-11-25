@@ -1113,3 +1113,13 @@ curl -X GET http://localhost:3000/ai/feedback/stats \
 **Versione:** 1.0
 **Integrazione con:** [ROADMAP_MULTIAGENT_DETTAGLIATA.md](./ROADMAP_MULTIAGENT_DETTAGLIATA.md)
 **Ultimo aggiornamento:** 2025-11-20
+
+## External References (planning)
+- RLHF overview: https://arxiv.org/abs/2203.02155
+- Human-in-the-loop patterns: https://aws.amazon.com/what-is/human-in-the-loop/
+- Active learning guide: https://modal-python.readthedocs.io/en/latest/content/overview/active_learning.html
+- Reward modeling for language: https://arxiv.org/abs/2009.01325
+- Metrics for AI systems: https://opentelemetry.io/docs/instrumentation/js/
+
+
+- Proactive assistant patterns: https://blog.langchain.dev/plan-and-execute-agents/ (plan+execute); https://python.langchain.com/docs/use_cases/agent_simulations/meeting_scheduler (meeting scheduler)

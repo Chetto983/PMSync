@@ -1,56 +1,281 @@
-
+import Link from 'next/link';
 import {
   Box,
   Typography,
-  Grid as MuiGrid,
-  Paper,
+  Container,
   Stack,
+  alpha,
+  useTheme,
+  keyframes,
 } from '@mui/material';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
-const Grid = MuiGrid as unknown as React.ComponentType<any>;
+// CSS Keyframe animations
+const float = keyframes`
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+`;
+
+const pulse = keyframes`
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
+`;
+
+const shimmer = keyframes`
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+`;
 
 export function Cta() {
   const t = useTranslations();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
 
   return (
-    <Box sx={{ mt: 10 }}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 4, md: 6 },
-          borderRadius: 4,
-          border: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        <Grid container spacing={3} alignItems="center">
-          <Grid item xs={12} md={7}>
-            <Typography variant="h4" fontWeight={700}>
-              {t.landing.secondaryCta.title}
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mt: 1.5 }}>
-              {t.landing.secondaryCta.subtitle}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} md={5}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="flex-end">
+    <Box
+      sx={{
+        py: { xs: 8, md: 12 },
+        position: 'relative',
+      }}
+    >
+      <Container maxWidth="lg">
+        <Box
+          sx={{
+            position: 'relative',
+            p: { xs: 4, md: 8 },
+            borderRadius: 5,
+            overflow: 'hidden',
+            background: isDark
+              ? 'linear-gradient(135deg, rgba(48, 62, 117, 0.9) 0%, rgba(69, 32, 119, 0.9) 100%)'
+              : 'linear-gradient(135deg, #303e75 0%, #452077 100%)',
+            boxShadow: '0 20px 80px rgba(69, 32, 119, 0.3)',
+            transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+            '&:hover': {
+              transform: { md: 'translateY(-4px)' },
+              boxShadow: '0 30px 100px rgba(69, 32, 119, 0.4)',
+            },
+          }}
+        >
+          {/* Animated background mesh */}
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              backgroundImage: `radial-gradient(circle at 20% 80%, ${alpha('#55cae5', 0.15)} 0%, transparent 50%),
+                               radial-gradient(circle at 80% 20%, ${alpha('#b43db6', 0.15)} 0%, transparent 50%)`,
+              pointerEvents: 'none',
+            }}
+          />
+
+          {/* Animated gradient overlay */}
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              background: `linear-gradient(90deg, transparent, ${alpha('#55cae5', 0.1)}, transparent)`,
+              backgroundSize: '200% 100%',
+              animation: `${shimmer} 8s ease-in-out infinite`,
+              pointerEvents: 'none',
+            }}
+          />
+
+          {/* Floating particles */}
+          {[
+            { size: 8, top: '15%', left: '10%', color: '#55cae5', delay: 0 },
+            { size: 6, top: '70%', left: '15%', color: '#b43db6', delay: 0.5 },
+            { size: 10, top: '25%', right: '20%', color: '#55cae5', delay: 1 },
+            { size: 5, top: '60%', right: '10%', color: '#b43db6', delay: 1.5 },
+            { size: 7, top: '40%', left: '50%', color: '#7650ce', delay: 2 },
+            { size: 4, top: '80%', right: '40%', color: '#55cae5', delay: 2.5 },
+          ].map((particle, i) => (
+            <Box
+              key={i}
+              sx={{
+                position: 'absolute',
+                width: particle.size,
+                height: particle.size,
+                borderRadius: '50%',
+                bgcolor: particle.color,
+                top: particle.top,
+                left: particle.left,
+                right: particle.right,
+                animation: `${float} ${3 + i * 0.3}s ease-in-out infinite`,
+                animationDelay: `${particle.delay}s`,
+                opacity: 0.6,
+              }}
+            />
+          ))}
+
+          {/* Pulsing orbs */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -100,
+              right: -100,
+              width: 300,
+              height: 300,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(85, 202, 229, 0.2) 0%, transparent 70%)',
+              animation: `${pulse} 4s ease-in-out infinite`,
+              pointerEvents: 'none',
+            }}
+          />
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: -80,
+              left: -80,
+              width: 250,
+              height: 250,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(180, 61, 182, 0.2) 0%, transparent 70%)',
+              animation: `${pulse} 5s ease-in-out infinite`,
+              animationDelay: '1s',
+              pointerEvents: 'none',
+            }}
+          />
+
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={{ xs: 4, md: 6 }}
+            alignItems={{ xs: 'center', md: 'center' }}
+            justifyContent="space-between"
+            sx={{ position: 'relative' }}
+          >
+            {/* Text content */}
+            <Stack
+              spacing={2}
+              sx={{
+                textAlign: { xs: 'center', md: 'left' },
+                maxWidth: { md: 550 },
+              }}
+            >
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                justifyContent={{ xs: 'center', md: 'flex-start' }}
+              >
+                <Sparkles
+                  size={20}
+                  color="#55cae5"
+                  style={{
+                    animation: 'spin 4s linear infinite',
+                  }}
+                />
+                <Typography
+                  variant="overline"
+                  sx={{
+                    color: '#55cae5',
+                    fontWeight: 700,
+                    letterSpacing: 2,
+                  }}
+                >
+                  Get Started Today
+                </Typography>
+              </Stack>
+              <Typography
+                variant="h3"
+                sx={{
+                  fontWeight: 800,
+                  color: 'white',
+                  fontSize: { xs: '1.75rem', md: '2.25rem' },
+                  lineHeight: 1.2,
+                }}
+              >
+                {t.landing.secondaryCta.title}
+              </Typography>
+              <Typography
+                variant="body1"
+                sx={{
+                  color: alpha('#ffffff', 0.8),
+                  fontSize: { xs: '1rem', md: '1.1rem' },
+                  lineHeight: 1.7,
+                }}
+              >
+                {t.landing.secondaryCta.subtitle}
+              </Typography>
+            </Stack>
+
+            {/* CTA buttons */}
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              sx={{ flexShrink: 0 }}
+            >
               <Button
-                component="a"
-                href="mailto:hello@mailagent.ai"
+                component={Link}
+                href="/auth/register"
+                size="large"
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  bgcolor: 'white',
+                  color: '#452077',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: '-100%',
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(90deg, transparent, rgba(85, 202, 229, 0.3), transparent)',
+                    transition: 'left 0.5s ease',
+                  },
+                  '&:hover': {
+                    bgcolor: alpha('#ffffff', 0.95),
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+                    '&::before': {
+                      left: '100%',
+                    },
+                  },
+                  transition: 'all 0.3s ease',
+                }}
                 endIcon={<ArrowRight size={18} />}
               >
                 {t.landing.secondaryCta.primaryCta}
               </Button>
-              <Button component="a" href="#features" variant="outlined">
+              <Button
+                component="a"
+                href="#features"
+                variant="outlined"
+                size="large"
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  borderColor: alpha('#ffffff', 0.3),
+                  color: 'white',
+                  '&:hover': {
+                    borderColor: '#55cae5',
+                    bgcolor: alpha('#55cae5', 0.1),
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.3s ease',
+                }}
+              >
                 {t.landing.secondaryCta.secondaryCta}
               </Button>
             </Stack>
-          </Grid>
-        </Grid>
-      </Paper>
+          </Stack>
+        </Box>
+      </Container>
+
+      {/* Global keyframes for spin animation */}
+      <style jsx global>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </Box>
   );
 }

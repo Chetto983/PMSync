@@ -250,3 +250,14 @@ docs/development/multi-agent/
 **Buona lettura! 🚀**
 
 Per domande o suggerimenti sulla documentazione, apri una issue su GitHub o contatta il team su Discord.
+
+## External References (planning)
+- LangChain agents: https://python.langchain.com/docs/modules/agents/
+- LangGraph multi-agent workflows: https://blog.langchain.dev/langgraph-multi-agent-workflows/
+- AutoGen multi-agent patterns: https://microsoft.github.io/autogen/
+- HITL overview: https://aws.amazon.com/what-is/human-in-the-loop/
+- RAG with Postgres/pgvector: https://pgdash.io/blog/rag-with-postgresql.html
+- Proactive assistant patterns: https://blog.langchain.dev/plan-and-execute-agents/; https://python.langchain.com/docs/use_cases/agent_simulations/meeting_scheduler
+- TypeScript/NestJS/langchainjs: https://docs.nestjs.com/; https://docs.nestjs.com/recipes/prisma; https://js.langchain.com/docs
+- UI/UX references: https://mui.com/material-ui/; https://mui.com/x/react-data-grid/; https://notistack.com/; https://www.nngroup.com/articles/dialog-design/
+- Intelligent Secretary UI plan: [INTELLIGENT_SECRETARY_UI_PLAN.md](./INTELLIGENT_SECRETARY_UI_PLAN.md)

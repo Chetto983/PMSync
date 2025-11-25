@@ -1,47 +1,273 @@
-
 import Link from 'next/link';
 import Image from 'next/image';
 import {
   Box,
   Typography,
-  Grid as MuiGrid,
-  Paper,
+  Container,
   Stack,
-  Chip,
-  Divider,
+  alpha,
+  useTheme,
+  keyframes,
 } from '@mui/material';
-import { ArrowRight, Play, CheckCircle } from 'lucide-react';
+import { ArrowRight, Play, Mail, Calendar, Users, Zap, Shield, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
-const Grid = MuiGrid as unknown as React.ComponentType<any>;
+// Premium animations
+const float = keyframes`
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(2deg); }
+`;
+
+const floatReverse = keyframes`
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(20px) rotate(-2deg); }
+`;
+
+const pulse = keyframes`
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+`;
+
+const glow = keyframes`
+  0%, 100% { box-shadow: 0 0 20px rgba(85, 202, 229, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(85, 202, 229, 0.6); }
+`;
+
+const gradientMove = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
 
 export function Hero() {
   const t = useTranslations();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
+  const productCards = [
+    { icon: Mail, label: 'Email', desc: 'Unified inbox', color: '#55cae5' },
+    { icon: Calendar, label: 'Calendar', desc: 'Smart scheduling', color: '#7650ce' },
+    { icon: Users, label: 'Contacts', desc: 'AI-enriched', color: '#b43db6' },
+  ];
 
   return (
-    <Grid container spacing={6} alignItems="center" id="product">
-      <Grid item xs={12} md={6}>
-        <Stack spacing={3}>
-          <Chip
-            label={t.landing.hero.eyebrow}
-            color="primary"
-            variant="outlined"
-            sx={{ alignSelf: 'flex-start' }}
-          />
-          <Typography variant="h2" component="h1" sx={{ fontWeight: 700 }}>
-            {t.landing.hero.title}
+    <Box
+      id="product"
+      sx={{
+        position: 'relative',
+        overflow: 'hidden',
+        pt: { xs: 6, md: 10 },
+        pb: { xs: 10, md: 16 },
+        minHeight: { md: '90vh' },
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      {/* Animated mesh gradient background */}
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          background: isDark
+            ? `radial-gradient(ellipse 100% 100% at 50% -20%, ${alpha('#55cae5', 0.15)} 0%, transparent 50%),
+               radial-gradient(ellipse 80% 80% at 80% 50%, ${alpha('#7650ce', 0.1)} 0%, transparent 50%),
+               radial-gradient(ellipse 60% 60% at 20% 80%, ${alpha('#b43db6', 0.08)} 0%, transparent 50%)`
+            : `radial-gradient(ellipse 100% 100% at 50% -20%, ${alpha('#55cae5', 0.2)} 0%, transparent 50%),
+               radial-gradient(ellipse 80% 80% at 80% 50%, ${alpha('#7650ce', 0.12)} 0%, transparent 50%),
+               radial-gradient(ellipse 60% 60% at 20% 80%, ${alpha('#b43db6', 0.1)} 0%, transparent 50%)`,
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Floating orbs */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: '10%',
+          right: '5%',
+          width: { xs: 200, md: 400 },
+          height: { xs: 200, md: 400 },
+          borderRadius: '50%',
+          background: `linear-gradient(135deg, ${alpha('#55cae5', 0.2)} 0%, ${alpha('#7650ce', 0.1)} 100%)`,
+          filter: 'blur(80px)',
+          animation: `${float} 8s ease-in-out infinite`,
+          pointerEvents: 'none',
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: '20%',
+          left: '-5%',
+          width: { xs: 150, md: 300 },
+          height: { xs: 150, md: 300 },
+          borderRadius: '50%',
+          background: `linear-gradient(135deg, ${alpha('#b43db6', 0.15)} 0%, ${alpha('#55cae5', 0.1)} 100%)`,
+          filter: 'blur(60px)',
+          animation: `${floatReverse} 10s ease-in-out infinite`,
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Grid pattern overlay */}
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: isDark
+            ? `linear-gradient(${alpha('#fff', 0.02)} 1px, transparent 1px),
+               linear-gradient(90deg, ${alpha('#fff', 0.02)} 1px, transparent 1px)`
+            : `linear-gradient(${alpha('#000', 0.02)} 1px, transparent 1px),
+               linear-gradient(90deg, ${alpha('#000', 0.02)} 1px, transparent 1px)`,
+          backgroundSize: '60px 60px',
+          pointerEvents: 'none',
+        }}
+      />
+
+      <Container maxWidth="lg" sx={{ position: 'relative' }}>
+        <Stack spacing={5} alignItems="center" textAlign="center">
+          {/* Logo + Eyebrow badge */}
+          <Stack spacing={3} alignItems="center">
+            <Box
+              sx={{
+                position: 'relative',
+                animation: `${pulse} 4s ease-in-out infinite`,
+              }}
+            >
+              <Image
+                src="/Logo PMSync.svg"
+                alt="PMSync logo"
+                width={80}
+                height={80}
+                priority
+              />
+            </Box>
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1.5,
+                px: 3,
+                py: 1.25,
+                borderRadius: 100,
+                background: isDark
+                  ? `linear-gradient(135deg, ${alpha('#7650ce', 0.2)} 0%, ${alpha('#b43db6', 0.2)} 100%)`
+                  : `linear-gradient(135deg, ${alpha('#7650ce', 0.08)} 0%, ${alpha('#b43db6', 0.08)} 100%)`,
+                border: '1px solid',
+                borderColor: isDark ? alpha('#b43db6', 0.3) : alpha('#7650ce', 0.15),
+                backdropFilter: 'blur(10px)',
+                transition: 'all 0.3s ease',
+                cursor: 'default',
+                '&:hover': {
+                  transform: 'scale(1.02)',
+                  borderColor: alpha('#b43db6', 0.5),
+                },
+              }}
+            >
+              <Sparkles size={16} color="#b43db6" />
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                  background: 'linear-gradient(135deg, #55cae5 0%, #b43db6 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                {t.landing.hero.eyebrow}
+              </Typography>
+              <Box
+                sx={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  bgcolor: '#10b981',
+                  animation: `${pulse} 2s ease-in-out infinite`,
+                }}
+              />
+            </Box>
+          </Stack>
+
+          {/* Main headline with gradient */}
+          <Typography
+            variant="h1"
+            sx={{
+              fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4.25rem', lg: '5rem' },
+              fontWeight: 800,
+              lineHeight: 1.08,
+              maxWidth: 1000,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Orchestrate{' '}
+            <Box
+              component="span"
+              sx={{
+                background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 50%, #b43db6 100%)',
+                backgroundSize: '200% 200%',
+                animation: `${gradientMove} 5s ease infinite`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              every inbox
+            </Box>
+            <br />
+            with confidence
           </Typography>
-          <Typography variant="h6" color="text.secondary">
+
+          {/* Subtitle */}
+          <Typography
+            variant="h5"
+            color="text.secondary"
+            sx={{
+              maxWidth: 680,
+              fontWeight: 400,
+              lineHeight: 1.7,
+              fontSize: { xs: '1rem', sm: '1.125rem', md: '1.25rem' },
+            }}
+          >
             {t.landing.hero.subtitle}
           </Typography>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          {/* CTA buttons with premium styling */}
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            sx={{ pt: 1 }}
+          >
             <Button
               component={Link}
               href="/auth/register"
               size="large"
-              endIcon={<ArrowRight size={18} />}
+              sx={{
+                px: 5,
+                py: 2,
+                fontSize: '1.05rem',
+                fontWeight: 600,
+                borderRadius: 3,
+                background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
+                boxShadow: '0 8px 32px rgba(85, 202, 229, 0.35)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(135deg, #36e3ed 0%, #b43db6 100%)',
+                  opacity: 0,
+                  transition: 'opacity 0.3s ease',
+                },
+                '&:hover': {
+                  transform: 'translateY(-3px)',
+                  boxShadow: '0 12px 40px rgba(85, 202, 229, 0.45)',
+                  '&::before': { opacity: 1 },
+                },
+                '& > *': { position: 'relative' },
+                transition: 'all 0.3s ease',
+              }}
+              endIcon={<ArrowRight size={20} />}
             >
               {t.landing.hero.primaryCta}
             </Button>
@@ -50,96 +276,190 @@ export function Hero() {
               href="#features"
               variant="outlined"
               size="large"
-              endIcon={<Play size={18} />}
+              sx={{
+                px: 5,
+                py: 2,
+                fontSize: '1.05rem',
+                fontWeight: 600,
+                borderRadius: 3,
+                borderWidth: 2,
+                borderColor: isDark ? alpha('#55cae5', 0.4) : alpha('#7650ce', 0.25),
+                color: isDark ? '#55cae5' : '#7650ce',
+                backdropFilter: 'blur(10px)',
+                background: isDark ? alpha('#55cae5', 0.05) : alpha('#7650ce', 0.03),
+                '&:hover': {
+                  borderColor: '#55cae5',
+                  backgroundColor: alpha('#55cae5', 0.1),
+                  transform: 'translateY(-3px)',
+                },
+                transition: 'all 0.3s ease',
+              }}
+              endIcon={<Play size={20} />}
             >
               {t.landing.hero.secondaryCta}
             </Button>
           </Stack>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} pt={2}>
-            {t.landing.highlights.map((highlight) => (
-              <Box key={highlight.label}>
-                <Typography variant="h4" fontWeight={700}>
+          {/* Stats with glassmorphism */}
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={{ xs: 2, sm: 0 }}
+            sx={{
+              pt: 4,
+              px: { xs: 2, sm: 4 },
+              py: 3,
+              borderRadius: 4,
+              background: isDark
+                ? alpha('#ffffff', 0.03)
+                : alpha('#ffffff', 0.7),
+              backdropFilter: 'blur(20px)',
+              border: '1px solid',
+              borderColor: isDark ? alpha('#fff', 0.1) : alpha('#000', 0.05),
+              boxShadow: isDark
+                ? '0 8px 32px rgba(0, 0, 0, 0.3)'
+                : '0 8px 32px rgba(0, 0, 0, 0.08)',
+            }}
+            divider={
+              <Box
+                sx={{
+                  display: { xs: 'none', sm: 'block' },
+                  width: 1,
+                  height: 50,
+                  bgcolor: 'divider',
+                  mx: 4,
+                }}
+              />
+            }
+          >
+            {t.landing.highlights.map((highlight, index) => (
+              <Box
+                key={highlight.label}
+                sx={{
+                  textAlign: 'center',
+                  px: { xs: 2, sm: 3 },
+                  transition: 'transform 0.3s ease',
+                  '&:hover': {
+                    transform: 'scale(1.05)',
+                  },
+                }}
+              >
+                <Typography
+                  variant="h3"
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: { xs: '2rem', md: '2.5rem' },
+                    background: index === 0
+                      ? 'linear-gradient(135deg, #55cae5 0%, #36e3ed 100%)'
+                      : index === 1
+                      ? 'linear-gradient(135deg, #7650ce 0%, #b43db6 100%)'
+                      : 'linear-gradient(135deg, #b43db6 0%, #bc4fc2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
                   {highlight.value}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ fontWeight: 500, mt: 0.5 }}
+                >
                   {highlight.label}
                 </Typography>
               </Box>
+            ))}
+          </Stack>
+
+          {/* Product cards with glassmorphism */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+              gap: 3,
+              pt: 6,
+              width: '100%',
+              maxWidth: 900,
+            }}
+          >
+            {productCards.map((item, index) => (
+              <Box
+                key={item.label}
+                sx={{
+                  p: 3,
+                  borderRadius: 4,
+                  border: '1px solid',
+                  borderColor: isDark ? alpha(item.color, 0.25) : alpha(item.color, 0.15),
+                  background: isDark
+                    ? `linear-gradient(135deg, ${alpha(item.color, 0.08)} 0%, ${alpha(item.color, 0.02)} 100%)`
+                    : `linear-gradient(135deg, ${alpha(item.color, 0.05)} 0%, ${alpha('#fff', 0.8)} 100%)`,
+                  backdropFilter: 'blur(20px)',
+                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  cursor: 'pointer',
+                  animation: `${float} ${6 + index}s ease-in-out infinite`,
+                  animationDelay: `${index * 0.2}s`,
+                  '&:hover': {
+                    transform: 'translateY(-8px) scale(1.02)',
+                    boxShadow: `0 20px 60px ${alpha(item.color, 0.25)}`,
+                    borderColor: item.color,
+                    animation: 'none',
+                  },
+                }}
+              >
+                <Stack spacing={2} alignItems="center" textAlign="center">
+                  <Box
+                    sx={{
+                      p: 2,
+                      borderRadius: 3,
+                      background: `linear-gradient(135deg, ${alpha(item.color, 0.2)} 0%, ${alpha(item.color, 0.05)} 100%)`,
+                      border: '1px solid',
+                      borderColor: alpha(item.color, 0.2),
+                      transition: 'all 0.3s ease',
+                      '.MuiBox-root:hover &': {
+                        animation: `${glow} 1.5s ease-in-out infinite`,
+                      },
+                    }}
+                  >
+                    <item.icon size={28} color={item.color} />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      {item.label}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.desc}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Box>
+            ))}
+          </Box>
+
+          {/* Trust indicators */}
+          <Stack
+            direction="row"
+            spacing={4}
+            alignItems="center"
+            sx={{ pt: 4, opacity: 0.7 }}
+          >
+            {[
+              { icon: Shield, label: 'SOC 2 Compliant' },
+              { icon: Zap, label: '99.9% Uptime' },
+            ].map((item) => (
+              <Stack
+                key={item.label}
+                direction="row"
+                spacing={1}
+                alignItems="center"
+              >
+                <item.icon size={16} color={isDark ? '#55cae5' : '#7650ce'} />
+                <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                  {item.label}
+                </Typography>
+              </Stack>
             ))}
           </Stack>
         </Stack>
-      </Grid>
-
-      <Grid item xs={12} md={6}>
-        <Paper
-          elevation={3}
-          sx={{
-            borderRadius: 4,
-            p: 4,
-            position: 'relative',
-            overflow: 'hidden',
-            minHeight: 420,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 3,
-          }}
-        >
-          <Box
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              bgcolor: 'primary.main',
-              opacity: 0.08,
-            }}
-          />
-          <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Image src="/logo.png" alt="MailAgent UI" width={64} height={64} />
-            <Box>
-              <Typography variant="subtitle1" fontWeight={600}>
-                {t.app.tagline}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Material-compliant workspace
-              </Typography>
-            </Box>
-          </Box>
-
-          <Divider />
-
-          <Stack spacing={2} sx={{ position: 'relative' }}>
-            {t.landing.features[0].bullets.map((item) => (
-              <Box key={item} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <CheckCircle size={16} />
-                <Typography variant="body2">{item}</Typography>
-              </Box>
-            ))}
-          </Stack>
-
-          <Divider />
-
-          <Stack direction="row" spacing={2}>
-            {t.landing.highlights.map((highlight) => (
-              <Paper
-                key={`card-${highlight.label}`}
-                variant="outlined"
-                sx={{
-                  flex: 1,
-                  p: 2,
-                  borderRadius: 3,
-                }}
-              >
-                <Typography variant="subtitle2" color="text.secondary">
-                  {highlight.label}
-                </Typography>
-                <Typography variant="h5" fontWeight={700}>
-                  {highlight.value}
-                </Typography>
-              </Paper>
-            ))}
-          </Stack>
-        </Paper>
-      </Grid>
-    </Grid>
+      </Container>
+    </Box>
   );
 }

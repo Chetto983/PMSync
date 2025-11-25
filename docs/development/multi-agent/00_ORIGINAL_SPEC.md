@@ -175,3 +175,12 @@ Loggatura di tutte le azioni automatizzate, anche rifiutate
 /health/queues – Stato delle code BullMQ
 
 src/ai/agent.ts – Implementazione agenti AI esistenti
+## External References (planning)
+- LangChain agents: https://python.langchain.com/docs/modules/agents/
+- LangGraph multi-agent workflows: https://blog.langchain.dev/langgraph-multi-agent-workflows/
+- AutoGen multi-agent patterns: https://microsoft.github.io/autogen/
+- HITL overview: https://aws.amazon.com/what-is/human-in-the-loop/
+- RAG with Postgres/pgvector: https://pgdash.io/blog/rag-with-postgresql.html
+- Proactive assistant patterns: https://blog.langchain.dev/plan-and-execute-agents/ (plan+execute); https://python.langchain.com/docs/use_cases/agent_simulations/meeting_scheduler (meeting scheduler)
+- TypeScript/NestJS resources: https://docs.nestjs.com/; https://docs.nestjs.com/recipes/prisma; https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-postgresql (Prisma Postgres); https://js.langchain.com/docs (langchainjs)
+

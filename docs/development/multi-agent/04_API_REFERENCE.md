@@ -853,3 +853,14 @@ fi
 - [INDEX.md](./INDEX.md) - Indice generale
 - [01_ROADMAP_DETTAGLIATA.md](./01_ROADMAP_DETTAGLIATA.md) - Roadmap implementazione
 - [03_ARCHITECTURE.md](./03_ARCHITECTURE.md) - Architettura sistema
+
+## External References (planning)
+- OpenAPI/Swagger basics: https://swagger.io/specification/
+- NestJS controllers/validation: https://docs.nestjs.com/controllers
+- Rate limiting patterns: https://docs.nestjs.com/security/rate-limiting
+- JWT best practices: https://datatracker.ietf.org/doc/html/rfc7519
+- API testing (supertest): https://github.com/ladjs/supertest
+- Proactive assistant patterns (for conversational APIs): https://blog.langchain.dev/plan-and-execute-agents/; https://python.langchain.com/docs/use_cases/agent_simulations/meeting_scheduler
+- TypeScript/NestJS specifics: https://docs.nestjs.com/openapi/introduction (NestJS Swagger); https://github.com/colinhacks/zod (validation in TS); https://github.com/prisma/prisma-examples/tree/latest/typescript/rest-nestjs (Prisma + NestJS example)
+- UI/UX references (API-driven UIs): https://mui.com/material-ui/react-card/ (cards), https://mui.com/material-ui/react-data-grid/ (tables/lists), https://notistack.com/ (snackbars/alerts)
+

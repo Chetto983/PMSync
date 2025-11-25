@@ -12,8 +12,8 @@ import type { AppTranslations } from './index';
 
 export const en: AppTranslations = {
   app: {
-    name: 'MailAgent',
-    tagline: 'AI-native workspace for mission critical email',
+    name: 'PMSync',
+    tagline: 'Unified AI workspace for email, calendar & contacts',
   },
   nav: {
     product: 'Product',

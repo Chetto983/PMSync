@@ -25,6 +25,9 @@ Questo documento fornisce una roadmap dettagliata per implementare un sistema mu
 | **PostgreSQL + pgvector** | ✅ Completo | Schema Prisma |
 | **Redis Caching** | ✅ Completo | CacheModule |
 | **Audit Logging** | ✅ Completo | AuditModule |
+| **EmailModule** (fetch/send/sync/attachments) | ✅ Completo | `backend/src/modules/email` |
+| **CalendarModule** (Google/MS sync + webhooks) | ✅ Completo | `backend/src/modules/calendar` |
+| **ContactsModule** (Google/MS sync + dedup queue) | ✅ Completo | `backend/src/modules/contacts` |
 
 ### 🆕 Componenti Da Implementare
 
@@ -1218,6 +1221,12 @@ HitlService,
 
 ## **FASE 4: Implementazione Agenti Specializzati** (10-14 giorni)
 
+**Obiettivi di integrazione dominio**
+- EmailAgent: usare i servizi esistenti (`EmailInsightsService`, `EmailSendService`, `AttachmentOnDemandService`, `StorageService`) per smart reply, categorizzazione, archiviazione e invio bozza; notificare via `RealtimeModule` e incanalare le azioni HITL come `SEND_EMAIL_DRAFT`, `ARCHIVE_EMAIL`, `CATEGORIZE_THREAD`.
+- CalendarAgent: orchestrare `CalendarService` + `CalendarProviderFactory` per creare eventi in bozza, proporre slot e inviare inviti; agganciare i webhook Google/MS già in `calendar` per riconciliare stato; esporre azioni HITL `CREATE_CALENDAR_EVENT` e `UPDATE_CALENDAR_EVENT`.
+- ContactsAgent: riusare `ContactsService`, `ContactsSyncQueueService` e `ContactsSyncSchedulerService` per deduplica ed arricchimento; produrre azioni HITL `MERGE_CONTACTS` e `ENRICH_CONTACT`; mantenere coerenza con i worker di sync e con i webhook Google/MS.
+- Tutti gli agenti: rispettare multi-tenant e audit logging, ritornare pending actions con confidence/severity, e riutilizzare storage/attachment/realtime già presenti invece di duplicare logica.
+
 ### 4.1 EmailAgent - Implementazione Completa
 
 **File:** `backend/src/modules/ai/agents/email.agent.ts` (sostituire)
@@ -2042,6 +2051,40 @@ export function canAutoExecute(action: AgentAction): boolean {
 - [Schema Prisma](../../backend/prisma/schema.prisma)
 - [AI Module](../../backend/src/modules/ai/)
 - [Swagger API Docs](http://localhost:3000/api/docs) (dev env)
+- **Postgres graph+RAG references (planning)**:
+  - https://github.com/dmcdonald11/postgres-for-rag/blob/master/README.md (Postgres + pgvector + Apache AGE graph)
+- https://pgdash.io/blog/rag-with-postgresql.html (pgDash: RAG with Postgres/pgvector)
+- https://www.enterprisedb.com/blog/rag-app-postgres-and-pgvector (EDB blog: RAG app with Postgres/pgvector)
+- https://www.infoworld.com/article/3516109/using-postgresql-as-a-vector-database-in-rag.html (InfoWorld: RAG on Postgres/pgvector)
+- https://medium.com/@levi_stringer/rag-with-pg-vector-with-sql-alchemy-d08d96bfa293 (Medium: RAG with pgvector + SQLAlchemy)
+- **External refs by phase/topic**:
+  - Multi-agent orchestration: https://blog.langchain.dev/langgraph-multi-agent-workflows/ (LangGraph multi-agent); https://python.langchain.com/docs/modules/agents/ (LangChain agents)
+  - HITL patterns: https://aws.amazon.com/what-is/human-in-the-loop/ (HITL basics); https://neptune.ai/blog/human-in-the-loop-machine-learning (best practices)
+  - Tool/plan-execute agents: https://microsoft.github.io/autogen/ (AutoGen); https://docs.mistral.ai/guides/function-calling/ (Mistral function calling)
+  - Testing AI systems: https://docs.nestjs.com/fundamentals/testing (NestJS); https://github.com/goldbergyoni/javascript-testing-best-practices (JS testing)
+
+### How to use these references (step-by-step)
+- Fase 1–2 (infrastruttura/orchestratore): start from LangChain agents + LangGraph multi-agent workflows to shape Router/Tools flow; use Mistral function-calling guide for tool wiring.
+- Fase 3 (HITL): follow AWS HITL + Neptune HITL best practices to define approval policies and guardrails.
+- Fase 4 (agenti specializzati): keep AutoGen as a reference for tool-calling patterns and error handling; apply domain services from our modules.
+- Fase 5 (testing): lean on NestJS testing docs + JS testing best practices for unit/integration/e2e.
+- Fase RAG/graph storage: consult pgDash/EDB/InfoWorld/pgvector Medium posts for Postgres vector + (optional) graph via Apache AGE.
+
+### Intelligent Secretary (proactive assistant) references
+- Proactive email + scheduling assistants: https://microsoft.github.io/autogen/docs/usecases/assistant (AutoGen assistant patterns)
+- Plan-and-execute agents: https://blog.langchain.dev/plan-and-execute-agents/ (planning then tool execution)
+- Calendar scheduling examples: https://python.langchain.com/docs/use_cases/agent_simulations/meeting_scheduler (LangChain meeting scheduler)
+- Task extraction and reminders: https://blog.langchain.dev/task-extraction-agents/ (turning emails into tasks)
+- Persona/tone control: https://docs.mistral.ai/guides/function-calling/ (structured outputs to enforce style/constraints)
+- UI/UX for assistant/HITL flows: https://mui.com/material-ui/ (components), https://mui.com/x/react-data-grid/ (tables/inbox), https://notistack.com/ (notifications), https://www.nngroup.com/articles/dialog-design/ (confirmation dialogs)
+
+### Frontend rollout plan (concise)
+- AI Dashboard: extend `pages/dashboard/ai.tsx` with action panel (approve/reject/edit proposed actions), confidence/severity chips, citations, quick actions (smart reply/schedule/dedupe), streaming UI.
+- HITL Inbox: new page (e.g., `/dashboard/hitl`) with table/cards of `agent_pending_actions`, filters by type/status/severity, payload preview, realtime updates, bulk approve/reject.
+- Email UI: smart replies/triage chips, summary sidebar, task extraction; approval banners for send/archive/categorize.
+- Calendar UI: scheduling drawer with proposed slots/agenda; reschedule suggestions; approval for event creation.
+- Contacts UI: dedupe/enrich list with similarity scores; approve merges individually or bulk.
+- Landing: add “Intelligent Secretary” feature block linking to dashboard AI; highlight safety (HITL), proactive suggestions, RAG answers.
 
 ---
 

@@ -22,6 +22,13 @@
 - **[LangGraph: Multi-Agent Workflows](https://blog.langchain.dev/langgraph-multi-agent-workflows/)** - Framework per orchestrazione agenti
 - **[AutoGPT: Autonomous Agents](https://github.com/Significant-Gravitas/AutoGPT)** - Esempio di agenti autonomi
 - **[MetaGPT: Multi-Agent Framework](https://github.com/geekan/MetaGPT)** - Sistema multi-agente con roles
+- **[Intelligent Secretary UI Plan](./INTELLIGENT_SECRETARY_UI_PLAN.md)** - Piano UI/UX per esporre multi-agent + HITL nel frontend
+
+## Percorsi di Lettura (per ruolo)
+- Backend: README → 00_ORIGINAL_SPEC → 03_ARCHITECTURE → 01_ROADMAP_DETTAGLIATA → 04_API_REFERENCE → 05_LANGCHAIN_MISTRAL_GUIDE.
+- Frontend: README → INTELLIGENT_SECRETARY_UI_PLAN → 01_ROADMAP_DETTAGLIATA (frontend rollout) → 04_API_REFERENCE (HITL/APIs).
+- QA: 03_ARCHITECTURE → 04_API_REFERENCE → 07_TESTING_STRATEGY.
+- Product/Lead: README → INDEX → 01_ROADMAP_DETTAGLIATA → INTELLIGENT_SECRETARY_UI_PLAN.
 
 #### Blog e Tutorial
 - **[Building Multi-Agent Systems with LangChain](https://python.langchain.com/docs/use_cases/agent_workflows/)** - Documentazione ufficiale LangChain
@@ -515,3 +522,13 @@ MIT License - vedi [LICENSE](../../LICENSE) file
 **Ultimo aggiornamento**: 2025-11-20
 **Versione documentazione**: 1.0.0
 **Maintainer**: MailAgent Team
+
+## External References (planning)
+- LangChain agents: https://python.langchain.com/docs/modules/agents/
+- LangGraph multi-agent workflows: https://blog.langchain.dev/langgraph-multi-agent-workflows/
+- AutoGen multi-agent: https://microsoft.github.io/autogen/
+- HITL overview: https://aws.amazon.com/what-is/human-in-the-loop/
+- RAG with Postgres/pgvector: https://pgdash.io/blog/rag-with-postgresql.html
+
+
+- Proactive assistant patterns: https://blog.langchain.dev/plan-and-execute-agents/; https://python.langchain.com/docs/use_cases/agent_simulations/meeting_scheduler

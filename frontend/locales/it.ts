@@ -6,8 +6,8 @@ import type { AppTranslations } from './index';
 
 export const it: AppTranslations = {
   app: {
-    name: 'MailAgent',
-    tagline: 'Workspace AI per le email mission critical',
+    name: 'PMSync',
+    tagline: 'Workspace AI unificato per email, calendario e contatti',
   },
   nav: {
     product: 'Prodotto',
