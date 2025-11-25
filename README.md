@@ -1,7 +1,7 @@
 # MailAgent - AI-Powered Multi-Tenant Email Assistant
 
 ![Backend](https://img.shields.io/badge/Backend-100%25-success?style=flat-square)
-![Frontend](https://img.shields.io/badge/Frontend-97%25-success?style=flat-square)
+![Frontend](https://img.shields.io/badge/Frontend-98%25-success?style=flat-square)
 ![Testing](https://img.shields.io/badge/Testing-17.45%25-orange?style=flat-square)
 ![Version](https://img.shields.io/badge/Version-2.3.0-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
@@ -10,16 +10,24 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 
 ## 🎉 Recent Updates (November 2025)
 
-### ✅ Latest Features Implemented (Week of Nov 24)
+### ✅ Latest Features Implemented (Week of Nov 24-25)
 
-- **✨ Contacts UI Complete** - Full-featured contacts management interface with provider icons ✅ NEW
+- **✨ Calendar UI Complete** - Full-featured calendar management with FullCalendar integration ✅ NEW
+  - Collapsible provider groups in sidebar showing all calendars per provider
+  - Color picker with database persistence for calendar customization
+  - Toggle calendar visibility for filtering events
+  - Real-time WebSocket updates via `calendar:list_update` events
+  - Event creation dialog with calendar selection dropdown
+  - Day/Week/Month/List views with locale support (English + Italian)
+  - Backend API: `GET /calendar/calendars`, `PATCH /calendar/calendars/:providerId/:calendarId`
+- **✨ Contacts UI Complete** - Full-featured contacts management interface with provider icons ✅
   - Fixed contact list flickering and infinite re-render issues
   - Complete Italian + English translations for all contact fields
   - Google and Microsoft provider icons with circular badges (matching email list style)
   - Removed placeholder buttons, streamlined UI with only functional actions
   - Search debouncing (300ms) for improved performance
   - Infinite scroll with IntersectionObserver for large contact lists
-- **✨ Email Labels System Complete** - Advanced email categorization and filtering ✅ NEW
+- **✨ Email Labels System Complete** - Advanced email categorization and filtering ✅
   - Custom label creation and management
   - Multi-label support for emails
   - Label-based filtering and search
@@ -59,7 +67,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - ✅ **AI Email Insights**: Email summarization, smart replies, auto-categorization
 - ✅ **AI Assistant**: Chat with Mistral AI and RAG (Retrieval-Augmented Generation)
 - ✅ **Knowledge Base**: Semantic search with pgvector embeddings + PDF/text content extraction
-- ✅ **Calendar Integration (Bidirectional)**: Google Calendar & Microsoft Calendar event sync with attachments
+- ✅ **Calendar Integration (Complete)**: Google Calendar & Microsoft Calendar sync with full UI, collapsible provider groups, color customization, attachments
 - ✅ **Contacts Management (Complete)**: Full UI with bidirectional Google & Microsoft sync, provider icons, search, infinite scroll
 - ✅ **Advanced Authentication**: Email/Password + OTP/MFA mandatory
 - ✅ **Password Recovery**: Secure reset with temporary tokens
@@ -69,7 +77,6 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 
 ### 🚧 In Progress
 
-- ⏳ **Calendar UI**: Frontend calendar view and event management (sync complete, UI pending)
 - ⏳ **AI Features**:
   - Daily Reports: AI-generated activity summaries
   - Follow-up Alerts: Automatic detection of emails needing response
@@ -137,7 +144,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - **HTTP Client**: Axios
 - **Icons**: Lucide React + Material Icons + Custom SVG provider icons
 - **i18n**: Complete English + Italian translations with locale type safety
-- **Features**: Email (complete), Contacts (complete), Labels (complete), Calendar (sync complete, UI pending)
+- **Features**: Email (complete), Contacts (complete), Labels (complete), Calendar (complete)
 
 ### DevOps
 - **Containerization**: Docker + docker-compose
@@ -245,12 +252,16 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - `DELETE /emails/:id` - Delete email
 
 ### Calendar
+- `GET /calendar/calendars` - List all calendars from all providers
+- `POST /calendar/calendars` - Create a new calendar
+- `PATCH /calendar/calendars/:providerId/:calendarId` - Update calendar preferences (name, color)
 - `GET /calendar/events` - List calendar events
 - `GET /calendar/events/:id` - Get single event
 - `GET /calendar/events/:eventId/attachments` - List event attachments
 - `POST /calendar/events` - Create event
 - `PATCH /calendar/events/:id` - Update event
 - `DELETE /calendar/events/:id` - Delete event
+- `POST /calendar/sync/:providerId` - Trigger manual sync for provider
 
 ### Contacts
 - `GET /contacts` - List contacts

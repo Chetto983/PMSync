@@ -29,6 +29,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   Popover,
+  Drawer,
 } from '@mui/material';
 import {
   ChevronLeft,
@@ -38,6 +39,7 @@ import {
   RefreshCw,
   ChevronDown,
   Palette,
+  Menu,
 } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -142,6 +144,9 @@ export function Calendar() {
     message: '',
     severity: 'info',
   });
+
+  // Mobile drawer state
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   const updateCalendarHeader = useCallback(() => {
     if (calendarRef.current) {
@@ -575,9 +580,166 @@ export function Calendar() {
       .map(convertToFullCalendarEvent);
   }, [storeEvents, calendarPrefs, convertToFullCalendarEvent]);
 
+  // Sidebar content - reused for desktop and mobile drawer
+  const renderSidebarContent = () => (
+    <>
+      {/* Quick Event Input */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder={calendarCopy.quickEventPlaceholder}
+          value={quickEventText}
+          onChange={(e) => setQuickEventText(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleQuickEvent()}
+          sx={{ mb: 1 }}
+        />
+        <Button
+          fullWidth
+          variant="contained"
+          startIcon={<Plus size={18} />}
+          onClick={() => {
+            setEventDialogOpen(true);
+            setMobileDrawerOpen(false);
+          }}
+        >
+          {calendarCopy.createEvent}
+        </Button>
+      </Box>
+
+      {/* Calendars - Grouped by Provider */}
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+        {calendarCopy.filterTitle || 'My Calendars'}
+      </Typography>
+      <Box sx={{ mb: 2, overflow: 'auto', flex: 1 }}>
+        {providerGroups.map((group) => (
+          <Accordion
+            key={group.providerId}
+            expanded={group.expanded}
+            onChange={() => handleToggleProviderExpanded(group.providerId)}
+            disableGutters
+            elevation={0}
+            sx={{
+              '&:before': { display: 'none' },
+              bgcolor: 'transparent',
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ChevronDown size={16} />}
+              sx={{
+                minHeight: 36,
+                px: 0,
+                '& .MuiAccordionSummary-content': { my: 0.5 },
+              }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                {group.providerEmail}
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0 }}>
+              <List disablePadding>
+                {group.calendars.map((cal) => (
+                  <ListItem
+                    key={cal.id}
+                    disablePadding
+                    sx={{ mb: 0.25 }}
+                    secondaryAction={
+                      <Tooltip title="Change color">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleOpenColorPicker(e, cal.id)}
+                          sx={{ p: 0.5 }}
+                        >
+                          <Palette size={14} />
+                        </IconButton>
+                      </Tooltip>
+                    }
+                  >
+                    <ListItemIcon sx={{ minWidth: 32 }}>
+                      <Checkbox
+                        size="small"
+                        checked={cal.enabled}
+                        onChange={() => handleToggleCalendar(cal.id)}
+                        sx={{
+                          color: cal.color,
+                          '&.Mui-checked': { color: cal.color },
+                          p: 0.5,
+                        }}
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={cal.calendarName}
+                      primaryTypographyProps={{ fontSize: '0.8125rem', noWrap: true }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </AccordionDetails>
+          </Accordion>
+        ))}
+        {providerGroups.length === 0 && !loading && (
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', p: 1 }}>
+            {calendarCopy.noProviders || 'No calendars found. Add a provider in Settings.'}
+          </Typography>
+        )}
+      </Box>
+
+      {/* AI Assistant - Only show if there are events */}
+      {storeEvents.length > 5 && (
+        <Box
+          sx={{
+            mt: 'auto',
+            p: 2,
+            borderRadius: 2,
+            bgcolor: 'primary.main',
+            color: 'white',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Sparkles size={20} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              {calendarCopy.aiInsightsTitle}
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ fontSize: '0.75rem', mb: 1.5, opacity: 0.9 }}>
+            {calendarCopy.aiOptimizeMessage.replace('{count}', storeEvents.length.toString())}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              size="small"
+              variant="contained"
+              sx={{
+                bgcolor: 'white',
+                color: 'primary.main',
+                '&:hover': { bgcolor: 'grey.100' },
+              }}
+              onClick={() => router.push('/dashboard/ai')}
+            >
+              {calendarCopy.openAiAssistant}
+            </Button>
+          </Box>
+        </Box>
+      )}
+      {storeEvents.length === 0 && !loading && (
+        <Box
+          sx={{
+            mt: 'auto',
+            p: 2,
+            borderRadius: 2,
+            bgcolor: 'action.hover',
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+            {calendarCopy.noEventsMessage}
+          </Typography>
+        </Box>
+      )}
+    </>
+  );
+
   return (
     <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', overflow: 'hidden' }}>
-      {/* Sidebar */}
+      {/* Desktop Sidebar */}
       <Paper
         sx={{
           width: 280,
@@ -589,181 +751,47 @@ export function Calendar() {
           p: 2,
         }}
       >
-        {/* Quick Event Input */}
-        <Box sx={{ mb: 3 }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder={calendarCopy.quickEventPlaceholder}
-            value={quickEventText}
-            onChange={(e) => setQuickEventText(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleQuickEvent()}
-            sx={{ mb: 1 }}
-          />
-          <Button
-            fullWidth
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => setEventDialogOpen(true)}
-          >
-            {calendarCopy.createEvent}
-          </Button>
-        </Box>
-
-        {/* Calendars - Grouped by Provider */}
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-          {calendarCopy.filterTitle || 'My Calendars'}
-        </Typography>
-        <Box sx={{ mb: 2, overflow: 'auto', flex: 1 }}>
-          {providerGroups.map((group) => (
-            <Accordion
-              key={group.providerId}
-              expanded={group.expanded}
-              onChange={() => handleToggleProviderExpanded(group.providerId)}
-              disableGutters
-              elevation={0}
-              sx={{
-                '&:before': { display: 'none' },
-                bgcolor: 'transparent',
-              }}
-            >
-              <AccordionSummary
-                expandIcon={<ChevronDown size={16} />}
-                sx={{
-                  minHeight: 36,
-                  px: 0,
-                  '& .MuiAccordionSummary-content': { my: 0.5 },
-                }}
-              >
-                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                  {group.providerEmail}
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 0 }}>
-                <List disablePadding>
-                  {group.calendars.map((cal) => (
-                    <ListItem
-                      key={cal.id}
-                      disablePadding
-                      sx={{ mb: 0.25 }}
-                      secondaryAction={
-                        <Tooltip title="Change color">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleOpenColorPicker(e, cal.id)}
-                            sx={{ p: 0.5 }}
-                          >
-                            <Palette size={14} />
-                          </IconButton>
-                        </Tooltip>
-                      }
-                    >
-                      <ListItemIcon sx={{ minWidth: 32 }}>
-                        <Checkbox
-                          size="small"
-                          checked={cal.enabled}
-                          onChange={() => handleToggleCalendar(cal.id)}
-                          sx={{
-                            color: cal.color,
-                            '&.Mui-checked': { color: cal.color },
-                            p: 0.5,
-                          }}
-                        />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={cal.calendarName}
-                        primaryTypographyProps={{ fontSize: '0.8125rem', noWrap: true }}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </AccordionDetails>
-            </Accordion>
-          ))}
-          {providerGroups.length === 0 && !loading && (
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', p: 1 }}>
-              {calendarCopy.noProviders || 'No calendars found. Add a provider in Settings.'}
-            </Typography>
-          )}
-        </Box>
-
-        {/* Color Picker Popover */}
-        <Popover
-          open={Boolean(colorPickerAnchor)}
-          anchorEl={colorPickerAnchor}
-          onClose={handleCloseColorPicker}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        >
-          <Box sx={{ p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 160 }}>
-            {CALENDAR_COLORS.map((color) => (
-              <Box
-                key={color}
-                onClick={() => handleColorSelect(color)}
-                sx={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: '50%',
-                  bgcolor: color,
-                  cursor: 'pointer',
-                  border: '2px solid transparent',
-                  '&:hover': { border: '2px solid', borderColor: 'primary.main' },
-                }}
-              />
-            ))}
-          </Box>
-        </Popover>
-
-        {/* AI Assistant - Only show if there are events */}
-        {storeEvents.length > 5 && (
-          <Box
-            sx={{
-              mt: 'auto',
-              p: 2,
-              borderRadius: 2,
-              bgcolor: 'primary.main',
-              color: 'white',
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Sparkles size={20} />
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                {calendarCopy.aiInsightsTitle}
-              </Typography>
-            </Box>
-            <Typography variant="body2" sx={{ fontSize: '0.75rem', mb: 1.5, opacity: 0.9 }}>
-              {calendarCopy.aiOptimizeMessage.replace('{count}', storeEvents.length.toString())}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                size="small"
-                variant="contained"
-                sx={{
-                  bgcolor: 'white',
-                  color: 'primary.main',
-                  '&:hover': { bgcolor: 'grey.100' },
-                }}
-                onClick={() => router.push('/dashboard/ai')}
-              >
-                {calendarCopy.openAiAssistant}
-              </Button>
-            </Box>
-          </Box>
-        )}
-        {storeEvents.length === 0 && !loading && (
-          <Box
-            sx={{
-              mt: 'auto',
-              p: 2,
-              borderRadius: 2,
-              bgcolor: 'action.hover',
-            }}
-          >
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-              {calendarCopy.noEventsMessage}
-            </Typography>
-          </Box>
-        )}
+        {renderSidebarContent()}
       </Paper>
+
+      {/* Mobile Drawer */}
+      <Drawer
+        anchor="left"
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        sx={{ display: { xs: 'block', md: 'none' } }}
+        slotProps={{
+          paper: { sx: { width: 280, p: 2 } },
+        }}
+      >
+        {renderSidebarContent()}
+      </Drawer>
+
+      {/* Color Picker Popover - must be outside sidebar to work with both desktop and mobile */}
+      <Popover
+        open={Boolean(colorPickerAnchor)}
+        anchorEl={colorPickerAnchor}
+        onClose={handleCloseColorPicker}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Box sx={{ p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 160 }}>
+          {CALENDAR_COLORS.map((color) => (
+            <Box
+              key={color}
+              onClick={() => handleColorSelect(color)}
+              sx={{
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                bgcolor: color,
+                cursor: 'pointer',
+                border: '2px solid transparent',
+                '&:hover': { border: '2px solid', borderColor: 'primary.main' },
+              }}
+            />
+          ))}
+        </Box>
+      </Popover>
 
       {/* Calendar Main */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -778,6 +806,14 @@ export function Calendar() {
             gap: 2,
           }}
         >
+          {/* Hamburger menu for mobile */}
+          <IconButton
+            size="small"
+            onClick={() => setMobileDrawerOpen(true)}
+            sx={{ display: { xs: 'flex', md: 'none' } }}
+          >
+            <Menu size={20} />
+          </IconButton>
           <Typography variant="h5" sx={{ fontWeight: 600 }}>
             {currentMonth} {currentYear}
           </Typography>
