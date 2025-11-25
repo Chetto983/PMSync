@@ -53,6 +53,7 @@ import { useRouter } from 'next/router';
 import { contactsApi, type Contact } from '@/lib/api/contacts';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useContactStore } from '@/stores/contact-store';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -171,7 +172,10 @@ export function Contacts() {
   const translations = useTranslations();
   const contactsCopy = translations.dashboard.contacts;
   const [loading, setLoading] = useState(true);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const {
+    contacts: storeContacts,
+    setContacts: setStoreContacts,
+  } = useContactStore();
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -211,6 +215,7 @@ export function Contacts() {
   const [pagination, setPagination] = useState({ offset: 0, limit: 50, hasMore: true, total: 0 });
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     selectedContactIdRef.current = selectedContact?.id ?? null;
@@ -249,9 +254,10 @@ export function Contacts() {
       const contactsData = response.contacts || [];
 
       if (reset) {
-        setContacts(contactsData);
+        setStoreContacts(contactsData);
       } else {
-        setContacts((prev) => [...prev, ...contactsData]);
+        const merged = [...storeContacts, ...contactsData];
+        setStoreContacts(merged);
       }
 
       const newPagination = {
@@ -270,8 +276,8 @@ export function Contacts() {
 
       const previouslySelectedId = selectedContactIdRef.current;
       const updatedSelection =
-        (previouslySelectedId && contactsData.find((contact) => contact.id === previouslySelectedId)) ||
-        contactsData[0];
+        (previouslySelectedId && (reset ? contactsData : storeContacts).find((contact) => contact.id === previouslySelectedId)) ||
+        (reset ? contactsData[0] : storeContacts[0] || contactsData[0]);
       setSelectedContact(updatedSelection);
     } catch (error) {
       console.error('Failed to load contacts:', error);
@@ -279,7 +285,18 @@ export function Contacts() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [debouncedSearchQuery]);
+  }, [debouncedSearchQuery, setStoreContacts, storeContacts]);
+
+  // Keep selection in sync with store updates (e.g., realtime)
+  useEffect(() => {
+    if (!storeContacts.length) {
+      setSelectedContact(null);
+      return;
+    }
+    if (!selectedContact || !storeContacts.find((c) => c.id === selectedContact.id)) {
+      setSelectedContact(storeContacts[0]);
+    }
+  }, [storeContacts, selectedContact]);
 
   const loadMore = useCallback(() => {
     if (!loadingMore && pagination.hasMore) {
@@ -312,7 +329,8 @@ export function Contacts() {
     if (!pagination.hasMore || loadingMore) return;
 
     const sentinel = sentinelRef.current;
-    if (!sentinel) return;
+    const listRoot = listRef.current;
+    if (!sentinel || !listRoot) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -322,7 +340,7 @@ export function Contacts() {
         }
       },
       {
-        root: null,
+        root: listRoot,
         rootMargin: '100px',
         threshold: 0.1,
       }
@@ -662,12 +680,15 @@ export function Contacts() {
         </Box>
 
         {/* Contacts List */}
-        <List sx={{ flex: 1, overflow: 'auto', p: 0 }}>
+        <List
+          ref={listRef}
+          sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', p: 0, m: 0 }}
+        >
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
               <CircularProgress />
             </Box>
-          ) : contacts.length === 0 ? (
+          ) : storeContacts.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 4, px: 2 }}>
               <Typography variant="body2" color="text.secondary">
                 {contactsCopy.noContactsFound}
@@ -675,7 +696,7 @@ export function Contacts() {
             </Box>
           ) : (
             <>
-              {contacts.map((contact) => (
+              {storeContacts.map((contact) => (
                 <React.Fragment key={contact.id}>
                   <ListItemButton
                     selected={selectedContact?.id === contact.id}

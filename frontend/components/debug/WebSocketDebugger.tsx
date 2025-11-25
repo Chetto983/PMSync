@@ -35,6 +35,16 @@ export const WebSocketDebugger: React.FC = () => {
   const [isOpen, setIsOpen] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const addEvent = React.useCallback((event: Omit<WebSocketEvent, 'timestamp'>) => {
+    setEvents((prev) => [
+      {
+        ...event,
+        timestamp: new Date().toISOString(),
+      },
+      ...prev.slice(0, 49), // Keep last 50 events
+    ]);
+  }, []);
+
   useEffect(() => {
     // Listen to all WebSocket events
     const unsubEmailNew = websocketClient.onEmailNew((data) => {
@@ -90,17 +100,7 @@ export const WebSocketDebugger: React.FC = () => {
       unsubFolderCounts();
       unsubSyncStatus();
     };
-  }, []);
-
-  const addEvent = (event: Omit<WebSocketEvent, 'timestamp'>) => {
-    setEvents((prev) => [
-      {
-        ...event,
-        timestamp: new Date().toISOString(),
-      },
-      ...prev.slice(0, 49), // Keep last 50 events
-    ]);
-  };
+  }, [addEvent]);
 
   const clearEvents = () => {
     setEvents([]);

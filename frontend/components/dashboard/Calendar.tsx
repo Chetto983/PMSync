@@ -48,7 +48,7 @@ import {
   Paperclip,
   Download,
   FileText,
-  Image,
+  Image as ImageIcon,
   File,
 } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
@@ -428,10 +428,21 @@ export function Calendar() {
     calendarApi.changeView(viewName);
   }, [viewType]);
 
-  // Load data only when selectedProvider changes or on mount
-  // Trigger sync on initial mount to fetch events from Google/Microsoft
+  // Keep selected event in sync with realtime updates/removals
   useEffect(() => {
-    loadData(true); // true = trigger sync from providers
+    if (selectedEvent) {
+      const updated = storeEvents.find((e) => e.id === selectedEvent.id);
+      if (!updated) {
+        setSelectedEvent(null);
+      } else if (updated !== selectedEvent) {
+        setSelectedEvent(updated);
+      }
+    }
+  }, [storeEvents, selectedEvent]);
+
+  // Load data when provider changes or on mount (do not auto-sync to avoid delay)
+  useEffect(() => {
+    loadData(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProvider]);
 
@@ -639,7 +650,7 @@ export function Calendar() {
 
   const getAttachmentIcon = (mimeType: string) => {
     if (mimeType.startsWith('image/')) {
-      return <Image size={16} />;
+      return <ImageIcon size={16} aria-hidden="true" focusable="false" />;
     } else if (mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('text')) {
       return <FileText size={16} />;
     }

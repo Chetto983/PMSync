@@ -59,8 +59,15 @@ export function Modules() {
         }}
       />
 
-      {/* Floating dots pattern */}
-      {[...Array(6)].map((_, i) => (
+      {/* Floating dots pattern (deterministic positions to satisfy purity) */}
+      {[
+        { top: 18, left: 12 },
+        { top: 32, left: 78 },
+        { top: 48, left: 22 },
+        { top: 62, left: 55 },
+        { top: 76, left: 10 },
+        { top: 54, left: 88 },
+      ].map((pos, i) => (
         <Box
           key={i}
           sx={{
@@ -70,8 +77,8 @@ export function Modules() {
             borderRadius: '50%',
             bgcolor: i % 2 === 0 ? '#55cae5' : '#b43db6',
             opacity: 0.3,
-            top: `${15 + Math.random() * 70}%`,
-            left: `${5 + Math.random() * 90}%`,
+            top: `${pos.top}%`,
+            left: `${pos.left}%`,
             animation: `${float} ${5 + i}s ease-in-out infinite`,
             animationDelay: `${i * 0.5}s`,
             pointerEvents: 'none',
