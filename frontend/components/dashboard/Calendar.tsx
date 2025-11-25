@@ -253,9 +253,15 @@ export function Calendar() {
       const calendars = calendarsRes.data.calendars || [];
       const savedEnabled = loadEnabledState();
 
+      // Filter out deprecated "Primary Calendar" entries
+      const filteredCalendars = calendars.filter((cal: CalendarInfo) => {
+        const isPrimaryCalendar = cal.calendarName === 'Primary Calendar' || cal.calendarId === 'primary';
+        return !isPrimaryCalendar;
+      });
+
       // Create calendar preferences map
       const newPrefs = new Map<string, CalendarPreference>();
-      calendars.forEach((cal: CalendarInfo, index: number) => {
+      filteredCalendars.forEach((cal: CalendarInfo, index: number) => {
         const key = cal.id;
         newPrefs.set(key, {
           id: key,
