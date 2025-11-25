@@ -101,7 +101,7 @@ export class AttachmentsController {
 
       // Stream the file from S3 to client (efficient memory usage)
       if (s3Response.body) {
-        const nodeStream = Readable.from(s3Response.body as any);
+        const nodeStream = Readable.from(s3Response.body);
         nodeStream.pipe(res);
       } else {
         throw new Error('No response body from S3');

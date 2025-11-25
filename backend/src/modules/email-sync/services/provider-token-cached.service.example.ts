@@ -152,7 +152,7 @@ export class ProviderTokenCachedServiceExample {
       ? now.getTime() >= new Date(provider.tokenExpiresAt).getTime() - 60_000
       : true;
 
-    let accessToken = this.crypto.decrypt(provider.accessToken!, provider.tokenEncryptionIv!);
+    let accessToken = this.crypto.decrypt(provider.accessToken, provider.tokenEncryptionIv);
     const tokenLooksValid = accessToken.includes('.');
 
     const canRefresh = provider.refreshToken && provider.refreshTokenEncryptionIv;
