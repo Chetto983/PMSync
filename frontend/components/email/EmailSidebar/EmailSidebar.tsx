@@ -202,62 +202,102 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
       selected={isSelected}
       onClick={onSelect}
       sx={{
-        borderRadius: 1.5,
-        mb: 0.25,
+        borderRadius: 2,
+        mb: 0.5,
         mx: 0.5,
-        py: 0.75,
-        px: 1.5,
-        minHeight: 36,
+        // EXPANDED size when dragging emails - much easier to hit
+        py: isValidDropTarget ? 1.5 : 0.75,
+        px: isValidDropTarget ? 2 : 1.5,
+        minHeight: isValidDropTarget ? 52 : 36,
         position: 'relative',
-        overflow: 'hidden',
-        // Base styling
+        overflow: 'visible',
+        // Base styling with enhanced active state
         bgcolor: isActiveDropTarget
-          ? 'primary.light'
-          : isOver
-            ? 'action.hover'
-            : 'transparent',
-        // Enhanced border for drop target
-        border: isActiveDropTarget
-          ? '2px dashed'
+          ? 'primary.main'
           : isValidDropTarget
-            ? '2px dashed transparent'
-            : 'none',
+            ? 'action.hover'
+            : isOver
+              ? 'action.hover'
+              : 'transparent',
+        // Enhanced border for drop target - thicker and more visible
+        border: isActiveDropTarget
+          ? '2px solid'
+          : isValidDropTarget
+            ? '2px dashed'
+            : '2px solid transparent',
         borderColor: isActiveDropTarget
           ? 'primary.main'
-          : 'transparent',
-        // Left accent bar when hovering
+          : isValidDropTarget
+            ? 'primary.light'
+            : 'transparent',
+        // Glow effect when actively hovering
         '&::before': isActiveDropTarget ? {
           content: '""',
           position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 4,
-          bgcolor: 'primary.main',
-          borderRadius: '4px 0 0 4px',
+          inset: -4,
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, rgba(25, 118, 210, 0.15) 0%, rgba(25, 118, 210, 0.05) 100%)',
+          zIndex: -1,
+          animation: 'glowPulse 0.8s ease-in-out infinite',
         } : {},
-        // Smooth transitions
-        transition: 'all 0.15s ease-in-out',
+        // Magnetic snap indicator
+        '&::after': isActiveDropTarget ? {
+          content: '"Drop here"',
+          position: 'absolute',
+          top: '50%',
+          right: 12,
+          transform: 'translateY(-50%)',
+          fontSize: '0.7rem',
+          fontWeight: 700,
+          color: 'white',
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          opacity: 0.9,
+        } : {},
+        // Smooth spring-like transitions
+        transition: isValidDropTarget
+          ? 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          : 'all 0.2s ease-out',
         // Visual states
         opacity: isDragging ? 0.5 : 1,
         cursor: isDragging ? 'grabbing' : isValidDropTarget ? 'copy' : 'grab',
-        // Pulse animation for valid drop targets
+        // Breathe animation for valid drop targets
         ...(isValidDropTarget && !isActiveDropTarget && {
-          animation: 'pulseDropTarget 1.5s ease-in-out infinite',
+          animation: 'breathe 1.5s ease-in-out infinite',
         }),
-        // Scale up slightly when actively hovering
+        // Scale up when actively hovering - magnetic effect
         transform: isActiveDropTarget
-          ? 'scale(1.02)'
-          : undefined,
+          ? 'scale(1.05) translateX(4px)'
+          : isValidDropTarget
+            ? 'scale(1.02)'
+            : undefined,
+        // Enhanced shadow for depth
         boxShadow: isActiveDropTarget
-          ? '0 0 0 2px rgba(25, 118, 210, 0.2), 0 4px 12px rgba(25, 118, 210, 0.15)'
-          : 'none',
-        '@keyframes pulseDropTarget': {
+          ? '0 8px 24px rgba(25, 118, 210, 0.35), 0 0 0 3px rgba(25, 118, 210, 0.2)'
+          : isValidDropTarget
+            ? '0 2px 8px rgba(0, 0, 0, 0.08)'
+            : 'none',
+        // Z-index to pop above siblings
+        zIndex: isActiveDropTarget ? 10 : isValidDropTarget ? 5 : 'auto',
+        // Animations
+        '@keyframes breathe': {
           '0%, 100%': {
-            borderColor: 'transparent',
+            borderColor: 'rgba(25, 118, 210, 0.2)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
           },
           '50%': {
-            borderColor: 'rgba(25, 118, 210, 0.3)',
+            borderColor: 'rgba(25, 118, 210, 0.5)',
+            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)',
+          },
+        },
+        '@keyframes glowPulse': {
+          '0%, 100%': {
+            opacity: 0.8,
+            transform: 'scale(1)',
+          },
+          '50%': {
+            opacity: 1,
+            transform: 'scale(1.02)',
           },
         },
         ...style,
@@ -267,11 +307,15 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
     >
       <ListItemIcon
         sx={{
-          minWidth: 32,
+          minWidth: isValidDropTarget ? 36 : 32,
           color: isActiveDropTarget
-            ? 'primary.main'
-            : folder.color || 'inherit',
-          transition: 'color 0.15s ease',
+            ? 'white'
+            : isValidDropTarget
+              ? 'primary.main'
+              : folder.color || 'inherit',
+          transition: 'all 0.2s ease',
+          // Icon bounce on active
+          transform: isActiveDropTarget ? 'scale(1.2)' : 'scale(1)',
         }}
       >
         {folder.icon}
@@ -279,12 +323,17 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
       <ListItemText
         primary={folder.label}
         primaryTypographyProps={{
-          fontSize: '0.8125rem',
-          fontWeight: isSelected || isActiveDropTarget ? 600 : 500,
-          color: isActiveDropTarget ? 'primary.main' : 'inherit',
+          fontSize: isValidDropTarget ? '0.875rem' : '0.8125rem',
+          fontWeight: isSelected || isActiveDropTarget ? 700 : 500,
+          color: isActiveDropTarget ? 'white' : 'inherit',
+        }}
+        sx={{
+          '& .MuiTypography-root': {
+            transition: 'all 0.2s ease',
+          },
         }}
       />
-      {count != null && count > 0 && (
+      {count != null && count > 0 && !isActiveDropTarget && (
         <Chip
           label={count}
           size="small"
@@ -292,6 +341,7 @@ const DroppableFolderItem: React.FC<DroppableFolderItemProps> = ({
             height: 18,
             fontSize: '0.7rem',
             fontWeight: 600,
+            transition: 'opacity 0.2s ease',
           }}
         />
       )}
