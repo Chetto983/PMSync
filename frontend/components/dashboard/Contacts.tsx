@@ -287,8 +287,24 @@ export function Contacts() {
     }
   }, [loadContacts, loadingMore, pagination.hasMore]);
 
+  // Initial load: sync from providers then load contacts
   useEffect(() => {
-    loadContacts();
+    const initialLoad = async () => {
+      // First, trigger sync from Google/Microsoft (non-blocking)
+      try {
+        console.log('[Contacts] Triggering initial sync from providers...');
+        const result = await contactsApi.syncAll();
+        if (result.success) {
+          console.log(`[Contacts] Sync queued: ${result.queued} providers`);
+        }
+      } catch (syncError) {
+        console.warn('[Contacts] Initial sync failed:', syncError);
+      }
+
+      // Then load contacts from database
+      await loadContacts();
+    };
+    initialLoad();
   }, [loadContacts]);
 
   // Infinite scroll with Intersection Observer

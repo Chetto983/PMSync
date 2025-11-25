@@ -187,12 +187,14 @@ export function Calendar() {
 
   const updateCalendarHeader = useCallback(() => {
     if (calendarRef.current) {
-      const calendarApi = calendarRef.current.getApi();
-      const date = calendarApi.getDate();
-      setCurrentMonth(date.toLocaleDateString('en-US', { month: 'long' }));
+      const calApi = calendarRef.current.getApi();
+      const date = calApi.getDate();
+      // Use the proper locale for date formatting
+      const locale = calendarLocale === 'it' ? 'it-IT' : 'en-US';
+      setCurrentMonth(date.toLocaleDateString(locale, { month: 'long' }));
       setCurrentYear(date.getFullYear().toString());
     }
-  }, []);
+  }, [calendarLocale]);
 
   // Convert backend CalendarEvent to FullCalendar EventInput
   const convertToFullCalendarEvent = useCallback(
@@ -334,17 +336,41 @@ export function Calendar() {
   }, [loadEnabledState]);
 
   // Load providers and events
-  const loadData = useCallback(async () => {
+  // triggerSync: if true, sync from Google/Microsoft before loading from database
+  const loadData = useCallback(async (triggerSync = false) => {
     try {
       setLoading(true);
 
       // Load providers (non-blocking - continue even if fails)
+      let loadedProviders: ProviderConfig[] = [];
       try {
         const providersRes = await providersApi.getProviders();
-        setProviders(providersRes || []);
+        loadedProviders = providersRes || [];
+        setProviders(loadedProviders);
       } catch (providerError) {
         console.warn('Failed to load providers for calendar:', providerError);
         setProviders([]);
+      }
+
+      // Trigger sync for all calendar providers if requested
+      // This syncs events from Google/Microsoft to our database
+      if (triggerSync && loadedProviders.length > 0) {
+        const calendarProviders = loadedProviders.filter(p => p.supportsCalendar);
+        console.log(`[Calendar] Syncing ${calendarProviders.length} calendar providers...`);
+
+        // Sync all providers in parallel (non-blocking)
+        const syncPromises = calendarProviders.map(async (provider) => {
+          try {
+            const result = await calendarApi.syncProvider(provider.id);
+            console.log(`[Calendar] Synced ${provider.email}: ${result.data?.newEvents || 0} new, ${result.data?.updatedEvents || 0} updated`);
+            return result;
+          } catch (syncError) {
+            console.warn(`[Calendar] Failed to sync ${provider.email}:`, syncError);
+            return null;
+          }
+        });
+
+        await Promise.all(syncPromises);
       }
 
       // Load calendars from API
@@ -386,7 +412,7 @@ export function Calendar() {
 
   useEffect(() => {
     updateCalendarHeader();
-  }, [updateCalendarHeader]);
+  }, [updateCalendarHeader, calendarLocale]);
 
   useEffect(() => {
     if (!calendarRef.current) return;
@@ -403,8 +429,9 @@ export function Calendar() {
   }, [viewType]);
 
   // Load data only when selectedProvider changes or on mount
+  // Trigger sync on initial mount to fetch events from Google/Microsoft
   useEffect(() => {
-    loadData();
+    loadData(true); // true = trigger sync from providers
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProvider]);
 
@@ -1118,7 +1145,7 @@ export function Calendar() {
           <Tooltip title={calendarCopy.refreshTooltip}>
             <IconButton
               size="small"
-              onClick={loadData}
+              onClick={() => loadData(true)}
               disabled={loading || isSyncing}
               sx={{ ml: 1 }}
             >

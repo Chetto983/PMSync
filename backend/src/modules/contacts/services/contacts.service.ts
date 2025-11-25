@@ -245,21 +245,52 @@ export class ContactsService {
   }
 
   /**
-   * Update a unified contact (user-enriched fields)
-   * Note: This updates the unified contact, not provider contacts
-   * Use sync services to update provider contacts
+   * Update a unified contact (bidirectional sync)
+   * Updates the contact locally AND syncs changes to all linked providers
    */
   async updateContact(
     tenantId: string,
     contactId: string,
     data: UpdateContactDto,
   ): Promise<ContactWithProviders> {
-    this.logger.log(`Updating contact ${contactId}`);
+    this.logger.log(`Updating contact ${contactId} (bidirectional)`);
 
-    // Get existing contact
-    await this.getContact(tenantId, contactId);
+    // Get existing contact with provider links
+    const contact = await this.getContact(tenantId, contactId);
 
-    // Update unified contact (user-enriched data)
+    // Sync changes to all linked providers
+    if (contact.providerContacts && contact.providerContacts.length > 0) {
+      for (const providerContact of contact.providerContacts) {
+        try {
+          const provider = await this.prisma.providerConfig.findUnique({
+            where: { id: providerContact.providerId },
+          });
+
+          if (provider?.isActive) {
+            if (provider.providerType === 'google') {
+              await this.googleContactsSync.updateContact(
+                provider.id,
+                providerContact.externalId,
+                data,
+              );
+              this.logger.log(`Synced update to Google: ${providerContact.externalId}`);
+            } else if (provider.providerType === 'microsoft') {
+              await this.microsoftContactsSync.updateContact(
+                provider.id,
+                providerContact.externalId,
+                data,
+              );
+              this.logger.log(`Synced update to Microsoft: ${providerContact.externalId}`);
+            }
+          }
+        } catch (error: any) {
+          this.logger.warn(`Failed to sync update to provider ${providerContact.providerId}: ${error.message}`);
+          // Continue with local update even if provider sync fails
+        }
+      }
+    }
+
+    // Update unified contact locally
     const updated = await this.prisma.contact.update({
       where: { id: contactId },
       data: {
@@ -292,22 +323,59 @@ export class ContactsService {
   }
 
   /**
-   * Delete a unified contact (soft delete)
-   * This marks the unified contact as deleted
-   * Provider contacts remain for sync purposes
+   * Delete a unified contact (bidirectional sync)
+   * Deletes the contact from all linked providers AND marks local as deleted
    */
   async deleteContact(tenantId: string, contactId: string): Promise<void> {
-    this.logger.log(`Deleting contact ${contactId}`);
+    this.logger.log(`Deleting contact ${contactId} (bidirectional)`);
 
-    // Get existing contact
-    await this.getContact(tenantId, contactId);
+    // Get existing contact with provider links
+    const contact = await this.getContact(tenantId, contactId);
 
-    // Soft delete unified contact
+    // Delete from all linked providers
+    if (contact.providerContacts && contact.providerContacts.length > 0) {
+      for (const providerContact of contact.providerContacts) {
+        try {
+          const provider = await this.prisma.providerConfig.findUnique({
+            where: { id: providerContact.providerId },
+          });
+
+          if (provider?.isActive) {
+            if (provider.providerType === 'google') {
+              await this.googleContactsSync.deleteContact(
+                provider.id,
+                providerContact.externalId,
+              );
+              this.logger.log(`Deleted from Google: ${providerContact.externalId}`);
+            } else if (provider.providerType === 'microsoft') {
+              await this.microsoftContactsSync.deleteContact(
+                provider.id,
+                providerContact.externalId,
+              );
+              this.logger.log(`Deleted from Microsoft: ${providerContact.externalId}`);
+            }
+          }
+        } catch (error: any) {
+          this.logger.warn(`Failed to delete from provider ${providerContact.providerId}: ${error.message}`);
+          // Continue with local delete even if provider delete fails
+        }
+      }
+    }
+
+    // Soft delete unified contact locally
     await this.prisma.contact.update({
       where: { id: contactId },
       data: {
         isDeleted: true,
         updatedAt: new Date(),
+      },
+    });
+
+    // Update provider contacts sync timestamp
+    await this.prisma.providerContact.updateMany({
+      where: { contactId },
+      data: {
+        lastSyncedAt: new Date(),
       },
     });
 
