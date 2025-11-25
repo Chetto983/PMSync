@@ -304,24 +304,10 @@ export function Contacts() {
     }
   }, [loadContacts, loadingMore, pagination.hasMore]);
 
-  // Initial load: sync from providers then load contacts
+  // Initial load: load contacts from database (no auto-sync to avoid flickering)
   useEffect(() => {
-    const initialLoad = async () => {
-      // First, trigger sync from Google/Microsoft (non-blocking)
-      try {
-        console.log('[Contacts] Triggering initial sync from providers...');
-        const result = await contactsApi.syncAll();
-        if (result.success) {
-          console.log(`[Contacts] Sync queued: ${result.queued} providers`);
-        }
-      } catch (syncError) {
-        console.warn('[Contacts] Initial sync failed:', syncError);
-      }
-
-      // Then load contacts from database
-      await loadContacts();
-    };
-    initialLoad();
+    // Only load from database - sync should be triggered manually via sync button
+    loadContacts();
   }, [loadContacts]);
 
   // Infinite scroll with Intersection Observer
