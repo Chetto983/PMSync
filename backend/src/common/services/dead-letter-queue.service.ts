@@ -33,10 +33,10 @@ export interface DLQStats {
     failedAt: string;
     error: string;
   }>;
-  oldestFailure?: {
+  oldestFailure: {
     jobId: string;
     failedAt: string;
-  };
+  } | null;
 }
 
 /**
@@ -264,7 +264,7 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
     const byQueue: Record<string, number> = {};
     const byErrorType: Record<string, number> = {};
     const recentFailures: DLQStats['recentFailures'] = [];
-    let oldestFailure: DLQStats['oldestFailure'] | undefined;
+    let oldestFailure: DLQStats['oldestFailure'] = null;
 
     for (const job of jobs) {
       const data = job.data;

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { google } from 'googleapis';
-import axios from 'axios';
+//import axios from 'axios';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -386,7 +386,7 @@ export class AttachmentOnDemandService {
           }
         }
 
-        throw lastError;
+        throw lastError ?? new Error('Microsoft Graph download failed after retries');
       };
 
       // Download attachment using existing handler

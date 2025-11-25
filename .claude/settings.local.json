@@ -41,7 +41,8 @@
       "Bash(powershell -Command \"cd ''d:\\MailAgent\\frontend''; npx tsc --noEmit 2>&1 | Select-Object -First 30\")",
       "Bash(powershell -Command:*)",
       "Bash(git checkout:*)",
-      "Bash(node scripts/test-multi-agent-full.js:*)"
+      "Bash(node scripts/test-multi-agent-full.js:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { Contact } from '@prisma/client';
 
 export type ContactRealtimeReason =
   | 'contact-created'
@@ -302,7 +303,7 @@ export class MicrosoftContactsSyncService {
   private async findUnifiedContactByEmail(
     tenantId: string,
     email: string,
-  ): Promise<any | null> {
+  ): Promise<Contact | null> {
     const contacts = await this.prisma.contact.findMany({
       where: {
         tenantId,

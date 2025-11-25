@@ -5,7 +5,7 @@ import {
   AgentIntent,
 } from '../interfaces/agent-context.interface';
 import { AgentResult } from '../interfaces/agent-result.interface';
-import { AgentAction, ActionSeverity } from '../interfaces/agent-action.interface';
+import { AgentAction, ActionSeverity, AgentActionType } from '../interfaces/agent-action.interface';
 
 /**
  * Language mapping for supported locales.
@@ -159,26 +159,25 @@ export abstract class BaseAgent {
    * Can be overridden by specialized agents.
    */
   protected determineSeverity(
-    actionType: string,
+    actionType: AgentActionType,
     _payload: Record<string, any>,
   ): ActionSeverity {
     // Default severity mapping
-    const highSeverityActions = [
-      'SEND_EMAIL',
-      'DELETE_EMAIL',
-      'DELETE_EVENT',
-      'DELETE_CONTACT',
-      'BULK_DELETE',
+    const highSeverityActions: AgentActionType[] = [
+      AgentActionType.SEND_EMAIL,
+      AgentActionType.DELETE_EMAIL,
+      AgentActionType.DELETE_EVENT,
+      AgentActionType.DELETE_CONTACT,
     ];
 
-    const lowSeverityActions = [
-      'MARK_READ',
-      'MARK_UNREAD',
-      'STAR_EMAIL',
-      'UNSTAR_EMAIL',
-      'SEARCH_EMAILS',
-      'GET_EVENT',
-      'GET_CONTACT',
+    const lowSeverityActions: AgentActionType[] = [
+      AgentActionType.MARK_READ,
+      AgentActionType.MARK_UNREAD,
+      AgentActionType.STAR_EMAIL,
+      AgentActionType.UNSTAR_EMAIL,
+      AgentActionType.SEARCH_EMAILS,
+      AgentActionType.GET_EVENTS,
+      AgentActionType.GET_CONTACT,
     ];
 
     if (highSeverityActions.includes(actionType)) {
@@ -194,7 +193,7 @@ export abstract class BaseAgent {
    * Build an action with proper severity and metadata.
    */
   protected buildAction(
-    type: string,
+    type: AgentActionType,
     payload: Record<string, any>,
     confidence: number,
     reasoningSteps?: string,

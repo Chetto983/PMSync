@@ -71,7 +71,7 @@ export enum ActionStatus {
  * An action proposed by an agent
  */
 export interface AgentAction {
-  type: AgentActionType | string;
+  type: AgentActionType;
   payload: Record<string, any>;
   confidence: number; // 0.0 - 1.0 (original confidence from agent)
   adjustedConfidence?: number; // After learning boost applied

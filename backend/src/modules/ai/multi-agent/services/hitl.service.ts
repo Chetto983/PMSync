@@ -239,7 +239,8 @@ export class HitlService {
     const action = await this.getPendingAction(tenantId, actionId);
 
     // Check if action is still pending
-    if (action.status !== PendingActionStatus.PENDING) {
+    const status = action.status as PendingActionStatus;
+    if (status !== PendingActionStatus.PENDING) {
       throw new ForbiddenException(
         `Action ${actionId} is no longer pending (status: ${action.status})`,
       );
@@ -302,7 +303,8 @@ export class HitlService {
     const action = await this.getPendingAction(tenantId, actionId);
 
     // Check if action is still pending
-    if (action.status !== PendingActionStatus.PENDING) {
+    const status = action.status as PendingActionStatus;
+    if (status !== PendingActionStatus.PENDING) {
       throw new ForbiddenException(
         `Action ${actionId} is no longer pending (status: ${action.status})`,
       );

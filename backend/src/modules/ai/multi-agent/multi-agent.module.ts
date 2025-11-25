@@ -48,6 +48,7 @@ import { ContactsAgent } from './agents/contacts.agent';
     ActionExecutorService,
     MemoryService,
     EmbeddingsService,
+    MistralService,
     PersonalizationService,
 
     // Agents
@@ -63,6 +64,7 @@ import { ContactsAgent } from './agents/contacts.agent';
     FeedbackService,
     ActionExecutorService,
     MemoryService,
+    MistralService,
     RouterAgent,
   ],
 })

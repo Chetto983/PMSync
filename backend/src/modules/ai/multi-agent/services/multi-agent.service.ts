@@ -6,8 +6,7 @@ import { FeedbackService } from './feedback.service';
 import { ActionExecutorService } from './action-executor.service';
 import { MemoryService } from './memory.service';
 import { AgentContext, AgentIntent } from '../interfaces/agent-context.interface';
-import { AgentResult } from '../interfaces/agent-result.interface';
-import { AgentAction } from '../interfaces/agent-action.interface';
+import { AgentAction, AgentActionType } from '../interfaces/agent-action.interface';
 import { PersonalizationService, PersonalizationContext } from '../../services/personalization.service';
 
 /**
@@ -477,7 +476,7 @@ export class MultiAgentService {
 
       // Execute the action
       const action: AgentAction = {
-        type: pendingAction.actionType,
+        type: pendingAction.actionType as AgentActionType,
         payload: pendingAction.payload as Record<string, any>,
         confidence: pendingAction.confidence,
         adjustedConfidence: pendingAction.adjustedConfidence ?? undefined,

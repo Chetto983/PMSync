@@ -47,8 +47,6 @@ export const featuresConfig: FeaturesConfig = {
 
 export type FeatureFlagName = keyof typeof featuresConfig;
 
-export const getFeatureFlagConfig = (
-  feature: FeatureFlagName | string,
-): FeatureToggleConfig | undefined => {
-  return (featuresConfig as Record<string, FeatureToggleConfig | undefined>)[feature];
+export const getFeatureFlagConfig = (feature: FeatureFlagName): FeatureToggleConfig | undefined => {
+  return featuresConfig[feature];
 };
