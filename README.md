@@ -3,16 +3,30 @@
 ![Backend](https://img.shields.io/badge/Backend-100%25-success?style=flat-square)
 ![Frontend](https://img.shields.io/badge/Frontend-98%25-success?style=flat-square)
 ![Testing](https://img.shields.io/badge/Testing-17.45%25-orange?style=flat-square)
-![Version](https://img.shields.io/badge/Version-2.3.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/Version-2.4.0-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 MailAgent è una piattaforma full-stack completa e moderna per la gestione intelligente della posta elettronica con supporto IA, integrazione multi-provider e architettura multi-tenant enterprise-grade.
 
 ## 🎉 Recent Updates (November 2025)
 
-### ✅ Latest Features Implemented (Week of Nov 24-25)
+### ✅ Latest Features Implemented (Week of Nov 25)
 
-- **✨ Calendar UI Complete** - Full-featured calendar management with FullCalendar integration ✅ NEW
+- **✨ Full Bidirectional Sync** - Changes in PMSync sync back to Google/Microsoft ✅ NEW
+  - **Calendar**: Create, Update, Delete events → syncs to Google Calendar & Microsoft Outlook
+  - **Contacts**: Create, Update, Delete contacts → syncs to Google Contacts & Microsoft People
+  - Auto-sync on page load for Calendar and Contacts (fetches latest from providers)
+  - Tested and verified on real Google and Microsoft accounts
+- **✨ Thread Display Improvements** - Enhanced email reading experience ✅ NEW
+  - Auto-expand unread emails + last email in thread (like Gmail/Outlook)
+  - Unread message highlighting with left border accent
+  - "Collapse read" button to quickly hide already-read messages
+  - Email links now open in new browser tab (security: `rel="noopener noreferrer"`)
+- **✨ Locale-aware Calendar** - Month names display in correct language (EN/IT)
+
+### ✅ Previously Implemented (Week of Nov 24)
+
+- **✨ Calendar UI Complete** - Full-featured calendar management with FullCalendar integration ✅
   - Collapsible provider groups in sidebar showing all calendars per provider
   - Color picker with database persistence for calendar customization
   - Toggle calendar visibility for filtering events
@@ -67,8 +81,8 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - ✅ **AI Email Insights**: Email summarization, smart replies, auto-categorization
 - ✅ **AI Assistant**: Chat with Mistral AI and RAG (Retrieval-Augmented Generation)
 - ✅ **Knowledge Base**: Semantic search with pgvector embeddings + PDF/text content extraction
-- ✅ **Calendar Integration (Complete)**: Google Calendar & Microsoft Calendar sync with full UI, collapsible provider groups, color customization, attachments
-- ✅ **Contacts Management (Complete)**: Full UI with bidirectional Google & Microsoft sync, provider icons, search, infinite scroll
+- ✅ **Calendar Integration (Complete)**: Full bidirectional sync - Create/Update/Delete events sync to Google Calendar & Microsoft Outlook
+- ✅ **Contacts Management (Complete)**: Full bidirectional sync - Create/Update/Delete contacts sync to Google Contacts & Microsoft People
 - ✅ **Advanced Authentication**: Email/Password + OTP/MFA mandatory
 - ✅ **Password Recovery**: Secure reset with temporary tokens
 - ✅ **GDPR Compliance**: AES-256 encryption, audit log, right to be forgotten
@@ -263,12 +277,15 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - `DELETE /calendar/events/:id` - Delete event
 - `POST /calendar/sync/:providerId` - Trigger manual sync for provider
 
-### Contacts
+### Contacts (Bidirectional Sync)
+
 - `GET /contacts` - List contacts
 - `GET /contacts/:id` - Get single contact
-- `POST /contacts` - Create contact
-- `PUT /contacts/:id` - Update contact
-- `DELETE /contacts/:id` - Delete contact
+- `POST /contacts` - Create contact (syncs to provider)
+- `PATCH /contacts/:id` - Update contact (syncs to provider)
+- `DELETE /contacts/:id` - Delete contact (syncs to provider)
+- `POST /contacts/sync/:providerId` - Sync contacts from provider
+- `POST /contacts/sync-all` - Sync all providers
 
 ### AI Chat
 - `POST /ai/chat` - Send message to AI
