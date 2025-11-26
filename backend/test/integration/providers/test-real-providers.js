@@ -6,7 +6,7 @@
  * Usage: node test-real-providers.js
  */
 
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('../../../scripts/prisma-client');
 const { ProviderFactory } = require('../../../dist/modules/providers/factory/provider.factory');
 const { google } = require('googleapis');
 const https = require('https');
@@ -14,7 +14,7 @@ const crypto = require('crypto');
 
 class RealProviderTester {
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = createPrismaClient();
     this.crypto = {
       decrypt: (encrypted, iv) => {
         // Use the REAL AES-256 key from production environment

@@ -751,7 +751,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   }, [_pagination, storeLoading, combinedFolders, selectedFolderId, searchQuery, advancedFilters, appendEmails, setLoading]);
 
 
-  // Bulk operations handlers
+  // Bulk operations handlers with optimistic updates
   const handleBulkMarkRead = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
     if (threadIds.length === 0) return;
@@ -763,9 +763,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     if (emailIds.length === 0) return;
 
+    // Optimistic update - update store immediately
+    storeMarkAsRead(emailIds);
+
     try {
       await emailApi.bulkMarkRead(emailIds, true);
-      storeMarkAsRead(emailIds);
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.markRead.replace('{count}', emailIds.length.toString()),
@@ -773,6 +775,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       });
     } catch (error) {
       console.error('Failed to mark emails as read:', error);
+      // Rollback - mark as unread
+      emailIds.forEach(id => useEmailStore.getState().updateEmail(id, { isRead: false }));
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.markReadFailed,
@@ -792,14 +796,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     if (emailIds.length === 0) return;
 
+    // Optimistic update - mark as unread immediately
+    emailIds.forEach(id => useEmailStore.getState().updateEmail(id, { isRead: false }));
+
     try {
       await emailApi.bulkMarkRead(emailIds, false);
-      // Update store - we need to mark as unread
-      storeEmails.forEach(email => {
-        if (emailIds.includes(email.id)) {
-          useEmailStore.getState().updateEmail(email.id, { isRead: false });
-        }
-      });
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.markUnread.replace('{count}', emailIds.length.toString()),
@@ -807,6 +808,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       });
     } catch (error) {
       console.error('Failed to mark emails as unread:', error);
+      // Rollback - mark as read
+      emailIds.forEach(id => useEmailStore.getState().updateEmail(id, { isRead: true }));
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.markUnreadFailed,
@@ -830,10 +833,15 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       return;
     }
 
+    // Save emails for potential rollback
+    const emailsToDelete = storeEmails.filter(e => emailIds.includes(e.id));
+
+    // Optimistic delete - remove from store immediately
+    storeBulkDelete(emailIds);
+    clearSelection();
+
     try {
       await emailApi.bulkDelete(emailIds);
-      storeBulkDelete(emailIds);
-      clearSelection();
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.deleted.replace('{count}', emailIds.length.toString()),
@@ -841,6 +849,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       });
     } catch (error) {
       console.error('Failed to delete emails:', error);
+      // Rollback - restore deleted emails
+      emailsToDelete.forEach(email => useEmailStore.getState().addEmail(email));
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.deleteFailed,
@@ -860,9 +870,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     if (emailIds.length === 0) return;
 
+    // Optimistic update - star immediately
+    storeMarkAsStarred(emailIds, true);
+
     try {
       await emailApi.bulkStar(emailIds, true);
-      storeMarkAsStarred(emailIds, true);
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.starred.replace('{count}', emailIds.length.toString()),
@@ -870,6 +882,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       });
     } catch (error) {
       console.error('Failed to star emails:', error);
+      // Rollback - unstar
+      storeMarkAsStarred(emailIds, false);
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.starFailed,
@@ -889,9 +903,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     if (emailIds.length === 0) return;
 
+    // Optimistic update - unstar immediately
+    storeMarkAsStarred(emailIds, false);
+
     try {
       await emailApi.bulkStar(emailIds, false);
-      storeMarkAsStarred(emailIds, false);
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.unstarred.replace('{count}', emailIds.length.toString()),
@@ -899,6 +915,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       });
     } catch (error) {
       console.error('Failed to unstar emails:', error);
+      // Rollback - star again
+      storeMarkAsStarred(emailIds, true);
       setSnackbar({
         open: true,
         message: t.dashboard.email.messages.unstarFailed,
@@ -918,9 +936,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     if (emailIds.length === 0) return;
 
+    // Optimistic update - flag immediately
+    storeMarkAsImportant(emailIds, true);
+
     try {
       await emailApi.bulkFlag(emailIds, true);
-      storeMarkAsImportant(emailIds, true);
       setSnackbar({
         open: true,
         message: `Marked ${emailIds.length} email(s) as important`,
@@ -928,6 +948,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       });
     } catch (error) {
       console.error('Failed to flag emails:', error);
+      // Rollback - unflag
+      storeMarkAsImportant(emailIds, false);
       setSnackbar({
         open: true,
         message: 'Failed to mark as important. Please try again.',
@@ -947,9 +969,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     if (emailIds.length === 0) return;
 
+    // Optimistic update - unflag immediately
+    storeMarkAsImportant(emailIds, false);
+
     try {
       await emailApi.bulkFlag(emailIds, false);
-      storeMarkAsImportant(emailIds, false);
       setSnackbar({
         open: true,
         message: `Unmarked ${emailIds.length} email(s) as important`,
@@ -957,6 +981,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       });
     } catch (error) {
       console.error('Failed to unflag emails:', error);
+      // Rollback - flag again
+      storeMarkAsImportant(emailIds, true);
       setSnackbar({
         open: true,
         message: 'Failed to unmark as important. Please try again.',

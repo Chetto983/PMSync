@@ -67,10 +67,13 @@ export const aiApi = {
       locale ? { locale } : undefined,
     );
   },
-  generateSmartReplies(emailId: string, locale?: string) {
+  generateSmartReplies(emailId: string, locale?: string, tone?: string) {
+    const body: { locale?: string; tone?: string } = {};
+    if (locale) body.locale = locale;
+    if (tone) body.tone = tone;
     return apiClient.post<{ success: boolean; suggestions: string[] }>(
       `/ai/smart-reply/${emailId}`,
-      locale ? { locale } : undefined,
+      Object.keys(body).length > 0 ? body : undefined,
     );
   },
   categorizeEmail(emailId: string, locale?: string) {

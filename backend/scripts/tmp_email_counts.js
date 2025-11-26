@@ -1,5 +1,5 @@
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+const { createPrismaClient } = require('./prisma-client');
+const prisma = createPrismaClient();
 (async () => {
   const rows = await prisma.$queryRawUnsafe(
     'SELECT "providerId", "folder", COUNT(*)::int as cnt, SUM(CASE WHEN "isRead"=false THEN 1 ELSE 0 END)::int as unread FROM "emails" GROUP BY "providerId", "folder" ORDER BY "providerId", cnt DESC'

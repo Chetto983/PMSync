@@ -2,16 +2,14 @@
 require('dotenv').config();
 const { Queue } = require('bullmq');
 const Redis = require('ioredis');
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('./prisma-client');
 
 const redis = new Redis({
   host: process.env.REDIS_HOST || 'localhost',
   port: Number(process.env.REDIS_PORT) || 6379,
   password: process.env.REDIS_PASSWORD,
 });
-const prisma = new PrismaClient({
-  datasourceUrl: process.env.DATABASE_URL,
-});
+const prisma = createPrismaClient();
 
 async function main() {
   const q = new Queue('email-embedding', { connection: redis });

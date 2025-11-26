@@ -13,6 +13,37 @@ interface SaveEmbeddingOptions {
   metadata?: Record<string, any>;
 }
 
+/**
+ * Validates and sanitizes an embedding vector for safe SQL usage.
+ * Prevents SQL injection by ensuring all values are finite numbers.
+ *
+ * @throws Error if embedding contains invalid values
+ */
+function validateEmbeddingVector(embedding: unknown): number[] {
+  if (!Array.isArray(embedding)) {
+    throw new Error('Embedding must be an array');
+  }
+
+  if (embedding.length === 0) {
+    throw new Error('Embedding array cannot be empty');
+  }
+
+  if (embedding.length > 4096) {
+    throw new Error('Embedding array exceeds maximum dimension (4096)');
+  }
+
+  const validated: number[] = [];
+  for (let i = 0; i < embedding.length; i++) {
+    const value = embedding[i];
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new Error(`Invalid embedding value at index ${i}: expected finite number`);
+    }
+    validated.push(value);
+  }
+
+  return validated;
+}
+
 @Injectable()
 export class EmbeddingsService {
   private readonly logger = new Logger(EmbeddingsService.name);
@@ -21,6 +52,8 @@ export class EmbeddingsService {
 
   /**
    * Persist an embedding vector into the knowledge base.
+   *
+   * SECURITY: Validates embedding vector to prevent SQL injection via Prisma.raw()
    */
   async saveEmbedding(options: SaveEmbeddingOptions): Promise<void> {
     const {
@@ -33,12 +66,17 @@ export class EmbeddingsService {
       metadata,
     } = options;
 
-    if (!Array.isArray(embedding) || embedding.length === 0) {
-      this.logger.warn('Skipping embedding save because embedding array is empty.');
+    // SECURITY: Validate embedding vector before using in raw SQL
+    let validatedEmbedding: number[];
+    try {
+      validatedEmbedding = validateEmbeddingVector(embedding);
+    } catch (error) {
+      this.logger.warn(`Skipping embedding save: ${error instanceof Error ? error.message : 'Invalid embedding'}`);
       return;
     }
 
-    const vectorLiteral = Prisma.raw(`'[${embedding.join(',')}]'::vector`);
+    // Safe to use: validated array contains only finite numbers
+    const vectorLiteral = Prisma.raw(`'[${validatedEmbedding.join(',')}]'::vector`);
     const metadataString = metadata ? JSON.stringify(metadata) : null;
     const metadataFragment = metadataString
       ? Prisma.sql`${metadataString}::jsonb`
@@ -71,6 +109,8 @@ export class EmbeddingsService {
    * CRITICAL: Uses CTE to ensure tenant isolation at query level.
    * PostgreSQL will filter by tenantId FIRST (using B-tree index),
    * THEN calculate vector distances only for that tenant's embeddings.
+   *
+   * SECURITY: Validates embedding vector to prevent SQL injection via Prisma.raw()
    */
   async findSimilarContent<
     T extends { id: string; content: string; documentName: string | null; metadata: any; distance?: number }
@@ -79,11 +119,17 @@ export class EmbeddingsService {
     embedding: number[],
     limit: number,
   ): Promise<T[]> {
-    if (!Array.isArray(embedding) || embedding.length === 0) {
+    // SECURITY: Validate embedding vector before using in raw SQL
+    let validatedEmbedding: number[];
+    try {
+      validatedEmbedding = validateEmbeddingVector(embedding);
+    } catch (error) {
+      this.logger.warn(`Invalid embedding for similarity search: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return [];
     }
 
-    const vectorLiteral = Prisma.raw(`'[${embedding.join(',')}]'::vector`);
+    // Safe to use: validated array contains only finite numbers
+    const vectorLiteral = Prisma.raw(`'[${validatedEmbedding.join(',')}]'::vector`);
 
     try {
       // Use CTE to force PostgreSQL to filter by tenantId FIRST

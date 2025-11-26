@@ -53,6 +53,15 @@ export interface RealtimeContactEvent {
   timestamp: string;
 }
 
+export interface RealtimeContactCountsEvent {
+  total: number;
+  withEmail: number;
+  withPhone: number;
+  withCompany: number;
+  byProvider: Array<{ providerId: string; count: number }>;
+  timestamp: string;
+}
+
 export interface RealtimeLabelEvent {
   labelId: string;
   reason: 'label-created' | 'label-updated' | 'label-deleted';
@@ -68,6 +77,29 @@ export interface RealtimeSyncStatus {
   error?: string;
   processed?: number;
   total?: number;
+  timestamp: string;
+}
+
+export interface RealtimeAiActionEvent {
+  actionId: string;
+  userId: string;
+  agentName: string;
+  actionType: string;
+  status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
+  confidence?: number;
+  severity?: 'LOW' | 'MEDIUM' | 'HIGH';
+  payload?: any;
+  reason?: string;
+  error?: string;
+  timestamp: string;
+}
+
+export interface RealtimeAiSessionEvent {
+  sessionId: string;
+  userId: string;
+  status: 'active' | 'completed' | 'error';
+  currentAgent?: string;
+  message?: string;
   timestamp: string;
 }
 
@@ -338,6 +370,12 @@ class WebSocketClient {
     return () => this.socket?.off('contact:delete', handler);
   }
 
+  onContactCounts(handler: EventHandler<RealtimeContactCountsEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('contact:counts', handler);
+    return () => this.socket?.off('contact:counts', handler);
+  }
+
   /**
    * LABEL EVENTS
    */
@@ -368,6 +406,46 @@ class WebSocketClient {
     if (!this.socket) return () => {};
     this.socket.on('sync:status', handler);
     return () => this.socket?.off('sync:status', handler);
+  }
+
+  /**
+   * AI ACTION EVENTS
+   */
+
+  onAiActionCreated(handler: EventHandler<RealtimeAiActionEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('ai:action:created', handler);
+    return () => this.socket?.off('ai:action:created', handler);
+  }
+
+  onAiActionApproved(handler: EventHandler<RealtimeAiActionEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('ai:action:approved', handler);
+    return () => this.socket?.off('ai:action:approved', handler);
+  }
+
+  onAiActionRejected(handler: EventHandler<RealtimeAiActionEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('ai:action:rejected', handler);
+    return () => this.socket?.off('ai:action:rejected', handler);
+  }
+
+  onAiActionExecuted(handler: EventHandler<RealtimeAiActionEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('ai:action:executed', handler);
+    return () => this.socket?.off('ai:action:executed', handler);
+  }
+
+  onAiActionFailed(handler: EventHandler<RealtimeAiActionEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('ai:action:failed', handler);
+    return () => this.socket?.off('ai:action:failed', handler);
+  }
+
+  onAiSessionUpdate(handler: EventHandler<RealtimeAiSessionEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('ai:session:update', handler);
+    return () => this.socket?.off('ai:session:update', handler);
   }
 
 }

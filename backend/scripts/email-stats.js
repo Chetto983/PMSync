@@ -1,7 +1,7 @@
-﻿const { PrismaClient } = require('../node_modules/@prisma/client');
+const { createPrismaClient } = require('./prisma-client');
 
 (async () => {
-  const prisma = new PrismaClient();
+  const prisma = createPrismaClient();
   try {
     const counts = await prisma.email.groupBy({
       by: ['providerId'],

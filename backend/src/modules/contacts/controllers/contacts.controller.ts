@@ -62,6 +62,17 @@ export class ContactsController {
   }
 
   /**
+   * Get contact counts for sidebar display
+   * GET /api/contacts/counts
+   */
+  @Get('counts')
+  @SkipThrottle()
+  async getContactCounts(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+    return this.contactsService.getContactCounts(tenantId);
+  }
+
+  /**
    * Get a single contact
    * GET /api/contacts/:id
    */

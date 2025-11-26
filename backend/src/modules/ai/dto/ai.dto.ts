@@ -124,6 +124,15 @@ export class EmailAiDto {
   @IsOptional()
   @IsString()
   locale?: string;
+
+  @ApiPropertyOptional({
+    description: 'Tone for smart reply generation (formal, casual, technical)',
+    example: 'casual',
+    enum: ['formal', 'casual', 'technical'],
+  })
+  @IsOptional()
+  @IsString()
+  tone?: string;
 }
 
 /**

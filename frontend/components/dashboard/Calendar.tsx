@@ -449,16 +449,40 @@ export function Calendar() {
 
   // WebSocket event handling for real-time calendar updates
   useEffect(() => {
+    // Helper for retrying failed fetches
+    const fetchWithRetry = async <T,>(
+      fn: () => Promise<T>,
+      retries = 2,
+      delay = 1000
+    ): Promise<T | null> => {
+      for (let i = 0; i <= retries; i++) {
+        try {
+          return await fn();
+        } catch (error) {
+          if (i === retries) {
+            throw error;
+          }
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+      return null;
+    };
+
     const handleCalendarEventNew = async (event: RealtimeCalendarEvent) => {
       console.log('[Calendar] WebSocket: calendar:event_new', event);
       if (event.eventId) {
         try {
-          const calEvent = await calendarApi.getEvent(event.eventId);
-          if (calEvent.data) {
+          const calEvent = await fetchWithRetry(() => calendarApi.getEvent(event.eventId!));
+          if (calEvent?.data) {
             useCalendarStore.getState().addEvent(calEvent.data);
           }
         } catch (error) {
-          console.error('Failed to fetch new calendar event:', error);
+          console.error('Failed to fetch new calendar event after retries:', error);
+          setSnackbar({
+            open: true,
+            message: 'Failed to load new calendar event. Try refreshing.',
+            severity: 'warning',
+          });
         }
       }
     };
@@ -467,12 +491,17 @@ export function Calendar() {
       console.log('[Calendar] WebSocket: calendar:event_update', event);
       if (event.eventId) {
         try {
-          const calEvent = await calendarApi.getEvent(event.eventId);
-          if (calEvent.data) {
+          const calEvent = await fetchWithRetry(() => calendarApi.getEvent(event.eventId!));
+          if (calEvent?.data) {
             useCalendarStore.getState().updateEvent(event.eventId, calEvent.data);
           }
         } catch (error) {
-          console.error('Failed to fetch updated calendar event:', error);
+          console.error('Failed to fetch updated calendar event after retries:', error);
+          setSnackbar({
+            open: true,
+            message: 'Failed to sync calendar update. Try refreshing.',
+            severity: 'warning',
+          });
         }
       }
     };
@@ -490,6 +519,14 @@ export function Calendar() {
         console.log('[Calendar] WebSocket: sync completed for provider', event.providerId);
         useCalendarStore.getState().setSyncing(false);
         useCalendarStore.getState().setLastSyncAt(new Date());
+      } else if (event.status === 'failed') {
+        console.error('[Calendar] WebSocket: sync failed for provider', event.providerId);
+        useCalendarStore.getState().setSyncing(false);
+        setSnackbar({
+          open: true,
+          message: event.error || 'Calendar sync failed',
+          severity: 'error',
+        });
       }
     };
 
@@ -633,8 +670,18 @@ export function Calendar() {
         endTime: new Date(editedEvent.end).toISOString(),
       };
 
+      // Optimistic update - update store immediately
+      useCalendarStore.getState().updateEvent(selectedEvent.id, {
+        ...selectedEvent,
+        title: editedEvent.title,
+        description: editedEvent.description,
+        location: editedEvent.location,
+        startTime: new Date(editedEvent.start).toISOString(),
+        endTime: new Date(editedEvent.end).toISOString(),
+      });
+
+      // Then sync with server
       await calendarApi.updateEvent(selectedEvent.id, updateData);
-      await loadData();
 
       setEventDetailsOpen(false);
       setSelectedEvent(null);
@@ -647,6 +694,8 @@ export function Calendar() {
       });
     } catch (error) {
       console.error('Failed to update event:', error);
+      // Rollback on error - reload from server
+      await loadData();
       setSnackbar({
         open: true,
         message: calendarCopy.failedToUpdateEvent || 'Failed to update event',
@@ -660,13 +709,18 @@ export function Calendar() {
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
 
+    const eventToDelete = selectedEvent;
     setIsDeleting(true);
     try {
-      await calendarApi.deleteEvent(selectedEvent.id);
-      await loadData();
+      // Optimistic delete - remove from store immediately
+      useCalendarStore.getState().deleteEvent(eventToDelete.id);
 
       setEventDetailsOpen(false);
       setSelectedEvent(null);
+
+      // Then sync with server
+      await calendarApi.deleteEvent(eventToDelete.id);
+
       setSnackbar({
         open: true,
         message: calendarCopy.eventDeleted || 'Event deleted successfully',
@@ -674,6 +728,8 @@ export function Calendar() {
       });
     } catch (error) {
       console.error('Failed to delete event:', error);
+      // Rollback on error - reload from server
+      await loadData();
       setSnackbar({
         open: true,
         message: calendarCopy.failedToDeleteEvent || 'Failed to delete event',

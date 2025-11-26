@@ -1,7 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { AgentAction, AgentActionType } from '../interfaces/agent-action.interface';
 import { AgentContext } from '../interfaces/agent-context.interface';
+import { EmailSendService } from '../../../email/services/email-send.service';
+import { CalendarService } from '../../../calendar/services/calendar.service';
 
 /**
  * Result of executing an action.
@@ -26,10 +28,8 @@ export class ActionExecutorService {
 
   constructor(
     private readonly prisma: PrismaService,
-    // Note: These services will be injected when module is properly connected
-    // private readonly emailsService: EmailsService,
-    // private readonly calendarService: CalendarService,
-    // private readonly contactsService: ContactsService,
+    @Optional() private readonly emailSendService: EmailSendService,
+    @Optional() private readonly calendarService: CalendarService,
   ) {}
 
   /**
@@ -114,6 +114,22 @@ export class ActionExecutorService {
         case AgentActionType.MERGE_CONTACTS:
           result = await this.executeMergeContacts(action, context);
           break;
+        case AgentActionType.GET_CONTACT:
+          result = await this.executeGetContact(action, context);
+          break;
+
+        // Additional email actions
+        case AgentActionType.GET_UNREAD:
+          result = await this.executeGetUnread(action, context);
+          break;
+        case AgentActionType.CATEGORIZE_EMAIL:
+          result = await this.executeCategorizeEmail(action, context);
+          break;
+
+        // Additional calendar actions
+        case AgentActionType.RESCHEDULE_EVENT:
+          result = await this.executeRescheduleEvent(action, context);
+          break;
 
         default:
           result = {
@@ -150,14 +166,48 @@ export class ActionExecutorService {
   ): Promise<ActionExecutionResult> {
     const { to, cc, bcc, subject, body, providerId } = action.payload;
 
-    // TODO: Integrate with EmailsService.sendEmail() when available
-    // For now, create a draft in the database
-    this.logger.log(`Would send email to: ${to}, subject: ${subject}`);
+    if (!this.emailSendService) {
+      this.logger.warn('EmailSendService not available, using placeholder');
+      return {
+        success: true,
+        data: { message: 'Email send queued (placeholder)', to, subject },
+        executionTimeMs: 0,
+      };
+    }
 
-    // Placeholder - actual implementation will call EmailsService
+    // Find provider if not specified
+    let actualProviderId = providerId;
+    if (!actualProviderId) {
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
+      });
+      if (!provider) {
+        return {
+          success: false,
+          error: 'No email provider available',
+          executionTimeMs: 0,
+        };
+      }
+      actualProviderId = provider.id;
+    }
+
+    // Send email via EmailSendService
+    const result = await this.emailSendService.sendEmail({
+      tenantId: context.tenantId,
+      providerId: actualProviderId,
+      to: Array.isArray(to) ? to : [to],
+      cc: cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
+      bcc: bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : undefined,
+      subject: subject || '(No subject)',
+      bodyHtml: body || '',
+      bodyText: body?.replace(/<[^>]*>/g, '') || '',
+    });
+
+    this.logger.log(`Email sent successfully, messageId: ${result.messageId}`);
+
     return {
-      success: true,
-      data: { message: 'Email send queued (placeholder)', to, subject },
+      success: result.success,
+      data: { messageId: result.messageId, to, subject },
       executionTimeMs: 0,
     };
   }
@@ -168,11 +218,46 @@ export class ActionExecutorService {
   ): Promise<ActionExecutionResult> {
     const { emailId, body } = action.payload;
 
-    this.logger.log(`Would reply to email ${emailId}`);
+    if (!this.emailSendService) {
+      this.logger.warn('EmailSendService not available, using placeholder');
+      return {
+        success: true,
+        data: { message: 'Reply queued (placeholder)', emailId },
+        executionTimeMs: 0,
+      };
+    }
+
+    // Get the original email to reply to
+    const originalEmail = await this.prisma.email.findUnique({
+      where: { id: emailId, tenantId: context.tenantId },
+    });
+
+    if (!originalEmail) {
+      return {
+        success: false,
+        error: 'Original email not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Send reply
+    const result = await this.emailSendService.sendEmail({
+      tenantId: context.tenantId,
+      providerId: originalEmail.providerId,
+      threadId: originalEmail.threadId || undefined,
+      to: [originalEmail.from],
+      subject: originalEmail.subject?.startsWith('Re:')
+        ? originalEmail.subject
+        : `Re: ${originalEmail.subject || ''}`,
+      bodyHtml: body || '',
+      bodyText: body?.replace(/<[^>]*>/g, '') || '',
+      inReplyTo: originalEmail.messageId || undefined,
+      references: originalEmail.messageId || undefined,
+    });
 
     return {
-      success: true,
-      data: { message: 'Reply queued (placeholder)', emailId },
+      success: result.success,
+      data: { messageId: result.messageId, emailId, replyTo: originalEmail.from },
       executionTimeMs: 0,
     };
   }
@@ -181,13 +266,54 @@ export class ActionExecutorService {
     action: AgentAction,
     context: AgentContext,
   ): Promise<ActionExecutionResult> {
-    const { emailId, to } = action.payload;
+    const { emailId, to, body } = action.payload;
 
-    this.logger.log(`Would forward email ${emailId} to ${to}`);
+    if (!this.emailSendService) {
+      this.logger.warn('EmailSendService not available, using placeholder');
+      return {
+        success: true,
+        data: { message: 'Forward queued (placeholder)', emailId, to },
+        executionTimeMs: 0,
+      };
+    }
+
+    // Get the original email to forward
+    const originalEmail = await this.prisma.email.findUnique({
+      where: { id: emailId, tenantId: context.tenantId },
+    });
+
+    if (!originalEmail) {
+      return {
+        success: false,
+        error: 'Original email not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Build forwarded body with original email content
+    const forwardedBody = `
+      ${body || ''}
+      <br/><br/>
+      ---------- Forwarded message ----------<br/>
+      From: ${originalEmail.from}<br/>
+      Date: ${originalEmail.receivedAt}<br/>
+      Subject: ${originalEmail.subject}<br/>
+      <br/>
+      ${originalEmail.bodyHtml || originalEmail.snippet || ''}
+    `;
+
+    const result = await this.emailSendService.sendEmail({
+      tenantId: context.tenantId,
+      providerId: originalEmail.providerId,
+      to: Array.isArray(to) ? to : [to],
+      subject: `Fwd: ${originalEmail.subject || ''}`,
+      bodyHtml: forwardedBody,
+      bodyText: forwardedBody.replace(/<[^>]*>/g, ''),
+    });
 
     return {
-      success: true,
-      data: { message: 'Forward queued (placeholder)', emailId, to },
+      success: result.success,
+      data: { messageId: result.messageId, emailId, forwardedTo: to },
       executionTimeMs: 0,
     };
   }
@@ -307,14 +433,50 @@ export class ActionExecutorService {
     action: AgentAction,
     context: AgentContext,
   ): Promise<ActionExecutionResult> {
-    const { emailId, labelIds } = action.payload;
+    const { emailId, labelIds, addLabels, removeLabels } = action.payload;
 
-    // TODO: Implement label assignment
-    this.logger.log(`Would label email ${emailId} with labels: ${labelIds}`);
+    // Get current email labels
+    const email = await this.prisma.email.findUnique({
+      where: { id: emailId, tenantId: context.tenantId },
+      select: { labels: true },
+    });
+
+    if (!email) {
+      return {
+        success: false,
+        error: 'Email not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Determine labels to add/remove (labels is a String[] array)
+    const labelsToAdd: string[] = addLabels || labelIds || [];
+    const labelsToRemove: string[] = removeLabels || [];
+
+    // Calculate new labels array
+    let newLabels = [...(email.labels || [])];
+
+    // Add new labels
+    for (const label of labelsToAdd) {
+      if (!newLabels.includes(label)) {
+        newLabels.push(label);
+      }
+    }
+
+    // Remove labels
+    newLabels = newLabels.filter((l) => !labelsToRemove.includes(l));
+
+    // Update email labels
+    await this.prisma.email.update({
+      where: { id: emailId, tenantId: context.tenantId },
+      data: { labels: newLabels },
+    });
+
+    this.logger.log(`Labeled email ${emailId} - added: ${labelsToAdd.join(',')}, removed: ${labelsToRemove.join(',')}`);
 
     return {
       success: true,
-      data: { emailId, labelIds },
+      data: { emailId, labelsAdded: labelsToAdd, labelsRemoved: labelsToRemove, currentLabels: newLabels },
       executionTimeMs: 0,
     };
   }
@@ -327,14 +489,52 @@ export class ActionExecutorService {
     action: AgentAction,
     context: AgentContext,
   ): Promise<ActionExecutionResult> {
-    const { title, startTime, endTime, description, location, attendees, providerId } = action.payload;
+    const { title, startTime, endTime, description, location, attendees, providerId, calendarId, isAllDay, timeZone } = action.payload;
 
-    // TODO: Integrate with CalendarService.createEvent() when available
-    this.logger.log(`Would create event: ${title} at ${startTime}`);
+    if (!this.calendarService) {
+      this.logger.warn('CalendarService not available, using placeholder');
+      return {
+        success: true,
+        data: { message: 'Event creation queued (placeholder)', title },
+        executionTimeMs: 0,
+      };
+    }
+
+    // Find provider if not specified
+    let actualProviderId = providerId;
+    if (!actualProviderId) {
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { tenantId: context.tenantId, supportsCalendar: true, isActive: true },
+      });
+      if (!provider) {
+        return {
+          success: false,
+          error: 'No calendar provider available',
+          executionTimeMs: 0,
+        };
+      }
+      actualProviderId = provider.id;
+    }
+
+    // Create event via CalendarService
+    const event = await this.calendarService.createEvent(context.tenantId, {
+      providerId: actualProviderId,
+      calendarId: calendarId || 'primary',
+      title,
+      description,
+      location,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      isAllDay: isAllDay || false,
+      timeZone: timeZone || 'UTC',
+      attendees: attendees?.map((a: any) => typeof a === 'string' ? { email: a } : a),
+    });
+
+    this.logger.log(`Created calendar event ${event.id}`);
 
     return {
       success: true,
-      data: { message: 'Event creation queued (placeholder)', title },
+      data: { eventId: event.id, externalId: event.externalId, title, startTime, endTime },
       executionTimeMs: 0,
     };
   }
@@ -343,13 +543,32 @@ export class ActionExecutorService {
     action: AgentAction,
     context: AgentContext,
   ): Promise<ActionExecutionResult> {
-    const { eventId, ...updates } = action.payload;
+    const { eventId, title, description, location, startTime, endTime, attendees } = action.payload;
 
-    this.logger.log(`Would update event ${eventId}`);
+    if (!this.calendarService) {
+      this.logger.warn('CalendarService not available, using placeholder');
+      return {
+        success: true,
+        data: { eventId, updated: true, message: 'placeholder' },
+        executionTimeMs: 0,
+      };
+    }
+
+    // Update event via CalendarService
+    const event = await this.calendarService.updateEvent(context.tenantId, eventId, {
+      title,
+      description,
+      location,
+      startTime: startTime ? new Date(startTime) : undefined,
+      endTime: endTime ? new Date(endTime) : undefined,
+      attendees: attendees?.map((a: any) => typeof a === 'string' ? { email: a } : a),
+    });
+
+    this.logger.log(`Updated calendar event ${eventId}`);
 
     return {
       success: true,
-      data: { eventId, updated: true },
+      data: { eventId, updated: true, event },
       executionTimeMs: 0,
     };
   }
@@ -360,8 +579,19 @@ export class ActionExecutorService {
   ): Promise<ActionExecutionResult> {
     const { eventId } = action.payload;
 
-    // TODO: Integrate with CalendarService.deleteEvent()
-    this.logger.log(`Would delete event ${eventId}`);
+    if (!this.calendarService) {
+      this.logger.warn('CalendarService not available, using placeholder');
+      return {
+        success: true,
+        data: { eventId, deleted: true, message: 'placeholder' },
+        executionTimeMs: 0,
+      };
+    }
+
+    // Delete event via CalendarService
+    await this.calendarService.deleteEvent(context.tenantId, eventId);
+
+    this.logger.log(`Deleted calendar event ${eventId}`);
 
     return {
       success: true,
@@ -544,7 +774,7 @@ export class ActionExecutorService {
     action: AgentAction,
     context: AgentContext,
   ): Promise<ActionExecutionResult> {
-    const { contactIds } = action.payload;
+    const { contactIds, primaryId } = action.payload;
 
     if (!contactIds || contactIds.length < 2) {
       return {
@@ -554,12 +784,336 @@ export class ActionExecutorService {
       };
     }
 
-    // TODO: Implement merge logic - keep primary, merge data from others
-    this.logger.log(`Would merge contacts: ${contactIds.join(', ')}`);
+    // Get all contacts to merge
+    const contacts = await this.prisma.contact.findMany({
+      where: {
+        id: { in: contactIds },
+        tenantId: context.tenantId,
+      },
+    });
+
+    if (contacts.length < 2) {
+      return {
+        success: false,
+        error: 'Could not find enough contacts to merge',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Determine primary contact (first one or specified)
+    const primaryContactId = primaryId || contactIds[0];
+    const primaryContact = contacts.find((c) => c.id === primaryContactId);
+    const secondaryContacts = contacts.filter((c) => c.id !== primaryContactId);
+
+    if (!primaryContact) {
+      return {
+        success: false,
+        error: 'Primary contact not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Merge data from secondary contacts into primary
+    // Note: emails and phoneNumbers are stored as Json arrays in Prisma
+    const primaryEmails = Array.isArray(primaryContact.emails) ? primaryContact.emails as string[] : [];
+    const primaryPhones = Array.isArray(primaryContact.phoneNumbers) ? primaryContact.phoneNumbers as string[] : [];
+
+    const mergedEmails = new Set<string>(primaryEmails);
+    const mergedPhones = new Set<string>(primaryPhones);
+    let mergedNotes = primaryContact.notes || '';
+
+    for (const contact of secondaryContacts) {
+      // Merge emails
+      const contactEmails = Array.isArray(contact.emails) ? contact.emails as string[] : [];
+      contactEmails.forEach((e: string) => mergedEmails.add(e));
+
+      // Merge phone numbers
+      const contactPhones = Array.isArray(contact.phoneNumbers) ? contact.phoneNumbers as string[] : [];
+      contactPhones.forEach((p: string) => mergedPhones.add(p));
+
+      // Merge notes
+      if (contact.notes) {
+        mergedNotes += mergedNotes ? `\n\n--- Merged from ${contact.displayName} ---\n${contact.notes}` : contact.notes;
+      }
+    }
+
+    // Update primary contact with merged data
+    const updatedContact = await this.prisma.contact.update({
+      where: { id: primaryContactId, tenantId: context.tenantId },
+      data: {
+        emails: Array.from(mergedEmails),
+        phoneNumbers: Array.from(mergedPhones),
+        notes: mergedNotes || undefined,
+        // Keep primary contact's name, company, etc. - don't overwrite
+      },
+    });
+
+    // Delete secondary contacts
+    const secondaryIds = secondaryContacts.map((c) => c.id);
+    await this.prisma.contact.deleteMany({
+      where: {
+        id: { in: secondaryIds },
+        tenantId: context.tenantId,
+      },
+    });
+
+    this.logger.log(`Merged ${contacts.length} contacts into ${primaryContactId}, deleted ${secondaryIds.length} duplicates`);
 
     return {
       success: true,
-      data: { merged: true, primaryId: contactIds[0] },
+      data: {
+        merged: true,
+        primaryId: primaryContactId,
+        mergedCount: secondaryIds.length,
+        deletedIds: secondaryIds,
+        updatedContact,
+      },
+      executionTimeMs: 0,
+    };
+  }
+
+  /**
+   * Get a specific contact by ID, email, or name
+   */
+  private async executeGetContact(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { contactId, email, name } = action.payload;
+
+    let contact;
+
+    if (contactId) {
+      // Direct lookup by ID
+      contact = await this.prisma.contact.findFirst({
+        where: { id: contactId, tenantId: context.tenantId },
+        include: { providerContacts: true },
+      });
+    } else if (email) {
+      // Lookup by email - emails is stored as Json array
+      contact = await this.prisma.contact.findFirst({
+        where: {
+          tenantId: context.tenantId,
+          emails: { array_contains: [email] },
+        },
+        include: { providerContacts: true },
+      });
+
+      // Fallback: Search in raw JSON if array_contains doesn't work
+      if (!contact) {
+        const contacts = await this.prisma.contact.findMany({
+          where: { tenantId: context.tenantId },
+          include: { providerContacts: true },
+        });
+        contact = contacts.find((c) => {
+          const emails = Array.isArray(c.emails) ? (c.emails as unknown as string[]) : [];
+          return emails.some((e) => String(e).toLowerCase() === email.toLowerCase());
+        });
+      }
+    } else if (name) {
+      // Lookup by name (partial match)
+      contact = await this.prisma.contact.findFirst({
+        where: {
+          tenantId: context.tenantId,
+          OR: [
+            { displayName: { contains: name, mode: 'insensitive' } },
+            { firstName: { contains: name, mode: 'insensitive' } },
+            { lastName: { contains: name, mode: 'insensitive' } },
+          ],
+        },
+        include: { providerContacts: true },
+      });
+    }
+
+    if (!contact) {
+      return {
+        success: false,
+        error: 'Contact not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    return {
+      success: true,
+      data: { contact },
+      executionTimeMs: 0,
+    };
+  }
+
+  /**
+   * Get unread emails with optional filtering
+   */
+  private async executeGetUnread(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { limit = 10, providerId, folder } = action.payload;
+
+    const whereClause: any = {
+      tenantId: context.tenantId,
+      isRead: false,
+      isDeleted: false,
+    };
+
+    if (providerId) {
+      whereClause.providerId = providerId;
+    }
+
+    if (folder) {
+      whereClause.folder = folder;
+    }
+
+    const emails = await this.prisma.email.findMany({
+      where: whereClause,
+      orderBy: { receivedAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        subject: true,
+        from: true,
+        to: true,
+        receivedAt: true,
+        snippet: true,
+        isStarred: true,
+        labels: true,
+        folder: true,
+      },
+    });
+
+    return {
+      success: true,
+      data: { count: emails.length, emails },
+      executionTimeMs: 0,
+    };
+  }
+
+  /**
+   * Categorize an email with AI-suggested categories/labels
+   */
+  private async executeCategorizeEmail(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { emailId, categories, labels, category } = action.payload;
+
+    // Get the email
+    const email = await this.prisma.email.findFirst({
+      where: { id: emailId, tenantId: context.tenantId },
+    });
+
+    if (!email) {
+      return {
+        success: false,
+        error: 'Email not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Determine labels to apply (support both array and single category)
+    const labelsToApply: string[] = labels || categories || (category ? [category] : []);
+
+    if (labelsToApply.length === 0) {
+      return {
+        success: false,
+        error: 'No categories or labels provided',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Get current labels and merge with new ones
+    const currentLabels = Array.isArray(email.labels) ? (email.labels as unknown as string[]) : [];
+    const newLabels = [...new Set([...currentLabels, ...labelsToApply])];
+
+    // Update email with new labels
+    await this.prisma.email.update({
+      where: { id: emailId },
+      data: { labels: newLabels },
+    });
+
+    this.logger.log(`Categorized email ${emailId} with: ${labelsToApply.join(', ')}`);
+
+    return {
+      success: true,
+      data: {
+        emailId,
+        categorized: true,
+        appliedCategories: labelsToApply,
+        allLabels: newLabels,
+      },
+      executionTimeMs: 0,
+    };
+  }
+
+  /**
+   * Reschedule a calendar event to a new time
+   */
+  private async executeRescheduleEvent(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { eventId, newStartTime, newEndTime, reason } = action.payload;
+
+    if (!this.calendarService) {
+      this.logger.warn('CalendarService not available, using placeholder');
+      return {
+        success: true,
+        data: { eventId, rescheduled: true, message: 'placeholder' },
+        executionTimeMs: 0,
+      };
+    }
+
+    // Get the event to verify ownership and get provider info
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: { id: eventId, tenantId: context.tenantId },
+      include: { provider: true },
+    });
+
+    if (!event) {
+      return {
+        success: false,
+        error: 'Event not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Calculate duration if only newStartTime is provided
+    let endTime = newEndTime;
+    if (!endTime && event.startTime && event.endTime) {
+      const duration = new Date(event.endTime).getTime() - new Date(event.startTime).getTime();
+      endTime = new Date(new Date(newStartTime).getTime() + duration).toISOString();
+    }
+
+    // Build update description with reschedule reason
+    let newDescription = event.description || '';
+    if (reason) {
+      newDescription = newDescription
+        ? `${newDescription}\n\n[Rescheduled: ${reason}]`
+        : `[Rescheduled: ${reason}]`;
+    }
+
+    // Update event via CalendarService
+    const updatedEvent = await this.calendarService.updateEvent(
+      context.tenantId,
+      eventId,
+      {
+        startTime: new Date(newStartTime),
+        endTime: endTime ? new Date(endTime) : undefined,
+        description: newDescription,
+      },
+    );
+
+    this.logger.log(`Rescheduled event ${eventId} to ${newStartTime}`);
+
+    return {
+      success: true,
+      data: {
+        eventId,
+        rescheduled: true,
+        newStartTime,
+        newEndTime: endTime,
+        reason,
+        event: updatedEvent,
+      },
       executionTimeMs: 0,
     };
   }

@@ -129,6 +129,14 @@ export interface RealtimeEventPayloads {
   'contact:new': ContactEventPayload;
   'contact:update': ContactEventPayload;
   'contact:delete': ContactEventPayload;
+  'contact:counts': {
+    total: number;
+    withEmail: number;
+    withPhone: number;
+    withCompany: number;
+    byProvider: Array<{ providerId: string; count: number }>;
+    timestamp: string;
+  };
   'label:new': LabelEventPayload;
   'label:update': LabelEventPayload;
   'label:delete': LabelEventPayload;

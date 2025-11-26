@@ -15,6 +15,7 @@ import {
   useTheme,
   useMediaQuery,
   Autocomplete,
+  createFilterOptions,
 } from '@mui/material';
 import { X, Send, Paperclip, Check, FileText, Trash2 } from 'lucide-react';
 import { EditorContent } from '@tiptap/react';
@@ -187,11 +188,11 @@ export function ComposeDialog({
     }
   }, [defaultProviderId]);
 
-  // Fetch contacts when dialog opens
+  // Fetch contacts when dialog opens - load all contacts for autocomplete
   useEffect(() => {
     if (open) {
       setContactsLoading(true);
-      contactsApi.listContacts({ limit: 100 })
+      contactsApi.listContacts({ limit: 1000 }) // Load more contacts for better search
         .then((response) => {
           setContacts(response.contacts);
         })
@@ -203,6 +204,14 @@ export function ComposeDialog({
         });
     }
   }, [open]);
+
+  // Custom filter for Autocomplete - search anywhere in the string (name or email)
+  const contactFilterOptions = useMemo(() => {
+    return createFilterOptions<string>({
+      matchFrom: 'any', // Match anywhere in the string, not just start
+      stringify: (option) => option.toLowerCase(), // Search is case-insensitive
+    });
+  }, []);
 
   // Extract email address from "Name <email@example.com>" format
   const extractEmail = useCallback((emailString: string): string => {
@@ -520,6 +529,7 @@ export function ComposeDialog({
                 onChange={(_, newValue) => setTo(newValue)}
                 disabled={sending}
                 loading={contactsLoading}
+                filterOptions={contactFilterOptions}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -569,6 +579,7 @@ export function ComposeDialog({
                   onChange={(_, newValue) => setCc(newValue)}
                   disabled={sending}
                   loading={contactsLoading}
+                  filterOptions={contactFilterOptions}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -607,6 +618,7 @@ export function ComposeDialog({
                   onChange={(_, newValue) => setBcc(newValue)}
                   disabled={sending}
                   loading={contactsLoading}
+                  filterOptions={contactFilterOptions}
                   renderInput={(params) => (
                     <TextField
                       {...params}

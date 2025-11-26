@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -82,6 +83,62 @@ class LearnInteractionDto {
   outcome: 'positive' | 'negative' | 'neutral';
 }
 
+/**
+ * DTO for updating user profile
+ */
+class UpdateProfileDto {
+  @IsOptional()
+  @IsString()
+  jobRole?: string;
+
+  @IsOptional()
+  @IsString()
+  jobTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  department?: string;
+
+  @IsOptional()
+  @IsString()
+  industry?: string;
+
+  @IsOptional()
+  @IsString()
+  companySize?: string;
+
+  @IsOptional()
+  @IsString()
+  communicationStyle?: string;
+
+  @IsOptional()
+  @IsString()
+  responseLength?: string;
+
+  @IsOptional()
+  @IsString()
+  proactivityLevel?: string;
+
+  @IsOptional()
+  @IsString()
+  workingHoursStart?: string;
+
+  @IsOptional()
+  @IsString()
+  workingHoursEnd?: string;
+
+  @IsOptional()
+  workingDays?: string[];
+
+  @IsOptional()
+  @IsString()
+  timezone?: string;
+
+  @IsOptional()
+  @IsString()
+  language?: string;
+}
+
 @ApiTags('AI Personalization')
 @ApiBearerAuth()
 @Controller('ai/personalization')
@@ -101,6 +158,24 @@ export class PersonalizationController {
     @Request() req: AuthenticatedRequest,
   ): Promise<{ success: boolean; profile: UserPersonalizationProfile | null }> {
     const profile = await this.personalizationService.getUserProfile(req.user.userId);
+    return { success: true, profile };
+  }
+
+  /**
+   * Update user's personalization profile
+   * PATCH /ai/personalization/profile
+   */
+  @Patch('profile')
+  @ApiOperation({ summary: 'Update personalization profile' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  async updateProfile(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: UpdateProfileDto,
+  ): Promise<{ success: boolean; profile: UserPersonalizationProfile }> {
+    const profile = await this.personalizationService.updateUserProfile(
+      req.user.userId,
+      dto as Partial<UserPersonalizationProfile>,
+    );
     return { success: true, profile };
   }
 

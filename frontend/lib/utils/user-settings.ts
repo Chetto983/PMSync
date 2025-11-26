@@ -11,10 +11,36 @@ export interface StoredUserSettings {
 export const USER_SETTINGS_STORAGE_KEY = 'userSettings';
 export const USER_SETTINGS_EVENT = 'pmSync:user-settings';
 
+// Get browser timezone
+const getBrowserTimezone = (): string => {
+  if (typeof window === 'undefined' || !Intl?.DateTimeFormat) {
+    return 'UTC';
+  }
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'UTC';
+  }
+};
+
+// Get browser language (only 'en' or 'it' supported)
+const getBrowserLanguage = (): string => {
+  if (typeof window === 'undefined' || !navigator?.language) {
+    return 'en';
+  }
+  const browserLang = navigator.language.toLowerCase();
+  // Check if browser language starts with 'it' for Italian
+  if (browserLang.startsWith('it')) {
+    return 'it';
+  }
+  // Default to English for all other languages
+  return 'en';
+};
+
 export const DEFAULT_USER_SETTINGS: StoredUserSettings = {
   theme: 'system',
-  language: 'en-US',
-  timezone: 'GMT-08:00',
+  language: getBrowserLanguage(),
+  timezone: getBrowserTimezone(),
   emailNotifications: true,
 };
 

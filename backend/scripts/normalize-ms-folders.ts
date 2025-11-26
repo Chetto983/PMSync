@@ -5,11 +5,9 @@
  *   cd backend
  *   npx ts-node ./scripts/normalize-ms-folders.ts
  */
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../src/prisma/prisma-client.factory';
 
-const prisma = new PrismaClient({
-  datasourceUrl: process.env.DATABASE_URL,
-});
+const prisma = createPrismaClient();
 
 async function main() {
   const providers = await prisma.providerConfig.findMany({

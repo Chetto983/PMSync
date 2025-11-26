@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../../../src/prisma/prisma-client.factory';
 import { ProviderFactory } from '../../../src/modules/providers/factory/provider.factory';
 import { CryptoService } from '../../../src/common/services/crypto.service';
 import { ProviderConfig } from '../../../src/modules/providers/interfaces/email-provider.interface';
@@ -9,7 +10,7 @@ describe('Provider Integration Tests', () => {
 
   beforeAll(async () => {
     // Initialize Prisma client
-    prisma = new PrismaClient();
+    prisma = createPrismaClient();
     cryptoService = new CryptoService();
   });
 

@@ -282,6 +282,25 @@ export class RealtimeEventsService {
   }
 
   /**
+   * Emit contact counts update
+   */
+  emitContactCounts(
+    tenantId: string,
+    payload: {
+      total: number;
+      withEmail: number;
+      withPhone: number;
+      withCompany: number;
+      byProvider: Array<{ providerId: string; count: number }>;
+    },
+  ) {
+    this.emitToTenant(tenantId, 'contact:counts', {
+      ...payload,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
    * LABEL EVENTS
    */
 

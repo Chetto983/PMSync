@@ -96,9 +96,22 @@ export interface CreateContactDto {
 
 export interface UpdateContactDto extends Partial<CreateContactDto> {}
 
+export interface ContactCounts {
+  total: number;
+  withEmail: number;
+  withPhone: number;
+  withCompany: number;
+  byProvider: Array<{ providerId: string; count: number }>;
+}
+
 export const contactsApi = {
   async listContacts(params: ListContactsParams = {}): Promise<ListContactsResponse> {
     const response = await apiClient.get('/contacts', { params });
+    return response.data;
+  },
+
+  async getContactCounts(): Promise<ContactCounts> {
+    const response = await apiClient.get('/contacts/counts');
     return response.data;
   },
 

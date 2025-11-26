@@ -221,6 +221,8 @@ export interface AppTranslations {
     noSubject: string;
     unnamedContact: string;
     toggleTheme: string;
+    selected: string;
+    selectAll: string;
   };
   timeAgo: {
     justNow: string;
@@ -832,6 +834,56 @@ export interface AppTranslations {
         scheduling: string;
         schedulingDescription: string;
         save: string;
+        personalization: {
+          title: string;
+          description: string;
+          jobRole: string;
+          jobRoleDescription: string;
+          jobRoles: {
+            EXECUTIVE: string;
+            MANAGER: string;
+            IC: string;
+            FREELANCER: string;
+            STUDENT: string;
+            SUPPORT: string;
+            SALES: string;
+            TECHNICAL: string;
+          };
+          communicationStyle: string;
+          communicationStyleDescription: string;
+          styles: {
+            FORMAL: string;
+            CASUAL: string;
+            TECHNICAL: string;
+          };
+          responseLength: string;
+          responseLengthDescription: string;
+          lengths: {
+            CONCISE: string;
+            MODERATE: string;
+            DETAILED: string;
+          };
+          proactivity: string;
+          proactivityDescription: string;
+          proactivityLevels: {
+            LOW: string;
+            MEDIUM: string;
+            HIGH: string;
+          };
+          autoApprove: string;
+          autoApproveDescription: string;
+          language: string;
+          languageDescription: string;
+        };
+        actions: {
+          title: string;
+          description: string;
+          viewPendingActions: string;
+          clearMemory: string;
+          clearMemoryConfirm: string;
+          resetLearning: string;
+          resetLearningConfirm: string;
+        };
       };
       accountPanel: {
         title: string;
@@ -871,13 +923,20 @@ export interface AppTranslations {
       allProvidersLabel: string;
       applyFilters: string;
       clearFilters: string;
+      filters: string;
       refresh: string;
       sync: string;
       syncing: string;
       syncDisabledTooltip: string;
       new: string;
+      newContact: string;
       noContactsFound: string;
       selectContactMessage: string;
+      allContacts: string;
+      withEmail: string;
+      withPhone: string;
+      withCompany: string;
+      providers: string;
       actions: {
         email: string;
         schedule: string;
@@ -1031,6 +1090,82 @@ export interface AppTranslations {
     acceptAll: string;
     rejectAll: string;
     savePreferences: string;
+  };
+  ai?: {
+    title: string;
+    subtitle: string;
+    welcome: string;
+    description: string;
+    inputPlaceholder: string;
+    thinking: string;
+    online: string;
+    pendingActions: string;
+    history: string;
+    noHistory: string;
+    noPendingActions: string;
+    approve: string;
+    reject: string;
+    confidence: string;
+    tips: string;
+  };
+  emailAi?: {
+    smartReplies: {
+      title: string;
+      generateMore: string;
+      tone: string;
+      formal: string;
+      casual: string;
+      technical: string;
+      noReplies: string;
+      clickToInsert: string;
+      generating: string;
+    };
+    summary: {
+      title: string;
+      regenerate: string;
+      copy: string;
+      copied: string;
+      keyPoints: string;
+      extractedItems: string;
+      addToCalendar: string;
+      addTask: string;
+      noSummary: string;
+      generating: string;
+      generate: string;
+    };
+    categorization: {
+      title: string;
+      suggested: string;
+      apply: string;
+      dismiss: string;
+      confidence: string;
+    };
+  };
+  calendarAi?: {
+    scheduling: {
+      title: string;
+      promptPlaceholder: string;
+      suggestedTimes: string;
+      youAreFree: string;
+      conflict: string;
+      bestTime: string;
+      eventDetails: string;
+      eventTitle: string;
+      eventLocation: string;
+      eventNotes: string;
+      cancel: string;
+      createEvent: string;
+      generating: string;
+      noSlots: string;
+      selectSlot: string;
+    };
+    availability: {
+      title: string;
+      checking: string;
+      available: string;
+      busy: string;
+      attendees: string;
+    };
   };
   errors: {
     notFound: {

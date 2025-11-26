@@ -12,6 +12,10 @@
 7. [**Deployment Guide**](./07_DEPLOYMENT.md) - Guida al deployment in produzione
 8. [**Troubleshooting**](./08_TROUBLESHOOTING.md) - Risoluzione problemi comuni
 
+### 🚀 NEW: Integration Roadmap (2025)
+
+- [**AI Integration Roadmap**](../AI_INTEGRATION_ROADMAP.md) - Complete frontend/backend AI integration plan with phases, technical specs, and success metrics
+
 ---
 
 ## 🌐 Risorse Esterne e Riferimenti

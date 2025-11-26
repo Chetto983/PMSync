@@ -9,6 +9,7 @@ import { MistralService } from './mistral.service';
 import { parseArrayFromAiPayload } from '../utils/ai-output.utils';
 
 type LocaleKey = 'en' | 'it';
+type ToneKey = 'formal' | 'casual' | 'technical';
 
 interface EmailRecord {
   id: string;
@@ -64,14 +65,21 @@ export class EmailInsightsService {
     }
   }
 
-  async generateSmartReplies(tenantId: string, emailId: string, locale?: string) {
+  async generateSmartReplies(
+    tenantId: string,
+    emailId: string,
+    locale?: string,
+    tone?: string,
+  ) {
     const email = await this.getEmailOrThrow(tenantId, emailId);
     const lang = this.resolveLocale(locale);
+    const replyTone = this.resolveTone(tone);
 
+    const toneInstructions = this.getToneInstructions(replyTone, lang);
     const systemPrompt =
       lang === 'it'
-        ? 'Genera da 2 a 3 possibili risposte brevi e professionali all’email. Rispondi in JSON nel formato {"replies":["..."]}.'
-        : 'Generate 2-3 concise professional replies to the email. Respond in JSON format {"replies":["..."]}.';
+        ? `Genera da 2 a 3 possibili risposte brevi all'email. ${toneInstructions} Rispondi in JSON nel formato {"replies":["..."]}.`
+        : `Generate 2-3 concise replies to the email. ${toneInstructions} Respond in JSON format {"replies":["..."]}.`;
 
     const userPrompt = this.buildEmailPrompt(email, lang);
 
@@ -222,6 +230,31 @@ export class EmailInsightsService {
 
   private resolveLocale(locale?: string): LocaleKey {
     return locale && locale.toLowerCase().startsWith('it') ? 'it' : 'en';
+  }
+
+  private resolveTone(tone?: string): ToneKey {
+    if (tone && ['formal', 'casual', 'technical'].includes(tone.toLowerCase())) {
+      return tone.toLowerCase() as ToneKey;
+    }
+    return 'casual'; // Default tone
+  }
+
+  private getToneInstructions(tone: ToneKey, locale: LocaleKey): string {
+    const instructions = {
+      formal: {
+        en: 'Use a formal, professional tone with proper business etiquette.',
+        it: 'Usa un tono formale e professionale con etichetta aziendale appropriata.',
+      },
+      casual: {
+        en: 'Use a friendly, conversational tone while remaining professional.',
+        it: 'Usa un tono amichevole e colloquiale pur rimanendo professionale.',
+      },
+      technical: {
+        en: 'Use a precise, technical tone with clear and direct language.',
+        it: 'Usa un tono preciso e tecnico con linguaggio chiaro e diretto.',
+      },
+    };
+    return instructions[tone][locale];
   }
 
   private truncate(value: string, limit = 6000): string {

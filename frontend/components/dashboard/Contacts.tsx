@@ -1,25 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Box,
-  Paper,
-  Typography,
+  Button,
   TextField,
   InputAdornment,
-  List,
-  ListItemButton,
-  ListItemAvatar,
-  Avatar,
-  ListItemText,
-  Button,
-  IconButton,
-  Divider,
-  Tabs,
-  Tab,
-  Stack,
-  Card,
-  CardContent,
-  CircularProgress,
-  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -31,44 +15,23 @@ import {
   Snackbar,
   Alert as MuiAlert,
   DialogContentText,
-  Chip,
-  Link,
+  Typography,
 } from '@mui/material';
-import {
-  Search,
-  Plus,
-  Mail,
-  Phone,
-  MapPin,
-  Building,
-  Calendar,
-  Edit,
-  Trash2,
-  Clock,
-  RefreshCw,
-  Cake,
-  Globe,
-} from 'lucide-react';
-import { useRouter } from 'next/router';
-import { contactsApi, type Contact } from '@/lib/api/contacts';
+import { Search } from 'lucide-react';
+import { contactsApi, type Contact, type ContactCounts } from '@/lib/api/contacts';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useContactStore } from '@/stores/contact-store';
-import { websocketClient, type RealtimeContactEvent, type RealtimeSyncStatus } from '@/lib/websocket-client';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div role="tabpanel" hidden={value !== index}>
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+import { websocketClient, type RealtimeContactEvent, type RealtimeSyncStatus, type RealtimeContactCountsEvent } from '@/lib/websocket-client';
+import {
+  ContactLayout,
+  ContactList,
+  ContactSidebar,
+  ContactDetail,
+  ContactBulkActionBar,
+  type ProviderFilter,
+} from '@/components/contacts';
+import { ComposeDialog } from '@/components/email/ComposeDialog/ComposeDialog';
 
 type ContactFormState = {
   firstName: string;
@@ -85,13 +48,6 @@ type ContactFormState = {
   providerId?: string;
 };
 
-const getContactName = (contact: Contact) => {
-  if (contact.displayName) return contact.displayName;
-  const parts = [contact.firstName, contact.lastName].filter(Boolean);
-  if (parts.length) return parts.join(' ');
-  return contact.emails?.[0]?.value || 'Unnamed contact';
-};
-
 const getPrimaryEmail = (contact?: Contact | null) =>
   contact?.emails?.find((email) => email.primary)?.value ||
   contact?.emails?.[0]?.value ||
@@ -102,86 +58,33 @@ const getPrimaryPhone = (contact?: Contact | null) =>
   contact?.phoneNumbers?.[0]?.value ||
   '';
 
-// Provider Icon Component - styled like email list icons
-const ProviderIcon = ({ providerType, size = 16 }: { providerType: string; size?: number }) => {
-  const iconSize = size * 0.6; // Logo size inside circle
-
-  if (providerType === 'google') {
-    return (
-      <Box
-        sx={{
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          bgcolor: '#ffffff',
-          border: '1px solid #e0e0e0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none">
-          <path
-            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            fill="#4285F4"
-          />
-          <path
-            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            fill="#34A853"
-          />
-          <path
-            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-            fill="#FBBC05"
-          />
-          <path
-            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-            fill="#EA4335"
-          />
-        </svg>
-      </Box>
-    );
-  } else if (providerType === 'microsoft') {
-    return (
-      <Box
-        sx={{
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          bgcolor: '#ffffff',
-          border: '1px solid #e0e0e0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none">
-          <path d="M11.4 3H3v8.4h8.4V3z" fill="#F25022" />
-          <path d="M21 3h-8.4v8.4H21V3z" fill="#7FBA00" />
-          <path d="M11.4 12.6H3V21h8.4v-8.4z" fill="#00A4EF" />
-          <path d="M21 12.6h-8.4V21H21v-8.4z" fill="#FFB900" />
-        </svg>
-      </Box>
-    );
-  }
-  return null;
-};
-
 export function Contacts() {
-  const router = useRouter();
   const translations = useTranslations();
   const contactsCopy = translations.dashboard.contacts;
-  const [loading, setLoading] = useState(true);
+
+  // Store state
   const {
     contacts: storeContacts,
     setContacts: setStoreContacts,
+    selectedIds,
+    toggleSelection,
+    clearSelection,
+    setSelectedIds,
   } = useContactStore();
+
+  // Local state
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [tabValue, setTabValue] = useState(0);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [syncingProviders, setSyncingProviders] = useState<Set<string>>(new Set());
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({ offset: 0, limit: 50, hasMore: true, total: 0 });
+
+  // Dialog state
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [contactDialogMode, setContactDialogMode] = useState<'create' | 'edit'>('create');
   const [contactForm, setContactForm] = useState<ContactFormState>({
@@ -199,10 +102,10 @@ export function Contacts() {
     providerId: undefined,
   });
   const [actionLoading, setActionLoading] = useState(false);
-  const selectedContactIdRef = useRef<string | null>(null);
-  const paginationRef = useRef({ offset: 0, limit: 50, hasMore: true, total: 0 });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
+
+  // Snackbar state
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -212,12 +115,25 @@ export function Contacts() {
     message: '',
     severity: 'info',
   });
-  const [syncingProviders, setSyncingProviders] = useState<Set<string>>(new Set());
-  const [pagination, setPagination] = useState({ offset: 0, limit: 50, hasMore: true, total: 0 });
-  const [loadingMore, setLoadingMore] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
 
+  // Contact counts from DB (fast, efficient)
+  const [contactCounts, setContactCounts] = useState<ContactCounts>({
+    total: 0,
+    withEmail: 0,
+    withPhone: 0,
+    withCompany: 0,
+    byProvider: [],
+  });
+
+  // Compose dialog state
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeToEmail, setComposeToEmail] = useState<string>('');
+
+  // Refs
+  const selectedContactIdRef = useRef<string | null>(null);
+  const paginationRef = useRef({ offset: 0, limit: 200, hasMore: true, total: 0 });
+
+  // Sync refs with state
   useEffect(() => {
     selectedContactIdRef.current = selectedContact?.id ?? null;
   }, [selectedContact]);
@@ -231,15 +147,15 @@ export function Contacts() {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 300);
-
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Load contacts - using larger batch size for faster bulk loading
   const loadContacts = useCallback(async (reset: boolean = true) => {
     try {
       if (reset) {
         setLoading(true);
-        const newPagination = { offset: 0, limit: 50, hasMore: true, total: 0 };
+        const newPagination = { offset: 0, limit: 200, hasMore: true, total: 0 };
         paginationRef.current = newPagination;
         setPagination(newPagination);
       } else {
@@ -257,7 +173,6 @@ export function Contacts() {
       if (reset) {
         setStoreContacts(contactsData);
       } else {
-        // Access store state directly to avoid dependency cycle
         const currentContacts = useContactStore.getState().contacts;
         const merged = [...currentContacts, ...contactsData];
         setStoreContacts(merged);
@@ -278,10 +193,9 @@ export function Contacts() {
       }
 
       const previouslySelectedId = selectedContactIdRef.current;
-      // Access store state directly to avoid dependency cycle
       const currentContactsForSelection = useContactStore.getState().contacts;
       const updatedSelection =
-        (previouslySelectedId && (reset ? contactsData : currentContactsForSelection).find((contact) => contact.id === previouslySelectedId)) ||
+        (previouslySelectedId && (reset ? contactsData : currentContactsForSelection).find((c) => c.id === previouslySelectedId)) ||
         (reset ? contactsData[0] : currentContactsForSelection[0] || contactsData[0]);
       setSelectedContact(updatedSelection);
     } catch (error) {
@@ -290,9 +204,9 @@ export function Contacts() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [debouncedSearchQuery, setStoreContacts]); // Removed storeContacts - access via getState() to prevent infinite loop
+  }, [debouncedSearchQuery, setStoreContacts, setPagination]);
 
-  // Keep selection in sync with store updates (e.g., realtime)
+  // Keep selection in sync with store updates
   useEffect(() => {
     if (!storeContacts.length) {
       setSelectedContact(null);
@@ -303,19 +217,33 @@ export function Contacts() {
     }
   }, [storeContacts, selectedContact]);
 
+  // Load more contacts (infinite scroll)
   const loadMore = useCallback(() => {
     if (!loadingMore && pagination.hasMore) {
       loadContacts(false);
     }
   }, [loadContacts, loadingMore, pagination.hasMore]);
 
-  // Initial load: load contacts from database (no auto-sync to avoid flickering)
+  // Initial load
   useEffect(() => {
-    // Only load from database - sync should be triggered manually via sync button
     loadContacts();
   }, [loadContacts]);
 
-  // WebSocket event handling for real-time contact updates
+  // Load contact counts from DB (efficient - runs once on mount)
+  const loadContactCounts = useCallback(async () => {
+    try {
+      const counts = await contactsApi.getContactCounts();
+      setContactCounts(counts);
+    } catch (error) {
+      console.error('Failed to load contact counts:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadContactCounts();
+  }, [loadContactCounts]);
+
+  // WebSocket event handling
   useEffect(() => {
     const handleContactNew = async (event: RealtimeContactEvent) => {
       console.log('[Contacts] WebSocket: contact:new', event);
@@ -349,7 +277,6 @@ export function Contacts() {
     };
 
     const handleSyncStatus = (event: RealtimeSyncStatus) => {
-      // Handle sync completion - clear syncing state
       if (event.status === 'completed') {
         console.log('[Contacts] WebSocket: sync completed for provider', event.providerId);
         setSyncingProviders((prev) => {
@@ -360,49 +287,34 @@ export function Contacts() {
       }
     };
 
-    // Subscribe to events
+    // Real-time contact counts updates from DB
+    const handleContactCounts = (event: RealtimeContactCountsEvent) => {
+      console.log('[Contacts] WebSocket: contact:counts', event);
+      setContactCounts({
+        total: event.total,
+        withEmail: event.withEmail,
+        withPhone: event.withPhone,
+        withCompany: event.withCompany,
+        byProvider: event.byProvider,
+      });
+    };
+
     const unsubNew = websocketClient.onContactNew(handleContactNew);
     const unsubUpdate = websocketClient.onContactUpdate(handleContactUpdate);
     const unsubDelete = websocketClient.onContactDelete(handleContactDelete);
     const unsubSync = websocketClient.onSyncStatus(handleSyncStatus);
+    const unsubCounts = websocketClient.onContactCounts(handleContactCounts);
 
     return () => {
       unsubNew();
       unsubUpdate();
       unsubDelete();
       unsubSync();
+      unsubCounts();
     };
   }, []);
 
-  // Infinite scroll with Intersection Observer
-  useEffect(() => {
-    if (!pagination.hasMore || loadingMore) return;
-
-    const sentinel = sentinelRef.current;
-    const listRoot = listRef.current;
-    if (!sentinel || !listRoot) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry.isIntersecting && pagination.hasMore && !loadingMore) {
-          loadMore();
-        }
-      },
-      {
-        root: listRoot,
-        rootMargin: '100px',
-        threshold: 0.1,
-      }
-    );
-
-    observer.observe(sentinel);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [loadMore, pagination.hasMore, loadingMore]);
-
+  // Load providers
   const loadProviders = useCallback(async () => {
     try {
       const providerData = await providersApi.getProviders();
@@ -420,6 +332,45 @@ export function Contacts() {
     loadProviders();
   }, [loadProviders]);
 
+  // Filter contacts based on selected provider and quick filter
+  const filteredContacts = useMemo(() => {
+    let result = storeContacts;
+
+    // Filter by provider
+    if (selectedProviderId) {
+      result = result.filter((c) =>
+        c.providerContacts?.some((pc) => pc.providerId === selectedProviderId)
+      );
+    }
+
+    // Filter by quick filters
+    if (selectedFilter === 'hasEmail') {
+      result = result.filter((c) => c.emails && c.emails.length > 0);
+    } else if (selectedFilter === 'hasPhone') {
+      result = result.filter((c) => c.phoneNumbers && c.phoneNumbers.length > 0);
+    } else if (selectedFilter === 'hasCompany') {
+      result = result.filter((c) => !!c.company);
+    }
+
+    return result;
+  }, [storeContacts, selectedProviderId, selectedFilter]);
+
+  // Provider filters for sidebar - use DB counts for efficiency
+  const providerFilters: ProviderFilter[] = useMemo(() => {
+    return providers
+      .filter((p) => p.supportsContacts)
+      .map((p) => {
+        // Use DB count from byProvider if available, otherwise fallback to client-side
+        const dbCount = contactCounts.byProvider.find((bp) => bp.providerId === p.id);
+        return {
+          id: p.id,
+          label: p.email,
+          count: dbCount?.count ?? 0,
+        };
+      });
+  }, [providers, contactCounts.byProvider]);
+
+  // Dialog handlers
   const openCreateContactDialog = () => {
     setContactDialogMode('create');
     setContactForm({
@@ -454,7 +405,6 @@ export function Contacts() {
       birthday: selectedContact.birthday ? new Date(selectedContact.birthday).toISOString().split('T')[0] : '',
       website: selectedContact.websites?.[0]?.url || '',
       notes: selectedContact.notes || '',
-      // Get providerId from first provider contact, or use first available provider
       providerId: selectedContact.providerContacts?.[0]?.providerId || providers[0]?.id,
     });
     setContactDialogOpen(true);
@@ -570,6 +520,35 @@ export function Contacts() {
     }
   };
 
+  // Bulk delete handler
+  const handleBulkDelete = async () => {
+    const idsToDelete = Array.from(selectedIds);
+    if (idsToDelete.length === 0) return;
+
+    try {
+      setActionLoading(true);
+      // Delete contacts one by one (could be optimized with bulk API)
+      await Promise.all(idsToDelete.map((id) => contactsApi.deleteContact(id)));
+      clearSelection();
+      await loadContacts();
+      setSnackbar({
+        open: true,
+        message: `Deleted ${idsToDelete.length} contacts`,
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to delete contacts:', error);
+      setSnackbar({
+        open: true,
+        message: contactsCopy.alerts.deleteError,
+        severity: 'error',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Sync handler
   const handleSyncContacts = async () => {
     if (providers.length === 0) {
       setSnackbar({
@@ -581,7 +560,6 @@ export function Contacts() {
     }
 
     try {
-      // Get contact-enabled providers
       const contactProviders = providers.filter((p) => p.supportsContacts);
 
       if (contactProviders.length === 0) {
@@ -593,10 +571,8 @@ export function Contacts() {
         return;
       }
 
-      // Mark all as syncing
       setSyncingProviders(new Set(contactProviders.map((p) => p.id)));
 
-      // Trigger bulk sync (queued via BullMQ workers - tenant isolated)
       const result = await contactsApi.syncAll();
 
       if (result.success) {
@@ -606,18 +582,15 @@ export function Contacts() {
           severity: 'info',
         });
 
-        // WebSocket events will handle real-time updates (contact:new, contact:update)
-        // Set a timeout to clear syncing state if no WebSocket events received
         setTimeout(() => {
           setSyncingProviders((prev) => {
             if (prev.size > 0) {
-              // Reload contacts once at the end if sync is still marked as running
               loadContacts();
               return new Set();
             }
             return prev;
           });
-        }, 60000); // 60 second timeout as fallback
+        }, 60000);
       } else {
         setSnackbar({
           open: true,
@@ -637,558 +610,129 @@ export function Contacts() {
     }
   };
 
+  // Contact click handler
   const handleContactClick = (contact: Contact) => {
     setSelectedContact(contact);
-    setTabValue(0);
   };
 
-  const formatDate = (date?: Date) => {
-    if (!date) return contactsCopy.details.never;
-    const d = new Date(date);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return contactsCopy.details.today;
-    if (diffDays === 1) return contactsCopy.details.yesterday;
-    if (diffDays < 7) return contactsCopy.details.daysAgo.replace('{days}', String(diffDays));
-    return d.toLocaleDateString();
+  // Email handler - open compose dialog directly
+  const handleEmail = (email: string) => {
+    setComposeToEmail(email);
+    setComposeOpen(true);
   };
 
-  const selectedContactName = selectedContact ? getContactName(selectedContact) : '';
-  const selectedContactEmail = getPrimaryEmail(selectedContact);
-  const selectedContactInteractionDate = selectedContact?.updatedAt
-    ? new Date(selectedContact.updatedAt)
-    : undefined;
+  // Select all handler for bulk action bar
+  const handleSelectAll = () => {
+    setSelectedIds(new Set(filteredContacts.map((c) => c.id)));
+  };
 
-  return (
-    <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', overflow: 'hidden' }}>
-      {/* Contacts List */}
-      <Paper
-        sx={{
-          width: { xs: '100%', md: 360 },
-          borderRadius: 0,
-          borderRight: 1,
-          borderColor: 'divider',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {/* Header */}
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
-              {contactsCopy.title}
-            </Typography>
-            <Tooltip title={contactsCopy.sync}>
-              <IconButton
-                size="small"
-                onClick={handleSyncContacts}
-                disabled={syncingProviders.size > 0 || providers.length === 0}
-                color="primary"
-              >
-                <RefreshCw
-                  size={18}
-                  className={syncingProviders.size > 0 ? 'animate-spin' : ''}
-                />
-              </IconButton>
-            </Tooltip>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<Plus size={18} />}
-              onClick={openCreateContactDialog}
-            >
-              {contactsCopy.new}
-            </Button>
-          </Box>
+  // Render sidebar - use DB counts for fast, accurate display
+  const renderSidebar = () => (
+    <ContactSidebar
+      providers={providerFilters}
+      selectedProviderId={selectedProviderId}
+      onProviderSelect={setSelectedProviderId}
+      isSyncing={syncingProviders.size > 0}
+      onSync={handleSyncContacts}
+      onNewContact={openCreateContactDialog}
+      totalCount={contactCounts.total}
+      withEmailCount={contactCounts.withEmail}
+      withPhoneCount={contactCounts.withPhone}
+      withCompanyCount={contactCounts.withCompany}
+      selectedFilter={selectedFilter || undefined}
+      onFilterSelect={setSelectedFilter}
+    />
+  );
 
-          <TextField
-            fullWidth
-            size="small"
-            placeholder={contactsCopy.searchPlaceholder}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
+  // Render list
+  const renderList = () => (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Search Header */}
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder={contactsCopy.searchPlaceholder}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          slotProps={{
+            input: {
               startAdornment: (
                 <InputAdornment position="start">
                   <Search size={18} />
                 </InputAdornment>
               ),
-            }}
-          />
-        </Box>
-
-        {/* Contacts List */}
-        <List
-          ref={listRef}
-          sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', p: 0, m: 0 }}
-        >
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : storeContacts.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4, px: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                {contactsCopy.noContactsFound}
-              </Typography>
-            </Box>
-          ) : (
-            <>
-              {storeContacts.map((contact) => (
-                <React.Fragment key={contact.id}>
-                  <ListItemButton
-                    selected={selectedContact?.id === contact.id}
-                    onClick={() => handleContactClick(contact)}
-                    sx={{ px: 2, py: 1.5 }}
-                  >
-                    <ListItemAvatar>
-                      <Avatar
-                        src={contact.photoUrl || undefined}
-                        sx={{ bgcolor: 'primary.main' }}
-                      >
-                        {!contact.photoUrl && (getContactName(contact)?.[0]?.toUpperCase() || 'U')}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography variant="body2">{getContactName(contact)}</Typography>
-                          {contact.providerContacts?.map((pc) => (
-                            <Tooltip key={pc.id} title={pc.provider.providerType === 'google' ? 'Gmail' : 'Outlook'}>
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <ProviderIcon providerType={pc.provider.providerType} size={16} />
-                              </Box>
-                            </Tooltip>
-                          ))}
-                        </Box>
-                      }
-                      secondary={
-                        contact.company || getPrimaryEmail(contact) ? (
-                          <Typography variant="caption" color="text.secondary">
-                            {contact.company || getPrimaryEmail(contact)}
-                          </Typography>
-                        ) : null
-                      }
-                    />
-                  </ListItemButton>
-                  <Divider />
-                </React.Fragment>
-              ))}
-              {/* Infinite scroll sentinel */}
-              {pagination.hasMore && (
-                <Box ref={sentinelRef} sx={{ py: 2, textAlign: 'center' }}>
-                  {loadingMore && <CircularProgress size={24} />}
-                </Box>
-              )}
-            </>
-          )}
-        </List>
-      </Paper>
-
-      {/* Contact Detail Panel */}
-      {selectedContact ? (
-        <Box
-          sx={{
-            flex: 1,
-            display: { xs: 'none', md: 'flex' },
-            flexDirection: 'column',
-            overflow: 'hidden',
+            },
           }}
-        >
-          {/* Header */}
-          <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
-              <Avatar sx={{ width: 72, height: 72, bgcolor: 'primary.main', fontSize: '2rem' }}>
-                {selectedContactName?.[0]?.toUpperCase() || 'U'}
-              </Avatar>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  {selectedContactName}
-                </Typography>
-                {(selectedContact.jobTitle || selectedContact.company) && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    {selectedContact.jobTitle}
-                    {selectedContact.company && ` at ${selectedContact.company}`}
-                  </Typography>
-                )}
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Tooltip title="Edit">
-                  <IconButton size="small" onClick={openEditContactDialog}>
-                    <Edit size={18} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Delete">
-                  <IconButton
-                    size="small"
-                    onClick={() => selectedContact && openDeleteDialog(selectedContact)}
-                    disabled={actionLoading}
-                  >
-                    <Trash2 size={18} />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Box>
+        />
+      </Box>
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <Button
-                fullWidth
-                variant="contained"
-                startIcon={<Mail size={18} />}
-                disabled={!selectedContactEmail}
-                onClick={() =>
-                  selectedContactEmail &&
-                  router.push(`/dashboard/email/compose?to=${selectedContactEmail}`)
-                }
-              >
-                {contactsCopy.actions.email}
-              </Button>
-            </Stack>
-          </Box>
-
-          {/* Tabs */}
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-              <Tab label={contactsCopy.tabs.details} />
-              <Tab label={contactsCopy.tabs.activity} />
-              <Tab label={contactsCopy.tabs.notes} />
-            </Tabs>
-          </Box>
-
-          {/* Tab Content */}
-          <Box sx={{ flex: 1, overflow: 'auto', px: 3 }}>
-            <TabPanel value={tabValue} index={0}>
-              {/* Provider Sources */}
-              {selectedContact.providerContacts && selectedContact.providerContacts.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    {contactsCopy.details.syncedFrom}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {selectedContact.providerContacts.map((pc) => (
-                      <Chip
-                        key={pc.id}
-                        icon={<ProviderIcon providerType={pc.provider.providerType} size={20} />}
-                        label={`${pc.provider.providerType === 'google' ? 'Gmail' : 'Outlook'}: ${pc.provider.email}`}
-                        size="small"
-                        sx={{
-                          bgcolor: 'action.hover',
-                          '& .MuiChip-icon': { ml: 0.5 },
-                        }}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              )}
-
-              {/* Email Addresses */}
-              {selectedContact.emails && selectedContact.emails.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    {contactsCopy.details.emailAddresses}
-                  </Typography>
-                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
-                    {selectedContact.emails.map((email, idx) => (
-                      <Card variant="outlined" key={idx}>
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Mail size={18} color="#0B7EFF" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              {email.type || contactsCopy.details.custom} {email.primary && `(${contactsCopy.details.primary})`}
-                            </Typography>
-                          </Box>
-                          <Link href={`mailto:${email.value}`} underline="hover">
-                            <Typography variant="body1">{email.value}</Typography>
-                          </Link>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Box>
-                </Box>
-              )}
-
-              {/* Phone Numbers */}
-              {selectedContact.phoneNumbers && selectedContact.phoneNumbers.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    {contactsCopy.details.phoneNumbers}
-                  </Typography>
-                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
-                    {selectedContact.phoneNumbers.map((phone, idx) => (
-                      <Card variant="outlined" key={idx}>
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Phone size={18} color="#00C853" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              {phone.type || contactsCopy.details.custom} {phone.primary && `(${contactsCopy.details.primary})`}
-                            </Typography>
-                          </Box>
-                          <Link href={`tel:${phone.value}`} underline="hover">
-                            <Typography variant="body1">{phone.value}</Typography>
-                          </Link>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Box>
-                </Box>
-              )}
-
-              {/* Addresses */}
-              {selectedContact.addresses && selectedContact.addresses.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    {contactsCopy.details.addresses}
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {selectedContact.addresses.map((address, idx) => (
-                      <Card variant="outlined" key={idx}>
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <MapPin size={18} color="#9C27B0" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              {address.type || 'Address'}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body1">
-                            {[address.street, address.city, address.state, address.postalCode, address.country]
-                              .filter(Boolean)
-                              .join(', ')}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Box>
-                </Box>
-              )}
-
-              {/* Professional Information */}
-              {(selectedContact.company || selectedContact.jobTitle || selectedContact.department) && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    {contactsCopy.details.professional}
-                  </Typography>
-                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
-                    {selectedContact.company && (
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Building size={18} color="#FF9800" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              {contactsCopy.details.company}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body1">{selectedContact.company}</Typography>
-                        </CardContent>
-                      </Card>
-                    )}
-                    {selectedContact.jobTitle && (
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Building size={18} color="#FF9800" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              {contactsCopy.details.jobTitle}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body1">{selectedContact.jobTitle}</Typography>
-                        </CardContent>
-                      </Card>
-                    )}
-                    {selectedContact.department && (
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Building size={18} color="#FF9800" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              {contactsCopy.details.department}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body1">{selectedContact.department}</Typography>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </Box>
-                </Box>
-              )}
-
-              {/* Important Dates */}
-              {(selectedContact.birthday || selectedContact.anniversary) && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    {contactsCopy.details.importantDates}
-                  </Typography>
-                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
-                    {selectedContact.birthday && (
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Cake size={18} color="#E91E63" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              {contactsCopy.details.birthday}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body1">
-                            {new Date(selectedContact.birthday).toLocaleDateString()}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    )}
-                    {selectedContact.anniversary && (
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Calendar size={18} color="#E91E63" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              {contactsCopy.details.anniversary}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body1">
-                            {new Date(selectedContact.anniversary).toLocaleDateString()}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </Box>
-                </Box>
-              )}
-
-              {/* Websites */}
-              {selectedContact.websites && selectedContact.websites.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    {contactsCopy.details.websites}
-                  </Typography>
-                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
-                    {selectedContact.websites.map((website, idx) => (
-                      <Card variant="outlined" key={idx}>
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Globe size={18} color="#4CAF50" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              {website.type || 'Website'}
-                            </Typography>
-                          </Box>
-                          <Link href={website.url} target="_blank" rel="noopener noreferrer" underline="hover">
-                            <Typography variant="body1">{website.url}</Typography>
-                          </Link>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Box>
-                </Box>
-              )}
-
-              {/* Social Profiles */}
-              {selectedContact.socialProfiles && selectedContact.socialProfiles.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    {contactsCopy.details.socialProfiles}
-                  </Typography>
-                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
-                    {selectedContact.socialProfiles.map((profile, idx) => (
-                      <Card variant="outlined" key={idx}>
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Globe size={18} color="#2196F3" />
-                            <Typography variant="subtitle2" color="text.secondary">
-                              {profile.platform || 'Social'}
-                            </Typography>
-                          </Box>
-                          {profile.url ? (
-                            <Link href={profile.url} target="_blank" rel="noopener noreferrer" underline="hover">
-                              <Typography variant="body1">
-                                {profile.username || profile.url}
-                              </Typography>
-                            </Link>
-                          ) : (
-                            <Typography variant="body1">{profile.username}</Typography>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Box>
-                </Box>
-              )}
-
-              {/* Notes */}
-              {selectedContact.notes && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    {contactsCopy.notes.title}
-                  </Typography>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="body2">{selectedContact.notes}</Typography>
-                    </CardContent>
-                  </Card>
-                </Box>
-              )}
-
-              {/* Last Interaction */}
-              <Box>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Clock size={18} color="#757575" />
-                      <Typography variant="subtitle2" color="text.secondary">
-                        {contactsCopy.details.lastInteraction}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body1">
-                      {formatDate(selectedContactInteractionDate)}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Box>
-            </TabPanel>
-
-            <TabPanel value={tabValue} index={1}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                {contactsCopy.activity.title}
-              </Typography>
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="body2" color="text.secondary">
-                  {contactsCopy.activity.noActivity}
-                </Typography>
-              </Box>
-            </TabPanel>
-
-            <TabPanel value={tabValue} index={2}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                {contactsCopy.notes.title}
-              </Typography>
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="body2" color="text.secondary">
-                  {contactsCopy.notes.noNotes}
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<Plus size={18} />}
-                  sx={{ mt: 2 }}
-                >
-                  {contactsCopy.notes.addNote}
-                </Button>
-              </Box>
-            </TabPanel>
-          </Box>
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            flex: 1,
-            display: { xs: 'none', md: 'flex' },
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Typography variant="body1" color="text.secondary">
-            {contactsCopy.selectContactMessage}
-          </Typography>
-        </Box>
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <ContactBulkActionBar
+          selectedCount={selectedIds.size}
+          totalCount={filteredContacts.length}
+          onSelectAll={handleSelectAll}
+          onClearSelection={clearSelection}
+          onDelete={handleBulkDelete}
+        />
       )}
 
+      {/* Contact List */}
+      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+        <ContactList
+          contacts={filteredContacts}
+          selectedId={selectedContact?.id}
+          selectedIds={selectedIds}
+          isLoading={loading}
+          onContactClick={handleContactClick}
+          onToggleSelect={toggleSelection}
+          onEdit={(id) => {
+            const contact = filteredContacts.find((c) => c.id === id);
+            if (contact) {
+              setSelectedContact(contact);
+              openEditContactDialog();
+            }
+          }}
+          onDelete={(id) => {
+            const contact = filteredContacts.find((c) => c.id === id);
+            if (contact) openDeleteDialog(contact);
+          }}
+          onEmail={handleEmail}
+          onLoadMore={loadMore}
+          hasMore={pagination.hasMore}
+          emptyTitle={contactsCopy.noContactsFound}
+          emptySubtitle={contactsCopy.selectContactMessage}
+        />
+      </Box>
+    </Box>
+  );
+
+  // Render detail
+  const renderDetail = () => (
+    selectedContact ? (
+      <ContactDetail
+        contact={selectedContact}
+        onEdit={openEditContactDialog}
+        onDelete={() => openDeleteDialog(selectedContact)}
+        onEmail={handleEmail}
+        onClose={() => setSelectedContact(null)}
+      />
+    ) : null
+  );
+
+  return (
+    <>
+      <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', overflow: 'hidden' }}>
+        <ContactLayout
+          sidebar={renderSidebar()}
+          list={renderList()}
+          detail={renderDetail()}
+          showDetail={!!selectedContact}
+        />
+      </Box>
+
+      {/* Create/Edit Contact Dialog */}
       <Dialog
         open={contactDialogOpen}
         onClose={() => setContactDialogOpen(false)}
@@ -1384,6 +928,34 @@ export function Contacts() {
           {snackbar.message}
         </MuiAlert>
       </Snackbar>
-    </Box>
+
+      {/* Compose Email Dialog */}
+      <ComposeDialog
+        open={composeOpen}
+        onClose={() => {
+          setComposeOpen(false);
+          setComposeToEmail('');
+        }}
+        prefillData={{
+          to: composeToEmail ? [composeToEmail] : [],
+        }}
+        onSent={() => {
+          setComposeOpen(false);
+          setComposeToEmail('');
+          setSnackbar({
+            open: true,
+            message: 'Email sent successfully',
+            severity: 'success',
+          });
+        }}
+        onError={(message) => {
+          setSnackbar({
+            open: true,
+            message,
+            severity: 'error',
+          });
+        }}
+      />
+    </>
   );
 }

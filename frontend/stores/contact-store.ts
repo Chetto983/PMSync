@@ -1,20 +1,67 @@
 import { create } from 'zustand';
 import type { Contact } from '@/lib/api/contacts';
 
+/**
+ * Pagination state for contacts
+ */
+export interface ContactPaginationState {
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
+
+/**
+ * Filter options for contacts
+ */
+export interface ContactFilters {
+  providerId?: string;
+  hasEmail?: boolean;
+  hasPhone?: boolean;
+  company?: string;
+}
+
 interface ContactState {
   contacts: Contact[];
   selectedContact: Contact | null;
   isLoading: boolean;
   searchQuery: string;
 
-  // Actions
+  // Pagination
+  pagination: ContactPaginationState;
+
+  // Multi-selection
+  selectedIds: Set<string>;
+
+  // Filters
+  filters: ContactFilters;
+
+  // Actions - Contact management
   setContacts: (contacts: Contact[]) => void;
+  appendContacts: (contacts: Contact[]) => void;
   addContact: (contact: Contact) => void;
   updateContact: (id: string, updates: Partial<Contact>) => void;
   deleteContact: (id: string) => void;
   setSelectedContact: (contact: Contact | null) => void;
   setLoading: (loading: boolean) => void;
   setSearchQuery: (query: string) => void;
+
+  // Actions - Pagination
+  setPagination: (pagination: Partial<ContactPaginationState>) => void;
+  loadMore: () => void;
+
+  // Actions - Multi-selection
+  toggleSelection: (id: string) => void;
+  selectAll: () => void;
+  clearSelection: () => void;
+  setSelectedIds: (ids: Set<string>) => void;
+
+  // Actions - Bulk operations
+  bulkDelete: (ids: string[]) => void;
+
+  // Actions - Filters
+  setFilters: (filters: ContactFilters) => void;
+  clearFilters: () => void;
 
   // Queries
   searchContacts: (query: string) => Contact[];
@@ -29,12 +76,30 @@ export const useContactStore = create<ContactState>((set, get) => ({
   selectedContact: null,
   isLoading: false,
   searchQuery: '',
+  pagination: {
+    page: 1,
+    pageSize: 50,
+    total: 0,
+    hasMore: false,
+  },
+  selectedIds: new Set<string>(),
+  filters: {},
 
   setContacts: (contacts) => {
     const map = new Map<string, Contact>();
     contacts.forEach((c) => map.set(c.id, c));
     set({ contacts: Array.from(map.values()) });
   },
+
+  appendContacts: (newContacts) =>
+    set((state) => {
+      // Filter out duplicates
+      const existingIds = new Set(state.contacts.map((c) => c.id));
+      const uniqueNewContacts = newContacts.filter((c) => !existingIds.has(c.id));
+      return {
+        contacts: [...state.contacts, ...uniqueNewContacts],
+      };
+    }),
 
   addContact: (contact) =>
     set((state) => {
@@ -43,7 +108,7 @@ export const useContactStore = create<ContactState>((set, get) => ({
         return state;
       }
       return {
-        contacts: [...state.contacts, contact],
+        contacts: [contact, ...state.contacts],
       };
     }),
 
@@ -74,6 +139,11 @@ export const useContactStore = create<ContactState>((set, get) => ({
     set((state) => ({
       contacts: state.contacts.filter((c) => c.id !== id),
       selectedContact: state.selectedContact?.id === id ? null : state.selectedContact,
+      selectedIds: (() => {
+        const newSet = new Set(state.selectedIds);
+        newSet.delete(id);
+        return newSet;
+      })(),
     })),
 
   setSelectedContact: (contact) => set({ selectedContact: contact }),
@@ -82,6 +152,54 @@ export const useContactStore = create<ContactState>((set, get) => ({
 
   setSearchQuery: (query) => set({ searchQuery: query }),
 
+  // Pagination
+  setPagination: (pagination) =>
+    set((state) => ({
+      pagination: { ...state.pagination, ...pagination },
+    })),
+
+  loadMore: () =>
+    set((state) => ({
+      pagination: { ...state.pagination, page: state.pagination.page + 1 },
+    })),
+
+  // Multi-selection
+  toggleSelection: (id) =>
+    set((state) => {
+      const newSelectedIds = new Set(state.selectedIds);
+      if (newSelectedIds.has(id)) {
+        newSelectedIds.delete(id);
+      } else {
+        newSelectedIds.add(id);
+      }
+      return { selectedIds: newSelectedIds };
+    }),
+
+  selectAll: () =>
+    set((state) => ({
+      selectedIds: new Set(state.contacts.map((c) => c.id)),
+    })),
+
+  clearSelection: () => set({ selectedIds: new Set<string>() }),
+
+  setSelectedIds: (ids) => set({ selectedIds: ids }),
+
+  // Bulk operations
+  bulkDelete: (ids) =>
+    set((state) => ({
+      contacts: state.contacts.filter((c) => !ids.includes(c.id)),
+      selectedContact: state.selectedContact && ids.includes(state.selectedContact.id)
+        ? null
+        : state.selectedContact,
+      selectedIds: new Set<string>(),
+    })),
+
+  // Filters
+  setFilters: (filters) => set({ filters }),
+
+  clearFilters: () => set({ filters: {} }),
+
+  // Queries
   searchContacts: (query) => {
     const contacts = get().contacts;
     const lowerQuery = query.toLowerCase();
@@ -113,5 +231,13 @@ export const useContactStore = create<ContactState>((set, get) => ({
       selectedContact: null,
       isLoading: false,
       searchQuery: '',
+      pagination: {
+        page: 1,
+        pageSize: 50,
+        total: 0,
+        hasMore: false,
+      },
+      selectedIds: new Set<string>(),
+      filters: {},
     }),
 }));

@@ -1,7 +1,10 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module, OnModuleInit, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { RealtimeModule } from '../../realtime/realtime.module';
+import { EmailModule } from '../../email/email.module';
+import { CalendarModule } from '../../calendar/calendar.module';
+import { ContactsModule } from '../../contacts/contacts.module';
 
 // Controllers
 import { MultiAgentController } from './controllers/multi-agent.controller';
@@ -36,6 +39,9 @@ import { ContactsAgent } from './agents/contacts.agent';
     ConfigModule,
     PrismaModule,
     RealtimeModule,
+    forwardRef(() => EmailModule),
+    forwardRef(() => CalendarModule),
+    forwardRef(() => ContactsModule),
   ],
   controllers: [
     MultiAgentController,

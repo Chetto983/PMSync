@@ -1,7 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+const { createPrismaClient } = require('./prisma-client');
 require('dotenv').config();
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 async function monitorSync() {
   console.clear();

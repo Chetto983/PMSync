@@ -6,6 +6,30 @@ import { useContactStore } from '@/stores/contact-store';
 import { useLabelStore } from '@/stores/label-store';
 import { useFoldersStore } from '@/stores/folders-store';
 import { useSyncStore } from '@/stores/sync-store';
+import { emailApi } from '@/lib/api/email';
+
+/**
+ * Helper function to retry failed operations with exponential backoff
+ */
+const fetchWithRetry = async <T,>(
+  fn: () => Promise<T>,
+  retries = 2,
+  delay = 1000
+): Promise<T | null> => {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt === retries) {
+        console.error('[fetchWithRetry] All retries exhausted:', error);
+        return null;
+      }
+      console.warn(`[fetchWithRetry] Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay * (attempt + 1)));
+    }
+  }
+  return null;
+};
 
 /**
  * Hook per gestire la connessione WebSocket e gli eventi realtime
@@ -138,139 +162,234 @@ export function useWebSocket(token: string | null, enabled = true) {
       console.log('[useWebSocket] Registering event listeners...');
     }
 
-    // EMAIL EVENTS
-    const unsubEmailNew = websocketClient.onEmailNew((data) => {
+    // EMAIL EVENTS - with error recovery
+    const unsubEmailNew = websocketClient.onEmailNew(async (data) => {
       console.log('[WS] Email new:', data);
-      if (data.email) {
-        addEmail(data.email);
+      try {
+        if (data.email) {
+          addEmail(data.email);
+        } else if (data.emailId) {
+          // Fallback: fetch from API if email data not included
+          const response = await fetchWithRetry(() => emailApi.getEmail(data.emailId!));
+          if (response?.data) {
+            addEmail(response.data);
+          }
+        }
+      } catch (error) {
+        console.error('[WS] Error processing email new event:', error);
+        // Attempt to fetch fresh data from API
+        if (data.emailId) {
+          const response = await fetchWithRetry(() => emailApi.getEmail(data.emailId!));
+          if (response?.data) {
+            addEmail(response.data);
+          }
+        }
       }
     });
 
-    const unsubEmailUpdate = websocketClient.onEmailUpdate((data) => {
+    const unsubEmailUpdate = websocketClient.onEmailUpdate(async (data) => {
       console.log('[WS] Email update:', data);
-
-      // Handle complete email object from backend
-      if (data.email) {
-        // Replace the entire email with the updated version from backend
-        updateEmail(data.emailId || data.email.id, data.email);
+      try {
+        // Handle complete email object from backend
+        if (data.email) {
+          // Replace the entire email with the updated version from backend
+          updateEmail(data.emailId || data.email.id, data.email);
+        } else if (data.emailId) {
+          // Fallback: fetch from API if email data not included
+          const response = await fetchWithRetry(() => emailApi.getEmail(data.emailId!));
+          if (response?.data) {
+            updateEmail(data.emailId, response.data);
+          }
+        }
+      } catch (error) {
+        console.error('[WS] Error processing email update event:', error);
+        // Attempt to fetch fresh data from API
+        const emailId = data.emailId || data.email?.id;
+        if (emailId) {
+          const response = await fetchWithRetry(() => emailApi.getEmail(emailId));
+          if (response?.data) {
+            updateEmail(emailId, response.data);
+          }
+        }
       }
     });
 
     const unsubEmailDelete = websocketClient.onEmailDelete((data) => {
       console.log('[WS] Email delete:', data);
-      if (data.emailId) {
-        deleteEmail(data.emailId);
+      try {
+        if (data.emailId) {
+          deleteEmail(data.emailId);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing email delete event:', error);
+        // Delete operations are idempotent - no fallback needed
       }
     });
 
     const unsubUnreadCount = websocketClient.onUnreadCountUpdate((data) => {
       console.log('[WS] Unread count update:', data);
-      setUnreadCount(data.count);
+      try {
+        setUnreadCount(data.count);
+      } catch (error) {
+        console.error('[WS] Error processing unread count update:', error);
+      }
     });
 
     const unsubFolderCounts = websocketClient.onFolderCountsUpdate((data) => {
       console.log('[WS] Folder counts update:', data);
-      updateFolderCounts(data.providerId, data.folderId, {
-        totalCount: data.totalCount,
-        unreadCount: data.unreadCount,
-        folderName: data.folderName,
-      });
+      try {
+        updateFolderCounts(data.providerId, data.folderId, {
+          totalCount: data.totalCount,
+          unreadCount: data.unreadCount,
+          folderName: data.folderName,
+        });
+      } catch (error) {
+        console.error('[WS] Error processing folder counts update:', error);
+      }
     });
 
     const unsubThreadUpdate = websocketClient.onThreadUpdate((data) => {
       console.log('[WS] Thread update:', data);
-      if (data.threadId && data.emailIds) {
-        updateThread(data.threadId, data.emailIds);
+      try {
+        if (data.threadId && data.emailIds) {
+          updateThread(data.threadId, data.emailIds);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing thread update:', error);
       }
     });
 
     const unsubBatchProcessed = websocketClient.onEmailBatchProcessed((data) => {
       console.log('[WS] Email batch processed:', data);
-      // Update sync status with batch info
-      setSyncStatus({
-        providerId: data.providerId,
-        status: 'completed',
-        progress: 100,
-        timestamp: data.timestamp,
-      });
+      try {
+        // Update sync status with batch info
+        setSyncStatus({
+          providerId: data.providerId,
+          status: 'completed',
+          progress: 100,
+          timestamp: data.timestamp,
+        });
+      } catch (error) {
+        console.error('[WS] Error processing batch processed event:', error);
+      }
     });
 
-    // CALENDAR EVENTS
+    // CALENDAR EVENTS - with error recovery
     const unsubCalendarNew = websocketClient.onCalendarEventNew((data) => {
       console.log('[WS] Calendar event new:', data);
-      if (data.event) {
-        addEvent(data.event);
+      try {
+        if (data.event) {
+          addEvent(data.event);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing calendar event new:', error);
       }
     });
 
     const unsubCalendarUpdate = websocketClient.onCalendarEventUpdate((data) => {
       console.log('[WS] Calendar event update:', data);
-      if (data.eventId && data.updates) {
-        updateEvent(data.eventId, data.updates);
+      try {
+        if (data.eventId && data.updates) {
+          updateEvent(data.eventId, data.updates);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing calendar event update:', error);
       }
     });
 
     const unsubCalendarDelete = websocketClient.onCalendarEventDelete((data) => {
       console.log('[WS] Calendar event delete:', data);
-      if (data.eventId) {
-        deleteEvent(data.eventId);
+      try {
+        if (data.eventId) {
+          deleteEvent(data.eventId);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing calendar event delete:', error);
       }
     });
 
-    // CONTACT EVENTS
+    // CONTACT EVENTS - with error recovery
     const unsubContactNew = websocketClient.onContactNew((data) => {
       console.log('[WS] Contact new:', data);
-      if (data.contact) {
-        addContact(data.contact);
+      try {
+        if (data.contact) {
+          addContact(data.contact);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing contact new:', error);
       }
     });
 
     const unsubContactUpdate = websocketClient.onContactUpdate((data) => {
       console.log('[WS] Contact update:', data);
-      if (data.contactId && data.updates) {
-        updateContact(data.contactId, data.updates);
+      try {
+        if (data.contactId && data.updates) {
+          updateContact(data.contactId, data.updates);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing contact update:', error);
       }
     });
 
     const unsubContactDelete = websocketClient.onContactDelete((data) => {
       console.log('[WS] Contact delete:', data);
-      if (data.contactId) {
-        deleteContact(data.contactId);
+      try {
+        if (data.contactId) {
+          deleteContact(data.contactId);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing contact delete:', error);
       }
     });
 
-    // LABEL EVENTS
+    // LABEL EVENTS - with error recovery
     const unsubLabelNew = websocketClient.onLabelNew((data) => {
       console.log('[WS] Label new:', data);
-      if (data.label) {
-        handleLabelCreated(data.label);
+      try {
+        if (data.label) {
+          handleLabelCreated(data.label);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing label new:', error);
       }
     });
 
     const unsubLabelUpdate = websocketClient.onLabelUpdate((data) => {
       console.log('[WS] Label update:', data);
-      if (data.label) {
-        handleLabelUpdated(data.label);
+      try {
+        if (data.label) {
+          handleLabelUpdated(data.label);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing label update:', error);
       }
     });
 
     const unsubLabelDelete = websocketClient.onLabelDelete((data) => {
       console.log('[WS] Label delete:', data);
-      if (data.labelId) {
-        handleLabelDeleted(data.labelId);
+      try {
+        if (data.labelId) {
+          handleLabelDeleted(data.labelId);
+        }
+      } catch (error) {
+        console.error('[WS] Error processing label delete:', error);
       }
     });
 
-    // SYNC STATUS
+    // SYNC STATUS - with error recovery
     const unsubSyncStatus = websocketClient.onSyncStatus((data) => {
       console.log('[WS] Sync status:', data);
-      setSyncStatus({
-        providerId: data.providerId,
-        status: data.status,
-        progress: data.progress,
-        error: data.error,
-        timestamp: data.timestamp,
-      });
+      try {
+        setSyncStatus({
+          providerId: data.providerId,
+          status: data.status,
+          progress: data.progress,
+          error: data.error,
+          timestamp: data.timestamp,
+        });
+      } catch (error) {
+        console.error('[WS] Error processing sync status:', error);
+      }
     });
 
     if (process.env.NODE_ENV !== 'production') {

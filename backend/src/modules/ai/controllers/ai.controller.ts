@@ -282,6 +282,7 @@ export class AiController {
       req.user.tenantId,
       emailId,
       dto?.locale,
+      dto?.tone,
     );
 
     return { success: true, suggestions };

@@ -1,9 +1,7 @@
 require('dotenv').config();
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
+const { createPrismaClient } = require('./prisma-client');
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+const prisma = createPrismaClient();
 
 const TENANT_ID = 'cmi31xyel0000yhukbwp6l714';
 

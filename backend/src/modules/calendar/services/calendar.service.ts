@@ -94,7 +94,25 @@ export class CalendarService {
       },
     });
 
-    // Get unique calendars from events for each provider
+    // Create provider lookup map for O(1) access
+    const providerMap = new Map(providers.map((p) => [p.id, p]));
+    const providerIds = providers.map((p) => p.id);
+
+    // Single aggregation query - fixes N+1 problem
+    const calendarEvents = await this.prisma.calendarEvent.groupBy({
+      by: ['calendarId', 'calendarName', 'providerId'],
+      where: {
+        tenantId,
+        providerId: { in: providerIds },
+        isDeleted: false,
+        calendarId: { not: null },
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    // Build calendars map from single query result
     const calendarsMap = new Map<
       string,
       {
@@ -108,50 +126,37 @@ export class CalendarService {
       }
     >();
 
-    for (const provider of providers) {
-      // Get distinct calendars from events
-      const calendarEvents = await this.prisma.calendarEvent.groupBy({
-        by: ['calendarId', 'calendarName'],
-        where: {
-          tenantId,
-          providerId: provider.id,
-          isDeleted: false,
-          calendarId: { not: null },
-        },
-        _count: {
-          id: true,
-        },
+    for (const cal of calendarEvents) {
+      if (!cal.calendarId) continue;
+
+      const provider = providerMap.get(cal.providerId);
+      if (!provider) continue;
+
+      const key = `${cal.providerId}:${cal.calendarId}`;
+      calendarsMap.set(key, {
+        calendarId: cal.calendarId,
+        calendarName: cal.calendarName || cal.calendarId,
+        providerId: cal.providerId,
+        providerEmail: provider.email || '',
+        providerType: provider.providerType,
+        eventCount: cal._count.id,
+        primary: cal.calendarId === 'primary',
       });
+    }
 
-      for (const cal of calendarEvents) {
-        if (!cal.calendarId) continue;
-
-        const key = `${provider.id}:${cal.calendarId}`;
+    // Add default "primary" calendar for providers without events
+    for (const provider of providers) {
+      const key = `${provider.id}:primary`;
+      if (!calendarsMap.has(key)) {
         calendarsMap.set(key, {
-          calendarId: cal.calendarId,
-          calendarName: cal.calendarName || cal.calendarId,
+          calendarId: 'primary',
+          calendarName: 'Primary Calendar',
           providerId: provider.id,
           providerEmail: provider.email || '',
           providerType: provider.providerType,
-          eventCount: cal._count.id,
-          primary: cal.calendarId === 'primary',
+          eventCount: 0,
+          primary: true,
         });
-      }
-
-      // If no events exist yet, add a default "primary" calendar
-      if (!calendarEvents.some((c) => c.calendarId === 'primary')) {
-        const key = `${provider.id}:primary`;
-        if (!calendarsMap.has(key)) {
-          calendarsMap.set(key, {
-            calendarId: 'primary',
-            calendarName: 'Primary Calendar',
-            providerId: provider.id,
-            providerEmail: provider.email || '',
-            providerType: provider.providerType,
-            eventCount: 0,
-            primary: true,
-          });
-        }
       }
     }
 

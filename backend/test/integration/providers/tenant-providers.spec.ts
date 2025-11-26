@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../../../src/prisma/prisma-client.factory';
 
 // Tenant under test provided by user context
 const TARGET_TENANT_ID = 'cmi31xyel0000yhukbwp6l714';
@@ -9,7 +10,7 @@ describe('Tenant Providers Sanity', () => {
 
   beforeAll(async () => {
     try {
-      prisma = new PrismaClient();
+      prisma = createPrismaClient();
       // Simple connectivity check
       await prisma.$queryRaw`SELECT 1`;
     } catch (error) {

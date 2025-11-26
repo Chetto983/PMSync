@@ -65,8 +65,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         // Optimistic update
         bulkDelete(emailIds);
 
-        // API calls (in parallel)
-        await Promise.all(emailIds.map((id) => emailApi.deleteEmail(id)));
+        // Use bulk API endpoint (more efficient than Promise.all)
+        await emailApi.bulkDelete(emailIds);
 
         callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} deleted successfully ✓`);
       } catch (error) {
@@ -86,10 +86,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         // Optimistic update
         markAsRead(emailIds);
 
-        // API calls
-        await Promise.all(
-          emailIds.map((id) => emailApi.updateEmail(id, { isRead }))
-        );
+        // Use bulk API endpoint (more efficient than Promise.all)
+        await emailApi.bulkMarkRead(emailIds, isRead);
 
         const action = isRead ? 'read' : 'unread';
         callbacks?.onSuccess?.(`Marked as ${action} ✓`);
@@ -185,10 +183,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         // Optimistic update
         moveToFolder(emailIds, 'ARCHIVE');
 
-        // API calls
-        await Promise.all(
-          emailIds.map((id) => emailApi.updateEmail(id, { folder: 'ARCHIVE' }))
-        );
+        // Use bulk API endpoint (more efficient than Promise.all)
+        await emailApi.bulkMoveToFolder(emailIds, 'ARCHIVE');
 
         callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} archived ✓`);
       } catch (error) {
@@ -208,10 +204,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         // Optimistic update
         moveToFolder(emailIds, folderId);
 
-        // API calls
-        await Promise.all(
-          emailIds.map((id) => emailApi.updateEmail(id, { folder: folderId }))
-        );
+        // Use bulk API endpoint (more efficient than Promise.all)
+        await emailApi.bulkMoveToFolder(emailIds, folderId);
 
         callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} moved ✓`);
       } catch (error) {

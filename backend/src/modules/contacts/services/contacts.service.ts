@@ -6,6 +6,7 @@ import { GoogleOAuthService } from '../../providers/services/google-oauth.servic
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service';
+import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 
 // Unified contact with provider sources
 export interface ContactWithProviders extends Contact {
@@ -65,6 +66,7 @@ export class ContactsService {
     private readonly microsoftOAuth: MicrosoftOAuthService,
     private readonly googleContactsSync: GoogleContactsSyncService,
     private readonly microsoftContactsSync: MicrosoftContactsSyncService,
+    private readonly realtimeEvents: RealtimeEventsService,
   ) {}
 
   /**
@@ -75,7 +77,8 @@ export class ContactsService {
     tenantId: string,
     filters: ListContactsFilters = {},
   ): Promise<{ contacts: ContactWithProviders[]; total: number }> {
-    const limit = filters.limit && filters.limit > 0 && filters.limit <= 100 ? filters.limit : 50;
+    // Allow larger batches for faster bulk loading (max 500)
+    const limit = filters.limit && filters.limit > 0 && filters.limit <= 500 ? filters.limit : 100;
     const offset = filters.offset && filters.offset >= 0 ? filters.offset : 0;
 
     const where: any = {
@@ -134,6 +137,85 @@ export class ContactsService {
     ]);
 
     return { contacts, total };
+  }
+
+  /**
+   * Get contact counts for sidebar display
+   * Efficiently queries counts from database
+   */
+  async getContactCounts(tenantId: string): Promise<{
+    total: number;
+    withEmail: number;
+    withPhone: number;
+    withCompany: number;
+    byProvider: Array<{ providerId: string; count: number }>;
+  }> {
+    const baseWhere = { tenantId, isDeleted: false };
+
+    // Run all counts in parallel for efficiency
+    const [total, withEmail, withPhone, withCompany, providerCounts] = await Promise.all([
+      // Total contacts
+      this.prisma.contact.count({ where: baseWhere }),
+
+      // Contacts with at least one email
+      this.prisma.contact.count({
+        where: {
+          ...baseWhere,
+          emails: { not: { equals: null } },
+        },
+      }),
+
+      // Contacts with at least one phone number
+      this.prisma.contact.count({
+        where: {
+          ...baseWhere,
+          phoneNumbers: { not: { equals: null } },
+        },
+      }),
+
+      // Contacts with company
+      this.prisma.contact.count({
+        where: {
+          ...baseWhere,
+          company: { not: null },
+        },
+      }),
+
+      // Count by provider
+      this.prisma.providerContact.groupBy({
+        by: ['providerId'],
+        where: {
+          tenantId,
+          contact: { isDeleted: false },
+        },
+        _count: { id: true },
+      }),
+    ]);
+
+    const byProvider = providerCounts.map((pc) => ({
+      providerId: pc.providerId,
+      count: pc._count.id,
+    }));
+
+    return { total, withEmail, withPhone, withCompany, byProvider };
+  }
+
+  /**
+   * Update and emit contact counts via WebSocket
+   * Called after contact changes to update sidebar in real-time
+   */
+  async updateContactCounts(tenantId: string): Promise<void> {
+    try {
+      // Skip if no active WebSocket connections
+      if (!this.realtimeEvents.hasTenantConnections(tenantId)) {
+        return;
+      }
+
+      const counts = await this.getContactCounts(tenantId);
+      this.realtimeEvents.emitContactCounts(tenantId, counts);
+    } catch (error: any) {
+      this.logger.warn(`Failed to update contact counts: ${error?.message}`);
+    }
   }
 
   /**
@@ -240,6 +322,9 @@ export class ContactsService {
 
     this.logger.log(`Contact created: ${contact.id}`);
 
+    // Emit updated counts
+    this.updateContactCounts(tenantId);
+
     // Return with provider info
     return this.getContact(tenantId, contact.id);
   }
@@ -319,6 +404,10 @@ export class ContactsService {
     });
 
     this.logger.log(`Contact updated: ${contactId}`);
+
+    // Emit updated counts (in case company/email/phone changed)
+    this.updateContactCounts(tenantId);
+
     return updated;
   }
 
@@ -380,6 +469,9 @@ export class ContactsService {
     });
 
     this.logger.log(`Contact deleted: ${contactId}`);
+
+    // Emit updated counts
+    this.updateContactCounts(tenantId);
   }
 
   /**

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../src/prisma/prisma-client.factory';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
@@ -6,7 +6,7 @@ import * as dotenv from 'dotenv';
 // Load env from backend/.env
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 async function main() {
   const providerArg = process.argv[2];

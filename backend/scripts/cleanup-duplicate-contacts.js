@@ -1,5 +1,5 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { createPrismaClient } = require('./prisma-client');
+const prisma = createPrismaClient();
 
 async function findDuplicates() {
   console.log('\n🔍 Finding duplicate contacts...\n');
