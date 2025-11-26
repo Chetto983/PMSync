@@ -16,9 +16,7 @@ import { MultiAgentService } from './services/multi-agent.service';
 import { ActionExecutorService } from './services/action-executor.service';
 import { MemoryService } from './services/memory.service';
 import { AIQueueService } from './services/ai-queue.service';
-import { PersonalizationService } from '../services/personalization.service';
-import { MistralService } from '../services/mistral.service';
-import { EmbeddingsService } from '../services/embeddings.service';
+import { AiModule } from '../ai.module';
 
 // Agents
 import { RouterAgent } from './agents/router.agent';
@@ -44,6 +42,7 @@ import { KnowledgeAgent } from './agents/knowledge.agent';
     forwardRef(() => EmailModule),
     forwardRef(() => CalendarModule),
     forwardRef(() => ContactsModule),
+    forwardRef(() => AiModule),
   ],
   controllers: [
     MultiAgentController,
@@ -56,9 +55,6 @@ import { KnowledgeAgent } from './agents/knowledge.agent';
     ActionExecutorService,
     MemoryService,
     AIQueueService,
-    EmbeddingsService,
-    MistralService,
-    PersonalizationService,
 
     // Agents
     RouterAgent,
@@ -75,7 +71,6 @@ import { KnowledgeAgent } from './agents/knowledge.agent';
     ActionExecutorService,
     MemoryService,
     AIQueueService,
-    MistralService,
     RouterAgent,
   ],
 })

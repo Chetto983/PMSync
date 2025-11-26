@@ -20,7 +20,7 @@ import { MultiAgentModule } from './multi-agent/multi-agent.module';
   imports: [
     PrismaModule,
     forwardRef(() => EmailModule), // For StorageService (attachment downloads)
-    MultiAgentModule, // Intelligent Secretary multi-agent system
+    forwardRef(() => MultiAgentModule), // Intelligent Secretary multi-agent system
   ],
   providers: [
     MistralService,
