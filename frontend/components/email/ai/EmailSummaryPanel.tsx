@@ -394,7 +394,7 @@ export const EmailSummaryPanel: React.FC<EmailSummaryPanelProps> = ({
                               borderColor: 'divider',
                             }}
                           >
-                            <Box sx={{ color: item.type === 'date' ? '#3b82f6' : '#f59e0b' }}>
+                            <Box sx={{ color: item.type === 'date' ? 'info.main' : 'warning.main' }}>
                               {getItemIcon(item.type)}
                             </Box>
                             <Typography variant="body2" sx={{ flex: 1 }}>

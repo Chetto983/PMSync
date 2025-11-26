@@ -1,5 +1,15 @@
 import { AgentAction } from './agent-action.interface';
 
+export interface KnowledgeHitSummary {
+  id: string;
+  subject: string | null;
+  snippet: string;
+  source?: string | null;
+  score?: number | null;
+  emailId?: string | null;
+  metadata?: Record<string, any> | null;
+}
+
 /**
  * Result returned by an agent after processing
  */
@@ -17,7 +27,11 @@ export interface AgentResult {
     executionTimeMs?: number;
     toolsUsed?: string[];
     tokensUsed?: number;
+    knowledgeHits?: KnowledgeHitSummary[];
   };
+
+  /** Knowledge search hits (for RAG cards) */
+  knowledgeHits?: KnowledgeHitSummary[];
 
   /** Intermediate steps/tool calls for transparency */
   intermediateSteps?: Array<{

@@ -9,7 +9,6 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  Badge,
   Card,
   CardContent,
   Stack,
@@ -19,7 +18,9 @@ import {
   Avatar,
   keyframes,
   alpha,
+  useTheme,
 } from '@mui/material';
+import { pmSyncColors } from '@/theme/appTheme';
 import {
   Send,
   Bot,
@@ -40,16 +41,20 @@ import {
   FileText,
   Search,
   Bell,
+  //Shield,
   //Star,
   //MessageSquare,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Layout } from '@/components/layout/Layout';
-import { multiAgentApi, type MultiAgentResponse, type PendingAction, type ActionFeedback } from '@/lib/api/multi-agent';
+import { multiAgentApi, type MultiAgentResponse, type PendingAction, type ActionFeedback, type KnowledgeHit, type LearningProfile } from '@/lib/api/multi-agent';
 import { websocketClient, type RealtimeAiActionEvent } from '@/lib/websocket-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { PendingActionsPanel } from '@/components/dashboard/ai/PendingActionsPanel';
+import { LearningProgressCard } from '@/components/dashboard/ai/LearningProgressCard';
+import { AgentActivityChart, type AgentActivityData } from '@/components/dashboard/ai/AgentActivityChart';
 
 // Shimmer animation for thinking state
 const shimmer = keyframes`
@@ -70,14 +75,15 @@ type Message = {
   agentUsed?: string;
   intent?: string;
   pendingActionIds?: string[];
+  knowledgeHits?: KnowledgeHit[];
 };
 
-// Example queries organized by category
+// Example queries organized by category - using semantic colors from theme
 const exampleQueries = [
   {
     category: 'Email',
     icon: Mail,
-    color: '#3b82f6',
+    color: pmSyncColors.semantic.email,
     queries: [
       { text: 'Summarize my unread emails', prompt: 'Summarize my unread emails' },
       { text: 'Find emails from last week', prompt: 'Find all emails from last week' },
@@ -87,7 +93,7 @@ const exampleQueries = [
   {
     category: 'Calendar',
     icon: Calendar,
-    color: '#10b981',
+    color: pmSyncColors.semantic.calendar,
     queries: [
       { text: 'Schedule a meeting tomorrow', prompt: 'Schedule a meeting tomorrow at 2pm' },
       { text: "What's on my agenda today?", prompt: "What's on my calendar for today?" },
@@ -97,7 +103,7 @@ const exampleQueries = [
   {
     category: 'Contacts',
     icon: Users,
-    color: '#8b5cf6',
+    color: pmSyncColors.semantic.contacts,
     queries: [
       { text: 'Find John\'s contact info', prompt: 'Find contact info for John' },
       { text: 'Add a new contact', prompt: 'Add a new contact named Jane Doe with email jane@example.com' },
@@ -122,7 +128,7 @@ function ThinkingIndicator() {
         sx={{
           width: 36,
           height: 36,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
           animation: `${pulse} 1.5s ease-in-out infinite`,
         }}
       >
@@ -183,13 +189,13 @@ function EmptyState({ onSelectQuery }: { onSelectQuery: (prompt: string) => void
           width: 80,
           height: 80,
           borderRadius: 3,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           mx: 'auto',
           mb: 3,
-          boxShadow: '0 10px 40px rgba(102, 126, 234, 0.3)',
+          boxShadow: (theme) => `0 10px 40px ${alpha(theme.palette.primary.main, 0.3)}`,
         }}
       >
         <Sparkles size={40} color="white" />
@@ -332,7 +338,7 @@ function MessageBubble({ message }: { message: Message }) {
           width: 36,
           height: 36,
           bgcolor: isUser ? 'primary.main' : 'transparent',
-          background: isUser ? undefined : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: isUser ? undefined : (theme) => `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
         }}
       >
         {isUser ? <User size={18} /> : <Sparkles size={18} />}
@@ -425,6 +431,33 @@ function MessageBubble({ message }: { message: Message }) {
               />
             </Box>
           )}
+
+          {message.knowledgeHits && message.knowledgeHits.length > 0 && (
+            <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider', display: 'grid', gap: 1 }}>
+              {message.knowledgeHits.map((hit) => (
+                <Paper
+                  key={hit.id}
+                  variant="outlined"
+                  sx={{ p: 1.25, borderRadius: 1.5, bgcolor: 'background.default' }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {hit.subject || 'Fonte'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ my: 0.5 }}>
+                    {hit.snippet}
+                  </Typography>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+                    {hit.source && (
+                      <Chip label={hit.source} size="small" variant="outlined" />
+                    )}
+                    {typeof hit.score === 'number' && (
+                      <Chip label={`score ${Math.round(hit.score * 100)}%`} size="small" variant="outlined" />
+                    )}
+                  </Stack>
+                </Paper>
+              ))}
+            </Box>
+          )}
         </Box>
 
         <Typography
@@ -441,16 +474,22 @@ function MessageBubble({ message }: { message: Message }) {
 
 function AiAssistantView() {
   const t = useTranslations();
+  const theme = useTheme();
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [prompt, setPrompt] = useState('');
   const [sending, setSending] = useState(false);
   const [loadingActions, setLoadingActions] = useState(false);
-  const [showPendingActions, setShowPendingActions] = useState(true);
+  const [showPendingActions] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [actionHistory, setActionHistory] = useState<ActionFeedback[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [sessionId] = useState(() => `session-${Date.now()}`);
+  const [learningProfiles, setLearningProfiles] = useState<LearningProfile[]>([]);
+  const [learningSummary, setLearningSummary] = useState<{ totalAttempts: number; overallApprovalRate: number; overallSuccessRate: number } | undefined>();
+  const [loadingLearning, setLoadingLearning] = useState(false);
+  const [agentActivity, setAgentActivity] = useState<AgentActivityData[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
   const [notification, setNotification] = useState<{
     open: boolean;
     message: string;
@@ -492,9 +531,66 @@ function AiAssistantView() {
     }
   }, []);
 
+  const loadLearningStats = useCallback(async () => {
+    try {
+      setLoadingLearning(true);
+      setLoadingActivity(true);
+      const response = await multiAgentApi.getLearningStats();
+      const data = response.data;
+      const profiles = data.profiles || [];
+      setLearningProfiles(profiles);
+
+      // Use summary from API if available, otherwise calculate
+      if (data.summary) {
+        setLearningSummary(data.summary);
+      } else if (profiles.length > 0) {
+        const totalApprovals = profiles.reduce((sum: number, p: LearningProfile) => sum + p.approvalCount, 0);
+        const totalRejections = profiles.reduce((sum: number, p: LearningProfile) => sum + p.rejectionCount, 0);
+        const totalSuccesses = profiles.reduce((sum: number, p: LearningProfile) => sum + p.successCount, 0);
+        const totalFailures = profiles.reduce((sum: number, p: LearningProfile) => sum + p.failureCount, 0);
+        const total = totalApprovals + totalRejections;
+        const executed = totalSuccesses + totalFailures;
+
+        setLearningSummary({
+          totalAttempts: total,
+          overallApprovalRate: total > 0 ? (totalApprovals / total) * 100 : 0,
+          overallSuccessRate: executed > 0 ? (totalSuccesses / executed) * 100 : 0,
+        });
+      }
+
+      // Build agent activity data
+      if (profiles.length > 0) {
+        const agentMap: Record<string, { attempts: number; approvals: number; types: Set<string> }> = {};
+        profiles.forEach((p: LearningProfile) => {
+          if (!agentMap[p.agentName]) {
+            agentMap[p.agentName] = { attempts: 0, approvals: 0, types: new Set() };
+          }
+          agentMap[p.agentName].attempts += p.approvalCount + p.rejectionCount;
+          agentMap[p.agentName].approvals += p.approvalCount;
+          agentMap[p.agentName].types.add(p.actionType);
+        });
+
+        setAgentActivity(
+          Object.entries(agentMap).map(([agentName, data]) => ({
+            agentName,
+            totalAttempts: data.attempts,
+            approvalRate: data.attempts > 0 ? (data.approvals / data.attempts) * 100 : 0,
+            actionTypes: Array.from(data.types),
+          }))
+        );
+      }
+    } catch (error) {
+      console.error('Failed to load learning stats:', error);
+    } finally {
+      setLoadingLearning(false);
+      setLoadingActivity(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadPendingActions();
-  }, [loadPendingActions]);
+    loadLearningStats();
+  }, [loadPendingActions, loadLearningStats]);
 
   useEffect(() => {
     if (showHistory && actionHistory.length === 0) {
@@ -589,6 +685,7 @@ function AiAssistantView() {
         agentUsed: data.agentUsed,
         intent: data.intent.intent,
         pendingActionIds: data.pendingActionIds,
+        knowledgeHits: data.knowledgeHits,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -596,8 +693,33 @@ function AiAssistantView() {
       if (data.pendingActionIds.length > 0) {
         await loadPendingActions();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send message:', error);
+      if (error?.response?.status === 403) {
+        setNotification({
+          open: true,
+          message: 'Session non valida o non autorizzata. Riprova più tardi.',
+          severity: 'error',
+        });
+      } else if (error?.response?.status === 429) {
+        setNotification({
+          open: true,
+          message: 'Rate limit raggiunto. Attendi qualche secondo e riprova.',
+          severity: 'warning',
+        });
+      } else if (error?.response?.status === 400) {
+        setNotification({
+          open: true,
+          message: "Richiesta non valida (controlla l'agente forzato o i parametri).",
+          severity: 'error',
+        });
+      } else {
+        setNotification({
+          open: true,
+          message: 'Errore durante l’elaborazione. Riprova.',
+          severity: 'error',
+        });
+      }
       const errorMessage: Message = {
         role: 'assistant',
         content: 'Sorry, I encountered an error processing your request. Please try again.',
@@ -625,30 +747,6 @@ function AiAssistantView() {
       await loadPendingActions();
     } catch (error) {
       console.error('Failed to reject action:', error);
-    }
-  };
-
-  const getAgentIcon = (agentName?: string) => {
-    switch (agentName) {
-      case 'EmailAgent':
-        return <Mail size={14} />;
-      case 'CalendarAgent':
-        return <Calendar size={14} />;
-      case 'ContactsAgent':
-        return <Users size={14} />;
-      default:
-        return <Bot size={14} />;
-    }
-  };
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'HIGH':
-        return 'error';
-      case 'MEDIUM':
-        return 'warning';
-      default:
-        return 'success';
     }
   };
 
@@ -691,7 +789,7 @@ function AiAssistantView() {
                 width: 44,
                 height: 44,
                 borderRadius: 2,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -802,9 +900,9 @@ function AiAssistantView() {
                 width: 48,
                 height: 48,
                 borderRadius: 2,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%)',
+                  background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${alpha(theme.palette.primary.dark, 0.8)} 100%)`,
                 },
                 '&:disabled': {
                   background: (theme) => theme.palette.action.disabledBackground,
@@ -818,270 +916,164 @@ function AiAssistantView() {
       </Paper>
 
       {/* Sidebar */}
-      <Paper
+      <Box
         sx={{
-          width: 320,
-          borderRadius: 3,
-          border: 1,
-          borderColor: 'divider',
+          width: 360,
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
+          gap: 2,
+          overflow: 'auto',
         }}
       >
-        {/* Pending Actions Header */}
-        <Box
+        {/* Pending Actions Panel */}
+        <PendingActionsPanel
+          actions={pendingActions}
+          loading={loadingActions}
+          onApprove={handleApproveAction}
+          onReject={handleRejectAction}
+          onRefresh={loadPendingActions}
+          defaultExpanded={showPendingActions}
+        />
+
+        {/* Learning Progress Card */}
+        <LearningProgressCard
+          profiles={learningProfiles}
+          summary={learningSummary}
+          loading={loadingLearning}
+          onRefresh={loadLearningStats}
+          defaultExpanded={false}
+        />
+
+        {/* Agent Activity Chart */}
+        <AgentActivityChart
+          data={agentActivity}
+          loading={loadingActivity}
+          onRefresh={loadLearningStats}
+          defaultExpanded={false}
+        />
+
+        {/* Action History */}
+        <Paper
           sx={{
-            p: 2,
-            borderBottom: 1,
+            borderRadius: 1.5,
+            border: 1,
             borderColor: 'divider',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            overflow: 'hidden',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Badge badgeContent={pendingActions.length} color="warning" max={99}>
+          <Box
+            onClick={() => setShowHistory(!showHistory)}
+            sx={{
+              p: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              borderBottom: showHistory ? 1 : 0,
+              borderColor: 'divider',
+              '&:hover': { bgcolor: 'action.hover' },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box
                 sx={{
                   width: 32,
                   height: 32,
                   borderRadius: 1.5,
-                  bgcolor: (theme) => alpha(theme.palette.warning.main, 0.1),
+                  bgcolor: (theme) => alpha(theme.palette.info.main, 0.1),
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'warning.main',
+                  color: 'info.main',
                 }}
               >
-                <Clock size={18} />
+                <History size={18} />
               </Box>
-            </Badge>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              Pending Actions
-            </Typography>
-          </Box>
-          <Box>
-            <Tooltip title="Refresh">
-              <IconButton size="small" onClick={loadPendingActions} disabled={loadingActions}>
-                <RefreshCw size={16} className={loadingActions ? 'animate-spin' : ''} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                History
+              </Typography>
+            </Box>
+            <Box>
+              <Tooltip title="Refresh">
+                <IconButton size="small" onClick={(e) => { e.stopPropagation(); loadActionHistory(); }} disabled={loadingHistory}>
+                  <RefreshCw size={16} className={loadingHistory ? 'animate-spin' : ''} />
+                </IconButton>
+              </Tooltip>
+              <IconButton size="small">
+                {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </IconButton>
-            </Tooltip>
-            <IconButton size="small" onClick={() => setShowPendingActions(!showPendingActions)}>
-              {showPendingActions ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </IconButton>
+            </Box>
           </Box>
-        </Box>
 
-        <Collapse in={showPendingActions}>
-          <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-            {loadingActions ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : pendingActions.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2,
-                    bgcolor: (theme) => alpha(theme.palette.success.main, 0.1),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    mx: 'auto',
-                    mb: 2,
-                    color: 'success.main',
-                  }}
-                >
-                  <CheckCircle size={24} />
+          <Collapse in={showHistory}>
+            <Box sx={{ maxHeight: 200, overflow: 'auto', p: 2 }}>
+              {loadingHistory ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={20} />
                 </Box>
-                <Typography variant="body2" color="text.secondary">
-                  No pending actions
+              ) : actionHistory.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                  No history yet
                 </Typography>
-              </Box>
-            ) : (
-              <Stack spacing={2}>
-                {pendingActions.map((action) => (
-                  <Card
-                    key={action.id}
-                    variant="outlined"
-                    sx={{
-                      borderRadius: 2,
-                      transition: 'all 0.2s',
-                      '&:hover': { borderColor: 'primary.main' },
-                    }}
-                  >
-                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                        <Chip
-                          label={formatActionType(action.actionType)}
-                          size="small"
-                          color={getSeverityColor(action.severity) as 'error' | 'warning' | 'success'}
-                          sx={{ fontWeight: 500 }}
-                        />
-                      </Box>
-
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        {getAgentIcon(action.agentName)}
-                        <Typography variant="caption" color="text.secondary">
-                          {action.agentName} • {Math.round((action.adjustedConfidence || action.confidence) * 100)}% confidence
+              ) : (
+                <Stack spacing={1}>
+                  {actionHistory.map((feedback) => (
+                    <Box
+                      key={feedback.id}
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 1.5,
+                        bgcolor: 'action.hover',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 1,
+                      }}
+                    >
+                      {feedback.wasApproved ? (
+                        feedback.wasSuccessful ? (
+                          <CheckCircle size={14} color={theme.palette.success.main} style={{ marginTop: 2, flexShrink: 0 }} />
+                        ) : (
+                          <XCircle size={14} color={theme.palette.error.main} style={{ marginTop: 2, flexShrink: 0 }} />
+                        )
+                      ) : (
+                        <XCircle size={14} color={theme.palette.warning.main} style={{ marginTop: 2, flexShrink: 0 }} />
+                      )}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
+                          {formatActionType(feedback.actionType)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                          {feedback.agentName} • {Math.round(feedback.originalConfidence * 100)}%
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                          {new Date(feedback.createdAt).toLocaleString()}
                         </Typography>
                       </Box>
-
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{
-                          display: 'block',
-                          mb: 2,
-                          p: 1,
-                          bgcolor: 'action.hover',
-                          borderRadius: 1,
-                          fontFamily: 'monospace',
-                          fontSize: '0.7rem',
-                          maxHeight: 60,
-                          overflow: 'auto',
-                        }}
-                      >
-                        {JSON.stringify(action.payload, null, 2).slice(0, 150)}...
-                      </Typography>
-
-                      <Stack direction="row" spacing={1}>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color="success"
-                          startIcon={<CheckCircle size={14} />}
-                          onClick={() => handleApproveAction(action.id)}
-                          sx={{ flex: 1, textTransform: 'none' }}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          startIcon={<XCircle size={14} />}
-                          onClick={() => handleRejectAction(action.id)}
-                          sx={{ flex: 1, textTransform: 'none' }}
-                        >
-                          Reject
-                        </Button>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                ))}
-              </Stack>
-            )}
-          </Box>
-        </Collapse>
-
-        {/* Action History */}
-        <Box
-          sx={{
-            p: 2,
-            borderTop: 1,
-            borderBottom: 1,
-            borderColor: 'divider',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 32,
-                height: 32,
-                borderRadius: 1.5,
-                bgcolor: (theme) => alpha(theme.palette.info.main, 0.1),
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'info.main',
-              }}
-            >
-              <History size={18} />
-            </Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              History
-            </Typography>
-          </Box>
-          <Box>
-            <Tooltip title="Refresh">
-              <IconButton size="small" onClick={loadActionHistory} disabled={loadingHistory}>
-                <RefreshCw size={16} className={loadingHistory ? 'animate-spin' : ''} />
-              </IconButton>
-            </Tooltip>
-            <IconButton size="small" onClick={() => setShowHistory(!showHistory)}>
-              {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </IconButton>
-          </Box>
-        </Box>
-
-        <Collapse in={showHistory}>
-          <Box sx={{ maxHeight: 200, overflow: 'auto', p: 2 }}>
-            {loadingHistory ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                <CircularProgress size={20} />
-              </Box>
-            ) : actionHistory.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                No history yet
-              </Typography>
-            ) : (
-              <Stack spacing={1}>
-                {actionHistory.map((feedback) => (
-                  <Box
-                    key={feedback.id}
-                    sx={{
-                      p: 1.5,
-                      borderRadius: 1.5,
-                      bgcolor: 'action.hover',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 1,
-                    }}
-                  >
-                    {feedback.wasApproved ? (
-                      feedback.wasSuccessful ? (
-                        <CheckCircle size={14} color="#22c55e" style={{ marginTop: 2, flexShrink: 0 }} />
-                      ) : (
-                        <XCircle size={14} color="#ef4444" style={{ marginTop: 2, flexShrink: 0 }} />
-                      )
-                    ) : (
-                      <XCircle size={14} color="#f97316" style={{ marginTop: 2, flexShrink: 0 }} />
-                    )}
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
-                        {formatActionType(feedback.actionType)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>
-                        {feedback.agentName} • {Math.round(feedback.originalConfidence * 100)}%
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                        {new Date(feedback.createdAt).toLocaleString()}
-                      </Typography>
                     </Box>
-                  </Box>
-                ))}
-              </Stack>
-            )}
-          </Box>
-        </Collapse>
+                  ))}
+                </Stack>
+              )}
+            </Box>
+          </Collapse>
+        </Paper>
 
         {/* Tips */}
-        <Box sx={{ p: 2, mt: 'auto', borderTop: 1, borderColor: 'divider' }}>
+        <Paper
+          sx={{
+            p: 2,
+            borderRadius: 1.5,
+            border: 1,
+            borderColor: 'divider',
+          }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <AlertTriangle size={14} color="#f59e0b" style={{ marginTop: 2, flexShrink: 0 }} />
+            <AlertTriangle size={14} color={theme.palette.warning.main} style={{ marginTop: 2, flexShrink: 0 }} />
             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
               High severity actions require approval. Low severity actions may auto-execute based on confidence.
             </Typography>
           </Box>
-        </Box>
-      </Paper>
+        </Paper>
+      </Box>
 
       {/* Notifications */}
       <Snackbar

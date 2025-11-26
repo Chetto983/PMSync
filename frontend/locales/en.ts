@@ -1186,6 +1186,31 @@ export const en: AppTranslations = {
     reject: 'Reject',
     confidence: 'confidence',
     tips: 'High severity actions require approval. Low severity actions may auto-execute based on confidence.',
+    // Dashboard components
+    learning: {
+      title: 'AI Learning Progress',
+      actionsProcessed: 'actions processed',
+      approvalRate: 'Approval Rate',
+      successRate: 'Success Rate',
+      totalActions: 'Total Actions',
+      noData: 'No learning data yet. Use the AI assistant to start training.',
+      actions: 'actions',
+      more: 'more',
+    },
+    activity: {
+      title: 'Agent Activity',
+      totalActions: 'total actions',
+      noData: 'No activity data yet',
+      approved: 'approved',
+    },
+    stats: {
+      pending: 'Pending',
+      approved: 'Approved',
+      executed: 'Executed',
+      rejected: 'Rejected',
+    },
+    awaitingApproval: 'awaiting approval',
+    allClear: 'All clear',
   },
   emailAi: {
     smartReplies: {

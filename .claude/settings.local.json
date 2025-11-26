@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(dir:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(powershell -Command \"cd ''d:\\MailAgent\\backend''; npx jest --testPathPattern=''multi-agent'' --passWithNoTests 2>&1 | Select-Object -First 100\")",
+      "Bash(powershell -Command \"cd ''d:\\MailAgent\\backend''; npx jest src/modules/ai/multi-agent --passWithNoTests 2>&1 | Select-Object -First 120\")",
+      "Bash(powershell -Command \"cd ''d:\\MailAgent\\backend''; npx jest src/modules/ai/multi-agent --passWithNoTests 2>&1 | Select-Object -Last 30\")",
+      "Bash(powershell:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cat:*)",
+      "Bash(xargs cat:*)",
+      "Bash(npx jest:*)"
     ],
     "deny": [],
     "ask": []

@@ -9,9 +9,10 @@ import {
 } from '@mui/material';
 import { Brain, Plug, CheckCircle, ArrowRight, Workflow } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { pmSyncColors } from '@/theme/appTheme';
 
 const moduleIcons = [Brain, Plug];
-const moduleColors = ['#55cae5', '#7650ce'];
+const moduleColors = [pmSyncColors.brand.cyan, pmSyncColors.brand.purple];
 
 // Animations
 const float = keyframes`
@@ -53,8 +54,8 @@ export function Modules() {
           width: '120%',
           height: '60%',
           background: isDark
-            ? 'radial-gradient(ellipse at center, rgba(118, 80, 206, 0.08) 0%, transparent 60%)'
-            : 'radial-gradient(ellipse at center, rgba(118, 80, 206, 0.05) 0%, transparent 60%)',
+            ? `radial-gradient(ellipse at center, ${alpha(pmSyncColors.brand.purple, 0.08)} 0%, transparent 60%)`
+            : `radial-gradient(ellipse at center, ${alpha(pmSyncColors.brand.purple, 0.05)} 0%, transparent 60%)`,
           pointerEvents: 'none',
         }}
       />
@@ -75,7 +76,7 @@ export function Modules() {
             width: { xs: 4, md: 6 },
             height: { xs: 4, md: 6 },
             borderRadius: '50%',
-            bgcolor: i % 2 === 0 ? '#55cae5' : '#b43db6',
+            bgcolor: i % 2 === 0 ? pmSyncColors.brand.cyan : pmSyncColors.brand.magenta,
             opacity: 0.3,
             top: `${pos.top}%`,
             left: `${pos.left}%`,
@@ -97,18 +98,18 @@ export function Modules() {
               px: 2.5,
               py: 1,
               borderRadius: 100,
-              bgcolor: isDark ? alpha('#55cae5', 0.15) : alpha('#55cae5', 0.08),
+              bgcolor: isDark ? alpha(pmSyncColors.brand.cyan, 0.15) : alpha(pmSyncColors.brand.cyan, 0.08),
               border: '1px solid',
-              borderColor: isDark ? alpha('#55cae5', 0.3) : alpha('#55cae5', 0.15),
+              borderColor: isDark ? alpha(pmSyncColors.brand.cyan, 0.3) : alpha(pmSyncColors.brand.cyan, 0.15),
             }}
           >
-            <Workflow size={14} color="#55cae5" />
+            <Workflow size={14} color={pmSyncColors.brand.cyan} />
             <Typography
               variant="overline"
               sx={{
                 fontWeight: 700,
                 letterSpacing: 1.5,
-                color: '#55cae5',
+                color: pmSyncColors.brand.cyan,
               }}
             >
               {t.landing.automationSection.badge}
@@ -128,7 +129,7 @@ export function Modules() {
             <Box
               component="span"
               sx={{
-                background: 'linear-gradient(135deg, #7650ce 0%, #b43db6 100%)',
+                background: pmSyncColors.brand.gradientReverse,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
               }}
@@ -167,8 +168,8 @@ export function Modules() {
                   border: '1px solid',
                   borderColor: isDark ? alpha(color, 0.25) : alpha(color, 0.15),
                   background: isDark
-                    ? `linear-gradient(145deg, ${alpha(color, 0.08)} 0%, ${alpha('#000', 0.4)} 100%)`
-                    : `linear-gradient(145deg, ${alpha('#fff', 0.95)} 0%, ${alpha(color, 0.03)} 100%)`,
+                    ? `linear-gradient(145deg, ${alpha(color, 0.08)} 0%, ${alpha(theme.palette.common.black, 0.4)} 100%)`
+                    : `linear-gradient(145deg, ${alpha(theme.palette.common.white, 0.95)} 0%, ${alpha(color, 0.03)} 100%)`,
                   backdropFilter: 'blur(20px)',
                   position: 'relative',
                   overflow: 'hidden',
@@ -198,7 +199,7 @@ export function Modules() {
                     left: '-50%',
                     width: '50%',
                     height: '200%',
-                    background: `linear-gradient(90deg, transparent, ${alpha('#fff', 0.08)}, transparent)`,
+                    background: `linear-gradient(90deg, transparent, ${alpha(theme.palette.common.white, 0.08)}, transparent)`,
                     transform: 'translateX(-100%) rotate(25deg)',
                     pointerEvents: 'none',
                   }}

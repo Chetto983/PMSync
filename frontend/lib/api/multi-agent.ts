@@ -91,6 +91,7 @@ export type MultiAgentResponse = {
   executionTimeMs: number;
   needsMoreInfo: boolean;
   clarifyingQuestions?: string[];
+  knowledgeHits?: KnowledgeHit[];
 };
 
 export type ActionFeedback = {
@@ -107,6 +108,16 @@ export type ActionFeedback = {
   adjustedConfidence: number | null;
   userFeedback: string | null;
   createdAt: string;
+};
+
+export type KnowledgeHit = {
+  id: string;
+  subject: string | null;
+  snippet: string;
+  source?: string | null;
+  score?: number | null;
+  emailId?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 // API

@@ -36,6 +36,7 @@ describe('MultiAgentService', () => {
 
   let mockGeneralAgent: any;
   let mockEmailAgent: any;
+  let mockCalendarAgent: any;
 
   beforeEach(() => {
     routerAgent = {
@@ -120,6 +121,17 @@ describe('MultiAgentService', () => {
       }),
     };
 
+    mockCalendarAgent = {
+      name: 'CalendarAgent',
+      description: 'Handles calendar operations',
+      supportedIntents: [AgentIntent.CALENDAR],
+      canHandle: jest.fn().mockImplementation((ctx) => ctx.intent === AgentIntent.CALENDAR),
+      process: jest.fn().mockResolvedValue({
+        messages: ['I can help with calendar'],
+        actions: [],
+      }),
+    };
+
     service = new MultiAgentService(
       routerAgent,
       hitlService,
@@ -132,6 +144,7 @@ describe('MultiAgentService', () => {
     // Register mock agents
     service.registerAgent(mockGeneralAgent as BaseAgent);
     service.registerAgent(mockEmailAgent as BaseAgent);
+    service.registerAgent(mockCalendarAgent as BaseAgent);
   });
 
   describe('registerAgent', () => {
@@ -221,6 +234,37 @@ describe('MultiAgentService', () => {
 
       expect(mockEmailAgent.process).toHaveBeenCalled();
       expect(result.messages).toContain('I can help with email');
+    });
+
+    it('normalizes forceAgent without suffix (calendar)', async () => {
+      routerAgent.classifyIntent.mockResolvedValueOnce({
+        intent: AgentIntent.CALENDAR,
+        confidence: 0.9,
+        reasoning: 'Calendar request',
+      });
+
+      const context = {
+        tenantId: TENANT_ID,
+        userId: USER_ID,
+        userMessage: 'Schedule something',
+      };
+
+      const result = await service.process(context as any, { forceAgent: 'calendar' });
+
+      expect(mockCalendarAgent.process).toHaveBeenCalled();
+      expect(result.agentUsed).toBe('CalendarAgent');
+    });
+
+    it('throws on unknown forceAgent', async () => {
+      const context = {
+        tenantId: TENANT_ID,
+        userId: USER_ID,
+        userMessage: 'Test message',
+      };
+
+      await expect(
+        service.process(context as any, { forceAgent: 'does-not-exist' }),
+      ).rejects.toThrow('Unknown agent: does-not-exist');
     });
 
     it('falls back to GeneralAgent for unknown intents', async () => {
@@ -333,10 +377,15 @@ describe('MultiAgentService', () => {
       const result = await service.approveAndExecuteAction(
         TENANT_ID,
         'action-1',
-        USER_ID,
+        { userId: USER_ID, role: 'user' },
       );
 
-      expect(hitlService.approveAction).toHaveBeenCalledWith(TENANT_ID, 'action-1', USER_ID);
+      expect(hitlService.approveAction).toHaveBeenCalledWith(
+        TENANT_ID,
+        'action-1',
+        USER_ID,
+        { userId: USER_ID, role: 'user' },
+      );
       expect(actionExecutor.execute).toHaveBeenCalled();
       // Result may be undefined if action executor returns void
       expect(result).toBeDefined();
@@ -356,7 +405,7 @@ describe('MultiAgentService', () => {
       await service.rejectAction(
         TENANT_ID,
         'action-1',
-        USER_ID,
+        { userId: USER_ID, role: 'user' },
         'User changed their mind',
       );
 

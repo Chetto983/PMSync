@@ -15,6 +15,7 @@ import { FeedbackService } from './services/feedback.service';
 import { MultiAgentService } from './services/multi-agent.service';
 import { ActionExecutorService } from './services/action-executor.service';
 import { MemoryService } from './services/memory.service';
+import { AIQueueService } from './services/ai-queue.service';
 import { PersonalizationService } from '../services/personalization.service';
 import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
@@ -25,6 +26,7 @@ import { GeneralAgent } from './agents/general.agent';
 import { EmailAgent } from './agents/email.agent';
 import { CalendarAgent } from './agents/calendar.agent';
 import { ContactsAgent } from './agents/contacts.agent';
+import { KnowledgeAgent } from './agents/knowledge.agent';
 
 /**
  * MultiAgentModule provides the intelligent secretary functionality.
@@ -53,6 +55,7 @@ import { ContactsAgent } from './agents/contacts.agent';
     MultiAgentService,
     ActionExecutorService,
     MemoryService,
+    AIQueueService,
     EmbeddingsService,
     MistralService,
     PersonalizationService,
@@ -63,6 +66,7 @@ import { ContactsAgent } from './agents/contacts.agent';
     EmailAgent,
     CalendarAgent,
     ContactsAgent,
+    KnowledgeAgent,
   ],
   exports: [
     MultiAgentService,
@@ -70,6 +74,7 @@ import { ContactsAgent } from './agents/contacts.agent';
     FeedbackService,
     ActionExecutorService,
     MemoryService,
+    AIQueueService,
     MistralService,
     RouterAgent,
   ],
@@ -81,6 +86,7 @@ export class MultiAgentModule implements OnModuleInit {
     private readonly emailAgent: EmailAgent,
     private readonly calendarAgent: CalendarAgent,
     private readonly contactsAgent: ContactsAgent,
+    private readonly knowledgeAgent: KnowledgeAgent,
   ) {}
 
   /**
@@ -92,5 +98,6 @@ export class MultiAgentModule implements OnModuleInit {
     this.multiAgentService.registerAgent(this.emailAgent);
     this.multiAgentService.registerAgent(this.calendarAgent);
     this.multiAgentService.registerAgent(this.contactsAgent);
+    this.multiAgentService.registerAgent(this.knowledgeAgent);
   }
 }

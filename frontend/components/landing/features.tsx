@@ -9,9 +9,10 @@ import {
 } from '@mui/material';
 import { Inbox, Sparkles, BarChart3, CheckCircle, Zap, Bot, Lock } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { pmSyncColors } from '@/theme/appTheme';
 
 const featureIcons = [Inbox, Sparkles, BarChart3];
-const featureColors = ['#55cae5', '#7650ce', '#b43db6'];
+const featureColors = [pmSyncColors.brand.cyan, pmSyncColors.brand.purple, pmSyncColors.brand.magenta];
 
 // Animations
 const shimmer = keyframes`
@@ -47,7 +48,7 @@ export function Features() {
           width: 500,
           height: 500,
           borderRadius: '50%',
-          background: `radial-gradient(circle, ${alpha('#55cae5', 0.08)} 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${alpha(pmSyncColors.brand.cyan, 0.08)} 0%, transparent 70%)`,
           filter: 'blur(60px)',
           pointerEvents: 'none',
         }}
@@ -60,7 +61,7 @@ export function Features() {
           width: 400,
           height: 400,
           borderRadius: '50%',
-          background: `radial-gradient(circle, ${alpha('#b43db6', 0.08)} 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${alpha(pmSyncColors.brand.magenta, 0.08)} 0%, transparent 70%)`,
           filter: 'blur(60px)',
           pointerEvents: 'none',
         }}
@@ -77,18 +78,18 @@ export function Features() {
               px: 2.5,
               py: 1,
               borderRadius: 100,
-              bgcolor: isDark ? alpha('#7650ce', 0.15) : alpha('#7650ce', 0.08),
+              bgcolor: isDark ? alpha(pmSyncColors.brand.purple, 0.15) : alpha(pmSyncColors.brand.purple, 0.08),
               border: '1px solid',
-              borderColor: isDark ? alpha('#7650ce', 0.3) : alpha('#7650ce', 0.15),
+              borderColor: isDark ? alpha(pmSyncColors.brand.purple, 0.3) : alpha(pmSyncColors.brand.purple, 0.15),
             }}
           >
-            <Zap size={14} color="#7650ce" />
+            <Zap size={14} color={pmSyncColors.brand.purple} />
             <Typography
               variant="overline"
               sx={{
                 fontWeight: 700,
                 letterSpacing: 1.5,
-                color: '#7650ce',
+                color: pmSyncColors.brand.purple,
               }}
             >
               {t.landing.featuresSection.badge}
@@ -108,7 +109,7 @@ export function Features() {
             <Box
               component="span"
               sx={{
-                background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 50%, #b43db6 100%)',
+                background: pmSyncColors.brand.gradientFull,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
               }}
@@ -151,8 +152,8 @@ export function Features() {
                   border: '1px solid',
                   borderColor: isDark ? alpha(color, 0.2) : alpha(color, 0.12),
                   background: isDark
-                    ? `linear-gradient(145deg, ${alpha(color, 0.06)} 0%, ${alpha('#000', 0.3)} 100%)`
-                    : `linear-gradient(145deg, ${alpha('#fff', 0.9)} 0%, ${alpha(color, 0.03)} 100%)`,
+                    ? `linear-gradient(145deg, ${alpha(color, 0.06)} 0%, ${alpha(theme.palette.common.black, 0.3)} 100%)`
+                    : `linear-gradient(145deg, ${alpha(theme.palette.common.white, 0.9)} 0%, ${alpha(color, 0.03)} 100%)`,
                   backdropFilter: 'blur(20px)',
                   overflow: 'hidden',
                   transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -179,7 +180,7 @@ export function Features() {
                     left: 0,
                     width: '50%',
                     height: '100%',
-                    background: `linear-gradient(90deg, transparent, ${alpha('#fff', 0.1)}, transparent)`,
+                    background: `linear-gradient(90deg, transparent, ${alpha(theme.palette.common.white, 0.1)}, transparent)`,
                     transform: 'translateX(-100%)',
                     pointerEvents: 'none',
                   }}
@@ -299,7 +300,7 @@ export function Features() {
                 borderRadius: 3,
                 border: '1px solid',
                 borderColor: 'divider',
-                background: isDark ? alpha('#fff', 0.02) : alpha('#fff', 0.5),
+                background: isDark ? alpha(theme.palette.common.white, 0.02) : alpha(theme.palette.common.white, 0.5),
                 backdropFilter: 'blur(10px)',
                 transition: 'all 0.3s ease',
                 animation: `${float} ${4 + index * 0.5}s ease-in-out infinite`,

@@ -1183,6 +1183,33 @@ export const it: AppTranslations = {
     reject: 'Rifiuta',
     confidence: 'confidenza',
     tips: 'Le azioni ad alta severità richiedono approvazione. Le azioni a bassa severità possono essere eseguite automaticamente in base alla confidenza.',
+    // AI Dashboard - Learning Progress
+    learning: {
+      title: 'Progresso Apprendimento',
+      actionsProcessed: 'Azioni Elaborate',
+      approvalRate: 'Tasso Approvazione',
+      successRate: 'Tasso Successo',
+      totalActions: 'Azioni totali',
+      noData: 'Nessun dato di apprendimento',
+      actions: 'azioni',
+      more: 'altri',
+    },
+    // AI Dashboard - Agent Activity
+    activity: {
+      title: 'Attività Agenti',
+      totalActions: 'azioni totali',
+      noData: 'Nessun dato di attività',
+      approved: 'approvate',
+    },
+    // AI Dashboard - Stats
+    stats: {
+      pending: 'In Attesa',
+      approved: 'Approvate',
+      executed: 'Eseguite',
+      rejected: 'Rifiutate',
+    },
+    awaitingApproval: 'in attesa di approvazione',
+    allClear: 'Tutto a posto',
   },
   emailAi: {
     smartReplies: {

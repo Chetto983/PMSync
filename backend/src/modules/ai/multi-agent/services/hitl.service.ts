@@ -4,6 +4,8 @@ import { RealtimeEventsService } from '../../../realtime/services/realtime-event
 import { AgentAction, ActionSeverity } from '../interfaces/agent-action.interface';
 import { Prisma } from '@prisma/client';
 
+export type ActingUser = { userId: string; role: string };
+
 /**
  * Status of a pending action.
  */
@@ -202,7 +204,11 @@ export class HitlService {
    * Get a single pending action by ID.
    * Enforces tenant isolation.
    */
-  async getPendingAction(tenantId: string, actionId: string) {
+  async getPendingAction(
+    tenantId: string,
+    actionId: string,
+    actingUser?: ActingUser,
+  ) {
     const action = await this.prisma.agentPendingAction.findFirst({
       where: {
         id: actionId,
@@ -219,6 +225,11 @@ export class HitlService {
       );
     }
 
+    // Optional ownership enforcement (skip for admins)
+    if (actingUser && !this.canActOnAction(action.userId, actingUser)) {
+      throw new ForbiddenException('You are not allowed to access this action');
+    }
+
     return action;
   }
 
@@ -230,13 +241,14 @@ export class HitlService {
     tenantId: string,
     actionId: string,
     approvedBy: string,
+    actingUser?: ActingUser,
   ): Promise<ApprovalResult> {
     this.logger.debug(
       `Approving action ${actionId} for tenant ${tenantId} by ${approvedBy}`,
     );
 
     // Verify action exists and belongs to tenant
-    const action = await this.getPendingAction(tenantId, actionId);
+    const action = await this.getPendingAction(tenantId, actionId, actingUser);
 
     // Check if action is still pending
     const status = action.status as PendingActionStatus;
@@ -293,6 +305,7 @@ export class HitlService {
     tenantId: string,
     actionId: string,
     rejectedBy: string,
+    actingUser?: ActingUser,
     reason?: string,
   ): Promise<ApprovalResult> {
     this.logger.debug(
@@ -300,7 +313,7 @@ export class HitlService {
     );
 
     // Verify action exists and belongs to tenant
-    const action = await this.getPendingAction(tenantId, actionId);
+    const action = await this.getPendingAction(tenantId, actionId, actingUser);
 
     // Check if action is still pending
     const status = action.status as PendingActionStatus;
@@ -487,8 +500,8 @@ export class HitlService {
    * Delete all agent data for a specific user within a tenant.
    */
   async deleteUserData(tenantId: string, userId: string): Promise<void> {
-    this.logger.warn(
-      `Deleting agent data for user ${userId} in tenant ${tenantId}`,
+      this.logger.warn(
+        `Deleting agent data for user ${userId} in tenant ${tenantId}`,
     );
 
     await this.prisma.$transaction([
@@ -501,5 +514,20 @@ export class HitlService {
     ]);
 
     this.logger.log(`Deleted agent data for user ${userId}`);
+  }
+
+  /**
+   * Validate if acting user can view/modify the action.
+   */
+  private canActOnAction(actionUserId: string, actingUser: ActingUser): boolean {
+    if (!actingUser) {
+      return false;
+    }
+
+    if (actingUser.role === 'admin' || actingUser.role === 'super-admin') {
+      return true;
+    }
+
+    return actionUserId === actingUser.userId;
   }
 }

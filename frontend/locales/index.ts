@@ -1107,6 +1107,31 @@ export interface AppTranslations {
     reject: string;
     confidence: string;
     tips: string;
+    // Dashboard components
+    learning?: {
+      title: string;
+      actionsProcessed: string;
+      approvalRate: string;
+      successRate: string;
+      totalActions: string;
+      noData: string;
+      actions: string;
+      more: string;
+    };
+    activity?: {
+      title: string;
+      totalActions: string;
+      noData: string;
+      approved: string;
+    };
+    stats?: {
+      pending: string;
+      approved: string;
+      executed: string;
+      rejected: string;
+    };
+    awaitingApproval?: string;
+    allClear?: string;
   };
   emailAi?: {
     smartReplies: {

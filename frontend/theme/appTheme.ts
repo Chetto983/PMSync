@@ -1,7 +1,27 @@
 import { createTheme, ThemeOptions } from '@mui/material/styles';
 
-// PmSync Color Palette (basato sulle immagini analizzate)
+// PmSync Color Palette
+// Brand colors from landing page + Material Design semantic colors
 export const pmSyncColors = {
+  // Brand Gradient Colors (Landing Page)
+  brand: {
+    cyan: '#55cae5',      // Primary brand color
+    purple: '#7650ce',    // Secondary brand color
+    magenta: '#b43db6',   // Accent brand color
+    // Pre-computed gradients for consistency
+    gradient: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
+    gradientFull: 'linear-gradient(135deg, #55cae5 0%, #7650ce 50%, #b43db6 100%)',
+    gradientReverse: 'linear-gradient(135deg, #7650ce 0%, #b43db6 100%)',
+  },
+  // Semantic Colors for categories/status
+  semantic: {
+    email: '#0B7EFF',     // Blue - Email related
+    calendar: '#FF9800',  // Orange - Calendar related
+    contacts: '#9C27B0',  // Purple - Contacts related
+    tasks: '#00C853',     // Green - Tasks/Success
+    important: '#FFB300', // Amber - Important/Star
+    attachment: '#607D8B', // Blue Grey - Attachments
+  },
   // Dark Mode Colors
   dark: {
     background: {

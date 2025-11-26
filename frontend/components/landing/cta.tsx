@@ -11,6 +11,7 @@ import {
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { pmSyncColors } from '@/theme/appTheme';
 
 // CSS Keyframe animations
 const float = keyframes`
@@ -48,13 +49,13 @@ export function Cta() {
             borderRadius: 5,
             overflow: 'hidden',
             background: isDark
-              ? 'linear-gradient(135deg, rgba(48, 62, 117, 0.9) 0%, rgba(69, 32, 119, 0.9) 100%)'
-              : 'linear-gradient(135deg, #303e75 0%, #452077 100%)',
-            boxShadow: '0 20px 80px rgba(69, 32, 119, 0.3)',
+              ? `linear-gradient(135deg, ${alpha(pmSyncColors.brand.purple, 0.7)} 0%, ${alpha(pmSyncColors.brand.magenta, 0.7)} 100%)`
+              : `linear-gradient(135deg, ${pmSyncColors.brand.purple} 0%, ${pmSyncColors.brand.magenta} 100%)`,
+            boxShadow: `0 20px 80px ${alpha(pmSyncColors.brand.purple, 0.3)}`,
             transition: 'transform 0.3s ease, box-shadow 0.3s ease',
             '&:hover': {
               transform: { md: 'translateY(-4px)' },
-              boxShadow: '0 30px 100px rgba(69, 32, 119, 0.4)',
+              boxShadow: `0 30px 100px ${alpha(pmSyncColors.brand.purple, 0.4)}`,
             },
           }}
         >
@@ -63,8 +64,8 @@ export function Cta() {
             sx={{
               position: 'absolute',
               inset: 0,
-              backgroundImage: `radial-gradient(circle at 20% 80%, ${alpha('#55cae5', 0.15)} 0%, transparent 50%),
-                               radial-gradient(circle at 80% 20%, ${alpha('#b43db6', 0.15)} 0%, transparent 50%)`,
+              backgroundImage: `radial-gradient(circle at 20% 80%, ${alpha(pmSyncColors.brand.cyan, 0.15)} 0%, transparent 50%),
+                               radial-gradient(circle at 80% 20%, ${alpha(pmSyncColors.brand.magenta, 0.15)} 0%, transparent 50%)`,
               pointerEvents: 'none',
             }}
           />
@@ -74,7 +75,7 @@ export function Cta() {
             sx={{
               position: 'absolute',
               inset: 0,
-              background: `linear-gradient(90deg, transparent, ${alpha('#55cae5', 0.1)}, transparent)`,
+              background: `linear-gradient(90deg, transparent, ${alpha(pmSyncColors.brand.cyan, 0.1)}, transparent)`,
               backgroundSize: '200% 100%',
               animation: `${shimmer} 8s ease-in-out infinite`,
               pointerEvents: 'none',
@@ -83,12 +84,12 @@ export function Cta() {
 
           {/* Floating particles */}
           {[
-            { size: 8, top: '15%', left: '10%', color: '#55cae5', delay: 0 },
-            { size: 6, top: '70%', left: '15%', color: '#b43db6', delay: 0.5 },
-            { size: 10, top: '25%', right: '20%', color: '#55cae5', delay: 1 },
-            { size: 5, top: '60%', right: '10%', color: '#b43db6', delay: 1.5 },
-            { size: 7, top: '40%', left: '50%', color: '#7650ce', delay: 2 },
-            { size: 4, top: '80%', right: '40%', color: '#55cae5', delay: 2.5 },
+            { size: 8, top: '15%', left: '10%', color: pmSyncColors.brand.cyan, delay: 0 },
+            { size: 6, top: '70%', left: '15%', color: pmSyncColors.brand.magenta, delay: 0.5 },
+            { size: 10, top: '25%', right: '20%', color: pmSyncColors.brand.cyan, delay: 1 },
+            { size: 5, top: '60%', right: '10%', color: pmSyncColors.brand.magenta, delay: 1.5 },
+            { size: 7, top: '40%', left: '50%', color: pmSyncColors.brand.purple, delay: 2 },
+            { size: 4, top: '80%', right: '40%', color: pmSyncColors.brand.cyan, delay: 2.5 },
           ].map((particle, i) => (
             <Box
               key={i}
@@ -117,7 +118,7 @@ export function Cta() {
               width: 300,
               height: 300,
               borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(85, 202, 229, 0.2) 0%, transparent 70%)',
+              background: `radial-gradient(circle, ${alpha(pmSyncColors.brand.cyan, 0.2)} 0%, transparent 70%)`,
               animation: `${pulse} 4s ease-in-out infinite`,
               pointerEvents: 'none',
             }}
@@ -130,7 +131,7 @@ export function Cta() {
               width: 250,
               height: 250,
               borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(180, 61, 182, 0.2) 0%, transparent 70%)',
+              background: `radial-gradient(circle, ${alpha(pmSyncColors.brand.magenta, 0.2)} 0%, transparent 70%)`,
               animation: `${pulse} 5s ease-in-out infinite`,
               animationDelay: '1s',
               pointerEvents: 'none',

@@ -24,6 +24,7 @@ import { useState } from 'react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { pmSyncColors } from '@/theme/appTheme';
 import dynamic from 'next/dynamic';
 
 const Hero = dynamic(() => import('@/components/landing/hero').then((mod) => mod.Hero));
@@ -56,8 +57,8 @@ export default function Home() {
           alignItems: 'center',
           justifyContent: 'center',
           background: isDark
-            ? 'radial-gradient(ellipse at center, rgba(118, 80, 206, 0.1) 0%, transparent 70%)'
-            : 'radial-gradient(ellipse at center, rgba(85, 202, 229, 0.1) 0%, transparent 70%)',
+            ? `radial-gradient(ellipse at center, ${alpha(pmSyncColors.brand.purple, 0.1)} 0%, transparent 70%)`
+            : `radial-gradient(ellipse at center, ${alpha(pmSyncColors.brand.cyan, 0.1)} 0%, transparent 70%)`,
         }}
       >
         <Stack spacing={2} alignItems="center">
@@ -93,10 +94,10 @@ export default function Home() {
         sx={{
           backdropFilter: 'blur(20px)',
           background: isDark
-            ? alpha('#0a0a0f', 0.8)
-            : alpha('#ffffff', 0.85),
+            ? alpha(theme.palette.background.default, 0.8)
+            : alpha(theme.palette.background.paper, 0.85),
           borderBottom: '1px solid',
-          borderColor: isDark ? alpha('#fff', 0.08) : alpha('#000', 0.06),
+          borderColor: 'divider',
         }}
       >
         <Container maxWidth="lg">
@@ -131,7 +132,7 @@ export default function Home() {
                     variant="h6"
                     fontWeight={800}
                     sx={{
-                      background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
+                      background: pmSyncColors.brand.gradient,
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
                       lineHeight: 1.2,
@@ -168,7 +169,7 @@ export default function Home() {
                     transition: 'all 0.2s ease',
                     '&:hover': {
                       color: 'text.primary',
-                      bgcolor: isDark ? alpha('#fff', 0.05) : alpha('#000', 0.03),
+                      bgcolor: 'action.hover',
                     },
                   }}
                 >
@@ -205,11 +206,11 @@ export default function Home() {
                   py: 1,
                   fontWeight: 600,
                   borderRadius: 2.5,
-                  background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
-                  boxShadow: '0 4px 15px rgba(85, 202, 229, 0.3)',
+                  background: pmSyncColors.brand.gradient,
+                  boxShadow: `0 4px 15px ${alpha(pmSyncColors.brand.cyan, 0.3)}`,
                   transition: 'all 0.3s ease',
                   '&:hover': {
-                    boxShadow: '0 6px 20px rgba(85, 202, 229, 0.4)',
+                    boxShadow: `0 6px 20px ${alpha(pmSyncColors.brand.cyan, 0.4)}`,
                     transform: 'translateY(-2px)',
                   },
                 }}
@@ -282,7 +283,7 @@ export default function Home() {
               fullWidth
               sx={{
                 borderRadius: 2,
-                background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
+                background: pmSyncColors.brand.gradient,
               }}
               endIcon={<ArrowRight size={16} />}
             >

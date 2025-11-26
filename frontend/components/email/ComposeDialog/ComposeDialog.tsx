@@ -27,6 +27,7 @@ import { useDraftAutosave } from '@/hooks/use-draft-autosave';
 import { useComposeEditor } from '@/hooks/use-compose-editor';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { EditorToolbar } from './EditorToolbar';
+import { SmartReplySuggestions } from '@/components/email/ai/SmartReplySuggestions';
 
 export interface ComposeDialogProps {
   /**
@@ -55,6 +56,8 @@ export interface ComposeDialogProps {
     body?: string;
     inReplyTo?: string;
     references?: string;
+    /** Original email ID for smart replies */
+    originalEmailId?: string;
   };
 
   /**
@@ -117,6 +120,7 @@ export function ComposeDialog({
   const [attachments, setAttachments] = useState<EmailAttachmentUpload[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [smartRepliesDismissed, setSmartRepliesDismissed] = useState(false);
 
   // Provider state
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
@@ -155,6 +159,10 @@ export function ComposeDialog({
       setShowCc(false);
       setShowBcc(false);
       setAttachments([]);
+    }
+    // Reset smart replies when dialog opens
+    if (open) {
+      setSmartRepliesDismissed(false);
     }
   }, [open, prefillData]);
 
@@ -423,6 +431,15 @@ export function ComposeDialog({
     onClose();
   }, [hasChanges, sending, onClose, t]);
 
+  // Handle smart reply selection
+  const handleSmartReplySelect = useCallback((reply: string) => {
+    setBody(reply);
+    if (editor) {
+      editor.commands.setContent(reply);
+    }
+    setSmartRepliesDismissed(true);
+  }, [editor]);
+
   return (
     <Dialog
       open={open}
@@ -661,6 +678,19 @@ export function ComposeDialog({
               />
             </Box>
           </Box>
+
+          {/* Smart Reply Suggestions - Only for reply mode */}
+          {mode === 'reply' && prefillData?.originalEmailId && !smartRepliesDismissed && (
+            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+              <SmartReplySuggestions
+                emailId={prefillData.originalEmailId}
+                onSelectReply={handleSmartReplySelect}
+                onDismiss={() => setSmartRepliesDismissed(true)}
+                defaultExpanded={false}
+                showToneSelector={true}
+              />
+            </Box>
+          )}
 
           {/* Attachments Preview */}
           {attachments.length > 0 && (

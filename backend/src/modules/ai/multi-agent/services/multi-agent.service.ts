@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { RouterAgent, IntentClassificationResult } from '../agents/router.agent';
 import { BaseAgent } from '../agents/base.agent';
 import { HitlService, PendingActionStatus } from './hitl.service';
@@ -7,6 +7,7 @@ import { ActionExecutorService } from './action-executor.service';
 import { MemoryService } from './memory.service';
 import { AgentContext, AgentIntent } from '../interfaces/agent-context.interface';
 import { AgentAction, AgentActionType } from '../interfaces/agent-action.interface';
+import { KnowledgeHitSummary } from '../interfaces/agent-result.interface';
 import { PersonalizationService, PersonalizationContext } from '../../services/personalization.service';
 
 /**
@@ -36,6 +37,9 @@ export interface MultiAgentResponse {
 
   /** Questions to clarify intent */
   clarifyingQuestions?: string[];
+
+  /** RAG/knowledge results returned by an agent */
+  knowledgeHits?: KnowledgeHitSummary[];
 }
 
 /**
@@ -207,6 +211,7 @@ export class MultiAgentService {
         executionTimeMs: Date.now() - startTime,
         needsMoreInfo: result.needsMoreInfo ?? false,
         clarifyingQuestions: result.clarifyingQuestions,
+        knowledgeHits: result.knowledgeHits ?? result.metadata?.knowledgeHits,
       };
 
       // Save assistant response to memory (FIFO managed)
@@ -288,11 +293,12 @@ export class MultiAgentService {
   ): BaseAgent | null {
     // Use forced agent if specified
     if (options.forceAgent) {
-      const agent = this.agents.get(options.forceAgent);
-      if (agent) {
-        return agent;
+      const agent = this.resolveAgentByName(options.forceAgent);
+      if (!agent) {
+        this.logger.warn(`Forced agent ${options.forceAgent} not found`);
+        throw new BadRequestException(`Unknown agent: ${options.forceAgent}`);
       }
-      this.logger.warn(`Forced agent ${options.forceAgent} not found`);
+      return agent;
     }
 
     // Find agent that can handle the intent
@@ -307,6 +313,23 @@ export class MultiAgentService {
     }
 
     this.logger.warn(`No agent found for intent: ${context.intent}`);
+    return null;
+  }
+
+  /**
+   * Resolve agent name in a forgiving way (case-insensitive, optional "Agent" suffix).
+   */
+  private resolveAgentByName(name: string): BaseAgent | null {
+    const normalized = name.toLowerCase();
+    for (const agent of this.agents.values()) {
+      const agentName = agent.name.toLowerCase();
+      const agentBase = agentName.endsWith('agent')
+        ? agentName.slice(0, -'agent'.length)
+        : agentName;
+      if (normalized === agentName || normalized === agentBase) {
+        return agent;
+      }
+    }
     return null;
   }
 
@@ -464,15 +487,24 @@ export class MultiAgentService {
   async approveAndExecuteAction(
     tenantId: string,
     actionId: string,
-    approvedBy: string,
+    approvedBy: { userId: string; role: string },
     context?: AgentContext,
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Get the pending action
-      const pendingAction = await this.hitlService.getPendingAction(tenantId, actionId);
+      const pendingAction = await this.hitlService.getPendingAction(
+        tenantId,
+        actionId,
+        { userId: approvedBy.userId, role: approvedBy.role },
+      );
 
       // Approve it
-      await this.hitlService.approveAction(tenantId, actionId, approvedBy);
+      await this.hitlService.approveAction(
+        tenantId,
+        actionId,
+        approvedBy.userId,
+        { userId: approvedBy.userId, role: approvedBy.role },
+      );
 
       // Execute the action
       const action: AgentAction = {
@@ -523,13 +555,23 @@ export class MultiAgentService {
   async rejectAction(
     tenantId: string,
     actionId: string,
-    rejectedBy: string,
+    rejectedBy: { userId: string; role: string },
     reason?: string,
   ): Promise<void> {
-    const pendingAction = await this.hitlService.getPendingAction(tenantId, actionId);
+    const pendingAction = await this.hitlService.getPendingAction(
+      tenantId,
+      actionId,
+      { userId: rejectedBy.userId, role: rejectedBy.role },
+    );
 
     // Reject it
-    await this.hitlService.rejectAction(tenantId, actionId, rejectedBy, reason);
+    await this.hitlService.rejectAction(
+      tenantId,
+      actionId,
+      rejectedBy.userId,
+      { userId: rejectedBy.userId, role: rejectedBy.role },
+      reason,
+    );
 
     // Record feedback for learning
     await this.feedbackService.recordFeedback({

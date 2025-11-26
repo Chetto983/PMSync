@@ -45,6 +45,7 @@ import { LabelSelector } from '@/components/labels';
 import { useLabelStore } from '@/stores/label-store';
 import { formatEmailHeaderDate, parseEmailFrom, scrollContainerSx } from './shared/utils';
 import { emailApi } from '@/lib/api/email';
+import { EmailSummaryPanel } from '@/components/email/ai/EmailSummaryPanel';
 
 /**
  * Props for ThreadDisplay component
@@ -708,6 +709,17 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
                 selectedLabels={email.emailLabels?.map((el) => el.label) || []}
                 onLabelsChange={handleLabelsChange}
                 variant="chips"
+              />
+            </Box>
+          )}
+
+          {/* AI Summary Panel */}
+          {primaryEmail && (
+            <Box sx={{ mb: 2 }}>
+              <EmailSummaryPanel
+                emailId={primaryEmail.id}
+                defaultExpanded={false}
+                showExtractedItems={true}
               />
             </Box>
           )}
