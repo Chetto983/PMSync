@@ -109,24 +109,6 @@ export default function Home() {
             }}
             disableGutters
           >
-            {/* Logo */}
-            <Link href="/" style={{ textDecoration: 'none' }}>
-              <Box
-                sx={{
-                  transition: 'transform 0.3s ease',
-                  '&:hover': { transform: 'scale(1.02)' },
-                }}
-              >
-                <Image
-                  src="/Logo PMSync.svg"
-                  alt={`${t.app.name} logo`}
-                  width={200}
-                  height={200}
-                  priority
-                />
-              </Box>
-            </Link>
-
             {/* Desktop Nav Links */}
             <Box
               sx={{
