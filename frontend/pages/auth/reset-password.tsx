@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Box, Container, Stack, Typography } from '@mui/material';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api-client';
@@ -95,6 +96,15 @@ export default function ResetPasswordPage() {
       }}
     >
       <Container maxWidth="sm">
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
+          <Image
+            src="/Logo PMSync.svg"
+            alt="PMSync logo"
+            width={200}
+            height={200}
+            priority
+          />
+        </Box>
         <Card>
           <CardHeader>
             <CardTitle>{copy.title}</CardTitle>

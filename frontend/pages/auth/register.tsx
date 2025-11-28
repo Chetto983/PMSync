@@ -87,8 +87,8 @@ export default function RegisterPage() {
           <Image
             src="/Logo PMSync.svg"
             alt="PMSync logo"
-            width={400}
-            height={400}
+            width={200}
+            height={200}
             priority
           />
         </Box>
