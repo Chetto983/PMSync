@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { debounce } from 'lodash-es';
 import { websocketClient } from '@/lib/websocket-client';
 import { useEmailStore } from '@/stores/email-store';
 import { useCalendarStore } from '@/stores/calendar-store';
@@ -162,6 +163,12 @@ export function useWebSocket(token: string | null, enabled = true) {
       console.log('[useWebSocket] Registering event listeners...');
     }
 
+    const emitFolderRefresh = debounce((detail?: { type: 'created' | 'renamed' | 'deleted'; payload: any }) => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('folders:refresh', { detail }));
+      }
+    }, 300);
+
     // EMAIL EVENTS - with error recovery
     const unsubEmailNew = websocketClient.onEmailNew(async (data) => {
       console.log('[WS] Email new:', data);
@@ -246,6 +253,20 @@ export function useWebSocket(token: string | null, enabled = true) {
       } catch (error) {
         console.error('[WS] Error processing folder counts update:', error);
       }
+    });
+
+    // FOLDER EVENTS - trigger global refresh for sidebar
+    const unsubFolderCreated = websocketClient.onFolderCreated((data) => {
+      console.log('[WS] Folder created:', data);
+      emitFolderRefresh({ type: 'created', payload: data });
+    });
+    const unsubFolderRenamed = websocketClient.onFolderRenamed((data) => {
+      console.log('[WS] Folder renamed:', data);
+      emitFolderRefresh({ type: 'renamed', payload: data });
+    });
+    const unsubFolderDeleted = websocketClient.onFolderDeleted((data) => {
+      console.log('[WS] Folder deleted:', data);
+      emitFolderRefresh({ type: 'deleted', payload: data });
     });
 
     const unsubThreadUpdate = websocketClient.onThreadUpdate((data) => {
@@ -392,21 +413,6 @@ export function useWebSocket(token: string | null, enabled = true) {
       }
     });
 
-    // FOLDER EVENTS - trigger folder refresh on folder changes
-    const unsubFolderCreated = websocketClient.onFolderCreated((data) => {
-      console.log('[WS] Folder created:', data);
-      // Folder list will be refreshed via the onFoldersRefresh callback in EmailSidebar
-      // This event is primarily for logging and potential future optimizations
-    });
-
-    const unsubFolderRenamed = websocketClient.onFolderRenamed((data) => {
-      console.log('[WS] Folder renamed:', data);
-    });
-
-    const unsubFolderDeleted = websocketClient.onFolderDeleted((data) => {
-      console.log('[WS] Folder deleted:', data);
-    });
-
     if (process.env.NODE_ENV !== 'production') {
       console.log('[useWebSocket] All event listeners registered successfully');
     }
@@ -419,6 +425,9 @@ export function useWebSocket(token: string | null, enabled = true) {
       unsubEmailDelete();
       unsubUnreadCount();
       unsubFolderCounts();
+      unsubFolderCreated();
+      unsubFolderRenamed();
+      unsubFolderDeleted();
       unsubThreadUpdate();
       unsubBatchProcessed();
       unsubCalendarNew();

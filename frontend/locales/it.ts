@@ -1190,6 +1190,8 @@ export const it: AppTranslations = {
       moveEmailsHere: 'Sposta Email Qui',
       refresh: 'Aggiorna',
       systemFolder: 'Cartella di sistema',
+      duplicateError: 'Esiste già una cartella con questo nome.',
+      genericError: 'Operazione sulla cartella non riuscita. Riprova.',
     },
   },
   cookies: {

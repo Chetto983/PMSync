@@ -1193,6 +1193,8 @@ export const en: AppTranslations = {
       moveEmailsHere: 'Move Emails Here',
       refresh: 'Refresh',
       systemFolder: 'System folder',
+      duplicateError: 'A folder with this name already exists.',
+      genericError: 'Folder operation failed. Please try again.',
     },
   },
   cookies: {

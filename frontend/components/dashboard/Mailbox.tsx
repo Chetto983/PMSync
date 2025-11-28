@@ -559,6 +559,76 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     }
   }, []);
 
+  // Refresh folders when realtime folder events fire
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | { type: 'created' | 'renamed' | 'deleted'; payload: any }
+        | undefined;
+
+      if (!detail) {
+        loadFolderMetadata();
+        return;
+      }
+
+      const { type, payload } = detail;
+      setRemoteFolders((prev) => {
+        if (type === 'created') {
+          const existing = prev.find((f) => f.id === payload.folderId);
+          if (existing) return prev;
+          const folderName = normalizeFolderName(payload.folderName, undefined);
+          const IconComponent = getIconForFolderUtil(undefined);
+          const provider = providers.find((p) => p.id === payload.providerId);
+          return [
+            {
+              id: payload.folderId,
+              label: payload.folderName,
+              icon: <IconComponent size={20} />,
+              count: 0,
+              providerId: payload.providerId,
+              providerEmail: provider?.email || '',
+              filterFolder: folderName,
+              specialUse: undefined,
+              queryOverrides: {
+                providerId: payload.providerId,
+                folder: folderName,
+              },
+            },
+            ...prev,
+          ];
+        }
+
+        if (type === 'renamed') {
+          return prev.map((f) => {
+            if (f.id !== payload.folderId) return f;
+            const folderName = normalizeFolderName(payload.folderName, f.specialUse);
+            return {
+              ...f,
+              label: payload.folderName,
+              filterFolder: folderName,
+              queryOverrides: {
+                ...(f.queryOverrides || {}),
+                folder: folderName,
+              },
+            };
+          });
+        }
+
+        if (type === 'deleted') {
+          return prev.filter((f) => f.id !== payload.folderId);
+        }
+
+        return prev;
+      });
+
+      // Schedule a full refresh to reconcile counts/paths
+      loadFolderMetadata();
+    };
+
+    window.addEventListener('folders:refresh', handler);
+    return () => window.removeEventListener('folders:refresh', handler);
+  }, [loadFolderMetadata, providers]);
+
   // Load emails data
   const loadData = useCallback(async () => {
     // Calculate active folder directly from selectedFolderId to avoid stale closure

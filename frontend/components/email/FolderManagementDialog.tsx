@@ -68,7 +68,7 @@ export function FolderManagementDialog({
 
   const handleSubmit = async () => {
     if (mode !== 'delete' && !name.trim()) {
-      setError('Folder name is required');
+      setError(t.dashboard?.folders?.folderName || 'Folder name is required');
       return;
     }
 
@@ -78,7 +78,7 @@ export function FolderManagementDialog({
     try {
       if (mode === 'create') {
         if (!providerId) {
-          setError('Provider ID is required');
+          setError(t.dashboard?.folders?.genericError || 'Provider ID is required');
           setLoading(false);
           return;
         }
@@ -89,7 +89,7 @@ export function FolderManagementDialog({
         });
       } else if (mode === 'rename') {
         if (!folder) {
-          setError('Folder is required for rename');
+          setError(t.dashboard?.folders?.genericError || 'Folder is required for rename');
           setLoading(false);
           return;
         }
@@ -98,7 +98,7 @@ export function FolderManagementDialog({
         });
       } else if (mode === 'delete') {
         if (!folder) {
-          setError('Folder is required for delete');
+          setError(t.dashboard?.folders?.genericError || 'Folder is required for delete');
           setLoading(false);
           return;
         }
@@ -108,8 +108,13 @@ export function FolderManagementDialog({
       onSuccess();
       onClose();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Operation failed';
-      setError(message);
+      const status = (err as any)?.response?.status;
+      const apiMessage = (err as any)?.response?.data?.message;
+      if (status === 409) {
+        setError(t.dashboard?.folders?.duplicateError || 'Folder already exists');
+      } else {
+        setError(apiMessage || t.dashboard?.folders?.genericError || 'Operation failed');
+      }
     } finally {
       setLoading(false);
     }

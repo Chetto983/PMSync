@@ -961,6 +961,8 @@ export interface AppTranslations {
       moveEmailsHere?: string;
       refresh?: string;
       systemFolder?: string;
+      duplicateError?: string;
+      genericError?: string;
     };
     contacts: {
       title: string;
