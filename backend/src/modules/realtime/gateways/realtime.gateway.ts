@@ -14,7 +14,6 @@ import { RealtimeEventsService } from '../services/realtime-events.service';
 import { RealtimeHandshakeService } from '../services/realtime-handshake.service';
 import {
   AuthenticatedSocket,
-  buildTenantRoom,
   buildTenantScopedRoom,
 } from '../types/realtime.types';
 

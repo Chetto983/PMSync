@@ -503,7 +503,7 @@ export class EmailSyncBackService {
           try {
             await client.messageMove({ uid }, targetFolder, { uid: true });
             this.logger.log(`✅ IMAP: Moved message ${uid} to ${targetFolder}`);
-          } catch (moveError) {
+          } catch {
             // Fallback to COPY + DELETE
             this.logger.warn(`MOVE not supported, using COPY + DELETE fallback`);
             await client.messageCopy({ uid }, targetFolder, { uid: true });

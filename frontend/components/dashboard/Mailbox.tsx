@@ -1287,6 +1287,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
             onManageLabels={() => setLabelManagerOpen(true)}
             onCompose={() => setComposeOpen(true)}
             isEmailDragging={isDraggingEmail}
+            onFoldersRefresh={loadFolderMetadata}
           />
         }
         list={

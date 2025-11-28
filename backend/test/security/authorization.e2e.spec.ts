@@ -61,7 +61,7 @@ describe('Authorization / RBAC (E2E)', () => {
     userToken = userLogin.body.accessToken;
 
     // Create admin user (manually update role in DB)
-    const adminResponse = await request(app.getHttpServer())
+    const _adminResponse = await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'admin@rbac-test.com',
@@ -94,7 +94,7 @@ describe('Authorization / RBAC (E2E)', () => {
     adminToken = adminLogin.body.accessToken;
 
     // Create super-admin user
-    const superadminResponse = await request(app.getHttpServer())
+    const _superadminResponse = await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'superadmin@rbac-test.com',

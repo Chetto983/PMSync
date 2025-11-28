@@ -63,6 +63,16 @@ export interface LabelEventPayload {
   timestamp?: string;
 }
 
+export interface FolderEventPayload {
+  providerId: string;
+  folderId: string;
+  folderName: string;
+  folderPath: string;
+  oldName?: string;
+  reason: 'folder-created' | 'folder-renamed' | 'folder-deleted';
+  timestamp?: string;
+}
+
 /**
  * AI Multi-Agent Event Payloads
  */
@@ -140,6 +150,10 @@ export interface RealtimeEventPayloads {
   'label:new': LabelEventPayload;
   'label:update': LabelEventPayload;
   'label:delete': LabelEventPayload;
+  // Folder events
+  'folder:created': FolderEventPayload;
+  'folder:renamed': FolderEventPayload;
+  'folder:deleted': FolderEventPayload;
   'sync:status': {
     providerId: string;
     status: 'started' | 'in_progress' | 'completed' | 'failed';

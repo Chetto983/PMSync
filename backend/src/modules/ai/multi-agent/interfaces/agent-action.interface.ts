@@ -17,6 +17,11 @@ export enum AgentActionType {
   UNSTAR_EMAIL = 'UNSTAR_EMAIL',
   GET_UNREAD = 'GET_UNREAD',
 
+  // Folder actions
+  CREATE_FOLDER = 'CREATE_FOLDER',
+  RENAME_FOLDER = 'RENAME_FOLDER',
+  DELETE_FOLDER = 'DELETE_FOLDER',
+
   // Calendar actions
   CREATE_EVENT = 'CREATE_EVENT',
   UPDATE_EVENT = 'UPDATE_EVENT',
@@ -119,4 +124,21 @@ export interface CategorizeEmailPayload {
   category: string;
   labels?: string[];
   confidence: number;
+}
+
+export interface CreateFolderPayload {
+  providerId: string;
+  name: string;
+  parentPath?: string;
+}
+
+export interface RenameFolderPayload {
+  providerId: string;
+  folderPath: string;
+  newName: string;
+}
+
+export interface DeleteFolderPayload {
+  providerId: string;
+  folderPath: string;
 }

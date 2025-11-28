@@ -1,9 +1,10 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { AgentAction, AgentActionType } from '../interfaces/agent-action.interface';
 import { AgentContext } from '../interfaces/agent-context.interface';
 import { EmailSendService } from '../../../email/services/email-send.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
+import { FolderSyncService } from '../../../email-sync/services/folder-sync.service';
 
 /**
  * Result of executing an action.
@@ -30,6 +31,8 @@ export class ActionExecutorService {
     private readonly prisma: PrismaService,
     @Optional() private readonly emailSendService: EmailSendService,
     @Optional() private readonly calendarService: CalendarService,
+    @Optional() @Inject(forwardRef(() => FolderSyncService))
+    private readonly folderSyncService: FolderSyncService,
   ) {}
 
   /**
@@ -129,6 +132,17 @@ export class ActionExecutorService {
         // Additional calendar actions
         case AgentActionType.RESCHEDULE_EVENT:
           result = await this.executeRescheduleEvent(action, context);
+          break;
+
+        // Folder actions
+        case AgentActionType.CREATE_FOLDER:
+          result = await this.executeCreateFolder(action, context);
+          break;
+        case AgentActionType.RENAME_FOLDER:
+          result = await this.executeRenameFolder(action, context);
+          break;
+        case AgentActionType.DELETE_FOLDER:
+          result = await this.executeDeleteFolder(action, context);
           break;
 
         default:
@@ -325,7 +339,7 @@ export class ActionExecutorService {
     const { emailId } = action.payload;
 
     // Soft delete the email
-    const email = await this.prisma.email.update({
+    await this.prisma.email.update({
       where: { id: emailId, tenantId: context.tenantId },
       data: { isDeleted: true },
     });
@@ -344,7 +358,7 @@ export class ActionExecutorService {
     const { emailId } = action.payload;
 
     // Move email to archive folder
-    const email = await this.prisma.email.update({
+    await this.prisma.email.update({
       where: { id: emailId, tenantId: context.tenantId },
       data: { folder: 'ARCHIVE' },
     });
@@ -363,7 +377,7 @@ export class ActionExecutorService {
     const { emailId } = action.payload;
     const isRead = action.type === AgentActionType.MARK_READ;
 
-    const email = await this.prisma.email.update({
+    await this.prisma.email.update({
       where: { id: emailId, tenantId: context.tenantId },
       data: { isRead },
     });
@@ -382,7 +396,7 @@ export class ActionExecutorService {
     const { emailId } = action.payload;
     const isStarred = action.type === AgentActionType.STAR_EMAIL;
 
-    const email = await this.prisma.email.update({
+    await this.prisma.email.update({
       where: { id: emailId, tenantId: context.tenantId },
       data: { isStarred },
     });
@@ -705,7 +719,7 @@ export class ActionExecutorService {
   ): Promise<ActionExecutionResult> {
     const { contactId, ...updates } = action.payload;
 
-    const contact = await this.prisma.contact.update({
+    await this.prisma.contact.update({
       where: { id: contactId, tenantId: context.tenantId },
       data: {
         displayName: updates.name,
@@ -1114,6 +1128,174 @@ export class ActionExecutorService {
         reason,
         event: updatedEvent,
       },
+      executionTimeMs: 0,
+    };
+  }
+
+  // ===============================
+  // FOLDER ACTION EXECUTORS
+  // ===============================
+
+  private async executeCreateFolder(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { name, providerId, parentPath } = action.payload;
+
+    if (!this.folderSyncService) {
+      this.logger.warn('FolderSyncService not available');
+      return {
+        success: false,
+        error: 'Folder service not available',
+        executionTimeMs: 0,
+      };
+    }
+
+    if (!name) {
+      return {
+        success: false,
+        error: 'Folder name is required',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Find provider if not specified
+    let actualProviderId = providerId;
+    if (!actualProviderId) {
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
+      });
+      if (!provider) {
+        return {
+          success: false,
+          error: 'No email provider available',
+          executionTimeMs: 0,
+        };
+      }
+      actualProviderId = provider.id;
+    }
+
+    const result = await this.folderSyncService.createFolder(
+      context.tenantId,
+      actualProviderId,
+      name,
+      parentPath,
+    );
+
+    this.logger.log(`Created folder "${name}" with id ${result.id}`);
+
+    return {
+      success: true,
+      data: { folderId: result.id, folderPath: result.path, folderName: result.name },
+      executionTimeMs: 0,
+    };
+  }
+
+  private async executeRenameFolder(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { folderPath, newName, providerId } = action.payload;
+
+    if (!this.folderSyncService) {
+      this.logger.warn('FolderSyncService not available');
+      return {
+        success: false,
+        error: 'Folder service not available',
+        executionTimeMs: 0,
+      };
+    }
+
+    if (!folderPath || !newName) {
+      return {
+        success: false,
+        error: 'Folder path and new name are required',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Find provider if not specified
+    let actualProviderId = providerId;
+    if (!actualProviderId) {
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
+      });
+      if (!provider) {
+        return {
+          success: false,
+          error: 'No email provider available',
+          executionTimeMs: 0,
+        };
+      }
+      actualProviderId = provider.id;
+    }
+
+    const result = await this.folderSyncService.renameFolder(
+      context.tenantId,
+      actualProviderId,
+      folderPath,
+      newName,
+    );
+
+    this.logger.log(`Renamed folder to "${newName}" (path: ${result.path})`);
+
+    return {
+      success: true,
+      data: { folderId: result.id, folderPath: result.path, folderName: result.name },
+      executionTimeMs: 0,
+    };
+  }
+
+  private async executeDeleteFolder(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { folderPath, providerId } = action.payload;
+
+    if (!this.folderSyncService) {
+      this.logger.warn('FolderSyncService not available');
+      return {
+        success: false,
+        error: 'Folder service not available',
+        executionTimeMs: 0,
+      };
+    }
+
+    if (!folderPath) {
+      return {
+        success: false,
+        error: 'Folder path is required',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Find provider if not specified
+    let actualProviderId = providerId;
+    if (!actualProviderId) {
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
+      });
+      if (!provider) {
+        return {
+          success: false,
+          error: 'No email provider available',
+          executionTimeMs: 0,
+        };
+      }
+      actualProviderId = provider.id;
+    }
+
+    await this.folderSyncService.deleteFolder(
+      context.tenantId,
+      actualProviderId,
+      folderPath,
+    );
+
+    this.logger.log(`Deleted folder at path "${folderPath}"`);
+
+    return {
+      success: true,
+      data: { folderPath, deleted: true },
       executionTimeMs: 0,
     };
   }

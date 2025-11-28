@@ -256,7 +256,7 @@ export class MultiAgentController {
   async approveAction(
     @Request() req: AuthenticatedRequest,
     @Param('id') actionId: string,
-    @Body() dto: ApproveActionDto,
+    @Body() _dto: ApproveActionDto,
   ) {
     const result = await this.multiAgentService.approveAndExecuteAction(
       req.user.tenantId,

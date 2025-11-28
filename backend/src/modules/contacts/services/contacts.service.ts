@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
-import { Contact, ProviderContact } from '@prisma/client';
+import { Contact } from '@prisma/client';
 import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
@@ -323,7 +323,7 @@ export class ContactsService {
     this.logger.log(`Contact created: ${contact.id}`);
 
     // Emit updated counts
-    this.updateContactCounts(tenantId);
+    void this.updateContactCounts(tenantId);
 
     // Return with provider info
     return this.getContact(tenantId, contact.id);
@@ -406,7 +406,7 @@ export class ContactsService {
     this.logger.log(`Contact updated: ${contactId}`);
 
     // Emit updated counts (in case company/email/phone changed)
-    this.updateContactCounts(tenantId);
+    void this.updateContactCounts(tenantId);
 
     return updated;
   }
@@ -471,7 +471,7 @@ export class ContactsService {
     this.logger.log(`Contact deleted: ${contactId}`);
 
     // Emit updated counts
-    this.updateContactCounts(tenantId);
+    void this.updateContactCounts(tenantId);
   }
 
   /**

@@ -125,6 +125,11 @@ Available email actions:
 - STAR_EMAIL: Star/flag an email (requires: emailId)
 - GET_UNREAD: Get unread emails count/list
 
+Available folder actions:
+- CREATE_FOLDER: Create a new email folder (requires: name, providerId; optional: parentPath)
+- RENAME_FOLDER: Rename an existing folder (requires: folderPath, newName, providerId)
+- DELETE_FOLDER: Delete a folder (requires: folderPath, providerId)
+
 Conversation history:
 {history}
 
@@ -136,7 +141,7 @@ User's request:
 
 Analyze and respond with ONLY a JSON object (no markdown):
 {{
-  "action": "SEND_EMAIL|REPLY_EMAIL|FORWARD_EMAIL|SEARCH_EMAILS|DELETE_EMAIL|ARCHIVE_EMAIL|MARK_READ|MARK_UNREAD|STAR_EMAIL|GET_UNREAD|UNKNOWN",
+  "action": "SEND_EMAIL|REPLY_EMAIL|FORWARD_EMAIL|SEARCH_EMAILS|DELETE_EMAIL|ARCHIVE_EMAIL|MARK_READ|MARK_UNREAD|STAR_EMAIL|GET_UNREAD|CREATE_FOLDER|RENAME_FOLDER|DELETE_FOLDER|UNKNOWN",
   "confidence": 0.0-1.0,
   "message": "Brief message to show user (MUST be in {languageName})",
   "needsMoreInfo": true|false,
@@ -147,7 +152,11 @@ Analyze and respond with ONLY a JSON object (no markdown):
     "subject": "email subject",
     "body": "email body",
     "emailId": "id of email to act on",
-    "query": "search query"
+    "query": "search query",
+    "folderName": "name for new folder or new name when renaming",
+    "folderPath": "path of folder to rename or delete",
+    "parentPath": "parent folder path for nested folders",
+    "providerId": "email provider/account id"
   }}
 }}
 `);
@@ -322,25 +331,69 @@ Analyze and respond with ONLY a JSON object (no markdown):
           'User requested unread emails',
         ));
         break;
+
+      case 'CREATE_FOLDER':
+        if (analysis.params.folderName && analysis.params.providerId) {
+          actions.push(this.buildAction(
+            AgentActionType.CREATE_FOLDER,
+            {
+              name: analysis.params.folderName,
+              providerId: analysis.params.providerId,
+              parentPath: analysis.params.parentPath,
+            },
+            analysis.confidence,
+            'User requested to create a new folder',
+          ));
+        }
+        break;
+
+      case 'RENAME_FOLDER':
+        if (analysis.params.folderPath && analysis.params.folderName && analysis.params.providerId) {
+          actions.push(this.buildAction(
+            AgentActionType.RENAME_FOLDER,
+            {
+              folderPath: analysis.params.folderPath,
+              newName: analysis.params.folderName,
+              providerId: analysis.params.providerId,
+            },
+            analysis.confidence,
+            'User requested to rename a folder',
+          ));
+        }
+        break;
+
+      case 'DELETE_FOLDER':
+        if (analysis.params.folderPath && analysis.params.providerId) {
+          actions.push(this.buildAction(
+            AgentActionType.DELETE_FOLDER,
+            {
+              folderPath: analysis.params.folderPath,
+              providerId: analysis.params.providerId,
+            },
+            analysis.confidence,
+            'User requested to delete a folder',
+          ));
+        }
+        break;
     }
 
     return actions;
   }
 
   /**
-   * Override severity for email actions.
+   * Override severity for email and folder actions.
    */
   protected determineSeverity(
     actionType: string,
-    payload: Record<string, any>,
+    _payload: Record<string, any>,
   ): ActionSeverity {
-    // High severity for sending/deleting
-    if (['SEND_EMAIL', 'DELETE_EMAIL', 'FORWARD_EMAIL'].includes(actionType)) {
+    // High severity for sending/deleting emails and deleting folders
+    if (['SEND_EMAIL', 'DELETE_EMAIL', 'FORWARD_EMAIL', 'DELETE_FOLDER'].includes(actionType)) {
       return ActionSeverity.HIGH;
     }
 
-    // Medium for replies and archives
-    if (['REPLY_EMAIL', 'ARCHIVE_EMAIL'].includes(actionType)) {
+    // Medium for replies, archives, creating and renaming folders
+    if (['REPLY_EMAIL', 'ARCHIVE_EMAIL', 'CREATE_FOLDER', 'RENAME_FOLDER'].includes(actionType)) {
       return ActionSeverity.MEDIUM;
     }
 

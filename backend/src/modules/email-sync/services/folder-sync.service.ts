@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ImapService } from '../../providers/services/imap.service';
 import { Folder } from '@prisma/client';
@@ -765,5 +765,388 @@ export class FolderSyncService {
       return 'ARCHIVE';
 
     return name.toUpperCase();
+  }
+
+  // ========== FOLDER CRUD OPERATIONS ==========
+
+  /**
+   * Create a new folder on the mail server and in database
+   */
+  async createFolder(
+    tenantId: string,
+    providerId: string,
+    name: string,
+    parentPath?: string,
+  ): Promise<{ id: string; path: string; name: string }> {
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new Error(`Provider ${providerId} not found`);
+    }
+
+    this.logger.log(`Creating folder "${name}" for provider ${providerId} (type: ${provider.providerType})`);
+
+    let result: { externalId: string; path: string };
+
+    if (provider.providerType === 'generic') {
+      result = await this.createImapFolder(providerId, name, parentPath);
+    } else if (provider.providerType === 'google') {
+      result = await this.createGmailLabel(providerId, name);
+    } else if (provider.providerType === 'microsoft') {
+      result = await this.createMicrosoftFolder(providerId, name, parentPath);
+    } else {
+      throw new Error(`Unsupported provider type: ${provider.providerType}`);
+    }
+
+    // Save to database
+    const folder = await this.prisma.folder.create({
+      data: {
+        tenantId,
+        providerId,
+        externalId: result.externalId,
+        path: result.path,
+        name,
+        delimiter: '/',
+        isSelectable: true,
+        level: parentPath ? 1 : 0,
+      },
+    });
+
+    this.logger.log(`Created folder "${name}" with id ${folder.id}`);
+    return { id: folder.id, path: result.path, name };
+  }
+
+  /**
+   * Rename a folder on the mail server and in database
+   */
+  async renameFolder(
+    tenantId: string,
+    providerId: string,
+    folderPath: string,
+    newName: string,
+  ): Promise<{ id: string; path: string; name: string }> {
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new Error(`Provider ${providerId} not found`);
+    }
+
+    const folder = await this.prisma.folder.findUnique({
+      where: { providerId_path: { providerId, path: folderPath } },
+    });
+
+    if (!folder) {
+      throw new Error(`Folder not found: ${folderPath}`);
+    }
+
+    this.logger.log(`Renaming folder "${folder.name}" to "${newName}" for provider ${providerId}`);
+
+    let newPath: string;
+
+    if (provider.providerType === 'generic') {
+      newPath = await this.renameImapFolder(providerId, folderPath, newName);
+    } else if (provider.providerType === 'google') {
+      await this.renameGmailLabel(providerId, folder.externalId || folderPath, newName);
+      newPath = folder.path; // Gmail label IDs don't change on rename
+    } else if (provider.providerType === 'microsoft') {
+      await this.renameMicrosoftFolder(providerId, folder.externalId || folderPath, newName);
+      newPath = folder.path; // Microsoft folder IDs don't change on rename
+    } else {
+      throw new Error(`Unsupported provider type: ${provider.providerType}`);
+    }
+
+    // Update database
+    const updatedFolder = await this.prisma.folder.update({
+      where: { id: folder.id },
+      data: {
+        name: newName,
+        path: newPath,
+      },
+    });
+
+    this.logger.log(`Renamed folder to "${newName}" with path ${newPath}`);
+    return { id: updatedFolder.id, path: newPath, name: newName };
+  }
+
+  /**
+   * Delete a folder from the mail server and database
+   */
+  async deleteFolder(
+    tenantId: string,
+    providerId: string,
+    folderPath: string,
+  ): Promise<void> {
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new Error(`Provider ${providerId} not found`);
+    }
+
+    const folder = await this.prisma.folder.findUnique({
+      where: { providerId_path: { providerId, path: folderPath } },
+    });
+
+    if (!folder) {
+      throw new Error(`Folder not found: ${folderPath}`);
+    }
+
+    // Prevent deletion of system folders
+    const systemFolders = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'JUNK', 'ARCHIVE'];
+    if (folder.specialUse && systemFolders.includes(folder.specialUse)) {
+      throw new Error(`Cannot delete system folder: ${folder.specialUse}`);
+    }
+
+    this.logger.log(`Deleting folder "${folder.name}" for provider ${providerId}`);
+
+    if (provider.providerType === 'generic') {
+      await this.deleteImapFolder(providerId, folderPath);
+    } else if (provider.providerType === 'google') {
+      await this.deleteGmailLabel(providerId, folder.externalId || folderPath);
+    } else if (provider.providerType === 'microsoft') {
+      await this.deleteMicrosoftFolder(providerId, folder.externalId || folderPath);
+    } else {
+      throw new Error(`Unsupported provider type: ${provider.providerType}`);
+    }
+
+    // Delete from database
+    await this.prisma.folder.delete({ where: { id: folder.id } });
+
+    this.logger.log(`Deleted folder "${folder.name}"`);
+  }
+
+  // ========== IMAP FOLDER OPERATIONS ==========
+
+  private async createImapFolder(
+    providerId: string,
+    name: string,
+    parentPath?: string,
+  ): Promise<{ externalId: string; path: string }> {
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new Error(`Provider ${providerId} not found`);
+    }
+
+    const imapCreds = this.providerTokenService.getImapCredentials(provider);
+    const client = this.imapService.createClient({
+      host: imapCreds.host,
+      port: imapCreds.port,
+      username: imapCreds.username,
+      password: imapCreds.password,
+      useTls: imapCreds.useTls,
+    });
+
+    const fullPath = parentPath ? `${parentPath}/${name}` : name;
+
+    // Local pre-check to avoid server call on duplicates
+    const existing = await this.prisma.folder.findFirst({
+      where: { providerId, path: fullPath },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException('A folder with this name already exists on the mail server');
+    }
+
+    try {
+      await client.connect();
+      const result = await client.mailboxCreate(fullPath);
+      return { externalId: result.path, path: result.path };
+    } catch (error: any) {
+      const message = String(error?.message || '').toLowerCase();
+      if (message.includes('exists') || message.includes('already')) {
+        throw new ConflictException('A folder with this name already exists on the mail server');
+      }
+      throw error;
+    } finally {
+      await client.logout();
+    }
+  }
+
+  private async renameImapFolder(
+    providerId: string,
+    oldPath: string,
+    newName: string,
+  ): Promise<string> {
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new Error(`Provider ${providerId} not found`);
+    }
+
+    const imapCreds = this.providerTokenService.getImapCredentials(provider);
+    const client = this.imapService.createClient({
+      host: imapCreds.host,
+      port: imapCreds.port,
+      username: imapCreds.username,
+      password: imapCreds.password,
+      useTls: imapCreds.useTls,
+    });
+
+    try {
+      await client.connect();
+      // Build new path: replace last segment with new name
+      const parts = oldPath.split('/');
+      parts[parts.length - 1] = newName;
+      const newPath = parts.join('/');
+
+      const result = await client.mailboxRename(oldPath, newPath);
+      return result.newPath || newPath;
+    } finally {
+      await client.logout();
+    }
+  }
+
+  private async deleteImapFolder(providerId: string, path: string): Promise<void> {
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new Error(`Provider ${providerId} not found`);
+    }
+
+    const imapCreds = this.providerTokenService.getImapCredentials(provider);
+    const client = this.imapService.createClient({
+      host: imapCreds.host,
+      port: imapCreds.port,
+      username: imapCreds.username,
+      password: imapCreds.password,
+      useTls: imapCreds.useTls,
+    });
+
+    try {
+      await client.connect();
+      await client.mailboxDelete(path);
+    } finally {
+      await client.logout();
+    }
+  }
+
+  // ========== GMAIL LABEL OPERATIONS ==========
+
+  private async createGmailLabel(
+    providerId: string,
+    name: string,
+  ): Promise<{ externalId: string; path: string }> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    try {
+      const response = await gmail.users.labels.create({
+        userId: 'me',
+        requestBody: {
+          name,
+          labelListVisibility: 'labelShow',
+          messageListVisibility: 'show',
+        },
+      });
+
+      const labelId = response.data.id!;
+      return { externalId: labelId, path: labelId };
+    } catch (error: any) {
+      const status = error?.code || error?.response?.status;
+      if (status === 409) {
+        // Gmail returns 409 for duplicate label names
+        throw new ConflictException('A label with this name already exists on Gmail');
+      }
+      throw error;
+    }
+  }
+
+  private async renameGmailLabel(
+    providerId: string,
+    labelId: string,
+    newName: string,
+  ): Promise<void> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    await gmail.users.labels.update({
+      userId: 'me',
+      id: labelId,
+      requestBody: { name: newName },
+    });
+  }
+
+  private async deleteGmailLabel(providerId: string, labelId: string): Promise<void> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    await gmail.users.labels.delete({
+      userId: 'me',
+      id: labelId,
+    });
+  }
+
+  // ========== MICROSOFT FOLDER OPERATIONS ==========
+
+  private async createMicrosoftFolder(
+    providerId: string,
+    name: string,
+    parentFolderId?: string,
+  ): Promise<{ externalId: string; path: string }> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    const url = parentFolderId
+      ? `${this.GRAPH_API_BASE}/me/mailFolders/${parentFolderId}/childFolders`
+      : `${this.GRAPH_API_BASE}/me/mailFolders`;
+
+    try {
+      const response = await axios.post(
+        url,
+        { displayName: name },
+        { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } },
+      );
+
+      const folderId = response.data.id;
+      return { externalId: folderId, path: folderId };
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        // Microsoft Graph returns 409 on name conflicts; surface a clear conflict error.
+        throw new ConflictException('A folder with this name already exists on Microsoft 365');
+      }
+      throw error;
+    }
+  }
+
+  private async renameMicrosoftFolder(
+    providerId: string,
+    folderId: string,
+    newName: string,
+  ): Promise<void> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    await axios.patch(
+      `${this.GRAPH_API_BASE}/me/mailFolders/${folderId}`,
+      { displayName: newName },
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } },
+    );
+  }
+
+  private async deleteMicrosoftFolder(providerId: string, folderId: string): Promise<void> {
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+    await axios.delete(`${this.GRAPH_API_BASE}/me/mailFolders/${folderId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
   }
 }

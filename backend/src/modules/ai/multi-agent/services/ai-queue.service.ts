@@ -188,7 +188,7 @@ export class AIQueueService implements OnModuleInit, OnModuleDestroy {
     // Add to queue with priority
     const priority = request.priority ?? 5; // Default medium priority (1=highest, 10=lowest)
 
-    const job = await this.queue.add(request.type, fullRequest, {
+    await this.queue.add(request.type, fullRequest, {
       priority,
       jobId: id,
     });

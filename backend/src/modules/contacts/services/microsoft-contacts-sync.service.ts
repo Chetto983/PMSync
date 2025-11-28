@@ -399,7 +399,7 @@ export class MicrosoftContactsSyncService {
    * Create a new contact in Microsoft
    */
   async createContact(providerId: string, data: any): Promise<{ id: string }> {
-    const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(
       providerId,
     );
 
@@ -441,7 +441,7 @@ export class MicrosoftContactsSyncService {
     externalId: string,
     data: any,
   ): Promise<void> {
-    const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(
       providerId,
     );
 
@@ -482,7 +482,7 @@ export class MicrosoftContactsSyncService {
    * Delete a contact from Microsoft
    */
   async deleteContact(providerId: string, externalId: string): Promise<void> {
-    const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(
       providerId,
     );
 

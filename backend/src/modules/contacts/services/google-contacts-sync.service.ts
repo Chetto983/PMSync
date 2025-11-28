@@ -377,7 +377,7 @@ export class GoogleContactsSyncService {
    * Create a new contact in Google
    */
   async createContact(providerId: string, data: any): Promise<{ id: string }> {
-    const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(
       providerId,
     );
     const peopleService = this.createPeopleClient(accessToken);
@@ -420,7 +420,7 @@ export class GoogleContactsSyncService {
    * Update a contact in Google
    */
   async updateContact(providerId: string, externalId: string, data: any): Promise<void> {
-    const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(
       providerId,
     );
     const peopleService = this.createPeopleClient(accessToken);
@@ -466,7 +466,7 @@ export class GoogleContactsSyncService {
    * Delete a contact from Google
    */
   async deleteContact(providerId: string, externalId: string): Promise<void> {
-    const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(
       providerId,
     );
     const peopleService = this.createPeopleClient(accessToken);

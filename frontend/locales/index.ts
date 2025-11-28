@@ -226,6 +226,12 @@ export interface AppTranslations {
     toggleTheme: string;
     selected: string;
     selectAll: string;
+    create?: string;
+    rename?: string;
+    path?: string;
+    provider?: string;
+    parent?: string;
+    processing?: string;
   };
   timeAgo: {
     justNow: string;
@@ -943,6 +949,18 @@ export interface AppTranslations {
       archive: string;
       outbox: string;
       starred: string;
+      // Folder management
+      createFolder?: string;
+      renameFolder?: string;
+      deleteFolder?: string;
+      folderName?: string;
+      enterNewName?: string;
+      deleteWarning?: string;
+      deleteConfirm?: string;
+      createSubfolder?: string;
+      moveEmailsHere?: string;
+      refresh?: string;
+      systemFolder?: string;
     };
     contacts: {
       title: string;

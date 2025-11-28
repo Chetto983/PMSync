@@ -7,6 +7,7 @@ import {
   ContactEventPayload,
   EmailEventPayload,
   LabelEventPayload,
+  FolderEventPayload,
   AiActionEventPayload,
   AiSessionEventPayload,
   KnownRealtimeEvent,
@@ -20,6 +21,7 @@ export type {
   ContactEventPayload,
   EmailEventPayload,
   LabelEventPayload,
+  FolderEventPayload,
   AiActionEventPayload,
   AiSessionEventPayload,
 } from '../types/realtime.types';
@@ -323,6 +325,40 @@ export class RealtimeEventsService {
    */
   emitLabelDelete(tenantId: string, payload: LabelEventPayload) {
     this.emitToTenant(tenantId, 'label:delete', payload);
+  }
+
+  /**
+   * FOLDER EVENTS
+   */
+
+  /**
+   * Emette evento per nuova cartella creata
+   */
+  emitFolderCreated(tenantId: string, payload: Omit<FolderEventPayload, 'reason'>) {
+    this.emitToTenant(tenantId, 'folder:created', {
+      ...payload,
+      reason: 'folder-created',
+    });
+  }
+
+  /**
+   * Emette evento per cartella rinominata
+   */
+  emitFolderRenamed(tenantId: string, payload: Omit<FolderEventPayload, 'reason'>) {
+    this.emitToTenant(tenantId, 'folder:renamed', {
+      ...payload,
+      reason: 'folder-renamed',
+    });
+  }
+
+  /**
+   * Emette evento per cartella eliminata
+   */
+  emitFolderDeleted(tenantId: string, payload: Omit<FolderEventPayload, 'reason'>) {
+    this.emitToTenant(tenantId, 'folder:deleted', {
+      ...payload,
+      reason: 'folder-deleted',
+    });
   }
 
   /**

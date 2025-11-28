@@ -70,6 +70,16 @@ export interface RealtimeLabelEvent {
   timestamp: string;
 }
 
+export interface RealtimeFolderEvent {
+  providerId: string;
+  folderId: string;
+  folderName: string;
+  folderPath: string;
+  oldName?: string;
+  reason: 'folder-created' | 'folder-renamed' | 'folder-deleted';
+  timestamp: string;
+}
+
 export interface RealtimeSyncStatus {
   providerId: string;
   status: 'started' | 'in_progress' | 'completed' | 'failed';
@@ -396,6 +406,28 @@ class WebSocketClient {
     if (!this.socket) return () => {};
     this.socket.on('label:delete', handler);
     return () => this.socket?.off('label:delete', handler);
+  }
+
+  /**
+   * FOLDER EVENTS
+   */
+
+  onFolderCreated(handler: EventHandler<RealtimeFolderEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('folder:created', handler);
+    return () => this.socket?.off('folder:created', handler);
+  }
+
+  onFolderRenamed(handler: EventHandler<RealtimeFolderEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('folder:renamed', handler);
+    return () => this.socket?.off('folder:renamed', handler);
+  }
+
+  onFolderDeleted(handler: EventHandler<RealtimeFolderEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('folder:deleted', handler);
+    return () => this.socket?.off('folder:deleted', handler);
   }
 
   /**

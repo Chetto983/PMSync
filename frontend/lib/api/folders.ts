@@ -97,3 +97,77 @@ export async function updateFolderCounts(
   const response = await apiClient.post(`/folders/update-counts/${providerId}`);
   return response.data;
 }
+
+// ========== FOLDER CRUD OPERATIONS ==========
+
+export interface CreateFolderRequest {
+  name: string;
+  providerId: string;
+  parentPath?: string;
+}
+
+export interface CreateFolderResponse {
+  id: string;
+  path: string;
+  name: string;
+}
+
+export interface RenameFolderRequest {
+  newName: string;
+}
+
+export interface RenameFolderResponse {
+  id: string;
+  path: string;
+  name: string;
+}
+
+export interface DeleteFolderResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * Create a new folder
+ */
+export async function createFolder(
+  data: CreateFolderRequest,
+): Promise<CreateFolderResponse> {
+  const response = await apiClient.post('/folders', data);
+  return response.data;
+}
+
+/**
+ * Rename a folder
+ */
+export async function renameFolder(
+  folderId: string,
+  data: RenameFolderRequest,
+): Promise<RenameFolderResponse> {
+  const response = await apiClient.patch(`/folders/${folderId}`, data);
+  return response.data;
+}
+
+/**
+ * Delete a folder
+ */
+export async function deleteFolder(
+  folderId: string,
+): Promise<DeleteFolderResponse> {
+  const response = await apiClient.delete(`/folders/${folderId}`);
+  return response.data;
+}
+
+/**
+ * Folders API object for convenient access
+ */
+export const foldersApi = {
+  getFolders,
+  getFoldersByProvider,
+  syncFolders,
+  syncAllFolders,
+  updateFolderCounts,
+  createFolder,
+  renameFolder,
+  deleteFolder,
+};

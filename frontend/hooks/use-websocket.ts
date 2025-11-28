@@ -392,6 +392,21 @@ export function useWebSocket(token: string | null, enabled = true) {
       }
     });
 
+    // FOLDER EVENTS - trigger folder refresh on folder changes
+    const unsubFolderCreated = websocketClient.onFolderCreated((data) => {
+      console.log('[WS] Folder created:', data);
+      // Folder list will be refreshed via the onFoldersRefresh callback in EmailSidebar
+      // This event is primarily for logging and potential future optimizations
+    });
+
+    const unsubFolderRenamed = websocketClient.onFolderRenamed((data) => {
+      console.log('[WS] Folder renamed:', data);
+    });
+
+    const unsubFolderDeleted = websocketClient.onFolderDeleted((data) => {
+      console.log('[WS] Folder deleted:', data);
+    });
+
     if (process.env.NODE_ENV !== 'production') {
       console.log('[useWebSocket] All event listeners registered successfully');
     }
@@ -416,6 +431,9 @@ export function useWebSocket(token: string | null, enabled = true) {
       unsubLabelUpdate();
       unsubLabelDelete();
       unsubSyncStatus();
+      unsubFolderCreated();
+      unsubFolderRenamed();
+      unsubFolderDeleted();
     };
   }, [
     connectionStatus, // Re-register listeners when connection state changes

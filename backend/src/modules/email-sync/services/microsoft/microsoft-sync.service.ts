@@ -4,7 +4,7 @@ import { URLSearchParams } from 'url';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CryptoService } from '../../../../common/services/crypto.service';
 import { SyncJobData, SyncJobResult } from '../../interfaces/sync-job.interface';
-import { EmailEmbeddingJob, EmailEmbeddingQueueService } from '../../../ai/services/email-embedding.queue';
+import { EmailEmbeddingQueueService } from '../../../ai/services/email-embedding.queue';
 import { EmbeddingsService } from '../../../ai/services/embeddings.service';
 import { KnowledgeBaseService } from '../../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
@@ -18,20 +18,9 @@ import { StorageService } from '../../../email/services/storage.service';
 import { BaseEmailSyncService } from '../base-email-sync.service';
 import { MicrosoftAttachmentHandler } from './microsoft-attachment-handler';
 import { MicrosoftFolderService } from './microsoft-folder.service';
-import { MicrosoftMessageParser, ParsedMicrosoftMessage } from './microsoft-message-parser';
+import { MicrosoftMessageParser } from './microsoft-message-parser';
 import { MicrosoftBatchProcessor } from './microsoft-batch-processor';
 
-/**
- * Microsoft Graph API attachment metadata
- */
-interface MicrosoftAttachmentMeta {
-  id: string;
-  name: string;
-  contentType: string;
-  size: number;
-  isInline: boolean;
-  contentId?: string;
-}
 
 interface MicrosoftMessage {
   id: string;
