@@ -40,7 +40,7 @@ describe('HitlService security', () => {
       emitAiActionFailed: jest.fn(),
     };
 
-    service = new HitlService(prisma as any, realtimeEvents as any);
+    service = new HitlService(prisma, realtimeEvents);
   });
 
   it('denies access to actions owned by another user', async () => {

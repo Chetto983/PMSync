@@ -111,10 +111,7 @@ export default function Home() {
           >
             {/* Logo */}
             <Link href="/" style={{ textDecoration: 'none' }}>
-              <Stack
-                direction="row"
-                spacing={1.5}
-                alignItems="center"
+              <Box
                 sx={{
                   transition: 'transform 0.3s ease',
                   '&:hover': { transform: 'scale(1.02)' },
@@ -123,25 +120,11 @@ export default function Home() {
                 <Image
                   src="/Logo PMSync.svg"
                   alt={`${t.app.name} logo`}
-                  width={48}
-                  height={48}
+                  width={200}
+                  height={200}
                   priority
                 />
-                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                  <Typography
-                    variant="h6"
-                    fontWeight={800}
-                    sx={{
-                      background: pmSyncColors.brand.gradient,
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    {t.app.name}
-                  </Typography>
-                </Box>
-              </Stack>
+              </Box>
             </Link>
 
             {/* Desktop Nav Links */}

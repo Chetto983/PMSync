@@ -136,6 +136,85 @@ export class EmailAiDto {
 }
 
 /**
+ * DTO for AI-assisted email composition
+ */
+export class ComposeEmailDto {
+  @ApiProperty({
+    description: 'Prompt describing the email to compose',
+    example: 'Write a polite follow-up about the pending contract',
+  })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(2000)
+  prompt: string;
+
+  @ApiPropertyOptional({
+    description: 'Suggested recipients for context',
+    type: [String],
+    example: ['recipient@example.com'],
+  })
+  @IsOptional()
+  @IsArray()
+  to?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Optional subject hint',
+    example: 'Contract follow-up',
+  })
+  @IsOptional()
+  @IsString()
+  subject?: string;
+
+  @ApiPropertyOptional({
+    description: 'Tone preference',
+    enum: ['formal', 'casual', 'technical'],
+    example: 'formal',
+  })
+  @IsOptional()
+  @IsString()
+  tone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Locale for the composed email',
+    example: 'en',
+  })
+  @IsOptional()
+  @IsString()
+  locale?: string;
+
+  @ApiPropertyOptional({
+    description: 'Experiment bucket for A/B validation',
+    example: 'B',
+  })
+  @IsOptional()
+  @IsString()
+  variant?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional thread/email context for better grounding',
+    type: 'array',
+    example: [{ subject: 'Previous subject', body: 'Thread content here' }],
+  })
+  @IsOptional()
+  @IsArray()
+  threadContext?: Array<{ subject?: string; body?: string }>;
+}
+
+export class ComposeEmailResponseDto {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({ description: 'Composed email body' })
+  body: string;
+
+  @ApiPropertyOptional({ description: 'Suggested subject (if generated)' })
+  subject?: string;
+
+  @ApiPropertyOptional({ description: 'Variant bucket used for generation', example: 'A' })
+  variantUsed?: string;
+}
+
+/**
  * Response DTOs for Swagger documentation
  */
 export class ChatResponseDto {

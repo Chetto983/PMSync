@@ -13,6 +13,7 @@ import {
   Quote,
   Undo2,
   Redo2,
+  Sparkles,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/core';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -22,6 +23,14 @@ interface EditorToolbarProps {
    * TipTap editor instance
    */
   editor: Editor | null;
+  /**
+   * Optional AI compose trigger
+   */
+  onAiCompose?: () => void;
+  /**
+   * Loading state for AI compose
+   */
+  aiComposing?: boolean;
 }
 
 /**
@@ -34,7 +43,7 @@ interface EditorToolbarProps {
  * - Blockquote
  * - Undo/Redo
  */
-export function EditorToolbar({ editor }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onAiCompose, aiComposing }: EditorToolbarProps) {
   const t = useTranslations();
 
   if (!editor) {
@@ -89,6 +98,26 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
       </Tooltip>
 
       <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+      {/* AI Compose */}
+      {onAiCompose && (
+        <Tooltip title={t.dashboard?.email?.composer?.aiCompose ?? 'AI compose'}>
+          <span>
+            <IconButton
+              size="small"
+              onClick={onAiCompose}
+              disabled={aiComposing}
+              sx={{
+                width: 32,
+                height: 32,
+                bgcolor: aiComposing ? 'action.selected' : 'transparent',
+              }}
+            >
+              {aiComposing ? <Redo2 size={18} /> : <Sparkles size={18} />}
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
 
       {/* Headings */}
       <Tooltip title={t.dashboard.email.composer.heading1}>

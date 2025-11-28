@@ -135,11 +135,11 @@ export function Hero() {
                 animation: `${pulse} 4s ease-in-out infinite`,
               }}
             >
-              <Image
+             <Image
                 src="/Logo PMSync.svg"
                 alt="PMSync logo"
-                width={80}
-                height={80}
+                width={400}
+                height={400}
                 priority
               />
             </Box>
@@ -200,7 +200,7 @@ export function Hero() {
               letterSpacing: '-0.02em',
             }}
           >
-            Orchestrate{' '}
+            {t.landing.hero.titlePart1}{' '}
             <Box
               component="span"
               sx={{
@@ -211,10 +211,10 @@ export function Hero() {
                 WebkitTextFillColor: 'transparent',
               }}
             >
-              every inbox
+              {t.landing.hero.titleHighlight}
             </Box>
             <br />
-            with confidence
+            {t.landing.hero.titlePart2}
           </Typography>
 
           {/* Subtitle */}

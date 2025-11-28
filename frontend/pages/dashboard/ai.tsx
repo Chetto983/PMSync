@@ -78,47 +78,54 @@ type Message = {
   knowledgeHits?: KnowledgeHit[];
 };
 
-// Example queries organized by category - using semantic colors from theme
-const exampleQueries = [
-  {
-    category: 'Email',
-    icon: Mail,
-    color: pmSyncColors.semantic.email,
-    queries: [
-      { text: 'Summarize my unread emails', prompt: 'Summarize my unread emails' },
-      { text: 'Find emails from last week', prompt: 'Find all emails from last week' },
-      { text: 'Draft a reply to the latest email', prompt: 'Help me draft a reply to my latest email' },
-    ],
-  },
-  {
-    category: 'Calendar',
-    icon: Calendar,
-    color: pmSyncColors.semantic.calendar,
-    queries: [
-      { text: 'Schedule a meeting tomorrow', prompt: 'Schedule a meeting tomorrow at 2pm' },
-      { text: "What's on my agenda today?", prompt: "What's on my calendar for today?" },
-      { text: 'Find free time this week', prompt: 'When am I free this week for a 1-hour meeting?' },
-    ],
-  },
-  {
-    category: 'Contacts',
-    icon: Users,
-    color: pmSyncColors.semantic.contacts,
-    queries: [
-      { text: 'Find John\'s contact info', prompt: 'Find contact info for John' },
-      { text: 'Add a new contact', prompt: 'Add a new contact named Jane Doe with email jane@example.com' },
-      { text: 'Update contact details', prompt: 'Update the phone number for my contact John' },
-    ],
-  },
-];
+// Helper type for translations
+type Translations = ReturnType<typeof useTranslations>;
 
-// Quick action chips for common tasks
-const quickActions = [
-  { icon: FileText, text: 'Summarize inbox', prompt: 'Summarize my inbox' },
-  { icon: Bell, text: 'Important emails', prompt: 'Show me important unread emails' },
-  { icon: Calendar, text: "Today's schedule", prompt: "What's on my schedule today?" },
-  { icon: Search, text: 'Search contacts', prompt: 'Search my contacts' },
-];
+// Helper function to get translated example queries
+function getExampleQueries(t: Translations) {
+  return [
+    {
+      category: t.ai?.categories?.email || 'Email',
+      icon: Mail,
+      color: pmSyncColors.semantic.email,
+      queries: [
+        { text: t.ai?.examples?.email?.summarize || 'Summarize my unread emails', prompt: 'Summarize my unread emails' },
+        { text: t.ai?.examples?.email?.findLastWeek || 'Find emails from last week', prompt: 'Find all emails from last week' },
+        { text: t.ai?.examples?.email?.draftReply || 'Draft a reply to the latest email', prompt: 'Help me draft a reply to my latest email' },
+      ],
+    },
+    {
+      category: t.ai?.categories?.calendar || 'Calendar',
+      icon: Calendar,
+      color: pmSyncColors.semantic.calendar,
+      queries: [
+        { text: t.ai?.examples?.calendar?.scheduleMeeting || 'Schedule a meeting tomorrow', prompt: 'Schedule a meeting tomorrow at 2pm' },
+        { text: t.ai?.examples?.calendar?.todayAgenda || "What's on my agenda today?", prompt: "What's on my calendar for today?" },
+        { text: t.ai?.examples?.calendar?.findFreeTime || 'Find free time this week', prompt: 'When am I free this week for a 1-hour meeting?' },
+      ],
+    },
+    {
+      category: t.ai?.categories?.contacts || 'Contacts',
+      icon: Users,
+      color: pmSyncColors.semantic.contacts,
+      queries: [
+        { text: t.ai?.examples?.contacts?.findContact || "Find John's contact info", prompt: 'Find contact info for John' },
+        { text: t.ai?.examples?.contacts?.addContact || 'Add a new contact', prompt: 'Add a new contact named Jane Doe with email jane@example.com' },
+        { text: t.ai?.examples?.contacts?.updateContact || 'Update contact details', prompt: 'Update the phone number for my contact John' },
+      ],
+    },
+  ];
+}
+
+// Helper function to get translated quick actions
+function getQuickActions(t: Translations) {
+  return [
+    { icon: FileText, text: t.ai?.quickActions?.summarizeInbox || 'Summarize inbox', prompt: 'Summarize my inbox' },
+    { icon: Bell, text: t.ai?.quickActions?.importantEmails || 'Important emails', prompt: 'Show me important unread emails' },
+    { icon: Calendar, text: t.ai?.quickActions?.todaySchedule || "Today's schedule", prompt: "What's on my schedule today?" },
+    { icon: Search, text: t.ai?.quickActions?.searchContacts || 'Search contacts', prompt: 'Search my contacts' },
+  ];
+}
 
 // Thinking indicator component with shimmer effect
 function ThinkingIndicator() {
@@ -180,6 +187,8 @@ function ThinkingIndicator() {
 // Empty state with example queries
 function EmptyState({ onSelectQuery }: { onSelectQuery: (prompt: string) => void }) {
   const t = useTranslations();
+  const quickActions = getQuickActions(t);
+  const exampleQueries = getExampleQueries(t);
 
   return (
     <Box sx={{ textAlign: 'center', py: 4, px: 2 }}>
@@ -475,6 +484,7 @@ function MessageBubble({ message }: { message: Message }) {
 function AiAssistantView() {
   const t = useTranslations();
   const theme = useTheme();
+  const quickActions = getQuickActions(t);
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -484,7 +494,7 @@ function AiAssistantView() {
   const [showHistory, setShowHistory] = useState(false);
   const [actionHistory, setActionHistory] = useState<ActionFeedback[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [sessionId] = useState(() => `session-${Date.now()}`);
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [learningProfiles, setLearningProfiles] = useState<LearningProfile[]>([]);
   const [learningSummary, setLearningSummary] = useState<{ totalAttempts: number; overallApprovalRate: number; overallSuccessRate: number } | undefined>();
   const [loadingLearning, setLoadingLearning] = useState(false);
@@ -523,9 +533,18 @@ function AiAssistantView() {
     try {
       setLoadingHistory(true);
       const response = await multiAgentApi.getFeedback({ limit: 20 });
-      setActionHistory(response.data || []);
+      // Handle both array and object response formats
+      const feedbackData = response.data;
+      if (Array.isArray(feedbackData)) {
+        setActionHistory(feedbackData);
+      } else if (feedbackData && Array.isArray((feedbackData as any).feedback)) {
+        setActionHistory((feedbackData as any).feedback);
+      } else {
+        setActionHistory([]);
+      }
     } catch (error) {
       console.error('Failed to load action history:', error);
+      setActionHistory([]);
     } finally {
       setLoadingHistory(false);
     }
@@ -676,21 +695,31 @@ function AiAssistantView() {
         sessionId,
       });
 
-      const data: MultiAgentResponse = response.data;
+      const data: MultiAgentResponse & { sessionId?: string } = response?.data;
+
+      // Defensive checks for response data
+      if (!data) {
+        throw new Error('Empty response from server');
+      }
+
+      // Store session ID from backend for subsequent requests
+      if (data.sessionId && !sessionId) {
+        setSessionId(data.sessionId);
+      }
 
       const assistantMessage: Message = {
         role: 'assistant',
-        content: data.messages.join('\n'),
+        content: Array.isArray(data.messages) ? data.messages.join('\n') : (data.messages || 'No response'),
         timestamp: new Date(),
         agentUsed: data.agentUsed,
-        intent: data.intent.intent,
-        pendingActionIds: data.pendingActionIds,
-        knowledgeHits: data.knowledgeHits,
+        intent: data.intent?.intent,
+        pendingActionIds: data.pendingActionIds || [],
+        knowledgeHits: data.knowledgeHits || [],
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      if (data.pendingActionIds.length > 0) {
+      if (data.pendingActionIds && data.pendingActionIds.length > 0) {
         await loadPendingActions();
       }
     } catch (error: any) {
@@ -1011,7 +1040,7 @@ function AiAssistantView() {
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                   <CircularProgress size={20} />
                 </Box>
-              ) : actionHistory.length === 0 ? (
+              ) : !Array.isArray(actionHistory) || actionHistory.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
                   No history yet
                 </Typography>

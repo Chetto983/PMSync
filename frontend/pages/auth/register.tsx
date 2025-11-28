@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { Box, Container, Stack, Typography, FormControlLabel, Checkbox } from '@mui/material';
 import { Button } from '@/components/ui/button';
@@ -82,6 +83,15 @@ export default function RegisterPage() {
       }}
     >
       <Container maxWidth="sm">
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
+          <Image
+            src="/Logo PMSync.svg"
+            alt="PMSync logo"
+            width={400}
+            height={400}
+            priority
+          />
+        </Box>
         <Card>
           <CardHeader>
             <CardTitle>{copy.title}</CardTitle>

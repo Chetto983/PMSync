@@ -38,6 +38,8 @@ import {
   SummaryResponseDto,
   SmartReplyResponseDto,
   CategorizeResponseDto,
+  ComposeEmailDto,
+  ComposeEmailResponseDto,
 } from '../dto/ai.dto';
 
 @ApiTags('AI')
@@ -234,6 +236,31 @@ export class AiController {
       messages: updatedMessages,
       response: result.output,
       steps: result.intermediateSteps ?? [],
+    };
+  }
+
+  /**
+   * AI-assisted email composition (draft body + optional subject)
+   */
+  @Post('compose')
+  @ApiOperation({
+    summary: 'AI-assisted email composition',
+    description: 'Generate a ready-to-send email draft from a prompt, with optional tone and context',
+  })
+  @ApiResponse({ status: 200, description: 'Draft generated', type: ComposeEmailResponseDto })
+  async composeEmail(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: ComposeEmailDto,
+  ): Promise<ComposeEmailResponseDto> {
+    const result = await this.emailInsightsService.composeEmail(
+      req.user.tenantId,
+      dto,
+      req.user.userId,
+    );
+
+    return {
+      success: true,
+      ...result,
     };
   }
 

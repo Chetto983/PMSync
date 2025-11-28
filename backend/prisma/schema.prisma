@@ -46,13 +46,17 @@ model User {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
-  auditLogs       AuditLog[]
-  chatSessions    ChatSession[]
-  messages        Message[]
-  mfaCodes        MfaCode[]
-  sessions        Session[]
-  userPreferences UserPreferences?
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  auditLogs             AuditLog[]
+  chatSessions          ChatSession[]
+  messages              Message[]
+  mfaCodes              MfaCode[]
+  sessions              Session[]
+  userPreferences       UserPreferences?
+  writingStyleProfile   WritingStyleProfile?
+  agentPendingActions   AgentPendingAction[]   @relation("AgentPendingActionsToUser")
+  agentActionFeedback   AgentActionFeedback[]  @relation("AgentActionFeedbackToUser")
+  userProfileEmbeddings UserProfileEmbedding[] @relation("UserProfileEmbeddingsToUser")
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -724,6 +728,7 @@ model AgentPendingAction {
 
   // Relations
   feedback AgentActionFeedback[]
+  user     User                  @relation("AgentPendingActionsToUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status])
   @@index([tenantId, userId, status])
@@ -756,6 +761,7 @@ model AgentActionFeedback {
 
   // Relations
   action AgentPendingAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  user   User               @relation("AgentActionFeedbackToUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, agentName])
   @@index([userId, actionType])
@@ -792,6 +798,82 @@ model AgentLearningProfile {
 }
 
 // ============================================
+// Prompt Registry - Versioned prompt templates
+// ============================================
+
+model PromptTemplate {
+  id        String  @id @default(cuid())
+  tenantId  String? // NULL = system default template
+  name      String // e.g., "router.classify", "email.compose", "calendar.schedule"
+  version   Int     @default(1)
+  locale    String  @default("en") // en, it, es, fr, de, pt
+  bucket    String? // A/B test bucket identifier
+
+  // Prompt content
+  body      String  @db.Text // The actual prompt template with {variables}
+  variables Json?   // Expected variables schema: { "userMessage": "string", "history": "array" }
+
+  // Configuration
+  metadata Json? // { "temperature": 0.3, "maxTokens": 500, "model": "mistral-small-latest" }
+
+  // Status
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false) // Default for this name+locale combination
+
+  // Audit
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, name, version, locale, bucket])
+  @@index([tenantId, name, isActive])
+  @@index([name, locale, isActive])
+  @@map("prompt_templates")
+}
+
+// ============================================
+// LLM Telemetry - Track AI usage and costs
+// ============================================
+
+model LlmUsageLog {
+  id         String @id @default(cuid())
+  tenantId   String
+  userId     String?
+
+  // Request info
+  operation    String // "compose", "classify", "summarize", "smart_reply"
+  promptId     String? // Reference to PromptTemplate.id
+  promptName   String? // "email.compose", "router.classify"
+  model        String // "mistral-small-latest"
+
+  // Usage metrics
+  inputTokens  Int
+  outputTokens Int
+  totalTokens  Int
+  latencyMs    Int // Response time in milliseconds
+
+  // Cost tracking (optional, calculated)
+  estimatedCost Float? // In USD or credits
+
+  // Status
+  success   Boolean @default(true)
+  errorType String? // "rate_limit", "timeout", "invalid_response"
+  errorMessage String?
+
+  // Context
+  agentName String? // Which agent made the call
+  sessionId String? // ChatSession reference
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, operation])
+  @@index([agentName, createdAt])
+  @@index([promptName, createdAt])
+  @@map("llm_usage_logs")
+}
+
+// ============================================
 // User Personalization - Semantic Memory
 // ============================================
 
@@ -823,9 +905,62 @@ model UserProfileEmbedding {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relations
+  user User @relation("UserProfileEmbeddingsToUser", fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([tenantId, userId])
   @@index([tenantId, userId, memoryType])
   @@index([tenantId, userId, category])
   @@index([expiresAt])
   @@map("user_profile_embeddings")
+}
+
+// Writing Style Profile - Learned from user's sent emails
+model WritingStyleProfile {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String @unique
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Structure metrics
+  avgSentenceLength Float @default(15) // Average words per sentence
+  avgParagraphLines Float @default(3) // Average lines per paragraph
+  avgWordsPerEmail  Int   @default(100)
+  bulletListRate    Float @default(0) // Usage rate of bullet lists (0-1)
+
+  // Vocabulary metrics
+  formalityScore Float @default(0.5) // 0=very casual, 1=very formal
+  contractionRate Float @default(0.3) // Rate of contractions used (0-1)
+  emojiRate Float @default(0) // Emoji usage rate (0-1)
+  typeTokenRatio Float @default(0.5) // Vocabulary diversity
+
+  // Punctuation habits
+  exclamationRate Float @default(0) // Rate of sentences with !
+  questionRate Float @default(0) // Rate of sentences with ?
+  ellipsisRate Float @default(0) // Usage of ...
+
+  // Greeting/Sign-off patterns (stored as JSON arrays)
+  greetingPresent Boolean @default(true)
+  preferredGreetings String[] @default([])
+  signOffPresent Boolean @default(true)
+  preferredSignOffs String[] @default([])
+
+  // Tone metrics
+  sentimentPolarity Float @default(0) // -1 (negative) to 1 (positive)
+  empathyPhraseRate Float @default(0) // Rate of empathy phrases
+  hedgeRate Float @default(0) // Uncertainty markers ("perhaps", "maybe")
+
+  // Learning metadata
+  sampleCount Int @default(0) // Number of emails analyzed
+  lastAnalyzedEmailId String? // Track last processed email
+  lastAnalyzed DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, userId])
+  @@map("writing_style_profiles")
 }

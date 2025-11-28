@@ -107,6 +107,9 @@ export const en: AppTranslations = {
     hero: {
       eyebrow: 'AI-native communications layer',
       title: 'Orchestrate every inbox with confidence',
+      titlePart1: 'Orchestrate',
+      titleHighlight: 'every inbox',
+      titlePart2: 'with confidence',
       subtitle:
         'PMSync blends intelligent triage, automated drafting, and voice-ready copilots so every response is on brand and on time.',
       primaryCta: 'Book a live demo',
@@ -467,6 +470,33 @@ export const en: AppTranslations = {
         fileTooLarge: 'File {filename} is too large (max 10MB)',
         draftSaved: 'Draft saved successfully',
         discardConfirm: 'Discard unsaved changes?',
+        aiCompose: 'AI compose',
+        aiComposePrompt: 'Describe the email you want to draft',
+        aiComposeError: 'Unable to compose email. Please try again.',
+        aiComposeTitle: 'Draft with AI',
+        aiComposeHelp: 'Share a short prompt. AI will draft the email and suggest a subject.',
+        aiComposeConfirm: 'Insert draft',
+        aiComposeCancel: 'Cancel',
+        aiComposeToneLabel: 'Tone',
+        aiComposeVariantLabel: 'Variant',
+        aiComposeExamples: 'Try these:',
+        aiComposeGenerate: 'Generate',
+        aiComposePreview: 'Preview',
+        aiComposeRegenerate: 'Regenerate',
+        aiComposeExampleFollowUp: 'Write a follow-up about our meeting',
+        aiComposeExampleThankYou: 'Thank you note for their help',
+        aiComposeExampleRequest: 'Request information about...',
+        aiComposeExampleReplyConfirm: 'Confirm receipt and schedule call',
+        aiComposeExampleReplyDecline: 'Politely decline with alternative',
+        aiComposeExampleReplyInfo: 'Request more information',
+        // AI Chat Panel
+        aiChatTitle: 'AI Assistant',
+        aiChatPlaceholder: 'Ask AI to help with your email...',
+        aiChatSuggestions: 'Quick actions:',
+        aiChatThinking: 'Thinking...',
+        aiChatCopy: 'Copy',
+        aiChatInsert: 'Insert into email',
+        aiChatClear: 'Clear chat',
       },
       advancedSearch: {
         title: 'Advanced Search',
@@ -1179,6 +1209,7 @@ export const en: AppTranslations = {
     thinking: 'Thinking...',
     online: 'Online',
     pendingActions: 'Pending Actions',
+    pendingActionsHint: 'Review AI suggestions',
     history: 'History',
     noHistory: 'No history yet',
     noPendingActions: 'No pending actions',
@@ -1186,6 +1217,14 @@ export const en: AppTranslations = {
     reject: 'Reject',
     confidence: 'confidence',
     tips: 'High severity actions require approval. Low severity actions may auto-execute based on confidence.',
+    // Dashboard AI widget
+    unread: 'Unread',
+    learned: 'Learned',
+    summarize: 'Summarize',
+    writingStyleLearning: 'AI Learning Progress',
+    writingStyleLearningLow: 'Getting started - send more emails',
+    writingStyleLearningMedium: 'Learning your style',
+    writingStyleLearningHigh: 'AI knows your style well',
     // Dashboard components
     learning: {
       title: 'AI Learning Progress',
@@ -1211,6 +1250,36 @@ export const en: AppTranslations = {
     },
     awaitingApproval: 'awaiting approval',
     allClear: 'All clear',
+    // Quick actions
+    quickActions: {
+      summarizeInbox: 'Summarize inbox',
+      importantEmails: 'Important emails',
+      todaySchedule: "Today's schedule",
+      searchContacts: 'Search contacts',
+    },
+    // Example queries by category
+    categories: {
+      email: 'Email',
+      calendar: 'Calendar',
+      contacts: 'Contacts',
+    },
+    examples: {
+      email: {
+        summarize: 'Summarize my unread emails',
+        findLastWeek: 'Find emails from last week',
+        draftReply: 'Draft a reply to the latest email',
+      },
+      calendar: {
+        scheduleMeeting: 'Schedule a meeting tomorrow',
+        todayAgenda: "What's on my agenda today?",
+        findFreeTime: 'Find free time this week',
+      },
+      contacts: {
+        findContact: "Find John's contact info",
+        addContact: 'Add a new contact',
+        updateContact: 'Update contact details',
+      },
+    },
   },
   emailAi: {
     smartReplies: {

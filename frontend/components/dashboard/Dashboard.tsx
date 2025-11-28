@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -11,6 +11,9 @@ import {
   Divider,
   LinearProgress,
   Badge,
+  Chip,
+  Skeleton,
+  alpha,
 } from '@mui/material';
 import {
   Calendar,
@@ -24,12 +27,15 @@ import {
   Sparkles,
   Video,
   MapPin,
+  Brain,
+  Zap,
 } from 'lucide-react';
 import { DashboardCard } from './DashboardCard';
 import { useRouter } from 'next/router';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { multiAgentApi } from '@/lib/api/multi-agent';
 
 interface Email {
   id: string;
@@ -68,6 +74,12 @@ interface Stats {
   totalContacts: number;
 }
 
+interface AiStats {
+  pendingActions: number;
+  learningProgress: number;
+  totalInteractions: number;
+}
+
 export function Dashboard() {
   const router = useRouter();
   const { user } = useAuth();
@@ -82,10 +94,52 @@ export function Dashboard() {
     pendingTasks: 0,
     totalContacts: 0,
   });
+  const [aiStats, setAiStats] = useState<AiStats>({
+    pendingActions: 0,
+    learningProgress: 0,
+    totalInteractions: 0,
+  });
+  const [aiLoading, setAiLoading] = useState(true);
+
+  // Load AI stats
+  const loadAiStats = useCallback(async () => {
+    try {
+      setAiLoading(true);
+      // Load pending actions
+      const actionsResponse = await multiAgentApi.getPendingActions({ status: 'PENDING' });
+      const pendingCount = actionsResponse.data?.length || 0;
+
+      // Load learning stats
+      let learningProgress = 0;
+      let totalInteractions = 0;
+      try {
+        const learningResponse = await multiAgentApi.getLearningStats();
+        const profiles = learningResponse.data?.profiles || [];
+        totalInteractions = profiles.reduce(
+          (sum: number, p: any) => sum + p.approvalCount + p.rejectionCount,
+          0
+        );
+        learningProgress = Math.min(100, totalInteractions);
+      } catch {
+        // Ignore learning stats errors
+      }
+
+      setAiStats({
+        pendingActions: pendingCount,
+        learningProgress,
+        totalInteractions,
+      });
+    } catch (error) {
+      console.error('Failed to load AI stats:', error);
+    } finally {
+      setAiLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+    loadAiStats();
+  }, [loadAiStats]);
 
   const loadDashboardData = async () => {
     try {
@@ -430,99 +484,322 @@ export function Dashboard() {
 
         {/* Right Column */}
         <Box>
-          {/* AI Insights */}
-          <DashboardCard
-            title={t.dashboard.home.sections.aiInsights}
-            subtitle={t.dashboard.home.sections.aiInsightsSubtitle}
-            sx={{ mb: 2 }}
+          {/* AI Assistant Hub - Modern Design */}
+          <Box
+            sx={{
+              borderRadius: 3,
+              overflow: 'hidden',
+              border: 1,
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+              mb: 2,
+            }}
           >
+            {/* Gradient Header */}
             <Box
               sx={{
-                p: 2,
-                borderRadius: 2,
-                bgcolor: 'primary.main',
+                background: (theme) =>
+                  `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 50%, #7c3aed 100%)`,
+                p: 2.5,
                 color: 'white',
-                mb: 2,
+                position: 'relative',
+                overflow: 'hidden',
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Sparkles size={20} />
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  {t.dashboard.home.sections.smartReplyReady}
-                </Typography>
-              </Box>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                {stats.unreadEmails > 0
-                  ? (stats.unreadEmails > 1
-                      ? t.dashboard.home.sections.aiAssistMessage.replace('{count}', stats.unreadEmails.toString()).replace('{plural}', 's')
-                      : t.dashboard.home.sections.aiAssistMessageSingular.replace('{count}', stats.unreadEmails.toString()))
-                  : t.common.allCaughtUp}
-              </Typography>
-              <Button
-                variant="contained"
-                size="small"
+              {/* Decorative circles */}
+              <Box
                 sx={{
-                  mt: 2,
-                  bgcolor: 'white',
-                  color: 'primary.main',
-                  '&:hover': {
-                    bgcolor: 'grey.100',
-                  },
+                  position: 'absolute',
+                  top: -20,
+                  right: -20,
+                  width: 100,
+                  height: 100,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(255,255,255,0.1)',
                 }}
-                onClick={() => router.push('/dashboard/ai')}
-              >
-                {t.dashboard.home.sections.viewSuggestions}
-              </Button>
-            </Box>
+              />
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: -30,
+                  right: 40,
+                  width: 60,
+                  height: 60,
+                  borderRadius: '50%',
+                  bgcolor: 'rgba(255,255,255,0.08)',
+                }}
+              />
 
-            {stats.unreadEmails > 0 && (
-              <>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    {t.dashboard.home.sections.inboxStatus}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, position: 'relative' }}>
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 2,
+                    bgcolor: 'rgba(255,255,255,0.2)',
+                    backdropFilter: 'blur(10px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Sparkles size={22} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    {t.dashboard.home.sections.aiInsights || 'AI Assistant'}
                   </Typography>
-                  <LinearProgress
-                    variant="determinate"
-                    value={Math.max(0, 100 - (stats.unreadEmails / (stats.unreadEmails + 10)) * 100)}
-                    sx={{
-                      height: 8,
-                      borderRadius: 4,
-                      mb: 0.5,
-                    }}
-                  />
-                  <Typography variant="caption" color="text.secondary">
-                    {t.dashboard.home.sections.inboxStatusMessage.replace('{count}', stats.unreadEmails.toString())}
+                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                    {t.dashboard.home.sections.aiInsightsSubtitle || 'Your intelligent email companion'}
                   </Typography>
                 </Box>
-
-                <Divider sx={{ my: 2 }} />
-              </>
-            )}
-
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-                {t.dashboard.home.sections.quickActions}
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<TrendingUp size={18} />}
-                  onClick={() => router.push('/dashboard/ai')}
-                >
-                  {t.dashboard.home.sections.analyzeInbox}
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<Sparkles size={18} />}
-                  onClick={() => router.push('/dashboard/ai')}
-                >
-                  {t.dashboard.home.sections.smartCompose}
-                </Button>
+                {aiStats.pendingActions > 0 && (
+                  <Chip
+                    size="small"
+                    label={aiStats.pendingActions}
+                    sx={{
+                      ml: 'auto',
+                      bgcolor: 'warning.main',
+                      color: 'warning.contrastText',
+                      fontWeight: 700,
+                      animation: 'pulse 2s infinite',
+                      '@keyframes pulse': {
+                        '0%, 100%': { transform: 'scale(1)' },
+                        '50%': { transform: 'scale(1.1)' },
+                      },
+                    }}
+                  />
+                )}
               </Box>
+
+              <Typography variant="body2" sx={{ opacity: 0.95, position: 'relative' }}>
+                {stats.unreadEmails > 0
+                  ? stats.unreadEmails > 1
+                    ? t.dashboard.home.sections.aiAssistMessage?.replace('{count}', stats.unreadEmails.toString())?.replace('{plural}', 's') || `Ready to help with ${stats.unreadEmails} unread emails`
+                    : t.dashboard.home.sections.aiAssistMessageSingular?.replace('{count}', '1') || 'Ready to help with 1 unread email'
+                  : t.common.allCaughtUp || 'All caught up! No unread emails.'}
+              </Typography>
             </Box>
-          </DashboardCard>
+
+            {/* Content */}
+            <Box sx={{ p: 2 }}>
+              {/* Pending Actions Alert */}
+              {aiStats.pendingActions > 0 && (
+                <Box
+                  sx={{
+                    p: 1.5,
+                    mb: 2,
+                    borderRadius: 2,
+                    bgcolor: (theme) => alpha(theme.palette.warning.main, 0.1),
+                    border: 1,
+                    borderColor: (theme) => alpha(theme.palette.warning.main, 0.3),
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      bgcolor: (theme) => alpha(theme.palette.warning.main, 0.15),
+                      transform: 'translateX(4px)',
+                    },
+                  }}
+                  onClick={() => router.push('/dashboard/ai')}
+                >
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 1.5,
+                      bgcolor: 'warning.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                    }}
+                  >
+                    <Zap size={18} />
+                  </Box>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {aiStats.pendingActions} {t.ai?.pendingActions || 'pending actions'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t.ai?.pendingActionsHint || 'Review AI suggestions'}
+                    </Typography>
+                  </Box>
+                  <ArrowRight size={16} />
+                </Box>
+              )}
+
+              {/* AI Stats Grid */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: 1.5,
+                  mb: 2,
+                }}
+              >
+                {/* Unread Emails */}
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+                    textAlign: 'center',
+                  }}
+                >
+                  {aiLoading ? (
+                    <Skeleton variant="text" width="60%" sx={{ mx: 'auto' }} />
+                  ) : (
+                    <>
+                      <Mail size={18} style={{ marginBottom: 4 }} />
+                      <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                        {stats.unreadEmails}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t.ai?.unread || 'Unread'}
+                      </Typography>
+                    </>
+                  )}
+                </Box>
+
+                {/* AI Learning */}
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: (theme) => alpha(theme.palette.success.main, 0.08),
+                    textAlign: 'center',
+                  }}
+                >
+                  {aiLoading ? (
+                    <Skeleton variant="text" width="60%" sx={{ mx: 'auto' }} />
+                  ) : (
+                    <>
+                      <Brain size={18} style={{ marginBottom: 4 }} />
+                      <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                        {aiStats.totalInteractions}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {t.ai?.learned || 'Learned'}
+                      </Typography>
+                    </>
+                  )}
+                </Box>
+              </Box>
+
+              {/* Learning Progress */}
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Brain size={12} />
+                    {t.ai?.writingStyleLearning || 'AI Learning Progress'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {aiStats.learningProgress}%
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={aiStats.learningProgress}
+                  sx={{
+                    height: 6,
+                    borderRadius: 3,
+                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                    '& .MuiLinearProgress-bar': {
+                      borderRadius: 3,
+                      background: (theme) =>
+                        `linear-gradient(90deg, ${theme.palette.primary.main} 0%, #7c3aed 100%)`,
+                    },
+                  }}
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                  {aiStats.learningProgress < 20
+                    ? t.ai?.writingStyleLearningLow || 'Getting started - send more emails'
+                    : aiStats.learningProgress < 60
+                    ? t.ai?.writingStyleLearningMedium || 'Learning your style'
+                    : t.ai?.writingStyleLearningHigh || 'AI knows your style well'}
+                </Typography>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Quick Actions - Chip Style */}
+              <Typography variant="caption" sx={{ fontWeight: 600, mb: 1, display: 'block' }}>
+                {t.dashboard.home.sections.quickActions || 'Quick Actions'}
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                <Chip
+                  icon={<Sparkles size={14} />}
+                  label={t.dashboard.home.sections.smartCompose || 'Smart Compose'}
+                  onClick={() => router.push('/dashboard/ai')}
+                  sx={{
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      bgcolor: 'primary.main',
+                      color: 'white',
+                      '& .MuiChip-icon': { color: 'white' },
+                    },
+                  }}
+                  variant="outlined"
+                />
+                <Chip
+                  icon={<TrendingUp size={14} />}
+                  label={t.dashboard.home.sections.analyzeInbox || 'Analyze'}
+                  onClick={() => router.push('/dashboard/ai')}
+                  sx={{
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      bgcolor: 'primary.main',
+                      color: 'white',
+                      '& .MuiChip-icon': { color: 'white' },
+                    },
+                  }}
+                  variant="outlined"
+                />
+                <Chip
+                  icon={<Mail size={14} />}
+                  label={t.ai?.summarize || 'Summarize'}
+                  onClick={() => router.push('/dashboard/ai')}
+                  sx={{
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      bgcolor: 'primary.main',
+                      color: 'white',
+                      '& .MuiChip-icon': { color: 'white' },
+                    },
+                  }}
+                  variant="outlined"
+                />
+              </Box>
+
+              {/* Full AI Hub Button */}
+              <Button
+                fullWidth
+                variant="contained"
+                endIcon={<ArrowRight size={16} />}
+                onClick={() => router.push('/dashboard/ai')}
+                sx={{
+                  mt: 2,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  background: (theme) =>
+                    `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #7c3aed 100%)`,
+                  '&:hover': {
+                    background: (theme) =>
+                      `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, #6d28d9 100%)`,
+                  },
+                }}
+              >
+                {t.dashboard.home.sections.viewSuggestions || 'Open AI Assistant'}
+              </Button>
+            </Box>
+          </Box>
 
           {/* Recent Connections */}
           <DashboardCard title={t.dashboard.home.sections.recentConnections} subtitle={t.dashboard.home.sections.recentConnectionsSubtitle}>

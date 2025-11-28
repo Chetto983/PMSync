@@ -11,7 +11,9 @@
       "Bash(npx tsc:*)",
       "Bash(cat:*)",
       "Bash(xargs cat:*)",
-      "Bash(npx jest:*)"
+      "Bash(npx jest:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

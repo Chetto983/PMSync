@@ -88,4 +88,17 @@ export const aiApi = {
       payload,
     );
   },
+  composeEmail(payload: {
+    prompt: string;
+    to?: string[];
+    subject?: string;
+    tone?: string;
+    locale?: string;
+    variant?: string;
+  }) {
+    return apiClient.post<{ success: boolean; body: string; subject?: string; variantUsed?: string }>(
+      '/ai/compose',
+      payload,
+    );
+  },
 };

@@ -51,6 +51,12 @@ export class CalendarAgent extends BaseAgent {
 
     try {
       const analysis = await this.analyzeCalendarRequest(context);
+      const { language } = this.getPreferences(context);
+
+      // Handle parse failures - use localized fallback message
+      if (!analysis.message) {
+        analysis.message = this.getLocalizedErrorMessage('calendar', language);
+      }
 
       if (analysis.needsMoreInfo) {
         return this.createClarificationResponse(
@@ -192,9 +198,9 @@ Analyze and respond with ONLY a JSON object (no markdown):
       return {
         action: 'UNKNOWN',
         confidence: 0.3,
-        message: "I couldn't understand your calendar request clearly.",
+        message: '', // Will be replaced with localized message in process()
         needsMoreInfo: true,
-        questions: ['Could you please provide more details about your scheduling needs?'],
+        questions: [],
         params: {},
       };
     }

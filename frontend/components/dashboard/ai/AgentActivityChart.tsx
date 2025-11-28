@@ -44,17 +44,20 @@ export interface AgentActivityChartProps {
 }
 
 export function AgentActivityChart({
-  data,
+  data: dataProp,
   loading = false,
   onRefresh,
   defaultExpanded = true,
 }: AgentActivityChartProps) {
+  // Ensure data is always an array
+  const data = Array.isArray(dataProp) ? dataProp : [];
+
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isExpanded, setIsExpanded] = React.useState(defaultExpanded);
 
-  const maxAttempts = Math.max(...data.map((d) => d.totalAttempts), 1);
+  const maxAttempts = data.length > 0 ? Math.max(...data.map((d) => d.totalAttempts), 1) : 1;
 
   const getAgentIcon = (agentName: string) => {
     switch (agentName) {

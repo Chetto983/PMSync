@@ -13,6 +13,9 @@ import { EmailInsightsService } from './services/email-insights.service';
 import { QueryEmbeddingCacheService } from './services/query-embedding-cache.service';
 import { AttachmentContentExtractorService } from './services/attachment-content-extractor.service';
 import { PersonalizationService } from './services/personalization.service';
+import { PromptRegistryService } from './services/prompt-registry.service';
+import { LlmTelemetryService } from './services/llm-telemetry.service';
+import { WritingStyleService } from './services/writing-style.service';
 import { EmailModule } from '../email/email.module';
 import { MultiAgentModule } from './multi-agent/multi-agent.module';
 
@@ -33,6 +36,9 @@ import { MultiAgentModule } from './multi-agent/multi-agent.module';
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
     PersonalizationService,
+    PromptRegistryService,
+    LlmTelemetryService,
+    WritingStyleService,
   ],
   controllers: [AiController, KnowledgeBaseController, PersonalizationController],
   exports: [
@@ -46,6 +52,9 @@ import { MultiAgentModule } from './multi-agent/multi-agent.module';
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
     PersonalizationService,
+    PromptRegistryService,
+    LlmTelemetryService,
+    WritingStyleService,
     MultiAgentModule, // Export for other modules to use multi-agent services
   ],
 })

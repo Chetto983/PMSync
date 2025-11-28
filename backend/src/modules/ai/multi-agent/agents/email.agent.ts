@@ -52,6 +52,12 @@ export class EmailAgent extends BaseAgent {
     try {
       // Analyze the request
       const analysis = await this.analyzeEmailRequest(context);
+      const { language } = this.getPreferences(context);
+
+      // Handle parse failures - use localized fallback message
+      if (!analysis.message) {
+        analysis.message = this.getLocalizedErrorMessage('email', language);
+      }
 
       if (analysis.needsMoreInfo) {
         return this.createClarificationResponse(
@@ -191,9 +197,9 @@ Analyze and respond with ONLY a JSON object (no markdown):
       return {
         action: 'UNKNOWN',
         confidence: 0.3,
-        message: "I couldn't understand your email request clearly.",
+        message: '', // Will be replaced with localized message in process()
         needsMoreInfo: true,
-        questions: ['Could you please provide more details about what you want to do?'],
+        questions: [],
         params: {},
       };
     }

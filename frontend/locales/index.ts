@@ -22,6 +22,9 @@ interface LandingTranslations {
   hero: {
     eyebrow: string;
     title: string;
+    titlePart1: string;
+    titleHighlight: string;
+    titlePart2: string;
     subtitle: string;
     primaryCta: string;
     secondaryCta: string;
@@ -392,6 +395,33 @@ export interface AppTranslations {
         fileTooLarge: string;
         draftSaved: string;
         discardConfirm: string;
+        aiCompose: string;
+        aiComposePrompt: string;
+        aiComposeError: string;
+        aiComposeTitle: string;
+        aiComposeHelp: string;
+        aiComposeConfirm: string;
+        aiComposeCancel: string;
+        aiComposeToneLabel: string;
+        aiComposeVariantLabel: string;
+        aiComposeExamples: string;
+        aiComposeGenerate: string;
+        aiComposePreview: string;
+        aiComposeRegenerate: string;
+        aiComposeExampleFollowUp: string;
+        aiComposeExampleThankYou: string;
+        aiComposeExampleRequest: string;
+        aiComposeExampleReplyConfirm: string;
+        aiComposeExampleReplyDecline: string;
+        aiComposeExampleReplyInfo: string;
+        // AI Chat Panel
+        aiChatTitle: string;
+        aiChatPlaceholder: string;
+        aiChatSuggestions: string;
+        aiChatThinking: string;
+        aiChatCopy: string;
+        aiChatInsert: string;
+        aiChatClear: string;
       };
       advancedSearch: {
         title: string;
@@ -1100,6 +1130,7 @@ export interface AppTranslations {
     thinking: string;
     online: string;
     pendingActions: string;
+    pendingActionsHint: string;
     history: string;
     noHistory: string;
     noPendingActions: string;
@@ -1107,6 +1138,14 @@ export interface AppTranslations {
     reject: string;
     confidence: string;
     tips: string;
+    // Dashboard AI widget
+    unread: string;
+    learned: string;
+    summarize: string;
+    writingStyleLearning: string;
+    writingStyleLearningLow: string;
+    writingStyleLearningMedium: string;
+    writingStyleLearningHigh: string;
     // Dashboard components
     learning?: {
       title: string;
@@ -1132,6 +1171,34 @@ export interface AppTranslations {
     };
     awaitingApproval?: string;
     allClear?: string;
+    quickActions?: {
+      summarizeInbox: string;
+      importantEmails: string;
+      todaySchedule: string;
+      searchContacts: string;
+    };
+    categories?: {
+      email: string;
+      calendar: string;
+      contacts: string;
+    };
+    examples?: {
+      email: {
+        summarize: string;
+        findLastWeek: string;
+        draftReply: string;
+      };
+      calendar: {
+        scheduleMeeting: string;
+        todayAgenda: string;
+        findFreeTime: string;
+      };
+      contacts: {
+        findContact: string;
+        addContact: string;
+        updateContact: string;
+      };
+    };
   };
   emailAi?: {
     smartReplies: {

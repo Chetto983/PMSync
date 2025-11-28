@@ -33,7 +33,7 @@ describe('MultiAgentController - feedback stats endpoint', () => {
       {} as any,
       {} as any,
       {} as any,
-      feedbackService as any,
+      feedbackService,
     );
   });
 

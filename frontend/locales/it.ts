@@ -101,6 +101,9 @@ export const it: AppTranslations = {
     hero: {
       eyebrow: 'Piattaforma AI per le comunicazioni',
       title: 'Controlla ogni inbox con serenità',
+      titlePart1: 'Gestisci',
+      titleHighlight: 'ogni inbox',
+      titlePart2: 'con sicurezza',
       subtitle:
         'PMSync unisce triage intelligente, bozze automatiche e assistenti vocali per risposte puntuali e coerenti.',
       primaryCta: 'Richiedi una demo',
@@ -465,6 +468,33 @@ export const it: AppTranslations = {
         fileTooLarge: 'File {filename} troppo grande (max 10MB)',
         draftSaved: 'Bozza salvata con successo',
         discardConfirm: 'Scartare le modifiche non salvate?',
+        aiCompose: 'Scrittura AI',
+        aiComposePrompt: "Descrivi l'email che vuoi redigere",
+        aiComposeError: "Impossibile comporre l'email. Riprova.",
+        aiComposeTitle: 'Redigi con AI',
+        aiComposeHelp: "Scrivi un breve prompt. L'AI proporrà testo e oggetto.",
+        aiComposeConfirm: 'Inserisci bozza',
+        aiComposeCancel: 'Annulla',
+        aiComposeToneLabel: 'Tono',
+        aiComposeVariantLabel: 'Variante',
+        aiComposeExamples: 'Prova questi:',
+        aiComposeGenerate: 'Genera',
+        aiComposePreview: 'Anteprima',
+        aiComposeRegenerate: 'Rigenera',
+        aiComposeExampleFollowUp: 'Scrivi un follow-up sulla riunione',
+        aiComposeExampleThankYou: 'Ringraziamento per il loro aiuto',
+        aiComposeExampleRequest: 'Richiedi informazioni su...',
+        aiComposeExampleReplyConfirm: 'Conferma ricezione e programma chiamata',
+        aiComposeExampleReplyDecline: 'Declina gentilmente con alternativa',
+        aiComposeExampleReplyInfo: 'Richiedi ulteriori informazioni',
+        // AI Chat Panel
+        aiChatTitle: 'Assistente AI',
+        aiChatPlaceholder: "Chiedi all'AI di aiutarti con l'email...",
+        aiChatSuggestions: 'Azioni rapide:',
+        aiChatThinking: 'Sto pensando...',
+        aiChatCopy: 'Copia',
+        aiChatInsert: "Inserisci nell'email",
+        aiChatClear: 'Pulisci chat',
       },
       advancedSearch: {
         title: 'Ricerca Avanzata',
@@ -1176,6 +1206,7 @@ export const it: AppTranslations = {
     thinking: 'Sto pensando...',
     online: 'Online',
     pendingActions: 'Azioni in Attesa',
+    pendingActionsHint: 'Rivedi i suggerimenti AI',
     history: 'Cronologia',
     noHistory: 'Nessuna cronologia',
     noPendingActions: 'Nessuna azione in attesa',
@@ -1183,6 +1214,14 @@ export const it: AppTranslations = {
     reject: 'Rifiuta',
     confidence: 'confidenza',
     tips: 'Le azioni ad alta severità richiedono approvazione. Le azioni a bassa severità possono essere eseguite automaticamente in base alla confidenza.',
+    // Dashboard AI widget
+    unread: 'Non lette',
+    learned: 'Appreso',
+    summarize: 'Riassumi',
+    writingStyleLearning: 'Progresso Apprendimento AI',
+    writingStyleLearningLow: 'Inizio - invia altre email',
+    writingStyleLearningMedium: 'Apprendimento del tuo stile',
+    writingStyleLearningHigh: "L'AI conosce bene il tuo stile",
     // AI Dashboard - Learning Progress
     learning: {
       title: 'Progresso Apprendimento',
@@ -1210,6 +1249,36 @@ export const it: AppTranslations = {
     },
     awaitingApproval: 'in attesa di approvazione',
     allClear: 'Tutto a posto',
+    // Quick actions
+    quickActions: {
+      summarizeInbox: 'Riassumi inbox',
+      importantEmails: 'Email importanti',
+      todaySchedule: 'Agenda di oggi',
+      searchContacts: 'Cerca contatti',
+    },
+    // Example queries by category
+    categories: {
+      email: 'Email',
+      calendar: 'Calendario',
+      contacts: 'Contatti',
+    },
+    examples: {
+      email: {
+        summarize: 'Riassumi le mie email non lette',
+        findLastWeek: 'Trova le email della scorsa settimana',
+        draftReply: "Scrivi una risposta all'ultima email",
+      },
+      calendar: {
+        scheduleMeeting: 'Programma una riunione domani',
+        todayAgenda: "Cosa c'è in agenda oggi?",
+        findFreeTime: 'Trova tempo libero questa settimana',
+      },
+      contacts: {
+        findContact: 'Trova il contatto di Mario',
+        addContact: 'Aggiungi un nuovo contatto',
+        updateContact: 'Aggiorna i dettagli del contatto',
+      },
+    },
   },
   emailAi: {
     smartReplies: {

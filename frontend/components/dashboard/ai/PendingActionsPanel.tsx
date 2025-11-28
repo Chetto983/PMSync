@@ -47,13 +47,16 @@ export interface PendingActionsPanelProps {
 }
 
 export function PendingActionsPanel({
-  actions,
+  actions: actionsProp,
   loading = false,
   onApprove,
   onReject,
   onRefresh,
   defaultExpanded = true,
 }: PendingActionsPanelProps) {
+  // Ensure actions is always an array (handles undefined, null, or invalid values)
+  const actions = Array.isArray(actionsProp) ? actionsProp : [];
+
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));

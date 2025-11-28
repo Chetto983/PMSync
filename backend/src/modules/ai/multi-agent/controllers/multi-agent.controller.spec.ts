@@ -58,8 +58,8 @@ describe('MultiAgentController - processMessage security', () => {
     };
 
     controller = new MultiAgentController(
-      prisma as any,
-      multiAgentService as any,
+      prisma,
+      multiAgentService,
       {} as any,
       {} as any,
     );

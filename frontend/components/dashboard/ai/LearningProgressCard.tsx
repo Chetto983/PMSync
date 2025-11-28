@@ -50,7 +50,7 @@ export interface LearningProgressCardProps {
  * - Uses global theme
  */
 export function LearningProgressCard({
-  profiles,
+  profiles: profilesProp,
   summary,
   loading = false,
   onRefresh,
@@ -63,6 +63,7 @@ export function LearningProgressCard({
 
   // Group profiles by agent
   const agentProfiles = React.useMemo(() => {
+    const profiles = Array.isArray(profilesProp) ? profilesProp : [];
     const grouped: Record<string, LearningProfile[]> = {};
     profiles.forEach((profile) => {
       if (!grouped[profile.agentName]) {
@@ -71,7 +72,7 @@ export function LearningProgressCard({
       grouped[profile.agentName].push(profile);
     });
     return grouped;
-  }, [profiles]);
+  }, [profilesProp]);
 
   // Calculate agent-level stats
   const getAgentStats = (agentProfiles: LearningProfile[]) => {

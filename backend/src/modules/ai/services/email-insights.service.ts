@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
+import { WritingStyleService } from './writing-style.service';
 import { parseArrayFromAiPayload } from '../utils/ai-output.utils';
 
 type LocaleKey = 'en' | 'it';
@@ -39,6 +40,7 @@ export class EmailInsightsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mistral: MistralService,
+    private readonly writingStyle: WritingStyleService,
   ) {}
 
   async summarizeEmail(tenantId: string, emailId: string, locale?: string) {
@@ -46,8 +48,8 @@ export class EmailInsightsService {
     const lang = this.resolveLocale(locale);
     const systemPrompt =
       lang === 'it'
-        ? 'Sei un assistente che riassume email di lavoro. Rispondi con un breve riassunto (massimo 5 frasi) evidenziando intenti, richieste e prossimi passi.'
-        : 'You are an assistant who summarizes business emails. Reply with a short summary (max 5 sentences) highlighting intent, requests, and next steps.';
+        ? 'Sei un assistente che riassume email di lavoro. Rispondi con un breve riassunto in TESTO SEMPLICE (massimo 5 frasi). Evidenzia intento, richieste e prossimi passi. NON usare markdown, asterischi, grassetto o formattazione speciale. Scrivi frasi complete e leggibili.'
+        : 'You are an assistant who summarizes business emails. Reply with a short summary in PLAIN TEXT (max 5 sentences). Highlight intent, requests, and next steps. DO NOT use markdown, asterisks, bold, or special formatting. Write complete, readable sentences.';
 
     const userPrompt = this.buildEmailPrompt(email, lang);
 
@@ -58,7 +60,7 @@ export class EmailInsightsService {
         temperature: 0.2,
         maxTokens: 400,
       });
-      return summary.trim();
+      return this.stripMarkdown(summary.trim());
     } catch (error) {
       this.logger.error(`Failed to summarize email ${emailId}: ${this.getErrorMessage(error)}`);
       throw new BadRequestException('Unable to generate email summary');
@@ -105,6 +107,68 @@ export class EmailInsightsService {
         `Failed to generate smart replies for email ${emailId}: ${this.getErrorMessage(error)}`,
       );
       throw new BadRequestException('Unable to generate smart replies');
+    }
+  }
+
+  /**
+   * Compose an email body (and optional subject) from a user prompt.
+   * Supports lightweight A/B via `variant` to tweak temperature/phrasing.
+   */
+  async composeEmail(
+    tenantId: string,
+    payload: {
+      prompt: string;
+      to?: string[];
+      subject?: string;
+      tone?: string;
+      locale?: string;
+      variant?: string;
+      threadContext?: Array<{ subject?: string; body?: string }>;
+    },
+    userId?: string,
+  ) {
+    const lang = this.resolveLocale(payload.locale);
+    const toneKey = this.resolveTone(payload.tone);
+    const variant = payload.variant?.toUpperCase() === 'B' ? 'B' : 'A';
+
+    // Fetch user's writing style if available
+    let styleSection = '';
+    if (userId) {
+      try {
+        const style = await this.writingStyle.getStylePromptSection(tenantId, userId, lang);
+        styleSection = style ?? '';
+      } catch (error) {
+        this.logger.debug(`No writing style found for user ${userId}: ${this.getErrorMessage(error)}`);
+      }
+    }
+
+    const systemPrompt =
+      lang === 'it'
+        ? 'Sei un assistente che redige email chiare e professionali. Rispondi solo in JSON: {"body":"...", "subject":"...?"}. Evita markdown e ritorni strani. Mantieni il contesto fornito. Se manca il soggetto, proponine uno breve.'
+        : 'You are an assistant that drafts clear, professional emails. Reply ONLY in JSON: {"body":"...", "subject":"...?"}. Avoid markdown and odd characters. Keep provided context. If subject is missing, propose a short one.';
+
+    const userPrompt = this.buildComposePrompt(payload, lang, toneKey, styleSection);
+
+    try {
+      const raw = await this.mistral.completePrompt({
+        systemPrompt,
+        userPrompt,
+        temperature: variant === 'B' ? 0.55 : 0.35,
+        maxTokens: 900,
+      });
+
+      const parsed = this.parseComposeResult(raw, payload.subject);
+
+      return {
+        body: parsed.body,
+        subject: parsed.subject,
+        variantUsed: variant,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to compose email for tenant=${tenantId}: ${this.getErrorMessage(error)}`,
+      );
+      throw new BadRequestException('Unable to compose email');
     }
   }
 
@@ -257,12 +321,114 @@ export class EmailInsightsService {
     return instructions[tone][locale];
   }
 
+  private buildComposePrompt(
+    payload: {
+      prompt: string;
+      to?: string[];
+      subject?: string;
+      tone?: string;
+      threadContext?: Array<{ subject?: string; body?: string }>;
+    },
+    locale: LocaleKey,
+    tone: ToneKey,
+    styleSection?: string,
+  ): string {
+    const toLine =
+      payload.to && payload.to.length
+        ? `${locale === 'it' ? 'Destinatari' : 'Recipients'}: ${payload.to.join(', ')}`
+        : '';
+    const subjectLine = payload.subject
+      ? `${locale === 'it' ? 'Oggetto suggerito' : 'Subject hint'}: ${payload.subject}`
+      : '';
+    const toneLine =
+      locale === 'it'
+        ? `Tono richiesto: ${tone}.`
+        : `Requested tone: ${tone}.`;
+    const threadLines =
+      payload.threadContext && payload.threadContext.length
+        ? (locale === 'it' ? 'Contesto thread:' : 'Thread context:') +
+          '\n' +
+          payload.threadContext
+            .slice(0, 3)
+            .map((item, idx) => {
+              const header = `${locale === 'it' ? 'Messaggio' : 'Message'} #${idx + 1}`;
+              return `${header}\nS: ${item.subject ?? '-'}\nB: ${this.truncate(item.body ?? '', 800)}`;
+            })
+            .join('\n\n')
+        : '';
+
+    return [
+      locale === 'it' ? 'Scrivi una email pronta da inviare.' : 'Draft a ready-to-send email.',
+      toneLine,
+      toLine,
+      subjectLine,
+      threadLines,
+      styleSection,
+      `${locale === 'it' ? 'Istruzioni utente' : 'User prompt'}: ${payload.prompt}`,
+      locale === 'it'
+        ? 'Restituisci JSON con campi body e subject. Nessun markdown.'
+        : 'Return JSON with body and subject fields. No markdown.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  private parseComposeResult(raw: string, fallbackSubject?: string): { body: string; subject?: string } {
+    try {
+      let cleaned = raw.trim();
+      if (cleaned.startsWith('```json')) {
+        cleaned = cleaned.slice(7);
+      }
+      if (cleaned.startsWith('```')) {
+        cleaned = cleaned.slice(3);
+      }
+      if (cleaned.endsWith('```')) {
+        cleaned = cleaned.slice(0, -3);
+      }
+      const parsed = JSON.parse(cleaned);
+      const body = parsed.body ? this.stripMarkdown(String(parsed.body)) : this.stripMarkdown(cleaned);
+      const subject = parsed.subject ? this.stripMarkdown(String(parsed.subject)) : fallbackSubject;
+      return { body, subject };
+    } catch {
+      return {
+        body: this.stripMarkdown(raw.trim() || 'Draft unavailable'),
+        subject: fallbackSubject,
+      };
+    }
+  }
+
   private truncate(value: string, limit = 6000): string {
     return value.length > limit ? `${value.slice(0, limit)}...` : value;
   }
 
   private getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+  }
+
+  /**
+   * Strip markdown formatting from AI-generated text
+   */
+  private stripMarkdown(text: string): string {
+    return text
+      // Remove bold/italic markers
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/_([^_]+)_/g, '$1')
+      // Remove headers
+      .replace(/^#{1,6}\s+/gm, '')
+      // Remove bullet points but keep content
+      .replace(/^\s*[\-\*•]\s+/gm, '- ')
+      // Remove numbered list markers but keep numbers
+      .replace(/^\s*\d+\.\s+/gm, '')
+      // Remove code blocks
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/`([^`]+)`/g, '$1')
+      // Remove links but keep text
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      // Clean up excessive whitespace
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   private formatSmartReplyCandidates(candidates: string[]): string[] {

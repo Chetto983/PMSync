@@ -51,6 +51,12 @@ export class ContactsAgent extends BaseAgent {
 
     try {
       const analysis = await this.analyzeContactRequest(context);
+      const { language } = this.getPreferences(context);
+
+      // Handle parse failures - use localized fallback message
+      if (!analysis.message) {
+        analysis.message = this.getLocalizedErrorMessage('contacts', language);
+      }
 
       if (analysis.needsMoreInfo) {
         return this.createClarificationResponse(
@@ -188,9 +194,9 @@ Analyze and respond with ONLY a JSON object (no markdown):
       return {
         action: 'UNKNOWN',
         confidence: 0.3,
-        message: "I couldn't understand your contact request clearly.",
+        message: '', // Will be replaced with localized message in process()
         needsMoreInfo: true,
-        questions: ['Could you please provide more details about what you need?'],
+        questions: [],
         params: {},
       };
     }
