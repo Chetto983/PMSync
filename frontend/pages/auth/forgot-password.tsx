@@ -52,8 +52,8 @@ export default function ForgotPasswordPage() {
             <Image
               src="/Logo PMSync.svg"
               alt="PMSync logo"
-              width={200}
-              height={200}
+              width={150}
+              height={150}
               priority
             />
           </Box>
