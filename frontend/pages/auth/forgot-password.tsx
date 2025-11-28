@@ -16,14 +16,28 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError(translations.common.genericError);
+      return;
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      setError('Invalid email');
+      return;
+    }
+
     setError('');
     setLoading(true);
 
     try {
-      const response = await apiClient.post('/auth/forgot-password', { email });
+      const response = await apiClient.post('/auth/forgot-password', { email: trimmedEmail });
 
       if (response.data.success) {
         setSuccess(true);

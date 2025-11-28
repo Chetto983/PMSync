@@ -1,8 +1,8 @@
 # AI Comprehensive Roadmap - MailAgent
 
-**Version:** 2.1
+**Version:** 3.0
 **Date:** 2025-11-28
-**Status:** Implementation Phase - B1 Complete
+**Status:** Implementation Phase - Enhanced with Industry Best Practices
 
 ---
 
@@ -10,27 +10,41 @@
 
 1. [Executive Summary](#1-executive-summary)
 2. [Current State Analysis](#2-current-state-analysis)
-3. [Best Practices Research Summary](#3-best-practices-research-summary)
-4. [Tenant/User Isolation Architecture](#4-tenantusr-isolation-architecture)
-5. [Backend Roadmap](#5-backend-roadmap)
-6. [Frontend Roadmap](#6-frontend-roadmap)
-7. [Implementation Phases](#7-implementation-phases)
-8. [Validation & Testing Strategy](#8-validation--testing-strategy)
-9. [References](#9-references)
+3. [Industry Best Practices](#3-industry-best-practices)
+4. [Prompt Engineering Excellence](#4-prompt-engineering-excellence)
+5. [Hallucination Prevention & Grounding](#5-hallucination-prevention--grounding)
+6. [Multi-Agent Architecture Patterns](#6-multi-agent-architecture-patterns)
+7. [LLM Orchestration & Observability](#7-llm-orchestration--observability)
+8. [Human-in-the-Loop Design](#8-human-in-the-loop-design)
+9. [Tenant-User Isolation](#9-tenant-user-isolation)
+10. [Backend Implementation Roadmap](#10-backend-implementation-roadmap)
+11. [Frontend Implementation Roadmap](#11-frontend-implementation-roadmap)
+12. [Testing Strategy](#12-testing-strategy)
+13. [Success Metrics & KPIs](#13-success-metrics--kpis)
+14. [References](#14-references)
 
 ---
 
 ## 1. Executive Summary
 
-This document provides a comprehensive roadmap for enhancing the AI capabilities in MailAgent, covering both backend (`backend/src/modules/ai`) and frontend components. It incorporates best practices from industry research and patterns from the Zero-main reference implementation.
+This document provides a comprehensive roadmap for enhancing the AI capabilities in MailAgent, covering both backend (`backend/src/modules/ai`) and frontend components. It incorporates industry best practices from 2024-2025 research on multi-agent systems, LLM orchestration, and prompt engineering.
 
-### Key Goals
-- Implement AI-assisted email composition with style learning
-- Enhance multi-agent orchestration with guardrails and observability
-- Add prompt operations (registry, versioning, locale variants)
-- Implement calendar and contacts AI features
-- Ensure strict tenant/user isolation throughout
-- Build comprehensive frontend AI experience
+### Key Objectives
+
+- **Reliability**: Eliminate fragile behaviors, enforce consistent error handling
+- **Observability**: Full telemetry pipeline with correlation IDs, metrics, dashboards
+- **Safety**: Idempotency, capability gating, content sanitization, HITL controls
+- **Intelligence**: Enhanced memory management, personalization, multi-step coordination
+- **User Experience**: AI-assisted email composition with style learning
+
+### Priority Matrix
+
+| Priority | Focus Area | Impact |
+|----------|------------|--------|
+| P0 | Foundation Hardening | Eliminate placeholder behaviors, consistent summaries |
+| P1 | Resilience & Safety | Queue integration, circuit breakers, idempotency |
+| P2 | Memory & Context | Token management, summarization, personalization |
+| P3 | Advanced Features | Coordinator/Planner, multi-step workflows |
 
 ---
 
@@ -38,155 +52,1579 @@ This document provides a comprehensive roadmap for enhancing the AI capabilities
 
 ### 2.1 Backend AI Module Structure
 
-```
+```text
 backend/src/modules/ai/
 ├── controllers/
-│   ├── ai.controller.ts           # Chat, sessions, summarize, smart-reply, compose
-│   ├── knowledge-base.controller.ts
-│   └── personalization.controller.ts
+│   ├── ai.controller.ts              # Chat, sessions, summarize, smart-reply, compose
+│   ├── knowledge-base.controller.ts  # Knowledge base endpoints
+│   └── personalization.controller.ts # Personalization endpoints
 ├── services/
-│   ├── mistral.service.ts         # LLM provider
-│   ├── agent.service.ts           # LangChain agent
-│   ├── chat-session.service.ts    # Session management
-│   ├── email-insights.service.ts  # Summarize, smart-reply, categorize, compose
-│   ├── knowledge-base.service.ts  # RAG/embeddings
-│   └── embeddings.service.ts      # Vector operations
+│   ├── mistral.service.ts            # LLM provider wrapper
+│   ├── agent.service.ts              # LangChain agent orchestration
+│   ├── chat-session.service.ts       # Session management
+│   ├── email-insights.service.ts     # Summarize, smart-reply, categorize, compose
+│   ├── knowledge-base.service.ts     # RAG/embeddings
+│   ├── embeddings.service.ts         # Vector operations
+│   ├── llm-telemetry.service.ts      # LLM call tracking (exists, unused)
+│   ├── prompt-registry.service.ts    # Prompt templates
+│   └── writing-style.service.ts      # Writing style analysis
 ├── multi-agent/
 │   ├── agents/
-│   │   ├── base.agent.ts          # Abstract base
-│   │   ├── router.agent.ts        # Intent classification
-│   │   ├── email.agent.ts         # Email operations
-│   │   ├── calendar.agent.ts      # Calendar operations
-│   │   ├── contacts.agent.ts      # Contacts operations
-│   │   └── general.agent.ts       # General chat
+│   │   ├── base.agent.ts             # Abstract base agent
+│   │   ├── router.agent.ts           # Intent classification
+│   │   ├── email.agent.ts            # Email operations
+│   │   ├── calendar.agent.ts         # Calendar operations
+│   │   ├── contacts.agent.ts         # Contacts operations
+│   │   ├── knowledge.agent.ts        # RAG knowledge agent
+│   │   └── general.agent.ts          # General chat
 │   ├── services/
-│   │   ├── multi-agent.service.ts # Orchestrator
-│   │   ├── hitl.service.ts        # Human-in-the-loop
-│   │   ├── feedback.service.ts    # Learning profiles
-│   │   └── action-executor.service.ts
-│   └── interfaces/                # Types and contracts
-└── dto/                           # Request/response DTOs
+│   │   ├── multi-agent.service.ts    # Main orchestrator
+│   │   ├── action-executor.service.ts # Executes approved actions
+│   │   ├── hitl.service.ts           # Human-in-the-loop workflow
+│   │   ├── feedback.service.ts       # Learning feedback loop
+│   │   ├── memory.service.ts         # FIFO conversation memory
+│   │   └── ai-queue.service.ts       # BullMQ queue (exists, unused)
+│   └── interfaces/                   # Types and contracts
+└── dto/                              # Request/response DTOs
 ```
 
-### 2.2 Working Features (54/54 Tests Passing)
+### 2.2 Current Capabilities
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| RouterAgent (intent classification) | ✅ | Fast-path + LLM fallback |
-| EmailAgent | ✅ | Send, reply, forward, search, archive, delete |
-| CalendarAgent | ✅ | Create, update, delete events |
-| ContactsAgent | ✅ | CRUD, search, merge |
-| KnowledgeAgent | ✅ | RAG with pgvector |
-| GeneralAgent | ✅ | General chat |
-| HITL Service | ✅ | Pending actions, approve/reject |
-| Feedback Service | ✅ | Learning profiles, confidence adjustment |
-| Multi-language | ✅ | en, it, es, fr, de, pt |
-| Session Management | ✅ | Server-issued sessions |
-| AI Compose | ✅ | POST /ai/compose (basic) |
+| Component | Status | Maturity |
+|-----------|--------|----------|
+| Intent Classification | ✅ Working | Production |
+| Email Agent | ✅ Working | MVP |
+| Calendar Agent | ✅ Working | MVP |
+| Contacts Agent | ✅ Working | MVP |
+| Knowledge/RAG | ✅ Working | Production |
+| HITL Approval | ✅ Working | Production |
+| Learning Loop | ✅ Working | MVP |
+| Memory Service | ✅ Working | MVP (FIFO only) |
+| AI Queue Service | ⚠️ Available | Not wired |
+| LLM Telemetry | ⚠️ Available | Not wired |
+| AI Compose | ✅ Working | Basic |
+| Multi-language | ✅ Working | en, it, es, fr, de, pt |
 
-### 2.3 Gaps Identified
+### 2.3 Critical Gaps
 
 | Gap | Priority | Impact |
 |-----|----------|--------|
-| No prompt registry/versioning | High | Hardcoded prompts hard to maintain |
-| No writing style learning | High | Can't personalize to user voice |
-| Limited frontend AI UX | High | Missing AI chat panel in compose |
-| No observability/telemetry | Medium | Can't track LLM costs/latency |
-| No model fallback | Medium | Single point of failure |
-| No audit logging | Medium | Compliance concerns |
+| Executor Summaries | P0 | Many branches return `success` without user messages |
+| Locale Handling | P0 | Inconsistent language resolution, corrupted strings |
+| Placeholder Success | P0 | Services return success when dependencies unavailable |
+| LLM Calls Unqueued | P1 | Direct Mistral calls without rate limiting/timeouts |
+| No Idempotency | P1 | Duplicate actions not suppressed on retries |
+| Memory Limitations | P2 | No summarization when token budget exceeded |
+| Observability Gaps | P1 | Telemetry not hooked, logs lack correlation IDs |
+
+### 2.4 Comprehensive Issues Found (November 2025 Deep Audit)
+
+This section documents ALL issues found during comprehensive code audit of the AI system.
 
 ---
 
-## 3. Best Practices Research Summary
+#### 2.4.1 Backend: Action Executor Service (26 Methods Audited)
 
-### 3.1 Prompt Engineering Best Practices
+**File**: `action-executor.service.ts`
 
-Source: [Lakera Guide](https://www.lakera.ai/blog/prompt-engineering-guide), [Palantir Best Practices](https://www.palantir.com/docs/foundry/aip/best-practices-prompt-engineering)
+| Line | Issue | Severity | Description |
+|------|-------|----------|-------------|
+| 184-191 | Placeholder Success | **CRITICAL** | `executeSendEmail` returns `success: true` when `EmailSendService` unavailable |
+| 223-230 | Placeholder Success | **CRITICAL** | `executeReplyEmail` returns `success: true` when service unavailable |
+| 256-263 | Placeholder Success | **CRITICAL** | `executeForwardEmail` returns `success: true` when service unavailable |
+| 404-411 | Placeholder Success | **CRITICAL** | `executeArchiveEmail` returns `success: true` when service unavailable |
+| 527-534 | Placeholder Success | **CRITICAL** | `executeGetEvents` returns `success: true` when `CalendarService` unavailable |
+| 610-617 | Placeholder Success | **CRITICAL** | `executeCreateEvent` returns `success: true` when service unavailable |
+| 686-693 | Placeholder Success | **CRITICAL** | `executeUpdateEvent` returns `success: true` when service unavailable |
+| ALL | Missing Summary | **HIGH** | Only `executeGetUnread` (line 472) returns `summary` field |
+| 309-317 | Hardcoded English | HIGH | Forwarded email template in English only |
+| 337-345 | Hardcoded English | HIGH | Email forward success message in English |
+| 385-393 | Hardcoded English | HIGH | Archive success message in English |
+| 445-453 | Hardcoded English | HIGH | Mark read/unread messages in English |
+| 503-511 | Hardcoded English | HIGH | Star email messages in English |
+| 567-575 | Hardcoded English | HIGH | Calendar event messages in English |
 
-**Key Principles:**
-1. **Specificity over vagueness** - "Create a 3-section report with executive summary" vs "write a report"
-2. **Role assignment** - "You are a SaaS sales rep drafting follow-ups"
-3. **Chain-of-thought scaffolding** - Break complex tasks into steps
-4. **Output format instructions** - JSON schema, max length, structure
-5. **Iterative refinement** - Prompt chaining for complex tasks
+**Total**: 7 placeholder success returns, 40+ hardcoded English strings, 25/26 methods missing `summary` field.
 
-**Implementation for MailAgent:**
+---
+
+#### 2.4.2 Backend: Multi-Agent Service
+
+**File**: `multi-agent.service.ts`
+
+| Line | Issue | Severity | Description |
+|------|-------|----------|-------------|
+| 85-90 | Session ID Not in Response | HIGH | `sessionId` added by controller, not in `MultiAgentResponse` type |
+| 120-130 | Executor Errors Hidden | HIGH | Executor errors only add to messages, not returned as structured errors |
+| 145-155 | No Retry Logic | MEDIUM | LLM failures not retried with backoff |
+| 966 | Locale Not Passed | HIGH | Only `executeGetUnread` receives locale parameter |
+| 188-195 | Missing Clarification Support | MEDIUM | `clarifyingQuestions` collected but not properly surfaced |
+
+---
+
+#### 2.4.3 Backend: Router Agent
+
+**File**: `router.agent.ts`
+
+| Line | Issue | Severity | Description |
+|------|-------|----------|-------------|
+| 72-103 | No Language Enforcement | HIGH | Prompt lists intents but doesn't enforce response language |
+| N/A | Missing Locale Handling | MEDIUM | Unlike `email.agent.ts`, router doesn't use `getLanguageName()` |
+
+---
+
+#### 2.4.4 Backend: Other Agents
+
+| Agent | Issue | Location | Description |
+|-------|-------|----------|-------------|
+| `calendar.agent.ts` | Good | - | Uses locale properly with `getLanguageName()` |
+| `contacts.agent.ts` | Good | - | Uses locale properly |
+| `knowledge.agent.ts` | Missing Summary | Line 156 | Returns `relevantDocs` but no user-friendly summary |
+| `general.agent.ts` | Good | - | Uses locale properly |
+
+---
+
+#### 2.4.5 Frontend: AI Page (`ai.tsx`)
+
+**File**: `frontend/pages/dashboard/ai.tsx`
+
+| Line | Issue | Severity | Description |
+|------|-------|----------|-------------|
+| 476-478 | Memory Leak | **CRITICAL** | Message array grows unbounded, no pagination |
+| 740-741 | Session Race Condition | **CRITICAL** | Async `setSessionId()` means next message may use `undefined` |
+| 735 | Ignored Fields | HIGH | `clarifyingQuestions` and `needsMoreInfo` from backend not displayed |
+| 752-760 | Silent Fallback | HIGH | Falls back to "No response" without showing actual error |
+| 774 | Hardcoded Italian | HIGH | `"Si è verificato un errore..."` hardcoded |
+| 777 | Hardcoded Italian | HIGH | `"Sessione terminata..."` hardcoded |
+| 783 | Hardcoded Italian | HIGH | `"Timeout della richiesta..."` hardcoded |
+| 789 | Hardcoded Italian | HIGH | `"Errore sconosciuto..."` hardcoded |
+| 826-830 | Missing Error Handling | MEDIUM | Approve/reject callbacks don't handle errors |
+| 880-890 | No Rate Limit Handling | MEDIUM | 429 responses not handled with retry |
+| 920-930 | WebSocket Disconnect | MEDIUM | No reconnection logic on disconnect |
+
+---
+
+#### 2.4.6 Frontend: API Type Mismatches
+
+**File**: `frontend/lib/api/multi-agent.ts`
+
+| Endpoint | Frontend Expects | Backend Returns | Severity |
+|----------|------------------|-----------------|----------|
+| `processMessage` | `MultiAgentResponse` | `{ success, sessionId, ...MultiAgentResponse }` | HIGH |
+| `getPendingActions` | `PendingAction[]` | `{ actions: [], total, limit, offset }` | **CRITICAL** |
+| `getLearningStats` | `{ profiles, summary }` | `{ success, stats: { ... } }` | HIGH |
+| `getFeedback` | `ActionFeedback[]` | `{ feedback: [], total, limit, offset }` | HIGH |
+| `getAgents` | `{ agents: AgentInfo[] }` | Matches | OK |
+| `approveAction` | `{ success, error? }` | Matches | OK |
+| `rejectAction` | `{ success }` | Matches | OK |
+| `getActionCounts` | `{ success, counts }` | Matches | OK |
+| `resetLearning` | `{ success, deleted }` | Matches | OK |
+
+**Total**: 4/9 endpoints have type mismatches.
+
+---
+
+#### 2.4.7 Frontend: WebSocket Hook
+
+**File**: `frontend/hooks/use-websocket.ts`
+
+| Line | Issue | Severity | Description |
+|------|-------|----------|-------------|
+| 120-140 | Race Condition | **CRITICAL** | Listeners registered AFTER connection established, early events lost |
+| 185-195 | Memory Leak | HIGH | Listener re-registration on state changes without cleanup |
+| 310-320 | No Reconnection | MEDIUM | Connection drops not auto-recovered |
+| 497-499 | Duplicate Unsubscribe | LOW | Folder events unsubscribed twice |
+| 350-360 | Missing AI Events | HIGH | AI action status events (`action.approved`, `action.executed`) not handled |
+| N/A | Missing Error Handling | MEDIUM | AI event handlers lack try-catch |
+
+---
+
+#### 2.4.8 Frontend: AI Components (18 Files Audited)
+
+**PendingActionsPanel.tsx** (326 lines)
+| Line | Issue | Severity |
+
+|------|-------|----------|
+| 174 | "Pending Actions" hardcoded | MEDIUM |
+| 177 | "All clear" / "awaiting approval" hardcoded | MEDIUM |
+| 214 | "No pending actions" hardcoded | MEDIUM |
+| 246 | "High severity - requires review" tooltip hardcoded | LOW |
+| 300, 311 | "OK"/"Approve" and "No"/"Reject" for mobile hardcoded | LOW |
+
+**AiInsightsWidget.tsx** (369 lines)
+| Line | Issue | Severity |
+
+|------|-------|----------|
+| 78 | **WRONG API**: Uses `composeEmail()` to generate inbox summary | **CRITICAL** |
+| 85-86 | Hardcoded estimates for urgent/action counts | HIGH |
+| 89-90 | "Updates" and "Promotions" category names hardcoded | MEDIUM |
+| 58 | Reads `response.data?.length` but API returns `{ actions, total }` | HIGH |
+| 63 | Uses `profiles` but API may return `stats` | HIGH |
+
+**SmartReplySuggestions.tsx** (315 lines)
+| Line | Issue | Severity |
+
+|------|-------|----------|
+| 85, 89 | Error messages hardcoded in English | HIGH |
+| 181 | "Dismiss" tooltip hardcoded | LOW |
+| 212 | "Retry" label hardcoded | LOW |
+| 224 | "Generating suggestions..." hardcoded | MEDIUM |
+
+**EmailSummaryPanel.tsx** (481 lines)
+| Line | Issue | Severity |
+
+|------|-------|----------|
+| 143, 147 | Error messages hardcoded in English | HIGH |
+| 287 | "Retry" hardcoded | LOW |
+| 471 | "Generate Summary" button hardcoded | MEDIUM |
+
+**SchedulingDrawer.tsx** (607 lines)
+| Line | Issue | Severity |
+
+|------|-------|----------|
+| 251 | "Failed to generate time slots" hardcoded | HIGH |
+| 265 | "Please select a calendar provider" hardcoded | HIGH |
+| 309 | "Failed to create event" hardcoded | HIGH |
+| 318-319 | Day/month names hardcoded in English | HIGH |
+| 551, 564 | Placeholder text hardcoded | LOW |
+| 572-574 | "Enter a scheduling request..." hardcoded | MEDIUM |
+
+**AiChatPanel.tsx** (460 lines)
+| Line | Issue | Severity |
+
+|------|-------|----------|
+| 55-72 | Only EN and IT in `SUGGESTION_PROMPTS` | HIGH |
+| 141-156 | Only EN and IT error messages | HIGH |
+| Good | Passes locale to API | OK |
+
+**AISearchBar.tsx** (296 lines)
+| Line | Issue | Severity |
+
+|------|-------|----------|
+| 59 | Placeholder hardcoded in English | MEDIUM |
+| 83-86 | **Missing locale** in `searchMemory()` call | HIGH |
+| 92 | "Failed to search emails" hardcoded | HIGH |
+| 234 | "No Subject" hardcoded | LOW |
+| 259 | "Unknown sender" hardcoded | LOW |
+| 286 | "No results found..." hardcoded | MEDIUM |
+
+**LearningProgressCard.tsx** (376 lines)
+| Line | Issue | Severity |
+
+|------|-------|----------|
+| 174 | "AI Learning Progress" hardcoded | HIGH |
+| 178 | "{summary.totalAttempts} actions processed" hardcoded | HIGH |
+| 226, 241, 259 | "Approval Rate", "Success Rate", "Total Actions" hardcoded | HIGH |
+| 270 | "No learning data yet..." hardcoded | HIGH |
+| 332 | "{stats.total} actions" hardcoded | MEDIUM |
+| 354 | "+{X} more" hardcoded | LOW |
+
+---
+
+#### 2.4.9 Summary Statistics
+
+| Category | Issues Found |
+|----------|--------------|
+| **Backend Placeholder Returns** | 7 critical |
+| **Backend Missing Summaries** | 25/26 methods |
+| **Backend Hardcoded Strings** | 40+ |
+| **Frontend API Mismatches** | 4 critical |
+| **Frontend Hardcoded Strings** | 60+ |
+| **WebSocket Issues** | 6 |
+| **Memory Leaks** | 2 critical |
+| **Race Conditions** | 2 critical |
+| **Missing Locale Support** | 15+ components |
+
+---
+
+#### 2.4.10 Root Cause Analysis
+
+**Why "tools not called":**
+
+1. Router agent doesn't enforce response language → LLM confusion
+2. Email agent returns `UNKNOWN` action when prompt parsing fails
+3. No fallback handling for parse failures
+
+**Why "bad responses":**
+
+1. API type mismatches: frontend expects array, backend returns paginated object
+2. `success: true` returned when services unavailable → misleading
+3. No `summary` field in execution results → frontend shows nothing
+
+**Why "unconnected data":**
+
+1. WebSocket race condition: listeners registered after events fired
+2. Session ID async update: second message loses session context
+3. Pending actions API mismatch: frontend can't read `actions` array
+
+**Why "hardcoded English":**
+
+1. Action executor doesn't receive locale context
+2. 40+ strings in executor hardcoded
+3. Only 1 executor method passes locale
+4. Frontend components have 60+ hardcoded strings
+
+### 2.5 Immediate Fixes Required (P0)
+
 ```typescript
-// Structured prompt template
-const emailComposePrompt = {
-  role: 'You are a professional email assistant writing on behalf of {userName}.',
-  context: 'Recipients: {recipients}\nSubject: {subject}\nThread: {threadSummary}',
-  task: 'Compose an email body that {userRequest}.',
-  constraints: [
-    'Match the tone: {tone}',
-    'Keep within {maxLength} words',
-    'Use greeting style: {greetingStyle}',
-    'Apply writing metrics: {styleProfile}'
-  ],
-  output: 'Respond with ONLY the email body, no markdown or commentary.'
-};
+// 1. Fix placeholder success in action-executor.service.ts
+// BEFORE (BAD):
+if (!this.emailSendService) {
+  return { success: true, data: { message: 'placeholder' }, executionTimeMs: 0 };
+}
+
+// AFTER (GOOD):
+if (!this.emailSendService) {
+  return {
+    success: false,
+    error: 'Email service not available',
+    errorCode: 'SERVICE_UNAVAILABLE',
+    executionTimeMs: 0
+  };
+}
+
+// 2. Add localized summaries to all executors
+// BEFORE (BAD):
+return { success: true, data: { emailId, deleted: true }, executionTimeMs: 0 };
+
+// AFTER (GOOD):
+const locale = context.preferences?.language || 'en';
+const summary = locale === 'it'
+  ? 'Email eliminata con successo.'
+  : 'Email deleted successfully.';
+return { success: true, summary, data: { emailId, deleted: true }, executionTimeMs: 0 };
+
+// 3. Fix frontend API types
+// BEFORE (BAD):
+interface LearningStatsResponse {
+  profiles: LearningProfile[];  // Frontend expects this
+}
+// Backend returns { stats: { ... } }
+
+// AFTER (GOOD):
+interface LearningStatsResponse {
+  success: boolean;
+  stats: {
+    totalProfiles: number;
+    byAgent: Record<string, AgentStats>;
+    // ...
+  };
+}
 ```
 
-### 3.2 Multi-Agent Architecture Best Practices
+---
 
-Source: [SuperAnnotate Guide](https://www.superannotate.com/blog/multi-agent-llms), [Microsoft AI Agent Patterns](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns)
+### 2.6 Implementation Todo Checklist
 
-**Key Patterns:**
+Use this checklist to track progress fixing all issues found in the audit.
 
-1. **Hierarchical Orchestration**
-   - Router agent classifies intent
-   - Specialized agents handle domains
-   - Manager coordinates multi-step workflows
+---
 
-2. **Memory Architecture**
-   - Working memory: Current task context
-   - Persistent memory: Cross-session history
-   - Semantic memory: RAG embeddings
+#### P0 - CRITICAL (Fix Immediately)
 
-3. **Human-in-the-Loop**
-   - Severity-based approval thresholds
-   - Confidence calibration from feedback
-   - Audit trail for compliance
+**Backend: Placeholder Success Returns** (`action-executor.service.ts`)
 
-**Current MailAgent Alignment:**
-- ✅ Router → Specialized agents pattern implemented
-- ✅ HITL with severity levels
-- ⚠️ Missing persistent cross-session personalization
-- ⚠️ Missing telemetry/observability
+- [ ] Fix `executeSendEmail` (line 184-191) - Return error when EmailSendService unavailable
+- [ ] Fix `executeReplyEmail` (line 223-230) - Return error when service unavailable
+- [ ] Fix `executeForwardEmail` (line 256-263) - Return error when service unavailable
+- [ ] Fix `executeArchiveEmail` (line 404-411) - Return error when service unavailable
+- [ ] Fix `executeGetEvents` (line 527-534) - Return error when CalendarService unavailable
+- [ ] Fix `executeCreateEvent` (line 610-617) - Return error when service unavailable
+- [ ] Fix `executeUpdateEvent` (line 686-693) - Return error when service unavailable
+
+**Frontend: API Type Mismatches** (`frontend/lib/api/multi-agent.ts`)
+
+- [ ] Fix `getPendingActions` type - Change from `PendingAction[]` to `{ actions: PendingAction[], total, limit, offset }`
+- [ ] Fix `getLearningStats` type - Align with backend `{ success, stats }` structure
+- [ ] Fix `getFeedback` type - Change from `ActionFeedback[]` to `{ feedback: [], total, limit, offset }`
+- [ ] Fix `processMessage` type - Add `success` and `sessionId` to response type
+
+**Frontend: Critical Bugs** (`frontend/pages/dashboard/ai.tsx`)
+
+- [ ] Fix session ID race condition (line 740-741) - Use ref or callback instead of async setState
+- [ ] Fix unbounded message array (line 476-478) - Add pagination or limit (max 100 messages)
+
+**Frontend: Wrong API Usage** (`frontend/components/dashboard/ai/AiInsightsWidget.tsx`)
+
+- [ ] Fix line 78 - Create proper inbox summary endpoint instead of misusing `composeEmail()`
+- [ ] Fix line 58 - Handle `{ actions, total }` response format for pending actions
+- [ ] Fix line 63 - Handle `{ stats }` response format for learning stats
+
+**Frontend: WebSocket Race Condition** (`frontend/hooks/use-websocket.ts`)
+
+- [ ] Fix line 120-140 - Register listeners BEFORE establishing connection
+
+---
+
+#### P1 - HIGH (Fix This Week)
+
+**Backend: Add Summary Field to All Executors** (`action-executor.service.ts`)
+
+- [ ] Add `summary` to `executeSendEmail`
+- [ ] Add `summary` to `executeReplyEmail`
+- [ ] Add `summary` to `executeForwardEmail`
+- [ ] Add `summary` to `executeSearchEmails`
+- [ ] Add `summary` to `executeDeleteEmail`
+- [ ] Add `summary` to `executeArchiveEmail`
+- [ ] Add `summary` to `executeMarkRead`
+- [ ] Add `summary` to `executeMarkUnread`
+- [ ] Add `summary` to `executeStarEmail`
+- [ ] Add `summary` to `executeUnstarEmail`
+- [ ] Add `summary` to `executeGetEvents`
+- [ ] Add `summary` to `executeCreateEvent`
+- [ ] Add `summary` to `executeUpdateEvent`
+- [ ] Add `summary` to `executeDeleteEvent`
+- [ ] Add `summary` to `executeGetContact`
+- [ ] Add `summary` to `executeCreateContact`
+- [ ] Add `summary` to `executeUpdateContact`
+- [ ] Add `summary` to `executeDeleteContact`
+- [ ] Add `summary` to `executeCreateFolder`
+- [ ] Add `summary` to `executeRenameFolder`
+- [ ] Add `summary` to `executeDeleteFolder`
+- [ ] Add `summary` to `executeMoveEmail`
+- [ ] Add `summary` to `executeLabelEmail`
+- [ ] Add `summary` to `executeUnlabelEmail`
+- [ ] Add `summary` to `executeSearchContacts`
+
+**Backend: Pass Locale to All Executors** (`multi-agent.service.ts`)
+
+- [ ] Pass locale context to all executor method calls (currently only `executeGetUnread` receives it)
+- [ ] Create `ExecutorContext` interface with locale field
+- [ ] Update all executor methods to accept and use locale
+
+**Backend: Router Agent Locale** (`router.agent.ts`)
+
+- [ ] Add language enforcement to classification prompt (like email.agent.ts)
+- [ ] Use `getLanguageName()` helper from base.agent.ts
+
+**Backend: Multi-Agent Service** (`multi-agent.service.ts`)
+
+- [ ] Return executor errors as structured errors, not just messages
+- [ ] Surface `clarifyingQuestions` properly in response
+- [ ] Add `sessionId` to `MultiAgentResponse` interface
+
+**Frontend: AI Page Issues** (`frontend/pages/dashboard/ai.tsx`)
+
+- [ ] Display `clarifyingQuestions` from backend (line 735)
+- [ ] Show actual error messages instead of silent fallback (line 752-760)
+- [ ] Add error handling to approve/reject callbacks (line 826-830)
+
+**Frontend: WebSocket Issues** (`frontend/hooks/use-websocket.ts`)
+
+- [ ] Fix memory leak from listener re-registration (line 185-195)
+- [ ] Add AI event handlers for `action.approved` and `action.executed` events
+- [ ] Add error handling to AI event handlers
+
+---
+
+#### P2 - MEDIUM (Fix This Sprint)
+
+**Backend: Localize Hardcoded Strings** (`action-executor.service.ts`)
+
+- [ ] Create `ExecutorMessages` locale map (en, it, es, fr, de, pt)
+- [ ] Localize forwarded email template (line 309-317)
+- [ ] Localize email forward success message (line 337-345)
+- [ ] Localize archive success message (line 385-393)
+- [ ] Localize mark read/unread messages (line 445-453)
+- [ ] Localize star email messages (line 503-511)
+- [ ] Localize calendar event messages (line 567-575)
+- [ ] Add locale to all 40+ hardcoded strings
+
+**Frontend: AI Page i18n** (`frontend/pages/dashboard/ai.tsx`)
+
+- [ ] Add i18n key for "Si è verificato un errore..." (line 774)
+- [ ] Add i18n key for "Sessione terminata..." (line 777)
+- [ ] Add i18n key for "Timeout della richiesta..." (line 783)
+- [ ] Add i18n key for "Errore sconosciuto..." (line 789)
+
+**Frontend: Component i18n - PendingActionsPanel.tsx**
+
+- [ ] Add i18n key for "Pending Actions" (line 174)
+- [ ] Add i18n key for "All clear" / "awaiting approval" (line 177)
+- [ ] Add i18n key for "No pending actions" (line 214)
+
+**Frontend: Component i18n - LearningProgressCard.tsx**
+
+- [ ] Add i18n key for "AI Learning Progress" (line 174)
+- [ ] Add i18n key for "actions processed" (line 178)
+- [ ] Add i18n key for "Approval Rate" (line 226)
+- [ ] Add i18n key for "Success Rate" (line 241)
+- [ ] Add i18n key for "Total Actions" (line 259)
+- [ ] Add i18n key for "No learning data yet..." (line 270)
+
+**Frontend: Component i18n - SmartReplySuggestions.tsx**
+
+- [ ] Add i18n key for error messages (line 85, 89)
+- [ ] Add i18n key for "Generating suggestions..." (line 224)
+
+**Frontend: Component i18n - EmailSummaryPanel.tsx**
+
+- [ ] Add i18n key for error messages (line 143, 147)
+- [ ] Add i18n key for "Generate Summary" (line 471)
+
+**Frontend: Component i18n - SchedulingDrawer.tsx**
+
+- [ ] Add i18n key for "Failed to generate time slots" (line 251)
+- [ ] Add i18n key for "Please select a calendar provider" (line 265)
+- [ ] Add i18n key for "Failed to create event" (line 309)
+- [ ] Localize day/month names (line 318-319) - use `toLocaleDateString()`
+- [ ] Add i18n key for "Enter a scheduling request..." (line 572-574)
+
+**Frontend: Component i18n - AISearchBar.tsx**
+
+- [ ] Add locale parameter to `searchMemory()` call (line 83-86)
+- [ ] Add i18n key for placeholder (line 59)
+- [ ] Add i18n key for "Failed to search emails" (line 92)
+- [ ] Add i18n key for "No results found..." (line 286)
+
+**Frontend: Component i18n - AiChatPanel.tsx**
+
+- [ ] Add ES, FR, DE, PT to `SUGGESTION_PROMPTS` (line 55-72)
+- [ ] Add ES, FR, DE, PT error messages (line 141-156)
+
+**Frontend: WebSocket Improvements** (`frontend/hooks/use-websocket.ts`)
+
+- [ ] Add reconnection logic for dropped connections (line 310-320)
+- [ ] Remove duplicate folder event unsubscriptions (line 497-499)
+
+**Frontend: AI Page Improvements** (`frontend/pages/dashboard/ai.tsx`)
+
+- [ ] Add rate limit handling with retry for 429 responses (line 880-890)
+- [ ] Add WebSocket reconnection logic (line 920-930)
+
+---
+
+#### P3 - LOW (Backlog)
+
+**Frontend: Minor UI Strings**
+
+- [ ] `PendingActionsPanel.tsx`: Localize "High severity - requires review" tooltip (line 246)
+- [ ] `PendingActionsPanel.tsx`: Localize "OK"/"Approve" and "No"/"Reject" mobile labels (line 300, 311)
+- [ ] `SmartReplySuggestions.tsx`: Localize "Dismiss" tooltip (line 181)
+- [ ] `SmartReplySuggestions.tsx`: Localize "Retry" label (line 212)
+- [ ] `EmailSummaryPanel.tsx`: Localize "Retry" (line 287)
+- [ ] `AISearchBar.tsx`: Localize "No Subject" (line 234)
+- [ ] `AISearchBar.tsx`: Localize "Unknown sender" (line 259)
+- [ ] `SchedulingDrawer.tsx`: Localize placeholder texts (line 551, 564)
+- [ ] `LearningProgressCard.tsx`: Localize "actions" (line 332)
+- [ ] `LearningProgressCard.tsx`: Localize "+X more" (line 354)
+
+**Backend: Knowledge Agent**
+
+- [ ] Add user-friendly summary to `knowledge.agent.ts` (line 156)
+
+---
+
+#### Testing Checklist
+
+After fixing issues, verify with these tests:
+
+**Backend Tests**
+
+- [ ] All 7 placeholder success returns now return errors
+- [ ] All 26 executor methods return `summary` field
+- [ ] All executor methods receive and use locale
+- [ ] Router agent enforces response language
+
+**Frontend Tests**
+
+- [ ] API types match backend responses (no TypeScript errors)
+- [ ] Session ID persists across multiple messages
+- [ ] Message array doesn't grow beyond 100 items
+- [ ] WebSocket events are received on connect
+- [ ] Pending actions panel displays correctly
+- [ ] Learning stats display correctly
+- [ ] All UI strings display in user's locale
+
+**Integration Tests**
+
+- [ ] Multi-agent chat in Italian works end-to-end
+- [ ] Action approval flow works without race conditions
+- [ ] WebSocket reconnects after disconnect
+- [ ] Error messages display correctly in all locales
+
+---
+
+## 3. Industry Best Practices
+
+> **Sources**: [Springs Apps Multi-Agent Guide](https://springsapps.com/knowledge/everything-you-need-to-know-about-multi-ai-agents-in-2024-explanation-examples-and-challenges), [orq.ai Agent Architecture](https://orq.ai/blog/ai-agent-architecture), [Microsoft Multi-Agent Design](https://devblogs.microsoft.com/blog/designing-multi-agent-intelligence)
+
+### 3.1 Multi-Agent Architecture Principles
+
+**Hierarchical Cognitive Pattern** (recommended for 2025):
+
+- **Reactive Layer**: Fast safety-critical logic (input validation, rate limiting)
+- **Deliberative Layer**: State estimation and planning (agent selection, action proposal)
+- **Meta-Cognitive Layer**: Long-horizon goal management (coordinator/planner)
+
+**Key Benefits**:
+
+- Multi-agent systems can reduce hallucinations by up to 40% through cross-validation
+- Parallel processing enables handling multiple tasks simultaneously
+- Specialized agents provide better domain expertise than general-purpose models
+
+### 3.2 LLM Orchestration Principles
+
+> **Sources**: [orq.ai LLM Orchestration](https://orq.ai/blog/llm-orchestration), [ZenML Production Guide](https://www.zenml.io/blog/llm-agents-in-production-architectures-challenges-and-best-practices)
+
+**Production Best Practices**:
+
+1. **Task Decomposition**: Isolate key functions into testable modules
+2. **Model Routing**: Use cheaper models for simple tasks, premium for complex reasoning
+3. **Fallbacks & Guardrails**: Secondary validators, circuit breakers, human handoff
+4. **Rate Limiting**: Async task queues with concurrency controls
+5. **Consensus Pattern**: Route outputs through validators before proceeding
 
 ### 3.3 Email Personalization Best Practices
 
-Source: [Mailtrap Guide](https://mailtrap.io/blog/ai-email-personalization/), [Gmelius Guide](https://gmelius.com/blog/how-to-use-ai-in-email)
+**Style Learning Strategy**:
 
-**Key Strategies:**
-
-1. **Style Learning**
-   - Analyze sent emails to build writing profile
-   - Track 50+ linguistic metrics (Zero-main pattern)
-   - Adapt AI output to match user voice
-
-2. **Personality-Based Personalization**
-   - DISC personality insights from communication patterns
-   - Formality detection and matching
-   - Greeting/sign-off preferences
-
-3. **Continuous Learning**
-   - Connect to past conversation history
-   - Fine-tune based on user feedback
-   - Regular audits (3-6 month review cycles)
-
-4. **Safe Patterns**
-   - AI as "fast junior writer" needing review
-   - Constraints to prevent hallucinations
-   - Human in the loop for sensitive content
+- Analyze sent emails to build writing profile
+- Track 50+ linguistic metrics (formality, tone, structure)
+- Adapt AI output to match user voice
+- Regular audits (3-6 month review cycles)
 
 ---
 
-## 4. Tenant/User Isolation Architecture
+## 4. Prompt Engineering Excellence
 
-### 4.1 Data Isolation Model
+> **Sources**: [Google Cloud Function Calling](https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/function-calling), [Prompt Engineering Guide](https://www.promptingguide.ai/applications/function_calling)
 
+### 4.1 Core Principles
+
+#### Specificity Over Vagueness
+
+```typescript
+// ❌ BAD: Vague prompt
+const badPrompt = "Write an email about the project";
+
+// ✅ GOOD: Specific, structured prompt
+const goodPrompt = `
+You are writing on behalf of {userName}, a {userRole}.
+Compose a professional email with the following requirements:
+- Subject: {subject}
+- Recipients: {recipients}
+- Purpose: {purpose}
+- Tone: {tone}
+- Maximum length: {maxWords} words
+- Include: greeting, main content, call-to-action, sign-off
+`;
 ```
+
+#### Role Assignment Pattern
+
+```typescript
+const systemPrompt = `
+You are an AI email assistant for a professional email client.
+Your role is to help users compose, reply, and manage emails.
+
+CAPABILITIES:
+- Draft emails matching user's writing style
+- Suggest smart replies based on context
+- Summarize email threads
+- Categorize and organize emails
+
+CONSTRAINTS:
+- Never include information not provided in context
+- Always maintain professional tone unless instructed otherwise
+- Respect user's locale and cultural preferences
+- Do not make assumptions about recipient relationships
+`;
+```
+
+### 4.2 Structured Output Best Practices
+
+#### JSON Schema Definition
+
+```typescript
+// Define strict schemas for agent outputs
+const AgentOutputSchema = z.object({
+  actionType: z.enum([
+    'SEND_EMAIL', 'REPLY_EMAIL', 'FORWARD_EMAIL',
+    'CREATE_EVENT', 'UPDATE_EVENT', 'DELETE_EVENT',
+    'CREATE_CONTACT', 'UPDATE_CONTACT', 'SEARCH'
+  ]),
+  confidence: z.number().min(0).max(1),
+  parameters: z.record(z.unknown()),
+  reasoning: z.string().max(200)
+});
+
+// Prompt instruction for structured output
+const outputInstruction = `
+Respond with ONLY a valid JSON object. No markdown, no code fences, no explanations.
+Schema:
+{
+  "actionType": "one of: SEND_EMAIL, REPLY_EMAIL, CREATE_EVENT, ...",
+  "confidence": 0.0-1.0,
+  "parameters": { ... action-specific parameters ... },
+  "reasoning": "brief explanation (max 200 chars)"
+}
+`;
+```
+
+#### Enum Fields for Finite Sets
+
+```typescript
+// ❌ BAD: Description-based constraint
+const badSchema = {
+  tone: { type: 'string', description: 'formal, casual, or technical' }
+};
+
+// ✅ GOOD: Enum constraint
+const goodSchema = {
+  tone: { type: 'string', enum: ['formal', 'casual', 'technical'] }
+};
+```
+
+### 4.3 Chain-of-Thought Prompting
+
+```typescript
+const chainOfThoughtPrompt = `
+Before providing your final answer, think through the problem step by step:
+
+1. UNDERSTAND: What is the user asking for?
+2. CONTEXT: What relevant information do I have?
+3. PLAN: What actions are needed?
+4. VALIDATE: Are all required parameters available?
+5. EXECUTE: Generate the structured response.
+
+Format your thinking as:
+<thinking>
+[Your step-by-step reasoning]
+</thinking>
+
+<response>
+[Your JSON response]
+</response>
+`;
+```
+
+### 4.4 Few-Shot Examples
+
+```typescript
+const fewShotPrompt = `
+Here are examples of correct responses:
+
+User: "Send a thank you email to john@example.com"
+Response: {"actionType":"SEND_EMAIL","confidence":0.95,"parameters":{"to":["john@example.com"],"subject":"Thank You","tone":"formal"},"reasoning":"Clear request with explicit recipient"}
+
+User: "Reply to the last email saying I agree"
+Response: {"actionType":"REPLY_EMAIL","confidence":0.90,"parameters":{"message":"I agree with your proposal.","tone":"casual"},"reasoning":"Simple agreement reply to most recent email"}
+
+User: "What's the weather like?"
+Response: {"actionType":"CANNOT_HANDLE","confidence":1.0,"parameters":{},"reasoning":"Weather queries are outside my email management capabilities"}
+
+Now respond to the user's request following the same format.
+`;
+```
+
+### 4.5 Tool/Function Calling Schema Design
+
+> **Source**: [Analytics Vidhya Function Calling](https://www.analyticsvidhya.com/blog/2024/10/function-calling-in-ai-agents-using-mistral-7b/)
+
+```typescript
+// Best practices for function definitions
+const emailToolDefinition = {
+  name: 'send_email',
+  description: 'Send a new email to one or more recipients. Use this when the user explicitly wants to send a new email (not reply or forward).',
+  parameters: {
+    type: 'object',
+    required: ['to', 'subject', 'body'],
+    properties: {
+      to: {
+        type: 'array',
+        items: { type: 'string', format: 'email' },
+        description: 'List of recipient email addresses',
+        minItems: 1
+      },
+      cc: {
+        type: 'array',
+        items: { type: 'string', format: 'email' },
+        description: 'Optional CC recipients'
+      },
+      subject: {
+        type: 'string',
+        maxLength: 200,
+        description: 'Email subject line'
+      },
+      body: {
+        type: 'string',
+        maxLength: 10000,
+        description: 'Email body content in plain text or HTML'
+      },
+      priority: {
+        type: 'string',
+        enum: ['high', 'normal', 'low'],
+        default: 'normal'
+      }
+    }
+  }
+};
+```
+
+### 4.6 Locale-Aware Prompting
+
+```typescript
+const localeAwarePrompt = (locale: string) => `
+LANGUAGE REQUIREMENTS:
+- Respond in: ${locale === 'it' ? 'Italian (Italiano)' : locale === 'es' ? 'Spanish (Español)' : 'English'}
+- Use culturally appropriate greetings and sign-offs
+- Adapt formality level to cultural norms
+
+${locale === 'it' ? `
+Examples of Italian greetings:
+- Formal: "Gentile [Nome]," / "Egregio/Egregia,"
+- Casual: "Ciao [Nome]," / "Salve,"
+Sign-offs:
+- Formal: "Cordiali saluti," / "Distinti saluti,"
+- Casual: "A presto," / "Un saluto,"
+` : ''}
+`;
+```
+
+---
+
+## 5. Hallucination Prevention & Grounding
+
+> **Sources**: [AWS Bedrock Hallucination Reduction](https://aws.amazon.com/blogs/machine-learning/reducing-hallucinations-in-large-language-models-with-custom-intervention-using-amazon-bedrock-agents/), [Voiceflow Prevention Strategies](https://www.voiceflow.com/blog/prevent-llm-hallucinations), [K2View Grounding AI](https://www.k2view.com/blog/grounding-ai/)
+
+### 5.1 Multi-Layered Defense Strategy
+
+A 2024 Stanford study found that combining RAG, RLHF, and guardrails led to a **96% reduction in hallucinations**.
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│                 HALLUCINATION DEFENSE                    │
+├─────────────────────────────────────────────────────────┤
+│  Layer 1: INPUT GROUNDING                                │
+│  └─ RAG context injection                                │
+│  └─ User data enrichment                                 │
+│  └─ Verified knowledge base                              │
+├─────────────────────────────────────────────────────────┤
+│  Layer 2: PROMPT CONSTRAINTS                             │
+│  └─ Explicit refusal instructions                        │
+│  └─ Source citation requirements                         │
+│  └─ Confidence thresholds                                │
+├─────────────────────────────────────────────────────────┤
+│  Layer 3: OUTPUT VALIDATION                              │
+│  └─ Schema validation                                    │
+│  └─ Fact-checking against context                        │
+│  └─ Secondary LLM verification                           │
+├─────────────────────────────────────────────────────────┤
+│  Layer 4: RUNTIME GUARDRAILS                             │
+│  └─ HITL for high-stakes actions                         │
+│  └─ Action execution validation                          │
+│  └─ Rollback capabilities                                │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Retrieval-Augmented Generation (RAG)
+
+```typescript
+async function groundedCompose(
+  tenantId: string,
+  userId: string,
+  prompt: string
+): Promise<string> {
+  // 1. Retrieve relevant context from user's data
+  const recentEmails = await this.emailService.getRecent(tenantId, userId, 10);
+  const contacts = await this.contactsService.getFrequent(tenantId, userId, 20);
+  const writingStyle = await this.writingStyleService.getProfile(tenantId, userId);
+
+  // 2. Build grounded context
+  const groundingContext = `
+GROUNDING DATA (use ONLY this information):
+
+RECENT EMAIL SUBJECTS:
+${recentEmails.map(e => `- ${e.subject} (from: ${e.from})`).join('\n')}
+
+KNOWN CONTACTS:
+${contacts.map(c => `- ${c.name}: ${c.email}`).join('\n')}
+
+USER'S WRITING STYLE:
+- Formality: ${writingStyle.formalityScore > 0.6 ? 'formal' : 'casual'}
+- Typical greeting: ${writingStyle.preferredGreetings[0] || 'Hi'}
+- Typical sign-off: ${writingStyle.preferredSignOffs[0] || 'Best'}
+
+IMPORTANT: Only reference contacts and emails from the above lists.
+If information is not provided, ask the user for clarification.
+Do NOT invent email addresses, names, or past conversations.
+`;
+
+  // 3. Call LLM with grounded context
+  return await this.mistral.complete({
+    systemPrompt: groundingContext + this.baseSystemPrompt,
+    userPrompt: prompt
+  });
+}
+```
+
+### 5.3 Explicit Refusal Instructions
+
+```typescript
+const antiHallucinationPrompt = `
+CRITICAL RULES - NEVER VIOLATE:
+
+1. NEVER INVENT:
+   - Email addresses not provided in context
+   - Contact names not in the contact list
+   - Past conversations or emails not shown
+   - Meeting times or dates not specified
+   - Attachments or files not mentioned
+
+2. WHEN UNCERTAIN:
+   - Ask for clarification instead of guessing
+   - Respond with: {"actionType":"NEED_CLARIFICATION","parameters":{"question":"..."}}
+   - Never assume recipient relationships
+
+3. REQUIRED FIELDS:
+   - If a required field is missing, ASK for it
+   - Do not fill in placeholders like "[name]" or "TBD"
+
+4. CONFIDENCE REPORTING:
+   - Only report confidence > 0.8 if ALL required info is explicitly provided
+   - If inferring anything, confidence must be < 0.7
+
+Example of CORRECT uncertainty handling:
+User: "Send an email to John"
+Response: {"actionType":"NEED_CLARIFICATION","parameters":{"question":"Which John? I found multiple contacts: John Smith (john.s@example.com), John Doe (jdoe@company.com)"}}
+`;
+```
+
+### 5.4 Output Validation & Fact-Checking
+
+```typescript
+interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  hallucinationFlags: string[];
+}
+
+async function validateAgentOutput(
+  output: AgentOutput,
+  context: AgentContext
+): Promise<ValidationResult> {
+  const errors: string[] = [];
+  const hallucinationFlags: string[] = [];
+
+  // 1. Schema validation
+  const schemaResult = await this.validateSchema(output);
+  if (!schemaResult.valid) {
+    errors.push(...schemaResult.errors);
+  }
+
+  // 2. Email address verification
+  if (output.parameters.to) {
+    for (const email of output.parameters.to) {
+      const isKnown = await this.contactsService.exists(context.tenantId, email);
+      if (!isKnown) {
+        hallucinationFlags.push(`Unknown email: ${email}`);
+      }
+    }
+  }
+
+  // 3. Reference verification
+  if (output.parameters.replyToEmailId) {
+    const emailExists = await this.emailService.exists(
+      context.tenantId,
+      context.userId,
+      output.parameters.replyToEmailId
+    );
+    if (!emailExists) {
+      hallucinationFlags.push('Referenced email does not exist');
+    }
+  }
+
+  // 4. Date/time sanity check
+  if (output.parameters.scheduledTime) {
+    const scheduled = new Date(output.parameters.scheduledTime);
+    if (scheduled < new Date()) {
+      errors.push('Cannot schedule in the past');
+    }
+    if (scheduled > new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)) {
+      hallucinationFlags.push('Suspiciously far future date');
+    }
+  }
+
+  return { valid: errors.length === 0, errors, hallucinationFlags };
+}
+```
+
+### 5.5 Guardrails Implementation
+
+```typescript
+interface Guardrail {
+  name: string;
+  check: (output: AgentOutput, context: AgentContext) => Promise<GuardrailResult>;
+  severity: 'block' | 'warn' | 'log';
+}
+
+const guardrails: Guardrail[] = [
+  {
+    name: 'email_count_limit',
+    severity: 'block',
+    check: async (output) => {
+      if (output.parameters.to?.length > 50) {
+        return { passed: false, reason: 'Too many recipients (max 50)' };
+      }
+      return { passed: true };
+    }
+  },
+  {
+    name: 'sensitive_content_detection',
+    severity: 'warn',
+    check: async (output) => {
+      const sensitivePatterns = [/password/i, /credit.?card/i, /ssn/i];
+      const content = JSON.stringify(output.parameters);
+      for (const pattern of sensitivePatterns) {
+        if (pattern.test(content)) {
+          return { passed: false, reason: 'Potentially sensitive content' };
+        }
+      }
+      return { passed: true };
+    }
+  },
+  {
+    name: 'external_domain_check',
+    severity: 'warn',
+    check: async (output, context) => {
+      if (!output.parameters.to) return { passed: true };
+      const tenantDomain = await this.getTenantDomain(context.tenantId);
+      const external = output.parameters.to.filter(
+        (email: string) => !email.endsWith(`@${tenantDomain}`)
+      );
+      if (external.length > 0) {
+        return { passed: true, warning: `External recipients: ${external.join(', ')}` };
+      }
+      return { passed: true };
+    }
+  }
+];
+```
+
+---
+
+## 6. Multi-Agent Architecture Patterns
+
+> **Sources**: [Microsoft Multi-Agent Design](https://devblogs.microsoft.com/blog/designing-multi-agent-intelligence), [MarkTechPost Top 5 Architectures](https://www.marktechpost.com/2025/11/15/comparing-the-top-5-ai-agent-architectures-in-2025-hierarchical-swarm-meta-learning-modular-evolutionary/)
+
+### 6.1 Hierarchical Cognitive Agent Pattern
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│              META-COGNITIVE LAYER                        │
+│  (Coordinator/Planner - long-horizon goal management)   │
+│  • Multi-step planning                                   │
+│  • Cross-agent coordination                              │
+│  • Failure recovery & rollback                           │
+├─────────────────────────────────────────────────────────┤
+│              DELIBERATIVE LAYER                          │
+│  (Specialized Agents - state estimation & planning)     │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │
+│  │ Email   │ │Calendar │ │Contacts │ │Knowledge│       │
+│  │ Agent   │ │ Agent   │ │ Agent   │ │ Agent   │       │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘       │
+├─────────────────────────────────────────────────────────┤
+│              REACTIVE LAYER                              │
+│  (Router Agent - fast real-time control)                │
+│  • Intent classification                                 │
+│  • Input validation                                      │
+│  • Rate limiting                                         │
+│  • Fast-path detection                                   │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 6.2 Agent Communication Protocol
+
+```typescript
+interface AgentMessage {
+  id: string;
+  timestamp: Date;
+  fromAgent: string;
+  toAgent: string | 'broadcast';
+  messageType: 'request' | 'response' | 'event' | 'error';
+  correlationId: string;
+  payload: unknown;
+  metadata: {
+    priority: 'high' | 'normal' | 'low';
+    ttl?: number;
+    requiresAck?: boolean;
+  };
+}
+
+interface AgentRegistry {
+  registerAgent(agent: BaseAgent): void;
+  getAgent(name: string): BaseAgent | undefined;
+  broadcast(message: AgentMessage): Promise<void>;
+  sendTo(agentName: string, message: AgentMessage): Promise<AgentMessage>;
+}
+```
+
+### 6.3 Cross-Validation for Accuracy
+
+Multi-agent systems can improve accuracy by up to 40% through cross-validation:
+
+```typescript
+async function crossValidatedAction(
+  primaryResult: AgentResult,
+  context: AgentContext
+): Promise<AgentResult> {
+  // For critical actions, get secondary opinion
+  if (primaryResult.proposedActions.some(a => a.severity === 'HIGH')) {
+    const validators = [
+      this.getAgent('EmailAgent'),
+      this.getAgent('GeneralAgent')
+    ].filter(a => a.name !== primaryResult.agentUsed);
+
+    const validationResults = await Promise.all(
+      validators.map(v => v.validateAction(primaryResult.proposedActions[0]))
+    );
+
+    const approvalRate = validationResults.filter(r => r.approved).length / validators.length;
+
+    if (approvalRate < 0.5) {
+      return {
+        ...primaryResult,
+        proposedActions: primaryResult.proposedActions.map(a => ({
+          ...a,
+          confidence: a.confidence * 0.5,
+          validationWarning: 'Cross-validation raised concerns'
+        }))
+      };
+    }
+  }
+
+  return primaryResult;
+}
+```
+
+### 6.4 Memory Architecture
+
+```typescript
+interface AgentMemory {
+  // Working memory: Current task context (cleared per session)
+  working: {
+    currentGoal: string;
+    conversationHistory: Message[];
+    activeContext: Record<string, unknown>;
+  };
+
+  // Episodic memory: Recent interactions (FIFO, max N items)
+  episodic: {
+    recentActions: ActionRecord[];
+    recentFeedback: FeedbackRecord[];
+    sessionSummaries: SessionSummary[];
+  };
+
+  // Semantic memory: Long-term knowledge (RAG embeddings)
+  semantic: {
+    userPreferences: UserPreferences;
+    writingStyle: WritingStyleProfile;
+    contactRelationships: ContactGraph;
+  };
+
+  // Procedural memory: Learned behaviors
+  procedural: {
+    learningProfiles: LearningProfile[];
+    actionPatterns: ActionPattern[];
+  };
+}
+```
+
+### 6.5 Coordinator/Planner Implementation
+
+```typescript
+interface ExecutionPlan {
+  id: string;
+  goal: string;
+  steps: PlanStep[];
+  status: 'planning' | 'executing' | 'completed' | 'failed';
+  trace: PlanTrace[];
+}
+
+interface PlanStep {
+  stepId: string;
+  agentName: string;
+  action: string;
+  parameters: Record<string, unknown>;
+  dependencies: string[];
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  result?: AgentResult;
+}
+
+class CoordinatorAgent extends BaseAgent {
+  async process(context: AgentContext): Promise<AgentResult> {
+    // 1. Decompose goal into steps
+    const plan = await this.createPlan(context.message);
+
+    // 2. Execute steps in dependency order
+    for (const step of this.topologicalSort(plan.steps)) {
+      const dependenciesMet = step.dependencies.every(
+        depId => plan.steps.find(s => s.stepId === depId)?.status === 'completed'
+      );
+
+      if (!dependenciesMet) {
+        step.status = 'skipped';
+        continue;
+      }
+
+      step.status = 'running';
+      const agent = this.registry.getAgent(step.agentName);
+
+      try {
+        const result = await agent.process(this.buildStepContext(context, step));
+        step.result = result;
+        step.status = 'completed';
+
+        if (result.proposedActions.some(a => a.severity === 'HIGH')) {
+          await this.awaitHumanApproval(step, result);
+        }
+      } catch (error) {
+        step.status = 'failed';
+        plan.status = 'failed';
+        await this.rollback(plan);
+        break;
+      }
+    }
+
+    return this.aggregateResults(plan);
+  }
+}
+```
+
+---
+
+## 7. LLM Orchestration & Observability
+
+> **Sources**: [orq.ai LLM Orchestration](https://orq.ai/blog/llm-orchestration), [Neptune LLM Observability](https://neptune.ai/blog/llm-observability)
+
+### 7.1 Queue-Based LLM Management
+
+```typescript
+interface QueuedLLMJob {
+  id: string;
+  tenantId: string;
+  userId: string;
+  operation: 'classify' | 'generate' | 'embed' | 'validate';
+  priority: number;
+  payload: {
+    systemPrompt: string;
+    userPrompt: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+  };
+  config: {
+    timeout: number;
+    retries: number;
+    retryDelay: number;
+  };
+  metadata: {
+    correlationId: string;
+    agent?: string;
+    actionType?: string;
+  };
+}
+
+@Injectable()
+export class AIQueueService {
+  async enqueue(job: QueuedLLMJob): Promise<Job> {
+    return await this.queue.add(job.operation, job, {
+      priority: job.priority,
+      attempts: job.config.retries,
+      backoff: { type: 'exponential', delay: job.config.retryDelay },
+      timeout: job.config.timeout
+    });
+  }
+
+  async processJob(job: Job<QueuedLLMJob>): Promise<LLMResponse> {
+    const { data } = job;
+
+    if (this.circuitBreaker.isOpen(data.tenantId)) {
+      throw new Error('Circuit breaker open');
+    }
+
+    if (!await this.rateLimiter.check(data.tenantId, data.userId)) {
+      throw new Error('Rate limit exceeded');
+    }
+
+    return await this.telemetry.trackCall(
+      data.operation,
+      data.metadata.correlationId,
+      async () => {
+        const response = await this.mistralService.complete(data.payload);
+        this.circuitBreaker.recordSuccess(data.tenantId);
+        return response;
+      }
+    );
+  }
+}
+```
+
+### 7.2 Circuit Breaker Pattern
+
+```typescript
+interface CircuitBreakerState {
+  status: 'closed' | 'open' | 'half-open';
+  failures: number;
+  successes: number;
+  lastFailure: Date | null;
+  nextAttempt: Date | null;
+}
+
+class CircuitBreaker {
+  private config = {
+    failureThreshold: 5,
+    successThreshold: 3,
+    timeout: 60000,
+    halfOpenLimit: 1
+  };
+
+  isOpen(key: string): boolean {
+    const state = this.getState(key);
+    if (state.status === 'open') {
+      if (Date.now() > state.nextAttempt!.getTime()) {
+        state.status = 'half-open';
+        state.successes = 0;
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  recordSuccess(key: string): void {
+    const state = this.getState(key);
+    if (state.status === 'half-open') {
+      state.successes++;
+      if (state.successes >= this.config.successThreshold) {
+        state.status = 'closed';
+        state.failures = 0;
+      }
+    } else {
+      state.failures = Math.max(0, state.failures - 1);
+    }
+  }
+
+  recordFailure(key: string): void {
+    const state = this.getState(key);
+    state.failures++;
+    state.lastFailure = new Date();
+    if (state.failures >= this.config.failureThreshold) {
+      state.status = 'open';
+      state.nextAttempt = new Date(Date.now() + this.config.timeout);
+    }
+  }
+}
+```
+
+### 7.3 Model Routing & Cost Optimization
+
+```typescript
+interface ModelConfig {
+  name: string;
+  provider: 'mistral' | 'openai' | 'anthropic';
+  costPer1kTokens: { input: number; output: number };
+  maxTokens: number;
+  latencyMs: { p50: number; p95: number };
+  capabilities: string[];
+}
+
+const modelConfigs: ModelConfig[] = [
+  {
+    name: 'mistral-small',
+    provider: 'mistral',
+    costPer1kTokens: { input: 0.0002, output: 0.0006 },
+    maxTokens: 8192,
+    latencyMs: { p50: 200, p95: 500 },
+    capabilities: ['classification', 'simple-generation']
+  },
+  {
+    name: 'mistral-medium',
+    provider: 'mistral',
+    costPer1kTokens: { input: 0.0027, output: 0.0081 },
+    maxTokens: 32768,
+    latencyMs: { p50: 400, p95: 1000 },
+    capabilities: ['classification', 'generation', 'reasoning']
+  },
+  {
+    name: 'mistral-large',
+    provider: 'mistral',
+    costPer1kTokens: { input: 0.008, output: 0.024 },
+    maxTokens: 128000,
+    latencyMs: { p50: 600, p95: 1500 },
+    capabilities: ['classification', 'generation', 'reasoning', 'complex-tasks']
+  }
+];
+
+class ModelRouter {
+  selectModel(operation: string, requirements: ModelRequirements): ModelConfig {
+    const candidates = modelConfigs.filter(m =>
+      requirements.capabilities.every(c => m.capabilities.includes(c))
+    );
+
+    if (operation === 'classify' || operation === 'simple-generate') {
+      return candidates.sort((a, b) =>
+        a.costPer1kTokens.input - b.costPer1kTokens.input
+      )[0];
+    }
+
+    return candidates[0];
+  }
+}
+```
+
+### 7.4 Comprehensive Telemetry
+
+```typescript
+interface LLMTelemetryEvent {
+  correlationId: string;
+  traceId: string;
+  spanId: string;
+  tenantId: string;
+  userId: string;
+  sessionId?: string;
+  operation: string;
+  agent?: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  latencyMs: number;
+  estimatedCostUsd: number;
+  success: boolean;
+  errorType?: string;
+  confidence?: number;
+  hallucinationFlags?: string[];
+  timestamp: Date;
+}
+
+@Injectable()
+export class LlmTelemetryService {
+  async trackCall<T>(
+    operation: string,
+    correlationId: string,
+    fn: () => Promise<T>
+  ): Promise<T> {
+    const span = this.tracer.startSpan(`llm.${operation}`);
+    const startTime = Date.now();
+
+    try {
+      const result = await fn();
+      const latency = Date.now() - startTime;
+
+      this.latencyHistogram.record(latency, { operation });
+      this.requestCounter.add(1, { operation, status: 'success' });
+
+      if (result.usage) {
+        this.tokenCounter.add(result.usage.totalTokens, { operation });
+        this.costCounter.add(this.calculateCost(result.usage), { operation });
+      }
+
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (error) {
+      this.errorCounter.add(1, { operation, errorType: error.constructor.name });
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      throw error;
+    } finally {
+      span.end();
+    }
+  }
+}
+```
+
+### 7.5 Dashboards & Alerts
+
+**Metrics to Track**:
+
+| Metric | Description |
+|--------|-------------|
+| `llm.latency.p95` | P95 latency in milliseconds |
+| `llm.requests.rate` | Requests per second |
+| `llm.tokens.total` | Total tokens used |
+| `llm.cost.total` | Total cost in USD |
+| `llm.errors.rate` | Error rate percentage |
+| `llm.queue.depth` | Current queue depth |
+| `llm.circuit.state` | Circuit breaker state |
+| `hitl.pending.count` | Pending actions count |
+| `hitl.approval.rate` | Approval rate percentage |
+
+**Alert Rules**:
+
+| Alert | Condition | Severity |
+|-------|-----------|----------|
+| High Latency | `llm.latency.p95 > 3000` | Warning |
+| High Error Rate | `llm.errors.rate > 5%` | Critical |
+| Circuit Open | `llm.circuit.state == open` | Critical |
+| Queue Backlog | `llm.queue.depth > 100` | Warning |
+| Cost Budget | `llm.cost.total > budget * 0.8` | Warning |
+
+---
+
+## 8. Human-in-the-Loop Design
+
+> **Sources**: [Google Cloud HITL](https://cloud.google.com/discover/human-in-the-loop), [IBM HITL](https://www.ibm.com/think/topics/human-in-the-loop), [Stanford HAI](https://hai.stanford.edu/news/humans-loop-design-interactive-ai-systems)
+
+### 8.1 HITL Patterns
+
+**Elicitation Middleware (MCP-style)**:
+
+- Agents pause mid-task to request user input
+- Structured "wait-for-human" step in execution flow
+- Useful for decisions with ambiguity or requiring validation
+
+**Approval Pipelines**:
+
+- AI outputs routed to human for review before finalization
+- Common in content generation and decision support systems
+
+**Active Learning & Feedback Loops**:
+
+- Human corrections treated as valuable training data
+- Systems improve over time, adapting to user preferences
+
+### 8.2 When to Apply HITL
+
+| Scenario | HITL Required |
+|----------|---------------|
+| High-stakes decisions | Always |
+| Complex judgment needed | Yes |
+| Ethical considerations | Yes |
+| Final approval for compliance | Yes |
+| Routine low-risk actions | Optional (based on confidence) |
+
+### 8.3 Severity-Based Approval
+
+```typescript
+enum ActionSeverity {
+  LOW = 'LOW',       // Auto-approve eligible
+  MEDIUM = 'MEDIUM', // Moderate confidence needed
+  HIGH = 'HIGH'      // Always requires approval
+}
+
+const severityConfig = {
+  [ActionSeverity.LOW]: {
+    autoApproveThreshold: 0.7,
+    actions: ['SEARCH_EMAILS', 'GET_CONTACTS', 'SUMMARIZE']
+  },
+  [ActionSeverity.MEDIUM]: {
+    autoApproveThreshold: 0.85,
+    actions: ['MARK_READ', 'STAR_EMAIL', 'CREATE_FOLDER']
+  },
+  [ActionSeverity.HIGH]: {
+    autoApproveThreshold: null, // Never auto-approve
+    actions: ['SEND_EMAIL', 'DELETE_EMAIL', 'FORWARD_EMAIL']
+  }
+};
+```
+
+---
+
+## 9. Tenant-User Isolation
+
+### 9.1 Data Isolation Model
+
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    TENANT BOUNDARY                           │
 │  ┌───────────────────────────────────────────────────────┐  │
@@ -198,11 +1636,6 @@ Source: [Mailtrap Guide](https://mailtrap.io/blog/ai-email-personalization/), [G
 │  │  • Preferences (user-specific settings)                │  │
 │  └───────────────────────────────────────────────────────┘  │
 │  ┌───────────────────────────────────────────────────────┐  │
-│  │                  User B Scope                          │  │
-│  │  • (same structure, isolated from User A)              │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                                                              │
-│  ┌───────────────────────────────────────────────────────┐  │
 │  │              Tenant-Wide Shared Resources              │  │
 │  │  • PromptRegistry (tenant-scoped templates)            │  │
 │  │  • Embeddings (filtered by tenantId)                   │  │
@@ -211,7 +1644,7 @@ Source: [Mailtrap Guide](https://mailtrap.io/blog/ai-email-personalization/), [G
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 Isolation Enforcement Points
+### 9.2 Isolation Enforcement
 
 | Layer | Enforcement | Implementation |
 |-------|-------------|----------------|
@@ -219,13 +1652,11 @@ Source: [Mailtrap Guide](https://mailtrap.io/blog/ai-email-personalization/), [G
 | Service | Query filter | `WHERE tenantId = $1 AND userId = $2` |
 | Database | Index | `@@index([tenantId, userId])` |
 | Embeddings | Metadata filter | `filter: { tenantId: 'xxx' }` |
-| Prompts | Scoping | Prompt registry per tenant |
 | Logs | Redaction | PII stripped, tenant tagged |
 
-### 4.3 Security Checklist
+### 9.3 Security Checklist
 
 ```typescript
-// Every service method MUST include tenant/user filtering
 class BaseService {
   protected assertTenantAccess(entity: { tenantId: string }, context: AgentContext) {
     if (entity.tenantId !== context.tenantId) {
@@ -233,7 +1664,11 @@ class BaseService {
     }
   }
 
-  protected assertUserAccess(entity: { userId: string }, context: AgentContext, allowAdmin = true) {
+  protected assertUserAccess(
+    entity: { userId: string },
+    context: AgentContext,
+    allowAdmin = true
+  ) {
     if (entity.userId !== context.userId) {
       if (!allowAdmin || !['admin', 'super-admin'].includes(context.userRole)) {
         throw new ForbiddenException('Cross-user access denied');
@@ -245,954 +1680,161 @@ class BaseService {
 
 ---
 
-## 5. Backend Roadmap
+## 10. Backend Implementation Roadmap
 
-### Phase B1: Prompt Operations & Observability
+### Phase B1: Foundation Hardening (P0)
 
-**Duration:** Week 1-2
+**Duration**: Week 1-2
 
-#### B1.1 Prompt Registry
-
-**Database Schema:**
-```prisma
-model PromptTemplate {
-  id          String   @id @default(cuid())
-  tenantId    String?  // null = system default
-  name        String   // e.g., "email.compose", "router.classify"
-  version     Int      @default(1)
-  locale      String   @default("en")
-  bucket      String?  // A/B test bucket
-  body        String   @db.Text
-  variables   Json?    // Expected variables schema
-  metadata    Json?    // Temperature, maxTokens, etc.
-  isActive    Boolean  @default(true)
-  createdBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([tenantId, name, version, locale, bucket])
-  @@index([tenantId, name, isActive])
-}
-```
-
-**Service Implementation:**
-```typescript
-@Injectable()
-export class PromptRegistryService {
-  async getPrompt(params: {
-    tenantId: string;
-    name: string;
-    locale?: string;
-    bucket?: string;
-  }): Promise<PromptTemplate> {
-    // Priority: tenant+locale+bucket > tenant+locale > tenant > system+locale > system
-    const prompts = await this.prisma.promptTemplate.findMany({
-      where: {
-        name: params.name,
-        isActive: true,
-        OR: [
-          { tenantId: params.tenantId },
-          { tenantId: null }
-        ]
-      },
-      orderBy: [
-        { tenantId: 'desc' }, // tenant-specific first
-        { locale: 'desc' },
-        { version: 'desc' }
-      ]
-    });
-
-    return this.selectBestMatch(prompts, params);
-  }
-
-  async seedDefaults(): Promise<void> {
-    // Migrate hardcoded prompts to registry
-  }
-}
-```
-
-**Files to Create:**
-- `backend/src/modules/ai/services/prompt-registry.service.ts`
-- `backend/src/modules/ai/controllers/prompt-admin.controller.ts` (admin only)
-- `backend/src/modules/ai/dto/prompt.dto.ts`
-
-**Migration:**
-- Extract prompts from router.agent.ts, email.agent.ts, etc.
-- Create seed migration with default prompts
-- Update agents to use PromptRegistryService
-
-#### B1.2 Observability Layer
-
-**OpenTelemetry Integration:**
-```typescript
-@Injectable()
-export class LlmTelemetryService {
-  private tracer: Tracer;
-  private meter: Meter;
-
-  // Metrics
-  private llmLatency: Histogram;
-  private llmTokensUsed: Counter;
-  private llmCost: Counter;
-  private llmErrors: Counter;
-
-  async trackLlmCall<T>(
-    operation: string,
-    promptId: string,
-    fn: () => Promise<T>
-  ): Promise<T> {
-    const span = this.tracer.startSpan(`llm.${operation}`);
-    const startTime = Date.now();
-
-    try {
-      span.setAttributes({
-        'llm.prompt_id': promptId,
-        'llm.model': this.model,
-        'tenant.id': this.tenantId
-      });
-
-      const result = await fn();
-
-      // Extract token usage from response
-      this.llmTokensUsed.add(result.usage?.total_tokens || 0);
-      this.llmLatency.record(Date.now() - startTime);
-
-      span.setStatus({ code: SpanStatusCode.OK });
-      return result;
-    } catch (error) {
-      span.setStatus({ code: SpanStatusCode.ERROR });
-      this.llmErrors.add(1);
-      throw error;
-    } finally {
-      span.end();
-    }
-  }
-}
-```
-
-**Files to Create:**
-- `backend/src/modules/ai/services/llm-telemetry.service.ts`
-- `backend/src/modules/ai/config/telemetry.config.ts`
-
----
-
-### Phase B2: Writing Style Learning
-
-**Duration:** Week 3-4
-
-#### B2.1 Writing Style Profile Schema
-
-```prisma
-model WritingStyleProfile {
-  id                String   @id @default(cuid())
-  tenantId          String
-  userId            String
-
-  // Structure metrics
-  avgSentenceLength     Float    @default(15)
-  avgParagraphLines     Float    @default(3)
-  avgWordsPerEmail      Int      @default(100)
-  bulletListRate        Float    @default(0)
-
-  // Vocabulary metrics
-  formalityScore        Float    @default(0.5)  // 0=casual, 1=formal
-  contractionRate       Float    @default(0.3)
-  emojiRate             Float    @default(0)
-  typeTokenRatio        Float    @default(0)    // vocabulary diversity
-
-  // Punctuation habits
-  exclamationRate       Float    @default(0)
-  questionRate          Float    @default(0)
-  ellipsisRate          Float    @default(0)
-
-  // Greeting/Sign-off patterns
-  greetingPresent       Boolean  @default(true)
-  preferredGreetings    String[] @default([])
-  signOffPresent        Boolean  @default(true)
-  preferredSignOffs     String[] @default([])
-
-  // Tone metrics
-  sentimentPolarity     Float    @default(0)    // -1 to 1
-  empathyPhraseRate     Float    @default(0)
-  hedgeRate             Float    @default(0)    // uncertainty markers
-
-  // Learning metadata
-  sampleCount           Int      @default(0)
-  lastAnalyzedEmailId   String?
-  lastAnalyzed          DateTime @default(now())
-
-  tenant                Tenant   @relation(fields: [tenantId], references: [id])
-  user                  User     @relation(fields: [userId], references: [id])
-
-  @@unique([tenantId, userId])
-  @@index([tenantId, userId])
-}
-```
-
-#### B2.2 Writing Style Analysis Service
+#### B1.1 Action Execution Result Contract
 
 ```typescript
-@Injectable()
-export class WritingStyleService {
-  constructor(
-    private prisma: PrismaService,
-    private nlpService: NlpAnalysisService,
-  ) {}
-
-  /**
-   * Analyze a sent email and update user's style profile
-   */
-  async analyzeSentEmail(
-    tenantId: string,
-    userId: string,
-    email: { bodyText: string; bodyHtml?: string }
-  ): Promise<void> {
-    const text = this.extractCleanText(email);
-    if (text.length < 50) return; // Skip very short emails
-
-    const metrics = await this.nlpService.analyzeText(text);
-
-    await this.prisma.writingStyleProfile.upsert({
-      where: { tenantId_userId: { tenantId, userId } },
-      create: {
-        tenantId,
-        userId,
-        ...this.initializeFromMetrics(metrics)
-      },
-      update: {
-        // Rolling average update
-        avgSentenceLength: { increment: (metrics.avgSentenceLength - currentProfile.avgSentenceLength) / (currentProfile.sampleCount + 1) },
-        // ... other metrics
-        sampleCount: { increment: 1 },
-        lastAnalyzed: new Date()
-      }
-    });
-  }
-
-  /**
-   * Generate style instructions for AI prompts
-   */
-  async getStylePromptSection(
-    tenantId: string,
-    userId: string
-  ): Promise<string> {
-    const profile = await this.prisma.writingStyleProfile.findUnique({
-      where: { tenantId_userId: { tenantId, userId } }
-    });
-
-    if (!profile || profile.sampleCount < 5) {
-      return ''; // Not enough data yet
-    }
-
-    return `
-<writing_style>
-  <formality>${profile.formalityScore > 0.6 ? 'formal' : 'casual'}</formality>
-  <sentence_length>average ${Math.round(profile.avgSentenceLength)} words</sentence_length>
-  <contractions>${profile.contractionRate > 0.2 ? 'use contractions' : 'avoid contractions'}</contractions>
-  <emojis>${profile.emojiRate > 0.01 ? 'occasional emojis allowed' : 'no emojis'}</emojis>
-  <greeting>${profile.preferredGreetings[0] || 'Hi'}</greeting>
-  <signoff>${profile.preferredSignOffs[0] || 'Best'}</signoff>
-</writing_style>
-    `.trim();
-  }
-}
-```
-
-**Files to Create:**
-- `backend/src/modules/ai/services/writing-style.service.ts`
-- `backend/src/modules/ai/services/nlp-analysis.service.ts`
-- `backend/src/modules/ai/dto/writing-style.dto.ts`
-
-**Integration Points:**
-- Hook into email send flow to analyze sent emails
-- Inject style profile into compose prompts
-- Expose GET /ai/writing-style/:userId endpoint
-
----
-
-### Phase B3: Enhanced Email Composition
-
-**Duration:** Week 5-6
-
-#### B3.1 Upgrade /ai/compose Endpoint
-
-```typescript
-// Enhanced compose DTO
-export class ComposeEmailDto {
-  @IsString()
-  prompt: string;
-
-  @IsOptional()
-  @IsArray()
-  to?: string[];
-
-  @IsOptional()
-  @IsString()
-  subject?: string;
-
-  @IsOptional()
-  @IsEnum(['formal', 'casual', 'technical'])
-  tone?: string;
-
-  @IsOptional()
-  @IsString()
-  locale?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  useMyStyle?: boolean; // Apply user's writing style
-
-  @IsOptional()
-  @IsArray()
-  threadContext?: Array<{
-    from: string;
-    body: string;
-    timestamp?: string;
-  }>;
-
-  @IsOptional()
-  @IsString()
-  replyToEmailId?: string; // For context-aware replies
-}
-
-// Enhanced compose service
-async composeEmail(
-  tenantId: string,
-  userId: string,
-  dto: ComposeEmailDto
-): Promise<{ body: string; subject?: string; styleApplied: boolean }> {
-  // 1. Get prompt template from registry
-  const promptTemplate = await this.promptRegistry.getPrompt({
-    tenantId,
-    name: 'email.compose',
-    locale: dto.locale
-  });
-
-  // 2. Get writing style if requested
-  let styleSection = '';
-  if (dto.useMyStyle) {
-    styleSection = await this.writingStyleService.getStylePromptSection(tenantId, userId);
-  }
-
-  // 3. Build thread context
-  let threadContext = '';
-  if (dto.replyToEmailId) {
-    threadContext = await this.buildThreadContext(tenantId, dto.replyToEmailId);
-  } else if (dto.threadContext) {
-    threadContext = this.formatThreadContext(dto.threadContext);
-  }
-
-  // 4. Render prompt with variables
-  const systemPrompt = this.renderPrompt(promptTemplate.body, {
-    tone: dto.tone || 'casual',
-    styleSection,
-    locale: dto.locale || 'en'
-  });
-
-  const userPrompt = `
-Recipients: ${dto.to?.join(', ') || 'Not specified'}
-Subject: ${dto.subject || 'Not specified'}
-${threadContext ? `\nThread context:\n${threadContext}` : ''}
-
-User request: ${dto.prompt}
-  `.trim();
-
-  // 5. Call LLM with telemetry
-  const response = await this.telemetry.trackLlmCall(
-    'compose',
-    promptTemplate.id,
-    () => this.mistral.completePrompt({
-      systemPrompt,
-      userPrompt,
-      temperature: promptTemplate.metadata?.temperature || 0.4,
-      maxTokens: promptTemplate.metadata?.maxTokens || 1000
-    })
-  );
-
-  return {
-    body: this.stripMarkdown(response),
-    subject: this.extractSubjectIfRequested(response, dto),
-    styleApplied: !!styleSection
+interface ActionExecutionResult {
+  success: boolean;
+  summary: string;           // REQUIRED: User-facing message
+  summaryLocale: string;     // REQUIRED: Locale of summary
+  data?: Record<string, any>;
+  error?: string;
+  errorCode?: string;
+  executionTimeMs: number;
+  metadata?: {
+    itemCount?: number;
+    affectedIds?: string[];
+    warnings?: string[];
   };
 }
 ```
 
-#### B3.2 Add /ai/rewrite Endpoint
+**Tasks**:
 
-```typescript
-@Post('rewrite')
-@ApiOperation({ summary: 'Rewrite/improve existing draft' })
-async rewriteEmail(
-  @Request() req: AuthenticatedRequest,
-  @Body() dto: RewriteEmailDto
-): Promise<RewriteEmailResponseDto> {
-  // Accepts: currentBody, instruction (e.g., "make it more formal", "shorten")
-  // Returns: rewrittenBody, diff highlights
-}
-```
+- [ ] Define strict `ActionExecutionResult` interface
+- [ ] Create `createExecutionResult()` factory with validation
+- [ ] Audit all executor branches and add summaries
+- [ ] Remove placeholder success returns
+- [ ] Add unit tests for every executor branch
 
----
+#### B1.2 Locale Centralization
 
-### Phase B4: Agent Architecture Uplift
+**Tasks**:
 
-**Duration:** Week 7-8
+- [ ] Create `LocaleService` with centralized string maps
+- [ ] Define summary templates for all action types
+- [ ] Migrate all agents to use `LocaleService`
+- [ ] Add fallback chain: provided locale → user preference → `en`
+- [ ] Add locale coverage tests
 
-#### B4.1 Tool/Function Calling Schema
+#### B1.3 Dependency Validation
 
-```typescript
-// Define strict schemas for each agent's tools
-const emailAgentTools = {
-  send_email: {
-    name: 'send_email',
-    description: 'Send a new email',
-    parameters: {
-      type: 'object',
-      required: ['to', 'subject', 'body'],
-      properties: {
-        to: { type: 'array', items: { type: 'string', format: 'email' } },
-        cc: { type: 'array', items: { type: 'string', format: 'email' } },
-        subject: { type: 'string', maxLength: 200 },
-        body: { type: 'string', maxLength: 10000 }
-      }
-    }
-  },
-  search_emails: {
-    name: 'search_emails',
-    description: 'Search emails with filters',
-    parameters: {
-      type: 'object',
-      required: ['query'],
-      properties: {
-        query: { type: 'string' },
-        from: { type: 'string' },
-        dateRange: {
-          type: 'object',
-          properties: {
-            start: { type: 'string', format: 'date' },
-            end: { type: 'string', format: 'date' }
-          }
-        }
-      }
-    }
-  }
-  // ... more tools
-};
-```
+**Tasks**:
 
-#### B4.2 Response Schema Validation
+- [ ] Replace `@Optional()` with explicit capability checks
+- [ ] Create `CapabilityService` for provider/feature availability
+- [ ] Add preflight checks before action execution
+- [ ] Return structured errors with suggestions
+- [ ] Update HITL to mark FAILED with error summary
 
-```typescript
-// Validate LLM responses before execution
-async validateAgentResponse(
-  response: any,
-  expectedSchema: JSONSchema
-): Promise<{ valid: boolean; errors?: string[] }> {
-  const ajv = new Ajv();
-  const validate = ajv.compile(expectedSchema);
+### Phase B2: Resilience & Observability (P1)
 
-  if (!validate(response)) {
-    // Attempt repair
-    const repaired = await this.attemptRepair(response, validate.errors);
-    if (repaired) return { valid: true };
+**Duration**: Week 3-4
 
-    return {
-      valid: false,
-      errors: validate.errors.map(e => e.message)
-    };
-  }
+#### B2.1 LLM Queue Integration
 
-  return { valid: true };
-}
-```
+**Tasks**:
 
-#### B4.3 Model Routing & Fallback
+- [ ] Wrap all LLM calls through `AIQueueService`
+- [ ] Configure per-tenant rate limits
+- [ ] Add timeout handling (default 30s)
+- [ ] Implement retry with exponential backoff
+- [ ] Add dead-letter queue for failed jobs
 
-```typescript
-@Injectable()
-export class ModelRouterService {
-  private providers: Map<string, ILlmProvider> = new Map();
+#### B2.2 Circuit Breaker & Telemetry
 
-  constructor(
-    private mistralProvider: MistralProvider,
-    private openaiProvider?: OpenAIProvider, // Optional fallback
-  ) {
-    this.providers.set('mistral', mistralProvider);
-    if (openaiProvider) {
-      this.providers.set('openai', openaiProvider);
-    }
-  }
+**Tasks**:
 
-  async complete(params: CompletionParams): Promise<CompletionResult> {
-    const primary = this.providers.get('mistral');
+- [ ] Implement circuit breaker for Mistral API
+- [ ] Wire `LlmTelemetryService.trackCall()` into all LLM operations
+- [ ] Add correlation IDs to all log messages
+- [ ] Implement token counting
+- [ ] Track cost per tenant/user/operation
 
-    try {
-      return await primary.complete(params);
-    } catch (error) {
-      if (this.shouldFallback(error)) {
-        const fallback = this.providers.get('openai');
-        if (fallback) {
-          this.logger.warn('Falling back to OpenAI');
-          return await fallback.complete(params);
-        }
-      }
-      throw error;
-    }
-  }
-}
-```
+### Phase B3: Safety & Idempotency (P1)
+
+**Duration**: Week 5-6
+
+**Tasks**:
+
+- [ ] Add `idempotencyKey` field to `AgentPendingAction`
+- [ ] Compute hash from normalized payload
+- [ ] Check for existing action before creating
+- [ ] Create capability registry mapping actions to requirements
+- [ ] Implement provider resolution: user → tenant default
+- [ ] Create `SanitizationService` with configurable rules
+
+### Phase B4: Memory & Context (P2)
+
+**Duration**: Week 7-8
+
+**Tasks**:
+
+- [ ] Implement token estimation
+- [ ] Add budget tracking to `MemoryService`
+- [ ] Implement LLM-based conversation summarization
+- [ ] Add cron job for session cleanup
+- [ ] Implement embedding cache TTL
+
+### Phase B5: Tool Registry (P2)
+
+**Duration**: Week 9-10
+
+**Tasks**:
+
+- [ ] Create `ToolRegistry` class with registration
+- [ ] Define Zod schemas for all action types
+- [ ] Generate LLM tool specs from registry
+- [ ] Replace executor switch with registry dispatch
+- [ ] Migrate all agent prompts to prompt registry
 
 ---
 
-### Phase B5: Calendar & Contacts AI Enhancement
+## 11. Frontend Implementation Roadmap
 
-**Duration:** Week 9-10
+### Phase F1: AI Compose Enhancement
 
-#### B5.1 Calendar Intelligence
+**Duration**: Week 1-2
 
-```typescript
-// Smart scheduling with conflict detection
-const calendarAgentTools = {
-  find_available_slots: {
-    name: 'find_available_slots',
-    description: 'Find available time slots for a meeting',
-    parameters: {
-      type: 'object',
-      required: ['duration', 'dateRange'],
-      properties: {
-        duration: { type: 'integer', description: 'Meeting duration in minutes' },
-        dateRange: {
-          type: 'object',
-          properties: {
-            start: { type: 'string', format: 'date-time' },
-            end: { type: 'string', format: 'date-time' }
-          }
-        },
-        attendees: { type: 'array', items: { type: 'string', format: 'email' } },
-        preferredTimes: {
-          type: 'array',
-          items: { enum: ['morning', 'afternoon', 'evening'] }
-        }
-      }
-    }
-  },
-  schedule_meeting: {
-    name: 'schedule_meeting',
-    description: 'Schedule a new meeting with attendees',
-    parameters: {
-      // ... full schema
-    }
-  }
-};
-```
+**Components**:
 
-#### B5.2 Contacts Intelligence
+- Enhanced `AiComposeDialog` with context awareness
+- `AiComposePanel` (collapsible side panel)
+- Example prompts based on context
+
+### Phase F2: Dashboard AI Widgets
+
+**Duration**: Week 3-4
+
+**Components**:
+
+- `LearningDashboard` showing AI accuracy trends
+- `PendingActionsInline` for email list
+- Real-time action status updates
+
+### Phase F3: Localization
+
+**Duration**: Week 5
+
+**New i18n Keys**:
 
 ```typescript
-// Smart contact management
-const contactsAgentTools = {
-  find_duplicates: {
-    name: 'find_duplicates',
-    description: 'Find potential duplicate contacts',
-    parameters: {
-      type: 'object',
-      properties: {
-        threshold: { type: 'number', minimum: 0, maximum: 1 }
-      }
-    }
-  },
-  enrich_contact: {
-    name: 'enrich_contact',
-    description: 'Enrich contact with additional information',
-    parameters: {
-      type: 'object',
-      required: ['contactId'],
-      properties: {
-        contactId: { type: 'string' },
-        sources: { type: 'array', items: { enum: ['email_history', 'calendar', 'manual'] } }
-      }
-    }
-  }
-};
-```
-
----
-
-## 6. Frontend Roadmap
-
-### Phase F1: AI Compose Dialog Enhancement
-
-**Duration:** Week 1-2
-
-#### F1.1 Current State (Already Implemented)
-
-- ✅ `EditorToolbar` with AI compose button (Sparkles icon)
-- ✅ `AiComposeDialog` with prompt input, tone selector, variant selector
-- ✅ `aiApi.composeEmail()` integration
-
-#### F1.2 Enhancements Needed
-
-```typescript
-// Enhanced AiComposeDialog
-interface AiComposeDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onApply: (result: ComposeResult) => void;
-  // Context from ComposeDialog
-  recipients: string[];
-  subject: string;
-  currentBody: string;
-  mode: 'compose' | 'reply' | 'forward';
-  replyToEmailId?: string;
-}
-
-function AiComposeDialog({...props}: AiComposeDialogProps) {
-  const [prompt, setPrompt] = useState('');
-  const [tone, setTone] = useState<'formal' | 'casual' | 'technical'>('casual');
-  const [useMyStyle, setUseMyStyle] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-
-  // Example prompts based on context
-  const examplePrompts = useMemo(() => {
-    if (props.mode === 'reply') {
-      return [
-        'Confirm receipt and schedule a follow-up call',
-        'Politely decline the request with an alternative',
-        'Request more information about...',
-      ];
-    }
-    return [
-      'Write a meeting invitation for...',
-      'Draft a project update email',
-      'Send a thank you note for...',
-    ];
-  }, [props.mode]);
-
-  return (
-    <Dialog open={props.open} onClose={props.onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        {t.dashboard.email.composer.aiComposeTitle}
-      </DialogTitle>
-      <DialogContent>
-        {/* Example prompts as chips */}
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="caption">Try:</Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-            {examplePrompts.map((example, i) => (
-              <Chip
-                key={i}
-                label={example}
-                onClick={() => setPrompt(example)}
-                size="small"
-                variant="outlined"
-              />
-            ))}
-          </Box>
-        </Box>
-
-        {/* Prompt input */}
-        <TextField
-          label={t.dashboard.email.composer.aiComposePrompt}
-          multiline
-          minRows={3}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          fullWidth
-          placeholder="Describe what you want to write..."
-        />
-
-        {/* Options row */}
-        <Box sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center' }}>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Tone</InputLabel>
-            <Select value={tone} onChange={(e) => setTone(e.target.value)}>
-              <MenuItem value="formal">Formal</MenuItem>
-              <MenuItem value="casual">Casual</MenuItem>
-              <MenuItem value="technical">Technical</MenuItem>
-            </Select>
-          </FormControl>
-
-          <FormControlLabel
-            control={
-              <Switch checked={useMyStyle} onChange={(e) => setUseMyStyle(e.target.checked)} />
-            }
-            label="Use my writing style"
-          />
-        </Box>
-
-        {/* Preview section */}
-        {preview && (
-          <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-            <Typography variant="subtitle2">Preview:</Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-              {preview}
-            </Typography>
-          </Box>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={props.onClose}>Cancel</Button>
-        <Button
-          variant="outlined"
-          onClick={handleGenerate}
-          disabled={loading || !prompt.trim()}
-        >
-          {loading ? <CircularProgress size={16} /> : 'Generate'}
-        </Button>
-        <Button
-          variant="contained"
-          onClick={() => props.onApply({ body: preview! })}
-          disabled={!preview}
-        >
-          Insert
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-```
-
-**Files to Modify:**
-- `frontend/components/email/ComposeDialog/ComposeDialog.tsx`
-- `frontend/components/email/ComposeDialog/EditorToolbar.tsx`
-
-**New Components:**
-- `frontend/components/email/ai/AiComposePanel.tsx` (side panel variant)
-- `frontend/components/email/ai/ExamplePrompts.tsx`
-
----
-
-### Phase F2: AI Chat Panel in Compose
-
-**Duration:** Week 3-4
-
-```typescript
-// New component: AiComposePanel (collapsible side panel)
-interface AiComposePanelProps {
-  isOpen: boolean;
-  onToggle: () => void;
-  onInsert: (content: string) => void;
-  context: {
-    recipients: string[];
-    subject: string;
-    body: string;
-    threadId?: string;
-  };
-}
-
-function AiComposePanel({ isOpen, onToggle, onInsert, context }: AiComposePanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
-
-  const handleSend = async () => {
-    // Add user message
-    setMessages(prev => [...prev, { role: 'user', content: input }]);
-
-    // Call AI with context
-    const response = await aiApi.composeEmail({
-      prompt: input,
-      to: context.recipients,
-      subject: context.subject,
-      threadContext: context.body ? [{ from: 'draft', body: context.body }] : undefined
-    });
-
-    // Add AI response with insert button
-    setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: response.data.body,
-      canInsert: true
-    }]);
-  };
-
-  return (
-    <Drawer
-      anchor="right"
-      open={isOpen}
-      variant="persistent"
-      sx={{ width: 360 }}
-    >
-      <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="h6">AI Assistant</Typography>
-          <IconButton onClick={onToggle}><X size={20} /></IconButton>
-        </Box>
-
-        {/* Messages area */}
-        <Box sx={{ flex: 1, overflowY: 'auto' }}>
-          {messages.map((msg, i) => (
-            <Box key={i} sx={{ mb: 2 }}>
-              <Typography variant="caption" color="text.secondary">
-                {msg.role === 'user' ? 'You' : 'AI'}
-              </Typography>
-              <Typography variant="body2">{msg.content}</Typography>
-              {msg.canInsert && (
-                <Button
-                  size="small"
-                  onClick={() => onInsert(msg.content)}
-                  startIcon={<Plus size={14} />}
-                >
-                  Insert into email
-                </Button>
-              )}
-            </Box>
-          ))}
-        </Box>
-
-        {/* Input area */}
-        <Box sx={{ mt: 'auto' }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Ask AI to help write..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            InputProps={{
-              endAdornment: (
-                <IconButton onClick={handleSend}>
-                  <Send size={18} />
-                </IconButton>
-              )
-            }}
-          />
-        </Box>
-      </Box>
-    </Drawer>
-  );
-}
-```
-
----
-
-### Phase F3: Dashboard AI Enhancements
-
-**Duration:** Week 5-6
-
-#### F3.1 Learning Dashboard Component
-
-```typescript
-// Show AI accuracy trends and learning progress
-function LearningDashboard() {
-  const { data: stats } = useQuery(['learningStats'], () =>
-    multiAgentApi.getLearningStats()
-  );
-
-  return (
-    <Card>
-      <CardHeader title="AI Learning Progress" />
-      <CardContent>
-        <Grid container spacing={2}>
-          <Grid item xs={4}>
-            <StatCard
-              label="Approval Rate"
-              value={`${(stats?.summary.overallApprovalRate * 100).toFixed(0)}%`}
-              trend={stats?.trend}
-            />
-          </Grid>
-          <Grid item xs={4}>
-            <StatCard
-              label="Success Rate"
-              value={`${(stats?.summary.overallSuccessRate * 100).toFixed(0)}%`}
-            />
-          </Grid>
-          <Grid item xs={4}>
-            <StatCard
-              label="Actions Today"
-              value={stats?.summary.totalAttempts}
-            />
-          </Grid>
-        </Grid>
-
-        {/* Per-agent breakdown */}
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle2" gutterBottom>By Agent</Typography>
-          {stats?.profiles.map(profile => (
-            <AgentProgressBar
-              key={profile.id}
-              agent={profile.agentName}
-              approvalRate={profile.approvalCount / (profile.approvalCount + profile.rejectionCount)}
-              confidenceBoost={profile.confidenceBoost}
-            />
-          ))}
-        </Box>
-      </CardContent>
-    </Card>
-  );
-}
-```
-
-#### F3.2 Pending Actions Inline Component
-
-```typescript
-// Inline approve/reject in email list
-function PendingActionsInline({ emailId }: { emailId: string }) {
-  const { data: actions } = useQuery(['pendingActions', emailId], () =>
-    multiAgentApi.getPendingActions({ status: 'PENDING' })
-  );
-
-  const relatedActions = actions?.filter(a => a.payload?.emailId === emailId);
-
-  if (!relatedActions?.length) return null;
-
-  return (
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-      <Chip
-        size="small"
-        color="warning"
-        label={`${relatedActions.length} pending action(s)`}
-      />
-      {relatedActions.map(action => (
-        <Box key={action.id}>
-          <Tooltip title={`${action.actionType}: ${JSON.stringify(action.payload)}`}>
-            <IconButton
-              size="small"
-              color="success"
-              onClick={() => multiAgentApi.approveAction(action.id)}
-            >
-              <Check size={14} />
-            </IconButton>
-          </Tooltip>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={() => multiAgentApi.rejectAction(action.id)}
-          >
-            <X size={14} />
-          </IconButton>
-        </Box>
-      ))}
-    </Box>
-  );
-}
-```
-
----
-
-### Phase F4: Localization
-
-**Duration:** Week 7
-
-**New i18n Keys:**
-```typescript
-// Add to translations/en.ts and translations/it.ts
 {
   dashboard: {
     email: {
       composer: {
-        // Existing...
         aiComposeTitle: 'Draft with AI',
         aiComposePrompt: 'What would you like to write?',
         aiComposeToneLabel: 'Tone',
         aiComposeUseMyStyle: 'Use my writing style',
         aiComposeGenerate: 'Generate',
-        aiComposeInsert: 'Insert into email',
-        aiComposeExamples: 'Try these examples:',
-        aiComposeError: 'Failed to generate email. Please try again.',
-
-        // AI Panel
-        aiPanelTitle: 'AI Assistant',
-        aiPanelPlaceholder: 'Ask AI to help write...',
-        aiPanelInsert: 'Insert into email',
+        aiComposeInsert: 'Insert into email'
       }
     },
     ai: {
@@ -1200,15 +1842,7 @@ function PendingActionsInline({ emailId }: { emailId: string }) {
         title: 'AI Learning Progress',
         approvalRate: 'Approval Rate',
         successRate: 'Success Rate',
-        actionsToday: 'Actions Today',
-        byAgent: 'By Agent',
-        confidenceBoost: 'Confidence Boost',
-      },
-      pendingActions: {
-        title: 'Pending Actions',
-        approve: 'Approve',
-        reject: 'Reject',
-        viewDetails: 'View Details',
+        actionsToday: 'Actions Today'
       }
     }
   }
@@ -1217,180 +1851,117 @@ function PendingActionsInline({ emailId }: { emailId: string }) {
 
 ---
 
-## 7. Implementation Phases
+## 12. Testing Strategy
 
-### Master Timeline
+### 12.1 Test Pyramid
 
-| Phase | Component | Duration | Dependencies | Status |
-|-------|-----------|----------|--------------|--------|
-| B1 | Prompt Registry + Observability | Week 1-2 | None | ✅ Complete |
-| F1 | AI Compose Dialog Enhancement | Week 1-2 | None | ✅ Complete |
-| B2 | Writing Style Learning | Week 3-4 | B1 | ✅ Complete |
-| F2 | AI Chat Panel in Compose | Week 3-4 | F1 | ⏳ Pending |
-| B3 | Enhanced Email Composition | Week 5-6 | B1, B2 | ⏳ Pending |
-| F3 | Dashboard AI Enhancements | Week 5-6 | F1 | ⏳ Pending |
-| B4 | Agent Architecture Uplift | Week 7-8 | B1 | ⏳ Pending |
-| F4 | Localization | Week 7 | F1, F2, F3 | ⏳ Pending |
-| B5 | Calendar & Contacts AI | Week 9-10 | B4 | ⏳ Pending |
-
-### Parallel Execution
-
-```
-Week 1-2: [B1] ─────┬───── [F1]
-                    │
-Week 3-4: [B2] ─────┼───── [F2]
-                    │
-Week 5-6: [B3] ─────┼───── [F3]
-                    │
-Week 7-8: [B4] ─────┴───── [F4]
-                    │
-Week 9-10: [B5] ────┘
+```text
+                    ╱╲
+                   ╱  ╲
+                  ╱ E2E╲         (5%)
+                 ╱──────╲
+                ╱        ╲
+               ╱Integration╲     (20%)
+              ╱────────────╲
+             ╱              ╲
+            ╱   Unit Tests   ╲   (75%)
+           ╱──────────────────╲
 ```
 
----
+### 12.2 Test Categories
 
-## 8. Validation & Testing Strategy
+**Contract Tests**:
 
-### 8.1 Unit Tests
+- Executor summaries per locale/action
+- HITL approve/reject paths return deterministic messages
+- Action idempotency under retries
+- Tool registry validation
 
-```typescript
-// Example: Writing Style Service Tests
-describe('WritingStyleService', () => {
-  it('should analyze formal email correctly', async () => {
-    const email = { bodyText: 'Dear Mr. Smith, I am writing to inquire...' };
-    const metrics = await service.analyzeText(email.bodyText);
-    expect(metrics.formalityScore).toBeGreaterThan(0.6);
-  });
+**Integration Tests**:
 
-  it('should enforce tenant isolation', async () => {
-    await expect(
-      service.getStyleProfile('tenant-a', 'user-from-tenant-b')
-    ).rejects.toThrow(ForbiddenException);
-  });
-});
-```
+- Multi-agent process happy paths
+- Missing provider handling
+- Locale variations
+- Queue-enabled vs direct mode
 
-### 8.2 Integration Tests
+**Load Tests**:
 
-```typescript
-// Example: AI Compose E2E Test
-describe('AI Compose E2E', () => {
-  it('should compose email with user style', async () => {
-    // 1. Analyze some sent emails to build profile
-    await writingStyleService.analyzeSentEmail(tenantId, userId, sampleEmail1);
-    await writingStyleService.analyzeSentEmail(tenantId, userId, sampleEmail2);
+- Controller throttling under load
+- AI queue throughput
+- Concurrent action execution
 
-    // 2. Request compose with style
-    const result = await aiController.composeEmail(mockRequest, {
-      prompt: 'Write a follow-up email about the project',
-      useMyStyle: true
-    });
+**Chaos Tests**:
 
-    // 3. Verify style was applied
-    expect(result.styleApplied).toBe(true);
-    expect(result.body).toContain(profile.preferredGreetings[0]);
-  });
-});
-```
+- LLM timeout handling
+- Circuit breaker activation
+- Partial execution failures
 
-### 8.3 Golden Dataset Tests
+### 12.3 Coverage Targets
 
-```typescript
-// Prompt regression tests
-describe('Prompt Golden Tests', () => {
-  const goldenDataset = [
-    {
-      input: { prompt: 'Schedule a meeting', locale: 'en' },
-      expectedIntent: 'CALENDAR',
-      expectedAgent: 'CalendarAgent'
-    },
-    {
-      input: { prompt: 'Pianifica una riunione', locale: 'it' },
-      expectedIntent: 'CALENDAR',
-      expectedAgent: 'CalendarAgent'
-    }
-  ];
-
-  goldenDataset.forEach(({ input, expectedIntent, expectedAgent }) => {
-    it(`should route "${input.prompt}" to ${expectedAgent}`, async () => {
-      const result = await multiAgentService.process(createContext(input));
-      expect(result.intent.intent).toBe(expectedIntent);
-      expect(result.agentUsed).toBe(expectedAgent);
-    });
-  });
-});
-```
-
-### 8.4 Tenant Isolation Tests
-
-```typescript
-describe('Tenant Isolation', () => {
-  it('should not leak data between tenants', async () => {
-    // Create data for tenant A
-    await createTestSession(tenantA, userA);
-    await createTestPendingAction(tenantA, userA);
-
-    // Query as tenant B should return empty
-    const sessionsB = await chatSessionService.listSessions(tenantB, userB);
-    const actionsB = await hitlService.getPendingActions({ tenantId: tenantB, userId: userB });
-
-    expect(sessionsB).toHaveLength(0);
-    expect(actionsB.items).toHaveLength(0);
-  });
-
-  it('should block cross-tenant action approval', async () => {
-    const action = await createTestPendingAction(tenantA, userA);
-
-    await expect(
-      multiAgentService.approveAndExecuteAction(
-        tenantB, // Wrong tenant
-        action.id,
-        { userId: userB, role: 'admin' }
-      )
-    ).rejects.toThrow(ForbiddenException);
-  });
-});
-```
-
-### 8.5 Test Coverage Targets
-
-| Component | Target Coverage |
-|-----------|-----------------|
+| Component | Target |
+|-----------|--------|
 | Prompt Registry Service | 90% |
 | Writing Style Service | 85% |
 | Multi-Agent Service | 90% |
 | HITL Service | 95% |
 | Agent Base Classes | 80% |
 | Controllers | 85% |
-| Frontend AI Components | 70% |
 
 ---
 
-## 9. References
+## 13. Success Metrics & KPIs
 
-### Documentation
-- [Multi-Agent Architecture](./development/multi-agent/03_ARCHITECTURE.md)
-- [Gap Analysis 2025](./development/multi-agent/GAP_ANALYSIS_2025.md)
-- [Security Audit](./development/multi-agent/SECURITY_AUDIT_2025.md)
-- [AI Compose Implementation](./AI_COMPOSE_IMPLEMENTATION.md)
-
-### External Best Practices
-- [Prompt Engineering Guide - Lakera](https://www.lakera.ai/blog/prompt-engineering-guide)
-- [Multi-Agent LLMs - SuperAnnotate](https://www.superannotate.com/blog/multi-agent-llms)
-- [AI Agent Architecture - Microsoft](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns)
-- [AI Email Personalization - Mailtrap](https://mailtrap.io/blog/ai-email-personalization/)
-- [LLM Agents Guide - Botpress](https://botpress.com/blog/llm-agents)
-- [AI Agent Architecture - Lindy](https://www.lindy.ai/blog/ai-agent-architecture)
-- [Prompt Engineering - Palantir](https://www.palantir.com/docs/foundry/aip/best-practices-prompt-engineering)
-
-### Zero-main Reference
-- `esempio/Zero-main/apps/server/src/lib/prompts.ts` - Prompt templates
-- `esempio/Zero-main/apps/server/src/trpc/routes/ai/compose.ts` - Compose endpoint
-- `esempio/Zero-main/apps/mail/components/create/ai-chat.tsx` - AI chat panel
+| Metric | Target |
+|--------|--------|
+| Executor summary coverage | 100% |
+| Localized paths success | >99% |
+| Duplicate action rate | <0.5% |
+| Queue job success | >98% |
+| LLM timeout fallback success | >95% |
+| P95 end-to-end latency | <3s |
+| Intent cache hit rate | >30% |
+| Cost tracking accuracy | >95% |
+| HITL approval rate tracked | Yes |
+| Failed vs executed ratio visible | Yes |
 
 ---
 
-**Document Version:** 2.0
+## 14. References
+
+### Multi-Agent Architecture
+
+- [Microsoft - Designing Multi-Agent Intelligence](https://devblogs.microsoft.com/blog/designing-multi-agent-intelligence)
+- [MarkTechPost - Top 5 AI Agent Architectures 2025](https://www.marktechpost.com/2025/11/15/comparing-the-top-5-ai-agent-architectures-in-2025-hierarchical-swarm-meta-learning-modular-evolutionary/)
+- [orq.ai - AI Agent Architecture 2025](https://orq.ai/blog/ai-agent-architecture)
+- [Botpress - Guide to Multi-Agent Systems](https://botpress.com/blog/multi-agent-systems)
+
+### LLM Orchestration
+
+- [orq.ai - LLM Orchestration Best Practices](https://orq.ai/blog/llm-orchestration)
+- [ZenML - LLM Agents in Production](https://www.zenml.io/blog/llm-agents-in-production-architectures-challenges-and-best-practices)
+- [Neptune.ai - LLM Observability](https://neptune.ai/blog/llm-observability)
+
+### Hallucination Prevention
+
+- [AWS - Reducing Hallucinations with Bedrock Agents](https://aws.amazon.com/blogs/machine-learning/reducing-hallucinations-in-large-language-models-with-custom-intervention-using-amazon-bedrock-agents/)
+- [Voiceflow - 5 Proven Strategies](https://www.voiceflow.com/blog/prevent-llm-hallucinations)
+- [K2View - Grounding AI](https://www.k2view.com/blog/grounding-ai/)
+
+### Human-in-the-Loop
+
+- [Google Cloud - What is HITL](https://cloud.google.com/discover/human-in-the-loop)
+- [IBM - Human in the Loop](https://www.ibm.com/think/topics/human-in-the-loop)
+- [Stanford HAI - Humans in the Loop Design](https://hai.stanford.edu/news/humans-loop-design-interactive-ai-systems)
+
+### Tool/Function Calling
+
+- [Google Cloud - Function Calling](https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/function-calling)
+- [Prompt Engineering Guide - Function Calling](https://www.promptingguide.ai/applications/function_calling)
+- [Analytics Vidhya - Function Calling with Mistral](https://www.analyticsvidhya.com/blog/2024/10/function-calling-in-ai-agents-using-mistral-7b/)
+
+---
+
+**Document Version:** 3.0
 **Last Updated:** 2025-11-28
 **Author:** Claude Code
 **Next Review:** 2025-12-15

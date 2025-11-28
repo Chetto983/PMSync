@@ -56,7 +56,12 @@ export function useWebSocket(token: string | null, enabled = true) {
   const { addEvent, updateEvent, deleteEvent } = useCalendarStore();
   const { addContact, updateContact, deleteContact } = useContactStore();
   const { handleLabelCreated, handleLabelUpdated, handleLabelDeleted } = useLabelStore();
-  const { updateFolderCounts } = useFoldersStore();
+  const {
+    updateFolderCounts,
+    upsertFolder,
+    renameFolder,
+    deleteFolder,
+  } = useFoldersStore();
   const { setStatus: setSyncStatus } = useSyncStore();
 
   /**
@@ -164,6 +169,18 @@ export function useWebSocket(token: string | null, enabled = true) {
     }
 
     const emitFolderRefresh = debounce((detail?: { type: 'created' | 'renamed' | 'deleted'; payload: any }) => {
+      if (detail?.type === 'created') {
+        upsertFolder({
+          id: detail.payload.folderId,
+          providerId: detail.payload.providerId,
+          name: detail.payload.folderName,
+          path: detail.payload.folderPath,
+        });
+      } else if (detail?.type === 'renamed') {
+        renameFolder(detail.payload.folderId, detail.payload.folderName);
+      } else if (detail?.type === 'deleted') {
+        deleteFolder(detail.payload.folderId);
+      }
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('folders:refresh', { detail }));
       }
@@ -267,6 +284,37 @@ export function useWebSocket(token: string | null, enabled = true) {
     const unsubFolderDeleted = websocketClient.onFolderDeleted((data) => {
       console.log('[WS] Folder deleted:', data);
       emitFolderRefresh({ type: 'deleted', payload: data });
+    });
+
+    const emitAiEvent = (type: string, payload: any) => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ai:event', { detail: { type, payload } }));
+      }
+    };
+
+    const unsubAiActionCreated = websocketClient.onAiActionCreated((data) => {
+      console.log('[WS] AI action created:', data);
+      emitAiEvent('action:created', data);
+    });
+    const unsubAiActionApproved = websocketClient.onAiActionApproved((data) => {
+      console.log('[WS] AI action approved:', data);
+      emitAiEvent('action:approved', data);
+    });
+    const unsubAiActionRejected = websocketClient.onAiActionRejected((data) => {
+      console.log('[WS] AI action rejected:', data);
+      emitAiEvent('action:rejected', data);
+    });
+    const unsubAiActionExecuted = websocketClient.onAiActionExecuted((data) => {
+      console.log('[WS] AI action executed:', data);
+      emitAiEvent('action:executed', data);
+    });
+    const unsubAiActionFailed = websocketClient.onAiActionFailed((data) => {
+      console.log('[WS] AI action failed:', data);
+      emitAiEvent('action:failed', data);
+    });
+    const unsubAiSessionUpdate = websocketClient.onAiSessionUpdate((data) => {
+      console.log('[WS] AI session update:', data);
+      emitAiEvent('session:update', data);
     });
 
     const unsubThreadUpdate = websocketClient.onThreadUpdate((data) => {
@@ -428,6 +476,12 @@ export function useWebSocket(token: string | null, enabled = true) {
       unsubFolderCreated();
       unsubFolderRenamed();
       unsubFolderDeleted();
+      unsubAiActionCreated();
+      unsubAiActionApproved();
+      unsubAiActionRejected();
+      unsubAiActionExecuted();
+      unsubAiActionFailed();
+      unsubAiSessionUpdate();
       unsubThreadUpdate();
       unsubBatchProcessed();
       unsubCalendarNew();
@@ -461,7 +515,11 @@ export function useWebSocket(token: string | null, enabled = true) {
     handleLabelUpdated,
     handleLabelDeleted,
     updateFolderCounts,
+    upsertFolder,
+    renameFolder,
+    deleteFolder,
     setSyncStatus,
+    // AI event dispatchers are local to the effect
     token,
     enabled,
   ]);

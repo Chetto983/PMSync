@@ -12,6 +12,7 @@ import { FolderSyncService } from '../../../email-sync/services/folder-sync.serv
 export interface ActionExecutionResult {
   success: boolean;
   data?: any;
+  summary?: string | string[];
   error?: string;
   executionTimeMs: number;
 }
@@ -962,6 +963,7 @@ export class ActionExecutorService {
     context: AgentContext,
   ): Promise<ActionExecutionResult> {
     const { limit = 10, providerId, folder } = action.payload;
+    const lang = (context.preferences?.language || 'en').toLowerCase().startsWith('it') ? 'it' : 'en';
 
     const whereClause: any = {
       tenantId: context.tenantId,
@@ -994,9 +996,21 @@ export class ActionExecutorService {
       },
     });
 
+    const summary = emails.length === 0
+      ? (lang === 'it' ? 'Nessuna email non letta trovata.' : 'No unread emails found.')
+      : emails
+          .slice(0, Math.min(5, emails.length))
+          .map((email) => {
+            const sender = email.from || (lang === 'it' ? 'Mittente sconosciuto' : 'Unknown sender');
+            const subject = email.subject || (lang === 'it' ? 'Senza oggetto' : 'No subject');
+            return `${lang === 'it' ? 'Da' : 'From'}: ${sender} — ${subject}`;
+          })
+          .join('\n');
+
     return {
       success: true,
-      data: { count: emails.length, emails },
+      data: { count: emails.length, emails, summary },
+      summary,
       executionTimeMs: 0,
     };
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -25,6 +25,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
+
+  const isValidEmail = useCallback(
+    (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+    [],
+  );
 
   useEffect(() => {
     if (router.query.email) {
@@ -47,13 +53,34 @@ export default function LoginPage() {
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (loading) return;
+
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail || !trimmedPassword) {
+      setFieldError(translations.common.genericError);
+      return;
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      setFieldError('Invalid email');
+      return;
+    }
+
+    if (trimmedPassword.length < 8) {
+      setFieldError('Password too short (min 8)');
+      return;
+    }
+
     setLoading(true);
     setError('');
+    setFieldError(null);
 
     try {
       const response = await apiClient.post('/auth/login', {
-        email,
-        password,
+        email: trimmedEmail,
+        password: trimmedPassword,
       });
 
       if (response.data.mfaRequired) {
@@ -74,13 +101,34 @@ export default function LoginPage() {
 
   const handleOtpVerify = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (loading) return;
+
+    const trimmedEmail = email.trim();
+    const trimmedOtp = otp.trim();
+
+    if (!trimmedEmail || !trimmedOtp) {
+      setFieldError(translations.common.genericError);
+      return;
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      setFieldError('Invalid email');
+      return;
+    }
+
+    if (trimmedOtp.length !== 6) {
+      setFieldError('Enter the 6-digit code');
+      return;
+    }
+
     setLoading(true);
     setError('');
+    setFieldError(null);
 
     try {
       const response = await apiClient.post('/auth/verify-otp', {
-        email,
-        code: otp,
+        email: trimmedEmail,
+        code: trimmedOtp,
       });
 
       if (response.data.success) {
@@ -125,6 +173,11 @@ export default function LoginPage() {
             {error && (
               <Alert variant="destructive" sx={{ mb: 3 }}>
                 <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {fieldError && !error && (
+              <Alert variant="destructive" sx={{ mb: 3 }}>
+                <AlertDescription>{fieldError}</AlertDescription>
               </Alert>
             )}
 

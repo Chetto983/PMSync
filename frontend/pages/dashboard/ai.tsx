@@ -48,7 +48,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Layout } from '@/components/layout/Layout';
-import { multiAgentApi, type MultiAgentResponse, type PendingAction, type ActionFeedback, type KnowledgeHit, type LearningProfile } from '@/lib/api/multi-agent';
+import { multiAgentApi, type MultiAgentResponse, type PendingAction, type ActionFeedback, type KnowledgeHit, type LearningProfile, type AgentInfo } from '@/lib/api/multi-agent';
 import { websocketClient, type RealtimeAiActionEvent } from '@/lib/websocket-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -315,7 +315,13 @@ function EmptyState({ onSelectQuery }: { onSelectQuery: (prompt: string) => void
 }
 
 // Message bubble component
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({
+  message,
+  agentInfoMap,
+}: {
+  message: Message;
+  agentInfoMap?: Record<string, AgentInfo>;
+}) {
   const isUser = message.role === 'user';
 
   const getAgentIcon = (agentName?: string) => {
@@ -367,22 +373,30 @@ function MessageBubble({ message }: { message: Message }) {
         >
           {!isUser && message.agentUsed && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  px: 1,
-                  py: 0.25,
-                  borderRadius: 1,
-                  bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
-                }}
+              <Tooltip
+                title={
+                  agentInfoMap && agentInfoMap[message.agentUsed]
+                    ? `${agentInfoMap[message.agentUsed].description} • Intents: ${agentInfoMap[message.agentUsed].supportedIntents.join(', ')}`
+                    : undefined
+                }
               >
-                {getAgentIcon(message.agentUsed)}
-                <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                  {message.agentUsed.replace('Agent', '')}
-                </Typography>
-              </Box>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    px: 1,
+                    py: 0.25,
+                    borderRadius: 1,
+                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                  }}
+                >
+                  {getAgentIcon(message.agentUsed)}
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                    {message.agentUsed.replace('Agent', '')}
+                  </Typography>
+                </Box>
+              </Tooltip>
               {message.intent && (
                 <Chip
                   label={message.intent}
@@ -483,6 +497,7 @@ function MessageBubble({ message }: { message: Message }) {
 
 function AiAssistantView() {
   const t = useTranslations();
+  const currentLocale = (t as any)?.locale || 'en';
   const theme = useTheme();
   const quickActions = getQuickActions(t);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -490,7 +505,7 @@ function AiAssistantView() {
   const [prompt, setPrompt] = useState('');
   const [sending, setSending] = useState(false);
   const [loadingActions, setLoadingActions] = useState(false);
-  const [showPendingActions] = useState(true);
+  const [showPendingActions, setShowPendingActions] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [actionHistory, setActionHistory] = useState<ActionFeedback[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -505,6 +520,7 @@ function AiAssistantView() {
     message: string;
     severity: 'success' | 'info' | 'warning' | 'error';
   }>({ open: false, message: '', severity: 'info' });
+  const [agentInfoMap, setAgentInfoMap] = useState<Record<string, AgentInfo>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const token = useAuthStore((state) => state.token);
@@ -611,6 +627,23 @@ function AiAssistantView() {
     loadLearningStats();
   }, [loadPendingActions, loadLearningStats]);
 
+  // Load agent metadata for tooltips/explanations
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        const res = await multiAgentApi.getAgents();
+        const map = (res.data?.agents || []).reduce<Record<string, AgentInfo>>((acc, agent) => {
+          acc[agent.name] = agent;
+          return acc;
+        }, {});
+        setAgentInfoMap(map);
+      } catch (error) {
+        console.error('Failed to load agent metadata:', error);
+      }
+    };
+    fetchAgents();
+  }, []);
+
   useEffect(() => {
     if (showHistory && actionHistory.length === 0) {
       loadActionHistory();
@@ -631,7 +664,7 @@ function AiAssistantView() {
     });
 
     const unsubApproved = websocketClient.onAiActionApproved((event: RealtimeAiActionEvent) => {
-      setPendingActions((prev) => prev.filter((a) => a.id !== event.actionId));
+      loadPendingActions();
       setNotification({
         open: true,
         message: `Action approved: ${event.actionType.replace(/_/g, ' ')}`,
@@ -640,7 +673,7 @@ function AiAssistantView() {
     });
 
     const unsubRejected = websocketClient.onAiActionRejected((event: RealtimeAiActionEvent) => {
-      setPendingActions((prev) => prev.filter((a) => a.id !== event.actionId));
+      loadPendingActions();
       setNotification({
         open: true,
         message: `Action rejected: ${event.actionType.replace(/_/g, ' ')}`,
@@ -649,7 +682,7 @@ function AiAssistantView() {
     });
 
     const unsubExecuted = websocketClient.onAiActionExecuted((event: RealtimeAiActionEvent) => {
-      setPendingActions((prev) => prev.filter((a) => a.id !== event.actionId));
+      loadPendingActions();
       setNotification({
         open: true,
         message: `Action completed: ${event.actionType.replace(/_/g, ' ')}`,
@@ -658,7 +691,7 @@ function AiAssistantView() {
     });
 
     const unsubFailed = websocketClient.onAiActionFailed((event: RealtimeAiActionEvent) => {
-      setPendingActions((prev) => prev.filter((a) => a.id !== event.actionId));
+      loadPendingActions();
       setNotification({
         open: true,
         message: `Action failed: ${event.error || event.actionType.replace(/_/g, ' ')}`,
@@ -693,6 +726,7 @@ function AiAssistantView() {
       const response = await multiAgentApi.processMessage({
         message: userMessage.content,
         sessionId,
+        locale: currentLocale,
       });
 
       const data: MultiAgentResponse & { sessionId?: string } = response?.data;
@@ -707,13 +741,26 @@ function AiAssistantView() {
         setSessionId(data.sessionId);
       }
 
+      const pendingIds = data.pendingActionIds || [];
+      const contentFromBackend =
+        Array.isArray(data.messages) && data.messages.length > 0
+          ? data.messages.join('\n')
+          : typeof data.messages === 'string'
+            ? data.messages
+            : '';
+
+      const fallbackPending =
+        pendingIds.length > 0
+          ? `I've queued ${pendingIds.length} action(s) that may need your approval. Check the Pending Actions panel.`
+          : 'No response available.';
+
       const assistantMessage: Message = {
         role: 'assistant',
-        content: Array.isArray(data.messages) ? data.messages.join('\n') : (data.messages || 'No response'),
+        content: contentFromBackend || fallbackPending,
         timestamp: new Date(),
         agentUsed: data.agentUsed,
         intent: data.intent?.intent,
-        pendingActionIds: data.pendingActionIds || [],
+        pendingActionIds: pendingIds,
         knowledgeHits: data.knowledgeHits || [],
       };
 
@@ -863,7 +910,7 @@ function AiAssistantView() {
           ) : (
             <>
               {messages.map((message, index) => (
-                <MessageBubble key={index} message={message} />
+                <MessageBubble key={index} message={message} agentInfoMap={agentInfoMap} />
               ))}
               {sending && <ThinkingIndicator />}
             </>
@@ -954,6 +1001,20 @@ function AiAssistantView() {
           overflow: 'auto',
         }}
       >
+        {pendingActions.length > 0 && (
+          <Alert
+            severity="info"
+            sx={{ borderRadius: 1.5 }}
+            action={
+              <Button size="small" onClick={() => setShowPendingActions(true)}>
+                View
+              </Button>
+            }
+          >
+            {'Pending actions require your review.'}
+          </Alert>
+        )}
+
         {/* Pending Actions Panel */}
         <PendingActionsPanel
           actions={pendingActions}
@@ -961,6 +1022,7 @@ function AiAssistantView() {
           onApprove={handleApproveAction}
           onReject={handleRejectAction}
           onRefresh={loadPendingActions}
+          agentInfoMap={agentInfoMap}
           defaultExpanded={showPendingActions}
         />
 

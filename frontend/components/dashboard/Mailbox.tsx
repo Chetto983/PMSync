@@ -23,9 +23,10 @@ import {
 } from '@dnd-kit/core';
 import { emailApi, type EmailListParams } from '@/lib/api/email';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
-import { getFolders, type Folder as ProviderFolder } from '@/lib/api/folders';
+import { getFolders } from '@/lib/api/folders';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailStore, type Email } from '@/stores/email-store';
+import { useFoldersStore } from '@/stores/folders-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { useEmailActions } from '@/hooks/use-email-actions';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
@@ -160,8 +161,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     }
   }, [storeSelectedEmail]);
 
-  // Local state for folders and UI
-  const [remoteFolders, setRemoteFolders] = useState<FolderItem[]>([]);
+  // Folder state derived from store
+  const foldersByProvider = useFoldersStore((state) => state.foldersByProvider);
+  const providersById = useFoldersStore((state) => state.providersById);
+  const setFoldersData = useFoldersStore((state) => state.setFoldersData);
+  const countsByFolderId = useFoldersStore((state) => state.countsByFolderId);
   const [foldersLoading, setFoldersLoading] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
@@ -445,6 +449,34 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     });
   }, [smartFilters]);
 
+  // Derived remote folders from store
+  const remoteFolders = useMemo<FolderItem[]>(() => {
+    const items: FolderItem[] = [];
+    Object.entries(foldersByProvider).forEach(([providerId, folders]) => {
+      const providerEmail = providersById[providerId]?.email || '';
+      folders.forEach((folder) => {
+        const folderName = normalizeFolderName(folder.name, folder.specialUse);
+        const IconComponent = getIconForFolderUtil(folder.specialUse);
+        const countOverride = countsByFolderId[`${providerId}:${folder.id}`];
+        items.push({
+          id: folder.id,
+          label: folder.name,
+          icon: <IconComponent size={20} />,
+          count: countOverride?.unreadCount ?? folder.unreadCount,
+          providerId: folder.providerId,
+          providerEmail,
+          filterFolder: folderName,
+          specialUse: folder.specialUse,
+          queryOverrides: {
+            providerId: folder.providerId,
+            folder: folderName,
+          },
+        });
+      });
+    });
+    return items;
+  }, [foldersByProvider, providersById, countsByFolderId]);
+
   // Combined folders
   const combinedFolders = useMemo(
     () => [...smartFilterFolders, ...aggregatorFolders, ...remoteFolders],
@@ -525,109 +557,25 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     try {
       setFoldersLoading(true);
       const folderResponse = await getFolders();
-
-      const normalized: FolderItem[] = [];
-      Object.entries(folderResponse.foldersByProvider).forEach(
-        ([providerId, folders]) => {
-          const provider = folderResponse.providers.find((p) => p.id === providerId);
-          folders.forEach((folder: ProviderFolder) => {
-            const folderName = normalizeFolderName(folder.name, folder.specialUse);
-            const IconComponent = getIconForFolderUtil(folder.specialUse);
-            normalized.push({
-              id: folder.id,
-              label: folder.name,
-              icon: <IconComponent size={20} />,
-              count: folder.unreadCount,
-              providerId: folder.providerId,
-              providerEmail: provider?.email || '',
-              filterFolder: folderName,
-              specialUse: folder.specialUse,
-              queryOverrides: {
-                providerId: folder.providerId,
-                folder: folderName,
-              },
-            });
-          });
-        }
-      );
-
-      setRemoteFolders(normalized);
+      setFoldersData(folderResponse.providers as any, folderResponse.foldersByProvider as any);
+      setProviders(folderResponse.providers as any);
       setFoldersLoading(false);
     } catch (error) {
       console.error('Failed to load folders:', error);
       setFoldersLoading(false);
     }
-  }, []);
+  }, [setFoldersData]);
 
   // Refresh folders when realtime folder events fire
   useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent).detail as
-        | { type: 'created' | 'renamed' | 'deleted'; payload: any }
-        | undefined;
-
-      if (!detail) {
-        loadFolderMetadata();
-        return;
-      }
-
-      const { type, payload } = detail;
-      setRemoteFolders((prev) => {
-        if (type === 'created') {
-          const existing = prev.find((f) => f.id === payload.folderId);
-          if (existing) return prev;
-          const folderName = normalizeFolderName(payload.folderName, undefined);
-          const IconComponent = getIconForFolderUtil(undefined);
-          const provider = providers.find((p) => p.id === payload.providerId);
-          return [
-            {
-              id: payload.folderId,
-              label: payload.folderName,
-              icon: <IconComponent size={20} />,
-              count: 0,
-              providerId: payload.providerId,
-              providerEmail: provider?.email || '',
-              filterFolder: folderName,
-              specialUse: undefined,
-              queryOverrides: {
-                providerId: payload.providerId,
-                folder: folderName,
-              },
-            },
-            ...prev,
-          ];
-        }
-
-        if (type === 'renamed') {
-          return prev.map((f) => {
-            if (f.id !== payload.folderId) return f;
-            const folderName = normalizeFolderName(payload.folderName, f.specialUse);
-            return {
-              ...f,
-              label: payload.folderName,
-              filterFolder: folderName,
-              queryOverrides: {
-                ...(f.queryOverrides || {}),
-                folder: folderName,
-              },
-            };
-          });
-        }
-
-        if (type === 'deleted') {
-          return prev.filter((f) => f.id !== payload.folderId);
-        }
-
-        return prev;
-      });
-
-      // Schedule a full refresh to reconcile counts/paths
-      loadFolderMetadata();
+    const handler = () => {
+      // Store is updated optimistically via WS; skip full refetch to reduce chatter
+      // Fallback refresh can be triggered manually if needed
     };
 
     window.addEventListener('folders:refresh', handler);
     return () => window.removeEventListener('folders:refresh', handler);
-  }, [loadFolderMetadata, providers]);
+  }, []);
 
   // Load emails data
   const loadData = useCallback(async () => {

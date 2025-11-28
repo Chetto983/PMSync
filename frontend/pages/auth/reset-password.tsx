@@ -20,13 +20,31 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const minLength = 8;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+
     setError('');
     setLoading(true);
 
-    if (password !== confirmPassword) {
+    const trimmedPassword = password.trim();
+    const trimmedConfirm = confirmPassword.trim();
+
+    if (!trimmedPassword || !trimmedConfirm) {
+      setError(translations.common.genericError);
+      setLoading(false);
+      return;
+    }
+
+    if (trimmedPassword.length < minLength) {
+      setError('Password too short (min 8)');
+      setLoading(false);
+      return;
+    }
+
+    if (trimmedPassword !== trimmedConfirm) {
       setError(translations.common.passwordMismatch);
       setLoading(false);
       return;
@@ -41,7 +59,7 @@ export default function ResetPasswordPage() {
     try {
       const response = await apiClient.post('/auth/reset-password', {
         token: Array.isArray(token) ? token[0] : token,
-        newPassword: password,
+        newPassword: trimmedPassword,
       });
 
       if (response.data.success) {

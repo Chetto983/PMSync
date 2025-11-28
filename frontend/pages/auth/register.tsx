@@ -36,9 +36,23 @@ export default function RegisterPage() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (loading) return;
     setError('');
 
-    if (formData.password !== formData.confirmPassword) {
+    const trimmed = {
+      email: formData.email.trim(),
+      password: formData.password.trim(),
+      confirmPassword: formData.confirmPassword.trim(),
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
+    };
+
+    if (!trimmed.email || !trimmed.password || !trimmed.confirmPassword) {
+      setError(translations.common.genericError);
+      return;
+    }
+
+    if (trimmed.password !== trimmed.confirmPassword) {
       setError(translations.common.passwordMismatch);
       return;
     }
@@ -52,10 +66,10 @@ export default function RegisterPage() {
 
     try {
       const response = await apiClient.post('/auth/register', {
-        email: formData.email,
-        password: formData.password,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        email: trimmed.email,
+        password: trimmed.password,
+        firstName: trimmed.firstName,
+        lastName: trimmed.lastName,
       });
 
       if (response.data.success) {

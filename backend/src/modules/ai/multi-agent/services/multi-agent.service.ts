@@ -10,6 +10,28 @@ import { AgentAction, AgentActionType } from '../interfaces/agent-action.interfa
 import { KnowledgeHitSummary } from '../interfaces/agent-result.interface';
 import { PersonalizationService, PersonalizationContext } from '../../services/personalization.service';
 
+const LOCALE_STRINGS = {
+  en: {
+    pending: (n: number) => `I created ${n} action(s) that may need your approval. Open Pending Actions to review.`,
+    executed: (n: number) => `Executed ${n} action(s).`,
+    noResponse: 'No response available. If actions were queued, check Pending Actions.',
+    error: 'Sorry, I could not complete that request. Please try again.',
+  },
+  it: {
+    pending: (n: number) => `Ho creato ${n} azione/i che potrebbero richiedere la tua approvazione. Apri Azioni in attesa per controllare.`,
+    executed: (n: number) => `Eseguite ${n} azione/i.`,
+    noResponse: 'Nessuna risposta disponibile. Se sono state accodate azioni, controlla Azioni in attesa.',
+    error: 'Spiacente, non sono riuscito a completare la richiesta. Per favore riprova.',
+  },
+};
+
+const resolveLang = (value?: string) => {
+  if (!value) return 'en';
+  const lower = value.toLowerCase();
+  if (lower.startsWith('it')) return 'it';
+  return 'en';
+};
+
 /**
  * Response from processing a user message.
  */
@@ -165,12 +187,12 @@ export class MultiAgentService {
         context.personalization = personalization;
         // Apply language preference if not already set
         if (!context.preferences?.language && personalization.profile.language) {
-          context.preferences = {
-            ...context.preferences,
-            language: personalization.profile.language,
-          };
-        }
-      }
+      context.preferences = {
+        ...context.preferences,
+        language: personalization.profile.language,
+      };
+    }
+  }
 
       // Step 1: Classify intent (or use provided intent)
       const intentResult = await this.classifyIntent(context, options);
@@ -194,7 +216,7 @@ export class MultiAgentService {
       );
 
       // Step 5: Handle actions (auto-approve or queue for approval)
-      const { pendingActionIds, executedActionIds } = await this.handleActions(
+      const { pendingActionIds, executedActionIds, executedSummaries } = await this.handleActions(
         context,
         agent.name,
         adjustedActions,
@@ -202,8 +224,30 @@ export class MultiAgentService {
       );
 
       // Step 6: Build response
+      const lang = resolveLang(context.preferences?.language);
+      const messages = result.messages && result.messages.length > 0
+        ? [...result.messages]
+        : [];
+
+      // Append summaries from executed actions if available
+      if (executedSummaries.length) {
+        messages.push(...executedSummaries);
+      }
+
+      if (pendingActionIds.length > 0) {
+        messages.push(LOCALE_STRINGS[lang].pending(pendingActionIds.length));
+      }
+
+      if (executedActionIds.length > 0 && executedSummaries.length === 0) {
+        messages.push(LOCALE_STRINGS[lang].executed(executedActionIds.length));
+      }
+
+      if (messages.length === 0) {
+        messages.push(LOCALE_STRINGS[lang].noResponse);
+      }
+
       const response: MultiAgentResponse = {
-        messages: result.messages,
+        messages,
         pendingActionIds,
         executedActionIds,
         intent: intentResult,
@@ -238,7 +282,20 @@ export class MultiAgentService {
     } catch (error: unknown) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(`Failed to process message: ${err.message}`, err.stack);
-      throw error;
+      return {
+        messages: [LOCALE_STRINGS[resolveLang(context.preferences?.language)].error],
+        pendingActionIds: [],
+        executedActionIds: [],
+        intent: {
+          intent: AgentIntent.UNKNOWN,
+          confidence: 0,
+          reasoning: err.message,
+          suggestedAgents: [],
+        },
+        agentUsed: 'Error',
+        executionTimeMs: Date.now() - startTime,
+        needsMoreInfo: false,
+      };
     }
   }
 
@@ -400,9 +457,10 @@ export class MultiAgentService {
     agentName: string,
     actions: AgentAction[],
     autoApproveThreshold: number,
-  ): Promise<{ pendingActionIds: string[]; executedActionIds: string[] }> {
+  ): Promise<{ pendingActionIds: string[]; executedActionIds: string[]; executedSummaries: string[] }> {
     const pendingActionIds: string[] = [];
     const executedActionIds: string[] = [];
+    const executedSummaries: string[] = [];
 
     for (const action of actions) {
       const shouldAutoApprove = this.hitlService.shouldAutoApprove(
@@ -428,13 +486,13 @@ export class MultiAgentService {
         );
 
         // Execute the action
-        const success = await this.executeAction(context, action);
+        const execResult = await this.executeAction(context, action);
 
         // Mark as executed
         await this.hitlService.markExecuted(
           context.tenantId,
           actionId,
-          success,
+          execResult.success,
         );
 
         // Record feedback for learning
@@ -446,12 +504,19 @@ export class MultiAgentService {
           actionType: action.type,
           wasApproved: true,
           wasExecuted: true,
-          wasSuccessful: success,
+          wasSuccessful: execResult.success,
           originalConfidence: action.confidence,
           adjustedConfidence: action.adjustedConfidence,
         });
 
         executedActionIds.push(actionId);
+        if (execResult.summary) {
+          if (Array.isArray(execResult.summary)) {
+            executedSummaries.push(...execResult.summary);
+          } else {
+            executedSummaries.push(execResult.summary);
+          }
+        }
       } else {
         // Queue for HITL approval
         const actionId = await this.hitlService.createPendingAction({
@@ -466,7 +531,7 @@ export class MultiAgentService {
       }
     }
 
-    return { pendingActionIds, executedActionIds };
+    return { pendingActionIds, executedActionIds, executedSummaries };
   }
 
   /**
@@ -475,10 +540,9 @@ export class MultiAgentService {
   private async executeAction(
     context: AgentContext,
     action: AgentAction,
-  ): Promise<boolean> {
+  ) {
     this.logger.log(`Executing action: ${action.type}`);
-    const result = await this.actionExecutor.execute(action, context);
-    return result.success;
+    return this.actionExecutor.execute(action, context);
   }
 
   /**
@@ -515,7 +579,7 @@ export class MultiAgentService {
         severity: pendingAction.severity as any,
       };
 
-      const success = await this.executeAction(
+      const execResult = await this.executeAction(
         context ?? {
           tenantId,
           userId: pendingAction.userId,
@@ -525,7 +589,7 @@ export class MultiAgentService {
       );
 
       // Mark as executed
-      await this.hitlService.markExecuted(tenantId, actionId, success);
+      await this.hitlService.markExecuted(tenantId, actionId, execResult.success);
 
       // Record feedback
       await this.feedbackService.recordFeedback({
@@ -536,12 +600,12 @@ export class MultiAgentService {
         actionType: pendingAction.actionType,
         wasApproved: true,
         wasExecuted: true,
-        wasSuccessful: success,
+        wasSuccessful: execResult.success,
         originalConfidence: pendingAction.confidence,
         adjustedConfidence: pendingAction.adjustedConfidence ?? undefined,
       });
 
-      return { success };
+      return { success: execResult.success, error: execResult.error };
     } catch (error: unknown) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(`Failed to approve/execute action ${actionId}: ${err.message}`);

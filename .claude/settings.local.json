@@ -17,7 +17,8 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nAI Roadmap Implementation: Multi-phase enhancement\n\nBackend Changes:\n- Add Prompt Registry Service for centralized prompt management\n- Add LLM Telemetry Service for AI observability\n- Add Writing Style Service with NLP analysis (formality, sentiment, greetings)\n- Integrate writing style into email composition with locale support\n- Add cascade delete for AI user data in Prisma schema\n- Update AI module with new service dependencies\n\nFrontend Changes:\n- Completely refactor Dashboard AI Insights section with modern gradient design\n- Create AiInsightsWidget component with stats grid and learning progress\n- Completely refactor Header with AI quick-access button and pending actions badge\n- Add AiChatPanel component for compose dialog AI assistance\n- Integrate AI chat panel into ComposeDialog with collapsible sidebar\n- Add comprehensive i18n support (EN/IT) for all new AI features\n\nDocumentation:\n- Add AI_COMPREHENSIVE_ROADMAP.md with full implementation plan\n- Add AI_COMPOSE_IMPLEMENTATION.md with compose feature details\n- Add AI_TEST_ROADMAP.md for testing guidelines\n\nTests:\n- All 158 multi-agent tests passing\n- Add email-insights.service.compose.spec.ts\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git push:*)",
       "Bash(npx eslint:*)",
-      "Bash(npm run lint:win:*)"
+      "Bash(npm run lint:win:*)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": []
