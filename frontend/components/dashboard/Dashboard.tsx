@@ -105,18 +105,19 @@ export function Dashboard() {
   const loadAiStats = useCallback(async () => {
     try {
       setAiLoading(true);
-      // Load pending actions
+      // Load pending actions - API returns { actions: [], total, limit, offset }
       const actionsResponse = await multiAgentApi.getPendingActions({ status: 'PENDING' });
-      const pendingCount = actionsResponse.data?.length || 0;
+      const actionsData = actionsResponse.data;
+      const pendingCount = actionsData?.total ?? actionsData?.actions?.length ?? 0;
 
-      // Load learning stats
+      // Load learning stats - API returns { success, stats: LearningProfileStats[] }
       let learningProgress = 0;
       let totalInteractions = 0;
       try {
         const learningResponse = await multiAgentApi.getLearningStats();
-        const profiles = learningResponse.data?.profiles || [];
-        totalInteractions = profiles.reduce(
-          (sum: number, p: any) => sum + p.approvalCount + p.rejectionCount,
+        const stats = learningResponse.data?.stats || [];
+        totalInteractions = stats.reduce(
+          (sum: number, s) => sum + s.totalAttempts,
           0
         );
         learningProgress = Math.min(100, totalInteractions);

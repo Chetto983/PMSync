@@ -156,16 +156,19 @@ export function useWebSocket(token: string | null, enabled = true) {
   }, [token, enabled, connect, disconnect]);
 
   /**
-   * Setup event listeners - Only register AFTER connection is established
+   * Setup event listeners - Register BEFORE connection is established
+   * to avoid race condition where early events are lost.
+   * Listeners are registered when token is available, not when connected.
    */
   useEffect(() => {
-    // CRITICAL: Only register listeners when WebSocket is connected
-    if (!token || !enabled || connectionStatus !== 'connected') {
+    // Register listeners as soon as token is available, BEFORE connection
+    // This prevents race condition where events fire before listeners are ready
+    if (!token || !enabled) {
       return;
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[useWebSocket] Registering event listeners...');
+      console.log('[useWebSocket] Registering event listeners (before/during connection)...');
     }
 
     const emitFolderRefresh = debounce((detail?: { type: 'created' | 'renamed' | 'deleted'; payload: any }) => {
@@ -494,12 +497,11 @@ export function useWebSocket(token: string | null, enabled = true) {
       unsubLabelUpdate();
       unsubLabelDelete();
       unsubSyncStatus();
-      unsubFolderCreated();
-      unsubFolderRenamed();
-      unsubFolderDeleted();
+      // Note: folder unsubscriptions already called above (lines 476-478)
     };
   }, [
-    connectionStatus, // Re-register listeners when connection state changes
+    // Note: connectionStatus removed - listeners registered once when token available
+    // This fixes both race condition (P0) and memory leak from re-registration (P1)
     addEmail,
     updateEmail,
     deleteEmail,

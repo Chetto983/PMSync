@@ -107,15 +107,15 @@ backend/src/modules/ai/
 
 ### 2.3 Critical Gaps
 
-| Gap | Priority | Impact |
-|-----|----------|--------|
-| Executor Summaries | P0 | Many branches return `success` without user messages |
-| Locale Handling | P0 | Inconsistent language resolution, corrupted strings |
-| Placeholder Success | P0 | Services return success when dependencies unavailable |
-| LLM Calls Unqueued | P1 | Direct Mistral calls without rate limiting/timeouts |
-| No Idempotency | P1 | Duplicate actions not suppressed on retries |
-| Memory Limitations | P2 | No summarization when token budget exceeded |
-| Observability Gaps | P1 | Telemetry not hooked, logs lack correlation IDs |
+| Gap | Priority | Impact | Status |
+|-----|----------|--------|--------|
+| Executor Summaries | P0 | Many branches return `success` without user messages | ✅ FIXED |
+| Locale Handling | P0 | Inconsistent language resolution, corrupted strings | ✅ FIXED |
+| Placeholder Success | P0 | Services return success when dependencies unavailable | ✅ FIXED |
+| LLM Calls Unqueued | P1 | Direct Mistral calls without rate limiting/timeouts | 🔄 Pending |
+| No Idempotency | P1 | Duplicate actions not suppressed on retries | 🔄 Pending |
+| Memory Limitations | P2 | No summarization when token budget exceeded | 🔄 Pending |
+| Observability Gaps | P1 | Telemetry not hooked, logs lack correlation IDs | 🔄 Pending |
 
 ### 2.4 Comprehensive Issues Found (November 2025 Deep Audit)
 
@@ -323,17 +323,17 @@ This section documents ALL issues found during comprehensive code audit of the A
 
 #### 2.4.9 Summary Statistics
 
-| Category | Issues Found |
-|----------|--------------|
-| **Backend Placeholder Returns** | 7 critical |
-| **Backend Missing Summaries** | 25/26 methods |
-| **Backend Hardcoded Strings** | 40+ |
-| **Frontend API Mismatches** | 4 critical |
-| **Frontend Hardcoded Strings** | 60+ |
-| **WebSocket Issues** | 6 |
-| **Memory Leaks** | 2 critical |
-| **Race Conditions** | 2 critical |
-| **Missing Locale Support** | 15+ components |
+| Category | Issues Found | Status |
+|----------|--------------|--------|
+| **Backend Placeholder Returns** | 7 critical | ✅ FIXED (P0) |
+| **Backend Missing Summaries** | 25/26 methods | ✅ FIXED (P1) - All 25 methods now have localized summaries |
+| **Backend Hardcoded Strings** | 40+ | ✅ FIXED (P1) - Centralized in `action-summaries.ts` |
+| **Frontend API Mismatches** | 4 critical | ✅ FIXED (P0) |
+| **Frontend Hardcoded Strings** | 60+ | 🔄 In Progress (P2) |
+| **WebSocket Issues** | 6 | ✅ Mostly FIXED (P0/P1) |
+| **Memory Leaks** | 2 critical | ✅ FIXED (P0) |
+| **Race Conditions** | 2 critical | ✅ FIXED (P0) |
+| **Missing Locale Support** | 15+ components | 🔄 In Progress (P2) |
 
 ---
 
@@ -424,35 +424,35 @@ Use this checklist to track progress fixing all issues found in the audit.
 
 **Backend: Placeholder Success Returns** (`action-executor.service.ts`)
 
-- [ ] Fix `executeSendEmail` (line 184-191) - Return error when EmailSendService unavailable
-- [ ] Fix `executeReplyEmail` (line 223-230) - Return error when service unavailable
-- [ ] Fix `executeForwardEmail` (line 256-263) - Return error when service unavailable
-- [ ] Fix `executeArchiveEmail` (line 404-411) - Return error when service unavailable
-- [ ] Fix `executeGetEvents` (line 527-534) - Return error when CalendarService unavailable
-- [ ] Fix `executeCreateEvent` (line 610-617) - Return error when service unavailable
-- [ ] Fix `executeUpdateEvent` (line 686-693) - Return error when service unavailable
+- [x] Fix `executeSendEmail` (line 184-191) - Return error when EmailSendService unavailable
+- [x] Fix `executeReplyEmail` (line 223-230) - Return error when service unavailable
+- [x] Fix `executeForwardEmail` (line 256-263) - Return error when service unavailable
+- [x] ~~Fix `executeArchiveEmail`~~ - N/A: Uses Prisma directly, no service dependency
+- [x] ~~Fix `executeGetEvents`~~ - N/A: Uses Prisma directly, no service dependency
+- [x] Fix `executeCreateEvent` (line 610-617) - Return error when service unavailable
+- [x] Fix `executeUpdateEvent` (line 686-693) - Return error when service unavailable
 
 **Frontend: API Type Mismatches** (`frontend/lib/api/multi-agent.ts`)
 
-- [ ] Fix `getPendingActions` type - Change from `PendingAction[]` to `{ actions: PendingAction[], total, limit, offset }`
-- [ ] Fix `getLearningStats` type - Align with backend `{ success, stats }` structure
-- [ ] Fix `getFeedback` type - Change from `ActionFeedback[]` to `{ feedback: [], total, limit, offset }`
-- [ ] Fix `processMessage` type - Add `success` and `sessionId` to response type
+- [x] Fix `getPendingActions` type - Change from `PendingAction[]` to `{ actions: PendingAction[], total, limit, offset }`
+- [x] Fix `getLearningStats` type - Added `LearningProfileStats` type, aligned with backend `{ success, stats }` structure
+- [x] Fix `getFeedback` type - Change from `ActionFeedback[]` to `{ feedback: [], total, limit, offset }`
+- [x] Fix `processMessage` type - Add `success` and `sessionId` to response type
 
 **Frontend: Critical Bugs** (`frontend/pages/dashboard/ai.tsx`)
 
-- [ ] Fix session ID race condition (line 740-741) - Use ref or callback instead of async setState
-- [ ] Fix unbounded message array (line 476-478) - Add pagination or limit (max 100 messages)
+- [x] Fix session ID race condition (line 740-741) - Use ref or callback instead of async setState
+- [x] Fix unbounded message array (line 476-478) - Add pagination or limit (max 100 messages)
 
 **Frontend: Wrong API Usage** (`frontend/components/dashboard/ai/AiInsightsWidget.tsx`)
 
-- [ ] Fix line 78 - Create proper inbox summary endpoint instead of misusing `composeEmail()`
-- [ ] Fix line 58 - Handle `{ actions, total }` response format for pending actions
-- [ ] Fix line 63 - Handle `{ stats }` response format for learning stats
+- [x] Fix line 78 - Create proper inbox summary endpoint instead of misusing `composeEmail()`
+- [x] Fix line 58 - Handle `{ actions, total }` response format for pending actions
+- [x] Fix line 63 - Handle `{ stats }` response format for learning stats
 
 **Frontend: WebSocket Race Condition** (`frontend/hooks/use-websocket.ts`)
 
-- [ ] Fix line 120-140 - Register listeners BEFORE establishing connection
+- [x] Fix line 120-140 - Register listeners BEFORE establishing connection (also fixes P1 memory leak)
 
 ---
 
@@ -460,37 +460,43 @@ Use this checklist to track progress fixing all issues found in the audit.
 
 **Backend: Add Summary Field to All Executors** (`action-executor.service.ts`)
 
-- [ ] Add `summary` to `executeSendEmail`
-- [ ] Add `summary` to `executeReplyEmail`
-- [ ] Add `summary` to `executeForwardEmail`
-- [ ] Add `summary` to `executeSearchEmails`
-- [ ] Add `summary` to `executeDeleteEmail`
-- [ ] Add `summary` to `executeArchiveEmail`
-- [ ] Add `summary` to `executeMarkRead`
-- [ ] Add `summary` to `executeMarkUnread`
-- [ ] Add `summary` to `executeStarEmail`
-- [ ] Add `summary` to `executeUnstarEmail`
-- [ ] Add `summary` to `executeGetEvents`
-- [ ] Add `summary` to `executeCreateEvent`
-- [ ] Add `summary` to `executeUpdateEvent`
-- [ ] Add `summary` to `executeDeleteEvent`
-- [ ] Add `summary` to `executeGetContact`
-- [ ] Add `summary` to `executeCreateContact`
-- [ ] Add `summary` to `executeUpdateContact`
-- [ ] Add `summary` to `executeDeleteContact`
-- [ ] Add `summary` to `executeCreateFolder`
-- [ ] Add `summary` to `executeRenameFolder`
-- [ ] Add `summary` to `executeDeleteFolder`
-- [ ] Add `summary` to `executeMoveEmail`
-- [ ] Add `summary` to `executeLabelEmail`
-- [ ] Add `summary` to `executeUnlabelEmail`
-- [ ] Add `summary` to `executeSearchContacts`
+- [x] Add `summary` to `executeSendEmail` ✓ (with centralized locale helper)
+- [x] Add `summary` to `executeReplyEmail` ✓
+- [x] Add `summary` to `executeForwardEmail` ✓
+- [x] Add `summary` to `executeSearchEmails` ✓
+- [x] Add `summary` to `executeDeleteEmail` ✓
+- [x] Add `summary` to `executeArchiveEmail` ✓
+- [x] Add `summary` to `executeMarkRead` ✓
+- [x] Add `summary` to `executeMarkUnread` ✓
+- [x] Add `summary` to `executeStarEmail` ✓
+- [x] Add `summary` to `executeUnstarEmail` ✓
+- [x] Add `summary` to `executeGetEvents` ✓
+- [x] Add `summary` to `executeCreateEvent` ✓
+- [x] Add `summary` to `executeUpdateEvent` ✓
+- [x] Add `summary` to `executeDeleteEvent` ✓
+- [x] Add `summary` to `executeGetContact` ✓
+- [x] Add `summary` to `executeCreateContact` ✓
+- [x] Add `summary` to `executeUpdateContact` ✓
+- [x] Add `summary` to `executeDeleteContact` ✓
+- [x] Add `summary` to `executeCreateFolder` ✓
+- [x] Add `summary` to `executeRenameFolder` ✓
+- [x] Add `summary` to `executeDeleteFolder` ✓
+- [x] Add `summary` to `executeMoveEmail` ✓
+- [x] Add `summary` to `executeLabelEmail` ✓
+- [x] Add `summary` to `executeUnlabelEmail` ✓
+- [x] Add `summary` to `executeSearchContacts` ✓
+
+**Backend: Centralized Locale Helper** (NEW: `multi-agent/utils/action-summaries.ts`)
+
+- [x] Created `action-summaries.ts` with `getLocale()`, `formatDateForLocale()`, and `actionSummaries` object
+- [x] Supports EN/IT translations for 40+ action messages
+- [x] All executor methods now use centralized locale helper
 
 **Backend: Pass Locale to All Executors** (`multi-agent.service.ts`)
 
-- [ ] Pass locale context to all executor method calls (currently only `executeGetUnread` receives it)
-- [ ] Create `ExecutorContext` interface with locale field
-- [ ] Update all executor methods to accept and use locale
+- [x] Pass locale context to all executor method calls via `context.preferences?.language`
+- [x] ~~Create `ExecutorContext` interface with locale field~~ - Used existing context structure
+- [x] Update all executor methods to accept and use locale via `getLocale()` helper
 
 **Backend: Router Agent Locale** (`router.agent.ts`)
 
@@ -505,14 +511,14 @@ Use this checklist to track progress fixing all issues found in the audit.
 
 **Frontend: AI Page Issues** (`frontend/pages/dashboard/ai.tsx`)
 
-- [ ] Display `clarifyingQuestions` from backend (line 735)
+- [x] Display `clarifyingQuestions` from backend ✓ (added clickable chips for follow-up questions)
 - [ ] Show actual error messages instead of silent fallback (line 752-760)
-- [ ] Add error handling to approve/reject callbacks (line 826-830)
+- [x] Add error handling to approve/reject callbacks ✓ (added `onError` prop to PendingActionsPanel)
 
 **Frontend: WebSocket Issues** (`frontend/hooks/use-websocket.ts`)
 
-- [ ] Fix memory leak from listener re-registration (line 185-195)
-- [ ] Add AI event handlers for `action.approved` and `action.executed` events
+- [x] Fix memory leak from listener re-registration (line 185-195) - Fixed with P0 race condition fix
+- [x] Add AI event handlers for `action.approved` and `action.executed` events ✓ (already implemented)
 - [ ] Add error handling to AI event handlers
 
 ---
@@ -585,7 +591,7 @@ Use this checklist to track progress fixing all issues found in the audit.
 **Frontend: WebSocket Improvements** (`frontend/hooks/use-websocket.ts`)
 
 - [ ] Add reconnection logic for dropped connections (line 310-320)
-- [ ] Remove duplicate folder event unsubscriptions (line 497-499)
+- [x] Remove duplicate folder event unsubscriptions (line 497-499)
 
 **Frontend: AI Page Improvements** (`frontend/pages/dashboard/ai.tsx`)
 
@@ -1961,7 +1967,22 @@ interface ActionExecutionResult {
 
 ---
 
-**Document Version:** 3.0
+**Document Version:** 3.1
 **Last Updated:** 2025-11-28
 **Author:** Claude Code
 **Next Review:** 2025-12-15
+
+### Changelog
+
+#### v3.1 (2025-11-28)
+
+- Marked P0 tasks as complete (placeholder returns, API mismatches, race conditions, memory leaks)
+- Marked P1 backend tasks as complete:
+  - All 25 executor methods now have localized summaries
+  - Created centralized `action-summaries.ts` with EN/IT translations
+  - All executors use `getLocale()` helper for locale-aware messages
+- Marked P1 frontend tasks as complete:
+  - `clarifyingQuestions` display with clickable chips
+  - Error handling for approve/reject callbacks via `onError` prop
+  - AI WebSocket event handlers verified as implemented
+- Updated Summary Statistics with fix status

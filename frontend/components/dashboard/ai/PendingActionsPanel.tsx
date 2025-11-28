@@ -38,12 +38,14 @@ export interface PendingActionsPanelProps {
   agentInfoMap?: Record<string, AgentInfo>;
   /** Loading state */
   loading?: boolean;
-  /** Callback to approve action */
-  onApprove?: (actionId: string) => void;
-  /** Callback to reject action */
-  onReject?: (actionId: string) => void;
+  /** Callback to approve action - should return Promise for proper error handling */
+  onApprove?: (actionId: string) => void | Promise<void>;
+  /** Callback to reject action - should return Promise for proper error handling */
+  onReject?: (actionId: string) => void | Promise<void>;
   /** Callback to refresh */
   onRefresh?: () => void;
+  /** Callback for errors during approve/reject */
+  onError?: (error: Error, actionId: string, type: 'approve' | 'reject') => void;
   /** Default expanded */
   defaultExpanded?: boolean;
 }
@@ -55,6 +57,7 @@ export function PendingActionsPanel({
   onApprove,
   onReject,
   onRefresh,
+  onError,
   defaultExpanded = true,
 }: PendingActionsPanelProps) {
   // Ensure actions is always an array (handles undefined, null, or invalid values)
@@ -91,6 +94,9 @@ export function PendingActionsPanel({
     setProcessingIds((prev) => new Set(prev).add(actionId));
     try {
       await onApprove?.(actionId);
+    } catch (error) {
+      console.error(`Failed to approve action ${actionId}:`, error);
+      onError?.(error instanceof Error ? error : new Error(String(error)), actionId, 'approve');
     } finally {
       setProcessingIds((prev) => {
         const next = new Set(prev);
@@ -104,6 +110,9 @@ export function PendingActionsPanel({
     setProcessingIds((prev) => new Set(prev).add(actionId));
     try {
       await onReject?.(actionId);
+    } catch (error) {
+      console.error(`Failed to reject action ${actionId}:`, error);
+      onError?.(error instanceof Error ? error : new Error(String(error)), actionId, 'reject');
     } finally {
       setProcessingIds((prev) => {
         const next = new Set(prev);

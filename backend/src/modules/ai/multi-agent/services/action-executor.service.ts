@@ -5,6 +5,11 @@ import { AgentContext } from '../interfaces/agent-context.interface';
 import { EmailSendService } from '../../../email/services/email-send.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
 import { FolderSyncService } from '../../../email-sync/services/folder-sync.service';
+import {
+  getLocale,
+  actionSummaries as t,
+  formatDateForLocale,
+} from '../utils/action-summaries';
 
 /**
  * Result of executing an action.
@@ -182,10 +187,10 @@ export class ActionExecutorService {
     const { to, cc, bcc, subject, body, providerId } = action.payload;
 
     if (!this.emailSendService) {
-      this.logger.warn('EmailSendService not available, using placeholder');
+      this.logger.error('EmailSendService not available');
       return {
-        success: true,
-        data: { message: 'Email send queued (placeholder)', to, subject },
+        success: false,
+        error: 'Email service is not available. Please try again later.',
         executionTimeMs: 0,
       };
     }
@@ -220,9 +225,14 @@ export class ActionExecutorService {
 
     this.logger.log(`Email sent successfully, messageId: ${result.messageId}`);
 
+    const lang = getLocale(context.preferences?.language);
+    const recipientList = Array.isArray(to) ? to.join(', ') : to;
+    const subjectText = subject || t.emailSentNoSubject[lang];
+
     return {
       success: result.success,
       data: { messageId: result.messageId, to, subject },
+      summary: t.emailSent[lang](recipientList, subjectText),
       executionTimeMs: 0,
     };
   }
@@ -234,10 +244,10 @@ export class ActionExecutorService {
     const { emailId, body } = action.payload;
 
     if (!this.emailSendService) {
-      this.logger.warn('EmailSendService not available, using placeholder');
+      this.logger.error('EmailSendService not available');
       return {
-        success: true,
-        data: { message: 'Reply queued (placeholder)', emailId },
+        success: false,
+        error: 'Email service is not available. Please try again later.',
         executionTimeMs: 0,
       };
     }
@@ -270,9 +280,12 @@ export class ActionExecutorService {
       references: originalEmail.messageId || undefined,
     });
 
+    const lang = getLocale(context.preferences?.language);
+
     return {
       success: result.success,
       data: { messageId: result.messageId, emailId, replyTo: originalEmail.from },
+      summary: t.replySent[lang](originalEmail.from),
       executionTimeMs: 0,
     };
   }
@@ -284,10 +297,10 @@ export class ActionExecutorService {
     const { emailId, to, body } = action.payload;
 
     if (!this.emailSendService) {
-      this.logger.warn('EmailSendService not available, using placeholder');
+      this.logger.error('EmailSendService not available');
       return {
-        success: true,
-        data: { message: 'Forward queued (placeholder)', emailId, to },
+        success: false,
+        error: 'Email service is not available. Please try again later.',
         executionTimeMs: 0,
       };
     }
@@ -326,9 +339,13 @@ export class ActionExecutorService {
       bodyText: forwardedBody.replace(/<[^>]*>/g, ''),
     });
 
+    const lang = getLocale(context.preferences?.language);
+    const recipientList = Array.isArray(to) ? to.join(', ') : to;
+
     return {
       success: result.success,
       data: { messageId: result.messageId, emailId, forwardedTo: to },
+      summary: t.emailForwarded[lang](recipientList),
       executionTimeMs: 0,
     };
   }
@@ -339,15 +356,25 @@ export class ActionExecutorService {
   ): Promise<ActionExecutionResult> {
     const { emailId } = action.payload;
 
+    // Get email info for summary before deleting
+    const email = await this.prisma.email.findFirst({
+      where: { id: emailId, tenantId: context.tenantId },
+      select: { subject: true, from: true },
+    });
+
     // Soft delete the email
     await this.prisma.email.update({
       where: { id: emailId, tenantId: context.tenantId },
       data: { isDeleted: true },
     });
 
+    const lang = getLocale(context.preferences?.language);
+    const subjectText = email?.subject || t.noSubject[lang];
+
     return {
       success: true,
       data: { emailId, deleted: true },
+      summary: t.emailDeleted[lang](subjectText),
       executionTimeMs: 0,
     };
   }
@@ -358,15 +385,25 @@ export class ActionExecutorService {
   ): Promise<ActionExecutionResult> {
     const { emailId } = action.payload;
 
+    // Get email info for summary before archiving
+    const email = await this.prisma.email.findFirst({
+      where: { id: emailId, tenantId: context.tenantId },
+      select: { subject: true, from: true },
+    });
+
     // Move email to archive folder
     await this.prisma.email.update({
       where: { id: emailId, tenantId: context.tenantId },
       data: { folder: 'ARCHIVE' },
     });
 
+    const lang = getLocale(context.preferences?.language);
+    const subjectText = email?.subject || t.noSubject[lang];
+
     return {
       success: true,
       data: { emailId, archived: true },
+      summary: t.emailArchived[lang](subjectText),
       executionTimeMs: 0,
     };
   }
@@ -383,9 +420,12 @@ export class ActionExecutorService {
       data: { isRead },
     });
 
+    const lang = getLocale(context.preferences?.language);
+
     return {
       success: true,
       data: { emailId, isRead },
+      summary: isRead ? t.emailMarkedRead[lang] : t.emailMarkedUnread[lang],
       executionTimeMs: 0,
     };
   }
@@ -402,9 +442,12 @@ export class ActionExecutorService {
       data: { isStarred },
     });
 
+    const lang = getLocale(context.preferences?.language);
+
     return {
       success: true,
       data: { emailId, isStarred },
+      summary: isStarred ? t.emailStarred[lang] : t.emailUnstarred[lang],
       executionTimeMs: 0,
     };
   }
@@ -437,9 +480,15 @@ export class ActionExecutorService {
       },
     });
 
+    const lang = getLocale(context.preferences?.language);
+    const summary = emails.length === 0
+      ? t.emailsSearchNotFound[lang](query)
+      : t.emailsSearchFound[lang](emails.length, query);
+
     return {
       success: true,
       data: { emails, count: emails.length },
+      summary,
       executionTimeMs: 0,
     };
   }
@@ -489,9 +538,20 @@ export class ActionExecutorService {
 
     this.logger.log(`Labeled email ${emailId} - added: ${labelsToAdd.join(',')}, removed: ${labelsToRemove.join(',')}`);
 
+    const lang = getLocale(context.preferences?.language);
+    let summary: string;
+    if (labelsToAdd.length > 0 && labelsToRemove.length > 0) {
+      summary = t.labelsAddedAndRemoved[lang](labelsToAdd.join(', '), labelsToRemove.join(', '));
+    } else if (labelsToAdd.length > 0) {
+      summary = t.labelsAdded[lang](labelsToAdd.join(', '));
+    } else {
+      summary = t.labelsRemoved[lang](labelsToRemove.join(', '));
+    }
+
     return {
       success: true,
       data: { emailId, labelsAdded: labelsToAdd, labelsRemoved: labelsToRemove, currentLabels: newLabels },
+      summary,
       executionTimeMs: 0,
     };
   }
@@ -507,10 +567,10 @@ export class ActionExecutorService {
     const { title, startTime, endTime, description, location, attendees, providerId, calendarId, isAllDay, timeZone } = action.payload;
 
     if (!this.calendarService) {
-      this.logger.warn('CalendarService not available, using placeholder');
+      this.logger.error('CalendarService not available');
       return {
-        success: true,
-        data: { message: 'Event creation queued (placeholder)', title },
+        success: false,
+        error: 'Calendar service is not available. Please try again later.',
         executionTimeMs: 0,
       };
     }
@@ -547,9 +607,13 @@ export class ActionExecutorService {
 
     this.logger.log(`Created calendar event ${event.id}`);
 
+    const lang = getLocale(context.preferences?.language);
+    const dateStr = formatDateForLocale(new Date(startTime), lang);
+
     return {
       success: true,
       data: { eventId: event.id, externalId: event.externalId, title, startTime, endTime },
+      summary: t.eventCreated[lang](title, dateStr),
       executionTimeMs: 0,
     };
   }
@@ -561,10 +625,10 @@ export class ActionExecutorService {
     const { eventId, title, description, location, startTime, endTime, attendees } = action.payload;
 
     if (!this.calendarService) {
-      this.logger.warn('CalendarService not available, using placeholder');
+      this.logger.error('CalendarService not available');
       return {
-        success: true,
-        data: { eventId, updated: true, message: 'placeholder' },
+        success: false,
+        error: 'Calendar service is not available. Please try again later.',
         executionTimeMs: 0,
       };
     }
@@ -581,9 +645,13 @@ export class ActionExecutorService {
 
     this.logger.log(`Updated calendar event ${eventId}`);
 
+    const lang = getLocale(context.preferences?.language);
+    const eventTitle = title || event.title || t.event[lang];
+
     return {
       success: true,
       data: { eventId, updated: true, event },
+      summary: t.eventUpdated[lang](eventTitle),
       executionTimeMs: 0,
     };
   }
@@ -595,22 +663,32 @@ export class ActionExecutorService {
     const { eventId } = action.payload;
 
     if (!this.calendarService) {
-      this.logger.warn('CalendarService not available, using placeholder');
+      this.logger.error('CalendarService not available');
       return {
-        success: true,
-        data: { eventId, deleted: true, message: 'placeholder' },
+        success: false,
+        error: 'Calendar service is not available. Please try again later.',
         executionTimeMs: 0,
       };
     }
+
+    // Get event info for summary before deleting
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: { id: eventId, tenantId: context.tenantId },
+      select: { title: true },
+    });
 
     // Delete event via CalendarService
     await this.calendarService.deleteEvent(context.tenantId, eventId);
 
     this.logger.log(`Deleted calendar event ${eventId}`);
 
+    const lang = getLocale(context.preferences?.language);
+    const eventTitle = event?.title || t.event[lang];
+
     return {
       success: true,
       data: { eventId, deleted: true },
+      summary: t.eventDeleted[lang](eventTitle),
       executionTimeMs: 0,
     };
   }
@@ -631,9 +709,12 @@ export class ActionExecutorService {
       take: 50,
     });
 
+    const lang = getLocale(context.preferences?.language);
+
     return {
       success: true,
       data: { events, count: events.length },
+      summary: t.eventsFound[lang](events.length),
       executionTimeMs: 0,
     };
   }
@@ -663,9 +744,15 @@ export class ActionExecutorService {
       orderBy: { startTime: 'asc' },
     });
 
+    const lang = getLocale(context.preferences?.language);
+    const hasFreeTime = busySlots.length < 8;
+
     return {
       success: true,
-      data: { busySlots, hasFreeTime: busySlots.length < 8 }, // Simple heuristic
+      data: { busySlots, hasFreeTime },
+      summary: hasFreeTime
+        ? t.availabilityFree[lang](busySlots.length)
+        : t.availabilityBusy[lang](busySlots.length),
       executionTimeMs: 0,
     };
   }
@@ -693,10 +780,11 @@ export class ActionExecutorService {
       };
     }
 
+    const displayName = name || `${firstName || ''} ${lastName || ''}`.trim();
     const contact = await this.prisma.contact.create({
       data: {
         tenantId: context.tenantId,
-        displayName: name || `${firstName || ''} ${lastName || ''}`.trim(),
+        displayName,
         firstName,
         lastName,
         emails: email ? [email] : [],
@@ -707,9 +795,12 @@ export class ActionExecutorService {
       },
     });
 
+    const lang = getLocale(context.preferences?.language);
+
     return {
       success: true,
       data: { contactId: contact.id, contact },
+      summary: t.contactCreated[lang](displayName),
       executionTimeMs: 0,
     };
   }
@@ -719,6 +810,12 @@ export class ActionExecutorService {
     context: AgentContext,
   ): Promise<ActionExecutionResult> {
     const { contactId, ...updates } = action.payload;
+
+    // Get contact info for summary
+    const existingContact = await this.prisma.contact.findFirst({
+      where: { id: contactId, tenantId: context.tenantId },
+      select: { displayName: true },
+    });
 
     await this.prisma.contact.update({
       where: { id: contactId, tenantId: context.tenantId },
@@ -734,9 +831,13 @@ export class ActionExecutorService {
       },
     });
 
+    const lang = getLocale(context.preferences?.language);
+    const contactName = updates.name || existingContact?.displayName || t.contact[lang];
+
     return {
       success: true,
       data: { contactId, updated: true },
+      summary: t.contactUpdated[lang](contactName),
       executionTimeMs: 0,
     };
   }
@@ -747,13 +848,23 @@ export class ActionExecutorService {
   ): Promise<ActionExecutionResult> {
     const { contactId } = action.payload;
 
+    // Get contact info for summary before deleting
+    const contact = await this.prisma.contact.findFirst({
+      where: { id: contactId, tenantId: context.tenantId },
+      select: { displayName: true },
+    });
+
     await this.prisma.contact.delete({
       where: { id: contactId, tenantId: context.tenantId },
     });
 
+    const lang = getLocale(context.preferences?.language);
+    const contactName = contact?.displayName || t.contact[lang];
+
     return {
       success: true,
       data: { contactId, deleted: true },
+      summary: t.contactDeleted[lang](contactName),
       executionTimeMs: 0,
     };
   }
@@ -778,9 +889,15 @@ export class ActionExecutorService {
       orderBy: { displayName: 'asc' },
     });
 
+    const lang = getLocale(context.preferences?.language);
+    const summary = contacts.length === 0
+      ? t.contactsSearchNotFound[lang](query)
+      : t.contactsSearchFound[lang](contacts.length, query);
+
     return {
       success: true,
       data: { contacts, count: contacts.length },
+      summary,
       executionTimeMs: 0,
     };
   }
@@ -874,6 +991,8 @@ export class ActionExecutorService {
 
     this.logger.log(`Merged ${contacts.length} contacts into ${primaryContactId}, deleted ${secondaryIds.length} duplicates`);
 
+    const lang = getLocale(context.preferences?.language);
+
     return {
       success: true,
       data: {
@@ -883,6 +1002,7 @@ export class ActionExecutorService {
         deletedIds: secondaryIds,
         updatedContact,
       },
+      summary: t.contactsMerged[lang](contacts.length, updatedContact.displayName || t.contact[lang], secondaryIds.length),
       executionTimeMs: 0,
     };
   }
@@ -940,10 +1060,12 @@ export class ActionExecutorService {
       });
     }
 
+    const lang = getLocale(context.preferences?.language);
+
     if (!contact) {
       return {
         success: false,
-        error: 'Contact not found',
+        error: t.contactNotFound[lang],
         executionTimeMs: 0,
       };
     }
@@ -951,6 +1073,7 @@ export class ActionExecutorService {
     return {
       success: true,
       data: { contact },
+      summary: t.contactFound[lang](contact.displayName || t.contact[lang]),
       executionTimeMs: 0,
     };
   }
@@ -963,7 +1086,7 @@ export class ActionExecutorService {
     context: AgentContext,
   ): Promise<ActionExecutionResult> {
     const { limit = 10, providerId, folder } = action.payload;
-    const lang = (context.preferences?.language || 'en').toLowerCase().startsWith('it') ? 'it' : 'en';
+    const lang = getLocale(context.preferences?.language);
 
     const whereClause: any = {
       tenantId: context.tenantId,
@@ -997,12 +1120,12 @@ export class ActionExecutorService {
     });
 
     const summary = emails.length === 0
-      ? (lang === 'it' ? 'Nessuna email non letta trovata.' : 'No unread emails found.')
+      ? t.unreadEmailsFound[lang](0)
       : emails
           .slice(0, Math.min(5, emails.length))
           .map((email) => {
-            const sender = email.from || (lang === 'it' ? 'Mittente sconosciuto' : 'Unknown sender');
-            const subject = email.subject || (lang === 'it' ? 'Senza oggetto' : 'No subject');
+            const sender = email.from || t.unknownSender[lang];
+            const subject = email.subject || t.noSubject[lang];
             return `${lang === 'it' ? 'Da' : 'From'}: ${sender} — ${subject}`;
           })
           .join('\n');
@@ -1060,6 +1183,8 @@ export class ActionExecutorService {
 
     this.logger.log(`Categorized email ${emailId} with: ${labelsToApply.join(', ')}`);
 
+    const lang = getLocale(context.preferences?.language);
+
     return {
       success: true,
       data: {
@@ -1068,6 +1193,7 @@ export class ActionExecutorService {
         appliedCategories: labelsToApply,
         allLabels: newLabels,
       },
+      summary: t.emailCategorized[lang](labelsToApply.join(', ')),
       executionTimeMs: 0,
     };
   }
@@ -1082,10 +1208,10 @@ export class ActionExecutorService {
     const { eventId, newStartTime, newEndTime, reason } = action.payload;
 
     if (!this.calendarService) {
-      this.logger.warn('CalendarService not available, using placeholder');
+      this.logger.error('CalendarService not available');
       return {
-        success: true,
-        data: { eventId, rescheduled: true, message: 'placeholder' },
+        success: false,
+        error: 'Calendar service is not available. Please try again later.',
         executionTimeMs: 0,
       };
     }
@@ -1132,6 +1258,10 @@ export class ActionExecutorService {
 
     this.logger.log(`Rescheduled event ${eventId} to ${newStartTime}`);
 
+    const lang = getLocale(context.preferences?.language);
+    const dateStr = formatDateForLocale(new Date(newStartTime), lang);
+    const eventTitle = event.title || t.event[lang];
+
     return {
       success: true,
       data: {
@@ -1142,6 +1272,7 @@ export class ActionExecutorService {
         reason,
         event: updatedEvent,
       },
+      summary: t.eventRescheduled[lang](eventTitle, dateStr),
       executionTimeMs: 0,
     };
   }
@@ -1198,9 +1329,12 @@ export class ActionExecutorService {
 
     this.logger.log(`Created folder "${name}" with id ${result.id}`);
 
+    const lang = getLocale(context.preferences?.language);
+
     return {
       success: true,
       data: { folderId: result.id, folderPath: result.path, folderName: result.name },
+      summary: t.folderCreated[lang](name),
       executionTimeMs: 0,
     };
   }
@@ -1253,9 +1387,12 @@ export class ActionExecutorService {
 
     this.logger.log(`Renamed folder to "${newName}" (path: ${result.path})`);
 
+    const lang = getLocale(context.preferences?.language);
+
     return {
       success: true,
       data: { folderId: result.id, folderPath: result.path, folderName: result.name },
+      summary: t.folderRenamed[lang](newName),
       executionTimeMs: 0,
     };
   }
@@ -1307,9 +1444,12 @@ export class ActionExecutorService {
 
     this.logger.log(`Deleted folder at path "${folderPath}"`);
 
+    const lang = getLocale(context.preferences?.language);
+
     return {
       success: true,
       data: { folderPath, deleted: true },
+      summary: t.folderDeleted[lang](folderPath),
       executionTimeMs: 0,
     };
   }

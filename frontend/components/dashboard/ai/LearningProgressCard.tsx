@@ -22,11 +22,11 @@ import {
   RefreshCw,
   CheckCircle,
 } from 'lucide-react';
-import type { LearningProfile } from '@/lib/api/multi-agent';
+import type { LearningProfileStats } from '@/lib/api/multi-agent';
 
 export interface LearningProgressCardProps {
-  /** Learning profiles data */
-  profiles: LearningProfile[];
+  /** Learning profiles data - from backend /ai/multi-agent/stats/learning */
+  profiles: LearningProfileStats[];
   /** Summary statistics */
   summary?: {
     totalAttempts: number;
@@ -64,7 +64,7 @@ export function LearningProgressCard({
   // Group profiles by agent
   const agentProfiles = React.useMemo(() => {
     const profiles = Array.isArray(profilesProp) ? profilesProp : [];
-    const grouped: Record<string, LearningProfile[]> = {};
+    const grouped: Record<string, LearningProfileStats[]> = {};
     profiles.forEach((profile) => {
       if (!grouped[profile.agentName]) {
         grouped[profile.agentName] = [];
@@ -74,20 +74,24 @@ export function LearningProgressCard({
     return grouped;
   }, [profilesProp]);
 
-  // Calculate agent-level stats
-  const getAgentStats = (agentProfiles: LearningProfile[]) => {
-    const totalApprovals = agentProfiles.reduce((sum, p) => sum + p.approvalCount, 0);
-    const totalRejections = agentProfiles.reduce((sum, p) => sum + p.rejectionCount, 0);
-    const totalSuccesses = agentProfiles.reduce((sum, p) => sum + p.successCount, 0);
-    const totalFailures = agentProfiles.reduce((sum, p) => sum + p.failureCount, 0);
-    const total = totalApprovals + totalRejections;
-    const executed = totalSuccesses + totalFailures;
+  // Calculate agent-level stats from LearningProfileStats
+  // Backend returns approvalRate and successRate as decimals (0-1)
+  const getAgentStats = (agentProfiles: LearningProfileStats[]) => {
+    const total = agentProfiles.reduce((sum, p) => sum + p.totalAttempts, 0);
+    // Weighted average of approval rates
+    const weightedApprovalRate = total > 0
+      ? agentProfiles.reduce((sum, p) => sum + p.approvalRate * p.totalAttempts, 0) / total
+      : 0;
+    // Weighted average of success rates
+    const weightedSuccessRate = total > 0
+      ? agentProfiles.reduce((sum, p) => sum + p.successRate * p.totalAttempts, 0) / total
+      : 0;
 
     return {
-      approvalRate: total > 0 ? (totalApprovals / total) * 100 : 0,
-      successRate: executed > 0 ? (totalSuccesses / executed) * 100 : 0,
+      approvalRate: weightedApprovalRate * 100, // Convert to percentage
+      successRate: weightedSuccessRate * 100, // Convert to percentage
       total,
-      executed,
+      executed: total, // In new schema, totalAttempts represents executed actions
       avgBoost: agentProfiles.reduce((sum, p) => sum + p.confidenceBoost, 0) / agentProfiles.length || 0,
     };
   };
@@ -337,7 +341,7 @@ export function LearningProgressCard({
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
                       {agentData.slice(0, 3).map((profile) => (
                         <Chip
-                          key={profile.id}
+                          key={`${profile.agentName}-${profile.actionType}`}
                           size="small"
                           label={profile.actionType.replace(/_/g, ' ').toLowerCase()}
                           sx={{

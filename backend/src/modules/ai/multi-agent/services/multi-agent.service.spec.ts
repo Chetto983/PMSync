@@ -255,16 +255,18 @@ describe('MultiAgentService', () => {
       expect(result.agentUsed).toBe('CalendarAgent');
     });
 
-    it('throws on unknown forceAgent', async () => {
+    it('returns error response on unknown forceAgent', async () => {
       const context = {
         tenantId: TENANT_ID,
         userId: USER_ID,
         userMessage: 'Test message',
       };
 
-      await expect(
-        service.process(context as any, { forceAgent: 'does-not-exist' }),
-      ).rejects.toThrow('Unknown agent: does-not-exist');
+      // Service should return graceful error response, not throw
+      const result = await service.process(context as any, { forceAgent: 'does-not-exist' });
+      expect(result.agentUsed).toBe('Error');
+      expect(result.intent.reasoning).toContain('Unknown agent: does-not-exist');
+      expect(result.messages).toContain('Sorry, I could not complete that request. Please try again.');
     });
 
     it('falls back to GeneralAgent for unknown intents', async () => {
@@ -455,8 +457,11 @@ describe('MultiAgentService', () => {
         userMessage: 'Hello!',
       };
 
-      // Should not throw
-      await expect(service.process(context)).rejects.toThrow();
+      // Should not throw - returns graceful error response instead
+      const result = await service.process(context);
+      expect(result.agentUsed).toBe('Error');
+      expect(result.intent.reasoning).toContain('Agent error');
+      expect(result.messages).toContain('Sorry, I could not complete that request. Please try again.');
     });
   });
 

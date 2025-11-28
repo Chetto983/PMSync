@@ -18,7 +18,8 @@
       "Bash(git push:*)",
       "Bash(npx eslint:*)",
       "Bash(npm run lint:win:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(Select-Object -Last 30)"
     ],
     "deny": [],
     "ask": []

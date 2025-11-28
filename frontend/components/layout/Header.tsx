@@ -82,11 +82,12 @@ export function Header({
   const [pendingAiActions, setPendingAiActions] = useState(0);
   const { locale, changeLocale } = useLocale();
 
-  // Fetch AI pending actions count
+  // Fetch AI pending actions count - API returns { actions: [], total, limit, offset }
   const fetchAiPendingActions = useCallback(async () => {
     try {
       const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
-      setPendingAiActions(response.data?.length || 0);
+      const data = response.data;
+      setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
     } catch {
       // Silently fail - AI stats are not critical
     }

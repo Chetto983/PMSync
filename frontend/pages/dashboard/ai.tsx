@@ -48,7 +48,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Layout } from '@/components/layout/Layout';
-import { multiAgentApi, type MultiAgentResponse, type PendingAction, type ActionFeedback, type KnowledgeHit, type LearningProfile, type AgentInfo } from '@/lib/api/multi-agent';
+import { multiAgentApi, type MultiAgentResponse, type PendingAction, type ActionFeedback, type KnowledgeHit, type LearningProfileStats, type AgentInfo } from '@/lib/api/multi-agent';
 import { websocketClient, type RealtimeAiActionEvent } from '@/lib/websocket-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -76,6 +76,7 @@ type Message = {
   intent?: string;
   pendingActionIds?: string[];
   knowledgeHits?: KnowledgeHit[];
+  clarifyingQuestions?: string[];
 };
 
 // Helper type for translations
@@ -318,9 +319,11 @@ function EmptyState({ onSelectQuery }: { onSelectQuery: (prompt: string) => void
 function MessageBubble({
   message,
   agentInfoMap,
+  onQuestionClick,
 }: {
   message: Message;
   agentInfoMap?: Record<string, AgentInfo>;
+  onQuestionClick?: (question: string) => void;
 }) {
   const isUser = message.role === 'user';
 
@@ -481,6 +484,33 @@ function MessageBubble({
               ))}
             </Box>
           )}
+
+          {/* Clarifying Questions - clickable suggestions from AI */}
+          {message.clarifyingQuestions && message.clarifyingQuestions.length > 0 && (
+            <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Suggested follow-up questions:
+              </Typography>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                {message.clarifyingQuestions.map((question, idx) => (
+                  <Chip
+                    key={idx}
+                    label={question}
+                    size="small"
+                    variant="outlined"
+                    onClick={() => onQuestionClick?.(question)}
+                    sx={{
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                        borderColor: 'primary.main',
+                      },
+                    }}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          )}
         </Box>
 
         <Typography
@@ -509,8 +539,9 @@ function AiAssistantView() {
   const [showHistory, setShowHistory] = useState(false);
   const [actionHistory, setActionHistory] = useState<ActionFeedback[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
-  const [learningProfiles, setLearningProfiles] = useState<LearningProfile[]>([]);
+  const [_sessionId, setSessionId] = useState<string | undefined>(undefined); // State for potential UI display
+  const sessionIdRef = useRef<string | undefined>(undefined); // Ref to avoid race condition
+  const [learningProfiles, setLearningProfiles] = useState<LearningProfileStats[]>([]);
   const [learningSummary, setLearningSummary] = useState<{ totalAttempts: number; overallApprovalRate: number; overallSuccessRate: number } | undefined>();
   const [loadingLearning, setLoadingLearning] = useState(false);
   const [agentActivity, setAgentActivity] = useState<AgentActivityData[]>([]);
@@ -523,6 +554,9 @@ function AiAssistantView() {
   const [agentInfoMap, setAgentInfoMap] = useState<Record<string, AgentInfo>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Limit messages to prevent memory leak
+  const MAX_MESSAGES = 100;
   const token = useAuthStore((state) => state.token);
 
   const scrollToBottom = () => {
@@ -537,7 +571,8 @@ function AiAssistantView() {
     try {
       setLoadingActions(true);
       const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
-      setPendingActions(response.data || []);
+      // API returns { actions: [], total, limit, offset }
+      setPendingActions(response.data?.actions || []);
     } catch (error) {
       console.error('Failed to load pending actions:', error);
     } finally {
@@ -572,44 +607,46 @@ function AiAssistantView() {
       setLoadingActivity(true);
       const response = await multiAgentApi.getLearningStats();
       const data = response.data;
-      const profiles = data.profiles || [];
-      setLearningProfiles(profiles);
+      // API returns { success, stats: LearningProfileStats[] }
+      const stats = data.stats || [];
+      setLearningProfiles(stats);
 
-      // Use summary from API if available, otherwise calculate
-      if (data.summary) {
-        setLearningSummary(data.summary);
-      } else if (profiles.length > 0) {
-        const totalApprovals = profiles.reduce((sum: number, p: LearningProfile) => sum + p.approvalCount, 0);
-        const totalRejections = profiles.reduce((sum: number, p: LearningProfile) => sum + p.rejectionCount, 0);
-        const totalSuccesses = profiles.reduce((sum: number, p: LearningProfile) => sum + p.successCount, 0);
-        const totalFailures = profiles.reduce((sum: number, p: LearningProfile) => sum + p.failureCount, 0);
-        const total = totalApprovals + totalRejections;
-        const executed = totalSuccesses + totalFailures;
+      // Calculate summary from stats (backend returns rates as decimals 0-1)
+      if (stats.length > 0) {
+        const total = stats.reduce((sum, s) => sum + s.totalAttempts, 0);
+        // Weighted average of approval rates
+        const weightedApprovalRate = total > 0
+          ? stats.reduce((sum, s) => sum + s.approvalRate * s.totalAttempts, 0) / total
+          : 0;
+        // Weighted average of success rates
+        const weightedSuccessRate = total > 0
+          ? stats.reduce((sum, s) => sum + s.successRate * s.totalAttempts, 0) / total
+          : 0;
 
         setLearningSummary({
           totalAttempts: total,
-          overallApprovalRate: total > 0 ? (totalApprovals / total) * 100 : 0,
-          overallSuccessRate: executed > 0 ? (totalSuccesses / executed) * 100 : 0,
+          overallApprovalRate: weightedApprovalRate * 100, // Convert to percentage
+          overallSuccessRate: weightedSuccessRate * 100, // Convert to percentage
         });
       }
 
-      // Build agent activity data
-      if (profiles.length > 0) {
-        const agentMap: Record<string, { attempts: number; approvals: number; types: Set<string> }> = {};
-        profiles.forEach((p: LearningProfile) => {
-          if (!agentMap[p.agentName]) {
-            agentMap[p.agentName] = { attempts: 0, approvals: 0, types: new Set() };
+      // Build agent activity data from LearningProfileStats
+      if (stats.length > 0) {
+        const agentMap: Record<string, { attempts: number; approvalRateSum: number; types: Set<string> }> = {};
+        stats.forEach((s) => {
+          if (!agentMap[s.agentName]) {
+            agentMap[s.agentName] = { attempts: 0, approvalRateSum: 0, types: new Set() };
           }
-          agentMap[p.agentName].attempts += p.approvalCount + p.rejectionCount;
-          agentMap[p.agentName].approvals += p.approvalCount;
-          agentMap[p.agentName].types.add(p.actionType);
+          agentMap[s.agentName].attempts += s.totalAttempts;
+          agentMap[s.agentName].approvalRateSum += s.approvalRate * s.totalAttempts;
+          agentMap[s.agentName].types.add(s.actionType);
         });
 
         setAgentActivity(
           Object.entries(agentMap).map(([agentName, data]) => ({
             agentName,
             totalAttempts: data.attempts,
-            approvalRate: data.attempts > 0 ? (data.approvals / data.attempts) * 100 : 0,
+            approvalRate: data.attempts > 0 ? (data.approvalRateSum / data.attempts) * 100 : 0,
             actionTypes: Array.from(data.types),
           }))
         );
@@ -718,14 +755,18 @@ function AiAssistantView() {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => {
+      const newMessages = [...prev, userMessage];
+      // Limit messages to prevent memory leak
+      return newMessages.length > MAX_MESSAGES ? newMessages.slice(-MAX_MESSAGES) : newMessages;
+    });
     setPrompt('');
     setSending(true);
 
     try {
       const response = await multiAgentApi.processMessage({
         message: userMessage.content,
-        sessionId,
+        sessionId: sessionIdRef.current, // Use ref to avoid race condition
         locale: currentLocale,
       });
 
@@ -736,9 +777,10 @@ function AiAssistantView() {
         throw new Error('Empty response from server');
       }
 
-      // Store session ID from backend for subsequent requests
-      if (data.sessionId && !sessionId) {
-        setSessionId(data.sessionId);
+      // Store session ID from backend for subsequent requests (use ref immediately)
+      if (data.sessionId && !sessionIdRef.current) {
+        sessionIdRef.current = data.sessionId; // Immediate update for next request
+        setSessionId(data.sessionId); // State update for UI if needed
       }
 
       const pendingIds = data.pendingActionIds || [];
@@ -762,9 +804,13 @@ function AiAssistantView() {
         intent: data.intent?.intent,
         pendingActionIds: pendingIds,
         knowledgeHits: data.knowledgeHits || [],
+        clarifyingQuestions: data.clarifyingQuestions || [],
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => {
+        const newMessages = [...prev, assistantMessage];
+        return newMessages.length > MAX_MESSAGES ? newMessages.slice(-MAX_MESSAGES) : newMessages;
+      });
 
       if (data.pendingActionIds && data.pendingActionIds.length > 0) {
         await loadPendingActions();
@@ -801,7 +847,10 @@ function AiAssistantView() {
         content: 'Sorry, I encountered an error processing your request. Please try again.',
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => {
+        const newMessages = [...prev, errorMessage];
+        return newMessages.length > MAX_MESSAGES ? newMessages.slice(-MAX_MESSAGES) : newMessages;
+      });
     } finally {
       setSending(false);
       inputRef.current?.focus();
@@ -910,7 +959,15 @@ function AiAssistantView() {
           ) : (
             <>
               {messages.map((message, index) => (
-                <MessageBubble key={index} message={message} agentInfoMap={agentInfoMap} />
+                <MessageBubble
+                  key={index}
+                  message={message}
+                  agentInfoMap={agentInfoMap}
+                  onQuestionClick={(question) => {
+                    setPrompt(question);
+                    inputRef.current?.focus();
+                  }}
+                />
               ))}
               {sending && <ThinkingIndicator />}
             </>
@@ -1024,6 +1081,13 @@ function AiAssistantView() {
           onRefresh={loadPendingActions}
           agentInfoMap={agentInfoMap}
           defaultExpanded={showPendingActions}
+          onError={(error, _actionId, type) => {
+            setNotification({
+              open: true,
+              message: `Failed to ${type} action: ${error.message}`,
+              severity: 'error',
+            });
+          }}
         />
 
         {/* Learning Progress Card */}

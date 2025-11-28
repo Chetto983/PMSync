@@ -55,6 +55,18 @@ export type LearningProfile = {
   lastUpdated: string;
 };
 
+// Matches backend LearningProfileStats from feedback.service.ts
+export type LearningProfileStats = {
+  agentName: string;
+  actionType: string;
+  totalAttempts: number;
+  approvalRate: number;
+  successRate: number;
+  confidenceBoost: number;
+  avgOriginalConfidence: number;
+  avgAdjustedConfidence: number;
+};
+
 export type LearningStats = {
   profiles: LearningProfile[];
   summary: {
@@ -83,6 +95,8 @@ export type IntentResult = {
 };
 
 export type MultiAgentResponse = {
+  success: boolean;
+  sessionId: string;
   messages: string[];
   pendingActionIds: string[];
   executedActionIds: string[];
@@ -139,8 +153,11 @@ export const multiAgentApi = {
   },
 
   // Get pending actions
-  getPendingActions(params?: { status?: string; limit?: number }) {
-    return apiClient.get<PendingAction[]>('/ai/multi-agent/pending-actions', { params });
+  getPendingActions(params?: { status?: string; limit?: number; offset?: number }) {
+    return apiClient.get<{ actions: PendingAction[]; total: number; limit: number; offset: number }>(
+      '/ai/multi-agent/pending-actions',
+      { params }
+    );
   },
 
   // Get a specific pending action
@@ -170,9 +187,9 @@ export const multiAgentApi = {
     );
   },
 
-  // Get learning stats
+  // Get learning stats - backend returns { success, stats: LearningProfileStats[] }
   getLearningStats() {
-    return apiClient.get<{ success: boolean; profiles: LearningProfile[]; summary: LearningStats['summary'] }>(
+    return apiClient.get<{ success: boolean; stats: LearningProfileStats[] }>(
       '/ai/multi-agent/stats/learning'
     );
   },
@@ -186,7 +203,10 @@ export const multiAgentApi = {
 
   // Get feedback history
   getFeedback(params?: { limit?: number; offset?: number }) {
-    return apiClient.get<ActionFeedback[]>('/ai/multi-agent/feedback', { params });
+    return apiClient.get<{ feedback: ActionFeedback[]; total: number; limit: number; offset: number }>(
+      '/ai/multi-agent/feedback',
+      { params }
+    );
   },
 
   // Reset learning for a specific action type or all

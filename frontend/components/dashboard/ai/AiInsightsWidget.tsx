@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { multiAgentApi } from '@/lib/api/multi-agent';
-import { aiApi } from '@/lib/api/ai';
 
 interface AiInsightsWidgetProps {
   /** Number of unread emails for context */
@@ -53,16 +52,18 @@ export function AiInsightsWidget({ unreadCount, t }: AiInsightsWidgetProps) {
   const loadInsights = useCallback(async () => {
     setLoading(true);
     try {
-      // Load pending actions count
+      // Load pending actions count - API returns { actions: [], total, limit, offset }
       const actionsResponse = await multiAgentApi.getPendingActions({ status: 'PENDING' });
-      setPendingActionsCount(actionsResponse.data?.length || 0);
+      const actionsData = actionsResponse.data;
+      setPendingActionsCount(actionsData?.total ?? actionsData?.actions?.length ?? 0);
 
       // Load writing style progress
       try {
         const learningResponse = await multiAgentApi.getLearningStats();
-        const profiles = learningResponse.data?.profiles || [];
-        const totalAttempts = profiles.reduce(
-          (sum: number, p: any) => sum + p.approvalCount + p.rejectionCount,
+        // API returns { success, stats: LearningProfileStats[] }
+        const stats = learningResponse.data?.stats || [];
+        const totalAttempts = stats.reduce(
+          (sum: number, s) => sum + s.totalAttempts,
           0
         );
         // Progress based on learning samples (100 samples = 100%)
@@ -71,33 +72,18 @@ export function AiInsightsWidget({ unreadCount, t }: AiInsightsWidgetProps) {
         setWritingStyleProgress(0);
       }
 
-      // Generate AI insights summary
+      // Generate AI insights summary - use default summary (proper inbox analysis endpoint TBD)
       if (unreadCount > 0) {
-        try {
-          // Use compose API to generate a quick summary prompt
-          const summaryResponse = await aiApi.composeEmail({
-            prompt: `Briefly summarize what the user should focus on today with ${unreadCount} unread emails. Be concise, 1-2 sentences.`,
-            locale: (t as any)?.locale || 'en',
-          });
-
-          setInsights({
-            summary: summaryResponse.data?.body || getDefaultSummary(unreadCount, t),
-            urgentCount: Math.floor(unreadCount * 0.1), // Estimate
-            actionNeeded: Math.floor(unreadCount * 0.3), // Estimate
-            categories: [
-              { name: t?.dashboard?.home?.sections?.priorityInbox || 'Priority', count: Math.floor(unreadCount * 0.2) },
-              { name: 'Updates', count: Math.floor(unreadCount * 0.4) },
-              { name: 'Promotions', count: Math.floor(unreadCount * 0.4) },
-            ],
-          });
-        } catch {
-          setInsights({
-            summary: getDefaultSummary(unreadCount, t),
-            urgentCount: 0,
-            actionNeeded: 0,
-            categories: [],
-          });
-        }
+        // For now, use static summary based on unread count
+        // TODO: Create proper /ai/inbox-summary endpoint for real AI-powered analysis
+        setInsights({
+          summary: getDefaultSummary(unreadCount, t),
+          urgentCount: 0, // Will be populated by real analysis later
+          actionNeeded: 0, // Will be populated by real analysis later
+          categories: [
+            { name: t?.dashboard?.home?.sections?.priorityInbox || 'Priority', count: 0 },
+          ],
+        });
       } else {
         setInsights({
           summary: t?.common?.allCaughtUp || 'All caught up! No unread emails.',
