@@ -521,7 +521,7 @@ Use this checklist to track progress fixing all issues found in the audit.
 
 **Backend: Localize Hardcoded Strings** (`action-executor.service.ts`)
 
-- [ ] Create `ExecutorMessages` locale map (en, it, es, fr, de, pt)
+- [ ] Create `ExecutorMessages` locale map (en, it)
 - [ ] Localize forwarded email template (line 309-317)
 - [ ] Localize email forward success message (line 337-345)
 - [ ] Localize archive success message (line 385-393)
