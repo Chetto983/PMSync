@@ -1,8 +1,8 @@
 # VoltAgent Migration Roadmap - MailAgent
 
-**Version:** 1.5
+**Version:** 1.7
 **Date:** 2025-11-30
-**Status:** Phase 7 Step 7 Complete - Multi-Agent Module Removed
+**Status:** Phase 7 Step 1 Complete - RAG Fully Integrated with HybridRetriever
 
 ---
 
@@ -705,10 +705,15 @@ const agent = new Agent({
 - [Microsoft RAG Techniques](https://www.microsoft.com/en-us/microsoft-cloud/blog/2025/02/04/common-retrieval-augmented-generation-rag-techniques-explained/)
 - [VoltAgent RAG Guide](https://voltagent.dev/blog/rag-chatbot/)
 
-**Additional Tasks:**
+**Full Integration Chain:**
 
-- [x] Update KnowledgeAgent to support retriever injection
-- [x] Create rag/index.ts exports
+- [x] Create `voltagent/rag/index.ts` exports
+- [x] Update KnowledgeAgent to accept retriever option
+- [x] Update SupervisorAgent to pass MistralService/EmbeddingsService
+- [x] Update VoltAgentService to inject RAG services (optional)
+- [x] Update VoltAgentModule to provide RAG services
+- [x] Add helper functions to locales (`getToolTranslations`, `getAgentTranslations`, `resolveLocale`)
+- [x] All VoltAgent tests passing (20 passed, 1 skipped)
 
 ### 11.7.3 Step 2: Consolidate HITL into VoltAgent
 
@@ -932,6 +937,6 @@ const agent = new Agent({
 
 ---
 
-**Document Version:** 1.6
+**Document Version:** 1.7
 **Last Updated:** 2025-11-30
 **Author:** Claude Code
