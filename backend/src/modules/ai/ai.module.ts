@@ -17,13 +17,13 @@ import { PromptRegistryService } from './services/prompt-registry.service';
 import { LlmTelemetryService } from './services/llm-telemetry.service';
 import { WritingStyleService } from './services/writing-style.service';
 import { EmailModule } from '../email/email.module';
-import { MultiAgentModule } from './multi-agent/multi-agent.module';
+import { VoltAgentModule } from './voltagent/voltagent.module';
 
 @Module({
   imports: [
     PrismaModule,
     forwardRef(() => EmailModule), // For StorageService (attachment downloads)
-    forwardRef(() => MultiAgentModule), // Intelligent Secretary multi-agent system
+    forwardRef(() => VoltAgentModule), // VoltAgent framework with HITL workflows
   ],
   providers: [
     MistralService,
@@ -55,7 +55,7 @@ import { MultiAgentModule } from './multi-agent/multi-agent.module';
     PromptRegistryService,
     LlmTelemetryService,
     WritingStyleService,
-    MultiAgentModule, // Export for other modules to use multi-agent services
+    VoltAgentModule, // Export VoltAgent service for other modules
   ],
 })
 export class AiModule {}
