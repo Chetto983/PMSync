@@ -8,6 +8,7 @@ import { EmailSyncBackService } from './services/email-sync-back.service';
 import { EmailCleanupService } from './services/email-cleanup.service';
 import { AttachmentStorageService } from './services/attachment.storage';
 import { AttachmentOnDemandService } from './services/attachment-on-demand.service';
+import { ScheduledEmailService } from './services/scheduled-email.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { AiModule } from '../ai/ai.module';
@@ -39,6 +40,7 @@ import { ProviderTokenService } from '../email-sync/services/provider-token.serv
     AttachmentOnDemandService,
     StorageService,
     ProviderTokenService,
+    ScheduledEmailService,
   ],
   controllers: [EmailsController, FoldersController, AttachmentsController],
   exports: [
@@ -52,6 +54,7 @@ import { ProviderTokenService } from '../email-sync/services/provider-token.serv
     AttachmentStorageService,
     AttachmentOnDemandService,
     StorageService,
+    ScheduledEmailService,
   ],
 })
 export class EmailModule {}

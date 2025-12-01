@@ -153,6 +153,12 @@ interface AuthScreenCopy {
 }
 
 export interface AppTranslations {
+  /**
+   * Current locale code (e.g., 'en', 'it')
+   * Used for AI compose and other locale-aware features
+   */
+  locale: LocaleKey;
+
   app: {
     name: string;
     tagline: string;
@@ -399,6 +405,8 @@ export interface AppTranslations {
         sendError: string;
         uploadError: string;
         fileTooLarge: string;
+        fileTypeNotAllowed: string;
+        totalSizeExceeded: string;
         draftSaved: string;
         discardConfirm: string;
         aiCompose: string;
@@ -1278,6 +1286,18 @@ export interface AppTranslations {
       busy: string;
       attendees: string;
     };
+  };
+  commandPalette?: {
+    searchPlaceholder: string;
+    navigation: string;
+    actions: string;
+    recentSearches: string;
+    emailResults: string;
+    noResults: string;
+    pressEnterToSearch: string;
+    navigate: string;
+    select: string;
+    openWith: string;
   };
   errors: {
     notFound: {

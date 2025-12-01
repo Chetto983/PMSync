@@ -9,6 +9,7 @@ import {
   CircularProgress,
   Typography,
 } from '@mui/material';
+import { QueryProvider } from '@/lib/query-client';
 import { AuthProvider } from '@/lib/context/auth-context';
 import { lightTheme, darkTheme } from '@/lib/theme/material-theme';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -109,18 +110,20 @@ export default function App({ Component, pageProps }: AppProps & { Component: an
   const skipAuth = Component.skipAuthGuard || false;
 
   return (
-    <NextThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <MaterialThemeWrapper>
-        <AuthProvider>
-          {skipAuth ? (
-            <Component {...pageProps} />
-          ) : (
-            <RouteGuard>
+    <QueryProvider>
+      <NextThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <MaterialThemeWrapper>
+          <AuthProvider>
+            {skipAuth ? (
               <Component {...pageProps} />
-            </RouteGuard>
-          )}
-        </AuthProvider>
-      </MaterialThemeWrapper>
-    </NextThemeProvider>
+            ) : (
+              <RouteGuard>
+                <Component {...pageProps} />
+              </RouteGuard>
+            )}
+          </AuthProvider>
+        </MaterialThemeWrapper>
+      </NextThemeProvider>
+    </QueryProvider>
   );
 }

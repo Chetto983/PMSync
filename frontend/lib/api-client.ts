@@ -25,9 +25,19 @@ export const apiClient = axios.create({
 // Add token to requests
 apiClient.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Read token from Zustand persist storage (auth-storage)
+    // Format: {"state":{"token":"..."},"version":0}
+    const stored = localStorage.getItem('auth-storage');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const token = parsed?.state?.token;
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } catch {
+        // Invalid JSON, skip
+      }
     }
   }
   return config;

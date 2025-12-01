@@ -25,6 +25,8 @@ export interface SendEmailDto {
     content: Buffer;
     contentType: string;
   }[];
+  /** Optional scheduled send time (ISO string) - if set, email will be queued for later */
+  scheduledAt?: string;
 }
 
 @Injectable()
@@ -37,6 +39,49 @@ export class EmailSendService {
     private attachmentStorage: AttachmentStorageService,
     private providerTokenService: ProviderTokenService,
   ) {}
+
+  /**
+   * Schedule email for later (called when scheduledAt is provided)
+   */
+  async scheduleEmail(data: SendEmailDto): Promise<{ id: string; scheduledAt: Date }> {
+    if (!data.scheduledAt) {
+      throw new BadRequestException('scheduledAt is required for scheduling');
+    }
+
+    const scheduledAt = new Date(data.scheduledAt);
+    if (scheduledAt <= new Date()) {
+      throw new BadRequestException('scheduledAt must be in the future');
+    }
+
+    const scheduled = await this.prisma.scheduledEmail.create({
+      data: {
+        tenantId: data.tenantId,
+        providerId: data.providerId,
+        to: data.to,
+        cc: data.cc || [],
+        bcc: data.bcc || [],
+        subject: data.subject,
+        bodyHtml: data.bodyHtml,
+        bodyText: data.bodyText,
+        inReplyTo: data.inReplyTo,
+        references: data.references,
+        attachments: data.attachments ? JSON.stringify(data.attachments.map(att => ({
+          filename: att.filename,
+          contentType: att.contentType,
+          contentBase64: att.content.toString('base64'),
+        }))) : undefined,
+        scheduledAt,
+        status: 'pending',
+      },
+    });
+
+    this.logger.log(`Email scheduled for ${scheduledAt.toISOString()}: ${scheduled.id}`);
+
+    return {
+      id: scheduled.id,
+      scheduledAt: scheduled.scheduledAt,
+    };
+  }
 
   /**
    * Send email via Provider Factory (Zero-inspired pattern)

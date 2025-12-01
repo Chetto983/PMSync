@@ -38,7 +38,6 @@ import {
   Clock,
   Mail,
 } from 'lucide-react';
-import DOMPurify from 'dompurify';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import { LabelSelector } from '@/components/labels';
@@ -46,6 +45,7 @@ import { useLabelStore } from '@/stores/label-store';
 import { formatEmailHeaderDate, parseEmailFrom, scrollContainerSx } from './shared/utils';
 import { emailApi } from '@/lib/api/email';
 import { EmailSummaryPanel } from '@/components/email/ai/EmailSummaryPanel';
+import { EmailBody } from './shared/EmailBody';
 
 /**
  * Props for ThreadDisplay component
@@ -60,7 +60,7 @@ interface ThreadDisplayProps {
   onReply?: (email: Email) => void;
   onReplyAll?: (email: Email) => void;
   onForward?: (email: Email) => void;
-  onLabelsChange?: (emailId: string, labelIds: string[], updatedEmail?: any) => void;
+  onLabelsChange?: (emailId: string, labelIds: string[], updatedEmail?: Email) => void;
 }
 
 /**
@@ -76,31 +76,6 @@ function getFileIcon(filename: string, size = 14): React.ReactElement {
   if (['js', 'ts', 'tsx', 'jsx', 'html', 'css', 'json', 'xml', 'py', 'java', 'cpp', 'c', 'php', 'rb', 'go', 'rs', 'swift'].includes(ext)) return <FileCode size={size} />;
   if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(ext)) return <FileArchive size={size} />;
   return <File size={size} />;
-}
-
-/**
- * Sanitize HTML for email bodies
- * Opens all links in a new tab for security and UX
- */
-function sanitizeEmailBody(content: string): string {
-  if (typeof window === 'undefined') return content;
-
-  // Configure DOMPurify to add target="_blank" and rel="noopener noreferrer" to all links
-  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-    if (node.tagName === 'A') {
-      node.setAttribute('target', '_blank');
-      node.setAttribute('rel', 'noopener noreferrer');
-    }
-  });
-
-  const sanitized = DOMPurify.sanitize(content, {
-    ADD_ATTR: ['target', 'rel'],
-  });
-
-  // Remove the hook after use to avoid side effects
-  DOMPurify.removeHook('afterSanitizeAttributes');
-
-  return sanitized;
 }
 
 /**
@@ -148,7 +123,7 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
   isDark,
 }) => {
   const emailFromData = parseEmailFrom(email.from);
-  const safeBody = sanitizeEmailBody(email.bodyHtml || email.bodyText || email.snippet || '');
+  const emailHtml = email.bodyHtml || email.bodyText || email.snippet || '';
   const nonInlineAttachments = email.attachments?.filter((a) => !a.isInline) ?? [];
   const hasAttachments = nonInlineAttachments.length > 0;
   const isUnread = !email.isRead;
@@ -355,30 +330,13 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
             </Box>
           )}
 
-          {/* Email Body */}
-          <Box
-            sx={{
-              p: 2,
-              // Light background in dark mode for HTML emails
-              ...(isDark && {
-                bgcolor: '#FAFAFA',
-                color: '#1a1a1a',
-              }),
-              ...(!isDark && {
-                color: 'text.primary',
-              }),
-              '& img': { maxWidth: '100%', height: 'auto' },
-              '& a': { color: isDark ? '#1976d2' : 'primary.main', textDecoration: 'underline' },
-              '& pre, & code': {
-                backgroundColor: isDark ? '#f5f5f5' : 'rgba(0, 0, 0, 0.05)',
-                borderRadius: 1,
-                padding: '2px 4px',
-              },
-              // Typography defaults
-              fontSize: '0.9375rem',
-              lineHeight: 1.6,
-            }}
-            dangerouslySetInnerHTML={{ __html: safeBody }}
+          {/* Email Body - with lazy loaded images */}
+          <EmailBody
+            html={emailHtml}
+            isDark={isDark}
+            lazyLoadImages={true}
+            lazyLoadMargin="200px"
+            sx={{ p: 2 }}
           />
         </Box>
       </Collapse>

@@ -527,7 +527,7 @@ function MessageBubble({
 
 function AiAssistantView() {
   const t = useTranslations();
-  const currentLocale = (t as any)?.locale || 'en';
+  const currentLocale = t.locale;
   const theme = useTheme();
   const quickActions = getQuickActions(t);
   const [messages, setMessages] = useState<Message[]>([]);

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -20,8 +20,13 @@ import {
   Select,
   FormControl,
   InputLabel,
+  Menu,
+  ListItemIcon,
+  ListItemText,
+  Popover,
+  Stack,
 } from '@mui/material';
-import { X, Send, Paperclip, Check, FileText, Trash2 } from 'lucide-react';
+import { X, Send, Paperclip, Check, FileText, Trash2, Maximize2, Minimize2, Upload, Clock, ChevronDown } from 'lucide-react';
 import { EditorContent } from '@tiptap/react';
 import type { SendEmailPayload, EmailAttachmentUpload } from '@/lib/api/email';
 import { emailApi } from '@/lib/api/email';
@@ -34,6 +39,69 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { EditorToolbar } from './EditorToolbar';
 import { SmartReplySuggestions } from '@/components/email/ai/SmartReplySuggestions';
 import { AiChatPanel } from './AiChatPanel';
+
+/**
+ * File upload constants
+ */
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
+const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25MB total (common email limit)
+
+/**
+ * Allowed file types for attachments (whitelist for security)
+ * Common document, image, and archive types
+ */
+const ALLOWED_FILE_TYPES = new Set([
+  // Documents
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+  'text/csv',
+  'text/html',
+  'text/markdown',
+  'application/rtf',
+  // Images
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  'image/bmp',
+  'image/tiff',
+  // Archives
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-rar-compressed',
+  'application/x-7z-compressed',
+  'application/gzip',
+  'application/x-tar',
+  // Audio/Video (common formats)
+  'audio/mpeg',
+  'audio/wav',
+  'audio/ogg',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  // Other common types
+  'application/json',
+  'application/xml',
+]);
+
+/**
+ * File extensions whitelist (fallback when MIME type is not available)
+ */
+const ALLOWED_EXTENSIONS = new Set([
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+  'txt', 'csv', 'html', 'md', 'rtf',
+  'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff',
+  'zip', 'rar', '7z', 'gz', 'tar',
+  'mp3', 'wav', 'ogg', 'mp4', 'webm', 'mov',
+  'json', 'xml',
+]);
 
 export interface ComposeDialogProps {
   /**
@@ -143,6 +211,18 @@ export function ComposeDialog({
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
 
+  // Fullscreen mode (desktop only)
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Drag-and-drop state
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+
+  // Schedule send state
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
+  const [scheduleMenuAnchor, setScheduleMenuAnchor] = useState<null | HTMLElement>(null);
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+
   // TipTap editor
   const editor = useComposeEditor({
     initialContent: body,
@@ -187,20 +267,23 @@ export function ComposeDialog({
   }, [editor, body]);
 
   // Fetch providers when dialog opens
+  // Note: selectedProvider NOT in deps to avoid refetch loop when user selects provider
   useEffect(() => {
     if (open) {
       providersApi.getProviders().then((data) => {
         const emailProviders = data.filter((p) => p.supportsEmail);
         setProviders(emailProviders);
 
-        // Set selected provider
-        if (!selectedProvider && emailProviders.length > 0) {
+        // Set default provider only if none selected yet
+        setSelectedProvider((current) => {
+          if (current) return current; // Keep existing selection
+          if (emailProviders.length === 0) return '';
           const defaultProvider = emailProviders.find((p) => p.isDefault) || emailProviders[0];
-          setSelectedProvider(defaultProvider.id);
-        }
+          return defaultProvider.id;
+        });
       });
     }
-  }, [open, selectedProvider]);
+  }, [open]);
 
   // Update selected provider when defaultProviderId changes
   useEffect(() => {
@@ -225,6 +308,133 @@ export function ComposeDialog({
         });
     }
   }, [open]);
+
+  // Keyboard shortcut for fullscreen toggle (F11 to toggle, Escape to exit)
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // F11 toggles fullscreen
+      if (e.key === 'F11') {
+        e.preventDefault();
+        setIsFullscreen((prev) => !prev);
+      }
+      // Escape exits fullscreen (but not the dialog)
+      if (e.key === 'Escape' && isFullscreen) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsFullscreen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, isFullscreen]);
+
+  // Check if file type is allowed (defined before drag handlers that use it)
+  const isFileTypeAllowed = useCallback((file: File): boolean => {
+    // Check MIME type first
+    if (file.type && ALLOWED_FILE_TYPES.has(file.type)) {
+      return true;
+    }
+    // Fallback to extension check
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    return ext ? ALLOWED_EXTENSIONS.has(ext) : false;
+  }, []);
+
+  // Drag-and-drop handlers for attachments
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    // Process the dropped files
+    setUploading(true);
+    try {
+      const newAttachments: EmailAttachmentUpload[] = [];
+      const currentTotalSize = attachments.reduce(
+        (sum, att) => sum + Math.floor((att.contentBase64.length * 3) / 4),
+        0
+      );
+      let runningTotal = currentTotalSize;
+
+      for (const file of Array.from(files)) {
+        if (!isFileTypeAllowed(file)) {
+          onError?.(
+            t.dashboard.email.composer.fileTypeNotAllowed?.replace('{filename}', file.name) ||
+            `File type not allowed: ${file.name}`
+          );
+          continue;
+        }
+
+        if (file.size > MAX_FILE_SIZE) {
+          onError?.(t.dashboard.email.composer.fileTooLarge.replace('{filename}', file.name));
+          continue;
+        }
+
+        if (runningTotal + file.size > MAX_TOTAL_SIZE) {
+          onError?.(
+            t.dashboard.email.composer.totalSizeExceeded ||
+            'Total attachment size exceeds 25MB limit'
+          );
+          break;
+        }
+
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64Content = result.split(',')[1];
+            resolve(base64Content);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        runningTotal += file.size;
+
+        newAttachments.push({
+          filename: file.name,
+          contentType: file.type || 'application/octet-stream',
+          contentBase64: base64,
+        });
+      }
+
+      setAttachments((prev) => [...prev, ...newAttachments]);
+    } catch (error) {
+      console.error('Failed to process dropped files:', error);
+      onError?.(t.dashboard.email.composer.uploadError);
+    } finally {
+      setUploading(false);
+    }
+  }, [attachments, isFileTypeAllowed, onError, t]);
 
   // Custom filter for Autocomplete - search anywhere in the string (name or email)
   const contactFilterOptions = useMemo(() => {
@@ -280,11 +490,36 @@ export function ComposeDialog({
     try {
       const newAttachments: EmailAttachmentUpload[] = [];
 
+      // Calculate current total size
+      const currentTotalSize = attachments.reduce(
+        (sum, att) => sum + Math.floor((att.contentBase64.length * 3) / 4),
+        0
+      );
+      let runningTotal = currentTotalSize;
+
       for (const file of Array.from(files)) {
-        // Check file size (max 10MB per file)
-        if (file.size > 10 * 1024 * 1024) {
+        // Check file type (security whitelist)
+        if (!isFileTypeAllowed(file)) {
+          onError?.(
+            t.dashboard.email.composer.fileTypeNotAllowed?.replace('{filename}', file.name) ||
+            `File type not allowed: ${file.name}`
+          );
+          continue;
+        }
+
+        // Check file size (max per file)
+        if (file.size > MAX_FILE_SIZE) {
           onError?.(t.dashboard.email.composer.fileTooLarge.replace('{filename}', file.name));
           continue;
+        }
+
+        // Check total size limit
+        if (runningTotal + file.size > MAX_TOTAL_SIZE) {
+          onError?.(
+            t.dashboard.email.composer.totalSizeExceeded ||
+            'Total attachment size exceeds 25MB limit'
+          );
+          break; // Stop processing more files
         }
 
         // Convert to base64
@@ -299,6 +534,8 @@ export function ComposeDialog({
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
+
+        runningTotal += file.size;
 
         newAttachments.push({
           filename: file.name,
@@ -318,7 +555,7 @@ export function ComposeDialog({
         fileInputRef.current.value = '';
       }
     }
-  }, [onError, t]);
+  }, [onError, t, attachments, isFileTypeAllowed]);
 
   // Remove attachment
   const handleRemoveAttachment = useCallback((index: number) => {
@@ -442,7 +679,7 @@ export function ComposeDialog({
         to: cleanEmailArray(to),
         subject: subject || undefined,
         tone: aiTone || (mode === 'reply' ? 'formal' : undefined),
-        locale: (t as any)?.locale,
+        locale: t.locale,
         variant: aiVariant,
       });
 
@@ -495,6 +732,100 @@ export function ComposeDialog({
     onClose();
   }, [hasChanges, sending, onClose, t]);
 
+  // Schedule send helpers
+  const getSchedulePresets = useCallback(() => {
+    const now = new Date();
+    const tomorrow9am = new Date(now);
+    tomorrow9am.setDate(tomorrow9am.getDate() + 1);
+    tomorrow9am.setHours(9, 0, 0, 0);
+
+    const nextMonday9am = new Date(now);
+    const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
+    nextMonday9am.setDate(nextMonday9am.getDate() + daysUntilMonday);
+    nextMonday9am.setHours(9, 0, 0, 0);
+
+    return [
+      { label: 'Tomorrow morning (9:00 AM)', value: tomorrow9am.toISOString() },
+      { label: 'Next Monday (9:00 AM)', value: nextMonday9am.toISOString() },
+    ];
+  }, []);
+
+  const handleScheduleSelect = useCallback((dateTime: string) => {
+    setScheduledAt(dateTime);
+    setScheduleMenuAnchor(null);
+    setShowSchedulePicker(false);
+  }, []);
+
+  const handleScheduleSend = useCallback(async () => {
+    if (!scheduledAt) return;
+
+    // Validation (same as handleSend)
+    if (!selectedProvider) {
+      onError?.(t.dashboard.email.composer.noProvider);
+      return;
+    }
+
+    const toEmails = cleanEmailArray(to);
+    if (toEmails.length === 0) {
+      onError?.(t.dashboard.email.composer.validationTo);
+      return;
+    }
+
+    if (!subject.trim()) {
+      onError?.(t.dashboard.email.composer.validationSubject);
+      return;
+    }
+
+    try {
+      setSending(true);
+
+      const payload: SendEmailPayload = {
+        providerId: selectedProvider,
+        to: toEmails,
+        cc: cc.length > 0 ? cleanEmailArray(cc) : undefined,
+        bcc: bcc.length > 0 ? cleanEmailArray(bcc) : undefined,
+        subject: subject.trim(),
+        bodyHtml: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+        bodyText: body,
+        inReplyTo: prefillData?.inReplyTo,
+        references: prefillData?.references,
+        attachments: attachments.length > 0 ? attachments : undefined,
+        scheduledAt,
+      };
+
+      await emailApi.sendEmail(payload);
+
+      // Success - show scheduled confirmation
+      onSent?.();
+      onClose();
+
+      // Reset form
+      setTo([]);
+      setCc([]);
+      setBcc([]);
+      setSubject('');
+      setBody('');
+      setAttachments([]);
+      setScheduledAt(null);
+    } catch (error) {
+      console.error('Failed to schedule email:', error);
+      onError?.(t.dashboard.email.composer.sendError);
+    } finally {
+      setSending(false);
+    }
+  }, [scheduledAt, selectedProvider, to, cc, bcc, subject, body, prefillData, cleanEmailArray, onClose, onSent, onError, attachments, t]);
+
+  const formatScheduledTime = useCallback((isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }, []);
+
   // Handle smart reply selection
   const handleSmartReplySelect = useCallback((reply: string) => {
     setBody(reply);
@@ -509,13 +840,15 @@ export function ComposeDialog({
     <Dialog
       open={open}
       onClose={handleClose}
-      maxWidth="md"
-      fullWidth
-      fullScreen={isMobile}
+      maxWidth={isFullscreen ? false : 'md'}
+      fullWidth={!isFullscreen}
+      fullScreen={isMobile || isFullscreen}
       PaperProps={{
         sx: {
-          height: isMobile ? '100%' : '80vh',
-          maxHeight: isMobile ? '100%' : 800,
+          height: isMobile || isFullscreen ? '100%' : '80vh',
+          maxHeight: isMobile || isFullscreen ? '100%' : 800,
+          // Smooth transition for fullscreen toggle
+          transition: 'all 0.2s ease-in-out',
         },
       }}
     >
@@ -540,21 +873,73 @@ export function ComposeDialog({
               />
             )}
           </Box>
-          <IconButton
-            size="small"
-            onClick={handleClose}
-            disabled={sending}
-            sx={{
-              width: { xs: 44, sm: 'auto' },
-              height: { xs: 44, sm: 'auto' },
-            }}
-          >
-            <X size={20} />
-          </IconButton>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {/* Fullscreen toggle - desktop only */}
+            {!isMobile && (
+              <IconButton
+                size="small"
+                onClick={() => setIsFullscreen((prev) => !prev)}
+                disabled={sending}
+                title={isFullscreen ? 'Exit fullscreen (F11)' : 'Fullscreen (F11)'}
+                sx={{
+                  width: { xs: 44, sm: 'auto' },
+                  height: { xs: 44, sm: 'auto' },
+                }}
+              >
+                {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </IconButton>
+            )}
+            <IconButton
+              size="small"
+              onClick={handleClose}
+              disabled={sending}
+              sx={{
+                width: { xs: 44, sm: 'auto' },
+                height: { xs: 44, sm: 'auto' },
+              }}
+            >
+              <X size={20} />
+            </IconButton>
+          </Box>
         </Box>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ p: 0 }}>
+      <DialogContent
+        dividers
+        sx={{ p: 0, position: 'relative' }}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {isDragging && (
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              bgcolor: 'rgba(25, 118, 210, 0.08)',
+              border: '2px dashed',
+              borderColor: 'primary.main',
+              borderRadius: 1,
+              zIndex: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
+              pointerEvents: 'none',
+            }}
+          >
+            <Upload size={48} color="#1976d2" />
+            <Typography variant="h6" color="primary">
+              Drop files here
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Release to attach files
+            </Typography>
+          </Box>
+        )}
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           {/* From Field - Provider Selection */}
           <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
@@ -576,6 +961,10 @@ export function ComposeDialog({
                 }}
                 SelectProps={{
                   native: true,
+                  inputProps: {
+                    title: t.dashboard.email.composer.selectProvider,
+                    'aria-label': t.dashboard.email.composer.selectProvider,
+                  },
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -779,7 +1168,7 @@ export function ComposeDialog({
             </Box>
           )}
 
-          {/* Editor Toolbar */}
+          {/* Editor Toolbar - Compact on mobile for better touch targets */}
           <EditorToolbar
             editor={editor}
             onAiCompose={() => {
@@ -790,6 +1179,7 @@ export function ComposeDialog({
               setAiDialogOpen(true);
             }}
             aiComposing={aiComposing}
+            compact={isMobile}
           />
 
           {/* Body Field - TipTap Editor */}
@@ -842,7 +1232,7 @@ export function ComposeDialog({
               }
             }}
             t={t}
-            locale={(t as any)?.locale}
+            locale={t.locale}
           />
         </Box>
       </DialogContent>
@@ -873,17 +1263,139 @@ export function ComposeDialog({
             {uploading ? <CircularProgress size={18} /> : <Paperclip size={18} />}
           </IconButton>
           <Box sx={{ flex: 1 }} />
+
+          {/* Scheduled indicator */}
+          {scheduledAt && (
+            <Chip
+              icon={<Clock size={14} />}
+              label={formatScheduledTime(scheduledAt)}
+              onDelete={() => setScheduledAt(null)}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+          )}
+
           <Button onClick={handleClose} disabled={sending}>
             {t.dashboard.email.composer.discard}
           </Button>
-          <Button
-            variant="contained"
-            startIcon={sending ? <CircularProgress size={16} /> : <Send size={16} />}
-            onClick={handleSend}
-            disabled={sending || to.length === 0}
+
+          {/* Send button with schedule dropdown */}
+          <Box sx={{ display: 'flex' }}>
+            <Button
+              variant="contained"
+              startIcon={sending ? <CircularProgress size={16} /> : <Send size={16} />}
+              onClick={scheduledAt ? handleScheduleSend : handleSend}
+              disabled={sending || to.length === 0}
+              sx={{
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+              }}
+            >
+              {sending
+                ? t.dashboard.email.composer.sending
+                : scheduledAt
+                  ? 'Schedule'
+                  : t.dashboard.email.composer.send}
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={(e) => setScheduleMenuAnchor(e.currentTarget)}
+              disabled={sending || to.length === 0}
+              sx={{
+                minWidth: 32,
+                px: 0.5,
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+                borderLeft: '1px solid rgba(255,255,255,0.3)',
+              }}
+              aria-label="Schedule send options"
+            >
+              <ChevronDown size={16} />
+            </Button>
+          </Box>
+
+          {/* Schedule menu */}
+          <Menu
+            anchorEl={scheduleMenuAnchor}
+            open={Boolean(scheduleMenuAnchor)}
+            onClose={() => setScheduleMenuAnchor(null)}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           >
-            {sending ? t.dashboard.email.composer.sending : t.dashboard.email.composer.send}
-          </Button>
+            <MenuItem
+              onClick={() => {
+                setScheduledAt(null);
+                setScheduleMenuAnchor(null);
+              }}
+            >
+              <ListItemIcon>
+                <Send size={16} />
+              </ListItemIcon>
+              <ListItemText>Send now</ListItemText>
+            </MenuItem>
+            {getSchedulePresets().map((preset) => (
+              <MenuItem
+                key={preset.value}
+                onClick={() => handleScheduleSelect(preset.value)}
+              >
+                <ListItemIcon>
+                  <Clock size={16} />
+                </ListItemIcon>
+                <ListItemText>{preset.label}</ListItemText>
+              </MenuItem>
+            ))}
+            <MenuItem onClick={() => setShowSchedulePicker(true)}>
+              <ListItemIcon>
+                <Clock size={16} />
+              </ListItemIcon>
+              <ListItemText>Pick date & time...</ListItemText>
+            </MenuItem>
+          </Menu>
+
+          {/* Custom date/time picker popover */}
+          <Popover
+            open={showSchedulePicker}
+            anchorEl={scheduleMenuAnchor}
+            onClose={() => {
+              setShowSchedulePicker(false);
+              setScheduleMenuAnchor(null);
+            }}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          >
+            <Box sx={{ p: 2, minWidth: 280 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Schedule send
+              </Typography>
+              <Stack spacing={2}>
+                <TextField
+                  type="datetime-local"
+                  fullWidth
+                  size="small"
+                  inputProps={{
+                    min: new Date().toISOString().slice(0, 16),
+                  }}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleScheduleSelect(new Date(e.target.value).toISOString());
+                    }
+                  }}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    setShowSchedulePicker(false);
+                    setScheduleMenuAnchor(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Stack>
+            </Box>
+          </Popover>
         </Box>
       </DialogActions>
     </Dialog>

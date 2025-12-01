@@ -34,7 +34,7 @@ import { useWebSocket } from '@/hooks/use-websocket';
 import { normalizeFolderName, getFolderIcon as getIconForFolderUtil } from '@/lib/utils/folder-normalization';
 
 // Components
-import { EmailLayout } from '@/components/email/EmailLayout';
+import { ResizableEmailLayout } from '@/components/email/ResizableEmailLayout';
 import { EmailSidebar, type FolderGroup, type SmartFilter } from '@/components/email/EmailSidebar/EmailSidebar';
 import { ThreadList } from '@/components/email/ThreadList';
 import { ThreadDisplay } from '@/components/email/ThreadDisplay';
@@ -89,7 +89,7 @@ interface MailboxProps {
  * Mailbox - Modern email interface with unified components
  *
  * Uses:
- * - EmailLayout for container structure
+ * - ResizableEmailLayout for container structure with resizable panels
  * - EmailSidebar for folder navigation
  * - ThreadList for unified email/conversation list
  * - ThreadDisplay for email detail view
@@ -1285,7 +1285,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <EmailLayout
+      <ResizableEmailLayout
           sidebarOpen={mobileSidebarOpen}
           onSidebarClose={() => setMobileSidebarOpen(false)}
           sidebar={

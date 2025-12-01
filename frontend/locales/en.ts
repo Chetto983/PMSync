@@ -11,6 +11,7 @@ import type { AppTranslations } from './index';
  */
 
 export const en: AppTranslations = {
+  locale: 'en',
   app: {
     name: 'PMSync',
     tagline: 'Unified AI workspace for email, calendar & contacts',
@@ -474,6 +475,8 @@ export const en: AppTranslations = {
         sendError: 'Failed to send email. Please try again.',
         uploadError: 'Failed to upload attachments',
         fileTooLarge: 'File {filename} is too large (max 10MB)',
+        fileTypeNotAllowed: 'File type not allowed: {filename}',
+        totalSizeExceeded: 'Total attachment size exceeds 25MB limit',
         draftSaved: 'Draft saved successfully',
         discardConfirm: 'Discard unsaved changes?',
         aiCompose: 'AI compose',
@@ -1359,6 +1362,18 @@ export const en: AppTranslations = {
       busy: 'Busy',
       attendees: 'Attendees',
     },
+  },
+  commandPalette: {
+    searchPlaceholder: 'Search emails, navigate, or run commands...',
+    navigation: 'Navigation',
+    actions: 'Actions',
+    recentSearches: 'Recent Searches',
+    emailResults: 'Email Results',
+    noResults: 'No results found',
+    pressEnterToSearch: 'Press Enter to search all emails',
+    navigate: 'Navigate',
+    select: 'Select',
+    openWith: 'Open with',
   },
   errors: {
     notFound: {

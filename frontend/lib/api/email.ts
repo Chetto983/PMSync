@@ -77,6 +77,8 @@ export type SendEmailPayload = {
   inReplyTo?: string;
   references?: string;
   attachments?: EmailAttachmentUpload[];
+  /** Optional scheduled send time (ISO string) */
+  scheduledAt?: string;
 };
 
 export type ReplyForwardEmailPayload = Omit<SendEmailPayload, 'providerId'> & {

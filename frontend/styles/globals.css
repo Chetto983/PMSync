@@ -7,6 +7,7 @@
 
 @layer base {
   :root {
+    /* Base colors */
     --background: 0 0% 100%;
     --foreground: 0 0% 3.6%;
     --card: 0 0% 100%;
@@ -15,40 +16,82 @@
     --popover-foreground: 0 0% 3.6%;
     --muted: 0 0% 96.1%;
     --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 9.0%;
+    --accent: 0 0% 9%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --primary: 0 0% 9.0%;
+    --primary: 189 70% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9.0%;
-    --ring: 0 0% 3.6%;
+    --secondary: 258 55% 57%;
+    --secondary-foreground: 0 0% 100%;
+    --ring: 189 70% 50%;
     --radius: 0.5rem;
+
+    /* Brand colors */
+    --brand-primary: 189 70% 50%;
+    --brand-secondary: 258 55% 57%;
+    --brand-accent: 320 70% 60%;
+
+    /* Semantic colors - Module specific */
+    --color-email: 210 100% 56%;
+    --color-calendar: 28 100% 54%;
+    --color-contacts: 258 55% 57%;
+    --color-tasks: 142 71% 45%;
+    --color-ai: 189 70% 50%;
+
+    /* Status colors */
+    --color-success: 142 71% 45%;
+    --color-warning: 38 92% 50%;
+    --color-error: 0 84% 60%;
+    --color-info: 210 100% 56%;
+
+    /* Layout */
+    --sidebar-width: 280px;
+    --sidebar-collapsed-width: 64px;
+    --header-height: 64px;
   }
 
   .dark {
+    /* Base colors */
     --background: 0 0% 3.6%;
     --foreground: 0 0% 98.2%;
-    --card: 0 0% 3.6%;
+    --card: 0 0% 7%;
     --card-foreground: 0 0% 98.2%;
-    --popover: 0 0% 3.6%;
+    --popover: 0 0% 7%;
     --popover-foreground: 0 0% 98.2%;
     --muted: 0 0% 14.9%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 98.2%;
-    --accent-foreground: 0 0% 9.0%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 9.0%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98.2%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98.2%;
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
-    --primary: 0 0% 98.2%;
-    --primary-foreground: 0 0% 9.0%;
-    --secondary: 0 0% 14.9%;
+    --primary: 189 70% 55%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 258 55% 50%;
     --secondary-foreground: 0 0% 98.2%;
-    --ring: 0 0% 83.3%;
+    --ring: 189 70% 55%;
+
+    /* Brand colors - adjusted for dark mode */
+    --brand-primary: 189 70% 55%;
+    --brand-secondary: 258 55% 50%;
+    --brand-accent: 320 70% 55%;
+
+    /* Semantic colors - adjusted for dark mode */
+    --color-email: 210 100% 60%;
+    --color-calendar: 28 100% 58%;
+    --color-contacts: 258 55% 60%;
+    --color-tasks: 142 71% 50%;
+    --color-ai: 189 70% 55%;
+
+    /* Status colors - adjusted for dark mode */
+    --color-success: 142 71% 50%;
+    --color-warning: 38 92% 55%;
+    --color-error: 0 84% 55%;
+    --color-info: 210 100% 60%;
   }
 
   * {

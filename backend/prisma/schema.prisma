@@ -25,6 +25,7 @@ model Tenant {
   folders              Folder[]
   messages             Message[]
   providerConfigs      ProviderConfig[]
+  scheduledEmails      ScheduledEmail[]
   users                User[]
   webhookSubscriptions WebhookSubscription[]
   userLabels           UserLabel[]
@@ -199,6 +200,7 @@ model ProviderConfig {
   providerContacts         ProviderContact[]     @relation("ProviderContactToProvider")
   emails                   Email[]
   folders                  Folder[]
+  scheduledEmails          ScheduledEmail[]
   tenant                   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   webhookSubscriptions     WebhookSubscription[]
 
@@ -258,6 +260,34 @@ model Email {
   @@index([sentAt])
   @@index([crossProviderLinkId])
   @@map("emails")
+}
+
+model ScheduledEmail {
+  id          String   @id @default(cuid())
+  tenantId    String
+  providerId  String
+  to          String[]
+  cc          String[] @default([])
+  bcc         String[] @default([])
+  subject     String
+  bodyHtml    String
+  bodyText    String
+  inReplyTo   String?
+  references  String?
+  attachments Json?    // Store attachment data as JSON
+  scheduledAt DateTime
+  status      String   @default("pending") // pending, processing, sent, failed
+  errorMessage String?
+  retryCount  Int      @default(0)
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  provider    ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, scheduledAt])
+  @@index([scheduledAt, status])
+  @@map("scheduled_emails")
 }
 
 model Folder {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Box, ThemeProvider, CssBaseline, useMediaQuery, Snackbar, Alert } from '@mui/material';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { CommandPalette, useCommandPalette } from './CommandPalette';
 import { CookieConsent } from '@/components/ui/cookie-consent';
 import { darkTheme, lightTheme } from '@/theme/appTheme';
 import {
@@ -31,6 +32,9 @@ export function Layout({ children }: LayoutProps) {
   const [themePreference, setThemePreference] = useState<ThemePreference>(
     DEFAULT_USER_SETTINGS.theme,
   );
+
+  // Command palette state
+  const { isOpen: commandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
 
   const resolvedThemeMode = resolveThemePreference(themePreference, prefersDarkMode);
   const theme = resolvedThemeMode === 'dark' ? darkTheme : lightTheme;
@@ -155,6 +159,12 @@ export function Layout({ children }: LayoutProps) {
           </Snackbar>
         )}
         <CookieConsent />
+
+        {/* Command Palette (Cmd+K) */}
+        <CommandPalette
+          open={commandPaletteOpen}
+          onClose={closeCommandPalette}
+        />
       </Box>
     </ThemeProvider>
   );

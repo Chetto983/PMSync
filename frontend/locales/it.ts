@@ -5,6 +5,7 @@ import type { AppTranslations } from './index';
  */
 
 export const it: AppTranslations = {
+  locale: 'it',
   app: {
     name: 'PMSync',
     tagline: 'Workspace AI unificato per email, calendario e contatti',
@@ -472,6 +473,8 @@ export const it: AppTranslations = {
         sendError: 'Invio fallito. Riprova.',
         uploadError: 'Impossibile caricare gli allegati',
         fileTooLarge: 'File {filename} troppo grande (max 10MB)',
+        fileTypeNotAllowed: 'Tipo di file non consentito: {filename}',
+        totalSizeExceeded: 'Dimensione totale allegati supera il limite di 25MB',
         draftSaved: 'Bozza salvata con successo',
         discardConfirm: 'Scartare le modifiche non salvate?',
         aiCompose: 'Scrittura AI',
@@ -1358,6 +1361,18 @@ export const it: AppTranslations = {
       busy: 'Occupato',
       attendees: 'Partecipanti',
     },
+  },
+  commandPalette: {
+    searchPlaceholder: 'Cerca email, naviga o esegui comandi...',
+    navigation: 'Navigazione',
+    actions: 'Azioni',
+    recentSearches: 'Ricerche Recenti',
+    emailResults: 'Risultati Email',
+    noResults: 'Nessun risultato trovato',
+    pressEnterToSearch: 'Premi Invio per cercare tutte le email',
+    navigate: 'Naviga',
+    select: 'Seleziona',
+    openWith: 'Apri con',
   },
   errors: {
     notFound: {

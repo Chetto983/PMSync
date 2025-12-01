@@ -31,6 +31,11 @@ interface EditorToolbarProps {
    * Loading state for AI compose
    */
   aiComposing?: boolean;
+  /**
+   * Compact mode for mobile - shows fewer buttons
+   * @default false
+   */
+  compact?: boolean;
 }
 
 /**
@@ -43,26 +48,54 @@ interface EditorToolbarProps {
  * - Blockquote
  * - Undo/Redo
  */
-export function EditorToolbar({ editor, onAiCompose, aiComposing }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = false }: EditorToolbarProps) {
   const t = useTranslations();
 
   if (!editor) {
     return null;
   }
 
+  // Button size for touch targets
+  const buttonSize = compact ? 40 : 32;
+  const iconSize = compact ? 20 : 18;
+
   return (
     <Box
       sx={{
         display: 'flex',
         flexWrap: 'wrap',
-        gap: 0.5,
-        p: 1,
+        gap: compact ? 0.25 : 0.5,
+        p: compact ? 0.5 : 1,
         borderBottom: 1,
         borderColor: 'divider',
         bgcolor: 'background.paper',
+        overflowX: compact ? 'auto' : 'visible',
+        // Hide scrollbar on mobile
+        '&::-webkit-scrollbar': compact ? { display: 'none' } : {},
+        scrollbarWidth: compact ? 'none' : 'auto',
       }}
     >
-      {/* Undo/Redo */}
+      {/* AI Compose - Always show, important for mobile */}
+      {onAiCompose && (
+        <Tooltip title={t.dashboard?.email?.composer?.aiCompose ?? 'AI compose'}>
+          <span>
+            <IconButton
+              size="small"
+              onClick={onAiCompose}
+              disabled={aiComposing}
+              sx={{
+                width: buttonSize,
+                height: buttonSize,
+                bgcolor: aiComposing ? 'action.selected' : 'transparent',
+              }}
+            >
+              {aiComposing ? <Redo2 size={iconSize} /> : <Sparkles size={iconSize} />}
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
+
+      {/* Undo/Redo - Show on both */}
       <Tooltip title={t.dashboard.email.composer.undo}>
         <span>
           <IconButton
@@ -70,12 +103,12 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing }: EditorToolba
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
             sx={{
-              width: 32,
-              height: 32,
+              width: buttonSize,
+              height: buttonSize,
               '&.Mui-disabled': { opacity: 0.3 }
             }}
           >
-            <Undo2 size={18} />
+            <Undo2 size={iconSize} />
           </IconButton>
         </span>
       </Tooltip>
@@ -87,96 +120,31 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing }: EditorToolba
             onClick={() => editor.chain().focus().redo().run()}
             disabled={!editor.can().redo()}
             sx={{
-              width: 32,
-              height: 32,
+              width: buttonSize,
+              height: buttonSize,
               '&.Mui-disabled': { opacity: 0.3 }
             }}
           >
-            <Redo2 size={18} />
+            <Redo2 size={iconSize} />
           </IconButton>
         </span>
       </Tooltip>
 
       <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-      {/* AI Compose */}
-      {onAiCompose && (
-        <Tooltip title={t.dashboard?.email?.composer?.aiCompose ?? 'AI compose'}>
-          <span>
-            <IconButton
-              size="small"
-              onClick={onAiCompose}
-              disabled={aiComposing}
-              sx={{
-                width: 32,
-                height: 32,
-                bgcolor: aiComposing ? 'action.selected' : 'transparent',
-              }}
-            >
-              {aiComposing ? <Redo2 size={18} /> : <Sparkles size={18} />}
-            </IconButton>
-          </span>
-        </Tooltip>
-      )}
-
-      {/* Headings */}
-      <Tooltip title={t.dashboard.email.composer.heading1}>
-        <IconButton
-          size="small"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: editor.isActive('heading', { level: 1 }) ? 'action.selected' : 'transparent',
-          }}
-        >
-          <Heading1 size={18} />
-        </IconButton>
-      </Tooltip>
-
-      <Tooltip title={t.dashboard.email.composer.heading2}>
-        <IconButton
-          size="small"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: editor.isActive('heading', { level: 2 }) ? 'action.selected' : 'transparent',
-          }}
-        >
-          <Heading2 size={18} />
-        </IconButton>
-      </Tooltip>
-
-      <Tooltip title={t.dashboard.email.composer.heading3}>
-        <IconButton
-          size="small"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: editor.isActive('heading', { level: 3 }) ? 'action.selected' : 'transparent',
-          }}
-        >
-          <Heading3 size={18} />
-        </IconButton>
-      </Tooltip>
-
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
-      {/* Text Formatting */}
+      {/* Text Formatting - Essential buttons first */}
       <Tooltip title={t.dashboard.email.composer.bold}>
         <IconButton
           size="small"
           onClick={() => editor.chain().focus().toggleBold().run()}
           sx={{
-            width: 32,
-            height: 32,
+            width: buttonSize,
+            height: buttonSize,
             bgcolor: editor.isActive('bold') ? 'action.selected' : 'transparent',
             fontWeight: editor.isActive('bold') ? 'bold' : 'normal',
           }}
         >
-          <Bold size={18} />
+          <Bold size={iconSize} />
         </IconButton>
       </Tooltip>
 
@@ -185,90 +153,140 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing }: EditorToolba
           size="small"
           onClick={() => editor.chain().focus().toggleItalic().run()}
           sx={{
-            width: 32,
-            height: 32,
+            width: buttonSize,
+            height: buttonSize,
             bgcolor: editor.isActive('italic') ? 'action.selected' : 'transparent',
           }}
         >
-          <Italic size={18} />
+          <Italic size={iconSize} />
         </IconButton>
       </Tooltip>
 
-      <Tooltip title={t.dashboard.email.composer.underline}>
-        <IconButton
-          size="small"
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: editor.isActive('underline') ? 'action.selected' : 'transparent',
-          }}
-        >
-          <UnderlineIcon size={18} />
-        </IconButton>
-      </Tooltip>
-
-      <Tooltip title={t.dashboard.email.composer.strikethrough}>
-        <IconButton
-          size="small"
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: editor.isActive('strike') ? 'action.selected' : 'transparent',
-          }}
-        >
-          <Strikethrough size={18} />
-        </IconButton>
-      </Tooltip>
-
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
-      {/* Lists */}
+      {/* Lists - Essential for mobile */}
       <Tooltip title={t.dashboard.email.composer.bulletList}>
         <IconButton
           size="small"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           sx={{
-            width: 32,
-            height: 32,
+            width: buttonSize,
+            height: buttonSize,
             bgcolor: editor.isActive('bulletList') ? 'action.selected' : 'transparent',
           }}
         >
-          <List size={18} />
+          <List size={iconSize} />
         </IconButton>
       </Tooltip>
 
-      <Tooltip title={t.dashboard.email.composer.numberedList}>
-        <IconButton
-          size="small"
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: editor.isActive('orderedList') ? 'action.selected' : 'transparent',
-          }}
-        >
-          <ListOrdered size={18} />
-        </IconButton>
-      </Tooltip>
+      {/* Desktop-only buttons */}
+      {!compact && (
+        <>
+          <Tooltip title={t.dashboard.email.composer.underline}>
+            <IconButton
+              size="small"
+              onClick={() => editor.chain().focus().toggleUnderline().run()}
+              sx={{
+                width: buttonSize,
+                height: buttonSize,
+                bgcolor: editor.isActive('underline') ? 'action.selected' : 'transparent',
+              }}
+            >
+              <UnderlineIcon size={iconSize} />
+            </IconButton>
+          </Tooltip>
 
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+          <Tooltip title={t.dashboard.email.composer.strikethrough}>
+            <IconButton
+              size="small"
+              onClick={() => editor.chain().focus().toggleStrike().run()}
+              sx={{
+                width: buttonSize,
+                height: buttonSize,
+                bgcolor: editor.isActive('strike') ? 'action.selected' : 'transparent',
+              }}
+            >
+              <Strikethrough size={iconSize} />
+            </IconButton>
+          </Tooltip>
 
-      {/* Blockquote */}
-      <Tooltip title={t.dashboard.email.composer.quote}>
-        <IconButton
-          size="small"
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: editor.isActive('blockquote') ? 'action.selected' : 'transparent',
-          }}
-        >
-          <Quote size={18} />
-        </IconButton>
-      </Tooltip>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+          {/* Headings - Desktop only */}
+          <Tooltip title={t.dashboard.email.composer.heading1}>
+            <IconButton
+              size="small"
+              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+              sx={{
+                width: buttonSize,
+                height: buttonSize,
+                bgcolor: editor.isActive('heading', { level: 1 }) ? 'action.selected' : 'transparent',
+              }}
+            >
+              <Heading1 size={iconSize} />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title={t.dashboard.email.composer.heading2}>
+            <IconButton
+              size="small"
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+              sx={{
+                width: buttonSize,
+                height: buttonSize,
+                bgcolor: editor.isActive('heading', { level: 2 }) ? 'action.selected' : 'transparent',
+              }}
+            >
+              <Heading2 size={iconSize} />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title={t.dashboard.email.composer.heading3}>
+            <IconButton
+              size="small"
+              onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+              sx={{
+                width: buttonSize,
+                height: buttonSize,
+                bgcolor: editor.isActive('heading', { level: 3 }) ? 'action.selected' : 'transparent',
+              }}
+            >
+              <Heading3 size={iconSize} />
+            </IconButton>
+          </Tooltip>
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+          <Tooltip title={t.dashboard.email.composer.numberedList}>
+            <IconButton
+              size="small"
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              sx={{
+                width: buttonSize,
+                height: buttonSize,
+                bgcolor: editor.isActive('orderedList') ? 'action.selected' : 'transparent',
+              }}
+            >
+              <ListOrdered size={iconSize} />
+            </IconButton>
+          </Tooltip>
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+          {/* Blockquote - Desktop only */}
+          <Tooltip title={t.dashboard.email.composer.quote}>
+            <IconButton
+              size="small"
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              sx={{
+                width: buttonSize,
+                height: buttonSize,
+                bgcolor: editor.isActive('blockquote') ? 'action.selected' : 'transparent',
+              }}
+            >
+              <Quote size={iconSize} />
+            </IconButton>
+          </Tooltip>
+        </>
+      )}
     </Box>
   );
 }

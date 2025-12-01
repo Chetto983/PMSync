@@ -192,7 +192,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
           newUnreadCount += newEmail.isRead ? -1 : 1;
         }
 
-        console.log('[Email Store] Email updated successfully, labels:', (newEmail as any).emailLabels?.length ?? 0);
+        console.log('[Email Store] Email updated successfully, labels:', newEmail.emailLabels?.length ?? 0);
         return {
           emails: newEmails,
           unreadCount: Math.max(0, newUnreadCount),
