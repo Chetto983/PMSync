@@ -82,6 +82,52 @@ export interface ToolTranslations {
     rejected: string;
     executed: string;
   };
+  insights: {
+    summarize: {
+      description: string;
+      systemPrompt: string;
+    };
+    sentiment: {
+      description: string;
+      systemPrompt: string;
+    };
+    compose: {
+      description: string;
+      systemPrompt: (toneInstruction: string) => string;
+      originalEmail: string;
+      replyInstructions: string;
+    };
+    actionItems: {
+      description: string;
+      systemPrompt: string;
+    };
+    categorize: {
+      description: string;
+      systemPrompt: (labels: string) => string;
+    };
+    smartReplies: {
+      description: string;
+      systemPrompt: (toneInstruction: string) => string;
+    };
+    // Enhanced 2025 tools
+    analyze: {
+      description: string;
+    };
+    detectIntent: {
+      description: string;
+    };
+    calculatePriority: {
+      description: string;
+    };
+    tones: {
+      formal: string;
+      casual: string;
+      technical: string;
+    };
+    emailBody: string;
+    noSubject: string;
+    contentUnavailable: string;
+  };
 }
 
 /**
@@ -111,6 +157,41 @@ export interface AgentTranslations {
   };
   general: {
     instructions: string;
+  };
+}
+
+/**
+ * Observability translations for logging and metrics
+ */
+export interface ObservabilityTranslations {
+  agent: {
+    operationStarted: string;
+    operationCompleted: string;
+    operationFailed: string;
+  };
+  tool: {
+    executionStarted: string;
+    executionCompleted: string;
+    executionFailed: string;
+  };
+  hitl: {
+    actionAutoApproved: string;
+    actionSuspended: string;
+    actionApprovedByHuman: string;
+    actionRejectedByHuman: string;
+    actionExecuted: string;
+    actionExecutionFailed: string;
+    requiresApproval: (reason: string) => string;
+    highSeverityAction: string;
+    lowConfidenceAction: string;
+  };
+  learning: {
+    feedbackRecorded: string;
+    profileUpdated: string;
+    confidenceAdjusted: string;
+    learningApplied: (boost: number) => string;
+    noLearningData: string;
+    profileReset: string;
   };
 }
 
@@ -166,6 +247,7 @@ export interface VoltAgentTranslations {
   tools: ToolTranslations;
   agents: AgentTranslations;
   actions: ActionSummaryTranslations;
+  observability: ObservabilityTranslations;
 }
 
 /**
@@ -212,6 +294,13 @@ export function getAgentTranslations(locale: SupportedLocale): AgentTranslations
  */
 export function getActionTranslations(locale: SupportedLocale): ActionSummaryTranslations {
   return (locales[locale] || locales.en).actions;
+}
+
+/**
+ * Get observability translations for a specific locale
+ */
+export function getObservabilityTranslations(locale: SupportedLocale): ObservabilityTranslations {
+  return (locales[locale] || locales.en).observability;
 }
 
 /**

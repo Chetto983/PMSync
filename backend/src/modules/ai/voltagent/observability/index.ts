@@ -11,9 +11,31 @@
  * @see https://voltagent.dev/docs/observability/developer-console/
  */
 
+// Agent execution hooks
 export {
   createObservabilityHooks,
   createProductionHooks,
   type ObservabilityOptions,
   type AgentMetrics,
 } from './hooks';
+
+// HITL (Human-in-the-Loop) observability
+export {
+  createHitlObservability,
+  type HitlMetrics,
+  type HitlObservabilityOptions,
+} from './hooks';
+
+// Learning/Feedback observability
+export {
+  createLearningObservability,
+  createLearningHooks,
+  calculateConfidenceBoost,
+  updateLearningProfile,
+  getAdjustedConfidence,
+  LEARNING_CONFIG,
+  type ActionFeedback,
+  type LearningProfile,
+  type LearningMetrics,
+  type LearningObservabilityOptions,
+} from './learning';

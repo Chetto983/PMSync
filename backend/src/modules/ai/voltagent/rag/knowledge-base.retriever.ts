@@ -127,7 +127,7 @@ export class KnowledgeBaseRetriever extends BaseRetriever {
             (part) => typeof part === 'object' && 'type' in part && part.type === 'text',
           );
           if (textPart && 'text' in textPart) {
-            return textPart.text as string;
+            return textPart.text;
           }
         }
       }

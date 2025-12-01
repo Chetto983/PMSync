@@ -157,6 +157,8 @@ describeIfApiKey('VoltAgent Integration Tests (Real Mistral API)', () => {
   let observabilityHooks: ReturnType<typeof createObservabilityHooks>;
 
   beforeAll(() => {
+    // Use real timers for API calls
+    jest.useRealTimers();
     mockPrismaService = createMockPrismaService();
 
     // Initialize observability hooks with metrics collection
@@ -192,6 +194,11 @@ describeIfApiKey('VoltAgent Integration Tests (Real Mistral API)', () => {
   beforeEach(() => {
     collectedMetrics = [];
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    // Clear any pending timers to prevent Jest worker hang
+    jest.clearAllTimers();
   });
 
   // =============================================================================
@@ -541,3 +548,4 @@ afterAll(() => {
     console.log(`   Real tenant tests enabled for: ${TEST_TENANT_ID}`);
   }
 });
+

@@ -7,55 +7,42 @@ import { KnowledgeBaseService } from './services/knowledge-base.service';
 import { KnowledgeBaseController } from './controllers/knowledge-base.controller';
 import { PersonalizationController } from './controllers/personalization.controller';
 import { EmailEmbeddingQueueService } from './services/email-embedding.queue';
-import { AgentService } from './services/agent.service';
-import { ChatSessionService } from './services/chat-session.service';
 import { EmailInsightsService } from './services/email-insights.service';
 import { QueryEmbeddingCacheService } from './services/query-embedding-cache.service';
 import { AttachmentContentExtractorService } from './services/attachment-content-extractor.service';
-import { PersonalizationService } from './services/personalization.service';
-import { PromptRegistryService } from './services/prompt-registry.service';
-import { LlmTelemetryService } from './services/llm-telemetry.service';
-import { WritingStyleService } from './services/writing-style.service';
 import { EmailModule } from '../email/email.module';
+// VoltAgent module provides consolidated AI agent services
 import { VoltAgentModule } from './voltagent/voltagent.module';
 
 @Module({
   imports: [
     PrismaModule,
     forwardRef(() => EmailModule), // For StorageService (attachment downloads)
-    forwardRef(() => VoltAgentModule), // VoltAgent framework with HITL workflows
+    // VoltAgent module exports: PersonalizationService, WritingStyleService, PromptRegistryService
+    forwardRef(() => VoltAgentModule),
   ],
   providers: [
+    // Core AI services (not in VoltAgent)
     MistralService,
     EmbeddingsService,
     KnowledgeBaseService,
     EmailEmbeddingQueueService,
-    AgentService,
-    ChatSessionService,
     EmailInsightsService,
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
-    PersonalizationService,
-    PromptRegistryService,
-    LlmTelemetryService,
-    WritingStyleService,
   ],
   controllers: [AiController, KnowledgeBaseController, PersonalizationController],
   exports: [
+    // Core AI services
     MistralService,
     EmbeddingsService,
     KnowledgeBaseService,
     EmailEmbeddingQueueService,
-    AgentService,
-    ChatSessionService,
     EmailInsightsService,
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
-    PersonalizationService,
-    PromptRegistryService,
-    LlmTelemetryService,
-    WritingStyleService,
-    VoltAgentModule, // Export VoltAgent service for other modules
+    // VoltAgent module (re-exports PersonalizationService, WritingStyleService, etc.)
+    VoltAgentModule,
   ],
 })
 export class AiModule {}

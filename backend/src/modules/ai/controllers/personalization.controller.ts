@@ -28,7 +28,7 @@ import {
   PersonalizationService,
   MemoryType,
   UserPersonalizationProfile,
-} from '../services/personalization.service';
+} from '../voltagent/services/personalization.service';
 
 /**
  * DTO for storing a new memory

@@ -50,9 +50,9 @@ describe('LabelsService', () => {
         {
           provide: RealtimeEventsService,
           useValue: {
-            emitLabelCreated: jest.fn(),
-            emitLabelUpdated: jest.fn(),
-            emitLabelDeleted: jest.fn(),
+            emitLabelNew: jest.fn(),
+            emitLabelUpdate: jest.fn(),
+            emitLabelDelete: jest.fn(),
           },
         },
       ],

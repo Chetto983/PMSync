@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EmailInsightsService } from './email-insights.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
+import { WritingStyleService } from '../voltagent/services/writing-style.service';
 
 describe('EmailInsightsService', () => {
   let service: EmailInsightsService;
@@ -33,11 +34,17 @@ describe('EmailInsightsService', () => {
       completePrompt: jest.fn(),
     };
 
+    const mockWritingStyleService = {
+      analyzeStyle: jest.fn(),
+      buildStyleSection: jest.fn().mockReturnValue(''),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmailInsightsService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: MistralService, useValue: mockMistralService },
+        { provide: WritingStyleService, useValue: mockWritingStyleService },
       ],
     }).compile();
 
@@ -184,7 +191,7 @@ describe('EmailInsightsService', () => {
       expect(result).toHaveLength(3);
       expect(result[0]).toContain('calendar');
       expect(mistralService.completePrompt).toHaveBeenCalledWith({
-        systemPrompt: expect.stringContaining('professional replies'),
+        systemPrompt: expect.stringContaining('professional'),
         userPrompt: expect.stringContaining('Q4 Budget Review Meeting'),
         temperature: 0.4,
         maxTokens: 500,

@@ -1,5 +1,11 @@
+/**
+ * Writing Style Service for VoltAgent
+ *
+ * Analyzes user writing patterns for personalized email composition.
+ * 2025 Best Practices: NLP-based style extraction.
+ */
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaService } from '../../../../prisma/prisma.service';
 import { WritingStyleProfile } from '@prisma/client';
 
 export interface WritingMetrics {

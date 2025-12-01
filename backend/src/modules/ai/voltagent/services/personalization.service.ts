@@ -1,6 +1,12 @@
+/**
+ * Personalization Service for VoltAgent
+ *
+ * Manages user personalization profiles and semantic memories.
+ * 2025 Best Practices: Treats personalization as first-class context.
+ */
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { MistralService } from './mistral.service';
+import { PrismaService } from '../../../../prisma/prisma.service';
+import { MistralService } from '../../services/mistral.service';
 
 /**
  * Job role types for personalization

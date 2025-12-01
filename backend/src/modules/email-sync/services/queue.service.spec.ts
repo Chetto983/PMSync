@@ -27,6 +27,7 @@ const createQueueMock = (name: string) => {
     obliterate: jest.fn(),
     getJobs: jest.fn().mockResolvedValue([mockJob]),
     getJob: jest.fn().mockResolvedValue(mockExistingJob),
+    close: jest.fn().mockResolvedValue(undefined),
     mockJob,
     mockExistingJob,
   };
@@ -50,13 +51,22 @@ describe('QueueService', () => {
     service['lowQueue'] = lowQueue as any;
     service['redisConnection'] = {
       keys: jest.fn().mockResolvedValue([]),
-      quit: jest.fn(),
-      scan: jest.fn().mockResolvedValue([0, []]),
+      quit: jest.fn().mockResolvedValue(undefined),
+      scan: jest.fn().mockResolvedValue(['0', []]),
       sadd: jest.fn().mockResolvedValue(1),
       srem: jest.fn().mockResolvedValue(1),
       smembers: jest.fn().mockResolvedValue([]),
       del: jest.fn().mockResolvedValue(1),
     } as any;
+
+    // Initialize queueEvents as empty array to prevent cleanup issues
+    service['queueEvents'] = [];
+  });
+
+  afterEach(async () => {
+    // Cleanup to prevent memory leaks - call onModuleDestroy
+    await service.onModuleDestroy();
+    jest.clearAllMocks();
   });
 
   describe('addSyncJob', () => {

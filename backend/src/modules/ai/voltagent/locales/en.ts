@@ -68,6 +68,57 @@ export const en: VoltAgentTranslations = {
       rejected: 'Rejected',
       executed: 'Executed',
     },
+    insights: {
+      summarize: {
+        description: 'Summarize email content highlighting intent, requests, and next steps',
+        systemPrompt:
+          'You are an assistant who summarizes business emails. Reply with a short summary in PLAIN TEXT (max 5 sentences). Highlight intent, requests, and next steps. DO NOT use markdown.',
+      },
+      sentiment: {
+        description: 'Analyze the sentiment and tone of an email',
+        systemPrompt:
+          'Analyze the email sentiment. Reply in JSON: {"sentiment":"positive|negative|neutral", "tone":"formal|casual|urgent|friendly", "confidence":0.0-1.0, "reasoning":"..."}',
+      },
+      compose: {
+        description: "Compose an intelligent reply to an email based on context and user writing style",
+        systemPrompt: (toneInstruction) =>
+          `You are an assistant that drafts clear, professional email replies. ${toneInstruction} Reply ONLY in JSON: {"body":"...", "subject":"Re: ..."}. Avoid markdown.`,
+        originalEmail: 'Original email:',
+        replyInstructions: 'Reply instructions:',
+      },
+      actionItems: {
+        description: 'Extract action items and tasks to complete from an email',
+        systemPrompt:
+          'Extract action items from the email. Reply in JSON: {"actionItems":[{"task":"...", "priority":"high|medium|low", "deadline":"...?", "assignee":"...?"}], "hasDeadlines":true|false}',
+      },
+      categorize: {
+        description: 'Suggest appropriate labels to categorize an email',
+        systemPrompt: (labels) => `Suggest up to 3 labels from [${labels}]. Respond in JSON: {"labels":["..."]}.`,
+      },
+      smartReplies: {
+        description: 'Generate 2-3 quick, concise replies to an email',
+        systemPrompt: (toneInstruction) =>
+          `Generate 2-3 concise replies to the email. ${toneInstruction} Respond in JSON: {"replies":["..."]}.`,
+      },
+      // Enhanced 2025 tools
+      analyze: {
+        description: 'Comprehensive email analysis: sentiment, urgency, intent, priority, and escalation risk',
+      },
+      detectIntent: {
+        description: 'Detect email intent (action required, FYI, question, meeting request, escalation, etc.)',
+      },
+      calculatePriority: {
+        description: 'Calculate email priority score based on urgency, sender importance, and content analysis',
+      },
+      tones: {
+        formal: 'Use a formal, professional tone with proper business etiquette.',
+        casual: 'Use a friendly, conversational tone while remaining professional.',
+        technical: 'Use a precise, technical tone with clear and direct language.',
+      },
+      emailBody: 'Email body:',
+      noSubject: '(no subject)',
+      contentUnavailable: '(content unavailable)',
+    },
   },
   agents: {
     supervisor: {
@@ -169,5 +220,36 @@ Be friendly and concise.`,
     unknownSender: 'Unknown sender',
     event: 'Event',
     contact: 'Contact',
+  },
+  observability: {
+    agent: {
+      operationStarted: 'Agent operation started',
+      operationCompleted: 'Agent operation completed',
+      operationFailed: 'Agent operation failed',
+    },
+    tool: {
+      executionStarted: 'Tool execution started',
+      executionCompleted: 'Tool execution completed',
+      executionFailed: 'Tool execution failed',
+    },
+    hitl: {
+      actionAutoApproved: 'Action auto-approved',
+      actionSuspended: 'Action suspended for approval',
+      actionApprovedByHuman: 'Action approved by human',
+      actionRejectedByHuman: 'Action rejected by human',
+      actionExecuted: 'Action executed successfully',
+      actionExecutionFailed: 'Action execution failed',
+      requiresApproval: (reason) => `Requires approval: ${reason}`,
+      highSeverityAction: 'High severity action requires approval',
+      lowConfidenceAction: 'Low confidence action requires approval',
+    },
+    learning: {
+      feedbackRecorded: 'Feedback recorded',
+      profileUpdated: 'Learning profile updated',
+      confidenceAdjusted: 'Confidence adjusted based on learning',
+      learningApplied: (boost) => `Learning applied: ${boost > 0 ? '+' : ''}${(boost * 100).toFixed(1)}% confidence`,
+      noLearningData: 'No learning data available',
+      profileReset: 'Learning profile reset',
+    },
   },
 };

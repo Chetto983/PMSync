@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
-import { WritingStyleService } from './writing-style.service';
+import { WritingStyleService } from '../voltagent/services/writing-style.service';
 import { parseArrayFromAiPayload } from '../utils/ai-output.utils';
 
 type LocaleKey = 'en' | 'it';

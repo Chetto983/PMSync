@@ -68,6 +68,57 @@ export const it: VoltAgentTranslations = {
       rejected: 'Rifiutato',
       executed: 'Eseguito',
     },
+    insights: {
+      summarize: {
+        description: 'Riassumi il contenuto email evidenziando intento, richieste e prossimi passi',
+        systemPrompt:
+          'Sei un assistente che riassume email di lavoro. Rispondi con un breve riassunto in TESTO SEMPLICE (massimo 5 frasi). Evidenzia intento, richieste e prossimi passi. NON usare markdown.',
+      },
+      sentiment: {
+        description: 'Analizza il sentiment e il tono di una email',
+        systemPrompt:
+          'Analizza il sentiment dell\'email. Rispondi in JSON: {"sentiment":"positive|negative|neutral", "tone":"formal|casual|urgent|friendly", "confidence":0.0-1.0, "reasoning":"..."}',
+      },
+      compose: {
+        description: 'Componi una risposta intelligente basandosi sul contesto e lo stile di scrittura dell\'utente',
+        systemPrompt: (toneInstruction) =>
+          `Sei un assistente che redige risposte email chiare e professionali. ${toneInstruction} Rispondi solo in JSON: {"body":"...", "subject":"Re: ..."}. Evita markdown.`,
+        originalEmail: 'Email originale:',
+        replyInstructions: 'Istruzioni per la risposta:',
+      },
+      actionItems: {
+        description: 'Estrai elementi di azione e attività da completare da una email',
+        systemPrompt:
+          'Estrai gli elementi di azione dall\'email. Rispondi in JSON: {"actionItems":[{"task":"...", "priority":"high|medium|low", "deadline":"...?", "assignee":"...?"}], "hasDeadlines":true|false}',
+      },
+      categorize: {
+        description: 'Suggerisci etichette appropriate per categorizzare una email',
+        systemPrompt: (labels) => `Suggerisci fino a 3 etichette dall'elenco [${labels}]. Rispondi in JSON: {"labels":["..."]}.`,
+      },
+      smartReplies: {
+        description: 'Genera 2-3 risposte rapide e concise a una email',
+        systemPrompt: (toneInstruction) =>
+          `Genera 2-3 risposte brevi all'email. ${toneInstruction} Rispondi in JSON: {"replies":["..."]}.`,
+      },
+      // Enhanced 2025 tools
+      analyze: {
+        description: 'Analisi completa email: sentiment, urgenza, intento, priorità e rischio escalation',
+      },
+      detectIntent: {
+        description: 'Rileva intento email (azione richiesta, FYI, domanda, richiesta meeting, escalation, ecc.)',
+      },
+      calculatePriority: {
+        description: 'Calcola punteggio priorità email basato su urgenza, importanza mittente e analisi contenuto',
+      },
+      tones: {
+        formal: 'Usa un tono formale e professionale con etichetta aziendale appropriata.',
+        casual: 'Usa un tono amichevole e colloquiale pur rimanendo professionale.',
+        technical: 'Usa un tono preciso e tecnico con linguaggio chiaro e diretto.',
+      },
+      emailBody: 'Testo email:',
+      noSubject: '(senza oggetto)',
+      contentUnavailable: '(contenuto non disponibile)',
+    },
   },
   agents: {
     supervisor: {
@@ -166,5 +217,36 @@ Sii amichevole e conciso.`,
     unknownSender: 'Mittente sconosciuto',
     event: 'Evento',
     contact: 'Contatto',
+  },
+  observability: {
+    agent: {
+      operationStarted: 'Operazione agente avviata',
+      operationCompleted: 'Operazione agente completata',
+      operationFailed: 'Operazione agente fallita',
+    },
+    tool: {
+      executionStarted: 'Esecuzione strumento avviata',
+      executionCompleted: 'Esecuzione strumento completata',
+      executionFailed: 'Esecuzione strumento fallita',
+    },
+    hitl: {
+      actionAutoApproved: 'Azione approvata automaticamente',
+      actionSuspended: 'Azione sospesa per approvazione',
+      actionApprovedByHuman: 'Azione approvata dall\'utente',
+      actionRejectedByHuman: 'Azione rifiutata dall\'utente',
+      actionExecuted: 'Azione eseguita con successo',
+      actionExecutionFailed: 'Esecuzione azione fallita',
+      requiresApproval: (reason) => `Richiede approvazione: ${reason}`,
+      highSeverityAction: 'Azione ad alta criticità richiede approvazione',
+      lowConfidenceAction: 'Azione con bassa confidenza richiede approvazione',
+    },
+    learning: {
+      feedbackRecorded: 'Feedback registrato',
+      profileUpdated: 'Profilo di apprendimento aggiornato',
+      confidenceAdjusted: 'Confidenza aggiustata in base all\'apprendimento',
+      learningApplied: (boost) => `Apprendimento applicato: ${boost > 0 ? '+' : ''}${(boost * 100).toFixed(1)}% confidenza`,
+      noLearningData: 'Nessun dato di apprendimento disponibile',
+      profileReset: 'Profilo di apprendimento resettato',
+    },
   },
 };

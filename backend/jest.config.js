@@ -2,6 +2,8 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
+  // Force exit after tests complete to handle open handles from API connections
+  forceExit: true,
   testMatch: [
     '<rootDir>/src/**/*.spec.ts',
     '<rootDir>/test/**/*.spec.ts',

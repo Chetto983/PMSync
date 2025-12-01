@@ -261,6 +261,242 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Ag
 }
 
 /**
+ * HITL Metrics for approval workflow observability
+ */
+export interface HitlMetrics {
+  actionId: string;
+  tenantId: string;
+  userId: string;
+  actionType: string;
+  event: 'auto_approved' | 'suspended' | 'approved' | 'rejected' | 'executed' | 'failed';
+  confidence?: number;
+  severity?: string;
+  approvedBy?: string;
+  rejectionReason?: string;
+  executionTimeMs?: number;
+  timestamp: number;
+}
+
+/**
+ * HITL Observability options for approval workflows
+ */
+export interface HitlObservabilityOptions {
+  logger?: {
+    info: (message: string, context?: Record<string, unknown>) => void;
+    warn: (message: string, context?: Record<string, unknown>) => void;
+  };
+  /** Callback for HITL metrics (for Redis/external storage) */
+  onHitlMetrics?: (metrics: HitlMetrics) => void;
+}
+
+/**
+ * Creates HITL observability callbacks for approval workflows.
+ *
+ * Use these callbacks with HitlService to track:
+ * - Auto-approved actions (low risk, high confidence)
+ * - Suspended actions awaiting human decision
+ * - Human approved/rejected actions
+ * - Execution results
+ *
+ * @example
+ * ```typescript
+ * const hitlObservability = createHitlObservability({
+ *   logger: console,
+ *   onHitlMetrics: (metrics) => cacheService.lpush('hitl:metrics', metrics),
+ * });
+ *
+ * // In HitlService
+ * hitlObservability.onAutoApproved(action);
+ * hitlObservability.onSuspended(action);
+ * hitlObservability.onApproved(action, approvedBy);
+ * hitlObservability.onRejected(action, rejectedBy, reason);
+ * hitlObservability.onExecuted(action, result);
+ * ```
+ */
+export function createHitlObservability(options: HitlObservabilityOptions = {}) {
+  const { logger, onHitlMetrics } = options;
+
+  const emitMetrics = (metrics: HitlMetrics) => {
+    if (onHitlMetrics) {
+      onHitlMetrics(metrics);
+    }
+  };
+
+  return {
+    /**
+     * Called when an action is auto-approved (low risk or high confidence)
+     */
+    onAutoApproved: (action: {
+      id: string;
+      tenantId: string;
+      userId: string;
+      actionType: string;
+      confidence?: number;
+      severity?: string;
+    }) => {
+      logger?.info('Action auto-approved', {
+        actionId: action.id,
+        tenantId: action.tenantId,
+        actionType: action.actionType,
+        confidence: action.confidence,
+      });
+
+      emitMetrics({
+        actionId: action.id,
+        tenantId: action.tenantId,
+        userId: action.userId,
+        actionType: action.actionType,
+        event: 'auto_approved',
+        confidence: action.confidence,
+        severity: action.severity,
+        timestamp: Date.now(),
+      });
+    },
+
+    /**
+     * Called when an action is suspended for human approval
+     */
+    onSuspended: (action: {
+      id: string;
+      tenantId: string;
+      userId: string;
+      actionType: string;
+      confidence?: number;
+      severity?: string;
+    }) => {
+      logger?.info('Action suspended for approval', {
+        actionId: action.id,
+        tenantId: action.tenantId,
+        actionType: action.actionType,
+        severity: action.severity,
+      });
+
+      emitMetrics({
+        actionId: action.id,
+        tenantId: action.tenantId,
+        userId: action.userId,
+        actionType: action.actionType,
+        event: 'suspended',
+        confidence: action.confidence,
+        severity: action.severity,
+        timestamp: Date.now(),
+      });
+    },
+
+    /**
+     * Called when a human approves an action
+     */
+    onApproved: (
+      action: {
+        id: string;
+        tenantId: string;
+        userId: string;
+        actionType: string;
+        confidence?: number;
+        severity?: string;
+      },
+      approvedBy: string,
+    ) => {
+      logger?.info('Action approved by human', {
+        actionId: action.id,
+        tenantId: action.tenantId,
+        actionType: action.actionType,
+        approvedBy,
+      });
+
+      emitMetrics({
+        actionId: action.id,
+        tenantId: action.tenantId,
+        userId: action.userId,
+        actionType: action.actionType,
+        event: 'approved',
+        confidence: action.confidence,
+        severity: action.severity,
+        approvedBy,
+        timestamp: Date.now(),
+      });
+    },
+
+    /**
+     * Called when a human rejects an action
+     */
+    onRejected: (
+      action: {
+        id: string;
+        tenantId: string;
+        userId: string;
+        actionType: string;
+        confidence?: number;
+        severity?: string;
+      },
+      rejectedBy: string,
+      reason?: string,
+    ) => {
+      logger?.warn('Action rejected by human', {
+        actionId: action.id,
+        tenantId: action.tenantId,
+        actionType: action.actionType,
+        rejectedBy,
+        reason,
+      });
+
+      emitMetrics({
+        actionId: action.id,
+        tenantId: action.tenantId,
+        userId: action.userId,
+        actionType: action.actionType,
+        event: 'rejected',
+        confidence: action.confidence,
+        severity: action.severity,
+        rejectionReason: reason,
+        timestamp: Date.now(),
+      });
+    },
+
+    /**
+     * Called when an approved action is executed
+     */
+    onExecuted: (
+      action: {
+        id: string;
+        tenantId: string;
+        userId: string;
+        actionType: string;
+      },
+      result: { success: boolean; executionTimeMs: number; error?: string },
+    ) => {
+      const event = result.success ? 'executed' : 'failed';
+
+      if (result.success) {
+        logger?.info('Action executed successfully', {
+          actionId: action.id,
+          tenantId: action.tenantId,
+          actionType: action.actionType,
+          executionTimeMs: result.executionTimeMs,
+        });
+      } else {
+        logger?.warn('Action execution failed', {
+          actionId: action.id,
+          tenantId: action.tenantId,
+          actionType: action.actionType,
+          error: result.error,
+        });
+      }
+
+      emitMetrics({
+        actionId: action.id,
+        tenantId: action.tenantId,
+        userId: action.userId,
+        actionType: action.actionType,
+        event,
+        executionTimeMs: result.executionTimeMs,
+        timestamp: Date.now(),
+      });
+    },
+  };
+}
+
+/**
  * Creates minimal hooks for production with low overhead.
  * Only tracks essential metrics without verbose logging.
  * Supports >1000 tenants with TTL-based cleanup.

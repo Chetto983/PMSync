@@ -4,11 +4,10 @@ import {
   Body,
   UseGuards,
   Request,
-  Get,
   Param,
-  Delete,
   UsePipes,
   ValidationPipe,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,21 +19,14 @@ import {
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { MistralService } from '../services/mistral.service';
-import { AgentService } from '../services/agent.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
-import { ChatSessionService, StoredChatMessage } from '../services/chat-session.service';
 import { EmailInsightsService } from '../services/email-insights.service';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
 import { SearchKnowledgeBaseDto } from '../dto/knowledge-base.dto';
 import {
   ChatDto,
-  AgentDto,
-  CreateSessionDto,
   EmailAiDto,
   ChatResponseDto,
-  SessionResponseDto,
-  SessionListResponseDto,
-  AgentResponseDto,
   SummaryResponseDto,
   SmartReplyResponseDto,
   CategorizeResponseDto,
@@ -42,22 +34,36 @@ import {
   ComposeEmailResponseDto,
 } from '../dto/ai.dto';
 
+/**
+ * AI Controller
+ *
+ * Provides AI-powered endpoints for:
+ * - Simple chat completion (MistralService)
+ * - Email insights (summarize, smart-reply, categorize, compose)
+ * - Knowledge base search (RAG)
+ *
+ * For agentic workflows and session management, use VoltAgentController:
+ * - POST /voltagent/chat - Agentic chat with tool execution
+ * - GET /voltagent/sessions - List sessions
+ * - POST /voltagent/sessions - Create session
+ * - DELETE /voltagent/sessions/:id - Delete session
+ */
 @ApiTags('AI')
 @ApiBearerAuth()
 @Controller('ai')
 @UseGuards(JwtAuthGuard, TenantGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class AiController {
+  private readonly logger = new Logger(AiController.name);
+
   constructor(
     private readonly mistralService: MistralService,
-    private readonly agentService: AgentService,
-    private readonly chatSessionService: ChatSessionService,
     private readonly emailInsightsService: EmailInsightsService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
   ) {}
 
   /**
-   * Classic chat completion backed by the Mistral service
+   * Simple chat completion backed by Mistral
    */
   @Post('chat')
   @ApiOperation({
@@ -79,164 +85,6 @@ export class AiController {
     );
 
     return { success: true, response };
-  }
-
-  /**
-   * List latest chat sessions (FIFO)
-   */
-  @Get('chat/sessions')
-  @ApiOperation({
-    summary: 'List chat sessions',
-    description: 'Retrieve all chat sessions for the current user',
-  })
-  @ApiResponse({ status: 200, description: 'Sessions retrieved', type: SessionListResponseDto })
-  async listSessions(@Request() req: AuthenticatedRequest): Promise<SessionListResponseDto> {
-    const sessions = await this.chatSessionService.listSessions(
-      req.user.tenantId,
-      req.user.userId,
-    );
-    return { success: true, sessions };
-  }
-
-  /**
-   * Get a single chat session by id
-   */
-  @Get('chat/sessions/:id')
-  @ApiOperation({
-    summary: 'Get chat session',
-    description: 'Retrieve a specific chat session by ID',
-  })
-  @ApiParam({ name: 'id', description: 'Session ID' })
-  @ApiResponse({ status: 200, description: 'Session retrieved', type: SessionResponseDto })
-  @ApiResponse({ status: 404, description: 'Session not found' })
-  async getSession(
-    @Request() req: AuthenticatedRequest,
-    @Param('id') sessionId: string,
-  ): Promise<SessionResponseDto | { success: false; session: null }> {
-    const session = await this.chatSessionService.getSession(
-      req.user.tenantId,
-      req.user.userId,
-      sessionId,
-    );
-
-    if (!session) {
-      return { success: false, session: null };
-    }
-
-    return { success: true, session };
-  }
-
-  /**
-   * Create a new chat session
-   */
-  @Post('chat/sessions')
-  @ApiOperation({
-    summary: 'Create chat session',
-    description: 'Create a new chat session for the current user',
-  })
-  @ApiResponse({ status: 201, description: 'Session created', type: SessionResponseDto })
-  async createSession(
-    @Request() req: AuthenticatedRequest,
-    @Body() dto: CreateSessionDto,
-  ): Promise<SessionResponseDto> {
-    const session = await this.chatSessionService.createSession({
-      tenantId: req.user.tenantId,
-      userId: req.user.userId,
-      locale: dto?.locale,
-    });
-
-    return { success: true, session };
-  }
-
-  /**
-   * Delete a chat session
-   */
-  @Delete('chat/sessions/:id')
-  @ApiOperation({
-    summary: 'Delete chat session',
-    description: 'Delete a specific chat session by ID',
-  })
-  @ApiParam({ name: 'id', description: 'Session ID' })
-  @ApiResponse({ status: 200, description: 'Session deleted' })
-  @ApiResponse({ status: 404, description: 'Session not found' })
-  async deleteSession(
-    @Request() req: AuthenticatedRequest,
-    @Param('id') sessionId: string,
-  ): Promise<{ success: boolean }> {
-    const deleted = await this.chatSessionService.deleteSession({
-      tenantId: req.user.tenantId,
-      userId: req.user.userId,
-      sessionId,
-    });
-
-    return { success: deleted };
-  }
-
-  /**
-   * Agentic workflow powered by LangChain
-   */
-  @Post('agent')
-  @ApiOperation({
-    summary: 'Agentic AI workflow',
-    description: 'Process a message using LangChain-powered agent with tool execution capabilities',
-  })
-  @ApiResponse({ status: 200, description: 'Agent response generated', type: AgentResponseDto })
-  async agent(
-    @Request() req: AuthenticatedRequest,
-    @Body() dto: AgentDto,
-  ): Promise<AgentResponseDto> {
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
-
-    let session =
-      (await this.chatSessionService.getSession(tenantId, userId, dto.sessionId ?? '')) ?? null;
-
-    if (!session) {
-      session = await this.chatSessionService.createSession({
-        tenantId,
-        userId,
-        locale: dto.locale,
-      });
-    }
-
-    const history: StoredChatMessage[] = (dto.history ?? []).map((item) => ({
-      role: item.role === 'assistant' ? 'assistant' : 'user',
-      content: item.content,
-      ...(item.steps ? { steps: item.steps } : {}),
-    }));
-
-    const result = await this.agentService.runAgent({
-      tenantId,
-      userId,
-      prompt: dto.message,
-      conversationId: session.id,
-      history,
-    });
-
-    const assistantMessage: StoredChatMessage = {
-      role: 'assistant',
-      content: result.output,
-      steps: result.intermediateSteps ?? [],
-    };
-
-    const updatedMessages: StoredChatMessage[] = [...history, assistantMessage];
-
-    const updatedSession = await this.chatSessionService.saveSessionMessages({
-      tenantId,
-      userId,
-      sessionId: session.id,
-      messages: updatedMessages,
-      locale: dto.locale,
-    });
-
-    return {
-      success: true,
-      sessionId: updatedSession.id,
-      session: updatedSession,
-      messages: updatedMessages,
-      response: result.output,
-      steps: result.intermediateSteps ?? [],
-    };
   }
 
   /**
@@ -341,7 +189,7 @@ export class AiController {
   }
 
   /**
-   * Retrieve semantic memories (RAG) scoped to the tenant
+   * Search knowledge base using semantic similarity (RAG)
    */
   @Post('memory/search')
   @ApiOperation({

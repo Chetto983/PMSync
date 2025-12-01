@@ -10,6 +10,16 @@
  * - MistralService: Embeddings generation for semantic search
  * - EmbeddingsService: pgvector similarity search
  * - HybridRetriever: Combines vector + keyword search with re-ranking
+ *
+ * Memory System (2025 Best Practices):
+ * - VoltAgentMemoryService: Enhanced memory with summarization & hybrid search
+ * - SessionBridgeService: Unified session management
+ *
+ * Consolidated Services (Step 8):
+ * - PersonalizationService: User profile & semantic memories
+ * - WritingStyleService: NLP-based email style analysis
+ * - PromptRegistryService: Centralized prompt management with locale support
+ * - LlmTelemetry: OpenTelemetry-aligned LLM observability
  */
 import { Module, forwardRef } from '@nestjs/common';
 import { CacheModule } from '../../../common/services/cache.module';
@@ -25,6 +35,12 @@ import { FeedbackService } from './services/feedback.service';
 import { ActionExecutorService } from './services/action-executor.service';
 import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
+// Memory services (2025 Best Practices)
+import { VoltAgentMemoryService, SessionBridgeService } from './memory';
+// Consolidated AI services
+import { PersonalizationService } from './services/personalization.service';
+import { WritingStyleService } from './services/writing-style.service';
+import { PromptRegistryService } from './prompts/prompt-registry.service';
 
 @Module({
   imports: [
@@ -44,12 +60,26 @@ import { EmbeddingsService } from '../services/embeddings.service';
     // RAG services for HybridRetriever
     MistralService,
     EmbeddingsService,
+    // Memory services (2025 Best Practices)
+    VoltAgentMemoryService,
+    SessionBridgeService,
+    // Consolidated AI services (Step 8)
+    PersonalizationService,
+    WritingStyleService,
+    PromptRegistryService,
   ],
   exports: [
     VoltAgentService,
     HitlService,
     FeedbackService,
     ActionExecutorService,
+    // Memory services
+    VoltAgentMemoryService,
+    SessionBridgeService,
+    // Consolidated AI services
+    PersonalizationService,
+    WritingStyleService,
+    PromptRegistryService,
   ],
 })
 export class VoltAgentModule {}
