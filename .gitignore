@@ -716,3 +716,6 @@ tests/test-labels.js
 tests/test-websocket.js
 backend/scripts/check-providers.js
 backend/scripts/test-multi-agent.js
+.playwright-mcp/ai-markdown-html-full-email.png
+.playwright-mcp/ai-markdown-to-html-fix-success.png
+.playwright-mcp/compose-dialog-test.png

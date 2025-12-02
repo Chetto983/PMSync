@@ -26,7 +26,9 @@
       "Bash(Select-Object -First 20)",
       "Bash(xargs ls:*)",
       "Bash(ls:*)",
-      "Bash(Select-Object -First 30)"
+      "Bash(Select-Object -First 30)",
+      "Bash(npm run start:dev:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

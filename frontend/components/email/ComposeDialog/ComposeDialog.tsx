@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import { X, Send, Paperclip, Check, FileText, Trash2, Maximize2, Minimize2, Upload, Clock, ChevronDown } from 'lucide-react';
 import { EditorContent } from '@tiptap/react';
+import { marked } from 'marked';
 import type { SendEmailPayload, EmailAttachmentUpload } from '@/lib/api/email';
 import { emailApi } from '@/lib/api/email';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
@@ -1215,15 +1216,18 @@ export function ComposeDialog({
             recipients={cleanEmailArray(to)}
             mode={mode}
             onInsertSuggestion={(text) => {
-              // Insert at cursor position
+              // Insert at cursor position - convert markdown to HTML
               if (editor) {
-                editor.commands.insertContent(text);
+                const html = marked.parse(text, { async: false }) as string;
+                editor.commands.insertContent(html);
               }
             }}
             onReplaceBody={(text) => {
-              setBody(text);
+              // Convert markdown to HTML before setting content
+              const html = marked.parse(text, { async: false }) as string;
+              setBody(html);
               if (editor) {
-                editor.commands.setContent(text);
+                editor.commands.setContent(html);
               }
             }}
             onUpdateSubject={(text) => {
