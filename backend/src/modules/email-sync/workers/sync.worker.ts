@@ -122,33 +122,14 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
       // Delegate to provider-specific sync services (they also persist emails to DB)
       const result = await this.runProviderSync(job.data);
 
-      // Update last synced timestamp in database
+      // Update last synced timestamp and metadata transactionally
       const metadataUpdates: Record<string, any> = {
         ...(result.metadata || {}),
       };
-
       if (result.lastSyncToken && metadataUpdates.lastSyncToken === undefined) {
         metadataUpdates.lastSyncToken = result.lastSyncToken;
       }
-
-      const shouldUpdateMetadata = Object.keys(metadataUpdates).length > 0;
-      let mergedMetadata: Record<string, any> | undefined;
-
-      if (shouldUpdateMetadata) {
-        const existingMetadata = await this.getProviderMetadata(providerId);
-        mergedMetadata = {
-          ...existingMetadata,
-          ...metadataUpdates,
-        };
-      }
-
-      await this.prisma.providerConfig.update({
-        where: { id: providerId },
-        data: {
-          lastSyncedAt: new Date(),
-          ...(shouldUpdateMetadata ? { metadata: mergedMetadata } : {}),
-        },
-      });
+      await this.applySyncState(providerId, metadataUpdates);
 
       // Update activity rate and sync priority (Smart Sync)
       await this.syncScheduler.updateProviderActivity(providerId);
@@ -177,6 +158,7 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
             // Don't increment error streak for auth errors - token refresh should fix it
           },
         });
+        await this.recordAuthErrorMetadata(providerId, errorMessage);
       } else {
         // Increment error streak (Smart Sync) only for non-auth errors
         await this.syncScheduler.incrementErrorStreak(providerId);
@@ -216,6 +198,58 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     });
 
     return provider?.metadata || {};
+  }
+
+  /**
+   * Persist lastSyncedAt and metadata in a single transaction to avoid partial updates
+   */
+  private async applySyncState(
+    providerId: string,
+    metadataUpdates: Record<string, any>,
+  ): Promise<void> {
+    const shouldUpdateMetadata = Object.keys(metadataUpdates).length > 0;
+
+    await this.prisma.$transaction(async (tx) => {
+      let mergedMetadata: Record<string, any> | undefined;
+
+      if (shouldUpdateMetadata) {
+        const existingMetadata = await tx.providerConfig.findUnique({
+          where: { id: providerId },
+          select: { metadata: true },
+        });
+        mergedMetadata = {
+          ...((existingMetadata?.metadata as Record<string, any> | null) || {}),
+          ...metadataUpdates,
+        };
+      }
+
+      await tx.providerConfig.update({
+        where: { id: providerId },
+        data: {
+          lastSyncedAt: new Date(),
+          ...(shouldUpdateMetadata ? { metadata: mergedMetadata } : {}),
+        },
+      });
+    });
+  }
+
+  private async recordAuthErrorMetadata(providerId: string, errorMessage: string): Promise<void> {
+    try {
+      const metadata = await this.getProviderMetadata(providerId);
+      const updatedMetadata = {
+        ...metadata,
+        lastAuthErrorAt: new Date().toISOString(),
+        lastAuthError: errorMessage,
+      };
+
+      await this.prisma.providerConfig.update({
+        where: { id: providerId },
+        data: { metadata: updatedMetadata },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(`Failed to record auth error metadata for ${providerId}: ${message}`);
+    }
   }
 
   /**

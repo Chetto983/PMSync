@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { StorageService } from './storage.service';
+import { createHash } from 'crypto';
 
 /**
  * Provider-agnostic attachment metadata
@@ -102,12 +103,14 @@ export class AttachmentStorageService {
     providerId: string,
     attachment: AttachmentUploadInput,
   ): Promise<UploadedAttachment> {
-    const key = this.buildObjectKey(tenantId, providerId, attachment.filename);
+    const hash = createHash('sha256').update(attachment.content).digest('hex');
+    // Deduplicate by content hash across tenants/providers
+    const key = `attachments/${hash}`;
 
-    await this.storage.putObject(key, attachment.content, attachment.contentType);
+    const result = await this.storage.putObjectIfAbsent(key, attachment.content, attachment.contentType);
 
     this.logger.debug(
-      `Uploaded attachment ${attachment.filename} (${attachment.content.byteLength} bytes) to ${key}`,
+      `${result === 'uploaded' ? 'Uploaded' : 'Reused'} attachment ${attachment.filename} (${attachment.content.byteLength} bytes) at ${key}`,
     );
 
     return {

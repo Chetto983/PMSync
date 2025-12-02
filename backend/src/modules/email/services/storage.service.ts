@@ -6,6 +6,7 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
+  HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -51,6 +52,40 @@ export class StorageService {
       ContentType: contentType,
     });
     await this.client.send(command);
+  }
+
+  /**
+   * Upload object only if it does not already exist (dedup by key)
+   */
+  async putObjectIfAbsent(key: string, body: Buffer, contentType: string): Promise<'uploaded' | 'skipped'> {
+    const exists = await this.objectExists(key);
+    if (exists) {
+      this.logger.debug(`Skipping upload, object already exists at ${key}`);
+      return 'skipped';
+    }
+    await this.putObject(key, body, contentType);
+    return 'uploaded';
+  }
+
+  /**
+   * Check if object exists in bucket
+   */
+  async objectExists(key: string): Promise<boolean> {
+    try {
+      await this.client.send(
+        new HeadObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+        }),
+      );
+      return true;
+    } catch (err: any) {
+      if (err?.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404) {
+        return false;
+      }
+      this.logger.warn(`HeadObject failed for ${key}: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
   }
 
   /**

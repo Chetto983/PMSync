@@ -22,6 +22,9 @@ export class MicrosoftWebhookService {
   // Microsoft Graph subscriptions expire after max 4230 minutes (~ 3 days)
   private readonly DEFAULT_EXPIRATION_MINUTES = 4230;
   private readonly GRAPH_API_URL = 'https://graph.microsoft.com/v1.0';
+  // Drift tolerance before flagging stale renewals (default 24h)
+  private readonly RENEWAL_DRIFT_MINUTES =
+    Number(process.env.MICROSOFT_RENEWAL_DRIFT_MINUTES) || 1440;
 
   constructor(
     private prisma: PrismaService,
@@ -84,6 +87,17 @@ export class MicrosoftWebhookService {
 
     if (!provider) {
       this.logger.warn(`Provider not found for subscription ${subscription.id}`);
+      return;
+    }
+
+    // Validate clientState to prevent spoofed notifications
+    const expectedClientState =
+      (subscription.metadata as any)?.clientState ??
+      (subscription as any).clientState;
+    if (expectedClientState && notification.clientState !== expectedClientState) {
+      this.logger.warn(
+        `ClientState mismatch for provider ${provider.id}: expected ${expectedClientState}, got ${notification.clientState}; dropping notification.`,
+      );
       return;
     }
 
@@ -256,6 +270,7 @@ export class MicrosoftWebhookService {
           this.logger.error(
             `Failed to renew subscription ${subscription.subscriptionId}: ${errorMessage}`,
           );
+          await this.failOpenToCron(subscription.providerId, subscription.subscriptionId);
         }
       }
     } catch (error) {
@@ -446,9 +461,58 @@ export class MicrosoftWebhookService {
   }
 
   /**
+   * If renewal fails, deactivate webhook and force cron fallback for the provider.
+   */
+  private async failOpenToCron(providerId: string, subscriptionId?: string): Promise<void> {
+    try {
+      await this.prisma.webhookSubscription.update({
+        where: {
+          providerId_resourcePath: {
+            providerId,
+            resourcePath: MICROSOFT_MAIL_RESOURCE,
+          },
+        },
+        data: {
+          isActive: false,
+          lastError: `Renewal failed${subscriptionId ? ` (${subscriptionId})` : ''}`,
+          metadata: {
+            renewalFailedAt: new Date().toISOString(),
+            subscriptionId,
+          },
+        },
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to mark subscription ${subscriptionId ?? ''} inactive after renewal failure: ${msg}`,
+      );
+    }
+
+    try {
+      await this.prisma.providerConfig.update({
+        where: { id: providerId },
+        data: {
+          nextSyncAt: new Date(), // force cron backup
+          syncPriority: 2, // medium-high
+        },
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to set cron fallback for provider ${providerId} after webhook renewal failure: ${msg}`,
+      );
+    }
+  }
+
+  /**
    * Get Microsoft webhook statistics
    */
   async getStats(): Promise<Partial<WebhookStats>> {
+    const now = new Date();
+    const driftCutoff = new Date(
+      now.getTime() - this.RENEWAL_DRIFT_MINUTES * 60 * 1000,
+    );
+
     const total = await this.prisma.webhookSubscription.count({
       where: { providerType: 'microsoft', resourcePath: MICROSOFT_MAIL_RESOURCE },
     });
@@ -482,6 +546,15 @@ export class MicrosoftWebhookService {
       },
     });
 
+    const staleRenewals = await this.prisma.webhookSubscription.count({
+      where: {
+        providerType: 'microsoft',
+        resourcePath: MICROSOFT_MAIL_RESOURCE,
+        isActive: true,
+        lastRenewedAt: { lt: driftCutoff },
+      },
+    });
+
     const withErrors = await this.prisma.webhookSubscription.count({
       where: {
         providerType: 'microsoft',
@@ -494,6 +567,7 @@ export class MicrosoftWebhookService {
       totalSubscriptions: total,
       activeSubscriptions: active,
       expiringWithin24h: expiring,
+      staleRenewals,
       recentNotifications: {
         last1h,
         last24h: 0,

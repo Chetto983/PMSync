@@ -719,3 +719,8 @@ backend/scripts/test-multi-agent.js
 .playwright-mcp/ai-markdown-html-full-email.png
 .playwright-mcp/ai-markdown-to-html-fix-success.png
 .playwright-mcp/compose-dialog-test.png
+backend/scripts/check-ms-sync.ts
+backend/scripts/fix-ms-webhook.ts
+backend/scripts/mail-audit.ts
+backend/scripts/test-email-operations.ts
+backend/scripts/fix-ms-webhook.ts

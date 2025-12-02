@@ -166,6 +166,7 @@ export class ImapSyncService extends BaseEmailSyncService {
       let messagesProcessed = 0;
       let newMessages = 0;
       let maxUid = lastUid;
+      let metadataUpdates: Record<string, any> | undefined;
 
       if (syncType === 'incremental' && lastUid > 0) {
         // Incremental sync - only fetch messages after last UID
@@ -193,6 +194,14 @@ export class ImapSyncService extends BaseEmailSyncService {
 
       await client.logout();
 
+      if ((provider.metadata as any)?.backfillRequired) {
+        metadataUpdates = {
+          ...(provider.metadata as Record<string, any>),
+          backfillRequired: false,
+          imapLastFullScanAt: new Date().toISOString(),
+        };
+      }
+
       return {
         success: true,
         providerId,
@@ -201,6 +210,7 @@ export class ImapSyncService extends BaseEmailSyncService {
         newMessages,
         syncDuration: 0, // Will be set by worker
         lastSyncToken: maxUid.toString(),
+        metadata: metadataUpdates,
       };
     } catch (error) {
       this.logger.error(`IMAP sync failed for ${email}:`, error);
@@ -295,11 +305,14 @@ export class ImapSyncService extends BaseEmailSyncService {
     providerId: string,
     tenantId: string,
   ): Promise<number> {
-    const WINDOW = 500;
+    const WINDOW = this.config.get<number>('IMAP_RECONCILE_WINDOW', 2000);
+    const fullScanDays = this.config.get<number>('IMAP_RECONCILE_FULLSCAN_DAYS', 30);
+    const fullScanThreshold = Date.now() - fullScanDays * 24 * 60 * 60 * 1000;
+    let totalMessages = 0;
 
     try {
       const mailboxStatus = await client.status('INBOX', { messages: true });
-      const totalMessages = mailboxStatus.messages || 0;
+      totalMessages = mailboxStatus.messages || 0;
 
       if (totalMessages === 0) {
         const result = await this.prisma.email.updateMany({
@@ -413,6 +426,41 @@ export class ImapSyncService extends BaseEmailSyncService {
         `Failed to reconcile IMAP deletions for provider ${providerId} (tenant ${tenantId}): ${message}`,
       );
       return 0;
+    } finally {
+      // Periodic full-scan/backfill flagging if window may miss older deletions
+      try {
+        if (WINDOW < totalMessages) {
+          const provider = await this.prisma.providerConfig.findUnique({
+            where: { id: providerId },
+            select: { metadata: true },
+          });
+
+          const metadata = (provider?.metadata as Record<string, any>) || {};
+          const lastFullScanAt = metadata.imapLastFullScanAt
+            ? new Date(metadata.imapLastFullScanAt).getTime()
+            : 0;
+
+          if (!lastFullScanAt || lastFullScanAt < fullScanThreshold) {
+            const updatedMetadata = {
+              ...metadata,
+              imapLastFullScanAt: new Date().toISOString(),
+              backfillRequired: true,
+            };
+
+            await this.prisma.providerConfig.update({
+              where: { id: providerId },
+              data: { metadata: updatedMetadata },
+            });
+
+            this.logger.warn(
+              `IMAP provider ${providerId} marked for backfill (window ${WINDOW} < total ${totalMessages}); last full scan outdated.`,
+            );
+          }
+        }
+      } catch (metaError) {
+        const msg = this.extractErrorMessage(metaError);
+        this.logger.debug(`Could not update IMAP backfill metadata for ${providerId}: ${msg}`);
+      }
     }
   }
 

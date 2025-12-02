@@ -157,6 +157,7 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
             metadataUpdates = {
               lastSyncToken: deltaResult.newDeltaLink,
               microsoftDeltaMode: 'delta' as MicrosoftSyncMode,
+              microsoftDeltaModeReason: null,
             };
 
             if (deltaResult.latestReceivedDate) {
@@ -171,6 +172,11 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
               );
               incrementalHandled = false; // will try timestamp mode below
               shouldRunFull = false;
+              metadataUpdates = {
+                ...metadataUpdates,
+                microsoftDeltaMode: 'timestamp',
+                microsoftDeltaModeReason: 'delta-unsupported',
+              };
             } else {
               this.logger.warn(
                 `Delta sync failed for ${email}, fallback to timestamp/full: ${
@@ -184,6 +190,7 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
                 ...metadataUpdates,
                 lastSyncToken: undefined,
                 microsoftDeltaMode: 'timestamp',
+                microsoftDeltaModeReason: 'delta-failed',
               };
             }
           }
@@ -212,6 +219,8 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
               lastSyncToken: timestampResult.newTimestamp,
               microsoftDeltaMode: 'timestamp' as MicrosoftSyncMode,
               microsoftLastSyncTimestamp: timestampResult.newTimestamp,
+              microsoftDeltaModeReason:
+                metadataUpdates.microsoftDeltaModeReason ?? 'timestamp-incremental',
             };
 
             incrementalHandled = true;
@@ -238,6 +247,7 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
         metadataUpdates = {
           lastSyncToken: fullResult.syncToken,
           microsoftDeltaMode: fullResult.mode,
+          microsoftDeltaModeReason: null,
         };
 
         if (fullResult.latestTimestamp) {

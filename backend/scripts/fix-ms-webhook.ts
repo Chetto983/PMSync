@@ -23,15 +23,26 @@ async function main() {
     const prisma = app.get(PrismaService);
     const config = app.get(ConfigService);
 
-    // Step 1: Delete expired Microsoft webhook records
+    // Step 1: Delete expired Microsoft webhook records using transaction
     console.log('=== DELETING EXPIRED MS WEBHOOKS ===\n');
-    const deleted = await prisma.webhookSubscription.deleteMany({
+    const msWebhooksToDelete = await prisma.webhookSubscription.findMany({
       where: {
         providerId: MS_PROVIDER_ID,
         providerType: 'microsoft',
       },
+      select: { id: true, resourcePath: true },
     });
-    console.log(`Deleted ${deleted.count} expired webhook records`);
+
+    if (msWebhooksToDelete.length > 0) {
+      // Use transaction with array of delete operations
+      await prisma.$transaction(
+        msWebhooksToDelete.map((w) =>
+          prisma.webhookSubscription.delete({ where: { id: w.id } })
+        )
+      );
+      msWebhooksToDelete.forEach((w) => console.log(`Deleted webhook: ${w.resourcePath}`));
+    }
+    console.log(`Deleted ${msWebhooksToDelete.length} expired webhook records`);
 
     // Step 2: Create new webhook subscriptions
     console.log('\n=== CREATING NEW MS WEBHOOKS ===\n');

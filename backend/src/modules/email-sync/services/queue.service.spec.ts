@@ -53,10 +53,12 @@ describe('QueueService', () => {
       keys: jest.fn().mockResolvedValue([]),
       quit: jest.fn().mockResolvedValue(undefined),
       scan: jest.fn().mockResolvedValue(['0', []]),
+      ping: jest.fn().mockResolvedValue('PONG'),
       sadd: jest.fn().mockResolvedValue(1),
       srem: jest.fn().mockResolvedValue(1),
       smembers: jest.fn().mockResolvedValue([]),
       del: jest.fn().mockResolvedValue(1),
+      status: 'ready',
     } as any;
 
     // Initialize queueEvents as empty array to prevent cleanup issues
@@ -176,6 +178,36 @@ describe('QueueService', () => {
 
       expect(summary.find((s) => s.queue === 'high')?.completed).toBe(1);
       expect(summary.find((s) => s.queue === 'normal')?.failed).toBe(1);
+    });
+  });
+
+  describe('health summary', () => {
+    it('reports redis and queue health', async () => {
+      const health = await service.getHealthSummary();
+
+      expect(health.redisConnected).toBe(true);
+      expect(health.redisStatus).toBe('ready');
+      expect(health.queues).toHaveLength(3);
+      expect(health.metrics).toHaveLength(3);
+      expect(health.lagMs).toBeDefined();
+    });
+  });
+
+  describe('jitter', () => {
+    it('applies jitter when adding jobs', async () => {
+      const data = {
+        tenantId: 'tenant',
+        providerId: 'provider',
+        providerType: 'google',
+        email: 'user@example.com',
+        priority: 'normal' as const,
+        syncType: 'full' as const,
+      };
+
+      await service.addSyncJob(data as any);
+
+      const call = normalQueue.add.mock.calls[0][2];
+      expect(call.delay).toBeGreaterThanOrEqual(0);
     });
   });
 });

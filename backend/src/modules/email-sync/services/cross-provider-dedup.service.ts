@@ -32,14 +32,22 @@ export class CrossProviderDedupService {
     subject: string;
     sentAt: Date | string;
   }): string {
-    const sentAtStr =
-      email.sentAt instanceof Date
-        ? email.sentAt.toISOString()
-        : email.sentAt;
+    const normalizeDate = (value: Date | string): string => {
+      if (value instanceof Date) return value.toISOString();
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
+    };
+
+    const sentAtStr = normalizeDate(email.sentAt);
+
+    const normalizeMessageId = (id: string | null | undefined): string | null => {
+      if (!id) return null;
+      return id.replace(/^</, '').replace(/>$/, '').trim().toLowerCase();
+    };
 
     // Use messageId if available (RFC 2822 standard), otherwise use subject + sentAt
     const contentForHash = email.messageId
-      ? email.messageId.trim().toLowerCase()
+      ? normalizeMessageId(email.messageId) || ''
       : `${email.subject.trim().toLowerCase()}|${sentAtStr}`;
 
     return createHash('sha256').update(contentForHash).digest('hex');
@@ -144,6 +152,9 @@ export class CrossProviderDedupService {
     this.logger.verbose(
       `Linked email ${emailId} to cross-provider link ${crossProviderLinkId}`,
     );
+
+    // Telemetry: detect any diverging states across providers
+    await this.detectConflicts(crossProviderLinkId);
   }
 
   /**
@@ -182,6 +193,62 @@ export class CrossProviderDedupService {
     });
 
     return linkedEmails;
+  }
+
+  /**
+   * Detect divergence across linked emails (read/star/folder) and emit telemetry
+   */
+  private async detectConflicts(
+    crossProviderLinkId: string,
+  ): Promise<
+    | {
+        crossProviderLinkId: string;
+        divergences: Array<{
+          field: 'read' | 'starred' | 'folder';
+          states: Array<{ providerId: string; value: boolean | string }>;
+        }>;
+      }
+    | null
+  > {
+    const emails = await this.prisma.email.findMany({
+      where: { crossProviderLinkId },
+      select: { providerId: true, isRead: true, isStarred: true, folder: true },
+    });
+
+    if (emails.length <= 1) {
+      return null;
+    }
+
+    const divergences: Array<{
+      field: 'read' | 'starred' | 'folder';
+      states: Array<{ providerId: string; value: boolean | string }>;
+    }> = [];
+
+    const checkField = (
+      field: 'read' | 'starred' | 'folder',
+      mapper: (e: typeof emails[number]) => boolean | string,
+    ) => {
+      const states = emails.map((email) => ({ providerId: email.providerId, value: mapper(email) }));
+      const distinctValues = new Set(states.map((s) => s.value));
+      if (distinctValues.size > 1) {
+        divergences.push({ field, states });
+      }
+    };
+
+    checkField('read', (e) => e.isRead);
+    checkField('starred', (e) => e.isStarred);
+    checkField('folder', (e) => e.folder);
+
+    if (divergences.length) {
+      this.logger.warn(
+        `Cross-provider conflict detected for link ${crossProviderLinkId}: ${JSON.stringify(
+          divergences,
+        )}`,
+      );
+      return { crossProviderLinkId, divergences };
+    }
+
+    return null;
   }
 
   /**

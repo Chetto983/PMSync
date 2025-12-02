@@ -255,7 +255,7 @@ export class WebhookLifecycleService {
   async getHealthStatus(): Promise<{
     healthy: boolean;
     gmail: { active: number; expiring: number };
-    microsoft: { active: number; expiring: number };
+    microsoft: { active: number; expiring: number; staleRenewals?: number };
     issues: string[];
   }> {
     const issues: string[] = [];
@@ -271,6 +271,10 @@ export class WebhookLifecycleService {
       issues.push(
         `${(gmailStats.expiringWithin24h ?? 0) + (microsoftStats.expiringWithin24h ?? 0)} webhooks expiring within 24h`,
       );
+    }
+
+    if ((microsoftStats as any)?.staleRenewals > 0) {
+      issues.push(`${(microsoftStats as any).staleRenewals} microsoft webhooks stale (renewal drift)`);
     }
 
     if (
@@ -289,6 +293,7 @@ export class WebhookLifecycleService {
       microsoft: {
         active: microsoftStats.activeSubscriptions ?? 0,
         expiring: microsoftStats.expiringWithin24h ?? 0,
+        staleRenewals: (microsoftStats as any)?.staleRenewals ?? 0,
       },
       issues,
     };

@@ -71,6 +71,8 @@ export class GmailWebhookService {
 
       this.logger.debug(`[GMAIL-WEBHOOK] Found provider: ${provider.id} for tenant: ${provider.tenantId}`);
 
+      const subscriptionExists = await this.ensureSubscriptionRow(provider.id);
+
       // Update webhook subscription stats
       this.logger.debug(`[GMAIL-WEBHOOK] Updating subscription stats for provider ${provider.id}...`);
       await this.updateSubscriptionStats(provider.id);
@@ -94,7 +96,7 @@ export class GmailWebhookService {
         providerType: 'google',
         email: provider.email,
         priority: 'high', // Webhook triggers are high priority
-        syncType: hasGap ? 'full' : 'incremental',
+        syncType: hasGap || !subscriptionExists ? 'full' : 'incremental',
         lastSyncedAt: provider.lastSyncedAt ?? undefined,
       };
 
@@ -106,6 +108,8 @@ export class GmailWebhookService {
       const newMetadata = {
         ...(provider.metadata as Record<string, any>),
         historyId: data.historyId,
+        gapDetected: hasGap || !subscriptionExists || undefined,
+        lastGapAt: hasGap ? new Date().toISOString() : (provider.metadata as any)?.lastGapAt,
       };
       this.logger.debug(`[GMAIL-WEBHOOK] Updating provider metadata with historyId: ${data.historyId}...`);
       await this.prisma.providerConfig.update({
@@ -368,6 +372,27 @@ export class GmailWebhookService {
       // Ignore if subscription doesn't exist, but keep trace for diagnostics
       this.logger.debug(`Could not update stats for ${providerId}: ${errorMessage}`);
     }
+  }
+
+  /**
+   * Ensure a subscription row exists; warn and return false if missing.
+   */
+  private async ensureSubscriptionRow(providerId: string): Promise<boolean> {
+    const subscription = await this.prisma.webhookSubscription.findFirst({
+      where: {
+        providerId,
+        resourcePath: GMAIL_WEBHOOK_RESOURCE,
+      },
+    });
+
+    if (!subscription) {
+      this.logger.warn(
+        `[GMAIL-WEBHOOK] No subscription record found for provider ${providerId}; switching to full sync and relying on cron/backfill.`,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   /**

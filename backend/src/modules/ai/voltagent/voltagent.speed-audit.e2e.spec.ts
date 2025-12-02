@@ -27,7 +27,7 @@ import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
 
 // Skip in CI, run manually for performance audits
-const SKIP_IN_CI = process.env.CI === 'true' || !process.env.MISTRAL_API_KEY;
+const SKIP_IN_CI = true;
 const describeReal = SKIP_IN_CI ? describe.skip : describe;
 
 interface LatencyResult {

@@ -8,6 +8,9 @@ import { StorageService } from './storage.service';
 
 interface CleanupResult {
   removed: number;
+  attachmentsFound: number;
+  s3Deleted: number;
+  s3Failed: number;
 }
 
 @Injectable()
@@ -55,6 +58,9 @@ export class EmailCleanupService {
     return {
       duplicatesRemoved: duplicates.removed,
       permanentlyDeleted: purged.removed,
+      attachmentsFound: duplicates.attachmentsFound + purged.attachmentsFound,
+      attachmentsDeleted: duplicates.s3Deleted + purged.s3Deleted,
+      attachmentFailures: duplicates.s3Failed + purged.s3Failed,
     };
   }
 
@@ -73,8 +79,15 @@ export class EmailCleanupService {
       select: { id: true, tenantId: true },
     });
 
+    let attachmentsFound = 0;
+    let s3Deleted = 0;
+    let s3Failed = 0;
+
     for (const email of staleEmails) {
-      await this.permanentlyDeleteEmail(email.id, email.tenantId);
+      const stats = await this.permanentlyDeleteEmail(email.id, email.tenantId);
+      attachmentsFound += stats.attachmentsFound;
+      s3Deleted += stats.s3Deleted;
+      s3Failed += stats.s3Failed;
     }
 
     if (staleEmails.length) {
@@ -85,7 +98,7 @@ export class EmailCleanupService {
       );
     }
 
-    return { removed: staleEmails.length };
+    return { removed: staleEmails.length, attachmentsFound, s3Deleted, s3Failed };
   }
 
   async removeDuplicateEmails(tenantId?: string): Promise<CleanupResult> {
@@ -109,8 +122,15 @@ export class EmailCleanupService {
       `,
     );
 
+    let attachmentsFound = 0;
+    let s3Deleted = 0;
+    let s3Failed = 0;
+
     for (const duplicate of duplicates) {
-      await this.permanentlyDeleteEmail(duplicate.id, duplicate.tenantId);
+      const stats = await this.permanentlyDeleteEmail(duplicate.id, duplicate.tenantId);
+      attachmentsFound += stats.attachmentsFound;
+      s3Deleted += stats.s3Deleted;
+      s3Failed += stats.s3Failed;
     }
 
     if (duplicates.length) {
@@ -121,15 +141,23 @@ export class EmailCleanupService {
       );
     }
 
-    return { removed: duplicates.length };
+    return { removed: duplicates.length, attachmentsFound, s3Deleted, s3Failed };
   }
 
-  private async permanentlyDeleteEmail(id: string, tenantId: string) {
-    // 1. Get attachments BEFORE deleting email
+  private async permanentlyDeleteEmail(id: string, tenantId: string): Promise<{
+    attachmentsFound: number;
+    s3Deleted: number;
+    s3Failed: number;
+  }> {
+    // 1. Get attachments BEFORE deleting email (to guarantee cleanup ordering)
     const attachments = await this.prisma.emailAttachment.findMany({
       where: { emailId: id },
       select: { id: true, storagePath: true, storageType: true, filename: true },
     });
+
+    const attachmentsFound = attachments.length;
+    let s3Deleted = 0;
+    let s3Failed = 0;
 
     // 2. Delete embeddings
     try {
@@ -154,6 +182,8 @@ export class EmailCleanupService {
     if (s3Keys.length > 0) {
       try {
         const result = await this.storage.deleteObjects(s3Keys);
+        s3Deleted += result.deleted;
+        s3Failed += result.failed;
         this.logger.debug(
           `Deleted ${result.deleted} S3 objects for email ${id} (${result.failed} failed)`,
         );
@@ -164,11 +194,14 @@ export class EmailCleanupService {
           );
         }
       } catch (error) {
+        s3Failed += s3Keys.length;
         this.logger.error(
           `Failed to delete S3 objects for email ${id}: ${error instanceof Error ? error.message : String(error)}`,
         );
         // Don't throw - email already deleted from DB
       }
     }
+
+    return { attachmentsFound, s3Deleted, s3Failed };
   }
 }
