@@ -79,12 +79,69 @@ export const it: VoltAgentTranslations = {
         systemPrompt:
           'Analizza il sentiment dell\'email. Rispondi in JSON: {"sentiment":"positive|negative|neutral", "tone":"formal|casual|urgent|friendly", "confidence":0.0-1.0, "reasoning":"..."}',
       },
+      // 2025 Best Practices - Aspect-Based Sentiment Analysis (ABSA)
+      sentimentDeep: {
+        description: 'Analisi approfondita del sentiment con rilevamento emozioni, analisi per aspetti e rischio abbandono',
+        systemPrompt: `Analizza il sentiment dell'email con analisi approfondita. Rispondi SOLO in JSON:
+{
+  "sentiment": "positive|negative|neutral|mixed",
+  "tone": "formal|casual|urgent|friendly|cold|assertive",
+  "emotion": "joy|gratitude|excitement|neutral|concern|frustration|anger|disappointment|sadness",
+  "emotionalIntensity": 0.0-1.0,
+  "churnRisk": true|false,
+  "aspects": {
+    "subject": "positive|negative|neutral",
+    "service": "positive|negative|neutral",
+    "timeline": "positive|negative|neutral"
+  },
+  "confidence": 0.0-1.0,
+  "reasoning": "..."
+}
+Considera: linguaggio usato, punteggiatura, contesto, sarcasmo/ironia, urgenza implicita.`,
+      },
+      priority: {
+        description: 'Calcola priorità email con scoring multifattoriale',
+        systemPrompt: `Calcola la priorità dell'email. Considera: urgenza, importanza, scadenze, sentiment. Rispondi in JSON:
+{
+  "urgencyScore": 1-10,
+  "importanceScore": 1-10,
+  "timeScore": 1-10,
+  "sentimentImpact": -2 to +2,
+  "urgency": "high|medium|low",
+  "factors": ["..."],
+  "recommendation": "handle_now|handle_today|handle_this_week|can_wait|archive"
+}`,
+      },
+      analyzeComprehensive: {
+        description: 'Analisi completa email che combina sentiment, priorità e intento',
+        systemPrompt: `Analizza l'email in modo completo. Rispondi in JSON:
+{
+  "sentiment": "positive|negative|neutral|mixed",
+  "tone": "formal|casual|urgent|friendly",
+  "urgency": "high|medium|low",
+  "intent": "action_required|fyi|question|meeting_request|follow_up|escalation|feedback|introduction|thank_you|complaint",
+  "priority": 1-10,
+  "escalationRisk": true|false,
+  "keyTopics": ["..."],
+  "suggestedResponse": "immediate|within_day|within_week|optional",
+  "confidence": 0.0-1.0
+}`,
+      },
       compose: {
         description: 'Componi una risposta intelligente basandosi sul contesto e lo stile di scrittura dell\'utente',
         systemPrompt: (toneInstruction) =>
           `Sei un assistente che redige risposte email chiare e professionali. ${toneInstruction} Rispondi solo in JSON: {"body":"...", "subject":"Re: ..."}. Evita markdown.`,
         originalEmail: 'Email originale:',
         replyInstructions: 'Istruzioni per la risposta:',
+        // Compose prompt strings
+        recipients: 'Destinatari',
+        subjectHint: 'Oggetto suggerito',
+        requestedTone: 'Tono richiesto',
+        threadContext: 'Contesto thread:',
+        message: 'Messaggio',
+        draftInstruction: 'Scrivi una email pronta da inviare.',
+        userPrompt: 'Istruzioni utente',
+        jsonInstruction: 'Restituisci JSON con campi body e subject. Nessun markdown.',
       },
       actionItems: {
         description: 'Estrai elementi di azione e attività da completare da una email',
@@ -118,6 +175,10 @@ export const it: VoltAgentTranslations = {
       emailBody: 'Testo email:',
       noSubject: '(senza oggetto)',
       contentUnavailable: '(contenuto non disponibile)',
+      // Email header labels
+      subject: 'Oggetto',
+      from: 'Da',
+      to: 'A',
     },
   },
   agents: {
@@ -248,6 +309,30 @@ Sii amichevole e conciso, sempre in italiano.`,
       learningApplied: (boost) => `Apprendimento applicato: ${boost > 0 ? '+' : ''}${(boost * 100).toFixed(1)}% confidenza`,
       noLearningData: 'Nessun dato di apprendimento disponibile',
       profileReset: 'Profilo di apprendimento resettato',
+    },
+  },
+  mistral: {
+    title: {
+      system: 'Sei un assistente che riassume le conversazioni. Crea un titolo breve e descrittivo (massimo 8 parole) per la conversazione indicata. Rispondi solo con il titolo, senza virgolette.',
+      conversationLabel: 'Conversazione',
+      titleLabel: 'Titolo',
+      defaultTitle: 'Nuova chat',
+    },
+    roles: {
+      assistant: 'Assistente',
+      user: 'Utente',
+    },
+    rag: {
+      sourceLabel: (index) => `Fonte ${index}`,
+      contextIntro: 'Utilizza le seguenti informazioni se rilevanti:',
+    },
+    errors: {
+      emptyResponse: 'Risposta vuota dal servizio AI',
+      notConfigured: 'L\'assistente AI non è configurato per questo ambiente. Chiedi all\'amministratore di impostare MISTRAL_API_KEY.',
+      unavailable: 'Il servizio AI non è al momento disponibile. Il tuo messaggio è stato salvato; riprova tra poco.',
+      unauthorized: 'Richiesta AI rifiutata (non autorizzato). Verifica che MISTRAL_API_KEY sia valida e abbia i permessi necessari.',
+      serverError: 'L\'API Mistral sta avendo problemi. Il tuo messaggio è stato salvato; riprova tra poco.',
+      tryAgain: 'Non sono riuscito a generare una risposta. Riprova.',
     },
   },
 };

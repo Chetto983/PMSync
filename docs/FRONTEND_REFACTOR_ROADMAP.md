@@ -638,56 +638,91 @@ ai:session:update   - Session status change
 
 - [x] Create SSE streaming endpoint in `voltagent.controller.ts` ✅ **DONE**
 - [x] Create `voltAgentApi.streamChat()` with Fetch API and SSE parsing ✅ **DONE**
-- [ ] Typing indicator component (three-dot CSS animation)
-- [ ] Message streaming with token-by-token display
+- [x] Typing indicator component (three-dot CSS animation) ✅ **DONE** (2025-12-02)
+- [x] Message streaming with token-by-token display ✅ **DONE** (2025-12-02)
+- [x] useAiStreamChat hook with full state management ✅ **DONE** (2025-12-02)
 - [ ] Message history with persistence (ChatSession model exists)
 - [ ] Context-aware suggestions (based on current email/thread)
 - [x] Action confirmation UI (HITL) - integrate existing `PendingActionsPanel` ✅ **DONE**
 - [ ] Knowledge source attribution (RAG hits from `HybridRetriever`)
-- [ ] Auto-scroll to bottom on new messages
-- [x] Stop generation button (AbortController) ✅ **DONE** (in streamChat)
+- [x] Auto-scroll to bottom on new messages ✅ **DONE** (in ChatPanel)
+- [x] Stop generation button (AbortController) ✅ **DONE** (in streamChat + ChatPanel UI)
+- [x] i18n support (EN/IT translations) ✅ **DONE** (2025-12-02)
 
-**Files to create/modify:**
+**Files created (2025-12-02):**
 
 ```text
-backend/src/modules/ai/voltagent/voltagent.controller.ts  - Add SSE endpoint
-frontend/hooks/use-ai-stream-chat.ts                       - SSE streaming hook
-frontend/components/ai/StreamingMessage.tsx                - Token-by-token display
-frontend/components/ai/TypingIndicator.tsx                 - Three-dot animation
-frontend/components/ai/ChatPanel.tsx                       - Main chat UI
+frontend/components/ai/TypingIndicator.tsx   - Three-dot animation component
+frontend/components/ai/StreamingMessage.tsx  - Token-by-token streaming display
+frontend/components/ai/ChatPanel.tsx         - Modern chat panel with streaming
+frontend/components/ai/index.ts              - Component exports
+frontend/hooks/use-ai-stream-chat.ts         - SSE streaming hook with state management
 ```
+
+**2025 Best Practices Applied:**
+
+- [Superhuman](https://superhuman.com/ai) - Integrated AI, keyboard shortcuts
+- [AI SDK Chatbot](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot) - Streaming states, stop button
+- [Chat UI Design Patterns 2025](https://bricxlabs.com/blogs/message-screen-ui-deisgn) - Auto-scroll, typing indicators
 
 #### 3.2 Smart Compose
 
-- [ ] Enhance `AiChatPanel` in ComposeDialog with streaming
+- [x] Enhance `AiChatPanel` in ComposeDialog with streaming ✅ **DONE** (2025-12-02)
 - [ ] Real-time writing suggestions sidebar
-- [ ] Tone adjustment slider (formal/casual/technical)
-- [ ] Smart subject generation button
+- [x] Tone adjustment slider (formal/casual/technical) ✅ **DONE** (2025-12-02)
+- [x] Smart subject generation button ✅ **DONE** (2025-12-02)
 - [ ] Reply suggestions based on email content
 - [ ] Insert suggestion at cursor position
 - [ ] Grammar hints (highlight in editor)
 
+**Updates (2025-12-02):**
+
+- Enhanced `AiChatPanel` with VoltAgent streaming API
+- Added tone selector (Formal/Casual/Technical) with i18n support
+- Added "Generate subject" button when composing new emails
+- Backend SSE endpoint enhanced with proper abort handling
+- Stop button for canceling AI generation
+
 **Backend already supports:**
 
+- `POST /api/v1/voltagent/chat/stream` - SSE streaming with abort handling
 - `POST /ai/compose` with tone, locale, subject generation
 - `WritingStyleService` for learning user patterns
 - Thread context handling for replies
 
 #### 3.3 Email Intelligence
 
-- [ ] Inline email summary (expandable accordion)
-- [ ] Priority indicators with AI reasoning tooltip
-- [ ] Category badges (auto-labeled from AI categorization)
+- [x] **Inline email summary** (expandable accordion) - `EmailSummaryPanel` exists
+- [x] **Priority indicators** with AI reasoning tooltip - `EmailPriorityIndicator` ✅ NEW
+- [x] **Category badges** (auto-labeled from AI categorization) - `EmailCategoryBadges` ✅ NEW
+- [x] **Sentiment indicator** with 2025 best practices - `EmailSentimentIndicator` ✅ NEW
+  - Aspect-Based Sentiment Analysis (ABSA)
+  - Emotion detection beyond polarity (joy, frustration, anger, etc.)
+  - Churn/escalation risk prediction
+  - Confidence scoring with reasoning
 - [ ] Related emails suggestions (using embeddings similarity)
 - [ ] Follow-up reminders (action item extraction)
-- [ ] Sentiment indicator (SentimentService exists)
 
-**Backend already supports:**
+**Backend Endpoints (2025 Best Practices):**
 
-- `POST /ai/summarize/:emailId`
-- `POST /ai/categorize/:emailId`
-- `SentimentService` for sentiment analysis
-- `KnowledgeBaseService` for semantic search
+| Endpoint | Purpose | Status |
+|----------|---------|--------|
+| `POST /ai/summarize/:emailId` | Email summary | Existing |
+| `POST /ai/categorize/:emailId` | Email categorization | Existing |
+| `POST /ai/sentiment/:emailId` | Sentiment analysis (ABSA) | ✅ NEW |
+| `POST /ai/priority/:emailId` | Priority calculation | ✅ NEW |
+| `POST /ai/analyze/:emailId` | Comprehensive analysis | ✅ NEW |
+| `POST /ai/memory/search` | RAG search | Existing |
+
+**Frontend Components Created:**
+
+| Component | Location | Features |
+|-----------|----------|----------|
+| `EmailSentimentIndicator` | `components/email/` | Sentiment polarity, emotion detection, churn risk, aspect breakdown |
+| `EmailPriorityIndicator` | `components/email/` | Priority score, urgency level, recommendation badge, factors |
+| `EmailCategoryBadges` | `components/email/` | Color-coded badges, AI indicator, click-to-apply |
+
+**i18n Support:** EN and IT translations added for all new components
 
 #### 3.4 Dashboard AI Widgets
 
@@ -707,30 +742,99 @@ frontend/components/ai/ChatPanel.tsx                       - Main chat UI
 
 #### Implementation Priority
 
-**Phase 3.1** (High Priority - Core Streaming):
+**Phase 3.1** (High Priority - Core Streaming): ✅ **COMPLETE** (2025-12-02)
 
-1. Create SSE streaming endpoint in backend
-2. Create `useAiStreamChat` hook
-3. Build TypingIndicator and StreamingMessage components
-4. Integrate into existing AI chat page
+1. ~~Create SSE streaming endpoint in backend~~ - `POST /api/v1/voltagent/chat/stream`
+2. ~~Create `useAiStreamChat` hook~~ - Full SSE streaming with abort, retry, message history
+3. ~~Build TypingIndicator and StreamingMessage components~~ - Integrated in AI chat page
+4. ~~Integrate into existing AI chat page~~ - Working with real-time streaming
 
-**Phase 3.2** (Medium Priority - Compose Integration):
+**Phase 3.2** (Medium Priority - Compose Integration): ✅ **COMPLETE** (2025-12-02)
 
-1. Enhance ComposeDialog AI panel
-2. Add tone slider and subject generation
-3. Integrate smart reply suggestions
+1. ~~Enhance ComposeDialog AI panel~~ - `AiChatPanel` with SSE streaming, context-aware prompts
+2. ~~Add tone slider and subject generation~~ - Formal/Casual/Technical toggle, auto-generate subject
+3. ~~Integrate smart reply suggestions~~ - `SmartReplySuggestions` component with tone selector
 
-**Phase 3.3** (Medium Priority - Intelligence):
+**Phase 3.3** (Medium Priority - Intelligence): ✅ **COMPLETE**
 
-1. Add summary accordion to ThreadDisplay
-2. Add priority/sentiment indicators
-3. Connect to existing backend endpoints
+1. ~~Add summary accordion to ThreadDisplay~~ - Already exists (`EmailSummaryPanel`)
+2. ~~Add priority/sentiment indicators~~ - `EmailSentimentIndicator`, `EmailPriorityIndicator` created
+3. ~~Add category badges~~ - `EmailCategoryBadges` created
+4. ~~Backend endpoints~~ - `/ai/sentiment`, `/ai/priority`, `/ai/analyze` added
+5. ~~i18n translations~~ - EN/IT locales updated
 
-**Phase 3.4** (Lower Priority - Dashboard):
+**Phase 3.3.1** (Backend Locale Migration): ✅ **COMPLETE** (2025-12-02)
 
-1. Refactor ai.tsx page into reusable widgets
-2. Add widgets to main dashboard
-3. WebSocket real-time updates
+All backend AI services migrated to centralized VoltAgent locale system:
+
+| Service | Status | Notes |
+|---------|--------|-------|
+| `EmailInsightsService` | ✅ Migrated | All prompts use `getToolTranslations()` |
+| `MistralService` | ✅ Migrated | Chat titles, RAG, errors use `getTranslations()` |
+| VoltAgent Tools | ✅ Already localized | Full i18n support |
+| VoltAgent Agents | ✅ Already localized | Instructions in EN/IT |
+
+**Locale File Structure:**
+
+```text
+backend/src/modules/ai/voltagent/locales/
+├── index.ts          # Types, getLocale(), getTranslations() helpers
+├── en.ts             # English translations (341 lines)
+├── it.ts             # Italian translations (341 lines)
+└── action-summaries.ts  # Legacy compatibility
+```
+
+**Key Types:**
+
+- `VoltAgentTranslations` - Root interface with tools, agents, actions, observability, mistral
+- `ToolTranslations` - Email insights prompts (summarize, sentiment, priority, compose)
+- `MistralTranslations` - Chat titles, RAG context, error messages
+
+**Usage Pattern:**
+
+```typescript
+import { getLocale, getTranslations, getToolTranslations } from '../voltagent/locales';
+
+const supportedLocale = getLocale(locale); // 'en' | 'it'
+const t = getTranslations(supportedLocale);
+const tools = getToolTranslations(supportedLocale);
+```
+
+**MistralService vs VoltAgent Architecture:**
+
+| Component | Role | Depends On |
+|-----------|------|------------|
+| `MistralService` | Utility layer - embeddings, simple chat | Mistral API directly |
+| `VoltAgent` | Orchestration - routing, caching, HITL, multi-agent | `MistralService` internally |
+
+**No Duplication** - MistralService is a building block that VoltAgent uses for:
+
+- `generateEmbedding()` - RAG embeddings
+- `generateBulkEmbeddings()` - Batch operations
+- `completePrompt()` - Simple prompts (fallback)
+- `generateChatTitle()` - Chat session titles
+
+**Phase 3.4** (Dashboard AI Widgets): ✅ **COMPLETE** (2025-12-02)
+
+1. ~~Refactor ai.tsx page into reusable widgets~~ - Already done: PendingActionsPanel, LearningProgressCard, AgentActivityChart
+2. ~~Add widgets to main dashboard~~ - Dashboard.tsx has AI Hub section with stats, learning progress, quick actions
+3. ~~WebSocket real-time updates~~ - Added WebSocket subscription for AI action events
+
+**Dashboard AI Components:**
+
+| Component | Location | Features |
+|-----------|----------|----------|
+| AI Hub (inline) | `Dashboard.tsx` | Stats grid, learning progress, pending actions badge, quick actions |
+| `AiInsightsWidget` | `dashboard/ai/` | Collapsible widget with pending actions, writing style progress |
+| `PendingActionsPanel` | `dashboard/ai/` | HITL approval queue with approve/reject buttons |
+| `LearningProgressCard` | `dashboard/ai/` | Learning stats per agent with approval/success rates |
+| `AgentActivityChart` | `dashboard/ai/` | Bar chart showing agent usage and approval rates |
+| `AiStatsCard` | `dashboard/ai/` | Reusable stats card with trend indicator |
+
+**Real-time Updates:**
+
+- Dashboard.tsx subscribes to WebSocket AI action events
+- AI stats refresh automatically on action created/approved/rejected/executed
 
 #### AI API Refactoring Plan
 
@@ -768,11 +872,20 @@ Frontend:
 - [x] Create `voltAgentApi.streamChat()` with SSE support ✅ **DONE**
 - [x] Add backwards-compatible `multiAgentApi` alias ✅ **DONE**
 - [x] Update all imports from `multi-agent` to `ai` ✅ **DONE**
-- [ ] Create `useAiChat` hook wrapper for better DX
-- [ ] Create `useAiCompose` hook with streaming
-- [ ] Create `useEmailInsights` hook (summary, categorize, smart-reply)
-- [ ] Create `useAiActions` hook for HITL approvals
-- [ ] Add React Query integration for caching
+- [x] Create `useAiChat` hook wrapper for better DX ✅ **DONE** (2025-12-02)
+- [x] Create `useAiCompose` hook with React Query ✅ **DONE** (2025-12-02)
+- [x] Create `useEmailInsights` hook (summary, categorize, smart-reply, sentiment, priority) ✅ **DONE** (2025-12-02)
+- [x] Create `useAiActions` hook for HITL approvals with WebSocket ✅ **DONE** (2025-12-02)
+- [x] Add React Query integration for caching ✅ **DONE** (2025-12-02)
+
+**AI Hooks (2025-12-02):**
+
+| Hook | Location | Features | Tests |
+|------|----------|----------|-------|
+| `useAiChat` | `hooks/ai/` | SSE streaming, abort, retry, message history | Re-exports useAiStreamChat |
+| `useAiCompose` | `hooks/ai/` | Draft generation, tone, React Query caching | 10 tests |
+| `useEmailInsights` | `hooks/ai/` | Summary, smart-replies, categories, sentiment, priority, analysis | 17 tests |
+| `useAiActions` | `hooks/ai/` | Pending actions, approve/reject, WebSocket real-time, stats | 16 tests |
 
 **New API Client Structure**:
 
@@ -1524,6 +1637,6 @@ pnpm analyze                # Bundle analysis
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-12-01
+**Document Version:** 1.1
+**Last Updated:** 2025-12-02
 **Author:** Claude Code

@@ -5,32 +5,15 @@ import type { Messages as MistralChatMessage } from '@mistralai/mistralai/models
 import type { AssistantMessage } from '@mistralai/mistralai/models/components/assistantmessage.js';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmbeddingsService } from './embeddings.service';
+import {
+  getLocale,
+  getTranslations,
+  type SupportedLocale,
+} from '../voltagent/locales';
 
 type ConversationMessage = {
   role: 'assistant' | 'user';
   content: string;
-};
-
-type LocaleKey = 'en' | 'it';
-
-const TITLE_PROMPTS: Record<
-  LocaleKey,
-  { system: string; conversationLabel: string; titleLabel: string; defaultTitle: string }
-> = {
-  en: {
-    system:
-      'You summarise conversations. Craft a short, descriptive title (max 8 words) for the conversation provided. Reply with the title only, no quotes.',
-    conversationLabel: 'Conversation',
-    titleLabel: 'Title',
-    defaultTitle: 'New chat',
-  },
-  it: {
-    system:
-      'Sei un assistente che riassume le conversazioni. Crea un titolo breve e descrittivo (massimo 8 parole) per la conversazione indicata. Rispondi solo con il titolo, senza virgolette.',
-    conversationLabel: 'Conversazione',
-    titleLabel: 'Titolo',
-    defaultTitle: 'Nuova chat',
-  },
 };
 
 @Injectable()
@@ -168,22 +151,23 @@ export class MistralService {
     messages: Array<{ role: string; content: string }> = [],
     locale?: string,
   ): Promise<string> {
-    const localeKey = this.resolveLocale(locale);
+    const supportedLocale = getLocale(locale);
+    const t = getTranslations(supportedLocale);
 
     if (!messages || messages.length === 0) {
-      return TITLE_PROMPTS[localeKey].defaultTitle;
+      return t.mistral.title.defaultTitle;
     }
 
     const apiKey = this.getApiKey();
     if (!apiKey) {
-      return this.buildFallbackTitle(messages, localeKey);
+      return this.buildFallbackTitle(messages, supportedLocale);
     }
 
     try {
       const client = this.createClient(apiKey);
       const recentMessages = messages.slice(-6);
       const transcript = recentMessages
-        .map((message) => `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${message.content}`)
+        .map((message) => `${message.role === 'assistant' ? t.mistral.roles.assistant : t.mistral.roles.user}: ${message.content}`)
         .join('\n');
 
       const completion = await client.chat.complete({
@@ -193,36 +177,37 @@ export class MistralService {
         messages: [
           {
             role: 'system',
-            content: TITLE_PROMPTS[localeKey].system,
+            content: t.mistral.title.system,
           },
           {
             role: 'user',
-            content: `${TITLE_PROMPTS[localeKey].conversationLabel}:\n${transcript}\n\n${TITLE_PROMPTS[localeKey].titleLabel}:`,
+            content: `${t.mistral.title.conversationLabel}:\n${transcript}\n\n${t.mistral.title.titleLabel}:`,
           },
         ],
       });
 
       const rawTitle =
         this.extractAssistantContent(completion.choices?.[0]?.message) ||
-        this.buildFallbackTitle(messages, localeKey);
-      return this.sanitiseTitle(rawTitle, localeKey);
+        this.buildFallbackTitle(messages, supportedLocale);
+      return this.sanitiseTitle(rawTitle, supportedLocale);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Failed to generate chat title: ${errorMessage}`);
-      return this.buildFallbackTitle(messages, localeKey);
+      return this.buildFallbackTitle(messages, supportedLocale);
     }
   }
 
   private buildFallbackTitle(
     messages: Array<{ role: string; content: string }>,
-    localeKey: LocaleKey,
+    locale: SupportedLocale,
   ): string {
+    const t = getTranslations(locale);
     const firstUserMessage = messages.find(
       (message) => message.role === 'user' && typeof message.content === 'string' && message.content.trim().length > 0,
     );
 
     if (!firstUserMessage) {
-      return TITLE_PROMPTS[localeKey].defaultTitle;
+      return t.mistral.title.defaultTitle;
     }
 
     const trimmed = firstUserMessage.content.trim();
@@ -233,15 +218,12 @@ export class MistralService {
     return `${trimmed.slice(0, 57)}...`;
   }
 
-  private resolveLocale(locale?: string): LocaleKey {
-    return locale && locale.toLowerCase().startsWith('it') ? 'it' : 'en';
-  }
-
-  private sanitiseTitle(title: string, localeKey: LocaleKey): string {
+  private sanitiseTitle(title: string, locale: SupportedLocale): string {
+    const t = getTranslations(locale);
     const cleaned = title.replace(/^"+|"+$/g, '').replace(/[\r\n]+/g, ' ').trim();
 
     if (!cleaned) {
-      return TITLE_PROMPTS[localeKey].defaultTitle;
+      return t.mistral.title.defaultTitle;
     }
 
     if (cleaned.length <= 60) {
@@ -345,11 +327,13 @@ export class MistralService {
     userId: string,
     userPrompt: string,
     conversationHistory: any[] = [],
-    options?: { conversationId?: string },
+    options?: { conversationId?: string; locale?: string },
   ): Promise<string> {
     const apiKey = this.getApiKey();
     const model = this.getModel();
     const conversationId = options?.conversationId ?? null;
+    const supportedLocale = getLocale(options?.locale);
+    const t = getTranslations(supportedLocale);
 
     const userMessage = await this.prisma.message.create({
       data: {
@@ -362,8 +346,7 @@ export class MistralService {
     });
 
     if (!apiKey) {
-      const fallbackResponse =
-        'AI assistant is not configured for this environment yet. Please ask your administrator to set MISTRAL_API_KEY.';
+      const fallbackResponse = t.mistral.errors.notConfigured;
 
       await this.prisma.message.create({
         data: {
@@ -406,11 +389,11 @@ export class MistralService {
         if (similarContent.length > 0) {
           const contextBlocks = similarContent
             .map((contentItem: any, index: number) => {
-              const title = contentItem.documentName || `Fonte ${index + 1}`;
+              const title = contentItem.documentName || t.mistral.rag.sourceLabel(index + 1);
               return `### ${title}\n${contentItem.content}`;
             })
             .join('\n\n');
-          ragContext = `\n\n---\nUtilizza le seguenti informazioni se rilevanti:\n\n${contextBlocks}\n\n---\n`;
+          ragContext = `\n\n---\n${t.mistral.rag.contextIntro}\n\n${contextBlocks}\n\n---\n`;
         }
       } catch (ragError) {
         const ragMessage = ragError instanceof Error ? ragError.message : String(ragError);
@@ -437,8 +420,7 @@ export class MistralService {
 
       const assistantMessage = completion.choices?.[0]?.message;
       const assistantResponse =
-        this.extractAssistantContent(assistantMessage) ||
-        'I could not generate a response just now. Please try asking again.';
+        this.extractAssistantContent(assistantMessage) || t.mistral.errors.tryAgain;
 
       // Store assistant response in database
       await this.prisma.message.create({
@@ -458,19 +440,16 @@ export class MistralService {
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Failed to generate response: ${errorMessage}`, errorStack);
 
-      let fallbackResponse =
-        'The AI service is currently unavailable. Your message was saved; please try again in a moment.';
+      let fallbackResponse = t.mistral.errors.unavailable;
 
       if (error && typeof error === 'object' && 'statusCode' in error) {
         const statusCode = (error as { statusCode?: unknown }).statusCode;
         if (typeof statusCode === 'number') {
           this.logger.error(`Mistral API returned status ${statusCode}`);
           if (statusCode === 401 || statusCode === 403) {
-            fallbackResponse =
-              'AI request was rejected (unauthorized). Please verify that MISTRAL_API_KEY is valid and has the required permissions.';
+            fallbackResponse = t.mistral.errors.unauthorized;
           } else if (statusCode >= 500) {
-            fallbackResponse =
-              'Mistral API is experiencing issues right now. Your message was saved; please try again shortly.';
+            fallbackResponse = t.mistral.errors.serverError;
           }
         }
       }

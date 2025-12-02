@@ -91,11 +91,33 @@ export interface ToolTranslations {
       description: string;
       systemPrompt: string;
     };
+    // 2025 Best Practices - Aspect-Based Sentiment Analysis (ABSA)
+    sentimentDeep: {
+      description: string;
+      systemPrompt: string;
+    };
+    priority: {
+      description: string;
+      systemPrompt: string;
+    };
+    analyzeComprehensive: {
+      description: string;
+      systemPrompt: string;
+    };
     compose: {
       description: string;
       systemPrompt: (toneInstruction: string) => string;
       originalEmail: string;
       replyInstructions: string;
+      // Compose prompt strings
+      recipients: string;
+      subjectHint: string;
+      requestedTone: string;
+      threadContext: string;
+      message: string;
+      draftInstruction: string;
+      userPrompt: string;
+      jsonInstruction: string;
     };
     actionItems: {
       description: string;
@@ -127,6 +149,10 @@ export interface ToolTranslations {
     emailBody: string;
     noSubject: string;
     contentUnavailable: string;
+    // Email header labels
+    subject: string;
+    from: string;
+    to: string;
   };
 }
 
@@ -241,6 +267,34 @@ export interface ActionSummaryTranslations {
 }
 
 /**
+ * MistralService translations for AI responses
+ */
+export interface MistralTranslations {
+  title: {
+    system: string;
+    conversationLabel: string;
+    titleLabel: string;
+    defaultTitle: string;
+  };
+  roles: {
+    assistant: string;
+    user: string;
+  };
+  rag: {
+    sourceLabel: (index: number) => string;
+    contextIntro: string;
+  };
+  errors: {
+    emptyResponse: string;
+    notConfigured: string;
+    unavailable: string;
+    unauthorized: string;
+    serverError: string;
+    tryAgain: string;
+  };
+}
+
+/**
  * Complete translation structure for VoltAgent
  */
 export interface VoltAgentTranslations {
@@ -248,6 +302,7 @@ export interface VoltAgentTranslations {
   agents: AgentTranslations;
   actions: ActionSummaryTranslations;
   observability: ObservabilityTranslations;
+  mistral: MistralTranslations;
 }
 
 /**

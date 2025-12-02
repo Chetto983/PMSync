@@ -30,6 +30,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import type { PendingAction, AgentInfo } from '@/lib/api/ai';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 export interface PendingActionsPanelProps {
   /** Pending actions */
@@ -63,6 +64,7 @@ export function PendingActionsPanel({
   // Ensure actions is always an array (handles undefined, null, or invalid values)
   const actions = Array.isArray(actionsProp) ? actionsProp : [];
 
+  const t = useTranslations();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -180,15 +182,17 @@ export function PendingActionsPanel({
 
         <Box sx={{ flex: 1 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Pending Actions
+            {t.ai?.pendingActions ?? 'Pending Actions'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {actions.length === 0 ? 'All clear' : `${actions.length} awaiting approval`}
+            {actions.length === 0
+              ? (t.ai?.allClear ?? 'All clear')
+              : `${actions.length} ${t.ai?.awaitingApproval ?? 'awaiting approval'}`}
           </Typography>
         </Box>
 
         {onRefresh && (
-          <Tooltip title="Refresh">
+          <Tooltip title={t.common?.refresh ?? 'Refresh'}>
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); onRefresh(); }}>
               <RefreshCw size={16} />
             </IconButton>
@@ -306,7 +310,7 @@ export function PendingActionsPanel({
                         disabled={isProcessing}
                         sx={{ flex: 1, textTransform: 'none', fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
                       >
-                        {isMobile ? 'OK' : 'Approve'}
+                        {isMobile ? (t.common?.yes ?? 'OK') : (t.ai?.approve ?? 'Approve')}
                       </Button>
                       <Button
                         size="small"
@@ -317,7 +321,7 @@ export function PendingActionsPanel({
                         disabled={isProcessing}
                         sx={{ flex: 1, textTransform: 'none', fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
                       >
-                        {isMobile ? 'No' : 'Reject'}
+                        {isMobile ? (t.common?.no ?? 'No') : (t.ai?.reject ?? 'Reject')}
                       </Button>
                     </Stack>
                   </Box>

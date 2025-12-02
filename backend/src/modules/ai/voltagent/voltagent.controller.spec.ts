@@ -27,7 +27,10 @@ describe('VoltAgentController', () => {
     role: 'user',
   };
 
-  const mockRequest = { user: mockUser } as any;
+  const mockRequest = {
+    user: mockUser,
+    on: jest.fn(), // Mock for Express request event handling
+  } as any;
 
   beforeEach(async () => {
     const mockVoltAgentService = {
@@ -296,6 +299,7 @@ describe('VoltAgentController', () => {
         flushHeaders: jest.fn(),
         write: jest.fn(),
         end: jest.fn(),
+        writableEnded: false,
       };
 
       // Mock the async generator
@@ -334,6 +338,7 @@ describe('VoltAgentController', () => {
         flushHeaders: jest.fn(),
         write: jest.fn(),
         end: jest.fn(),
+        writableEnded: false,
       };
 
       // Mock generator that throws

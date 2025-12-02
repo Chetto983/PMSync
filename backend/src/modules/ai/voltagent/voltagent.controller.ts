@@ -16,8 +16,9 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiParam } from '@nestjs/swagger';
 import { IsString, IsOptional, IsBoolean, IsNumber, IsIn, IsObject } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -96,6 +97,8 @@ class SubmitActionDto {
 @UseGuards(JwtAuthGuard)
 @Controller('api/v1/voltagent')
 export class VoltAgentController {
+  private readonly logger = new Logger(VoltAgentController.name);
+
   constructor(
     private readonly voltAgentService: VoltAgentService,
     private readonly feedbackService: FeedbackService,
@@ -511,6 +514,7 @@ export class VoltAgentController {
   /**
    * Stream chat response using Server-Sent Events.
    * Uses POST to accept message body, returns SSE stream.
+   * Supports client abort via connection close.
    */
   @Post('chat/stream')
   @ApiOperation({ summary: 'Stream chat response via SSE' })
@@ -535,21 +539,43 @@ export class VoltAgentController {
       model: body.model,
     };
 
+    // Track connection state for abort handling
+    let isConnectionClosed = false;
+
+    // Handle client disconnect (AbortController on frontend)
+    // Cast to Express Request to access the 'on' event method
+    (req as unknown as Request).on('close', () => {
+      isConnectionClosed = true;
+      this.logger.debug(`Client disconnected from stream: ${options.userId}`);
+    });
+
     try {
       // Stream chunks from VoltAgent
       for await (const chunk of this.voltAgentService.streamChat(body.message, options)) {
+        // Check if client disconnected (abort)
+        if (isConnectionClosed) {
+          this.logger.debug(`Stopping stream - client disconnected`);
+          break;
+        }
+
         // Send SSE data event
         res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
       }
 
-      // Send completion event
-      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      // Send completion event only if still connected
+      if (!isConnectionClosed) {
+        res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      }
     } catch (error) {
-      // Send error event
-      const message = error instanceof Error ? error.message : 'Stream error';
-      res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
+      // Send error event only if still connected
+      if (!isConnectionClosed) {
+        const message = error instanceof Error ? error.message : 'Stream error';
+        res.write(`data: ${JSON.stringify({ type: 'error', message })}\n\n`);
+      }
     } finally {
-      res.end();
+      if (!res.writableEnded) {
+        res.end();
+      }
     }
   }
 }

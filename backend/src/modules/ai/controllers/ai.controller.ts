@@ -32,6 +32,10 @@ import {
   CategorizeResponseDto,
   ComposeEmailDto,
   ComposeEmailResponseDto,
+  SentimentResponseDto,
+  PriorityResponseDto,
+  PriorityRequestDto,
+  AnalyzeEmailResponseDto,
 } from '../dto/ai.dto';
 
 /**
@@ -217,6 +221,96 @@ export class AiController {
       query: dto.query,
       limit: dto.limit,
     });
+
+    return { success: true, ...result };
+  }
+
+  // ============ Email Intelligence Endpoints (2025 Best Practices) ============
+
+  /**
+   * Analyze email sentiment with aspect-based analysis
+   * Uses 2025 best practices: ABSA, emotion detection, churn risk
+   */
+  @Post('sentiment/:emailId')
+  @ApiOperation({
+    summary: 'Analyze email sentiment',
+    description: 'Deep sentiment analysis with emotion detection, aspect-based analysis, and churn risk prediction',
+  })
+  @ApiParam({ name: 'emailId', description: 'Email ID to analyze' })
+  @ApiResponse({ status: 200, description: 'Sentiment analysis complete', type: SentimentResponseDto })
+  @ApiResponse({ status: 404, description: 'Email not found' })
+  async analyzeSentiment(
+    @Request() req: AuthenticatedRequest,
+    @Param('emailId') emailId: string,
+    @Body() dto?: EmailAiDto,
+  ): Promise<SentimentResponseDto> {
+    const result = await this.emailInsightsService.analyzeSentiment(
+      req.user.tenantId,
+      emailId,
+      dto?.locale,
+    );
+
+    return {
+      success: true,
+      sentiment: result.sentiment as 'positive' | 'negative' | 'neutral' | 'mixed',
+      tone: result.tone,
+      emotion: result.emotion,
+      emotionalIntensity: result.emotionalIntensity,
+      churnRisk: result.churnRisk,
+      aspects: result.aspects,
+      confidence: result.confidence,
+      reasoning: result.reasoning,
+    };
+  }
+
+  /**
+   * Calculate email priority with multi-factor scoring
+   */
+  @Post('priority/:emailId')
+  @ApiOperation({
+    summary: 'Calculate email priority',
+    description: 'Multi-factor priority scoring based on urgency, importance, and sender context',
+  })
+  @ApiParam({ name: 'emailId', description: 'Email ID to analyze' })
+  @ApiResponse({ status: 200, description: 'Priority calculated', type: PriorityResponseDto })
+  @ApiResponse({ status: 404, description: 'Email not found' })
+  async calculatePriority(
+    @Request() req: AuthenticatedRequest,
+    @Param('emailId') emailId: string,
+    @Body() dto?: PriorityRequestDto,
+  ): Promise<PriorityResponseDto> {
+    const result = await this.emailInsightsService.calculatePriority(
+      req.user.tenantId,
+      emailId,
+      dto?.locale,
+      dto?.senderImportance,
+    );
+
+    return { success: true, ...result };
+  }
+
+  /**
+   * Comprehensive email analysis
+   * Combines sentiment, priority, intent, and urgency in one call
+   */
+  @Post('analyze/:emailId')
+  @ApiOperation({
+    summary: 'Comprehensive email analysis',
+    description: 'Full analysis including sentiment, tone, urgency, intent, priority, and escalation risk',
+  })
+  @ApiParam({ name: 'emailId', description: 'Email ID to analyze' })
+  @ApiResponse({ status: 200, description: 'Analysis complete', type: AnalyzeEmailResponseDto })
+  @ApiResponse({ status: 404, description: 'Email not found' })
+  async analyzeEmail(
+    @Request() req: AuthenticatedRequest,
+    @Param('emailId') emailId: string,
+    @Body() dto?: EmailAiDto,
+  ): Promise<AnalyzeEmailResponseDto> {
+    const result = await this.emailInsightsService.analyzeEmail(
+      req.user.tenantId,
+      emailId,
+      dto?.locale,
+    );
 
     return { success: true, ...result };
   }

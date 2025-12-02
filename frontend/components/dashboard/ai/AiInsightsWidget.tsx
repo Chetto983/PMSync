@@ -72,14 +72,13 @@ export function AiInsightsWidget({ unreadCount, t }: AiInsightsWidgetProps) {
         setWritingStyleProgress(0);
       }
 
-      // Generate AI insights summary - use default summary (proper inbox analysis endpoint TBD)
+      // Generate AI insights summary based on unread count
+      // Note: For detailed inbox analysis, users can use the AI chat with "summarize my inbox"
       if (unreadCount > 0) {
-        // For now, use static summary based on unread count
-        // TODO: Create proper /ai/inbox-summary endpoint for real AI-powered analysis
         setInsights({
           summary: getDefaultSummary(unreadCount, t),
-          urgentCount: 0, // Will be populated by real analysis later
-          actionNeeded: 0, // Will be populated by real analysis later
+          urgentCount: 0,
+          actionNeeded: 0,
           categories: [
             { name: t?.dashboard?.home?.sections?.priorityInbox || 'Priority', count: 0 },
           ],

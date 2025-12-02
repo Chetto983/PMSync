@@ -23,6 +23,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import type { LearningProfileStats } from '@/lib/api/ai';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 export interface LearningProgressCardProps {
   /** Learning profiles data - from backend /ai/multi-agent/stats/learning */
@@ -56,6 +57,7 @@ export function LearningProgressCard({
   onRefresh,
   defaultExpanded = true,
 }: LearningProgressCardProps) {
+  const t = useTranslations();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -175,17 +177,17 @@ export function LearningProgressCard({
 
         <Box sx={{ flex: 1 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-            AI Learning Progress
+            {t.ai?.learning?.title ?? 'AI Learning Progress'}
           </Typography>
           {summary && (
             <Typography variant="caption" color="text.secondary">
-              {summary.totalAttempts} actions processed
+              {summary.totalAttempts} {t.ai?.learning?.actionsProcessed ?? 'actions processed'}
             </Typography>
           )}
         </Box>
 
         {onRefresh && (
-          <Tooltip title="Refresh">
+          <Tooltip title={t.common?.refresh ?? 'Refresh'}>
             <IconButton
               size="small"
               onClick={(e) => {

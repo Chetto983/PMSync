@@ -594,11 +594,9 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       const providersRes = await providersApi.getProviders();
       setProviders(providersRes || []);
 
-      // Check if filtering by label
+      // Check if filtering by label - use backend labelIds filter
       if (currentActiveFolder.id.startsWith('label:')) {
         const labelId = currentActiveFolder.id.replace('label:', '');
-        // For now, just use regular email list with filter
-        // TODO: Backend should support filtering by label in listEmails endpoint
         const queryParams: EmailListParams = {
           limit: 50,
           page: 1,
@@ -606,7 +604,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
           from: advancedFilters.from || undefined,
           to: advancedFilters.to || undefined,
           subject: advancedFilters.subject || undefined,
-          labelIds: advancedFilters.labelIds || undefined,
+          labelIds: [labelId, ...(advancedFilters.labelIds || [])],
           startDate: advancedFilters.startDate || undefined,
           endDate: advancedFilters.endDate || undefined,
           hasAttachments: advancedFilters.hasAttachments || undefined,
@@ -615,18 +613,15 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         };
 
         const emailsRes = await emailApi.listEmails(queryParams);
-        // Filter emails by label client-side for now
-        const filteredEmails = (emailsRes.data.emails || [])
-          .filter((email: any) => email.emailLabels?.some((el: any) => el.label.id === labelId))
-          .map(mapApiEmailToStore);
+        const filteredEmails = (emailsRes.data.emails || []).map(mapApiEmailToStore);
         setEmails(filteredEmails as any);
         setSelectedEmail(null);
 
-        // Update pagination (approximate since we're filtering client-side)
+        // Update pagination for label-filtered results
         setPagination({
           page: 1,
-          hasMore: false, // Disable pagination for label filtering for now
-          total: filteredEmails.length,
+          hasMore: emailsRes.data.emails?.length === 50,
+          total: emailsRes.data.pagination?.total || filteredEmails.length,
         });
       } else {
         // Build query params with proper priority: advanced filters override quick filters

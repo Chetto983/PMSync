@@ -24,6 +24,7 @@ import {
   BookOpen,
   MessageSquare,
 } from 'lucide-react';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 export interface AgentActivityData {
   agentName: string;
@@ -52,6 +53,7 @@ export function AgentActivityChart({
   // Ensure data is always an array
   const data = Array.isArray(dataProp) ? dataProp : [];
 
+  const t = useTranslations();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -133,15 +135,15 @@ export function AgentActivityChart({
 
         <Box sx={{ flex: 1 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Agent Activity
+            {t.ai?.activity?.title ?? 'Agent Activity'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {data.reduce((sum, d) => sum + d.totalAttempts, 0)} total actions
+            {data.reduce((sum, d) => sum + d.totalAttempts, 0)} {t.ai?.activity?.totalActions ?? 'total actions'}
           </Typography>
         </Box>
 
         {onRefresh && (
-          <Tooltip title="Refresh">
+          <Tooltip title={t.common?.refresh ?? 'Refresh'}>
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); onRefresh(); }}>
               <RefreshCw size={16} />
             </IconButton>
@@ -158,7 +160,7 @@ export function AgentActivityChart({
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <BarChart3 size={40} style={{ opacity: 0.3, marginBottom: 12 }} />
               <Typography variant="body2" color="text.secondary">
-                No activity data yet
+                {t.ai?.activity?.noData ?? 'No activity data yet'}
               </Typography>
             </Box>
           ) : (

@@ -212,7 +212,7 @@ describe('EmailInsightsService', () => {
       expect(result).toHaveLength(2);
       expect(result[0]).toContain('calendario');
       expect(mistralService.completePrompt).toHaveBeenCalledWith({
-        systemPrompt: expect.stringContaining('possibili risposte'),
+        systemPrompt: expect.stringContaining('risposte brevi'),
         userPrompt: expect.any(String),
         temperature: 0.4,
         maxTokens: 500,

@@ -170,6 +170,38 @@ export type StreamEvent =
 
 // ============ Email Insights API ============
 
+// ============ Email Intelligence Types (2025 Best Practices) ============
+
+export type SentimentResult = {
+  sentiment: 'positive' | 'negative' | 'neutral' | 'mixed';
+  tone: string;
+  emotion: string;
+  emotionalIntensity: number;
+  churnRisk: boolean;
+  aspects?: Record<string, string>;
+  confidence: number;
+  reasoning?: string;
+};
+
+export type PriorityResult = {
+  score: number;
+  urgency: 'high' | 'medium' | 'low';
+  recommendation: 'handle_now' | 'handle_today' | 'handle_this_week' | 'can_wait' | 'archive';
+  factors: string[];
+};
+
+export type EmailAnalysisResult = {
+  sentiment: string;
+  tone: string;
+  urgency: string;
+  intent: string;
+  priority: number;
+  escalationRisk: boolean;
+  keyTopics: string[];
+  suggestedResponse: string;
+  confidence: number;
+};
+
 export const aiApi = {
   // Email insights (backed by AiController)
   summarizeEmail(emailId: string, locale?: string) {
@@ -214,6 +246,42 @@ export const aiApi = {
     return apiClient.post<{ success: boolean; body: string; subject?: string; variantUsed?: string }>(
       '/ai/compose',
       payload,
+    );
+  },
+
+  // ============ Email Intelligence (2025 Best Practices) ============
+
+  /**
+   * Analyze email sentiment with aspect-based analysis
+   * Returns emotion detection, churn risk, and aspect-based sentiments
+   */
+  analyzeSentiment(emailId: string, locale?: string) {
+    return apiClient.post<{ success: boolean } & SentimentResult>(
+      `/ai/sentiment/${emailId}`,
+      locale ? { locale } : undefined,
+    );
+  },
+
+  /**
+   * Calculate email priority with multi-factor scoring
+   */
+  calculatePriority(emailId: string, locale?: string, senderImportance?: 'vip' | 'important' | 'normal' | 'low') {
+    const body: { locale?: string; senderImportance?: string } = {};
+    if (locale) body.locale = locale;
+    if (senderImportance) body.senderImportance = senderImportance;
+    return apiClient.post<{ success: boolean } & PriorityResult>(
+      `/ai/priority/${emailId}`,
+      Object.keys(body).length > 0 ? body : undefined,
+    );
+  },
+
+  /**
+   * Comprehensive email analysis (sentiment + priority + intent)
+   */
+  analyzeEmail(emailId: string, locale?: string) {
+    return apiClient.post<{ success: boolean } & EmailAnalysisResult>(
+      `/ai/analyze/${emailId}`,
+      locale ? { locale } : undefined,
     );
   },
 };

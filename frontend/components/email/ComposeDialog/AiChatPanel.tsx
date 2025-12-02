@@ -1,3 +1,15 @@
+/**
+ * AiChatPanel - Enhanced with Streaming Support
+ *
+ * AI assistant panel for ComposeDialog with:
+ * - Token-by-token streaming (2025 best practices)
+ * - Tone adjustment slider (formal/casual/technical)
+ * - Smart subject generation
+ * - Stop button during generation
+ * - Quick action suggestions
+ *
+ * Based on Superhuman's integrated AI approach.
+ */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Box,
@@ -5,10 +17,12 @@ import {
   IconButton,
   Typography,
   Paper,
-  CircularProgress,
   Chip,
   Collapse,
   Tooltip,
+  Button,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import {
   Send,
@@ -20,16 +34,22 @@ import {
   RefreshCw,
   Copy,
   Check,
+  Square,
+  Wand2,
 } from 'lucide-react';
-import { aiApi } from '@/lib/api/ai';
+import { voltAgentApi, aiApi } from '@/lib/api/ai';
+import { TypingIndicator } from '@/components/ai/TypingIndicator';
 
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  suggestion?: string; // Suggested text to insert
+  suggestion?: string;
+  isStreaming?: boolean;
 }
+
+type ToneType = 'formal' | 'casual' | 'technical';
 
 interface AiChatPanelProps {
   /** Current email body for context */
@@ -59,7 +79,7 @@ const SUGGESTION_PROMPTS = {
     { label: 'More friendly', prompt: 'Make this more friendly and warm' },
     { label: 'Fix grammar', prompt: 'Check and fix any grammar issues' },
     { label: 'Shorten', prompt: 'Make this email shorter while keeping the key points' },
-    { label: 'Add call to action', prompt: 'Add a clear call to action at the end' },
+    { label: 'Add CTA', prompt: 'Add a clear call to action at the end' },
   ],
   it: [
     { label: 'Migliora chiarezza', prompt: 'Rendi questa email piu chiara e concisa' },
@@ -71,6 +91,15 @@ const SUGGESTION_PROMPTS = {
   ],
 };
 
+const TONE_LABELS = {
+  en: { formal: 'Formal', casual: 'Casual', technical: 'Technical' },
+  it: { formal: 'Formale', casual: 'Informale', technical: 'Tecnico' },
+};
+
+function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
 export function AiChatPanel({
   emailBody,
   emailSubject,
@@ -78,20 +107,33 @@ export function AiChatPanel({
   mode,
   onInsertSuggestion: _onInsertSuggestion, // Reserved for cursor-position insert
   onReplaceBody,
-  onUpdateSubject: _onUpdateSubject, // Reserved for subject suggestions
+  onUpdateSubject,
   t,
   locale = 'en',
 }: AiChatPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [tone, setTone] = useState<ToneType>('casual');
+  const [generatingSubject, setGeneratingSubject] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const streamingContentRef = useRef('');
 
   const localeKey = locale.startsWith('it') ? 'it' : 'en';
   const suggestions = SUGGESTION_PROMPTS[localeKey];
+  const toneLabels = TONE_LABELS[localeKey];
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -107,65 +149,202 @@ export function AiChatPanel({
     }
   }, [expanded]);
 
-  const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  // Stop streaming
+  const handleStop = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
 
-  const handleSendMessage = useCallback(async (messageText?: string) => {
-    const text = messageText || inputValue.trim();
-    if (!text || loading) return;
+      // Finalize the streaming message
+      if (streamingContentRef.current) {
+        setMessages((prev) => {
+          const lastMessage = prev[prev.length - 1];
+          if (lastMessage?.isStreaming) {
+            return [
+              ...prev.slice(0, -1),
+              {
+                ...lastMessage,
+                content: streamingContentRef.current,
+                suggestion: streamingContentRef.current,
+                isStreaming: false,
+              },
+            ];
+          }
+          return prev;
+        });
+      }
 
-    const userMessage: ChatMessage = {
-      id: generateId(),
-      role: 'user',
-      content: text,
-      timestamp: new Date(),
-    };
+      streamingContentRef.current = '';
+      setIsStreaming(false);
+    }
+  }, []);
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInputValue('');
-    setLoading(true);
+  // Build context prompt for the AI
+  const buildContextPrompt = useCallback(
+    (userRequest: string): string => {
+      const isIt = localeKey === 'it';
+      const parts: string[] = [];
 
-    try {
-      // Build context for the AI
-      const contextPrompt = buildContextPrompt(text, emailBody, emailSubject, recipients, mode, localeKey);
+      // Add tone instruction
+      const toneInstruction = {
+        formal: isIt ? 'Usa un tono formale e professionale.' : 'Use a formal, professional tone.',
+        casual: isIt ? 'Usa un tono amichevole e informale.' : 'Use a friendly, casual tone.',
+        technical: isIt ? 'Usa un tono tecnico e preciso.' : 'Use a technical, precise tone.',
+      };
+      parts.push(toneInstruction[tone]);
 
-      const { data } = await aiApi.composeEmail({
-        prompt: contextPrompt,
-        to: recipients,
-        subject: emailSubject || undefined,
-        locale: localeKey,
-      });
+      if (isIt) {
+        parts.push(`L'utente sta ${mode === 'reply' ? 'rispondendo a' : mode === 'forward' ? 'inoltrando' : 'scrivendo'} un'email.`);
+        if (emailSubject) parts.push(`Oggetto: ${emailSubject}`);
+        if (recipients.length > 0) parts.push(`Destinatari: ${recipients.join(', ')}`);
+        if (emailBody.trim()) parts.push(`\nBozza attuale:\n---\n${emailBody}\n---`);
+        parts.push(`\nRichiesta: ${userRequest}`);
+        parts.push('\nRispondi con il testo dell\'email. Non includere spiegazioni.');
+      } else {
+        parts.push(`The user is ${mode === 'reply' ? 'replying to' : mode === 'forward' ? 'forwarding' : 'composing'} an email.`);
+        if (emailSubject) parts.push(`Subject: ${emailSubject}`);
+        if (recipients.length > 0) parts.push(`Recipients: ${recipients.join(', ')}`);
+        if (emailBody.trim()) parts.push(`\nCurrent draft:\n---\n${emailBody}\n---`);
+        parts.push(`\nRequest: ${userRequest}`);
+        parts.push('\nRespond with the email text only. No explanations.');
+      }
+
+      return parts.join('\n');
+    },
+    [emailBody, emailSubject, recipients, mode, localeKey, tone],
+  );
+
+  // Send message with streaming
+  const handleSendMessage = useCallback(
+    async (messageText?: string) => {
+      const text = messageText || inputValue.trim();
+      if (!text || isStreaming) return;
+
+      // Stop any existing stream
+      handleStop();
+
+      const userMessage: ChatMessage = {
+        id: generateId(),
+        role: 'user',
+        content: text,
+        timestamp: new Date(),
+      };
 
       const assistantMessage: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: data?.body || (localeKey === 'it' ? 'Mi dispiace, non sono riuscito a generare una risposta.' : 'Sorry, I could not generate a response.'),
+        content: '',
         timestamp: new Date(),
-        suggestion: data?.body,
+        isStreaming: true,
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      setInputValue('');
+      setIsStreaming(true);
+      streamingContentRef.current = '';
+
+      const contextPrompt = buildContextPrompt(text);
+
+      abortControllerRef.current = voltAgentApi.streamChat(
+        {
+          message: contextPrompt,
+          locale: localeKey,
+          model: 'medium', // Use medium model for compose tasks
+        },
+        // onChunk
+        (chunk) => {
+          streamingContentRef.current += chunk;
+          setMessages((prev) => {
+            const lastMessage = prev[prev.length - 1];
+            if (lastMessage?.isStreaming) {
+              return [
+                ...prev.slice(0, -1),
+                { ...lastMessage, content: streamingContentRef.current },
+              ];
+            }
+            return prev;
+          });
+        },
+        // onDone
+        () => {
+          const finalContent = streamingContentRef.current;
+          setMessages((prev) => {
+            const lastMessage = prev[prev.length - 1];
+            if (lastMessage?.isStreaming) {
+              return [
+                ...prev.slice(0, -1),
+                {
+                  ...lastMessage,
+                  content: finalContent,
+                  suggestion: finalContent,
+                  isStreaming: false,
+                },
+              ];
+            }
+            return prev;
+          });
+          streamingContentRef.current = '';
+          setIsStreaming(false);
+          abortControllerRef.current = null;
+        },
+        // onError
+        (errorMessage) => {
+          console.error('AI stream error:', errorMessage);
+          const errorContent = localeKey === 'it'
+            ? 'Si è verificato un errore. Riprova.'
+            : 'An error occurred. Please try again.';
+
+          setMessages((prev) => {
+            const lastMessage = prev[prev.length - 1];
+            if (lastMessage?.isStreaming) {
+              return [
+                ...prev.slice(0, -1),
+                { ...lastMessage, content: errorContent, isStreaming: false },
+              ];
+            }
+            return prev;
+          });
+          streamingContentRef.current = '';
+          setIsStreaming(false);
+          abortControllerRef.current = null;
+        },
+      );
+    },
+    [inputValue, isStreaming, handleStop, buildContextPrompt, localeKey],
+  );
+
+  // Generate smart subject
+  const handleGenerateSubject = useCallback(async () => {
+    if (!emailBody.trim() || generatingSubject) return;
+
+    setGeneratingSubject(true);
+    try {
+      const { data } = await aiApi.composeEmail({
+        prompt: localeKey === 'it'
+          ? `Genera un oggetto email breve e efficace per questa email:\n${emailBody}`
+          : `Generate a short, effective email subject line for this email:\n${emailBody}`,
+        locale: localeKey,
+      });
+
+      if (data?.subject) {
+        onUpdateSubject(data.subject);
+      }
     } catch (error) {
-      console.error('AI chat error:', error);
-      const errorMessage: ChatMessage = {
-        id: generateId(),
-        role: 'assistant',
-        content: localeKey === 'it'
-          ? 'Si e verificato un errore. Per favore riprova.'
-          : 'An error occurred. Please try again.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      console.error('Subject generation error:', error);
     } finally {
-      setLoading(false);
+      setGeneratingSubject(false);
     }
-  }, [inputValue, loading, emailBody, emailSubject, recipients, mode, localeKey]);
+  }, [emailBody, localeKey, onUpdateSubject, generatingSubject]);
 
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  }, [handleSendMessage]);
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage();
+      }
+    },
+    [handleSendMessage],
+  );
 
   const handleCopySuggestion = useCallback((message: ChatMessage) => {
     if (message.suggestion) {
@@ -175,22 +354,29 @@ export function AiChatPanel({
     }
   }, []);
 
-  const handleInsert = useCallback((message: ChatMessage) => {
-    if (message.suggestion) {
-      onReplaceBody(message.suggestion);
-    }
-  }, [onReplaceBody]);
+  const handleInsert = useCallback(
+    (message: ChatMessage) => {
+      if (message.suggestion) {
+        onReplaceBody(message.suggestion);
+      }
+    },
+    [onReplaceBody],
+  );
 
-  const handleQuickSuggestion = useCallback((prompt: string) => {
-    handleSendMessage(prompt);
-  }, [handleSendMessage]);
+  const handleQuickSuggestion = useCallback(
+    (prompt: string) => {
+      handleSendMessage(prompt);
+    },
+    [handleSendMessage],
+  );
 
   const clearChat = useCallback(() => {
+    handleStop();
     setMessages([]);
-  }, []);
+  }, [handleStop]);
 
   const panelTitle = t.dashboard?.email?.composer?.aiChatTitle ?? 'AI Assistant';
-  const inputPlaceholder = t.dashboard?.email?.composer?.aiChatPlaceholder ?? 'Ask AI to help with your email...';
+  const inputPlaceholder = t.dashboard?.email?.composer?.aiChatPlaceholder ?? 'Ask AI to help...';
 
   return (
     <Box
@@ -217,14 +403,24 @@ export function AiChatPanel({
           <Sparkles size={18} />
           <Typography variant="subtitle2">{panelTitle}</Typography>
           {messages.length > 0 && (
+            <Chip size="small" label={messages.length} sx={{ height: 18, fontSize: '0.7rem' }} />
+          )}
+          {isStreaming && (
             <Chip
               size="small"
-              label={messages.length}
+              label={localeKey === 'it' ? 'Generando...' : 'Generating...'}
+              color="primary"
               sx={{ height: 18, fontSize: '0.7rem' }}
             />
           )}
         </Box>
-        <IconButton size="small" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}>
+        <IconButton
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(!expanded);
+          }}
+        >
           {expanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
         </IconButton>
       </Box>
@@ -232,6 +428,42 @@ export function AiChatPanel({
       {/* Collapsible content */}
       <Collapse in={expanded}>
         <Box sx={{ px: 2, pb: 2 }}>
+          {/* Tone selector */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+              {localeKey === 'it' ? 'Tono:' : 'Tone:'}
+            </Typography>
+            <ToggleButtonGroup
+              value={tone}
+              exclusive
+              onChange={(_, newTone) => newTone && setTone(newTone)}
+              size="small"
+              sx={{ '& .MuiToggleButton-root': { px: 1.5, py: 0.5, fontSize: '0.75rem' } }}
+            >
+              <ToggleButton value="formal">{toneLabels.formal}</ToggleButton>
+              <ToggleButton value="casual">{toneLabels.casual}</ToggleButton>
+              <ToggleButton value="technical">{toneLabels.technical}</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+
+          {/* Subject generation button */}
+          {emailBody.trim() && !emailSubject && (
+            <Box sx={{ mb: 2 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={generatingSubject ? null : <Wand2 size={14} />}
+                onClick={handleGenerateSubject}
+                disabled={generatingSubject}
+                sx={{ fontSize: '0.75rem' }}
+              >
+                {generatingSubject
+                  ? (localeKey === 'it' ? 'Generando oggetto...' : 'Generating subject...')
+                  : (localeKey === 'it' ? 'Genera oggetto' : 'Generate subject')}
+              </Button>
+            </Box>
+          )}
+
           {/* Quick suggestion chips */}
           {messages.length === 0 && (
             <Box sx={{ mb: 2 }}>
@@ -246,11 +478,8 @@ export function AiChatPanel({
                     size="small"
                     variant="outlined"
                     onClick={() => handleQuickSuggestion(item.prompt)}
-                    disabled={loading || !emailBody.trim()}
-                    sx={{
-                      cursor: 'pointer',
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
+                    disabled={isStreaming || !emailBody.trim()}
+                    sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
                   />
                 ))}
               </Box>
@@ -315,30 +544,38 @@ export function AiChatPanel({
                     >
                       <Typography
                         variant="body2"
-                        sx={{
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                        }}
+                        sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                       >
-                        {message.content}
+                        {message.content || '\u00A0'}
+                        {message.isStreaming && (
+                          <Box
+                            component="span"
+                            sx={{
+                              display: 'inline-block',
+                              width: '2px',
+                              height: '1em',
+                              bgcolor: 'primary.main',
+                              ml: 0.5,
+                              animation: 'blink 1s step-end infinite',
+                              verticalAlign: 'text-bottom',
+                              '@keyframes blink': {
+                                '0%, 100%': { opacity: 1 },
+                                '50%': { opacity: 0 },
+                              },
+                            }}
+                          />
+                        )}
                       </Typography>
 
-                      {/* Action buttons for assistant messages with suggestions */}
-                      {message.role === 'assistant' && message.suggestion && (
+                      {/* Actions for completed assistant messages */}
+                      {message.role === 'assistant' && !message.isStreaming && message.suggestion && (
                         <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
                           <Tooltip title={t.dashboard?.email?.composer?.aiChatCopy ?? 'Copy'}>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleCopySuggestion(message)}
-                            >
-                              {copiedId === message.id ? (
-                                <Check size={14} />
-                              ) : (
-                                <Copy size={14} />
-                              )}
+                            <IconButton size="small" onClick={() => handleCopySuggestion(message)}>
+                              {copiedId === message.id ? <Check size={14} /> : <Copy size={14} />}
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title={t.dashboard?.email?.composer?.aiChatInsert ?? 'Insert into email'}>
+                          <Tooltip title={t.dashboard?.email?.composer?.aiChatInsert ?? 'Insert'}>
                             <IconButton
                               size="small"
                               onClick={() => handleInsert(message)}
@@ -353,17 +590,13 @@ export function AiChatPanel({
                   </Box>
                 </Box>
               ))}
-              <div ref={messagesEndRef} />
-            </Box>
-          )}
 
-          {/* Loading indicator */}
-          {loading && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <CircularProgress size={16} />
-              <Typography variant="body2" color="text.secondary">
-                {t.dashboard?.email?.composer?.aiChatThinking ?? 'Thinking...'}
-              </Typography>
+              {/* Typing indicator when streaming but no content yet */}
+              {isStreaming && messages[messages.length - 1]?.content === '' && (
+                <TypingIndicator compact />
+              )}
+
+              <div ref={messagesEndRef} />
             </Box>
           )}
 
@@ -377,31 +610,44 @@ export function AiChatPanel({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              disabled={loading}
+              disabled={isStreaming}
               multiline
               maxRows={3}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                },
-              }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
-            <IconButton
-              color="primary"
-              onClick={() => handleSendMessage()}
-              disabled={loading || !inputValue.trim()}
-              sx={{
-                bgcolor: 'primary.main',
-                color: 'white',
-                '&:hover': { bgcolor: 'primary.dark' },
-                '&.Mui-disabled': { bgcolor: 'action.disabledBackground' },
-              }}
-            >
-              <Send size={18} />
-            </IconButton>
+
+            {isStreaming ? (
+              <Tooltip title={t.ai?.chat?.stop ?? 'Stop'}>
+                <IconButton
+                  onClick={handleStop}
+                  sx={{
+                    bgcolor: 'error.main',
+                    color: 'white',
+                    '&:hover': { bgcolor: 'error.dark' },
+                  }}
+                >
+                  <Square size={18} />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <IconButton
+                color="primary"
+                onClick={() => handleSendMessage()}
+                disabled={!inputValue.trim()}
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground' },
+                }}
+              >
+                <Send size={18} />
+              </IconButton>
+            )}
+
             {messages.length > 0 && (
-              <Tooltip title={t.dashboard?.email?.composer?.aiChatClear ?? 'Clear chat'}>
-                <IconButton size="small" onClick={clearChat} disabled={loading}>
+              <Tooltip title={t.dashboard?.email?.composer?.aiChatClear ?? 'Clear'}>
+                <IconButton size="small" onClick={clearChat} disabled={isStreaming}>
                   <RefreshCw size={16} />
                 </IconButton>
               </Tooltip>
@@ -413,47 +659,4 @@ export function AiChatPanel({
   );
 }
 
-/**
- * Build a context-aware prompt for the AI
- */
-function buildContextPrompt(
-  userRequest: string,
-  emailBody: string,
-  emailSubject: string,
-  recipients: string[],
-  mode: string,
-  locale: string,
-): string {
-  const isIt = locale === 'it';
-  const parts: string[] = [];
-
-  if (isIt) {
-    parts.push(`L'utente sta ${mode === 'reply' ? 'rispondendo a' : mode === 'forward' ? 'inoltrando' : 'scrivendo'} un'email.`);
-    if (emailSubject) {
-      parts.push(`Oggetto: ${emailSubject}`);
-    }
-    if (recipients.length > 0) {
-      parts.push(`Destinatari: ${recipients.join(', ')}`);
-    }
-    if (emailBody.trim()) {
-      parts.push(`\nBozza attuale dell'email:\n---\n${emailBody}\n---`);
-    }
-    parts.push(`\nRichiesta dell'utente: ${userRequest}`);
-    parts.push('\nRispondi con il testo dell\'email migliorato/modificato. Non includere spiegazioni, solo il testo dell\'email.');
-  } else {
-    parts.push(`The user is ${mode === 'reply' ? 'replying to' : mode === 'forward' ? 'forwarding' : 'composing'} an email.`);
-    if (emailSubject) {
-      parts.push(`Subject: ${emailSubject}`);
-    }
-    if (recipients.length > 0) {
-      parts.push(`Recipients: ${recipients.join(', ')}`);
-    }
-    if (emailBody.trim()) {
-      parts.push(`\nCurrent email draft:\n---\n${emailBody}\n---`);
-    }
-    parts.push(`\nUser request: ${userRequest}`);
-    parts.push('\nRespond with the improved/modified email text. Do not include explanations, just the email text.');
-  }
-
-  return parts.join('\n');
-}
+export default AiChatPanel;

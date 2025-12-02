@@ -36,6 +36,8 @@ import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { multiAgentApi } from '@/lib/api/ai';
+import { websocketClient } from '@/lib/websocket-client';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface Email {
   id: string;
@@ -84,6 +86,7 @@ export function Dashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const t = useTranslations();
+  const token = useAuthStore((state) => state.token);
   const [_loading, setLoading] = useState(true);
   const [emails, setEmails] = useState<Email[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -142,6 +145,35 @@ export function Dashboard() {
     loadAiStats();
   }, [loadAiStats]);
 
+  // WebSocket subscription for real-time AI action updates
+  useEffect(() => {
+    if (!token || !websocketClient.isConnected()) return;
+
+    // Refresh AI stats when any AI action event occurs
+    const unsubCreated = websocketClient.onAiActionCreated(() => {
+      loadAiStats();
+    });
+
+    const unsubApproved = websocketClient.onAiActionApproved(() => {
+      loadAiStats();
+    });
+
+    const unsubRejected = websocketClient.onAiActionRejected(() => {
+      loadAiStats();
+    });
+
+    const unsubExecuted = websocketClient.onAiActionExecuted(() => {
+      loadAiStats();
+    });
+
+    return () => {
+      unsubCreated();
+      unsubApproved();
+      unsubRejected();
+      unsubExecuted();
+    };
+  }, [token, loadAiStats]);
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
@@ -185,7 +217,7 @@ export function Dashboard() {
       setStats({
         unreadEmails: statsResponse.data.unread || 0,
         todayEvents: todayEventsCount,
-        pendingTasks: 0, // TODO: Implement tasks API
+        pendingTasks: 0, // Phase 5: Tasks module (not yet implemented)
         totalContacts: contactsResponse.data.total || contactsResponse.data.contacts?.length || 0,
       });
     } catch (error) {

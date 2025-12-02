@@ -8,6 +8,11 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { WritingStyleService } from '../voltagent/services/writing-style.service';
 import { parseArrayFromAiPayload } from '../utils/ai-output.utils';
+import {
+  getLocale,
+  getToolTranslations,
+  type SupportedLocale,
+} from '../voltagent/locales';
 
 type LocaleKey = 'en' | 'it';
 type ToneKey = 'formal' | 'casual' | 'technical';
@@ -46,10 +51,9 @@ export class EmailInsightsService {
   async summarizeEmail(tenantId: string, emailId: string, locale?: string) {
     const email = await this.getEmailOrThrow(tenantId, emailId);
     const lang = this.resolveLocale(locale);
-    const systemPrompt =
-      lang === 'it'
-        ? 'Sei un assistente che riassume email di lavoro. Rispondi con un breve riassunto in TESTO SEMPLICE (massimo 5 frasi). Evidenzia intento, richieste e prossimi passi. NON usare markdown, asterischi, grassetto o formattazione speciale. Scrivi frasi complete e leggibili.'
-        : 'You are an assistant who summarizes business emails. Reply with a short summary in PLAIN TEXT (max 5 sentences). Highlight intent, requests, and next steps. DO NOT use markdown, asterisks, bold, or special formatting. Write complete, readable sentences.';
+    const supportedLocale = getLocale(locale);
+    const t = getToolTranslations(supportedLocale);
+    const systemPrompt = t.insights.summarize.systemPrompt;
 
     const userPrompt = this.buildEmailPrompt(email, lang);
 
@@ -76,12 +80,11 @@ export class EmailInsightsService {
     const email = await this.getEmailOrThrow(tenantId, emailId);
     const lang = this.resolveLocale(locale);
     const replyTone = this.resolveTone(tone);
+    const supportedLocale = getLocale(locale);
+    const t = getToolTranslations(supportedLocale);
 
-    const toneInstructions = this.getToneInstructions(replyTone, lang);
-    const systemPrompt =
-      lang === 'it'
-        ? `Genera da 2 a 3 possibili risposte brevi all'email. ${toneInstructions} Rispondi in JSON nel formato {"replies":["..."]}.`
-        : `Generate 2-3 concise replies to the email. ${toneInstructions} Respond in JSON format {"replies":["..."]}.`;
+    const toneInstructions = t.insights.tones[replyTone];
+    const systemPrompt = t.insights.smartReplies.systemPrompt(toneInstructions);
 
     const userPrompt = this.buildEmailPrompt(email, lang);
 
@@ -130,6 +133,8 @@ export class EmailInsightsService {
     const lang = this.resolveLocale(payload.locale);
     const toneKey = this.resolveTone(payload.tone);
     const variant = payload.variant?.toUpperCase() === 'B' ? 'B' : 'A';
+    const supportedLocale = getLocale(payload.locale);
+    const t = getToolTranslations(supportedLocale);
 
     // Fetch user's writing style if available
     let styleSection = '';
@@ -142,12 +147,10 @@ export class EmailInsightsService {
       }
     }
 
-    const systemPrompt =
-      lang === 'it'
-        ? 'Sei un assistente che redige email chiare e professionali. Rispondi solo in JSON: {"body":"...", "subject":"...?"}. Evita markdown e ritorni strani. Mantieni il contesto fornito. Se manca il soggetto, proponine uno breve.'
-        : 'You are an assistant that drafts clear, professional emails. Reply ONLY in JSON: {"body":"...", "subject":"...?"}. Avoid markdown and odd characters. Keep provided context. If subject is missing, propose a short one.';
+    const toneInstruction = t.insights.tones[toneKey];
+    const systemPrompt = t.insights.compose.systemPrompt(toneInstruction);
 
-    const userPrompt = this.buildComposePrompt(payload, lang, toneKey, styleSection);
+    const userPrompt = this.buildComposePrompt(payload, lang, toneKey, styleSection, supportedLocale);
 
     try {
       const raw = await this.mistral.completePrompt({
@@ -175,12 +178,11 @@ export class EmailInsightsService {
   async categorizeEmail(tenantId: string, emailId: string, locale?: string) {
     const email = await this.getEmailOrThrow(tenantId, emailId);
     const lang = this.resolveLocale(locale);
+    const supportedLocale = getLocale(locale);
+    const t = getToolTranslations(supportedLocale);
 
     const labelsList = this.allowedLabels.join(', ');
-    const systemPrompt =
-      lang === 'it'
-        ? `Suggerisci fino a 3 etichette dall'elenco [${labelsList}]. Rispondi in JSON: {"labels":["..."]}.`
-        : `Suggest up to 3 labels from [${labelsList}]. Respond in JSON: {"labels":["..."]}.`;
+    const systemPrompt = t.insights.categorize.systemPrompt(labelsList);
 
     const userPrompt = this.buildEmailPrompt(email, lang);
 
@@ -216,6 +218,164 @@ export class EmailInsightsService {
     }
   }
 
+  /**
+   * Analyze email sentiment using 2025 best practices:
+   * - Aspect-Based Sentiment Analysis (ABSA)
+   * - Emotion detection beyond polarity
+   * - Churn/escalation risk prediction
+   */
+  async analyzeSentiment(tenantId: string, emailId: string, locale?: string) {
+    const email = await this.getEmailOrThrow(tenantId, emailId);
+    const lang = this.resolveLocale(locale);
+    const supportedLocale = getLocale(locale);
+    const t = getToolTranslations(supportedLocale);
+
+    const systemPrompt = t.insights.sentimentDeep.systemPrompt;
+
+    const userPrompt = this.buildEmailPrompt(email, lang);
+
+    try {
+      const raw = await this.mistral.completePrompt({
+        systemPrompt,
+        userPrompt,
+        temperature: 0.1,
+        maxTokens: 500,
+      });
+
+      const parsed = this.parseJsonResponse(raw);
+
+      return {
+        sentiment: typeof parsed.sentiment === 'string' ? parsed.sentiment : 'neutral',
+        tone: typeof parsed.tone === 'string' ? parsed.tone : 'casual',
+        emotion: typeof parsed.emotion === 'string' ? parsed.emotion : 'neutral',
+        emotionalIntensity: Math.min(1, Math.max(0, Number(parsed.emotionalIntensity) || 0.5)),
+        churnRisk: Boolean(parsed.churnRisk),
+        aspects: (parsed.aspects as Record<string, string>) || {},
+        confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.5)),
+        reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to analyze sentiment for email ${emailId}: ${this.getErrorMessage(error)}`,
+      );
+      throw new BadRequestException('Unable to analyze sentiment');
+    }
+  }
+
+  /**
+   * Calculate email priority with multi-factor scoring
+   */
+  async calculatePriority(
+    tenantId: string,
+    emailId: string,
+    locale?: string,
+    senderImportance: 'vip' | 'important' | 'normal' | 'low' = 'normal',
+  ) {
+    const email = await this.getEmailOrThrow(tenantId, emailId);
+    const lang = this.resolveLocale(locale);
+    const supportedLocale = getLocale(locale);
+    const t = getToolTranslations(supportedLocale);
+
+    const systemPrompt = t.insights.priority.systemPrompt;
+
+    const userPrompt = this.buildEmailPrompt(email, lang);
+
+    try {
+      const raw = await this.mistral.completePrompt({
+        systemPrompt,
+        userPrompt,
+        temperature: 0.1,
+        maxTokens: 400,
+      });
+
+      const parsed = this.parseJsonResponse(raw);
+
+      // Calculate weighted priority with sender importance boost
+      const senderBoost = { vip: 3, important: 2, normal: 0, low: -1 }[senderImportance] ?? 0;
+      const urgencyScore = Number(parsed.urgencyScore) || 5;
+      const importanceScore = Number(parsed.importanceScore) || 5;
+      const timeScore = Number(parsed.timeScore) || 5;
+      const sentimentImpact = Number(parsed.sentimentImpact) || 0;
+
+      const baseScore =
+        urgencyScore * 0.35 +
+        importanceScore * 0.35 +
+        timeScore * 0.2 +
+        sentimentImpact * 0.5;
+
+      const finalScore = Math.min(10, Math.max(1, Math.round(baseScore + senderBoost)));
+
+      return {
+        score: finalScore,
+        urgency: typeof parsed.urgency === 'string' ? parsed.urgency : 'medium',
+        recommendation: typeof parsed.recommendation === 'string' ? parsed.recommendation : 'handle_this_week',
+        factors: Array.isArray(parsed.factors) ? (parsed.factors as string[]) : [],
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to calculate priority for email ${emailId}: ${this.getErrorMessage(error)}`,
+      );
+      throw new BadRequestException('Unable to calculate priority');
+    }
+  }
+
+  /**
+   * Comprehensive email analysis combining sentiment, priority, and intent
+   */
+  async analyzeEmail(tenantId: string, emailId: string, locale?: string) {
+    const email = await this.getEmailOrThrow(tenantId, emailId);
+    const lang = this.resolveLocale(locale);
+    const supportedLocale = getLocale(locale);
+    const t = getToolTranslations(supportedLocale);
+
+    const systemPrompt = t.insights.analyzeComprehensive.systemPrompt;
+
+    const userPrompt = this.buildEmailPrompt(email, lang);
+
+    try {
+      const raw = await this.mistral.completePrompt({
+        systemPrompt,
+        userPrompt,
+        temperature: 0.1,
+        maxTokens: 600,
+      });
+
+      const parsed = this.parseJsonResponse(raw);
+
+      return {
+        sentiment: typeof parsed.sentiment === 'string' ? parsed.sentiment : 'neutral',
+        tone: typeof parsed.tone === 'string' ? parsed.tone : 'casual',
+        urgency: typeof parsed.urgency === 'string' ? parsed.urgency : 'medium',
+        intent: typeof parsed.intent === 'string' ? parsed.intent : 'fyi',
+        priority: Math.min(10, Math.max(1, Number(parsed.priority) || 5)),
+        escalationRisk: Boolean(parsed.escalationRisk),
+        keyTopics: Array.isArray(parsed.keyTopics) ? (parsed.keyTopics as string[]) : [],
+        suggestedResponse: typeof parsed.suggestedResponse === 'string' ? parsed.suggestedResponse : 'within_day',
+        confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.5)),
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to analyze email ${emailId}: ${this.getErrorMessage(error)}`,
+      );
+      throw new BadRequestException('Unable to analyze email');
+    }
+  }
+
+  /**
+   * Parse JSON response from AI, handling markdown code blocks
+   */
+  private parseJsonResponse(raw: string): Record<string, unknown> {
+    try {
+      let cleaned = raw.trim();
+      if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
+      if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
+      if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
+      return JSON.parse(cleaned);
+    } catch {
+      return {};
+    }
+  }
+
   private async getEmailOrThrow(tenantId: string, emailId: string): Promise<EmailRecord> {
     const email = await this.prisma.email.findFirst({
       where: { id: emailId, tenantId },
@@ -239,18 +399,18 @@ export class EmailInsightsService {
   }
 
   private buildEmailPrompt(email: EmailRecord, locale: LocaleKey): string {
+    const supportedLocale = getLocale(locale);
+    const t = getToolTranslations(supportedLocale);
     const toList = email.to.join(', ');
-    const header =
-      locale === 'it'
-        ? `Oggetto: ${email.subject || '(senza oggetto)'}\nDa: ${email.from}\nA: ${toList}`
-        : `Subject: ${email.subject || '(no subject)'}\nFrom: ${email.from}\nTo: ${toList}`;
 
-    const content = this.extractEmailContent(email);
+    const header = `${t.insights.subject}: ${email.subject || t.insights.noSubject}\n${t.insights.from}: ${email.from}\n${t.insights.to}: ${toList}`;
 
-    return `${header}\n\n${locale === 'it' ? 'Testo email:' : 'Email body:'}\n${content}`;
+    const content = this.extractEmailContent(email, supportedLocale);
+
+    return `${header}\n\n${t.insights.emailBody}\n${content}`;
   }
 
-  private extractEmailContent(email: EmailRecord): string {
+  private extractEmailContent(email: EmailRecord, locale?: SupportedLocale): string {
     if (email.bodyText && email.bodyText.trim().length > 0) {
       return this.truncate(email.bodyText.trim());
     }
@@ -266,7 +426,8 @@ export class EmailInsightsService {
       return this.truncate(email.snippet.trim());
     }
 
-    return '(content unavailable)';
+    const t = getToolTranslations(locale || 'en');
+    return t.insights.contentUnavailable;
   }
 
   private extractLines(payload: string): string[] {
@@ -303,23 +464,6 @@ export class EmailInsightsService {
     return 'casual'; // Default tone
   }
 
-  private getToneInstructions(tone: ToneKey, locale: LocaleKey): string {
-    const instructions = {
-      formal: {
-        en: 'Use a formal, professional tone with proper business etiquette.',
-        it: 'Usa un tono formale e professionale con etichetta aziendale appropriata.',
-      },
-      casual: {
-        en: 'Use a friendly, conversational tone while remaining professional.',
-        it: 'Usa un tono amichevole e colloquiale pur rimanendo professionale.',
-      },
-      technical: {
-        en: 'Use a precise, technical tone with clear and direct language.',
-        it: 'Usa un tono preciso e tecnico con linguaggio chiaro e diretto.',
-      },
-    };
-    return instructions[tone][locale];
-  }
 
   private buildComposePrompt(
     payload: {
@@ -329,45 +473,42 @@ export class EmailInsightsService {
       tone?: string;
       threadContext?: Array<{ subject?: string; body?: string }>;
     },
-    locale: LocaleKey,
+    _locale: LocaleKey,
     tone: ToneKey,
     styleSection?: string,
+    supportedLocale?: SupportedLocale,
   ): string {
+    const t = getToolTranslations(supportedLocale || 'en');
     const toLine =
       payload.to && payload.to.length
-        ? `${locale === 'it' ? 'Destinatari' : 'Recipients'}: ${payload.to.join(', ')}`
+        ? `${t.insights.compose.recipients}: ${payload.to.join(', ')}`
         : '';
     const subjectLine = payload.subject
-      ? `${locale === 'it' ? 'Oggetto suggerito' : 'Subject hint'}: ${payload.subject}`
+      ? `${t.insights.compose.subjectHint}: ${payload.subject}`
       : '';
-    const toneLine =
-      locale === 'it'
-        ? `Tono richiesto: ${tone}.`
-        : `Requested tone: ${tone}.`;
+    const toneLine = `${t.insights.compose.requestedTone}: ${tone}.`;
     const threadLines =
       payload.threadContext && payload.threadContext.length
-        ? (locale === 'it' ? 'Contesto thread:' : 'Thread context:') +
+        ? t.insights.compose.threadContext +
           '\n' +
           payload.threadContext
             .slice(0, 3)
             .map((item, idx) => {
-              const header = `${locale === 'it' ? 'Messaggio' : 'Message'} #${idx + 1}`;
+              const header = `${t.insights.compose.message} #${idx + 1}`;
               return `${header}\nS: ${item.subject ?? '-'}\nB: ${this.truncate(item.body ?? '', 800)}`;
             })
             .join('\n\n')
         : '';
 
     return [
-      locale === 'it' ? 'Scrivi una email pronta da inviare.' : 'Draft a ready-to-send email.',
+      t.insights.compose.draftInstruction,
       toneLine,
       toLine,
       subjectLine,
       threadLines,
       styleSection,
-      `${locale === 'it' ? 'Istruzioni utente' : 'User prompt'}: ${payload.prompt}`,
-      locale === 'it'
-        ? 'Restituisci JSON con campi body e subject. Nessun markdown.'
-        : 'Return JSON with body and subject fields. No markdown.',
+      `${t.insights.compose.userPrompt}: ${payload.prompt}`,
+      t.insights.compose.jsonInstruction,
     ]
       .filter(Boolean)
       .join('\n');
