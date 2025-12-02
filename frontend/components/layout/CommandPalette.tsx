@@ -277,6 +277,38 @@ export function CommandPalette({
     },
   ], [t, onClose, onCompose, onAdvancedSearch]);
 
+  // Search emails (defined before recentCommands which uses it)
+  const handleSearchEmails = useCallback(async (searchQuery: string) => {
+    if (!searchQuery.trim() || searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const response = await emailApi.listEmails({
+        search: searchQuery,
+        limit: 5,
+      });
+
+      const results: SearchResult[] = (response.data.emails || []).map((email: Email) => ({
+        id: email.id,
+        type: 'email' as const,
+        icon: <Mail size={18} />,
+        label: email.subject || '(No subject)',
+        description: `From: ${email.from}`,
+        path: `/dashboard/email?emailId=${email.id}`,
+      }));
+
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
   // Recent search commands
   const recentCommands: CommandItem[] = useMemo(() =>
     recentSearches.map((search, index) => ({
@@ -290,7 +322,7 @@ export function CommandPalette({
       },
       category: t.commandPalette?.recentSearches || 'Recent Searches',
     })),
-  [recentSearches, t]);
+  [recentSearches, t, handleSearchEmails]);
 
   // Filter commands based on query
   const filteredCommands = useMemo(() => {
@@ -332,38 +364,6 @@ export function CommandPalette({
     return items;
   }, [filteredCommands, searchResults]);
 
-  // Search emails
-  const handleSearchEmails = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim() || searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    setSearching(true);
-    try {
-      const response = await emailApi.listEmails({
-        search: searchQuery,
-        limit: 5,
-      });
-
-      const results: SearchResult[] = (response.data.emails || []).map((email: Email) => ({
-        id: email.id,
-        type: 'email' as const,
-        icon: <Mail size={18} />,
-        label: email.subject || '(No subject)',
-        description: `From: ${email.from}`,
-        path: `/dashboard/email?emailId=${email.id}`,
-      }));
-
-      setSearchResults(results);
-    } catch (error) {
-      console.error('Search failed:', error);
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
-  }, []);
-
   // Debounced search
   useEffect(() => {
     if (searchTimeoutRef.current) {
@@ -398,6 +398,22 @@ export function CommandPalette({
     }
   }, [open]);
 
+  // Handle item selection (defined before handleKeyDown which uses it)
+  const handleSelectItem = useCallback(
+    (item: CommandItem | SearchResult) => {
+      if ('action' in item && item.action) {
+        item.action();
+      } else if (item.path) {
+        if (item.type === 'email' || item.type === 'search') {
+          saveRecentSearch(query);
+        }
+        router.push(item.path);
+        onClose();
+      }
+    },
+    [router, onClose, query, saveRecentSearch]
+  );
+
   // Handle keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -426,23 +442,7 @@ export function CommandPalette({
           break;
       }
     },
-    [allItems, selectedIndex, query, router, onClose, saveRecentSearch]
-  );
-
-  // Handle item selection
-  const handleSelectItem = useCallback(
-    (item: CommandItem | SearchResult) => {
-      if ('action' in item && item.action) {
-        item.action();
-      } else if (item.path) {
-        if (item.type === 'email' || item.type === 'search') {
-          saveRecentSearch(query);
-        }
-        router.push(item.path);
-        onClose();
-      }
-    },
-    [router, onClose, query, saveRecentSearch]
+    [allItems, selectedIndex, query, router, onClose, saveRecentSearch, handleSelectItem]
   );
 
   // Group items by category for display

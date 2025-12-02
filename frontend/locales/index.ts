@@ -562,6 +562,7 @@ export interface AppTranslations {
       download: string;
       reply: string;
       replyAll: string;
+      replyPlaceholder: string;
       forward: string;
       summaryTitle: string;
       summaryGenerate: string;

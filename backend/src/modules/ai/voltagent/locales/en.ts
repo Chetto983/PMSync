@@ -123,6 +123,7 @@ export const en: VoltAgentTranslations = {
   agents: {
     supervisor: {
       instructions: `You are a helpful email assistant coordinator.
+IMPORTANT: ALWAYS respond in English.
 
 Analyze the user's request and delegate to the appropriate specialist:
 - EmailAgent: For sending, searching, organizing emails
@@ -132,7 +133,7 @@ Analyze the user's request and delegate to the appropriate specialist:
 - GeneralAgent: For general questions and chat
 
 Combine results from multiple agents when needed.
-Always respond in a helpful and concise manner.`,
+Always respond in a helpful and concise manner, always in English.`,
       delegateEmail: 'Delegating to Email Agent for email operations',
       delegateCalendar: 'Delegating to Calendar Agent for scheduling',
       delegateContacts: 'Delegating to Contacts Agent for contact management',
@@ -140,35 +141,35 @@ Always respond in a helpful and concise manner.`,
       delegateGeneral: 'Handling as general conversation',
     },
     email: {
-      instructions: `You are an email management assistant.
+      instructions: `You are an email management assistant. ALWAYS respond in English.
 Help users send, search, organize, and manage their emails.
 Before sending any email, always confirm the details with the user.
-Be concise and helpful in your responses.`,
+Be concise and helpful in your responses, always in English.`,
       confirmBeforeSend: 'Please confirm you want to send this email',
     },
     calendar: {
-      instructions: `You are a calendar management assistant.
+      instructions: `You are a calendar management assistant. ALWAYS respond in English.
 Help users create, view, update, and delete calendar events.
 When creating events, always confirm the date, time, and details.
-Provide helpful suggestions for scheduling.`,
+Provide helpful suggestions for scheduling, always in English.`,
     },
     contacts: {
-      instructions: `You are a contacts management assistant.
+      instructions: `You are a contacts management assistant. ALWAYS respond in English.
 Help users find, create, update, and organize their contacts.
 When searching, provide relevant details about found contacts.
-Be helpful in suggesting contact organization.`,
+Be helpful in suggesting contact organization, always in English.`,
     },
     knowledge: {
-      instructions: `You are a knowledge base assistant.
+      instructions: `You are a knowledge base assistant. ALWAYS respond in English.
 Search the user's stored documents, emails, and notes to find relevant information.
 Provide concise answers based on the found documents.
-Always cite the source of information when possible.`,
+Always cite the source of information when possible, always in English.`,
     },
     general: {
-      instructions: `You are a helpful assistant.
+      instructions: `You are a helpful assistant. ALWAYS respond in English.
 Answer general questions and provide helpful information.
 If the user asks about emails, calendar, or contacts, suggest using the specialized assistants.
-Be friendly and concise.`,
+Be friendly and concise, always in English.`,
     },
   },
   actions: {

@@ -598,33 +598,241 @@ type ComposeFormData = z.infer<typeof composeSchema>;
 
 ### Phase 3: AI Integration Enhancement (Week 5-6)
 **Goal**: Seamless AI assistance throughout the app
+**Status**: 🚧 In Progress
+
+#### Architecture Decisions (2025 Best Practices)
+
+**Streaming Protocol**: Server-Sent Events (SSE) over WebSockets
+
+- SSE is the 2025 standard for LLM streaming (unidirectional, HTTP-native, no protocol upgrade)
+- Backend already has `VoltAgentService.streamChat()` yielding text chunks
+- Use existing WebSocket (`/realtime` namespace) for bi-directional events (HITL approvals)
+
+**Frontend Pattern**: Custom SSE + React Query
+
+- NOT using Vercel AI SDK (our backend is NestJS with VoltAgent, not Next.js API routes)
+- Custom `useAiChat` hook with SSE streaming and React Query for cache
+- Typing indicator with three-dot animation (CSS keyframes)
+
+**Backend Endpoints** (already available):
+
+```text
+POST /api/v1/voltagent/chat        - Non-streaming chat (returns ChatResult)
+GET  /api/v1/voltagent/chat/stream - NEW: SSE streaming endpoint
+POST /ai/compose                    - AI email composition
+POST /ai/summarize/:emailId         - Email summarization
+POST /ai/smart-reply/:emailId       - Smart reply suggestions
+```
+
+**Realtime Events** (WebSocket, already implemented):
+
+```text
+ai:action:created   - New pending action
+ai:action:approved  - Action approved
+ai:action:rejected  - Action rejected
+ai:action:executed  - Action completed
+ai:session:update   - Session status change
+```
 
 #### 3.1 AI Chat Panel
-- [ ] Streaming responses with typing indicator
-- [ ] Message history with persistence
-- [ ] Context-aware suggestions
-- [ ] Action confirmation UI (HITL)
-- [ ] Knowledge source attribution
+
+- [x] Create SSE streaming endpoint in `voltagent.controller.ts` ✅ **DONE**
+- [x] Create `voltAgentApi.streamChat()` with Fetch API and SSE parsing ✅ **DONE**
+- [ ] Typing indicator component (three-dot CSS animation)
+- [ ] Message streaming with token-by-token display
+- [ ] Message history with persistence (ChatSession model exists)
+- [ ] Context-aware suggestions (based on current email/thread)
+- [x] Action confirmation UI (HITL) - integrate existing `PendingActionsPanel` ✅ **DONE**
+- [ ] Knowledge source attribution (RAG hits from `HybridRetriever`)
+- [ ] Auto-scroll to bottom on new messages
+- [x] Stop generation button (AbortController) ✅ **DONE** (in streamChat)
+
+**Files to create/modify:**
+
+```text
+backend/src/modules/ai/voltagent/voltagent.controller.ts  - Add SSE endpoint
+frontend/hooks/use-ai-stream-chat.ts                       - SSE streaming hook
+frontend/components/ai/StreamingMessage.tsx                - Token-by-token display
+frontend/components/ai/TypingIndicator.tsx                 - Three-dot animation
+frontend/components/ai/ChatPanel.tsx                       - Main chat UI
+```
 
 #### 3.2 Smart Compose
-- [ ] Real-time writing suggestions
-- [ ] Tone adjustment slider
-- [ ] Grammar/spell checking
-- [ ] Smart subject generation
+
+- [ ] Enhance `AiChatPanel` in ComposeDialog with streaming
+- [ ] Real-time writing suggestions sidebar
+- [ ] Tone adjustment slider (formal/casual/technical)
+- [ ] Smart subject generation button
 - [ ] Reply suggestions based on email content
+- [ ] Insert suggestion at cursor position
+- [ ] Grammar hints (highlight in editor)
+
+**Backend already supports:**
+
+- `POST /ai/compose` with tone, locale, subject generation
+- `WritingStyleService` for learning user patterns
+- Thread context handling for replies
 
 #### 3.3 Email Intelligence
-- [ ] Inline email summary (expandable)
-- [ ] Priority indicators with AI reasoning
-- [ ] Category badges (auto-labeled)
-- [ ] Related emails suggestions
-- [ ] Follow-up reminders
+
+- [ ] Inline email summary (expandable accordion)
+- [ ] Priority indicators with AI reasoning tooltip
+- [ ] Category badges (auto-labeled from AI categorization)
+- [ ] Related emails suggestions (using embeddings similarity)
+- [ ] Follow-up reminders (action item extraction)
+- [ ] Sentiment indicator (SentimentService exists)
+
+**Backend already supports:**
+
+- `POST /ai/summarize/:emailId`
+- `POST /ai/categorize/:emailId`
+- `SentimentService` for sentiment analysis
+- `KnowledgeBaseService` for semantic search
 
 #### 3.4 Dashboard AI Widgets
-- [ ] Real-time insights updates
-- [ ] Learning progress visualization
-- [ ] Pending actions queue
-- [ ] AI usage analytics
+
+- [ ] Integrate existing widgets from `frontend/components/dashboard/ai/`
+- [ ] Real-time insights updates via WebSocket
+- [ ] Learning progress visualization (LearningProgressCard exists)
+- [ ] Pending actions queue (PendingActionsPanel exists)
+- [ ] AI usage analytics from VoltAgent metrics
+- [ ] Quick action buttons (compose, search, chat)
+
+**Existing components to integrate:**
+
+- `AiInsightsWidget` - dashboard insights
+- `PendingActionsPanel` - HITL approvals
+- `LearningProgressCard` - learning stats
+- `AgentActivityChart` - agent performance
+
+#### Implementation Priority
+
+**Phase 3.1** (High Priority - Core Streaming):
+
+1. Create SSE streaming endpoint in backend
+2. Create `useAiStreamChat` hook
+3. Build TypingIndicator and StreamingMessage components
+4. Integrate into existing AI chat page
+
+**Phase 3.2** (Medium Priority - Compose Integration):
+
+1. Enhance ComposeDialog AI panel
+2. Add tone slider and subject generation
+3. Integrate smart reply suggestions
+
+**Phase 3.3** (Medium Priority - Intelligence):
+
+1. Add summary accordion to ThreadDisplay
+2. Add priority/sentiment indicators
+3. Connect to existing backend endpoints
+
+**Phase 3.4** (Lower Priority - Dashboard):
+
+1. Refactor ai.tsx page into reusable widgets
+2. Add widgets to main dashboard
+3. WebSocket real-time updates
+
+#### AI API Refactoring Plan
+
+**Current State (Duplicated APIs)**:
+
+| Controller | Path | Purpose | Status |
+|------------|------|---------|--------|
+| `AiController` | `/ai/chat` | Simple Mistral chat | Keep for backwards compat |
+| `AiController` | `/ai/compose` | Email composition | Keep - used by Smart Compose |
+| `AiController` | `/ai/summarize/:id` | Email summary | Keep - single-purpose |
+| `AiController` | `/ai/smart-reply/:id` | Smart replies | Keep - single-purpose |
+| `AiController` | `/ai/categorize/:id` | Email categorization | Keep - single-purpose |
+| `AiController` | `/ai/memory/search` | RAG search | Keep - single-purpose |
+| `VoltAgentController` | `/api/v1/voltagent/chat` | Agentic chat | **Primary - Add SSE** |
+| `VoltAgentController` | `/api/v1/voltagent/actions/*` | HITL approvals | Keep - workflow engine |
+| `MultiAgentController` | `/ai/multi-agent/*` | Legacy multi-agent | ✅ **DELETED** - Merged to VoltAgent |
+
+**Refactoring Tasks**:
+
+Backend:
+
+- [x] Add SSE streaming endpoint: `POST /api/v1/voltagent/chat/stream` ✅ **DONE**
+- [x] Add stats endpoints: `/api/v1/voltagent/stats/*` ✅ **DONE**
+- [x] Add feedback endpoints: `/api/v1/voltagent/feedback` ✅ **DONE**
+- [x] Add learning reset: `/api/v1/voltagent/learning/reset` ✅ **DONE**
+- [ ] Add proper DTOs with class-validator decorations
+- [x] Deprecate `/ai/multi-agent/*` endpoints (migrate to VoltAgent) ✅ **DONE**
+- [ ] Add streaming support to `/ai/compose` for long compositions
+- [ ] Unify response types across all AI endpoints
+
+Frontend:
+
+- [x] Consolidate API into `frontend/lib/api/ai.ts` with `voltAgentApi` ✅ **DONE**
+- [x] Delete `multi-agent.ts` - merged into `ai.ts` ✅ **DONE**
+- [x] Create `voltAgentApi.streamChat()` with SSE support ✅ **DONE**
+- [x] Add backwards-compatible `multiAgentApi` alias ✅ **DONE**
+- [x] Update all imports from `multi-agent` to `ai` ✅ **DONE**
+- [ ] Create `useAiChat` hook wrapper for better DX
+- [ ] Create `useAiCompose` hook with streaming
+- [ ] Create `useEmailInsights` hook (summary, categorize, smart-reply)
+- [ ] Create `useAiActions` hook for HITL approvals
+- [ ] Add React Query integration for caching
+
+**New API Client Structure**:
+
+```typescript
+// frontend/lib/api/voltagent.ts
+export const voltAgentApi = {
+  // Chat (non-streaming)
+  chat(message: string, options?: ChatOptions): Promise<ChatResult>;
+
+  // Chat (SSE streaming) - NEW
+  streamChat(message: string, options?: ChatOptions): EventSource;
+
+  // Actions (HITL)
+  getPendingActions(): Promise<PendingAction[]>;
+  approveAction(id: string): Promise<void>;
+  rejectAction(id: string, reason?: string): Promise<void>;
+
+  // Stats
+  getLearningStats(): Promise<LearningStats>;
+  getMetrics(): Promise<AgentMetrics>;
+};
+
+// frontend/lib/api/ai.ts (keep for email-specific)
+export const aiApi = {
+  compose(payload: ComposePayload): Promise<ComposeResult>;
+  summarize(emailId: string): Promise<SummaryResult>;
+  smartReply(emailId: string): Promise<string[]>;
+  categorize(emailId: string): Promise<string[]>;
+  searchMemory(query: string): Promise<SearchResult[]>;
+};
+```
+
+**New Hooks Structure**:
+
+```typescript
+// frontend/hooks/ai/use-ai-chat.ts
+useAiChat({ conversationId?, onToken?, onComplete?, onError? })
+
+// frontend/hooks/ai/use-ai-compose.ts
+useAiCompose({ onDraftReady?, streaming? })
+
+// frontend/hooks/ai/use-email-insights.ts
+useEmailSummary(emailId)
+useSmartReplies(emailId)
+useEmailCategories(emailId)
+
+// frontend/hooks/ai/use-ai-actions.ts
+usePendingActions()
+useApproveAction()
+useRejectAction()
+```
+
+#### References (2025 Best Practices)
+
+- [SSE's Comeback in 2025](https://portalzine.de/sses-glorious-comeback-why-2025-is-the-year-of-server-sent-events/)
+- [AI SDK Stream Protocols](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol)
+- [VoltAgent Next.js Integration](https://voltagent.dev/docs/integrations/nextjs/)
+- [Streaming AI Responses Comparison](https://medium.com/@pranavprakash4777/streaming-ai-responses-with-websockets-sse-and-grpc-which-one-wins-a481cab403d3)
+- [Chat UI Design Patterns 2025](https://bricxlabs.com/blogs/message-screen-ui-deisgn)
+- [AI Interface Design Patterns](https://www.smashingmagazine.com/2025/07/design-patterns-ai-interfaces/)
 
 ### Phase 4: Calendar Module (Week 7-8)
 **Goal**: Full-featured calendar with AI scheduling
@@ -1194,6 +1402,7 @@ describe('ThreadList', () => {
 Frontend Tests:
 
 - `CommandPalette.test.tsx`: 25 tests (rendering, search, navigation, keyboard, recent searches)
+- `SearchHighlight.test.tsx`: 25 tests (highlighting, multiple terms, quoted phrases, truncation, context mode)
 - `lib/utils.test.ts`: 5 tests
 - `lib/query-client.test.tsx`: 4 tests
 - `stores/auth-store.test.ts`: 8 tests

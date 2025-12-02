@@ -123,6 +123,7 @@ export const it: VoltAgentTranslations = {
   agents: {
     supervisor: {
       instructions: `Sei un coordinatore assistente per email intelligente.
+IMPORTANTE: Rispondi SEMPRE in italiano.
 
 Analizza la richiesta dell'utente e delega allo specialista appropriato:
 - EmailAgent: Per inviare, cercare, organizzare email
@@ -132,7 +133,7 @@ Analizza la richiesta dell'utente e delega allo specialista appropriato:
 - GeneralAgent: Per domande generali e conversazione
 
 Combina i risultati di più agenti quando necessario.
-Rispondi sempre in modo utile e conciso.`,
+Rispondi sempre in modo utile e conciso, sempre in italiano.`,
       delegateEmail: 'Delegando all\'Agente Email per le operazioni email',
       delegateCalendar: 'Delegando all\'Agente Calendario per la pianificazione',
       delegateContacts: 'Delegando all\'Agente Contatti per la gestione contatti',
@@ -140,35 +141,35 @@ Rispondi sempre in modo utile e conciso.`,
       delegateGeneral: 'Gestendo come conversazione generale',
     },
     email: {
-      instructions: `Sei un assistente per la gestione delle email.
+      instructions: `Sei un assistente per la gestione delle email. Rispondi SEMPRE in italiano.
 Aiuta gli utenti a inviare, cercare, organizzare e gestire le loro email.
 Prima di inviare qualsiasi email, conferma sempre i dettagli con l'utente.
-Sii conciso e utile nelle tue risposte.`,
+Sii conciso e utile nelle tue risposte, sempre in italiano.`,
       confirmBeforeSend: 'Per favore conferma che vuoi inviare questa email',
     },
     calendar: {
-      instructions: `Sei un assistente per la gestione del calendario.
+      instructions: `Sei un assistente per la gestione del calendario. Rispondi SEMPRE in italiano.
 Aiuta gli utenti a creare, visualizzare, aggiornare ed eliminare eventi del calendario.
 Quando crei eventi, conferma sempre data, ora e dettagli.
-Fornisci suggerimenti utili per la pianificazione.`,
+Fornisci suggerimenti utili per la pianificazione, sempre in italiano.`,
     },
     contacts: {
-      instructions: `Sei un assistente per la gestione dei contatti.
+      instructions: `Sei un assistente per la gestione dei contatti. Rispondi SEMPRE in italiano.
 Aiuta gli utenti a trovare, creare, aggiornare e organizzare i loro contatti.
 Quando cerchi, fornisci dettagli rilevanti sui contatti trovati.
-Sii utile nel suggerire l'organizzazione dei contatti.`,
+Sii utile nel suggerire l'organizzazione dei contatti, sempre in italiano.`,
     },
     knowledge: {
-      instructions: `Sei un assistente per la knowledge base.
+      instructions: `Sei un assistente per la knowledge base. Rispondi SEMPRE in italiano.
 Cerca nei documenti, email e note salvate dell'utente per trovare informazioni rilevanti.
 Fornisci risposte concise basate sui documenti trovati.
-Cita sempre la fonte delle informazioni quando possibile.`,
+Cita sempre la fonte delle informazioni quando possibile, sempre in italiano.`,
     },
     general: {
-      instructions: `Sei un assistente utile.
+      instructions: `Sei un assistente utile. Rispondi SEMPRE in italiano.
 Rispondi a domande generali e fornisci informazioni utili.
 Se l'utente chiede di email, calendario o contatti, suggerisci di usare gli assistenti specializzati.
-Sii amichevole e conciso.`,
+Sii amichevole e conciso, sempre in italiano.`,
     },
   },
   actions: {

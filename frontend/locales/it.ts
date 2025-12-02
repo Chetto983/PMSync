@@ -630,6 +630,7 @@ export const it: AppTranslations = {
       download: 'Scarica',
       reply: 'Rispondi',
       replyAll: 'Rispondi a tutti',
+      replyPlaceholder: 'Scrivi la tua risposta...',
       forward: 'Inoltra',
       summaryTitle: 'Riassunto AI',
       summaryGenerate: 'Genera riassunto',

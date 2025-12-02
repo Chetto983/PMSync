@@ -57,7 +57,7 @@ import {
   type ResponseLength,
   type ProactivityLevel,
 } from '@/lib/api/personalization';
-import { multiAgentApi } from '@/lib/api/multi-agent';
+import { multiAgentApi } from '@/lib/api/ai';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { GoogleProviderCard } from '@/components/providers/GoogleProviderCard';

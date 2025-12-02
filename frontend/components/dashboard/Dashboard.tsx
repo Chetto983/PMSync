@@ -35,7 +35,7 @@ import { useRouter } from 'next/router';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { multiAgentApi } from '@/lib/api/multi-agent';
+import { multiAgentApi } from '@/lib/api/ai';
 
 interface Email {
   id: string;

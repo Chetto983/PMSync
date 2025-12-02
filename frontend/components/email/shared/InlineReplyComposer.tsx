@@ -292,7 +292,7 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
               fontSize: '0.75rem',
             }}
           >
-            {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+            {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
           </Avatar>
           <Typography
             variant="body2"
@@ -318,7 +318,7 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
                 fontSize: '0.7rem',
               }}
             >
-              {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+              {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
             </Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap">

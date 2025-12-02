@@ -24,7 +24,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
-import { multiAgentApi } from '@/lib/api/multi-agent';
+import { multiAgentApi } from '@/lib/api/ai';
 
 interface AiInsightsWidgetProps {
   /** Number of unread emails for context */

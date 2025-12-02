@@ -632,6 +632,7 @@ export const en: AppTranslations = {
       download: 'Download',
       reply: 'Reply',
       replyAll: 'Reply All',
+      replyPlaceholder: 'Write your reply...',
       forward: 'Forward',
       summaryTitle: 'AI summary',
       summaryGenerate: 'Generate summary',

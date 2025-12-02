@@ -29,7 +29,7 @@ import {
   Bot,
   AlertTriangle,
 } from 'lucide-react';
-import type { PendingAction, AgentInfo } from '@/lib/api/multi-agent';
+import type { PendingAction, AgentInfo } from '@/lib/api/ai';
 
 export interface PendingActionsPanelProps {
   /** Pending actions */
@@ -269,7 +269,7 @@ export function PendingActionsPanel({
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
                         {getAgentIcon(action.agentName)}
                         <Typography variant="caption" color="text.secondary">
-                          {action.agentName} • {Math.round((action.adjustedConfidence || action.confidence) * 100)}% confidence
+                          {action.agentName} • {Math.round((action.adjustedConfidence ?? action.confidence ?? 0.8) * 100)}% confidence
                         </Typography>
                       </Box>
                     </Tooltip>

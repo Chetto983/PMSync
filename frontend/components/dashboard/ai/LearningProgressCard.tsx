@@ -22,7 +22,7 @@ import {
   RefreshCw,
   CheckCircle,
 } from 'lucide-react';
-import type { LearningProfileStats } from '@/lib/api/multi-agent';
+import type { LearningProfileStats } from '@/lib/api/ai';
 
 export interface LearningProgressCardProps {
   /** Learning profiles data - from backend /ai/multi-agent/stats/learning */
