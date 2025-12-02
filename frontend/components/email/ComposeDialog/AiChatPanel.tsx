@@ -357,10 +357,32 @@ export function AiChatPanel({
   const handleInsert = useCallback(
     (message: ChatMessage) => {
       if (message.suggestion) {
-        onReplaceBody(message.suggestion);
+        let text = message.suggestion;
+
+        // Extract subject line if present (handles **Oggetto:**, **Subject:**, Oggetto:, Subject:)
+        const subjectPatterns = [
+          /^\*\*Oggetto:\*\*\s*(.+?)(?:\n|$)/i,
+          /^\*\*Subject:\*\*\s*(.+?)(?:\n|$)/i,
+          /^Oggetto:\s*(.+?)(?:\n|$)/i,
+          /^Subject:\s*(.+?)(?:\n|$)/i,
+        ];
+
+        for (const pattern of subjectPatterns) {
+          const match = text.match(pattern);
+          if (match) {
+            const extractedSubject = match[1].trim();
+            // Remove the subject line from the body
+            text = text.replace(pattern, '').trim();
+            // Update the subject field
+            onUpdateSubject(extractedSubject);
+            break;
+          }
+        }
+
+        onReplaceBody(text);
       }
     },
-    [onReplaceBody],
+    [onReplaceBody, onUpdateSubject],
   );
 
   const handleQuickSuggestion = useCallback(
@@ -427,7 +449,7 @@ export function AiChatPanel({
 
       {/* Collapsible content */}
       <Collapse in={expanded}>
-        <Box sx={{ px: 2, pb: 2 }}>
+        <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: 2 }}>
           {/* Tone selector */}
           <Box sx={{ mb: 2 }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
@@ -438,7 +460,15 @@ export function AiChatPanel({
               exclusive
               onChange={(_, newTone) => newTone && setTone(newTone)}
               size="small"
-              sx={{ '& .MuiToggleButton-root': { px: 1.5, py: 0.5, fontSize: '0.75rem' } }}
+              sx={{
+                flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                '& .MuiToggleButton-root': {
+                  px: { xs: 1, sm: 1.5 },
+                  py: 0.5,
+                  fontSize: '0.75rem',
+                  minHeight: { xs: 36, sm: 'auto' },
+                },
+              }}
             >
               <ToggleButton value="formal">{toneLabels.formal}</ToggleButton>
               <ToggleButton value="casual">{toneLabels.casual}</ToggleButton>
@@ -538,7 +568,9 @@ export function AiChatPanel({
                       elevation={0}
                       sx={{
                         p: 1.5,
-                        bgcolor: message.role === 'user' ? 'primary.light' : 'grey.100',
+                        bgcolor: message.role === 'user'
+                          ? 'primary.light'
+                          : (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100',
                         borderRadius: 2,
                       }}
                     >

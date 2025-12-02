@@ -15,9 +15,96 @@ import { BaseEmailSyncService } from '../base-email-sync.service';
 const IMAP_BODY_DOWNLOAD_TIMEOUT_MS = 10000;
 const IMAP_BODY_MAX_BYTES = 2 * 1024 * 1024; // 2MB
 
+/**
+ * Extract Message-ID from various formats (with or without angle brackets)
+ */
+function normalizeMessageId(messageId: string | null | undefined): string | null {
+  if (!messageId) return null;
+  // Remove angle brackets and whitespace
+  return messageId.replace(/^</, '').replace(/>$/, '').trim();
+}
+
 @Injectable()
 export class ImapSyncService extends BaseEmailSyncService {
   protected readonly logger = new Logger(ImapSyncService.name);
+
+  /**
+   * Find or generate a threadId for an IMAP email based on inReplyTo and references
+   * This creates thread relationships similar to Gmail's native threading
+   */
+  private async findOrCreateThreadId(
+    tenantId: string,
+    providerId: string,
+    messageId: string | null,
+    inReplyTo: string | null,
+    references: string | null,
+  ): Promise<string | null> {
+    // Try to find an existing thread by inReplyTo
+    if (inReplyTo) {
+      const normalizedInReplyTo = normalizeMessageId(inReplyTo);
+      if (normalizedInReplyTo) {
+        const parent = await this.prisma.email.findFirst({
+          where: {
+            tenantId,
+            providerId,
+            OR: [
+              { messageId: normalizedInReplyTo },
+              { messageId: `<${normalizedInReplyTo}>` },
+            ],
+          },
+          select: { threadId: true, messageId: true },
+        });
+        if (parent?.threadId) {
+          return parent.threadId;
+        }
+        // If parent exists but has no threadId, use its messageId as threadId
+        if (parent?.messageId) {
+          return normalizeMessageId(parent.messageId);
+        }
+      }
+    }
+
+    // Try to find an existing thread by references (oldest first)
+    if (references) {
+      const refList = references.split(/\s+/).filter(Boolean);
+      for (const ref of refList) {
+        const normalizedRef = normalizeMessageId(ref);
+        if (!normalizedRef) continue;
+
+        const refEmail = await this.prisma.email.findFirst({
+          where: {
+            tenantId,
+            providerId,
+            OR: [
+              { messageId: normalizedRef },
+              { messageId: `<${normalizedRef}>` },
+            ],
+          },
+          select: { threadId: true, messageId: true },
+        });
+        if (refEmail?.threadId) {
+          return refEmail.threadId;
+        }
+        // Use the first reference's messageId as threadId (this is the root)
+        if (refEmail?.messageId) {
+          return normalizeMessageId(refEmail.messageId);
+        }
+      }
+      // If no matching emails found, use the first reference as the threadId
+      const firstRef = normalizeMessageId(refList[0]);
+      if (firstRef) {
+        return firstRef;
+      }
+    }
+
+    // No thread found - this is a new thread, use this email's messageId
+    if (messageId) {
+      return normalizeMessageId(messageId);
+    }
+
+    // No messageId available - can't create a meaningful threadId
+    return null;
+  }
 
   constructor(
     prisma: PrismaService,
@@ -516,6 +603,15 @@ export class ImapSyncService extends BaseEmailSyncService {
       const isDeleted = flags.has('\\Deleted');
       const folder = isDeleted ? 'TRASH' : 'INBOX';
 
+      // Generate threadId from inReplyTo and references headers
+      const threadId = await this.findOrCreateThreadId(
+        tenantId,
+        providerId,
+        messageId,
+        inReplyTo,
+        envelope.references,
+      );
+
       // Save to database with upsert to prevent duplicates
       const emailRecord = await this.prisma.email.upsert({
         where: {
@@ -528,7 +624,7 @@ export class ImapSyncService extends BaseEmailSyncService {
           tenantId,
           providerId,
           externalId: message.uid.toString(),
-          threadId: null, // IMAP doesn't have native threading
+          threadId, // Generated from inReplyTo/references headers
           messageId,
           inReplyTo,
           references: envelope.references,

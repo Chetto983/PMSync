@@ -96,6 +96,9 @@ export class WebhookLifecycleService {
     timeZone: 'UTC',
   })
   async renewExpiringWebhooks(): Promise<void> {
+    if (!this.jobsEnabled) {
+      return;
+    }
     if (this.isRenewalRunning) {
       this.logger.warn('Webhook renewal already running, skipping...');
       return;

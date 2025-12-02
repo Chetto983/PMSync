@@ -105,18 +105,32 @@ export class ProviderTokenService {
   }
 
   private async getGoogleToken(provider: ProviderEntity): Promise<string> {
-    const now = new Date();
-    const isExpired = provider.tokenExpiresAt && now > new Date(provider.tokenExpiresAt);
+    if (!provider.accessToken || !provider.tokenEncryptionIv) {
+      throw new Error('Provider missing access token');
+    }
 
-    if (isExpired && provider.refreshToken && provider.refreshTokenEncryptionIv) {
-      this.logger.log(`Access token expired for ${provider.email}, refreshing...`);
+    const now = new Date();
+    // Proactive refresh: 60 seconds BEFORE expiration (like Microsoft)
+    const expiresSoon = provider.tokenExpiresAt
+      ? now.getTime() >= new Date(provider.tokenExpiresAt).getTime() - 60_000
+      : true;
+
+    let accessToken = this.crypto.decrypt(provider.accessToken, provider.tokenEncryptionIv);
+    const tokenLooksValid = accessToken.length > 50; // Google access tokens are long
+
+    const canRefresh = provider.refreshToken && provider.refreshTokenEncryptionIv;
+
+    if ((!tokenLooksValid || expiresSoon) && canRefresh) {
+      this.logger.log(`Google token expiring soon or invalid for ${provider.email}, refreshing...`);
 
       const refreshToken = this.crypto.decrypt(
-        provider.refreshToken,
-        provider.refreshTokenEncryptionIv,
+        provider.refreshToken!,
+        provider.refreshTokenEncryptionIv!,
       );
 
       const refreshed = await this.googleOAuth.refreshAccessToken(refreshToken);
+      accessToken = refreshed.accessToken;
+
       const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
 
       await this.prisma.providerConfig.update({
@@ -128,15 +142,18 @@ export class ProviderTokenService {
         },
       });
 
-      this.logger.log(`Token refreshed successfully for ${provider.email}`);
-      return refreshed.accessToken;
+      this.logger.log(`Google token refreshed successfully for ${provider.email}`);
+      return accessToken;
     }
 
-    if (!provider.accessToken || !provider.tokenEncryptionIv) {
-      throw new Error('Provider missing access token');
+    if (!tokenLooksValid && !canRefresh) {
+      this.logger.error(
+        `Google token invalid and no refresh token available for ${provider.email} (${provider.id})`,
+      );
+      throw new Error('Google provider requires re-authentication (invalid access token)');
     }
 
-    return this.crypto.decrypt(provider.accessToken, provider.tokenEncryptionIv);
+    return accessToken;
   }
 
   private async getImapToken(provider: ProviderEntity): Promise<string> {

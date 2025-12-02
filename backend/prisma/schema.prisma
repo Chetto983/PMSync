@@ -17,13 +17,11 @@ model Tenant {
   deletedAt            DateTime?
   auditLogs            AuditLog[]
   calendarEvents       CalendarEvent[]
-  chatSessions         ChatSession[]
   contacts             Contact[]             @relation("ContactToTenant")
   providerContacts     ProviderContact[]     @relation("ProviderContactToTenant")
   emails               Email[]
   embeddings           Embedding[]
   folders              Folder[]
-  messages             Message[]
   providerConfigs      ProviderConfig[]
   scheduledEmails      ScheduledEmail[]
   users                User[]
@@ -48,8 +46,6 @@ model User {
   updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
   auditLogs             AuditLog[]
-  chatSessions          ChatSession[]
-  messages              Message[]
   mfaCodes              MfaCode[]
   sessions              Session[]
   userPreferences       UserPreferences?
@@ -413,45 +409,10 @@ model EmailCrossProviderLink {
   @@map("email_cross_provider_links")
 }
 
-model Message {
-  id             String     @id @default(cuid())
-  tenantId       String
-  userId         String
-  conversationId String?
-  role           String
-  content        String
-  embeddingId    String?
-  isDeleted      Boolean    @default(false)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  embedding      Embedding? @relation(fields: [embeddingId], references: [id])
-  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, userId, conversationId])
-  @@index([createdAt])
-  @@map("messages")
-}
-
-model ChatSession {
-  id        String   @id @default(cuid())
-  tenantId  String
-  userId    String
-  title     String
-  messages  Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, userId, updatedAt])
-  @@map("chat_sessions")
-}
 
 model Embedding {
   id             String                 @id @default(cuid())
   tenantId       String
-  messageId      String?
   documentName   String?
   content        String
   vector         Unsupported("vector")?
@@ -459,7 +420,6 @@ model Embedding {
   metadata       Json?
   createdAt      DateTime               @default(now())
   tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  messages       Message[]
 
   @@index([tenantId])
   @@map("embeddings")

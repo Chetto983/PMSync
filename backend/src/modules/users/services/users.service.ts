@@ -104,14 +104,13 @@ export class UsersService {
   }
 
   /**
-   * Get user's messages
+   * Get user's VoltAgent messages
    */
   async getUserMessages(userId: string, tenantId: string, limit: number = 100) {
-    return this.prisma.message.findMany({
+    return this.prisma.voltAgentMessage.findMany({
       where: {
         userId,
         tenantId,
-        isDeleted: false,
       },
       orderBy: { createdAt: 'desc' },
       take: limit,

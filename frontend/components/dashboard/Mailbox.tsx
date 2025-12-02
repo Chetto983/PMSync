@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useRouter } from 'next/router';
 import {
   Inbox,
   Star,
@@ -97,6 +98,7 @@ interface MailboxProps {
  * - Custom hooks for actions and keyboard navigation
  */
 export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
+  const router = useRouter();
   const t = useTranslations();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -203,6 +205,61 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       },
     })
   );
+
+  // Handle compose query params (for reply/forward/new compose from other pages)
+  useEffect(() => {
+    const { compose, replyTo, forward, to, subject } = router.query;
+    if (compose) {
+      if (compose === 'reply' && replyTo) {
+        const emailId = String(replyTo);
+        // Find the original email to get its body for quoting
+        const originalEmail = storeEmails.find(e => e.id === emailId);
+        const quotedBody = originalEmail?.bodyHtml || originalEmail?.bodyText || '';
+        const formattedQuote = quotedBody
+          ? `<br/><br/><blockquote style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 0; color: #666;">
+              <p>On ${originalEmail?.receivedAt ? new Date(originalEmail.receivedAt).toLocaleString() : ''}, ${originalEmail?.from || ''} wrote:</p>
+              ${quotedBody}
+            </blockquote>`
+          : '';
+
+        setComposeMode('reply');
+        setComposePrefill({
+          originalEmailId: emailId,
+          to: to ? [String(to)] : undefined,
+          subject: subject ? String(subject) : undefined,
+          body: formattedQuote,
+          inReplyTo: originalEmail?.externalId || undefined,
+          references: originalEmail?.references || originalEmail?.externalId || undefined,
+        });
+      } else if (compose === 'forward' && forward) {
+        const emailId = String(forward);
+        // Find the original email to get its body for forwarding
+        const originalEmail = storeEmails.find(e => e.id === emailId);
+        const forwardBody = originalEmail?.bodyHtml || originalEmail?.bodyText || '';
+        const formattedForward = forwardBody
+          ? `<br/><br/>---------- Forwarded message ----------<br/>
+              From: ${originalEmail?.from || ''}<br/>
+              Date: ${originalEmail?.receivedAt ? new Date(originalEmail.receivedAt).toLocaleString() : ''}<br/>
+              Subject: ${originalEmail?.subject || ''}<br/>
+              To: ${originalEmail?.to?.join(', ') || ''}<br/><br/>
+              ${forwardBody}`
+          : '';
+
+        setComposeMode('forward');
+        setComposePrefill({
+          originalEmailId: emailId,
+          subject: subject ? String(subject) : undefined,
+          body: formattedForward,
+        });
+      } else {
+        setComposeMode('compose');
+        setComposePrefill(null);
+      }
+      setComposeOpen(true);
+      // Clear the compose query params to avoid reopening on refresh
+      router.replace({ pathname: router.pathname, query: {} }, undefined, { shallow: true });
+    }
+  }, [router.query, storeEmails]);
 
   const getEmptyState = useCallback(() => {
     if (!selectedFolderId) {
@@ -1304,14 +1361,16 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
           />
         }
         list={
-          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
             <Paper
               elevation={0}
               sx={{
-                px: 2,
+                px: { xs: 1, sm: 2 },
                 py: 1.5,
                 borderBottom: 1,
                 borderColor: 'divider',
+                flexShrink: 0,
+                overflow: 'hidden',
               }}
             >
               <Stack spacing={1.25}>
@@ -1368,23 +1427,33 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
                     </Typography>
                   )}
                 </Stack>
-                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" rowGap={1}>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" rowGap={1} sx={{ minWidth: 0 }}>
                   {/* AI Search Bar */}
-                  <AISearchBar
-                    onResultClick={handleAISearchResultClick}
-                    placeholder={t.dashboard.emailList.aiSearchPlaceholder}
-                    size="small"
-                  />
+                  <Box sx={{ flex: '1 1 200px', minWidth: 150, maxWidth: { xs: '100%', sm: 350 } }}>
+                    <AISearchBar
+                      onResultClick={handleAISearchResultClick}
+                      placeholder={t.dashboard.emailList.aiSearchPlaceholder}
+                      size="small"
+                    />
+                  </Box>
                   <Button
                     size="small"
                     variant="outlined"
                     onClick={() => setAdvancedSearchOpen(true)}
                     startIcon={<Filter size={16} />}
+                    sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
                   >
                     {t.dashboard.email.advancedSearch.title}
                   </Button>
-                  <Button size="small" variant="outlined" onClick={handleSyncProviders} disabled={syncLoading} startIcon={!syncLoading ? <RefreshCcw size={16} /> : undefined}>
-                    {syncLoading ? <CircularProgress size={14} /> : ((t as any)?.dashboard?.email?.actions?.syncNow || 'Sync now')}
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={handleSyncProviders}
+                    disabled={syncLoading}
+                    startIcon={!syncLoading ? <RefreshCcw size={16} /> : undefined}
+                    sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                  >
+                    {syncLoading ? <CircularProgress size={14} /> : ((t as any)?.dashboard?.email?.actions?.syncNow || 'Sync')}
                   </Button>
                 </Stack>
                 {!isConnected && (

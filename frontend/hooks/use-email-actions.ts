@@ -267,13 +267,14 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   );
 
   /**
-   * Reply to email
+   * Reply to email - uses query params to trigger compose dialog
    */
   const handleReply = useCallback(
     (email: Email) => {
       router.push({
-        pathname: '/dashboard/email/compose',
+        pathname: '/dashboard/email',
         query: {
+          compose: 'reply',
           replyTo: email.id,
           to: email.from,
           subject: `Re: ${email.subject}`,
@@ -284,16 +285,16 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   );
 
   /**
-   * Forward email
+   * Forward email - uses query params to trigger compose dialog
    */
   const handleForward = useCallback(
     (email: Email) => {
       router.push({
-        pathname: '/dashboard/email/compose',
+        pathname: '/dashboard/email',
         query: {
+          compose: 'forward',
           forward: email.id,
           subject: `Fwd: ${email.subject}`,
-          body: email.body,
         },
       });
     },

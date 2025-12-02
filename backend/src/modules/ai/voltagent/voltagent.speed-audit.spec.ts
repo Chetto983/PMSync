@@ -70,7 +70,10 @@ describe('VoltAgent Speed Audit', () => {
   let controller: VoltAgentController;
   let voltAgentService: jest.Mocked<VoltAgentService>;
   const mockUser = { userId: 'user-123', tenantId: 'tenant-456', role: 'user' };
-  const mockRequest = { user: mockUser } as any;
+  const mockRequest = {
+    user: mockUser,
+    on: jest.fn(), // Mock Express req.on('close', ...) for streaming
+  } as any;
 
   beforeEach(async () => {
     const mockVoltAgentService = {

@@ -33,9 +33,7 @@ describe('MistralService', () => {
   let service: MistralService;
   let configValues: Record<string, string | undefined>;
   let configService: { get: jest.Mock };
-  let prismaService: {
-    message: { create: jest.Mock };
-  };
+  let prismaService: Record<string, never>;
   let embeddingsService: {
     saveEmbedding: jest.Mock;
     findSimilarContent: jest.Mock;
@@ -55,16 +53,8 @@ describe('MistralService', () => {
     configService = {
       get: jest.fn((key: string) => configValues[key]),
     };
-    prismaService = {
-      message: {
-        create: jest.fn().mockImplementation(({ data }) =>
-          Promise.resolve({
-            id: data.role === 'user' ? 'user-message-id' : 'assistant-message-id',
-            ...data,
-          }),
-        ),
-      },
-    };
+    // PrismaService mock - Message model was removed from schema
+    prismaService = {};
     embeddingsService = {
       saveEmbedding: jest.fn().mockResolvedValue(undefined),
       findSimilarContent: jest.fn().mockResolvedValue([]),
@@ -290,7 +280,6 @@ describe('MistralService', () => {
       );
 
       expect(response).toContain('AI assistant is not configured');
-      expect(prismaService.message.create).toHaveBeenCalledTimes(2);
     });
 
     it('persists user message and assistant answer when call succeeds', async () => {
@@ -315,12 +304,10 @@ describe('MistralService', () => {
       expect(embeddingsService.saveEmbedding).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: 'tenant-a',
-          messageId: 'user-message-id',
           content: 'Tell me the plan',
         }),
       );
       expect(embeddingsService.findSimilarContent).toHaveBeenCalled();
-      expect(prismaService.message.create).toHaveBeenCalledTimes(2);
       expect(mockChatComplete).toHaveBeenCalled();
     });
 
@@ -340,7 +327,6 @@ describe('MistralService', () => {
       );
 
       expect(response).toContain('Mistral API is experiencing issues right now');
-      expect(prismaService.message.create).toHaveBeenCalledTimes(2);
     });
   });
 });

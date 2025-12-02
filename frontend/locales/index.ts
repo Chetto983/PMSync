@@ -545,6 +545,24 @@ export interface AppTranslations {
       unreadSubtitle?: string;
       labelTitle?: string;
       labelSubtitle?: string;
+      // Extended empty states
+      inboxTitle?: string;
+      inboxSubtitle?: string;
+      starredTitle?: string;
+      starredSubtitle?: string;
+      archiveTitle?: string;
+      archiveSubtitle?: string;
+      searchTitle?: string;
+      searchSubtitle?: string;
+    };
+    swipe?: {
+      delete?: string;
+      markRead?: string;
+      markUnread?: string;
+      archive?: string;
+    };
+    skeleton?: {
+      loadingEmails?: string;
     };
     emailView: {
       folderLabel: string;

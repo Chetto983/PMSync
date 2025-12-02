@@ -246,7 +246,6 @@ export class KnowledgeBaseService {
         try {
           await this.embeddingsService.saveEmbedding({
             tenantId: chunkData.tenantId,
-            messageId: `${chunkData.emailId}::chunk-${chunkData.chunkIndex + 1}`,
             content: chunkData.content,
             embedding,
             model: this.mistralService.getEmbeddingModel(),
@@ -365,7 +364,6 @@ export class KnowledgeBaseService {
           try {
             await this.embeddingsService.saveEmbedding({
               tenantId: options.tenantId,
-              messageId: `${options.emailId}::chunk-${chunk.index + 1}`,
               content: chunk.content,
               embedding,
               model: this.mistralService.getEmbeddingModel(),
@@ -403,7 +401,6 @@ export class KnowledgeBaseService {
 
             await this.embeddingsService.saveEmbedding({
               tenantId: options.tenantId,
-              messageId: `${options.emailId}::chunk-${chunk.index + 1}`,
               content: chunk.content,
               embedding,
               model: this.mistralService.getEmbeddingModel(),

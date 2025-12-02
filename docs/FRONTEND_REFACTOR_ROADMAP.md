@@ -35,7 +35,9 @@ Transform MailAgent's frontend into a modern, performant, and maintainable email
 - **Developer Experience**: Type-safe, well-documented, easy to extend
 
 ### Key Improvements Over Zero Example
+
 | Aspect | Zero | MailAgent Target |
+
 |--------|------|------------------|
 | Framework | React Router v7 | Next.js 14+ App Router |
 | State | Jotai (atoms) | Zustand + TanStack Query (already using) |
@@ -97,6 +99,7 @@ i18n:          Custom (1,200+ keys)
 | Translation type safety (`t as any`) | Runtime errors, no autocomplete | AI components, Mailbox.tsx | **FIXED** ✅ |
 | ComposeDialog file upload size limits | No validation, API errors | ComposeDialog/ComposeDialog.tsx | **FIXED** ✅ |
 | API client auth token mismatch | 401 errors on auth | lib/api-client.ts | **FIXED** ✅ |
+| Horizontal overflow in email layout | Page width > browser width | email.tsx, Mailbox.tsx, AISearchBar.tsx | **FIXED** ✅ |
 
 ##### Bug Audit Details (2025-12-01)
 
@@ -496,6 +499,11 @@ type ComposeFormData = z.infer<typeof composeSchema>;
   - Matches exact structure of ThreadListItem
   - Uses MUI Skeleton component (no extra dependencies)
   - Configurable count and checkbox visibility
+- [x] Enhanced UI components ✅ (2025-12-02)
+  - `EnhancedThreadListSkeleton` with staggered animations and wave effect
+  - `EmailEmptyState` with animated icons, gradients, and i18n support
+  - Multiple empty state types: inbox, sent, trash, starred, archive, search, label
+  - Dark mode support with gradient text effects
 - [x] Implement optimistic updates for actions (via TanStack Query mutations)
 - [x] Add bulk selection with keyboard support (`hooks/use-bulk-selection.ts`)
   - Shift+Click for range selection
@@ -504,7 +512,13 @@ type ComposeFormData = z.infer<typeof composeSchema>;
   - Escape to clear selection
   - Max selection limit (100 items) to respect backend batch size
   - `onMaxSelectionReached` callback for user feedback
-- [ ] Implement swipe gestures (mobile)
+- [x] Implement swipe gestures (mobile) ✅ (2025-12-02)
+  - `SwipeableThreadListItem` component with touch gestures
+  - `useSwipeActions` hook for swipe detection with haptic feedback
+  - Swipe left to delete, right to mark read/unread
+  - Visual indicators with smooth animations
+  - Velocity-based action triggering
+  - i18n support for swipe labels
 
 #### 2.2 Thread View Enhancement
 

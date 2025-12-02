@@ -615,6 +615,23 @@ export const en: AppTranslations = {
       unreadSubtitle: 'You are all caught up.',
       labelTitle: 'No emails with this label',
       labelSubtitle: 'Try another label or clear filters.',
+      inboxTitle: 'Your inbox is empty',
+      inboxSubtitle: 'All caught up! New emails will appear here.',
+      starredTitle: 'No starred emails',
+      starredSubtitle: 'Star important emails to find them quickly.',
+      archiveTitle: 'Archive is empty',
+      archiveSubtitle: 'Archived emails will appear here.',
+      searchTitle: 'No results found',
+      searchSubtitle: 'Try different keywords or clear filters.',
+    },
+    swipe: {
+      delete: 'Delete',
+      markRead: 'Mark Read',
+      markUnread: 'Mark Unread',
+      archive: 'Archive',
+    },
+    skeleton: {
+      loadingEmails: 'Loading emails, please wait...',
     },
     emailView: {
       folderLabel: 'Folder',

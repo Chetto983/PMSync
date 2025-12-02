@@ -613,6 +613,23 @@ export const it: AppTranslations = {
       unreadSubtitle: 'Hai letto tutti i messaggi.',
       labelTitle: 'Nessuna email con questa etichetta',
       labelSubtitle: 'Prova un\'altra etichetta o rimuovi i filtri.',
+      inboxTitle: 'La tua inbox è vuota',
+      inboxSubtitle: 'Tutto aggiornato! Le nuove email appariranno qui.',
+      starredTitle: 'Nessuna email con stella',
+      starredSubtitle: 'Aggiungi stelle alle email importanti per trovarle rapidamente.',
+      archiveTitle: 'L\'archivio è vuoto',
+      archiveSubtitle: 'Le email archiviate appariranno qui.',
+      searchTitle: 'Nessun risultato',
+      searchSubtitle: 'Prova con parole chiave diverse o rimuovi i filtri.',
+    },
+    swipe: {
+      delete: 'Elimina',
+      markRead: 'Segna come letto',
+      markUnread: 'Segna come non letto',
+      archive: 'Archivia',
+    },
+    skeleton: {
+      loadingEmails: 'Caricamento email in corso...',
     },
     emailView: {
       folderLabel: 'Cartella',

@@ -453,6 +453,7 @@ export function ComposeDialog({
 
   // Convert array of emails (possibly in "Name <email>" format) to clean email array
   const cleanEmailArray = useCallback((emails: string[]): string[] => {
+    if (!Array.isArray(emails)) return [];
     return emails.map(extractEmail).filter(e => e.length > 0);
   }, [extractEmail]);
 
@@ -1241,8 +1242,15 @@ export function ComposeDialog({
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 2, py: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+      <DialogActions sx={{ px: 2, py: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          width: '100%',
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          justifyContent: { xs: 'flex-end', sm: 'flex-start' },
+        }}>
           {/* Hidden file input */}
           <input
             ref={fileInputRef}
@@ -1266,7 +1274,7 @@ export function ComposeDialog({
           >
             {uploading ? <CircularProgress size={18} /> : <Paperclip size={18} />}
           </IconButton>
-          <Box sx={{ flex: 1 }} />
+          <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
 
           {/* Scheduled indicator */}
           {scheduledAt && (

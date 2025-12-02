@@ -161,13 +161,28 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
         syncDuration: Date.now() - startTime,
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`Sync failed for ${email}:`, error);
 
-      // Increment error streak (Smart Sync)
-      await this.syncScheduler.incrementErrorStreak(providerId);
+      // Check if this is an authentication error - trigger token refresh instead of error streak
+      const isAuthError = this.isAuthenticationError(errorMessage);
+
+      if (isAuthError) {
+        this.logger.warn(`Auth error detected for ${email}, will attempt token refresh on next sync`);
+        // Set provider to sync immediately (token service will auto-refresh)
+        await this.prisma.providerConfig.update({
+          where: { id: providerId },
+          data: {
+            nextSyncAt: new Date(), // Force immediate retry
+            // Don't increment error streak for auth errors - token refresh should fix it
+          },
+        });
+      } else {
+        // Increment error streak (Smart Sync) only for non-auth errors
+        await this.syncScheduler.incrementErrorStreak(providerId);
+      }
 
       // Return error result
-      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         success: false,
         providerId,
@@ -176,6 +191,7 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
         newMessages: 0,
         errors: [errorMessage],
         syncDuration: Date.now() - startTime,
+        isAuthError,
       };
     }
   }
@@ -200,6 +216,31 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     });
 
     return provider?.metadata || {};
+  }
+
+  /**
+   * Detect if an error is related to authentication/token issues
+   * These errors should trigger token refresh rather than error streak increment
+   */
+  private isAuthenticationError(errorMessage: string): boolean {
+    const authErrorPatterns = [
+      '401',
+      'unauthorized',
+      'invalid_grant',
+      'invalid_token',
+      'token expired',
+      'token has been expired',
+      'access_denied',
+      'authentication required',
+      'requires re-authentication',
+      'refresh token',
+      'InvalidAuthenticationToken',
+      'AuthenticationError',
+      'ExpiredAuthenticationToken',
+    ];
+
+    const lowerMessage = errorMessage.toLowerCase();
+    return authErrorPatterns.some((pattern) => lowerMessage.includes(pattern.toLowerCase()));
   }
 
   async onModuleDestroy() {

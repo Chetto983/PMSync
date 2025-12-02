@@ -28,7 +28,9 @@
       "Bash(ls:*)",
       "Bash(Select-Object -First 30)",
       "Bash(npm run start:dev:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx ts-node:*)"
     ],
     "deny": [],
     "ask": []

@@ -8,7 +8,6 @@ interface SaveEmbeddingOptions {
   content: string;
   embedding: number[];
   model: string;
-  messageId?: string;
   documentName?: string | null;
   metadata?: Record<string, any>;
 }
@@ -61,7 +60,6 @@ export class EmbeddingsService {
       content,
       embedding,
       model,
-      messageId = null,
       documentName = null,
       metadata,
     } = options;
@@ -83,18 +81,12 @@ export class EmbeddingsService {
       : Prisma.sql`NULL::jsonb`;
 
     try {
-      if (messageId) {
-        await this.prisma.$executeRaw(
-          Prisma.sql`DELETE FROM "embeddings" WHERE "messageId" = ${messageId};`,
-        );
-      }
-
       await this.prisma.$executeRaw(
         Prisma.sql`
           INSERT INTO "embeddings"
-            ("id", "tenantId", "messageId", "documentName", "content", "vector", "embeddingModel", "metadata", "createdAt")
+            ("id", "tenantId", "documentName", "content", "vector", "embeddingModel", "metadata", "createdAt")
           VALUES
-            (${nanoid()}, ${tenantId}, ${messageId}, ${documentName}, ${content}, ${vectorLiteral}, ${model}, ${metadataFragment}, NOW());
+            (${nanoid()}, ${tenantId}, ${documentName}, ${content}, ${vectorLiteral}, ${model}, ${metadataFragment}, NOW());
         `,
       );
     } catch (error) {

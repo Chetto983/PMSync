@@ -548,10 +548,6 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
     }
   }, [onFoldersRefresh]);
 
-  // Debug: Track label changes
-  useEffect(() => {
-    console.log('[EmailSidebar] Labels changed:', labels.length, labels);
-  }, [labels]);
 
   // Load labels on mount
   useEffect(() => {
@@ -622,12 +618,6 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
         [providerGroup.providerId]: newOrder,
       }));
 
-      console.log('[EmailSidebar] Folder reordered:', {
-        provider: providerGroup.providerEmail,
-        from: activeFolderId,
-        to: overFolderId,
-        newOrder,
-      });
     },
   });
 
@@ -653,8 +643,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
           setLabelsExpanded(preferences.sidebarLabelsExpanded);
           localStorage.setItem('sidebar-labels-expanded', JSON.stringify(preferences.sidebarLabelsExpanded));
         }
-      } catch (error) {
-        console.error('[EmailSidebar] Failed to load preferences from server:', error);
+      } catch {
         // Fall back to localStorage values already loaded in state
       }
     };
@@ -671,9 +660,8 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
     }) => {
       try {
         await usersApi.updatePreferences(data);
-        console.log('[EmailSidebar] Preferences saved to server');
       } catch (error) {
-        console.error('[EmailSidebar] Failed to save preferences to server:', error);
+        // Silently fail - preferences will sync on next load
       }
     }, 1000),
     []
@@ -696,12 +684,12 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
     savePreferencesToAPI({ folderOrders });
   }, [folderOrders, savePreferencesToAPI]);
 
-  // Default compose handler
+  // Default compose handler - uses query param if onCompose not provided
   const handleCompose = () => {
     if (onCompose) {
       onCompose();
     } else {
-      router.push('/dashboard/email/compose');
+      router.push('/dashboard/email?compose=new');
     }
   };
 
@@ -849,9 +837,9 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                         borderRadius: 1.5,
                         mb: 0.25,
                         mx: 0.5,
-                        py: 0.75,
+                        py: { xs: 1, sm: 0.75 },
                         px: 1.5,
-                        minHeight: 36,
+                        minHeight: { xs: 44, sm: 36 },
                       }}
                     >
                       <ListItemIcon

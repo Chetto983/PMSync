@@ -404,26 +404,58 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
     }
   };
 
-  // Thread emails calculation
+  // Thread emails calculation - merge and deduplicate from local and API sources
   const threadEmails = useMemo(() => {
     if (!email) return [];
+
     const local = emailStore.getEmailThread(email.id);
-    if (local.length > 0) return local;
-    if (threadData.length > 0) return threadData;
-    return [];
+    const apiData = threadData;
+
+    // Merge both sources and deduplicate by email ID
+    const emailMap = new Map<string, Email>();
+
+    // Add local emails first
+    for (const e of local) {
+      emailMap.set(e.id, e);
+    }
+
+    // Add API emails (will override local if same ID)
+    for (const e of apiData) {
+      emailMap.set(e.id, e);
+    }
+
+    // Convert to array and sort by receivedAt
+    const merged = Array.from(emailMap.values());
+
+    // If no emails found, fallback to selected email
+    if (merged.length === 0) {
+      return [email];
+    }
+
+    return merged.sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
   }, [email, emailStore, threadData]);
 
   // Load thread from API if needed
   useEffect(() => {
     const loadThread = async () => {
       if (!email || !email.threadId) return;
+
+      // Check local store for thread emails
       const existing = emailStore.getEmailThread(email.id);
-      if (existing.length > 0) return;
+
+      // If we have more than 1 email locally, we likely have the full thread
+      if (existing.length > 1) {
+        setThreadData([]);
+        return;
+      }
+
       try {
         const res = await emailApi.getThread(email.threadId);
-        setThreadData(res.data);
+        if (res.data && res.data.length > existing.length) {
+          setThreadData(res.data);
+        }
       } catch {
-        // ignore
+        // ignore - fall back to local data
       }
     };
     loadThread();
@@ -558,7 +590,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
       <Paper
         elevation={0}
         sx={{
-          px: 2,
+          px: { xs: 1, sm: 2 },
           py: 1.5,
           borderBottom: 1,
           borderColor: 'divider',
@@ -566,6 +598,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           alignItems: 'center',
           gap: 0.5,
           flexShrink: 0,
+          flexWrap: 'wrap',
         }}
       >
         {onClose && (
@@ -622,8 +655,17 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
       {/* Content Area */}
       <Box sx={{ flex: 1, overflow: 'auto', ...scrollContainerSx }}>
         {/* Subject Header */}
-        <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 600, lineHeight: 1.3, mb: 1 }}>
+        <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 3 }, pb: 2 }}>
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 600,
+              lineHeight: 1.3,
+              mb: 1,
+              fontSize: { xs: '1.25rem', sm: '1.5rem' },
+              wordBreak: 'break-word',
+            }}
+          >
             {primaryEmail.subject || '(No subject)'}
           </Typography>
 
@@ -691,7 +733,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         </Box>
 
         {/* Thread Messages */}
-        <Box sx={{ px: 3, pb: 3 }}>
+        <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3 }}>
           {threadEmails.map((threadEmail) => (
             <ThreadMessage
               key={threadEmail.id}

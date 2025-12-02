@@ -213,15 +213,16 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
           selected={selected}
           onClick={handleClick}
           sx={{
-            py: 1.5,
-            px: 2,
+            py: { xs: 1.75, sm: 1.5 },
+            px: { xs: 1.5, sm: 2 },
             display: 'flex',
-            gap: 2,
+            gap: { xs: 1.5, sm: 2 },
             alignItems: 'flex-start',
             bgcolor: isRead ? 'transparent' : 'action.hover',
             cursor: 'pointer',
             transition: 'background-color 0.2s ease',
             position: 'relative',
+            minHeight: { xs: 72, sm: 'auto' },
             '&.Mui-selected': {
               bgcolor: 'action.selected',
             },
@@ -357,15 +358,15 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
 
         </ListItemButton>
 
-        {/* Floating Action Bar - Centered at top */}
+        {/* Floating Action Bar - Centered horizontally */}
         {(onToggleRead || onToggleStar || onToggleImportant || onArchive || onDelete) && (
           <Box
             className="thread-action-bar"
             sx={{
               position: 'absolute',
               left: '50%',
-              top: 50,
-              transform: 'translatey(+100%)',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
               opacity: 0,
               visibility: 'hidden',
               transition: 'opacity 0.2s ease, visibility 0.2s ease',

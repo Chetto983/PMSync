@@ -331,33 +331,11 @@ export class MistralService {
   ): Promise<string> {
     const apiKey = this.getApiKey();
     const model = this.getModel();
-    const conversationId = options?.conversationId ?? null;
     const supportedLocale = getLocale(options?.locale);
     const t = getTranslations(supportedLocale);
 
-    const userMessage = await this.prisma.message.create({
-      data: {
-        tenantId,
-        userId,
-        conversationId,
-        role: 'user',
-        content: userPrompt,
-      },
-    });
-
     if (!apiKey) {
       const fallbackResponse = t.mistral.errors.notConfigured;
-
-      await this.prisma.message.create({
-        data: {
-          tenantId,
-          userId,
-          conversationId,
-          role: 'assistant',
-          content: fallbackResponse,
-        },
-      });
-
       this.logger.warn('Mistral API key missing. Responded with fallback message.');
       return fallbackResponse;
     }
@@ -373,7 +351,6 @@ export class MistralService {
 
         await this.embeddingsService.saveEmbedding({
           tenantId,
-          messageId: userMessage.id,
           content: userPrompt,
           embedding: userEmbedding,
           model: this.embeddingModel,
@@ -422,17 +399,6 @@ export class MistralService {
       const assistantResponse =
         this.extractAssistantContent(assistantMessage) || t.mistral.errors.tryAgain;
 
-      // Store assistant response in database
-      await this.prisma.message.create({
-        data: {
-          tenantId,
-          userId,
-          conversationId,
-          role: 'assistant',
-          content: assistantResponse,
-        },
-      });
-
       this.logger.log(`Generated response for user: ${userId}`);
       return assistantResponse;
     } catch (error) {
@@ -453,16 +419,6 @@ export class MistralService {
           }
         }
       }
-
-      await this.prisma.message.create({
-        data: {
-          tenantId,
-          userId,
-          conversationId,
-          role: 'assistant',
-          content: fallbackResponse,
-        },
-      });
 
       return fallbackResponse;
     }

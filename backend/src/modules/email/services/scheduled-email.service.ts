@@ -146,7 +146,9 @@ export class ScheduledEmailService {
         await this.processOneEmail(scheduled);
       }
     } catch (error) {
-      this.logger.error('Error processing scheduled emails:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error processing scheduled emails: ${message}`, stack);
     } finally {
       this.isProcessing = false;
     }

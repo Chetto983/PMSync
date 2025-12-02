@@ -1,0 +1,185 @@
+/**
+ * useThemePersistence Hook
+ *
+ * Unified theme management that syncs between:
+ * - Database (single source of truth)
+ * - next-themes (UI rendering)
+ * - localStorage (offline fallback)
+ *
+ * This hook eliminates the need for duplicate theme handling
+ * across Layout.tsx, email.tsx, and other components.
+ */
+import { useEffect, useCallback, useRef, useState } from 'react';
+import { useTheme as useNextTheme } from 'next-themes';
+import { usersApi, type UserPreferences } from '@/lib/api/users';
+import { useAuth } from '@/lib/hooks/use-auth';
+
+export type ThemeMode = 'light' | 'dark' | 'system';
+
+const THEME_STORAGE_KEY = 'pmSync:theme';
+const THEME_FETCH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+interface UseThemePersistenceReturn {
+  /** Current theme mode */
+  theme: ThemeMode;
+  /** Resolved theme (light or dark, resolves 'system' to actual value) */
+  resolvedTheme: 'light' | 'dark';
+  /** Whether theme is being loaded from database */
+  isLoading: boolean;
+  /** Set theme (saves to database and updates UI) */
+  setTheme: (theme: ThemeMode) => Promise<void>;
+  /** Toggle between light and dark (ignores system) */
+  toggleTheme: () => Promise<void>;
+  /** Whether the resolved theme is dark mode */
+  isDarkMode: boolean;
+}
+
+/**
+ * Get theme from localStorage (fallback for offline/unauthenticated)
+ */
+function getLocalTheme(): ThemeMode {
+  if (typeof window === 'undefined') return 'system';
+  const stored = localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === 'light' || stored === 'dark' || stored === 'system') {
+    return stored;
+  }
+  // Check legacy key
+  const legacy = localStorage.getItem('pmSyncTheme');
+  if (legacy === 'light' || legacy === 'dark') {
+    return legacy;
+  }
+  return 'system';
+}
+
+/**
+ * Save theme to localStorage (offline fallback)
+ */
+function setLocalTheme(theme: ThemeMode): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(THEME_STORAGE_KEY, theme);
+  // Keep legacy key in sync
+  if (theme !== 'system') {
+    localStorage.setItem('pmSyncTheme', theme);
+  }
+}
+
+export function useThemePersistence(): UseThemePersistenceReturn {
+  const { theme: nextTheme, setTheme: setNextTheme, systemTheme } = useNextTheme();
+  const { isAuthenticated, token } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const lastFetchRef = useRef<number>(0);
+  const isSavingRef = useRef(false);
+
+  // Computed resolved theme
+  const effectiveTheme = nextTheme === 'system' ? systemTheme : nextTheme;
+  const isDarkMode = effectiveTheme === 'dark';
+
+  /**
+   * Fetch theme from database
+   */
+  const fetchThemeFromDB = useCallback(async (): Promise<ThemeMode | null> => {
+    if (!isAuthenticated || !token) return null;
+
+    try {
+      const prefs: UserPreferences = await usersApi.getPreferences();
+      if (prefs.theme && ['light', 'dark', 'system'].includes(prefs.theme)) {
+        return prefs.theme as ThemeMode;
+      }
+    } catch (error) {
+      console.warn('[useThemePersistence] Failed to fetch theme from DB:', error);
+    }
+    return null;
+  }, [isAuthenticated, token]);
+
+  /**
+   * Save theme to database
+   */
+  const saveThemeToDB = useCallback(async (theme: ThemeMode): Promise<boolean> => {
+    if (!isAuthenticated || !token) return false;
+
+    try {
+      isSavingRef.current = true;
+      await usersApi.updatePreferences({ theme });
+      return true;
+    } catch (error) {
+      console.warn('[useThemePersistence] Failed to save theme to DB:', error);
+      return false;
+    } finally {
+      isSavingRef.current = false;
+    }
+  }, [isAuthenticated, token]);
+
+  /**
+   * Load theme from database on mount/auth change
+   */
+  useEffect(() => {
+    const loadTheme = async () => {
+      // Skip if recently fetched
+      const now = Date.now();
+      if (now - lastFetchRef.current < THEME_FETCH_INTERVAL) {
+        return;
+      }
+
+      // If not authenticated, use localStorage
+      if (!isAuthenticated) {
+        const localTheme = getLocalTheme();
+        setNextTheme(localTheme);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const dbTheme = await fetchThemeFromDB();
+        lastFetchRef.current = Date.now();
+
+        if (dbTheme) {
+          // DB theme is source of truth
+          setNextTheme(dbTheme);
+          setLocalTheme(dbTheme);
+        } else {
+          // No DB theme, use local and save to DB
+          const localTheme = getLocalTheme();
+          setNextTheme(localTheme);
+          await saveThemeToDB(localTheme);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTheme();
+  }, [isAuthenticated, fetchThemeFromDB, saveThemeToDB, setNextTheme]);
+
+  /**
+   * Set theme - saves to DB and updates UI
+   */
+  const setTheme = useCallback(async (theme: ThemeMode): Promise<void> => {
+    // Update UI immediately
+    setNextTheme(theme);
+    setLocalTheme(theme);
+
+    // Save to DB (async, don't block UI)
+    if (isAuthenticated) {
+      await saveThemeToDB(theme);
+    }
+  }, [isAuthenticated, setNextTheme, saveThemeToDB]);
+
+  /**
+   * Toggle between light and dark
+   */
+  const toggleTheme = useCallback(async (): Promise<void> => {
+    const newTheme: ThemeMode = effectiveTheme === 'dark' ? 'light' : 'dark';
+    await setTheme(newTheme);
+  }, [effectiveTheme, setTheme]);
+
+  return {
+    theme: (nextTheme as ThemeMode) || 'system',
+    resolvedTheme: (effectiveTheme as 'light' | 'dark') || 'light',
+    isLoading,
+    setTheme,
+    toggleTheme,
+    isDarkMode,
+  };
+}
+
+export default useThemePersistence;
