@@ -64,27 +64,28 @@ export class ContactsWebhookController {
    * Microsoft Graph Contacts webhook endpoint
    * Receives notifications from Microsoft Graph API
    * Handles both validation and notifications
+   *
+   * NOTE: Microsoft Graph uses clientState in notification BODY for validation,
+   * not URL tokens. The clientState is validated in MicrosoftContactsWebhookService
+   * @see https://learn.microsoft.com/en-us/graph/change-notifications-delivery-webhooks
    */
   @Post('microsoft/notifications')
   @HttpCode(HttpStatus.OK)
   async handleMicrosoftContactsNotification(
     @Body() payload: { value?: MicrosoftContactsNotification[] },
     @Query('validationToken') validationToken?: string,
-    @Query('token') token?: string,
-    @Headers('x-webhook-token') webhookToken?: string,
   ) {
     try {
       // Handle subscription validation (initial setup)
+      // Microsoft sends validationToken as query param during subscription creation
       if (validationToken) {
         this.logger.log('Microsoft Contacts webhook validation requested');
-        // Return the validation token in plain text
+        // Return the validation token in plain text (required by Microsoft)
         return validationToken;
       }
 
-      // Validate webhook authentication for actual notifications
-      this.syncAuth.validateWebhookToken(webhookToken, token);
-
       // Handle notification
+      // clientState validation happens in MicrosoftContactsWebhookService.handleNotifications()
       this.logger.log(
         `Received Microsoft Contacts notification with ${payload.value?.length || 0} items`,
       );
@@ -94,7 +95,7 @@ export class ContactsWebhookController {
         return { success: true };
       }
 
-      // Process each notification
+      // Process each notification (includes clientState validation)
       await this.microsoftContactsWebhook.handleNotifications(payload.value);
 
       return { success: true };

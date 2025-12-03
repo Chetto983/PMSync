@@ -63,27 +63,29 @@ export class WebhookController {
    * Microsoft Graph webhook endpoint
    * Receives notifications from Microsoft Graph API
    * Handles both validation and notifications
+   *
+   * NOTE: Microsoft Graph uses clientState in the notification BODY for validation,
+   * not URL tokens like Google Pub/Sub. The clientState is validated in
+   * MicrosoftWebhookService.handleSingleNotification()
+   * @see https://learn.microsoft.com/en-us/graph/change-notifications-delivery-webhooks
    */
   @Post('microsoft/notifications')
   @HttpCode(HttpStatus.OK)
   async handleMicrosoftNotification(
     @Body() payload: MicrosoftGraphWebhookPayload,
     @Query('validationToken') validationToken?: string,
-    @Query('token') token?: string,
-    @Headers('x-webhook-token') webhookToken?: string,
   ) {
     try {
       // Handle subscription validation (initial setup)
+      // Microsoft sends validationToken as query param during subscription creation
       if (validationToken) {
-      this.logger.log('Microsoft webhook validation requested');
-      // Optionally validate webhook token if configured
-      this.syncAuth.validateWebhookToken(webhookToken, token);
-      // Return the validation token in plain text
-      return validationToken;
-    }
-    this.syncAuth.validateWebhookToken(webhookToken, token);
+        this.logger.log('Microsoft webhook validation requested');
+        // Return the validation token in plain text (required by Microsoft)
+        return validationToken;
+      }
 
       // Handle notification
+      // clientState validation happens in MicrosoftWebhookService.handleSingleNotification()
       this.logger.log(
         `Received Microsoft Graph notification with ${payload.value?.length || 0} items`,
       );
@@ -92,7 +94,7 @@ export class WebhookController {
         throw new BadRequestException('No notifications in payload');
       }
 
-      // Process each notification
+      // Process each notification (includes clientState validation)
       await this.microsoftWebhook.handleNotifications(payload.value);
 
       return { success: true };

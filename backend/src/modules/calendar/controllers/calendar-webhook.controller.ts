@@ -67,27 +67,28 @@ export class CalendarWebhookController {
    * Microsoft Graph Calendar webhook endpoint
    * Receives notifications from Microsoft Graph API
    * Handles both validation and notifications
+   *
+   * NOTE: Microsoft Graph uses clientState in notification BODY for validation,
+   * not URL tokens. The clientState is validated in MicrosoftCalendarWebhookService
+   * @see https://learn.microsoft.com/en-us/graph/change-notifications-delivery-webhooks
    */
   @Post('microsoft/notifications')
   @HttpCode(HttpStatus.OK)
   async handleMicrosoftCalendarNotification(
     @Body() payload: { value?: MicrosoftCalendarNotification[] },
     @Query('validationToken') validationToken?: string,
-    @Query('token') token?: string,
-    @Headers('x-webhook-token') webhookToken?: string,
   ) {
     try {
       // Handle subscription validation (initial setup)
+      // Microsoft sends validationToken as query param during subscription creation
       if (validationToken) {
         this.logger.log('Microsoft Calendar webhook validation requested');
-        // Return the validation token in plain text
+        // Return the validation token in plain text (required by Microsoft)
         return validationToken;
       }
 
-      // Validate webhook authentication for actual notifications
-      this.syncAuth.validateWebhookToken(webhookToken, token);
-
       // Handle notification
+      // clientState validation happens in MicrosoftCalendarWebhookService.handleNotifications()
       this.logger.log(
         `Received Microsoft Calendar notification with ${payload.value?.length || 0} items`,
       );
@@ -97,7 +98,7 @@ export class CalendarWebhookController {
         return { success: true };
       }
 
-      // Process each notification
+      // Process each notification (includes clientState validation)
       await this.microsoftCalendarWebhook.handleNotifications(payload.value);
 
       return { success: true };

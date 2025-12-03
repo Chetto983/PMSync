@@ -44,7 +44,8 @@
       "Bash(findstr:*)",
       "Bash(cmd /c \"for /f \"\"tokens=5\"\" %a in (''netstat -ano ^| findstr :3000'') do taskkill /pid %a /f\")",
       "Bash(curl:*)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

@@ -66,11 +66,11 @@ export class WebhookLifecycleService {
         });
       } else if (provider.providerType === 'microsoft') {
         // Derive webhook URL from API_PUBLIC_URL if not explicitly set
+        // NOTE: Microsoft uses clientState in notification body for validation,
+        // NOT URL tokens like Google Pub/Sub
         const configuredUrl = this.configService.get<string>('MICROSOFT_EMAIL_WEBHOOK_URL');
         const apiUrl = this.configService.get<string>('API_PUBLIC_URL', 'http://localhost:3000');
-        const webhookToken = this.configService.get<string>('EMAIL_SYNC_WEBHOOK_TOKEN');
-        const baseUrl = configuredUrl || `${apiUrl}/webhooks/microsoft/notifications`;
-        const webhookUrl = webhookToken ? `${baseUrl}?token=${webhookToken}` : baseUrl;
+        const webhookUrl = configuredUrl || `${apiUrl}/webhooks/microsoft/notifications`;
 
         await this.microsoftWebhook.createSubscription({
           providerId,
