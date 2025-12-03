@@ -1,7 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { StorageService } from '../../email/services/storage.service';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse');
+
+// Lazy loader to support both CJS and ESM builds of pdf-parse
+const loadPdfParse = () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require('pdf-parse');
+  if (typeof mod === 'function') return mod;
+  if (mod?.default && typeof mod.default === 'function') return mod.default;
+  throw new Error('pdf-parse module did not export a function');
+};
 
 export interface AttachmentContent {
   attachmentId: string;
@@ -105,6 +112,7 @@ export class AttachmentContentExtractorService {
    */
   private async extractFromPDF(buffer: Buffer, filename: string): Promise<string | null> {
     try {
+      const pdfParse = loadPdfParse();
       const data = await pdfParse(buffer);
 
       if (data.text && data.text.trim().length > 0) {

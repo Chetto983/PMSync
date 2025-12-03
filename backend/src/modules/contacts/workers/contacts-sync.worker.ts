@@ -187,14 +187,43 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     this.logger.log('Stopping contacts sync workers...');
+    try {
+      // Close all workers safely
+      await Promise.all(
+        this.workers.map(async (worker) => {
+          try {
+            await worker.close();
+          } catch (error) {
+            this.logger.debug(
+              `Worker close skipped: ${error instanceof Error ? error.message : error}`,
+            );
+          }
+        }),
+      );
 
-    // Close all workers
-    await Promise.all(this.workers.map((worker) => worker.close()));
-
-    // Close Redis connection
-    await this.redisConnection.quit();
-
-    this.logger.log('Contacts sync workers stopped');
+      // Close Redis connection safely
+      if (
+        this.redisConnection &&
+        this.redisConnection.status !== 'end' &&
+        this.redisConnection.status !== 'close'
+      ) {
+        try {
+          await this.redisConnection.quit();
+        } catch (error) {
+          this.logger.debug(
+            `Redis quit skipped: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      }
+    } catch (outerError) {
+      this.logger.warn(
+        `ContactsSyncWorker shutdown encountered an error (swallowed): ${
+          outerError instanceof Error ? outerError.message : outerError
+        }`,
+      );
+    } finally {
+      this.logger.log('Contacts sync workers stopped');
+    }
   }
 
   /**

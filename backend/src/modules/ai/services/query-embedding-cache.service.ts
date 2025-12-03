@@ -56,8 +56,10 @@ export class QueryEmbeddingCacheService implements OnModuleDestroy {
 
   async onModuleDestroy() {
     try {
-      await this.redis.quit();
-      this.logger.debug('Redis connection closed gracefully');
+      if (this.redis.status !== 'end' && this.redis.status !== 'close') {
+        await this.redis.quit();
+        this.logger.debug('Redis connection closed gracefully');
+      }
     } catch (error) {
       this.logger.warn(
         `Failed to close Redis connection during shutdown: ${error instanceof Error ? error.message : String(error)}`,

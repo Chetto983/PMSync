@@ -422,21 +422,52 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     this.logger.log('Closing queue connections...');
+    try {
+      // Close queue events safely
+      for (const queueEvent of this.queueEvents) {
+        try {
+          await queueEvent.close();
+        } catch (error) {
+          this.logger.debug(
+            `QueueEvents close skipped: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      }
 
-    // Close queue events
-    for (const queueEvent of this.queueEvents) {
-      await queueEvent.close();
+      // Close queues safely
+      for (const queue of [this.highQueue, this.normalQueue, this.lowQueue]) {
+        try {
+          await queue.close();
+        } catch (error) {
+          this.logger.debug(
+            `Queue close skipped: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      }
+
+      // Close Redis connection safely
+      if (
+        this.redisConnection &&
+        this.redisConnection.status !== 'end' &&
+        this.redisConnection.status !== 'close'
+      ) {
+        try {
+          await this.redisConnection.quit();
+        } catch (error) {
+          this.logger.debug(
+            `Redis quit skipped: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      }
+    } catch (outerError) {
+      this.logger.warn(
+        `QueueService shutdown encountered an error (swallowed): ${
+          outerError instanceof Error ? outerError.message : outerError
+        }`,
+      );
+    } finally {
+      this.logger.log('All queue connections closed');
     }
-
-    // Close queues
-    await this.highQueue.close();
-    await this.normalQueue.close();
-    await this.lowQueue.close();
-
-    // Close Redis connection
-    await this.redisConnection.quit();
-
-    this.logger.log('All queue connections closed');
   }
 
   getQueueMetricsSummary(): QueueMetricsSummary[] {

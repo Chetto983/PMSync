@@ -431,28 +431,58 @@ export class AiQueueService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     this.logger.log('Shutting down AI Queue service...');
+    try {
+      // Close workers (ignore already-closed errors)
+      for (const worker of this.workers) {
+        try {
+          await worker.close();
+        } catch (error) {
+          this.logger.debug(`Worker close skipped: ${error instanceof Error ? error.message : error}`);
+        }
+      }
 
-    // Close workers
-    for (const worker of this.workers) {
-      await worker.close();
+      // Close queue events safely
+      for (const queueEvent of this.queueEvents) {
+        try {
+          await queueEvent.close();
+        } catch (error) {
+          this.logger.debug(
+            `QueueEvents close skipped: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      }
+
+      // Close queues safely
+      for (const queue of [this.highQueue, this.normalQueue, this.lowQueue]) {
+        try {
+          await queue?.close();
+        } catch (error) {
+          this.logger.debug(`Queue close skipped: ${error instanceof Error ? error.message : error}`);
+        }
+      }
+
+      // Close Redis connection safely (avoid "Connection is closed.")
+      if (this.redisConnection) {
+        try {
+          if (this.redisConnection.status !== 'end' && this.redisConnection.status !== 'close') {
+            await this.redisConnection.quit();
+          }
+        } catch (error) {
+          this.logger.debug(
+            `Redis quit skipped: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      }
+    } catch (outerError) {
+      // Swallow shutdown errors to avoid surfacing during Nest teardown
+      this.logger.warn(
+        `AI Queue shutdown encountered an error (swallowed): ${
+          outerError instanceof Error ? outerError.message : outerError
+        }`,
+      );
+    } finally {
+      this.logger.log('AI Queue service shut down');
     }
-
-    // Close queue events
-    for (const queueEvent of this.queueEvents) {
-      await queueEvent.close();
-    }
-
-    // Close queues
-    await this.highQueue?.close();
-    await this.normalQueue?.close();
-    await this.lowQueue?.close();
-
-    // Close Redis connection
-    if (this.redisConnection) {
-      await this.redisConnection.quit();
-    }
-
-    this.logger.log('AI Queue service shut down');
   }
 
   private getQueue(priority: AiJobPriority): Queue<AiJobData, AiJobResult> | null {

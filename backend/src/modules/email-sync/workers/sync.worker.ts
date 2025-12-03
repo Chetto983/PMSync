@@ -287,15 +287,41 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log('Stopping email sync workers...');
 
-    // Stop all workers
-    for (const worker of this.workers) {
-      await worker.close();
+    try {
+      // Stop all workers safely
+      for (const worker of this.workers) {
+        try {
+          await worker.close();
+        } catch (error) {
+          this.logger.debug(
+            `Worker close skipped: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      }
+
+      // Close Redis connection safely
+      if (
+        this.redisConnection &&
+        this.redisConnection.status !== 'end' &&
+        this.redisConnection.status !== 'close'
+      ) {
+        try {
+          await this.redisConnection.quit();
+        } catch (error) {
+          this.logger.debug(
+            `Redis quit skipped: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      }
+    } catch (outerError) {
+      this.logger.warn(
+        `SyncWorker shutdown encountered an error (swallowed): ${
+          outerError instanceof Error ? outerError.message : outerError
+        }`,
+      );
+    } finally {
+      this.logger.log('All workers stopped successfully');
     }
-
-    // Close Redis connection
-    await this.redisConnection.quit();
-
-    this.logger.log('All workers stopped successfully');
   }
 }
 

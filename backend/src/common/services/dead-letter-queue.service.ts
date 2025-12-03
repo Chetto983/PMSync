@@ -492,9 +492,47 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     this.logger.log('Closing DLQ connections...');
-    await this.queueEvents.close();
-    await this.dlqQueue.close();
-    await this.redisConnection.quit();
-    this.logger.log('DLQ connections closed');
+    try {
+      // Close queue events safely
+      try {
+        await this.queueEvents.close();
+      } catch (error) {
+        this.logger.debug(
+          `DLQ QueueEvents close skipped: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+
+      // Close DLQ queue safely
+      try {
+        await this.dlqQueue.close();
+      } catch (error) {
+        this.logger.debug(
+          `DLQ queue close skipped: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+
+      // Close Redis connection safely
+      if (
+        this.redisConnection &&
+        this.redisConnection.status !== 'end' &&
+        this.redisConnection.status !== 'close'
+      ) {
+        try {
+          await this.redisConnection.quit();
+        } catch (error) {
+          this.logger.debug(
+            `DLQ Redis quit skipped: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      }
+    } catch (outerError) {
+      this.logger.warn(
+        `DeadLetterQueueService shutdown encountered an error (swallowed): ${
+          outerError instanceof Error ? outerError.message : outerError
+        }`,
+      );
+    } finally {
+      this.logger.log('DLQ connections closed');
+    }
   }
 }

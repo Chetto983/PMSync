@@ -131,10 +131,20 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    if (this.client && this.isConnected) {
-      this.logger.log('Disconnecting Redis client...');
-      await this.client.quit();
-      this.logger.log('Redis client disconnected');
+    if (this.client) {
+      if (this.isConnected) {
+        try {
+          this.logger.log('Disconnecting Redis client...');
+          await this.client.quit();
+          this.logger.log('Redis client disconnected');
+        } catch (error) {
+          this.logger.debug(
+            `Redis client quit skipped: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      } else {
+        this.logger.debug('Redis client already closed; skip quit');
+      }
     }
   }
 
