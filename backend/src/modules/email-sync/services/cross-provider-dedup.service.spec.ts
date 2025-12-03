@@ -43,7 +43,7 @@ describe('CrossProviderDedupService', () => {
         ]),
       },
     };
-    const service = new CrossProviderDedupService(prismaMock as any);
+    const service = new CrossProviderDedupService(prismaMock);
     (service as any).logger = { warn: jest.fn(), verbose: jest.fn() };
 
     const telemetry = await (service as any).detectConflicts('link-1');
@@ -68,7 +68,7 @@ describe('CrossProviderDedupService', () => {
         ]),
       },
     };
-    const service = new CrossProviderDedupService(prismaMock as any);
+    const service = new CrossProviderDedupService(prismaMock);
     (service as any).logger = { warn: jest.fn() };
 
     const telemetry = await (service as any).detectConflicts('link-2');

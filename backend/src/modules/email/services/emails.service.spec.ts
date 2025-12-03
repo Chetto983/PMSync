@@ -70,6 +70,9 @@ describe('EmailsService', () => {
             userLabel: {
               findMany: jest.fn(),
             },
+            providerConfig: {
+              findMany: jest.fn().mockResolvedValue([{ id: 'provider-1' }]),
+            },
           },
         },
         {
@@ -311,6 +314,16 @@ describe('EmailsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('should throw NotFoundException when provider is inactive or missing', async () => {
+      prismaService.email.findFirst = jest.fn().mockResolvedValue(mockEmail);
+      prismaService.providerConfig.findMany.mockResolvedValueOnce([]);
+
+      await expect(
+        service.updateEmail('email-1', 'tenant-1', { isRead: true }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prismaService.email.update).not.toHaveBeenCalled();
+    });
+
     it('should emit realtime update event', async () => {
       prismaService.email.findFirst = jest.fn().mockResolvedValue(mockEmail);
       prismaService.email.update = jest.fn().mockResolvedValue({ ...mockEmail, isStarred: true });
@@ -414,6 +427,9 @@ describe('EmailsService', () => {
         isDraft: true,
         folder: 'DRAFTS',
       });
+      prismaService.providerConfig = {
+        findFirst: jest.fn().mockResolvedValue({ id: 'provider-1' }),
+      } as any;
 
       const result = await service.saveDraft('tenant-1', draftData);
 
@@ -426,6 +442,33 @@ describe('EmailsService', () => {
           folder: 'DRAFTS',
         }),
       });
+    });
+
+    it('should throw NotFoundException when provider is missing', async () => {
+      const draftData = {
+        providerId: 'provider-unknown',
+        subject: 'Draft Subject',
+      };
+
+      prismaService.providerConfig = {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as any;
+
+      await expect(service.saveDraft('tenant-1', draftData as any)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException when provider belongs to another tenant', async () => {
+      const draftData = {
+        providerId: 'provider-1',
+        subject: 'Draft Subject',
+      };
+
+      // Simulate tenant mismatch by returning null for the scoped lookup
+      prismaService.providerConfig = {
+        findFirst: jest.fn().mockResolvedValue(null),
+      } as any;
+
+      await expect(service.saveDraft('tenant-2', draftData as any)).rejects.toThrow(NotFoundException);
     });
 
     it('should update an existing draft', async () => {
@@ -442,6 +485,9 @@ describe('EmailsService', () => {
         ...draftData,
         isDraft: true,
       });
+      prismaService.providerConfig = {
+        findFirst: jest.fn().mockResolvedValue({ id: 'provider-1' }),
+      } as any;
 
       const result = await service.saveDraft('tenant-1', draftData);
 

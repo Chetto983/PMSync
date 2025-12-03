@@ -289,7 +289,7 @@ export class HealthService {
         _min: { lastSyncedAt: true },
       });
       const oldest = lastSyncAggregate._min.lastSyncedAt
-        ? (now - new Date(lastSyncAggregate._min.lastSyncedAt as Date).getTime()) / 1000
+        ? (now - new Date(lastSyncAggregate._min.lastSyncedAt).getTime()) / 1000
         : 0;
       lines.push('# HELP email_sync_providers_max_last_sync_age_seconds Oldest lastSyncedAt among active providers');
       lines.push('# TYPE email_sync_providers_max_last_sync_age_seconds gauge');

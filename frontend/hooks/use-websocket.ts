@@ -46,10 +46,8 @@ const fetchWithRetry = async <T,>(
  */
 export function useWebSocket(token: string | null, enabled = true) {
   const isConnectedRef = useRef(false);
-  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wsCleanupRef = useRef<(() => void) | null>(null);
-  const retryAttemptRef = useRef(0);
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const cleanupRef = useRef<(() => void)[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'auth_failed'>('disconnected');
 
   // Store actions
   const { addEmail, updateEmail, deleteEmail, setUnreadCount, updateThread } = useEmailStore();
@@ -66,8 +64,9 @@ export function useWebSocket(token: string | null, enabled = true) {
 
   /**
    * Connetti al WebSocket
+   * Relies on socket.io's built-in reconnection - no manual backoff needed
    */
-  const connect = useCallback(async function connectWithBackoff() {
+  const connect = useCallback(async () => {
     if (!token || !enabled || isConnectedRef.current) return;
 
     try {
@@ -75,45 +74,57 @@ export function useWebSocket(token: string | null, enabled = true) {
         console.log('[useWebSocket] Connecting...');
       }
       setConnectionStatus('connecting');
+
+      // Register auth failure handler before connecting
+      const unsubAuthFailure = websocketClient.onAuthFailure(() => {
+        console.error('[useWebSocket] Auth failure - token may be expired');
+        isConnectedRef.current = false;
+        setConnectionStatus('auth_failed');
+        // Emit event for app to handle (e.g., logout, refresh token)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('websocket:auth_failed'));
+        }
+      });
+      cleanupRef.current.push(unsubAuthFailure);
+
+      // Register reconnect handler
+      const unsubReconnect = websocketClient.onReconnect(() => {
+        console.log('[useWebSocket] Reconnected successfully');
+        setConnectionStatus('connected');
+        // Emit event for app to refresh data if needed
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('websocket:reconnected'));
+        }
+      });
+      cleanupRef.current.push(unsubReconnect);
+
+      // Listen for disconnect to update status (socket.io handles reconnection)
+      const unsubClose = websocketClient.onClose(() => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[useWebSocket] Disconnected - socket.io will handle reconnection');
+        }
+        setConnectionStatus('disconnected');
+      });
+      cleanupRef.current.push(unsubClose);
+
       await websocketClient.connect(token);
       isConnectedRef.current = true;
-      retryAttemptRef.current = 0;
       setConnectionStatus('connected');
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[useWebSocket] Connected successfully, connectionStatus set to: connected');
-      }
 
-      // Listen for low-level close/error to flip status promptly
-      const handleCloseOrError = () => {
-        isConnectedRef.current = false;
-        setConnectionStatus('disconnected');
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('[useWebSocket] Socket closed/error - scheduling reconnect');
-        }
-        connectWithBackoff();
-      };
-      websocketClient.onClose(handleCloseOrError);
-      websocketClient.onError(handleCloseOrError);
-      wsCleanupRef.current = () => {
-        websocketClient.offClose(handleCloseOrError);
-        websocketClient.offError(handleCloseOrError);
-      };
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[useWebSocket] Connected successfully');
+      }
     } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('[useWebSocket] Connection failed:', error);
-      }
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[useWebSocket] Connection failed:', message);
       isConnectedRef.current = false;
-      setConnectionStatus('disconnected');
 
-      // Basic exponential backoff for reconnect attempts
-      const nextDelay = Math.min(1000 * 2 ** retryAttemptRef.current, 30000);
-      retryAttemptRef.current += 1;
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
+      // Check if auth failure
+      if (message.includes('Authentication failed')) {
+        setConnectionStatus('auth_failed');
+      } else {
+        setConnectionStatus('disconnected');
       }
-      retryTimeoutRef.current = setTimeout(() => {
-        connectWithBackoff();
-      }, nextDelay);
     }
   }, [token, enabled]);
 
@@ -121,6 +132,10 @@ export function useWebSocket(token: string | null, enabled = true) {
    * Disconnetti dal WebSocket
    */
   const disconnect = useCallback(() => {
+    // Run all cleanup handlers
+    cleanupRef.current.forEach(cleanup => cleanup());
+    cleanupRef.current = [];
+
     if (isConnectedRef.current) {
       websocketClient.disconnect();
       isConnectedRef.current = false;
@@ -129,14 +144,6 @@ export function useWebSocket(token: string | null, enabled = true) {
       }
     }
     setConnectionStatus('disconnected');
-    if (retryTimeoutRef.current) {
-      clearTimeout(retryTimeoutRef.current);
-      retryTimeoutRef.current = null;
-    }
-    if (wsCleanupRef.current) {
-      wsCleanupRef.current();
-      wsCleanupRef.current = null;
-    }
   }, []);
 
   /**

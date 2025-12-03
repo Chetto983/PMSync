@@ -27,6 +27,7 @@ describe('EmailSendService', () => {
     providerType: 'google',
     email: 'user@example.com',
     isActive: true,
+    supportsEmail: true,
     accessToken: 'encrypted-token',
   };
 
@@ -113,6 +114,7 @@ describe('EmailSendService', () => {
           id: 'provider-1',
           tenantId: 'tenant-1',
           isActive: true,
+          supportsEmail: true,
         },
       });
       expect(mockProviderFactory.create).toHaveBeenCalledWith(
@@ -177,6 +179,8 @@ describe('EmailSendService', () => {
       const mockUploadedAttachment = {
         storageType: 's3' as const,
         storagePath: 's3://bucket/test.pdf',
+        contentHash: 'abc123',
+        dedupHit: false,
         size: 1000,
         mimeType: 'application/pdf',
         filename: 'test.pdf',
@@ -298,12 +302,21 @@ describe('EmailSendService', () => {
         scheduledAt: futureDate,
       };
 
+      prismaService.providerConfig.findFirst = jest.fn().mockResolvedValue(mockProvider);
       prismaService.scheduledEmail.create = jest.fn().mockResolvedValue(mockScheduled);
 
       const result = await service.scheduleEmail(scheduleDto);
 
       expect(result.id).toBe('scheduled-1');
       expect(result.scheduledAt).toEqual(futureDate);
+      expect(prismaService.providerConfig.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'provider-1',
+          tenantId: 'tenant-1',
+          isActive: true,
+          supportsEmail: true,
+        },
+      });
       expect(prismaService.scheduledEmail.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenantId: 'tenant-1',
@@ -312,6 +325,12 @@ describe('EmailSendService', () => {
           status: 'pending',
         }),
       });
+    });
+
+    it('should throw NotFoundException when provider is not found for scheduling', async () => {
+      prismaService.providerConfig.findFirst = jest.fn().mockResolvedValue(null);
+
+      await expect(service.scheduleEmail(scheduleDto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when scheduledAt is missing', async () => {
@@ -351,6 +370,7 @@ describe('EmailSendService', () => {
         ],
       };
 
+      prismaService.providerConfig.findFirst = jest.fn().mockResolvedValue(mockProvider);
       prismaService.scheduledEmail.create = jest.fn().mockResolvedValue({
         id: 'scheduled-2',
         scheduledAt: futureDate,

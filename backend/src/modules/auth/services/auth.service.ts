@@ -4,50 +4,147 @@ import {
   BadRequestException,
   Logger,
   GoneException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailService } from '../../email/services/email.service';
+import { OtpSecurityService } from './otp-security.service';
 import { nanoid } from 'nanoid';
 
+/**
+ * AuthService - Secure authentication with session management
+ *
+ * Security features:
+ * - No auto-tenant creation (requires existing tenant or admin invite)
+ * - Hashed OTP codes via OtpSecurityService
+ * - Session-based token validation
+ * - User/tenant active status checks
+ * - PII-redacted structured logging
+ * - Separate secrets for password reset tokens
+ * - Hashed password reset tokens in DB
+ * - Single active reset token per user
+ * - Session invalidation on password reset
+ *
+ * @see AUTH_MODULE_ROADMAP.md for implementation details
+ */
 @Injectable()
 export class AuthService {
-  private logger = new Logger(AuthService.name);
+  private readonly logger = new Logger(AuthService.name);
+
+  // Password reset configuration
+  private readonly passwordResetSecret: string;
+  private readonly passwordResetTtlMs: number;
 
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
     private emailService: EmailService,
-  ) {}
+    private otpSecurity: OtpSecurityService,
+  ) {
+    // Get password reset secret (must be different from JWT secret)
+    const resetSecret = process.env.PASSWORD_RESET_SECRET;
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!resetSecret || resetSecret.length < 32) {
+      this.logger.warn(
+        'PASSWORD_RESET_SECRET not set or too short. Using derived secret.',
+      );
+      // Derive from JWT secret if not set (for backwards compatibility)
+      this.passwordResetSecret = jwtSecret
+        ? crypto.createHmac('sha256', jwtSecret).update('password-reset').digest('hex')
+        : 'insecure-reset-secret';
+    } else {
+      this.passwordResetSecret = resetSecret;
+    }
+
+    this.passwordResetTtlMs = this.safeParseInt(process.env.PASSWORD_RESET_EXPIRATION, 15 * 60 * 1000);
+  }
+
+  /**
+   * Hash a password reset token for secure storage
+   * Uses HMAC-SHA256 with dedicated secret
+   */
+  private hashResetToken(token: string): string {
+    return crypto
+      .createHmac('sha256', this.passwordResetSecret)
+      .update(token)
+      .digest('hex');
+  }
+
+  /**
+   * Redact email for logging (keep first 2 chars + domain)
+   */
+  private redactEmail(email: string): string {
+    const [local, domain] = email.split('@');
+    if (!domain) return '***@***';
+    return `${local.substring(0, 2)}***@${domain}`;
+  }
+
+  /**
+   * Safely parse integer with NaN protection
+   */
+  private safeParseInt(value: string | undefined, defaultValue: number): number {
+    if (!value) return defaultValue;
+    const parsed = parseInt(value, 10);
+    if (isNaN(parsed) || !isFinite(parsed)) return defaultValue;
+    return parsed;
+  }
 
   /**
    * Register a new user
+   *
+   * SECURITY: No longer auto-creates tenants from email.
+   * Tenant must exist or be explicitly provided via tenantSlug.
+   *
+   * For new tenant creation, use admin/invite flow.
    */
   async register(data: {
     email: string;
     password: string;
     firstName?: string;
     lastName?: string;
+    tenantSlug?: string; // Required for existing tenant registration
   }) {
-    const normalizedEmail = data.email.trim();
-    const tenantSlug = normalizedEmail.toLowerCase();
+    const normalizedEmail = data.email.trim().toLowerCase();
 
-    let tenant = await this.prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
+    // SECURITY: Require explicit tenant slug or existing tenant lookup
+    // No longer auto-create tenants from email domain
+    const slug = data.tenantSlug?.toLowerCase() || normalizedEmail;
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug },
     });
-    const tenantExisted = Boolean(tenant);
 
+    // SECURITY: Return generic message to prevent tenant enumeration
+    // Don't reveal whether tenant exists or not
     if (!tenant) {
-      tenant = await this.prisma.tenant.create({
-        data: {
-          name: normalizedEmail,
-          slug: tenantSlug,
-          description: `Workspace for ${normalizedEmail}`,
-          isActive: true,
-        },
-      });
+      this.logger.warn(
+        JSON.stringify({
+          event: 'register_tenant_not_found',
+          email: this.redactEmail(normalizedEmail),
+          slug: slug.substring(0, 10) + '...',
+        }),
+      );
+      // Return success-like response to prevent enumeration
+      return {
+        success: true,
+        message: 'If the tenant exists, a verification email will be sent.',
+        requiresOtp: true,
+      };
+    }
+
+    // Check tenant is active
+    if (!tenant.isActive) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'register_tenant_inactive',
+          tenantId: tenant.id,
+        }),
+      );
+      throw new ForbiddenException('Registration is not available for this organization');
     }
 
     // Check if user already exists
@@ -56,13 +153,25 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new BadRequestException('User already exists with this email');
+      // SECURITY: Don't reveal if user exists - return same message
+      this.logger.warn(
+        JSON.stringify({
+          event: 'register_user_exists',
+          email: this.redactEmail(normalizedEmail),
+          tenantId: tenant.id,
+        }),
+      );
+      return {
+        success: true,
+        message: 'If the tenant exists, a verification email will be sent.',
+        requiresOtp: true,
+      };
     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(data.password, 10);
+    // Hash password with bcrypt (cost factor 12 for 2025 standards)
+    const passwordHash = await bcrypt.hash(data.password, 12);
 
-    // Create user
+    // Create user (not admin by default - require explicit role assignment)
     const user = await this.prisma.user.create({
       data: {
         tenantId: tenant.id,
@@ -71,92 +180,135 @@ export class AuthService {
         firstName: data.firstName,
         lastName: data.lastName,
         isMfaEnabled: true,
-        role: tenantExisted ? undefined : 'admin',
+        isActive: true,
+        // Role defaults to 'user' - admin must be explicitly assigned
       },
     });
 
-    // Send OTP for email verification (non-blocking - continue even if email fails)
+    // Send OTP for email verification using secure OTP service
     try {
-      await this.sendOtpCode(normalizedEmail, tenant.slug);
+      const { code } = await this.otpSecurity.createOtp(user.id, 'email');
+      await this.emailService.sendOtp(normalizedEmail, code);
     } catch (error) {
-      this.logger.warn(`Failed to send OTP email to ${normalizedEmail}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(
+        JSON.stringify({
+          event: 'register_otp_send_failed',
+          userId: user.id,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
       // Continue anyway - in development, email might not be configured
     }
 
-    this.logger.log(`User registered: ${user.email}`);
+    this.logger.log(
+      JSON.stringify({
+        event: 'user_registered',
+        userId: user.id,
+        email: this.redactEmail(normalizedEmail),
+        tenantId: tenant.id,
+      }),
+    );
 
     return {
       success: true,
-      message: 'User registered successfully. Check your email for OTP code to verify your account.',
-      userId: user.id,
+      message: 'User registered successfully. Check your email for verification code.',
+      requiresOtp: true,
       tenantId: tenant.id,
-      tenantSlug: tenant.slug,
     };
   }
 
   /**
    * Generate and send OTP code
+   *
+   * SECURITY:
+   * - Generic responses prevent user/tenant enumeration
+   * - Rate limiting via OtpSecurityService
+   * - OTP codes are hashed before storage
    */
   async sendOtpCode(email: string, tenantSlug?: string) {
-    const normalizedEmail = email.trim();
+    const normalizedEmail = email.trim().toLowerCase();
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
 
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug },
     });
 
+    // SECURITY: Return generic message to prevent tenant enumeration
     if (!tenant) {
-      throw new BadRequestException('Tenant not found');
+      this.logger.warn(
+        JSON.stringify({
+          event: 'otp_tenant_not_found',
+          email: this.redactEmail(normalizedEmail),
+        }),
+      );
+      return { success: true, message: 'If the email exists, an OTP has been sent' };
+    }
+
+    // Check tenant is active
+    if (!tenant.isActive) {
+      return { success: true, message: 'If the email exists, an OTP has been sent' };
     }
 
     const user = await this.prisma.user.findUnique({
       where: { tenantId_email: { tenantId: tenant.id, email: normalizedEmail } },
     });
 
+    // SECURITY: Return generic message to prevent user enumeration
     if (!user) {
-      // For security, don't reveal if user exists - just return success
-      this.logger.warn(`OTP requested for non-existent user: ${normalizedEmail}`);
+      this.logger.warn(
+        JSON.stringify({
+          event: 'otp_user_not_found',
+          email: this.redactEmail(normalizedEmail),
+        }),
+      );
       return { success: true, message: 'If the email exists, an OTP has been sent' };
     }
 
-    // Generate cryptographically secure 6-digit OTP
-    const code = crypto.randomInt(100000, 1000000).toString();
+    // Check user is active
+    if (!user.isActive) {
+      return { success: true, message: 'If the email exists, an OTP has been sent' };
+    }
 
-    // Clear previous OTP codes for this user
-    await this.prisma.mfaCode.deleteMany({
-      where: { userId: user.id, type: 'email', isUsed: false },
-    });
-
-    // Create OTP record
-    const expiresAt = new Date(Date.now() + parseInt(process.env.OTP_EXPIRATION || '900000'));
-    await this.prisma.mfaCode.create({
-      data: {
-        userId: user.id,
-        code,
-        type: 'email',
-        expiresAt,
-      },
-    });
-
-    // Send email with OTP (non-blocking - continue even if email fails)
+    // Generate and store hashed OTP via security service
     try {
+      const { code } = await this.otpSecurity.createOtp(user.id, 'email');
+
+      // Send email with OTP
       await this.emailService.sendOtp(user.email, code);
-      this.logger.log(`OTP sent to: ${user.email}`);
+
+      this.logger.log(
+        JSON.stringify({
+          event: 'otp_sent',
+          userId: user.id,
+          email: this.redactEmail(user.email),
+        }),
+      );
     } catch (error) {
-      this.logger.warn(`Failed to send OTP email to ${user.email}: ${error instanceof Error ? error.message : String(error)}`);
-      // Continue anyway - in development, email might not be configured
+      this.logger.warn(
+        JSON.stringify({
+          event: 'otp_send_failed',
+          userId: user.id,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+      // Return success anyway to prevent enumeration
     }
 
     return {
       success: true,
-      message: 'OTP code generated. Check your email for the code.',
+      message: 'If the email exists, an OTP has been sent',
     };
   }
 
 
   /**
-   * Verify OTP code
-   * Verifies the OTP and returns an access token on success
+   * Verify OTP code and create session
+   *
+   * SECURITY:
+   * - Uses OtpSecurityService for hashed OTP verification
+   * - Rate limiting with lockout after failed attempts
+   * - Checks user and tenant active status
+   * - Creates session for token revocation support
    */
   async verifyOtpCode(
     email: string,
@@ -165,15 +317,16 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const normalizedEmail = email.trim();
+    const normalizedEmail = email.trim().toLowerCase();
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
 
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug },
     });
 
-    if (!tenant) {
-      throw new BadRequestException('Tenant not found');
+    // SECURITY: Generic error to prevent enumeration
+    if (!tenant || !tenant.isActive) {
+      throw new UnauthorizedException('Invalid email or code');
     }
 
     const user = await this.prisma.user.findUnique({
@@ -184,31 +337,44 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or code');
     }
 
-    // Find valid OTP code
-    const otpRecord = await this.prisma.mfaCode.findFirst({
-      where: {
-        userId: user.id,
-        code,
-        type: 'email',
-        isUsed: false,
-        expiresAt: { gt: new Date() },
-      },
-    });
-
-    if (!otpRecord) {
-      this.logger.warn(`OTP verification failed for user: ${normalizedEmail}`);
-      throw new UnauthorizedException('Invalid or expired OTP code');
+    // Check user is active
+    if (!user.isActive) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'otp_verify_user_inactive',
+          userId: user.id,
+        }),
+      );
+      throw new ForbiddenException('Account is disabled');
     }
 
-    // Mark OTP as used
-    await this.prisma.mfaCode.update({
-      where: { id: otpRecord.id },
-      data: { isUsed: true },
-    });
+    // Verify OTP via security service (handles rate limiting + lockout)
+    const otpResult = await this.otpSecurity.verifyOtp(user.id, code, 'email');
+
+    if (!otpResult.success) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'otp_verification_failed',
+          userId: user.id,
+          reason: otpResult.reason,
+          attemptsRemaining: otpResult.attemptsRemaining,
+        }),
+      );
+
+      if (otpResult.reason === 'locked_out') {
+        throw new ForbiddenException(
+          `Account temporarily locked. Try again after ${otpResult.lockoutEndsAt?.toISOString()}`,
+        );
+      }
+
+      throw new UnauthorizedException(
+        `Invalid or expired OTP code. ${otpResult.attemptsRemaining} attempts remaining.`,
+      );
+    }
 
     const sessionId = nanoid();
 
-    // Generate JWT token
+    // Generate JWT token with role for role-change detection
     const token = this.jwtService.sign({
       sessionId,
       userId: user.id,
@@ -217,13 +383,13 @@ export class AuthService {
       role: user.role,
     });
 
-    // Create session with actual client information
+    // Create session for revocation support
     const session = await this.prisma.session.create({
       data: {
         id: sessionId,
         userId: user.id,
         token,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
         ipAddress: ipAddress || 'unknown',
         userAgent: userAgent || 'unknown',
       },
@@ -235,7 +401,14 @@ export class AuthService {
       data: { lastLogin: new Date() },
     });
 
-    this.logger.log(`OTP verified for user: ${user.email}`);
+    this.logger.log(
+      JSON.stringify({
+        event: 'otp_verified',
+        userId: user.id,
+        sessionId: session.id,
+        email: this.redactEmail(user.email),
+      }),
+    );
 
     return {
       success: true,
@@ -345,52 +518,117 @@ export class AuthService {
 
   /**
    * Request password reset
+   *
+   * SECURITY:
+   * - Single active reset token per user (deletes previous tokens)
+   * - Tokens are hashed before storage (JWT stored only in email)
+   * - Uses dedicated PASSWORD_RESET_SECRET, not JWT_SECRET
+   * - Generic response prevents user enumeration
    */
   async requestPasswordReset(email: string, tenantSlug?: string) {
-    const normalizedEmail = email.trim();
+    const normalizedEmail = email.trim().toLowerCase();
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
 
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug },
     });
 
+    // SECURITY: Return generic message to prevent tenant enumeration
     if (!tenant) {
-      throw new BadRequestException('Tenant not found');
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { tenantId_email: { tenantId: tenant.id, email: normalizedEmail } },
-    });
-
-    if (!user) {
-      // For security, don't reveal if user exists
+      this.logger.warn(
+        JSON.stringify({
+          event: 'password_reset_tenant_not_found',
+          email: this.redactEmail(normalizedEmail),
+        }),
+      );
       return {
         success: true,
         message: 'If an account exists with this email, a password reset link has been sent',
       };
     }
 
-    // Generate reset token
+    const user = await this.prisma.user.findUnique({
+      where: { tenantId_email: { tenantId: tenant.id, email: normalizedEmail } },
+    });
+
+    // SECURITY: Return generic message to prevent user enumeration
+    if (!user) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'password_reset_user_not_found',
+          email: this.redactEmail(normalizedEmail),
+        }),
+      );
+      return {
+        success: true,
+        message: 'If an account exists with this email, a password reset link has been sent',
+      };
+    }
+
+    // Check user is active
+    if (!user.isActive) {
+      return {
+        success: true,
+        message: 'If an account exists with this email, a password reset link has been sent',
+      };
+    }
+
+    // SECURITY: Delete any existing reset tokens for this user (single active token)
+    await this.prisma.passwordResetToken.deleteMany({
+      where: {
+        userEmail: normalizedEmail,
+        tenantId: tenant.id,
+      },
+    });
+
+    // Generate reset token with separate secret
     const token = this.jwtService.sign(
-      { email: user.email, type: 'password-reset' },
-      { expiresIn: '15m' },
+      {
+        email: user.email,
+        type: 'password-reset',
+        userId: user.id,
+        tenantId: tenant.id,
+      },
+      {
+        secret: this.passwordResetSecret,
+        expiresIn: '15m',
+      },
     );
 
-    // Store reset token in database
-    const expiresAt = new Date(Date.now() + parseInt(process.env.PASSWORD_RESET_EXPIRATION || '900000'));
+    // SECURITY: Hash token before storing (only the JWT is sent via email)
+    const tokenHash = this.hashResetToken(token);
+    const expiresAt = new Date(Date.now() + this.passwordResetTtlMs);
+
     await this.prisma.passwordResetToken.create({
       data: {
         userEmail: normalizedEmail,
-        token,
+        token: tokenHash, // Store hash, not plaintext
         tenantId: tenant.id,
         expiresAt,
       },
     });
 
-    // Send reset email
-    await this.emailService.sendPasswordReset(normalizedEmail, token);
+    // Send reset email with the actual token (not the hash)
+    try {
+      await this.emailService.sendPasswordReset(normalizedEmail, token);
+    } catch (error) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'password_reset_email_failed',
+          email: this.redactEmail(normalizedEmail),
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+      // Return success anyway to prevent enumeration
+    }
 
-    this.logger.log(`Password reset requested for: ${email}`);
+    this.logger.log(
+      JSON.stringify({
+        event: 'password_reset_requested',
+        email: this.redactEmail(normalizedEmail),
+        tenantId: tenant.id,
+      }),
+    );
 
     return {
       success: true,
@@ -400,25 +638,60 @@ export class AuthService {
 
   /**
    * Reset password with token
+   *
+   * SECURITY:
+   * - Verifies JWT with dedicated PASSWORD_RESET_SECRET
+   * - Validates hashed token against DB (not plaintext comparison)
+   * - Invalidates all existing sessions (forces re-login)
+   * - Uses bcrypt with cost factor 12 for 2025 standards
    */
   async resetPassword(token: string, newPassword: string, _tenantSlug?: string) {
-    // Verify token
+    // Step 1: Verify JWT signature with dedicated secret
+    let payload: { email: string; type: string; userId?: string; tenantId?: string };
     try {
-      this.jwtService.verify(token);
-    } catch {
+      payload = this.jwtService.verify(token, {
+        secret: this.passwordResetSecret,
+      });
+    } catch (error) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'password_reset_jwt_invalid',
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
       throw new UnauthorizedException('Invalid or expired reset token');
     }
 
-    // Check if token exists in database and not used
+    // Verify token type
+    if (payload.type !== 'password-reset') {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'password_reset_wrong_token_type',
+          type: payload.type,
+        }),
+      );
+      throw new UnauthorizedException('Invalid token type');
+    }
+
+    // Step 2: Hash incoming token and find in DB
+    const tokenHash = this.hashResetToken(token);
     const resetToken = await this.prisma.passwordResetToken.findUnique({
-      where: { token },
+      where: { token: tokenHash },
     });
 
     if (!resetToken || resetToken.isUsed || resetToken.expiresAt < new Date()) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'password_reset_token_invalid_or_expired',
+          found: !!resetToken,
+          isUsed: resetToken?.isUsed,
+          expired: resetToken ? resetToken.expiresAt < new Date() : null,
+        }),
+      );
       throw new UnauthorizedException('Invalid or expired reset token');
     }
 
-    // Get tenant
+    // Step 3: Get tenant
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: resetToken.tenantId },
     });
@@ -427,7 +700,7 @@ export class AuthService {
       throw new BadRequestException('Tenant not found');
     }
 
-    // Get user
+    // Step 4: Get user
     const user = await this.prisma.user.findUnique({
       where: { tenantId_email: { tenantId: tenant.id, email: resetToken.userEmail } },
     });
@@ -436,26 +709,38 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    // Hash new password
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    // Step 5: Hash new password with bcrypt (cost factor 12 for 2025 standards)
+    const passwordHash = await bcrypt.hash(newPassword, 12);
 
-    // Update password
+    // Step 6: Update password
     await this.prisma.user.update({
       where: { id: user.id },
       data: { passwordHash },
     });
 
-    // Mark reset token as used
+    // Step 7: Mark reset token as used
     await this.prisma.passwordResetToken.update({
       where: { id: resetToken.id },
       data: { isUsed: true },
     });
 
-    this.logger.log(`Password reset completed for: ${user.email}`);
+    // Step 8: SECURITY - Invalidate all existing sessions (force re-login everywhere)
+    const deletedSessions = await this.prisma.session.deleteMany({
+      where: { userId: user.id },
+    });
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'password_reset_completed',
+        userId: user.id,
+        email: this.redactEmail(user.email),
+        sessionsInvalidated: deletedSessions.count,
+      }),
+    );
 
     return {
       success: true,
-      message: 'Password has been reset successfully',
+      message: 'Password has been reset successfully. Please log in with your new password.',
     };
   }
 
@@ -479,22 +764,26 @@ export class AuthService {
 
   /**
    * Handle Google OAuth
+   *
+   * @deprecated Use /providers/google/auth-url and /providers/google/connect instead
    */
   async handleGoogleOAuth(_code: string, _tenantSlug?: string) {
     throw new GoneException({
       message:
-        "Questo metodo è stato deprecato. Richiedi l'URL OAuth tramite /providers/google/auth-url e completa la procedura con /providers/google/connect.",
+        'This method has been deprecated. Request the OAuth URL via /providers/google/auth-url and complete the flow with /providers/google/connect.',
       documentation: 'docs/implementation/PROVIDER_INTEGRATION_GUIDE.md',
     });
   }
 
   /**
    * Handle Microsoft OAuth
+   *
+   * @deprecated Use /providers/microsoft/auth-url and /providers/microsoft/connect instead
    */
   async handleMicrosoftOAuth(_code: string, _tenantSlug?: string) {
     throw new GoneException({
       message:
-        "Questo metodo è stato deprecato. Usa /providers/microsoft/auth-url e /providers/microsoft/connect per completare l'OAuth.",
+        'This method has been deprecated. Use /providers/microsoft/auth-url and /providers/microsoft/connect to complete the OAuth flow.',
       documentation: 'docs/implementation/PROVIDER_INTEGRATION_GUIDE.md',
     });
   }

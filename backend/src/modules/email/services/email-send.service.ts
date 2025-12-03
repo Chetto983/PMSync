@@ -53,10 +53,12 @@ export class EmailSendService {
       throw new BadRequestException('scheduledAt must be in the future');
     }
 
+    const provider = await this.getActiveEmailProvider(data.tenantId, data.providerId);
+
     const scheduled = await this.prisma.scheduledEmail.create({
       data: {
         tenantId: data.tenantId,
-        providerId: data.providerId,
+        providerId: provider.id,
         to: data.to,
         cc: data.cc || [],
         bcc: data.bcc || [],
@@ -87,17 +89,7 @@ export class EmailSendService {
    * Send email via Provider Factory (Zero-inspired pattern)
    */
   async sendEmail(data: SendEmailDto): Promise<{ success: boolean; messageId: string }> {
-    const provider = await this.prisma.providerConfig.findFirst({
-      where: {
-        id: data.providerId,
-        tenantId: data.tenantId,
-        isActive: true,
-      },
-    });
-
-    if (!provider) {
-      throw new NotFoundException('Provider not found or inactive');
-    }
+    const provider = await this.getActiveEmailProvider(data.tenantId, data.providerId);
 
     try {
       // Process attachments first
@@ -178,6 +170,8 @@ export class EmailSendService {
     uploadedAttachments: {
       storageType: 's3';
       storagePath: string;
+      contentHash: string;
+      dedupHit: boolean;
       size: number;
       mimeType: string;
       filename: string;
@@ -217,6 +211,7 @@ export class EmailSendService {
                   size: att.size,
                   storageType: att.storageType,
                   storagePath: att.storagePath,
+                  contentHash: att.contentHash,
                   isInline: false,
                 })),
               }
@@ -231,6 +226,26 @@ export class EmailSendService {
   private async getAccessToken(provider: ProviderConfig): Promise<string> {
     const { accessToken } = await this.providerTokenService.getProviderWithToken(provider.id);
     return accessToken;
+  }
+
+  /**
+   * Ensure provider belongs to tenant, is active, and supports email.
+   */
+  private async getActiveEmailProvider(tenantId: string, providerId: string) {
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: {
+        id: providerId,
+        tenantId,
+        isActive: true,
+        supportsEmail: true,
+      },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Provider not found or inactive');
+    }
+
+    return provider;
   }
 
   /**

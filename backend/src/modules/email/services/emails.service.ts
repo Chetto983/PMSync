@@ -328,6 +328,8 @@ export class EmailsService {
       throw new NotFoundException('Email not found');
     }
 
+    await this.ensureProvidersActive(tenantId, [email.providerId]);
+
     // Update in database first
     const updated = await this.prisma.email.update({
       where: { id },
@@ -548,11 +550,26 @@ export class EmailsService {
       }[];
     },
   ) {
+    // Validate provider ownership
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: {
+        id: dto.providerId,
+        tenantId,
+        isActive: true,
+        supportsEmail: true,
+      },
+      select: { id: true },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Provider not found or not active for this tenant');
+    }
+
     const draftAttachments = dto.attachments ?? [];
     const data: Prisma.EmailUncheckedCreateInput = {
       id: dto.id ?? undefined,
       tenantId,
-      providerId: dto.providerId,
+      providerId: provider.id,
       externalId: dto.id ?? `draft-${Date.now()}`,
       threadId: dto.threadId ?? null,
       messageId: null,
@@ -640,6 +657,11 @@ export class EmailsService {
         folder: true,
       },
     });
+
+    await this.ensureProvidersActive(
+      tenantId,
+      Array.from(new Set(emails.map((email) => email.providerId))),
+    );
 
     // Track affected folders per provider for count updates
     const affectedFolders = new Map<string, Set<string>>();
@@ -951,6 +973,11 @@ export class EmailsService {
       },
     });
 
+    await this.ensureProvidersActive(
+      tenantId,
+      Array.from(new Set(emails.map((email) => email.providerId))),
+    );
+
     // Track affected folders per provider for count updates
     const affectedFolders = new Map<string, Set<string>>();
     emails.forEach((email) => {
@@ -1033,6 +1060,11 @@ export class EmailsService {
       },
     });
 
+    await this.ensureProvidersActive(
+      tenantId,
+      Array.from(new Set(emails.map((email) => email.providerId))),
+    );
+
     // Update in database
     const result = await this.prisma.email.updateMany({
       where: {
@@ -1093,6 +1125,11 @@ export class EmailsService {
         tenantId: true,
       },
     });
+
+    await this.ensureProvidersActive(
+      tenantId,
+      Array.from(new Set(emails.map((email) => email.providerId))),
+    );
 
     // Update in database
     const result = await this.prisma.email.updateMany({
@@ -1155,6 +1192,11 @@ export class EmailsService {
         folder: true,
       },
     });
+
+    await this.ensureProvidersActive(
+      tenantId,
+      Array.from(new Set(emails.map((email) => email.providerId))),
+    );
 
     // Track affected folders per provider for count updates (both source and destination)
     const affectedFolders = new Map<string, Set<string>>();
@@ -1246,6 +1288,15 @@ export class EmailsService {
       }))
     );
 
+    const emails = await this.prisma.email.findMany({
+      where: { id: { in: emailIds }, tenantId },
+      select: { providerId: true },
+    });
+    await this.ensureProvidersActive(
+      tenantId,
+      Array.from(new Set(emails.map((email) => email.providerId))),
+    );
+
     // Use createMany with skipDuplicates to avoid conflicts
     const result = await this.prisma.emailLabel.createMany({
       data: emailLabelPairs,
@@ -1277,6 +1328,15 @@ export class EmailsService {
     tenantId: string,
     labelIds: string[],
   ) {
+    const emails = await this.prisma.email.findMany({
+      where: { id: { in: emailIds }, tenantId },
+      select: { providerId: true },
+    });
+    await this.ensureProvidersActive(
+      tenantId,
+      Array.from(new Set(emails.map((email) => email.providerId))),
+    );
+
     const result = await this.prisma.emailLabel.deleteMany({
       where: {
         emailId: { in: emailIds },
@@ -1299,5 +1359,29 @@ export class EmailsService {
     }
 
     return { deleted: result.count, emails: updatedEmails };
+  }
+
+  /**
+   * Ensure providers belong to tenant and are active + email-capable.
+   */
+  private async ensureProvidersActive(tenantId: string, providerIds: string[]) {
+    const uniqueIds = Array.from(new Set(providerIds.filter(Boolean)));
+    if (uniqueIds.length === 0) {
+      return;
+    }
+
+    const providers = await this.prisma.providerConfig.findMany({
+      where: {
+        tenantId,
+        id: { in: uniqueIds },
+        isActive: true,
+        supportsEmail: true,
+      },
+      select: { id: true },
+    });
+
+    if (providers.length !== uniqueIds.length) {
+      throw new NotFoundException('Provider not found or inactive');
+    }
   }
 }

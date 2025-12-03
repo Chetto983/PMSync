@@ -1,7 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { StorageService } from './storage.service';
 import { createHash } from 'crypto';
+import {
+  AttachmentMetricsService,
+  AttachmentLogContext,
+} from './attachment-metrics.service';
 
 /**
  * Provider-agnostic attachment metadata
@@ -45,6 +49,8 @@ export interface PendingAttachment {
 export interface UploadedAttachment {
   storageType: 's3';
   storagePath: string;
+  contentHash: string;
+  dedupHit: boolean;
   size: number;
   mimeType: string;
   filename: string;
@@ -61,7 +67,17 @@ export type StoredAttachment = PendingAttachment | UploadedAttachment;
 export class AttachmentStorageService {
   private readonly logger = new Logger(AttachmentStorageService.name);
 
-  constructor(private readonly storage: StorageService) {}
+  constructor(
+    private readonly storage: StorageService,
+    @Optional() private readonly metrics?: AttachmentMetricsService,
+  ) {}
+
+  /**
+   * Check if an object already exists by key.
+   */
+  async objectExists(key: string): Promise<boolean> {
+    return this.storage.objectExists(key);
+  }
 
   /**
    * Store attachment metadata WITHOUT downloading the file (metadata-only strategy)
@@ -90,37 +106,102 @@ export class AttachmentStorageService {
   }
 
   /**
-   * Upload attachment binary data to S3/MinIO
-   * Used for on-demand download when user requests the attachment
+   * Upload attachment binary data to S3/MinIO with deduplication
    *
-   * @param tenantId - Tenant ID
-   * @param providerId - Provider config ID
+   * Uses SHA-256 content hash for deduplication across tenants/providers.
+   * This is the recommended approach per AWS best practices:
+   * @see https://aws.amazon.com/blogs/storage/managing-duplicate-objects-in-amazon-s3/
+   *
+   * @param tenantId - Tenant ID for metrics context
+   * @param providerId - Provider config ID for metrics context
    * @param attachment - Attachment binary data and metadata
-   * @returns StoredAttachment with storageType='s3' and S3 path
+   * @param emailId - Optional email ID for full observability context
+   * @returns UploadedAttachment with storageType='s3', S3 path, and dedupHit flag
    */
   async uploadAttachment(
     tenantId: string,
     providerId: string,
     attachment: AttachmentUploadInput,
+    emailId?: string,
   ): Promise<UploadedAttachment> {
+    const startTime = Date.now();
+
+    // Compute SHA-256 hash for content-addressable storage
+    // SHA-256 is the 2025 industry standard for deduplication (not MD5)
+    const hashStart = Date.now();
     const hash = createHash('sha256').update(attachment.content).digest('hex');
+    const hashDuration = Date.now() - hashStart;
+
+    // Build metrics context for structured logging
+    const context: AttachmentLogContext = {
+      tenantId,
+      providerId,
+      emailId,
+      filename: attachment.filename,
+      contentHash: hash,
+      mimeType: attachment.contentType,
+      size: attachment.content.byteLength,
+    };
+
+    // Record hash computation time
+    this.metrics?.recordOperation('hash_computed', context, hashDuration);
+
     // Deduplicate by content hash across tenants/providers
+    // Key format: attachments/{sha256} enables global dedup
     const key = `attachments/${hash}`;
 
-    const result = await this.storage.putObjectIfAbsent(key, attachment.content, attachment.contentType);
+    const result = await this.storage.putObjectIfAbsent(
+      key,
+      attachment.content,
+      attachment.contentType,
+    );
+    const dedupHit = result === 'skipped';
+    const totalDuration = Date.now() - startTime;
 
-    this.logger.debug(
-      `${result === 'uploaded' ? 'Uploaded' : 'Reused'} attachment ${attachment.filename} (${attachment.content.byteLength} bytes) at ${key}`,
+    // Record upload metrics with dedup status
+    this.metrics?.recordUpload(context, totalDuration, dedupHit);
+
+    // Structured log with full context
+    this.logger.log(
+      JSON.stringify({
+        event: dedupHit ? 'attachment_dedup_hit' : 'attachment_uploaded',
+        tenantId,
+        providerId,
+        emailId,
+        filename: attachment.filename,
+        contentHash: hash.substring(0, 16) + '...',
+        size: attachment.content.byteLength,
+        sizeHuman: this.formatBytes(attachment.content.byteLength),
+        dedupHit,
+        durationMs: totalDuration,
+        storagePath: key,
+        message: dedupHit
+          ? `Reused existing S3 object for ${attachment.filename} (saved ${this.formatBytes(attachment.content.byteLength)})`
+          : `Uploaded ${attachment.filename} to S3`,
+      }),
     );
 
     return {
       storageType: 's3',
       storagePath: key,
+      contentHash: hash,
+      dedupHit,
       size: attachment.content.byteLength,
       mimeType: attachment.contentType,
       filename: attachment.filename,
       isInline: false, // Will be set by caller if needed
     };
+  }
+
+  /**
+   * Format bytes to human-readable string
+   */
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   /**
@@ -259,5 +340,131 @@ export class AttachmentStorageService {
   private buildObjectKey(tenantId: string, providerId: string, filename: string): string {
     const safeName = filename.replace(/[^\w.\-]/g, '_');
     return `tenants/${tenantId}/providers/${providerId}/attachments/${randomUUID()}-${safeName}`;
+  }
+
+  /**
+   * Batch upload multiple attachments with concurrency control
+   *
+   * Processes attachments in parallel with configurable concurrency.
+   * Uses content-addressable storage for global deduplication.
+   *
+   * @param tenantId - Tenant ID
+   * @param providerId - Provider config ID
+   * @param attachments - Array of attachment inputs
+   * @param options - Batch processing options
+   * @returns Array of upload results with success/failure status
+   *
+   * @example
+   * ```typescript
+   * const results = await storage.batchUploadAttachments(
+   *   tenantId,
+   *   providerId,
+   *   attachments,
+   *   { concurrency: 5 }
+   * );
+   * console.log(`Uploaded: ${results.successful.length}, Failed: ${results.failed.length}`);
+   * ```
+   */
+  async batchUploadAttachments(
+    tenantId: string,
+    providerId: string,
+    attachments: AttachmentUploadInput[],
+    options: { concurrency?: number; emailId?: string } = {},
+  ): Promise<{
+    successful: Array<{ input: AttachmentUploadInput; result: UploadedAttachment }>;
+    failed: Array<{ input: AttachmentUploadInput; error: Error }>;
+    dedupHitCount: number;
+    dedupMissCount: number;
+    totalBytes: number;
+    durationMs: number;
+  }> {
+    const { concurrency = 5, emailId } = options;
+    const startTime = Date.now();
+
+    const successful: Array<{ input: AttachmentUploadInput; result: UploadedAttachment }> = [];
+    const failed: Array<{ input: AttachmentUploadInput; error: Error }> = [];
+    let dedupHitCount = 0;
+    let dedupMissCount = 0;
+    let totalBytes = 0;
+
+    // Process with concurrency limit
+    const inFlight: Promise<void>[] = [];
+    let index = 0;
+
+    const processNext = async () => {
+      const currentIndex = index++;
+      if (currentIndex >= attachments.length) return;
+
+      const attachment = attachments[currentIndex];
+      try {
+        const result = await this.uploadAttachment(
+          tenantId,
+          providerId,
+          attachment,
+          emailId,
+        );
+        successful.push({ input: attachment, result });
+        totalBytes += attachment.content.byteLength;
+
+        if (result.dedupHit) {
+          dedupHitCount++;
+        } else {
+          dedupMissCount++;
+        }
+      } catch (error) {
+        failed.push({
+          input: attachment,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
+      }
+    };
+
+    // Start initial batch up to concurrency limit
+    for (let i = 0; i < Math.min(concurrency, attachments.length); i++) {
+      const promise = processNext().then(() => {
+        // When done, process next if available
+        return processNext();
+      });
+      inFlight.push(promise);
+    }
+
+    // Wait for all to complete
+    await Promise.all(inFlight);
+
+    // Process any remaining items
+    while (index < attachments.length) {
+      await processNext();
+    }
+
+    const durationMs = Date.now() - startTime;
+
+    // Log batch result
+    this.logger.log(
+      JSON.stringify({
+        event: 'batch_upload_complete',
+        tenantId,
+        providerId,
+        emailId,
+        totalAttachments: attachments.length,
+        successful: successful.length,
+        failed: failed.length,
+        dedupHitCount,
+        dedupMissCount,
+        dedupRatio: attachments.length > 0 ? dedupHitCount / attachments.length : 0,
+        totalBytes,
+        totalBytesHuman: this.formatBytes(totalBytes),
+        durationMs,
+        avgPerAttachment: attachments.length > 0 ? durationMs / attachments.length : 0,
+      }),
+    );
+
+    return {
+      successful,
+      failed,
+      dedupHitCount,
+      dedupMissCount,
+      totalBytes,
+      durationMs,
+    };
   }
 }

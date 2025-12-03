@@ -378,6 +378,7 @@ model EmailAttachment {
   contentId   String?
   storageType String   @default("local")
   storagePath String?
+  contentHash String?
   isInline    Boolean  @default(false)
   createdAt   DateTime @default(now())
   email       Email    @relation(fields: [emailId], references: [id], onDelete: Cascade)

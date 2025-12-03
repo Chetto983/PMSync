@@ -1,6 +1,5 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { google } from 'googleapis';
-//import axios from 'axios';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -10,7 +9,21 @@ import { GmailAttachmentHandler } from '../../email-sync/services/gmail/gmail-at
 import { MicrosoftAttachmentHandler } from '../../email-sync/services/microsoft/microsoft-attachment-handler';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { CryptoService } from '../../../common/services/crypto.service';
+import { AttachmentMetricsService, AttachmentLogContext } from './attachment-metrics.service';
 
+/**
+ * AttachmentOnDemandService - Downloads attachments lazily when requested
+ *
+ * Implements a "metadata-only" sync strategy where attachments are not downloaded
+ * during email sync, but fetched on-demand when a user requests them.
+ *
+ * Features:
+ * - Hash-based deduplication: reuses S3 objects by contentHash
+ * - Provider-agnostic: supports Gmail, Microsoft Graph, and IMAP
+ * - Observability: structured logging with tenant/provider/email/attachment context
+ *
+ * @see EMAIL_MODULE_ROADMAP.md Phase 2 - Attachment Lifecycle
+ */
 @Injectable()
 export class AttachmentOnDemandService {
   private readonly logger = new Logger(AttachmentOnDemandService.name);
@@ -23,17 +36,28 @@ export class AttachmentOnDemandService {
     private readonly microsoftHandler: MicrosoftAttachmentHandler,
     private readonly providerTokenService: ProviderTokenService,
     private readonly crypto: CryptoService,
+    @Optional() private readonly metrics?: AttachmentMetricsService,
   ) {}
 
   /**
-   * Download attachment on-demand
-   * - If already in S3: return signed URL
-   * - If pending: fetch from provider, upload to S3, return signed URL
+   * Download attachment on-demand with full observability
+   *
+   * Flow:
+   * 1. Check if already cached in S3 → return signed URL (cache hit)
+   * 2. Check if hash exists in S3 → update metadata and return (hash dedup)
+   * 3. Fetch from provider → upload to S3 → return signed URL (cache miss)
+   *
+   * @param attachmentId - Attachment database ID
+   * @param tenantId - Tenant ID for access control and metrics
+   * @returns Signed download URL, filename, and mimeType
    */
   async downloadAttachment(
     attachmentId: string,
     tenantId: string,
   ): Promise<{ url: string; filename: string; mimeType: string }> {
+    const startTime = Date.now();
+
+    // Fetch attachment with email and provider context
     const attachment = await this.prisma.emailAttachment.findUnique({
       where: { id: attachmentId },
       include: {
@@ -54,10 +78,35 @@ export class AttachmentOnDemandService {
       throw new NotFoundException(`Attachment ${attachmentId} not found`);
     }
 
-    // If already in S3, return signed URL
+    // Build metrics context for structured logging
+    const context: AttachmentLogContext = {
+      tenantId,
+      providerId: attachment.email.providerId,
+      emailId: attachment.emailId,
+      attachmentId,
+      filename: attachment.filename,
+      contentHash: attachment.contentHash || undefined,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+    };
+
+    // CASE 1: Already cached in S3 - return signed URL immediately
     if (attachment.storageType === 's3' && attachment.storagePath) {
       const url = await this.storage.getSignedDownloadUrl(attachment.storagePath, 300);
-      this.logger.debug(`Returning cached S3 URL for attachment ${attachmentId}`);
+      const duration = Date.now() - startTime;
+
+      // Record cache hit
+      this.metrics?.recordDownload(context, duration, true);
+
+      this.logger.log(
+        JSON.stringify({
+          event: 'attachment_cache_hit',
+          ...context,
+          durationMs: duration,
+          message: `Returned cached S3 URL for ${attachment.filename}`,
+        }),
+      );
+
       return {
         url,
         filename: attachment.filename,
@@ -65,17 +114,61 @@ export class AttachmentOnDemandService {
       };
     }
 
-    // Otherwise, fetch from provider and upload to S3
-    this.logger.log(
-      `Downloading attachment ${attachmentId} from provider ${attachment.email.provider.providerType}`,
-    );
-
     // Parse the storagePath to get provider reference
     // Format: "providerId/externalMessageId/externalAttachmentId"
     const reference = this.attachmentStorage.parsePendingReference(attachment.storagePath || '');
     if (!reference) {
       throw new Error(`Invalid attachment storage path: ${attachment.storagePath}`);
     }
+
+    // CASE 2: Hash exists - check if S3 object already exists (dedup by hash)
+    if (attachment.contentHash) {
+      const hashKey = `attachments/${attachment.contentHash}`;
+      const exists = await this.attachmentStorage.objectExists(hashKey);
+      if (exists) {
+        // Update metadata to point to existing S3 object
+        await this.prisma.emailAttachment.update({
+          where: { id: attachmentId },
+          data: {
+            storageType: 's3',
+            storagePath: hashKey,
+            contentHash: attachment.contentHash,
+          },
+        });
+
+        const url = await this.storage.getSignedDownloadUrl(hashKey, 300);
+        const duration = Date.now() - startTime;
+
+        // Record as cache hit (hash dedup)
+        this.metrics?.recordDownload({ ...context, contentHash: attachment.contentHash }, duration, true);
+
+        this.logger.log(
+          JSON.stringify({
+            event: 'attachment_hash_dedup_hit',
+            ...context,
+            contentHash: attachment.contentHash.substring(0, 16) + '...',
+            durationMs: duration,
+            message: `Reused S3 object by hash for ${attachment.filename}`,
+          }),
+        );
+
+        return {
+          url,
+          filename: attachment.filename,
+          mimeType: attachment.mimeType,
+        };
+      }
+    }
+
+    // CASE 3: Cache miss - fetch from provider and upload to S3
+    this.logger.log(
+      JSON.stringify({
+        event: 'attachment_download_start',
+        ...context,
+        providerType: attachment.email.provider.providerType,
+        message: `Downloading ${attachment.filename} from ${attachment.email.provider.providerType}`,
+      }),
+    );
 
     // Download from provider
     const buffer = await this.fetchFromProvider(
@@ -85,7 +178,7 @@ export class AttachmentOnDemandService {
       attachment.email.providerId,
     );
 
-    // Upload to S3
+    // Upload to S3 with deduplication
     const uploaded = await this.attachmentStorage.uploadAttachment(
       tenantId,
       attachment.email.providerId,
@@ -94,26 +187,58 @@ export class AttachmentOnDemandService {
         content: buffer,
         contentType: attachment.mimeType,
       },
+      attachment.emailId, // Pass emailId for full context
     );
 
-    // Update attachment record
+    // Update attachment record with S3 path and hash
     await this.prisma.emailAttachment.update({
       where: { id: attachmentId },
       data: {
         storageType: 's3',
         storagePath: uploaded.storagePath,
+        contentHash: uploaded.contentHash,
       },
     });
 
     // Return signed URL
     const url = await this.storage.getSignedDownloadUrl(uploaded.storagePath, 300);
-    this.logger.log(`Successfully downloaded and cached attachment ${attachmentId}`);
+    const duration = Date.now() - startTime;
+
+    // Record cache miss (provider download)
+    this.metrics?.recordDownload(
+      { ...context, contentHash: uploaded.contentHash, size: buffer.byteLength },
+      duration,
+      false,
+    );
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'attachment_download_complete',
+        ...context,
+        contentHash: uploaded.contentHash.substring(0, 16) + '...',
+        size: buffer.byteLength,
+        dedupHit: uploaded.dedupHit,
+        durationMs: duration,
+        message: `Downloaded and cached ${attachment.filename} (${this.formatBytes(buffer.byteLength)})`,
+      }),
+    );
 
     return {
       url,
       filename: attachment.filename,
       mimeType: attachment.mimeType,
     };
+  }
+
+  /**
+   * Format bytes to human-readable string
+   */
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   /**
