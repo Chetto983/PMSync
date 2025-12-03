@@ -2,6 +2,7 @@ import React from 'react';
 import type { AppProps } from 'next/app';
 import { useRouter } from 'next/router';
 import { ThemeProvider as NextThemeProvider, useTheme } from 'next-themes';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import {
   ThemeProvider as MuiThemeProvider,
   CssBaseline,
@@ -122,6 +123,7 @@ export default function App({ Component, pageProps }: AppProps & { Component: an
               </RouteGuard>
             )}
           </AuthProvider>
+          <SpeedInsights />
         </MaterialThemeWrapper>
       </NextThemeProvider>
     </QueryProvider>
