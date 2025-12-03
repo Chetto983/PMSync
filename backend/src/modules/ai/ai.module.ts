@@ -10,6 +10,7 @@ import { EmailEmbeddingQueueService } from './services/email-embedding.queue';
 import { EmailInsightsService } from './services/email-insights.service';
 import { QueryEmbeddingCacheService } from './services/query-embedding-cache.service';
 import { AttachmentContentExtractorService } from './services/attachment-content-extractor.service';
+import { EmbeddingBackfillSchedulerService } from './services/embedding-backfill-scheduler.service';
 import { EmailModule } from '../email/email.module';
 // VoltAgent module provides consolidated AI agent services
 import { VoltAgentModule } from './voltagent/voltagent.module';
@@ -30,6 +31,7 @@ import { VoltAgentModule } from './voltagent/voltagent.module';
     EmailInsightsService,
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
+    EmbeddingBackfillSchedulerService,
   ],
   controllers: [AiController, KnowledgeBaseController, PersonalizationController],
   exports: [
@@ -41,6 +43,7 @@ import { VoltAgentModule } from './voltagent/voltagent.module';
     EmailInsightsService,
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
+    EmbeddingBackfillSchedulerService,
     // VoltAgent module (re-exports PersonalizationService, WritingStyleService, etc.)
     VoltAgentModule,
   ],

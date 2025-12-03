@@ -8,7 +8,6 @@ import { SyncJobData, SyncJobResult } from '../../interfaces/sync-job.interface'
 import { EmailEmbeddingQueueService } from '../../../ai/services/email-embedding.queue';
 import { EmbeddingsService } from '../../../ai/services/embeddings.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
-import { EmailEventReason } from '../../../realtime/types/realtime.types';
 import { mergeEmailStatusMetadata } from '../../utils/email-metadata.util';
 import { BaseEmailSyncService } from '../base-email-sync.service';
 
@@ -27,84 +26,6 @@ function normalizeMessageId(messageId: string | null | undefined): string | null
 @Injectable()
 export class ImapSyncService extends BaseEmailSyncService {
   protected readonly logger = new Logger(ImapSyncService.name);
-
-  /**
-   * Find or generate a threadId for an IMAP email based on inReplyTo and references
-   * This creates thread relationships similar to Gmail's native threading
-   */
-  private async findOrCreateThreadId(
-    tenantId: string,
-    providerId: string,
-    messageId: string | null,
-    inReplyTo: string | null,
-    references: string | null,
-  ): Promise<string | null> {
-    // Try to find an existing thread by inReplyTo
-    if (inReplyTo) {
-      const normalizedInReplyTo = normalizeMessageId(inReplyTo);
-      if (normalizedInReplyTo) {
-        const parent = await this.prisma.email.findFirst({
-          where: {
-            tenantId,
-            providerId,
-            OR: [
-              { messageId: normalizedInReplyTo },
-              { messageId: `<${normalizedInReplyTo}>` },
-            ],
-          },
-          select: { threadId: true, messageId: true },
-        });
-        if (parent?.threadId) {
-          return parent.threadId;
-        }
-        // If parent exists but has no threadId, use its messageId as threadId
-        if (parent?.messageId) {
-          return normalizeMessageId(parent.messageId);
-        }
-      }
-    }
-
-    // Try to find an existing thread by references (oldest first)
-    if (references) {
-      const refList = references.split(/\s+/).filter(Boolean);
-      for (const ref of refList) {
-        const normalizedRef = normalizeMessageId(ref);
-        if (!normalizedRef) continue;
-
-        const refEmail = await this.prisma.email.findFirst({
-          where: {
-            tenantId,
-            providerId,
-            OR: [
-              { messageId: normalizedRef },
-              { messageId: `<${normalizedRef}>` },
-            ],
-          },
-          select: { threadId: true, messageId: true },
-        });
-        if (refEmail?.threadId) {
-          return refEmail.threadId;
-        }
-        // Use the first reference's messageId as threadId (this is the root)
-        if (refEmail?.messageId) {
-          return normalizeMessageId(refEmail.messageId);
-        }
-      }
-      // If no matching emails found, use the first reference as the threadId
-      const firstRef = normalizeMessageId(refList[0]);
-      if (firstRef) {
-        return firstRef;
-      }
-    }
-
-    // No thread found - this is a new thread, use this email's messageId
-    if (messageId) {
-      return normalizeMessageId(messageId);
-    }
-
-    // No messageId available - can't create a meaningful threadId
-    return null;
-  }
 
   constructor(
     prisma: PrismaService,
@@ -228,7 +149,8 @@ export class ImapSyncService extends BaseEmailSyncService {
   }
 
   /**
-   * Incremental sync - fetch messages with UID > lastUid
+   * Incremental sync - fetch messages with UID > lastUid (BULK OPTIMIZED)
+   * Uses batch operations to reduce database queries from O(n) to O(1)
    */
   private async syncIncremental(
     client: ImapFlow,
@@ -261,9 +183,13 @@ export class ImapSyncService extends BaseEmailSyncService {
       // Fetch new messages
       const range = `${lastUid + 1}:*`;
 
-      let messagesProcessed = 0;
-      let newMessages = 0;
-      let maxUid = lastUid;
+      // STEP 1: Collect all message metadata from IMAP (must be sequential due to protocol)
+      const allMessages: Array<{
+        uid: number;
+        envelope: any;
+        flags: Set<string>;
+        size?: number;
+      }> = [];
 
       for await (const message of client.fetch(range, {
         uid: true,
@@ -271,29 +197,35 @@ export class ImapSyncService extends BaseEmailSyncService {
         bodyStructure: true,
         flags: true,
       }, { uid: true })) {
-        const processed = await this.processMessage(
-          message,
-          client,
-          providerId,
-          tenantId,
-        );
-        if (processed) {
-          messagesProcessed++;
-          newMessages++;
-        }
-        maxUid = Math.max(maxUid, message.uid);
+        allMessages.push({
+          uid: message.uid,
+          envelope: message.envelope,
+          flags: message.flags || new Set(),
+          size: message.size,
+        });
       }
+
+      if (allMessages.length === 0) {
+        return { messagesProcessed: 0, newMessages: 0, maxUid: lastUid };
+      }
+
+      // STEP 2: Bulk process messages
+      const result = await this.bulkProcessMessages(
+        allMessages,
+        client,
+        providerId,
+        tenantId,
+      );
 
       const reconciled = await this.reconcileDeletedMessages(client, providerId, tenantId);
       if (reconciled > 0) {
-        messagesProcessed += reconciled;
         this.logger.debug(`Marked ${reconciled} IMAP messages as deleted or moved.`);
       }
 
       return {
-        messagesProcessed,
-        newMessages,
-        maxUid,
+        messagesProcessed: result.messagesProcessed + reconciled,
+        newMessages: result.newMessages,
+        maxUid: result.maxUid,
       };
     } finally {
       lock.release();
@@ -465,11 +397,12 @@ export class ImapSyncService extends BaseEmailSyncService {
   }
 
   /**
-   * Full sync - fetch messages from last 60 days (max 1000)
+   * Full sync - fetch messages from last 60 days (max 1000) (BULK OPTIMIZED)
+   * Uses batch operations to reduce database queries from O(n) to O(1)
    */
   private async syncFull(
     client: ImapFlow,
-    email: string,
+    _email: string,
     providerId: string,
     tenantId: string,
   ): Promise<{
@@ -489,10 +422,15 @@ export class ImapSyncService extends BaseEmailSyncService {
 
       this.logger.debug(`Fetching IMAP messages since ${sinceDate}`);
 
-      let messagesProcessed = 0;
-      let newMessages = 0;
-      let maxUid = 0;
       const maxMessages = 1000;
+
+      // STEP 1: Collect all message metadata from IMAP
+      const allMessages: Array<{
+        uid: number;
+        envelope: any;
+        flags: Set<string>;
+        size?: number;
+      }> = [];
 
       // Use IMAP SEARCH to find messages since the date
       try {
@@ -500,11 +438,7 @@ export class ImapSyncService extends BaseEmailSyncService {
 
         if (!searchResults || searchResults.length === 0) {
           this.logger.debug('No messages found in the last 60 days');
-          return {
-            messagesProcessed: 0,
-            newMessages: 0,
-            maxUid: 0,
-          };
+          return { messagesProcessed: 0, newMessages: 0, maxUid: 0 };
         }
 
         // Sort UIDs in ascending order and limit to max 1000
@@ -513,7 +447,7 @@ export class ImapSyncService extends BaseEmailSyncService {
         this.logger.debug(`Found ${searchResults.length} messages in last 60 days, fetching last ${uidsToFetch.length}`);
 
         // Fetch messages in batches to avoid timeout
-        const batchSize = 50;
+        const batchSize = 100;
         for (let i = 0; i < uidsToFetch.length; i += batchSize) {
           const batch = uidsToFetch.slice(i, Math.min(i + batchSize, uidsToFetch.length));
           const range = batch.join(',');
@@ -524,21 +458,14 @@ export class ImapSyncService extends BaseEmailSyncService {
             bodyStructure: true,
             flags: true,
           }, { uid: true })) {
-            const processed = await this.processMessage(
-              message,
-              client,
-              providerId,
-              tenantId,
-            );
-            if (processed) {
-              messagesProcessed++;
-              newMessages++;
-            }
-            maxUid = Math.max(maxUid, message.uid);
+            allMessages.push({
+              uid: message.uid,
+              envelope: message.envelope,
+              flags: message.flags || new Set(),
+              size: message.size,
+            });
           }
         }
-
-        this.logger.debug(`Processed ${messagesProcessed} messages from last 60 days`);
       } catch (searchError) {
         // Fallback to fetching last 1000 messages if SEARCH fails
         this.logger.warn(`IMAP SEARCH failed, falling back to sequence-based fetch: ${searchError instanceof Error ? searchError.message : String(searchError)}`);
@@ -547,11 +474,7 @@ export class ImapSyncService extends BaseEmailSyncService {
         const totalMessages = mailboxStatus.messages || 0;
 
         if (totalMessages === 0) {
-          return {
-            messagesProcessed: 0,
-            newMessages: 0,
-            maxUid: 0,
-          };
+          return { messagesProcessed: 0, newMessages: 0, maxUid: 0 };
         }
 
         const limit = Math.min(maxMessages, totalMessages);
@@ -564,64 +487,125 @@ export class ImapSyncService extends BaseEmailSyncService {
           bodyStructure: true,
           flags: true,
         })) {
-          const processed = await this.processMessage(
-            message,
-            client,
-            providerId,
-            tenantId,
-          );
-          if (processed) {
-            messagesProcessed++;
-            newMessages++;
-          }
-          maxUid = Math.max(maxUid, message.uid);
+          allMessages.push({
+            uid: message.uid,
+            envelope: message.envelope,
+            flags: message.flags || new Set(),
+            size: message.size,
+          });
         }
       }
 
-      return {
-        messagesProcessed,
-        newMessages,
-        maxUid,
-      };
+      if (allMessages.length === 0) {
+        return { messagesProcessed: 0, newMessages: 0, maxUid: 0 };
+      }
+
+      // STEP 2: Bulk process all collected messages
+      const result = await this.bulkProcessMessages(
+        allMessages,
+        client,
+        providerId,
+        tenantId,
+      );
+
+      this.logger.debug(`Processed ${result.messagesProcessed} messages from last 60 days`);
+
+      return result;
     } finally {
       lock.release();
     }
   }
 
   /**
-   * Process a single IMAP message
+   * Bulk process IMAP messages (OPTIMIZED)
+   * Reduces database queries from O(n) to O(1) by using batch operations
    */
-  private async processMessage(
-    message: any,
+  private async bulkProcessMessages(
+    messages: Array<{
+      uid: number;
+      envelope: any;
+      flags: Set<string>;
+      size?: number;
+    }>,
     client: ImapFlow,
     providerId: string,
     tenantId: string,
-  ): Promise<boolean> {
-    try {
-      const envelope = message.envelope;
+  ): Promise<{
+    messagesProcessed: number;
+    newMessages: number;
+    maxUid: number;
+  }> {
+    if (messages.length === 0) {
+      return { messagesProcessed: 0, newMessages: 0, maxUid: 0 };
+    }
 
-      if (!envelope) {
-        return false;
+    // STEP 1: Extract all external IDs (UIDs as strings)
+    const externalIds = messages.map((m) => m.uid.toString());
+
+    // STEP 2: Batch check existing emails in ONE query
+    const existingEmails = await this.prisma.email.findMany({
+      where: { providerId, externalId: { in: externalIds } },
+      select: { id: true, externalId: true },
+    });
+    const existingByExternalId = new Map(existingEmails.map((e) => [e.externalId, e.id]));
+
+    // STEP 3: Separate new vs existing messages
+    const newMessageData: Array<{
+      uid: number;
+      envelope: any;
+      flags: Set<string>;
+      size?: number;
+    }> = [];
+    const updateMessageData: Array<{
+      uid: number;
+      flags: Set<string>;
+      emailId: string;
+    }> = [];
+
+    for (const msg of messages) {
+      const externalId = msg.uid.toString();
+      const existingId = existingByExternalId.get(externalId);
+      if (existingId) {
+        updateMessageData.push({ uid: msg.uid, flags: msg.flags, emailId: existingId });
+      } else {
+        newMessageData.push(msg);
       }
+    }
 
-      // Extract email addresses from envelope
+    let maxUid = 0;
+    for (const msg of messages) {
+      maxUid = Math.max(maxUid, msg.uid);
+    }
+
+    // STEP 4: Bulk resolve thread IDs for new messages
+    const threadIdMap = await this.bulkResolveThreadIds(
+      newMessageData,
+      tenantId,
+      providerId,
+    );
+
+    // STEP 5: Download bodies for new messages and prepare bulk insert data
+    const newEmailRecords: any[] = [];
+
+    for (const msg of newMessageData) {
+      const envelope = msg.envelope;
+      if (!envelope) continue;
+
+      // Extract email data
       const from = envelope.from?.[0]?.address || '';
       const to = (envelope.to || []).map((addr: any) => addr.address).filter(Boolean);
       const cc = (envelope.cc || []).map((addr: any) => addr.address).filter(Boolean);
       const bcc = (envelope.bcc || []).map((addr: any) => addr.address).filter(Boolean);
-
       const subject = envelope.subject || '(No Subject)';
       const messageId = envelope.messageId;
       const inReplyTo = envelope.inReplyTo;
-
-      // Extract dates
       const sentAt = envelope.date ? new Date(envelope.date) : new Date();
       const receivedAt = new Date();
 
+      // Download and parse body
       let bodyText = '';
       let bodyHtml = '';
-
-      const bodyBuffer = await this.downloadMessageBody(client, message.uid);
+      const bodyBuffer = await this.downloadMessageBody(client, msg.uid);
       if (bodyBuffer) {
         try {
           const parsed = await simpleParser(bodyBuffer);
@@ -629,140 +613,310 @@ export class ImapSyncService extends BaseEmailSyncService {
           bodyHtml = typeof parsed.html === 'string' ? parsed.html : '';
         } catch (parseError) {
           const parseMessage = parseError instanceof Error ? parseError.message : String(parseError);
-          this.logger.warn(`Failed to parse IMAP message UID ${message.uid}: ${parseMessage}`);
+          this.logger.warn(`Failed to parse IMAP message UID ${msg.uid}: ${parseMessage}`);
         }
       }
 
-      if (bodyText.length > 10000) {
-        bodyText = bodyText.slice(0, 10000);
-      }
-      if (bodyHtml.length > 20000) {
-        bodyHtml = bodyHtml.slice(0, 20000);
-      }
+      if (bodyText.length > 10000) bodyText = bodyText.slice(0, 10000);
+      if (bodyHtml.length > 20000) bodyHtml = bodyHtml.slice(0, 20000);
 
-      // Create snippet from body or subject
       const snippetSource = bodyText || this.extractPlainText(bodyHtml) || subject;
       const snippet = this.truncateText(snippetSource, 200);
 
-      // Extract flags
-      const flags = message.flags || new Set();
+      const flags = msg.flags;
       const isRead = flags.has('\\Seen');
       const isStarred = flags.has('\\Flagged');
       const isDeleted = flags.has('\\Deleted');
       const folder = isDeleted ? 'TRASH' : 'INBOX';
 
-      // Generate threadId from inReplyTo and references headers
-      const threadId = await this.findOrCreateThreadId(
+      const threadId = threadIdMap.get(msg.uid.toString()) || normalizeMessageId(messageId);
+
+      newEmailRecords.push({
         tenantId,
         providerId,
+        externalId: msg.uid.toString(),
+        threadId,
         messageId,
         inReplyTo,
-        envelope.references,
-      );
+        references: envelope.references,
+        from,
+        to,
+        cc,
+        bcc,
+        subject,
+        bodyText,
+        bodyHtml,
+        snippet,
+        folder,
+        labels: [],
+        isRead,
+        isStarred,
+        isDeleted,
+        sentAt,
+        receivedAt,
+        size: msg.size || null,
+        headers: { uid: msg.uid, flags: Array.from(flags) } as Record<string, any>,
+        metadata: mergeEmailStatusMetadata(null, isDeleted ? 'deleted' : 'active'),
+      });
+    }
 
-      // Save to database with upsert to prevent duplicates
-      const emailRecord = await this.prisma.email.upsert({
+    // STEP 6: Execute bulk operations in transaction
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        // 6a. Bulk create new emails
+        if (newEmailRecords.length > 0) {
+          await tx.email.createMany({
+            data: newEmailRecords,
+            skipDuplicates: true,
+          });
+          createdCount = newEmailRecords.length;
+        }
+
+        // 6b. Bulk update existing emails using raw SQL
+        if (updateMessageData.length > 0) {
+          const updateExternalIds = updateMessageData.map((u) => u.uid.toString());
+
+          // Separate by flag status for bulk updates
+          const readIds = updateMessageData
+            .filter((u) => u.flags.has('\\Seen'))
+            .map((u) => u.uid.toString());
+          const unreadIds = updateMessageData
+            .filter((u) => !u.flags.has('\\Seen'))
+            .map((u) => u.uid.toString());
+          const starredIds = updateMessageData
+            .filter((u) => u.flags.has('\\Flagged'))
+            .map((u) => u.uid.toString());
+          const unstarredIds = updateMessageData
+            .filter((u) => !u.flags.has('\\Flagged'))
+            .map((u) => u.uid.toString());
+          const deletedIds = updateMessageData
+            .filter((u) => u.flags.has('\\Deleted'))
+            .map((u) => u.uid.toString());
+          const activeIds = updateMessageData
+            .filter((u) => !u.flags.has('\\Deleted'))
+            .map((u) => u.uid.toString());
+
+          // Bulk update isRead
+          if (readIds.length > 0) {
+            await tx.email.updateMany({
+              where: { providerId, externalId: { in: readIds } },
+              data: { isRead: true },
+            });
+          }
+          if (unreadIds.length > 0) {
+            await tx.email.updateMany({
+              where: { providerId, externalId: { in: unreadIds } },
+              data: { isRead: false },
+            });
+          }
+
+          // Bulk update isStarred
+          if (starredIds.length > 0) {
+            await tx.email.updateMany({
+              where: { providerId, externalId: { in: starredIds } },
+              data: { isStarred: true },
+            });
+          }
+          if (unstarredIds.length > 0) {
+            await tx.email.updateMany({
+              where: { providerId, externalId: { in: unstarredIds } },
+              data: { isStarred: false },
+            });
+          }
+
+          // Bulk update isDeleted and folder
+          if (deletedIds.length > 0) {
+            await tx.email.updateMany({
+              where: { providerId, externalId: { in: deletedIds } },
+              data: { isDeleted: true, folder: 'TRASH' },
+            });
+          }
+          if (activeIds.length > 0) {
+            await tx.email.updateMany({
+              where: { providerId, externalId: { in: activeIds } },
+              data: { isDeleted: false, folder: 'INBOX' },
+            });
+          }
+
+          updatedCount = updateExternalIds.length;
+        }
+      },
+      { timeout: 60000 },
+    );
+
+    // STEP 7: Queue embedding jobs for new emails (fire-and-forget, non-blocking)
+    if (newEmailRecords.length > 0) {
+      // Get created email IDs for embedding
+      const createdEmails = await this.prisma.email.findMany({
         where: {
-          providerId_externalId: {
-            providerId,
-            externalId: message.uid.toString(),
-          },
-        },
-        create: {
-          tenantId,
           providerId,
-          externalId: message.uid.toString(),
-          threadId, // Generated from inReplyTo/references headers
-          messageId,
-          inReplyTo,
-          references: envelope.references,
-          from,
-          to,
-          cc,
-          bcc,
-          subject,
-          bodyText,
-          bodyHtml,
-          snippet,
-          folder,
-          labels: [],
-          isRead,
-          isStarred,
-          isDeleted,
-          sentAt,
-          receivedAt,
-          size: message.size || null,
-          headers: {
-            uid: message.uid,
-            flags: Array.from(flags),
-          } as Record<string, any>,
-          metadata: mergeEmailStatusMetadata(null, isDeleted ? 'deleted' : 'active'),
+          externalId: { in: newEmailRecords.map((e) => e.externalId) },
         },
-        update: {
-          // Update flags in case they changed
-          isRead,
-          isStarred,
-          isDeleted,
-          folder,
-          headers: {
-            uid: message.uid,
-            flags: Array.from(flags),
-          } as Record<string, any>,
-        },
+        select: { id: true, externalId: true, subject: true, snippet: true, bodyText: true, bodyHtml: true, from: true, receivedAt: true },
       });
 
-      this.logger.debug(`Saved email UID ${message.uid}: ${subject} from ${from}`);
+      // Fire-and-forget embedding queue (don't await)
+      this.queueEmbeddingsInBackground(tenantId, providerId, createdEmails);
+    }
 
-      this.notifyImapMailboxChange(
-        tenantId,
-        providerId,
-        isDeleted ? 'message-deleted' : 'message-processed',
-        {
-          emailId: emailRecord.id,
-          externalId: message.uid.toString(),
-          folder,
-        },
-      );
+    // STEP 8: Emit realtime events for new messages
+    for (const record of newEmailRecords) {
+      this.realtimeEvents.notifyMailboxChange(tenantId, providerId, 'message-processed', {
+        externalId: record.externalId,
+        folder: record.folder,
+      });
+    }
 
-      const alreadyEmbedded = await this.embeddingsService.hasEmbeddingForEmail(tenantId, emailRecord.id);
+    this.logger.debug(
+      `Bulk IMAP sync: ${createdCount} new, ${updatedCount} updated out of ${messages.length} messages`,
+    );
 
-      if (alreadyEmbedded) {
-        this.logger.verbose(
-          `Skipping embedding enqueue for IMAP message UID ${message.uid} - embedding already exists.`,
-        );
-      } else {
-        try {
-          await this.emailEmbeddingQueue.enqueue({
+    return {
+      messagesProcessed: createdCount + updatedCount,
+      newMessages: createdCount,
+      maxUid,
+    };
+  }
+
+  /**
+   * Bulk resolve thread IDs for messages (OPTIMIZED)
+   * Reduces O(n) queries to O(1) by batch lookup
+   */
+  private async bulkResolveThreadIds(
+    messages: Array<{ uid: number; envelope: any }>,
+    tenantId: string,
+    providerId: string,
+  ): Promise<Map<string, string | null>> {
+    const result = new Map<string, string | null>();
+
+    // Collect all messageIds, inReplyTo, and references
+    const allReferenceIds = new Set<string>();
+    const messageReferences = new Map<string, { messageId: string | null; inReplyTo: string | null; references: string[] }>();
+
+    for (const msg of messages) {
+      const envelope = msg.envelope;
+      if (!envelope) continue;
+
+      const messageId = normalizeMessageId(envelope.messageId);
+      const inReplyTo = normalizeMessageId(envelope.inReplyTo);
+      const references = envelope.references
+        ? envelope.references.split(/\s+/).filter(Boolean).map(normalizeMessageId).filter(Boolean) as string[]
+        : [];
+
+      messageReferences.set(msg.uid.toString(), { messageId, inReplyTo, references });
+
+      if (inReplyTo) {
+        allReferenceIds.add(inReplyTo);
+        allReferenceIds.add(`<${inReplyTo}>`);
+      }
+      for (const ref of references) {
+        if (ref) {
+          allReferenceIds.add(ref);
+          allReferenceIds.add(`<${ref}>`);
+        }
+      }
+    }
+
+    // Batch lookup all referenced emails in ONE query
+    const referencedEmails = allReferenceIds.size > 0
+      ? await this.prisma.email.findMany({
+          where: {
             tenantId,
             providerId,
-            emailId: emailRecord.id,
-            subject,
-            snippet,
-            bodyText,
-            bodyHtml,
-            from,
-            receivedAt,
-          });
-          this.logger.verbose(`Queued embedding job for IMAP message UID ${message.uid}`);
-        } catch (queueError) {
-          const queueMessage = queueError instanceof Error ? queueError.message : String(queueError);
-          this.logger.warn(
-            `Failed to enqueue embedding job for IMAP message UID ${message.uid}: ${queueMessage}`,
-          );
+            messageId: { in: Array.from(allReferenceIds) },
+          },
+          select: { messageId: true, threadId: true },
+        })
+      : [];
+
+    // Build lookup map
+    const threadLookup = new Map<string, string | null>();
+    for (const email of referencedEmails) {
+      if (email.messageId) {
+        const normalized = normalizeMessageId(email.messageId);
+        if (normalized) {
+          threadLookup.set(normalized, email.threadId);
+        }
+      }
+    }
+
+    // Resolve thread IDs for each message
+    for (const [uidStr, refs] of messageReferences) {
+      let threadId: string | null = null;
+
+      // Try inReplyTo first
+      if (refs.inReplyTo) {
+        threadId = threadLookup.get(refs.inReplyTo) || null;
+      }
+
+      // Try references (oldest first)
+      if (!threadId && refs.references.length > 0) {
+        for (const ref of refs.references) {
+          const found = threadLookup.get(ref);
+          if (found) {
+            threadId = found;
+            break;
+          }
+        }
+        // If no match found, use first reference as thread root
+        if (!threadId) {
+          threadId = refs.references[0] || null;
         }
       }
 
-      await this.applyStatusMetadata(
-        emailRecord.id,
-        emailRecord.metadata as Record<string, any> | null,
-        isDeleted ? 'deleted' : 'active',
-      );
+      // Fallback to messageId
+      if (!threadId && refs.messageId) {
+        threadId = refs.messageId;
+      }
 
-      return true;
-    } catch (error) {
-      this.logger.error(`Failed to process message UID ${message.uid}:`, error);
-      return false;
+      result.set(uidStr, threadId);
     }
+
+    return result;
+  }
+
+  /**
+   * Queue embedding jobs in background (fire-and-forget)
+   */
+  private queueEmbeddingsInBackground(
+    tenantId: string,
+    providerId: string,
+    emails: Array<{
+      id: string;
+      subject: string | null;
+      snippet: string | null;
+      bodyText: string | null;
+      bodyHtml: string | null;
+      from: string;
+      receivedAt: Date;
+    }>,
+  ): void {
+    // Process in background without blocking
+    setImmediate(async () => {
+      for (const email of emails) {
+        try {
+          const alreadyEmbedded = await this.embeddingsService.hasEmbeddingForEmail(tenantId, email.id);
+          if (!alreadyEmbedded) {
+            await this.emailEmbeddingQueue.enqueue({
+              tenantId,
+              providerId,
+              emailId: email.id,
+              subject: email.subject || '',
+              snippet: email.snippet || '',
+              bodyText: email.bodyText || '',
+              bodyHtml: email.bodyHtml || '',
+              from: email.from,
+              receivedAt: email.receivedAt,
+            });
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to queue embedding for email ${email.id}: ${this.extractErrorMessage(error)}`);
+        }
+      }
+    });
   }
 
   private async downloadMessageBody(client: ImapFlow, uid: number): Promise<Buffer | null> {
@@ -796,41 +950,4 @@ export class ImapSyncService extends BaseEmailSyncService {
     }
   }
 
-  private async applyStatusMetadata(
-    emailId: string,
-    existing: Record<string, any> | null | undefined,
-    status: 'deleted' | 'active',
-  ): Promise<void> {
-    const next = mergeEmailStatusMetadata(existing, status);
-    const shouldUpdate =
-      !existing ||
-      existing.status !== next.status ||
-      existing.deletedAt !== next.deletedAt;
-
-    if (!shouldUpdate) {
-      return;
-    }
-
-    try {
-      await this.prisma.email.update({
-        where: { id: emailId },
-        data: {
-          metadata: next,
-        },
-      });
-    } catch (error) {
-      const message = this.extractErrorMessage(error);
-      this.logger.warn(`Failed to update metadata for IMAP email ${emailId}: ${message}`);
-    }
-  }
-
-  private notifyImapMailboxChange(
-    tenantId: string,
-    providerId: string,
-    reason: EmailEventReason,
-    payload?: { emailId?: string; externalId?: string; folder?: string },
-  ): void {
-    // IMAP-specific wrapper (doesn't use suppressMessageEvents like Google/Microsoft)
-    this.realtimeEvents.notifyMailboxChange(tenantId, providerId, reason, payload);
-  }
 }

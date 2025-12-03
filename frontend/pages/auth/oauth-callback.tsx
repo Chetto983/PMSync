@@ -19,12 +19,14 @@ function OAuthCallbackPage() {
   const hasConnectedRef = useRef(false);
 
   useEffect(() => {
-    if (hasConnectedRef.current) return;
-    hasConnectedRef.current = true;
-
+    // Wait for router to be ready before processing
     if (!router.isReady) {
       return;
     }
+
+    // Prevent multiple executions
+    if (hasConnectedRef.current) return;
+    hasConnectedRef.current = true;
 
     const { code, state, provider, error: oauthError } = router.query;
 

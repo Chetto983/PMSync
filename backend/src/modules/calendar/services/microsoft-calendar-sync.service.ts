@@ -36,16 +36,6 @@ interface MicrosoftEventsResponse {
   '@odata.nextLink'?: string;
 }
 
-interface MicrosoftEventAttachment {
-  '@odata.type': string;
-  id: string;
-  name: string;
-  contentType?: string;
-  size?: number;
-  isInline?: boolean;
-  lastModifiedDateTime?: string;
-}
-
 export interface MicrosoftCalendarSyncResult {
   success: boolean;
   providerId: string;
@@ -191,7 +181,8 @@ export class MicrosoftCalendarSyncService {
   }
 
   /**
-   * Sync events from a specific calendar
+   * Sync events from a specific calendar (BULK OPTIMIZED)
+   * Uses batch operations to reduce database queries from O(n) to O(1)
    */
   private async syncCalendarEvents(
     accessToken: string,
@@ -207,16 +198,13 @@ export class MicrosoftCalendarSyncService {
     updatedEvents: number;
     deletedEvents: number;
   }> {
-    let eventsProcessed = 0;
-    let newEvents = 0;
-    let updatedEvents = 0;
-    let deletedEvents = 0;
-    const currentExternalIds = new Set<string>();
+    // STEP 1: Fetch ALL events from Microsoft Graph API (collect all pages)
+    const allMsEvents: MicrosoftEvent[] = [];
 
     const params = new URLSearchParams({
       startDateTime,
       endDateTime,
-      $top: '100',
+      $top: '999', // Max for better efficiency
       $orderby: 'start/dateTime',
     });
 
@@ -228,74 +216,116 @@ export class MicrosoftCalendarSyncService {
       });
 
       const events = eventsResponse.data.value || [];
-
-      for (const event of events) {
-        try {
-          currentExternalIds.add(event.id);
-
-          const result = await this.processCalendarEvent(
-            event,
-            calendarId,
-            providerId,
-            tenantId,
-            calendarName ?? calendarId,
-            accessToken,
-          );
-
-          eventsProcessed++;
-          if (result === 'created') {
-            newEvents++;
-          } else if (result === 'updated') {
-            updatedEvents++;
-          }
-        } catch (eventError) {
-          this.logger.warn(
-            `Failed to process event ${event.id}: ${eventError instanceof Error ? eventError.message : String(eventError)}`,
-          );
-        }
-      }
-
+      allMsEvents.push(...events);
       eventsUrl = eventsResponse.data['@odata.nextLink'];
     }
 
-    // Handle deleted events (compare with database)
-    deletedEvents = await this.handleDeletedEvents(
-      providerId,
-      calendarId,
-      currentExternalIds,
-      startDateTime,
-      endDateTime,
+    if (allMsEvents.length === 0) {
+      return { eventsProcessed: 0, newEvents: 0, updatedEvents: 0, deletedEvents: 0 };
+    }
+
+    // STEP 2: Fetch ALL existing events for this calendar in ONE query
+    const existingEvents = await this.prisma.calendarEvent.findMany({
+      where: { providerId, calendarId },
+      select: { id: true, externalId: true, syncVersion: true },
+    });
+    const existingByExternalId = new Map(existingEvents.map((e) => [e.externalId, e]));
+
+    // STEP 3: Prepare bulk operations
+    const newEvents: any[] = [];
+    const updateEvents: { externalId: string; id: string }[] = [];
+    const allMsEventIds = new Set<string>();
+
+    for (const event of allMsEvents) {
+      const eventId = event.id;
+      allMsEventIds.add(eventId);
+
+      const eventData = this.extractEventData(event, calendarId, providerId, tenantId, calendarName ?? calendarId);
+      const existing = existingByExternalId.get(eventId);
+
+      if (existing) {
+        updateEvents.push({ externalId: eventId, id: existing.id });
+      } else {
+        newEvents.push(eventData);
+      }
+    }
+
+    // STEP 4: Execute bulk operations in transaction
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        // 4a. Bulk create new events
+        if (newEvents.length > 0) {
+          await tx.calendarEvent.createMany({
+            data: newEvents,
+            skipDuplicates: true,
+          });
+          createdCount = newEvents.length;
+        }
+
+        // 4b. Bulk update existing events using raw SQL
+        if (updateEvents.length > 0) {
+          const now = new Date();
+          const externalIds = updateEvents.map((e) => e.externalId);
+
+          await tx.$executeRaw`
+            UPDATE "calendar_events"
+            SET "lastSyncedAt" = ${now},
+                "syncVersion" = "syncVersion" + 1
+            WHERE "providerId" = ${providerId}
+              AND "externalId" = ANY(${externalIds}::text[])
+          `;
+          updatedCount = updateEvents.length;
+        }
+      },
+      { timeout: 60000 },
     );
 
+    // STEP 5: Handle deleted events using bulk updateMany
+    let deletedCount = 0;
+    const deletedExternalIds = existingEvents
+      .filter((e) => !allMsEventIds.has(e.externalId))
+      .map((e) => e.externalId);
+
+    if (deletedExternalIds.length > 0) {
+      const result = await this.prisma.calendarEvent.updateMany({
+        where: {
+          providerId,
+          calendarId,
+          externalId: { in: deletedExternalIds },
+          isDeleted: false,
+        },
+        data: { isDeleted: true },
+      });
+      deletedCount = result.count;
+    }
+
     return {
-      eventsProcessed,
-      newEvents,
-      updatedEvents,
-      deletedEvents,
+      eventsProcessed: allMsEvents.length,
+      newEvents: createdCount,
+      updatedEvents: updatedCount,
+      deletedEvents: deletedCount,
     };
   }
 
   /**
-   * Process a single calendar event from Microsoft
+   * Extract event data from Microsoft event
    */
-  private async processCalendarEvent(
+  private extractEventData(
     event: MicrosoftEvent,
     calendarId: string,
     providerId: string,
     tenantId: string,
     calendarName: string,
-    accessToken: string,
-  ): Promise<'created' | 'updated'> {
-    const eventId = event.id;
-
-    // Extract event data
+  ): any {
     const title = event.subject || '(No Title)';
     const description = event.body?.content || event.bodyPreview || null;
     const location = event.location?.displayName || null;
     const organizer = event.organizer?.emailAddress?.address || null;
     const attendees = event.attendees || null;
 
-    // Time and recurrence
     const isAllDay = event.isAllDay || false;
     const startTime = new Date(event.start.dateTime);
     const endTime = new Date(event.end.dateTime);
@@ -303,29 +333,17 @@ export class MicrosoftCalendarSyncService {
     const recurrence = event.recurrence ? [JSON.stringify(event.recurrence)] : [];
     const recurringEventId = event.seriesMasterId || null;
 
-    // Status
     const status = event.isCancelled ? 'cancelled' : 'confirmed';
     const visibility = this.mapMicrosoftSensitivity(event.sensitivity || 'normal');
     const isCancelled = event.isCancelled || false;
 
-    // Metadata
     const htmlLink = event.webLink || null;
     const iCalUID = event.iCalUId || null;
 
-    // Upsert event
-    const existing = await this.prisma.calendarEvent.findUnique({
-      where: {
-        providerId_externalId: {
-          providerId,
-          externalId: eventId,
-        },
-      },
-    });
-
-    const eventData = {
+    return {
       tenantId,
       providerId,
-      externalId: eventId,
+      externalId: event.id,
       calendarId,
       calendarName,
       iCalUID,
@@ -344,7 +362,7 @@ export class MicrosoftCalendarSyncService {
       visibility,
       isCancelled,
       isDeleted: isCancelled,
-      reminders: undefined, // Microsoft reminders would need separate mapping
+      reminders: undefined,
       htmlLink,
       metadata: {
         microsoftCalendarId: calendarId,
@@ -353,115 +371,6 @@ export class MicrosoftCalendarSyncService {
       } as any,
       lastSyncedAt: new Date(),
     };
-
-    let dbEventId: string;
-    let result: 'created' | 'updated';
-
-    if (existing) {
-      await this.prisma.calendarEvent.update({
-        where: { id: existing.id },
-        data: {
-          ...eventData,
-          syncVersion: existing.syncVersion + 1,
-        },
-      });
-      dbEventId = existing.id;
-      result = 'updated';
-    } else {
-      const created = await this.prisma.calendarEvent.create({
-        data: eventData,
-      });
-      dbEventId = created.id;
-      result = 'created';
-    }
-
-    // Process attachments (OneDrive/SharePoint files or inline attachments)
-    // Note: Microsoft Graph API requires a separate call to get attachments
-    try {
-      await this.processEventAttachments(dbEventId, eventId, accessToken);
-    } catch (attachmentError) {
-      this.logger.warn(
-        `Failed to process attachments for event ${eventId}: ${attachmentError instanceof Error ? attachmentError.message : String(attachmentError)}`,
-      );
-    }
-
-    return result;
-  }
-
-  /**
-   * Process attachments for a Microsoft Calendar event
-   * Microsoft Graph API requires a separate call to get event attachments
-   */
-  private async processEventAttachments(
-    dbEventId: string,
-    msEventId: string,
-    accessToken: string,
-  ): Promise<void> {
-    try {
-      // Fetch attachments from Microsoft Graph API
-      const attachmentsUrl = `${this.GRAPH_API_BASE}/me/events/${msEventId}/attachments`;
-      const response = await axios.get<{ value: MicrosoftEventAttachment[] }>(attachmentsUrl, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const attachments = response.data.value || [];
-
-      // Delete existing attachments for this event
-      await this.prisma.calendarEventAttachment.deleteMany({
-        where: { eventId: dbEventId },
-      });
-
-      // Create new attachment records
-      for (const attachment of attachments) {
-        try {
-          // Determine attachment type and extract metadata
-          const isOneDrive = attachment['@odata.type'] === '#microsoft.graph.referenceAttachment';
-          const fileUrl = isOneDrive ? (attachment as any).sourceUrl : null;
-          const size = attachment.size || 0;
-
-          await this.prisma.calendarEventAttachment.create({
-            data: {
-              eventId: dbEventId,
-              filename: attachment.name || 'Untitled',
-              mimeType: attachment.contentType || 'application/octet-stream',
-              size,
-              storageType: 'reference', // All attachments stored as references for now
-              fileUrl,
-              fileId: null,
-              iconLink: null,
-              isGoogleDrive: false,
-              isOneDrive,
-              storagePath: null,
-            },
-          });
-
-          this.logger.debug(
-            `Created attachment reference for event ${dbEventId}: ${attachment.name} (${isOneDrive ? 'OneDrive' : 'File'})`,
-          );
-        } catch (attachmentError) {
-          this.logger.warn(
-            `Failed to create attachment for event ${dbEventId}: ${attachmentError instanceof Error ? attachmentError.message : String(attachmentError)}`,
-          );
-        }
-      }
-
-      if (attachments.length > 0) {
-        this.logger.verbose(`Processed ${attachments.length} attachments for event ${dbEventId}`);
-      }
-    } catch (error) {
-      // Don't throw - just log and continue
-      // Some events might not have attachment permissions
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        this.logger.debug(`No attachments endpoint for event ${msEventId} (404)`);
-      } else {
-        this.logger.warn(
-          `Failed to fetch attachments for event ${msEventId}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }
   }
 
   /**
@@ -478,58 +387,6 @@ export class MicrosoftCalendarSyncService {
       default:
         return 'default';
     }
-  }
-
-  /**
-   * Handle deleted events by marking events that were in the database but not in the sync as deleted
-   */
-  private async handleDeletedEvents(
-    providerId: string,
-    calendarId: string,
-    currentExternalIds: Set<string>,
-    startDateTime: string,
-    endDateTime: string,
-  ): Promise<number> {
-    // Find events in the database that are within the sync range and not seen in current sync
-    const existingEvents = await this.prisma.calendarEvent.findMany({
-      where: {
-        providerId,
-        calendarId,
-        startTime: {
-          gte: new Date(startDateTime),
-          lte: new Date(endDateTime),
-        },
-        isDeleted: false, // Only consider events that aren't already marked as deleted
-      },
-      select: {
-        id: true,
-        externalId: true,
-      },
-    });
-
-    // Filter to events not seen in current sync
-    const deletedEventIds = existingEvents
-      .filter((event) => !currentExternalIds.has(event.externalId))
-      .map((event) => event.id);
-
-    if (deletedEventIds.length > 0) {
-      // Mark as deleted
-      await this.prisma.calendarEvent.updateMany({
-        where: {
-          id: { in: deletedEventIds },
-        },
-        data: {
-          isDeleted: true,
-          lastSyncedAt: new Date(),
-        },
-      });
-
-      this.logger.debug(
-        `Marked ${deletedEventIds.length} events as deleted in calendar ${calendarId}`,
-      );
-    }
-
-    return deletedEventIds.length;
   }
 
   /**

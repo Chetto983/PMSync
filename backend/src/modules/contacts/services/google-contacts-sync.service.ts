@@ -41,7 +41,8 @@ export class GoogleContactsSyncService {
   }
 
   /**
-   * Sync contacts from Google People API
+   * Sync contacts from Google People API (BULK OPTIMIZED)
+   * Reduces database queries from O(n) to O(1) by batching operations
    */
   async syncContacts(providerId: string): Promise<number> {
     if (!this.contactsEnabled) {
@@ -49,7 +50,7 @@ export class GoogleContactsSyncService {
       return 0;
     }
     const startTime = Date.now();
-    this.logger.log(`Starting Google Contacts sync for provider ${providerId}`);
+    this.logger.log(`Starting Google Contacts sync (bulk) for provider ${providerId}`);
 
     try {
       // Get provider and access token (handles refresh automatically)
@@ -63,45 +64,66 @@ export class GoogleContactsSyncService {
 
       const peopleService = this.createPeopleClient(accessToken);
 
-      let contactsProcessed = 0;
-      let newContacts = 0;
-      let updatedContacts = 0;
+      // STEP 1: Fetch ALL contacts from Google API (collect all pages)
+      const allGoogleContacts: people_v1.Schema$Person[] = [];
       let pageToken: string | undefined;
-      const createdContactIds: string[] = [];
-      const updatedContactIds: string[] = [];
 
+      this.logger.log(`[Bulk Sync] Step 1/4: Fetching all contacts from Google API...`);
       do {
         const response = await peopleService.people.connections.list({
           resourceName: 'people/me',
-          pageSize: 100,
+          pageSize: 1000, // Max page size for efficiency
           pageToken,
           personFields:
             'names,emailAddresses,phoneNumbers,organizations,addresses,birthdays,photos,biographies,urls',
         });
 
         const connections = response.data.connections || [];
-
-        for (const person of connections) {
-          try {
-            const result = await this.processContact(provider, person);
-            contactsProcessed++;
-
-            if (result.isNew) {
-              newContacts++;
-              createdContactIds.push(result.contactId);
-            } else {
-              updatedContacts++;
-              updatedContactIds.push(result.contactId);
-            }
-          } catch (error: any) {
-            this.logger.error(`Error processing contact: ${error.message}`);
-          }
-        }
-
+        allGoogleContacts.push(...connections);
         pageToken = response.data.nextPageToken || undefined;
       } while (pageToken);
 
-      // Send bulk notifications after processing all contacts
+      this.logger.log(`[Bulk Sync] Fetched ${allGoogleContacts.length} contacts from Google`);
+
+      if (allGoogleContacts.length === 0) {
+        return 0;
+      }
+
+      // STEP 2: Fetch ALL existing provider contacts in ONE query
+      this.logger.log(`[Bulk Sync] Step 2/4: Fetching existing provider contacts...`);
+      const existingProviderContacts = await this.prisma.providerContact.findMany({
+        where: { providerId: provider.id },
+        select: { externalId: true, contactId: true },
+      });
+      const existingByExternalId = new Map(
+        existingProviderContacts.map((pc) => [pc.externalId, pc.contactId]),
+      );
+      this.logger.log(`[Bulk Sync] Found ${existingProviderContacts.length} existing provider contacts`);
+
+      // STEP 3: Process contacts in bulk batches
+      this.logger.log(`[Bulk Sync] Step 3/4: Processing contacts in bulk...`);
+      const BATCH_SIZE = 500;
+      let newContacts = 0;
+      let updatedContacts = 0;
+      const createdContactIds: string[] = [];
+      const updatedContactIds: string[] = [];
+
+      for (let i = 0; i < allGoogleContacts.length; i += BATCH_SIZE) {
+        const batch = allGoogleContacts.slice(i, i + BATCH_SIZE);
+        const result = await this.processBatch(provider, batch, existingByExternalId);
+
+        newContacts += result.newCount;
+        updatedContacts += result.updatedCount;
+        createdContactIds.push(...result.createdIds);
+        updatedContactIds.push(...result.updatedIds);
+
+        if (i + BATCH_SIZE < allGoogleContacts.length) {
+          this.logger.debug(`[Bulk Sync] Processed ${i + batch.length}/${allGoogleContacts.length} contacts...`);
+        }
+      }
+
+      // STEP 4: Send bulk notifications
+      this.logger.log(`[Bulk Sync] Step 4/4: Sending notifications...`);
       this.notifyContactsBulk(provider.tenantId, provider.id, {
         created: createdContactIds,
         updated: updatedContactIds,
@@ -109,10 +131,10 @@ export class GoogleContactsSyncService {
 
       const syncDuration = Date.now() - startTime;
       this.logger.log(
-        `Google Contacts sync completed for provider ${providerId}: ${contactsProcessed} contacts processed (${newContacts} new, ${updatedContacts} updated) in ${syncDuration}ms`,
+        `✅ Google Contacts sync completed for provider ${providerId}: ${allGoogleContacts.length} contacts processed (${newContacts} new, ${updatedContacts} updated) in ${syncDuration}ms`,
       );
 
-      return contactsProcessed;
+      return allGoogleContacts.length;
     } catch (error: any) {
       this.logger.error(`Google Contacts sync failed: ${error.message}`);
       throw error;
@@ -120,15 +142,187 @@ export class GoogleContactsSyncService {
   }
 
   /**
-   * Process a single contact from Google People API
+   * Process a batch of contacts efficiently using transactions
    */
-  private async processContact(
+  private async processBatch(
     provider: any,
-    person: people_v1.Schema$Person,
-  ): Promise<{ contactId: string; isNew: boolean }> {
-    const externalId = person.resourceName!;
+    batch: people_v1.Schema$Person[],
+    existingByExternalId: Map<string, string>,
+  ): Promise<{ newCount: number; updatedCount: number; createdIds: string[]; updatedIds: string[] }> {
+    const newContacts: any[] = [];
+    const newProviderContacts: any[] = [];
+    const updateProviderContacts: any[] = [];
 
-    // Extract contact data
+    // Pre-extract all emails for batch lookup
+    const emailsToLookup: string[] = [];
+    const contactDataMap = new Map<string, any>();
+
+    for (const person of batch) {
+      const externalId = person.resourceName!;
+      const contactData = this.extractContactData(person);
+      contactDataMap.set(externalId, contactData);
+
+      // Only need email lookup for new contacts
+      if (!existingByExternalId.has(externalId) && contactData.primaryEmail) {
+        emailsToLookup.push(contactData.primaryEmail.toLowerCase());
+      }
+    }
+
+    // Batch lookup existing unified contacts by email (ONE query)
+    const existingUnifiedByEmail = await this.batchFindUnifiedContactsByEmail(
+      provider.tenantId,
+      emailsToLookup,
+    );
+
+    // Now process each contact
+    for (const person of batch) {
+      const externalId = person.resourceName!;
+      const contactData = contactDataMap.get(externalId)!;
+      const existingContactId = existingByExternalId.get(externalId);
+
+      if (existingContactId) {
+        // UPDATE existing contact
+        updateProviderContacts.push({
+          externalId,
+          contactId: existingContactId,
+          data: contactData,
+        });
+      } else {
+        // NEW contact - check if unified contact exists by email
+        const existingUnified = contactData.primaryEmail
+          ? existingUnifiedByEmail.get(contactData.primaryEmail.toLowerCase())
+          : null;
+
+        if (existingUnified) {
+          // Link to existing unified contact
+          newProviderContacts.push({
+            externalId,
+            contactId: existingUnified.id,
+            data: contactData,
+            person,
+          });
+        } else {
+          // Need to create new unified contact
+          newContacts.push({
+            externalId,
+            data: contactData,
+            person,
+          });
+        }
+      }
+    }
+
+    // Execute bulk operations in transaction
+    const createdIds: string[] = [];
+    const updatedIds: string[] = [];
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        // 1. Create new unified contacts using createManyAndReturn (Prisma 5.14+)
+        // This is more efficient than Promise.all with individual creates
+        if (newContacts.length > 0) {
+          const unifiedToCreate = newContacts.map((c) => ({
+            tenantId: provider.tenantId,
+            firstName: c.data.firstName,
+            lastName: c.data.lastName,
+            displayName: c.data.displayName,
+            middleName: c.data.middleName,
+            prefix: c.data.prefix,
+            suffix: c.data.suffix,
+            emails: c.data.emails,
+            phoneNumbers: c.data.phoneNumbers,
+            company: c.data.company,
+            jobTitle: c.data.jobTitle,
+            department: c.data.department,
+            birthday: c.data.birthday,
+            photoUrl: c.data.photoUrl,
+            notes: c.data.notes,
+          }));
+
+          // Use createManyAndReturn for bulk insert with returned IDs
+          const createdUnified = await tx.contact.createManyAndReturn({
+            data: unifiedToCreate,
+            select: { id: true },
+          });
+
+          // Map external IDs to created contact IDs
+          for (let j = 0; j < newContacts.length; j++) {
+            const unifiedId = createdUnified[j].id;
+            createdIds.push(unifiedId);
+            newProviderContacts.push({
+              externalId: newContacts[j].externalId,
+              contactId: unifiedId,
+              data: newContacts[j].data,
+              person: newContacts[j].person,
+            });
+          }
+        }
+
+        // 2. Create new provider contacts (batch insert)
+        if (newProviderContacts.length > 0) {
+          await tx.providerContact.createMany({
+            data: newProviderContacts.map((pc) => ({
+              contactId: pc.contactId,
+              tenantId: provider.tenantId,
+              providerId: provider.id,
+              externalId: pc.externalId,
+              rawData: pc.person,
+              firstName: pc.data.firstName,
+              lastName: pc.data.lastName,
+              displayName: pc.data.displayName,
+              middleName: pc.data.middleName,
+              prefix: pc.data.prefix,
+              suffix: pc.data.suffix,
+              emails: pc.data.emails,
+              phoneNumbers: pc.data.phoneNumbers,
+              company: pc.data.company,
+              jobTitle: pc.data.jobTitle,
+              department: pc.data.department,
+              birthday: pc.data.birthday,
+              photoUrl: pc.data.photoUrl,
+              notes: pc.data.notes,
+              metadata: pc.person,
+              lastSyncedAt: new Date(),
+            })),
+            skipDuplicates: true,
+          });
+        }
+
+        // 3. Bulk update existing provider contacts using raw SQL
+        // This is much faster than individual updates for large datasets
+        if (updateProviderContacts.length > 0) {
+          const now = new Date();
+          const externalIds = updateProviderContacts.map((pc) => pc.externalId);
+
+          // Bulk update using raw SQL for efficiency
+          await tx.$executeRaw`
+            UPDATE "provider_contacts"
+            SET "lastSyncedAt" = ${now},
+                "syncVersion" = "syncVersion" + 1
+            WHERE "providerId" = ${provider.id}
+              AND "externalId" = ANY(${externalIds}::text[])
+          `;
+
+          updatedIds.push(...updateProviderContacts.map((pc) => pc.contactId));
+        }
+      },
+      {
+        timeout: 60000, // 60 second timeout for large batches
+      },
+    );
+
+    return {
+      newCount: createdIds.length,
+      updatedCount: updatedIds.length,
+      createdIds,
+      updatedIds,
+    };
+  }
+
+  /**
+   * Extract contact data from Google Person object
+   */
+  private extractContactData(person: people_v1.Schema$Person): any {
     const names = person.names?.[0];
     const emails = person.emailAddresses?.map((email) => ({
       value: email.value,
@@ -152,225 +346,68 @@ export class GoogleContactsSyncService {
         )
       : null;
 
-    // Check if ProviderContact already exists
-    const existingProviderContact = await this.prisma.providerContact.findUnique({
-      where: {
-        providerId_externalId: {
-          providerId: provider.id,
-          externalId,
-        },
-      },
-      include: { contact: true },
-    });
+    const primaryEmail = emails?.find((e) => e.primary)?.value || emails?.[0]?.value;
 
-    let unifiedContact;
-    let isNew = false;
-
-    if (existingProviderContact) {
-      // ProviderContact exists, use its unified contact
-      unifiedContact = existingProviderContact.contact;
-    } else {
-      // New contact - find or create unified contact by email
-      isNew = true;
-      const primaryEmail = emails?.find((e) => e.primary)?.value || emails?.[0]?.value;
-
-      if (primaryEmail) {
-        // Try to find existing unified contact with this email
-        unifiedContact = await this.findUnifiedContactByEmail(
-          provider.tenantId,
-          primaryEmail,
-        );
-      }
-
-      if (!unifiedContact) {
-        // Create new unified contact
-        unifiedContact = await this.prisma.contact.create({
-          data: {
-            tenantId: provider.tenantId,
-            firstName: names?.givenName,
-            lastName: names?.familyName,
-            displayName: names?.displayName,
-            middleName: names?.middleName,
-            prefix: names?.honorificPrefix,
-            suffix: names?.honorificSuffix,
-            emails: emails as any,
-            phoneNumbers: phoneNumbers as any,
-            company: organization?.name,
-            jobTitle: organization?.title,
-            department: organization?.department,
-            birthday,
-            photoUrl,
-            notes: person.biographies?.[0]?.value,
-          },
-        });
-      } else {
-        // Merge data into existing unified contact
-        await this.mergeContactData(unifiedContact.id, {
-          emails: emails as any,
-          phoneNumbers: phoneNumbers as any,
-          company: organization?.name,
-          jobTitle: organization?.title,
-          photoUrl,
-        });
-      }
-    }
-
-    // Upsert provider contact
-    await this.prisma.providerContact.upsert({
-      where: {
-        providerId_externalId: {
-          providerId: provider.id,
-          externalId,
-        },
-      },
-      create: {
-        contactId: unifiedContact.id,
-        tenantId: provider.tenantId,
-        providerId: provider.id,
-        externalId,
-        rawData: person as any,
-        firstName: names?.givenName,
-        lastName: names?.familyName,
-        displayName: names?.displayName,
-        middleName: names?.middleName,
-        prefix: names?.honorificPrefix,
-        suffix: names?.honorificSuffix,
-        emails: emails as any,
-        phoneNumbers: phoneNumbers as any,
-        company: organization?.name,
-        jobTitle: organization?.title,
-        department: organization?.department,
-        birthday,
-        photoUrl,
-        notes: person.biographies?.[0]?.value,
-        metadata: person as any,
-        lastSyncedAt: new Date(),
-      },
-      update: {
-        firstName: names?.givenName,
-        lastName: names?.familyName,
-        displayName: names?.displayName,
-        middleName: names?.middleName,
-        prefix: names?.honorificPrefix,
-        suffix: names?.honorificSuffix,
-        emails: emails as any,
-        phoneNumbers: phoneNumbers as any,
-        company: organization?.name,
-        jobTitle: organization?.title,
-        department: organization?.department,
-        birthday,
-        photoUrl,
-        notes: person.biographies?.[0]?.value,
-        rawData: person as any,
-        metadata: person as any,
-        lastSyncedAt: new Date(),
-        syncVersion: { increment: 1 },
-      },
-    });
-
-    // Return unified contact ID for notifications
     return {
-      contactId: unifiedContact.id,
-      isNew,
+      firstName: names?.givenName,
+      lastName: names?.familyName,
+      displayName: names?.displayName,
+      middleName: names?.middleName,
+      prefix: names?.honorificPrefix,
+      suffix: names?.honorificSuffix,
+      emails,
+      phoneNumbers,
+      company: organization?.name,
+      jobTitle: organization?.title,
+      department: organization?.department,
+      birthday,
+      photoUrl,
+      notes: person.biographies?.[0]?.value,
+      primaryEmail,
     };
   }
 
   /**
-   * Find unified contact by email address
-   * Uses efficient database query with JSON path filtering
+   * Batch find unified contacts by email addresses (ONE query)
    */
-  private async findUnifiedContactByEmail(
+  private async batchFindUnifiedContactsByEmail(
     tenantId: string,
-    email: string,
-  ): Promise<Contact | null> {
-    const normalizedEmail = email.toLowerCase();
+    emails: string[],
+  ): Promise<Map<string, Contact>> {
+    if (emails.length === 0) return new Map();
 
-    // Use raw query for efficient JSON array search (PostgreSQL)
-    // This avoids loading all contacts into memory
+    const uniqueEmails = [...new Set(emails)];
+
     try {
+      // Use raw query for efficient batch email lookup
       const contacts = await this.prisma.$queryRaw<Contact[]>`
-        SELECT * FROM "Contact"
+        SELECT * FROM "unified_contacts"
         WHERE "tenantId" = ${tenantId}
           AND "isDeleted" = false
           AND EXISTS (
             SELECT 1 FROM jsonb_array_elements("emails") AS e
-            WHERE LOWER(e->>'value') = ${normalizedEmail}
+            WHERE LOWER(e->>'value') = ANY(${uniqueEmails}::text[])
           )
-        LIMIT 1
       `;
 
-      return contacts.length > 0 ? contacts[0] : null;
-    } catch (error) {
-      // Fallback to in-memory search if raw query fails (e.g., different DB)
-      this.logger.warn(`Raw query failed, using fallback search: ${error}`);
-      const contacts = await this.prisma.contact.findMany({
-        where: { tenantId, isDeleted: false },
-        take: 500, // Limit to prevent memory issues
-      });
-
+      // Map contacts by email for O(1) lookup
+      const resultMap = new Map<string, Contact>();
       for (const contact of contacts) {
         if (contact.emails) {
-          const emails = JSON.parse(JSON.stringify(contact.emails));
-          if (Array.isArray(emails)) {
-            const hasEmail = emails.some(
-              (e: any) => e.value?.toLowerCase() === normalizedEmail,
-            );
-            if (hasEmail) {
-              return contact;
+          const contactEmails = JSON.parse(JSON.stringify(contact.emails)) as any[];
+          for (const e of contactEmails) {
+            if (e.value) {
+              resultMap.set(e.value.toLowerCase(), contact);
             }
           }
         }
       }
 
-      return null;
+      return resultMap;
+    } catch (error) {
+      this.logger.warn(`Batch email lookup failed, returning empty: ${error}`);
+      return new Map();
     }
-  }
-
-  /**
-   * Merge contact data from provider into unified contact
-   */
-  private async mergeContactData(
-    contactId: string,
-    providerData: any,
-  ): Promise<void> {
-    const contact = await this.prisma.contact.findUnique({
-      where: { id: contactId },
-    });
-
-    if (!contact) return;
-
-    // Merge emails
-    const existingEmails = contact.emails
-      ? JSON.parse(JSON.stringify(contact.emails))
-      : [];
-    const newEmails = providerData.emails || [];
-    const allEmails = [...existingEmails, ...newEmails];
-    const uniqueEmails = Array.from(
-      new Map(allEmails.map((e: any) => [e.value?.toLowerCase(), e])).values(),
-    );
-
-    // Merge phone numbers
-    const existingPhones = contact.phoneNumbers
-      ? JSON.parse(JSON.stringify(contact.phoneNumbers))
-      : [];
-    const newPhones = providerData.phoneNumbers || [];
-    const allPhones = [...existingPhones, ...newPhones];
-    const uniquePhones = Array.from(
-      new Map(allPhones.map((p: any) => [p.value, p])).values(),
-    );
-
-    // Update unified contact with merged data
-    await this.prisma.contact.update({
-      where: { id: contactId },
-      data: {
-        emails: uniqueEmails as any,
-        phoneNumbers: uniquePhones as any,
-        // Only update these if not already set
-        company: contact.company || providerData.company,
-        jobTitle: contact.jobTitle || providerData.jobTitle,
-        photoUrl: contact.photoUrl || providerData.photoUrl,
-      },
-    });
   }
 
   /**

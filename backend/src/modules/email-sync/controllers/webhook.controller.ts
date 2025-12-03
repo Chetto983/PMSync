@@ -36,11 +36,12 @@ export class WebhookController {
   @HttpCode(HttpStatus.OK)
   async handleGmailPush(
     @Body() payload: GmailPubSubMessage,
+    @Query('token') queryToken?: string,
     @Headers('x-webhook-token') webhookToken?: string,
   ) {
     try {
       this.logger.debug('[WEBHOOK] Gmail push received, validating token...');
-      this.syncAuth.validateWebhookToken(webhookToken);
+      this.syncAuth.validateWebhookToken(webhookToken, queryToken);
       this.logger.log('[WEBHOOK] Token validated, received Gmail Pub/Sub notification');
 
       this.logger.debug('[WEBHOOK] Payload:', JSON.stringify(payload).substring(0, 200));

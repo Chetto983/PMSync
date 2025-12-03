@@ -150,7 +150,8 @@ export class GoogleCalendarSyncService {
   }
 
   /**
-   * Sync events from a specific calendar
+   * Sync events from a specific calendar (BULK OPTIMIZED)
+   * Uses batch operations to reduce database queries from O(n) to O(1)
    */
   private async syncCalendarEvents(
     calendar: calendar_v3.Calendar,
@@ -166,118 +167,143 @@ export class GoogleCalendarSyncService {
     updatedEvents: number;
     deletedEvents: number;
   }> {
-    let eventsProcessed = 0;
-    let newEvents = 0;
-    let updatedEvents = 0;
-    let deletedEvents = 0;
-
+    // STEP 1: Fetch ALL events from Google Calendar API (collect all pages)
+    const allGoogleEvents: calendar_v3.Schema$Event[] = [];
     let pageToken: string | undefined;
-    const allGoogleEventIds = new Set<string>();
 
     do {
       const eventsResponse = await calendar.events.list({
         calendarId,
         timeMin,
         timeMax,
-        maxResults: 250,
+        maxResults: 2500, // Max allowed by Google API
         singleEvents: true,
         orderBy: 'startTime',
         pageToken,
       });
 
       const events = eventsResponse.data.items || [];
-
-      for (const event of events) {
-        if (!event.id) {
-          continue;
-        }
-
-        // Collect event ID for deleted events check
-        allGoogleEventIds.add(event.id);
-
-        try {
-          const result = await this.processCalendarEvent(
-            event,
-            calendarId,
-            providerId,
-            tenantId,
-            calendarName ?? calendarId,
-          );
-
-          eventsProcessed++;
-          if (result === 'created') {
-            newEvents++;
-          } else if (result === 'updated') {
-            updatedEvents++;
-          }
-        } catch (eventError) {
-          this.logger.warn(
-            `Failed to process event ${event.id}: ${eventError instanceof Error ? eventError.message : String(eventError)}`,
-          );
-        }
-      }
-
+      allGoogleEvents.push(...events.filter((e) => e.id));
       pageToken = eventsResponse.data.nextPageToken || undefined;
     } while (pageToken);
 
-    // Handle deleted events: mark events in DB that are no longer in Google Calendar as deleted
-    try {
-      const dbEvents = await this.prisma.calendarEvent.findMany({
+    if (allGoogleEvents.length === 0) {
+      return { eventsProcessed: 0, newEvents: 0, updatedEvents: 0, deletedEvents: 0 };
+    }
+
+    // STEP 2: Fetch ALL existing events for this calendar in ONE query
+    const existingEvents = await this.prisma.calendarEvent.findMany({
+      where: { providerId, calendarId },
+      select: { id: true, externalId: true, syncVersion: true },
+    });
+    const existingByExternalId = new Map(existingEvents.map((e) => [e.externalId, e]));
+
+    // STEP 3: Prepare bulk operations
+    const newEvents: any[] = [];
+    const updateEvents: { externalId: string; id: string }[] = [];
+    const allAttachments: { eventExternalId: string; attachments: calendar_v3.Schema$EventAttachment[] }[] = [];
+    const allGoogleEventIds = new Set<string>();
+
+    for (const event of allGoogleEvents) {
+      const eventId = event.id!;
+      allGoogleEventIds.add(eventId);
+
+      const eventData = this.extractEventData(event, calendarId, providerId, tenantId, calendarName ?? calendarId);
+      const existing = existingByExternalId.get(eventId);
+
+      if (existing) {
+        updateEvents.push({ externalId: eventId, id: existing.id });
+      } else {
+        newEvents.push(eventData);
+      }
+
+      // Collect attachments for bulk processing later
+      if (event.attachments && event.attachments.length > 0) {
+        allAttachments.push({ eventExternalId: eventId, attachments: event.attachments });
+      }
+    }
+
+    // STEP 4: Execute bulk operations in transaction
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        // 4a. Bulk create new events using createManyAndReturn (Prisma 5.14+)
+        if (newEvents.length > 0) {
+          await tx.calendarEvent.createMany({
+            data: newEvents,
+            skipDuplicates: true,
+          });
+          createdCount = newEvents.length;
+        }
+
+        // 4b. Bulk update existing events using raw SQL
+        if (updateEvents.length > 0) {
+          const now = new Date();
+          const externalIds = updateEvents.map((e) => e.externalId);
+
+          await tx.$executeRaw`
+            UPDATE "calendar_events"
+            SET "lastSyncedAt" = ${now},
+                "syncVersion" = "syncVersion" + 1
+            WHERE "providerId" = ${providerId}
+              AND "externalId" = ANY(${externalIds}::text[])
+          `;
+          updatedCount = updateEvents.length;
+        }
+      },
+      { timeout: 60000 },
+    );
+
+    // STEP 5: Handle deleted events using bulk updateMany
+    let deletedCount = 0;
+    const deletedExternalIds = existingEvents
+      .filter((e) => !allGoogleEventIds.has(e.externalId))
+      .map((e) => e.externalId);
+
+    if (deletedExternalIds.length > 0) {
+      const result = await this.prisma.calendarEvent.updateMany({
         where: {
           providerId,
           calendarId,
+          externalId: { in: deletedExternalIds },
           isDeleted: false,
         },
-        select: {
-          id: true,
-          externalId: true,
-        },
+        data: { isDeleted: true },
       });
+      deletedCount = result.count;
+    }
 
-      // Mark events as deleted if they're not in Google's response
-      for (const dbEvent of dbEvents) {
-        if (!allGoogleEventIds.has(dbEvent.externalId)) {
-          await this.prisma.calendarEvent.update({
-            where: { id: dbEvent.id },
-            data: { isDeleted: true },
-          });
-          deletedEvents++;
-        }
-      }
-    } catch (deleteError) {
-      this.logger.warn(
-        `Failed to process deleted events: ${deleteError instanceof Error ? deleteError.message : String(deleteError)}`,
-      );
+    // STEP 6: Bulk process attachments
+    if (allAttachments.length > 0) {
+      await this.processBulkAttachments(providerId, allAttachments);
     }
 
     return {
-      eventsProcessed,
-      newEvents,
-      updatedEvents,
-      deletedEvents,
+      eventsProcessed: allGoogleEvents.length,
+      newEvents: createdCount,
+      updatedEvents: updatedCount,
+      deletedEvents: deletedCount,
     };
   }
 
   /**
-   * Process a single calendar event from Google
+   * Extract event data from Google Calendar event
    */
-  private async processCalendarEvent(
+  private extractEventData(
     event: calendar_v3.Schema$Event,
     calendarId: string,
     providerId: string,
     tenantId: string,
     calendarName: string,
-  ): Promise<'created' | 'updated'> {
-    const eventId = event.id!;
-
-    // Extract event data
+  ): any {
     const title = event.summary || '(No Title)';
     const description = event.description || null;
     const location = event.location || null;
     const organizer = event.organizer?.email || null;
     const attendees = event.attendees || null;
 
-    // Handle all-day events vs timed events
     const isAllDay = !!(event.start?.date && !event.start?.dateTime);
     const startTime = isAllDay
       ? new Date(event.start!.date!)
@@ -287,36 +313,19 @@ export class GoogleCalendarSyncService {
       : new Date(event.end!.dateTime!);
     const timeZone = event.start?.timeZone || event.end?.timeZone || 'UTC';
 
-    // Recurrence
     const recurrence = event.recurrence || [];
     const recurringEventId = event.recurringEventId || null;
-
-    // Status
     const status = event.status || 'confirmed';
     const visibility = event.visibility || 'default';
     const isCancelled = status === 'cancelled';
-
-    // Reminders
     const reminders = event.reminders || null;
-
-    // Metadata
     const htmlLink = event.htmlLink || null;
     const iCalUID = event.iCalUID || null;
 
-    // Upsert event
-    const existing = await this.prisma.calendarEvent.findUnique({
-      where: {
-        providerId_externalId: {
-          providerId,
-          externalId: eventId,
-        },
-      },
-    });
-
-    const eventData = {
+    return {
       tenantId,
       providerId,
-      externalId: eventId,
+      externalId: event.id!,
       calendarId,
       calendarName,
       iCalUID,
@@ -343,89 +352,67 @@ export class GoogleCalendarSyncService {
       } as any,
       lastSyncedAt: new Date(),
     };
-
-    let dbEventId: string;
-    let result: 'created' | 'updated';
-
-    if (existing) {
-      await this.prisma.calendarEvent.update({
-        where: { id: existing.id },
-        data: {
-          ...eventData,
-          syncVersion: existing.syncVersion + 1,
-        },
-      });
-      dbEventId = existing.id;
-      result = 'updated';
-    } else {
-      const created = await this.prisma.calendarEvent.create({
-        data: eventData,
-      });
-      dbEventId = created.id;
-      result = 'created';
-    }
-
-    // Process attachments (Google Drive files attached to calendar events)
-    if (event.attachments && event.attachments.length > 0) {
-      await this.processEventAttachments(dbEventId, event.attachments);
-    }
-
-    return result;
   }
 
   /**
-   * Process attachments for a calendar event
-   * Google Calendar attachments are references to Google Drive files
+   * Process attachments for multiple events in bulk
    */
-  private async processEventAttachments(
-    eventId: string,
-    attachments: calendar_v3.Schema$EventAttachment[],
+  private async processBulkAttachments(
+    providerId: string,
+    allAttachments: { eventExternalId: string; attachments: calendar_v3.Schema$EventAttachment[] }[],
   ): Promise<void> {
     try {
-      // Delete existing attachments for this event
-      await this.prisma.calendarEventAttachment.deleteMany({
-        where: { eventId },
+      // Get all event IDs for attachment processing
+      const externalIds = allAttachments.map((a) => a.eventExternalId);
+      const events = await this.prisma.calendarEvent.findMany({
+        where: { providerId, externalId: { in: externalIds } },
+        select: { id: true, externalId: true },
       });
+      const eventIdMap = new Map(events.map((e) => [e.externalId, e.id]));
 
-      // Create new attachment records
-      for (const attachment of attachments) {
-        if (!attachment.fileUrl) {
-          this.logger.warn(`Skipping attachment without fileUrl for event ${eventId}`);
-          continue;
-        }
+      // Delete all existing attachments for these events in bulk
+      const eventIds = events.map((e) => e.id);
+      if (eventIds.length > 0) {
+        await this.prisma.calendarEventAttachment.deleteMany({
+          where: { eventId: { in: eventIds } },
+        });
+      }
 
-        try {
-          await this.prisma.calendarEventAttachment.create({
-            data: {
-              eventId,
-              filename: attachment.title || 'Untitled',
-              mimeType: attachment.mimeType || 'application/octet-stream',
-              size: 0, // Google Calendar API doesn't provide size
-              storageType: 'reference', // These are Google Drive references, not stored locally
-              fileUrl: attachment.fileUrl,
-              fileId: attachment.fileId || null,
-              iconLink: attachment.iconLink || null,
-              isGoogleDrive: true,
-              isOneDrive: false,
-            },
+      // Prepare all attachment records for bulk insert
+      const attachmentRecords: any[] = [];
+      for (const { eventExternalId, attachments } of allAttachments) {
+        const eventId = eventIdMap.get(eventExternalId);
+        if (!eventId) continue;
+
+        for (const attachment of attachments) {
+          if (!attachment.fileUrl) continue;
+
+          attachmentRecords.push({
+            eventId,
+            filename: attachment.title || 'Untitled',
+            mimeType: attachment.mimeType || 'application/octet-stream',
+            size: 0,
+            storageType: 'reference',
+            fileUrl: attachment.fileUrl,
+            fileId: attachment.fileId || null,
+            iconLink: attachment.iconLink || null,
+            isGoogleDrive: true,
+            isOneDrive: false,
           });
-
-          this.logger.debug(
-            `Created attachment reference for event ${eventId}: ${attachment.title} (Google Drive)`,
-          );
-        } catch (attachmentError) {
-          this.logger.warn(
-            `Failed to create attachment for event ${eventId}: ${attachmentError instanceof Error ? attachmentError.message : String(attachmentError)}`,
-          );
         }
       }
 
-      this.logger.verbose(
-        `Processed ${attachments.length} attachments for event ${eventId}`,
-      );
+      // Bulk insert all attachments
+      if (attachmentRecords.length > 0) {
+        await this.prisma.calendarEventAttachment.createMany({
+          data: attachmentRecords,
+          skipDuplicates: true,
+        });
+        this.logger.debug(`Bulk created ${attachmentRecords.length} calendar attachments`);
+      }
     } catch (error) {
       this.logger.error(
-        `Failed to process attachments for event ${eventId}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to process bulk attachments: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

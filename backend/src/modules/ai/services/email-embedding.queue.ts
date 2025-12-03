@@ -28,6 +28,8 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
   private readonly RATE_MAX: number;
   private readonly RATE_DURATION_MS: number;
   private readonly WORKER_LOCK_MS: number;
+  private readonly RATE_LIMIT_BASE_DELAY_MS: number;
+  private readonly RATE_LIMIT_MAX_DELAY_MS: number;
   private readonly seenIds = new Set<string>();
 
   constructor(
@@ -35,11 +37,26 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
     @Inject(forwardRef(() => KnowledgeBaseService))
     private readonly knowledgeBaseService: KnowledgeBaseService,
   ) {
-    this.BULK_SIZE = this.getPositiveNumber('EMBEDDING_BULK_SIZE', 75);
-    this.FLUSH_MS = this.getPositiveNumber('EMBEDDING_FLUSH_MS', 100);
-    this.WORKER_CONCURRENCY = this.getPositiveNumber('EMBEDDING_CONCURRENCY', 8);
-    this.RATE_MAX = this.getPositiveNumber('EMBEDDING_RATE_MAX', 25);
+    // Bulk batching settings
+    this.BULK_SIZE = this.getPositiveNumber('EMBEDDING_BULK_SIZE', 50);
+    this.FLUSH_MS = this.getPositiveNumber('EMBEDDING_FLUSH_MS', 200);
+
+    // Worker concurrency (1 = sequential, safe for rate limits)
+    this.WORKER_CONCURRENCY = this.getPositiveNumber('EMBEDDING_CONCURRENCY', 1);
+
+    // Rate limiting: Mistral API limits vary by tier
+    // Free tier: ~1 RPS, 500K tokens/min
+    // Paid tiers: up to 5 RPS, 2M tokens/min
+    // Default: 2 requests per second (safe for most paid tiers)
+    this.RATE_MAX = this.getPositiveNumber('EMBEDDING_RATE_MAX', 2);
     this.RATE_DURATION_MS = this.getPositiveNumber('EMBEDDING_RATE_DURATION_MS', 1000);
+
+    // Rate limit backoff settings
+    // Base delay for exponential backoff on 429 errors
+    this.RATE_LIMIT_BASE_DELAY_MS = this.getPositiveNumber('EMBEDDING_RATE_LIMIT_BASE_DELAY_MS', 5000);
+    // Maximum delay to prevent infinite waits (default 2 minutes)
+    this.RATE_LIMIT_MAX_DELAY_MS = this.getPositiveNumber('EMBEDDING_RATE_LIMIT_MAX_DELAY_MS', 120000);
+
     this.WORKER_LOCK_MS = this.getPositiveNumber('EMBEDDING_LOCK_MS', 180000);
   }
 
@@ -71,13 +88,14 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
           return await this.knowledgeBaseService.createEmbeddingForEmail(job.data);
         } catch (error) {
           if (this.isRateLimitError(error)) {
-            const delayMs = this.computeBackoffDelay(job.attemptsMade);
+            const delayMs = this.computeBackoffDelay(job.attemptsMade, error);
             this.logger.warn(
-              `Rate limit hit for email embedding job ${job.id}. Retry ${job.attemptsMade + 1} in ${delayMs}ms`,
+              `Rate limit hit for email embedding job ${job.id}. Retry ${job.attemptsMade + 1}/${job.opts.attempts} in ${Math.round(delayMs / 1000)}s`,
             );
             await job.updateProgress({
               status: 'rate_limited',
               retryInMs: delayMs,
+              attempt: job.attemptsMade + 1,
             });
           }
           throw error;
@@ -243,29 +261,75 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
       return false;
     }
 
+    // Check HTTP status codes
     const possibleStatus =
       (error as any)?.status ??
       (error as any)?.statusCode ??
       (error as any)?.response?.status ??
       (error as any)?.response?.statusCode;
 
-    if (typeof possibleStatus === 'number') {
-      return possibleStatus === 429;
+    if (typeof possibleStatus === 'number' && possibleStatus === 429) {
+      return true;
     }
 
+    // Check error message for rate limit indicators
     if (error instanceof Error && typeof error.message === 'string') {
-      return error.message.includes('429');
+      const msg = error.message.toLowerCase();
+      return (
+        msg.includes('429') ||
+        msg.includes('rate limit') ||
+        msg.includes('too many requests') ||
+        msg.includes('quota exceeded')
+      );
     }
 
     return false;
   }
 
-  private computeBackoffDelay(attemptsMade: number): number {
-    const baseDelay = 1000;
+  /**
+   * Extract Retry-After value from error response (in seconds)
+   */
+  private extractRetryAfter(error: unknown): number | null {
+    if (!error) return null;
+
+    // Check for Retry-After header in response
+    const retryAfter =
+      (error as any)?.response?.headers?.['retry-after'] ??
+      (error as any)?.headers?.['retry-after'] ??
+      (error as any)?.retryAfter;
+
+    if (retryAfter !== undefined && retryAfter !== null) {
+      const parsed = parseInt(String(retryAfter), 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Compute backoff delay for rate limit retries
+   * Uses exponential backoff with configurable base and max delays
+   * Respects Retry-After header if available
+   */
+  private computeBackoffDelay(attemptsMade: number, error?: unknown): number {
+    // First, check for Retry-After header from API
+    const retryAfterSeconds = this.extractRetryAfter(error);
+    if (retryAfterSeconds !== null) {
+      // Convert to ms and add small jitter
+      const delayMs = retryAfterSeconds * 1000 + Math.random() * 1000;
+      return Math.min(delayMs, this.RATE_LIMIT_MAX_DELAY_MS);
+    }
+
+    // Exponential backoff: baseDelay * 2^attemptsMade
     const exponent = Math.max(0, attemptsMade);
-    const delay = baseDelay * Math.pow(2, exponent);
-    // Cap delay at 30 seconds to avoid runaway waits
-    return Math.min(delay, 30000);
+    const delay = this.RATE_LIMIT_BASE_DELAY_MS * Math.pow(2, exponent);
+
+    // Add jitter (10-20% random variation) to prevent thundering herd
+    const jitter = delay * (0.1 + Math.random() * 0.1);
+
+    return Math.min(delay + jitter, this.RATE_LIMIT_MAX_DELAY_MS);
   }
 
   private getPositiveNumber(envKey: string, fallback: number): number {

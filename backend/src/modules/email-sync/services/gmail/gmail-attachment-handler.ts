@@ -169,6 +169,7 @@ export class GmailAttachmentHandler {
                 contentId: attachment.contentId,
                 storageType: uploaded.storageType,
                 storagePath: uploaded.storagePath,
+                contentHash: uploaded.contentHash,
                 isInline: uploaded.isInline,
               },
             });

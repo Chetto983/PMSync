@@ -1,0 +1,349 @@
+import { Job, Queue, Worker } from 'bullmq';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { EmailEmbeddingQueueService } from './email-embedding.queue';
+import { EmbeddingsService } from './embeddings.service';
+
+interface BackfillJobData {
+  type: 'scheduled' | 'manual';
+  batchSize?: number;
+}
+
+interface BackfillResult {
+  processed: number;
+  enqueued: number;
+  remaining: number;
+  rateLimited: boolean;
+}
+
+/**
+ * Automatic embedding backfill scheduler using BullMQ.
+ * Runs as a repeatable job every 10 minutes to find and process orphan emails.
+ * Optimized for 1000+ tenants with:
+ * - Single efficient query across all tenants (LEFT JOIN to find missing)
+ * - Rate limit handling with exponential backoff (via BullMQ retries)
+ * - Distributed locking via Redis (only one instance runs)
+ * - Persisted state across restarts
+ */
+@Injectable()
+export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(EmbeddingBackfillSchedulerService.name);
+  private queue!: Queue<BackfillJobData>;
+  private worker!: Worker<BackfillJobData, BackfillResult>;
+
+  // Configuration
+  private readonly BATCH_SIZE: number;
+  private readonly ENABLED: boolean;
+  private readonly INTERVAL_MS: number;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailEmbeddingQueue: EmailEmbeddingQueueService,
+    private readonly embeddingsService: EmbeddingsService,
+    private readonly configService: ConfigService,
+  ) {
+    this.BATCH_SIZE = parseInt(
+      this.configService.get<string>('EMBEDDING_BACKFILL_BATCH_SIZE', '50'),
+      10,
+    );
+    this.ENABLED =
+      (this.configService.get<string>('EMBEDDING_BACKFILL_ENABLED') || 'true').toLowerCase() !== 'false';
+    this.INTERVAL_MS = parseInt(
+      this.configService.get<string>('EMBEDDING_BACKFILL_INTERVAL_MS', '600000'), // 10 minutes
+      10,
+    );
+  }
+
+  async onModuleInit() {
+    if (!this.ENABLED) {
+      this.logger.warn('EmbeddingBackfillScheduler disabled via EMBEDDING_BACKFILL_ENABLED=false');
+      return;
+    }
+
+    const connection = {
+      host: this.configService.get<string>('REDIS_HOST', 'localhost'),
+      port: Number(this.configService.get<number>('REDIS_PORT', 6379)),
+      password: this.configService.get<string>('REDIS_PASSWORD'),
+    };
+
+    // Create queue
+    this.queue = new Queue<BackfillJobData>('embedding-backfill', {
+      connection,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 60000, // 1 minute base delay for retries
+        },
+        removeOnComplete: 100, // Keep last 100 completed jobs for monitoring
+        removeOnFail: 50,
+      },
+    });
+
+    // Create worker
+    this.worker = new Worker<BackfillJobData, BackfillResult>(
+      'embedding-backfill',
+      async (job: Job<BackfillJobData>) => {
+        return this.processBackfillJob(job);
+      },
+      {
+        connection,
+        concurrency: 1, // Only one backfill job at a time
+        lockDuration: 300000, // 5 minute lock (backfill can be slow)
+      },
+    );
+
+    this.worker.on('completed', (_job, result) => {
+      if (result.enqueued > 0) {
+        this.logger.log(
+          `Backfill job completed: processed ${result.processed}, enqueued ${result.enqueued}, remaining ${result.remaining}`,
+        );
+      }
+    });
+
+    this.worker.on('failed', (_job, error) => {
+      this.logger.error(`Backfill job failed: ${error?.message ?? error}`);
+    });
+
+    // Setup repeatable job (runs every 10 minutes)
+    await this.setupRepeatableJob();
+
+    this.logger.log(
+      `EmbeddingBackfillScheduler enabled: batch size ${this.BATCH_SIZE}, interval ${this.INTERVAL_MS / 60000} minutes`,
+    );
+  }
+
+  async onModuleDestroy() {
+    await this.worker?.close();
+    await this.queue?.close();
+  }
+
+  /**
+   * Setup repeatable job for automatic backfill
+   */
+  private async setupRepeatableJob() {
+    // Remove existing repeatable job to avoid duplicates on restart
+    const repeatableJobs = await this.queue.getRepeatableJobs();
+    for (const job of repeatableJobs) {
+      if (job.name === 'scheduled-backfill') {
+        await this.queue.removeRepeatableByKey(job.key);
+      }
+    }
+
+    // Add new repeatable job
+    await this.queue.add(
+      'scheduled-backfill',
+      { type: 'scheduled', batchSize: this.BATCH_SIZE },
+      {
+        repeat: {
+          every: this.INTERVAL_MS,
+        },
+        jobId: 'embedding-backfill-scheduled',
+      },
+    );
+  }
+
+  /**
+   * Process a backfill job
+   */
+  private async processBackfillJob(job: Job<BackfillJobData>): Promise<BackfillResult> {
+    const batchSize = job.data.batchSize ?? this.BATCH_SIZE;
+
+    // Find orphan emails (emails without embeddings)
+    const orphanEmails = await this.findOrphanEmails(batchSize);
+
+    if (orphanEmails.length === 0) {
+      this.logger.debug('No orphan emails found, all embeddings up to date');
+      return { processed: 0, enqueued: 0, remaining: 0, rateLimited: false };
+    }
+
+    this.logger.log(`Found ${orphanEmails.length} emails without embeddings, processing...`);
+
+    let enqueued = 0;
+    let rateLimited = false;
+
+    for (const email of orphanEmails) {
+      if (rateLimited) break;
+
+      try {
+        // Double-check embedding doesn't exist (race condition protection)
+        const alreadyEmbedded = await this.embeddingsService.hasEmbeddingForEmail(
+          email.tenantId,
+          email.id,
+        );
+
+        if (alreadyEmbedded) {
+          continue; // Skip, already processed
+        }
+
+        await this.emailEmbeddingQueue.enqueue({
+          tenantId: email.tenantId,
+          providerId: email.providerId,
+          emailId: email.id,
+          subject: email.subject || '',
+          snippet: email.snippet || '',
+          bodyText: email.bodyText || '',
+          bodyHtml: email.bodyHtml || '',
+          from: email.from || '',
+          receivedAt: email.receivedAt || new Date(),
+        });
+
+        enqueued++;
+
+        // Update job progress
+        if (enqueued % 10 === 0) {
+          await job.updateProgress({
+            processed: orphanEmails.length,
+            enqueued,
+          });
+          // Small delay to avoid flooding
+          await this.sleep(50);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        // Detect rate limit errors
+        if (message.includes('rate') || message.includes('429') || message.includes('1300')) {
+          this.logger.warn(`Rate limit hit during backfill: ${message}`);
+          rateLimited = true;
+        } else {
+          this.logger.warn(`Failed to queue embedding for email ${email.id}: ${message}`);
+        }
+      }
+    }
+
+    const remaining = await this.countOrphanEmails();
+
+    return {
+      processed: orphanEmails.length,
+      enqueued,
+      remaining,
+      rateLimited,
+    };
+  }
+
+  /**
+   * Find emails without embeddings across all tenants.
+   * Efficient single query using LEFT JOIN.
+   */
+  private async findOrphanEmails(limit: number): Promise<
+    Array<{
+      id: string;
+      tenantId: string;
+      providerId: string;
+      subject: string | null;
+      snippet: string | null;
+      bodyText: string | null;
+      bodyHtml: string | null;
+      from: string | null;
+      receivedAt: Date | null;
+    }>
+  > {
+    const rows = await this.prisma.$queryRaw<Array<any>>(
+      Prisma.sql`
+        SELECT
+          e."id",
+          e."tenantId",
+          e."providerId",
+          e."subject",
+          e."snippet",
+          e."bodyText",
+          e."bodyHtml",
+          e."from",
+          e."receivedAt"
+        FROM "emails" e
+        LEFT JOIN "embeddings" emb
+          ON emb.metadata ->> 'emailId' = e."id"
+        WHERE emb."id" IS NULL
+          AND e."isDeleted" = FALSE
+        ORDER BY e."receivedAt" DESC NULLS LAST
+        LIMIT ${limit};
+      `,
+    );
+
+    return rows;
+  }
+
+  /**
+   * Count total orphan emails
+   */
+  private async countOrphanEmails(): Promise<number> {
+    const result = await this.prisma.$queryRaw<Array<{ count: bigint }>>(
+      Prisma.sql`
+        SELECT COUNT(*)::bigint AS count
+        FROM "emails" e
+        LEFT JOIN "embeddings" emb
+          ON emb.metadata ->> 'emailId' = e."id"
+        WHERE emb."id" IS NULL
+          AND e."isDeleted" = FALSE;
+      `,
+    );
+
+    return Number(result?.[0]?.count ?? BigInt(0));
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Get current backfill status
+   */
+  async getStatus(): Promise<{
+    enabled: boolean;
+    intervalMinutes: number;
+    batchSize: number;
+    missingEmbeddings: number;
+    queueStats: {
+      waiting: number;
+      active: number;
+      completed: number;
+      failed: number;
+    } | null;
+  }> {
+    const missingEmbeddings = await this.countOrphanEmails();
+
+    let queueStats = null;
+    if (this.queue) {
+      const [waiting, active, completed, failed] = await Promise.all([
+        this.queue.getWaitingCount(),
+        this.queue.getActiveCount(),
+        this.queue.getCompletedCount(),
+        this.queue.getFailedCount(),
+      ]);
+      queueStats = { waiting, active, completed, failed };
+    }
+
+    return {
+      enabled: this.ENABLED,
+      intervalMinutes: this.INTERVAL_MS / 60000,
+      batchSize: this.BATCH_SIZE,
+      missingEmbeddings,
+      queueStats,
+    };
+  }
+
+  /**
+   * Manually trigger a backfill run
+   */
+  async triggerManualBackfill(): Promise<{ jobId: string }> {
+    if (!this.queue) {
+      throw new Error('Backfill queue not initialized');
+    }
+
+    const job = await this.queue.add(
+      'manual-backfill',
+      { type: 'manual', batchSize: this.BATCH_SIZE * 2 },
+      {
+        priority: 1, // Higher priority than scheduled jobs
+        jobId: `manual-backfill-${Date.now()}`,
+      },
+    );
+
+    this.logger.log(`Manual backfill triggered, job ID: ${job.id}`);
+
+    return { jobId: job.id ?? 'unknown' };
+  }
+}

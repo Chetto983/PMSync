@@ -1,13 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { StorageService } from '../../email/services/storage.service';
 
-// Lazy loader to support both CJS and ESM builds of pdf-parse
+// Lazy loader to support pdf-parse v2.x (exports PDFParse class)
 const loadPdfParse = () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mod = require('pdf-parse');
+  // v2.x exports PDFParse class
+  if (mod?.PDFParse) return mod.PDFParse;
+  // v1.x exported a function directly
   if (typeof mod === 'function') return mod;
   if (mod?.default && typeof mod.default === 'function') return mod.default;
-  throw new Error('pdf-parse module did not export a function');
+  throw new Error('pdf-parse module did not export a function or PDFParse class');
 };
 
 export interface AttachmentContent {
@@ -112,14 +115,30 @@ export class AttachmentContentExtractorService {
    */
   private async extractFromPDF(buffer: Buffer, filename: string): Promise<string | null> {
     try {
-      const pdfParse = loadPdfParse();
-      const data = await pdfParse(buffer);
+      const PDFParse = loadPdfParse();
 
-      if (data.text && data.text.trim().length > 0) {
-        this.logger.debug(
-          `Extracted ${data.text.length} chars from PDF: ${filename} (${data.numpages} pages)`,
-        );
-        return data.text.trim();
+      // pdf-parse v2.x uses class-based API
+      if (PDFParse.prototype && typeof PDFParse.prototype.getText === 'function') {
+        // v2.x API: new PDFParse({ data: buffer })
+        const parser = new PDFParse({ data: buffer });
+        const result = await parser.getText();
+
+        if (result.text && result.text.trim().length > 0) {
+          this.logger.debug(
+            `Extracted ${result.text.length} chars from PDF: ${filename} (${result.pages?.length || 'unknown'} pages)`,
+          );
+          return result.text.trim();
+        }
+      } else {
+        // v1.x API: pdfParse(buffer)
+        const data = await PDFParse(buffer);
+
+        if (data.text && data.text.trim().length > 0) {
+          this.logger.debug(
+            `Extracted ${data.text.length} chars from PDF: ${filename} (${data.numpages} pages)`,
+          );
+          return data.text.trim();
+        }
       }
 
       return null;

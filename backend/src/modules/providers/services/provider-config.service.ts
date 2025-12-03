@@ -24,6 +24,7 @@ import { GoogleCalendarWebhookService } from '../../calendar/services/google-cal
 import { MicrosoftCalendarWebhookService } from '../../calendar/services/microsoft-calendar-webhook.service';
 import { FolderSyncService } from '../../email-sync/services/folder-sync.service';
 import { ContactsService } from '../../contacts/services/contacts.service';
+import { StorageService } from '../../email/services/storage.service';
 import type { ProviderConfig } from '@prisma/client';
 import {
   ConnectGoogleProviderDto,
@@ -66,6 +67,8 @@ export class ProviderConfigService {
     private readonly microsoftCalendarWebhook: MicrosoftCalendarWebhookService,
     private readonly folderSync: FolderSyncService,
     private readonly contactsService: ContactsService,
+    @Inject(forwardRef(() => StorageService))
+    private readonly storageService: StorageService,
   ) {}
 
   /**
@@ -520,6 +523,52 @@ export class ProviderConfigService {
       await this.knowledgeBaseService.deleteEmbeddingsForEmails(provider.tenantId, emailsToPurge);
     }
 
+    // Get all attachment storage paths for this provider's emails BEFORE deleting
+    const attachmentsToClean = await this.prisma.emailAttachment.findMany({
+      where: { emailId: { in: emailsToPurge } },
+      select: { storagePath: true, contentHash: true },
+    });
+
+    // Find storage paths that are NOT used by other emails (respect deduplication)
+    // Use bulk query to find all contentHashes still in use by other providers
+    const uniqueHashes = [...new Set(attachmentsToClean.map((a) => a.contentHash).filter(Boolean))] as string[];
+
+    const hashesStillInUse = uniqueHashes.length > 0
+      ? await this.prisma.emailAttachment.findMany({
+          where: {
+            contentHash: { in: uniqueHashes },
+            email: {
+              providerId: { not: provider.id },
+            },
+          },
+          select: { contentHash: true },
+          distinct: ['contentHash'],
+        })
+      : [];
+
+    const hashesInUseSet = new Set(hashesStillInUse.map((a) => a.contentHash));
+
+    // Only delete storage paths whose contentHash is NOT used elsewhere
+    const storagePathsToDelete = attachmentsToClean
+      .filter((a) => a.storagePath && a.contentHash && !hashesInUseSet.has(a.contentHash))
+      .map((a) => a.storagePath!);
+
+    // Delete orphaned S3/MinIO objects
+    if (storagePathsToDelete.length > 0) {
+      try {
+        const result = await this.storageService.deleteObjects(storagePathsToDelete);
+        this.logger.log(
+          `Cleaned up ${result.deleted} attachment files from storage for provider ${provider.id}`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to clean up attachment files for provider ${provider.id}: ${
+            error instanceof Error ? error.message : error
+          }`,
+        );
+      }
+    }
+
     await this.prisma.email.deleteMany({
       where: { providerId: provider.id },
     });
@@ -527,6 +576,21 @@ export class ProviderConfigService {
     await this.prisma.providerConfig.delete({
       where: { id: provider.id },
     });
+
+    // Clean up orphaned unified_contacts that no longer have any provider_contacts
+    // This happens because cascade deletes provider_contacts but not unified_contacts
+    const orphanedContactsResult = await this.prisma.contact.deleteMany({
+      where: {
+        tenantId,
+        providerContacts: {
+          none: {},
+        },
+      },
+    });
+
+    if (orphanedContactsResult.count > 0) {
+      this.logger.log(`Cleaned up ${orphanedContactsResult.count} orphaned contacts for tenant ${tenantId}`);
+    }
 
     this.logger.log(`Provider config ${configId} deleted`);
   }
@@ -719,20 +783,22 @@ export class ProviderConfigService {
       // Continue even if folder sync fails
     }
 
-    // STEP 2: Sync contacts (if supported)
+    // STEP 2: Sync contacts (if supported) - run in background, don't block
     if (provider.supportsContacts) {
-      this.logger.log(`[Initial Sync] Step 2/4: Syncing contacts for provider ${provider.email}`);
-      try {
-        const contactsCount = await this.contactsService.syncContacts(provider.id);
-        this.logger.log(`✅ [Initial Sync] ${contactsCount} contacts synced successfully for ${provider.email}`);
-      } catch (error) {
-        this.logger.error(
-          `❌ [Initial Sync] Failed to sync contacts for provider ${provider.id}: ${
-            error instanceof Error ? error.message : error
-          }`,
-        );
-        // Continue even if contact sync fails
-      }
+      this.logger.log(`[Initial Sync] Step 2/4: Queuing contacts sync for provider ${provider.email}`);
+      // Fire and forget - don't await, let it run in background
+      this.contactsService
+        .syncContacts(provider.id)
+        .then((contactsCount) => {
+          this.logger.log(`✅ [Initial Sync] ${contactsCount} contacts synced successfully for ${provider.email}`);
+        })
+        .catch((error) => {
+          this.logger.error(
+            `❌ [Initial Sync] Failed to sync contacts for provider ${provider.id}: ${
+              error instanceof Error ? error.message : error
+            }`,
+          );
+        });
     } else {
       this.logger.log(`[Initial Sync] Step 2/4: Skipping contacts (not supported by provider)`);
     }

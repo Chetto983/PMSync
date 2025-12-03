@@ -35,7 +35,16 @@
       "Bash(git pull:*)",
       "Bash(git stash:*)",
       "Bash(git branch:*)",
-      "Bash(cmd /c \"cd /d d:\\MailAgent\\backend && set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=delete database we restart && npx prisma migrate reset --force\")"
+      "Bash(cmd /c \"cd /d d:\\MailAgent\\backend && set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=delete database we restart && npx prisma migrate reset --force\")",
+      "Bash(docker exec mailagent-postgres psql -U mailuser -d mailagent -c \"DELETE FROM unified_contacts; SELECT COUNT(*) as remaining FROM unified_contacts;\")",
+      "Bash(docker exec:*)",
+      "Bash(Select-Object -First 10)",
+      "Bash(Measure-Object -Line)",
+      "Bash(Select-Object -ExpandProperty Lines)",
+      "Bash(findstr:*)",
+      "Bash(cmd /c \"for /f \"\"tokens=5\"\" %a in (''netstat -ano ^| findstr :3000'') do taskkill /pid %a /f\")",
+      "Bash(curl:*)",
+      "Bash(netstat:*)"
     ],
     "deny": [],
     "ask": []
