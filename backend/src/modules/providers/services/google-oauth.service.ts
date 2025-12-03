@@ -6,6 +6,15 @@ import { getConfiguration } from '../../../config/configuration';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 
+/**
+ * PKCE options for enhanced OAuth security
+ */
+export interface PKCEOptions {
+  state: string;
+  codeChallenge: string;
+  codeChallengeMethod: 'S256';
+}
+
 @Injectable()
 export class GoogleOAuthService {
   private readonly logger = new Logger(GoogleOAuthService.name);
@@ -23,8 +32,12 @@ export class GoogleOAuthService {
 
   /**
    * Generate Google OAuth2 authorization URL
+   * Supports PKCE (Proof Key for Code Exchange) for enhanced security
    */
-  generateAuthUrl(scopes?: string[]): { authUrl: string; state: string } {
+  generateAuthUrl(
+    scopes?: string[],
+    pkceOptions?: { state: string; codeChallenge: string; codeChallengeMethod: 'S256' },
+  ): { authUrl: string; state: string } {
     const defaultScopes = [
       'https://www.googleapis.com/auth/userinfo.email',
       'https://mail.google.com/',
@@ -37,26 +50,36 @@ export class GoogleOAuthService {
 
     const requestedScopes = scopes || defaultScopes;
 
-    // Generate random state for CSRF protection
-    const state = this.generateRandomState();
+    // Use provided state or generate one (fallback for backward compatibility)
+    const state = pkceOptions?.state || this.generateRandomState();
 
     const { redirectUri, clientId, clientSecret } = this.config.oauth.gmail;
     const tempClient = new OAuth2Client(clientId, clientSecret, redirectUri);
 
-    const authUrl = tempClient.generateAuthUrl({
-      access_type: 'offline', // Request refresh token
+    // Build auth URL options
+    const authUrlOptions: any = {
+      access_type: 'offline',
       scope: requestedScopes,
       state,
-      prompt: 'consent', // Force consent screen to get refresh token
-    });
+      prompt: 'consent',
+    };
+
+    // Add PKCE if provided
+    if (pkceOptions?.codeChallenge) {
+      authUrlOptions.code_challenge = pkceOptions.codeChallenge;
+      authUrlOptions.code_challenge_method = pkceOptions.codeChallengeMethod;
+    }
+
+    const authUrl = tempClient.generateAuthUrl(authUrlOptions);
 
     return { authUrl, state };
   }
 
   /**
    * Exchange authorization code for tokens
+   * @param codeVerifier - PKCE code_verifier for enhanced security (optional)
    */
-  async exchangeCodeForTokens(authorizationCode: string): Promise<{
+  async exchangeCodeForTokens(authorizationCode: string, codeVerifier?: string): Promise<{
     accessToken: string;
     refreshToken: string;
     expiresAt: Date;
@@ -66,8 +89,12 @@ export class GoogleOAuthService {
       const { redirectUri, clientId, clientSecret } = this.config.oauth.gmail;
       const tempClient = new OAuth2Client(clientId, clientSecret, redirectUri);
 
-      // Exchange code for tokens
-      const { tokens } = await tempClient.getToken(authorizationCode);
+      // Exchange code for tokens (with PKCE code_verifier if provided)
+      const tokenOptions: any = { code: authorizationCode };
+      if (codeVerifier) {
+        tokenOptions.codeVerifier = codeVerifier;
+      }
+      const { tokens } = await tempClient.getToken(tokenOptions);
 
       if (!tokens.access_token) {
         throw new UnauthorizedException('Failed to obtain access token');

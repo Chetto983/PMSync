@@ -128,15 +128,17 @@ export class ProviderConfigService {
 
   /**
    * Connect Google provider (Gmail + Calendar)
+   * @param codeVerifier - PKCE code_verifier for token exchange (optional for backward compatibility)
    */
   async connectGoogleProvider(
     tenantId: string,
     userId: string,
     dto: ConnectGoogleProviderDto,
+    codeVerifier?: string,
   ) {
     try {
-      // Exchange authorization code for tokens
-      const tokenData = await this.googleOAuth.exchangeCodeForTokens(dto.authorizationCode);
+      // Exchange authorization code for tokens (with PKCE code_verifier if provided)
+      const tokenData = await this.googleOAuth.exchangeCodeForTokens(dto.authorizationCode, codeVerifier);
 
       // Use email from OAuth2 if not provided in DTO
       const email = dto.email || tokenData.email;
@@ -203,15 +205,17 @@ export class ProviderConfigService {
 
   /**
    * Connect Microsoft provider (Outlook + Graph)
+   * @param codeVerifier - PKCE code_verifier for token exchange (optional for backward compatibility)
    */
   async connectMicrosoftProvider(
     tenantId: string,
     userId: string,
     dto: ConnectMicrosoftProviderDto,
+    codeVerifier?: string,
   ) {
     try {
-      // Exchange authorization code for tokens
-      const tokenData = await this.microsoftOAuth.exchangeCodeForTokens(dto.authorizationCode);
+      // Exchange authorization code for tokens (with PKCE code_verifier if provided)
+      const tokenData = await this.microsoftOAuth.exchangeCodeForTokens(dto.authorizationCode, codeVerifier);
 
       // Use email from OAuth2 if not provided in DTO
       const email = dto.email || tokenData.email;

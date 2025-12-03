@@ -20,6 +20,15 @@ export class ConnectMicrosoftProviderDto {
   authorizationCode!: string;
 
   @ApiProperty({
+    description: 'OAuth state parameter for CSRF protection',
+    example: 'abc123...',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  state?: string;
+
+  @ApiProperty({
     description: 'Enable calendar sync',
     example: true,
     default: true,

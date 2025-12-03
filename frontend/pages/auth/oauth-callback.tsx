@@ -26,7 +26,7 @@ function OAuthCallbackPage() {
       return;
     }
 
-    const { code, provider, error: oauthError } = router.query;
+    const { code, state, provider, error: oauthError } = router.query;
 
     // Handle OAuth error
     if (oauthError) {
@@ -66,14 +66,19 @@ function OAuthCallbackPage() {
       try {
         setStatus(`Connecting ${provider} account...`);
 
+        // Get state from URL for CSRF validation
+        const stateParam = typeof state === 'string' ? state : undefined;
+
         if (provider === 'google') {
           await providersApi.connectGoogle({
             authorizationCode: code,
+            state: stateParam,
             supportsCalendar: true,
           });
         } else if (provider === 'microsoft') {
           await providersApi.connectMicrosoft({
             authorizationCode: code,
+            state: stateParam,
             supportsCalendar: true,
           });
         } else {

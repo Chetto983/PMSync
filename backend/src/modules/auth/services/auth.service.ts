@@ -96,47 +96,57 @@ export class AuthService {
   /**
    * Register a new user
    *
-   * SECURITY: No longer auto-creates tenants from email.
-   * Tenant must exist or be explicitly provided via tenantSlug.
-   *
-   * For new tenant creation, use admin/invite flow.
+   * Behavior:
+   * - If tenant exists: adds user to existing tenant as 'user' role
+   * - If tenant doesn't exist: creates new tenant with user as 'admin'
+   * - Uses email as tenant slug for new tenants (personal workspace model)
    */
   async register(data: {
     email: string;
     password: string;
     firstName?: string;
     lastName?: string;
-    tenantSlug?: string; // Required for existing tenant registration
+    tenantSlug?: string; // Optional: join existing tenant
   }) {
     const normalizedEmail = data.email.trim().toLowerCase();
 
-    // SECURITY: Require explicit tenant slug or existing tenant lookup
-    // No longer auto-create tenants from email domain
+    // Determine tenant slug: use provided slug or email
     const slug = data.tenantSlug?.toLowerCase() || normalizedEmail;
 
-    const tenant = await this.prisma.tenant.findUnique({
+    let tenant = await this.prisma.tenant.findUnique({
       where: { slug },
     });
 
-    // SECURITY: Return generic message to prevent tenant enumeration
-    // Don't reveal whether tenant exists or not
+    // Track if this is a new tenant (user becomes admin)
+    let isNewTenant = false;
+
+    // Auto-create tenant if not found
     if (!tenant) {
-      this.logger.warn(
+      // Create tenant name from email or firstName
+      const tenantName = data.firstName
+        ? `${data.firstName}'s Workspace`
+        : `${normalizedEmail.split('@')[0]}'s Workspace`;
+
+      tenant = await this.prisma.tenant.create({
+        data: {
+          slug,
+          name: tenantName,
+          isActive: true,
+        },
+      });
+
+      isNewTenant = true;
+
+      this.logger.log(
         JSON.stringify({
-          event: 'register_tenant_not_found',
-          email: this.redactEmail(normalizedEmail),
-          slug: slug.substring(0, 10) + '...',
+          event: 'tenant_created',
+          tenantId: tenant.id,
+          slug: slug.substring(0, 15) + '...',
         }),
       );
-      // Return success-like response to prevent enumeration
-      return {
-        success: true,
-        message: 'If the tenant exists, a verification email will be sent.',
-        requiresOtp: true,
-      };
     }
 
-    // Check tenant is active
+    // Check tenant is active (for existing tenants)
     if (!tenant.isActive) {
       this.logger.warn(
         JSON.stringify({
@@ -163,7 +173,7 @@ export class AuthService {
       );
       return {
         success: true,
-        message: 'If the tenant exists, a verification email will be sent.',
+        message: 'Registration initiated. Check your email for verification code.',
         requiresOtp: true,
       };
     }
@@ -171,7 +181,7 @@ export class AuthService {
     // Hash password with bcrypt (cost factor 12 for 2025 standards)
     const passwordHash = await bcrypt.hash(data.password, 12);
 
-    // Create user (not admin by default - require explicit role assignment)
+    // Create user - admin for new tenants, user for existing
     const user = await this.prisma.user.create({
       data: {
         tenantId: tenant.id,
@@ -181,7 +191,7 @@ export class AuthService {
         lastName: data.lastName,
         isMfaEnabled: true,
         isActive: true,
-        // Role defaults to 'user' - admin must be explicitly assigned
+        role: isNewTenant ? 'admin' : 'user', // First user is admin
       },
     });
 

@@ -29,6 +29,7 @@ export interface ProviderAlias {
 export interface ConnectGoogleDto {
   email?: string; // Optional - will be obtained from OAuth2 if not provided
   authorizationCode: string;
+  state?: string; // CSRF state parameter for validation
   supportsCalendar?: boolean;
   supportsContacts?: boolean;
   isDefault?: boolean;
@@ -37,6 +38,7 @@ export interface ConnectGoogleDto {
 export interface ConnectMicrosoftDto {
   email?: string; // Optional - will be obtained from OAuth2 if not provided
   authorizationCode: string;
+  state?: string; // CSRF state parameter for validation
   supportsCalendar?: boolean;
   supportsContacts?: boolean;
   isDefault?: boolean;

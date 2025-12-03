@@ -17,6 +17,7 @@ export enum CacheNamespace {
   RATE_LIMIT = 'ratelimit',
   VOLTAGENT_METRICS = 'voltagent:metrics',
   MULTIAGENT_METRICS = 'multiagent:metrics',
+  OAUTH_STATE = 'oauth:state',
 }
 
 /**

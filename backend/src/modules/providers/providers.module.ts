@@ -9,6 +9,7 @@ import { AiModule } from '../ai/ai.module';
 // Services
 import { GoogleOAuthService } from './services/google-oauth.service';
 import { MicrosoftOAuthService } from './services/microsoft-oauth.service';
+import { OAuthStateService } from './services/oauth-state.service';
 import { ImapService } from './services/imap.service';
 import { CalDavService } from './services/caldav.service';
 import { ProviderConfigService } from './services/provider-config.service';
@@ -30,6 +31,9 @@ import { OAuthCallbackController } from './controllers/oauth-callback.controller
     // Common services
     CryptoService,
 
+    // OAuth security services
+    OAuthStateService,
+
     // Provider-specific services
     GoogleOAuthService,
     MicrosoftOAuthService,
@@ -40,6 +44,7 @@ import { OAuthCallbackController } from './controllers/oauth-callback.controller
   controllers: [ProvidersController, OAuthCallbackController],
   exports: [
     CryptoService,
+    OAuthStateService,
     GoogleOAuthService,
     MicrosoftOAuthService,
     ImapService,
