@@ -114,6 +114,7 @@ export interface RateLimitConfig {
 export interface Configuration {
   nodeEnv: 'development' | 'production' | 'test';
   logLevel: string;
+  frontendUrl: string;
   database: DatabaseConfig;
   redis: RedisConfig;
   api: ApiConfig;
@@ -284,9 +285,13 @@ export function loadConfiguration(): Configuration {
     }
   }
 
+  // Frontend URL - for email links (password reset, etc.)
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+
   return {
     nodeEnv,
     logLevel: process.env.LOG_LEVEL || 'debug',
+    frontendUrl,
 
     database: {
       host: dbHost,

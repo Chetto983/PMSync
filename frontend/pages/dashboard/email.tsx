@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import {
   Box,
@@ -6,22 +6,13 @@ import {
   Typography,
   ThemeProvider,
   CssBaseline,
-  useMediaQuery,
 } from '@mui/material';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { Mailbox } from '@/components/dashboard/Mailbox';
 import { darkTheme, lightTheme } from '@/theme/appTheme';
-import {
-  DEFAULT_USER_SETTINGS,
-  getStoredUserSettings,
-  persistUserSettings,
-  resolveThemePreference,
-  type ThemePreference,
-  USER_SETTINGS_EVENT,
-  USER_SETTINGS_STORAGE_KEY,
-} from '@/lib/utils/user-settings';
+import { useThemePersistence } from '@/hooks/use-theme-persistence';
 import { useWebSocket } from '@/hooks/use-websocket';
 
 /**
@@ -41,16 +32,13 @@ export default function EmailPage() {
   useWebSocket(token || null, true);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
-  const [themePreference, setThemePreference] = useState<ThemePreference>(
-    DEFAULT_USER_SETTINGS.theme
-  );
+
+  // Unified theme management - syncs with database
+  const { resolvedTheme, isDarkMode, toggleTheme } = useThemePersistence();
+  const theme = resolvedTheme === 'dark' ? darkTheme : lightTheme;
 
   // Read search query parameter from URL
   const searchQuery = typeof router.query.search === 'string' ? router.query.search : undefined;
-
-  const resolvedThemeMode = resolveThemePreference(themePreference, prefersDarkMode);
-  const theme = resolvedThemeMode === 'dark' ? darkTheme : lightTheme;
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -58,62 +46,12 @@ export default function EmailPage() {
     }
   }, [user, isLoading, router]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const stored = getStoredUserSettings();
-    setThemePreference(stored.theme ?? DEFAULT_USER_SETTINGS.theme);
-
-    const handleSettingsEvent = (event: Event) => {
-      const detail = (event as CustomEvent<typeof stored>).detail;
-      if (detail?.theme) {
-        setThemePreference(detail.theme);
-      }
-    };
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === USER_SETTINGS_STORAGE_KEY && event.newValue) {
-        try {
-          const parsed = JSON.parse(event.newValue);
-          if (parsed.theme) {
-            setThemePreference(parsed.theme);
-          }
-        } catch {
-          // Ignore JSON errors
-        }
-      }
-    };
-
-    window.addEventListener(USER_SETTINGS_EVENT, handleSettingsEvent as EventListener);
-    window.addEventListener('storage', handleStorage);
-
-    return () => {
-      window.removeEventListener(USER_SETTINGS_EVENT, handleSettingsEvent as EventListener);
-      window.removeEventListener('storage', handleStorage);
-    };
-  }, []);
-
   const handleToggleCollapse = () => {
     setCollapsed(!collapsed);
   };
 
   const handleMobileDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
-  };
-
-  const persistTheme = useCallback((preference: ThemePreference) => {
-    setThemePreference(preference);
-    if (typeof window === 'undefined') {
-      return;
-    }
-    persistUserSettings({ theme: preference });
-  }, []);
-
-  const handleThemeToggle = () => {
-    const next = resolvedThemeMode === 'dark' ? 'light' : 'dark';
-    persistTheme(next);
   };
 
   if (isLoading) {
@@ -146,7 +84,7 @@ export default function EmailPage() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex', height: '100vh' }}>
+      <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
         <Sidebar
           collapsed={collapsed}
           onToggleCollapse={handleToggleCollapse}
@@ -161,12 +99,14 @@ export default function EmailPage() {
             display: 'flex',
             flexDirection: 'column',
             height: '100vh',
+            minWidth: 0, // Critical: allows flex item to shrink below content size
+            overflow: 'hidden',
           }}
         >
           <Header
             onMenuClick={handleMobileDrawerToggle}
-            onThemeToggle={handleThemeToggle}
-            isDarkMode={resolvedThemeMode === 'dark'}
+            onThemeToggle={toggleTheme}
+            isDarkMode={isDarkMode}
           />
 
           <Box

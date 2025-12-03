@@ -27,6 +27,21 @@ export class EmailSyncController {
     return await this.schedulerService.getSyncStats();
   }
 
+  @Get('health')
+  @ApiOperation({ summary: 'Email sync health (queues, webhooks)' })
+  @ApiResponse({ status: 200, description: 'Health summary for email sync subsystem' })
+  async getHealth() {
+    const [queues, webhooks] = await Promise.all([
+      this.queueService.getHealthSummary(),
+      this.webhookLifecycle.getHealthStatus(),
+    ]);
+
+    return {
+      queues,
+      webhooks,
+    };
+  }
+
   @Get('queues')
   @ApiOperation({ summary: 'Get queue status' })
   @ApiResponse({ status: 200, description: 'Returns status of all queues' })
@@ -169,6 +184,22 @@ export class EmailSyncController {
   @ApiOperation({ summary: 'Get webhook system health status' })
   @ApiResponse({ status: 200, description: 'Returns webhook health status' })
   async getWebhookHealth() {
-    return await this.webhookLifecycle.getHealthStatus();
+    const [webhooks, queues, stats] = await Promise.all([
+      this.webhookLifecycle.getHealthStatus(),
+      this.queueService.getHealthSummary(),
+      this.schedulerService.getSyncStats(),
+    ]);
+
+    return {
+      webhooks,
+      queues,
+      syncSummary: {
+        providersWithErrors: stats.smartSync.providersWithErrors,
+        providersWithAuthErrors: stats.smartSync.providersWithAuthErrors,
+        providersNeedingBackfill: stats.smartSync.providersNeedingBackfill,
+        providersWithDeltaFallback: stats.smartSync.providersWithDeltaFallback,
+        priorityDistribution: stats.smartSync.priorityDistribution,
+      },
+    };
   }
 }

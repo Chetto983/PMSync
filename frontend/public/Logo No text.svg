@@ -1,0 +1,1031 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   id="Livello_1"
+   data-name="Livello 1"
+   viewBox="0 0 280 280"
+   version="1.1"
+   sodipodi:docname="Logo No text.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   width="280"
+   height="280"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview153"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="4.134193"
+     inkscape:cx="330.41515"
+     inkscape:cy="129.7714"
+     inkscape:window-width="3440"
+     inkscape:window-height="1369"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g153"
+     showgrid="false" />
+  <defs
+     id="defs25">
+    <style
+       id="style1">
+      .cls-1 {
+        fill: url(#Sfumatura_senza_nome_1488);
+      }
+
+      .cls-2 {
+        fill: url(#Sfumatura_senza_nome_90);
+        stroke: url(#Sfumatura_senza_nome_90-2);
+      }
+
+      .cls-2, .cls-3 {
+        stroke-miterlimit: 10;
+      }
+
+      .cls-4 {
+        fill: url(#Sfumatura_senza_nome_940);
+      }
+
+      .cls-5 {
+        fill: url(#Sfumatura_senza_nome_2085);
+      }
+
+      .cls-6 {
+        fill: #36e3ed;
+      }
+
+      .cls-7 {
+        fill: url(#Sfumatura_senza_nome_25);
+      }
+
+      .cls-8 {
+        fill: #4a2464;
+      }
+
+      .cls-9 {
+        fill: #41454b;
+      }
+
+      .cls-3 {
+        fill: none;
+        stroke: #55cae5;
+      }
+
+      .cls-10 {
+        fill: #55cae5;
+      }
+
+      .cls-11 {
+        fill: url(#Sfumatura_senza_nome_1860);
+      }
+
+      .cls-12 {
+        fill: url(#Sfumatura_senza_nome_1196);
+      }
+
+      .cls-13 {
+        fill: url(#Sfumatura_senza_nome_1161);
+      }
+
+      .cls-14 {
+        fill: url(#Sfumatura_senza_nome_1306);
+      }
+
+      .cls-15 {
+        fill: url(#Sfumatura_senza_nome_51);
+      }
+
+      .cls-16 {
+        fill: #303e75;
+      }
+    </style>
+    <linearGradient
+       id="Sfumatura_senza_nome_90"
+       data-name="Sfumatura senza nome 90"
+       x1="112.88"
+       y1="140.46001"
+       x2="149.55"
+       y2="140.46001"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#7650ce"
+         id="stop1" />
+      <stop
+         offset="1"
+         stop-color="#b43db6"
+         id="stop2" />
+    </linearGradient>
+    <linearGradient
+       id="Sfumatura_senza_nome_90-2"
+       data-name="Sfumatura senza nome 90"
+       x1="112.38"
+       y1="140.46001"
+       x2="150.05"
+       y2="140.46001"
+       xlink:href="#Sfumatura_senza_nome_90" />
+    <linearGradient
+       id="Sfumatura_senza_nome_51"
+       data-name="Sfumatura senza nome 51"
+       x1="118.56"
+       y1="250.48"
+       x2="165.81"
+       y2="250.48"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#452077"
+         id="stop3" />
+      <stop
+         offset="1"
+         stop-color="#b64cb3"
+         id="stop4" />
+    </linearGradient>
+    <linearGradient
+       id="Sfumatura_senza_nome_940"
+       data-name="Sfumatura senza nome 940"
+       x1="104.62"
+       y1="29.809999"
+       x2="151.03"
+       y2="29.809999"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#00aced"
+         id="stop5" />
+      <stop
+         offset="1"
+         stop-color="#0b001f"
+         id="stop6" />
+    </linearGradient>
+    <linearGradient
+       id="Sfumatura_senza_nome_25"
+       data-name="Sfumatura senza nome 25"
+       x1="145.19"
+       y1="93.059998"
+       x2="214.84"
+       y2="93.059998"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#38387f"
+         id="stop7" />
+      <stop
+         offset="1"
+         stop-color="#442c65"
+         id="stop8" />
+    </linearGradient>
+    <linearGradient
+       id="Sfumatura_senza_nome_1488"
+       data-name="Sfumatura senza nome 1488"
+       x1="128.32001"
+       y1="179.73"
+       x2="245.66"
+       y2="179.73"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#452077"
+         id="stop9" />
+      <stop
+         offset=".59"
+         stop-color="#b64cb3"
+         id="stop10" />
+      <stop
+         offset="1"
+         stop-color="#b609b3"
+         id="stop11" />
+    </linearGradient>
+    <linearGradient
+       id="Sfumatura_senza_nome_1161"
+       data-name="Sfumatura senza nome 1161"
+       x1="23.309999"
+       y1="109.76"
+       x2="133.33"
+       y2="109.76"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#00aced"
+         id="stop12" />
+      <stop
+         offset=".69"
+         stop-color="#354c7d"
+         id="stop13" />
+      <stop
+         offset="1"
+         stop-color="#001a00"
+         id="stop14" />
+    </linearGradient>
+    <linearGradient
+       id="Sfumatura_senza_nome_2085"
+       data-name="Sfumatura senza nome 2085"
+       x1="85.260002"
+       y1="220.02"
+       x2="246.8"
+       y2="126.76"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#0086d8"
+         id="stop15" />
+      <stop
+         offset=".31"
+         stop-color="#9068d8"
+         id="stop16" />
+      <stop
+         offset=".74"
+         stop-color="#bc4fc2"
+         id="stop17" />
+      <stop
+         offset="1"
+         stop-color="#bc00c2"
+         id="stop18" />
+    </linearGradient>
+    <linearGradient
+       id="Sfumatura_senza_nome_1860"
+       data-name="Sfumatura senza nome 1860"
+       x1="97.419998"
+       y1="165.25"
+       x2="226.03999"
+       y2="165.25"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#7650ce"
+         id="stop19" />
+      <stop
+         offset="1"
+         stop-color="#a800b6"
+         id="stop20" />
+    </linearGradient>
+    <linearGradient
+       id="Sfumatura_senza_nome_1196"
+       data-name="Sfumatura senza nome 1196"
+       x1="36.790001"
+       y1="104.71"
+       x2="174.78"
+       y2="104.71"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#96d6e9"
+         id="stop21" />
+      <stop
+         offset=".61"
+         stop-color="#00aced"
+         id="stop22" />
+      <stop
+         offset="1"
+         stop-color="#354c7d"
+         id="stop23" />
+    </linearGradient>
+    <linearGradient
+       id="Sfumatura_senza_nome_1306"
+       data-name="Sfumatura senza nome 1306"
+       x1="36.599998"
+       y1="108.06"
+       x2="169.57001"
+       y2="108.06"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#1ff3fb"
+         id="stop24" />
+      <stop
+         offset="1"
+         stop-color="#abc1f2"
+         id="stop25" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#Sfumatura_senza_nome_90"
+       id="linearGradient1"
+       gradientUnits="userSpaceOnUse"
+       x1="112.88"
+       y1="140.46001"
+       x2="149.55"
+       y2="140.46001" />
+  </defs>
+  <g
+     id="g153"
+     transform="matrix(1.0988567,0,0,0.99143102,0,0.24188518)">
+    <path
+       class="cls-2"
+       d="m 115.35,127.7 31.53,-0.02 c 1.6,0.13 2.46,1.31 2.67,2.81 v 20.09 c -0.11,1.43 -1.17,2.51 -2.59,2.67 h -31.41 c -1.48,-0.12 -2.53,-1.2 -2.67,-2.67 v -20.16 c 0.23,-1.37 1,-2.54 2.47,-2.72 z m 31.49,1.59 h -31.25 c 0,0.17 0.18,0.3 0.29,0.4 3.28,3.15 6.65,6.28 10,9.35 0.96,0.88 1.93,1.79 2.92,2.63 1.92,1.62 3.11,1.4 4.97,-0.15 3.94,-3.29 7.77,-7.21 11.54,-10.74 0.39,-0.36 0.86,-0.73 1.24,-1.09 0.06,-0.06 0.37,-0.33 0.29,-0.4 z m -32.49,1.2 v 20.05 l 10.88,-10.1 c -3.55,-3.36 -7.13,-6.71 -10.73,-10.02 l -0.15,0.08 z m 33.73,20.05 v -20.05 l -0.15,-0.08 -0.22,0.15 c -3.25,3.15 -6.64,6.16 -9.93,9.27 -0.1,0.1 -0.59,0.55 -0.58,0.65 l 10.88,10.05 z m -32.46,1.24 h 31.25 l 0.07,-0.15 -10.89,-10.15 c -1.8,1.56 -3.32,3.32 -5.99,2.64 -1.65,-0.43 -2.27,-1.61 -3.49,-2.49 -0.06,-0.05 -0.17,-0.15 -0.26,-0.11 l -10.88,10.15 c 0,0 0.16,0.11 0.18,0.11 z"
+       id="path53"
+       style="fill:url(#linearGradient1);stroke:url(#Sfumatura_senza_nome_90-2)" />
+    <circle
+       class="cls-10"
+       cx="65.300003"
+       cy="43.759998"
+       r="3.1900001"
+       id="circle53" />
+    <circle
+       class="cls-10"
+       cx="74.080002"
+       cy="35.16"
+       r="3.1900001"
+       id="circle54" />
+    <circle
+       class="cls-3"
+       cx="105.94"
+       cy="46.48"
+       r="3.1900001"
+       id="circle55" />
+    <circle
+       class="cls-3"
+       cx="116.56"
+       cy="56.990002"
+       r="3.1900001"
+       id="circle56" />
+    <circle
+       class="cls-10"
+       cx="79.900002"
+       cy="52.5"
+       r="3.1900001"
+       id="circle57" />
+    <circle
+       class="cls-10"
+       cx="95.669998"
+       cy="62.48"
+       r="3.1900001"
+       id="circle58" />
+    <circle
+       class="cls-3"
+       cx="73.050003"
+       cy="64.519997"
+       r="3.1900001"
+       id="circle59" />
+    <circle
+       class="cls-10"
+       cx="57.139999"
+       cy="58.150002"
+       r="3.1900001"
+       id="circle60" />
+    <circle
+       class="cls-10"
+       cx="60.360001"
+       cy="73.160004"
+       r="4.3400002"
+       id="circle61" />
+    <polyline
+       class="cls-3"
+       points="65.05 43.54 89.43 43.54 101.42 56.99 116.82 56.99"
+       id="polyline61" />
+    <polyline
+       class="cls-3"
+       points="74.58 35.16 93.7 35.16 105.32 46.48"
+       id="polyline62" />
+    <polyline
+       class="cls-3"
+       points="79.61 52.21 88.15 52.21 96.03 61.99"
+       id="polyline63" />
+    <circle
+       class="cls-10"
+       cx="93.389999"
+       cy="14.01"
+       r="2.1900001"
+       id="circle63" />
+    <circle
+       class="cls-10"
+       cx="83.760002"
+       cy="2.1900001"
+       r="2.1900001"
+       id="circle64" />
+    <circle
+       class="cls-10"
+       cx="31.040001"
+       cy="191.98"
+       r="2.8"
+       id="circle65" />
+    <circle
+       class="cls-10"
+       cx="2.8"
+       cy="181.05"
+       r="2.8"
+       id="circle66" />
+    <circle
+       class="cls-10"
+       cx="186.42"
+       cy="31.809999"
+       r="2.8"
+       id="circle67" />
+    <circle
+       class="cls-10"
+       cx="221.2"
+       cy="238.52"
+       r="3.1900001"
+       id="circle68" />
+    <circle
+       class="cls-10"
+       cx="212.42"
+       cy="247.13"
+       r="3.1900001"
+       id="circle69" />
+    <circle
+       class="cls-3"
+       cx="180.56"
+       cy="235.8"
+       r="3.1900001"
+       id="circle70" />
+    <circle
+       class="cls-3"
+       cx="169.94"
+       cy="225.28999"
+       r="3.1900001"
+       id="circle71" />
+    <circle
+       class="cls-10"
+       cx="206.60001"
+       cy="229.78"
+       r="3.1900001"
+       id="circle72" />
+    <circle
+       class="cls-10"
+       cx="190.83"
+       cy="219.8"
+       r="3.1900001"
+       id="circle73" />
+    <circle
+       class="cls-3"
+       cx="213.45"
+       cy="217.75999"
+       r="3.1900001"
+       id="circle74" />
+    <circle
+       class="cls-10"
+       cx="229.36"
+       cy="224.13"
+       r="3.1900001"
+       id="circle75" />
+    <circle
+       class="cls-10"
+       cx="226.14"
+       cy="209.12"
+       r="4.3400002"
+       id="circle76" />
+    <polyline
+       class="cls-3"
+       points="221.44 238.74 197.07 238.74 185.07 225.29 169.68 225.29"
+       id="polyline76" />
+    <polyline
+       class="cls-3"
+       points="211.92 247.13 192.8 247.13 181.18 235.8"
+       id="polyline77" />
+    <polyline
+       class="cls-3"
+       points="206.89 230.07 198.35 230.07 190.47 220.29"
+       id="polyline78" />
+    <circle
+       class="cls-10"
+       cx="252.28"
+       cy="216.62"
+       r="2.1900001"
+       id="circle78" />
+    <circle
+       class="cls-10"
+       cx="193.11"
+       cy="268.26999"
+       r="2.1900001"
+       id="circle79" />
+    <circle
+       class="cls-10"
+       cx="202.73"
+       cy="280.09"
+       r="2.1900001"
+       id="circle80" />
+    <circle
+       class="cls-10"
+       cx="88.830002"
+       cy="240.89999"
+       r="2.8"
+       id="circle81" />
+    <circle
+       class="cls-10"
+       cx="231.25999"
+       cy="51.939999"
+       r="2.8"
+       id="circle82" />
+    <circle
+       class="cls-10"
+       cx="73.220001"
+       cy="189.78999"
+       r="2.1900001"
+       id="circle83" />
+    <circle
+       class="cls-3"
+       cx="81.790001"
+       cy="195.67"
+       r="2.1900001"
+       id="circle84" />
+    <circle
+       class="cls-3"
+       cx="69.279999"
+       cy="199.55"
+       r="2.1900001"
+       id="circle85" />
+    <circle
+       class="cls-10"
+       cx="72.099998"
+       cy="242.44"
+       r="2.1900001"
+       id="circle86" />
+    <circle
+       class="cls-10"
+       cx="83.080002"
+       cy="231.03999"
+       r="2.1900001"
+       id="circle87" />
+    <circle
+       class="cls-10"
+       cx="65.580002"
+       cy="230.36"
+       r="2.1900001"
+       id="circle88" />
+    <circle
+       class="cls-10"
+       cx="79.599998"
+       cy="250.88"
+       r="2.1900001"
+       id="circle89" />
+    <circle
+       class="cls-10"
+       cx="39.73"
+       cy="224.52"
+       r="2.1900001"
+       id="circle90" />
+    <circle
+       class="cls-10"
+       cx="34.189999"
+       cy="65.669998"
+       r="2.1900001"
+       id="circle91" />
+    <polyline
+       class="cls-3"
+       points="61.25 202.45 61.25 212.83 63.96 215.54"
+       id="polyline91" />
+    <polyline
+       class="cls-3"
+       points="69.28 199.55 69.28 217.19 65.58 220.73 65.58 230.36"
+       id="polyline92" />
+    <line
+       class="cls-3"
+       x1="72.099998"
+       y1="206.34"
+       x2="72.099998"
+       y2="242.73"
+       id="line92" />
+    <polyline
+       class="cls-3"
+       points="77.06 216.62 77.06 234.54 79.6 237.61 79.6 250.88"
+       id="polyline93" />
+    <line
+       class="cls-3"
+       x1="83.080002"
+       y1="231.03999"
+       x2="83.080002"
+       y2="203.03999"
+       id="line93" />
+    <circle
+       class="cls-10"
+       cx="81.419998"
+       cy="154.35001"
+       r="2.5699999"
+       id="circle93" />
+    <circle
+       class="cls-3"
+       cx="100.74"
+       cy="138.60001"
+       r="2.5699999"
+       id="circle94" />
+    <circle
+       class="cls-10"
+       cx="88.589996"
+       cy="147.39"
+       r="2.5699999"
+       id="circle95" />
+    <circle
+       class="cls-10"
+       cx="81.279999"
+       cy="138.60001"
+       r="2.5699999"
+       id="circle96" />
+    <circle
+       class="cls-3"
+       cx="126.26"
+       cy="175.94"
+       r="3.5"
+       id="circle97" />
+    <circle
+       class="cls-3"
+       cx="132.78999"
+       cy="163.11"
+       r="3.5"
+       id="circle98" />
+    <circle
+       class="cls-3"
+       cx="118.01"
+       cy="177.44"
+       r="2.5699999"
+       id="circle99" />
+    <circle
+       class="cls-10"
+       cx="97.290001"
+       cy="169.2"
+       r="2.5699999"
+       id="circle100" />
+    <circle
+       class="cls-3"
+       cx="86.860001"
+       cy="170.39999"
+       r="2.03"
+       id="circle101" />
+    <circle
+       class="cls-3"
+       cx="79.379997"
+       cy="169.74001"
+       r="2.03"
+       id="circle102" />
+    <circle
+       class="cls-3"
+       cx="68.529999"
+       cy="160.35001"
+       r="2.03"
+       id="circle103" />
+    <circle
+       class="cls-3"
+       cx="97.290001"
+       cy="183.28999"
+       r="2.03"
+       id="circle104" />
+    <polyline
+       class="cls-3"
+       points="81.42 154.35 101.19 154.35 113.38 166.54 125.22 166.54"
+       id="polyline104" />
+    <polyline
+       class="cls-3"
+       points="88.59 147.11 100.14 147.11 116.05 163.02 132.79 163.02"
+       id="polyline105" />
+    <polyline
+       class="cls-3"
+       points="86.86 147.11 78.71 147.11 75.94 149.88 68.53 149.88 68.53 160.44"
+       id="polyline106" />
+    <line
+       class="cls-3"
+       x1="81.279999"
+       y1="138.60001"
+       x2="101.13"
+       y2="138.60001"
+       id="line106" />
+    <line
+       class="cls-3"
+       x1="78.419998"
+       y1="142.78999"
+       x2="84.830002"
+       y2="142.78999"
+       id="line107" />
+    <line
+       class="cls-3"
+       x1="92.050003"
+       y1="142.78999"
+       x2="98.459999"
+       y2="142.78999"
+       id="line108" />
+    <polyline
+       class="cls-3"
+       points="100.14 154.35 100.14 156.91 97.52 159.53 85.5 159.53 79.3 165.73 79.3 170.06"
+       id="polyline108" />
+    <line
+       class="cls-3"
+       x1="97.290001"
+       y1="169.2"
+       x2="97.290001"
+       y2="183.57001"
+       id="line109" />
+    <polyline
+       class="cls-3"
+       points="117.77 177.14 117.77 173.24 105.2 173.24 105.2 170.4"
+       id="polyline109" />
+    <circle
+       class="cls-3"
+       cx="105.2"
+       cy="169.67"
+       r="2.03"
+       id="circle109" />
+    <polyline
+       class="cls-3"
+       points="86.86 170.4 86.86 177.79 88.59 177.79 88.59 182.3"
+       id="polyline110" />
+    <polyline
+       class="cls-3"
+       points="77.35 159.03 73.6 162.77 73.6 172.08 81 179.47"
+       id="polyline111" />
+    <circle
+       class="cls-10"
+       cx="203.47"
+       cy="96.209999"
+       r="2.1900001"
+       id="circle111" />
+    <circle
+       class="cls-3"
+       cx="194.89999"
+       cy="90.330002"
+       r="2.1900001"
+       id="circle112" />
+    <circle
+       class="cls-3"
+       cx="207.41"
+       cy="86.449997"
+       r="2.1900001"
+       id="circle113" />
+    <circle
+       class="cls-10"
+       cx="204.58"
+       cy="43.57"
+       r="2.1900001"
+       id="circle114" />
+    <circle
+       class="cls-10"
+       cx="193.60001"
+       cy="54.959999"
+       r="2.1900001"
+       id="circle115" />
+    <circle
+       class="cls-10"
+       cx="211.11"
+       cy="55.650002"
+       r="2.1900001"
+       id="circle116" />
+    <circle
+       class="cls-10"
+       cx="197.09"
+       cy="35.119999"
+       r="2.1900001"
+       id="circle117" />
+    <circle
+       class="cls-10"
+       cx="213.3"
+       cy="31.969999"
+       r="2.1900001"
+       id="circle118" />
+    <polyline
+       class="cls-3"
+       points="215.44 83.55 215.44 73.17 212.72 70.46"
+       id="polyline118" />
+    <polyline
+       class="cls-3"
+       points="207.41 86.45 207.41 68.81 211.11 65.27 211.11 55.65"
+       id="polyline119" />
+    <line
+       class="cls-3"
+       x1="204.58"
+       y1="79.660004"
+       x2="204.58"
+       y2="43.27"
+       id="line119" />
+    <polyline
+       class="cls-3"
+       points="199.63 69.38 199.63 51.46 197.09 48.39 197.09 35.12"
+       id="polyline120" />
+    <line
+       class="cls-3"
+       x1="193.60001"
+       y1="54.959999"
+       x2="193.60001"
+       y2="82.959999"
+       id="line120" />
+    <circle
+       class="cls-10"
+       cx="184.12"
+       cy="128.17999"
+       r="2.5699999"
+       id="circle120" />
+    <circle
+       class="cls-3"
+       cx="164.8"
+       cy="143.92"
+       r="2.5699999"
+       id="circle121" />
+    <circle
+       class="cls-10"
+       cx="176.95"
+       cy="135.14"
+       r="2.5699999"
+       id="circle122" />
+    <circle
+       class="cls-10"
+       cx="184.25999"
+       cy="143.92"
+       r="2.5699999"
+       id="circle123" />
+    <circle
+       class="cls-3"
+       cx="139.28"
+       cy="106.59"
+       r="3.5"
+       id="circle124" />
+    <circle
+       class="cls-3"
+       cx="132.75"
+       cy="119.42"
+       r="3.5"
+       id="circle125" />
+    <circle
+       class="cls-3"
+       cx="147.53"
+       cy="105.09"
+       r="2.5699999"
+       id="circle126" />
+    <circle
+       class="cls-10"
+       cx="168.25"
+       cy="113.33"
+       r="2.5699999"
+       id="circle127" />
+    <circle
+       class="cls-3"
+       cx="178.67999"
+       cy="112.13"
+       r="2.03"
+       id="circle128" />
+    <circle
+       class="cls-3"
+       cx="186.16"
+       cy="112.79"
+       r="2.03"
+       id="circle129" />
+    <circle
+       class="cls-3"
+       cx="197.00999"
+       cy="122.18"
+       r="2.03"
+       id="circle130" />
+    <circle
+       class="cls-3"
+       cx="168.25"
+       cy="99.239998"
+       r="2.03"
+       id="circle131" />
+    <polyline
+       class="cls-3"
+       points="184.12 128.18 164.35 128.18 152.16 115.99 140.32 115.99"
+       id="polyline131" />
+    <polyline
+       class="cls-3"
+       points="176.95 135.42 165.4 135.42 149.49 119.51 132.75 119.51"
+       id="polyline132" />
+    <polyline
+       class="cls-3"
+       points="178.68 135.42 186.83 135.42 189.6 132.65 197.01 132.65 197.01 122.09"
+       id="polyline133" />
+    <line
+       class="cls-3"
+       x1="184.25999"
+       y1="143.92"
+       x2="164.41"
+       y2="143.92"
+       id="line133" />
+    <line
+       class="cls-3"
+       x1="187.12"
+       y1="139.74001"
+       x2="180.71001"
+       y2="139.74001"
+       id="line134" />
+    <line
+       class="cls-3"
+       x1="178.67999"
+       y1="139.74001"
+       x2="167.08"
+       y2="139.74001"
+       id="line135" />
+    <polyline
+       class="cls-3"
+       points="165.4 128.18 165.4 125.62 168.02 123 180.04 123 186.24 116.8 186.24 112.47"
+       id="polyline135" />
+    <line
+       class="cls-3"
+       x1="168.25"
+       y1="113.33"
+       x2="168.25"
+       y2="98.959999"
+       id="line136" />
+    <polyline
+       class="cls-3"
+       points="147.77 105.39 147.77 109.29 160.34 109.29 160.34 112.13"
+       id="polyline136" />
+    <circle
+       class="cls-3"
+       cx="160.34"
+       cy="112.85"
+       r="2.03"
+       id="circle136" />
+    <polyline
+       class="cls-3"
+       points="178.68 112.13 178.68 104.74 176.95 104.74 176.95 100.23"
+       id="polyline137" />
+    <polyline
+       class="cls-3"
+       points="188.19 123.5 191.94 119.76 191.94 110.45 184.54 103.06"
+       id="polyline138" />
+    <path
+       class="cls-16"
+       d="m 62.16,151.98 c 0,0 28.26,28.16 53.34,34.47 0,0 -15.2,14.87 -19.22,28.65 0,0 -45.24,1.51 -51.98,-17.73 0,0 -16.73,-21.23 17.85,-45.39 z"
+       id="path138" />
+    <path
+       class="cls-16"
+       d="m 41.95,116.84 7.32,14.07 1.33,1.5 -12.21,29.2 c 0,0 -10.35,-10.44 -12.12,-21.5 0,0 1.4,-17.19 15.31,-24.42 l 0.38,1.15 z"
+       id="path139" />
+    <path
+       class="cls-15"
+       d="m 132.1,232.15 c 0,0 4.51,8.67 15.4,10.18 10.88,1.5 13.63,3.89 13.63,3.89 0,0 8.94,4.25 2.12,12.83 -6.82,8.58 -15.52,8.88 -15.52,8.88 0,0 -12.63,3.86 -26.16,-4.63 l -3.01,-15.31 5.58,-10.8 z"
+       id="path140"
+       style="fill:url(#Sfumatura_senza_nome_51)" />
+    <path
+       class="cls-8"
+       d="m 213.88,156.18 c 0,0 11.15,7.53 11.61,15.66 l 9.2,-3.67 4.72,-6.49 1.77,-5.5 0.71,-11.61 c 0,0 -3.6,-13.46 -15.84,-21.18 z"
+       id="path141" />
+    <path
+       class="cls-4"
+       d="m 142,47.02 c 0,0 -9.81,-6.46 -20.35,-5.49 -10.54,0.97 -16.28,1.15 -16.99,-5.13 -0.71,-6.28 6.6,-16.82 20.91,-21.33 l 9.71,-2.47 8.14,1.24 6.46,3.98 1.15,11.59 -2.21,11.15 -5.4,6.46 z"
+       id="path142"
+       style="fill:url(#Sfumatura_senza_nome_940)" />
+    <path
+       class="cls-7"
+       d="m 146.35,96.32 c 0,0 26.6,5.52 49.35,26.52 l 14.71,-16.27 4.42,-15.13 v -8.23 l -1.95,-8.58 -6.9,-7.17 c 0,0 -3.81,-5.84 -34.69,-3.72 l -26.11,31.59 1.16,0.98 z"
+       id="path143"
+       style="fill:url(#Sfumatura_senza_nome_25)" />
+    <path
+       class="cls-1"
+       d="m 228.24,124.68 c 0,0 6.57,2.96 13.41,17.65 0,0 22.12,48.32 -37.52,64.95 0,0 -65.48,17.23 -74.28,27.49 0,0 -14.39,-6.25 44.93,-46.37 0,0 29.23,-0.24 49.29,-15.69 0,0 35.59,-19.72 4.17,-48.03 z"
+       id="path144"
+       style="fill:url(#Sfumatura_senza_nome_1488)" />
+    <path
+       class="cls-13"
+       d="m 37.46,159.86 c 0,0 -19.34,-17.35 -12.79,-43.9 0,0 2.83,-22.83 42.48,-34.87 0,0 61.05,-13.4 66.19,-21.44 0,0 -21.23,34.06 -49.55,39.78 0,0 -43.18,7.67 -53.98,30.85 0,0 -3.89,6.55 -2.21,14.42 0,0 3.33,9.31 9.87,15.14 z"
+       id="path145"
+       style="fill:url(#Sfumatura_senza_nome_1161)" />
+    <circle
+       class="cls-10"
+       cx="244.44"
+       cy="83.68"
+       r="2.8"
+       id="circle145" />
+    <circle
+       class="cls-10"
+       cx="144.67"
+       cy="253.87"
+       r="2.8"
+       id="circle146" />
+    <path
+       class="cls-3"
+       d="m 144.65,253.58 c 0,0 0.6,-27.51 60.59,-77.26 59.99,-49.75 39.19,-92.64 39.19,-92.64"
+       id="path146" />
+    <path
+       class="cls-3"
+       d="m 231.15,51.51 c 0,0 23.03,60.13 -49.24,90.8 -72.27,30.68 -90.84,45.93 -93.08,98.58"
+       id="path147" />
+    <path
+       class="cls-5"
+       d="m 147.73,267.93 c 0,0 -19.82,4.01 -25.72,-7.08 0,0 -6.84,-20.53 28.55,-47.2 l 58.52,-52.62 c 0,0 16.75,-13.21 19.82,-41.06 0,0 6.67,-33.84 -23.83,-53.1 0,0 11.8,10.62 7.08,24.07 0,0 -6.61,29.3 -33.51,47.69 l -40.12,29.12 c 0,0 -42.24,27.73 -42.95,52.51 0,0 -4.83,21.71 14.93,37.52 19.76,15.81 37.22,10.15 37.22,10.15 z"
+       id="path148"
+       style="fill:url(#Sfumatura_senza_nome_2085)" />
+    <path
+       class="cls-11"
+       d="m 105.9,250.47 c 0,0 -12.04,-11.15 -7.43,-29.2 0,0 5.03,-16.28 27.65,-32.03 22.62,-15.75 45.98,-30.62 45.98,-30.62 0,0 61.41,-40 45.13,-78.58 0,0 20.53,20.48 -1.06,52.98 0,0 -23.54,30.11 -49.73,45.47 0,0 -60.71,38.89 -60.53,71.99 z"
+       id="path149"
+       style="fill:url(#Sfumatura_senza_nome_1860)" />
+    <circle
+       class="cls-10"
+       cx="141.77"
+       cy="28.709999"
+       r="2.8"
+       id="circle149" />
+    <path
+       class="cls-3"
+       d="m 141.77,29 c 0,0 -2.41,27.41 -65.53,73.11 -63.13,45.7 -45.19,89.87 -45.19,89.87"
+       id="path150" />
+    <path
+       class="cls-3"
+       d="m 186.42,31.36 c 0,0 7.92,63.9 -69.6,76.33 C 39.3,120.12 17.62,130.47 2.8,181.05"
+       id="path151" />
+    <path
+       class="cls-12"
+       d="m 44.31,197.37 c 0,0 -13.63,-21.24 -4.19,-48.14 0,0 8.5,-27.84 43.66,-49.79 0,0 56.4,-31.15 63.24,-65.84 6.84,-34.69 -30.21,-14.87 -30.21,-14.87 0,0 25.49,-19.59 47.67,8.26 0,0 29.03,25.72 -10.38,63.24 0,0 -22.42,18.64 -49.56,33.27 -27.14,14.63 -70.44,41.06 -60.23,73.86 z"
+       id="path152"
+       style="fill:url(#Sfumatura_senza_nome_1196)" />
+    <path
+       class="cls-14"
+       d="m 56.17,143.04 c 0,0 -11.53,17.6 -9.57,28.8 0,0 -6.53,12.61 -2.29,25.53 0,0 -6.9,-11.86 -7.52,-27.17 0,0 -3.1,-18.5 15.31,-42.3 0,0 8.5,-10.71 31.5,-20.62 23.01,-9.91 39.29,-19.82 39.29,-19.82 0,0 44.32,-30.36 33.31,-68.72 0,0 8.38,7.47 12.93,13.94 0,0 4.91,23.99 -18.1,42.22 -23.01,18.23 -37.34,24.25 -37.34,24.25 0,0 -40.35,18.23 -57.52,43.89 z"
+       id="path153"
+       style="fill:url(#Sfumatura_senza_nome_1306)" />
+  </g>
+</svg>

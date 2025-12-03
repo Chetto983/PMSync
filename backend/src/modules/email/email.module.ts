@@ -8,6 +8,9 @@ import { EmailSyncBackService } from './services/email-sync-back.service';
 import { EmailCleanupService } from './services/email-cleanup.service';
 import { AttachmentStorageService } from './services/attachment.storage';
 import { AttachmentOnDemandService } from './services/attachment-on-demand.service';
+import { AttachmentMetricsService } from './services/attachment-metrics.service';
+import { BatchProcessorService } from './services/batch-processor.service';
+import { ScheduledEmailService } from './services/scheduled-email.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { AiModule } from '../ai/ai.module';
@@ -19,6 +22,17 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageService } from './services/storage.service';
 import { ProviderTokenService } from '../email-sync/services/provider-token.service';
 
+/**
+ * EmailModule - Core email functionality with observability
+ *
+ * Services:
+ * - AttachmentMetricsService: Centralized metrics for attachment operations (dedup, upload, download)
+ * - AttachmentStorageService: S3 storage with SHA-256 content-addressable deduplication
+ * - AttachmentOnDemandService: Lazy download from providers (Gmail, Microsoft, IMAP)
+ * - EmailCleanupService: Retention policies with orphan S3 tracking
+ *
+ * @see EMAIL_MODULE_ROADMAP.md for implementation details
+ */
 @Module({
   imports: [
     PrismaModule,
@@ -28,6 +42,7 @@ import { ProviderTokenService } from '../email-sync/services/provider-token.serv
     RealtimeModule,
   ],
   providers: [
+    // Core services
     EmailService,
     EmailsService,
     EmailRetentionService,
@@ -35,8 +50,12 @@ import { ProviderTokenService } from '../email-sync/services/provider-token.serv
     EmailSendService,
     EmailSyncBackService,
     EmailCleanupService,
+    ScheduledEmailService,
+    // Attachment services with observability
     AttachmentStorageService,
     AttachmentOnDemandService,
+    AttachmentMetricsService, // Centralized metrics for attachments
+    BatchProcessorService, // Batch processing with concurrency control
     StorageService,
     ProviderTokenService,
   ],
@@ -51,7 +70,10 @@ import { ProviderTokenService } from '../email-sync/services/provider-token.serv
     EmailCleanupService,
     AttachmentStorageService,
     AttachmentOnDemandService,
+    AttachmentMetricsService, // Export for cross-module access
+    BatchProcessorService, // Export for cross-module access
     StorageService,
+    ScheduledEmailService,
   ],
 })
 export class EmailModule {}

@@ -1,26 +1,69 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { StorageService } from './storage.service';
+import { AttachmentMetricsService } from './attachment-metrics.service';
 
+/**
+ * Result of a cleanup operation with detailed metrics
+ */
 interface CleanupResult {
   removed: number;
+  attachmentsFound: number;
+  s3Deleted: number;
+  s3Failed: number;
+  /** Orphaned S3 keys that failed to delete */
+  orphanedKeys?: string[];
 }
 
+/**
+ * Dry-run result showing what would be deleted
+ */
+export interface DryRunResult {
+  wouldDeleteEmails: number;
+  wouldDeleteAttachments: number;
+  wouldDeleteS3Objects: number;
+  /** Size estimate in bytes */
+  estimatedStorageReclaim: number;
+  /** Breakdown by tenant */
+  byTenant: Record<string, { emails: number; attachments: number; estimatedBytes: number }>;
+}
+
+/**
+ * EmailCleanupService - Retention and cleanup with full observability
+ *
+ * Features:
+ * - Scheduled purge of soft-deleted emails (configurable retention)
+ * - Duplicate email detection and removal
+ * - S3 attachment cleanup with orphan tracking
+ * - Dry-run mode for retention policy preview
+ * - Structured logging with tenant/email context
+ *
+ * Metrics tracked:
+ * - Cleanup success/failure counts
+ * - Orphaned S3 objects (failed deletions)
+ * - Storage reclaimed per tenant
+ *
+ * @see EMAIL_MODULE_ROADMAP.md Phase 4 - Retention & Cleanup
+ */
 @Injectable()
 export class EmailCleanupService {
   private readonly logger = new Logger(EmailCleanupService.name);
   private readonly purgeAfterHours = 24;
   private readonly jobsEnabled: boolean;
 
+  // Track orphaned S3 keys for retry or alerting
+  private orphanedS3Keys: Map<string, { key: string; tenantId: string; failedAt: Date }> = new Map();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly configService: ConfigService,
     private readonly storage: StorageService,
+    @Optional() private readonly metrics?: AttachmentMetricsService,
   ) {
     this.jobsEnabled =
       (this.configService.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -46,16 +89,201 @@ export class EmailCleanupService {
     await this.removeDuplicateEmails();
   }
 
+  /**
+   * Run tenant maintenance with full metrics reporting
+   *
+   * @param tenantId - Tenant to clean up
+   * @returns Detailed cleanup statistics
+   */
   async runTenantMaintenance(tenantId: string) {
+    const startTime = Date.now();
+
     const [duplicates, purged] = await Promise.all([
       this.removeDuplicateEmails(tenantId),
       this.purgeSoftDeletedEmails(tenantId, 0),
     ]);
 
+    const duration = Date.now() - startTime;
+    const totalS3Failed = duplicates.s3Failed + purged.s3Failed;
+
+    // Emit structured log for observability
+    this.logger.log(
+      JSON.stringify({
+        event: 'tenant_maintenance_complete',
+        tenantId,
+        duplicatesRemoved: duplicates.removed,
+        permanentlyDeleted: purged.removed,
+        attachmentsFound: duplicates.attachmentsFound + purged.attachmentsFound,
+        attachmentsDeleted: duplicates.s3Deleted + purged.s3Deleted,
+        attachmentFailures: totalS3Failed,
+        durationMs: duration,
+        hasOrphans: totalS3Failed > 0,
+      }),
+    );
+
+    // Record cleanup metrics
+    if (totalS3Failed > 0) {
+      this.metrics?.recordCleanup(
+        { tenantId },
+        false,
+        duplicates.s3Deleted + purged.s3Deleted,
+        totalS3Failed,
+      );
+    } else {
+      this.metrics?.recordCleanup({ tenantId }, true);
+    }
+
     return {
       duplicatesRemoved: duplicates.removed,
       permanentlyDeleted: purged.removed,
+      attachmentsFound: duplicates.attachmentsFound + purged.attachmentsFound,
+      attachmentsDeleted: duplicates.s3Deleted + purged.s3Deleted,
+      attachmentFailures: totalS3Failed,
     };
+  }
+
+  /**
+   * Dry-run mode for retention policies
+   *
+   * Returns what WOULD be deleted without actually deleting anything.
+   * Useful for previewing retention policy changes before applying.
+   *
+   * @param tenantId - Optional tenant filter
+   * @param olderThanHours - Emails older than this will be counted
+   * @returns Preview of what would be deleted
+   */
+  async dryRunRetention(
+    tenantId?: string,
+    olderThanHours: number = this.purgeAfterHours,
+  ): Promise<DryRunResult> {
+    const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+
+    // Get emails that would be purged
+    const staleEmails = await this.prisma.email.findMany({
+      where: {
+        isDeleted: true,
+        ...(tenantId ? { tenantId } : {}),
+        updatedAt: { lt: cutoff },
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        attachments: {
+          select: {
+            id: true,
+            size: true,
+            storageType: true,
+          },
+        },
+      },
+    });
+
+    // Aggregate by tenant
+    const byTenant: Record<string, { emails: number; attachments: number; estimatedBytes: number }> = {};
+
+    let totalAttachments = 0;
+    let totalS3Objects = 0;
+    let totalBytes = 0;
+
+    for (const email of staleEmails) {
+      if (!byTenant[email.tenantId]) {
+        byTenant[email.tenantId] = { emails: 0, attachments: 0, estimatedBytes: 0 };
+      }
+
+      byTenant[email.tenantId].emails++;
+
+      for (const att of email.attachments) {
+        totalAttachments++;
+        byTenant[email.tenantId].attachments++;
+        byTenant[email.tenantId].estimatedBytes += att.size;
+        totalBytes += att.size;
+
+        if (att.storageType === 's3') {
+          totalS3Objects++;
+        }
+      }
+    }
+
+    const result: DryRunResult = {
+      wouldDeleteEmails: staleEmails.length,
+      wouldDeleteAttachments: totalAttachments,
+      wouldDeleteS3Objects: totalS3Objects,
+      estimatedStorageReclaim: totalBytes,
+      byTenant,
+    };
+
+    // Log dry-run results
+    this.logger.log(
+      JSON.stringify({
+        event: 'retention_dry_run',
+        tenantId: tenantId || 'all',
+        olderThanHours,
+        cutoffDate: cutoff.toISOString(),
+        ...result,
+        estimatedStorageReclaimHuman: this.formatBytes(totalBytes),
+      }),
+    );
+
+    return result;
+  }
+
+  /**
+   * Get orphaned S3 keys that failed to delete
+   *
+   * These keys represent S3 objects that should have been deleted but weren't.
+   * They should be monitored and retried periodically.
+   */
+  getOrphanedS3Keys(): Array<{ key: string; tenantId: string; failedAt: Date }> {
+    return Array.from(this.orphanedS3Keys.values());
+  }
+
+  /**
+   * Retry deletion of orphaned S3 keys
+   *
+   * @returns Number of successfully deleted keys
+   */
+  async retryOrphanedS3Deletions(): Promise<{ deleted: number; stillOrphaned: number }> {
+    const orphans = Array.from(this.orphanedS3Keys.entries());
+    let deleted = 0;
+
+    for (const [key, info] of orphans) {
+      try {
+        await this.storage.deleteObject(info.key);
+        this.orphanedS3Keys.delete(key);
+        deleted++;
+
+        this.logger.log(
+          JSON.stringify({
+            event: 'orphan_s3_cleanup_success',
+            key: info.key,
+            tenantId: info.tenantId,
+            originalFailedAt: info.failedAt.toISOString(),
+          }),
+        );
+      } catch {
+        // Still failed, keep in orphan list
+        this.logger.warn(
+          JSON.stringify({
+            event: 'orphan_s3_cleanup_failed',
+            key: info.key,
+            tenantId: info.tenantId,
+          }),
+        );
+      }
+    }
+
+    return { deleted, stillOrphaned: this.orphanedS3Keys.size };
+  }
+
+  /**
+   * Format bytes to human-readable string
+   */
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   async purgeSoftDeletedEmails(
@@ -73,8 +301,15 @@ export class EmailCleanupService {
       select: { id: true, tenantId: true },
     });
 
+    let attachmentsFound = 0;
+    let s3Deleted = 0;
+    let s3Failed = 0;
+
     for (const email of staleEmails) {
-      await this.permanentlyDeleteEmail(email.id, email.tenantId);
+      const stats = await this.permanentlyDeleteEmail(email.id, email.tenantId);
+      attachmentsFound += stats.attachmentsFound;
+      s3Deleted += stats.s3Deleted;
+      s3Failed += stats.s3Failed;
     }
 
     if (staleEmails.length) {
@@ -85,7 +320,7 @@ export class EmailCleanupService {
       );
     }
 
-    return { removed: staleEmails.length };
+    return { removed: staleEmails.length, attachmentsFound, s3Deleted, s3Failed };
   }
 
   async removeDuplicateEmails(tenantId?: string): Promise<CleanupResult> {
@@ -109,8 +344,15 @@ export class EmailCleanupService {
       `,
     );
 
+    let attachmentsFound = 0;
+    let s3Deleted = 0;
+    let s3Failed = 0;
+
     for (const duplicate of duplicates) {
-      await this.permanentlyDeleteEmail(duplicate.id, duplicate.tenantId);
+      const stats = await this.permanentlyDeleteEmail(duplicate.id, duplicate.tenantId);
+      attachmentsFound += stats.attachmentsFound;
+      s3Deleted += stats.s3Deleted;
+      s3Failed += stats.s3Failed;
     }
 
     if (duplicates.length) {
@@ -121,22 +363,50 @@ export class EmailCleanupService {
       );
     }
 
-    return { removed: duplicates.length };
+    return { removed: duplicates.length, attachmentsFound, s3Deleted, s3Failed };
   }
 
-  private async permanentlyDeleteEmail(id: string, tenantId: string) {
-    // 1. Get attachments BEFORE deleting email
+  /**
+   * Permanently delete email with full cleanup and orphan tracking
+   *
+   * Deletion order:
+   * 1. Get attachments (before email deletion)
+   * 2. Delete embeddings from vector store
+   * 3. Delete email from database (cascades to attachments)
+   * 4. Delete S3 objects (track failures as orphans)
+   *
+   * @param id - Email ID
+   * @param tenantId - Tenant ID for metrics context
+   * @returns Cleanup statistics
+   */
+  private async permanentlyDeleteEmail(id: string, tenantId: string): Promise<{
+    attachmentsFound: number;
+    s3Deleted: number;
+    s3Failed: number;
+    orphanedKeys: string[];
+  }> {
+    // 1. Get attachments BEFORE deleting email (to guarantee cleanup ordering)
     const attachments = await this.prisma.emailAttachment.findMany({
       where: { emailId: id },
-      select: { id: true, storagePath: true, storageType: true, filename: true },
+      select: { id: true, storagePath: true, storageType: true, filename: true, size: true },
     });
 
-    // 2. Delete embeddings
+    const attachmentsFound = attachments.length;
+    let s3Deleted = 0;
+    let s3Failed = 0;
+    const orphanedKeys: string[] = [];
+
+    // 2. Delete embeddings from vector store
     try {
       await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
     } catch (error) {
       this.logger.warn(
-        `Failed to delete embeddings for email ${id}: ${error instanceof Error ? error.message : String(error)}`,
+        JSON.stringify({
+          event: 'embedding_delete_failed',
+          emailId: id,
+          tenantId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
       );
       // Continue with deletion even if embeddings fail
     }
@@ -147,28 +417,76 @@ export class EmailCleanupService {
     });
 
     // 4. Delete S3 files (after DB deletion to ensure cleanup even if S3 fails)
-    const s3Keys = attachments
-      .filter((a) => a.storageType === 's3' && a.storagePath)
-      .map((a) => a.storagePath!);
+    const s3Attachments = attachments.filter((a) => a.storageType === 's3' && a.storagePath);
+    const s3Keys = s3Attachments.map((a) => a.storagePath!);
 
     if (s3Keys.length > 0) {
       try {
         const result = await this.storage.deleteObjects(s3Keys);
-        this.logger.debug(
-          `Deleted ${result.deleted} S3 objects for email ${id} (${result.failed} failed)`,
+        s3Deleted += result.deleted;
+        s3Failed += result.failed;
+
+        // Track successful/failed keys for observability
+        this.logger.log(
+          JSON.stringify({
+            event: 'email_s3_cleanup',
+            emailId: id,
+            tenantId,
+            s3ObjectsDeleted: result.deleted,
+            s3ObjectsFailed: result.failed,
+            totalS3Objects: s3Keys.length,
+          }),
         );
 
+        // If any failed, track them as orphans
         if (result.failed > 0) {
+          // We don't know which specific keys failed from deleteObjects,
+          // so track all of them for potential retry
+          for (const key of s3Keys) {
+            this.orphanedS3Keys.set(key, {
+              key,
+              tenantId,
+              failedAt: new Date(),
+            });
+            orphanedKeys.push(key);
+          }
+
           this.logger.warn(
-            `Failed to delete ${result.failed} S3 objects for email ${id}. Objects may be orphaned.`,
+            JSON.stringify({
+              event: 'orphan_s3_detected',
+              emailId: id,
+              tenantId,
+              orphanedCount: result.failed,
+              keys: s3Keys.slice(0, 5), // Log first 5 keys
+              message: `${result.failed} S3 objects may be orphaned`,
+            }),
           );
         }
       } catch (error) {
+        // Complete failure - all keys are orphans
+        s3Failed += s3Keys.length;
+        for (const key of s3Keys) {
+          this.orphanedS3Keys.set(key, {
+            key,
+            tenantId,
+            failedAt: new Date(),
+          });
+          orphanedKeys.push(key);
+        }
+
         this.logger.error(
-          `Failed to delete S3 objects for email ${id}: ${error instanceof Error ? error.message : String(error)}`,
+          JSON.stringify({
+            event: 's3_batch_delete_failed',
+            emailId: id,
+            tenantId,
+            s3ObjectsOrphaned: s3Keys.length,
+            error: error instanceof Error ? error.message : String(error),
+          }),
         );
         // Don't throw - email already deleted from DB
       }
     }
+
+    return { attachmentsFound, s3Deleted, s3Failed, orphanedKeys };
   }
 }

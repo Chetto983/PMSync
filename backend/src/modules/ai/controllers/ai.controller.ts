@@ -4,11 +4,10 @@ import {
   Body,
   UseGuards,
   Request,
-  Get,
   Param,
-  Delete,
   UsePipes,
   ValidationPipe,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,44 +19,55 @@ import {
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { MistralService } from '../services/mistral.service';
-import { AgentService } from '../services/agent.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
-import { ChatSessionService, StoredChatMessage } from '../services/chat-session.service';
 import { EmailInsightsService } from '../services/email-insights.service';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
 import { SearchKnowledgeBaseDto } from '../dto/knowledge-base.dto';
 import {
   ChatDto,
-  AgentDto,
-  CreateSessionDto,
   EmailAiDto,
   ChatResponseDto,
-  SessionResponseDto,
-  SessionListResponseDto,
-  AgentResponseDto,
   SummaryResponseDto,
   SmartReplyResponseDto,
   CategorizeResponseDto,
   ComposeEmailDto,
   ComposeEmailResponseDto,
+  SentimentResponseDto,
+  PriorityResponseDto,
+  PriorityRequestDto,
+  AnalyzeEmailResponseDto,
 } from '../dto/ai.dto';
 
+/**
+ * AI Controller
+ *
+ * Provides AI-powered endpoints for:
+ * - Simple chat completion (MistralService)
+ * - Email insights (summarize, smart-reply, categorize, compose)
+ * - Knowledge base search (RAG)
+ *
+ * For agentic workflows and session management, use VoltAgentController:
+ * - POST /voltagent/chat - Agentic chat with tool execution
+ * - GET /voltagent/sessions - List sessions
+ * - POST /voltagent/sessions - Create session
+ * - DELETE /voltagent/sessions/:id - Delete session
+ */
 @ApiTags('AI')
 @ApiBearerAuth()
 @Controller('ai')
 @UseGuards(JwtAuthGuard, TenantGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class AiController {
+  private readonly logger = new Logger(AiController.name);
+
   constructor(
     private readonly mistralService: MistralService,
-    private readonly agentService: AgentService,
-    private readonly chatSessionService: ChatSessionService,
     private readonly emailInsightsService: EmailInsightsService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
   ) {}
 
   /**
-   * Classic chat completion backed by the Mistral service
+   * Simple chat completion backed by Mistral
    */
   @Post('chat')
   @ApiOperation({
@@ -79,164 +89,6 @@ export class AiController {
     );
 
     return { success: true, response };
-  }
-
-  /**
-   * List latest chat sessions (FIFO)
-   */
-  @Get('chat/sessions')
-  @ApiOperation({
-    summary: 'List chat sessions',
-    description: 'Retrieve all chat sessions for the current user',
-  })
-  @ApiResponse({ status: 200, description: 'Sessions retrieved', type: SessionListResponseDto })
-  async listSessions(@Request() req: AuthenticatedRequest): Promise<SessionListResponseDto> {
-    const sessions = await this.chatSessionService.listSessions(
-      req.user.tenantId,
-      req.user.userId,
-    );
-    return { success: true, sessions };
-  }
-
-  /**
-   * Get a single chat session by id
-   */
-  @Get('chat/sessions/:id')
-  @ApiOperation({
-    summary: 'Get chat session',
-    description: 'Retrieve a specific chat session by ID',
-  })
-  @ApiParam({ name: 'id', description: 'Session ID' })
-  @ApiResponse({ status: 200, description: 'Session retrieved', type: SessionResponseDto })
-  @ApiResponse({ status: 404, description: 'Session not found' })
-  async getSession(
-    @Request() req: AuthenticatedRequest,
-    @Param('id') sessionId: string,
-  ): Promise<SessionResponseDto | { success: false; session: null }> {
-    const session = await this.chatSessionService.getSession(
-      req.user.tenantId,
-      req.user.userId,
-      sessionId,
-    );
-
-    if (!session) {
-      return { success: false, session: null };
-    }
-
-    return { success: true, session };
-  }
-
-  /**
-   * Create a new chat session
-   */
-  @Post('chat/sessions')
-  @ApiOperation({
-    summary: 'Create chat session',
-    description: 'Create a new chat session for the current user',
-  })
-  @ApiResponse({ status: 201, description: 'Session created', type: SessionResponseDto })
-  async createSession(
-    @Request() req: AuthenticatedRequest,
-    @Body() dto: CreateSessionDto,
-  ): Promise<SessionResponseDto> {
-    const session = await this.chatSessionService.createSession({
-      tenantId: req.user.tenantId,
-      userId: req.user.userId,
-      locale: dto?.locale,
-    });
-
-    return { success: true, session };
-  }
-
-  /**
-   * Delete a chat session
-   */
-  @Delete('chat/sessions/:id')
-  @ApiOperation({
-    summary: 'Delete chat session',
-    description: 'Delete a specific chat session by ID',
-  })
-  @ApiParam({ name: 'id', description: 'Session ID' })
-  @ApiResponse({ status: 200, description: 'Session deleted' })
-  @ApiResponse({ status: 404, description: 'Session not found' })
-  async deleteSession(
-    @Request() req: AuthenticatedRequest,
-    @Param('id') sessionId: string,
-  ): Promise<{ success: boolean }> {
-    const deleted = await this.chatSessionService.deleteSession({
-      tenantId: req.user.tenantId,
-      userId: req.user.userId,
-      sessionId,
-    });
-
-    return { success: deleted };
-  }
-
-  /**
-   * Agentic workflow powered by LangChain
-   */
-  @Post('agent')
-  @ApiOperation({
-    summary: 'Agentic AI workflow',
-    description: 'Process a message using LangChain-powered agent with tool execution capabilities',
-  })
-  @ApiResponse({ status: 200, description: 'Agent response generated', type: AgentResponseDto })
-  async agent(
-    @Request() req: AuthenticatedRequest,
-    @Body() dto: AgentDto,
-  ): Promise<AgentResponseDto> {
-    const tenantId = req.user.tenantId;
-    const userId = req.user.userId;
-
-    let session =
-      (await this.chatSessionService.getSession(tenantId, userId, dto.sessionId ?? '')) ?? null;
-
-    if (!session) {
-      session = await this.chatSessionService.createSession({
-        tenantId,
-        userId,
-        locale: dto.locale,
-      });
-    }
-
-    const history: StoredChatMessage[] = (dto.history ?? []).map((item) => ({
-      role: item.role === 'assistant' ? 'assistant' : 'user',
-      content: item.content,
-      ...(item.steps ? { steps: item.steps } : {}),
-    }));
-
-    const result = await this.agentService.runAgent({
-      tenantId,
-      userId,
-      prompt: dto.message,
-      conversationId: session.id,
-      history,
-    });
-
-    const assistantMessage: StoredChatMessage = {
-      role: 'assistant',
-      content: result.output,
-      steps: result.intermediateSteps ?? [],
-    };
-
-    const updatedMessages: StoredChatMessage[] = [...history, assistantMessage];
-
-    const updatedSession = await this.chatSessionService.saveSessionMessages({
-      tenantId,
-      userId,
-      sessionId: session.id,
-      messages: updatedMessages,
-      locale: dto.locale,
-    });
-
-    return {
-      success: true,
-      sessionId: updatedSession.id,
-      session: updatedSession,
-      messages: updatedMessages,
-      response: result.output,
-      steps: result.intermediateSteps ?? [],
-    };
   }
 
   /**
@@ -341,7 +193,7 @@ export class AiController {
   }
 
   /**
-   * Retrieve semantic memories (RAG) scoped to the tenant
+   * Search knowledge base using semantic similarity (RAG)
    */
   @Post('memory/search')
   @ApiOperation({
@@ -369,6 +221,96 @@ export class AiController {
       query: dto.query,
       limit: dto.limit,
     });
+
+    return { success: true, ...result };
+  }
+
+  // ============ Email Intelligence Endpoints (2025 Best Practices) ============
+
+  /**
+   * Analyze email sentiment with aspect-based analysis
+   * Uses 2025 best practices: ABSA, emotion detection, churn risk
+   */
+  @Post('sentiment/:emailId')
+  @ApiOperation({
+    summary: 'Analyze email sentiment',
+    description: 'Deep sentiment analysis with emotion detection, aspect-based analysis, and churn risk prediction',
+  })
+  @ApiParam({ name: 'emailId', description: 'Email ID to analyze' })
+  @ApiResponse({ status: 200, description: 'Sentiment analysis complete', type: SentimentResponseDto })
+  @ApiResponse({ status: 404, description: 'Email not found' })
+  async analyzeSentiment(
+    @Request() req: AuthenticatedRequest,
+    @Param('emailId') emailId: string,
+    @Body() dto?: EmailAiDto,
+  ): Promise<SentimentResponseDto> {
+    const result = await this.emailInsightsService.analyzeSentiment(
+      req.user.tenantId,
+      emailId,
+      dto?.locale,
+    );
+
+    return {
+      success: true,
+      sentiment: result.sentiment as 'positive' | 'negative' | 'neutral' | 'mixed',
+      tone: result.tone,
+      emotion: result.emotion,
+      emotionalIntensity: result.emotionalIntensity,
+      churnRisk: result.churnRisk,
+      aspects: result.aspects,
+      confidence: result.confidence,
+      reasoning: result.reasoning,
+    };
+  }
+
+  /**
+   * Calculate email priority with multi-factor scoring
+   */
+  @Post('priority/:emailId')
+  @ApiOperation({
+    summary: 'Calculate email priority',
+    description: 'Multi-factor priority scoring based on urgency, importance, and sender context',
+  })
+  @ApiParam({ name: 'emailId', description: 'Email ID to analyze' })
+  @ApiResponse({ status: 200, description: 'Priority calculated', type: PriorityResponseDto })
+  @ApiResponse({ status: 404, description: 'Email not found' })
+  async calculatePriority(
+    @Request() req: AuthenticatedRequest,
+    @Param('emailId') emailId: string,
+    @Body() dto?: PriorityRequestDto,
+  ): Promise<PriorityResponseDto> {
+    const result = await this.emailInsightsService.calculatePriority(
+      req.user.tenantId,
+      emailId,
+      dto?.locale,
+      dto?.senderImportance,
+    );
+
+    return { success: true, ...result };
+  }
+
+  /**
+   * Comprehensive email analysis
+   * Combines sentiment, priority, intent, and urgency in one call
+   */
+  @Post('analyze/:emailId')
+  @ApiOperation({
+    summary: 'Comprehensive email analysis',
+    description: 'Full analysis including sentiment, tone, urgency, intent, priority, and escalation risk',
+  })
+  @ApiParam({ name: 'emailId', description: 'Email ID to analyze' })
+  @ApiResponse({ status: 200, description: 'Analysis complete', type: AnalyzeEmailResponseDto })
+  @ApiResponse({ status: 404, description: 'Email not found' })
+  async analyzeEmail(
+    @Request() req: AuthenticatedRequest,
+    @Param('emailId') emailId: string,
+    @Body() dto?: EmailAiDto,
+  ): Promise<AnalyzeEmailResponseDto> {
+    const result = await this.emailInsightsService.analyzeEmail(
+      req.user.tenantId,
+      emailId,
+      dto?.locale,
+    );
 
     return { success: true, ...result };
   }

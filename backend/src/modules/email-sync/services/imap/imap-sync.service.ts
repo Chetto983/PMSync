@@ -15,9 +15,96 @@ import { BaseEmailSyncService } from '../base-email-sync.service';
 const IMAP_BODY_DOWNLOAD_TIMEOUT_MS = 10000;
 const IMAP_BODY_MAX_BYTES = 2 * 1024 * 1024; // 2MB
 
+/**
+ * Extract Message-ID from various formats (with or without angle brackets)
+ */
+function normalizeMessageId(messageId: string | null | undefined): string | null {
+  if (!messageId) return null;
+  // Remove angle brackets and whitespace
+  return messageId.replace(/^</, '').replace(/>$/, '').trim();
+}
+
 @Injectable()
 export class ImapSyncService extends BaseEmailSyncService {
   protected readonly logger = new Logger(ImapSyncService.name);
+
+  /**
+   * Find or generate a threadId for an IMAP email based on inReplyTo and references
+   * This creates thread relationships similar to Gmail's native threading
+   */
+  private async findOrCreateThreadId(
+    tenantId: string,
+    providerId: string,
+    messageId: string | null,
+    inReplyTo: string | null,
+    references: string | null,
+  ): Promise<string | null> {
+    // Try to find an existing thread by inReplyTo
+    if (inReplyTo) {
+      const normalizedInReplyTo = normalizeMessageId(inReplyTo);
+      if (normalizedInReplyTo) {
+        const parent = await this.prisma.email.findFirst({
+          where: {
+            tenantId,
+            providerId,
+            OR: [
+              { messageId: normalizedInReplyTo },
+              { messageId: `<${normalizedInReplyTo}>` },
+            ],
+          },
+          select: { threadId: true, messageId: true },
+        });
+        if (parent?.threadId) {
+          return parent.threadId;
+        }
+        // If parent exists but has no threadId, use its messageId as threadId
+        if (parent?.messageId) {
+          return normalizeMessageId(parent.messageId);
+        }
+      }
+    }
+
+    // Try to find an existing thread by references (oldest first)
+    if (references) {
+      const refList = references.split(/\s+/).filter(Boolean);
+      for (const ref of refList) {
+        const normalizedRef = normalizeMessageId(ref);
+        if (!normalizedRef) continue;
+
+        const refEmail = await this.prisma.email.findFirst({
+          where: {
+            tenantId,
+            providerId,
+            OR: [
+              { messageId: normalizedRef },
+              { messageId: `<${normalizedRef}>` },
+            ],
+          },
+          select: { threadId: true, messageId: true },
+        });
+        if (refEmail?.threadId) {
+          return refEmail.threadId;
+        }
+        // Use the first reference's messageId as threadId (this is the root)
+        if (refEmail?.messageId) {
+          return normalizeMessageId(refEmail.messageId);
+        }
+      }
+      // If no matching emails found, use the first reference as the threadId
+      const firstRef = normalizeMessageId(refList[0]);
+      if (firstRef) {
+        return firstRef;
+      }
+    }
+
+    // No thread found - this is a new thread, use this email's messageId
+    if (messageId) {
+      return normalizeMessageId(messageId);
+    }
+
+    // No messageId available - can't create a meaningful threadId
+    return null;
+  }
 
   constructor(
     prisma: PrismaService,
@@ -79,6 +166,7 @@ export class ImapSyncService extends BaseEmailSyncService {
       let messagesProcessed = 0;
       let newMessages = 0;
       let maxUid = lastUid;
+      let metadataUpdates: Record<string, any> | undefined;
 
       if (syncType === 'incremental' && lastUid > 0) {
         // Incremental sync - only fetch messages after last UID
@@ -106,6 +194,14 @@ export class ImapSyncService extends BaseEmailSyncService {
 
       await client.logout();
 
+      if ((provider.metadata as any)?.backfillRequired) {
+        metadataUpdates = {
+          ...(provider.metadata as Record<string, any>),
+          backfillRequired: false,
+          imapLastFullScanAt: new Date().toISOString(),
+        };
+      }
+
       return {
         success: true,
         providerId,
@@ -114,6 +210,7 @@ export class ImapSyncService extends BaseEmailSyncService {
         newMessages,
         syncDuration: 0, // Will be set by worker
         lastSyncToken: maxUid.toString(),
+        metadata: metadataUpdates,
       };
     } catch (error) {
       this.logger.error(`IMAP sync failed for ${email}:`, error);
@@ -208,11 +305,14 @@ export class ImapSyncService extends BaseEmailSyncService {
     providerId: string,
     tenantId: string,
   ): Promise<number> {
-    const WINDOW = 500;
+    const WINDOW = this.config.get<number>('IMAP_RECONCILE_WINDOW', 2000);
+    const fullScanDays = this.config.get<number>('IMAP_RECONCILE_FULLSCAN_DAYS', 30);
+    const fullScanThreshold = Date.now() - fullScanDays * 24 * 60 * 60 * 1000;
+    let totalMessages = 0;
 
     try {
       const mailboxStatus = await client.status('INBOX', { messages: true });
-      const totalMessages = mailboxStatus.messages || 0;
+      totalMessages = mailboxStatus.messages || 0;
 
       if (totalMessages === 0) {
         const result = await this.prisma.email.updateMany({
@@ -326,6 +426,41 @@ export class ImapSyncService extends BaseEmailSyncService {
         `Failed to reconcile IMAP deletions for provider ${providerId} (tenant ${tenantId}): ${message}`,
       );
       return 0;
+    } finally {
+      // Periodic full-scan/backfill flagging if window may miss older deletions
+      try {
+        if (WINDOW < totalMessages) {
+          const provider = await this.prisma.providerConfig.findUnique({
+            where: { id: providerId },
+            select: { metadata: true },
+          });
+
+          const metadata = (provider?.metadata as Record<string, any>) || {};
+          const lastFullScanAt = metadata.imapLastFullScanAt
+            ? new Date(metadata.imapLastFullScanAt).getTime()
+            : 0;
+
+          if (!lastFullScanAt || lastFullScanAt < fullScanThreshold) {
+            const updatedMetadata = {
+              ...metadata,
+              imapLastFullScanAt: new Date().toISOString(),
+              backfillRequired: true,
+            };
+
+            await this.prisma.providerConfig.update({
+              where: { id: providerId },
+              data: { metadata: updatedMetadata },
+            });
+
+            this.logger.warn(
+              `IMAP provider ${providerId} marked for backfill (window ${WINDOW} < total ${totalMessages}); last full scan outdated.`,
+            );
+          }
+        }
+      } catch (metaError) {
+        const msg = this.extractErrorMessage(metaError);
+        this.logger.debug(`Could not update IMAP backfill metadata for ${providerId}: ${msg}`);
+      }
     }
   }
 
@@ -516,6 +651,15 @@ export class ImapSyncService extends BaseEmailSyncService {
       const isDeleted = flags.has('\\Deleted');
       const folder = isDeleted ? 'TRASH' : 'INBOX';
 
+      // Generate threadId from inReplyTo and references headers
+      const threadId = await this.findOrCreateThreadId(
+        tenantId,
+        providerId,
+        messageId,
+        inReplyTo,
+        envelope.references,
+      );
+
       // Save to database with upsert to prevent duplicates
       const emailRecord = await this.prisma.email.upsert({
         where: {
@@ -528,7 +672,7 @@ export class ImapSyncService extends BaseEmailSyncService {
           tenantId,
           providerId,
           externalId: message.uid.toString(),
-          threadId: null, // IMAP doesn't have native threading
+          threadId, // Generated from inReplyTo/references headers
           messageId,
           inReplyTo,
           references: envelope.references,

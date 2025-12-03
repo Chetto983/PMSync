@@ -128,7 +128,10 @@ async function bootstrap() {
       logger.log('✅ Application closed gracefully');
       process.exit(0);
     } catch (error) {
-      logger.error('❌ Error during shutdown:', error);
+      // Properly serialize error for Pino logger
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      logger.error({ err: { message: errorMessage, stack: errorStack } }, '❌ Error during shutdown');
       process.exit(1);
     }
   };

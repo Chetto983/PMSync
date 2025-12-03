@@ -309,3 +309,188 @@ export class CategorizeResponseDto {
   })
   labels: string[];
 }
+
+/**
+ * Sentiment analysis result - 2025 Best Practice with ABSA (Aspect-Based Sentiment Analysis)
+ * Includes emotion detection, polarity, urgency, and churn risk.
+ *
+ * References:
+ * - Aspect-based sentiment for granular insights
+ * - Emotion detection beyond simple polarity
+ * - ChurnRisk tagging for escalation prediction
+ */
+export class SentimentResponseDto {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({
+    description: 'Overall sentiment polarity',
+    enum: ['positive', 'negative', 'neutral', 'mixed'],
+    example: 'positive',
+  })
+  sentiment: 'positive' | 'negative' | 'neutral' | 'mixed';
+
+  @ApiProperty({
+    description: 'Detected communication tone',
+    enum: ['formal', 'casual', 'urgent', 'friendly', 'cold', 'assertive'],
+    example: 'formal',
+  })
+  tone: string;
+
+  @ApiProperty({
+    description: 'Primary emotion detected (beyond polarity)',
+    enum: ['joy', 'gratitude', 'excitement', 'neutral', 'concern', 'frustration', 'anger', 'disappointment', 'sadness'],
+    example: 'gratitude',
+  })
+  emotion: string;
+
+  @ApiProperty({
+    description: 'Emotional intensity (0-1)',
+    example: 0.7,
+  })
+  emotionalIntensity: number;
+
+  @ApiProperty({
+    description: 'Confidence score (0-1)',
+    example: 0.85,
+  })
+  confidence: number;
+
+  @ApiProperty({
+    description: 'Churn/escalation risk indicator',
+    example: false,
+  })
+  churnRisk: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Aspect-based sentiments (subject, service, timeline, etc.)',
+    example: { subject: 'positive', timeline: 'negative', service: 'neutral' },
+  })
+  aspects?: Record<string, string>;
+
+  @ApiPropertyOptional({
+    description: 'Reasoning for the sentiment analysis',
+    example: 'The email uses polite language and expresses gratitude for quick resolution.',
+  })
+  reasoning?: string;
+}
+
+/**
+ * Priority calculation result
+ */
+export class PriorityResponseDto {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({
+    description: 'Priority score (1-10)',
+    example: 8,
+  })
+  score: number;
+
+  @ApiProperty({
+    description: 'Urgency level',
+    enum: ['high', 'medium', 'low'],
+    example: 'high',
+  })
+  urgency: string;
+
+  @ApiProperty({
+    description: 'Recommended action timing',
+    enum: ['handle_now', 'handle_today', 'handle_this_week', 'can_wait', 'archive'],
+    example: 'handle_today',
+  })
+  recommendation: string;
+
+  @ApiProperty({
+    description: 'Factors contributing to priority',
+    type: [String],
+    example: ['deadline mentioned', 'sender is VIP', 'action required'],
+  })
+  factors: string[];
+}
+
+/**
+ * Comprehensive email analysis result
+ */
+export class AnalyzeEmailResponseDto {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({
+    description: 'Sentiment',
+    enum: ['positive', 'negative', 'neutral'],
+  })
+  sentiment: string;
+
+  @ApiProperty({
+    description: 'Tone',
+    enum: ['formal', 'casual', 'urgent', 'friendly'],
+  })
+  tone: string;
+
+  @ApiProperty({
+    description: 'Urgency level',
+    enum: ['high', 'medium', 'low'],
+  })
+  urgency: string;
+
+  @ApiProperty({
+    description: 'Primary intent',
+    example: 'action_required',
+  })
+  intent: string;
+
+  @ApiProperty({
+    description: 'Priority score (1-10)',
+    example: 7,
+  })
+  priority: number;
+
+  @ApiProperty({
+    description: 'Risk of escalation',
+    example: false,
+  })
+  escalationRisk: boolean;
+
+  @ApiProperty({
+    description: 'Key topics extracted',
+    type: [String],
+    example: ['budget', 'deadline', 'approval'],
+  })
+  keyTopics: string[];
+
+  @ApiProperty({
+    description: 'Suggested response timing',
+    enum: ['immediate', 'within_day', 'within_week', 'optional'],
+  })
+  suggestedResponse: string;
+
+  @ApiProperty({
+    description: 'Confidence score',
+    example: 0.9,
+  })
+  confidence: number;
+}
+
+/**
+ * DTO for priority calculation with sender context
+ */
+export class PriorityRequestDto {
+  @ApiPropertyOptional({
+    description: 'Known sender importance level',
+    enum: ['vip', 'important', 'normal', 'low'],
+    example: 'normal',
+  })
+  @IsOptional()
+  @IsString()
+  senderImportance?: 'vip' | 'important' | 'normal' | 'low';
+
+  @ApiPropertyOptional({
+    description: 'Locale for response language',
+    example: 'en',
+  })
+  @IsOptional()
+  @IsString()
+  locale?: string;
+}

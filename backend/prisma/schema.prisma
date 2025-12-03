@@ -17,14 +17,13 @@ model Tenant {
   deletedAt            DateTime?
   auditLogs            AuditLog[]
   calendarEvents       CalendarEvent[]
-  chatSessions         ChatSession[]
   contacts             Contact[]             @relation("ContactToTenant")
   providerContacts     ProviderContact[]     @relation("ProviderContactToTenant")
   emails               Email[]
   embeddings           Embedding[]
   folders              Folder[]
-  messages             Message[]
   providerConfigs      ProviderConfig[]
+  scheduledEmails      ScheduledEmail[]
   users                User[]
   webhookSubscriptions WebhookSubscription[]
   userLabels           UserLabel[]
@@ -47,8 +46,6 @@ model User {
   updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
   auditLogs             AuditLog[]
-  chatSessions          ChatSession[]
-  messages              Message[]
   mfaCodes              MfaCode[]
   sessions              Session[]
   userPreferences       UserPreferences?
@@ -199,6 +196,7 @@ model ProviderConfig {
   providerContacts         ProviderContact[]     @relation("ProviderContactToProvider")
   emails                   Email[]
   folders                  Folder[]
+  scheduledEmails          ScheduledEmail[]
   tenant                   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   webhookSubscriptions     WebhookSubscription[]
 
@@ -258,6 +256,34 @@ model Email {
   @@index([sentAt])
   @@index([crossProviderLinkId])
   @@map("emails")
+}
+
+model ScheduledEmail {
+  id          String   @id @default(cuid())
+  tenantId    String
+  providerId  String
+  to          String[]
+  cc          String[] @default([])
+  bcc         String[] @default([])
+  subject     String
+  bodyHtml    String
+  bodyText    String
+  inReplyTo   String?
+  references  String?
+  attachments Json?    // Store attachment data as JSON
+  scheduledAt DateTime
+  status      String   @default("pending") // pending, processing, sent, failed
+  errorMessage String?
+  retryCount  Int      @default(0)
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  provider    ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, scheduledAt])
+  @@index([scheduledAt, status])
+  @@map("scheduled_emails")
 }
 
 model Folder {
@@ -352,6 +378,7 @@ model EmailAttachment {
   contentId   String?
   storageType String   @default("local")
   storagePath String?
+  contentHash String?
   isInline    Boolean  @default(false)
   createdAt   DateTime @default(now())
   email       Email    @relation(fields: [emailId], references: [id], onDelete: Cascade)
@@ -383,45 +410,10 @@ model EmailCrossProviderLink {
   @@map("email_cross_provider_links")
 }
 
-model Message {
-  id             String     @id @default(cuid())
-  tenantId       String
-  userId         String
-  conversationId String?
-  role           String
-  content        String
-  embeddingId    String?
-  isDeleted      Boolean    @default(false)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  embedding      Embedding? @relation(fields: [embeddingId], references: [id])
-  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, userId, conversationId])
-  @@index([createdAt])
-  @@map("messages")
-}
-
-model ChatSession {
-  id        String   @id @default(cuid())
-  tenantId  String
-  userId    String
-  title     String
-  messages  Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, userId, updatedAt])
-  @@map("chat_sessions")
-}
 
 model Embedding {
   id             String                 @id @default(cuid())
   tenantId       String
-  messageId      String?
   documentName   String?
   content        String
   vector         Unsupported("vector")?
@@ -429,7 +421,6 @@ model Embedding {
   metadata       Json?
   createdAt      DateTime               @default(now())
   tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  messages       Message[]
 
   @@index([tenantId])
   @@map("embeddings")
@@ -963,4 +954,114 @@ model WritingStyleProfile {
   @@unique([tenantId, userId])
   @@index([tenantId, userId])
   @@map("writing_style_profiles")
+}
+
+// ============================================
+// VoltAgent Memory System - 2025 Best Practices
+// ============================================
+
+// VoltAgent Conversation - Enhanced session management
+// Replaces/extends ChatSession with better memory features
+model VoltAgentConversation {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+
+  // Conversation metadata
+  title           String?
+  locale          String  @default("en")
+  lastActiveAt    DateTime @default(now())
+  messageCount    Int      @default(0)
+
+  // Memory management
+  isSummarized    Boolean  @default(false) // Has this conversation been compressed?
+  summaryUpToIndex Int?    // Messages summarized up to this index
+
+  // Status
+  isArchived Boolean @default(false)
+  isDeleted  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  messages  VoltAgentMessage[]
+  summaries ConversationSummary[]
+
+  @@index([tenantId, userId, lastActiveAt])
+  @@index([tenantId, userId, isDeleted])
+  @@map("voltagent_conversations")
+}
+
+// VoltAgent Message - Individual messages with semantic search support
+// Enables hybrid search: vector similarity + recency decay
+model VoltAgentMessage {
+  id             String @id @default(cuid())
+  conversationId String
+  tenantId       String
+  userId         String
+
+  // Message content
+  role    String // "user" | "assistant" | "system"
+  content String @db.Text
+
+  // Semantic search support (pgvector)
+  vector Unsupported("vector")? // 1024-dim embedding for semantic search
+
+  // Tool execution metadata
+  toolCalls Json? // Array of tool invocations
+  toolResults Json? // Array of tool results
+
+  // Ordering and recency
+  messageIndex Int // Sequential index within conversation
+
+  // Metadata
+  tokenCount Int? // Token count for context management
+  metadata   Json?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  conversation VoltAgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, messageIndex])
+  @@index([tenantId, userId, createdAt])
+  @@index([tenantId, createdAt]) // For recency queries
+  @@map("voltagent_messages")
+}
+
+// Conversation Summary - Memory compression for long conversations
+// 2025 Best Practice: Summarize older messages to save context window
+model ConversationSummary {
+  id             String @id @default(cuid())
+  conversationId String
+  tenantId       String
+  userId         String
+
+  // Summary content
+  summary String @db.Text // Compressed summary of messages
+
+  // Semantic search support
+  vector Unsupported("vector")? // Embedding for summary retrieval
+
+  // What was summarized
+  startMessageIndex Int // First message in this summary
+  endMessageIndex   Int // Last message in this summary
+  messageCountCovered Int // Number of messages summarized
+
+  // Key facts extracted (for structured retrieval)
+  keyFacts Json? // Array of { fact: string, importance: number }
+  topics   String[] @default([]) // Main topics discussed
+
+  // Quality metrics
+  summaryTokens Int? // Token count of summary
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  conversation VoltAgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([tenantId, userId])
+  @@map("conversation_summaries")
 }

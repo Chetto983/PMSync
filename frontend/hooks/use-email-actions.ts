@@ -40,6 +40,10 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
    */
   const handleDelete = useCallback(
     async (emailId: string) => {
+      // Save email for potential rollback
+      const { emails } = useEmailStore.getState();
+      const emailToDelete = emails.find((e) => e.id === emailId);
+
       try {
         // Optimistic update
         deleteEmail(emailId);
@@ -50,6 +54,10 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacks?.onSuccess?.('Email deleted successfully ✓');
       } catch (error) {
         console.error('Failed to delete email:', error);
+        // Rollback: restore the deleted email
+        if (emailToDelete) {
+          useEmailStore.getState().addEmail(emailToDelete);
+        }
         callbacks?.onError?.('Failed to delete email. Please try again.');
       }
     },
@@ -61,6 +69,10 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
    */
   const handleBulkDelete = useCallback(
     async (emailIds: string[]) => {
+      // Save emails for potential rollback
+      const { emails } = useEmailStore.getState();
+      const emailsToDelete = emails.filter((e) => emailIds.includes(e.id));
+
       try {
         // Optimistic update
         bulkDelete(emailIds);
@@ -71,6 +83,11 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} deleted successfully ✓`);
       } catch (error) {
         console.error('Failed to bulk delete emails:', error);
+        // Rollback: restore deleted emails
+        if (emailsToDelete.length > 0) {
+          const store = useEmailStore.getState();
+          emailsToDelete.forEach((email) => store.addEmail(email));
+        }
         callbacks?.onError?.('Failed to delete emails. Please try again.');
       }
     },
@@ -82,6 +99,12 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
    */
   const handleMarkAsRead = useCallback(
     async (emailIds: string[], isRead: boolean = true) => {
+      // Save previous read states for potential rollback
+      const { emails } = useEmailStore.getState();
+      const previousStates = emails
+        .filter((e) => emailIds.includes(e.id))
+        .map((e) => ({ id: e.id, isRead: e.isRead }));
+
       try {
         // Optimistic update
         markAsRead(emailIds);
@@ -93,6 +116,11 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacks?.onSuccess?.(`Marked as ${action} ✓`);
       } catch (error) {
         console.error('Failed to mark emails as read:', error);
+        // Rollback: restore previous read states
+        const store = useEmailStore.getState();
+        previousStates.forEach(({ id, isRead: wasRead }) => {
+          store.updateEmail(id, { isRead: wasRead });
+        });
         callbacks?.onError?.('Failed to update email status. Please try again.');
       }
     },
@@ -179,6 +207,12 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
    */
   const handleArchive = useCallback(
     async (emailIds: string[]) => {
+      // Save previous folders for potential rollback
+      const { emails } = useEmailStore.getState();
+      const previousFolders = emails
+        .filter((e) => emailIds.includes(e.id))
+        .map((e) => ({ id: e.id, folder: e.folder }));
+
       try {
         // Optimistic update
         moveToFolder(emailIds, 'ARCHIVE');
@@ -189,6 +223,11 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} archived ✓`);
       } catch (error) {
         console.error('Failed to archive emails:', error);
+        // Rollback: restore previous folders
+        const store = useEmailStore.getState();
+        previousFolders.forEach(({ id, folder }) => {
+          store.updateEmail(id, { folder });
+        });
         callbacks?.onError?.('Failed to archive emails. Please try again.');
       }
     },
@@ -200,6 +239,12 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
    */
   const handleMoveToFolder = useCallback(
     async (emailIds: string[], folderId: string) => {
+      // Save previous folders for potential rollback
+      const { emails } = useEmailStore.getState();
+      const previousFolders = emails
+        .filter((e) => emailIds.includes(e.id))
+        .map((e) => ({ id: e.id, folder: e.folder }));
+
       try {
         // Optimistic update
         moveToFolder(emailIds, folderId);
@@ -210,6 +255,11 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} moved ✓`);
       } catch (error) {
         console.error('Failed to move emails to folder:', error);
+        // Rollback: restore previous folders
+        const store = useEmailStore.getState();
+        previousFolders.forEach(({ id, folder }) => {
+          store.updateEmail(id, { folder });
+        });
         callbacks?.onError?.('Failed to move emails. Please try again.');
       }
     },
@@ -217,13 +267,14 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   );
 
   /**
-   * Reply to email
+   * Reply to email - uses query params to trigger compose dialog
    */
   const handleReply = useCallback(
     (email: Email) => {
       router.push({
-        pathname: '/dashboard/email/compose',
+        pathname: '/dashboard/email',
         query: {
+          compose: 'reply',
           replyTo: email.id,
           to: email.from,
           subject: `Re: ${email.subject}`,
@@ -234,16 +285,16 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   );
 
   /**
-   * Forward email
+   * Forward email - uses query params to trigger compose dialog
    */
   const handleForward = useCallback(
     (email: Email) => {
       router.push({
-        pathname: '/dashboard/email/compose',
+        pathname: '/dashboard/email',
         query: {
+          compose: 'forward',
           forward: email.id,
           subject: `Fwd: ${email.subject}`,
-          body: email.body,
         },
       });
     },

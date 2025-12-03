@@ -153,6 +153,12 @@ interface AuthScreenCopy {
 }
 
 export interface AppTranslations {
+  /**
+   * Current locale code (e.g., 'en', 'it')
+   * Used for AI compose and other locale-aware features
+   */
+  locale: LocaleKey;
+
   app: {
     name: string;
     tagline: string;
@@ -399,6 +405,8 @@ export interface AppTranslations {
         sendError: string;
         uploadError: string;
         fileTooLarge: string;
+        fileTypeNotAllowed: string;
+        totalSizeExceeded: string;
         draftSaved: string;
         discardConfirm: string;
         aiCompose: string;
@@ -537,6 +545,24 @@ export interface AppTranslations {
       unreadSubtitle?: string;
       labelTitle?: string;
       labelSubtitle?: string;
+      // Extended empty states
+      inboxTitle?: string;
+      inboxSubtitle?: string;
+      starredTitle?: string;
+      starredSubtitle?: string;
+      archiveTitle?: string;
+      archiveSubtitle?: string;
+      searchTitle?: string;
+      searchSubtitle?: string;
+    };
+    swipe?: {
+      delete?: string;
+      markRead?: string;
+      markUnread?: string;
+      archive?: string;
+    };
+    skeleton?: {
+      loadingEmails?: string;
     };
     emailView: {
       folderLabel: string;
@@ -554,6 +580,7 @@ export interface AppTranslations {
       download: string;
       reply: string;
       replyAll: string;
+      replyPlaceholder: string;
       forward: string;
       summaryTitle: string;
       summaryGenerate: string;
@@ -1158,6 +1185,20 @@ export interface AppTranslations {
     reject: string;
     confidence: string;
     tips: string;
+    // Streaming chat (2025 best practices)
+    chat?: {
+      stop: string;
+      retry: string;
+      clear: string;
+      copy: string;
+      insert: string;
+      error: string;
+      errorNetwork: string;
+      streaming: string;
+      placeholder: string;
+      howCanIHelp: string;
+      scrollToBottom: string;
+    };
     // Dashboard AI widget
     unread: string;
     learned: string;
@@ -1197,6 +1238,30 @@ export interface AppTranslations {
       todaySchedule: string;
       searchContacts: string;
     };
+    // Email Intelligence (2025 best practices)
+    analyzingSentiment?: string;
+    sentimentError?: string;
+    sentiment?: string;
+    emotion?: string;
+    tone?: string;
+    intensity?: string;
+    churnRisk?: string;
+    escalation?: string;
+    aspectBreakdown?: string;
+    calculatingPriority?: string;
+    priorityError?: string;
+    priority?: string;
+    urgency?: string;
+    recommendation?: string;
+    factors?: string;
+    contributingFactors?: string;
+    handleNow?: string;
+    handleToday?: string;
+    handleThisWeek?: string;
+    canWait?: string;
+    archive?: string;
+    suggestedByAi?: string;
+    categorizationFailed?: string;
     categories?: {
       email: string;
       calendar: string;
@@ -1278,6 +1343,18 @@ export interface AppTranslations {
       busy: string;
       attendees: string;
     };
+  };
+  commandPalette?: {
+    searchPlaceholder: string;
+    navigation: string;
+    actions: string;
+    recentSearches: string;
+    emailResults: string;
+    noResults: string;
+    pressEnterToSearch: string;
+    navigate: string;
+    select: string;
+    openWith: string;
   };
   errors: {
     notFound: {

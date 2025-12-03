@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { QueueService } from './queue.service';
 import { SyncJobData } from '../interfaces/sync-job.interface';
 
@@ -11,9 +12,13 @@ export class SyncSchedulerService {
   private isRunning = false;
 
   // Configuration - OPTIMIZED FOR 1000+ TENANTS (Plan B)
-  private readonly BATCH_SIZE = 200; // Process 200 providers per cycle (was 50)
-  private readonly SYNC_INTERVAL_MINUTES = 5; // Sync every 5 minutes
+  private readonly BATCH_SIZE =
+    Number(this.configService.get<number>('SYNC_SCHEDULER_BATCH_SIZE')) || 200; // Process 200 providers per cycle (was 50)
+  private readonly SYNC_INTERVAL_MINUTES =
+    Number(this.configService.get<number>('SYNC_SCHEDULER_INTERVAL_MINUTES')) || 5; // Sync every 5 minutes
   private readonly INCREMENTAL_THRESHOLD_HOURS = 6; // Use incremental if last sync < 6h ago (was 1h - more aggressive)
+  private readonly RATE_LIMIT_COOLDOWN_MINUTES =
+    Number(this.configService.get<number>('SYNC_RATE_LIMIT_COOLDOWN_MINUTES')) || 10;
 
   // Webhook-First Configuration (configurable via ENV)
   private readonly WEBHOOK_STALE_THRESHOLD_MINUTES: number; // Consider webhook stale if no notification in N min
@@ -201,11 +206,31 @@ export class SyncSchedulerService {
       return false;
     });
 
+    // Backpressure: skip providers recently rate-limited/throttled
+    const nowMs = Date.now();
+    const cooldownMs = this.RATE_LIMIT_COOLDOWN_MINUTES * 60 * 1000;
+    const backpressureFiltered = providersNeedingSync.filter((provider) => {
+      const metadata = (provider.metadata || {}) as Record<string, any>;
+      const lastRateLimitAt = metadata.lastRateLimitAt ? new Date(metadata.lastRateLimitAt).getTime() : 0;
+      const lastThrottleAt = metadata.lastThrottleAt ? new Date(metadata.lastThrottleAt).getTime() : 0;
+
+      const recentRateLimit = lastRateLimitAt > 0 && nowMs - lastRateLimitAt < cooldownMs;
+      const recentThrottle = lastThrottleAt > 0 && nowMs - lastThrottleAt < cooldownMs;
+
+      if (recentRateLimit || recentThrottle) {
+        this.logger.warn(
+          `Backpressure: skipping ${provider.email} (rateLimit=${recentRateLimit}, throttle=${recentThrottle}) within ${this.RATE_LIMIT_COOLDOWN_MINUTES}m cooldown`,
+        );
+        return false;
+      }
+      return true;
+    });
+
     // Limit to original batch size after filtering
-    const result = providersNeedingSync.slice(0, this.BATCH_SIZE);
+    const result = backpressureFiltered.slice(0, this.BATCH_SIZE);
 
     this.logger.debug(
-      `Webhook-first filter: ${providers.length} candidates → ${providersNeedingSync.length} need cron → ${result.length} selected (batch limit)`,
+      `Webhook/backpressure filter: ${providers.length} candidates → ${backpressureFiltered.length} need cron → ${result.length} selected (batch limit)`,
     );
 
     return result;
@@ -218,8 +243,8 @@ export class SyncSchedulerService {
     const jobs: SyncJobData[] = [];
 
     for (const provider of providers) {
-      const priority = this.determinePriority(provider);
-      const syncType = this.determineSyncType(provider);
+      const priority = provider?.metadata?.backfillRequired ? 'high' : this.determinePriority(provider);
+      const syncType = provider?.metadata?.backfillRequired ? 'full' : this.determineSyncType(provider);
 
       jobs.push({
         tenantId: provider.tenantId,
@@ -494,6 +519,36 @@ export class SyncSchedulerService {
       },
     });
 
+    const providersWithAuthErrors = await this.prisma.providerConfig.count({
+      where: {
+        isActive: true,
+        metadata: {
+          path: ['lastAuthError'],
+          not: Prisma.JsonNull,
+        },
+      },
+    });
+
+    const providersNeedingBackfill = await this.prisma.providerConfig.count({
+      where: {
+        isActive: true,
+        metadata: {
+          path: ['backfillRequired'],
+          equals: true,
+        },
+      },
+    });
+
+    const providersWithDeltaFallback = await this.prisma.providerConfig.count({
+      where: {
+        isActive: true,
+        metadata: {
+          path: ['microsoftDeltaModeReason'],
+          not: Prisma.JsonNull,
+        },
+      },
+    });
+
     const avgActivityRate = await this.prisma.providerConfig.aggregate({
       where: { isActive: true },
       _avg: { avgActivityRate: true },
@@ -519,6 +574,9 @@ export class SyncSchedulerService {
         })),
         avgActivityRate: avgActivityRate._avg.avgActivityRate ?? 0,
         providersWithErrors,
+        providersWithAuthErrors,
+        providersNeedingBackfill,
+        providersWithDeltaFallback,
       },
     };
   }

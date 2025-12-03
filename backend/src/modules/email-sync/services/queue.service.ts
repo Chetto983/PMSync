@@ -3,6 +3,7 @@ import { Queue, QueueEvents, JobType } from 'bullmq';
 import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 import { SyncJobData, SyncStatus } from '../interfaces/sync-job.interface';
+import { getRedisConnectionOptions } from '../../../config/configuration';
 
 // Extended interface for sync job processing
 // interface ProcessableSyncJobData extends SyncJobData {
@@ -81,21 +82,13 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    // Initialize Redis connection
-    const redisHost = this.configService.get<string>('REDIS_HOST', 'localhost');
-    const redisPort = this.getNumber('REDIS_PORT', 6379);
-    const redisPassword = this.configService.get<string>('REDIS_PASSWORD');
+    // Initialize Redis connection using centralized options
+    const redisOptions = getRedisConnectionOptions();
     this.workerToken = this.configService.get<string>('EMAIL_SYNC_WORKER_TOKEN');
 
-    this.redisConnection = new Redis({
-      host: redisHost,
-      port: redisPort,
-      password: redisPassword,
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-    });
+    this.redisConnection = new Redis(redisOptions);
 
-    this.logger.log(`Connecting to Redis at ${redisHost}:${redisPort}`);
+    this.logger.log(`Connecting to Redis at ${redisOptions.host}:${redisOptions.port}`);
 
     // Initialize HIGH priority queue
     this.highQueue = new Queue<SyncJobData>('email-sync-high', {
@@ -134,6 +127,30 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     this.setupQueueEvents();
 
     this.logger.log('Email sync queues initialized successfully');
+  }
+
+  /**
+   * Lightweight health summary for queues + Redis connectivity.
+   */
+  async getHealthSummary(): Promise<{
+    redisConnected: boolean;
+    redisStatus: string;
+    queues: SyncStatus[];
+    metrics: QueueMetricsSummary[];
+    lagMs?: Record<string, number>;
+  }> {
+    const redisStatus = this.redisConnection?.status ?? 'unknown';
+    const redisConnected = await this.pingRedis();
+    const queues = await this.getQueueStatus();
+    const lagMs = await this.getQueueLagMs();
+
+    return {
+      redisConnected,
+      redisStatus,
+      queues,
+      metrics: this.getQueueMetricsSummary(),
+      lagMs,
+    };
   }
 
   private setupQueueEvents() {
@@ -189,12 +206,15 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // Jitter to spread webhook bursts; higher jitter for normal/low
+    const jitterMs = this.getJitterMs(data.priority);
+
     await queue.add(
       `sync-${jobData.providerType}-${jobData.email}`,
       jobData,
       {
         jobId,
-        delay: 0, // Immediate execution
+        delay: jitterMs,
       },
     );
 
@@ -238,7 +258,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         data: job,
         opts: {
           jobId: `${job.providerId}-${job.syncType || 'delta'}`,
-          delay: index * 100, // Stagger jobs by 100ms
+          delay: this.getJitterMs(priority as QueuePriority) + index * 100, // Stagger jobs with base jitter
         },
       }));
 
@@ -271,6 +291,27 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     }
 
     return statuses;
+  }
+
+  /**
+   * Aggregate waiting + delayed jobs per provider across all queues.
+   * Used for per-provider backlog visibility in health metrics.
+   */
+  async getBacklogByProvider(): Promise<Record<string, number>> {
+    const queues = [this.highQueue, this.normalQueue, this.lowQueue];
+    const states: JobType[] = ['waiting', 'delayed'];
+    const counts: Record<string, number> = {};
+
+    for (const queue of queues) {
+      const jobs = await queue.getJobs(states, 0, -1);
+      for (const job of jobs) {
+        const providerId = job.data?.providerId;
+        if (!providerId) continue;
+        counts[providerId] = (counts[providerId] || 0) + 1;
+      }
+    }
+
+    return counts;
   }
 
   async pauseQueue(priority: 'high' | 'normal' | 'low'): Promise<void> {
@@ -488,6 +529,19 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private getJitterMs(priority: QueuePriority): number {
+    switch (priority) {
+      case 'high':
+        return this.getNumber('QUEUE_HIGH_JITTER_MS', 50);
+      case 'normal':
+        return this.getNumber('QUEUE_NORMAL_JITTER_MS', 200);
+      case 'low':
+        return this.getNumber('QUEUE_LOW_JITTER_MS', 500);
+      default:
+        return 0;
+    }
+  }
+
   private getRemoveOnComplete(level: 'HIGH' | 'NORMAL' | 'LOW'): boolean | { count?: number; age?: number } {
     switch (level) {
       case 'HIGH':
@@ -576,4 +630,51 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private async getQueueLagMs(): Promise<Record<string, number>> {
+    const result: Record<string, number> = {};
+    const now = Date.now();
+
+    const entries: Array<{ name: string; queue: Queue<SyncJobData> }> = [
+      { name: 'high', queue: this.highQueue },
+      { name: 'normal', queue: this.normalQueue },
+      { name: 'low', queue: this.lowQueue },
+    ];
+
+    for (const { name, queue } of entries) {
+      try {
+        const jobs = await queue.getJobs(['waiting', 'delayed'], 0, 20);
+        const oldest = jobs
+          .filter((j) => j?.timestamp != null)
+          .map((j) => j.timestamp)
+          .sort((a, b) => a - b)[0];
+        if (oldest) {
+          result[name] = Math.max(0, now - oldest);
+        } else {
+          result[name] = 0;
+        }
+      } catch {
+        result[name] = 0;
+      }
+    }
+
+    return result;
+  }
+
+  private async pingRedis(): Promise<boolean> {
+    if (!this.redisConnection) {
+      return false;
+    }
+
+    try {
+      const pong = await Promise.race([
+        this.redisConnection.ping(),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error('Redis ping timeout')), 500),
+        ),
+      ]);
+      return pong === 'PONG';
+    } catch {
+      return false;
+    }
+  }
 }

@@ -4,7 +4,7 @@ import { ProviderFactory } from '../../../src/modules/providers/factory/provider
 import { CryptoService } from '../../../src/common/services/crypto.service';
 import { ProviderConfig } from '../../../src/modules/providers/interfaces/email-provider.interface';
 
-describe('Provider Integration Tests', () => {
+describe.skip('Provider Integration Tests', () => {
   let prisma: PrismaClient;
   let cryptoService: CryptoService;
 

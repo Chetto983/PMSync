@@ -17,6 +17,7 @@ import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { ProviderConfigService } from '../services/provider-config.service';
 import { GoogleOAuthService } from '../services/google-oauth.service';
 import { MicrosoftOAuthService } from '../services/microsoft-oauth.service';
+import { OAuthStateService } from '../services/oauth-state.service';
 import {
   ConnectGoogleProviderDto,
   ConnectMicrosoftProviderDto,
@@ -36,15 +37,34 @@ export class ProvidersController {
     private readonly providerConfigService: ProviderConfigService,
     private readonly googleOAuth: GoogleOAuthService,
     private readonly microsoftOAuth: MicrosoftOAuthService,
+    private readonly oauthStateService: OAuthStateService,
   ) {}
 
   // ========== GOOGLE PROVIDER ==========
 
   @Post('google/auth-url')
-  @ApiOperation({ summary: 'Get Google OAuth2 authorization URL' })
+  @ApiOperation({ summary: 'Get Google OAuth2 authorization URL with PKCE' })
   @ApiResponse({ status: 200, type: OAuthUrlResponseDto })
-  getGoogleAuthUrl(@Body() dto: GoogleOAuthUrlDto): OAuthUrlResponseDto {
-    return this.googleOAuth.generateAuthUrl(dto.scopes);
+  async getGoogleAuthUrl(
+    @Request() req: any,
+    @Body() dto: GoogleOAuthUrlDto,
+  ): Promise<OAuthUrlResponseDto> {
+    const { tenantId, userId } = req.user;
+
+    // Create secure state with PKCE using OAuthStateService
+    const { state, pkce } = await this.oauthStateService.createState('google', {
+      userId,
+      tenantId,
+    });
+
+    // Generate auth URL with PKCE code_challenge
+    const { authUrl } = this.googleOAuth.generateAuthUrl(dto.scopes, {
+      state,
+      codeChallenge: pkce.codeChallenge,
+      codeChallengeMethod: pkce.codeChallengeMethod,
+    });
+
+    return { authUrl, state };
   }
 
   @Post('google/connect')
@@ -56,16 +76,42 @@ export class ProvidersController {
     @Body() dto: ConnectGoogleProviderDto,
   ): Promise<ProviderConfigResponseDto> {
     const { tenantId, userId } = req.user;
-    return this.providerConfigService.connectGoogleProvider(tenantId, userId, dto);
+
+    // Validate state and get PKCE code_verifier if state is provided
+    let codeVerifier: string | undefined;
+    if (dto.state) {
+      const stateData = await this.oauthStateService.validateState(dto.state, 'google');
+      codeVerifier = stateData.codeVerifier;
+    }
+
+    return this.providerConfigService.connectGoogleProvider(tenantId, userId, dto, codeVerifier);
   }
 
   // ========== MICROSOFT PROVIDER ==========
 
   @Post('microsoft/auth-url')
-  @ApiOperation({ summary: 'Get Microsoft OAuth2 authorization URL' })
+  @ApiOperation({ summary: 'Get Microsoft OAuth2 authorization URL with PKCE' })
   @ApiResponse({ status: 200, type: OAuthUrlResponseDto })
-  getMicrosoftAuthUrl(@Body() dto: MicrosoftOAuthUrlDto): OAuthUrlResponseDto {
-    return this.microsoftOAuth.generateAuthUrl(dto.scopes);
+  async getMicrosoftAuthUrl(
+    @Request() req: any,
+    @Body() dto: MicrosoftOAuthUrlDto,
+  ): Promise<OAuthUrlResponseDto> {
+    const { tenantId, userId } = req.user;
+
+    // Create secure state with PKCE using OAuthStateService
+    const { state, pkce } = await this.oauthStateService.createState('microsoft', {
+      userId,
+      tenantId,
+    });
+
+    // Generate auth URL with PKCE code_challenge
+    const { authUrl } = this.microsoftOAuth.generateAuthUrl(dto.scopes, {
+      state,
+      codeChallenge: pkce.codeChallenge,
+      codeChallengeMethod: pkce.codeChallengeMethod,
+    });
+
+    return { authUrl, state };
   }
 
   @Post('microsoft/connect')
@@ -77,7 +123,15 @@ export class ProvidersController {
     @Body() dto: ConnectMicrosoftProviderDto,
   ): Promise<ProviderConfigResponseDto> {
     const { tenantId, userId } = req.user;
-    return this.providerConfigService.connectMicrosoftProvider(tenantId, userId, dto);
+
+    // Validate state and get PKCE code_verifier if state is provided
+    let codeVerifier: string | undefined;
+    if (dto.state) {
+      const stateData = await this.oauthStateService.validateState(dto.state, 'microsoft');
+      codeVerifier = stateData.codeVerifier;
+    }
+
+    return this.providerConfigService.connectMicrosoftProvider(tenantId, userId, dto, codeVerifier);
   }
 
   // ========== GENERIC PROVIDER (IMAP/CalDAV) ==========

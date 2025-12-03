@@ -39,6 +39,7 @@ describe('GmailWebhookService', () => {
       updateMany: jest.Mock;
       upsert: jest.Mock;
       findMany: jest.Mock;
+      findFirst: jest.Mock;
       count: jest.Mock;
     };
   };
@@ -58,6 +59,7 @@ describe('GmailWebhookService', () => {
         updateMany: jest.fn(),
         upsert: jest.fn(),
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         count: jest.fn(),
       },
     };
@@ -97,9 +99,11 @@ describe('GmailWebhookService', () => {
         providerType: 'google',
         isActive: true,
         lastSyncedAt: new Date('2025-01-01T00:00:00Z'),
+        metadata: { historyId: '100' },
       };
 
       prisma.providerConfig.findFirst.mockResolvedValue(provider);
+      prisma.webhookSubscription.findFirst.mockResolvedValue({ id: 'sub-1' });
       prisma.webhookSubscription.updateMany.mockResolvedValue({ count: 1 });
       queueService.addSyncJob.mockResolvedValue(undefined);
 
@@ -153,6 +157,46 @@ describe('GmailWebhookService', () => {
           priority: 'high',
           syncType: 'incremental',
           lastSyncedAt: provider.lastSyncedAt,
+        }),
+      );
+    });
+
+    it('forces full sync when subscription missing or gap detected', async () => {
+      const provider = {
+        id: 'provider-1',
+        email: 'user@example.com',
+        tenantId: 'tenant-1',
+        providerType: 'google',
+        isActive: true,
+        lastSyncedAt: new Date('2025-01-01T00:00:00Z'),
+        metadata: { historyId: '200' },
+      };
+
+      prisma.providerConfig.findFirst.mockResolvedValue(provider);
+      prisma.webhookSubscription.findFirst.mockResolvedValue(null); // missing subscription row
+      prisma.webhookSubscription.updateMany.mockResolvedValue({ count: 0 });
+      queueService.addSyncJob.mockResolvedValue(undefined);
+
+      const gmailData = {
+        emailAddress: provider.email,
+        historyId: '100', // gap
+      };
+
+      const message: GmailPubSubMessage = {
+        message: {
+          data: Buffer.from(JSON.stringify(gmailData)).toString('base64'),
+          messageId: 'msg-1',
+          publishTime: new Date().toISOString(),
+        },
+        subscription: 'projects/test/subscriptions/gmail',
+      };
+
+      await service.handleNotification(message);
+
+      expect(queueService.addSyncJob).toHaveBeenCalledWith(
+        expect.objectContaining({
+          providerId: provider.id,
+          syncType: 'full',
         }),
       );
     });

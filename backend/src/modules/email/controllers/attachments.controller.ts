@@ -77,7 +77,6 @@ export class AttachmentsController {
       );
 
       // Fetch file from S3 and stream to client
-      // @ts-expect-error - node-fetch types not available
       const nodeFetch = await import('node-fetch');
       const fetch = nodeFetch.default;
       const s3Response = await fetch(result.url);

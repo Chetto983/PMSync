@@ -43,6 +43,23 @@ const config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // Brand colors
+        brand: {
+          primary: 'hsl(var(--brand-primary))',
+          secondary: 'hsl(var(--brand-secondary))',
+          accent: 'hsl(var(--brand-accent))',
+        },
+        // Semantic colors - Module specific
+        email: 'hsl(var(--color-email))',
+        calendar: 'hsl(var(--color-calendar))',
+        contacts: 'hsl(var(--color-contacts))',
+        tasks: 'hsl(var(--color-tasks))',
+        ai: 'hsl(var(--color-ai))',
+        // Status colors
+        success: 'hsl(var(--color-success))',
+        warning: 'hsl(var(--color-warning))',
+        error: 'hsl(var(--color-error))',
+        info: 'hsl(var(--color-info))',
       },
       borderRadius: {
         lg: 'var(--radius)',

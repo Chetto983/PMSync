@@ -2,7 +2,7 @@ import { EmailCleanupService } from './email-cleanup.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { ConfigService } from '@nestjs/config';
-import { StorageService } from '../../../common/services/storage.service';
+import { StorageService } from './storage.service';
 
 describe('EmailCleanupService', () => {
   let service: EmailCleanupService;
@@ -33,7 +33,7 @@ describe('EmailCleanupService', () => {
   } as unknown as ConfigService;
 
   const storageMock = {
-    deleteAttachments: jest.fn(),
+    deleteObjects: jest.fn().mockResolvedValue({ deleted: 0, failed: 0 }),
   } as unknown as StorageService;
 
   beforeEach(() => {
@@ -50,9 +50,13 @@ describe('EmailCleanupService', () => {
     const result = await service.removeDuplicateEmails('tenant-a');
 
     expect(result.removed).toBe(2);
+    expect(result.attachmentsFound).toBe(0);
+    expect(result.s3Deleted).toBe(0);
+    expect(result.s3Failed).toBe(0);
     expect(deleteMock).toHaveBeenCalledTimes(2);
     expect(knowledgeMock.deleteEmbeddingsForEmail).toHaveBeenCalledTimes(2);
     expect(queryRawMock).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteObjects).not.toHaveBeenCalled();
   });
 
   it('purges soft deleted emails older than threshold', async () => {
@@ -60,12 +64,22 @@ describe('EmailCleanupService', () => {
       { id: 'soft-1', tenantId: 'tenant-a' },
       { id: 'soft-2', tenantId: 'tenant-a' },
     ]);
+    (prismaMock.emailAttachment.findMany as jest.Mock).mockResolvedValueOnce([
+      { id: 'att-1', storagePath: 's3/a', storageType: 's3' },
+    ]);
+    (prismaMock.emailAttachment.findMany as jest.Mock).mockResolvedValueOnce([]);
+    storageMock.deleteObjects = jest.fn().mockResolvedValue({ deleted: 1, failed: 0 });
 
     const result = await service.purgeSoftDeletedEmails('tenant-a', 0);
 
     expect(result.removed).toBe(2);
+    expect(result.attachmentsFound).toBe(1);
+    expect(result.s3Deleted).toBe(1);
+    expect(result.s3Failed).toBe(0);
     expect(deleteMock).toHaveBeenCalledTimes(2);
     expect(knowledgeMock.deleteEmbeddingsForEmail).toHaveBeenCalledTimes(2);
     expect(findManyMock).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteObjects).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteObjects).toHaveBeenCalledWith(['s3/a']);
   });
 });

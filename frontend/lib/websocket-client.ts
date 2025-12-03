@@ -88,6 +88,9 @@ export interface RealtimeSyncStatus {
   processed?: number;
   total?: number;
   timestamp: string;
+  // Optional fields for sync completion events (aligned with backend RealtimeEventPayloads)
+  type?: 'email' | 'calendar' | 'contacts' | 'folders';
+  count?: number;
 }
 
 export interface RealtimeAiActionEvent {
@@ -107,13 +110,31 @@ export interface RealtimeAiActionEvent {
 export interface RealtimeAiSessionEvent {
   sessionId: string;
   userId: string;
-  status: 'active' | 'completed' | 'error';
-  currentAgent?: string;
-  message?: string;
-  timestamp: string;
+  status: 'created' | 'message_received' | 'processing' | 'response_ready' | 'ended';
+  agentUsed?: string;
+  intent?: string;
+  pendingActionsCount?: number;
+  executedActionsCount?: number;
+  timestamp?: string;
 }
 
 export type EventHandler<T> = (data: T) => void;
+
+// Auth error detection - these messages indicate token/auth issues
+const AUTH_ERROR_PATTERNS = [
+  'unauthorized',
+  'invalid token',
+  'token expired',
+  'jwt expired',
+  'jwt malformed',
+  'authentication failed',
+  '401',
+];
+
+function isAuthError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  return AUTH_ERROR_PATTERNS.some(pattern => message.includes(pattern));
+}
 
 class WebSocketClient {
   private socket: Socket | null = null;
@@ -121,6 +142,37 @@ class WebSocketClient {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private isConnecting = false;
+
+  // Track joined rooms for auto-rejoin after reconnect
+  private joinedRooms = new Set<string>();
+
+  // Auth failure callback - called when auth fails after max retries
+  private authFailureHandler: (() => void) | null = null;
+
+  // Reconnect callback - called after successful reconnection
+  private reconnectHandler: (() => void) | null = null;
+
+  /**
+   * Register handler for auth failures (expired/invalid token)
+   * This is called when connection fails due to auth issues
+   */
+  onAuthFailure(handler: () => void): () => void {
+    this.authFailureHandler = handler;
+    return () => {
+      this.authFailureHandler = null;
+    };
+  }
+
+  /**
+   * Register handler for successful reconnection
+   * Useful for refreshing data after reconnect
+   */
+  onReconnect(handler: () => void): () => void {
+    this.reconnectHandler = handler;
+    return () => {
+      this.reconnectHandler = null;
+    };
+  }
 
   /**
    * Inizializza la connessione WebSocket
@@ -142,7 +194,7 @@ class WebSocketClient {
       this.isConnecting = true;
       this.token = token;
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
       this.socket = io(`${backendUrl}/realtime`, {
         auth: {
@@ -156,8 +208,9 @@ class WebSocketClient {
       });
 
       let settled = false;
+      let isAuthFailure = false;
 
-      // Connection success
+      // Connection success (initial connect)
       const handleConnected = (data: any) => {
         if (settled) return;
         settled = true;
@@ -174,11 +227,24 @@ class WebSocketClient {
         this.reconnectAttempts++;
         this.isConnecting = false;
 
+        // Check if this is an auth error
+        if (isAuthError(error)) {
+          isAuthFailure = true;
+          console.error('[WebSocket] Auth failure detected');
+        }
+
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
           if (settled) return;
           settled = true;
           this.socket?.off('connected', handleConnected);
-          reject(new Error('Max reconnection attempts reached'));
+
+          // If auth failure, notify handler
+          if (isAuthFailure && this.authFailureHandler) {
+            console.log('[WebSocket] Triggering auth failure handler');
+            this.authFailureHandler();
+          }
+
+          reject(new Error(isAuthFailure ? 'Authentication failed' : 'Max reconnection attempts reached'));
         }
       };
 
@@ -191,16 +257,43 @@ class WebSocketClient {
         this.isConnecting = false;
       });
 
+      // Socket.io reconnect event - rejoin rooms after reconnect
+      this.socket.io.on('reconnect', () => {
+        console.log('[WebSocket] Reconnected - rejoining rooms...');
+        this.rejoinRooms();
+
+        // Notify reconnect handler
+        if (this.reconnectHandler) {
+          this.reconnectHandler();
+        }
+      });
+
       // Heartbeat
       this.socket.on('heartbeat', (data: any) => {
-        console.log('[WebSocket] Heartbeat received:', data.timestamp);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[WebSocket] Heartbeat received:', data.timestamp);
+        }
       });
 
       // Pong response
       this.socket.on('pong', (data: any) => {
-        console.log('[WebSocket] Pong received:', data.timestamp);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[WebSocket] Pong received:', data.timestamp);
+        }
       });
     });
+  }
+
+  /**
+   * Rejoin all tracked rooms after reconnection
+   */
+  private rejoinRooms(): void {
+    if (!this.socket?.connected) return;
+
+    for (const room of this.joinedRooms) {
+      console.log(`[WebSocket] Rejoining room: ${room}`);
+      this.socket.emit('join_room', { room });
+    }
   }
 
   /**
@@ -212,6 +305,9 @@ class WebSocketClient {
       this.socket = null;
       console.log('[WebSocket] Disconnected manually');
     }
+    // Clear joined rooms on manual disconnect
+    this.joinedRooms.clear();
+    this.reconnectAttempts = 0;
   }
 
   /**
@@ -268,8 +364,12 @@ class WebSocketClient {
 
   /**
    * Unisciti a una room aggiuntiva
+   * Room is tracked for auto-rejoin after reconnect
    */
   joinRoom(room: string): void {
+    // Track room for auto-rejoin after reconnect
+    this.joinedRooms.add(room);
+
     if (this.socket?.connected) {
       this.socket.emit('join_room', { room });
     }
@@ -277,11 +377,22 @@ class WebSocketClient {
 
   /**
    * Lascia una room
+   * Room is removed from tracking
    */
   leaveRoom(room: string): void {
+    // Remove from tracking
+    this.joinedRooms.delete(room);
+
     if (this.socket?.connected) {
       this.socket.emit('leave_room', { room });
     }
+  }
+
+  /**
+   * Get list of currently joined rooms (for debugging)
+   */
+  getJoinedRooms(): string[] {
+    return Array.from(this.joinedRooms);
   }
 
   /**

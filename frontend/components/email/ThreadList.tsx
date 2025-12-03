@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useMemo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { List, Box, Typography, CircularProgress } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadListItem } from './ThreadListItem';
+import { ThreadListSkeleton } from './ThreadListSkeleton';
 import { DraggableThreadListItem } from './shared';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
-import { scrollContainerSx } from './shared/utils';
 
 /**
  * Props for ThreadList component
@@ -95,6 +96,26 @@ interface ThreadListProps {
    * Enable drag-to-folder functionality
    */
   isDragEnabled?: boolean;
+
+  /**
+   * Enable virtualization for large lists
+   * @default true for lists > 50 items
+   */
+  enableVirtualization?: boolean;
+
+  /**
+   * Search query to highlight in subject and snippet
+   */
+  searchQuery?: string;
+}
+
+/**
+ * Get unique key for thread item
+ * Best practice: use unique IDs instead of indices
+ * @see https://borstch.com/blog/development/achieving-smooth-scrolling-in-react-with-tanstack-virtual-best-practices
+ */
+function getThreadKey(thread: Email | Conversation): string {
+  return ('id' in thread ? thread.id : thread.latestEmailId) || thread.threadId || '';
 }
 
 /**
@@ -104,12 +125,15 @@ interface ThreadListProps {
  * Supports both individual emails and conversation threads.
  *
  * Features:
- * - Virtualization support for large lists
+ * - TanStack Virtual for efficient rendering of large lists (2025 best practice)
+ * - Skeleton loading states for better perceived performance
  * - Floating action bar on each item
  * - Multi-selection support
- * - Loading states
- * - Empty states
- * - Optimized performance with React.memo
+ * - Infinite scroll with Intersection Observer
+ * - Optimized with React.memo
+ *
+ * @see https://tanstack.com/virtual/latest
+ * @see https://borstch.com/blog/development/achieving-smooth-scrolling-in-react-with-tanstack-virtual-best-practices
  *
  * @example
  * ```tsx
@@ -143,30 +167,67 @@ export const ThreadList: React.FC<ThreadListProps> = ({
   emptyTitle,
   emptySubtitle,
   isDragEnabled = true,
+  enableVirtualization,
+  searchQuery,
 }) => {
   const t = useTranslations();
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
 
   // Get thread data from store for thread count badges
   const emailStore = useEmailStore();
+
+  // Pre-compute thread email counts in O(n) instead of O(n²)
+  // Build a Map of threadId -> email count once, then use it for all threads
+  const threadEmailCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    // Count emails per threadId from the store's threads map
+    emailStore.threads.forEach((emailIds, threadId) => {
+      counts.set(threadId, emailIds.length);
+    });
+    return counts;
+  }, [emailStore.threads]);
 
   // Enhance threads with email count for thread conversations
   const threadsWithCount = useMemo(() => {
     return threads.map(thread => {
       if ('providerId' in thread && thread.threadId) {
         // This is an Email with a threadId - check if it's part of a multi-email thread
-        const threadEmails = emailStore.getThreadEmails(thread.threadId);
-        if (threadEmails.length > 1) {
+        const count = threadEmailCounts.get(thread.threadId) || 1;
+        if (count > 1) {
           // Add emailCount property for display (this is what ThreadListItem looks for)
           return {
             ...thread,
-            emailCount: threadEmails.length,
+            emailCount: count,
           } as Email & { emailCount: number };
         }
       }
       return thread;
     });
-  }, [threads, emailStore]);
+  }, [threads, threadEmailCounts]);
+
+  // Auto-enable virtualization for lists > 50 items (2025 best practice)
+  const shouldVirtualize = enableVirtualization ?? threadsWithCount.length > 50;
+
+  // Memoized key getter for virtualizer (best practice: avoid index keys)
+  const getItemKey = useCallback((index: number) => {
+    const thread = threadsWithCount[index];
+    return thread ? getThreadKey(thread) : `item-${index}`;
+  }, [threadsWithCount]);
+
+  // TanStack Virtual setup
+  const virtualizer = useVirtualizer({
+    count: threadsWithCount.length,
+    getScrollElement: () => parentRef.current,
+    // Estimate size based on typical ThreadListItem height
+    // Dynamic sizing adjusts this after render
+    estimateSize: () => 100,
+    // Overscan: render extra items above/below viewport for smoother scrolling
+    overscan: 5,
+    // Use unique IDs as keys (best practice)
+    getItemKey,
+    // Enable only when needed
+    enabled: shouldVirtualize,
+  });
 
   const handleThreadClick = useCallback(
     (thread: Email | Conversation) => {
@@ -177,7 +238,27 @@ export const ThreadList: React.FC<ThreadListProps> = ({
 
   // Infinite scroll with Intersection Observer
   useEffect(() => {
-    if (!onLoadMore || !hasMore) return;
+    if (!onLoadMore || !hasMore || !shouldVirtualize) return;
+
+    const scrollElement = parentRef.current;
+    if (!scrollElement) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollElement;
+      // Load more when 200px from bottom
+      if (scrollHeight - scrollTop - clientHeight < 200 && hasMore && !isLoading) {
+        onLoadMore();
+      }
+    };
+
+    scrollElement.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollElement.removeEventListener('scroll', handleScroll);
+  }, [onLoadMore, hasMore, isLoading, shouldVirtualize]);
+
+  // Fallback infinite scroll for non-virtualized lists
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!onLoadMore || !hasMore || shouldVirtualize) return;
 
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
@@ -191,36 +272,21 @@ export const ThreadList: React.FC<ThreadListProps> = ({
       },
       {
         root: null,
-        rootMargin: '100px', // Start loading 100px before reaching the end
+        rootMargin: '100px',
         threshold: 0.1,
       }
     );
 
     observer.observe(sentinel);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [onLoadMore, hasMore, isLoading]);
+    return () => observer.disconnect();
+  }, [onLoadMore, hasMore, isLoading, shouldVirtualize]);
 
   const isEmpty = threads.length === 0;
 
-  // Loading state - only show full spinner if loading AND no threads
-  // This prevents hiding existing emails during infinite scroll
+  // Loading state - show skeleton placeholders if loading AND no threads
+  // Skeleton loaders provide better UX than spinners (2025 best practice)
   if (isLoading && isEmpty) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%',
-          minHeight: 200,
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
+    return <ThreadListSkeleton count={10} showCheckbox={!!onToggleSelect} />;
   }
 
   // Empty state
@@ -248,42 +314,117 @@ export const ThreadList: React.FC<ThreadListProps> = ({
     );
   }
 
+  // Render item helper
+  const renderThread = (thread: Email | Conversation, measureRef?: (el: HTMLElement | null) => void) => {
+    const threadId = thread.threadId || ('id' in thread ? thread.id : '') || '';
+    const isMultiSelected = selectedIds.has(threadId);
+
+    return (
+      <DraggableThreadListItem
+        thread={thread}
+        isDragEnabled={isDragEnabled}
+        isSelected={isMultiSelected}
+      >
+        <div ref={measureRef}>
+          <ThreadListItem
+            thread={thread}
+            selected={selectedId === threadId}
+            multiSelected={isMultiSelected}
+            onToggleSelect={onToggleSelect}
+            onToggleRead={onToggleRead}
+            onToggleStar={onToggleStar}
+            onToggleImportant={onToggleImportant}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            getProviderIcon={getProviderIcon}
+            onClick={() => handleThreadClick(thread)}
+            searchQuery={searchQuery}
+          />
+        </div>
+      </DraggableThreadListItem>
+    );
+  };
+
+  // Virtualized rendering for large lists
+  if (shouldVirtualize) {
+    const virtualItems = virtualizer.getVirtualItems();
+
+    return (
+      <Box
+        ref={parentRef}
+        sx={{
+          width: '100%',
+          height: '100%',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          contain: 'strict',
+        }}
+      >
+        <List
+          sx={{
+            width: '100%',
+            p: 0,
+            position: 'relative',
+            height: virtualizer.getTotalSize(),
+          }}
+        >
+          {virtualItems.map((virtualItem) => {
+            const thread = threadsWithCount[virtualItem.index];
+            if (!thread) return null;
+
+            return (
+              <Box
+                key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                {renderThread(thread)}
+              </Box>
+            );
+          })}
+        </List>
+
+        {/* Loading indicator for infinite scroll */}
+        {hasMore && isLoading && (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              py: 2,
+            }}
+          >
+            <CircularProgress size={24} />
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
+  // Standard rendering for smaller lists (< 50 items)
   return (
     <List
       sx={{
         width: '100%',
         height: '100%',
         p: 0,
-        ...scrollContainerSx,
+        overflowY: 'auto',
+        overflowX: 'hidden',
       }}
     >
       {threadsWithCount.map((thread) => {
-        const threadId = thread.threadId || ('id' in thread ? thread.id : '') || '';
-        // Use unique email ID for React key to prevent duplicates when emails share threadId
-        const uniqueKey = ('id' in thread ? thread.id : thread.latestEmailId) || threadId || `thread-${Math.random()}`;
-        const isMultiSelected = selectedIds.has(threadId);
-
+        const uniqueKey = getThreadKey(thread);
         return (
-          <DraggableThreadListItem
-            key={uniqueKey}
-            thread={thread}
-            isDragEnabled={isDragEnabled}
-            isSelected={isMultiSelected}
-          >
-            <ThreadListItem
-              thread={thread}
-              selected={selectedId === threadId}
-              multiSelected={isMultiSelected}
-              onToggleSelect={onToggleSelect}
-              onToggleRead={onToggleRead}
-              onToggleStar={onToggleStar}
-              onToggleImportant={onToggleImportant}
-              onArchive={onArchive}
-              onDelete={onDelete}
-              getProviderIcon={getProviderIcon}
-              onClick={() => handleThreadClick(thread)}
-            />
-          </DraggableThreadListItem>
+          <React.Fragment key={uniqueKey}>
+            {renderThread(thread)}
+          </React.Fragment>
         );
       })}
 

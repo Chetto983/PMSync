@@ -35,7 +35,7 @@ export class TenantService {
       where: { id: tenantId },
       include: {
         _count: {
-          select: { users: true, messages: true },
+          select: { users: true, emails: true },
         },
       },
     });

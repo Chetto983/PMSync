@@ -48,8 +48,9 @@ import {
   Calendar,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
-import { useTheme as useNextTheme } from 'next-themes';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
+import { useThemePersistence } from '@/hooks/use-theme-persistence';
+import { usersApi } from '@/lib/api/users';
 import {
   personalizationApi,
   type JobRole,
@@ -57,7 +58,7 @@ import {
   type ResponseLength,
   type ProactivityLevel,
 } from '@/lib/api/personalization';
-import { multiAgentApi } from '@/lib/api/multi-agent';
+import { multiAgentApi } from '@/lib/api/ai';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { GoogleProviderCard } from '@/components/providers/GoogleProviderCard';
@@ -167,7 +168,7 @@ export function Settings() {
   const router = useRouter();
   const { user } = useAuth();
   const t = useTranslations();
-  const { theme, setTheme } = useNextTheme();
+  const { theme, setTheme } = useThemePersistence();
   const settingsCopy = useMemo(() => t.dashboard.settings, [t]);
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('general');
   const [language, setLanguage] = useState(DEFAULT_USER_SETTINGS.language);
@@ -353,7 +354,10 @@ export function Settings() {
   const handleSaveSettings = async () => {
     try {
       setSaveLoading(true);
-      persistUserSettings({ theme: (theme as 'light' | 'dark' | 'system') || 'system', language, timezone, emailNotifications });
+      // Save language to database (theme is saved automatically via useThemePersistence)
+      await usersApi.updatePreferences({ language });
+      // Keep localStorage in sync for offline access
+      persistUserSettings({ language, timezone, emailNotifications });
       alert('Settings saved');
     } catch {
       alert('Failed to save');

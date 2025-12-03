@@ -192,7 +192,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
           newUnreadCount += newEmail.isRead ? -1 : 1;
         }
 
-        console.log('[Email Store] Email updated successfully, labels:', (newEmail as any).emailLabels?.length ?? 0);
+        console.log('[Email Store] Email updated successfully, labels:', newEmail.emailLabels?.length ?? 0);
         return {
           emails: newEmails,
           unreadCount: Math.max(0, newUnreadCount),
@@ -317,18 +317,38 @@ export const useEmailStore = create<EmailState>((set, get) => ({
     }),
 
   markAsStarred: (ids, starred) =>
-    set((state) => ({
-      emails: state.emails.map((email) =>
+    set((state) => {
+      const updatedEmails = state.emails.map((email) =>
         ids.includes(email.id) ? { ...email, isStarred: starred } : email
-      ),
-    })),
+      );
+
+      // Also update selectedEmail if it was starred/unstarred
+      const updatedSelectedEmail = state.selectedEmail && ids.includes(state.selectedEmail.id)
+        ? { ...state.selectedEmail, isStarred: starred }
+        : state.selectedEmail;
+
+      return {
+        emails: updatedEmails,
+        selectedEmail: updatedSelectedEmail,
+      };
+    }),
 
   markAsImportant: (ids, important) =>
-    set((state) => ({
-      emails: state.emails.map((email) =>
+    set((state) => {
+      const updatedEmails = state.emails.map((email) =>
         ids.includes(email.id) ? { ...email, isImportant: important } : email
-      ),
-    })),
+      );
+
+      // Also update selectedEmail if it was marked as important/unimportant
+      const updatedSelectedEmail = state.selectedEmail && ids.includes(state.selectedEmail.id)
+        ? { ...state.selectedEmail, isImportant: important }
+        : state.selectedEmail;
+
+      return {
+        emails: updatedEmails,
+        selectedEmail: updatedSelectedEmail,
+      };
+    }),
 
   bulkDelete: (ids) =>
     set((state) => {
@@ -345,11 +365,21 @@ export const useEmailStore = create<EmailState>((set, get) => ({
     }),
 
   moveToFolder: (ids, folderId) =>
-    set((state) => ({
-      emails: state.emails.map((email) =>
+    set((state) => {
+      const updatedEmails = state.emails.map((email) =>
         ids.includes(email.id) ? { ...email, folder: folderId } : email
-      ),
-    })),
+      );
+
+      // Also update selectedEmail if it was moved
+      const updatedSelectedEmail = state.selectedEmail && ids.includes(state.selectedEmail.id)
+        ? { ...state.selectedEmail, folder: folderId }
+        : state.selectedEmail;
+
+      return {
+        emails: updatedEmails,
+        selectedEmail: updatedSelectedEmail,
+      };
+    }),
 
   // Thread actions
   updateThread: (threadId, emailIds) =>
@@ -368,14 +398,22 @@ export const useEmailStore = create<EmailState>((set, get) => ({
   getEmailThread: (emailId) => {
     const state = get();
     const email = state.emails.find((e) => e.id === emailId);
-    if (!email || !email.threadId) return email ? [email] : [];
+    if (!email) return [];
 
+    // If no threadId, return just this email
+    if (!email.threadId) return [email];
+
+    // First check the threads Map (for explicitly tracked threads from WebSocket)
     const threadEmailIds = state.threads.get(email.threadId) || [];
-    if (threadEmailIds.length === 0) return [email];
+    if (threadEmailIds.length > 0) {
+      return state.emails
+        .filter((e) => threadEmailIds.includes(e.id))
+        .sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
+    }
 
-    return state.emails
-      .filter((e) => threadEmailIds.includes(e.id))
-      .sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
+    // Fall back to finding all emails with the same threadId in the store
+    const threadEmails = state.emails.filter((e) => e.threadId === email.threadId);
+    return threadEmails.sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
   },
 
   reset: () =>

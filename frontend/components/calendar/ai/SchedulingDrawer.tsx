@@ -32,7 +32,7 @@ import {
   Send,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { multiAgentApi } from '@/lib/api/multi-agent';
+import { multiAgentApi } from '@/lib/api/ai';
 import { calendarApi, type CreateEventDto } from '@/lib/api/calendar';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useLocale } from '@/lib/hooks/use-locale';
@@ -224,7 +224,7 @@ export function SchedulingDrawer({
       });
 
       // Store AI response for display
-      const aiMessage = response.data.messages?.join('\n') || '';
+      const aiMessage = response.messages?.join('\n') || '';
       setAiResponse(aiMessage);
 
       // Generate suggested time slots based on business days

@@ -15,6 +15,9 @@ export enum CacheNamespace {
   USER_SESSION = 'user:session',
   WEBHOOK_NONCE = 'webhook:nonce',
   RATE_LIMIT = 'ratelimit',
+  VOLTAGENT_METRICS = 'voltagent:metrics',
+  MULTIAGENT_METRICS = 'multiagent:metrics',
+  OAUTH_STATE = 'oauth:state',
 }
 
 /**
@@ -445,6 +448,132 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.error('Cache ping error:', error);
       return false;
+    }
+  }
+
+  // ==========================================================================
+  // LIST OPERATIONS - For efficient metrics buffering
+  // ==========================================================================
+
+  /**
+   * Push values to the left of a list (newest first)
+   * Ideal for time-series data like metrics
+   */
+  async lpush(key: string, values: any[], options?: { namespace?: CacheNamespace }): Promise<number> {
+    if (!this.isConnected || values.length === 0) {
+      return 0;
+    }
+
+    try {
+      const fullKey = this.buildKey(key, options?.namespace);
+      const serialized = values.map((v) => JSON.stringify(v));
+      return await this.client.lPush(fullKey, serialized);
+    } catch (error) {
+      this.logger.error(`Cache lpush error for key ${key}:`, error);
+      this.stats.errors++;
+      return 0;
+    }
+  }
+
+  /**
+   * Get a range of values from a list
+   * @param start Start index (0-based)
+   * @param stop End index (-1 for last element)
+   */
+  async lrange<T = any>(
+    key: string,
+    start: number,
+    stop: number,
+    options?: { namespace?: CacheNamespace },
+  ): Promise<T[]> {
+    if (!this.isConnected) {
+      return [];
+    }
+
+    try {
+      const fullKey = this.buildKey(key, options?.namespace);
+      const values = await this.client.lRange(fullKey, start, stop);
+      return values.map((v) => JSON.parse(v) as T);
+    } catch (error) {
+      this.logger.error(`Cache lrange error for key ${key}:`, error);
+      this.stats.errors++;
+      return [];
+    }
+  }
+
+  /**
+   * Trim a list to only contain the specified range
+   * Useful for maintaining a rolling buffer
+   */
+  async ltrim(
+    key: string,
+    start: number,
+    stop: number,
+    options?: { namespace?: CacheNamespace },
+  ): Promise<boolean> {
+    if (!this.isConnected) {
+      return false;
+    }
+
+    try {
+      const fullKey = this.buildKey(key, options?.namespace);
+      await this.client.lTrim(fullKey, start, stop);
+      return true;
+    } catch (error) {
+      this.logger.error(`Cache ltrim error for key ${key}:`, error);
+      this.stats.errors++;
+      return false;
+    }
+  }
+
+  /**
+   * Get the length of a list
+   */
+  async llen(key: string, options?: { namespace?: CacheNamespace }): Promise<number> {
+    if (!this.isConnected) {
+      return 0;
+    }
+
+    try {
+      const fullKey = this.buildKey(key, options?.namespace);
+      return await this.client.lLen(fullKey);
+    } catch (error) {
+      this.logger.error(`Cache llen error for key ${key}:`, error);
+      this.stats.errors++;
+      return 0;
+    }
+  }
+
+  /**
+   * Bulk push and trim in one atomic operation (pipeline)
+   * Efficient for maintaining rolling buffers
+   */
+  async lpushAndTrim(
+    key: string,
+    values: any[],
+    maxSize: number,
+    options?: { namespace?: CacheNamespace },
+  ): Promise<number> {
+    if (!this.isConnected || values.length === 0) {
+      return 0;
+    }
+
+    try {
+      const fullKey = this.buildKey(key, options?.namespace);
+      const serialized = values.map((v) => JSON.stringify(v));
+
+      const pipeline = this.client.multi();
+      pipeline.lPush(fullKey, serialized);
+      pipeline.lTrim(fullKey, 0, maxSize - 1);
+      const results = await pipeline.exec();
+
+      // First result is the lpush count
+      const lpushResult = results[0];
+      return typeof lpushResult === 'number' ? lpushResult : values.length;
+    } catch (error) {
+      this.logger.error(`Cache lpushAndTrim error for key ${key}:`, error);
+      this.stats.errors++;
+      return 0;
     }
   }
 }

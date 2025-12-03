@@ -25,6 +25,8 @@ export interface SendEmailDto {
     content: Buffer;
     contentType: string;
   }[];
+  /** Optional scheduled send time (ISO string) - if set, email will be queued for later */
+  scheduledAt?: string;
 }
 
 @Injectable()
@@ -39,20 +41,55 @@ export class EmailSendService {
   ) {}
 
   /**
-   * Send email via Provider Factory (Zero-inspired pattern)
+   * Schedule email for later (called when scheduledAt is provided)
    */
-  async sendEmail(data: SendEmailDto): Promise<{ success: boolean; messageId: string }> {
-    const provider = await this.prisma.providerConfig.findFirst({
-      where: {
-        id: data.providerId,
+  async scheduleEmail(data: SendEmailDto): Promise<{ id: string; scheduledAt: Date }> {
+    if (!data.scheduledAt) {
+      throw new BadRequestException('scheduledAt is required for scheduling');
+    }
+
+    const scheduledAt = new Date(data.scheduledAt);
+    if (scheduledAt <= new Date()) {
+      throw new BadRequestException('scheduledAt must be in the future');
+    }
+
+    const provider = await this.getActiveEmailProvider(data.tenantId, data.providerId);
+
+    const scheduled = await this.prisma.scheduledEmail.create({
+      data: {
         tenantId: data.tenantId,
-        isActive: true,
+        providerId: provider.id,
+        to: data.to,
+        cc: data.cc || [],
+        bcc: data.bcc || [],
+        subject: data.subject,
+        bodyHtml: data.bodyHtml,
+        bodyText: data.bodyText,
+        inReplyTo: data.inReplyTo,
+        references: data.references,
+        attachments: data.attachments ? JSON.stringify(data.attachments.map(att => ({
+          filename: att.filename,
+          contentType: att.contentType,
+          contentBase64: att.content.toString('base64'),
+        }))) : undefined,
+        scheduledAt,
+        status: 'pending',
       },
     });
 
-    if (!provider) {
-      throw new NotFoundException('Provider not found or inactive');
-    }
+    this.logger.log(`Email scheduled for ${scheduledAt.toISOString()}: ${scheduled.id}`);
+
+    return {
+      id: scheduled.id,
+      scheduledAt: scheduled.scheduledAt,
+    };
+  }
+
+  /**
+   * Send email via Provider Factory (Zero-inspired pattern)
+   */
+  async sendEmail(data: SendEmailDto): Promise<{ success: boolean; messageId: string }> {
+    const provider = await this.getActiveEmailProvider(data.tenantId, data.providerId);
 
     try {
       // Process attachments first
@@ -133,6 +170,8 @@ export class EmailSendService {
     uploadedAttachments: {
       storageType: 's3';
       storagePath: string;
+      contentHash: string;
+      dedupHit: boolean;
       size: number;
       mimeType: string;
       filename: string;
@@ -172,6 +211,7 @@ export class EmailSendService {
                   size: att.size,
                   storageType: att.storageType,
                   storagePath: att.storagePath,
+                  contentHash: att.contentHash,
                   isInline: false,
                 })),
               }
@@ -186,6 +226,26 @@ export class EmailSendService {
   private async getAccessToken(provider: ProviderConfig): Promise<string> {
     const { accessToken } = await this.providerTokenService.getProviderWithToken(provider.id);
     return accessToken;
+  }
+
+  /**
+   * Ensure provider belongs to tenant, is active, and supports email.
+   */
+  private async getActiveEmailProvider(tenantId: string, providerId: string) {
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: {
+        id: providerId,
+        tenantId,
+        isActive: true,
+        supportsEmail: true,
+      },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Provider not found or inactive');
+    }
+
+    return provider;
   }
 
   /**

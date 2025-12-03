@@ -114,5 +114,87 @@ mySection: {
 
 ---
 
-**Last Updated**: 2025-01-22
+## 🤖 Backend VoltAgent Localization
+
+### Locale System Structure
+
+The VoltAgent module uses a centralized locale system in `backend/src/modules/ai/voltagent/locales/`:
+
+```text
+locales/
+├── index.ts         # Types, exports, helper functions
+├── en.ts            # English translations
+├── it.ts            # Italian translations
+└── action-summaries.ts  # Backward-compatible wrapper for ActionExecutorService
+```
+
+### Adding a New Language
+
+1. **Create language file** (e.g., `de.ts` for German):
+
+   ```typescript
+   import type { VoltAgentTranslations } from './index';
+
+   export const de: VoltAgentTranslations = {
+     tools: { ... },
+     agents: { ... },
+     actions: { ... },
+   };
+   ```
+
+2. **Update `index.ts`**:
+
+   ```typescript
+   import { de } from './de';
+   export type SupportedLocale = 'en' | 'it' | 'de';
+   export const locales = { en, it, de };
+   ```
+
+3. **Update `action-summaries.ts`** (for ActionExecutorService):
+
+   ```typescript
+   import { de } from './de';
+   emailSent: { en: en.actions.emailSent, it: it.actions.emailSent, de: de.actions.emailSent },
+   ```
+
+4. **Update `getLocale()` function** in both files if needed.
+
+### Translation Structure
+
+- **tools**: Messages for VoltAgent tools (email, calendar, contacts, folder, knowledge)
+- **agents**: System prompts and instructions for each agent
+- **actions**: User-facing action result summaries (used by ActionExecutorService)
+
+### Usage in Services
+
+```typescript
+import { getLocale, actionSummaries as t } from '../locales/action-summaries';
+
+const locale = getLocale(context.language); // 'en' | 'it'
+const summary = t.emailSent[locale](to, subject);
+```
+
+---
+
+## 🏗️ VoltAgent Architecture
+
+VoltAgent is the primary AI module (multi-agent module deprecated):
+
+```text
+voltagent/
+├── agents/          # Agent definitions (Email, Calendar, Contacts, etc.)
+├── interfaces/      # Types (AgentAction, AgentContext)
+├── locales/         # i18n translations
+├── memory/          # Memory configuration
+├── observability/   # Hooks & telemetry
+├── providers/       # LLM providers (Mistral)
+├── services/        # HITL, Feedback, ActionExecutor
+├── tests/           # Integration tests
+├── tools/           # Agent tools
+└── workflows/       # Approval workflows
+```
+
+---
+
+**Last Updated**: 2025-11-30
 **Enforced By**: Claude Code AI Assistant

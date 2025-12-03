@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ContactsController } from './contacts.controller';
 import { ContactsService, CreateContactDto, UpdateContactDto } from '../services/contacts.service';
+import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ForbiddenException } from '@nestjs/common';
 
@@ -57,6 +58,10 @@ describe('ContactsController', () => {
     },
   };
 
+  const mockContactsSyncQueueService = {
+    enqueueSync: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ContactsController],
@@ -64,6 +69,10 @@ describe('ContactsController', () => {
         {
           provide: ContactsService,
           useValue: mockContactsService,
+        },
+        {
+          provide: ContactsSyncQueueService,
+          useValue: mockContactsSyncQueueService,
         },
         {
           provide: PrismaService,

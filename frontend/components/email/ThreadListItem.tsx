@@ -6,6 +6,7 @@ import type { Conversation } from '@/lib/api/email';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadActionBar, ThreadAvatar, ThreadLabels } from './shared';
 import { parseEmailFrom, formatListDate } from './shared/utils';
+import { SearchHighlight } from '../ui/SearchHighlight';
 
 /**
  * Props for ThreadListItem component
@@ -66,6 +67,10 @@ interface ThreadListItemProps {
    */
   onClick?: () => void;
 
+  /**
+   * Search query to highlight in subject and snippet
+   */
+  searchQuery?: string;
 }
 
 /**
@@ -105,6 +110,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     onDelete,
     getProviderIcon,
     onClick,
+    searchQuery,
   }) => {
     const t = useTranslations();
 
@@ -207,15 +213,16 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
           selected={selected}
           onClick={handleClick}
           sx={{
-            py: 1.5,
-            px: 2,
+            py: { xs: 1.75, sm: 1.5 },
+            px: { xs: 1.5, sm: 2 },
             display: 'flex',
-            gap: 2,
+            gap: { xs: 1.5, sm: 2 },
             alignItems: 'flex-start',
             bgcolor: isRead ? 'transparent' : 'action.hover',
             cursor: 'pointer',
             transition: 'background-color 0.2s ease',
             position: 'relative',
+            minHeight: { xs: 72, sm: 'auto' },
             '&.Mui-selected': {
               bgcolor: 'action.selected',
             },
@@ -292,6 +299,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             {/* Subject */}
             <Typography
               variant="body2"
+              component="div"
               sx={{
                 fontWeight: isRead ? 400 : 600,
                 overflow: 'hidden',
@@ -299,12 +307,17 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
                 whiteSpace: 'nowrap',
               }}
             >
-              {subject || '(No subject)'}
+              <SearchHighlight
+                text={subject || '(No subject)'}
+                query={searchQuery}
+                maxLength={100}
+              />
             </Typography>
 
             {/* Snippet */}
             <Typography
               variant="caption"
+              component="div"
               color="text.secondary"
               sx={{
                 overflow: 'hidden',
@@ -312,7 +325,11 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
                 whiteSpace: 'nowrap',
               }}
             >
-              {snippet}
+              <SearchHighlight
+                text={snippet}
+                query={searchQuery}
+                maxLength={150}
+              />
             </Typography>
 
             {/* Metadata: Labels, Attachments, Thread Count */}
@@ -341,15 +358,15 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
 
         </ListItemButton>
 
-        {/* Floating Action Bar - Centered at top */}
+        {/* Floating Action Bar - Centered horizontally */}
         {(onToggleRead || onToggleStar || onToggleImportant || onArchive || onDelete) && (
           <Box
             className="thread-action-bar"
             sx={{
               position: 'absolute',
               left: '50%',
-              top: 50,
-              transform: 'translatey(+100%)',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
               opacity: 0,
               visibility: 'hidden',
               transition: 'opacity 0.2s ease, visibility 0.2s ease',
@@ -397,6 +414,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
         ('isImportant' in nextThread ? nextThread.isImportant : false) &&
       prevProps.selected === nextProps.selected &&
       prevProps.multiSelected === nextProps.multiSelected &&
+      prevProps.searchQuery === nextProps.searchQuery &&
       !labelsChanged  // Re-render if labels changed
     );
   }

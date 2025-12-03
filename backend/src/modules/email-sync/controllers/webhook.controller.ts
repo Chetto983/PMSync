@@ -74,11 +74,13 @@ export class WebhookController {
     try {
       // Handle subscription validation (initial setup)
       if (validationToken) {
-        this.logger.log('Microsoft webhook validation requested');
-        // Return the validation token in plain text
-        return validationToken;
-      }
+      this.logger.log('Microsoft webhook validation requested');
+      // Optionally validate webhook token if configured
       this.syncAuth.validateWebhookToken(webhookToken, token);
+      // Return the validation token in plain text
+      return validationToken;
+    }
+    this.syncAuth.validateWebhookToken(webhookToken, token);
 
       // Handle notification
       this.logger.log(

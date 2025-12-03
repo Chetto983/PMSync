@@ -29,6 +29,11 @@ export { default as ThreadListDefault } from './ThreadList';
 export { ThreadListItem } from './ThreadListItem';
 
 /**
+ * Swipeable thread list item with mobile gesture support
+ */
+export { SwipeableThreadListItem } from './SwipeableThreadListItem';
+
+/**
  * Thread display component
  * Shows full email/thread content with actions
  */
@@ -100,6 +105,20 @@ export { BulkActionBar } from './BulkActionBar/BulkActionBar';
  * Contact autocomplete for email inputs
  */
 export { ContactAutocomplete } from './ContactAutocomplete';
+
+// ============================================================================
+// UI ENHANCEMENT COMPONENTS
+// ============================================================================
+
+/**
+ * Modern empty state for email lists
+ */
+export { EmailEmptyState } from './EmailEmptyState';
+
+/**
+ * Enhanced skeleton loader with animations
+ */
+export { EnhancedThreadListSkeleton } from './EnhancedThreadListSkeleton';
 
 // ============================================================================
 // MIGRATION NOTES

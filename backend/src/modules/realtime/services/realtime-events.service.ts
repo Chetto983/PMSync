@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RealtimeGateway } from '../gateways/realtime.gateway';
 import {
@@ -27,15 +27,19 @@ export type {
 } from '../types/realtime.types';
 
 /**
- * Servizio per emettere eventi realtime ai client WebSocket
+ * RealtimeEventsService - Event emission with buffering and deduplication
  *
- * Questo servizio è chiamato dai worker di sincronizzazione, dai controller
- * e dai servizi AI per notificare i client di modifiche in realtime.
+ * Features:
+ * - Tenant-isolated event delivery via WebSocket rooms
+ * - Event buffering to prevent storms during bulk operations
+ * - Deduplication for email, contact, and calendar events
+ * - Folder count caching with TTL and size bounds
+ * - Lifecycle cleanup on module destroy (no dangling timers)
  *
- * Tutti gli eventi sono isolati per tenant tramite rooms.
+ * @see REALTIME_MODULE_ROADMAP.md for implementation details
  */
 @Injectable()
-export class RealtimeEventsService {
+export class RealtimeEventsService implements OnModuleDestroy {
   private readonly logger = new Logger(RealtimeEventsService.name);
   private gateway: RealtimeGateway;
   private emailEventBuffer = new Map<
@@ -76,6 +80,15 @@ export class RealtimeEventsService {
   private readonly CALENDAR_BUFFER_MS: number;
   private readonly CALENDAR_BUFFER_MAX: number;
 
+  // Cache bounds configuration
+  private readonly FOLDER_CACHE_MAX_PROVIDERS: number;
+  private readonly FOLDER_CACHE_MAX_FOLDERS_PER_PROVIDER: number;
+  private readonly FOLDER_CACHE_TTL_MS: number;
+  private folderCacheCleanupTimer?: NodeJS.Timeout;
+
+  // Shutdown configuration
+  private readonly FLUSH_ON_SHUTDOWN: boolean;
+
   constructor(private readonly config: ConfigService) {
     this.EMAIL_BUFFER_MS = this.config.get<number>('REALTIME_EMAIL_BUFFER_MS', 200);
     this.EMAIL_BUFFER_MAX = this.config.get<number>('REALTIME_EMAIL_BUFFER_MAX', 500);
@@ -85,6 +98,133 @@ export class RealtimeEventsService {
     this.CONTACT_BUFFER_MAX = this.config.get<number>('REALTIME_CONTACT_BUFFER_MAX', 200);
     this.CALENDAR_BUFFER_MS = this.config.get<number>('REALTIME_CALENDAR_BUFFER_MS', 300);
     this.CALENDAR_BUFFER_MAX = this.config.get<number>('REALTIME_CALENDAR_BUFFER_MAX', 100);
+
+    // Cache bounds: limit memory usage for folder count deduplication
+    this.FOLDER_CACHE_MAX_PROVIDERS = this.config.get<number>('REALTIME_FOLDER_CACHE_MAX_PROVIDERS', 100);
+    this.FOLDER_CACHE_MAX_FOLDERS_PER_PROVIDER = this.config.get<number>('REALTIME_FOLDER_CACHE_MAX_FOLDERS', 50);
+    this.FOLDER_CACHE_TTL_MS = this.config.get<number>('REALTIME_FOLDER_CACHE_TTL_MS', 5 * 60 * 1000); // 5 min
+
+    // Periodic cache cleanup every TTL interval
+    this.folderCacheCleanupTimer = setInterval(() => this.cleanupFolderCache(), this.FOLDER_CACHE_TTL_MS);
+
+    // Shutdown behavior: flush buffered events before clearing (default: true for production safety)
+    this.FLUSH_ON_SHUTDOWN = this.config.get<boolean>('REALTIME_FLUSH_ON_SHUTDOWN', true);
+  }
+
+  /**
+   * Lifecycle cleanup - flush buffered events and clear all timers
+   *
+   * When REALTIME_FLUSH_ON_SHUTDOWN=true (default), all buffered events are
+   * delivered before shutdown to avoid dropping events during deploys.
+   */
+  onModuleDestroy() {
+    this.logger.log('Cleaning up realtime events service...');
+
+    // Flush buffered events before clearing (avoids dropping events during deploys)
+    if (this.FLUSH_ON_SHUTDOWN && this.gateway?.server) {
+      const emailCount = this.emailEventBuffer.size;
+      const contactCount = this.contactEventBuffer.size;
+      const calendarCount = this.calendarEventBuffer.size;
+      const folderCount = this.folderCountsBuffer.size;
+
+      if (emailCount || contactCount || calendarCount || folderCount) {
+        this.logger.log(
+          `Flushing buffered events on shutdown: ${emailCount} email, ${contactCount} contact, ${calendarCount} calendar, ${folderCount} folder providers`,
+        );
+
+        // Flush all buffers synchronously (these are all sync operations internally)
+        this.flushEmailEventsSync();
+        this.flushContactEvents();
+        this.flushCalendarEvents();
+        this.flushFolderCountsBuffer();
+      }
+    }
+
+    // Clear all buffer timers
+    if (this.emailBufferTimer) {
+      clearTimeout(this.emailBufferTimer);
+      this.emailBufferTimer = undefined;
+    }
+    if (this.folderBufferTimer) {
+      clearTimeout(this.folderBufferTimer);
+      this.folderBufferTimer = undefined;
+    }
+    if (this.contactBufferTimer) {
+      clearTimeout(this.contactBufferTimer);
+      this.contactBufferTimer = undefined;
+    }
+    if (this.calendarBufferTimer) {
+      clearTimeout(this.calendarBufferTimer);
+      this.calendarBufferTimer = undefined;
+    }
+    if (this.folderCacheCleanupTimer) {
+      clearInterval(this.folderCacheCleanupTimer);
+      this.folderCacheCleanupTimer = undefined;
+    }
+
+    // Clear all buffers and caches
+    this.emailEventBuffer.clear();
+    this.folderCountsBuffer.clear();
+    this.contactEventBuffer.clear();
+    this.calendarEventBuffer.clear();
+    this.lastFolderCounts.clear();
+
+    this.logger.log('Realtime events service cleanup complete');
+  }
+
+  /**
+   * Synchronous version of flushEmailEvents for shutdown (no async/await)
+   */
+  private flushEmailEventsSync() {
+    if (this.emailBufferTimer) {
+      clearTimeout(this.emailBufferTimer);
+      this.emailBufferTimer = undefined;
+    }
+
+    if (!this.emailEventBuffer.size) {
+      return;
+    }
+
+    const events = Array.from(this.emailEventBuffer.values());
+    this.emailEventBuffer.clear();
+
+    for (const item of events) {
+      this.emitToTenantImmediate(item.tenantId, item.event, item.payload as any);
+    }
+
+    this.logger.debug(`Flushed ${events.length} buffered email event(s) on shutdown`);
+  }
+
+  /**
+   * Clean up stale folder count cache entries to prevent unbounded growth
+   * Also enforces per-provider folder limit
+   */
+  private cleanupFolderCache() {
+    // If cache is within bounds, skip provider eviction
+    if (this.lastFolderCounts.size <= this.FOLDER_CACHE_MAX_PROVIDERS) {
+      // Still check per-provider limits
+      for (const [providerId, folderMap] of this.lastFolderCounts) {
+        if (folderMap.size > this.FOLDER_CACHE_MAX_FOLDERS_PER_PROVIDER) {
+          const excess = folderMap.size - this.FOLDER_CACHE_MAX_FOLDERS_PER_PROVIDER;
+          const keysToDelete = Array.from(folderMap.keys()).slice(0, excess);
+          for (const key of keysToDelete) {
+            folderMap.delete(key);
+          }
+          this.logger.debug(`Evicted ${keysToDelete.length} folder(s) from provider ${providerId} cache`);
+        }
+      }
+      return;
+    }
+
+    // Evict oldest providers (FIFO-style, clear all if over limit)
+    const excess = this.lastFolderCounts.size - this.FOLDER_CACHE_MAX_PROVIDERS;
+    if (excess > 0) {
+      const keysToDelete = Array.from(this.lastFolderCounts.keys()).slice(0, excess);
+      for (const key of keysToDelete) {
+        this.lastFolderCounts.delete(key);
+      }
+      this.logger.debug(`Evicted ${keysToDelete.length} stale provider(s) from folder count cache`);
+    }
   }
 
   /**
@@ -233,13 +373,13 @@ export class RealtimeEventsService {
   emitCalendarSyncComplete(tenantId: string, payload: { providerId: string; count: number }) {
     // Flush any pending calendar events first
     this.flushCalendarEvents();
-    // Then emit sync complete
+    // Then emit sync complete (type and count are now typed in sync:status)
     this.emitToTenant(tenantId, 'sync:status', {
       providerId: payload.providerId,
       status: 'completed',
       type: 'calendar',
       count: payload.count,
-    } as any);
+    });
   }
 
   /**
@@ -274,13 +414,13 @@ export class RealtimeEventsService {
   emitContactSyncComplete(tenantId: string, payload: { providerId: string; count: number }) {
     // Flush any pending contact events first
     this.flushContactEvents();
-    // Then emit sync complete
+    // Then emit sync complete (type and count are now typed in sync:status)
     this.emitToTenant(tenantId, 'sync:status', {
       providerId: payload.providerId,
       status: 'completed',
       type: 'contacts',
       count: payload.count,
-    } as any);
+    });
   }
 
   /**

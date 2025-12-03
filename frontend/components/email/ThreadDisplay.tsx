@@ -38,7 +38,6 @@ import {
   Clock,
   Mail,
 } from 'lucide-react';
-import DOMPurify from 'dompurify';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import { LabelSelector } from '@/components/labels';
@@ -46,6 +45,7 @@ import { useLabelStore } from '@/stores/label-store';
 import { formatEmailHeaderDate, parseEmailFrom, scrollContainerSx } from './shared/utils';
 import { emailApi } from '@/lib/api/email';
 import { EmailSummaryPanel } from '@/components/email/ai/EmailSummaryPanel';
+import { EmailBody } from './shared/EmailBody';
 
 /**
  * Props for ThreadDisplay component
@@ -60,7 +60,7 @@ interface ThreadDisplayProps {
   onReply?: (email: Email) => void;
   onReplyAll?: (email: Email) => void;
   onForward?: (email: Email) => void;
-  onLabelsChange?: (emailId: string, labelIds: string[], updatedEmail?: any) => void;
+  onLabelsChange?: (emailId: string, labelIds: string[], updatedEmail?: Email) => void;
 }
 
 /**
@@ -76,31 +76,6 @@ function getFileIcon(filename: string, size = 14): React.ReactElement {
   if (['js', 'ts', 'tsx', 'jsx', 'html', 'css', 'json', 'xml', 'py', 'java', 'cpp', 'c', 'php', 'rb', 'go', 'rs', 'swift'].includes(ext)) return <FileCode size={size} />;
   if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(ext)) return <FileArchive size={size} />;
   return <File size={size} />;
-}
-
-/**
- * Sanitize HTML for email bodies
- * Opens all links in a new tab for security and UX
- */
-function sanitizeEmailBody(content: string): string {
-  if (typeof window === 'undefined') return content;
-
-  // Configure DOMPurify to add target="_blank" and rel="noopener noreferrer" to all links
-  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-    if (node.tagName === 'A') {
-      node.setAttribute('target', '_blank');
-      node.setAttribute('rel', 'noopener noreferrer');
-    }
-  });
-
-  const sanitized = DOMPurify.sanitize(content, {
-    ADD_ATTR: ['target', 'rel'],
-  });
-
-  // Remove the hook after use to avoid side effects
-  DOMPurify.removeHook('afterSanitizeAttributes');
-
-  return sanitized;
 }
 
 /**
@@ -148,7 +123,7 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
   isDark,
 }) => {
   const emailFromData = parseEmailFrom(email.from);
-  const safeBody = sanitizeEmailBody(email.bodyHtml || email.bodyText || email.snippet || '');
+  const emailHtml = email.bodyHtml || email.bodyText || email.snippet || '';
   const nonInlineAttachments = email.attachments?.filter((a) => !a.isInline) ?? [];
   const hasAttachments = nonInlineAttachments.length > 0;
   const isUnread = !email.isRead;
@@ -355,30 +330,13 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
             </Box>
           )}
 
-          {/* Email Body */}
-          <Box
-            sx={{
-              p: 2,
-              // Light background in dark mode for HTML emails
-              ...(isDark && {
-                bgcolor: '#FAFAFA',
-                color: '#1a1a1a',
-              }),
-              ...(!isDark && {
-                color: 'text.primary',
-              }),
-              '& img': { maxWidth: '100%', height: 'auto' },
-              '& a': { color: isDark ? '#1976d2' : 'primary.main', textDecoration: 'underline' },
-              '& pre, & code': {
-                backgroundColor: isDark ? '#f5f5f5' : 'rgba(0, 0, 0, 0.05)',
-                borderRadius: 1,
-                padding: '2px 4px',
-              },
-              // Typography defaults
-              fontSize: '0.9375rem',
-              lineHeight: 1.6,
-            }}
-            dangerouslySetInnerHTML={{ __html: safeBody }}
+          {/* Email Body - with lazy loaded images */}
+          <EmailBody
+            html={emailHtml}
+            isDark={isDark}
+            lazyLoadImages={true}
+            lazyLoadMargin="200px"
+            sx={{ p: 2 }}
           />
         </Box>
       </Collapse>
@@ -446,26 +404,58 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
     }
   };
 
-  // Thread emails calculation
+  // Thread emails calculation - merge and deduplicate from local and API sources
   const threadEmails = useMemo(() => {
     if (!email) return [];
+
     const local = emailStore.getEmailThread(email.id);
-    if (local.length > 0) return local;
-    if (threadData.length > 0) return threadData;
-    return [];
+    const apiData = threadData;
+
+    // Merge both sources and deduplicate by email ID
+    const emailMap = new Map<string, Email>();
+
+    // Add local emails first
+    for (const e of local) {
+      emailMap.set(e.id, e);
+    }
+
+    // Add API emails (will override local if same ID)
+    for (const e of apiData) {
+      emailMap.set(e.id, e);
+    }
+
+    // Convert to array and sort by receivedAt
+    const merged = Array.from(emailMap.values());
+
+    // If no emails found, fallback to selected email
+    if (merged.length === 0) {
+      return [email];
+    }
+
+    return merged.sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
   }, [email, emailStore, threadData]);
 
   // Load thread from API if needed
   useEffect(() => {
     const loadThread = async () => {
       if (!email || !email.threadId) return;
+
+      // Check local store for thread emails
       const existing = emailStore.getEmailThread(email.id);
-      if (existing.length > 0) return;
+
+      // If we have more than 1 email locally, we likely have the full thread
+      if (existing.length > 1) {
+        setThreadData([]);
+        return;
+      }
+
       try {
         const res = await emailApi.getThread(email.threadId);
-        setThreadData(res.data);
+        if (res.data && res.data.length > existing.length) {
+          setThreadData(res.data);
+        }
       } catch {
-        // ignore
+        // ignore - fall back to local data
       }
     };
     loadThread();
@@ -600,7 +590,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
       <Paper
         elevation={0}
         sx={{
-          px: 2,
+          px: { xs: 1, sm: 2 },
           py: 1.5,
           borderBottom: 1,
           borderColor: 'divider',
@@ -608,6 +598,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           alignItems: 'center',
           gap: 0.5,
           flexShrink: 0,
+          flexWrap: 'wrap',
         }}
       >
         {onClose && (
@@ -664,8 +655,17 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
       {/* Content Area */}
       <Box sx={{ flex: 1, overflow: 'auto', ...scrollContainerSx }}>
         {/* Subject Header */}
-        <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 600, lineHeight: 1.3, mb: 1 }}>
+        <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 3 }, pb: 2 }}>
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 600,
+              lineHeight: 1.3,
+              mb: 1,
+              fontSize: { xs: '1.25rem', sm: '1.5rem' },
+              wordBreak: 'break-word',
+            }}
+          >
             {primaryEmail.subject || '(No subject)'}
           </Typography>
 
@@ -733,7 +733,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         </Box>
 
         {/* Thread Messages */}
-        <Box sx={{ px: 3, pb: 3 }}>
+        <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3 }}>
           {threadEmails.map((threadEmail) => (
             <ThreadMessage
               key={threadEmail.id}

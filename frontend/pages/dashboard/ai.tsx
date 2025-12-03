@@ -48,7 +48,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Layout } from '@/components/layout/Layout';
-import { multiAgentApi, type MultiAgentResponse, type PendingAction, type ActionFeedback, type KnowledgeHit, type LearningProfileStats, type AgentInfo } from '@/lib/api/multi-agent';
+import { multiAgentApi, type PendingAction, type ActionFeedback, type KnowledgeHit, type LearningProfileStats, type AgentInfo } from '@/lib/api/ai';
 import { websocketClient, type RealtimeAiActionEvent } from '@/lib/websocket-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -527,7 +527,7 @@ function MessageBubble({
 
 function AiAssistantView() {
   const t = useTranslations();
-  const currentLocale = (t as any)?.locale || 'en';
+  const currentLocale = t.locale;
   const theme = useTheme();
   const quickActions = getQuickActions(t);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -669,7 +669,7 @@ function AiAssistantView() {
     const fetchAgents = async () => {
       try {
         const res = await multiAgentApi.getAgents();
-        const map = (res.data?.agents || []).reduce<Record<string, AgentInfo>>((acc, agent) => {
+        const map = (res.agents || []).reduce<Record<string, AgentInfo>>((acc: Record<string, AgentInfo>, agent: AgentInfo) => {
           acc[agent.name] = agent;
           return acc;
         }, {});
@@ -770,7 +770,8 @@ function AiAssistantView() {
         locale: currentLocale,
       });
 
-      const data: MultiAgentResponse & { sessionId?: string } = response?.data;
+      // processMessage now returns MultiAgentResponse directly
+      const data = response;
 
       // Defensive checks for response data
       if (!data) {

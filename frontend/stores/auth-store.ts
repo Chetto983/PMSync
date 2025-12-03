@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface User {
   id: string;
@@ -17,21 +18,39 @@ interface AuthState {
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  token: typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null,
-  user: null,
+/**
+ * Auth store with persist middleware for SSR-safe localStorage
+ *
+ * Uses skipHydration to prevent hydration mismatch errors in Next.js.
+ * The persist middleware handles all localStorage operations.
+ *
+ * @see https://zustand.docs.pmnd.rs/integrations/persisting-store-data
+ */
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      token: null,
+      user: null,
 
-  setToken: (token: string) => {
-    localStorage.setItem('auth_token', token);
-    set({ token });
-  },
+      setToken: (token: string) => {
+        set({ token });
+      },
 
-  setUser: (user: User | null) => {
-    set({ user });
-  },
+      setUser: (user: User | null) => {
+        set({ user });
+      },
 
-  logout: () => {
-    localStorage.removeItem('auth_token');
-    set({ token: null, user: null });
-  },
-}));
+      logout: () => {
+        set({ token: null, user: null });
+      },
+    }),
+    {
+      name: 'auth-storage',
+      storage: createJSONStorage(() => localStorage),
+      // Only persist token, not user (user comes from API)
+      partialize: (state) => ({ token: state.token }),
+      // Skip hydration on server, manually rehydrate on client
+      skipHydration: typeof window === 'undefined',
+    }
+  )
+);

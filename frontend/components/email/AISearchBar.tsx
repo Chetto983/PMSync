@@ -148,7 +148,7 @@ export const AISearchBar: React.FC<AISearchBarProps> = ({
 
   return (
     <ClickAwayListener onClickAway={handleClickAway}>
-      <Box ref={anchorRef} sx={{ position: 'relative', width: '100%', maxWidth: 400 }}>
+      <Box ref={anchorRef} sx={{ position: 'relative', width: '100%' }}>
         <TextField
           fullWidth
           size={size}

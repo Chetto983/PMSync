@@ -105,4 +105,5 @@ export interface WebhookStats {
     totalErrors: number;
     providersWithErrors: number;
   };
+  staleRenewals?: number;
 }

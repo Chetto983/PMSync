@@ -77,6 +77,8 @@ export type SendEmailPayload = {
   inReplyTo?: string;
   references?: string;
   attachments?: EmailAttachmentUpload[];
+  /** Optional scheduled send time (ISO string) */
+  scheduledAt?: string;
 };
 
 export type ReplyForwardEmailPayload = Omit<SendEmailPayload, 'providerId'> & {
@@ -523,7 +525,7 @@ export const emailApi = {
    * Generate smart reply suggestions for an email
    * POST /ai/smart-reply/:emailId
    */
-  generateSmartReply(emailId: string, locale: string = 'it') {
+  generateSmartReply(emailId: string, locale: string = 'en') {
     return apiClient.post<SmartReplyResponse>(`/ai/smart-reply/${emailId}`, {
       locale,
     });
@@ -533,7 +535,7 @@ export const emailApi = {
    * Summarize email content
    * POST /ai/summarize/:emailId
    */
-  summarizeEmail(emailId: string, locale: string = 'it') {
+  summarizeEmail(emailId: string, locale: string = 'en') {
     return apiClient.post<SummarizeResponse>(`/ai/summarize/${emailId}`, {
       locale,
     });

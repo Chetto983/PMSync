@@ -9,13 +9,38 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { RealtimeEventsService } from '../services/realtime-events.service';
 import { RealtimeHandshakeService } from '../services/realtime-handshake.service';
 import {
   AuthenticatedSocket,
   buildTenantScopedRoom,
 } from '../types/realtime.types';
+
+// Room name validation constants
+const ROOM_NAME_MAX_LENGTH = 100;
+const ROOM_NAME_PATTERN = /^[a-zA-Z0-9_\-:.]+$/;
+
+/**
+ * Validates room name to prevent room explosion and malformed names
+ * @param room Room name to validate
+ * @returns Error message if invalid, null if valid
+ */
+function validateRoomName(room: unknown): string | null {
+  if (typeof room !== 'string') {
+    return 'room must be a string';
+  }
+  if (!room || room.trim().length === 0) {
+    return 'room name cannot be empty';
+  }
+  if (room.length > ROOM_NAME_MAX_LENGTH) {
+    return `room name exceeds maximum length of ${ROOM_NAME_MAX_LENGTH}`;
+  }
+  if (!ROOM_NAME_PATTERN.test(room)) {
+    return 'room name contains invalid characters (allowed: alphanumeric, underscore, hyphen, colon, dot)';
+  }
+  return null;
+}
 
 /**
  * WebSocket Gateway per comunicazione realtime multi-tenant
@@ -40,7 +65,7 @@ import {
   transports: ['websocket', 'polling'],
 })
 export class RealtimeGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy
 {
   @WebSocketServer()
   server: Server;
@@ -160,6 +185,15 @@ export class RealtimeGateway
       return { event: 'error', data: { message: 'unauthenticated' } };
     }
 
+    // Validate room name to prevent room explosion and malformed names
+    const validationError = validateRoomName(data?.room);
+    if (validationError) {
+      this.logger.warn(
+        `join_room rejected for client ${client.id}: ${validationError}`,
+      );
+      return { event: 'error', data: { message: validationError } };
+    }
+
     // Assicurati che la room inizi con il tenantId per sicurezza
     const room = buildTenantScopedRoom(client.tenantId, data.room);
     await client.join(room);
@@ -178,6 +212,15 @@ export class RealtimeGateway
     if (!client.tenantId) {
       this.logger.warn(`leave_room rejected for unauthenticated client ${client.id}`);
       return { event: 'error', data: { message: 'unauthenticated' } };
+    }
+
+    // Validate room name to prevent malformed names
+    const validationError = validateRoomName(data?.room);
+    if (validationError) {
+      this.logger.warn(
+        `leave_room rejected for client ${client.id}: ${validationError}`,
+      );
+      return { event: 'error', data: { message: validationError } };
     }
 
     const room = buildTenantScopedRoom(client.tenantId, data.room);

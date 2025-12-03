@@ -81,6 +81,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
       let messagesProcessed = 0;
       let newMessages = 0;
       let newHistoryId: string | undefined;
+      let metadataUpdates: Record<string, any> | undefined;
 
       if (syncType === 'incremental' && lastHistoryId) {
         // Incremental sync using historyId
@@ -93,6 +94,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
         messagesProcessed = historyResult.messagesProcessed;
         newMessages = historyResult.newMessages;
         newHistoryId = historyResult.newHistoryId;
+        metadataUpdates = historyResult.metadata;
       } else {
         // Full sync - fetch recent messages
         const fullResult = await this.syncFull(
@@ -128,6 +130,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
         newMessages,
         syncDuration: 0, // Will be set by worker
         lastSyncToken: newHistoryId,
+        metadata: metadataUpdates,
       };
     } catch (error) {
       this.logger.error(`Gmail sync failed for ${email}:`, error);
@@ -163,6 +166,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
     messagesProcessed: number;
     newMessages: number;
     newHistoryId: string;
+    metadata?: Record<string, any>;
   }> {
     this.logger.debug(`Incremental sync from historyId: ${startHistoryId}`);
 
@@ -187,6 +191,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
       const addedMessageIds = new Set<string>();
       const labelRefreshIds = new Set<string>();
       const deletedMessageIds = new Set<string>();
+      let truncated = false;
 
       do {
         const historyResponse = await gmail.users.history.list({
@@ -249,6 +254,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
         this.logger.warn(
           `Gmail history pagination truncated after ${pagesFetched} pages for provider ${providerId}.`,
         );
+        truncated = true;
       }
 
       // Process added messages in batches
@@ -320,6 +326,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
         messagesProcessed,
         newMessages,
         newHistoryId: currentHistoryId,
+        metadata: truncated ? { historyTruncated: true, backfillRequired: true } : undefined,
       };
     } catch (error) {
       this.logger.error('Incremental sync error:', error);

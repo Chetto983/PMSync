@@ -1,6 +1,7 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfidentialClientApplication, Configuration, AccountInfo } from '@azure/msal-node';
 import { Client } from '@microsoft/microsoft-graph-client';
+import { randomBytes } from 'crypto';
 import { getConfiguration } from '../../../config/configuration';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
@@ -40,14 +41,18 @@ export class MicrosoftOAuthService {
 
   /**
    * Generate Microsoft OAuth2 authorization URL
+   * Supports PKCE (Proof Key for Code Exchange) for enhanced security
    */
-  generateAuthUrl(scopes?: string[]): { authUrl: string; state: string } {
+  generateAuthUrl(
+    scopes?: string[],
+    pkceOptions?: { state: string; codeChallenge: string; codeChallengeMethod: 'S256' },
+  ): { authUrl: string; state: string } {
     const requestedScopes = scopes && scopes.length > 0 ? scopes : this.defaultScopes;
 
-    // Generate random state for CSRF protection
-    const state = this.generateRandomState();
+    // Use provided state or generate one (fallback for backward compatibility)
+    const state = pkceOptions?.state || this.generateRandomState();
 
-    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
+    let authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
       `client_id=${this.config.oauth.microsoft.clientId}&` +
       `response_type=code&` +
       `redirect_uri=${encodeURIComponent(this.config.oauth.microsoft.redirectUri)}&` +
@@ -56,13 +61,20 @@ export class MicrosoftOAuthService {
       `state=${state}&` +
       `prompt=consent`;
 
+    // Add PKCE if provided
+    if (pkceOptions?.codeChallenge) {
+      authUrl += `&code_challenge=${encodeURIComponent(pkceOptions.codeChallenge)}`;
+      authUrl += `&code_challenge_method=${pkceOptions.codeChallengeMethod}`;
+    }
+
     return { authUrl, state };
   }
 
   /**
    * Exchange authorization code for tokens
+   * @param codeVerifier - PKCE code_verifier for enhanced security (optional)
    */
-  async exchangeCodeForTokens(authorizationCode: string): Promise<{
+  async exchangeCodeForTokens(authorizationCode: string, codeVerifier?: string): Promise<{
     accessToken: string;
     refreshToken: string;
     expiresAt: Date;
@@ -73,12 +85,20 @@ export class MicrosoftOAuthService {
       this.logger.debug(`Redirect URI: ${this.config.oauth.microsoft.redirectUri}`);
       this.logger.debug(`Code length: ${authorizationCode.length}`);
       this.logger.debug(`Code starts with: ${authorizationCode.substring(0, 20)}...`);
+      if (codeVerifier) {
+        this.logger.debug(`PKCE code_verifier provided (${codeVerifier.length} chars)`);
+      }
 
-      const tokenRequest = {
+      const tokenRequest: any = {
         code: authorizationCode,
         scopes: this.defaultScopes,
         redirectUri: this.config.oauth.microsoft.redirectUri,
       };
+
+      // Add PKCE code_verifier if provided
+      if (codeVerifier) {
+        tokenRequest.codeVerifier = codeVerifier;
+      }
 
       this.logger.log(`Calling MSAL acquireTokenByCode...`);
       const response = await this.msalClient.acquireTokenByCode(tokenRequest);
@@ -408,11 +428,11 @@ export class MicrosoftOAuthService {
   }
 
   /**
-   * Generate random state for CSRF protection
+   * Generate cryptographically secure random state for CSRF protection
+   * Uses crypto.randomBytes instead of Math.random for security
    */
   private generateRandomState(): string {
-    return Math.random().toString(36).substring(2, 15) +
-           Math.random().toString(36).substring(2, 15);
+    return randomBytes(32).toString('hex');
   }
 
   /**

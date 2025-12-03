@@ -23,6 +23,7 @@ export interface SyncJobResult {
   syncDuration: number;
   lastSyncToken?: string; // For incremental sync (UID, historyId, deltaLink)
   metadata?: Record<string, any>;
+  isAuthError?: boolean; // True if sync failed due to authentication issues
 }
 
 export interface SyncStatus {

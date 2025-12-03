@@ -162,6 +162,9 @@ export interface RealtimeEventPayloads {
     processed?: number;
     total?: number;
     timestamp?: string;
+    // Optional fields for sync completion events (used by calendar/contact sync)
+    type?: 'email' | 'calendar' | 'contacts' | 'folders';
+    count?: number;
   };
   // AI Multi-Agent Events
   'ai:action:created': AiActionEventPayload;

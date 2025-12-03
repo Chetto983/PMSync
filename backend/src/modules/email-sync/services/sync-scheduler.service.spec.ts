@@ -111,6 +111,20 @@ describe('SyncSchedulerService', () => {
         }),
       ]);
     });
+
+    it('forces high/full when backfillRequired metadata is set', () => {
+      const provider = {
+        ...providerBase,
+        metadata: { backfillRequired: true },
+      };
+
+      const jobs = (service as any).createSyncJobs([provider]);
+
+      expect(jobs[0]).toMatchObject({
+        priority: 'high',
+        syncType: 'full',
+      });
+    });
   });
 
   describe('determinePriority', () => {
@@ -199,7 +213,10 @@ describe('SyncSchedulerService', () => {
         .mockResolvedValueOnce(100) // total active
         .mockResolvedValueOnce(5) // never synced
         .mockResolvedValueOnce(40) // synced today
-        .mockResolvedValueOnce(7); // providers with errors
+        .mockResolvedValueOnce(7) // providers with errors
+        .mockResolvedValueOnce(0) // providers with auth errors
+        .mockResolvedValueOnce(2) // providers needing backfill
+        .mockResolvedValueOnce(3); // providers with delta fallback
 
       prisma.providerConfig.groupBy.mockResolvedValue([
         { syncPriority: 1, _count: 10 },
@@ -209,11 +226,12 @@ describe('SyncSchedulerService', () => {
       prisma.providerConfig.aggregate.mockResolvedValue({
         _avg: { avgActivityRate: 1.25 },
       });
+      // providersNeedingBackfill already set above
 
       const result = await service.getSyncStats();
 
       expect(queueService.getQueueStatus).toHaveBeenCalled();
-      expect(prisma.providerConfig.count).toHaveBeenCalledTimes(4);
+      expect(prisma.providerConfig.count).toHaveBeenCalledTimes(7);
       expect(prisma.providerConfig.groupBy).toHaveBeenCalled();
       expect(prisma.providerConfig.aggregate).toHaveBeenCalled();
       expect(result).toEqual({
@@ -243,6 +261,9 @@ describe('SyncSchedulerService', () => {
           ],
           avgActivityRate: 1.25,
           providersWithErrors: 7,
+          providersWithAuthErrors: 0,
+          providersNeedingBackfill: 2,
+          providersWithDeltaFallback: 3,
         },
       });
     });
