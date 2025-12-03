@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { Box, Container, Stack, Typography } from '@mui/material';
+import { Box, Container, Stack, Typography, IconButton, InputAdornment } from '@mui/material';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
@@ -20,6 +21,8 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const minLength = 8;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,7 +42,7 @@ export default function ResetPasswordPage() {
     }
 
     if (trimmedPassword.length < minLength) {
-      setError('Password too short (min 8)');
+      setError(translations.common.passwordTooShort);
       setLoading(false);
       return;
     }
@@ -67,7 +70,16 @@ export default function ResetPasswordPage() {
       }
     } catch (err) {
       const errorResponse = err as { response?: { data?: { message?: string } } };
-      setError(errorResponse.response?.data?.message || translations.common.genericError);
+      const backendMessage = errorResponse.response?.data?.message || '';
+
+      // Map backend error messages to localized translations
+      if (backendMessage.toLowerCase().includes('different from your current password')) {
+        setError(translations.common.passwordSameAsOld);
+      } else if (backendMessage.toLowerCase().includes('invalid') || backendMessage.toLowerCase().includes('expired')) {
+        setError(translations.common.invalidToken);
+      } else {
+        setError(backendMessage || translations.common.genericError);
+      }
     } finally {
       setLoading(false);
     }
@@ -137,21 +149,55 @@ export default function ResetPasswordPage() {
 
             <Stack component="form" spacing={3} onSubmit={handleSubmit}>
               <Input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 label={copy.form.passwordLabel}
                 placeholder={translations.common.passwordPlaceholder}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={() => setShowPassword(!showPassword)}
+                          onMouseDown={(e) => e.preventDefault()}
+                          edge="end"
+                          size="small"
+                        >
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
 
               <Input
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 label={copy.form.confirmPasswordLabel}
                 placeholder={translations.common.confirmPasswordPlaceholder}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle confirm password visibility"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          onMouseDown={(e) => e.preventDefault()}
+                          edge="end"
+                          size="small"
+                        >
+                          {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
 
               <Button type="submit" disabled={loading} fullWidth>

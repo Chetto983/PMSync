@@ -719,6 +719,20 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
+    // Step 4.5: SECURITY - Prevent reusing the same password
+    if (user.passwordHash) {
+      const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+      if (isSamePassword) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'password_reset_same_password',
+            userId: user.id,
+          }),
+        );
+        throw new BadRequestException('New password must be different from your current password');
+      }
+    }
+
     // Step 5: Hash new password with bcrypt (cost factor 12 for 2025 standards)
     const passwordHash = await bcrypt.hash(newPassword, 12);
 

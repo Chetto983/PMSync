@@ -64,12 +64,12 @@ export default function LoginPage() {
     }
 
     if (!isValidEmail(trimmedEmail)) {
-      setFieldError('Invalid email');
+      setFieldError(translations.common.invalidEmail);
       return;
     }
 
     if (trimmedPassword.length < 8) {
-      setFieldError('Password too short (min 8)');
+      setFieldError(translations.common.passwordTooShort);
       return;
     }
 
@@ -112,12 +112,12 @@ export default function LoginPage() {
     }
 
     if (!isValidEmail(trimmedEmail)) {
-      setFieldError('Invalid email');
+      setFieldError(translations.common.invalidEmail);
       return;
     }
 
     if (trimmedOtp.length !== 6) {
-      setFieldError('Enter the 6-digit code');
+      setFieldError(translations.common.otpCodeLength);
       return;
     }
 

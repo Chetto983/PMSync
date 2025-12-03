@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { Box, Container, Stack, Typography, FormControlLabel, Checkbox } from '@mui/material';
+import { Box, Container, Stack, Typography, FormControlLabel, Checkbox, IconButton, InputAdornment } from '@mui/material';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +26,8 @@ export default function RegisterPage() {
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -52,13 +55,18 @@ export default function RegisterPage() {
       return;
     }
 
+    if (trimmed.password.length < 8) {
+      setError(translations.common.passwordTooShort);
+      return;
+    }
+
     if (trimmed.password !== trimmed.confirmPassword) {
       setError(translations.common.passwordMismatch);
       return;
     }
 
     if (!agreedToTerms || !agreedToPrivacy) {
-      setError('You must agree to the Terms of Service and Privacy Policy to register.');
+      setError(copy.form?.termsRequired || 'You must agree to the Terms of Service and Privacy Policy to register.');
       return;
     }
 
@@ -151,23 +159,57 @@ export default function RegisterPage() {
               />
 
               <Input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 name="password"
                 label={copy.form.passwordLabel}
                 placeholder={translations.common.passwordPlaceholder}
                 value={formData.password}
                 onChange={handleChange}
                 required
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={() => setShowPassword(!showPassword)}
+                          onMouseDown={(e) => e.preventDefault()}
+                          edge="end"
+                          size="small"
+                        >
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
 
               <Input
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 name="confirmPassword"
                 label={copy.form.confirmPasswordLabel}
                 placeholder={translations.common.confirmPasswordPlaceholder}
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle confirm password visibility"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          onMouseDown={(e) => e.preventDefault()}
+                          edge="end"
+                          size="small"
+                        >
+                          {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
 
               <Stack spacing={1.5} sx={{ mt: 2 }}>

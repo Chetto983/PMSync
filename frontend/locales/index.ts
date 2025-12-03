@@ -211,7 +211,11 @@ export interface AppTranslations {
     searchPlaceholder: string;
     genericError: string;
     passwordMismatch: string;
+    passwordSameAsOld: string;
+    passwordTooShort: string;
     invalidToken: string;
+    invalidEmail: string;
+    otpCodeLength: string;
     search: string;
     save: string;
     delete: string;
