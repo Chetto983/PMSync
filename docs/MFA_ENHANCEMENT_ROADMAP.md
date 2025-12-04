@@ -1,6 +1,6 @@
 # MFA Enhancement Roadmap
 
-> **Status**: In Progress (Phases 1-6 built; Phase 7 testing being closed out)
+> **Status**: In Progress (Phases 1-7 complete; security audit closed)
 > **Created**: 2025-12-04
 > **Updated**: 2025-12-04
 > **Priority**: High
@@ -49,24 +49,25 @@
 - [x] Create Security section in Settings page
 - [x] Create MFA API client (`lib/api/mfa.ts`)
 
-**Known Issues / Future Improvements:**
+**Known Issues / Future Improvements:** _All addressed_
 
-- [x] `Settings.tsx` reviewed: copy centralized, responsive mobile navigation added, and strings routed through translation fallbacks.
-- [x] Mobile view responsiveness improved for settings navigation/content.
-- [x] Began splitting/structuring `Settings.tsx` by extracting copy helpers and mobile nav; further modularization optional.
-- [x] Security E2E suites re-enabled with deterministic tenant/user setup and MFA bypass for tests.
+- `Settings.tsx` reviewed: copy centralized, responsive mobile navigation added, and strings routed through translation fallbacks. **Closed**
+- Mobile view responsiveness improved for settings navigation/content. **Closed**
+- Began splitting/structuring `Settings.tsx` by extracting copy helpers and mobile nav; further modularization optional. **Closed**
+- Security E2E suites re-enabled with deterministic tenant/user setup and MFA bypass for tests. **Closed**
 
-### Phase 7: Testing (Nearing Completion)
+### Phase 7: Testing (Complete)
 
 - [x] Unit tests (58 tests passing)
   - TOTP service: 11 tests
   - Backup codes service: 10 tests
   - Trusted device service: 18 tests
   - MFA controller: 19 tests
-- [x] Fix current auth test harness (TotpService/BackupCodes/Trusted providers wired; auth service/controller specs green)
-- [ ] Security audit
-- [ ] E2E tests
-  - `authentication.e2e.spec.ts` and `tenant-isolation.e2e.spec.ts` currently skipped pending stable seed data for MFA and tenant fixtures; re-enable after adding deterministic tenants and disabling trusted-device bypass in test context.
+- [x] Auth test harness fixed (Totp/Backup/Trusted providers wired; auth service/controller specs green)
+- [x] E2E tests re-enabled and passing
+  - `authentication.e2e.spec.ts`
+  - `tenant-isolation.e2e.spec.ts`
+- [x] Security audit (baseline review completed; no blocking issues)
 
 ### Phase 8: WebAuthn/Biometric (Future)
 

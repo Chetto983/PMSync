@@ -569,8 +569,8 @@ export function Settings() {
       </Box>
 
       {/* Main Content */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 4 } }}>
-        <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 4 }, bgcolor: 'background.default' }}>
+        <Box sx={{ maxWidth: { xs: '100%', md: 1080 }, mx: 'auto' }}>
           {/* General Settings */}
           {selectedSection === 'general' && (
             <Box>
