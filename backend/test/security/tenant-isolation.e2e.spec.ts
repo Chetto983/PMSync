@@ -13,7 +13,7 @@ import { CryptoService } from '../../src/common/services/crypto.service';
  * These tests verify that cross-tenant access is properly blocked
  * across all modules: emails, contacts, calendar, AI, etc.
  */
-describe.skip('Tenant Isolation (E2E)', () => {
+describe('Tenant Isolation (E2E)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
 
@@ -88,7 +88,7 @@ describe.skip('Tenant Isolation (E2E)', () => {
     });
 
     // Register User A
-    const userAResponse = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'tenant-a-test@example.com',
@@ -98,14 +98,19 @@ describe.skip('Tenant Isolation (E2E)', () => {
       })
       .expect(201);
 
-    // Disable MFA for User A
-    await prisma.user.update({
-      where: { id: userAResponse.body.userId },
-      data: { isMfaEnabled: false },
+    const userARecord = await prisma.user.findFirst({
+      where: { email: 'tenant-a-test@example.com' },
+      select: { id: true },
     });
+    if (userARecord?.id) {
+      await prisma.user.update({
+        where: { id: userARecord.id },
+        data: { isMfaEnabled: false },
+      });
+    }
 
     // Register User B
-    const userBResponse = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'tenant-b-test@example.com',
@@ -115,11 +120,16 @@ describe.skip('Tenant Isolation (E2E)', () => {
       })
       .expect(201);
 
-    // Disable MFA for User B
-    await prisma.user.update({
-      where: { id: userBResponse.body.userId },
-      data: { isMfaEnabled: false },
+    const userBRecord = await prisma.user.findFirst({
+      where: { email: 'tenant-b-test@example.com' },
+      select: { id: true },
     });
+    if (userBRecord?.id) {
+      await prisma.user.update({
+        where: { id: userBRecord.id },
+        data: { isMfaEnabled: false },
+      });
+    }
 
     // Login User A
     const loginA = await request(app.getHttpServer())
@@ -128,7 +138,7 @@ describe.skip('Tenant Isolation (E2E)', () => {
         email: 'tenant-a-test@example.com',
         password: 'Test123!@#',
       })
-      .expect(201);
+      .expect(200);
 
     userAToken = loginA.body.accessToken;
     tenantAId = loginA.body.user.tenantId;
@@ -141,7 +151,7 @@ describe.skip('Tenant Isolation (E2E)', () => {
         email: 'tenant-b-test@example.com',
         password: 'Test123!@#',
       })
-      .expect(201);
+      .expect(200);
 
     userBToken = loginB.body.accessToken;
     tenantBId = loginB.body.user.tenantId;
