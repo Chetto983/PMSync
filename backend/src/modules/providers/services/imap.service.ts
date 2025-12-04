@@ -116,7 +116,14 @@ export class ImapService {
     username: string;
     password: string;
     useTls: boolean;
-  }): Promise<string[]> {
+  }): Promise<
+    Array<{
+      path: string;
+      name: string;
+      delimiter: string;
+      attributes: string[];
+    }>
+  > {
     let client: ImapFlow | null = null;
 
     try {
@@ -125,11 +132,16 @@ export class ImapService {
 
       const folders = await client.list();
 
-      const folderNames = folders.map((folder) => folder.path);
+      const folderInfos = folders.map((folder) => ({
+        path: folder.path,
+        name: folder.name,
+        delimiter: folder.delimiter || '/',
+        attributes: folder.flags ? Array.from(folder.flags) : [],
+      }));
 
-      this.logger.log(`Retrieved ${folderNames.length} folders from IMAP server`);
+      this.logger.log(`Retrieved ${folderInfos.length} folders from IMAP server`);
 
-      return folderNames;
+      return folderInfos;
     } catch (error) {
       this.logger.error('Failed to list IMAP folders:', error);
       throw new UnauthorizedException('Failed to list IMAP folders');

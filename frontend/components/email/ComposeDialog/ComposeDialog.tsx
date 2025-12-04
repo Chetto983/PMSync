@@ -995,6 +995,7 @@ export function ComposeDialog({
               <Autocomplete
                 multiple
                 freeSolo
+                autoSelect
                 fullWidth
                 size="small"
                 options={emailOptions}
@@ -1045,6 +1046,7 @@ export function ComposeDialog({
                 <Autocomplete
                   multiple
                   freeSolo
+                  autoSelect
                   fullWidth
                   size="small"
                   options={emailOptions}
@@ -1084,6 +1086,7 @@ export function ComposeDialog({
                 <Autocomplete
                   multiple
                   freeSolo
+                  autoSelect
                   fullWidth
                   size="small"
                   options={emailOptions}

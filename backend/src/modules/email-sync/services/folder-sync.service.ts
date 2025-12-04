@@ -142,7 +142,11 @@ export class FolderSyncService {
       // folder.delimiter is the delimiter (usually "/")
       // folder.attributes is an array of attributes
 
-      const path = folder.path;
+      const path = folder.path || folder.name;
+      if (!path) {
+        this.logger.warn(`Skipping IMAP folder with no path or name: ${JSON.stringify(folder)}`);
+        continue;
+      }
       const delimiter = folder.delimiter || '/';
       const attributes = folder.attributes || [];
       const syncToken = folder.uidNext ? String(folder.uidNext) : undefined;

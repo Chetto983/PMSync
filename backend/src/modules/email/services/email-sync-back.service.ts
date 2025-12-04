@@ -13,7 +13,11 @@ export interface EmailSyncOperation {
   providerId: string;
   tenantId: string;
   operation: 'delete' | 'hardDelete' | 'markRead' | 'markUnread' | 'star' | 'unstar' | 'flag' | 'unflag' | 'moveToFolder';
+  /** For moveToFolder: target folder. For delete: unused (use sourceFolder) */
   folder?: string;
+  /** Source folder where message currently resides on IMAP server.
+   * Critical for IMAP sync-back since DB folder may already be updated. */
+  sourceFolder?: string;
 }
 
 /**
@@ -94,20 +98,23 @@ export class EmailSyncBackService {
         throw new Error('Provider not found');
       }
 
-      // Get valid access token
-      const accessToken = await this.getValidAccessToken(provider);
-
       // Sync based on provider type (case-insensitive)
       const providerType = provider.providerType?.toUpperCase();
 
       switch (providerType) {
-        case 'GOOGLE':
+        case 'GOOGLE': {
+          const accessToken = await this.getValidAccessToken(provider);
           await this.syncToGmail(operation, accessToken);
           break;
-        case 'MICROSOFT':
+        }
+        case 'MICROSOFT': {
+          const accessToken = await this.getValidAccessToken(provider);
           await this.syncToMicrosoft(operation, accessToken);
           break;
+        }
         case 'IMAP':
+        case 'GENERIC':
+          // IMAP/generic providers use password auth, not OAuth tokens
           await this.syncToImap(operation, provider);
           break;
         default:
@@ -116,7 +123,8 @@ export class EmailSyncBackService {
 
       this.logger.log(`✅ Synced ${operation.operation} for email ${operation.emailId} to ${provider.providerType}`);
     } catch (error) {
-      this.logger.error(`❌ Failed to sync operation to provider:`, error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`❌ Failed to sync operation to provider: ${err.message}`, err.stack);
       throw error;
     }
   }
@@ -405,6 +413,15 @@ export class EmailSyncBackService {
     let client: ImapFlow | null = null;
 
     try {
+      // Validate IMAP credentials exist
+      if (!provider.imapHost || !provider.imapUsername) {
+        throw new Error(`IMAP credentials not configured for provider ${provider.id}`);
+      }
+
+      if (!provider.imapPassword || !provider.imapEncryptionIv) {
+        throw new Error(`IMAP password not configured for provider ${provider.id}`);
+      }
+
       // Decrypt IMAP credentials
       const imapPassword = this.crypto.decrypt(
         provider.imapPassword,
@@ -432,12 +449,17 @@ export class EmailSyncBackService {
         throw new Error(`Invalid IMAP UID: ${operation.externalId}`);
       }
 
-      // Get current folder from email record
-      const email = await this.prisma.email.findUnique({
-        where: { id: operation.emailId },
-        select: { folder: true },
-      });
-      const currentFolder = email?.folder || 'INBOX';
+      // Use sourceFolder from operation if provided (critical for IMAP sync-back
+      // since DB folder may already be updated before sync runs)
+      // Fall back to looking up from email record
+      let currentFolder = operation.sourceFolder;
+      if (!currentFolder) {
+        const email = await this.prisma.email.findUnique({
+          where: { id: operation.emailId },
+          select: { folder: true },
+        });
+        currentFolder = email?.folder || 'INBOX';
+      }
 
       // Open mailbox
       await client.mailboxOpen(currentFolder);
@@ -475,11 +497,18 @@ export class EmailSyncBackService {
           break;
 
         case 'delete':
-          // Mark as deleted and expunge
-          await client.messageFlagsAdd({ uid }, ['\\Deleted'], { uid: true });
-          await client.mailboxClose();
-          await client.mailboxOpen(currentFolder);
-          this.logger.log(`✅ IMAP: Deleted message ${uid}`);
+          // Move to Trash folder (soft delete) - not hard delete
+          // Hard delete is only for 'hardDelete' operation when user permanently deletes from Trash
+          try {
+            await client.messageMove({ uid }, 'Trash', { uid: true });
+            this.logger.log(`✅ IMAP: Moved message ${uid} to Trash`);
+          } catch {
+            // Fallback to COPY + DELETE if MOVE not supported
+            this.logger.warn(`MOVE to Trash not supported, using COPY + DELETE fallback`);
+            await client.messageCopy({ uid }, 'Trash', { uid: true });
+            await client.messageDelete({ uid }, { uid: true });
+            this.logger.log(`✅ IMAP: Moved message ${uid} to Trash (via COPY+DELETE)`);
+          }
           break;
 
         case 'moveToFolder':
@@ -504,22 +533,19 @@ export class EmailSyncBackService {
             await client.messageMove({ uid }, targetFolder, { uid: true });
             this.logger.log(`✅ IMAP: Moved message ${uid} to ${targetFolder}`);
           } catch {
-            // Fallback to COPY + DELETE
+            // Fallback to COPY + DELETE with proper expunge
             this.logger.warn(`MOVE not supported, using COPY + DELETE fallback`);
             await client.messageCopy({ uid }, targetFolder, { uid: true });
-            await client.messageFlagsAdd({ uid }, ['\\Deleted'], { uid: true });
-            await client.mailboxClose();
-            await client.mailboxOpen(currentFolder);
+            // Use messageDelete which marks as \Deleted AND expunges
+            await client.messageDelete({ uid }, { uid: true });
             this.logger.log(`✅ IMAP: Moved message ${uid} to ${targetFolder} (via COPY+DELETE)`);
           }
           break;
 
         case 'hardDelete':
-          // Permanent deletion with expunge
-          await client.messageFlagsAdd({ uid }, ['\\Deleted'], { uid: true });
-          await client.mailboxClose();
-          await client.mailboxOpen(currentFolder);
-          this.logger.log(`✅ IMAP: Hard deleted message ${uid}`);
+          // Use messageDelete which marks as \Deleted AND expunges in one operation
+          await client.messageDelete({ uid }, { uid: true });
+          this.logger.log(`✅ IMAP: Hard deleted message ${uid} from ${currentFolder}`);
           break;
 
         default:

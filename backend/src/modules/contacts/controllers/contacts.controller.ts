@@ -11,7 +11,11 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { SkipThrottle } from '@nestjs/throttler';
 import {
   ContactsService,
@@ -117,6 +121,75 @@ export class ContactsController {
   async deleteContact(@Req() req: any, @Param('id') contactId: string) {
     const tenantId = req.user.tenantId;
     await this.contactsService.deleteContact(tenantId, contactId);
+  }
+
+  /**
+   * Create a local-only contact (no provider sync)
+   * POST /api/contacts/local
+   */
+  @Post('local')
+  @HttpCode(HttpStatus.CREATED)
+  async createLocalContact(@Req() req: any, @Body() data: Omit<CreateContactDto, 'providerId'>) {
+    const tenantId = req.user.tenantId;
+    return this.contactsService.createLocalContact(tenantId, data);
+  }
+
+  /**
+   * Extract contacts from emails and create local contacts
+   * POST /api/contacts/extract-from-emails
+   * Works for any provider, especially useful for generic IMAP
+   */
+  @Post('extract-from-emails')
+  async extractContactsFromEmails(
+    @Req() req: any,
+    @Body() body: { providerId?: string; excludePublicDomains?: boolean },
+  ) {
+    const tenantId = req.user.tenantId;
+    const result = await this.contactsService.extractContactsFromEmails(
+      tenantId,
+      body.providerId,
+      body.excludePublicDomains ?? false, // Include all by default
+    );
+    return {
+      success: true,
+      ...result,
+    };
+  }
+
+  /**
+   * Import contacts from vCard (.vcf) file
+   * POST /api/contacts/import/vcard
+   * Supports vCard 3.0 and 4.0 formats (Outlook, Apple, Google exports)
+   */
+  @Post('import/vcard')
+  @UseInterceptors(FileInterceptor('file'))
+  async importFromVCard(
+    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { content?: string },
+  ) {
+    const tenantId = req.user.tenantId;
+
+    // Get vCard content from file or body
+    let vcfContent: string;
+
+    if (file) {
+      // File uploaded
+      vcfContent = file.buffer.toString('utf-8');
+    } else if (body.content) {
+      // Raw vCard content in body
+      vcfContent = body.content;
+    } else {
+      throw new BadRequestException('No vCard file or content provided. Upload a .vcf file or provide content in body.');
+    }
+
+    const result = await this.contactsService.importFromVCard(tenantId, vcfContent);
+
+    return {
+      success: true,
+      message: `Imported ${result.imported} contacts, skipped ${result.skipped}`,
+      ...result,
+    };
   }
 
   /**

@@ -7,6 +7,7 @@ import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import * as vCard from 'vcf';
 
 // Unified contact with provider sources
 export interface ContactWithProviders extends Contact {
@@ -563,5 +564,421 @@ export class ContactsService {
         metadata: contactData.metadata as any,
       },
     });
+  }
+
+  /**
+   * Extract contacts from emails and create local contacts
+   * Works for any provider type, including generic IMAP that don't have contacts API
+   * @param tenantId - Tenant ID
+   * @param providerId - Optional provider ID to filter emails
+   * @param excludePublicDomains - Whether to exclude public domains like gmail.com
+   */
+  async extractContactsFromEmails(
+    tenantId: string,
+    providerId?: string,
+    excludePublicDomains = true,
+  ): Promise<{ created: number; skipped: number; total: number }> {
+    this.logger.log(`Extracting contacts from emails for tenant ${tenantId}`);
+
+    // Public domains to exclude
+    const publicDomains = new Set([
+      'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.it', 'hotmail.com',
+      'hotmail.it', 'outlook.com', 'outlook.it', 'live.com', 'live.it',
+      'icloud.com', 'me.com', 'mac.com', 'aol.com', 'msn.com',
+      'libero.it', 'virgilio.it', 'alice.it', 'tin.it', 'tiscali.it',
+      'fastwebnet.it', 'email.it', 'pec.it', 'aruba.it',
+    ]);
+
+    // Query all emails for this tenant
+    const emails = await this.prisma.email.findMany({
+      where: {
+        tenantId,
+        ...(providerId && { providerId }),
+      },
+      select: {
+        from: true,
+        to: true,
+        cc: true,
+        bcc: true,
+        fromName: true,
+      },
+    });
+
+    // Extract unique email addresses with names
+    const addressMap = new Map<string, { email: string; name?: string }>();
+
+    for (const email of emails) {
+      // From
+      if (email.from) {
+        const addr = email.from.toLowerCase().trim();
+        if (!addressMap.has(addr)) {
+          addressMap.set(addr, { email: addr, name: email.fromName || undefined });
+        }
+      }
+
+      // To (JSON array)
+      if (email.to) {
+        const toAddresses = Array.isArray(email.to) ? email.to : [];
+        for (const addr of toAddresses) {
+          if (typeof addr === 'string') {
+            const lower = addr.toLowerCase().trim();
+            if (!addressMap.has(lower)) {
+              addressMap.set(lower, { email: lower });
+            }
+          }
+        }
+      }
+
+      // CC (JSON array)
+      if (email.cc) {
+        const ccAddresses = Array.isArray(email.cc) ? email.cc : [];
+        for (const addr of ccAddresses) {
+          if (typeof addr === 'string') {
+            const lower = addr.toLowerCase().trim();
+            if (!addressMap.has(lower)) {
+              addressMap.set(lower, { email: lower });
+            }
+          }
+        }
+      }
+    }
+
+    // Get existing contacts for this tenant
+    const existingContacts = await this.prisma.contact.findMany({
+      where: { tenantId, isDeleted: false },
+      select: { emails: true },
+    });
+
+    // Build set of existing email addresses
+    const existingEmails = new Set<string>();
+    for (const contact of existingContacts) {
+      if (contact.emails && Array.isArray(contact.emails)) {
+        for (const emailObj of contact.emails as any[]) {
+          if (emailObj?.value) {
+            existingEmails.add(emailObj.value.toLowerCase());
+          }
+        }
+      }
+    }
+
+    let created = 0;
+    let skipped = 0;
+
+    // Create contacts for new addresses
+    for (const [emailAddr, info] of addressMap) {
+      // Skip if already exists
+      if (existingEmails.has(emailAddr)) {
+        skipped++;
+        continue;
+      }
+
+      // Extract domain
+      const domain = emailAddr.split('@')[1];
+      if (!domain) {
+        skipped++;
+        continue;
+      }
+
+      // Skip public domains if enabled
+      if (excludePublicDomains && publicDomains.has(domain.toLowerCase())) {
+        skipped++;
+        continue;
+      }
+
+      // Parse name if available
+      let firstName: string | undefined;
+      let lastName: string | undefined;
+      if (info.name) {
+        const parts = info.name.trim().split(/\s+/);
+        firstName = parts[0];
+        lastName = parts.length > 1 ? parts.slice(1).join(' ') : undefined;
+      }
+
+      // Create local contact
+      try {
+        await this.prisma.contact.create({
+          data: {
+            tenantId,
+            firstName,
+            lastName,
+            displayName: info.name || emailAddr,
+            emails: [{ value: emailAddr, type: 'work', primary: true }],
+            company: domain.split('.')[0], // Use domain as company hint
+            metadata: { source: 'email_extraction', extractedAt: new Date().toISOString() },
+          },
+        });
+        created++;
+        existingEmails.add(emailAddr); // Prevent duplicates within this run
+      } catch (error: any) {
+        this.logger.warn(`Failed to create contact for ${emailAddr}: ${error.message}`);
+        skipped++;
+      }
+    }
+
+    this.logger.log(`Contact extraction complete: ${created} created, ${skipped} skipped, ${addressMap.size} total`);
+
+    // Emit updated counts
+    void this.updateContactCounts(tenantId);
+
+    return { created, skipped, total: addressMap.size };
+  }
+
+  /**
+   * Create a local-only contact (no provider sync)
+   * Useful for generic IMAP providers that don't support contacts API
+   */
+  async createLocalContact(
+    tenantId: string,
+    data: Omit<CreateContactDto, 'providerId'>,
+  ): Promise<Contact> {
+    this.logger.log(`Creating local contact for tenant ${tenantId}`);
+
+    const contact = await this.prisma.contact.create({
+      data: {
+        tenantId,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        displayName: data.displayName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || undefined,
+        emails: data.emails as any,
+        phoneNumbers: data.phoneNumbers as any,
+        company: data.company,
+        jobTitle: data.jobTitle,
+        notes: data.notes,
+        metadata: { source: 'local', createdAt: new Date().toISOString() },
+      },
+    });
+
+    this.logger.log(`Local contact created: ${contact.id}`);
+
+    // Emit updated counts
+    void this.updateContactCounts(tenantId);
+
+    return contact;
+  }
+
+  /**
+   * Import contacts from vCard (.vcf) file content
+   * Supports vCard 3.0 and 4.0 formats (Outlook, Apple, Google exports)
+   * @param tenantId - Tenant ID
+   * @param vcfContent - Raw vCard file content (can contain multiple contacts)
+   */
+  async importFromVCard(
+    tenantId: string,
+    vcfContent: string,
+  ): Promise<{ imported: number; skipped: number; errors: string[] }> {
+    this.logger.log(`Importing contacts from vCard for tenant ${tenantId}`);
+
+    const errors: string[] = [];
+    let imported = 0;
+    let skipped = 0;
+
+    try {
+      // Parse vCard content - can contain multiple vCards
+      const cards = vCard.parse(vcfContent);
+
+      // Get existing emails for deduplication
+      const existingContacts = await this.prisma.contact.findMany({
+        where: { tenantId, isDeleted: false },
+        select: { emails: true },
+      });
+
+      const existingEmails = new Set<string>();
+      for (const contact of existingContacts) {
+        if (contact.emails && Array.isArray(contact.emails)) {
+          for (const emailObj of contact.emails as any[]) {
+            if (emailObj?.value) {
+              existingEmails.add(emailObj.value.toLowerCase());
+            }
+          }
+        }
+      }
+
+      // Process each vCard
+      for (const card of cards) {
+        try {
+          // Extract name
+          const fnProp = card.get('fn');
+          const nProp = card.get('n');
+
+          let firstName: string | undefined;
+          let lastName: string | undefined;
+          let displayName: string | undefined;
+
+          // FN (Full Name)
+          if (fnProp) {
+            const fnValue = Array.isArray(fnProp) ? fnProp[0] : fnProp;
+            displayName = fnValue?.valueOf?.() || fnValue?.value || String(fnValue || '');
+          }
+
+          // N (Structured Name: family;given;middle;prefix;suffix)
+          if (nProp) {
+            const nValue = Array.isArray(nProp) ? nProp[0] : nProp;
+            const nameStr = nValue?.valueOf?.() || nValue?.value || '';
+            if (typeof nameStr === 'string') {
+              const parts = nameStr.split(';');
+              lastName = parts[0]?.trim() || undefined;
+              firstName = parts[1]?.trim() || undefined;
+            }
+          }
+
+          // Parse first/last from display name if not in N field
+          if (displayName && !firstName && !lastName) {
+            const nameParts = displayName.trim().split(/\s+/);
+            firstName = nameParts[0];
+            lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined;
+          }
+
+          // Extract emails
+          const emailProp = card.get('email');
+          const emails: Array<{ value: string; type?: string; primary?: boolean }> = [];
+
+          if (emailProp) {
+            const emailArray = Array.isArray(emailProp) ? emailProp : [emailProp];
+            let hasPrimary = false;
+
+            for (const email of emailArray) {
+              const emailValue = email?.valueOf?.() || email?.value || String(email || '');
+              if (emailValue && typeof emailValue === 'string') {
+                // Get type from parameters
+                const typeParam = email?.type || email?.params?.type;
+                const type = Array.isArray(typeParam) ? typeParam[0] : typeParam;
+                const isPref = email?.params?.pref === '1' || type?.toLowerCase()?.includes('pref');
+
+                emails.push({
+                  value: emailValue.toLowerCase().trim(),
+                  type: type?.toString()?.toLowerCase()?.replace('pref,', '') || 'other',
+                  primary: isPref && !hasPrimary,
+                });
+                if (isPref) hasPrimary = true;
+              }
+            }
+
+            // Mark first as primary if none specified
+            if (emails.length > 0 && !hasPrimary) {
+              emails[0].primary = true;
+            }
+          }
+
+          // Skip if no email
+          if (emails.length === 0) {
+            this.logger.debug(`Skipping vCard without email: ${displayName || 'Unknown'}`);
+            skipped++;
+            continue;
+          }
+
+          // Check for duplicates
+          const isDuplicate = emails.some(e => existingEmails.has(e.value));
+          if (isDuplicate) {
+            this.logger.debug(`Skipping duplicate contact: ${emails[0].value}`);
+            skipped++;
+            continue;
+          }
+
+          // Extract phone numbers
+          const telProp = card.get('tel');
+          const phoneNumbers: Array<{ value: string; type?: string; primary?: boolean }> = [];
+
+          if (telProp) {
+            const telArray = Array.isArray(telProp) ? telProp : [telProp];
+            for (const tel of telArray) {
+              const telValue = tel?.valueOf?.() || tel?.value || String(tel || '');
+              if (telValue && typeof telValue === 'string') {
+                const typeParam = tel?.type || tel?.params?.type;
+                const type = Array.isArray(typeParam) ? typeParam[0] : typeParam;
+                phoneNumbers.push({
+                  value: telValue.replace(/\s+/g, ''),
+                  type: type?.toString()?.toLowerCase() || 'other',
+                  primary: phoneNumbers.length === 0,
+                });
+              }
+            }
+          }
+
+          // Extract organization
+          const orgProp = card.get('org');
+          let company: string | undefined;
+          if (orgProp) {
+            const orgValue = Array.isArray(orgProp) ? orgProp[0] : orgProp;
+            company = orgValue?.valueOf?.() || orgValue?.value || String(orgValue || '');
+            if (typeof company === 'string') {
+              company = company.split(';')[0]?.trim() || undefined;
+            }
+          }
+
+          // Extract job title
+          const titleProp = card.get('title');
+          let jobTitle: string | undefined;
+          if (titleProp) {
+            const titleValue = Array.isArray(titleProp) ? titleProp[0] : titleProp;
+            jobTitle = titleValue?.valueOf?.() || titleValue?.value || String(titleValue || '');
+          }
+
+          // Extract notes
+          const noteProp = card.get('note');
+          let notes: string | undefined;
+          if (noteProp) {
+            const noteValue = Array.isArray(noteProp) ? noteProp[0] : noteProp;
+            notes = noteValue?.valueOf?.() || noteValue?.value || String(noteValue || '');
+          }
+
+          // Extract birthday
+          const bdayProp = card.get('bday');
+          let birthday: Date | undefined;
+          if (bdayProp) {
+            const bdayValue = Array.isArray(bdayProp) ? bdayProp[0] : bdayProp;
+            const bdayStr = bdayValue?.valueOf?.() || bdayValue?.value || String(bdayValue || '');
+            if (bdayStr) {
+              try {
+                birthday = new Date(bdayStr);
+                if (isNaN(birthday.getTime())) birthday = undefined;
+              } catch {
+                birthday = undefined;
+              }
+            }
+          }
+
+          // Create contact
+          await this.prisma.contact.create({
+            data: {
+              tenantId,
+              firstName,
+              lastName,
+              displayName: displayName || `${firstName || ''} ${lastName || ''}`.trim() || emails[0].value,
+              emails: emails as any,
+              phoneNumbers: phoneNumbers.length > 0 ? phoneNumbers as any : undefined,
+              company,
+              jobTitle,
+              notes,
+              birthday,
+              metadata: { source: 'vcard_import', importedAt: new Date().toISOString() },
+            },
+          });
+
+          // Add to existing set to prevent duplicates within this import
+          for (const email of emails) {
+            existingEmails.add(email.value);
+          }
+
+          imported++;
+          this.logger.debug(`Imported contact: ${displayName || emails[0].value}`);
+        } catch (cardError: any) {
+          const errMsg = `Failed to import contact: ${cardError.message}`;
+          this.logger.warn(errMsg);
+          errors.push(errMsg);
+          skipped++;
+        }
+      }
+    } catch (parseError: any) {
+      const errMsg = `Failed to parse vCard file: ${parseError.message}`;
+      this.logger.error(errMsg);
+      errors.push(errMsg);
+    }
+
+    this.logger.log(`vCard import complete: ${imported} imported, ${skipped} skipped, ${errors.length} errors`);
+
+    // Emit updated counts
+    void this.updateContactCounts(tenantId);
+
+    return { imported, skipped, errors };
   }
 }

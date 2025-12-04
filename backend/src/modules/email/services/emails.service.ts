@@ -388,6 +388,7 @@ export class EmailsService {
         providerId: email.providerId,
         tenantId: email.tenantId,
         operation: changes.isRead ? ('markRead' as const) : ('markUnread' as const),
+        sourceFolder: email.folder, // Current folder for IMAP operations
       });
     }
 
@@ -399,6 +400,7 @@ export class EmailsService {
         providerId: email.providerId,
         tenantId: email.tenantId,
         operation: changes.isStarred ? ('star' as const) : ('unstar' as const),
+        sourceFolder: email.folder, // Current folder for IMAP operations
       });
     }
 
@@ -410,6 +412,7 @@ export class EmailsService {
         providerId: email.providerId,
         tenantId: email.tenantId,
         operation: changes.isFlagged ? ('flag' as const) : ('unflag' as const),
+        sourceFolder: email.folder, // Current folder for IMAP operations
       });
     }
 
@@ -421,7 +424,8 @@ export class EmailsService {
         providerId: email.providerId,
         tenantId: email.tenantId,
         operation: 'moveToFolder' as const,
-        folder: changes.folder,
+        sourceFolder: email.folder, // Where message is now on IMAP
+        folder: changes.folder, // Target folder to move to
       });
     }
 
@@ -456,10 +460,16 @@ export class EmailsService {
           providerId: email.providerId,
           tenantId: email.tenantId,
           operation: 'hardDelete',
+          sourceFolder: email.folder, // Where message is on IMAP (should be TRASH)
         })
         .catch((error) => {
           this.logger.error(`Failed to sync permanent email deletion to provider: ${error.message}`);
         });
+
+      // Update folder counts after permanent delete
+      this.updateFolderCounts(tenantId, email.providerId, ['TRASH']).catch((error) => {
+        this.logger.error(`Failed to update folder counts: ${error.message}`);
+      });
 
       this.logger.log(`Email ${id} permanently deleted and synced to provider`);
       return { success: true };
@@ -484,11 +494,16 @@ export class EmailsService {
         providerId: email.providerId,
         tenantId: email.tenantId,
         operation: 'delete',
-        folder: 'TRASH',
+        sourceFolder: email.folder, // Original folder where message is on IMAP
       })
       .catch((error) => {
         this.logger.error(`Failed to sync email deletion to provider: ${error.message}`);
       });
+
+    // Update folder counts for source folder and TRASH
+    this.updateFolderCounts(tenantId, email.providerId, [email.folder, 'TRASH']).catch((error) => {
+      this.logger.error(`Failed to update folder counts: ${error.message}`);
+    });
 
     this.logger.log(`Email ${id} marked as deleted and synced to provider`);
     return { success: true };
@@ -697,6 +712,7 @@ export class EmailsService {
       providerId: email.providerId,
       tenantId: email.tenantId,
       operation: isRead ? ('markRead' as const) : ('markUnread' as const),
+      sourceFolder: email.folder, // Current folder for IMAP operations
     }));
 
     this.emailSyncBack.syncOperationsBatch(operations).catch((error) => {
@@ -1008,12 +1024,15 @@ export class EmailsService {
     }
 
     // Sync to provider (async, don't wait)
+    // IMPORTANT: Pass the original folder (captured before updateMany) so sync-back
+    // opens the correct IMAP mailbox where the message still resides
     const operations = emails.map((email) => ({
       emailId: email.id,
       externalId: email.externalId,
       providerId: email.providerId,
       tenantId: email.tenantId,
       operation: 'delete' as const,
+      sourceFolder: email.folder, // Original folder where message is on IMAP
     }));
 
     this.logger.log(`[BULK DELETE] Queuing sync-back for ${operations.length} emails to providers`);
@@ -1057,6 +1076,7 @@ export class EmailsService {
         externalId: true,
         providerId: true,
         tenantId: true,
+        folder: true, // Needed for IMAP sync-back
       },
     });
 
@@ -1081,6 +1101,7 @@ export class EmailsService {
       providerId: email.providerId,
       tenantId: email.tenantId,
       operation: isStarred ? ('star' as const) : ('unstar' as const),
+      sourceFolder: email.folder, // Current folder for IMAP operations
     }));
 
     this.emailSyncBack.syncOperationsBatch(operations).catch((error) => {
@@ -1123,6 +1144,7 @@ export class EmailsService {
         externalId: true,
         providerId: true,
         tenantId: true,
+        folder: true, // Needed for IMAP sync-back
       },
     });
 
@@ -1147,6 +1169,7 @@ export class EmailsService {
       providerId: email.providerId,
       tenantId: email.tenantId,
       operation: isFlagged ? ('flag' as const) : ('unflag' as const),
+      sourceFolder: email.folder, // Current folder for IMAP operations
     }));
 
     this.emailSyncBack.syncOperationsBatch(operations).catch((error) => {
@@ -1234,7 +1257,8 @@ export class EmailsService {
       providerId: email.providerId,
       tenantId: email.tenantId,
       operation: 'moveToFolder' as const,
-      data: { fromFolder: email.folder, toFolder: folder },
+      sourceFolder: email.folder, // Where message is now on IMAP
+      folder, // Target folder to move to
     }));
 
     this.emailSyncBack.syncOperationsBatch(operations).catch((error) => {
