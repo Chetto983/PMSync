@@ -152,6 +152,90 @@ interface AuthScreenCopy {
   };
 }
 
+interface MfaTranslations {
+  title: string;
+  subtitle: string;
+  enabled: string;
+  disabled: string;
+  enable: string;
+  disable: string;
+  totp: {
+    title: string;
+    subtitle: string;
+    setup: {
+      title: string;
+      step1: string;
+      step1Description: string;
+      step2: string;
+      step2Description: string;
+      step3: string;
+      step3Description: string;
+      manualEntry: string;
+      copySecret: string;
+      secretCopied: string;
+    };
+    verify: {
+      title: string;
+      subtitle: string;
+      placeholder: string;
+      submit: string;
+      invalid: string;
+      success: string;
+    };
+  };
+  backupCodes: {
+    title: string;
+    subtitle: string;
+    generate: string;
+    regenerate: string;
+    regenerateWarning: string;
+    download: string;
+    copy: string;
+    copied: string;
+    print: string;
+    remaining: string;
+    noCodesRemaining: string;
+    warning: string;
+    verify: {
+      title: string;
+      subtitle: string;
+      placeholder: string;
+      submit: string;
+      invalid: string;
+      success: string;
+    };
+  };
+  trustedDevices: {
+    title: string;
+    subtitle: string;
+    keepSignedIn: string;
+    keepSignedInDescription: string;
+    current: string;
+    lastUsed: string;
+    expires: string;
+    revoke: string;
+    revokeAll: string;
+    revokeConfirm: string;
+    revokeAllConfirm: string;
+    noDevices: string;
+    maxDevices: string;
+  };
+  challenge: {
+    title: string;
+    subtitle: string;
+    useAuthenticator: string;
+    useBackupCode: string;
+    switchMethod: string;
+  };
+  errors: {
+    setupFailed: string;
+    verifyFailed: string;
+    disableFailed: string;
+    notEnabled: string;
+    alreadyEnabled: string;
+  };
+}
+
 export interface AppTranslations {
   /**
    * Current locale code (e.g., 'en', 'it')
@@ -268,6 +352,7 @@ export interface AppTranslations {
     register: AuthScreenCopy;
     forgotPassword: AuthScreenCopy;
     resetPassword: AuthScreenCopy;
+    mfa: MfaTranslations;
   };
   dashboard: {
     index: {
@@ -693,6 +778,60 @@ export interface AppTranslations {
       allDay: string;
       noCalendarsFound: string;
       failedToDownloadAttachment: string;
+      // Calendar invitation handling
+      invitation: {
+        title: string;
+        from: string;
+        when: string;
+        where: string;
+        organizer: string;
+        attendees: string;
+        description: string;
+        status: {
+          pending: string;
+          accepted: string;
+          declined: string;
+          tentative: string;
+          needsAction: string;
+        };
+        actions: {
+          accept: string;
+          decline: string;
+          tentative: string;
+          addToCalendar: string;
+          viewDetails: string;
+          downloadIcs: string;
+        };
+        method: {
+          request: string;
+          reply: string;
+          cancel: string;
+          publish: string;
+        };
+        messages: {
+          inviteReceived: string;
+          inviteCancelled: string;
+          inviteUpdated: string;
+          responseSuccess: string;
+          responseFailed: string;
+          addedToCalendar: string;
+          alreadyResponded: string;
+        };
+        attendeeRole: {
+          required: string;
+          optional: string;
+          chair: string;
+        };
+        recurrence: {
+          daily: string;
+          weekly: string;
+          monthly: string;
+          yearly: string;
+          custom: string;
+        };
+        allDay: string;
+        timezone: string;
+      };
     };
     providers: {
       title: string;
@@ -813,6 +952,7 @@ export interface AppTranslations {
       sidebarSubtitle: string;
       sections: {
         general: string;
+        security: string;
         ai: string;
         accounts: string;
         account: string;

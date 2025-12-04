@@ -6,6 +6,8 @@ import { GoogleCalendarSyncService } from './services/google-calendar-sync.servi
 import { MicrosoftCalendarSyncService } from './services/microsoft-calendar-sync.service';
 import { GoogleCalendarWebhookService } from './services/google-calendar-webhook.service';
 import { MicrosoftCalendarWebhookService } from './services/microsoft-calendar-webhook.service';
+import { IcsParserService } from './services/ics-parser.service';
+import { IcsGeneratorService } from './services/ics-generator.service';
 import { CalendarProviderFactory } from './calendar-provider.factory';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
@@ -29,6 +31,8 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
     MicrosoftCalendarSyncService,
     GoogleCalendarWebhookService,
     MicrosoftCalendarWebhookService,
+    IcsParserService,
+    IcsGeneratorService,
     CalendarProviderFactory,
   ],
   exports: [
@@ -37,6 +41,8 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
     MicrosoftCalendarSyncService,
     GoogleCalendarWebhookService,
     MicrosoftCalendarWebhookService,
+    IcsParserService,
+    IcsGeneratorService,
     CalendarProviderFactory,
   ],
 })

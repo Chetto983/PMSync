@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { gmail_v1 } from 'googleapis';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { AttachmentStorageService } from '../../../email/services/attachment.storage';
+import { IcsParserService, ParsedCalendarInvite } from '../../../calendar/services/ics-parser.service';
 
 /**
  * Attachment metadata from Gmail message
@@ -31,6 +32,7 @@ export class GmailAttachmentHandler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly attachmentStorage: AttachmentStorageService,
+    private readonly icsParser: IcsParserService,
   ) {}
 
   /**
@@ -102,6 +104,22 @@ export class GmailAttachmentHandler {
       // Process each attachment with intelligent strategy
       for (const attachment of attachments) {
         try {
+          // Calendar detection
+          if (this.icsParser.isCalendarAttachment(attachment.mimeType, attachment.filename)) {
+            const data = await this.downloadGmailAttachment(
+              gmail,
+              externalId,
+              attachment.attachmentId,
+            );
+
+            if (data) {
+              const parsed = await this.icsParser.parseIcs(data.toString('utf-8'));
+              if (parsed) {
+                await this.saveCalendarInvite(emailId, tenantId, providerId, parsed);
+              }
+            }
+          }
+
           // Convert to provider-agnostic metadata
           const metadata = {
             filename: attachment.filename,
@@ -215,5 +233,119 @@ export class GmailAttachmentHandler {
         `Failed to process attachments for email ${emailId}: ${error.message}`,
       );
     }
+  }
+
+  /**
+   * Persist parsed calendar invitation onto the email record
+   */
+  private async saveCalendarInvite(emailId: string, tenantId: string, providerId: string, invite: ParsedCalendarInvite) {
+    try {
+      await this.prisma.email.update({
+        where: { id: emailId },
+        data: {
+          hasCalendarInvite: true,
+          calendarInviteStatus: invite.method === 'CANCEL' ? 'declined' : 'pending',
+          calendarInviteData: this.serializeInvite(invite),
+        },
+      });
+
+      await this.syncCalendarEventFromInvite(tenantId, providerId, invite);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to save calendar invite for email ${emailId}: ${err.message}`);
+    }
+  }
+
+  /**
+   * Convert ParsedCalendarInvite to JSON-safe payload (dates to ISO)
+   */
+  private serializeInvite(invite: ParsedCalendarInvite) {
+    return {
+      ...invite,
+      startTime: invite.startTime?.toISOString?.() || invite.startTime,
+      endTime: invite.endTime?.toISOString?.() || invite.endTime,
+      created: invite.created ? invite.created.toISOString() : undefined,
+      lastModified: invite.lastModified ? invite.lastModified.toISOString() : undefined,
+    };
+  }
+
+  /**
+   * Update existing calendar event when receiving updates or cancellations
+   */
+  private async syncCalendarEventFromInvite(tenantId: string, providerId: string, invite: ParsedCalendarInvite) {
+    if (!invite.uid) return;
+
+    const existing = await this.prisma.calendarEvent.findFirst({
+      where: {
+        tenantId,
+        providerId,
+        iCalUID: invite.uid,
+      },
+    });
+
+    if (!existing) return;
+
+    const existingMetadata = (existing.metadata as Record<string, any> | null) ?? {};
+    const existingSequence = typeof existingMetadata.sequence === 'number' ? existingMetadata.sequence : 0;
+
+    if (invite.method === 'REPLY') {
+      const responder = invite.attendees?.find((a) => a.email && a.status);
+      if (!responder) return;
+
+      const attendees = Array.isArray(existing.attendees) ? [...existing.attendees as any[]] : [];
+      const idx = attendees.findIndex(
+        (a) => typeof a?.email === 'string' && a.email.toLowerCase() === responder.email.toLowerCase(),
+      );
+
+      const updatedAttendee = {
+        email: responder.email,
+        name: responder.name,
+        status: responder.status,
+        role: responder.role,
+        rsvp: responder.rsvp ?? true,
+      };
+
+      if (idx >= 0) {
+        attendees[idx] = { ...attendees[idx], ...updatedAttendee };
+      } else {
+        attendees.push(updatedAttendee);
+      }
+
+      await this.prisma.calendarEvent.update({
+        where: { id: existing.id },
+        data: { attendees },
+      });
+      return;
+    }
+
+    if (invite.method === 'REQUEST' && invite.sequence !== undefined && invite.sequence <= existingSequence) {
+      return;
+    }
+
+    if (invite.method === 'CANCEL') {
+      await this.prisma.calendarEvent.update({
+        where: { id: existing.id },
+        data: { isCancelled: true, status: 'cancelled' },
+      });
+      return;
+    }
+
+    await this.prisma.calendarEvent.update({
+      where: { id: existing.id },
+      data: {
+        title: invite.summary,
+        description: invite.description,
+        location: invite.location,
+        startTime: new Date(invite.startTime),
+        endTime: new Date(invite.endTime),
+        isAllDay: !!invite.isAllDay,
+        timeZone: invite.timezone || existing.timeZone,
+        attendees: invite.attendees,
+        isCancelled: false,
+        status: 'confirmed',
+        recurrence: invite.recurrence ?? existing.recurrence,
+        metadata: { ...existingMetadata, sequence: invite.sequence ?? existingSequence },
+      },
+    });
   }
 }

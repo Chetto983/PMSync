@@ -3,9 +3,13 @@ import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './controllers/auth.controller';
+import { MfaController } from './controllers/mfa.controller';
 import { AuthService } from './services/auth.service';
 import { AuthConfigService } from './services/auth-config.service';
 import { OtpSecurityService } from './services/otp-security.service';
+import { TotpService } from './services/totp.service';
+import { BackupCodesService } from './services/backup-codes.service';
+import { TrustedDeviceService } from './services/trusted-device.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailService } from '../email/services/email.service';
 import { PrismaModule } from '../../prisma/prisma.module';
@@ -72,11 +76,21 @@ import { UsersModule } from '../users/users.module';
     AuthService,
     AuthConfigService,
     OtpSecurityService,
+    TotpService,
+    BackupCodesService,
+    TrustedDeviceService,
     JwtStrategy,
     EmailService,
-    // CryptoService removed - unused in auth paths
   ],
-  controllers: [AuthController],
-  exports: [AuthService, AuthConfigService, OtpSecurityService, JwtModule],
+  controllers: [AuthController, MfaController],
+  exports: [
+    AuthService,
+    AuthConfigService,
+    OtpSecurityService,
+    TotpService,
+    BackupCodesService,
+    TrustedDeviceService,
+    JwtModule,
+  ],
 })
 export class AuthModule {}

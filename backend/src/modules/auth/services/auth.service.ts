@@ -12,7 +12,11 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailService } from '../../email/services/email.service';
 import { OtpSecurityService } from './otp-security.service';
+import { TotpService } from './totp.service';
+import { BackupCodesService } from './backup-codes.service';
+import { TrustedDeviceService } from './trusted-device.service';
 import { nanoid } from 'nanoid';
+import { Request as ExpressRequest } from 'express';
 
 /**
  * AuthService - Secure authentication with session management
@@ -43,6 +47,9 @@ export class AuthService {
     private jwtService: JwtService,
     private emailService: EmailService,
     private otpSecurity: OtpSecurityService,
+    private totpService: TotpService,
+    private backupCodesService: BackupCodesService,
+    private trustedDeviceService: TrustedDeviceService,
   ) {
     // Get password reset secret (must be different from JWT secret)
     const resetSecret = process.env.PASSWORD_RESET_SECRET;
@@ -438,6 +445,12 @@ export class AuthService {
 
   /**
    * Login user
+   *
+   * MFA Flow:
+   * 1. Validate credentials
+   * 2. Check if user has TOTP enabled → require TOTP/backup code
+   * 3. Check if user has email MFA enabled → send OTP email
+   * 4. Check trusted device → skip MFA if trusted
    */
   async login(
     email: string,
@@ -445,6 +458,8 @@ export class AuthService {
     tenantSlug?: string,
     ipAddress?: string,
     userAgent?: string,
+    deviceToken?: string,
+    request?: ExpressRequest,
   ) {
     const normalizedEmail = email.trim();
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
@@ -471,15 +486,71 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // If MFA is enabled, request OTP
+    // Check if MFA is required
     if (user.isMfaEnabled) {
+      // Check trusted device first (skip MFA if trusted)
+      if (deviceToken && request) {
+        const isTrusted = await this.trustedDeviceService.verifyDevice(user.id, deviceToken, request);
+        if (isTrusted) {
+          this.logger.log(
+            JSON.stringify({
+              event: 'mfa_skipped_trusted_device',
+              userId: user.id,
+            }),
+          );
+          // Continue to create session (skip MFA)
+          return this.createSession(user, tenant, ipAddress, userAgent);
+        }
+      }
+
+      // Check if TOTP is enabled
+      const totpEnabled = await this.totpService.isEnabled(user.id);
+      const backupCodesRemaining = await this.backupCodesService.getRemainingCount(user.id);
+
+      if (totpEnabled) {
+        // Generate MFA token for TOTP verification
+        const mfaToken = this.jwtService.sign(
+          {
+            userId: user.id,
+            tenantId: tenant.id,
+            type: 'mfa-challenge',
+          },
+          { expiresIn: '5m' },
+        );
+
+        return {
+          mfaRequired: true,
+          mfaToken,
+          availableMethods: [
+            'totp',
+            ...(backupCodesRemaining > 0 ? ['backup'] : []),
+            'email',
+          ],
+          message: 'Multi-factor authentication required',
+        };
+      }
+
+      // Fall back to email OTP
       await this.sendOtpCode(normalizedEmail, slug);
       return {
         mfaRequired: true,
+        availableMethods: ['email'],
         message: 'OTP code has been sent to your email',
       };
     }
 
+    return this.createSession(user, tenant, ipAddress, userAgent);
+  }
+
+  /**
+   * Create session and return tokens
+   */
+  private async createSession(
+    user: { id: string; email: string; firstName: string | null; lastName: string | null; role: string },
+    tenant: { id: string },
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
     const sessionId = nanoid();
 
     // Generate JWT token
@@ -523,6 +594,121 @@ export class AuthService {
         role: user.role,
         tenantId: tenant.id,
       },
+    };
+  }
+
+  /**
+   * Verify MFA challenge (TOTP, backup code, or email OTP)
+   *
+   * @param mfaToken - Token from login response
+   * @param method - 'totp' | 'backup' | 'email'
+   * @param code - Verification code
+   * @param trustDevice - Whether to trust this device for 30 days
+   * @param request - Express request for device fingerprinting
+   */
+  async verifyMfaChallenge(
+    mfaToken: string,
+    method: 'totp' | 'backup' | 'email',
+    code: string,
+    trustDevice: boolean = false,
+    request?: ExpressRequest,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    // Verify MFA token
+    let payload: { userId: string; tenantId: string; type: string };
+    try {
+      payload = this.jwtService.verify(mfaToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired MFA token');
+    }
+
+    if (payload.type !== 'mfa-challenge') {
+      throw new UnauthorizedException('Invalid token type');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: payload.tenantId },
+    });
+
+    if (!tenant) {
+      throw new UnauthorizedException('Tenant not found');
+    }
+
+    // Verify based on method
+    let verificationSuccess = false;
+
+    switch (method) {
+      case 'totp': {
+        const result = await this.totpService.verifyCode(user.id, code);
+        verificationSuccess = result.success;
+        if (!verificationSuccess) {
+          throw new UnauthorizedException('Invalid TOTP code');
+        }
+        break;
+      }
+
+      case 'backup': {
+        const result = await this.backupCodesService.verify(user.id, code);
+        verificationSuccess = result.success;
+        if (!verificationSuccess) {
+          throw new UnauthorizedException(
+            result.reason === 'already_used'
+              ? 'This backup code has already been used'
+              : 'Invalid backup code',
+          );
+        }
+        break;
+      }
+
+      case 'email': {
+        const result = await this.otpSecurity.verifyOtp(user.id, code, 'email');
+        verificationSuccess = result.success;
+        if (!verificationSuccess) {
+          if (result.reason === 'locked_out') {
+            throw new ForbiddenException(
+              `Account temporarily locked. Try again after ${result.lockoutEndsAt?.toISOString()}`,
+            );
+          }
+          throw new UnauthorizedException(
+            `Invalid or expired OTP code. ${result.attemptsRemaining} attempts remaining.`,
+          );
+        }
+        break;
+      }
+
+      default:
+        throw new BadRequestException('Invalid MFA method');
+    }
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'mfa_verified',
+        userId: user.id,
+        method,
+      }),
+    );
+
+    // Create session
+    const sessionResult = await this.createSession(user, tenant, ipAddress, userAgent);
+
+    // Trust device if requested
+    let deviceTokenResult: string | undefined;
+    if (trustDevice && request) {
+      deviceTokenResult = await this.trustedDeviceService.trustDevice(user.id, request);
+    }
+
+    return {
+      ...sessionResult,
+      ...(deviceTokenResult && { deviceToken: deviceTokenResult }),
     };
   }
 

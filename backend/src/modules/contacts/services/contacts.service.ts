@@ -600,7 +600,6 @@ export class ContactsService {
         to: true,
         cc: true,
         bcc: true,
-        fromName: true,
       },
     });
 
@@ -612,7 +611,7 @@ export class ContactsService {
       if (email.from) {
         const addr = email.from.toLowerCase().trim();
         if (!addressMap.has(addr)) {
-          addressMap.set(addr, { email: addr, name: email.fromName || undefined });
+          addressMap.set(addr, { email: addr });
         }
       }
 

@@ -32,21 +32,23 @@ model Tenant {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  tenantId        String
-  email           String
-  passwordHash    String
-  firstName       String?
-  lastName        String?
-  role            String           @default("user")
-  isActive        Boolean          @default(true)
-  isMfaEnabled    Boolean          @default(true)
-  lastLogin       DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  deletedAt       DateTime?
+  id                    String                 @id @default(cuid())
+  tenantId              String
+  email                 String
+  passwordHash          String
+  firstName             String?
+  lastName              String?
+  role                  String                 @default("user")
+  isActive              Boolean                @default(true)
+  isMfaEnabled          Boolean                @default(true)
+  lastLogin             DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
   auditLogs             AuditLog[]
-  mfaCodes              MfaCode[]
+  mfaSecret             MfaSecret?
+  mfaBackupCodes        MfaBackupCode[]
+  trustedDevices        TrustedDevice[]
   sessions              Session[]
   userPreferences       UserPreferences?
   writingStyleProfile   WritingStyleProfile?
@@ -105,18 +107,75 @@ model UserPreferences {
   @@map("user_preferences")
 }
 
-model MfaCode {
-  id        String   @id @default(cuid())
-  userId    String
-  code      String   @unique
-  type      String   @default("email")
-  isUsed    Boolean  @default(false)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+// ============================================
+// MFA Models - TOTP, Backup Codes, Trusted Devices
+// ============================================
 
-  @@index([userId, code])
-  @@map("mfa_codes")
+/// TOTP secrets for authenticator apps (Google Authenticator, Authy, etc.)
+model MfaSecret {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // TOTP secret (encrypted with AES-256-GCM)
+  secret       String // Encrypted Base32 secret
+  encryptionIv String // IV for decryption
+
+  // Status
+  isEnabled  Boolean   @default(false) // Only true after first successful verification
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("mfa_secrets")
+}
+
+/// Backup/recovery codes for MFA emergency access
+model MfaBackupCode {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Code storage (hashed with HMAC-SHA256)
+  codeHash String // HMAC-SHA256 hash of the code
+
+  // Status
+  isUsed Boolean   @default(false)
+  usedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isUsed])
+  @@map("mfa_backup_codes")
+}
+
+/// Trusted devices for "Keep me signed in" feature
+model TrustedDevice {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Device identification
+  deviceToken String  @unique // UUID token stored in cookie
+  deviceName  String? // "Chrome on Windows", "Safari on iPhone"
+  deviceHash  String // Hash of user-agent + IP for validation
+
+  // Location info (optional)
+  ipAddress String?
+  location  String? // "Rome, Italy"
+
+  // Expiration
+  expiresAt  DateTime // 30 days from creation
+  lastUsedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([deviceToken])
+  @@index([expiresAt])
+  @@map("trusted_devices")
 }
 
 model Session {
@@ -209,44 +268,49 @@ model ProviderConfig {
 }
 
 model Email {
-  id                  String                  @id @default(cuid())
-  tenantId            String
-  providerId          String
-  externalId          String
-  threadId            String?
-  messageId           String?
-  inReplyTo           String?
-  references          String?
-  from                String
-  to                  String[]
-  cc                  String[]                @default([])
-  bcc                 String[]                @default([])
-  replyTo             String?
-  subject             String
-  bodyText            String?
-  bodyHtml            String?
-  snippet             String?
-  folder              String                  @default("INBOX")
-  labels              String[]                @default([])
-  isRead              Boolean                 @default(false)
-  isStarred           Boolean                 @default(false)
-  isFlagged           Boolean                 @default(false)
-  isDraft             Boolean                 @default(false)
-  isDeleted           Boolean                 @default(false)
-  isArchived          Boolean                 @default(false)
-  sentAt              DateTime
-  receivedAt          DateTime
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  size                Int?
-  headers             Json?
-  metadata            Json?
-  crossProviderLinkId String?
-  attachments         EmailAttachment[]
-  emailLabels         EmailLabel[]
-  crossProviderLink   EmailCrossProviderLink? @relation(fields: [crossProviderLinkId], references: [id])
-  provider            ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  tenant              Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                   String                  @id @default(cuid())
+  tenantId             String
+  providerId           String
+  externalId           String
+  threadId             String?
+  messageId            String?
+  inReplyTo            String?
+  references           String?
+  from                 String
+  to                   String[]
+  cc                   String[]                @default([])
+  bcc                  String[]                @default([])
+  replyTo              String?
+  subject              String
+  bodyText             String?
+  bodyHtml             String?
+  snippet              String?
+  folder               String                  @default("INBOX")
+  labels               String[]                @default([])
+  isRead               Boolean                 @default(false)
+  isStarred            Boolean                 @default(false)
+  isFlagged            Boolean                 @default(false)
+  isDraft              Boolean                 @default(false)
+  isDeleted            Boolean                 @default(false)
+  isArchived           Boolean                 @default(false)
+  sentAt               DateTime
+  receivedAt           DateTime
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  size                 Int?
+  headers              Json?
+  metadata             Json?
+  crossProviderLinkId  String?
+  // Calendar invitation fields
+  hasCalendarInvite    Boolean                 @default(false)
+  calendarInviteData   Json? // ParsedCalendarInvite JSON
+  calendarInviteStatus String? // pending | accepted | declined | tentative
+  calendarEventId      String? // Link to created CalendarEvent
+  attachments          EmailAttachment[]
+  emailLabels          EmailLabel[]
+  crossProviderLink    EmailCrossProviderLink? @relation(fields: [crossProviderLinkId], references: [id])
+  provider             ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, externalId])
   @@unique([tenantId, messageId])
@@ -255,31 +319,32 @@ model Email {
   @@index([tenantId, threadId])
   @@index([sentAt])
   @@index([crossProviderLinkId])
+  @@index([tenantId, hasCalendarInvite])
   @@map("emails")
 }
 
 model ScheduledEmail {
-  id          String   @id @default(cuid())
-  tenantId    String
-  providerId  String
-  to          String[]
-  cc          String[] @default([])
-  bcc         String[] @default([])
-  subject     String
-  bodyHtml    String
-  bodyText    String
-  inReplyTo   String?
-  references  String?
-  attachments Json?    // Store attachment data as JSON
-  scheduledAt DateTime
-  status      String   @default("pending") // pending, processing, sent, failed
+  id           String         @id @default(cuid())
+  tenantId     String
+  providerId   String
+  to           String[]
+  cc           String[]       @default([])
+  bcc          String[]       @default([])
+  subject      String
+  bodyHtml     String
+  bodyText     String
+  inReplyTo    String?
+  references   String?
+  attachments  Json? // Store attachment data as JSON
+  scheduledAt  DateTime
+  status       String         @default("pending") // pending, processing, sent, failed
   errorMessage String?
-  retryCount  Int      @default(0)
-  sentAt      DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  provider    ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  retryCount   Int            @default(0)
+  sentAt       DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  provider     ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status, scheduledAt])
   @@index([scheduledAt, status])
@@ -409,7 +474,6 @@ model EmailCrossProviderLink {
   @@index([contentHash])
   @@map("email_cross_provider_links")
 }
-
 
 model Embedding {
   id             String                 @id @default(cuid())
@@ -793,16 +857,16 @@ model AgentLearningProfile {
 // ============================================
 
 model PromptTemplate {
-  id        String  @id @default(cuid())
-  tenantId  String? // NULL = system default template
-  name      String // e.g., "router.classify", "email.compose", "calendar.schedule"
-  version   Int     @default(1)
-  locale    String  @default("en") // en, it, es, fr, de, pt
-  bucket    String? // A/B test bucket identifier
+  id       String  @id @default(cuid())
+  tenantId String? // NULL = system default template
+  name     String // e.g., "router.classify", "email.compose", "calendar.schedule"
+  version  Int     @default(1)
+  locale   String  @default("en") // en, it, es, fr, de, pt
+  bucket   String? // A/B test bucket identifier
 
   // Prompt content
-  body      String  @db.Text // The actual prompt template with {variables}
-  variables Json?   // Expected variables schema: { "userMessage": "string", "history": "array" }
+  body      String @db.Text // The actual prompt template with {variables}
+  variables Json? // Expected variables schema: { "userMessage": "string", "history": "array" }
 
   // Configuration
   metadata Json? // { "temperature": 0.3, "maxTokens": 500, "model": "mistral-small-latest" }
@@ -827,15 +891,15 @@ model PromptTemplate {
 // ============================================
 
 model LlmUsageLog {
-  id         String @id @default(cuid())
-  tenantId   String
-  userId     String?
+  id       String  @id @default(cuid())
+  tenantId String
+  userId   String?
 
   // Request info
-  operation    String // "compose", "classify", "summarize", "smart_reply"
-  promptId     String? // Reference to PromptTemplate.id
-  promptName   String? // "email.compose", "router.classify"
-  model        String // "mistral-small-latest"
+  operation  String // "compose", "classify", "summarize", "smart_reply"
+  promptId   String? // Reference to PromptTemplate.id
+  promptName String? // "email.compose", "router.classify"
+  model      String // "mistral-small-latest"
 
   // Usage metrics
   inputTokens  Int
@@ -847,8 +911,8 @@ model LlmUsageLog {
   estimatedCost Float? // In USD or credits
 
   // Status
-  success   Boolean @default(true)
-  errorType String? // "rate_limit", "timeout", "invalid_response"
+  success      Boolean @default(true)
+  errorType    String? // "rate_limit", "timeout", "invalid_response"
   errorMessage String?
 
   // Context
@@ -922,31 +986,31 @@ model WritingStyleProfile {
   bulletListRate    Float @default(0) // Usage rate of bullet lists (0-1)
 
   // Vocabulary metrics
-  formalityScore Float @default(0.5) // 0=very casual, 1=very formal
+  formalityScore  Float @default(0.5) // 0=very casual, 1=very formal
   contractionRate Float @default(0.3) // Rate of contractions used (0-1)
-  emojiRate Float @default(0) // Emoji usage rate (0-1)
-  typeTokenRatio Float @default(0.5) // Vocabulary diversity
+  emojiRate       Float @default(0) // Emoji usage rate (0-1)
+  typeTokenRatio  Float @default(0.5) // Vocabulary diversity
 
   // Punctuation habits
   exclamationRate Float @default(0) // Rate of sentences with !
-  questionRate Float @default(0) // Rate of sentences with ?
-  ellipsisRate Float @default(0) // Usage of ...
+  questionRate    Float @default(0) // Rate of sentences with ?
+  ellipsisRate    Float @default(0) // Usage of ...
 
   // Greeting/Sign-off patterns (stored as JSON arrays)
-  greetingPresent Boolean @default(true)
+  greetingPresent    Boolean  @default(true)
   preferredGreetings String[] @default([])
-  signOffPresent Boolean @default(true)
-  preferredSignOffs String[] @default([])
+  signOffPresent     Boolean  @default(true)
+  preferredSignOffs  String[] @default([])
 
   // Tone metrics
   sentimentPolarity Float @default(0) // -1 (negative) to 1 (positive)
   empathyPhraseRate Float @default(0) // Rate of empathy phrases
-  hedgeRate Float @default(0) // Uncertainty markers ("perhaps", "maybe")
+  hedgeRate         Float @default(0) // Uncertainty markers ("perhaps", "maybe")
 
   // Learning metadata
-  sampleCount Int @default(0) // Number of emails analyzed
+  sampleCount         Int      @default(0) // Number of emails analyzed
   lastAnalyzedEmailId String? // Track last processed email
-  lastAnalyzed DateTime @default(now())
+  lastAnalyzed        DateTime @default(now())
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -968,14 +1032,14 @@ model VoltAgentConversation {
   userId   String
 
   // Conversation metadata
-  title           String?
-  locale          String  @default("en")
-  lastActiveAt    DateTime @default(now())
-  messageCount    Int      @default(0)
+  title        String?
+  locale       String   @default("en")
+  lastActiveAt DateTime @default(now())
+  messageCount Int      @default(0)
 
   // Memory management
-  isSummarized    Boolean  @default(false) // Has this conversation been compressed?
-  summaryUpToIndex Int?    // Messages summarized up to this index
+  isSummarized     Boolean @default(false) // Has this conversation been compressed?
+  summaryUpToIndex Int? // Messages summarized up to this index
 
   // Status
   isArchived Boolean @default(false)
@@ -1009,7 +1073,7 @@ model VoltAgentMessage {
   vector Unsupported("vector")? // 1024-dim embedding for semantic search
 
   // Tool execution metadata
-  toolCalls Json? // Array of tool invocations
+  toolCalls   Json? // Array of tool invocations
   toolResults Json? // Array of tool results
 
   // Ordering and recency
@@ -1045,8 +1109,8 @@ model ConversationSummary {
   vector Unsupported("vector")? // Embedding for summary retrieval
 
   // What was summarized
-  startMessageIndex Int // First message in this summary
-  endMessageIndex   Int // Last message in this summary
+  startMessageIndex   Int // First message in this summary
+  endMessageIndex     Int // Last message in this summary
   messageCountCovered Int // Number of messages summarized
 
   // Key facts extracted (for structured retrieval)

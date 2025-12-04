@@ -6,6 +6,10 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailService } from '../../email/services/email.service';
 import { OtpSecurityService } from './otp-security.service';
+import { TotpService } from './totp.service';
+import { BackupCodesService } from './backup-codes.service';
+import { TrustedDeviceService } from './trusted-device.service';
+import{jest, describe, beforeEach, afterEach, it, expect} from '@jest/globals';
 
 // Mock bcrypt
 jest.mock('bcrypt');
@@ -22,6 +26,9 @@ describe('AuthService', () => {
   let jwtService: jest.Mocked<JwtService>;
   let emailService: jest.Mocked<EmailService>;
   let otpSecurityService: jest.Mocked<OtpSecurityService>;
+  let totpService: jest.Mocked<TotpService>;
+  let backupCodesService: jest.Mocked<BackupCodesService>;
+  let trustedDeviceService: jest.Mocked<TrustedDeviceService>;
 
   // Mock data
   const mockTenant = {
@@ -49,15 +56,7 @@ describe('AuthService', () => {
     updatedAt: new Date(),
   };
 
-  const mockOtpRecord = {
-    id: 'otp-id-123',
-    userId: 'user-id-123',
-    code: '123456',
-    type: 'email' as const,
-    isUsed: false,
-    expiresAt: new Date(Date.now() + 900000), // 15 minutes from now
-    createdAt: new Date(),
-  };
+  // OTP records are now stored in-memory by OtpSecurityService, not in database
 
   const mockSession = {
     id: 'mock-session-id-12345',
@@ -81,11 +80,28 @@ describe('AuthService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
-      mfaCode: {
+      mfaSecret: {
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+      mfaBackupCode: {
         findFirst: jest.fn(),
+        count: jest.fn(),
+        createMany: jest.fn(),
         deleteMany: jest.fn(),
+        update: jest.fn(),
+      },
+      trustedDevice: {
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
+        deleteMany: jest.fn(),
+        count: jest.fn(),
       },
       session: {
         create: jest.fn(),
@@ -120,6 +136,30 @@ describe('AuthService', () => {
       cleanupExpiredEntries: jest.fn(),
     };
 
+    const mockTotpService = {
+      isEnabled: jest.fn().mockResolvedValue(false),
+      generateSecret: jest.fn(),
+      verifyAndActivate: jest.fn().mockResolvedValue({ success: true, reason: 'valid' }),
+      verifyCode: jest.fn().mockResolvedValue({ success: true, reason: 'valid' }),
+      disable: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const mockBackupCodesService = {
+      generate: jest.fn().mockResolvedValue(['CODE-1234']),
+      regenerate: jest.fn().mockResolvedValue(['CODE-1234']),
+      verify: jest.fn().mockResolvedValue(true),
+      getRemainingCount: jest.fn().mockResolvedValue(10),
+    };
+
+    const mockTrustedDeviceService = {
+      trustDevice: jest.fn().mockResolvedValue('device-token'),
+      verifyDevice: jest.fn().mockResolvedValue(false),
+      listDevices: jest.fn().mockResolvedValue([]),
+      revokeDevice: jest.fn().mockResolvedValue(undefined),
+      revokeAllDevices: jest.fn().mockResolvedValue(undefined),
+      cleanupExpiredDevices: jest.fn().mockResolvedValue(0),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -127,6 +167,9 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: EmailService, useValue: mockEmailService },
         { provide: OtpSecurityService, useValue: mockOtpSecurityService },
+        { provide: TotpService, useValue: mockTotpService },
+        { provide: BackupCodesService, useValue: mockBackupCodesService },
+        { provide: TrustedDeviceService, useValue: mockTrustedDeviceService },
       ],
     }).compile();
 
@@ -135,6 +178,9 @@ describe('AuthService', () => {
     jwtService = module.get(JwtService);
     emailService = module.get(EmailService);
     otpSecurityService = module.get(OtpSecurityService);
+    totpService = module.get(TotpService);
+    backupCodesService = module.get(BackupCodesService);
+    trustedDeviceService = module.get(TrustedDeviceService);
   });
 
   afterEach(() => {
@@ -173,9 +219,17 @@ describe('AuthService', () => {
       expect(prismaService.tenant.create).not.toHaveBeenCalled();
     });
 
-    it('should return generic response when tenant not found (prevent enumeration)', async () => {
-      // Setup
+    it('should auto-create tenant when tenant not found and start registration', async () => {
+      // Setup - auto-create tenant path
+      const newTenant = { ...mockTenant, id: 'tenant-id-999', slug: 'test@example.com' };
+      const newUser = { ...mockUser, tenantId: newTenant.id, role: 'admin' };
       prismaService.tenant.findUnique.mockResolvedValue(null);
+      prismaService.tenant.create.mockResolvedValue(newTenant);
+      prismaService.user.findUnique.mockResolvedValue(null);
+      mockedBcrypt.hash.mockResolvedValue('$2b$12$hashedPassword' as never);
+      prismaService.user.create.mockResolvedValue(newUser);
+      otpSecurityService.createOtp.mockResolvedValue({ code: '123456', expiresAt: new Date() });
+      emailService.sendOtp.mockResolvedValue(undefined);
 
       // Execute
       const result = await service.register({
@@ -183,9 +237,12 @@ describe('AuthService', () => {
         password: 'Password123!',
       });
 
-      // Assert - Generic response to prevent enumeration
+      // Assert - tenant is created and registration started
+      expect(prismaService.tenant.create).toHaveBeenCalled();
       expect(result.success).toBe(true);
-      expect(result.message).toContain('If the tenant exists');
+      expect(result.requiresOtp).toBe(true);
+      expect(result.message).toContain('User registered successfully');
+      expect(result.tenantId).toBe(newTenant.id);
     });
 
     it('should return generic response when user already exists (prevent enumeration)', async () => {
@@ -199,9 +256,10 @@ describe('AuthService', () => {
         password: 'Password123!',
       });
 
-      // Assert - Generic response to prevent enumeration
+      // Assert - Generic response to prevent enumeration but still initiates flow
       expect(result.success).toBe(true);
-      expect(result.message).toContain('If the tenant exists');
+      expect(result.requiresOtp).toBe(true);
+      expect(result.message).toContain('Registration initiated');
     });
 
     it('should throw ForbiddenException if tenant is inactive', async () => {
@@ -495,8 +553,7 @@ describe('AuthService', () => {
       prismaService.tenant.findUnique.mockResolvedValue(mockTenant);
       prismaService.user.findUnique.mockResolvedValue(mockUser); // MFA enabled
       mockedBcrypt.compare.mockResolvedValue(true as never);
-      prismaService.mfaCode.deleteMany.mockResolvedValue({ count: 0 });
-      prismaService.mfaCode.create.mockResolvedValue(mockOtpRecord);
+      // OtpSecurityService uses in-memory storage, no database mocks needed
       emailService.sendOtp.mockResolvedValue(undefined);
 
       // Execute
@@ -505,6 +562,7 @@ describe('AuthService', () => {
       // Assert
       expect(result).toEqual({
         mfaRequired: true,
+        availableMethods: ['email'],
         message: 'OTP code has been sent to your email',
       });
       expect(jwtService.sign).not.toHaveBeenCalled();
@@ -727,6 +785,7 @@ describe('AuthService', () => {
       prismaService.passwordResetToken.findUnique.mockResolvedValue(mockResetToken);
       prismaService.tenant.findUnique.mockResolvedValue(mockTenant);
       prismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockedBcrypt.compare.mockResolvedValue(false as never);
       mockedBcrypt.hash.mockResolvedValue('$2b$12$newHashedPassword' as never);
       prismaService.user.update.mockResolvedValue({
         ...mockUser,

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { ListItemButton, Box, Typography, Checkbox, Chip, Divider } from '@mui/material';
-import { Paperclip, Users } from 'lucide-react';
+import { Paperclip, Users, Calendar as CalendarIcon } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -342,6 +342,16 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
                   icon={<Paperclip size={12} />}
                   label={t.dashboard.email.attachment}
                   sx={{ height: 18, fontSize: '0.65rem' }}
+                />
+              )}
+
+              {isEmail(thread) && thread.hasCalendarInvite && (
+                <Chip
+                  size="small"
+                  icon={<CalendarIcon size={12} />}
+                  label="Invite"
+                  sx={{ height: 18, fontSize: '0.65rem' }}
+                  color="primary"
                 />
               )}
 

@@ -5,8 +5,6 @@ import { PrismaService } from '../../../prisma/prisma.service';
 
 describe('ScheduledEmailService', () => {
   let service: ScheduledEmailService;
-  let prismaService: PrismaService;
-  let emailSendService: EmailSendService;
 
   const mockPrismaService = {
     scheduledEmail: {
@@ -39,8 +37,6 @@ describe('ScheduledEmailService', () => {
     }).compile();
 
     service = module.get<ScheduledEmailService>(ScheduledEmailService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    emailSendService = module.get<EmailSendService>(EmailSendService);
 
     jest.clearAllMocks();
   });

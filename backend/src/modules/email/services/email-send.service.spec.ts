@@ -17,7 +17,6 @@ jest.mock('../../providers/factory/provider.factory', () => ({
 describe('EmailSendService', () => {
   let service: EmailSendService;
   let prismaService: jest.Mocked<PrismaService>;
-  let cryptoService: jest.Mocked<CryptoService>;
   let attachmentStorage: jest.Mocked<AttachmentStorageService>;
   let providerTokenService: jest.Mocked<ProviderTokenService>;
 
@@ -75,7 +74,6 @@ describe('EmailSendService', () => {
 
     service = module.get<EmailSendService>(EmailSendService);
     prismaService = module.get(PrismaService);
-    cryptoService = module.get(CryptoService);
     attachmentStorage = module.get(AttachmentStorageService);
     providerTokenService = module.get(ProviderTokenService);
 

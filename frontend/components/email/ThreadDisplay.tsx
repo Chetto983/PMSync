@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -46,6 +46,8 @@ import { formatEmailHeaderDate, parseEmailFrom, scrollContainerSx } from './shar
 import { emailApi } from '@/lib/api/email';
 import { EmailSummaryPanel } from '@/components/email/ai/EmailSummaryPanel';
 import { EmailBody } from './shared/EmailBody';
+import type { ParsedCalendarInvite } from '@/types/entities';
+import { CalendarInviteCard } from '@/components/email/CalendarInviteCard';
 
 /**
  * Props for ThreadDisplay component
@@ -109,6 +111,7 @@ interface ThreadMessageProps {
   onAttachmentOpen: (attachment: any, e: React.MouseEvent) => void;
   attachmentTooltip: string;
   isDark: boolean;
+  onInviteRespond?: (emailId: string, response: 'accept' | 'decline' | 'tentative') => void;
 }
 
 const ThreadMessage: React.FC<ThreadMessageProps> = ({
@@ -121,6 +124,7 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
   onAttachmentOpen,
   attachmentTooltip,
   isDark,
+  onInviteRespond,
 }) => {
   const emailFromData = parseEmailFrom(email.from);
   const emailHtml = email.bodyHtml || email.bodyText || email.snippet || '';
@@ -301,6 +305,29 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
             </Stack>
           </Box>
 
+          {/* Calendar Invitation */}
+          {email.hasCalendarInvite && email.calendarInviteData && (
+            <Box
+              sx={{
+                px: 2,
+                py: 1.5,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                bgcolor: isDark ? alpha('#fff', 0.02) : alpha('#000', 0.01),
+              }}
+            >
+              <CalendarInviteCard
+                invite={email.calendarInviteData as ParsedCalendarInvite}
+                status={email.calendarInviteStatus as any}
+                onRespond={async (response) => {
+                  if (onInviteRespond) {
+                    await onInviteRespond(email.id, response);
+                  }
+                }}
+              />
+            </Box>
+          )}
+
           {/* Attachments */}
           {hasAttachments && (
             <Box sx={{ px: 2, py: 1.5, bgcolor: isDark ? alpha('#fff', 0.02) : alpha('#000', 0.01), borderTop: '1px solid', borderColor: 'divider' }}>
@@ -434,6 +461,21 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 
     return merged.sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
   }, [email, emailStore, threadData]);
+
+  const handleInviteRespond = useCallback(
+    async (emailId: string, response: 'accept' | 'decline' | 'tentative') => {
+      const status =
+        response === 'accept' ? 'accepted' : response === 'decline' ? 'declined' : 'tentative';
+      try {
+        await emailApi.respondToCalendarInvite(emailId, response);
+      } catch (err) {
+        console.error('Failed to respond to calendar invite', err);
+      } finally {
+        emailStore.updateEmail(emailId, { calendarInviteStatus: status });
+      }
+    },
+    [emailStore],
+  );
 
   // Load thread from API if needed
   useEffect(() => {
@@ -746,6 +788,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
               onAttachmentOpen={handleAttachmentOpen}
               attachmentTooltip={attachmentTooltip}
               isDark={isDark}
+              onInviteRespond={handleInviteRespond}
             />
           ))}
         </Box>

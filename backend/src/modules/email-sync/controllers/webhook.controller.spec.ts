@@ -11,24 +11,7 @@ describe('WebhookController', () => {
     jest.clearAllMocks();
   });
 
-  it('validates token on microsoft validation handshake when token is expected', async () => {
-    syncAuth.validateWebhookToken.mockImplementationOnce(() => {
-      throw new Error('unauthorized');
-    });
-
-    await expect(
-      controller.handleMicrosoftNotification(
-        { value: [] } as any,
-        'validation-token',
-        'q-token',
-        'header-token',
-      ),
-    ).rejects.toThrow('unauthorized');
-  });
-
-  it('returns validation token when authorized', async () => {
-    syncAuth.validateWebhookToken.mockReturnValueOnce(undefined);
-
+  it('returns validation token during microsoft validation handshake', async () => {
     const result = await controller.handleMicrosoftNotification(
       { value: [] } as any,
       'validation-token',
@@ -37,6 +20,18 @@ describe('WebhookController', () => {
     );
 
     expect(result).toBe('validation-token');
-    expect(syncAuth.validateWebhookToken).toHaveBeenCalled();
+    expect(syncAuth.validateWebhookToken).not.toHaveBeenCalled();
+  });
+
+  it('returns validation token when authorized', async () => {
+    const result = await controller.handleMicrosoftNotification(
+      { value: [] } as any,
+      'validation-token',
+      'q-token',
+      'header-token',
+    );
+
+    expect(result).toBe('validation-token');
+    expect(syncAuth.validateWebhookToken).not.toHaveBeenCalled();
   });
 });

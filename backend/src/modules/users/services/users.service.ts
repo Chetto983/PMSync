@@ -68,7 +68,9 @@ export class UsersService {
       });
 
       await tx.session.deleteMany({ where: { userId } });
-      await tx.mfaCode.deleteMany({ where: { userId } });
+      await tx.mfaSecret.deleteMany({ where: { userId } });
+      await tx.mfaBackupCode.deleteMany({ where: { userId } });
+      await tx.trustedDevice.deleteMany({ where: { userId } });
       await tx.passwordResetToken.deleteMany({ where: { userEmail: user.email } });
 
       await tx.user.delete({ where: { id: userId } });

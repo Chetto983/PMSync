@@ -10,6 +10,7 @@ import { EmbeddingsService } from '../../../ai/services/embeddings.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { mergeEmailStatusMetadata } from '../../utils/email-metadata.util';
 import { BaseEmailSyncService } from '../base-email-sync.service';
+import { IcsParserService, ParsedCalendarInvite } from '../../../calendar/services/ics-parser.service';
 
 const IMAP_BODY_DOWNLOAD_TIMEOUT_MS = 10000;
 const IMAP_BODY_MAX_BYTES = 2 * 1024 * 1024; // 2MB
@@ -34,6 +35,7 @@ export class ImapSyncService extends BaseEmailSyncService {
     private crypto: CryptoService,
     private emailEmbeddingQueue: EmailEmbeddingQueueService,
     private embeddingsService: EmbeddingsService,
+    private icsParser: IcsParserService,
   ) {
     super(prisma, realtimeEvents, config);
   }
@@ -605,12 +607,35 @@ export class ImapSyncService extends BaseEmailSyncService {
       // Download and parse body
       let bodyText = '';
       let bodyHtml = '';
+      let calendarInvite: ParsedCalendarInvite | null = null;
       const bodyBuffer = await this.downloadMessageBody(client, msg.uid);
       if (bodyBuffer) {
         try {
           const parsed = await simpleParser(bodyBuffer);
           bodyText = parsed.text ?? '';
           bodyHtml = typeof parsed.html === 'string' ? parsed.html : '';
+
+          // Detect and parse calendar invitations from attachments
+          const parsedAttachments = Array.isArray((parsed).attachments)
+            ? (parsed).attachments
+            : [];
+          for (const att of parsedAttachments) {
+            const mime = (att.contentType as string) || '';
+            const filename = (att.filename as string) || '';
+            if (this.icsParser.isCalendarAttachment(mime, filename)) {
+              const contentBuffer: Buffer | undefined = att.content;
+              if (contentBuffer) {
+                const parsedInvite = await this.icsParser.parseIcs(
+                  contentBuffer.toString('utf-8'),
+                );
+                if (parsedInvite) {
+                  calendarInvite = parsedInvite;
+                  await this.syncCalendarEventFromInvite(tenantId, providerId, parsedInvite);
+                  break;
+                }
+              }
+            }
+          }
         } catch (parseError) {
           const parseMessage = parseError instanceof Error ? parseError.message : String(parseError);
           this.logger.warn(`Failed to parse IMAP message UID ${msg.uid}: ${parseMessage}`);
@@ -657,6 +682,13 @@ export class ImapSyncService extends BaseEmailSyncService {
         size: msg.size || null,
         headers: { uid: msg.uid, flags: Array.from(flags) } as Record<string, any>,
         metadata: mergeEmailStatusMetadata(null, isDeleted ? 'deleted' : 'active'),
+        hasCalendarInvite: !!calendarInvite,
+        calendarInviteStatus: calendarInvite
+          ? calendarInvite.method === 'CANCEL'
+            ? 'declined'
+            : 'pending'
+          : undefined,
+        calendarInviteData: calendarInvite ? this.serializeInvite(calendarInvite) : undefined,
       });
     }
 
@@ -917,6 +949,99 @@ export class ImapSyncService extends BaseEmailSyncService {
         }
       }
     });
+  }
+
+  /**
+   * Update existing calendar event when receiving updates or cancellations via IMAP
+   */
+  private async syncCalendarEventFromInvite(tenantId: string, providerId: string, invite: ParsedCalendarInvite) {
+    if (!invite.uid) return;
+
+    const existing = await this.prisma.calendarEvent.findFirst({
+      where: {
+        tenantId,
+        providerId,
+        iCalUID: invite.uid,
+      },
+    });
+
+    if (!existing) return;
+
+    const existingMetadata = (existing.metadata as Record<string, any> | null) ?? {};
+    const existingSequence = typeof existingMetadata.sequence === 'number' ? existingMetadata.sequence : 0;
+
+    if (invite.method === 'REPLY') {
+      const responder = invite.attendees?.find((a) => a.email && a.status);
+      if (!responder) return;
+
+      const attendees = Array.isArray(existing.attendees) ? [...existing.attendees as any[]] : [];
+      const idx = attendees.findIndex(
+        (a) => typeof a?.email === 'string' && a.email.toLowerCase() === responder.email.toLowerCase(),
+      );
+
+      const updatedAttendee = {
+        email: responder.email,
+        name: responder.name,
+        status: responder.status,
+        role: responder.role,
+        rsvp: responder.rsvp ?? true,
+      };
+
+      if (idx >= 0) {
+        attendees[idx] = { ...attendees[idx], ...updatedAttendee };
+      } else {
+        attendees.push(updatedAttendee);
+      }
+
+      await this.prisma.calendarEvent.update({
+        where: { id: existing.id },
+        data: { attendees },
+      });
+      return;
+    }
+
+    if (invite.method === 'REQUEST' && invite.sequence !== undefined && invite.sequence <= existingSequence) {
+      return;
+    }
+
+    if (invite.method === 'CANCEL') {
+      await this.prisma.calendarEvent.update({
+        where: { id: existing.id },
+        data: { isCancelled: true, status: 'cancelled' },
+      });
+      return;
+    }
+
+    await this.prisma.calendarEvent.update({
+      where: { id: existing.id },
+      data: {
+        title: invite.summary,
+        description: invite.description,
+        location: invite.location,
+        startTime: new Date(invite.startTime),
+        endTime: new Date(invite.endTime),
+        isAllDay: !!invite.isAllDay,
+        timeZone: invite.timezone || existing.timeZone,
+        attendees: invite.attendees,
+        isCancelled: false,
+        status: 'confirmed',
+        recurrence: invite.recurrence ?? existing.recurrence,
+        metadata: { ...existingMetadata, sequence: invite.sequence ?? existingSequence },
+      },
+    });
+  }
+
+  /**
+   * Convert ParsedCalendarInvite to JSON-safe payload (dates to ISO)
+   */
+  private serializeInvite(invite: ParsedCalendarInvite) {
+    return {
+      ...invite,
+      startTime: invite.startTime?.toISOString?.() || invite.startTime,
+      endTime: invite.endTime?.toISOString?.() || invite.endTime,
+      created: invite.created ? invite.created.toISOString() : undefined,
+      lastModified: invite.lastModified ? invite.lastModified.toISOString() : undefined,
+    };
   }
 
   private async downloadMessageBody(client: ImapFlow, uid: number): Promise<Buffer | null> {

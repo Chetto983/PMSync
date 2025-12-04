@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
 import * as crypto from 'crypto';
 
 /**
@@ -23,13 +22,24 @@ export interface RateLimitResult {
 }
 
 /**
+ * Stored OTP data (in-memory)
+ */
+interface StoredOtp {
+  hash: string;
+  salt: string;
+  expiresAt: number;
+  isUsed: boolean;
+  type: 'email' | 'sms';
+}
+
+/**
  * OtpSecurityService - Secure OTP handling with hashing and rate limiting
  *
  * Security features:
  * - HMAC-SHA256 hashed OTP storage (not plaintext)
  * - Per-user rate limiting with lockout
  * - Attempt tracking for brute force protection
- * - Audit logging for security events
+ * - In-memory storage for short-lived OTPs
  *
  * Best practices applied:
  * - OTPs are hashed before storage per OWASP recommendations
@@ -37,13 +47,12 @@ export interface RateLimitResult {
  * - Lockout after N failed attempts per NIST 800-63b
  *
  * @see https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html
- * @see AUTH_MODULE_ROADMAP.md Phase 3 - MFA/OTP Hardening
  */
 @Injectable()
 export class OtpSecurityService {
   private readonly logger = new Logger(OtpSecurityService.name);
 
-  // Configuration (should come from AuthConfigService in production)
+  // Configuration
   private readonly otpExpirationMs: number;
   private readonly maxAttempts: number;
   private readonly lockoutDurationMs: number;
@@ -51,12 +60,13 @@ export class OtpSecurityService {
   private readonly rateLimitMax: number;
   private readonly hmacSecret: string;
 
-  // In-memory rate limiting (should use Redis in production for clustering)
+  // In-memory stores
+  private otpStore: Map<string, StoredOtp> = new Map(); // userId:type -> OTP data
   private rateLimitStore: Map<string, { count: number; resetAt: number }> = new Map();
   private attemptStore: Map<string, { count: number; firstAttemptAt: number }> = new Map();
   private lockoutStore: Map<string, number> = new Map();
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor() {
     // Get HMAC secret for OTP hashing (derived from JWT secret if not set)
     const jwtSecret = process.env.JWT_SECRET;
     const otpSecret = process.env.OTP_HMAC_SECRET;
@@ -75,6 +85,9 @@ export class OtpSecurityService {
     this.lockoutDurationMs = this.safeParseInt(process.env.OTP_LOCKOUT_DURATION, 15 * 60 * 1000);
     this.rateLimitWindowMs = this.safeParseInt(process.env.OTP_RATE_LIMIT_WINDOW, 60 * 1000);
     this.rateLimitMax = this.safeParseInt(process.env.OTP_RATE_LIMIT_MAX, 3);
+
+    // Periodic cleanup of expired entries (every 5 minutes)
+    setInterval(() => this.cleanupExpiredEntries(), 5 * 60 * 1000);
   }
 
   /**
@@ -111,7 +124,7 @@ export class OtpSecurityService {
   }
 
   /**
-   * Create and store hashed OTP for a user
+   * Create and store hashed OTP for a user (in-memory)
    */
   async createOtp(
     userId: string,
@@ -138,28 +151,14 @@ export class OtpSecurityService {
     const hash = this.hashOtp(code, salt);
     const expiresAt = new Date(Date.now() + this.otpExpirationMs);
 
-    // Clear previous unused OTPs for this user
-    await this.prisma.mfaCode.deleteMany({
-      where: { userId, type, isUsed: false },
-    });
-
-    // Store hashed OTP (code field stores hash, we add salt to a metadata field)
-    await this.prisma.mfaCode.create({
-      data: {
-        userId,
-        code: hash, // Store hash, not plaintext
-        type,
-        expiresAt,
-        // Store salt in a JSON metadata field or separate column
-        // For now, we'll store salt:hash format
-      },
-    });
-
-    // Also store the salt (in production, add a 'salt' column to mfaCode)
-    // For backwards compatibility, we'll store as salt:hash
-    await this.prisma.mfaCode.updateMany({
-      where: { userId, type, isUsed: false, code: hash },
-      data: { code: `${salt}:${hash}` },
+    // Store in-memory (overwrite any previous OTP)
+    const storeKey = `${userId}:${type}`;
+    this.otpStore.set(storeKey, {
+      hash,
+      salt,
+      expiresAt: expiresAt.getTime(),
+      isUsed: false,
+      type,
     });
 
     this.logger.log(
@@ -202,39 +201,20 @@ export class OtpSecurityService {
     }
 
     // Find valid OTP record
-    const otpRecord = await this.prisma.mfaCode.findFirst({
-      where: {
-        userId,
-        type,
-        isUsed: false,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const storeKey = `${userId}:${type}`;
+    const otpRecord = this.otpStore.get(storeKey);
 
-    if (!otpRecord) {
+    if (!otpRecord || otpRecord.isUsed || otpRecord.expiresAt < Date.now()) {
       this.recordFailedAttempt(userId);
       return {
         success: false,
-        reason: 'invalid',
+        reason: otpRecord?.isUsed ? 'already_used' : otpRecord ? 'expired' : 'invalid',
         attemptsRemaining: this.getAttemptsRemaining(userId),
       };
     }
 
-    // Parse salt:hash format
-    const [salt, hash] = otpRecord.code.includes(':')
-      ? otpRecord.code.split(':')
-      : ['', otpRecord.code];
-
     // Verify OTP
-    let isValid: boolean;
-    if (salt) {
-      // New hashed format
-      isValid = this.verifyOtpHash(code, salt, hash);
-    } else {
-      // Legacy plaintext format (for backwards compatibility)
-      isValid = otpRecord.code === code;
-    }
+    const isValid = this.verifyOtpHash(code, otpRecord.salt, otpRecord.hash);
 
     if (!isValid) {
       const attemptsRemaining = this.recordFailedAttempt(userId);
@@ -259,10 +239,7 @@ export class OtpSecurityService {
     }
 
     // Mark OTP as used
-    await this.prisma.mfaCode.update({
-      where: { id: otpRecord.id },
-      data: { isUsed: true },
-    });
+    otpRecord.isUsed = true;
 
     // Clear failed attempts on success
     this.attemptStore.delete(`otp-attempts:${userId}`);
@@ -363,23 +340,33 @@ export class OtpSecurityService {
   }
 
   /**
-   * Clean up expired rate limit entries (call periodically)
+   * Clean up expired entries (called periodically)
    */
   cleanupExpiredEntries() {
     const now = Date.now();
 
+    // Clean up expired OTPs
+    for (const [key, otp] of this.otpStore.entries()) {
+      if (otp.expiresAt < now) {
+        this.otpStore.delete(key);
+      }
+    }
+
+    // Clean up expired rate limits
     for (const [key, entry] of this.rateLimitStore.entries()) {
       if (entry.resetAt < now) {
         this.rateLimitStore.delete(key);
       }
     }
 
+    // Clean up expired lockouts
     for (const [key, endsAt] of this.lockoutStore.entries()) {
       if (endsAt < now) {
         this.lockoutStore.delete(key);
       }
     }
 
+    // Clean up old attempt records
     for (const [key, entry] of this.attemptStore.entries()) {
       if (now - entry.firstAttemptAt > this.lockoutDurationMs) {
         this.attemptStore.delete(key);

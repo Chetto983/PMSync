@@ -46,6 +46,7 @@ import {
   MessageSquare,
   FileText,
   Calendar,
+  Shield,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
@@ -65,13 +66,14 @@ import { GoogleProviderCard } from '@/components/providers/GoogleProviderCard';
 import { MicrosoftProviderCard } from '@/components/providers/MicrosoftProviderCard';
 import { GenericProviderCard } from '@/components/providers/GenericProviderCard';
 import { ProvidersList } from '@/components/providers/ProvidersList';
+import { MfaSettings } from '@/components/mfa';
 import {
   DEFAULT_USER_SETTINGS,
   getStoredUserSettings,
   persistUserSettings,
 } from '@/lib/utils/user-settings';
 
-type SettingsSection = 'general' | 'ai' | 'accounts' | 'account' | 'notifications';
+type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'account' | 'notifications';
 
 // Setting row component for consistent styling
 function SettingRow({
@@ -198,6 +200,7 @@ export function Settings() {
   const sections = useMemo(
     () => [
       { id: 'general', label: settingsCopy.sections.general, icon: <SettingsIcon size={18} /> },
+      { id: 'security', label: settingsCopy.sections.security || 'Security', icon: <Shield size={18} /> },
       { id: 'ai', label: settingsCopy.sections.ai, icon: <Sparkles size={18} /> },
       { id: 'accounts', label: settingsCopy.sections.accounts, icon: <Mail size={18} /> },
       { id: 'account', label: settingsCopy.sections.account, icon: <User size={18} /> },
@@ -514,6 +517,13 @@ export function Settings() {
                   {saveLoading ? 'Saving...' : 'Save Changes'}
                 </Button>
               </Box>
+            </Box>
+          )}
+
+          {/* Security Settings */}
+          {selectedSection === 'security' && (
+            <Box>
+              <MfaSettings />
             </Box>
           )}
 

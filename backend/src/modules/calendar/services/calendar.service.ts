@@ -23,6 +23,7 @@ export interface CreateEventDto {
   timeZone?: string;
   attendees?: Array<{ email: string; name?: string }>;
   reminders?: any;
+  recurrence?: string[];
 }
 
 export interface UpdateEventDto {
@@ -36,6 +37,7 @@ export interface UpdateEventDto {
   attendees?: Array<{ email: string; name?: string }>;
   reminders?: any;
   calendarName?: string;
+  recurrence?: string[];
 }
 
 export interface ListEventsFilters {
@@ -669,19 +671,20 @@ export class CalendarService {
     oauth2Client.setCredentials({ access_token: accessToken });
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-    const event: calendar_v3.Schema$Event = {
-      summary: data.title,
-      description: data.description,
-      location: data.location,
-      start: data.isAllDay
-        ? { date: new Date(data.startTime).toISOString().split('T')[0] }
-        : { dateTime: new Date(data.startTime).toISOString(), timeZone: data.timeZone || 'UTC' },
-      end: data.isAllDay
-        ? { date: new Date(data.endTime).toISOString().split('T')[0] }
-        : { dateTime: new Date(data.endTime).toISOString(), timeZone: data.timeZone || 'UTC' },
-      attendees: data.attendees?.map((a) => ({ email: a.email, displayName: a.name })),
-      reminders: data.reminders,
-    };
+      const event: calendar_v3.Schema$Event = {
+        summary: data.title,
+        description: data.description,
+        location: data.location,
+        start: data.isAllDay
+          ? { date: new Date(data.startTime).toISOString().split('T')[0] }
+          : { dateTime: new Date(data.startTime).toISOString(), timeZone: data.timeZone || 'UTC' },
+        end: data.isAllDay
+          ? { date: new Date(data.endTime).toISOString().split('T')[0] }
+          : { dateTime: new Date(data.endTime).toISOString(), timeZone: data.timeZone || 'UTC' },
+        attendees: data.attendees?.map((a) => ({ email: a.email, displayName: a.name })),
+        reminders: data.reminders,
+        recurrence: data.recurrence,
+      };
 
     const response = await calendar.events.insert({
       calendarId: data.calendarId || 'primary',
@@ -727,6 +730,9 @@ export class CalendarService {
     }
     if (data.reminders !== undefined) {
       event.reminders = data.reminders;
+    }
+    if (data.recurrence !== undefined) {
+      event.recurrence = data.recurrence;
     }
 
     await calendar.events.patch({
@@ -830,6 +836,7 @@ export class CalendarService {
         type: 'required',
       }));
     }
+    // Note: recurrence handling for Microsoft not implemented (requires complex payload)
 
     await axios.patch(`${this.GRAPH_API_BASE}/me/events/${eventId}`, event, {
       headers: {
@@ -847,6 +854,51 @@ export class CalendarService {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+    });
+  }
+
+  /**
+   * Cancel an event in provider calendar (best effort)
+   */
+  async cancelEvent(tenantId: string, eventId: string, reason?: string) {
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: { id: eventId, tenantId, isDeleted: false },
+      include: { provider: true },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Calendar event not found');
+    }
+
+    const provider = event.provider;
+    const accessToken = await this.getProviderAccessToken(provider);
+
+    try {
+      if (provider.providerType === 'google') {
+        const oauth2Client = new google.auth.OAuth2();
+        oauth2Client.setCredentials({ access_token: accessToken });
+        const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+        await calendar.events.patch({
+          calendarId: event.calendarId || 'primary',
+          eventId: event.externalId,
+          sendUpdates: 'all',
+          requestBody: { status: 'cancelled', description: reason || event.description },
+        });
+      } else if (provider.providerType === 'microsoft') {
+        await axios.post(
+          `${this.GRAPH_API_BASE}/me/events/${event.externalId}/cancel`,
+          { comment: reason || `Cancelled: ${event.title}` },
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        );
+      }
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.warn(`Failed to cancel provider event ${event.externalId}: ${err.message}`);
+    }
+
+    await this.prisma.calendarEvent.update({
+      where: { id: event.id },
+      data: { isCancelled: true, status: 'cancelled' },
     });
   }
 

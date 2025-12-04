@@ -15,7 +15,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { MistralService } from '../../services/mistral.service';
-import { getLocale, type SupportedLocale } from '../locales';
+import { getLocale } from '../locales';
 
 /**
  * Message role type

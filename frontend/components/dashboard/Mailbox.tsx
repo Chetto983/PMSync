@@ -259,7 +259,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       // Clear the compose query params to avoid reopening on refresh
       router.replace({ pathname: router.pathname, query: {} }, undefined, { shallow: true });
     }
-  }, [router.query, storeEmails]);
+  }, [router, router.query, storeEmails]);
 
   const getEmptyState = useCallback(() => {
     if (!selectedFolderId) {

@@ -21,6 +21,7 @@ import { EmailSyncModule } from '../email-sync/email-sync.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageService } from './services/storage.service';
 import { ProviderTokenService } from '../email-sync/services/provider-token.service';
+import { CalendarModule } from '../calendar/calendar.module';
 
 /**
  * EmailModule - Core email functionality with observability
@@ -39,6 +40,7 @@ import { ProviderTokenService } from '../email-sync/services/provider-token.serv
     ProvidersModule,
     forwardRef(() => AiModule),
     forwardRef(() => EmailSyncModule),
+    forwardRef(() => CalendarModule),
     RealtimeModule,
   ],
   providers: [

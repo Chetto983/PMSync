@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProviderConfigService } from './provider-config.service';
+import { jest,describe,beforeEach } from '@jest/globals';
 
 describe('ProviderConfigService', () => {
   let prisma: any;
@@ -29,6 +30,13 @@ describe('ProviderConfigService', () => {
       email: {
         findMany: jest.fn().mockResolvedValue([]),
         deleteMany: jest.fn(),
+      },
+      emailAttachment: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      contact: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
 
@@ -122,7 +130,7 @@ describe('ProviderConfigService', () => {
 
       const result = await service.connectGoogleProvider(TENANT_ID, USER_ID, dto);
 
-      expect(googleOAuth.exchangeCodeForTokens).toHaveBeenCalledWith(dto.authorizationCode);
+      expect(googleOAuth.exchangeCodeForTokens).toHaveBeenCalledWith(dto.authorizationCode, undefined);
       expect(prisma.providerConfig.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {

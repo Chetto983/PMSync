@@ -115,6 +115,9 @@ export interface Email {
   size?: number | null;
   attachments?: EmailAttachment[];
   emailLabels?: EmailLabel[];
+  hasCalendarInvite?: boolean;
+  calendarInviteStatus?: 'pending' | 'accepted' | 'declined' | 'tentative';
+  calendarInviteData?: ParsedCalendarInvite | null;
 }
 
 export interface EmailAttachment {
@@ -135,6 +138,39 @@ export interface EmailLabel {
   labelId: string;
   createdAt: Date;
   label?: UserLabel;
+}
+
+export interface CalendarInviteAttendee {
+  email: string;
+  name?: string;
+  status?: 'NEEDS-ACTION' | 'ACCEPTED' | 'DECLINED' | 'TENTATIVE';
+  role?: 'REQ-PARTICIPANT' | 'OPT-PARTICIPANT' | 'CHAIR' | 'NON-PARTICIPANT';
+  rsvp?: boolean;
+}
+
+export interface ParsedCalendarInvite {
+  uid: string;
+  method: 'REQUEST' | 'REPLY' | 'CANCEL' | 'PUBLISH' | 'ADD' | 'REFRESH' | 'COUNTER' | 'DECLINECOUNTER';
+  sequence: number;
+  summary: string;
+  description?: string;
+  location?: string;
+  url?: string;
+  startTime: string | Date;
+  endTime: string | Date;
+  isAllDay: boolean;
+  timezone?: string;
+  recurrence?: string[];
+  recurringEventId?: string;
+  organizer: {
+    email: string;
+    name?: string;
+  };
+  attendees: CalendarInviteAttendee[];
+  status?: 'TENTATIVE' | 'CONFIRMED' | 'CANCELLED';
+  created?: string | Date;
+  lastModified?: string | Date;
+  rawIcs?: string;
 }
 
 // Folder

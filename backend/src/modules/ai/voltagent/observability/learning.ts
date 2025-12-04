@@ -468,7 +468,7 @@ export function createLearningHooks(
       // This hook is for tracking agent-level metrics that could influence learning.
     },
 
-    onToolEnd: async ({ agent, tool, output, error, context }) => {
+    onToolEnd: async ({ agent, tool, output: _output, error, context }) => {
       // Track tool completion for potential learning
       logger?.debug('Tool completed for learning tracking', {
         agentName: agent.name,

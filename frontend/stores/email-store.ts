@@ -42,6 +42,20 @@ export interface Email {
   attachments?: EmailAttachment[];
   inReplyTo?: string;
   references?: string;
+  hasCalendarInvite?: boolean;
+  calendarInviteStatus?: 'pending' | 'accepted' | 'declined' | 'tentative';
+  calendarInviteData?: {
+    summary?: string;
+    description?: string;
+    location?: string;
+    startTime?: string | Date;
+    endTime?: string | Date;
+    isAllDay?: boolean;
+    timezone?: string;
+    organizer?: { email: string; name?: string };
+    attendees?: Array<{ email: string; name?: string; status?: string }>;
+    method?: string;
+  } | null;
 }
 
 /**

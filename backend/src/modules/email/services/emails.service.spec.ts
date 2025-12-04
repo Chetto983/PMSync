@@ -5,6 +5,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { describe, expect, jest} from '@jest/globals';
 
 describe('EmailsService', () => {
   let service: EmailsService;
@@ -489,7 +490,7 @@ describe('EmailsService', () => {
         findFirst: jest.fn().mockResolvedValue({ id: 'provider-1' }),
       } as any;
 
-      const result = await service.saveDraft('tenant-1', draftData);
+      await service.saveDraft('tenant-1', draftData);
 
       expect(prismaService.email.update).toHaveBeenCalledWith({
         where: { id: 'existing-draft' },
@@ -690,9 +691,9 @@ describe('EmailsService', () => {
         expect.arrayContaining([
           expect.objectContaining({
             operation: 'moveToFolder',
-            data: expect.objectContaining({
-              toFolder: 'ARCHIVE',
-            }),
+            folder: 'ARCHIVE',
+            sourceFolder: expect.any(String),
+            emailId: 'email-1',
           }),
         ]),
       );

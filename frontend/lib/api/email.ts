@@ -45,6 +45,42 @@ export type Email = {
   headers?: Record<string, string>;
   metadata?: Record<string, unknown>;
   attachments?: EmailAttachment[];
+  hasCalendarInvite?: boolean;
+  calendarInviteStatus?: 'pending' | 'accepted' | 'declined' | 'tentative';
+  calendarInviteData?: ParsedCalendarInvite | null;
+};
+
+export type CalendarInviteAttendee = {
+  email: string;
+  name?: string;
+  status?: 'NEEDS-ACTION' | 'ACCEPTED' | 'DECLINED' | 'TENTATIVE';
+  role?: 'REQ-PARTICIPANT' | 'OPT-PARTICIPANT' | 'CHAIR' | 'NON-PARTICIPANT';
+  rsvp?: boolean;
+};
+
+export type ParsedCalendarInvite = {
+  uid: string;
+  method: 'REQUEST' | 'REPLY' | 'CANCEL' | 'PUBLISH' | 'ADD' | 'REFRESH' | 'COUNTER' | 'DECLINECOUNTER';
+  sequence: number;
+  summary: string;
+  description?: string;
+  location?: string;
+  url?: string;
+  startTime: string | Date;
+  endTime: string | Date;
+  isAllDay: boolean;
+  timezone?: string;
+  recurrence?: string[];
+  recurringEventId?: string;
+  organizer: {
+    email: string;
+    name?: string;
+  };
+  attendees: CalendarInviteAttendee[];
+  status?: 'TENTATIVE' | 'CONFIRMED' | 'CANCELLED';
+  created?: string | Date;
+  lastModified?: string | Date;
+  rawIcs?: string;
 };
 
 export type EmailAttachment = {
@@ -138,6 +174,18 @@ export type EmailStats = {
   byFolder: Record<string, number>;
   byProvider?: Record<string, number>;
 };
+
+export const getCalendarInvite = (emailId: string) =>
+  apiClient.get<ParsedCalendarInvite>(`/emails/${emailId}/calendar-invite`);
+
+export const respondToCalendarInvite = (
+  emailId: string,
+  response: 'accept' | 'decline' | 'tentative',
+) =>
+  apiClient.post<{ success: boolean; eventId?: string }>(
+    `/emails/${emailId}/calendar-invite/respond`,
+    { response },
+  );
 
 export type EmailUpdateData = {
   isRead?: boolean;
@@ -558,5 +606,19 @@ export const emailApi = {
       query,
       limit,
     });
+  },
+
+  /**
+   * Get parsed calendar invite for an email
+   */
+  getCalendarInvite(emailId: string) {
+    return getCalendarInvite(emailId);
+  },
+
+  /**
+   * Respond to calendar invite
+   */
+  respondToCalendarInvite(emailId: string, response: 'accept' | 'decline' | 'tentative') {
+    return respondToCalendarInvite(emailId, response);
   },
 };

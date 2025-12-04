@@ -65,7 +65,7 @@ function percentile(sorted: number[], p: number): number {
 /**
  * Cost calculation (per 1M tokens)
  */
-const MODEL_COSTS = {
+const _MODEL_COSTS = {
   'mistral-small-latest': { input: 0.2, output: 0.6 },
   'mistral-medium-latest': { input: 2.5, output: 7.5 },
   'mistral-large-latest': { input: 8, output: 24 },
@@ -245,7 +245,6 @@ describeReal('VoltAgent Real LLM Speed Audit', () => {
 
       // Second request (simulated cache hit - won't actually hit cache in VoltAgent)
       // This demonstrates where caching would be beneficial
-      const start2 = Date.now();
       const cachedResponse = await cacheService.get(cacheKey, {
         namespace: CacheNamespace.AI_RESPONSES,
       });

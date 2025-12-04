@@ -231,6 +231,8 @@ describe('AuthController', () => {
         'test-tenant',
         '192.168.1.1',
         'Mozilla/5.0',
+        undefined,
+        mockExpressRequest,
       );
       expect(result).toEqual(expectedResult);
     });
@@ -246,6 +248,8 @@ describe('AuthController', () => {
         expect.any(String),
         '192.168.1.1',
         'Mozilla/5.0',
+        undefined,
+        mockExpressRequest,
       );
     });
 
@@ -426,6 +430,8 @@ describe('AuthController', () => {
         expect.any(String),
         'unknown',
         'unknown',
+        undefined,
+        reqWithoutHeaders,
       );
     });
 
@@ -451,6 +457,8 @@ describe('AuthController', () => {
         expect.any(String),
         '192.168.1.1',
         'Test',
+        undefined,
+        reqWithMultipleIPs,
       );
     });
   });

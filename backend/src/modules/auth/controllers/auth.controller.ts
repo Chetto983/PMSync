@@ -7,11 +7,13 @@ import {
   Request,
   Req,
   GoneException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from '../services/auth.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
@@ -19,6 +21,7 @@ import { VerifyOtpDto } from '../dtos/verify-otp.dto';
 import { ResetPasswordDto } from '../dtos/reset-password.dto';
 import { ForgotPasswordDto } from '../dtos/forgot-password.dto';
 import { SendOtpDto } from '../dtos/send-otp.dto';
+import { MfaChallengeDto, MfaChallengeResponseDto } from '../dtos/mfa.dto';
 import { Request as ExpressRequest } from 'express';
 
 @ApiTags('Authentication')
@@ -67,16 +70,51 @@ export class AuthController {
    * Login user with email and password
    * POST /auth/login
    * SECURITY: Rate limited to 5 attempts per 60 seconds to prevent credential stuffing
+   *
+   * MFA Response: If MFA is enabled, returns { mfaRequired: true, mfaToken, availableMethods }
+   * Use POST /auth/mfa/verify with mfaToken to complete login
    */
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiResponse({ status: 200, description: 'Login successful or MFA required' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(
     @Body() body: LoginDto,
     @Req() req: ExpressRequest,
   ) {
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.login(body.email, body.password, body.tenantSlug, ipAddress, userAgent);
+    const deviceToken = req.cookies?.['mfa_device_token'] || req.headers['x-device-token'] as string;
+    return this.authService.login(body.email, body.password, body.tenantSlug, ipAddress, userAgent, deviceToken, req);
+  }
+
+  /**
+   * Verify MFA challenge (TOTP, backup code, or email OTP)
+   * POST /auth/mfa/verify
+   * SECURITY: Rate limited to 5 attempts per 60 seconds
+   */
+  @Post('mfa/verify')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Verify MFA challenge to complete login' })
+  @ApiResponse({ status: 200, description: 'MFA verified, login successful', type: MfaChallengeResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid MFA code or token' })
+  async verifyMfaChallenge(
+    @Body() body: MfaChallengeDto,
+    @Req() req: ExpressRequest,
+  ) {
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    return this.authService.verifyMfaChallenge(
+      body.mfaToken,
+      body.method,
+      body.code,
+      body.trustDevice || false,
+      req,
+      ipAddress,
+      userAgent,
+    );
   }
 
   /**

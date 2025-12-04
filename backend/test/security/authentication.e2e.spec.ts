@@ -23,7 +23,7 @@ describe('Authentication (E2E)', () => {
     await app.init();
 
     // Create a valid user and get token
-    const registerResponse = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/auth/register')
       .send({
         email: 'auth-test@example.com',
@@ -34,10 +34,17 @@ describe('Authentication (E2E)', () => {
 
     // Disable MFA for test user
     const prisma = app.get(PrismaService);
-    await prisma.user.update({
-      where: { id: registerResponse.body.userId },
-      data: { isMfaEnabled: false },
+    const createdUser = await prisma.user.findFirst({
+      where: { email: 'auth-test@example.com' },
+      select: { id: true },
     });
+
+    if (createdUser?.id) {
+      await prisma.user.update({
+        where: { id: createdUser.id },
+        data: { isMfaEnabled: false },
+      });
+    }
 
     const loginResponse = await request(app.getHttpServer())
       .post('/auth/login')
@@ -68,7 +75,7 @@ describe('Authentication (E2E)', () => {
           password: 'Test123!@#',
           firstName: 'New',
         })
-        .expect(201);
+      .expect(200);
     });
 
     it('should allow POST /auth/login', async () => {

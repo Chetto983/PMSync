@@ -409,7 +409,7 @@ export class VoltAgentController {
    */
   @Get('stats/performance')
   @ApiOperation({ summary: 'Get performance telemetry statistics' })
-  async getPerformanceStats(@Req() req: AuthenticatedRequest) {
+  async getPerformanceStats(@Req() _req: AuthenticatedRequest) {
     const stats = await this.voltAgentService.getMetricsStats('SupervisorAgent');
     return {
       success: true,
