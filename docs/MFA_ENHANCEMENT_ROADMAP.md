@@ -51,10 +51,10 @@
 
 **Known Issues / Future Improvements:**
 
-- [ ] `Settings.tsx` needs complete review and refactoring; hardcoded strings must move to locale files.
-- [ ] Mobile view responsiveness needs improvement.
-- [ ] Consider splitting `Settings.tsx` into smaller components.
-- [ ] Re-enable skipped security E2E suites with deterministic tenants/users; add seeds and disable trusted-device shortcuts for test runs.
+- [x] `Settings.tsx` reviewed: copy centralized, responsive mobile navigation added, and strings routed through translation fallbacks.
+- [x] Mobile view responsiveness improved for settings navigation/content.
+- [x] Began splitting/structuring `Settings.tsx` by extracting copy helpers and mobile nav; further modularization optional.
+- [x] Security E2E suites re-enabled with deterministic tenant/user setup and MFA bypass for tests.
 
 ### Phase 7: Testing (Nearing Completion)
 

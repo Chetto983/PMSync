@@ -928,6 +928,8 @@ export interface AppTranslations {
       };
     };
     settings: {
+      pageTitle?: string;
+      layout?: { mobileNavLabel?: string };
       title: string;
       description: string;
       preferences: string;
@@ -1003,10 +1005,19 @@ export interface AppTranslations {
       mailAccountsPanel: {
         title: string;
         description: string;
+        connectedTitle?: string;
         empty: string;
         manage: string;
         add: string;
         refresh: string;
+        refreshTooltip?: string;
+        syncAll?: string;
+        syncing?: string;
+        syncConfirm?: string;
+        syncStarted?: string;
+        syncFailed?: string;
+        addTitle?: string;
+        addDescription?: string;
         defaultBadge: string;
         emailBadge: string;
         calendarBadge: string;
@@ -1034,6 +1045,26 @@ export interface AppTranslations {
       aiPanel: {
         title: string;
         description: string;
+        saving?: string;
+        openAssistant?: string;
+        dataManagementTitle?: string;
+        dataManagementDescription?: string;
+        clearMemory?: string;
+        resetLearning?: string;
+        autoApproveLabel?: string;
+        autoApproveHint?: string;
+        savePreferences?: string;
+        featuresTitle?: string;
+        featuresDescription?: string;
+        smartRepliesTitle?: string;
+        summarizationTitle?: string;
+        schedulingTitle?: string;
+        personalizationTitle?: string;
+        personalizationDescription?: string;
+        roleLabel?: string;
+        communicationLabel?: string;
+        responseLengthLabel?: string;
+        proactivityLabel?: string;
         smartReplies: string;
         smartRepliesDescription: string;
         summarization: string;
@@ -1095,6 +1126,11 @@ export interface AppTranslations {
       accountPanel: {
         title: string;
         description: string;
+        profileTitle?: string;
+        contactAdmin?: string;
+        dangerZoneTitle?: string;
+        dangerZoneDescription?: string;
+        deleteAccount?: string;
         profileInformation: string;
         fullName: string;
         email: string;
@@ -1108,6 +1144,14 @@ export interface AppTranslations {
         title: string;
         description: string;
         emailToggle: string;
+        newEmailsTitle?: string;
+        newEmailsDesc?: string;
+        calendarTitle?: string;
+        calendarDesc?: string;
+        aiActionsTitle?: string;
+        aiActionsDesc?: string;
+        save?: string;
+        emailTitle?: string;
       };
     };
     folders: {

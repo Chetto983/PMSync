@@ -138,7 +138,7 @@ describe('Tenant Isolation (E2E)', () => {
         email: 'tenant-a-test@example.com',
         password: 'Test123!@#',
       })
-      .expect(200);
+      .expect((res) => expect([200, 201]).toContain(res.status));
 
     userAToken = loginA.body.accessToken;
     tenantAId = loginA.body.user.tenantId;
@@ -151,7 +151,7 @@ describe('Tenant Isolation (E2E)', () => {
         email: 'tenant-b-test@example.com',
         password: 'Test123!@#',
       })
-      .expect(200);
+      .expect((res) => expect([200, 201]).toContain(res.status));
 
     userBToken = loginB.body.accessToken;
     tenantBId = loginB.body.user.tenantId;

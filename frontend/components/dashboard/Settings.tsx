@@ -182,6 +182,8 @@ export function Settings() {
   const [providerSuccess, setProviderSuccess] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [syncAllLoading, setSyncAllLoading] = useState(false);
+  const [generalSuccess, setGeneralSuccess] = useState('');
+  const [generalError, setGeneralError] = useState('');
 
   // AI Personalization state
   const [aiProfileLoading, setAiProfileLoading] = useState(false);
@@ -209,6 +211,88 @@ export function Settings() {
     [settingsCopy.sections],
   );
 
+  const copy = useMemo(() => {
+    const sc: any = settingsCopy;
+    return {
+      pageTitle: sc.pageTitle || 'Settings',
+      general: {
+        saveSuccess: sc.generalPanel?.saveSuccess || 'Settings saved',
+        saveError: sc.generalPanel?.saveError || 'Failed to save',
+      },
+      ai: {
+        autoApproveLabel: sc.aiPanel?.autoApproveLabel || 'Auto-Approve Threshold',
+        autoApproveHint:
+          sc.aiPanel?.autoApproveHint || 'Actions with confidence above this threshold will be auto-approved',
+        saving: sc.aiPanel?.saving || 'Saving...',
+        savePreferences: sc.aiPanel?.savePreferences || 'Save Preferences',
+        openAssistant: sc.aiPanel?.openAssistant || 'Open AI Assistant',
+        dataManagementTitle: sc.aiPanel?.dataManagementTitle || 'Data Management',
+        dataManagementDescription:
+          sc.aiPanel?.dataManagementDescription || 'Manage your AI data and learning history',
+        clearMemory: sc.aiPanel?.clearMemory || 'Clear Memory',
+        resetLearning: sc.aiPanel?.resetLearning || 'Reset Learning',
+        featuresTitle: sc.aiPanel?.featuresTitle,
+        featuresDescription: sc.aiPanel?.featuresDescription,
+        smartRepliesTitle: sc.aiPanel?.smartRepliesTitle,
+        smartRepliesDescription: sc.aiPanel?.smartRepliesDescription,
+        summarizationTitle: sc.aiPanel?.summarizationTitle,
+        summarizationDescription: sc.aiPanel?.summarizationDescription,
+        schedulingTitle: sc.aiPanel?.schedulingTitle,
+        schedulingDescription: sc.aiPanel?.schedulingDescription,
+        personalizationTitle: sc.aiPanel?.personalizationTitle,
+        personalizationDescription: sc.aiPanel?.personalizationDescription,
+        roleLabel: sc.aiPanel?.roleLabel,
+        communicationLabel: sc.aiPanel?.communicationLabel,
+        responseLengthLabel: sc.aiPanel?.responseLengthLabel,
+        proactivityLabel: sc.aiPanel?.proactivityLabel,
+      },
+      accounts: {
+        description: sc.mailAccountsPanel?.description || 'Connect and manage your email accounts.',
+        connectedTitle: sc.mailAccountsPanel?.connectedTitle || 'Connected Accounts',
+        refreshTooltip: sc.mailAccountsPanel?.refreshTooltip || 'Refresh',
+        syncAll: sc.mailAccountsPanel?.syncAll || 'Sync All',
+        syncing: sc.mailAccountsPanel?.syncing || 'Syncing...',
+        syncConfirm:
+          sc.mailAccountsPanel?.syncConfirm || 'This will re-sync all emails from providers. Continue?',
+        syncStarted: sc.mailAccountsPanel?.syncStarted || 'Sync started successfully',
+        syncFailed: sc.mailAccountsPanel?.syncFailed || 'Failed to start sync',
+        addTitle: sc.mailAccountsPanel?.addTitle || 'Add Account',
+        addDescription: sc.mailAccountsPanel?.addDescription || 'Connect a new email account',
+      },
+      account: {
+        description: sc.accountPanel?.description || 'Manage your account information.',
+        contactAdmin:
+          sc.accountPanel?.contactAdmin || 'Contact your administrator to update account information.',
+        dangerZoneTitle: sc.accountPanel?.dangerZoneTitle || 'Danger Zone',
+        dangerZoneDescription:
+          sc.accountPanel?.dangerZoneDescription || 'Permanently delete your account and all associated data.',
+        deleteAccount: sc.accountPanel?.deleteAccount || 'Delete Account',
+        fullName: sc.accountPanel?.fullName || 'Full Name',
+        email: sc.accountPanel?.email || 'Email',
+        role: sc.accountPanel?.role || 'Role',
+        profileTitle: sc.accountPanel?.profileTitle,
+      },
+      notifications: {
+        description: sc.notificationsPanel?.description || 'Configure how and when you receive notifications.',
+        newEmailsTitle: sc.notificationsPanel?.newEmailsTitle || 'New Emails',
+        newEmailsDesc: sc.notificationsPanel?.newEmailsDesc || 'Get notified when you receive new emails',
+        calendarTitle: sc.notificationsPanel?.calendarTitle || 'Calendar Reminders',
+        calendarDesc: sc.notificationsPanel?.calendarDesc || 'Reminders for upcoming events',
+        aiActionsTitle: sc.notificationsPanel?.aiActionsTitle || 'AI Actions',
+        aiActionsDesc: sc.notificationsPanel?.aiActionsDesc || 'Notifications for AI-suggested actions',
+        save: sc.notificationsPanel?.save || 'Save Changes',
+        emailTitle: sc.notificationsPanel?.emailTitle,
+      },
+      security: {
+        title: sc.sections?.security || 'Security',
+      },
+      layout: {
+        mobileNavLabel: sc.layout?.mobileNavLabel || 'Sections',
+      },
+      generalPanel: sc.generalPanel,
+    };
+  }, [settingsCopy]);
+
   const loadProviders = useCallback(async () => {
     try {
       setProvidersLoading(true);
@@ -224,20 +308,20 @@ export function Settings() {
   }, [t]);
 
   const handleSyncAll = useCallback(async () => {
-    if (!confirm('This will re-sync all emails from providers. Continue?')) return;
+    if (!confirm(copy.accounts.syncConfirm)) return;
     try {
       setSyncAllLoading(true);
       const result = await providersApi.syncAll();
       if (result.success) {
-        setProviderSuccess('Sync started successfully');
+        setProviderSuccess(copy.accounts.syncStarted);
         await loadProviders();
       }
     } catch {
-      setProviderError('Failed to start sync');
+      setProviderError(copy.accounts.syncFailed);
     } finally {
       setSyncAllLoading(false);
     }
-  }, [loadProviders]);
+  }, [copy.accounts, loadProviders]);
 
   const loadAiProfile = useCallback(async () => {
     try {
@@ -268,39 +352,39 @@ export function Settings() {
         responseLength,
         proactivityLevel,
       });
-      setAiSuccess('Settings saved');
+      setAiSuccess(copy.ai.savePreferences);
     } catch {
-      setAiError('Failed to save settings');
+      setAiError(copy.general.saveError);
     } finally {
       setAiSaveLoading(false);
     }
-  }, [jobRole, communicationStyle, responseLength, proactivityLevel]);
+  }, [copy.ai.savePreferences, copy.general.saveError, jobRole, communicationStyle, responseLength, proactivityLevel]);
 
   const handleClearAiMemory = useCallback(async () => {
-    if (!confirm('Clear all AI memory? This cannot be undone.')) return;
+    if (!confirm(copy.ai.clearMemory)) return;
     try {
       setAiSaveLoading(true);
       await personalizationApi.clearAllMemories();
-      setAiSuccess('Memory cleared');
+      setAiSuccess(copy.ai.clearMemory);
     } catch {
-      setAiError('Failed to clear memory');
+      setAiError(copy.general.saveError);
     } finally {
       setAiSaveLoading(false);
     }
-  }, []);
+  }, [copy.ai.clearMemory, copy.general.saveError]);
 
   const handleResetAiLearning = useCallback(async () => {
-    if (!confirm('Reset all AI learning data? This cannot be undone.')) return;
+    if (!confirm(copy.ai.resetLearning)) return;
     try {
       setAiSaveLoading(true);
       await multiAgentApi.resetLearning();
-      setAiSuccess('Learning reset');
+      setAiSuccess(copy.ai.resetLearning);
     } catch {
-      setAiError('Failed to reset learning');
+      setAiError(copy.general.saveError);
     } finally {
       setAiSaveLoading(false);
     }
-  }, []);
+  }, [copy.ai.resetLearning, copy.general.saveError]);
 
   useEffect(() => {
     loadProviders();
@@ -357,13 +441,15 @@ export function Settings() {
   const handleSaveSettings = async () => {
     try {
       setSaveLoading(true);
+      setGeneralError('');
+      setGeneralSuccess('');
       // Save language to database (theme is saved automatically via useThemePersistence)
       await usersApi.updatePreferences({ language });
       // Keep localStorage in sync for offline access
       persistUserSettings({ language, timezone, emailNotifications });
-      alert('Settings saved');
+      setGeneralSuccess(copy.general.saveSuccess);
     } catch {
-      alert('Failed to save');
+      setGeneralError(copy.general.saveError);
     } finally {
       setSaveLoading(false);
     }
@@ -384,7 +470,7 @@ export function Settings() {
   const notificationsCopy = settingsCopy.notificationsPanel;
 
   return (
-    <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', bgcolor: 'background.default' }}>
+    <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       {/* Sidebar */}
       <Paper
         elevation={0}
@@ -399,7 +485,7 @@ export function Settings() {
       >
         <Box sx={{ p: 3, pb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Settings
+            {copy.pageTitle}
           </Typography>
         </Box>
 
@@ -452,9 +538,38 @@ export function Settings() {
           </Box>
         </Box>
       </Paper>
+      {/* Mobile navigation */}
+      <Box
+        sx={{
+          display: { xs: 'flex', md: 'none' },
+          px: 2,
+          py: 2,
+          position: 'sticky',
+          top: 0,
+          zIndex: 2,
+          bgcolor: 'background.paper',
+          borderBottom: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <ToggleButtonGroup
+          exclusive
+          value={selectedSection}
+          onChange={(_, value) => value && handleSectionSelect(value as SettingsSection)}
+          fullWidth
+          size="small"
+          color="primary"
+        >
+          {sections.map((section) => (
+            <ToggleButton key={section.id} value={section.id} sx={{ textTransform: 'none' }}>
+              {section.label}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Box>
 
       {/* Main Content */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 4 }}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 4 } }}>
         <Box sx={{ maxWidth: 720, mx: 'auto' }}>
           {/* General Settings */}
           {selectedSection === 'general' && (
@@ -465,11 +580,17 @@ export function Settings() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
                 {generalCopy.description}
               </Typography>
+              {(generalSuccess || generalError) && (
+                <Box sx={{ mb: 2 }}>
+                  {generalSuccess && <Alert severity="success" onClose={() => setGeneralSuccess('')}>{generalSuccess}</Alert>}
+                  {generalError && <Alert severity="error" onClose={() => setGeneralError('')}>{generalError}</Alert>}
+                </Box>
+              )}
 
-              <SectionCard title="Appearance">
+              <SectionCard title={generalCopy.appearanceTitle || 'Appearance'}>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="body2" sx={{ fontWeight: 500, mb: 1.5 }}>
-                    Theme
+                    {generalCopy.themeLabel || 'Theme'}
                   </Typography>
                   <ToggleButtonGroup
                     value={theme}
@@ -478,30 +599,30 @@ export function Settings() {
                     size="small"
                   >
                     <ToggleButton value="light" sx={{ px: 3 }}>
-                      <Sun size={16} style={{ marginRight: 8 }} /> Light
+                      <Sun size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.light || 'Light'}
                     </ToggleButton>
                     <ToggleButton value="dark" sx={{ px: 3 }}>
-                      <Moon size={16} style={{ marginRight: 8 }} /> Dark
+                      <Moon size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.dark || 'Dark'}
                     </ToggleButton>
                     <ToggleButton value="system" sx={{ px: 3 }}>
-                      <Monitor size={16} style={{ marginRight: 8 }} /> System
+                      <Monitor size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.system || 'System'}
                     </ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
               </SectionCard>
 
-              <SectionCard title="Language & Region">
+              <SectionCard title={generalCopy.languageTitle || 'Language & Region'}>
                 <Stack spacing={2}>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Language</InputLabel>
-                    <Select value={language} onChange={(e) => setLanguage(e.target.value)} label="Language">
+                    <InputLabel>{generalCopy.languageLabel || 'Language'}</InputLabel>
+                    <Select value={language} onChange={(e) => setLanguage(e.target.value)} label={generalCopy.languageLabel || 'Language'}>
                       <MenuItem value="en">English</MenuItem>
                       <MenuItem value="it">Italiano</MenuItem>
                     </Select>
                   </FormControl>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Timezone</InputLabel>
-                    <Select value={timezone} onChange={(e) => setTimezone(e.target.value)} label="Timezone">
+                    <InputLabel>{generalCopy.timezoneLabel || 'Timezone'}</InputLabel>
+                    <Select value={timezone} onChange={(e) => setTimezone(e.target.value)} label={generalCopy.timezoneLabel || 'Timezone'}>
                       <MenuItem value="GMT-08:00">(GMT-08:00) Pacific Time</MenuItem>
                       <MenuItem value="GMT-05:00">(GMT-05:00) Eastern Time</MenuItem>
                       <MenuItem value="GMT+00:00">(GMT+00:00) London</MenuItem>
@@ -514,7 +635,7 @@ export function Settings() {
 
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <Button variant="contained" onClick={handleSaveSettings} disabled={saveLoading}>
-                  {saveLoading ? 'Saving...' : 'Save Changes'}
+                  {saveLoading ? copy.ai.saving : copy.notifications.save}
                 </Button>
               </Box>
             </Box>
@@ -534,7 +655,7 @@ export function Settings() {
                 {aiCopy.title}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                Customize how AI assists you with emails, calendar, and more.
+                {aiCopy.description || 'Customize how AI assists you with emails, calendar, and more.'}
               </Typography>
 
               {(aiError || aiSuccess) && (
@@ -550,36 +671,42 @@ export function Settings() {
                 </Box>
               ) : (
                 <>
-                  <SectionCard title="AI Features" description="Enable or disable AI capabilities">
+                  <SectionCard
+                    title={aiCopy.featuresTitle || 'AI Features'}
+                    description={aiCopy.featuresDescription || 'Enable or disable AI capabilities'}
+                  >
                     <SettingRow
                       icon={<MessageSquare size={18} />}
-                      title="Smart Replies"
-                      description="AI-generated response suggestions"
+                      title={aiCopy.smartRepliesTitle || 'Smart Replies'}
+                      description={aiCopy.smartRepliesDescription || 'AI-generated response suggestions'}
                     >
                       <Switch checked={smartRepliesEnabled} onChange={(e) => setSmartRepliesEnabled(e.target.checked)} />
                     </SettingRow>
                     <SettingRow
                       icon={<FileText size={18} />}
-                      title="Email Summarization"
-                      description="Automatic summaries for long emails"
+                      title={aiCopy.summarizationTitle || 'Email Summarization'}
+                      description={aiCopy.summarizationDescription || 'Automatic summaries for long emails'}
                     >
                       <Switch checked={summarizationEnabled} onChange={(e) => setSummarizationEnabled(e.target.checked)} />
                     </SettingRow>
                     <SettingRow
                       icon={<Calendar size={18} />}
-                      title="Smart Scheduling"
-                      description="AI-assisted meeting scheduling"
+                      title={aiCopy.schedulingTitle || 'Smart Scheduling'}
+                      description={aiCopy.schedulingDescription || 'AI-assisted meeting scheduling'}
                       noBorder
                     >
                       <Switch checked={schedulingEnabled} onChange={(e) => setSchedulingEnabled(e.target.checked)} />
                     </SettingRow>
                   </SectionCard>
 
-                  <SectionCard title="Personalization" description="Customize AI behavior to match your work style">
+                  <SectionCard
+                    title={aiCopy.personalizationTitle || 'Personalization'}
+                    description={aiCopy.personalizationDescription || 'Customize AI behavior to match your work style'}
+                  >
                     <Stack spacing={3}>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Your Role</InputLabel>
-                        <Select value={jobRole} onChange={(e) => setJobRole(e.target.value as JobRole)} label="Your Role">
+                        <InputLabel>{aiCopy.roleLabel || 'Your Role'}</InputLabel>
+                        <Select value={jobRole} onChange={(e) => setJobRole(e.target.value as JobRole)} label={aiCopy.roleLabel || 'Your Role'}>
                           <MenuItem value="EXECUTIVE">Executive</MenuItem>
                           <MenuItem value="MANAGER">Manager</MenuItem>
                           <MenuItem value="IC">Individual Contributor</MenuItem>
@@ -593,7 +720,7 @@ export function Settings() {
 
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                          Communication Style
+                          {aiCopy.communicationLabel || 'Communication Style'}
                         </Typography>
                         <ToggleButtonGroup
                           value={communicationStyle}
@@ -610,7 +737,7 @@ export function Settings() {
 
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                          Response Length
+                          {aiCopy.responseLengthLabel || 'Response Length'}
                         </Typography>
                         <ToggleButtonGroup
                           value={responseLength}
@@ -627,7 +754,7 @@ export function Settings() {
 
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                          Proactivity
+                          {aiCopy.proactivityLabel || 'Proactivity'}
                         </Typography>
                         <ToggleButtonGroup
                           value={proactivityLevel}
@@ -645,7 +772,7 @@ export function Settings() {
                       <Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                           <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            Auto-Approve Threshold
+                            {copy.ai.autoApproveLabel}
                           </Typography>
                           <Chip label={`${autoApproveThreshold}%`} size="small" />
                         </Box>
@@ -657,7 +784,7 @@ export function Settings() {
                           step={5}
                         />
                         <Typography variant="caption" color="text.secondary">
-                          Actions with confidence above this threshold will be auto-approved
+                          {copy.ai.autoApproveHint}
                         </Typography>
                       </Box>
                     </Stack>
@@ -666,15 +793,18 @@ export function Settings() {
 
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Button variant="contained" onClick={handleSaveAiProfile} disabled={aiSaveLoading}>
-                        {aiSaveLoading ? 'Saving...' : 'Save Preferences'}
+                        {aiSaveLoading ? copy.ai.saving : copy.ai.savePreferences}
                       </Button>
                       <Button variant="text" endIcon={<ExternalLink size={14} />} onClick={() => router.push('/dashboard/ai')}>
-                        Open AI Assistant
+                        {copy.ai.openAssistant}
                       </Button>
                     </Box>
                   </SectionCard>
 
-                  <SectionCard title="Data Management" description="Manage your AI data and learning history">
+                  <SectionCard
+                    title={copy.ai.dataManagementTitle}
+                    description={copy.ai.dataManagementDescription}
+                  >
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                       <Button
                         variant="outlined"
@@ -683,7 +813,7 @@ export function Settings() {
                         onClick={handleClearAiMemory}
                         disabled={aiSaveLoading}
                       >
-                        Clear Memory
+                        {copy.ai.clearMemory}
                       </Button>
                       <Button
                         variant="outlined"
@@ -692,7 +822,7 @@ export function Settings() {
                         onClick={handleResetAiLearning}
                         disabled={aiSaveLoading}
                       >
-                        Reset Learning
+                        {copy.ai.resetLearning}
                       </Button>
                     </Stack>
                   </SectionCard>
@@ -708,7 +838,7 @@ export function Settings() {
                 {mailAccountsCopy.title}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                Connect and manage your email accounts.
+                {copy.accounts.description}
               </Typography>
 
               {(providerError || providerSuccess) && (
@@ -719,10 +849,10 @@ export function Settings() {
               )}
 
               <SectionCard
-                title="Connected Accounts"
+                title={copy.accounts.connectedTitle}
                 action={
                   <Stack direction="row" spacing={1}>
-                    <Tooltip title="Refresh">
+                    <Tooltip title={copy.accounts.refreshTooltip}>
                       <IconButton size="small" onClick={loadProviders} disabled={providersLoading}>
                         <RefreshCw size={16} className={providersLoading ? 'animate-spin' : ''} />
                       </IconButton>
@@ -733,7 +863,7 @@ export function Settings() {
                       onClick={handleSyncAll}
                       disabled={syncAllLoading || providers.length === 0}
                     >
-                      {syncAllLoading ? 'Syncing...' : 'Sync All'}
+                      {syncAllLoading ? copy.accounts.syncing : copy.accounts.syncAll}
                     </Button>
                   </Stack>
                 }
@@ -747,7 +877,7 @@ export function Settings() {
                 )}
               </SectionCard>
 
-              <SectionCard title="Add Account" description="Connect a new email account">
+              <SectionCard title={copy.accounts.addTitle} description={copy.accounts.addDescription}>
                 <Stack spacing={2} direction={{ xs: 'column', md: 'row' }}>
                   <Box sx={{ flex: 1 }}>
                     <GoogleProviderCard onSuccess={handleProviderInitiated} />
@@ -770,30 +900,30 @@ export function Settings() {
                 {accountCopy.title}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                Manage your account information.
+                {copy.account.description}
               </Typography>
 
-              <SectionCard title="Profile">
+              <SectionCard title={accountCopy.profileTitle || 'Profile'}>
                 <Stack spacing={2}>
-                  <TextField label="Full Name" value={accountName} fullWidth size="small" disabled />
-                  <TextField label="Email" value={user?.email || ''} fullWidth size="small" disabled />
-                  <TextField label="Role" value={user?.role || ''} fullWidth size="small" disabled />
+                  <TextField label={copy.account.fullName} value={accountName} fullWidth size="small" disabled />
+                  <TextField label={copy.account.email} value={user?.email || ''} fullWidth size="small" disabled />
+                  <TextField label={copy.account.role} value={user?.role || ''} fullWidth size="small" disabled />
                 </Stack>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-                  Contact your administrator to update account information.
+                  {copy.account.contactAdmin}
                 </Typography>
               </SectionCard>
 
               <Card variant="outlined" sx={{ borderColor: 'error.main' }}>
                 <CardContent sx={{ p: 3 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600, color: 'error.main', mb: 1 }}>
-                    Danger Zone
+                    {copy.account.dangerZoneTitle}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Permanently delete your account and all associated data.
+                    {copy.account.dangerZoneDescription}
                   </Typography>
                   <Button variant="outlined" color="error" startIcon={<Trash2 size={16} />}>
-                    Delete Account
+                    {copy.account.deleteAccount}
                   </Button>
                 </CardContent>
               </Card>
@@ -807,35 +937,35 @@ export function Settings() {
                 {notificationsCopy.title}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                Configure how and when you receive notifications.
+                {copy.notifications.description}
               </Typography>
 
-              <SectionCard title="Email Notifications">
+              <SectionCard title={notificationsCopy.emailTitle || copy.notifications.newEmailsTitle}>
                 <SettingRow
                   icon={<Mail size={18} />}
-                  title="New Emails"
-                  description="Get notified when you receive new emails"
+                  title={copy.notifications.newEmailsTitle}
+                  description={copy.notifications.newEmailsDesc}
                 >
                   <Switch defaultChecked />
                 </SettingRow>
                 <SettingRow
                   icon={<Calendar size={18} />}
-                  title="Calendar Reminders"
-                  description="Reminders for upcoming events"
+                  title={copy.notifications.calendarTitle}
+                  description={copy.notifications.calendarDesc}
                 >
                   <Switch defaultChecked />
                 </SettingRow>
                 <SettingRow
                   icon={<Bell size={18} />}
-                  title="AI Actions"
-                  description="Notifications for AI-suggested actions"
+                  title={copy.notifications.aiActionsTitle}
+                  description={copy.notifications.aiActionsDesc}
                   noBorder
                 >
                   <Switch defaultChecked />
                 </SettingRow>
               </SectionCard>
 
-              <Button variant="contained">Save Changes</Button>
+              <Button variant="contained">{copy.notifications.save}</Button>
             </Box>
           )}
         </Box>
