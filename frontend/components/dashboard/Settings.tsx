@@ -470,17 +470,22 @@ export function Settings() {
   const notificationsCopy = settingsCopy.notificationsPanel;
 
   return (
-    <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
-      {/* Sidebar */}
+    <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'row', bgcolor: 'background.default' }}>
+      {/* Sidebar - Desktop only */}
       <Paper
         elevation={0}
         sx={{
           width: 260,
+          flexShrink: 0,
           borderRight: 1,
           borderColor: 'divider',
           display: { xs: 'none', md: 'flex' },
           flexDirection: 'column',
           bgcolor: 'background.paper',
+          position: 'sticky',
+          top: 64,
+          height: 'calc(100vh - 64px)',
+          overflowY: 'auto',
         }}
       >
         <Box sx={{ p: 3, pb: 2 }}>
@@ -538,39 +543,56 @@ export function Settings() {
           </Box>
         </Box>
       </Paper>
-      {/* Mobile navigation */}
-      <Box
-        sx={{
-          display: { xs: 'flex', md: 'none' },
-          px: 2,
-          py: 2,
-          position: 'sticky',
-          top: 0,
-          zIndex: 2,
-          bgcolor: 'background.paper',
-          borderBottom: 1,
-          borderColor: 'divider',
-        }}
-      >
-        <ToggleButtonGroup
-          exclusive
-          value={selectedSection}
-          onChange={(_, value) => value && handleSectionSelect(value as SettingsSection)}
-          fullWidth
-          size="small"
-          color="primary"
-        >
-          {sections.map((section) => (
-            <ToggleButton key={section.id} value={section.id} sx={{ textTransform: 'none' }}>
-              {section.label}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-      </Box>
 
-      {/* Main Content */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 4 }, bgcolor: 'background.default' }}>
-        <Box sx={{ maxWidth: { xs: '100%', md: 1080 }, mx: 'auto' }}>
+      {/* Main Content Area */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+        {/* Mobile navigation - Dropdown Select */}
+        <Box
+          sx={{
+            display: { xs: 'flex', md: 'none' },
+            px: 2,
+            py: 2,
+            position: 'sticky',
+            top: 0,
+            zIndex: 2,
+            bgcolor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, flexShrink: 0 }}>
+            {copy.pageTitle}
+          </Typography>
+          <FormControl size="small" sx={{ flex: 1, minWidth: 120 }}>
+            <Select
+              value={selectedSection}
+              onChange={(e) => handleSectionSelect(e.target.value as SettingsSection)}
+              displayEmpty
+              sx={{
+                '& .MuiSelect-select': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                },
+              }}
+            >
+              {sections.map((section) => (
+                <MenuItem key={section.id} value={section.id}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {section.icon}
+                    {section.label}
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Content */}
+        <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 4 }, bgcolor: 'background.default' }}>
+          <Box sx={{ maxWidth: { xs: '100%', md: 800 }, mx: 'auto' }}>
           {/* General Settings */}
           {selectedSection === 'general' && (
             <Box>
@@ -968,6 +990,7 @@ export function Settings() {
               <Button variant="contained">{copy.notifications.save}</Button>
             </Box>
           )}
+          </Box>
         </Box>
       </Box>
     </Box>

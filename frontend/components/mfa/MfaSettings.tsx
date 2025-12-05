@@ -13,6 +13,7 @@ import {
   DialogActions,
   TextField,
   Chip,
+  useTheme,
 } from '@mui/material';
 import { Shield, ShieldCheck } from 'lucide-react';
 import { mfaApi, type MfaStatus, type TrustedDevice } from '@/lib/api/mfa';
@@ -23,6 +24,7 @@ import { TrustedDevicesList } from './TrustedDevicesList';
 
 export function MfaSettings() {
   const t = useTranslations();
+  const theme = useTheme();
   const mfaCopy = t.auth.mfa;
 
   const [loading, setLoading] = useState(true);
@@ -103,25 +105,27 @@ export function MfaSettings() {
 
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+      {/* Page Header - consistent with other settings sections */}
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+        {mfaCopy.title}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+        {mfaCopy.subtitle}
+      </Typography>
+
+      {/* Status Badge */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
         {isMfaEnabled ? (
-          <ShieldCheck size={24} color="green" />
+          <ShieldCheck size={24} color={theme.palette.success.main} />
         ) : (
-          <Shield size={24} />
+          <Shield size={24} color={theme.palette.text.secondary} />
         )}
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          {mfaCopy.title}
-        </Typography>
         <Chip
           label={isMfaEnabled ? mfaCopy.enabled : mfaCopy.disabled}
           color={isMfaEnabled ? 'success' : 'default'}
           size="small"
         />
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {mfaCopy.subtitle}
-      </Typography>
 
       {/* Alerts */}
       {error && (
@@ -251,7 +255,7 @@ export function MfaSettings() {
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ShieldCheck size={24} color="green" />
+            <ShieldCheck size={24} color={theme.palette.success.main} />
             {mfaCopy.totp.verify.success}
           </Box>
         </DialogTitle>
