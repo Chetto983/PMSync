@@ -144,16 +144,26 @@ export default function LoginPage() {
     setFieldError(null);
 
     try {
-      // Determine the MFA method based on current step
-      const method = step === 'totp' ? 'totp' : step === 'backup' ? 'backup' : 'email';
+      let response;
 
-      const response = await apiClient.post('/auth/mfa/verify', {
-        mfaToken,
-        method,
-        code: trimmedCode,
-      });
+      // If we have an mfaToken, use the MFA verify endpoint (TOTP/backup flow)
+      // Otherwise, use the standard OTP verify endpoint (email OTP without TOTP enabled)
+      if (mfaToken) {
+        const method = step === 'totp' ? 'totp' : step === 'backup' ? 'backup' : 'email';
+        response = await apiClient.post('/auth/mfa/verify', {
+          mfaToken,
+          method,
+          code: trimmedCode,
+        });
+      } else {
+        // Standard email OTP verification (no TOTP enabled)
+        response = await apiClient.post('/auth/verify-otp', {
+          email: email.trim(),
+          code: trimmedCode,
+        });
+      }
 
-      if (response.data.accessToken) {
+      if (response.data.accessToken || response.data.success) {
         setToken(response.data.accessToken);
         setUser(response.data.user);
         router.push('/dashboard');
