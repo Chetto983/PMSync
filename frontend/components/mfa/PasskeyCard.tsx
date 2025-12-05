@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -68,7 +68,7 @@ function formatDate(dateString: string) {
 
 export function PasskeyCard({ credentials, onRefresh }: PasskeyCardProps) {
   const t = useTranslations();
-  const passkeysCopy = t.auth.mfa?.passkeys || {
+  const passkeysCopy = useMemo(() => t.auth.mfa?.passkeys || {
     title: 'Passkeys',
     subtitle: 'Use Face ID, Touch ID, Windows Hello, or security keys for passwordless login',
     add: 'Add Passkey',
@@ -81,7 +81,7 @@ export function PasskeyCard({ credentials, onRefresh }: PasskeyCardProps) {
     localOnly: 'This device only',
     setupSuccess: 'Passkey added successfully!',
     setupError: 'Failed to add passkey. Please try again.',
-  };
+  }, [t.auth.mfa?.passkeys]);
 
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState('');

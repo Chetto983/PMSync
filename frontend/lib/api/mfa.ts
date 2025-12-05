@@ -1,4 +1,8 @@
 import { apiClient } from '../api-client';
+import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/browser';
 
 // Types
 export interface MfaStatus {
@@ -43,29 +47,9 @@ export interface WebAuthnCredential {
   createdAt: string;
 }
 
-export interface WebAuthnRegistrationOptions {
-  challenge: string;
-  rp: { name: string; id: string };
-  user: { id: string; name: string; displayName: string };
-  pubKeyCredParams: { type: 'public-key'; alg: number }[];
-  timeout?: number;
-  attestation?: 'none' | 'indirect' | 'direct' | 'enterprise';
-  excludeCredentials?: { id: string; type: 'public-key'; transports?: string[] }[];
-  authenticatorSelection?: {
-    authenticatorAttachment?: 'platform' | 'cross-platform';
-    residentKey?: 'discouraged' | 'preferred' | 'required';
-    requireResidentKey?: boolean;
-    userVerification?: 'discouraged' | 'preferred' | 'required';
-  };
-}
-
-export interface WebAuthnAuthenticationOptions {
-  challenge: string;
-  timeout?: number;
-  rpId: string;
-  allowCredentials?: { id: string; type: 'public-key'; transports?: string[] }[];
-  userVerification?: 'discouraged' | 'preferred' | 'required';
-}
+// Re-export WebAuthn types from @simplewebauthn/browser for proper type compatibility
+export type WebAuthnRegistrationOptions = PublicKeyCredentialCreationOptionsJSON;
+export type WebAuthnAuthenticationOptions = PublicKeyCredentialRequestOptionsJSON;
 
 // MFA API
 export const mfaApi = {
