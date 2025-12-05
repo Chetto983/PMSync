@@ -1,8 +1,8 @@
 # Auth Module Roadmap
 
-Scope: `backend/src/modules/auth` (registration, login + MFA/OTP, JWT strategy/guards, password reset, tenant guard). Audience: auth/backend owners, security.
+Scope: `backend/src/modules/auth` (registration, login + MFA/OTP, JWT strategy/guards, password reset, tenant guard, WebAuthn/passkeys). Audience: auth/backend owners, security.
 
-## Current Progress (2025-12-03)
+## Current Progress (2025-12-05)
 
 ### ✅ Completed
 
@@ -17,6 +17,7 @@ Scope: `backend/src/modules/auth` (registration, login + MFA/OTP, JWT strategy/g
 - [DONE] **No Auto-Tenant Creation**: Registration requires existing tenant
 - [DONE] **PII Redaction**: Structured logging with email redaction
 - [DONE] **NaN-Safe Config**: Safe integer parsing for all expiration values
+- [DONE] **WebAuthn/Passkeys**: Passwordless biometric login (Windows Hello, Face ID, Touch ID)
 
 ### 🔄 Remaining
 
@@ -103,6 +104,19 @@ Scope: `backend/src/modules/auth` (registration, login + MFA/OTP, JWT strategy/g
 - [DONE] Removed unused `CryptoService` from auth.module.ts
 - [DONE] Fix deprecated OAuth callback messaging (English messages with @deprecated JSDoc)
 
+### Phase 8 - WebAuthn/Passkey Authentication ✅ COMPLETE (2025-12-05)
+
+- [DONE] Install `@simplewebauthn/server` v10+ and `@simplewebauthn/browser` v10+
+- [DONE] Add `WebAuthnCredential` Prisma model
+- [DONE] Create `webauthn.service.ts` with registration/authentication flows
+- [DONE] Add MFA controller endpoints for passkey management
+- [DONE] Add public endpoints for passwordless login (`/auth/webauthn/login/*`)
+- [DONE] Frontend PasskeyCard component for security settings
+- [DONE] Login page "Sign in with Passkey" button
+- [DONE] i18n translations (EN/IT)
+
+**See [MFA_ENHANCEMENT_ROADMAP.md](./MFA_ENHANCEMENT_ROADMAP.md) for full WebAuthn details.**
+
 ## Architecture Summary
 
 ```text
@@ -111,7 +125,11 @@ auth.module.ts
 ├── AuthConfigService        # Fail-fast configuration validation
 ├── OtpSecurityService       # Hashed OTP with rate limiting
 ├── JwtStrategy              # Session-validated JWT verification
-└── EmailService             # OTP and password reset emails
+├── EmailService             # OTP and password reset emails
+├── TotpService              # TOTP (authenticator app) MFA
+├── BackupCodesService       # Backup/recovery codes
+├── TrustedDeviceService     # "Keep me signed in" device trust
+└── WebAuthnService          # Passkey/biometric authentication
 ```
 
 ## Best Practices Applied
