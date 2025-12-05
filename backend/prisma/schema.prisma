@@ -49,6 +49,7 @@ model User {
   mfaSecret             MfaSecret?
   mfaBackupCodes        MfaBackupCode[]
   trustedDevices        TrustedDevice[]
+  webauthnCredentials   WebAuthnCredential[]
   sessions              Session[]
   userPreferences       UserPreferences?
   writingStyleProfile   WritingStyleProfile?
@@ -176,6 +177,38 @@ model TrustedDevice {
   @@index([deviceToken])
   @@index([expiresAt])
   @@map("trusted_devices")
+}
+
+/// WebAuthn/Passkey credentials for passwordless authentication
+/// Supports Face ID, Touch ID, Windows Hello, and security keys (YubiKey)
+model WebAuthnCredential {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Credential data (W3C WebAuthn Level 3 spec)
+  credentialId        String @unique // Base64URL encoded credential ID
+  credentialPublicKey String // Base64URL encoded public key (COSE format)
+  counter             Int    @default(0) // Signature counter for replay attack protection
+
+  // Device type
+  credentialDeviceType  String  @default("singleDevice") // "singleDevice" | "multiDevice" (synced passkey)
+  credentialBackedUp    Boolean @default(false) // True if passkey is synced across devices
+
+  // Transports for optimizing re-authentication
+  transports String[] @default([]) // "usb" | "nfc" | "ble" | "internal" | "hybrid"
+
+  // Authenticator info
+  aaguid     String? // Authenticator Attestation GUID (identifies authenticator model)
+  deviceName String? // User-friendly name: "MacBook Pro Touch ID", "iPhone 15 Face ID"
+
+  // Usage tracking
+  lastUsedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("webauthn_credentials")
 }
 
 model Session {

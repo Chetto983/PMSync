@@ -16,11 +16,12 @@ import {
   useTheme,
 } from '@mui/material';
 import { Shield, ShieldCheck } from 'lucide-react';
-import { mfaApi, type MfaStatus, type TrustedDevice } from '@/lib/api/mfa';
+import { mfaApi, type MfaStatus, type TrustedDevice, type WebAuthnCredential } from '@/lib/api/mfa';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { TotpSetupWizard } from './TotpSetupWizard';
 import { BackupCodesCard } from './BackupCodesCard';
 import { TrustedDevicesList } from './TrustedDevicesList';
+import { PasskeyCard } from './PasskeyCard';
 
 export function MfaSettings() {
   const t = useTranslations();
@@ -30,6 +31,7 @@ export function MfaSettings() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [devices, setDevices] = useState<TrustedDevice[]>([]);
+  const [passkeys, setPasskeys] = useState<WebAuthnCredential[]>([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -45,12 +47,14 @@ export function MfaSettings() {
     try {
       setLoading(true);
       setError('');
-      const [statusData, devicesData] = await Promise.all([
+      const [statusData, devicesData, passkeysData] = await Promise.all([
         mfaApi.getStatus(),
         mfaApi.listDevices(),
+        mfaApi.listWebAuthnCredentials(),
       ]);
       setStatus(statusData);
       setDevices(devicesData);
+      setPasskeys(passkeysData);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load MFA status';
       setError(message);
@@ -168,6 +172,16 @@ export function MfaSettings() {
               </Button>
             )}
           </Box>
+        </CardContent>
+      </Card>
+
+      {/* Passkeys Section - Available for all users */}
+      <Card variant="outlined" sx={{ mb: 3 }}>
+        <CardContent sx={{ p: 3 }}>
+          <PasskeyCard
+            credentials={passkeys}
+            onRefresh={loadData}
+          />
         </CardContent>
       </Card>
 

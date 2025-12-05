@@ -235,6 +235,30 @@ interface MfaTranslations {
     notEnabled: string;
     alreadyEnabled: string;
   };
+  passkeys?: {
+    title: string;
+    subtitle: string;
+    add: string;
+    adding: string;
+    noPasskeys: string;
+    delete: string;
+    deleteConfirm: string;
+    lastUsed: string;
+    synced: string;
+    localOnly: string;
+    setupSuccess: string;
+    setupError: string;
+    notSupported: string;
+    cancelled: string;
+    alreadyRegistered: string;
+    deviceTypes: {
+      touchId: string;
+      faceId: string;
+      windowsHello: string;
+      securityKey: string;
+      phone: string;
+    };
+  };
 }
 
 export interface AppTranslations {

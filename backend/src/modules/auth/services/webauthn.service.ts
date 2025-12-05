@@ -1,0 +1,537 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+  type VerifiedRegistrationResponse,
+  type VerifiedAuthenticationResponse,
+} from '@simplewebauthn/server';
+
+// Types from @simplewebauthn/server (re-exported from @simplewebauthn/types)
+type AuthenticatorTransportFuture = 'ble' | 'cable' | 'hybrid' | 'internal' | 'nfc' | 'smart-card' | 'usb';
+type PublicKeyCredentialCreationOptionsJSON = Awaited<ReturnType<typeof generateRegistrationOptions>>;
+type PublicKeyCredentialRequestOptionsJSON = Awaited<ReturnType<typeof generateAuthenticationOptions>>;
+
+interface RegistrationResponseJSON {
+  id: string;
+  rawId: string;
+  response: {
+    clientDataJSON: string;
+    attestationObject: string;
+    authenticatorData?: string;
+    transports?: AuthenticatorTransportFuture[];
+    publicKeyAlgorithm?: number;
+    publicKey?: string;
+  };
+  authenticatorAttachment?: 'cross-platform' | 'platform';
+  clientExtensionResults: Record<string, unknown>;
+  type: 'public-key';
+}
+
+interface AuthenticationResponseJSON {
+  id: string;
+  rawId: string;
+  response: {
+    clientDataJSON: string;
+    authenticatorData: string;
+    signature: string;
+    userHandle?: string;
+  };
+  authenticatorAttachment?: 'cross-platform' | 'platform';
+  clientExtensionResults: Record<string, unknown>;
+  type: 'public-key';
+}
+
+/**
+ * WebAuthn credential info for display
+ */
+export interface WebAuthnCredentialInfo {
+  id: string;
+  deviceName: string;
+  credentialDeviceType: string;
+  credentialBackedUp: boolean;
+  transports: string[];
+  lastUsedAt: Date;
+  createdAt: Date;
+}
+
+/**
+ * Challenge storage for WebAuthn operations
+ * In production, consider using Redis for distributed systems
+ */
+interface ChallengeSession {
+  challenge: string;
+  userId: string;
+  createdAt: number;
+}
+
+/**
+ * WebAuthnService - Passwordless authentication using biometrics and security keys
+ *
+ * Supports:
+ * - Face ID / Touch ID (Apple devices)
+ * - Windows Hello (Windows facial/fingerprint)
+ * - Android Biometric (fingerprint sensors)
+ * - Security Keys (YubiKey, Titan)
+ *
+ * Implements W3C WebAuthn Level 3 Specification (October 2024)
+ * Uses @simplewebauthn/server v10+
+ *
+ * @see https://webauthn.guide/
+ * @see https://simplewebauthn.dev/
+ * @see MFA_ENHANCEMENT_ROADMAP.md Phase 8
+ */
+@Injectable()
+export class WebAuthnService {
+  private readonly logger = new Logger(WebAuthnService.name);
+
+  // Relying Party configuration
+  private readonly rpName: string;
+  private readonly rpID: string;
+  private readonly origin: string;
+
+  // Challenge storage (in-memory for single instance, use Redis for distributed)
+  private readonly registrationChallenges: Map<string, ChallengeSession> = new Map();
+  private readonly authenticationChallenges: Map<string, ChallengeSession> = new Map();
+  private readonly challengeExpiryMs = 5 * 60 * 1000; // 5 minutes
+
+  constructor(private readonly prisma: PrismaService) {
+    // Configure Relying Party (RP) settings
+    this.rpName = process.env.WEBAUTHN_RP_NAME || 'PMSync';
+    this.rpID = process.env.WEBAUTHN_RP_ID || 'localhost';
+    this.origin = process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
+  }
+
+  /**
+   * Generate registration options for creating a new passkey
+   *
+   * @param userId - User ID
+   * @param userEmail - User email (used as user identifier)
+   * @param userName - Display name for the passkey
+   */
+  async generateRegistrationOptions(
+    userId: string,
+    userEmail: string,
+    userName?: string,
+  ): Promise<PublicKeyCredentialCreationOptionsJSON> {
+    // Get existing credentials to exclude (prevent duplicate registrations)
+    const existingCredentials = await this.prisma.webAuthnCredential.findMany({
+      where: { userId },
+      select: {
+        credentialId: true,
+        transports: true,
+      },
+    });
+
+    const excludeCredentials = existingCredentials.map((cred) => ({
+      id: cred.credentialId,
+      transports: cred.transports as AuthenticatorTransportFuture[],
+    }));
+
+    // Generate options
+    const options = await generateRegistrationOptions({
+      rpName: this.rpName,
+      rpID: this.rpID,
+      userName: userEmail,
+      userDisplayName: userName || userEmail,
+      // Don't prompt users for additional information about the authenticator
+      attestationType: 'none',
+      // Prevent users from re-registering existing authenticators
+      excludeCredentials,
+      authenticatorSelection: {
+        // Prefer platform authenticators (Face ID, Windows Hello) over roaming (USB keys)
+        authenticatorAttachment: 'platform',
+        // Require user verification (biometric/PIN)
+        userVerification: 'required',
+        // Create a discoverable credential (passkey)
+        residentKey: 'preferred',
+        requireResidentKey: false,
+      },
+      // Support for ECDSA with P-256 (preferred) and RSA
+      supportedAlgorithmIDs: [-7, -257],
+    });
+
+    // Store challenge for verification (persist server-side per best practices)
+    this.registrationChallenges.set(userId, {
+      challenge: options.challenge,
+      userId,
+      createdAt: Date.now(),
+    });
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'webauthn_registration_options_generated',
+        userId,
+        excludedCredentialsCount: excludeCredentials.length,
+      }),
+    );
+
+    return options;
+  }
+
+  /**
+   * Verify registration response and save the credential
+   *
+   * @param userId - User ID
+   * @param response - Registration response from browser
+   * @param deviceName - Optional user-friendly name for the credential
+   */
+  async verifyRegistration(
+    userId: string,
+    response: RegistrationResponseJSON,
+    deviceName?: string,
+  ): Promise<{ success: boolean; credentialId?: string; error?: string }> {
+    // Retrieve stored challenge
+    const challengeSession = this.registrationChallenges.get(userId);
+    if (!challengeSession) {
+      return { success: false, error: 'No registration challenge found. Please try again.' };
+    }
+
+    // Check challenge expiry
+    if (Date.now() - challengeSession.createdAt > this.challengeExpiryMs) {
+      this.registrationChallenges.delete(userId);
+      return { success: false, error: 'Registration challenge expired. Please try again.' };
+    }
+
+    try {
+      const verification: VerifiedRegistrationResponse = await verifyRegistrationResponse({
+        response,
+        expectedChallenge: challengeSession.challenge,
+        expectedOrigin: this.origin,
+        expectedRPID: this.rpID,
+        requireUserVerification: true,
+      });
+
+      if (!verification.verified || !verification.registrationInfo) {
+        return { success: false, error: 'Verification failed' };
+      }
+
+      const { credential, credentialDeviceType, credentialBackedUp, aaguid } =
+        verification.registrationInfo;
+
+      // Convert credential ID and public key to Base64URL for storage
+      const credentialIdBase64 = Buffer.from(credential.id).toString('base64url');
+      const publicKeyBase64 = Buffer.from(credential.publicKey).toString('base64url');
+
+      // Store credential in database
+      const savedCredential = await this.prisma.webAuthnCredential.create({
+        data: {
+          userId,
+          credentialId: credentialIdBase64,
+          credentialPublicKey: publicKeyBase64,
+          counter: credential.counter,
+          credentialDeviceType: credentialDeviceType,
+          credentialBackedUp: credentialBackedUp,
+          transports: (response.response.transports || []) as string[],
+          aaguid: aaguid || undefined,
+          deviceName: deviceName || this.generateDeviceName(response),
+        },
+      });
+
+      // Cleanup challenge
+      this.registrationChallenges.delete(userId);
+
+      this.logger.log(
+        JSON.stringify({
+          event: 'webauthn_credential_registered',
+          userId,
+          credentialId: savedCredential.id,
+          deviceType: credentialDeviceType,
+          backedUp: credentialBackedUp,
+        }),
+      );
+
+      return { success: true, credentialId: savedCredential.id };
+    } catch (error) {
+      this.logger.error(
+        JSON.stringify({
+          event: 'webauthn_registration_verification_failed',
+          userId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        }),
+      );
+
+      return { success: false, error: 'Verification failed. Please try again.' };
+    }
+  }
+
+  /**
+   * Generate authentication options for signing in with a passkey
+   *
+   * @param userId - User ID (optional for discoverable credentials)
+   */
+  async generateAuthenticationOptions(
+    userId?: string,
+  ): Promise<{ options: PublicKeyCredentialRequestOptionsJSON; sessionId: string }> {
+    let allowCredentials: { id: string; transports?: AuthenticatorTransportFuture[] }[] = [];
+
+    // If userId provided, get user's credentials for allowCredentials
+    if (userId) {
+      const credentials = await this.prisma.webAuthnCredential.findMany({
+        where: { userId },
+        select: {
+          credentialId: true,
+          transports: true,
+        },
+      });
+
+      allowCredentials = credentials.map((cred) => ({
+        id: cred.credentialId,
+        transports: cred.transports as AuthenticatorTransportFuture[],
+      }));
+    }
+
+    const options = await generateAuthenticationOptions({
+      rpID: this.rpID,
+      // If no userId, allow any discoverable credential (conditional UI)
+      allowCredentials: allowCredentials.length > 0 ? allowCredentials : undefined,
+      userVerification: 'required',
+    });
+
+    // Generate session ID for challenge tracking
+    const sessionId = crypto.randomUUID();
+
+    // Store challenge (use sessionId for unauthenticated requests)
+    const challengeKey = userId || sessionId;
+    this.authenticationChallenges.set(challengeKey, {
+      challenge: options.challenge,
+      userId: userId || '',
+      createdAt: Date.now(),
+    });
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'webauthn_authentication_options_generated',
+        userId: userId || 'discoverable',
+        credentialsCount: allowCredentials.length,
+      }),
+    );
+
+    return { options, sessionId };
+  }
+
+  /**
+   * Verify authentication response
+   *
+   * @param response - Authentication response from browser
+   * @param sessionId - Session ID from generateAuthenticationOptions
+   * @param userId - User ID (optional, will be looked up from credential)
+   */
+  async verifyAuthentication(
+    response: AuthenticationResponseJSON,
+    sessionId: string,
+    userId?: string,
+  ): Promise<{ success: boolean; userId?: string; error?: string }> {
+    // Look up credential to get user
+    const credentialIdBase64 = response.id;
+    const credential = await this.prisma.webAuthnCredential.findUnique({
+      where: { credentialId: credentialIdBase64 },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!credential) {
+      return { success: false, error: 'Credential not found' };
+    }
+
+    const actualUserId = credential.userId;
+    const challengeKey = userId || sessionId;
+
+    // Retrieve stored challenge
+    const challengeSession = this.authenticationChallenges.get(challengeKey);
+    if (!challengeSession) {
+      return { success: false, error: 'No authentication challenge found. Please try again.' };
+    }
+
+    // Check challenge expiry
+    if (Date.now() - challengeSession.createdAt > this.challengeExpiryMs) {
+      this.authenticationChallenges.delete(challengeKey);
+      return { success: false, error: 'Authentication challenge expired. Please try again.' };
+    }
+
+    try {
+      const verification: VerifiedAuthenticationResponse = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge: challengeSession.challenge,
+        expectedOrigin: this.origin,
+        expectedRPID: this.rpID,
+        requireUserVerification: true,
+        credential: {
+          id: credential.credentialId, // Base64URL string
+          publicKey: new Uint8Array(Buffer.from(credential.credentialPublicKey, 'base64url')),
+          counter: credential.counter,
+          transports: credential.transports as AuthenticatorTransportFuture[],
+        },
+      });
+
+      if (!verification.verified) {
+        return { success: false, error: 'Authentication verification failed' };
+      }
+
+      // Update credential counter and last used timestamp (prevents replay attacks)
+      await this.prisma.webAuthnCredential.update({
+        where: { id: credential.id },
+        data: {
+          counter: verification.authenticationInfo.newCounter,
+          lastUsedAt: new Date(),
+        },
+      });
+
+      // Cleanup challenge
+      this.authenticationChallenges.delete(challengeKey);
+
+      this.logger.log(
+        JSON.stringify({
+          event: 'webauthn_authentication_verified',
+          userId: actualUserId,
+          credentialId: credential.id,
+        }),
+      );
+
+      return { success: true, userId: actualUserId };
+    } catch (error) {
+      this.logger.error(
+        JSON.stringify({
+          event: 'webauthn_authentication_verification_failed',
+          userId: actualUserId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        }),
+      );
+
+      return { success: false, error: 'Authentication failed. Please try again.' };
+    }
+  }
+
+  /**
+   * List all WebAuthn credentials for a user
+   */
+  async listCredentials(userId: string): Promise<WebAuthnCredentialInfo[]> {
+    const credentials = await this.prisma.webAuthnCredential.findMany({
+      where: { userId },
+      orderBy: { lastUsedAt: 'desc' },
+    });
+
+    return credentials.map((cred) => ({
+      id: cred.id,
+      deviceName: cred.deviceName || 'Unknown Device',
+      credentialDeviceType: cred.credentialDeviceType,
+      credentialBackedUp: cred.credentialBackedUp,
+      transports: cred.transports,
+      lastUsedAt: cred.lastUsedAt,
+      createdAt: cred.createdAt,
+    }));
+  }
+
+  /**
+   * Delete a WebAuthn credential
+   */
+  async deleteCredential(userId: string, credentialId: string): Promise<boolean> {
+    const credential = await this.prisma.webAuthnCredential.findFirst({
+      where: {
+        id: credentialId,
+        userId,
+      },
+    });
+
+    if (!credential) {
+      return false;
+    }
+
+    await this.prisma.webAuthnCredential.delete({
+      where: { id: credentialId },
+    });
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'webauthn_credential_deleted',
+        userId,
+        credentialId,
+      }),
+    );
+
+    return true;
+  }
+
+  /**
+   * Check if user has any WebAuthn credentials
+   */
+  async hasCredentials(userId: string): Promise<boolean> {
+    const count = await this.prisma.webAuthnCredential.count({
+      where: { userId },
+    });
+    return count > 0;
+  }
+
+  /**
+   * Update credential device name
+   */
+  async updateCredentialName(
+    userId: string,
+    credentialId: string,
+    deviceName: string,
+  ): Promise<boolean> {
+    const credential = await this.prisma.webAuthnCredential.findFirst({
+      where: {
+        id: credentialId,
+        userId,
+      },
+    });
+
+    if (!credential) {
+      return false;
+    }
+
+    await this.prisma.webAuthnCredential.update({
+      where: { id: credentialId },
+      data: { deviceName },
+    });
+
+    return true;
+  }
+
+  /**
+   * Generate a device name from the registration response
+   */
+  private generateDeviceName(response: RegistrationResponseJSON): string {
+    const transports = response.response.transports || [];
+
+    // Determine device type based on transports
+    if (transports.includes('internal')) {
+      // Platform authenticator - try to identify
+      const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+      if (ua.includes('Mac')) return 'Mac Touch ID';
+      if (ua.includes('iPhone')) return 'iPhone Face ID';
+      if (ua.includes('iPad')) return 'iPad Face ID';
+      if (ua.includes('Windows')) return 'Windows Hello';
+      if (ua.includes('Android')) return 'Android Biometric';
+      return 'Platform Authenticator';
+    }
+
+    if (transports.includes('usb')) return 'USB Security Key';
+    if (transports.includes('nfc')) return 'NFC Security Key';
+    if (transports.includes('ble')) return 'Bluetooth Security Key';
+    if (transports.includes('hybrid')) return 'Phone as Security Key';
+
+    return 'Security Key';
+  }
+
+  /**
+   * Cleanup expired challenges (call periodically)
+   */
+  cleanupExpiredChallenges(): void {
+    const now = Date.now();
+
+    for (const [key, session] of this.registrationChallenges.entries()) {
+      if (now - session.createdAt > this.challengeExpiryMs) {
+        this.registrationChallenges.delete(key);
+      }
+    }
+
+    for (const [key, session] of this.authenticationChallenges.entries()) {
+      if (now - session.createdAt > this.challengeExpiryMs) {
+        this.authenticationChallenges.delete(key);
+      }
+    }
+  }
+}

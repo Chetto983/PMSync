@@ -133,3 +133,66 @@ export class MfaChallengeResponseDto {
   @ApiProperty({ description: 'Error reason if failed' })
   reason?: string;
 }
+
+// ==================== WEBAUTHN DTOS ====================
+
+/**
+ * DTO for WebAuthn registration verification
+ */
+export class WebAuthnRegistrationVerifyDto {
+  @ApiProperty({ description: 'Registration response from browser WebAuthn API' })
+  response!: Record<string, unknown>;
+
+  @ApiPropertyOptional({ description: 'User-friendly name for this passkey' })
+  @IsOptional()
+  @IsString()
+  deviceName?: string;
+}
+
+/**
+ * DTO for WebAuthn authentication verification
+ */
+export class WebAuthnAuthenticationVerifyDto {
+  @ApiProperty({ description: 'Authentication response from browser WebAuthn API' })
+  response!: Record<string, unknown>;
+
+  @ApiProperty({ description: 'Session ID from generateAuthenticationOptions' })
+  @IsString()
+  sessionId!: string;
+}
+
+/**
+ * DTO for updating WebAuthn credential name
+ */
+export class WebAuthnUpdateNameDto {
+  @ApiProperty({ description: 'New device name' })
+  @IsString()
+  @Length(1, 100, { message: 'Device name must be between 1 and 100 characters' })
+  deviceName!: string;
+}
+
+/**
+ * Response DTO for WebAuthn credential
+ */
+export class WebAuthnCredentialResponseDto {
+  @ApiProperty({ description: 'Credential ID' })
+  id!: string;
+
+  @ApiProperty({ description: 'Device name (e.g., "MacBook Pro Touch ID")' })
+  deviceName!: string;
+
+  @ApiProperty({ description: 'Credential device type', enum: ['singleDevice', 'multiDevice'] })
+  credentialDeviceType!: string;
+
+  @ApiProperty({ description: 'Whether passkey is synced across devices' })
+  credentialBackedUp!: boolean;
+
+  @ApiProperty({ description: 'Available transports', type: [String] })
+  transports!: string[];
+
+  @ApiProperty({ description: 'Last used timestamp' })
+  lastUsedAt!: Date;
+
+  @ApiProperty({ description: 'Created timestamp' })
+  createdAt!: Date;
+}

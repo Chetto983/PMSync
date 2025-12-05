@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TotpService, TotpSetupResult, TotpVerifyResult } from './totp.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { authenticator } from 'otplib';
+import {describe, it, expect, beforeEach, jest} from '@jest/globals';
 
 describe('TotpService', () => {
   let service: TotpService;

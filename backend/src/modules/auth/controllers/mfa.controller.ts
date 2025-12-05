@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Delete,
+  Patch,
   Body,
   Param,
   UseGuards,
@@ -25,6 +26,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { TotpService } from '../services/totp.service';
 import { BackupCodesService } from '../services/backup-codes.service';
 import { TrustedDeviceService } from '../services/trusted-device.service';
+import { WebAuthnService } from '../services/webauthn.service';
 import { Request as ExpressRequest } from 'express';
 import {
   TotpVerifyDto,
@@ -33,6 +35,10 @@ import {
   BackupCodesResponseDto,
   TrustedDeviceResponseDto,
   MfaStatusResponseDto,
+  WebAuthnRegistrationVerifyDto,
+  WebAuthnAuthenticationVerifyDto,
+  WebAuthnUpdateNameDto,
+  WebAuthnCredentialResponseDto,
 } from '../dtos/mfa.dto';
 
 /**
@@ -42,8 +48,9 @@ import {
  * - TOTP (Authenticator App) setup and verification
  * - Backup codes generation and usage
  * - Trusted device management
+ * - WebAuthn/Passkey registration and authentication
  *
- * @see MFA_ENHANCEMENT_ROADMAP.md Phase 5
+ * @see MFA_ENHANCEMENT_ROADMAP.md Phase 5 & 8
  */
 @ApiTags('MFA')
 @ApiBearerAuth()
@@ -54,6 +61,7 @@ export class MfaController {
     private readonly totpService: TotpService,
     private readonly backupCodesService: BackupCodesService,
     private readonly trustedDeviceService: TrustedDeviceService,
+    private readonly webauthnService: WebAuthnService,
   ) {}
 
   // ==================== STATUS ====================
@@ -65,19 +73,22 @@ export class MfaController {
   @Get('status')
   @ApiOperation({ summary: 'Get MFA status for current user' })
   @ApiResponse({ status: 200, description: 'MFA status', type: MfaStatusResponseDto })
-  async getStatus(@Request() req: AuthenticatedRequest): Promise<MfaStatusResponseDto> {
+  async getStatus(@Request() req: AuthenticatedRequest): Promise<MfaStatusResponseDto & { webauthnEnabled: boolean; webauthnCredentialsCount: number }> {
     const userId = req.user.userId;
 
-    const [totpEnabled, backupCodesRemaining, trustedDevicesCount] = await Promise.all([
+    const [totpEnabled, backupCodesRemaining, trustedDevicesCount, webauthnCredentials] = await Promise.all([
       this.totpService.isEnabled(userId),
       this.backupCodesService.getRemainingCount(userId),
       this.trustedDeviceService.listDevices(userId).then((devices) => devices.length),
+      this.webauthnService.listCredentials(userId),
     ]);
 
     return {
       totpEnabled,
       backupCodesRemaining,
       trustedDevicesCount,
+      webauthnEnabled: webauthnCredentials.length > 0,
+      webauthnCredentialsCount: webauthnCredentials.length,
     };
   }
 
@@ -345,6 +356,158 @@ export class MfaController {
       deviceToken: token,
       expiresAt,
     };
+  }
+
+  // ==================== WEBAUTHN / PASSKEYS ====================
+
+  /**
+   * Generate WebAuthn registration options
+   * POST /auth/mfa/webauthn/register/options
+   */
+  @Post('webauthn/register/options')
+  @ApiOperation({ summary: 'Generate WebAuthn registration options for passkey setup' })
+  @ApiResponse({ status: 201, description: 'Registration options for browser WebAuthn API' })
+  async getWebAuthnRegistrationOptions(@Request() req: AuthenticatedRequest) {
+    const userId = req.user.userId;
+    const email = req.user.email;
+
+    const options = await this.webauthnService.generateRegistrationOptions(userId, email);
+    return options;
+  }
+
+  /**
+   * Verify WebAuthn registration response
+   * POST /auth/mfa/webauthn/register/verify
+   */
+  @Post('webauthn/register/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify WebAuthn registration and save passkey' })
+  @ApiResponse({ status: 200, description: 'Passkey registered successfully' })
+  @ApiResponse({ status: 400, description: 'Registration verification failed' })
+  async verifyWebAuthnRegistration(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: WebAuthnRegistrationVerifyDto,
+  ): Promise<{ success: boolean; credentialId?: string; error?: string }> {
+    const userId = req.user.userId;
+
+    const result = await this.webauthnService.verifyRegistration(
+      userId,
+      body.response as unknown as Parameters<typeof this.webauthnService.verifyRegistration>[1],
+      body.deviceName,
+    );
+
+    if (!result.success) {
+      throw new BadRequestException(result.error || 'Registration failed');
+    }
+
+    return result;
+  }
+
+  /**
+   * List WebAuthn credentials
+   * GET /auth/mfa/webauthn/credentials
+   */
+  @Get('webauthn/credentials')
+  @ApiOperation({ summary: 'List all registered passkeys' })
+  @ApiResponse({ status: 200, description: 'List of passkeys', type: [WebAuthnCredentialResponseDto] })
+  async listWebAuthnCredentials(@Request() req: AuthenticatedRequest): Promise<WebAuthnCredentialResponseDto[]> {
+    const credentials = await this.webauthnService.listCredentials(req.user.userId);
+    return credentials;
+  }
+
+  /**
+   * Update WebAuthn credential name
+   * PATCH /auth/mfa/webauthn/credentials/:id
+   */
+  @Patch('webauthn/credentials/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update passkey device name' })
+  @ApiParam({ name: 'id', description: 'Credential ID' })
+  @ApiResponse({ status: 200, description: 'Name updated' })
+  @ApiResponse({ status: 404, description: 'Credential not found' })
+  async updateWebAuthnCredentialName(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') credentialId: string,
+    @Body() body: WebAuthnUpdateNameDto,
+  ): Promise<{ success: boolean }> {
+    const updated = await this.webauthnService.updateCredentialName(
+      req.user.userId,
+      credentialId,
+      body.deviceName,
+    );
+
+    if (!updated) {
+      throw new BadRequestException('Credential not found');
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Delete a WebAuthn credential
+   * DELETE /auth/mfa/webauthn/credentials/:id
+   */
+  @Delete('webauthn/credentials/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a passkey' })
+  @ApiParam({ name: 'id', description: 'Credential ID to delete' })
+  @ApiResponse({ status: 200, description: 'Passkey deleted' })
+  @ApiResponse({ status: 404, description: 'Credential not found' })
+  async deleteWebAuthnCredential(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') credentialId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const deleted = await this.webauthnService.deleteCredential(req.user.userId, credentialId);
+
+    if (!deleted) {
+      throw new BadRequestException('Credential not found');
+    }
+
+    return {
+      success: true,
+      message: 'Passkey deleted successfully.',
+    };
+  }
+
+  /**
+   * Generate WebAuthn authentication options (for passwordless login)
+   * POST /auth/mfa/webauthn/authenticate/options
+   * Note: This is typically called without authentication for login flow
+   */
+  @Post('webauthn/authenticate/options')
+  @ApiOperation({ summary: 'Generate WebAuthn authentication options' })
+  @ApiResponse({ status: 201, description: 'Authentication options for browser WebAuthn API' })
+  async getWebAuthnAuthenticationOptions(@Request() req: AuthenticatedRequest) {
+    const userId = req.user.userId;
+
+    const { options, sessionId } = await this.webauthnService.generateAuthenticationOptions(userId);
+    return { options, sessionId };
+  }
+
+  /**
+   * Verify WebAuthn authentication response
+   * POST /auth/mfa/webauthn/authenticate/verify
+   */
+  @Post('webauthn/authenticate/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify WebAuthn authentication' })
+  @ApiResponse({ status: 200, description: 'Authentication verified' })
+  @ApiResponse({ status: 400, description: 'Authentication failed' })
+  async verifyWebAuthnAuthentication(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: WebAuthnAuthenticationVerifyDto,
+  ): Promise<{ success: boolean; error?: string }> {
+    const result = await this.webauthnService.verifyAuthentication(
+      body.response as unknown as Parameters<typeof this.webauthnService.verifyAuthentication>[0],
+      body.sessionId,
+      req.user.userId,
+    );
+
+    if (!result.success) {
+      throw new BadRequestException(result.error || 'Authentication failed');
+    }
+
+    return { success: true };
   }
 
   // ==================== HELPERS ====================

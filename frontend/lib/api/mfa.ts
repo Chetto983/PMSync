@@ -33,6 +33,40 @@ export interface BackupCodesResponse {
   warning: string;
 }
 
+export interface WebAuthnCredential {
+  id: string;
+  deviceName: string;
+  credentialDeviceType: 'singleDevice' | 'multiDevice';
+  credentialBackedUp: boolean;
+  transports: string[];
+  lastUsedAt: string;
+  createdAt: string;
+}
+
+export interface WebAuthnRegistrationOptions {
+  challenge: string;
+  rp: { name: string; id: string };
+  user: { id: string; name: string; displayName: string };
+  pubKeyCredParams: { type: 'public-key'; alg: number }[];
+  timeout?: number;
+  attestation?: 'none' | 'indirect' | 'direct' | 'enterprise';
+  excludeCredentials?: { id: string; type: 'public-key'; transports?: string[] }[];
+  authenticatorSelection?: {
+    authenticatorAttachment?: 'platform' | 'cross-platform';
+    residentKey?: 'discouraged' | 'preferred' | 'required';
+    requireResidentKey?: boolean;
+    userVerification?: 'discouraged' | 'preferred' | 'required';
+  };
+}
+
+export interface WebAuthnAuthenticationOptions {
+  challenge: string;
+  timeout?: number;
+  rpId: string;
+  allowCredentials?: { id: string; type: 'public-key'; transports?: string[] }[];
+  userVerification?: 'discouraged' | 'preferred' | 'required';
+}
+
 // MFA API
 export const mfaApi = {
   /**
@@ -126,6 +160,86 @@ export const mfaApi = {
    */
   trustCurrentDevice: async (): Promise<{ deviceToken: string; expiresAt: string }> => {
     const response = await apiClient.post('/auth/mfa/devices/trust');
+    return response.data;
+  },
+
+  // ==================== WEBAUTHN / PASSKEYS ====================
+
+  /**
+   * Get WebAuthn registration options for passkey setup
+   */
+  getWebAuthnRegistrationOptions: async (): Promise<WebAuthnRegistrationOptions> => {
+    const response = await apiClient.post('/auth/mfa/webauthn/register/options');
+    return response.data;
+  },
+
+  /**
+   * Verify WebAuthn registration and save passkey
+   */
+  verifyWebAuthnRegistration: async (
+    credential: unknown,
+    deviceName?: string,
+  ): Promise<{ success: boolean; credentialId?: string; error?: string }> => {
+    const response = await apiClient.post('/auth/mfa/webauthn/register/verify', {
+      response: credential,
+      deviceName,
+    });
+    return response.data;
+  },
+
+  /**
+   * List WebAuthn credentials
+   */
+  listWebAuthnCredentials: async (): Promise<WebAuthnCredential[]> => {
+    const response = await apiClient.get('/auth/mfa/webauthn/credentials');
+    return response.data;
+  },
+
+  /**
+   * Update WebAuthn credential name
+   */
+  updateWebAuthnCredentialName: async (
+    credentialId: string,
+    deviceName: string,
+  ): Promise<{ success: boolean }> => {
+    const response = await apiClient.patch(`/auth/mfa/webauthn/credentials/${credentialId}`, {
+      deviceName,
+    });
+    return response.data;
+  },
+
+  /**
+   * Delete a WebAuthn credential
+   */
+  deleteWebAuthnCredential: async (
+    credentialId: string,
+  ): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.delete(`/auth/mfa/webauthn/credentials/${credentialId}`);
+    return response.data;
+  },
+
+  /**
+   * Get WebAuthn authentication options
+   */
+  getWebAuthnAuthenticationOptions: async (): Promise<{
+    options: WebAuthnAuthenticationOptions;
+    sessionId: string;
+  }> => {
+    const response = await apiClient.post('/auth/mfa/webauthn/authenticate/options');
+    return response.data;
+  },
+
+  /**
+   * Verify WebAuthn authentication
+   */
+  verifyWebAuthnAuthentication: async (
+    credential: unknown,
+    sessionId: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    const response = await apiClient.post('/auth/mfa/webauthn/authenticate/verify', {
+      response: credential,
+      sessionId,
+    });
     return response.data;
   },
 };
