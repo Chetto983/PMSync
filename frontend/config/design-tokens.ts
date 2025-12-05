@@ -1,5 +1,5 @@
 /**
- * Design Tokens for MailAgent
+ * Design Tokens for PMSync
  *
  * Centralized configuration for colors, spacing, typography, and other design values.
  * These tokens are used to generate CSS variables and Tailwind config.

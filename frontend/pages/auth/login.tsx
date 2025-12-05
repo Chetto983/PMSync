@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { Box, Container, Stack, Typography, IconButton, InputAdornment } from '@mui/material';
-import { Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, AlertTriangle, Smartphone, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,12 +12,14 @@ import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
+type MfaMethod = 'totp' | 'email' | 'backup';
+
 export default function LoginPage() {
   const router = useRouter();
   const { setToken, setUser } = useAuthStore();
   const translations = useTranslations();
 
-  const [step, setStep] = useState<'login' | 'otp'>('login');
+  const [step, setStep] = useState<'login' | 'totp' | 'email-otp' | 'backup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
@@ -26,6 +28,10 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+
+  // MFA state
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [availableMethods, setAvailableMethods] = useState<MfaMethod[]>([]);
 
   const isValidEmail = useCallback(
     (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
@@ -84,8 +90,20 @@ export default function LoginPage() {
       });
 
       if (response.data.mfaRequired) {
-        setStep('otp');
+        // Store MFA challenge data
+        setMfaToken(response.data.mfaToken);
+        const methods = (response.data.availableMethods || ['email']) as MfaMethod[];
+        setAvailableMethods(methods);
         setPassword('');
+
+        // Prefer TOTP if available (authenticator app)
+        if (methods.includes('totp')) {
+          setStep('totp');
+        } else if (methods.includes('email')) {
+          setStep('email-otp');
+        } else if (methods.includes('backup')) {
+          setStep('backup');
+        }
       } else {
         setToken(response.data.accessToken);
         setUser(response.data.user);
@@ -99,25 +117,25 @@ export default function LoginPage() {
     }
   };
 
-  const handleOtpVerify = async (event: React.FormEvent) => {
+  const handleMfaVerify = async (event: React.FormEvent) => {
     event.preventDefault();
     if (loading) return;
 
-    const trimmedEmail = email.trim();
-    const trimmedOtp = otp.trim();
+    const trimmedCode = otp.trim();
 
-    if (!trimmedEmail || !trimmedOtp) {
+    if (!trimmedCode) {
       setFieldError(translations.common.genericError);
       return;
     }
 
-    if (!isValidEmail(trimmedEmail)) {
-      setFieldError(translations.common.invalidEmail);
-      return;
-    }
-
-    if (trimmedOtp.length !== 6) {
-      setFieldError(translations.common.otpCodeLength);
+    // Backup codes are 8 chars, TOTP/email OTP are 6
+    const expectedLength = step === 'backup' ? 8 : 6;
+    if (trimmedCode.length !== expectedLength) {
+      setFieldError(
+        step === 'backup'
+          ? translations.auth.mfa?.backupCodes?.verify?.invalid || 'Backup code must be 8 characters'
+          : translations.common.otpCodeLength,
+      );
       return;
     }
 
@@ -126,12 +144,16 @@ export default function LoginPage() {
     setFieldError(null);
 
     try {
-      const response = await apiClient.post('/auth/verify-otp', {
-        email: trimmedEmail,
-        code: trimmedOtp,
+      // Determine the MFA method based on current step
+      const method = step === 'totp' ? 'totp' : step === 'backup' ? 'backup' : 'email';
+
+      const response = await apiClient.post('/auth/mfa/verify', {
+        mfaToken,
+        method,
+        code: trimmedCode,
       });
 
-      if (response.data.success) {
+      if (response.data.accessToken) {
         setToken(response.data.accessToken);
         setUser(response.data.user);
         router.push('/dashboard');
@@ -142,6 +164,16 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Switch to a different MFA method
+  const switchMfaMethod = (method: MfaMethod) => {
+    setOtp('');
+    setError('');
+    setFieldError(null);
+    if (method === 'totp') setStep('totp');
+    else if (method === 'email') setStep('email-otp');
+    else if (method === 'backup') setStep('backup');
   };
 
   return (
@@ -242,26 +274,84 @@ export default function LoginPage() {
                 </Button>
               </Stack>
             ) : (
-              <Stack component="form" spacing={3} onSubmit={handleOtpVerify}>
-                <Input
-                  type="email"
-                  label={loginCopy.form.emailLabel}
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  required
-                />
+              <Stack component="form" spacing={3} onSubmit={handleMfaVerify}>
+                {/* Show different label based on MFA method */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  {step === 'totp' && <Smartphone size={20} />}
+                  {step === 'email-otp' && <Mail size={20} />}
+                  <Typography variant="body2" color="text.secondary">
+                    {step === 'totp'
+                      ? translations.auth.mfa?.totp?.verify?.subtitle || 'Enter the code from your authenticator app'
+                      : step === 'backup'
+                        ? translations.auth.mfa?.backupCodes?.verify?.subtitle || 'Enter one of your backup codes'
+                        : otpCopy.subtitle}
+                  </Typography>
+                </Box>
+
                 <Input
                   type="text"
-                  label={otpCopy.form.otpLabel}
-                  placeholder={translations.common.otpPlaceholder}
+                  label={
+                    step === 'totp'
+                      ? translations.auth.mfa?.totp?.verify?.title || 'Authenticator Code'
+                      : step === 'backup'
+                        ? translations.auth.mfa?.backupCodes?.verify?.title || 'Backup Code'
+                        : otpCopy.form.otpLabel
+                  }
+                  placeholder={step === 'backup' ? 'XXXXXXXX' : '000000'}
                   value={otp}
                   onChange={(event) => setOtp(event.target.value)}
-                  inputProps={{ maxLength: 6 }}
+                  inputProps={{ maxLength: step === 'backup' ? 8 : 6 }}
                   required
+                  autoFocus
                 />
+
                 <Button type="submit" disabled={loading} fullWidth>
-                  {loading ? translations.common.loading : otpCopy.form.submit}
+                  {loading ? translations.common.loading : translations.auth.mfa?.totp?.verify?.submit || 'Verify'}
                 </Button>
+
+                {/* MFA method switcher */}
+                {availableMethods.length > 1 && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Typography variant="caption" color="text.secondary" textAlign="center">
+                      {translations.auth.mfa?.challenge?.switchMethod || 'Or use another method:'}
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      {availableMethods.includes('totp') && step !== 'totp' && (
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          size="small"
+                          onClick={() => switchMfaMethod('totp')}
+                        >
+                          <Smartphone size={16} style={{ marginRight: 4 }} />
+                          {translations.auth.mfa?.challenge?.useAuthenticator || 'Authenticator'}
+                        </Button>
+                      )}
+                      {availableMethods.includes('email') && step !== 'email-otp' && (
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          size="small"
+                          onClick={() => switchMfaMethod('email')}
+                        >
+                          <Mail size={16} style={{ marginRight: 4 }} />
+                          Email
+                        </Button>
+                      )}
+                      {availableMethods.includes('backup') && step !== 'backup' && (
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          size="small"
+                          onClick={() => switchMfaMethod('backup')}
+                        >
+                          {translations.auth.mfa?.challenge?.useBackupCode || 'Backup Code'}
+                        </Button>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+
                 <Button
                   type="button"
                   variant="outlined"
@@ -269,6 +359,8 @@ export default function LoginPage() {
                   onClick={() => {
                     setStep('login');
                     setOtp('');
+                    setMfaToken(null);
+                    setAvailableMethods([]);
                   }}
                 >
                   {translations.common.backToLogin}
@@ -288,7 +380,7 @@ export default function LoginPage() {
                   <Link href={loginCopy.links.primary.href}>{loginCopy.links.primary.label}</Link>
                 </Typography>
               )}
-              {otpCopy.links?.primary && step === 'otp' && (
+              {otpCopy.links?.primary && step !== 'login' && (
                 <Typography variant="body2" color="text.secondary" textAlign="center">
                   <Link href={otpCopy.links.primary.href}>{otpCopy.links.primary.label}</Link>
                 </Typography>

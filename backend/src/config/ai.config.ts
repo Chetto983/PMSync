@@ -1,7 +1,7 @@
 import { registerAs } from '@nestjs/config';
 
 /**
- * AI Configuration for MailAgent (PMS/PMSync)
+ * AI Configuration for PMSync
  *
  * Centralizes all AI-related configuration to avoid hardcoded values
  * throughout the codebase. All values can be overridden via environment

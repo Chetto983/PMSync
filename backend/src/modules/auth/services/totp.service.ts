@@ -62,7 +62,7 @@ export class TotpService {
 
   constructor(private readonly prisma: PrismaService) {
     // Configure otplib
-    this.issuer = process.env.TOTP_ISSUER || 'MailAgent';
+    this.issuer = process.env.TOTP_ISSUER || 'PMSync';
     this.digits = parseInt(process.env.TOTP_DIGITS || '6', 10);
     this.period = parseInt(process.env.TOTP_PERIOD || '30', 10);
     this.window = parseInt(process.env.TOTP_WINDOW || '1', 10);

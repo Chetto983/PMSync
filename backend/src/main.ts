@@ -83,7 +83,7 @@ async function bootstrap() {
   // Swagger documentation
   if (config.nodeEnv !== 'production') {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('MailAgent API')
+      .setTitle('PMSync API')
       .setDescription('AI-powered multi-tenant email assistant API')
       .setVersion('1.0')
       .addBearerAuth()

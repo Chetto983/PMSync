@@ -44,7 +44,7 @@ export default function TermsOfService() {
             1. Acceptance of Terms
           </Typography>
           <Typography variant="body1" paragraph>
-            By accessing and using MailAgent (&quot;Service&quot;), you accept and agree to be bound by the
+            By accessing and using PMSync (&quot;Service&quot;), you accept and agree to be bound by the
             terms and provisions of this agreement. If you do not agree to these Terms of Service,
             please do not use the Service.
           </Typography>
@@ -53,7 +53,7 @@ export default function TermsOfService() {
             2. Description of Service
           </Typography>
           <Typography variant="body1" paragraph>
-            MailAgent is an AI-powered email management platform that provides:
+            PMSync is an AI-powered email management platform that provides:
           </Typography>
           <Box component="ul" sx={{ pl: 3, mb: 2 }}>
             <li>
@@ -125,7 +125,7 @@ export default function TermsOfService() {
             4. Email Provider Connections
           </Typography>
           <Typography variant="body1" paragraph>
-            When connecting email providers to MailAgent:
+            When connecting email providers to PMSync:
           </Typography>
           <Box component="ul" sx={{ pl: 3, mb: 2 }}>
             <li>
@@ -328,7 +328,7 @@ export default function TermsOfService() {
             11. Indemnification
           </Typography>
           <Typography variant="body1" paragraph>
-            You agree to indemnify and hold harmless MailAgent from any claims, damages, losses, or
+            You agree to indemnify and hold harmless PMSync from any claims, damages, losses, or
             expenses arising from:
           </Typography>
           <Box component="ul" sx={{ pl: 3, mb: 2 }}>
@@ -397,7 +397,7 @@ export default function TermsOfService() {
           </Typography>
           <Typography variant="body1" paragraph>
             These Terms shall be governed by and construed in accordance with the laws of the
-            jurisdiction in which MailAgent operates, without regard to conflict of law principles.
+            jurisdiction in which PMSync operates, without regard to conflict of law principles.
           </Typography>
 
           <Typography variant="h5" sx={{ fontWeight: 600, mb: 2, mt: 4 }}>
@@ -430,7 +430,7 @@ export default function TermsOfService() {
           <Box component="ul" sx={{ pl: 3, mb: 2 }}>
             <li>
               <Typography variant="body1">
-                Email: <Link href="mailto:legal@mailagent.com">legal@mailagent.com</Link>
+                Email: <Link href="mailto:legal@pmsync.com">legal@pmsync.com</Link>
               </Typography>
             </li>
           </Box>
@@ -438,7 +438,7 @@ export default function TermsOfService() {
           <Divider sx={{ my: 4 }} />
 
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-            By using MailAgent, you acknowledge that you have read, understood, and agree to be bound
+            By using PMSync, you acknowledge that you have read, understood, and agree to be bound
             by these Terms of Service.
           </Typography>
         </Paper>

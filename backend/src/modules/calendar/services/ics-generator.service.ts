@@ -65,7 +65,7 @@ export class IcsGeneratorService {
     const calendar = icalGenerator({
       name: 'Calendar Response',
       method: ICalCalendarMethod.REPLY,
-      prodId: '//MailAgent//Calendar//EN',
+      prodId: '//PMSync//Calendar//EN',
     });
 
     // Map response to ical-generator status
@@ -116,7 +116,7 @@ export class IcsGeneratorService {
     const calendar = icalGenerator({
       name: 'Meeting Request',
       method: ICalCalendarMethod.REQUEST,
-      prodId: '//MailAgent//Calendar//EN',
+      prodId: '//PMSync//Calendar//EN',
     });
 
     const event = calendar.createEvent({
@@ -175,7 +175,7 @@ export class IcsGeneratorService {
     const calendar = icalGenerator({
       name: 'Meeting Cancellation',
       method: ICalCalendarMethod.CANCEL,
-      prodId: '//MailAgent//Calendar//EN',
+      prodId: '//PMSync//Calendar//EN',
     });
 
     const event = calendar.createEvent({
@@ -220,7 +220,7 @@ export class IcsGeneratorService {
     const calendar = icalGenerator({
       name: 'Meeting Update',
       method: ICalCalendarMethod.REQUEST,
-      prodId: '//MailAgent//Calendar//EN',
+      prodId: '//PMSync//Calendar//EN',
     });
 
     const event = calendar.createEvent({
@@ -266,7 +266,7 @@ export class IcsGeneratorService {
 
     const calendar = icalGenerator({
       name: eventData.summary,
-      prodId: '//MailAgent//Calendar//EN',
+      prodId: '//PMSync//Calendar//EN',
     });
 
     const event = calendar.createEvent({

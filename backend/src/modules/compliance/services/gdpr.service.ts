@@ -16,8 +16,8 @@ export class GdprService {
   private readonly policyLastUpdated = '2025-10-28';
   private readonly lastAudit = '2025-10-30T13:47:00.000Z';
   private readonly dataProtectionOfficer: GdprOfficerDto = {
-    name: 'MailAgent Privacy Office',
-    email: 'privacy@mailagent.local',
+    name: 'PMSync Privacy Office',
+    email: 'privacy@pmsync.local',
   };
 
   constructor(private readonly prisma: PrismaService) {}

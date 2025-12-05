@@ -46,7 +46,8 @@
       "Bash(curl:*)",
       "Bash(netstat:*)",
       "Bash(timeout:*)",
-      "Bash(Select-Object -First 150)"
+      "Bash(Select-Object -First 150)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

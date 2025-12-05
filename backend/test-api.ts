@@ -1,5 +1,5 @@
 /**
- * API Test Script for MailAgent
+ * API Test Script for PMSync
  * Tests provider bidirectionality and all API endpoints
  */
 
@@ -164,7 +164,7 @@ async function testAIFeatures(emailId: string) {
 }
 
 async function runAllTests() {
-  console.log('🚀 Starting MailAgent API Tests...\n');
+  console.log('🚀 Starting PMSync API Tests...\n');
   console.log('================================');
 
   // Test providers

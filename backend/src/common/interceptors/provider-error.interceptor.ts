@@ -275,7 +275,7 @@ export class ProviderErrorInterceptor implements NestInterceptor {
       redirect: true,
     };
 
-    // Note: Frontend should watch for 'X-MailAgent-Redirect' header
+    // Note: Frontend should watch for 'X-PMSync-Redirect' header
     // and redirect to connection settings page
 
     return new UnauthorizedException(response);

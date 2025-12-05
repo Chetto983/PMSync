@@ -1,5 +1,5 @@
 // ============================================
-// MailAgent Frontend Types
+// PMSync Frontend Types
 // Auto-generated from backend Prisma schema and DTOs
 // ============================================
 

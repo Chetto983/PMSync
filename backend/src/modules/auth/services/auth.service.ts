@@ -461,7 +461,7 @@ export class AuthService {
     deviceToken?: string,
     request?: ExpressRequest,
   ) {
-    const normalizedEmail = email.trim();
+    const normalizedEmail = email.trim().toLowerCase();
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
 
     const tenant = await this.prisma.tenant.findUnique({

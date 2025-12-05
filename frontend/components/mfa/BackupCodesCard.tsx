@@ -59,12 +59,12 @@ export function BackupCodesCard({ initialCodes, remaining, onRefresh }: BackupCo
   }, [codes]);
 
   const handleDownloadCodes = useCallback(() => {
-    const text = `MailAgent Backup Codes\n${'='.repeat(30)}\n\nStore these codes in a safe place.\nEach code can only be used once.\n\n${codes.join('\n')}\n\nGenerated: ${new Date().toISOString()}`;
+    const text = `PMSync Backup Codes\n${'='.repeat(30)}\n\nStore these codes in a safe place.\nEach code can only be used once.\n\n${codes.join('\n')}\n\nGenerated: ${new Date().toISOString()}`;
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'mailagent-backup-codes.txt';
+    a.download = 'pmsync-backup-codes.txt';
     a.click();
     URL.revokeObjectURL(url);
   }, [codes]);

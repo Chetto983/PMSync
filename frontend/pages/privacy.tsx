@@ -44,7 +44,7 @@ export default function PrivacyPolicy() {
             1. Introduction
           </Typography>
           <Typography variant="body1" paragraph>
-            MailAgent (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting your privacy. This Privacy
+            PMSync (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting your privacy. This Privacy
             Policy explains how we collect, use, disclose, and safeguard your information when you
             use our email management service.
           </Typography>
@@ -361,7 +361,7 @@ export default function PrivacyPolicy() {
           <Box component="ul" sx={{ pl: 3, mb: 2 }}>
             <li>
               <Typography variant="body1">
-                Email: <Link href="mailto:privacy@mailagent.com">privacy@mailagent.com</Link>
+                Email: <Link href="mailto:privacy@pmsync.com">privacy@pmsync.com</Link>
               </Typography>
             </li>
           </Box>
@@ -369,7 +369,7 @@ export default function PrivacyPolicy() {
           <Divider sx={{ my: 4 }} />
 
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-            By using MailAgent, you agree to the collection and use of information in accordance with
+            By using PMSync, you agree to the collection and use of information in accordance with
             this Privacy Policy.
           </Typography>
         </Paper>
