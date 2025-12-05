@@ -386,10 +386,18 @@ export function Settings() {
     }
   }, [copy.ai.resetLearning, copy.general.saveError]);
 
+  // Only load data for the active section to improve performance
   useEffect(() => {
-    loadProviders();
-    loadAiProfile();
-  }, [loadProviders, loadAiProfile]);
+    if (selectedSection === 'accounts') {
+      loadProviders();
+    }
+  }, [selectedSection, loadProviders]);
+
+  useEffect(() => {
+    if (selectedSection === 'ai') {
+      loadAiProfile();
+    }
+  }, [selectedSection, loadAiProfile]);
 
   useEffect(() => {
     if (!router.isReady) return;
