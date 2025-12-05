@@ -69,6 +69,7 @@ export const en: AppTranslations = {
     invalidToken: 'Invalid or expired reset token.',
     invalidEmail: 'Please enter a valid email address.',
     otpCodeLength: 'Please enter the 6-digit code.',
+    or: 'or',
     search: 'Search',
     save: 'Save',
     delete: 'Delete',
@@ -437,6 +438,7 @@ export const en: AppTranslations = {
         notSupported: 'Passkeys are not supported in this browser. Please use a modern browser like Chrome, Safari, or Edge.',
         cancelled: 'Registration was cancelled or not allowed. Please try again.',
         alreadyRegistered: 'This passkey is already registered.',
+        loginWithPasskey: 'Sign in with Passkey',
         deviceTypes: {
           touchId: 'Touch ID',
           faceId: 'Face ID',

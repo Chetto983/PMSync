@@ -251,6 +251,7 @@ interface MfaTranslations {
     notSupported: string;
     cancelled: string;
     alreadyRegistered: string;
+    loginWithPasskey?: string;
     deviceTypes: {
       touchId: string;
       faceId: string;
@@ -325,6 +326,7 @@ export interface AppTranslations {
     invalidToken: string;
     invalidEmail: string;
     otpCodeLength: string;
+    or?: string;
     search: string;
     save: string;
     delete: string;

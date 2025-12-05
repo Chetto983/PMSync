@@ -226,4 +226,49 @@ export const mfaApi = {
     });
     return response.data;
   },
+
+  // ==================== PASSKEY LOGIN (PUBLIC) ====================
+
+  /**
+   * Get passkey login options (public - no auth required)
+   * Used for passwordless login flow
+   */
+  getPasskeyLoginOptions: async (
+    email: string,
+    tenantSlug?: string,
+  ): Promise<{ options: WebAuthnAuthenticationOptions; sessionId: string }> => {
+    const response = await apiClient.post('/auth/webauthn/login/options', {
+      email,
+      tenantSlug,
+    });
+    return response.data;
+  },
+
+  /**
+   * Verify passkey login and get tokens (public - no auth required)
+   */
+  verifyPasskeyLogin: async (
+    credential: unknown,
+    sessionId: string,
+    trustDevice?: boolean,
+  ): Promise<{
+    success: boolean;
+    accessToken: string;
+    sessionId: string;
+    user: {
+      id: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+      role: string;
+      tenantId: string;
+    };
+  }> => {
+    const response = await apiClient.post('/auth/webauthn/login/verify', {
+      response: credential,
+      sessionId,
+      trustDevice,
+    });
+    return response.data;
+  },
 };

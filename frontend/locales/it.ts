@@ -63,6 +63,7 @@ export const it: AppTranslations = {
     invalidToken: 'Token di ripristino non valido o scaduto.',
     invalidEmail: 'Inserisci un indirizzo email valido.',
     otpCodeLength: 'Inserisci il codice a 6 cifre.',
+    or: 'oppure',
     search: 'Cerca',
     save: 'Salva',
     delete: 'Elimina',
@@ -435,6 +436,7 @@ export const it: AppTranslations = {
         notSupported: 'Il tuo browser non supporta le passkey.',
         cancelled: 'Registrazione passkey annullata.',
         alreadyRegistered: 'Questa passkey è già registrata.',
+        loginWithPasskey: 'Accedi con Passkey',
         deviceTypes: {
           touchId: 'Touch ID',
           faceId: 'Face ID',

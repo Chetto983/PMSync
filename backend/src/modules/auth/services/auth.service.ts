@@ -15,6 +15,7 @@ import { OtpSecurityService } from './otp-security.service';
 import { TotpService } from './totp.service';
 import { BackupCodesService } from './backup-codes.service';
 import { TrustedDeviceService } from './trusted-device.service';
+import { WebAuthnService } from './webauthn.service';
 import { nanoid } from 'nanoid';
 import { Request as ExpressRequest } from 'express';
 
@@ -50,6 +51,7 @@ export class AuthService {
     private totpService: TotpService,
     private backupCodesService: BackupCodesService,
     private trustedDeviceService: TrustedDeviceService,
+    private webauthnService: WebAuthnService,
   ) {
     // Get password reset secret (must be different from JWT secret)
     const resetSecret = process.env.PASSWORD_RESET_SECRET;
@@ -595,6 +597,87 @@ export class AuthService {
         tenantId: tenant.id,
       },
     };
+  }
+
+  /**
+   * Login with passkey (WebAuthn) - passwordless authentication
+   *
+   * @param response - WebAuthn authentication response from browser
+   * @param sessionId - Session ID from getWebAuthnLoginOptions
+   * @param ipAddress - Client IP address
+   * @param userAgent - Client user agent
+   */
+  async loginWithPasskey(
+    response: Record<string, unknown>,
+    sessionId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    // Verify passkey with WebAuthnService
+    const result = await this.webauthnService.verifyLogin(
+      response as unknown as Parameters<typeof this.webauthnService.verifyLogin>[0],
+      sessionId,
+    );
+
+    if (!result.success || !result.user) {
+      throw new UnauthorizedException(result.error || 'Passkey authentication failed');
+    }
+
+    // Get full user data for session
+    const user = await this.prisma.user.findUnique({
+      where: { id: result.user.id },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        tenantId: true,
+        isActive: true,
+      },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Account not active');
+    }
+
+    // Get tenant
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { id: true, isActive: true },
+    });
+
+    if (!tenant || !tenant.isActive) {
+      throw new UnauthorizedException('Tenant not active');
+    }
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'passkey_login_success',
+        userId: user.id,
+        email: user.email.substring(0, 2) + '***',
+      }),
+    );
+
+    // Create session and return tokens
+    return this.createSession(user, tenant, ipAddress, userAgent);
+  }
+
+  /**
+   * Get WebAuthn login options for passwordless login
+   *
+   * @param email - User email
+   * @param tenantSlug - Optional tenant slug
+   */
+  async getWebAuthnLoginOptions(email: string, tenantSlug?: string) {
+    const result = await this.webauthnService.generateLoginOptions(email, tenantSlug);
+
+    if (!result) {
+      // Don't reveal if user exists or has passkeys
+      throw new BadRequestException('Unable to generate passkey options');
+    }
+
+    return result;
   }
 
   /**

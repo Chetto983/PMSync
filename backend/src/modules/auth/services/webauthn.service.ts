@@ -183,9 +183,26 @@ export class WebAuthnService {
     response: RegistrationResponseJSON,
     deviceName?: string,
   ): Promise<{ success: boolean; credentialId?: string; error?: string }> {
+    this.logger.debug(
+      JSON.stringify({
+        event: 'webauthn_verify_start',
+        userId,
+        hasChallengeForUser: this.registrationChallenges.has(userId),
+        totalChallenges: this.registrationChallenges.size,
+        responseId: response?.id,
+      }),
+    );
+
     // Retrieve stored challenge
     const challengeSession = this.registrationChallenges.get(userId);
     if (!challengeSession) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'webauthn_no_challenge_found',
+          userId,
+          availableUserIds: Array.from(this.registrationChallenges.keys()),
+        }),
+      );
       return { success: false, error: 'No registration challenge found. Please try again.' };
     }
 
@@ -196,6 +213,16 @@ export class WebAuthnService {
     }
 
     try {
+      this.logger.debug(
+        JSON.stringify({
+          event: 'webauthn_verify_attempt',
+          userId,
+          expectedOrigin: this.origin,
+          expectedRPID: this.rpID,
+          challengeExists: !!challengeSession.challenge,
+        }),
+      );
+
       const verification: VerifiedRegistrationResponse = await verifyRegistrationResponse({
         response,
         expectedChallenge: challengeSession.challenge,
@@ -211,8 +238,9 @@ export class WebAuthnService {
       const { credential, credentialDeviceType, credentialBackedUp, aaguid } =
         verification.registrationInfo;
 
-      // Convert credential ID and public key to Base64URL for storage
-      const credentialIdBase64 = Buffer.from(credential.id).toString('base64url');
+      // Use the original credential ID from the browser response (already base64url)
+      // Note: Don't re-encode from credential.id Uint8Array as it may not match
+      const credentialIdBase64 = response.id;
       const publicKeyBase64 = Buffer.from(credential.publicKey).toString('base64url');
 
       // Store credential in database
@@ -250,10 +278,13 @@ export class WebAuthnService {
           event: 'webauthn_registration_verification_failed',
           userId,
           error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          expectedOrigin: this.origin,
+          expectedRPID: this.rpID,
         }),
       );
 
-      return { success: false, error: 'Verification failed. Please try again.' };
+      return { success: false, error: error instanceof Error ? error.message : 'Verification failed. Please try again.' };
     }
   }
 
@@ -532,6 +563,238 @@ export class WebAuthnService {
       if (now - session.createdAt > this.challengeExpiryMs) {
         this.authenticationChallenges.delete(key);
       }
+    }
+  }
+
+  // ==================== PUBLIC LOGIN METHODS ====================
+
+  /**
+   * Generate authentication options for passwordless login by email
+   * This is a PUBLIC endpoint - no authentication required
+   *
+   * @param email - User email address
+   * @param tenantSlug - Optional tenant slug for multi-tenant support
+   */
+  async generateLoginOptions(
+    email: string,
+    tenantSlug?: string,
+  ): Promise<{ options: PublicKeyCredentialRequestOptionsJSON; sessionId: string } | null> {
+    // Find user by email (with optional tenant)
+    const whereClause: { email: string; tenant?: { slug: string } } = { email };
+    if (tenantSlug) {
+      whereClause.tenant = { slug: tenantSlug };
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: whereClause,
+      select: { id: true, email: true },
+    });
+
+    if (!user) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'webauthn_login_user_not_found',
+          email,
+        }),
+      );
+      return null;
+    }
+
+    // Check if user has any passkeys
+    const credentials = await this.prisma.webAuthnCredential.findMany({
+      where: { userId: user.id },
+      select: {
+        credentialId: true,
+        transports: true,
+      },
+    });
+
+    if (credentials.length === 0) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'webauthn_login_no_credentials',
+          userId: user.id,
+        }),
+      );
+      return null;
+    }
+
+    const allowCredentials = credentials.map((cred) => ({
+      id: cred.credentialId,
+      transports: cred.transports as AuthenticatorTransportFuture[],
+    }));
+
+    const options = await generateAuthenticationOptions({
+      rpID: this.rpID,
+      allowCredentials,
+      userVerification: 'required',
+    });
+
+    // Generate session ID and store challenge with user context
+    const sessionId = crypto.randomUUID();
+
+    this.authenticationChallenges.set(sessionId, {
+      challenge: options.challenge,
+      userId: user.id,
+      createdAt: Date.now(),
+    });
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'webauthn_login_options_generated',
+        userId: user.id,
+        credentialsCount: credentials.length,
+        sessionId,
+        allowCredentials: allowCredentials.map((c) => ({
+          id: c.id.substring(0, 20) + '...',
+          transports: c.transports,
+        })),
+        rpID: this.rpID,
+      }),
+    );
+
+    return { options, sessionId };
+  }
+
+  /**
+   * Verify authentication for passwordless login
+   * Returns full user info for session creation
+   *
+   * @param response - Authentication response from browser
+   * @param sessionId - Session ID from generateLoginOptions
+   */
+  async verifyLogin(
+    response: AuthenticationResponseJSON,
+    sessionId: string,
+  ): Promise<{
+    success: boolean;
+    user?: { id: string; email: string; tenantId: string };
+    error?: string;
+  }> {
+    // Look up credential to get user
+    const credentialIdBase64 = response.id;
+    const credential = await this.prisma.webAuthnCredential.findUnique({
+      where: { credentialId: credentialIdBase64 },
+    });
+
+    if (!credential) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'webauthn_login_credential_not_found',
+          credentialId: credentialIdBase64,
+        }),
+      );
+      return { success: false, error: 'Credential not found' };
+    }
+
+    // Get user data
+    const user = await this.prisma.user.findUnique({
+      where: { id: credential.userId },
+      select: {
+        id: true,
+        email: true,
+        tenantId: true,
+        isActive: true,
+      },
+    });
+
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // Verify user is active
+    if (!user.isActive) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'webauthn_login_user_not_active',
+          userId: credential.userId,
+          isActive: user.isActive,
+        }),
+      );
+      return { success: false, error: 'Account is not active' };
+    }
+
+    // Retrieve stored challenge
+    const challengeSession = this.authenticationChallenges.get(sessionId);
+    if (!challengeSession) {
+      return { success: false, error: 'No authentication challenge found. Please try again.' };
+    }
+
+    // Check challenge expiry
+    if (Date.now() - challengeSession.createdAt > this.challengeExpiryMs) {
+      this.authenticationChallenges.delete(sessionId);
+      return { success: false, error: 'Authentication challenge expired. Please try again.' };
+    }
+
+    // Verify the challenge is for this user
+    if (challengeSession.userId !== credential.userId) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'webauthn_login_user_mismatch',
+          sessionUserId: challengeSession.userId,
+          credentialUserId: credential.userId,
+        }),
+      );
+      return { success: false, error: 'Credential mismatch' };
+    }
+
+    try {
+      const verification: VerifiedAuthenticationResponse = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge: challengeSession.challenge,
+        expectedOrigin: this.origin,
+        expectedRPID: this.rpID,
+        requireUserVerification: true,
+        credential: {
+          id: credential.credentialId,
+          publicKey: new Uint8Array(Buffer.from(credential.credentialPublicKey, 'base64url')),
+          counter: credential.counter,
+          transports: credential.transports as AuthenticatorTransportFuture[],
+        },
+      });
+
+      if (!verification.verified) {
+        return { success: false, error: 'Authentication verification failed' };
+      }
+
+      // Update credential counter and last used timestamp
+      await this.prisma.webAuthnCredential.update({
+        where: { id: credential.id },
+        data: {
+          counter: verification.authenticationInfo.newCounter,
+          lastUsedAt: new Date(),
+        },
+      });
+
+      // Cleanup challenge
+      this.authenticationChallenges.delete(sessionId);
+
+      this.logger.log(
+        JSON.stringify({
+          event: 'webauthn_login_verified',
+          userId: credential.userId,
+          credentialId: credential.id,
+        }),
+      );
+
+      return {
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          tenantId: user.tenantId,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        JSON.stringify({
+          event: 'webauthn_login_verification_failed',
+          userId: credential.userId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        }),
+      );
+
+      return { success: false, error: 'Authentication failed. Please try again.' };
     }
   }
 }

@@ -1,4 +1,4 @@
-import { IsString, Length, IsOptional, IsBoolean, Matches } from 'class-validator';
+import { IsString, Length, IsOptional, IsBoolean, Matches, IsObject, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
@@ -141,6 +141,8 @@ export class MfaChallengeResponseDto {
  */
 export class WebAuthnRegistrationVerifyDto {
   @ApiProperty({ description: 'Registration response from browser WebAuthn API' })
+  @IsObject()
+  @IsNotEmpty()
   response!: Record<string, unknown>;
 
   @ApiPropertyOptional({ description: 'User-friendly name for this passkey' })
@@ -154,6 +156,8 @@ export class WebAuthnRegistrationVerifyDto {
  */
 export class WebAuthnAuthenticationVerifyDto {
   @ApiProperty({ description: 'Authentication response from browser WebAuthn API' })
+  @IsObject()
+  @IsNotEmpty()
   response!: Record<string, unknown>;
 
   @ApiProperty({ description: 'Session ID from generateAuthenticationOptions' })
@@ -195,4 +199,40 @@ export class WebAuthnCredentialResponseDto {
 
   @ApiProperty({ description: 'Created timestamp' })
   createdAt!: Date;
+}
+
+// ==================== PUBLIC WEBAUTHN LOGIN DTOS ====================
+
+/**
+ * DTO for initiating WebAuthn login (passwordless)
+ */
+export class WebAuthnLoginOptionsDto {
+  @ApiProperty({ description: 'User email address' })
+  @IsString()
+  @IsNotEmpty()
+  email!: string;
+
+  @ApiPropertyOptional({ description: 'Tenant slug for multi-tenant support' })
+  @IsOptional()
+  @IsString()
+  tenantSlug?: string;
+}
+
+/**
+ * DTO for verifying WebAuthn login
+ */
+export class WebAuthnLoginVerifyDto {
+  @ApiProperty({ description: 'Authentication response from browser WebAuthn API' })
+  @IsObject()
+  @IsNotEmpty()
+  response!: Record<string, unknown>;
+
+  @ApiProperty({ description: 'Session ID from login options' })
+  @IsString()
+  sessionId!: string;
+
+  @ApiPropertyOptional({ description: 'Trust this device for 30 days' })
+  @IsOptional()
+  @IsBoolean()
+  trustDevice?: boolean;
 }

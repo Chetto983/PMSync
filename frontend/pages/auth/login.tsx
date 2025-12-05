@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { Box, Container, Stack, Typography, IconButton, InputAdornment, Checkbox, FormControlLabel } from '@mui/material';
-import { Eye, EyeOff, AlertTriangle, Smartphone, Mail } from 'lucide-react';
+import { Box, Container, Stack, Typography, IconButton, InputAdornment, Checkbox, FormControlLabel, Divider } from '@mui/material';
+import { Eye, EyeOff, AlertTriangle, Smartphone, Mail, Fingerprint } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { mfaApi } from '@/lib/api/mfa';
+import { startAuthentication } from '@simplewebauthn/browser';
 
 type MfaMethod = 'totp' | 'email' | 'backup';
 
@@ -188,6 +190,60 @@ export default function LoginPage() {
     else if (method === 'backup') setStep('backup');
   };
 
+  // Handle passkey/biometric login
+  const handlePasskeyLogin = async () => {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      setFieldError(translations.common.invalidEmail || 'Please enter your email first');
+      return;
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      setFieldError(translations.common.invalidEmail);
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setFieldError(null);
+
+    try {
+      // Get authentication options from server
+      const { options, sessionId } = await mfaApi.getPasskeyLoginOptions(trimmedEmail);
+
+      // Trigger browser WebAuthn API (Face ID, Touch ID, Windows Hello, etc.)
+      const credential = await startAuthentication({ optionsJSON: options });
+
+      // Verify with server and get tokens
+      const response = await mfaApi.verifyPasskeyLogin(credential, sessionId, trustDevice);
+
+      if (response.success && response.accessToken) {
+        setToken(response.accessToken);
+        // Convert null to undefined for User type compatibility
+        setUser({
+          ...response.user,
+          firstName: response.user.firstName ?? undefined,
+          lastName: response.user.lastName ?? undefined,
+        });
+        router.push('/dashboard');
+      }
+    } catch (err) {
+      const errorResponse = err as { response?: { data?: { message?: string } }; message?: string; name?: string };
+
+      // Handle WebAuthn-specific errors
+      if (errorResponse.name === 'NotAllowedError') {
+        setError(translations.auth.mfa?.passkeys?.cancelled || 'Authentication was cancelled');
+      } else if (errorResponse.name === 'NotSupportedError') {
+        setError(translations.auth.mfa?.passkeys?.notSupported || 'Passkeys are not supported on this device');
+      } else {
+        setError(errorResponse.response?.data?.message || errorResponse.message || translations.common.genericError);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -283,6 +339,24 @@ export default function LoginPage() {
                 </Box>
                 <Button type="submit" disabled={loading} fullWidth>
                   {loading ? translations.common.loading : loginCopy.form.submit}
+                </Button>
+
+                <Divider sx={{ my: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {translations.common.or || 'or'}
+                  </Typography>
+                </Divider>
+
+                <Button
+                  type="button"
+                  variant="outlined"
+                  fullWidth
+                  disabled={loading}
+                  onClick={handlePasskeyLogin}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                >
+                  <Fingerprint size={20} />
+                  {translations.auth.mfa?.passkeys?.loginWithPasskey || 'Sign in with Passkey'}
                 </Button>
               </Stack>
             ) : (

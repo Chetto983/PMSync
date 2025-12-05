@@ -21,7 +21,7 @@ import { VerifyOtpDto } from '../dtos/verify-otp.dto';
 import { ResetPasswordDto } from '../dtos/reset-password.dto';
 import { ForgotPasswordDto } from '../dtos/forgot-password.dto';
 import { SendOtpDto } from '../dtos/send-otp.dto';
-import { MfaChallengeDto, MfaChallengeResponseDto } from '../dtos/mfa.dto';
+import { MfaChallengeDto, MfaChallengeResponseDto, WebAuthnLoginOptionsDto, WebAuthnLoginVerifyDto } from '../dtos/mfa.dto';
 import { Request as ExpressRequest } from 'express';
 
 @ApiTags('Authentication')
@@ -116,6 +116,44 @@ export class AuthController {
       userAgent,
     );
   }
+
+  // ==================== WEBAUTHN / PASSKEY LOGIN ====================
+
+  /**
+   * Get WebAuthn login options for passwordless authentication
+   * POST /auth/webauthn/login/options
+   * Rate limited: 5 requests per 60 seconds
+   */
+  @Post('webauthn/login/options')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Get WebAuthn authentication options for passkey login' })
+  @ApiResponse({ status: 201, description: 'Authentication options for browser WebAuthn API' })
+  @ApiResponse({ status: 400, description: 'User not found or no passkeys registered' })
+  async getWebAuthnLoginOptions(@Body() body: WebAuthnLoginOptionsDto) {
+    return this.authService.getWebAuthnLoginOptions(body.email, body.tenantSlug);
+  }
+
+  /**
+   * Verify WebAuthn authentication and complete login
+   * POST /auth/webauthn/login/verify
+   * Rate limited: 5 requests per 60 seconds
+   */
+  @Post('webauthn/login/verify')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Verify WebAuthn authentication and complete passkey login' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Authentication failed' })
+  async verifyWebAuthnLogin(
+    @Body() body: WebAuthnLoginVerifyDto,
+    @Req() req: ExpressRequest,
+  ) {
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    return this.authService.loginWithPasskey(body.response, body.sessionId, ipAddress, userAgent);
+  }
+
+  // ==================== PASSWORD RESET ====================
 
   /**
    * Request password reset
