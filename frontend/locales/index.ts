@@ -226,6 +226,7 @@ interface MfaTranslations {
     useAuthenticator: string;
     useBackupCode: string;
     switchMethod: string;
+    trustDevice: string;
   };
   errors: {
     setupFailed: string;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { Box, Container, Stack, Typography, IconButton, InputAdornment } from '@mui/material';
+import { Box, Container, Stack, Typography, IconButton, InputAdornment, Checkbox, FormControlLabel } from '@mui/material';
 import { Eye, EyeOff, AlertTriangle, Smartphone, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,7 @@ export default function LoginPage() {
   // MFA state
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [availableMethods, setAvailableMethods] = useState<MfaMethod[]>([]);
+  const [trustDevice, setTrustDevice] = useState(false);
 
   const isValidEmail = useCallback(
     (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
@@ -154,6 +155,7 @@ export default function LoginPage() {
           mfaToken,
           method,
           code: trimmedCode,
+          trustDevice,
         });
       } else {
         // Standard email OTP verification (no TOTP enabled)
@@ -313,6 +315,22 @@ export default function LoginPage() {
                   inputProps={{ maxLength: step === 'backup' ? 8 : 6 }}
                   required
                   autoFocus
+                />
+
+                {/* Trust this device checkbox */}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={trustDevice}
+                      onChange={(e) => setTrustDevice(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" color="text.secondary">
+                      {translations.auth.mfa?.challenge?.trustDevice || 'Trust this device for 30 days'}
+                    </Typography>
+                  }
                 />
 
                 <Button type="submit" disabled={loading} fullWidth>

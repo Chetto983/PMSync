@@ -412,6 +412,7 @@ export const en: AppTranslations = {
         useAuthenticator: 'Use authenticator app',
         useBackupCode: 'Use backup code',
         switchMethod: 'Try another method',
+        trustDevice: 'Trust this device for 30 days',
       },
       errors: {
         setupFailed: 'Failed to set up two-factor authentication. Please try again.',

@@ -410,6 +410,7 @@ export const it: AppTranslations = {
         useAuthenticator: 'Usa app di autenticazione',
         useBackupCode: 'Usa codice di backup',
         switchMethod: 'Prova un altro metodo',
+        trustDevice: 'Ricorda questo dispositivo per 30 giorni',
       },
       errors: {
         setupFailed: "Impossibile configurare l'autenticazione a due fattori. Riprova.",
