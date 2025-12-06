@@ -7,6 +7,7 @@ import { EmbeddingsService } from '../../../ai/services/embeddings.service';
 import { GmailAttachmentHandler } from './gmail-attachment-handler';
 import { GmailMessageParser, ParsedGmailMessage } from './gmail-message-parser';
 import { mergeEmailStatusMetadata } from '../../utils/email-metadata.util';
+import { shouldExcludeFolderWithLookup } from '../../utils/folder-exclusion.util';
 
 /**
  * Gmail-specific batch processing service
@@ -255,23 +256,28 @@ export class GmailBatchProcessor {
       const persistedEmail = persistedMap.get(m.externalId);
       if (!persistedEmail) continue;
 
-      // Enqueue embedding job
-      const alreadyEmbedded = await this.embeddingsService.hasEmbeddingForEmail(
-        tenantId,
-        persistedEmail.id,
-      );
-      if (!alreadyEmbedded) {
-        embeddingJobs.push({
+      // Check if folder should be excluded from embedding using specialUse lookup
+      const isExcludedFolder = await shouldExcludeFolderWithLookup(this.prisma, providerId, m.folder);
+
+      // Enqueue embedding job (skip for excluded folders like spam, trash, archive)
+      if (!isExcludedFolder) {
+        const alreadyEmbedded = await this.embeddingsService.hasEmbeddingForEmail(
           tenantId,
-          providerId,
-          emailId: persistedEmail.id,
-          subject: m.subject,
-          snippet: m.snippet,
-          bodyText: m.bodyText,
-          bodyHtml: m.bodyHtml,
-          from: m.from,
-          receivedAt: persistedEmail.receivedAt,
-        });
+          persistedEmail.id,
+        );
+        if (!alreadyEmbedded) {
+          embeddingJobs.push({
+            tenantId,
+            providerId,
+            emailId: persistedEmail.id,
+            subject: m.subject,
+            snippet: m.snippet,
+            bodyText: m.bodyText,
+            bodyHtml: m.bodyHtml,
+            from: m.from,
+            receivedAt: persistedEmail.receivedAt,
+          });
+        }
       }
 
       // Process attachments if any

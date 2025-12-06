@@ -225,8 +225,21 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
   }
 
   /**
+   * Folders to exclude from embedding (spam, trash, archive)
+   * These are checked against both specialUse and folder name patterns
+   */
+  private static readonly EXCLUDED_SPECIAL_USE = ['SPAM', 'TRASH', 'ARCHIVE', 'JUNK', 'DELETED'];
+  private static readonly EXCLUDED_FOLDER_PATTERNS = [
+    'spam', 'junk', 'trash', 'deleted', 'archive',
+    'posta indesiderata', 'cestino', 'eliminat', 'archivi', // Italian (root forms)
+    '[gmail]/spam', '[gmail]/trash', '[gmail]/all mail',
+    'deleted items', 'junk email', 'junk e-mail',
+  ];
+
+  /**
    * Find emails without embeddings across all tenants.
    * Efficient single query using LEFT JOIN.
+   * Excludes spam, deleted, and archived emails.
    */
   private async findOrphanEmails(limit: number): Promise<
     Array<{
@@ -241,6 +254,15 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
       receivedAt: Date | null;
     }>
   > {
+    // Build the folder exclusion pattern for SQL ILIKE
+    const excludedPatterns = EmbeddingBackfillSchedulerService.EXCLUDED_FOLDER_PATTERNS;
+    const excludedSpecialUse = EmbeddingBackfillSchedulerService.EXCLUDED_SPECIAL_USE;
+
+    // Build OR conditions for folder pattern exclusion
+    const patternConditions = excludedPatterns
+      .map(p => `LOWER(e."folder") LIKE '%${p}%'`)
+      .join(' OR ');
+
     const rows = await this.prisma.$queryRaw<Array<any>>(
       Prisma.sql`
         SELECT
@@ -256,8 +278,15 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
         FROM "emails" e
         LEFT JOIN "embeddings" emb
           ON emb.metadata ->> 'emailId' = e."id"
+        LEFT JOIN "folders" f
+          ON f."providerId" = e."providerId"
+          AND (f."path" = e."folder" OR f."name" = e."folder" OR f."externalId" = e."folder")
         WHERE emb."id" IS NULL
           AND e."isDeleted" = FALSE
+          -- Exclude by specialUse
+          AND (f."specialUse" IS NULL OR f."specialUse" NOT IN (${Prisma.join(excludedSpecialUse)}))
+          -- Exclude by folder name patterns (case insensitive)
+          AND NOT (${Prisma.raw(patternConditions)})
         ORDER BY e."receivedAt" DESC NULLS LAST
         LIMIT ${limit};
       `,
@@ -267,17 +296,32 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
   }
 
   /**
-   * Count total orphan emails
+   * Count total orphan emails (excluding spam, deleted, archived)
    */
   private async countOrphanEmails(): Promise<number> {
+    const excludedPatterns = EmbeddingBackfillSchedulerService.EXCLUDED_FOLDER_PATTERNS;
+    const excludedSpecialUse = EmbeddingBackfillSchedulerService.EXCLUDED_SPECIAL_USE;
+
+    // Build OR conditions for folder pattern exclusion
+    const patternConditions = excludedPatterns
+      .map(p => `LOWER(e."folder") LIKE '%${p}%'`)
+      .join(' OR ');
+
     const result = await this.prisma.$queryRaw<Array<{ count: bigint }>>(
       Prisma.sql`
         SELECT COUNT(*)::bigint AS count
         FROM "emails" e
         LEFT JOIN "embeddings" emb
           ON emb.metadata ->> 'emailId' = e."id"
+        LEFT JOIN "folders" f
+          ON f."providerId" = e."providerId"
+          AND (f."path" = e."folder" OR f."name" = e."folder" OR f."externalId" = e."folder")
         WHERE emb."id" IS NULL
-          AND e."isDeleted" = FALSE;
+          AND e."isDeleted" = FALSE
+          -- Exclude by specialUse
+          AND (f."specialUse" IS NULL OR f."specialUse" NOT IN (${Prisma.join(excludedSpecialUse)}))
+          -- Exclude by folder name patterns (case insensitive)
+          AND NOT (${Prisma.raw(patternConditions)});
       `,
     );
 

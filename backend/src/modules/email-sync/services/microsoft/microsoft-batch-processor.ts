@@ -6,6 +6,7 @@ import { EmbeddingsService } from '../../../ai/services/embeddings.service';
 import { MicrosoftAttachmentHandler } from './microsoft-attachment-handler';
 import { MicrosoftMessageParser, ParsedMicrosoftMessage } from './microsoft-message-parser';
 import { mergeEmailStatusMetadata } from '../../utils/email-metadata.util';
+import { shouldExcludeFolderWithLookup } from '../../utils/folder-exclusion.util';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 
 /**
@@ -264,23 +265,28 @@ export class MicrosoftBatchProcessor {
       const persistedEmail = persistedMap.get(m.externalId);
       if (!persistedEmail) continue;
 
-      // Enqueue embedding job
-      const alreadyEmbedded = await this.embeddingsService.hasEmbeddingForEmail(
-        tenantId,
-        persistedEmail.id,
-      );
-      if (!alreadyEmbedded) {
-        embeddingJobs.push({
+      // Check if folder should be excluded from embedding using specialUse lookup
+      const isExcludedFolder = await shouldExcludeFolderWithLookup(this.prisma, providerId, m.folder);
+
+      // Enqueue embedding job (skip for excluded folders like spam, trash, archive)
+      if (!isExcludedFolder) {
+        const alreadyEmbedded = await this.embeddingsService.hasEmbeddingForEmail(
           tenantId,
-          providerId,
-          emailId: persistedEmail.id,
-          subject: m.subject,
-          snippet: m.snippet,
-          bodyText: m.bodyText,
-          bodyHtml: m.bodyHtml,
-          from: m.from,
-          receivedAt: persistedEmail.receivedAt,
-        });
+          persistedEmail.id,
+        );
+        if (!alreadyEmbedded) {
+          embeddingJobs.push({
+            tenantId,
+            providerId,
+            emailId: persistedEmail.id,
+            subject: m.subject,
+            snippet: m.snippet,
+            bodyText: m.bodyText,
+            bodyHtml: m.bodyHtml,
+            from: m.from,
+            receivedAt: persistedEmail.receivedAt,
+          });
+        }
       }
 
       // Process attachments if any and accessToken is available

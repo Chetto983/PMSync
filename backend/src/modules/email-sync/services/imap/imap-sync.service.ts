@@ -9,6 +9,7 @@ import { EmailEmbeddingQueueService } from '../../../ai/services/email-embedding
 import { EmbeddingsService } from '../../../ai/services/embeddings.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { mergeEmailStatusMetadata } from '../../utils/email-metadata.util';
+import { shouldExcludeFolderWithLookup } from '../../utils/folder-exclusion.util';
 import { BaseEmailSyncService } from '../base-email-sync.service';
 import { IcsParserService, ParsedCalendarInvite } from '../../../calendar/services/ics-parser.service';
 
@@ -1024,7 +1025,9 @@ export class ImapSyncService extends BaseEmailSyncService {
     );
 
     // STEP 7: Queue embedding jobs for new emails (fire-and-forget, non-blocking)
-    if (newEmailRecords.length > 0) {
+    // Skip embedding for spam, trash, and archive folders using specialUse lookup
+    const isExcludedFolder = await shouldExcludeFolderWithLookup(this.prisma, providerId, folderName);
+    if (newEmailRecords.length > 0 && !isExcludedFolder) {
       // Get created email IDs for embedding
       const createdEmails = await this.prisma.email.findMany({
         where: {
@@ -1036,6 +1039,8 @@ export class ImapSyncService extends BaseEmailSyncService {
 
       // Fire-and-forget embedding queue (don't await)
       this.queueEmbeddingsInBackground(tenantId, providerId, createdEmails);
+    } else if (newEmailRecords.length > 0) {
+      this.logger.debug(`Skipping embedding for ${newEmailRecords.length} emails in excluded folder: ${folderName}`);
     }
 
     // STEP 8: Emit realtime events for new messages
