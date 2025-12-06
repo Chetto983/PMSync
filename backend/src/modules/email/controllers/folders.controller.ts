@@ -6,10 +6,9 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   Request,
-  Inject,
-  forwardRef,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
@@ -19,12 +18,13 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { FolderSyncService } from '../../email-sync/services/folder-sync.service';
+import { FolderOperationsQueueService } from '../../email-sync/services/folder-operations-queue.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 
 // DTOs for folder operations
 export class CreateFolderDto {
@@ -60,10 +60,9 @@ export class FolderResponseDto {
 @ApiBearerAuth()
 export class FoldersController {
   constructor(
-    @Inject(forwardRef(() => FolderSyncService))
     private readonly folderSyncService: FolderSyncService,
+    private readonly folderQueue: FolderOperationsQueueService,
     private readonly prisma: PrismaService,
-    private readonly realtimeEvents: RealtimeEventsService,
   ) {}
 
   @Get()
@@ -331,13 +330,17 @@ export class FoldersController {
   @Post()
   @ApiOperation({ summary: 'Create a new folder' })
   @ApiBody({ type: CreateFolderDto })
+  @ApiQuery({ name: 'wait', required: false, description: 'Wait for operation to complete (default: true)' })
   @ApiResponse({ status: 201, description: 'Folder created successfully' })
+  @ApiResponse({ status: 202, description: 'Folder creation job queued' })
   @ApiResponse({ status: 400, description: 'Invalid input' })
   async createFolder(
     @Request() req: any,
     @Body() dto: CreateFolderDto,
-  ): Promise<FolderResponseDto> {
+    @Query('wait') wait?: string,
+  ): Promise<FolderResponseDto | { jobId: string; status: string }> {
     const tenantId = req.user.tenantId;
+    const shouldWait = wait !== 'false'; // Default to waiting
 
     // Verify provider belongs to tenant
     const provider = await this.prisma.providerConfig.findFirst({
@@ -357,23 +360,37 @@ export class FoldersController {
     }
 
     try {
-      const result = await this.folderSyncService.createFolder(
+      // Add job to queue
+      const jobId = await this.folderQueue.addCreateFolderJob(
         tenantId,
         dto.providerId,
+        provider.providerType as 'google' | 'microsoft' | 'generic',
+        provider.email,
         dto.name.trim(),
         dto.parentPath,
       );
 
-      // Emit realtime event
-      this.realtimeEvents.emitFolderCreated(tenantId, {
-        providerId: dto.providerId,
-        folderId: result.id,
-        folderName: result.name,
-        folderPath: result.path,
-        timestamp: new Date().toISOString(),
-      });
+      // If not waiting, return job ID immediately
+      if (!shouldWait) {
+        return { jobId, status: 'queued' };
+      }
 
-      return result;
+      // Wait for job to complete (max 30 seconds)
+      const result = await this.folderQueue.waitForJob(jobId, 30000);
+
+      if (!result) {
+        throw new BadRequestException('Failed to create folder: job not found');
+      }
+
+      if (!result.success) {
+        throw new BadRequestException(result.error || 'Failed to create folder');
+      }
+
+      return {
+        id: result.folderId || '',
+        path: result.folderPath || '',
+        name: result.folderName || dto.name.trim(),
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create folder';
       throw new BadRequestException(message);
@@ -383,20 +400,27 @@ export class FoldersController {
   @Patch(':folderId')
   @ApiOperation({ summary: 'Rename a folder' })
   @ApiBody({ type: RenameFolderDto })
+  @ApiQuery({ name: 'wait', required: false, description: 'Wait for operation to complete (default: true)' })
   @ApiResponse({ status: 200, description: 'Folder renamed successfully' })
+  @ApiResponse({ status: 202, description: 'Folder rename job queued' })
   @ApiResponse({ status: 404, description: 'Folder not found' })
   async renameFolder(
     @Request() req: any,
     @Param('folderId') folderId: string,
     @Body() dto: RenameFolderDto,
-  ): Promise<FolderResponseDto> {
+    @Query('wait') wait?: string,
+  ): Promise<FolderResponseDto | { jobId: string; status: string }> {
     const tenantId = req.user.tenantId;
+    const shouldWait = wait !== 'false'; // Default to waiting
 
     // Find folder
     const folder = await this.prisma.folder.findFirst({
       where: {
         id: folderId,
         tenantId,
+      },
+      include: {
+        provider: true,
       },
     });
 
@@ -410,24 +434,37 @@ export class FoldersController {
     }
 
     try {
-      const result = await this.folderSyncService.renameFolder(
+      // Add job to queue
+      const jobId = await this.folderQueue.addRenameFolderJob(
         tenantId,
         folder.providerId,
+        folder.provider.providerType as 'google' | 'microsoft' | 'generic',
+        folder.provider.email,
         folder.path,
         dto.newName.trim(),
       );
 
-      // Emit realtime event
-      this.realtimeEvents.emitFolderRenamed(tenantId, {
-        providerId: folder.providerId,
-        folderId: result.id,
-        folderName: result.name,
-        folderPath: result.path,
-        oldName: folder.name,
-        timestamp: new Date().toISOString(),
-      });
+      // If not waiting, return job ID immediately
+      if (!shouldWait) {
+        return { jobId, status: 'queued' };
+      }
 
-      return result;
+      // Wait for job to complete (max 30 seconds)
+      const result = await this.folderQueue.waitForJob(jobId, 30000);
+
+      if (!result) {
+        throw new BadRequestException('Failed to rename folder: job not found');
+      }
+
+      if (!result.success) {
+        throw new BadRequestException(result.error || 'Failed to rename folder');
+      }
+
+      return {
+        id: result.folderId || folderId,
+        path: result.folderPath || folder.path,
+        name: result.folderName || dto.newName.trim(),
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to rename folder';
       throw new BadRequestException(message);
@@ -436,14 +473,18 @@ export class FoldersController {
 
   @Delete(':folderId')
   @ApiOperation({ summary: 'Delete a folder' })
+  @ApiQuery({ name: 'wait', required: false, description: 'Wait for operation to complete (default: true)' })
   @ApiResponse({ status: 200, description: 'Folder deleted successfully' })
+  @ApiResponse({ status: 202, description: 'Folder delete job queued' })
   @ApiResponse({ status: 404, description: 'Folder not found' })
   @ApiResponse({ status: 400, description: 'Cannot delete system folder' })
   async deleteFolder(
     @Request() req: any,
     @Param('folderId') folderId: string,
-  ): Promise<{ success: boolean; message: string }> {
+    @Query('wait') wait?: string,
+  ): Promise<{ success: boolean; message: string } | { jobId: string; status: string }> {
     const tenantId = req.user.tenantId;
+    const shouldWait = wait !== 'false'; // Default to waiting
 
     // Find folder
     const folder = await this.prisma.folder.findFirst({
@@ -451,27 +492,46 @@ export class FoldersController {
         id: folderId,
         tenantId,
       },
+      include: {
+        provider: true,
+      },
     });
 
     if (!folder) {
       throw new NotFoundException('Folder not found');
     }
 
+    // Prevent deletion of system folders (check here for immediate feedback)
+    const systemFolders = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'JUNK', 'ARCHIVE'];
+    if (folder.specialUse && systemFolders.includes(folder.specialUse)) {
+      throw new BadRequestException(`Cannot delete system folder: ${folder.specialUse}`);
+    }
+
     try {
-      await this.folderSyncService.deleteFolder(
+      // Add job to queue
+      const jobId = await this.folderQueue.addDeleteFolderJob(
         tenantId,
         folder.providerId,
+        folder.provider.providerType as 'google' | 'microsoft' | 'generic',
+        folder.provider.email,
         folder.path,
       );
 
-      // Emit realtime event
-      this.realtimeEvents.emitFolderDeleted(tenantId, {
-        providerId: folder.providerId,
-        folderId: folder.id,
-        folderName: folder.name,
-        folderPath: folder.path,
-        timestamp: new Date().toISOString(),
-      });
+      // If not waiting, return job ID immediately
+      if (!shouldWait) {
+        return { jobId, status: 'queued' };
+      }
+
+      // Wait for job to complete (max 30 seconds)
+      const result = await this.folderQueue.waitForJob(jobId, 30000);
+
+      if (!result) {
+        throw new BadRequestException('Failed to delete folder: job not found');
+      }
+
+      if (!result.success) {
+        throw new BadRequestException(result.error || 'Failed to delete folder');
+      }
 
       return {
         success: true,
@@ -481,5 +541,34 @@ export class FoldersController {
       const message = error instanceof Error ? error.message : 'Failed to delete folder';
       throw new BadRequestException(message);
     }
+  }
+
+  // ========== QUEUE STATUS ENDPOINTS ==========
+
+  @Get('queue/status')
+  @ApiOperation({ summary: 'Get folder operations queue status' })
+  @ApiResponse({ status: 200, description: 'Returns queue status' })
+  async getQueueStatus() {
+    const status = await this.folderQueue.getQueueStatus();
+    const metrics = this.folderQueue.getMetrics();
+
+    return {
+      ...status,
+      metrics,
+    };
+  }
+
+  @Get('queue/job/:jobId')
+  @ApiOperation({ summary: 'Get folder operation job status' })
+  @ApiResponse({ status: 200, description: 'Returns job status' })
+  @ApiResponse({ status: 404, description: 'Job not found' })
+  async getJobStatus(@Param('jobId') jobId: string) {
+    const status = await this.folderQueue.getJobStatus(jobId);
+
+    if (!status) {
+      throw new NotFoundException('Job not found');
+    }
+
+    return status;
   }
 }

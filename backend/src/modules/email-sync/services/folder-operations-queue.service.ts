@@ -10,7 +10,7 @@ import {
 } from '../interfaces/folder-job.interface';
 import { getRedisConnectionOptions } from '../../../config/configuration';
 
-interface FolderQueueMetrics {
+export interface FolderQueueMetrics {
   completed: number;
   failed: number;
   processed: number;

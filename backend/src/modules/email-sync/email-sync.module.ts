@@ -10,6 +10,7 @@ import { RetryService } from '../../common/services/retry.service';
 
 // Services
 import { QueueService } from './services/queue.service';
+import { FolderOperationsQueueService } from './services/folder-operations-queue.service';
 import { SyncSchedulerService } from './services/sync-scheduler.service';
 import { GoogleSyncService } from './services/gmail/google-sync.service';
 import { MicrosoftSyncService } from './services/microsoft/microsoft-sync.service';
@@ -44,10 +45,12 @@ import { ProviderTokenService } from './services/provider-token.service';
 
 // Workers
 import { SyncWorker } from './workers/sync.worker';
+import { FolderOperationsWorker } from './workers/folder-operations.worker';
 
 // Controllers
 import { EmailSyncController } from './email-sync.controller';
 import { WebhookController } from './controllers/webhook.controller';
+import { FoldersController } from '../email/controllers/folders.controller';
 
 @Module({
   imports: [
@@ -62,10 +65,12 @@ import { WebhookController } from './controllers/webhook.controller';
   controllers: [
     EmailSyncController,
     WebhookController, // Real-time webhook endpoint
+    FoldersController, // Folder CRUD with queue operations
   ],
   providers: [
     // Queue management
     QueueService,
+    FolderOperationsQueueService,
 
     // Scheduler
     SyncSchedulerService,
@@ -105,9 +110,11 @@ import { WebhookController } from './controllers/webhook.controller';
 
     // Workers
     SyncWorker,
+    FolderOperationsWorker,
   ],
   exports: [
     QueueService,
+    FolderOperationsQueueService,
     SyncSchedulerService,
     FolderSyncService,
     GmailWebhookService,

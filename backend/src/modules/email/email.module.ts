@@ -15,7 +15,6 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { AiModule } from '../ai/ai.module';
 import { EmailsController } from './controllers/emails.controller';
-import { FoldersController } from './controllers/folders.controller';
 import { AttachmentsController } from './controllers/attachments.controller';
 import { EmailSyncModule } from '../email-sync/email-sync.module';
 import { RealtimeModule } from '../realtime/realtime.module';
@@ -61,7 +60,7 @@ import { CalendarModule } from '../calendar/calendar.module';
     StorageService,
     ProviderTokenService,
   ],
-  controllers: [EmailsController, FoldersController, AttachmentsController],
+  controllers: [EmailsController, AttachmentsController],
   exports: [
     EmailService,
     EmailsService,
