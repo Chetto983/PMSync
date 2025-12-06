@@ -128,6 +128,8 @@ export type SendEmailResponse = {
 
 export type EmailListFilters = {
   folder?: string;
+  /** RFC 6154: Filter by folder specialUse type for aggregation (INBOX, SENT, TRASH, etc.) */
+  specialUse?: string;
   isRead?: boolean;
   isStarred?: boolean;
   hasAttachments?: boolean;
@@ -145,6 +147,8 @@ export type EmailListParams = {
   limit?: number;
   providerId?: string;
   folder?: string;
+  /** RFC 6154: Filter by folder specialUse type for aggregation (INBOX, SENT, TRASH, etc.) */
+  specialUse?: string;
   isRead?: boolean;
   isStarred?: boolean;
   hasAttachments?: boolean;

@@ -47,7 +47,8 @@
       "Bash(netstat:*)",
       "Bash(timeout:*)",
       "Bash(Select-Object -First 150)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cmd /c \"for /f \"\"tokens=5\"\" %a in (''netstat -ano ^| findstr :3000 ^| findstr LISTENING'') do taskkill /pid %a /f\")"
     ],
     "deny": [],
     "ask": []

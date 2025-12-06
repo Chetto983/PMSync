@@ -62,7 +62,8 @@ describe('EmailsService', () => {
               groupBy: jest.fn(),
             },
             folder: {
-              findMany: jest.fn(),
+              findMany: jest.fn().mockResolvedValue([]),
+              findFirst: jest.fn().mockResolvedValue({ path: 'DRAFTS', name: 'Drafts' }),
             },
             emailLabel: {
               createMany: jest.fn(),
@@ -343,23 +344,25 @@ describe('EmailsService', () => {
   });
 
   describe('deleteEmail', () => {
-    it('should soft delete email and move to TRASH', async () => {
+    it('should soft delete email (mark isDeleted, provider handles folder move)', async () => {
       prismaService.email.findFirst = jest.fn().mockResolvedValue(mockEmail);
-      prismaService.email.update = jest.fn().mockResolvedValue({ ...mockEmail, isDeleted: true, folder: 'TRASH' });
+      prismaService.email.update = jest.fn().mockResolvedValue({ ...mockEmail, isDeleted: true });
 
       const result = await service.deleteEmail('email-1', 'tenant-1');
 
       expect(result.success).toBe(true);
+      // Provider is source of truth - we just mark isDeleted, provider moves to trash
       expect(prismaService.email.update).toHaveBeenCalledWith({
         where: { id: 'email-1' },
-        data: { isDeleted: true, folder: 'TRASH' },
+        data: { isDeleted: true },
       });
     });
 
-    it('should permanently delete email if already in TRASH', async () => {
-      const trashEmail = { ...mockEmail, folder: 'TRASH', isDeleted: true };
-      prismaService.email.findFirst = jest.fn().mockResolvedValue(trashEmail);
-      prismaService.email.delete = jest.fn().mockResolvedValue(trashEmail);
+    it('should permanently delete email if already marked as deleted', async () => {
+      // Email already deleted (isDeleted: true) - now permanent delete
+      const deletedEmail = { ...mockEmail, isDeleted: true };
+      prismaService.email.findFirst = jest.fn().mockResolvedValue(deletedEmail);
+      prismaService.email.delete = jest.fn().mockResolvedValue(deletedEmail);
 
       const result = await service.deleteEmail('email-1', 'tenant-1');
 
@@ -573,15 +576,30 @@ describe('EmailsService', () => {
       );
     });
 
-    it('should exclude trash and spam from search results', async () => {
+    it('should exclude trash and spam from search results using specialUse lookup', async () => {
+      // Mock folder.findMany to return actual folder paths by specialUse
+      prismaService.folder.findMany = jest.fn().mockResolvedValue([
+        { path: 'Cestino' },  // Italian TRASH
+        { path: 'Spam' },     // SPAM folder
+      ]);
       prismaService.email.findMany = jest.fn().mockResolvedValue([]);
 
       await service.searchEmails('tenant-1', 'query');
 
+      // Should have called folder.findMany to lookup TRASH/SPAM/JUNK by specialUse
+      expect(prismaService.folder.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            specialUse: { in: ['TRASH', 'SPAM', 'JUNK'], mode: 'insensitive' },
+          }),
+        }),
+      );
+
+      // Should use actual folder paths (e.g., 'Cestino') not hardcoded names
       expect(prismaService.email.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            folder: { notIn: ['TRASH', 'SPAM'] },
+            folder: { notIn: ['Cestino', 'Spam'], mode: 'insensitive' },
           }),
         }),
       );
@@ -601,10 +619,10 @@ describe('EmailsService', () => {
   });
 
   describe('bulkDelete', () => {
-    it('should soft delete multiple emails', async () => {
+    it('should soft delete multiple emails (mark isDeleted, provider handles folder)', async () => {
       const emails = [
-        { ...mockEmail, id: 'email-1' },
-        { ...mockEmail, id: 'email-2' },
+        { ...mockEmail, id: 'email-1', isDeleted: false },
+        { ...mockEmail, id: 'email-2', isDeleted: false },
       ];
       prismaService.email.findMany = jest.fn().mockResolvedValue(emails);
       prismaService.email.updateMany = jest.fn().mockResolvedValue({ count: 2 });
@@ -612,12 +630,13 @@ describe('EmailsService', () => {
       const result = await service.bulkDelete(['email-1', 'email-2'], 'tenant-1');
 
       expect(result.deleted).toBe(2);
+      // Provider is source of truth - we just mark isDeleted, provider moves to trash
       expect(prismaService.email.updateMany).toHaveBeenCalledWith({
         where: {
           id: { in: ['email-1', 'email-2'] },
           tenantId: 'tenant-1',
         },
-        data: { isDeleted: true, folder: 'TRASH' },
+        data: { isDeleted: true },
       });
     });
 

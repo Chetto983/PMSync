@@ -22,11 +22,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setStoreUser = useAuthStore((state) => state.setUser);
   const logout = useAuthStore((state) => state.logout);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isHydrated, setIsHydrated] = useState<boolean>(false);
 
+  // Rehydrate Zustand store from localStorage on client
   useEffect(() => {
+    // Manual rehydration for SSR-safe persist
+    useAuthStore.persist.rehydrate();
+    setIsHydrated(true);
+  }, []);
+
+  // Validate token after hydration
+  useEffect(() => {
+    // Wait for hydration before checking auth
+    if (!isHydrated) {
+      return;
+    }
+
     let isActive = true;
 
-    if (!token) {
+    // Re-read token after hydration
+    const currentToken = useAuthStore.getState().token;
+
+    if (!currentToken) {
       const existingUser = useAuthStore.getState().user;
       if (existingUser) {
         setStoreUser(null);
@@ -72,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isActive = false;
     };
-  }, [token, setStoreUser, logout]);
+  }, [isHydrated, token, setStoreUser, logout]);
 
   const value = useMemo(
     () => ({

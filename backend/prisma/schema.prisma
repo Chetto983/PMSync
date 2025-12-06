@@ -345,8 +345,8 @@ model Email {
   provider             ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([providerId, externalId])
-  @@unique([tenantId, messageId])
+  @@unique([providerId, externalId, folder])  // UIDs are unique per-folder, not globally
+  @@unique([tenantId, messageId, folder])  // Allow same messageId in different folders
   @@index([tenantId, folder, receivedAt])
   @@index([tenantId, isRead])
   @@index([tenantId, threadId])

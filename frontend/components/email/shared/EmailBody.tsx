@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Box, SxProps, Theme } from '@mui/material';
 import DOMPurify from 'dompurify';
 
@@ -42,11 +42,30 @@ interface EmailBodyProps {
 /**
  * Sanitize HTML for email bodies
  * Opens all links in a new tab for security and UX
+ * Uses DOMPurify with FORCE_BODY to handle full HTML documents
  */
 function sanitizeEmailBody(content: string): string {
-  if (typeof window === 'undefined') return content;
+  if (typeof window === 'undefined') {
+    return content;
+  }
 
-  // Configure DOMPurify to add target="_blank" and rel="noopener noreferrer" to all links
+  // Use DOMParser to handle malformed HTML
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(content, 'text/html');
+
+  // Get the body content - DOMParser automatically creates a proper structure
+  const bodyContent = doc.body?.innerHTML || '';
+
+  console.log('[sanitizeEmailBody] Parsed body length:', bodyContent.length);
+
+  if (!bodyContent || bodyContent.length < 10) {
+    // If body is empty, the HTML is severely malformed - return plain text
+    console.log('[sanitizeEmailBody] Body empty, extracting text content');
+    const textContent = doc.body?.textContent || content;
+    return `<pre style="white-space: pre-wrap; font-family: inherit;">${textContent}</pre>`;
+  }
+
+  // Sanitize the extracted body content
   DOMPurify.addHook('afterSanitizeAttributes', (node) => {
     if (node.tagName === 'A') {
       node.setAttribute('target', '_blank');
@@ -54,13 +73,15 @@ function sanitizeEmailBody(content: string): string {
     }
   });
 
-  const sanitized = DOMPurify.sanitize(content, {
+  const sanitized = DOMPurify.sanitize(bodyContent, {
     ADD_ATTR: ['target', 'rel'],
+    ADD_TAGS: ['style'],
+    ALLOW_DATA_ATTR: true,
   });
 
-  // Remove the hook after use to avoid side effects
   DOMPurify.removeHook('afterSanitizeAttributes');
 
+  console.log('[sanitizeEmailBody] Final output length:', sanitized.length);
   return sanitized;
 }
 
@@ -102,10 +123,8 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [imagesProcessed, setImagesProcessed] = useState(false);
 
-  // Sanitize HTML content
-  const sanitizedHtml = useMemo(() => {
-    return sanitizeEmailBody(html || '');
-  }, [html]);
+  // Sanitize HTML content (no useMemo to ensure fresh sanitization)
+  const sanitizedHtml = sanitizeEmailBody(html || '');
 
   // Process images for lazy loading after initial render
   useEffect(() => {

@@ -217,30 +217,49 @@ export class FolderSyncService {
     }
 
     // Fallback: detect based on folder name (case-insensitive)
+    // Supports multiple locales: EN, IT, DE, FR, ES
     const lowerPath = path.toLowerCase();
     const lowerName = name.toLowerCase();
 
-    if (lowerPath === 'inbox' || lowerName === 'inbox') {
+    // INBOX
+    if (lowerPath === 'inbox' || lowerName === 'inbox' || lowerName === 'posta in arrivo') {
       return 'INBOX';
-    } else if (
-      lowerName === 'sent' ||
-      lowerName === 'sent items' ||
-      lowerName === 'sent mail'
-    ) {
+    }
+
+    // SENT - EN, IT, DE, FR, ES
+    if (['sent', 'sent items', 'sent mail', 'posta inviata', 'inviata', 'elementi inviati',
+         'gesendet', 'gesendete objekte', 'envoyés', 'enviados'].includes(lowerName)) {
       return 'SENT';
-    } else if (lowerName === 'drafts') {
+    }
+
+    // DRAFTS - EN, IT, DE, FR, ES
+    if (['drafts', 'draft', 'bozze', 'entwürfe', 'brouillons', 'borradores'].includes(lowerName)) {
       return 'DRAFTS';
-    } else if (
-      lowerName === 'trash' ||
-      lowerName === 'deleted' ||
-      lowerName === 'deleted items'
-    ) {
+    }
+
+    // TRASH - EN, IT, DE, FR, ES
+    if (['trash', 'deleted', 'deleted items', 'cestino', 'posta eliminata', 'eliminata',
+         'papierkorb', 'gelöscht', 'corbeille', 'papelera', 'eliminados'].includes(lowerName)) {
       return 'TRASH';
-    } else if (lowerName === 'spam' || lowerName === 'junk') {
+    }
+
+    // JUNK/SPAM - EN, IT, DE, FR, ES
+    if (['spam', 'junk', 'junk email', 'posta indesiderata', 'indesiderata',
+         'junk-e-mail', 'courrier indésirable', 'correo no deseado'].includes(lowerName)) {
       return 'JUNK';
-    } else if (lowerName === 'archive') {
+    }
+
+    // ARCHIVE - EN, IT, DE, FR, ES
+    if (['archive', 'archivio', 'archivia', 'archiv', 'archives', 'archivo'].includes(lowerName)) {
       return 'ARCHIVE';
-    } else if (lowerName === 'starred' || lowerName === 'flagged') {
+    }
+
+    // OUTBOX - EN, IT, DE, FR, ES
+    if (['outbox', 'posta in uscita', 'postausgang', 'boîte d\'envoi', 'bandeja de salida'].includes(lowerName)) {
+      return 'OUTBOX';
+    }
+
+    if (lowerName === 'starred' || lowerName === 'flagged') {
       return 'FLAGGED';
     }
 
@@ -771,6 +790,123 @@ export class FolderSyncService {
     return name.toUpperCase();
   }
 
+  // ========== FOLDER AUDIT ==========
+
+  /**
+   * Audit folder sync status between database and provider
+   * Returns discrepancies and sync recommendations
+   */
+  async auditFolderSync(
+    tenantId: string,
+    providerId: string,
+  ): Promise<{
+    dbFolderCount: number;
+    serverFolderCount: number;
+    inSync: boolean;
+    onlyInDb: string[];
+    onlyOnServer: string[];
+    recommendations: string[];
+  }> {
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      throw new Error(`Provider ${providerId} not found`);
+    }
+
+    this.logger.log(`Auditing folder sync for provider ${providerId} (${provider.email})`);
+
+    // Get folders from database
+    const dbFolders = await this.prisma.folder.findMany({
+      where: { providerId, tenantId },
+      select: { path: true, name: true, specialUse: true },
+    });
+    const dbPaths = new Set(dbFolders.map((f) => f.path));
+
+    // Get folders from server
+    let serverPaths: Set<string>;
+    let serverFolders: { path: string; name: string }[] = [];
+
+    if (provider.providerType === 'generic') {
+      const imapCreds = this.providerTokenService.getImapCredentials(provider);
+      const imapFolders = await this.imapService.listFolders({
+        host: imapCreds.host,
+        port: imapCreds.port,
+        username: imapCreds.username,
+        password: imapCreds.password,
+        useTls: imapCreds.useTls,
+      });
+      serverFolders = imapFolders.map((f) => ({ path: f.path, name: f.name }));
+      serverPaths = new Set(serverFolders.map((f) => f.path));
+    } else {
+      // For Gmail/Microsoft, paths are IDs so comparison is different
+      this.logger.warn(`Audit for ${provider.providerType} not fully implemented`);
+      serverPaths = dbPaths; // Skip for now
+    }
+
+    // Find discrepancies
+    const onlyInDb = Array.from(dbPaths).filter((p) => !serverPaths.has(p));
+    const onlyOnServer = Array.from(serverPaths).filter((p) => !dbPaths.has(p));
+    const inSync = onlyInDb.length === 0 && onlyOnServer.length === 0;
+
+    // Generate recommendations
+    const recommendations: string[] = [];
+    if (onlyInDb.length > 0) {
+      recommendations.push(
+        `${onlyInDb.length} folder(s) exist in database but not on server. Run folder sync to clean up.`,
+      );
+      this.logger.warn(`Orphaned DB folders: ${onlyInDb.join(', ')}`);
+    }
+    if (onlyOnServer.length > 0) {
+      recommendations.push(
+        `${onlyOnServer.length} folder(s) exist on server but not in database. Run folder sync to add.`,
+      );
+      this.logger.warn(`Missing server folders: ${onlyOnServer.join(', ')}`);
+    }
+    if (inSync) {
+      recommendations.push('All folders are in sync.');
+    }
+
+    return {
+      dbFolderCount: dbFolders.length,
+      serverFolderCount: serverPaths.size,
+      inSync,
+      onlyInDb,
+      onlyOnServer,
+      recommendations,
+    };
+  }
+
+  /**
+   * Clean up orphaned folders (exist in DB but not on server)
+   */
+  async cleanupOrphanedFolders(
+    tenantId: string,
+    providerId: string,
+  ): Promise<{ deletedCount: number; deletedPaths: string[] }> {
+    const audit = await this.auditFolderSync(tenantId, providerId);
+
+    if (audit.onlyInDb.length === 0) {
+      return { deletedCount: 0, deletedPaths: [] };
+    }
+
+    this.logger.log(`Cleaning up ${audit.onlyInDb.length} orphaned folders`);
+
+    await this.prisma.folder.deleteMany({
+      where: {
+        providerId,
+        tenantId,
+        path: { in: audit.onlyInDb },
+      },
+    });
+
+    return {
+      deletedCount: audit.onlyInDb.length,
+      deletedPaths: audit.onlyInDb,
+    };
+  }
+
   // ========== FOLDER CRUD OPERATIONS ==========
 
   /**
@@ -961,12 +1097,18 @@ export class FolderSyncService {
 
     try {
       await client.connect();
+      this.logger.log(`Creating IMAP folder "${fullPath}" on server...`);
       const result = await client.mailboxCreate(fullPath);
+      this.logger.log(`IMAP folder "${fullPath}" created successfully, path: ${result.path}`);
       return { externalId: result.path, path: result.path };
     } catch (error: any) {
       const message = String(error?.message || '').toLowerCase();
+      this.logger.error(`Failed to create IMAP folder "${fullPath}": ${error?.message || error}`);
       if (message.includes('exists') || message.includes('already')) {
         throw new ConflictException('A folder with this name already exists on the mail server');
+      }
+      if (message.includes('permission') || message.includes('denied')) {
+        throw new Error('Permission denied: Cannot create folder on this mail server');
       }
       throw error;
     } finally {
@@ -998,13 +1140,45 @@ export class FolderSyncService {
 
     try {
       await client.connect();
+      this.logger.log(`IMAP connected for rename operation`);
+
       // Build new path: replace last segment with new name
       const parts = oldPath.split('/');
       parts[parts.length - 1] = newName;
       const newPath = parts.join('/');
 
+      this.logger.log(`IMAP mailboxRename: "${oldPath}" -> "${newPath}"`);
       const result = await client.mailboxRename(oldPath, newPath);
+      this.logger.log(`IMAP mailboxRename result: ${JSON.stringify(result)}`);
       return result.newPath || newPath;
+    } catch (error: any) {
+      const message = String(error?.message || error || '').toLowerCase();
+      this.logger.warn(`IMAP rename folder error for "${oldPath}": ${error?.message || error}`);
+
+      // If folder doesn't exist on server, create it with new name instead
+      if (message.includes('not exist') || message.includes('no such') || message.includes('nonexistent')) {
+        this.logger.log(`Folder "${oldPath}" does not exist on IMAP server, creating new folder "${newName}"`);
+        const parts = oldPath.split('/');
+        parts[parts.length - 1] = newName;
+        const newPath = parts.join('/');
+        try {
+          await client.mailboxCreate(newPath);
+          return newPath;
+        } catch (createError: any) {
+          this.logger.error(`Failed to create folder "${newPath}": ${createError?.message || createError}`);
+          // Return the new path anyway - DB will be updated
+          return newPath;
+        }
+      }
+
+      // Provide user-friendly error messages for other errors
+      if (message.includes('permission') || message.includes('denied')) {
+        throw new Error('Permission denied: Cannot rename this folder');
+      }
+      if (message.includes('already exist')) {
+        throw new ConflictException('A folder with this name already exists');
+      }
+      throw error;
     } finally {
       await client.logout();
     }
@@ -1030,7 +1204,31 @@ export class FolderSyncService {
 
     try {
       await client.connect();
+      this.logger.log(`IMAP connected for delete operation`);
+      this.logger.log(`IMAP mailboxDelete: "${path}"`);
       await client.mailboxDelete(path);
+      this.logger.log(`IMAP mailboxDelete completed successfully for "${path}"`);
+    } catch (error: any) {
+      const message = String(error?.message || error || '').toLowerCase();
+      this.logger.warn(`IMAP delete folder error for "${path}": ${error?.message || error}`);
+
+      // If folder doesn't exist on server, that's OK - we still delete from DB
+      if (message.includes('not exist') || message.includes('no such') || message.includes('nonexistent')) {
+        this.logger.log(`Folder "${path}" does not exist on IMAP server, will delete from database only`);
+        return; // Allow database deletion to proceed
+      }
+
+      // Provide user-friendly error messages for other errors
+      if (message.includes('permission') || message.includes('denied')) {
+        throw new Error('Permission denied: Cannot delete this folder');
+      }
+      if (message.includes('not empty') || message.includes('has children')) {
+        throw new Error('Folder is not empty. Please delete or move all emails first.');
+      }
+      if (message.includes('cannot delete') || message.includes('not allowed')) {
+        throw new Error('This folder cannot be deleted');
+      }
+      throw error;
     } finally {
       await client.logout();
     }

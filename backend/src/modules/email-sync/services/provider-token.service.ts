@@ -42,6 +42,8 @@ export class ProviderTokenService {
       case 'microsoft':
         return { provider, accessToken: await this.getMicrosoftToken(provider) };
       case 'imap':
+      case 'generic':
+        // IMAP/generic providers use password auth, not OAuth tokens
         return { provider, accessToken: await this.getImapToken(provider) };
       default:
         throw new Error(`Unsupported provider type: ${provider.providerType}`);

@@ -13,7 +13,7 @@ import { BaseEmailSyncService } from '../base-email-sync.service';
 import { IcsParserService, ParsedCalendarInvite } from '../../../calendar/services/ics-parser.service';
 
 const IMAP_BODY_DOWNLOAD_TIMEOUT_MS = 10000;
-const IMAP_BODY_MAX_BYTES = 2 * 1024 * 1024; // 2MB
+const IMAP_BODY_MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
 /**
  * Extract Message-ID from various formats (with or without angle brackets)
@@ -151,12 +151,15 @@ export class ImapSyncService extends BaseEmailSyncService {
   }
 
   /**
-   * Incremental sync - fetch messages with UID > lastUid (BULK OPTIMIZED)
+   * Incremental sync - fetch messages from ALL folders (BULK OPTIMIZED)
    * Uses batch operations to reduce database queries from O(n) to O(1)
+   *
+   * IMPORTANT: Unlike before, we now sync ALL folders to properly detect moved emails.
+   * UIDs are unique per-folder, so we need to check each folder for new/moved messages.
    */
   private async syncIncremental(
     client: ImapFlow,
-    lastUid: number,
+    _lastUid: number,
     providerId: string,
     tenantId: string,
   ): Promise<{
@@ -164,28 +167,87 @@ export class ImapSyncService extends BaseEmailSyncService {
     newMessages: number;
     maxUid: number;
   }> {
-    this.logger.debug(`Incremental sync from UID: ${lastUid}`);
+    this.logger.debug(`Incremental sync - checking ALL folders for changes`);
 
-    const lock = await client.getMailboxLock('INBOX');
+    // Get all folders from database for this provider
+    const folders = await this.prisma.folder.findMany({
+      where: { providerId, isSelectable: true },
+      select: { path: true, name: true, specialUse: true },
+    });
+
+    // If no folders, sync just INBOX
+    const foldersToSync = folders.length > 0
+      ? folders.map(f => ({ path: f.path, name: f.name, specialUse: f.specialUse }))
+      : [{ path: 'INBOX', name: 'INBOX', specialUse: 'INBOX' }];
+
+    let totalMessagesProcessed = 0;
+    let totalNewMessages = 0;
+    let globalMaxUid = 0;
+
+    // Sync each folder incrementally
+    for (const folder of foldersToSync) {
+      try {
+        // Use the actual IMAP folder path, not normalized name
+        // This ensures IMAP operations work correctly with provider-specific folder names
+        const result = await this.syncFolderIncremental(
+          client,
+          folder.path,
+          folder.path, // Use actual path, not normalized name
+          providerId,
+          tenantId,
+        );
+        totalMessagesProcessed += result.messagesProcessed;
+        totalNewMessages += result.newMessages;
+        globalMaxUid = Math.max(globalMaxUid, result.maxUid);
+      } catch (folderError) {
+        const msg = folderError instanceof Error ? folderError.message : String(folderError);
+        this.logger.warn(`Failed to incremental sync folder ${folder.path}: ${msg}`);
+        // Continue with other folders
+      }
+    }
+
+    this.logger.debug(`Incremental sync complete: ${totalMessagesProcessed} processed, ${totalNewMessages} new across ${foldersToSync.length} folders`);
+
+    return {
+      messagesProcessed: totalMessagesProcessed,
+      newMessages: totalNewMessages,
+      maxUid: globalMaxUid,
+    };
+  }
+
+  /**
+   * Incremental sync for a single folder - fetch recent messages
+   * Uses date-based search to find new/changed messages efficiently
+   */
+  private async syncFolderIncremental(
+    client: ImapFlow,
+    folderPath: string,
+    folderName: string,
+    providerId: string,
+    tenantId: string,
+  ): Promise<{
+    messagesProcessed: number;
+    newMessages: number;
+    maxUid: number;
+  }> {
+    let lock;
+    try {
+      lock = await client.getMailboxLock(folderPath);
+    } catch (lockError) {
+      const msg = lockError instanceof Error ? lockError.message : String(lockError);
+      this.logger.debug(`Could not lock folder ${folderPath}: ${msg}`);
+      return { messagesProcessed: 0, newMessages: 0, maxUid: 0 };
+    }
 
     try {
-      // Get mailbox status
-      const status = await client.status('INBOX', { uidNext: true });
-      const uidNext = status.uidNext || lastUid + 1;
+      // For incremental sync, only check messages from last 7 days
+      // This is faster than full sync but still catches recent moves
+      const sinceDate = new Date();
+      sinceDate.setDate(sinceDate.getDate() - 7);
 
-      // If no new messages
-      if (uidNext <= lastUid + 1) {
-        return {
-          messagesProcessed: 0,
-          newMessages: 0,
-          maxUid: lastUid,
-        };
-      }
+      const maxMessages = 200; // Limit per folder for incremental
 
-      // Fetch new messages
-      const range = `${lastUid + 1}:*`;
-
-      // STEP 1: Collect all message metadata from IMAP (must be sequential due to protocol)
+      // STEP 1: Collect all message metadata from IMAP
       const allMessages: Array<{
         uid: number;
         envelope: any;
@@ -193,39 +255,60 @@ export class ImapSyncService extends BaseEmailSyncService {
         size?: number;
       }> = [];
 
-      for await (const message of client.fetch(range, {
-        uid: true,
-        envelope: true,
-        bodyStructure: true,
-        flags: true,
-      }, { uid: true })) {
-        allMessages.push({
-          uid: message.uid,
-          envelope: message.envelope,
-          flags: message.flags || new Set(),
-          size: message.size,
-        });
+      // Use IMAP SEARCH to find messages since the date
+      try {
+        const searchResults = await client.search({ since: sinceDate }, { uid: true });
+
+        if (!searchResults || searchResults.length === 0) {
+          return { messagesProcessed: 0, newMessages: 0, maxUid: 0 };
+        }
+
+        // Sort UIDs in ascending order and limit
+        const uidsToFetch = searchResults.sort((a, b) => a - b).slice(-maxMessages);
+
+        // Fetch messages in batches
+        const batchSize = 100;
+        for (let i = 0; i < uidsToFetch.length; i += batchSize) {
+          const batch = uidsToFetch.slice(i, Math.min(i + batchSize, uidsToFetch.length));
+          const uidSet = batch.join(',');
+
+          for await (const message of client.fetch(uidSet, {
+            uid: true,
+            envelope: true,
+            bodyStructure: true,
+            flags: true,
+          }, { uid: true })) {
+            allMessages.push({
+              uid: message.uid,
+              envelope: message.envelope,
+              flags: message.flags || new Set(),
+              size: message.size,
+            });
+          }
+        }
+      } catch (searchError) {
+        const msg = searchError instanceof Error ? searchError.message : String(searchError);
+        this.logger.debug(`Search failed in ${folderPath}: ${msg}`);
+        return { messagesProcessed: 0, newMessages: 0, maxUid: 0 };
       }
 
       if (allMessages.length === 0) {
-        return { messagesProcessed: 0, newMessages: 0, maxUid: lastUid };
+        return { messagesProcessed: 0, newMessages: 0, maxUid: 0 };
       }
 
-      // STEP 2: Bulk process messages
+      this.logger.debug(`Incremental: found ${allMessages.length} messages in ${folderPath}`);
+
+      // STEP 2: Bulk process messages with folder name
       const result = await this.bulkProcessMessages(
         allMessages,
         client,
         providerId,
         tenantId,
+        folderName,
       );
 
-      const reconciled = await this.reconcileDeletedMessages(client, providerId, tenantId);
-      if (reconciled > 0) {
-        this.logger.debug(`Marked ${reconciled} IMAP messages as deleted or moved.`);
-      }
-
       return {
-        messagesProcessed: result.messagesProcessed + reconciled,
+        messagesProcessed: result.messagesProcessed,
         newMessages: result.newMessages,
         maxUid: result.maxUid,
       };
@@ -249,11 +332,12 @@ export class ImapSyncService extends BaseEmailSyncService {
       totalMessages = mailboxStatus.messages || 0;
 
       if (totalMessages === 0) {
+        // Mailbox is empty - mark all emails as deleted but keep original folder
+        // (emails are already gone from server, no need to change folder)
         const result = await this.prisma.email.updateMany({
           where: { providerId, isDeleted: false },
           data: {
             isDeleted: true,
-            folder: 'TRASH',
           },
         });
         return result.count;
@@ -296,11 +380,12 @@ export class ImapSyncService extends BaseEmailSyncService {
 
         for (const email of flaggedEmails) {
           try {
+            // Mark as deleted but keep original folder
+            // (emails are gone from server, folder is just for local reference)
             await this.prisma.email.update({
               where: { id: email.id },
               data: {
                 isDeleted: true,
-                folder: 'TRASH',
                 metadata: mergeEmailStatusMetadata(
                   email.metadata as Record<string, any> | null,
                   'deleted',
@@ -335,11 +420,11 @@ export class ImapSyncService extends BaseEmailSyncService {
         }
 
         try {
+          // Mark as deleted but keep original folder
           await this.prisma.email.update({
             where: { id: email.id },
             data: {
               isDeleted: true,
-              folder: 'TRASH',
               metadata: mergeEmailStatusMetadata(
                 email.metadata as Record<string, any> | null,
                 'deleted',
@@ -399,8 +484,8 @@ export class ImapSyncService extends BaseEmailSyncService {
   }
 
   /**
-   * Full sync - fetch messages from last 60 days (max 1000) (BULK OPTIMIZED)
-   * Uses batch operations to reduce database queries from O(n) to O(1)
+   * Full sync - fetch messages from ALL folders (BULK OPTIMIZED)
+   * Syncs INBOX, Trash, Sent, and other folders
    */
   private async syncFull(
     client: ImapFlow,
@@ -412,19 +497,86 @@ export class ImapSyncService extends BaseEmailSyncService {
     newMessages: number;
     maxUid: number;
   }> {
-    this.logger.debug('Full sync - fetching messages from last 60 days');
+    this.logger.debug('Full sync - fetching messages from all folders');
 
-    const lock = await client.getMailboxLock('INBOX');
+    // Get all folders from database for this provider
+    const folders = await this.prisma.folder.findMany({
+      where: { providerId, isSelectable: true },
+      select: { path: true, name: true, specialUse: true },
+    });
+
+    // If no folders, sync just INBOX
+    const foldersToSync = folders.length > 0
+      ? folders.map(f => ({ path: f.path, name: f.name, specialUse: f.specialUse }))
+      : [{ path: 'INBOX', name: 'INBOX', specialUse: 'INBOX' }];
+
+    let totalMessagesProcessed = 0;
+    let totalNewMessages = 0;
+    let globalMaxUid = 0;
+
+    for (const folder of foldersToSync) {
+      try {
+        // Use the actual IMAP folder path, not normalized name
+        // This ensures IMAP operations work correctly with provider-specific folder names
+        const result = await this.syncFolder(
+          client,
+          folder.path,
+          folder.path, // Use actual path, not normalized name
+          providerId,
+          tenantId,
+        );
+        totalMessagesProcessed += result.messagesProcessed;
+        totalNewMessages += result.newMessages;
+        globalMaxUid = Math.max(globalMaxUid, result.maxUid);
+      } catch (folderError) {
+        const msg = folderError instanceof Error ? folderError.message : String(folderError);
+        this.logger.warn(`Failed to sync folder ${folder.path}: ${msg}`);
+        // Continue with other folders
+      }
+    }
+
+    this.logger.debug(`Full sync complete: ${totalMessagesProcessed} processed, ${totalNewMessages} new across ${foldersToSync.length} folders`);
+
+    return {
+      messagesProcessed: totalMessagesProcessed,
+      newMessages: totalNewMessages,
+      maxUid: globalMaxUid,
+    };
+  }
+
+  /**
+   * Sync a single folder - fetch messages from last 365 days
+   */
+  private async syncFolder(
+    client: ImapFlow,
+    folderPath: string,
+    folderName: string,
+    providerId: string,
+    tenantId: string,
+  ): Promise<{
+    messagesProcessed: number;
+    newMessages: number;
+    maxUid: number;
+  }> {
+    this.logger.debug(`Syncing folder: ${folderPath} (${folderName})`);
+
+    let lock;
+    try {
+      lock = await client.getMailboxLock(folderPath);
+    } catch (lockError) {
+      const msg = lockError instanceof Error ? lockError.message : String(lockError);
+      this.logger.warn(`Could not lock folder ${folderPath}: ${msg}`);
+      return { messagesProcessed: 0, newMessages: 0, maxUid: 0 };
+    }
 
     try {
-      // Calculate date 60 days ago
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-      const sinceDate = sixtyDaysAgo.toISOString().split('T')[0].replace(/-/g, '-');
+      // Calculate date range - use 365 days for all folders to capture older emails
+      // Previously INBOX used 60 days, but this missed older emails that users may still need
+      const daysToSync = 365; // 1 year for all folders
+      const sinceDate = new Date();
+      sinceDate.setDate(sinceDate.getDate() - daysToSync);
 
-      this.logger.debug(`Fetching IMAP messages since ${sinceDate}`);
-
-      const maxMessages = 1000;
+      const maxMessages = 500; // Reduced per folder to avoid timeout
 
       // STEP 1: Collect all message metadata from IMAP
       const allMessages: Array<{
@@ -436,19 +588,19 @@ export class ImapSyncService extends BaseEmailSyncService {
 
       // Use IMAP SEARCH to find messages since the date
       try {
-        const searchResults = await client.search({ since: sixtyDaysAgo }, { uid: true });
+        const searchResults = await client.search({ since: sinceDate }, { uid: true });
 
         if (!searchResults || searchResults.length === 0) {
-          this.logger.debug('No messages found in the last 60 days');
+          this.logger.debug(`No messages found in ${folderPath} in the last ${daysToSync} days`);
           return { messagesProcessed: 0, newMessages: 0, maxUid: 0 };
         }
 
-        // Sort UIDs in ascending order and limit to max 1000
+        // Sort UIDs in ascending order and limit
         const uidsToFetch = searchResults.sort((a, b) => a - b).slice(-maxMessages);
 
-        this.logger.debug(`Found ${searchResults.length} messages in last 60 days, fetching last ${uidsToFetch.length}`);
+        this.logger.debug(`Found ${searchResults.length} messages in ${folderPath}, fetching last ${uidsToFetch.length}`);
 
-        // Fetch messages in batches to avoid timeout
+        // Fetch messages in batches
         const batchSize = 100;
         for (let i = 0; i < uidsToFetch.length; i += batchSize) {
           const batch = uidsToFetch.slice(i, Math.min(i + batchSize, uidsToFetch.length));
@@ -469,10 +621,10 @@ export class ImapSyncService extends BaseEmailSyncService {
           }
         }
       } catch (searchError) {
-        // Fallback to fetching last 1000 messages if SEARCH fails
-        this.logger.warn(`IMAP SEARCH failed, falling back to sequence-based fetch: ${searchError instanceof Error ? searchError.message : String(searchError)}`);
+        // Fallback to fetching last N messages if SEARCH fails
+        this.logger.warn(`IMAP SEARCH failed for ${folderPath}, falling back to sequence-based fetch`);
 
-        const mailboxStatus = await client.status('INBOX', { messages: true });
+        const mailboxStatus = await client.status(folderPath, { messages: true });
         const totalMessages = mailboxStatus.messages || 0;
 
         if (totalMessages === 0) {
@@ -508,9 +660,10 @@ export class ImapSyncService extends BaseEmailSyncService {
         client,
         providerId,
         tenantId,
+        folderName, // Pass folder name
       );
 
-      this.logger.debug(`Processed ${result.messagesProcessed} messages from last 60 days`);
+      this.logger.debug(`Processed ${result.messagesProcessed} messages from ${folderPath}`);
 
       return result;
     } finally {
@@ -532,6 +685,7 @@ export class ImapSyncService extends BaseEmailSyncService {
     client: ImapFlow,
     providerId: string,
     tenantId: string,
+    folderName: string = 'INBOX',
   ): Promise<{
     messagesProcessed: number;
     newMessages: number;
@@ -545,13 +699,35 @@ export class ImapSyncService extends BaseEmailSyncService {
     const externalIds = messages.map((m) => m.uid.toString());
 
     // STEP 2: Batch check existing emails in ONE query
+    // IMPORTANT: Include folder in query because UIDs are unique per-folder, not globally!
+    // Without folder filter, we'd incorrectly match emails from other folders with same UID
     const existingEmails = await this.prisma.email.findMany({
-      where: { providerId, externalId: { in: externalIds } },
+      where: { providerId, externalId: { in: externalIds }, folder: folderName },
       select: { id: true, externalId: true },
     });
     const existingByExternalId = new Map(existingEmails.map((e) => [e.externalId, e.id]));
 
-    // STEP 3: Separate new vs existing messages
+    // STEP 2b: Extract all Message-IDs for detecting moved emails
+    // When an email is moved in IMAP, it gets a new UID but keeps the same Message-ID
+    const messageIds = messages
+      .map((m) => m.envelope?.messageId)
+      .filter((id): id is string => !!id);
+
+    // Find emails that may have been moved (same Message-ID, different UID)
+    const existingByMessageId = new Map<string, { id: string; externalId: string; folder: string }>();
+    if (messageIds.length > 0) {
+      const emailsByMessageId = await this.prisma.email.findMany({
+        where: { providerId, messageId: { in: messageIds } },
+        select: { id: true, externalId: true, messageId: true, folder: true },
+      });
+      for (const e of emailsByMessageId) {
+        if (e.messageId) {
+          existingByMessageId.set(e.messageId, { id: e.id, externalId: e.externalId, folder: e.folder });
+        }
+      }
+    }
+
+    // STEP 3: Separate new vs existing vs moved messages
     const newMessageData: Array<{
       uid: number;
       envelope: any;
@@ -563,14 +739,55 @@ export class ImapSyncService extends BaseEmailSyncService {
       flags: Set<string>;
       emailId: string;
     }> = [];
+    // Track emails that were moved (need to update externalId and folder)
+    const movedMessageData: Array<{
+      emailId: string;
+      newExternalId: string;
+      newFolder: string;
+      flags: Set<string>;
+    }> = [];
+
+    // DEBUG: Log what Message-IDs we're looking for
+    this.logger.debug(`Move detection: existingByMessageId has ${existingByMessageId.size} entries`);
+    if (existingByMessageId.size > 0) {
+      const sampleIds = Array.from(existingByMessageId.keys()).slice(0, 3);
+      this.logger.debug(`Move detection: Sample Message-IDs in DB: ${sampleIds.join(', ')}`);
+    }
 
     for (const msg of messages) {
       const externalId = msg.uid.toString();
       const existingId = existingByExternalId.get(externalId);
       if (existingId) {
+        // Same UID exists - just update flags
         updateMessageData.push({ uid: msg.uid, flags: msg.flags, emailId: existingId });
       } else {
-        newMessageData.push(msg);
+        // Check if this email exists with a different UID (was moved)
+        const messageId = msg.envelope?.messageId;
+
+        // DEBUG: Log what we're checking
+        this.logger.debug(`Move detection: Checking UID=${externalId}, messageId=${messageId || 'null'}`);
+
+        const existingByMsgId = messageId ? existingByMessageId.get(messageId) : undefined;
+
+        // DEBUG: Log lookup result
+        this.logger.debug(`Move detection: Lookup result for messageId=${messageId}: ${existingByMsgId ? `found (externalId=${existingByMsgId.externalId}, folder=${existingByMsgId.folder})` : 'NOT FOUND'}`);
+
+        if (existingByMsgId && existingByMsgId.externalId !== externalId) {
+          // Email was moved - update its externalId and folder
+          this.logger.debug(
+            `Detected moved email: messageId=${messageId}, oldUID=${existingByMsgId.externalId}, newUID=${externalId}, oldFolder=${existingByMsgId.folder}, newFolder=${folderName}`,
+          );
+          movedMessageData.push({
+            emailId: existingByMsgId.id,
+            newExternalId: externalId,
+            newFolder: folderName,
+            flags: msg.flags,
+          });
+        } else {
+          // Truly new email
+          this.logger.debug(`New email: UID=${externalId}, messageId=${messageId}`);
+          newMessageData.push(msg);
+        }
       }
     }
 
@@ -652,7 +869,8 @@ export class ImapSyncService extends BaseEmailSyncService {
       const isRead = flags.has('\\Seen');
       const isStarred = flags.has('\\Flagged');
       const isDeleted = flags.has('\\Deleted');
-      const folder = isDeleted ? 'TRASH' : 'INBOX';
+      // Use the folder from the IMAP mailbox, not from flags
+      const folder = folderName;
 
       const threadId = threadIdMap.get(msg.uid.toString()) || normalizeMessageId(messageId);
 
@@ -707,7 +925,7 @@ export class ImapSyncService extends BaseEmailSyncService {
           createdCount = newEmailRecords.length;
         }
 
-        // 6b. Bulk update existing emails using raw SQL
+        // 6b. Bulk update existing emails (same UID)
         if (updateMessageData.length > 0) {
           const updateExternalIds = updateMessageData.map((u) => u.uid.toString());
 
@@ -724,10 +942,10 @@ export class ImapSyncService extends BaseEmailSyncService {
           const unstarredIds = updateMessageData
             .filter((u) => !u.flags.has('\\Flagged'))
             .map((u) => u.uid.toString());
-          const deletedIds = updateMessageData
+          const deletedFlagIds = updateMessageData
             .filter((u) => u.flags.has('\\Deleted'))
             .map((u) => u.uid.toString());
-          const activeIds = updateMessageData
+          const activeFlagIds = updateMessageData
             .filter((u) => !u.flags.has('\\Deleted'))
             .map((u) => u.uid.toString());
 
@@ -759,21 +977,47 @@ export class ImapSyncService extends BaseEmailSyncService {
             });
           }
 
-          // Bulk update isDeleted and folder
-          if (deletedIds.length > 0) {
+          // Bulk update isDeleted flag (based on IMAP \Deleted flag)
+          if (deletedFlagIds.length > 0) {
             await tx.email.updateMany({
-              where: { providerId, externalId: { in: deletedIds } },
-              data: { isDeleted: true, folder: 'TRASH' },
+              where: { providerId, externalId: { in: deletedFlagIds } },
+              data: { isDeleted: true },
             });
           }
-          if (activeIds.length > 0) {
+          if (activeFlagIds.length > 0) {
             await tx.email.updateMany({
-              where: { providerId, externalId: { in: activeIds } },
-              data: { isDeleted: false, folder: 'INBOX' },
+              where: { providerId, externalId: { in: activeFlagIds } },
+              data: { isDeleted: false },
             });
           }
 
+          // Update folder for ALL emails found in this folder
+          // This ensures folder stays in sync with IMAP
+          await tx.email.updateMany({
+            where: { providerId, externalId: { in: updateExternalIds } },
+            data: { folder: folderName },
+          });
+
           updatedCount = updateExternalIds.length;
+        }
+
+        // 6c. Update moved emails (same Message-ID, different UID)
+        // This handles emails that were moved between folders in IMAP
+        if (movedMessageData.length > 0) {
+          for (const moved of movedMessageData) {
+            await tx.email.update({
+              where: { id: moved.emailId },
+              data: {
+                externalId: moved.newExternalId,
+                folder: moved.newFolder,
+                isRead: moved.flags.has('\\Seen'),
+                isStarred: moved.flags.has('\\Flagged'),
+                isDeleted: moved.flags.has('\\Deleted'),
+              },
+            });
+          }
+          updatedCount += movedMessageData.length;
+          this.logger.log(`Updated ${movedMessageData.length} moved emails to folder ${folderName}`);
         }
       },
       { timeout: 60000 },

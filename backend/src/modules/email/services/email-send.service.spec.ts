@@ -49,6 +49,9 @@ describe('EmailSendService', () => {
             scheduledEmail: {
               create: jest.fn(),
             },
+            folder: {
+              findFirst: jest.fn().mockResolvedValue({ path: 'SENT', name: 'Sent' }),
+            },
           },
         },
         {

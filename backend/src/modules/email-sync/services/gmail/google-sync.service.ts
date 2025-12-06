@@ -433,12 +433,11 @@ export class GoogleSyncService extends BaseEmailSyncService {
     providerId: string,
     tenantId: string,
   ): Promise<void> {
-    const existing = await this.prisma.email.findUnique({
+    // Gmail messageIds are globally unique, so we can find by providerId + externalId
+    const existing = await this.prisma.email.findFirst({
       where: {
-        providerId_externalId: {
-          providerId,
-          externalId: messageId,
-        },
+        providerId,
+        externalId: messageId,
       },
       select: {
         id: true,
@@ -524,12 +523,11 @@ export class GoogleSyncService extends BaseEmailSyncService {
     providerId: string,
     tenantId: string,
   ): Promise<void> {
-    const existing = await this.prisma.email.findUnique({
+    // Gmail messageIds are globally unique, so we can find by providerId + externalId
+    const existing = await this.prisma.email.findFirst({
       where: {
-        providerId_externalId: {
-          providerId,
-          externalId: messageId,
-        },
+        providerId,
+        externalId: messageId,
       },
       select: {
         id: true,
@@ -749,12 +747,11 @@ export class GoogleSyncService extends BaseEmailSyncService {
     tenantId: string,
     messageId: string,
   ): Promise<void> {
-    const existing = await this.prisma.email.findUnique({
+    // Gmail messageIds are globally unique, so we can find by providerId + externalId
+    const existing = await this.prisma.email.findFirst({
       where: {
-        providerId_externalId: {
-          providerId,
-          externalId: messageId,
-        },
+        providerId,
+        externalId: messageId,
       },
       select: {
         id: true,

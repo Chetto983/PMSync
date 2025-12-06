@@ -24,11 +24,13 @@ export class MicrosoftFolderService {
 
   /**
    * Determine folder name from Microsoft folder ID
+   * Returns the actual folder name from the provider, not normalized names
+   * This ensures sync-back operations work correctly with provider-specific folder names
    *
    * @param parentFolderId - Microsoft folder ID
    * @param providerId - Provider config ID
    * @param isDraft - Whether the message is a draft
-   * @returns Normalized folder name
+   * @returns Actual folder name from the provider
    */
   async determineFolderFromParentId(
     parentFolderId: string | undefined,
@@ -37,7 +39,7 @@ export class MicrosoftFolderService {
   ): Promise<string> {
     // Default fallback
     if (!parentFolderId) {
-      return isDraft ? 'DRAFTS' : 'INBOX';
+      return isDraft ? 'Drafts' : 'Inbox';
     }
 
     try {
@@ -50,68 +52,24 @@ export class MicrosoftFolderService {
         select: {
           specialUse: true,
           name: true,
+          path: true,
           id: true,
         },
       });
 
       if (!folder) {
-        return isDraft ? 'DRAFTS' : 'INBOX';
+        return isDraft ? 'Drafts' : 'Inbox';
       }
 
-      // Use specialUse if available (already normalized to INBOX, SENT, TRASH, etc.)
-      if (folder.specialUse) {
-        return folder.specialUse.replace('\\', '').toUpperCase();
-      }
-
-      // Normalize Italian folder names to standard names
-      const normalized = folder.name.toLowerCase().trim();
-      if (normalized === 'posta in arrivo' || normalized === 'inbox' || normalized === 'posteingang')
-        return 'INBOX';
-      if (
-        normalized === 'posta inviata' ||
-        normalized === 'sent' ||
-        normalized === 'sent items' ||
-        normalized === 'elementi inviati' ||
-        normalized === 'inviata'
-      )
-        return 'SENT';
-      if (
-        normalized === 'posta eliminata' ||
-        normalized === 'trash' ||
-        normalized === 'deleted items' ||
-        normalized === 'elementi eliminati' ||
-        normalized === 'cestino' ||
-        normalized === 'eliminata'
-      )
-        return 'TRASH';
-      if (normalized === 'bozze' || normalized === 'draft' || normalized === 'drafts')
-        return 'DRAFTS';
-      if (
-        normalized === 'posta indesiderata' ||
-        normalized === 'spam' ||
-        normalized === 'junk' ||
-        normalized === 'junk email' ||
-        normalized === 'post indiserata'
-      )
-        return 'SPAM';
-      if (
-        normalized === 'archive' ||
-        normalized === 'archivia' ||
-        normalized === 'archivio' ||
-        normalized === 'all mail' ||
-        normalized === 'all'
-      )
-        return 'ARCHIVE';
-      if (normalized === 'posta in uscita' || normalized === 'outbox') return 'OUTBOX';
-
-      // Return original name if no mapping found
-      return folder.name.toUpperCase();
+      // Return the actual folder name from the provider
+      // This ensures consistency with the provider's folder structure
+      return folder.name;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.warn(
         `Failed to determine folder from parentId ${parentFolderId}: ${errorMessage}`,
       );
-      return isDraft ? 'DRAFTS' : 'INBOX';
+      return isDraft ? 'Drafts' : 'Inbox';
     }
   }
 

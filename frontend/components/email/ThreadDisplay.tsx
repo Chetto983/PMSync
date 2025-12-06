@@ -37,6 +37,7 @@ import {
   File,
   Clock,
   Mail,
+  Edit,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailStore, type Email } from '@/stores/email-store';
@@ -63,6 +64,8 @@ interface ThreadDisplayProps {
   onReplyAll?: (email: Email) => void;
   onForward?: (email: Email) => void;
   onLabelsChange?: (emailId: string, labelIds: string[], updatedEmail?: Email) => void;
+  /** Callback when user wants to edit a draft */
+  onEditDraft?: (email: Email) => void;
 }
 
 /**
@@ -108,6 +111,7 @@ interface ThreadMessageProps {
   onReply?: (email: Email) => void;
   onReplyAll?: (email: Email) => void;
   onForward?: (email: Email) => void;
+  onEditDraft?: (email: Email) => void;
   onAttachmentOpen: (attachment: any, e: React.MouseEvent) => void;
   attachmentTooltip: string;
   isDark: boolean;
@@ -121,6 +125,7 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
   onReply,
   onReplyAll,
   onForward,
+  onEditDraft,
   onAttachmentOpen,
   attachmentTooltip,
   isDark,
@@ -128,6 +133,16 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
 }) => {
   const emailFromData = parseEmailFrom(email.from);
   const emailHtml = email.bodyHtml || email.bodyText || email.snippet || '';
+
+  // DEBUG: Log body data received in ThreadMessage
+  console.log('[ThreadMessage] Body data:', {
+    emailId: email.id,
+    subject: email.subject?.substring(0, 30),
+    bodyHtmlLength: email.bodyHtml?.length || 0,
+    bodyTextLength: email.bodyText?.length || 0,
+    snippetLength: email.snippet?.length || 0,
+    emailHtmlLength: emailHtml.length,
+  });
   const nonInlineAttachments = email.attachments?.filter((a) => !a.isInline) ?? [];
   const hasAttachments = nonInlineAttachments.length > 0;
   const isUnread = !email.isRead;
@@ -287,21 +302,37 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
 
             {/* Quick Actions */}
             <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
-              <Tooltip title="Reply">
-                <IconButton size="small" onClick={() => onReply?.(email)}>
-                  <Reply size={16} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Reply All">
-                <IconButton size="small" onClick={() => onReplyAll?.(email)}>
-                  <ReplyAll size={16} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Forward">
-                <IconButton size="small" onClick={() => onForward?.(email)}>
-                  <Forward size={16} />
-                </IconButton>
-              </Tooltip>
+              {/* Show Edit button for drafts */}
+              {(email.folder === 'DRAFTS' || (email as any).isDraft || email.externalId?.startsWith('draft-')) && onEditDraft ? (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Edit size={14} />}
+                  onClick={(e) => { e.stopPropagation(); onEditDraft(email); }}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Edit
+                </Button>
+              ) : (
+                <>
+                  <Tooltip title="Reply">
+                    <IconButton size="small" onClick={() => onReply?.(email)}>
+                      <Reply size={16} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Reply All">
+                    <IconButton size="small" onClick={() => onReplyAll?.(email)}>
+                      <ReplyAll size={16} />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Forward">
+                    <IconButton size="small" onClick={() => onForward?.(email)}>
+                      <Forward size={16} />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
             </Stack>
           </Box>
 
@@ -386,6 +417,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   onReplyAll,
   onForward,
   onLabelsChange,
+  onEditDraft,
 }) => {
   const t = useTranslations();
   const theme = useTheme();
@@ -651,21 +683,43 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        <Tooltip title={t.dashboard.emailView.reply}>
-          <IconButton size="small" onClick={() => onReply?.(email)}>
-            <Reply size={18} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={t.dashboard.emailView.replyAll}>
-          <IconButton size="small" onClick={() => onReplyAll?.(email)}>
-            <ReplyAll size={18} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={t.dashboard.emailView.forward}>
-          <IconButton size="small" onClick={() => onForward?.(email)}>
-            <Forward size={18} />
-          </IconButton>
-        </Tooltip>
+        {/* Edit Draft button - shows for draft emails */}
+        {/* Check multiple conditions: folder name, isDraft flag, or draft- prefix in externalId */}
+        {(email.folder === 'DRAFTS' || (email as any).isDraft || email.externalId?.startsWith('draft-')) && onEditDraft && (
+          <Tooltip title={(t as any).common?.edit || 'Edit Draft'}>
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              startIcon={<Edit size={16} />}
+              onClick={() => onEditDraft(email)}
+              sx={{ mr: 1 }}
+            >
+              {(t as any).common?.edit || 'Edit'}
+            </Button>
+          </Tooltip>
+        )}
+
+        {/* Hide Reply/Forward for drafts since they should be edited instead */}
+        {!(email.folder === 'DRAFTS' || (email as any).isDraft || email.externalId?.startsWith('draft-')) && (
+          <>
+            <Tooltip title={t.dashboard.emailView.reply}>
+              <IconButton size="small" onClick={() => onReply?.(email)}>
+                <Reply size={18} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t.dashboard.emailView.replyAll}>
+              <IconButton size="small" onClick={() => onReplyAll?.(email)}>
+                <ReplyAll size={18} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t.dashboard.emailView.forward}>
+              <IconButton size="small" onClick={() => onForward?.(email)}>
+                <Forward size={18} />
+              </IconButton>
+            </Tooltip>
+          </>
+        )}
 
         <Box sx={{ flex: 1 }} />
 
@@ -785,6 +839,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
               onReply={onReply}
               onReplyAll={onReplyAll}
               onForward={onForward}
+              onEditDraft={onEditDraft}
               onAttachmentOpen={handleAttachmentOpen}
               attachmentTooltip={attachmentTooltip}
               isDark={isDark}

@@ -327,19 +327,15 @@ export class EmailSyncBackService {
         break;
 
       case 'moveToFolder':
-        // Map folder names to Outlook folder IDs
-        const folderMap: Record<string, string> = {
-          'INBOX': 'inbox',
-          'SENT': 'sentitems',
-          'DRAFTS': 'drafts',
-          'TRASH': 'deleteditems',
-        };
-
-        const destinationId = folderMap[operation.folder || ''] || 'inbox';
+        // Look up the actual folder to determine well-known folder ID
+        const destFolderId = await this.getMicrosoftFolderId(
+          operation.providerId,
+          operation.folder || 'INBOX',
+        );
         await client
           .api(`/me/messages/${operation.externalId}/move`)
           .post({
-            destinationId,
+            destinationId: destFolderId,
           });
         break;
 
@@ -452,14 +448,19 @@ export class EmailSyncBackService {
       // Use sourceFolder from operation if provided (critical for IMAP sync-back
       // since DB folder may already be updated before sync runs)
       // Fall back to looking up from email record
-      let currentFolder = operation.sourceFolder;
-      if (!currentFolder) {
+      let normalizedFolder = operation.sourceFolder;
+      if (!normalizedFolder) {
         const email = await this.prisma.email.findUnique({
           where: { id: operation.emailId },
           select: { folder: true },
         });
-        currentFolder = email?.folder || 'INBOX';
+        normalizedFolder = email?.folder || 'INBOX';
       }
+
+      // Convert normalized folder name to actual IMAP path
+      // (IMAP servers use different names like 'INBOX' vs 'Inbox', 'Trash' vs 'Cestino')
+      const currentFolder = await this.getImapFolderPath(provider.id, normalizedFolder);
+      this.logger.debug(`IMAP sync-back: opening folder "${currentFolder}" for ${normalizedFolder}`);
 
       // Open mailbox
       await client.mailboxOpen(currentFolder);
@@ -499,15 +500,19 @@ export class EmailSyncBackService {
         case 'delete':
           // Move to Trash folder (soft delete) - not hard delete
           // Hard delete is only for 'hardDelete' operation when user permanently deletes from Trash
+          // Look up actual trash folder path from database (providers use different names)
+          const trashFolder = await this.getImapFolderPath(provider.id, 'TRASH');
+          this.logger.debug(`IMAP delete: using trash folder path "${trashFolder}"`);
           try {
-            await client.messageMove({ uid }, 'Trash', { uid: true });
-            this.logger.log(`✅ IMAP: Moved message ${uid} to Trash`);
-          } catch {
+            await client.messageMove({ uid }, trashFolder, { uid: true });
+            this.logger.log(`✅ IMAP: Moved message ${uid} to ${trashFolder}`);
+          } catch (moveError) {
             // Fallback to COPY + DELETE if MOVE not supported
-            this.logger.warn(`MOVE to Trash not supported, using COPY + DELETE fallback`);
-            await client.messageCopy({ uid }, 'Trash', { uid: true });
+            const moveMsg = moveError instanceof Error ? moveError.message : String(moveError);
+            this.logger.warn(`MOVE to ${trashFolder} failed (${moveMsg}), using COPY + DELETE fallback`);
+            await client.messageCopy({ uid }, trashFolder, { uid: true });
             await client.messageDelete({ uid }, { uid: true });
-            this.logger.log(`✅ IMAP: Moved message ${uid} to Trash (via COPY+DELETE)`);
+            this.logger.log(`✅ IMAP: Moved message ${uid} to ${trashFolder} (via COPY+DELETE)`);
           }
           break;
 
@@ -516,25 +521,18 @@ export class EmailSyncBackService {
             throw new Error('Target folder not specified for move operation');
           }
 
-          // Map folder names to IMAP folders
-          const folderMap: Record<string, string> = {
-            'INBOX': 'INBOX',
-            'SENT': 'Sent',
-            'DRAFTS': 'Drafts',
-            'TRASH': 'Trash',
-            'SPAM': 'Spam',
-            'JUNK': 'Junk',
-          };
-
-          const targetFolder = folderMap[operation.folder] || operation.folder;
+          // Look up the actual folder path from database instead of using hardcoded mappings
+          const targetFolder = await this.getImapFolderPath(provider.id, operation.folder);
+          this.logger.debug(`IMAP moveToFolder: using folder path "${targetFolder}" for ${operation.folder}`);
 
           // Use MOVE command if supported, otherwise COPY + DELETE
           try {
             await client.messageMove({ uid }, targetFolder, { uid: true });
             this.logger.log(`✅ IMAP: Moved message ${uid} to ${targetFolder}`);
-          } catch {
+          } catch (moveErr) {
             // Fallback to COPY + DELETE with proper expunge
-            this.logger.warn(`MOVE not supported, using COPY + DELETE fallback`);
+            const moveErrMsg = moveErr instanceof Error ? moveErr.message : String(moveErr);
+            this.logger.warn(`MOVE to ${targetFolder} failed (${moveErrMsg}), using COPY + DELETE fallback`);
             await client.messageCopy({ uid }, targetFolder, { uid: true });
             // Use messageDelete which marks as \Deleted AND expunges
             await client.messageDelete({ uid }, { uid: true });
@@ -821,16 +819,6 @@ export class EmailSyncBackService {
       authProvider: (done) => done(null, accessToken),
     });
 
-    const folderMap: Record<string, string> = {
-      INBOX: 'inbox',
-      SENT: 'sentitems',
-      DRAFTS: 'drafts',
-      TRASH: 'deleteditems',
-      JUNK: 'junkemail',
-      SPAM: 'junkemail',
-      ARCHIVE: 'archive',
-    };
-
     const requests: { method: string; url: string; id: string; headers?: any; body?: any }[] = [];
     let reqId = 1;
 
@@ -871,13 +859,9 @@ export class EmailSyncBackService {
           enqueue('PATCH', `/me/messages/${op.externalId}`, { flag: { flagStatus: 'notFlagged' } });
           break;
         case 'moveToFolder': {
-          const dest = op.folder ? folderMap[op.folder] : undefined;
-          if (dest) {
-            enqueue('POST', `/me/messages/${op.externalId}/move`, { destinationId: dest });
-          } else {
-            // Unknown folder: fallback to per-item sync to resolve id
-            await this.syncOperationToProvider(op);
-          }
+          // Look up folder ID by path or specialUse
+          const destId = await this.getMicrosoftFolderId(op.providerId, op.folder || 'INBOX');
+          enqueue('POST', `/me/messages/${op.externalId}/move`, { destinationId: destId });
           break;
         }
         default:
@@ -894,5 +878,113 @@ export class EmailSyncBackService {
         `ms batch (${batch.length})`,
       );
     }
+  }
+
+  /**
+   * Get the actual IMAP folder path for a given specialUse or folder name
+   * Different IMAP servers use different folder names (e.g., 'Trash' vs 'trash' vs 'Cestino')
+   * This looks up the actual path from the database where folders were synced
+   *
+   * @param providerId - The provider ID
+   * @param folderName - The normalized folder name (e.g., 'TRASH', 'SENT', 'INBOX')
+   * @returns The actual IMAP folder path
+   */
+  private async getImapFolderPath(providerId: string, folderName: string): Promise<string> {
+    // Try to find the folder by specialUse first (most reliable)
+    const folder = await this.prisma.folder.findFirst({
+      where: {
+        providerId,
+        OR: [
+          { specialUse: folderName },
+          { specialUse: folderName.toUpperCase() },
+          { name: { equals: folderName, mode: 'insensitive' } },
+        ],
+      },
+      select: { path: true, name: true },
+    });
+
+    if (folder) {
+      this.logger.debug(`Found IMAP folder for ${folderName}: path="${folder.path}"`);
+      return folder.path;
+    }
+
+    // Fallback mappings for common folder names if not found in DB
+    const fallbackMap: Record<string, string> = {
+      'INBOX': 'INBOX',
+      'TRASH': 'Trash',
+      'SENT': 'Sent',
+      'DRAFTS': 'Drafts',
+      'JUNK': 'Junk',
+      'SPAM': 'Spam',
+      'ARCHIVE': 'Archive',
+    };
+
+    const fallback = fallbackMap[folderName.toUpperCase()] || folderName;
+    this.logger.warn(`Folder ${folderName} not found in DB for provider ${providerId}, using fallback: ${fallback}`);
+    return fallback;
+  }
+
+  /**
+   * Get Microsoft well-known folder ID for a folder path or specialUse
+   * Microsoft Graph API uses well-known folder names (inbox, sentitems, deleteditems, etc.)
+   * This looks up the folder by path or specialUse and maps to the correct Graph API folder ID
+   *
+   * @param providerId - The provider ID
+   * @param folderNameOrPath - The folder name/path or specialUse (e.g., 'TRASH', 'Posta Eliminata')
+   * @returns Microsoft Graph API folder ID
+   */
+  private async getMicrosoftFolderId(providerId: string, folderNameOrPath: string): Promise<string> {
+    // Well-known folder ID mapping (specialUse -> Graph API ID)
+    const wellKnownMap: Record<string, string> = {
+      INBOX: 'inbox',
+      SENT: 'sentitems',
+      DRAFTS: 'drafts',
+      TRASH: 'deleteditems',
+      JUNK: 'junkemail',
+      SPAM: 'junkemail',
+      ARCHIVE: 'archive',
+    };
+
+    // If it's already a well-known name, return directly
+    const upperName = folderNameOrPath.toUpperCase();
+    if (wellKnownMap[upperName]) {
+      return wellKnownMap[upperName];
+    }
+
+    // Try to find the folder by path to get its specialUse
+    const folder = await this.prisma.folder.findFirst({
+      where: {
+        providerId,
+        OR: [
+          { path: folderNameOrPath },
+          { name: { equals: folderNameOrPath, mode: 'insensitive' } },
+          { specialUse: { equals: folderNameOrPath, mode: 'insensitive' } },
+        ],
+      },
+      select: { path: true, name: true, specialUse: true },
+    });
+
+    if (folder) {
+      // If we found the folder and it has a specialUse, map to well-known ID
+      if (folder.specialUse) {
+        const mappedId = wellKnownMap[folder.specialUse.toUpperCase()];
+        if (mappedId) {
+          this.logger.debug(
+            `Microsoft folder lookup: ${folderNameOrPath} -> specialUse=${folder.specialUse} -> ${mappedId}`,
+          );
+          return mappedId;
+        }
+      }
+
+      // Otherwise, use the folder's path (Microsoft folder ID/GUID)
+      this.logger.debug(`Microsoft folder lookup: ${folderNameOrPath} -> path=${folder.path}`);
+      return folder.path;
+    }
+
+    // Fallback: return the original name, let Microsoft handle it
+    this.logger.warn(
+      `Microsoft folder ${folderNameOrPath} not found in DB for provider ${providerId}, using as-is`,
+    );
+    return folderNameOrPath;
   }
 }

@@ -216,9 +216,12 @@ export class CrossProviderConflictService {
     const isReadAny = states.some((s) => s.isRead);
     const isStarredAny = states.some((s) => s.isStarred);
 
-    // For folder, use the most recent non-INBOX folder, or INBOX if all are INBOX
-    const nonInboxFolder = states.find((s) => s.folder !== 'INBOX')?.folder;
-    const folder = nonInboxFolder || 'INBOX';
+    // For folder, use the most recent state's folder (folder conflicts resolved by last write)
+    // Note: We don't normalize folder names here - actual folder paths are preserved
+    const sortedByDate = [...states].sort(
+      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
+    );
+    const folder = sortedByDate[0].folder;
 
     // Union of all labels
     const allLabels = [...new Set(states.flatMap((s) => s.labels))];
@@ -240,9 +243,19 @@ export class CrossProviderConflictService {
     const isReadAll = states.every((s) => s.isRead);
     const isStarredAll = states.every((s) => s.isStarred);
 
-    // For folder, only use if all agree, otherwise use INBOX
+    // For folder, only use if all agree, otherwise use most recent
+    // Note: We don't normalize folder names - actual folder paths are preserved
     const folders = new Set(states.map((s) => s.folder));
-    const folder = folders.size === 1 ? states[0].folder : 'INBOX';
+    let folder: string;
+    if (folders.size === 1) {
+      folder = states[0].folder;
+    } else {
+      // If folders don't agree, use the most recently updated state's folder
+      const sortedByDate = [...states].sort(
+        (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
+      );
+      folder = sortedByDate[0].folder;
+    }
 
     // Intersection of labels (only labels present in all states)
     const labelSets = states.map((s) => new Set(s.labels));

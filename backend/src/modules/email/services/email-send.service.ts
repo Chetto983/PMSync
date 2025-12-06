@@ -107,13 +107,31 @@ export class EmailSendService {
           : [];
 
       // Create provider factory config (Zero createDriver pattern)
+      // For IMAP/generic providers, include SMTP configuration in metadata
+      const isImapProvider = provider.providerType === 'imap' || provider.providerType === 'generic';
+
+      // For IMAP providers, use SMTP password (falls back to IMAP password)
+      const accessToken = isImapProvider
+        ? await this.getSmtpPassword(provider)
+        : await this.getAccessToken(provider);
+
       const providerConfig: ProviderConfigType = {
         userId: data.tenantId,
         providerId: provider.id,
         providerType: provider.providerType as 'google' | 'microsoft' | 'imap',
         email: provider.email,
-        accessToken: await this.getAccessToken(provider),
+        accessToken,
         refreshToken: '', // Token refresh is delegated to OAuth service layer
+        ...(isImapProvider && {
+          metadata: {
+            imapHost: provider.imapHost,
+            imapPort: provider.imapPort,
+            imapSecure: provider.imapUseTls,
+            smtpHost: provider.smtpHost,
+            smtpPort: provider.smtpPort,
+            smtpSecure: provider.smtpUseTls,
+          },
+        }),
       };
 
       // Use Provider Factory to create provider instance
@@ -177,6 +195,9 @@ export class EmailSendService {
       filename: string;
     }[],
   ) {
+    // Get the actual sent folder name for this provider
+    const sentFolder = await this.getSentFolderName(providerId);
+
     await this.prisma.email.create({
       data: {
         tenantId: data.tenantId,
@@ -191,7 +212,7 @@ export class EmailSendService {
         subject: data.subject,
         bodyText: data.bodyText,
         bodyHtml: data.bodyHtml,
-        folder: 'SENT',
+        folder: sentFolder,
         labels: [],
         isRead: true,
         isStarred: false,
@@ -229,6 +250,22 @@ export class EmailSendService {
   }
 
   /**
+   * Get decrypted SMTP password for IMAP/generic providers
+   * Falls back to IMAP password if SMTP password not set
+   */
+  private async getSmtpPassword(provider: ProviderConfig): Promise<string> {
+    // Try SMTP password first
+    if (provider.smtpPassword && provider.smtpEncryptionIv) {
+      return this.crypto.decrypt(provider.smtpPassword, provider.smtpEncryptionIv);
+    }
+    // Fall back to IMAP password
+    if (provider.imapPassword && provider.imapEncryptionIv) {
+      return this.crypto.decrypt(provider.imapPassword, provider.imapEncryptionIv);
+    }
+    return '';
+  }
+
+  /**
    * Ensure provider belongs to tenant, is active, and supports email.
    */
   private async getActiveEmailProvider(tenantId: string, providerId: string) {
@@ -246,6 +283,25 @@ export class EmailSendService {
     }
 
     return provider;
+  }
+
+  /**
+   * Get the actual sent folder path for a provider
+   * Returns the real folder path from the provider (e.g., 'Posta Inviata', 'Sent Items')
+   * using RFC 6154 specialUse attribute instead of hardcoded folder names
+   */
+  private async getSentFolderName(providerId: string): Promise<string> {
+    // Look up the sent folder by specialUse attribute (RFC 6154)
+    const folder = await this.prisma.folder.findFirst({
+      where: {
+        providerId,
+        specialUse: { equals: 'SENT', mode: 'insensitive' },
+      },
+      select: { path: true, name: true },
+    });
+
+    // Return actual folder path, or fallback to 'SENT' for providers that use standard names (Gmail)
+    return folder?.path || folder?.name || 'SENT';
   }
 
   /**

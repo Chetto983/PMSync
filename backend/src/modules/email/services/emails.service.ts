@@ -7,6 +7,8 @@ import { RealtimeEventsService } from '../../realtime/services/realtime-events.s
 
 export interface EmailListFilters {
   folder?: string;
+  /** Filter by folder specialUse type (INBOX, SENT, TRASH, etc.) - for aggregation queries */
+  specialUse?: string;
   isRead?: boolean;
   isStarred?: boolean;
   hasAttachments?: boolean;
@@ -39,6 +41,45 @@ export class EmailsService {
   ) {}
 
   /**
+   * Get folder paths by their RFC 6154 specialUse type
+   * This is used to filter emails by folder type regardless of localized folder names
+   */
+  private async getFolderPathsBySpecialUse(
+    tenantId: string,
+    specialUseTypes: string[],
+    providerId?: string,
+  ): Promise<string[]> {
+    const folders = await this.prisma.folder.findMany({
+      where: {
+        tenantId,
+        ...(providerId && { providerId }),
+        specialUse: { in: specialUseTypes, mode: 'insensitive' },
+      },
+      select: { path: true },
+    });
+    return folders.map((f) => f.path);
+  }
+
+  /**
+   * Check if a folder path has a specific specialUse type
+   */
+  private async isFolderSpecialUse(
+    providerId: string,
+    folderPath: string,
+    specialUseType: string,
+  ): Promise<boolean> {
+    const folder = await this.prisma.folder.findFirst({
+      where: {
+        providerId,
+        path: { equals: folderPath, mode: 'insensitive' },
+        specialUse: { equals: specialUseType, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+    return !!folder;
+  }
+
+  /**
    * Recalculate and emit folder counts for affected folders
    * Only calculates if tenant has active WebSocket connections to avoid wasting resources
    */
@@ -55,13 +96,13 @@ export class EmailsService {
         return;
       }
 
-      // Get folder records to map path -> id
+      // Get folder records to map path -> id (include specialUse for trash detection)
       const folderRecords = await this.prisma.folder.findMany({
         where: {
           providerId,
           path: { in: folders, mode: 'insensitive' },
         },
-        select: { id: true, path: true, name: true },
+        select: { id: true, path: true, name: true, specialUse: true },
       });
 
       // Create a map for quick lookup: path -> folder record
@@ -71,6 +112,8 @@ export class EmailsService {
 
       for (const folder of folders) {
         const folderRecord = folderMap.get(folder.toUpperCase());
+        // Check if folder is TRASH by specialUse attribute (locale-independent)
+        const isTrashFolder = folderRecord?.specialUse?.toUpperCase() === 'TRASH';
 
         // Count total and unread emails in this folder
         const [totalCount, unreadCount] = await Promise.all([
@@ -79,7 +122,7 @@ export class EmailsService {
               tenantId,
               providerId,
               folder: { equals: folder, mode: 'insensitive' },
-              isDeleted: folder.toUpperCase() === 'TRASH' ? undefined : false,
+              isDeleted: isTrashFolder ? undefined : false,
             },
           }),
           this.prisma.email.count({
@@ -87,7 +130,7 @@ export class EmailsService {
               tenantId,
               providerId,
               folder: { equals: folder, mode: 'insensitive' },
-              isDeleted: folder.toUpperCase() === 'TRASH' ? undefined : false,
+              isDeleted: isTrashFolder ? undefined : false,
               isRead: false,
             },
           }),
@@ -123,13 +166,38 @@ export class EmailsService {
 
     const skip = (page - 1) * limit;
 
+    // Build folder filter - supports both direct folder path and specialUse aggregation
+    let folderFilter: Prisma.EmailWhereInput = {};
+    let isTrashView = false;
+
+    if (filters.specialUse) {
+      // Aggregation query: find all folders with this specialUse type across providers
+      const foldersWithSpecialUse = await this.prisma.folder.findMany({
+        where: {
+          tenantId,
+          ...(providerId && { providerId }),
+          specialUse: { equals: filters.specialUse, mode: 'insensitive' },
+        },
+        select: { path: true },
+      });
+
+      if (foldersWithSpecialUse.length > 0) {
+        const folderPaths = foldersWithSpecialUse.map(f => f.path);
+        folderFilter = { folder: { in: folderPaths, mode: 'insensitive' } };
+        isTrashView = filters.specialUse.toUpperCase() === 'TRASH';
+      }
+    } else if (filters.folder) {
+      folderFilter = { folder: { equals: filters.folder, mode: 'insensitive' } };
+      isTrashView = filters.folder.toUpperCase() === 'TRASH';
+    }
+
     // Build where clause
     const where: Prisma.EmailWhereInput = {
       tenantId,
       ...(providerId && { providerId }),
-      ...(filters.folder && { folder: { equals: filters.folder, mode: 'insensitive' } }),
+      ...folderFilter,
       // Only show deleted emails if we're viewing the TRASH folder
-      ...(!filters.folder || filters.folder.toUpperCase() !== 'TRASH' ? { isDeleted: false } : {}),
+      ...(!isTrashView ? { isDeleted: false } : {}),
       ...(filters.isRead !== undefined && { isRead: filters.isRead }),
       ...(filters.isStarred !== undefined && { isStarred: filters.isStarred }),
       ...(filters.hasAttachments
@@ -219,8 +287,12 @@ export class EmailsService {
       }),
     ]);
 
-    // Debug: log what we're returning
+    // Debug: log what we're returning including body data
     this.logger.debug(`[listEmails] Returning ${emails.length} emails (total: ${total}) for tenantId=${tenantId}, providerId=${providerId || 'all'}, folder=${filters.folder || 'none'}`);
+    if (emails.length > 0) {
+      const firstEmail = emails[0] as any;
+      this.logger.debug(`[listEmails] First email body data: id=${firstEmail.id}, bodyHtmlLen=${firstEmail.bodyHtml?.length || 0}, bodyTextLen=${firstEmail.bodyText?.length || 0}, snippetLen=${firstEmail.snippet?.length || 0}`)
+    }
 
     return {
       emails,
@@ -436,8 +508,8 @@ export class EmailsService {
   }
 
   /**
-   * Delete email - Mark as deleted and move to TRASH
-   * Syncs to provider immediately
+   * Delete email - Sync to provider, provider handles folder move
+   * Next sync updates our DB with actual folder from provider
    */
   async deleteEmail(id: string, tenantId: string) {
     const email = await this.prisma.email.findFirst({
@@ -448,8 +520,8 @@ export class EmailsService {
       throw new NotFoundException('Email not found');
     }
 
-    // If the email is already in trash, perform a permanent delete
-    if (email.folder === 'TRASH' && email.isDeleted) {
+    // If already deleted, permanent delete
+    if (email.isDeleted) {
       await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
       await this.prisma.email.delete({ where: { id } });
 
@@ -460,33 +532,28 @@ export class EmailsService {
           providerId: email.providerId,
           tenantId: email.tenantId,
           operation: 'hardDelete',
-          sourceFolder: email.folder, // Where message is on IMAP (should be TRASH)
+          sourceFolder: email.folder,
         })
         .catch((error) => {
-          this.logger.error(`Failed to sync permanent email deletion to provider: ${error.message}`);
+          this.logger.error(`Failed to sync permanent delete: ${error.message}`);
         });
 
-      // Update folder counts after permanent delete
-      this.updateFolderCounts(tenantId, email.providerId, ['TRASH']).catch((error) => {
+      this.updateFolderCounts(tenantId, email.providerId, [email.folder]).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
       });
 
-      this.logger.log(`Email ${id} permanently deleted and synced to provider`);
       return { success: true };
     }
 
-    // Mark as deleted and move to TRASH folder
+    // Mark deleted for UI - provider moves to trash, sync updates folder
     await this.prisma.email.update({
       where: { id },
-      data: {
-        isDeleted: true,
-        folder: 'TRASH',
-      },
+      data: { isDeleted: true },
     });
 
     await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
 
-    // Sync delete to provider (async, don't wait)
+    // Sync to provider - it handles the move to trash
     this.emailSyncBack
       .syncOperationToProvider({
         emailId: email.id,
@@ -494,18 +561,16 @@ export class EmailsService {
         providerId: email.providerId,
         tenantId: email.tenantId,
         operation: 'delete',
-        sourceFolder: email.folder, // Original folder where message is on IMAP
+        sourceFolder: email.folder,
       })
       .catch((error) => {
-        this.logger.error(`Failed to sync email deletion to provider: ${error.message}`);
+        this.logger.error(`Failed to sync delete: ${error.message}`);
       });
 
-    // Update folder counts for source folder and TRASH
-    this.updateFolderCounts(tenantId, email.providerId, [email.folder, 'TRASH']).catch((error) => {
+    this.updateFolderCounts(tenantId, email.providerId, [email.folder]).catch((error) => {
       this.logger.error(`Failed to update folder counts: ${error.message}`);
     });
 
-    this.logger.log(`Email ${id} marked as deleted and synced to provider`);
     return { success: true };
   }
 
@@ -581,6 +646,7 @@ export class EmailsService {
     }
 
     const draftAttachments = dto.attachments ?? [];
+    const draftsFolder = await this.getDraftsFolderPath(provider.id);
     const data: Prisma.EmailUncheckedCreateInput = {
       id: dto.id ?? undefined,
       tenantId,
@@ -599,7 +665,7 @@ export class EmailsService {
       bodyText: dto.bodyText ?? '',
       bodyHtml: dto.bodyHtml ?? '',
       snippet: null,
-      folder: 'DRAFTS',
+      folder: draftsFolder,
       labels: [],
       isRead: true,
       isStarred: false,
@@ -738,6 +804,7 @@ export class EmailsService {
 
   /**
    * Search emails
+   * Excludes TRASH and SPAM folders using RFC 6154 specialUse attribute
    */
   async searchEmails(
     tenantId: string,
@@ -745,11 +812,21 @@ export class EmailsService {
     providerId?: string,
     limit: number = 20,
   ) {
+    // Get folder paths for TRASH and SPAM by their specialUse type (locale-independent)
+    const excludedFolderPaths = await this.getFolderPathsBySpecialUse(
+      tenantId,
+      ['TRASH', 'SPAM', 'JUNK'],
+      providerId,
+    );
+
     const where: Prisma.EmailWhereInput = {
       tenantId,
       ...(providerId && { providerId }),
       isDeleted: false,
-      folder: { notIn: ['TRASH', 'SPAM'] },
+      // Exclude TRASH/SPAM folders by their actual paths (e.g., "Cestino", "Spam")
+      ...(excludedFolderPaths.length > 0 && {
+        folder: { notIn: excludedFolderPaths, mode: 'insensitive' },
+      }),
       OR: [
         { subject: { contains: query, mode: 'insensitive' } },
         { from: { contains: query, mode: 'insensitive' } },
@@ -777,6 +854,7 @@ export class EmailsService {
 
   /**
    * Get conversations - emails grouped by threadId from all folders
+   * Excludes TRASH and SPAM folders using RFC 6154 specialUse attribute
    */
   async getConversations(params: {
     tenantId: string;
@@ -788,15 +866,22 @@ export class EmailsService {
     const { tenantId, providerId, folder, page = 1, limit = 50 } = params;
     const skip = (page - 1) * limit;
 
+    // Get folder paths for TRASH and SPAM by their specialUse type (locale-independent)
+    const excludedFolderPaths = !folder
+      ? await this.getFolderPathsBySpecialUse(tenantId, ['TRASH', 'SPAM', 'JUNK'], providerId)
+      : [];
+
     // Get all non-deleted emails
     const where: Prisma.EmailWhereInput = {
       tenantId,
       ...(providerId && { providerId }),
       isDeleted: false,
-      // If folder is specified, filter by it; otherwise exclude TRASH and SPAM
+      // If folder is specified, filter by it; otherwise exclude TRASH and SPAM by actual paths
       ...(folder
         ? { folder }
-        : { folder: { notIn: ['TRASH', 'SPAM'] } }
+        : excludedFolderPaths.length > 0
+          ? { folder: { notIn: excludedFolderPaths, mode: 'insensitive' } }
+          : {}
       ),
     };
 
@@ -972,89 +1057,91 @@ export class EmailsService {
 
   /**
    * Bulk delete emails
+   * - Already deleted: permanent delete from DB
+   * - Not deleted: mark isDeleted, sync to provider (provider moves to trash)
+   * Provider is source of truth - next sync updates folder from provider
    */
   async bulkDelete(emailIds: string[], tenantId: string) {
-    // Get emails for syncing and folder tracking
     const emails = await this.prisma.email.findMany({
-      where: {
-        id: { in: emailIds },
-        tenantId,
-      },
-      select: {
-        id: true,
-        externalId: true,
-        providerId: true,
-        tenantId: true,
-        folder: true,
-      },
+      where: { id: { in: emailIds }, tenantId },
+      select: { id: true, externalId: true, providerId: true, tenantId: true, folder: true, isDeleted: true },
     });
 
-    await this.ensureProvidersActive(
-      tenantId,
-      Array.from(new Set(emails.map((email) => email.providerId))),
-    );
+    await this.ensureProvidersActive(tenantId, Array.from(new Set(emails.map((e) => e.providerId))));
 
-    // Track affected folders per provider for count updates
+    // Split: already deleted = hard delete, not deleted = soft delete
+    const toHardDelete = emails.filter((e) => e.isDeleted);
+    const toSoftDelete = emails.filter((e) => !e.isDeleted);
+
+    this.logger.log(`[BULK DELETE] ${toSoftDelete.length} soft delete, ${toHardDelete.length} hard delete`);
+
+    let totalDeleted = 0;
+
+    // Soft delete - just mark isDeleted, provider handles folder move
+    if (toSoftDelete.length > 0) {
+      const result = await this.prisma.email.updateMany({
+        where: { id: { in: toSoftDelete.map((e) => e.id) }, tenantId },
+        data: { isDeleted: true },
+      });
+      totalDeleted += result.count;
+    }
+
+    // Hard delete - remove from DB
+    if (toHardDelete.length > 0) {
+      const result = await this.prisma.email.deleteMany({
+        where: { id: { in: toHardDelete.map((e) => e.id) }, tenantId },
+      });
+      totalDeleted += result.count;
+    }
+
+    // Track affected folders for count updates
     const affectedFolders = new Map<string, Set<string>>();
-    emails.forEach((email) => {
+    for (const email of emails) {
       if (!affectedFolders.has(email.providerId)) {
         affectedFolders.set(email.providerId, new Set());
       }
-      // Add both original folder and TRASH folder
-      if (email.folder) {
-        affectedFolders.get(email.providerId)!.add(email.folder);
-      }
-      affectedFolders.get(email.providerId)!.add('TRASH');
-    });
+      affectedFolders.get(email.providerId)!.add(email.folder);
+    }
 
-    // Soft delete in database
-    const result = await this.prisma.email.updateMany({
-      where: {
-        id: { in: emailIds },
-        tenantId,
-      },
-      data: { isDeleted: true, folder: 'TRASH' },
-    });
-
-    // Update folder counts (async, don't wait)
     for (const [providerId, folders] of affectedFolders.entries()) {
       this.updateFolderCounts(tenantId, providerId, Array.from(folders)).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
       });
     }
 
-    // Sync to provider (async, don't wait)
-    // IMPORTANT: Pass the original folder (captured before updateMany) so sync-back
-    // opens the correct IMAP mailbox where the message still resides
+    // Sync to provider - it handles folder moves
     const operations = emails.map((email) => ({
       emailId: email.id,
       externalId: email.externalId,
       providerId: email.providerId,
       tenantId: email.tenantId,
-      operation: 'delete' as const,
-      sourceFolder: email.folder, // Original folder where message is on IMAP
+      operation: email.isDeleted ? 'hardDelete' as const : 'delete' as const,
+      sourceFolder: email.folder,
     }));
 
-    this.logger.log(`[BULK DELETE] Queuing sync-back for ${operations.length} emails to providers`);
     this.emailSyncBack.syncOperationsBatch(operations).catch((error) => {
-      this.logger.error(`[BULK DELETE] Failed to sync bulk delete to provider: ${error.message}`, error.stack);
+      this.logger.error(`[BULK DELETE] Sync failed: ${error.message}`);
     });
 
-    // Get updated emails to emit WebSocket events
-    const deletedEmails = await this.getEmailsByIds(emailIds, tenantId);
-
-    // Emit realtime delete events for each email
-    for (const email of deletedEmails) {
+    // Emit realtime events
+    for (const email of toSoftDelete) {
       this.realtimeEvents.emitEmailDelete(tenantId, {
         emailId: email.id,
         providerId: email.providerId,
         folder: email.folder,
-        email: email,
+        reason: 'message-deleted',
+      });
+    }
+    for (const email of toHardDelete) {
+      this.realtimeEvents.emitEmailDelete(tenantId, {
+        emailId: email.id,
+        providerId: email.providerId,
+        folder: email.folder,
         reason: 'message-deleted',
       });
     }
 
-    return { deleted: result.count, emails: deletedEmails };
+    return { deleted: totalDeleted };
   }
 
   /**
@@ -1407,5 +1494,19 @@ export class EmailsService {
     if (providers.length !== uniqueIds.length) {
       throw new NotFoundException('Provider not found or inactive');
     }
+  }
+
+  /**
+   * Get the actual drafts folder path for a provider
+   */
+  private async getDraftsFolderPath(providerId: string): Promise<string> {
+    const folder = await this.prisma.folder.findFirst({
+      where: {
+        providerId,
+        specialUse: 'DRAFTS',
+      },
+      select: { path: true, name: true },
+    });
+    return folder?.path || folder?.name || 'DRAFTS';
   }
 }

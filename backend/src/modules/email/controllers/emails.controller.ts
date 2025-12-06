@@ -16,6 +16,15 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiParam,
+  ApiBody,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { EmailsService, EmailListFilters } from '../services/emails.service';
@@ -47,6 +56,8 @@ const decodeAttachments = (attachments?: EmailAttachmentDto[]) =>
     };
   });
 
+@ApiTags('Emails')
+@ApiBearerAuth()
 @Controller('emails')
 @UseGuards(JwtAuthGuard)
 export class EmailsController {
@@ -67,12 +78,28 @@ export class EmailsController {
    */
   @Get()
   @SkipThrottle()
+  @ApiOperation({ summary: 'List emails', description: 'Get paginated list of emails with optional filters' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 50, max: 1000)' })
+  @ApiQuery({ name: 'providerId', required: false, type: String, description: 'Filter by provider ID' })
+  @ApiQuery({ name: 'folder', required: false, type: String, description: 'Filter by folder path (e.g., "Posta in arrivo")' })
+  @ApiQuery({ name: 'specialUse', required: false, type: String, description: 'RFC 6154 folder type: INBOX, SENT, DRAFTS, TRASH, SPAM, ARCHIVE' })
+  @ApiQuery({ name: 'isRead', required: false, type: Boolean, description: 'Filter by read status' })
+  @ApiQuery({ name: 'isStarred', required: false, type: Boolean, description: 'Filter by starred status' })
+  @ApiQuery({ name: 'hasAttachments', required: false, type: Boolean, description: 'Filter emails with attachments' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in subject, from, body' })
+  @ApiQuery({ name: 'labelIds', required: false, type: String, description: 'Comma-separated label IDs' })
+  @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Filter from date (ISO 8601)' })
+  @ApiQuery({ name: 'endDate', required: false, type: String, description: 'Filter to date (ISO 8601)' })
+  @ApiResponse({ status: 200, description: 'Paginated list of emails' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async listEmails(
     @Req() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('providerId') providerId?: string,
     @Query('folder') folder?: string,
+    @Query('specialUse') specialUse?: string, // RFC 6154: aggregate by folder type
     @Query('isRead') isRead?: string,
     @Query('isStarred') isStarred?: string,
     @Query('hasAttachments') hasAttachments?: string,
@@ -108,6 +135,7 @@ export class EmailsController {
 
     const filters: EmailListFilters = {};
     if (folder) filters.folder = folder;
+    if (specialUse) filters.specialUse = specialUse; // RFC 6154: aggregate by folder type
     if (isRead !== undefined) filters.isRead = isRead === 'true';
     if (isStarred !== undefined) filters.isStarred = isStarred === 'true';
     if (hasAttachments !== undefined) filters.hasAttachments = hasAttachments === 'true';

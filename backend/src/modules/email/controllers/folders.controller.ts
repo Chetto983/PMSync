@@ -262,6 +262,70 @@ export class FoldersController {
     };
   }
 
+  // ========== FOLDER AUDIT OPERATIONS ==========
+
+  @Get('audit/:providerId')
+  @ApiOperation({ summary: 'Audit folder sync status for a provider' })
+  @ApiResponse({ status: 200, description: 'Returns sync audit results' })
+  async auditFolderSync(
+    @Request() req: any,
+    @Param('providerId') providerId: string,
+  ) {
+    const tenantId = req.user.tenantId;
+
+    // Verify provider belongs to tenant
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: {
+        id: providerId,
+        tenantId,
+      },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Provider not found or access denied');
+    }
+
+    const audit = await this.folderSyncService.auditFolderSync(tenantId, providerId);
+
+    return {
+      success: true,
+      providerId,
+      providerEmail: provider.email,
+      ...audit,
+    };
+  }
+
+  @Post('cleanup/:providerId')
+  @ApiOperation({ summary: 'Clean up orphaned folders for a provider' })
+  @ApiResponse({ status: 200, description: 'Orphaned folders cleaned up' })
+  async cleanupOrphanedFolders(
+    @Request() req: any,
+    @Param('providerId') providerId: string,
+  ) {
+    const tenantId = req.user.tenantId;
+
+    // Verify provider belongs to tenant
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: {
+        id: providerId,
+        tenantId,
+      },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Provider not found or access denied');
+    }
+
+    const result = await this.folderSyncService.cleanupOrphanedFolders(tenantId, providerId);
+
+    return {
+      success: true,
+      providerId,
+      providerEmail: provider.email,
+      ...result,
+    };
+  }
+
   // ========== FOLDER CRUD OPERATIONS ==========
 
   @Post()
@@ -292,23 +356,28 @@ export class FoldersController {
       throw new BadRequestException('Folder name is required');
     }
 
-    const result = await this.folderSyncService.createFolder(
-      tenantId,
-      dto.providerId,
-      dto.name.trim(),
-      dto.parentPath,
-    );
+    try {
+      const result = await this.folderSyncService.createFolder(
+        tenantId,
+        dto.providerId,
+        dto.name.trim(),
+        dto.parentPath,
+      );
 
-    // Emit realtime event
-    this.realtimeEvents.emitFolderCreated(tenantId, {
-      providerId: dto.providerId,
-      folderId: result.id,
-      folderName: result.name,
-      folderPath: result.path,
-      timestamp: new Date().toISOString(),
-    });
+      // Emit realtime event
+      this.realtimeEvents.emitFolderCreated(tenantId, {
+        providerId: dto.providerId,
+        folderId: result.id,
+        folderName: result.name,
+        folderPath: result.path,
+        timestamp: new Date().toISOString(),
+      });
 
-    return result;
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create folder';
+      throw new BadRequestException(message);
+    }
   }
 
   @Patch(':folderId')
@@ -340,24 +409,29 @@ export class FoldersController {
       throw new BadRequestException('New folder name is required');
     }
 
-    const result = await this.folderSyncService.renameFolder(
-      tenantId,
-      folder.providerId,
-      folder.path,
-      dto.newName.trim(),
-    );
+    try {
+      const result = await this.folderSyncService.renameFolder(
+        tenantId,
+        folder.providerId,
+        folder.path,
+        dto.newName.trim(),
+      );
 
-    // Emit realtime event
-    this.realtimeEvents.emitFolderRenamed(tenantId, {
-      providerId: folder.providerId,
-      folderId: result.id,
-      folderName: result.name,
-      folderPath: result.path,
-      oldName: folder.name,
-      timestamp: new Date().toISOString(),
-    });
+      // Emit realtime event
+      this.realtimeEvents.emitFolderRenamed(tenantId, {
+        providerId: folder.providerId,
+        folderId: result.id,
+        folderName: result.name,
+        folderPath: result.path,
+        oldName: folder.name,
+        timestamp: new Date().toISOString(),
+      });
 
-    return result;
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to rename folder';
+      throw new BadRequestException(message);
+    }
   }
 
   @Delete(':folderId')

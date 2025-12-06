@@ -11,14 +11,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IEmailProvider, ProviderConfig } from '../interfaces/email-provider.interface';
 import { GoogleEmailProvider } from '../providers/google-email.provider';
 import { MicrosoftEmailProvider } from '../providers/microsoft-email.provider';
+import { ImapEmailProvider } from '../providers/imap-email.provider';
 /**
  * Registry of supported providers
  * Maps provider type to provider class constructor
- * Note: IMAP provider not yet implemented
  */
 const SUPPORTED_PROVIDERS = {
   google: GoogleEmailProvider,
   microsoft: MicrosoftEmailProvider,
+  imap: ImapEmailProvider,
+  generic: ImapEmailProvider, // 'generic' is an alias for IMAP providers
 } as const;
 
 export type SupportedProviderType = keyof typeof SUPPORTED_PROVIDERS;
@@ -94,7 +96,7 @@ export class ProviderFactory {
    */
   static getProviderClass(
     providerType: SupportedProviderType,
-  ): typeof GoogleEmailProvider | typeof MicrosoftEmailProvider {
+  ): typeof GoogleEmailProvider | typeof MicrosoftEmailProvider | typeof ImapEmailProvider {
     return SUPPORTED_PROVIDERS[providerType];
   }
 

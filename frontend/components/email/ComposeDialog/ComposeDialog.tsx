@@ -121,7 +121,7 @@ export interface ComposeDialogProps {
   defaultProviderId?: string;
 
   /**
-   * Pre-fill data (for reply/forward)
+   * Pre-fill data (for reply/forward/edit draft)
    */
   prefillData?: {
     to?: string[];
@@ -133,6 +133,8 @@ export interface ComposeDialogProps {
     references?: string;
     /** Original email ID for smart replies */
     originalEmailId?: string;
+    /** Draft ID when editing an existing draft */
+    draftId?: string;
   };
 
   /**
@@ -649,6 +651,16 @@ export function ComposeDialog({
       };
 
       await emailApi.sendEmail(payload);
+
+      // If editing a draft, delete it after successful send
+      if (prefillData?.draftId) {
+        try {
+          await emailApi.deleteDraft(prefillData.draftId);
+        } catch (draftErr) {
+          console.warn('Failed to delete draft after send:', draftErr);
+          // Don't fail the whole operation if draft deletion fails
+        }
+      }
 
       // Success
       onSent?.();

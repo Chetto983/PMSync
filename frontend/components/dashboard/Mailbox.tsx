@@ -24,7 +24,7 @@ import {
 } from '@dnd-kit/core';
 import { emailApi, type EmailListParams } from '@/lib/api/email';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
-import { getFolders } from '@/lib/api/folders';
+import { getFolders, type Folder } from '@/lib/api/folders';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import { useFoldersStore } from '@/stores/folders-store';
@@ -32,7 +32,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useEmailActions } from '@/hooks/use-email-actions';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
 import { useWebSocket } from '@/hooks/use-websocket';
-import { normalizeFolderName, getFolderIcon as getIconForFolderUtil } from '@/lib/utils/folder-normalization';
+import { getFolderIcon as getIconForFolderUtil } from '@/lib/utils/folder-normalization';
 
 // Components
 import { ResizableEmailLayout } from '@/components/email/ResizableEmailLayout';
@@ -60,6 +60,10 @@ interface FolderItem {
   queryOverrides?: Partial<EmailListParams>;
   aggregate?: boolean;
   specialUse?: string;
+  /** Folder path for folder operations */
+  path?: string;
+  /** Full folder data for context menu CRUD operations */
+  folderData?: Folder;
 }
 
 /**
@@ -265,20 +269,36 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     if (!selectedFolderId) {
       return { title: localText.empty.defaultTitle, subtitle: localText.empty.defaultSubtitle };
     }
-    if (selectedFolderId === 'TRASH') {
-      return { title: localText.empty.trashTitle, subtitle: localText.empty.trashSubtitle };
-    }
-    if (selectedFolderId === 'SENT') {
-      return { title: localText.empty.sentTitle, subtitle: localText.empty.sentSubtitle };
-    }
+
+    // Check smart filters and aggregators first (by ID pattern)
     if (selectedFolderId.startsWith('smart:unread')) {
       return { title: localText.empty.unreadTitle, subtitle: localText.empty.unreadSubtitle };
     }
     if (selectedFolderId.startsWith('label:')) {
       return { title: localText.empty.labelTitle, subtitle: localText.empty.labelSubtitle };
     }
+    if (selectedFolderId === 'all:inbox') {
+      return { title: localText.empty.defaultTitle, subtitle: localText.empty.defaultSubtitle };
+    }
+
+    // Look up folder in foldersByProvider to get its specialUse
+    let specialUse: string | undefined;
+    for (const folders of Object.values(foldersByProvider)) {
+      const folder = folders.find(f => f.id === selectedFolderId);
+      if (folder?.specialUse) {
+        specialUse = folder.specialUse.toUpperCase();
+        break;
+      }
+    }
+
+    if (specialUse === 'TRASH') {
+      return { title: localText.empty.trashTitle, subtitle: localText.empty.trashSubtitle };
+    }
+    if (specialUse === 'SENT') {
+      return { title: localText.empty.sentTitle, subtitle: localText.empty.sentSubtitle };
+    }
     return { title: localText.empty.defaultTitle, subtitle: localText.empty.defaultSubtitle };
-  }, [selectedFolderId, localText]);
+  }, [selectedFolderId, localText, foldersByProvider]);
 
   // Load stats, retention, sync status
   useEffect(() => {
@@ -433,6 +453,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   }, [t]);
 
   // Aggregator folders (All Inbox, All Starred)
+  // RFC 6154: Use specialUse for aggregation across providers with different folder names
   const aggregatorFolders = useMemo<FolderItem[]>(
     () => [
       {
@@ -440,7 +461,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         label: t.dashboard.folders.inbox,
         icon: <Inbox size={20} />,
         aggregate: true,
-        queryOverrides: { folder: 'INBOX' },
+        specialUse: 'INBOX',
+        queryOverrides: { specialUse: 'INBOX' }, // RFC 6154: aggregate by specialUse
       },
       {
         id: 'all:starred',
@@ -507,12 +529,12 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   }, [smartFilters]);
 
   // Derived remote folders from store
+  // Use actual folder.path for API queries - provider is source of truth
   const remoteFolders = useMemo<FolderItem[]>(() => {
     const items: FolderItem[] = [];
     Object.entries(foldersByProvider).forEach(([providerId, folders]) => {
       const providerEmail = providersById[providerId]?.email || '';
       folders.forEach((folder) => {
-        const folderName = normalizeFolderName(folder.name, folder.specialUse);
         const IconComponent = getIconForFolderUtil(folder.specialUse);
         const countOverride = countsByFolderId[`${providerId}:${folder.id}`];
         items.push({
@@ -522,11 +544,13 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
           count: countOverride?.unreadCount ?? folder.unreadCount,
           providerId: folder.providerId,
           providerEmail,
-          filterFolder: folderName,
+          filterFolder: folder.path || folder.name, // Use actual path, not normalized
           specialUse: folder.specialUse,
+          path: folder.path,
+          folderData: folder as Folder, // Pass full folder data for CRUD operations
           queryOverrides: {
             providerId: folder.providerId,
-            folder: folderName,
+            folder: folder.path || folder.name, // Use actual path for API query
           },
         });
       });
@@ -701,6 +725,19 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         };
 
         const emailsRes = await emailApi.listEmails(queryParams);
+
+        // DEBUG: Log body data from API response
+        console.log('[Mailbox] API Response - emails:', emailsRes.data.emails?.length);
+        if (emailsRes.data.emails?.[0]) {
+          const firstEmail = emailsRes.data.emails[0];
+          console.log('[Mailbox] First email body data:', {
+            id: firstEmail.id,
+            subject: firstEmail.subject?.substring(0, 30),
+            bodyHtmlLength: firstEmail.bodyHtml?.length || 0,
+            bodyTextLength: firstEmail.bodyText?.length || 0,
+            snippetLength: firstEmail.snippet?.length || 0,
+          });
+        }
 
         setEmails((emailsRes.data.emails || []).map(mapApiEmailToStore) as any);
         setSelectedEmail(null);
@@ -1319,6 +1356,23 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     setComposeOpen(true);
   }, []);
 
+  // Handle Edit Draft - open ComposeDialog with draft content
+  const handleEditDraft = useCallback((email: Email) => {
+    setComposeMode('compose');
+    setComposePrefill({
+      to: email.to || [],
+      cc: email.cc || [],
+      bcc: email.bcc || [],
+      subject: email.subject || '',
+      body: email.bodyHtml || email.bodyText || '',
+      // Keep the draft ID so we can update instead of create new
+      draftId: email.id,
+    });
+    setComposeOpen(true);
+    // Close the thread display since we're now editing in compose
+    setSelectedEmail(null);
+  }, [setSelectedEmail]);
+
   const threads = storeEmails;
   const selectedListId = storeSelectedEmail?.id;
   const listLoading = storeLoading;
@@ -1515,6 +1569,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
               onReplyAll={handleReplyAllLocal}
               onForward={handleForwardLocal}
               onLabelsChange={handleLabelsChange}
+              onEditDraft={handleEditDraft}
             />
           ) : undefined
         }

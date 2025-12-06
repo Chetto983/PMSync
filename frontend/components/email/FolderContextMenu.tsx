@@ -4,6 +4,7 @@ import React from 'react';
 import { Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material';
 import { FolderPlus, Edit3, Trash2, RefreshCw, FolderInput } from 'lucide-react';
 import type { Folder } from '@/lib/api/folders';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface FolderContextMenuProps {
   anchorEl: HTMLElement | null;
@@ -31,6 +32,7 @@ export function FolderContextMenu({
   onRefreshFolder,
   onMoveEmails,
 }: FolderContextMenuProps) {
+  const t = useTranslations();
   const open = Boolean(anchorEl);
 
   // Suppress unused variable warnings
@@ -109,7 +111,7 @@ export function FolderContextMenu({
         <ListItemIcon>
           <FolderPlus size={18} />
         </ListItemIcon>
-        <ListItemText>Create Subfolder</ListItemText>
+        <ListItemText>{t.dashboard?.folders?.createSubfolder || 'Create Subfolder'}</ListItemText>
       </MenuItem>
 
       {/* Move emails to folder */}
@@ -118,7 +120,7 @@ export function FolderContextMenu({
           <ListItemIcon>
             <FolderInput size={18} />
           </ListItemIcon>
-          <ListItemText>Move Emails Here</ListItemText>
+          <ListItemText>{t.dashboard?.folders?.moveEmailsHere || 'Move Emails Here'}</ListItemText>
         </MenuItem>
       )}
 
@@ -128,7 +130,7 @@ export function FolderContextMenu({
           <ListItemIcon>
             <RefreshCw size={18} />
           </ListItemIcon>
-          <ListItemText>Refresh</ListItemText>
+          <ListItemText>{t.dashboard?.folders?.refresh || 'Refresh'}</ListItemText>
         </MenuItem>
       )}
 
@@ -140,10 +142,10 @@ export function FolderContextMenu({
           <Edit3 size={18} />
         </ListItemIcon>
         <ListItemText>
-          Rename
+          {t.common?.rename || 'Rename'}
           {isSystemFolder && (
             <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: 8 }}>
-              (System folder)
+              ({t.dashboard?.folders?.systemFolder || 'System folder'})
             </span>
           )}
         </ListItemText>
@@ -164,10 +166,10 @@ export function FolderContextMenu({
           <Trash2 size={18} />
         </ListItemIcon>
         <ListItemText>
-          Delete
+          {t.common?.delete || 'Delete'}
           {isSystemFolder && (
             <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: 8 }}>
-              (System folder)
+              ({t.dashboard?.folders?.systemFolder || 'System folder'})
             </span>
           )}
         </ListItemText>
