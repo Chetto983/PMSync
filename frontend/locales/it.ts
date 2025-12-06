@@ -618,6 +618,12 @@ export const it: AppTranslations = {
         aiChatCopy: 'Copia',
         aiChatInsert: "Inserisci nell'email",
         aiChatClear: 'Pulisci chat',
+        // Schedule send
+        sendNow: 'Invia ora',
+        tomorrowMorning: 'Domani mattina (9:00)',
+        nextMonday: 'Lunedì prossimo (9:00)',
+        pickDateTime: 'Scegli data e ora...',
+        scheduleSend: 'Programma invio',
       },
       advancedSearch: {
         title: 'Ricerca Avanzata',
@@ -1622,6 +1628,12 @@ export const it: AppTranslations = {
       generating: 'Ricerca orari disponibili...',
       noSlots: 'Nessun orario disponibile trovato. Prova a modificare la richiesta.',
       selectSlot: 'Seleziona un orario',
+      selectProvider: 'Seleziona un calendario',
+      errorGenerating: 'Impossibile generare gli orari. Riprova.',
+      errorCreating: "Impossibile creare l'evento. Riprova.",
+      locationPlaceholder: 'Videochiamata, Ufficio, ecc.',
+      notesPlaceholder: "Aggiungi note o punti all'ordine del giorno...",
+      emptyState: 'Inserisci una richiesta di pianificazione per iniziare',
     },
     availability: {
       title: 'Disponibilità',

@@ -759,10 +759,10 @@ export function ComposeDialog({
     nextMonday9am.setHours(9, 0, 0, 0);
 
     return [
-      { label: 'Tomorrow morning (9:00 AM)', value: tomorrow9am.toISOString() },
-      { label: 'Next Monday (9:00 AM)', value: nextMonday9am.toISOString() },
+      { label: t.dashboard.email.composer.tomorrowMorning, value: tomorrow9am.toISOString() },
+      { label: t.dashboard.email.composer.nextMonday, value: nextMonday9am.toISOString() },
     ];
-  }, []);
+  }, [t]);
 
   const handleScheduleSelect = useCallback((dateTime: string) => {
     setScheduledAt(dateTime);
@@ -1360,7 +1360,7 @@ export function ComposeDialog({
               <ListItemIcon>
                 <Send size={16} />
               </ListItemIcon>
-              <ListItemText>Send now</ListItemText>
+              <ListItemText>{t.dashboard.email.composer.sendNow}</ListItemText>
             </MenuItem>
             {getSchedulePresets().map((preset) => (
               <MenuItem
@@ -1377,7 +1377,7 @@ export function ComposeDialog({
               <ListItemIcon>
                 <Clock size={16} />
               </ListItemIcon>
-              <ListItemText>Pick date & time...</ListItemText>
+              <ListItemText>{t.dashboard.email.composer.pickDateTime}</ListItemText>
             </MenuItem>
           </Menu>
 
@@ -1394,7 +1394,7 @@ export function ComposeDialog({
           >
             <Box sx={{ p: 2, minWidth: 280 }}>
               <Typography variant="subtitle2" gutterBottom>
-                Schedule send
+                {t.dashboard.email.composer.scheduleSend}
               </Typography>
               <Stack spacing={2}>
                 <TextField

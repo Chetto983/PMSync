@@ -43,11 +43,12 @@ export class MicrosoftFolderService {
     }
 
     try {
-      // Lookup folder in database
+      // Lookup folder in database by externalId (Microsoft folder ID)
+      // folder.path now stores displayName, folder.externalId stores the API folder ID
       const folder = await this.prisma.folder.findFirst({
         where: {
           providerId,
-          path: parentFolderId,
+          externalId: parentFolderId, // Lookup by external ID (Microsoft folder ID)
         },
         select: {
           specialUse: true,
@@ -58,11 +59,22 @@ export class MicrosoftFolderService {
       });
 
       if (!folder) {
+        // Fallback: try looking up by path (for backwards compatibility)
+        const folderByPath = await this.prisma.folder.findFirst({
+          where: {
+            providerId,
+            path: parentFolderId,
+          },
+          select: { name: true },
+        });
+        if (folderByPath) {
+          return folderByPath.name;
+        }
         return isDraft ? 'Drafts' : 'Inbox';
       }
 
-      // Return the actual folder name from the provider
-      // This ensures consistency with the provider's folder structure
+      // Return the folder name (which matches folder.path)
+      // This ensures email.folder joins correctly with folder.path
       return folder.name;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -115,7 +127,10 @@ export class MicrosoftFolderService {
       });
 
       const existingPaths = new Set(existingFolders.map((f: any) => f.path as string));
-      const newPaths = new Set(folders.map((f: any) => f.id as string));
+      // Use displayName as path (matches email.folder and folder.path)
+      const newPaths = new Set(
+        folders.filter((f: any) => f.displayName).map((f: any) => f.displayName as string),
+      );
 
       // Delete folders that no longer exist
       const deletedPaths = Array.from(existingPaths).filter((path) => !newPaths.has(path));
@@ -131,6 +146,8 @@ export class MicrosoftFolderService {
       }
 
       // Sync each folder
+      // CRITICAL: folder.path MUST match what determineFolderFromParentId returns (displayName)
+      // This ensures email.folder can join with folder.path
       for (const folder of folders) {
         if (!folder.id || !folder.displayName) continue;
 
@@ -141,13 +158,14 @@ export class MicrosoftFolderService {
           where: {
             providerId_path: {
               providerId,
-              path: folder.id,
+              path: folder.displayName, // Use displayName as path (matches email.folder)
             },
           },
           create: {
             tenantId,
             providerId,
-            path: folder.id,
+            path: folder.displayName, // Use displayName as path (matches email.folder)
+            externalId: folder.id, // Keep folder ID for API operations
             name: folder.displayName,
             delimiter: '/',
             specialUse,
@@ -158,6 +176,7 @@ export class MicrosoftFolderService {
           },
           update: {
             name: folder.displayName,
+            externalId: folder.id, // Update external ID if needed
             specialUse,
             totalCount: folder.totalItemCount || 0,
             unreadCount: folder.unreadItemCount || 0,

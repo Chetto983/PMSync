@@ -552,6 +552,11 @@ export interface AppTranslations {
         aiChatCopy: string;
         aiChatInsert: string;
         aiChatClear: string;
+        sendNow: string;
+        tomorrowMorning: string;
+        nextMonday: string;
+        pickDateTime: string;
+        scheduleSend: string;
       };
       advancedSearch: {
         title: string;
@@ -1550,6 +1555,12 @@ export interface AppTranslations {
       generating: string;
       noSlots: string;
       selectSlot: string;
+      selectProvider: string;
+      errorGenerating: string;
+      errorCreating: string;
+      locationPlaceholder: string;
+      notesPlaceholder: string;
+      emptyState: string;
     };
     availability: {
       title: string;

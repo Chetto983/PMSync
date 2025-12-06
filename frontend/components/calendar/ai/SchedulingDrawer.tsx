@@ -111,6 +111,12 @@ export function SchedulingDrawer({
     generating: 'Finding available times...',
     noSlots: 'No available slots found. Try adjusting your request.',
     selectSlot: 'Please select a time slot',
+    selectProvider: 'Please select a calendar provider',
+    errorGenerating: 'Failed to generate time slots. Please try again.',
+    errorCreating: 'Failed to create event. Please try again.',
+    locationPlaceholder: 'Video Call, Office, etc.',
+    notesPlaceholder: 'Add any notes or agenda items...',
+    emptyState: 'Enter a scheduling request to get started',
   };
 
   // Helper: Generate suggested time slots based on business days
@@ -248,11 +254,11 @@ export function SchedulingDrawer({
       }
     } catch (err) {
       console.error('Failed to generate time slots:', err);
-      setError('Failed to generate time slots. Please try again.');
+      setError(labels.errorGenerating);
     } finally {
       setIsLoading(false);
     }
-  }, [prompt, locale, generateTimeSlots, checkConflicts]);
+  }, [prompt, locale, generateTimeSlots, checkConflicts, labels.errorGenerating]);
 
   // Create event using calendar API
   const handleCreateEvent = useCallback(async () => {
@@ -262,7 +268,7 @@ export function SchedulingDrawer({
     }
 
     if (!selectedProvider) {
-      setError('Please select a calendar provider');
+      setError(labels.selectProvider);
       return;
     }
 
@@ -306,11 +312,11 @@ export function SchedulingDrawer({
       setAiResponse('');
     } catch (err) {
       console.error('Failed to create event:', err);
-      setError('Failed to create event. Please try again.');
+      setError(labels.errorCreating);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSlot, title, location, notes, suggestedSlots, selectedProvider, onEventCreated, onClose, labels.selectSlot]);
+  }, [selectedSlot, title, location, notes, suggestedSlots, selectedProvider, onEventCreated, onClose, labels.selectSlot, labels.selectProvider, labels.errorCreating]);
 
   // Format date/time for display
   const formatSlotTime = (isoString: string) => {
@@ -548,7 +554,7 @@ export function SchedulingDrawer({
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             sx={{ mb: 2 }}
-            placeholder="Video Call, Office, etc."
+            placeholder={labels.locationPlaceholder}
             InputProps={{
               startAdornment: <MapPin size={18} style={{ marginRight: 8, opacity: 0.5 }} />,
             }}
@@ -561,7 +567,7 @@ export function SchedulingDrawer({
             onChange={(e) => setNotes(e.target.value)}
             multiline
             rows={2}
-            placeholder="Add any notes or agenda items..."
+            placeholder={labels.notesPlaceholder}
           />
         </Collapse>
 
@@ -570,7 +576,7 @@ export function SchedulingDrawer({
           <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
             <Calendar size={48} style={{ opacity: 0.3, marginBottom: 16 }} />
             <Typography>
-              Enter a scheduling request to get started
+              {labels.emptyState}
             </Typography>
           </Box>
         )}

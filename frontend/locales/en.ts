@@ -620,6 +620,12 @@ export const en: AppTranslations = {
         aiChatCopy: 'Copy',
         aiChatInsert: 'Insert into email',
         aiChatClear: 'Clear chat',
+        // Schedule send
+        sendNow: 'Send now',
+        tomorrowMorning: 'Tomorrow morning (9:00 AM)',
+        nextMonday: 'Next Monday (9:00 AM)',
+        pickDateTime: 'Pick date & time...',
+        scheduleSend: 'Schedule send',
       },
       advancedSearch: {
         title: 'Advanced Search',
@@ -1623,6 +1629,12 @@ export const en: AppTranslations = {
       generating: 'Finding available times...',
       noSlots: 'No available slots found. Try adjusting your request.',
       selectSlot: 'Please select a time slot',
+      selectProvider: 'Please select a calendar provider',
+      errorGenerating: 'Failed to generate time slots. Please try again.',
+      errorCreating: 'Failed to create event. Please try again.',
+      locationPlaceholder: 'Video Call, Office, etc.',
+      notesPlaceholder: 'Add any notes or agenda items...',
+      emptyState: 'Enter a scheduling request to get started',
     },
     availability: {
       title: 'Availability',

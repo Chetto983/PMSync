@@ -107,7 +107,12 @@ export class GmailFolderService {
       });
 
       const existingPaths = new Set<string>(existingFolders.map((f: any) => f.path as string));
-      const newPaths = new Set<string>(labels.map((l) => l.id).filter((id): id is string => !!id));
+      // Convert new label IDs to folder paths using the same mapping as syncGmailFolders
+      const newPaths = new Set<string>(
+        labels
+          .filter((l): l is gmail_v1.Schema$Label & { id: string; name: string } => !!l.id && !!l.name)
+          .map((l) => this.labelIdToFolderPath(l.id, l.name)),
+      );
 
       // Delete folders that no longer exist
       const deletedPaths: string[] = [];
@@ -137,17 +142,23 @@ export class GmailFolderService {
         // Determine if selectable
         const isSelectable = label.type !== 'system' || specialUse !== undefined;
 
+        // CRITICAL: folder.path MUST match what determineFolderFromLabels returns
+        // This ensures email.folder can join with folder.path
+        // determineFolderFromLabels returns: INBOX, SENT, TRASH, SPAM, PROMOTIONS, SOCIAL, UPDATES, FORUMS, DRAFTS
+        const folderPath = this.labelIdToFolderPath(label.id, label.name);
+
         await (this.prisma as any).folder.upsert({
           where: {
             providerId_path: {
               providerId,
-              path: label.id,
+              path: folderPath,
             },
           },
           create: {
             tenantId,
             providerId,
-            path: label.id,
+            path: folderPath,
+            externalId: label.id, // Keep original label ID for API operations
             name: label.name,
             delimiter: '/',
             specialUse,
@@ -158,6 +169,7 @@ export class GmailFolderService {
           },
           update: {
             name: label.name,
+            externalId: label.id, // Update external ID if needed
             specialUse,
             isSelectable,
             totalCount: label.messagesTotal || 0,
@@ -177,6 +189,55 @@ export class GmailFolderService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Convert Gmail label ID to folder path that matches what determineFolderFromLabels returns
+   * This ensures email.folder can properly join with folder.path
+   *
+   * @param labelId - Gmail label ID (e.g., 'CATEGORY_PROMOTIONS', 'INBOX')
+   * @param labelName - Gmail label display name (used for custom labels)
+   * @returns Folder path that matches determineFolderFromLabels output
+   */
+  private labelIdToFolderPath(labelId: string, labelName: string): string {
+    // Map category labels to simplified names (matches determineFolderFromLabels)
+    const categoryMap: Record<string, string> = {
+      CATEGORY_PERSONAL: 'INBOX', // Personal goes to INBOX
+      CATEGORY_SOCIAL: 'SOCIAL',
+      CATEGORY_PROMOTIONS: 'PROMOTIONS',
+      CATEGORY_UPDATES: 'UPDATES',
+      CATEGORY_FORUMS: 'FORUMS',
+    };
+
+    if (categoryMap[labelId]) {
+      return categoryMap[labelId];
+    }
+
+    // System labels use their ID as path
+    const systemLabels = [
+      'INBOX',
+      'SENT',
+      'TRASH',
+      'SPAM',
+      'DRAFT',
+      'STARRED',
+      'IMPORTANT',
+      'UNREAD',
+      'CHAT',
+    ];
+    if (systemLabels.includes(labelId)) {
+      // DRAFT -> DRAFTS to match determineFolderFromLabels
+      return labelId === 'DRAFT' ? 'DRAFTS' : labelId;
+    }
+
+    // For custom labels (Label_xxx), use the label name as path
+    // This allows custom labels to be properly identified
+    if (labelId.startsWith('Label_')) {
+      return labelName;
+    }
+
+    // Default: use label ID
+    return labelId;
   }
 
   /**
