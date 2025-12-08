@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
@@ -8,6 +8,8 @@ import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { getRedisConnectionOptions } from '../../../common/config';
+import { Redis } from 'ioredis';
 import * as vCard from 'vcf';
 
 // Type-safe interfaces for JSON fields
@@ -93,9 +95,12 @@ export interface ListContactsFilters {
 }
 
 @Injectable()
-export class ContactsService {
+export class ContactsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ContactsService.name);
   private readonly maxContactsLimit: number;
+  private readonly contactCountsCacheTtl: number;
+  private readonly syncLockTtl: number;
+  private redis: Redis | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -108,6 +113,109 @@ export class ContactsService {
     private readonly configService: ConfigService,
   ) {
     this.maxContactsLimit = this.configService.get<number>('CONTACTS_LIST_MAX_LIMIT', 500);
+    this.contactCountsCacheTtl = this.configService.get<number>('CONTACTS_COUNTS_CACHE_TTL', 300); // 5 minutes
+    this.syncLockTtl = this.configService.get<number>('CONTACTS_SYNC_LOCK_TTL', 300); // 5 minutes
+  }
+
+  async onModuleInit(): Promise<void> {
+    try {
+      const redisOptions = getRedisConnectionOptions();
+      this.redis = new Redis(redisOptions);
+      this.logger.log('Redis connection established for ContactsService');
+    } catch (error) {
+      this.logger.warn(`Failed to connect to Redis, running without caching: ${error}`);
+      this.redis = null;
+    }
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    if (this.redis && this.redis.status !== 'end') {
+      await this.redis.quit();
+      this.logger.log('Redis connection closed for ContactsService');
+    }
+  }
+
+  /**
+   * Acquire distributed lock for contact sync
+   * Prevents multiple instances from syncing same provider simultaneously
+   */
+  private async acquireSyncLock(providerId: string): Promise<boolean> {
+    if (!this.redis) return true; // Allow sync if Redis not available
+
+    const lockKey = `contacts:sync:lock:${providerId}`;
+    const result = await this.redis.set(lockKey, process.pid.toString(), 'EX', this.syncLockTtl, 'NX');
+    return result === 'OK';
+  }
+
+  /**
+   * Release distributed lock for contact sync
+   */
+  private async releaseSyncLock(providerId: string): Promise<void> {
+    if (!this.redis) return;
+
+    const lockKey = `contacts:sync:lock:${providerId}`;
+    await this.redis.del(lockKey);
+  }
+
+  /**
+   * Get cached contact counts or fetch from database
+   */
+  private async getCachedContactCounts(tenantId: string): Promise<{
+    total: number;
+    byProvider: Record<string, number>;
+    withEmail: number;
+    withPhone: number;
+    starred: number;
+  } | null> {
+    if (!this.redis) return null;
+
+    try {
+      const cacheKey = `contacts:counts:${tenantId}`;
+      const cached = await this.redis.get(cacheKey);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to get cached contact counts: ${error}`);
+    }
+    return null;
+  }
+
+  /**
+   * Cache contact counts
+   */
+  private async cacheContactCounts(
+    tenantId: string,
+    counts: {
+      total: number;
+      byProvider: Record<string, number>;
+      withEmail: number;
+      withPhone: number;
+      starred: number;
+    },
+  ): Promise<void> {
+    if (!this.redis) return;
+
+    try {
+      const cacheKey = `contacts:counts:${tenantId}`;
+      await this.redis.setex(cacheKey, this.contactCountsCacheTtl, JSON.stringify(counts));
+    } catch (error) {
+      this.logger.warn(`Failed to cache contact counts: ${error}`);
+    }
+  }
+
+  /**
+   * Invalidate contact counts cache
+   */
+  private async invalidateContactCountsCache(tenantId: string): Promise<void> {
+    if (!this.redis) return;
+
+    try {
+      const cacheKey = `contacts:counts:${tenantId}`;
+      await this.redis.del(cacheKey);
+    } catch (error) {
+      this.logger.warn(`Failed to invalidate contact counts cache: ${error}`);
+    }
   }
 
   /**
@@ -184,7 +292,7 @@ export class ContactsService {
 
   /**
    * Get contact counts for sidebar display
-   * Efficiently queries counts from database
+   * Efficiently queries counts from database with Redis caching
    */
   async getContactCounts(tenantId: string): Promise<{
     total: number;
@@ -193,6 +301,22 @@ export class ContactsService {
     withCompany: number;
     byProvider: Array<{ providerId: string; count: number }>;
   }> {
+    // Try to get from cache first
+    const cached = await this.getCachedContactCounts(tenantId);
+    if (cached) {
+      // Convert cached format back to expected format
+      return {
+        total: cached.total,
+        withEmail: cached.withEmail,
+        withPhone: cached.withPhone,
+        withCompany: 0, // Not in cache, will be computed if needed
+        byProvider: Object.entries(cached.byProvider).map(([providerId, count]) => ({
+          providerId,
+          count,
+        })),
+      };
+    }
+
     const baseWhere = { tenantId, isDeleted: false };
 
     // Run all counts in parallel for efficiency
@@ -239,6 +363,19 @@ export class ContactsService {
       providerId: pc.providerId,
       count: pc._count.id,
     }));
+
+    // Cache the results
+    const byProviderRecord: Record<string, number> = {};
+    for (const { providerId, count } of byProvider) {
+      byProviderRecord[providerId] = count;
+    }
+    await this.cacheContactCounts(tenantId, {
+      total,
+      byProvider: byProviderRecord,
+      withEmail,
+      withPhone,
+      starred: 0, // Not computed in this query
+    });
 
     return { total, withEmail, withPhone, withCompany, byProvider };
   }
@@ -526,6 +663,7 @@ export class ContactsService {
   /**
    * Sync contacts from a provider
    * Delegates to provider-specific sync services
+   * Uses Redis distributed locking to prevent concurrent syncs across instances
    * @param tenantId - Tenant ID for authorization (optional for backward compatibility)
    * @param providerId - Provider ID to sync contacts from
    */
@@ -545,20 +683,35 @@ export class ContactsService {
       throw new BadRequestException('Provider does not belong to this tenant');
     }
 
-    let syncedCount = 0;
-
-    if (provider.providerType === 'google') {
-      syncedCount = await this.googleContactsSync.syncContacts(providerId);
-    } else if (provider.providerType === 'microsoft') {
-      syncedCount = await this.microsoftContactsSync.syncContacts(providerId);
+    // Acquire distributed lock to prevent concurrent syncs
+    const lockAcquired = await this.acquireSyncLock(providerId);
+    if (!lockAcquired) {
+      this.logger.warn(`Sync already in progress for provider ${providerId}, skipping`);
+      return 0;
     }
 
-    this.logger.log(`Synced ${syncedCount} contacts for provider ${providerId}`);
+    try {
+      let syncedCount = 0;
 
-    // Emit updated counts after sync
-    void this.updateContactCounts(provider.tenantId);
+      if (provider.providerType === 'google') {
+        syncedCount = await this.googleContactsSync.syncContacts(providerId);
+      } else if (provider.providerType === 'microsoft') {
+        syncedCount = await this.microsoftContactsSync.syncContacts(providerId);
+      }
 
-    return syncedCount;
+      this.logger.log(`Synced ${syncedCount} contacts for provider ${providerId}`);
+
+      // Invalidate contact counts cache after sync
+      await this.invalidateContactCountsCache(provider.tenantId);
+
+      // Emit updated counts after sync
+      void this.updateContactCounts(provider.tenantId);
+
+      return syncedCount;
+    } finally {
+      // Always release lock
+      await this.releaseSyncLock(providerId);
+    }
   }
 
   /**

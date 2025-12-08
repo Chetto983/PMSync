@@ -182,6 +182,7 @@ export class VoltAgentMemoryService {
   /**
    * Retrieve conversation history with hybrid search.
    * Combines recent messages + relevant summaries for optimal context.
+   * IMPORTANT: Enforces token limit to prevent context window overflow.
    */
   async retrieveHistory(
     ctx: ConversationContext,
@@ -216,15 +217,31 @@ export class VoltAgentMemoryService {
       },
     });
 
-    // Reverse to chronological order
-    const chronologicalMessages = messages.reverse().map((m) => ({
-      role: m.role as MessageRole,
-      content: m.content,
-      toolCalls: m.toolCalls as MemoryMessage['toolCalls'],
-      toolResults: m.toolResults as MemoryMessage['toolResults'],
-      tokenCount: m.tokenCount ?? undefined,
-      metadata: m.metadata as MemoryMessage['metadata'],
-    }));
+    // Reverse to chronological order and enforce token limit
+    const chronologicalMessages: MemoryMessage[] = [];
+    let totalTokens = 0;
+
+    for (const m of messages.reverse()) {
+      const tokenCount = m.tokenCount ?? this.estimateTokens(m.content);
+
+      // Stop if we'd exceed context window limit
+      if (totalTokens + tokenCount > SUMMARIZATION_CONFIG.maxContextTokens) {
+        this.logger.debug(
+          `Context window limit reached: ${totalTokens}/${SUMMARIZATION_CONFIG.maxContextTokens} tokens, truncating ${messages.length - chronologicalMessages.length} messages`,
+        );
+        break;
+      }
+
+      totalTokens += tokenCount;
+      chronologicalMessages.push({
+        role: m.role as MessageRole,
+        content: m.content,
+        toolCalls: m.toolCalls as MemoryMessage['toolCalls'],
+        toolResults: m.toolResults as MemoryMessage['toolResults'],
+        tokenCount: tokenCount,
+        metadata: m.metadata as MemoryMessage['metadata'],
+      });
+    }
 
     // Get summaries if requested and conversation has them
     let summaries: string[] | undefined;

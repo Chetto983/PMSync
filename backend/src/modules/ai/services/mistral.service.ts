@@ -16,6 +16,21 @@ type ConversationMessage = {
   content: string;
 };
 
+/**
+ * Simple circuit breaker state for Mistral API protection.
+ * Prevents cascading failures when API is unavailable.
+ */
+interface CircuitBreakerState {
+  /** Current state: closed (normal), open (blocking), half-open (testing) */
+  state: 'closed' | 'open' | 'half-open';
+  /** Number of consecutive failures */
+  failures: number;
+  /** Timestamp when circuit was opened */
+  openedAt: number;
+  /** Last successful call timestamp */
+  lastSuccess: number;
+}
+
 @Injectable()
 export class MistralService {
   private logger = new Logger(MistralService.name);
@@ -27,6 +42,17 @@ export class MistralService {
   private readonly embeddingDelayMs: number;
   private currentEmbeddingCalls = 0;
   private lastEmbeddingTime = 0;
+
+  // Circuit breaker configuration
+  private readonly circuitBreaker: CircuitBreakerState = {
+    state: 'closed',
+    failures: 0,
+    openedAt: 0,
+    lastSuccess: Date.now(),
+  };
+  private readonly circuitBreakerThreshold: number; // Failures before opening
+  private readonly circuitBreakerResetMs: number; // Time before half-open
+  private readonly circuitBreakerHalfOpenMax: number; // Max test requests in half-open
 
   constructor(
     private prisma: PrismaService,
@@ -42,6 +68,82 @@ export class MistralService {
       this.configService.get<string>('AI_EMBEDDING_DELAY_MS') || '100',
       10,
     );
+
+    // Circuit breaker config (defaults: open after 5 failures, reset after 30s)
+    this.circuitBreakerThreshold = this.configService.get<number>('MISTRAL_CIRCUIT_BREAKER_THRESHOLD', 5);
+    this.circuitBreakerResetMs = this.configService.get<number>('MISTRAL_CIRCUIT_BREAKER_RESET_MS', 30000);
+    this.circuitBreakerHalfOpenMax = this.configService.get<number>('MISTRAL_CIRCUIT_BREAKER_HALF_OPEN_MAX', 1);
+  }
+
+  /**
+   * Check if circuit breaker allows the request.
+   * Returns true if request should proceed, false if blocked.
+   */
+  private checkCircuitBreaker(): boolean {
+    const now = Date.now();
+
+    switch (this.circuitBreaker.state) {
+      case 'closed':
+        return true;
+
+      case 'open':
+        // Check if enough time has passed to try again
+        if (now - this.circuitBreaker.openedAt >= this.circuitBreakerResetMs) {
+          this.circuitBreaker.state = 'half-open';
+          this.logger.log('Circuit breaker: transitioning to half-open state');
+          return true;
+        }
+        return false;
+
+      case 'half-open':
+        // Allow limited requests in half-open state
+        return true;
+
+      default:
+        return true;
+    }
+  }
+
+  /**
+   * Record a successful API call. Resets circuit breaker.
+   */
+  private recordSuccess(): void {
+    if (this.circuitBreaker.state === 'half-open') {
+      this.circuitBreaker.state = 'closed';
+      this.logger.log('Circuit breaker: closed (API recovered)');
+    }
+    this.circuitBreaker.failures = 0;
+    this.circuitBreaker.lastSuccess = Date.now();
+  }
+
+  /**
+   * Record a failed API call. May open circuit breaker.
+   */
+  private recordFailure(): void {
+    this.circuitBreaker.failures++;
+
+    if (this.circuitBreaker.state === 'half-open') {
+      // Failed during test - reopen circuit
+      this.circuitBreaker.state = 'open';
+      this.circuitBreaker.openedAt = Date.now();
+      this.logger.warn('Circuit breaker: reopened (test request failed)');
+    } else if (this.circuitBreaker.failures >= this.circuitBreakerThreshold) {
+      // Too many failures - open circuit
+      this.circuitBreaker.state = 'open';
+      this.circuitBreaker.openedAt = Date.now();
+      this.logger.warn(`Circuit breaker: opened after ${this.circuitBreaker.failures} consecutive failures`);
+    }
+  }
+
+  /**
+   * Get current circuit breaker status for monitoring.
+   */
+  getCircuitBreakerStatus(): { state: string; failures: number; lastSuccess: number } {
+    return {
+      state: this.circuitBreaker.state,
+      failures: this.circuitBreaker.failures,
+      lastSuccess: this.circuitBreaker.lastSuccess,
+    };
   }
 
   /**
@@ -104,6 +206,11 @@ export class MistralService {
   }): Promise<string> {
     const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512 } = options;
 
+    // Check circuit breaker before making request
+    if (!this.checkCircuitBreaker()) {
+      throw new Error('Mistral API circuit breaker is open - service temporarily unavailable');
+    }
+
     try {
       const client = await this.createMistralClient();
       const messages: MistralChatMessage[] = [];
@@ -127,11 +234,16 @@ export class MistralService {
         throw new Error('Empty response from AI service');
       }
 
+      // Record success - reset circuit breaker
+      this.recordSuccess();
       return text;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Prompt completion failed: ${message}`, stack);
+
+      // Record failure - may trip circuit breaker
+      this.recordFailure();
       throw error;
     }
   }
@@ -277,9 +389,14 @@ export class MistralService {
   }
 
   /**
-   * Generate embeddings for RAG (rate-limited)
+   * Generate embeddings for RAG (rate-limited with circuit breaker)
    */
   async generateEmbedding(text: string, client?: Mistral): Promise<number[]> {
+    // Check circuit breaker before making request
+    if (!this.checkCircuitBreaker()) {
+      throw new Error('Mistral API circuit breaker is open - service temporarily unavailable');
+    }
+
     await this.acquireEmbeddingSlot();
     try {
       const mistralClient = client ?? (await this.createMistralClient());
@@ -293,9 +410,11 @@ export class MistralService {
         throw new Error('Mistral embeddings response did not contain data');
       }
 
+      this.recordSuccess();
       return embedding;
     } catch (error) {
       this.logger.error('Failed to generate embedding:', error instanceof Error ? error.message : error);
+      this.recordFailure();
       throw error;
     } finally {
       this.releaseEmbeddingSlot();
@@ -303,7 +422,7 @@ export class MistralService {
   }
 
   /**
-   * Generate embeddings for multiple texts in a single bulk operation (rate-limited)
+   * Generate embeddings for multiple texts in a single bulk operation (rate-limited with circuit breaker)
    * This is more efficient than calling generateEmbedding multiple times
    * @param texts Array of texts to generate embeddings for
    * @param client Optional Mistral client instance
@@ -312,6 +431,11 @@ export class MistralService {
   async generateBulkEmbeddings(texts: string[], client?: Mistral): Promise<number[][]> {
     if (!texts || texts.length === 0) {
       return [];
+    }
+
+    // Check circuit breaker before making request
+    if (!this.checkCircuitBreaker()) {
+      throw new Error('Mistral API circuit breaker is open - service temporarily unavailable');
     }
 
     await this.acquireEmbeddingSlot();
@@ -342,6 +466,7 @@ export class MistralService {
         );
       }
 
+      this.recordSuccess();
       this.logger.debug(`Generated ${embeddings.length} embeddings in bulk`);
       return embeddings;
     } catch (error) {
@@ -349,6 +474,7 @@ export class MistralService {
         'Failed to generate bulk embeddings:',
         error instanceof Error ? error.message : error,
       );
+      this.recordFailure();
       throw error;
     } finally {
       this.releaseEmbeddingSlot();

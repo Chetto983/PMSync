@@ -325,6 +325,7 @@ export class HybridRetriever extends BaseRetriever {
 
   /**
    * Re-rank results using LLM for better relevance.
+   * OPTIMIZED: Uses bulk embeddings instead of N+1 API calls.
    */
   private async rerankResults(
     query: string,
@@ -338,17 +339,23 @@ export class HybridRetriever extends BaseRetriever {
     const candidates = results.slice(0, Math.min(results.length, this.finalLimit * 2));
 
     try {
-      // Simple relevance scoring without full LLM call
-      // Use semantic similarity between query and each result
+      // OPTIMIZED: Generate all embeddings in a single bulk API call (was N+1)
       const queryEmbedding = await this.mistralService.generateEmbedding(query);
+      if (!queryEmbedding) {
+        return candidates.slice(0, this.finalLimit);
+      }
 
-      for (const doc of candidates) {
-        const docEmbedding = await this.mistralService.generateEmbedding(
-          doc.content.substring(0, 500),
-        );
+      // Prepare all document contents for bulk embedding
+      const docContents = candidates.map((doc) => doc.content.substring(0, 500));
 
-        if (queryEmbedding && docEmbedding) {
-          doc.rerankScore = this.cosineSimilarity(queryEmbedding, docEmbedding);
+      // Single bulk API call instead of N individual calls
+      const docEmbeddings = await this.mistralService.generateBulkEmbeddings(docContents);
+
+      // Calculate similarity scores
+      for (let i = 0; i < candidates.length; i++) {
+        const docEmbedding = docEmbeddings[i];
+        if (docEmbedding) {
+          candidates[i].rerankScore = this.cosineSimilarity(queryEmbedding, docEmbedding);
         }
       }
 

@@ -408,7 +408,7 @@ describe('VoltAgentController', () => {
       expect(voltAgentService.resumeApproval).toHaveBeenCalledWith('exec-1', {
         approved: true,
         approvedBy: 'user-123',
-      });
+      }, 'tenant-456');
       expect(result.status).toBe('approved');
     });
 
@@ -453,7 +453,7 @@ describe('VoltAgentController', () => {
         approved: false,
         approvedBy: 'user-123',
         rejectionReason: 'Not needed',
-      });
+      }, 'tenant-456');
       expect(result.status).toBe('rejected');
     });
   });
