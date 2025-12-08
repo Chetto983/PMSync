@@ -140,11 +140,12 @@ interface AttachmentItemProps {
   compact?: boolean;
 }
 
-const AttachmentItem: React.FC<AttachmentItemProps> = ({
+const AttachmentItem: React.FC<AttachmentItemProps & { t: ReturnType<typeof useTranslations> }> = ({
   attachment,
   onPreview,
   onDownload,
   compact = false,
+  t,
 }) => {
   const isPreviewable = getFileCategory(attachment.contentType) === 'image';
   const categoryColor = getCategoryColor(attachment.contentType);
@@ -206,13 +207,13 @@ const AttachmentItem: React.FC<AttachmentItemProps> = ({
       {/* Actions */}
       <Stack direction="row" spacing={0.5}>
         {isPreviewable && (
-          <Tooltip title="Preview">
+          <Tooltip title={t.dashboard?.emailView?.preview || 'Preview'}>
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); onPreview(); }}>
               <ExternalLink size={16} />
             </IconButton>
           </Tooltip>
         )}
-        <Tooltip title="Download">
+        <Tooltip title={t.dashboard?.emailView?.download || 'Download'}>
           <IconButton
             size="small"
             onClick={(e) => {
@@ -237,6 +238,7 @@ interface ImagePreviewDialogProps {
   attachment: Attachment | null;
   imageUrl: string | null;
   isLoading: boolean;
+  t: ReturnType<typeof useTranslations>;
 }
 
 const ImagePreviewDialog: React.FC<ImagePreviewDialogProps> = ({
@@ -245,6 +247,7 @@ const ImagePreviewDialog: React.FC<ImagePreviewDialogProps> = ({
   attachment,
   imageUrl,
   isLoading,
+  t,
 }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -279,18 +282,18 @@ const ImagePreviewDialog: React.FC<ImagePreviewDialogProps> = ({
         </Typography>
 
         {/* Zoom controls */}
-        <Tooltip title="Zoom out">
+        <Tooltip title={t.dashboard?.emailView?.zoomOut || 'Zoom out'}>
           <IconButton size="small" onClick={handleZoomOut} disabled={zoom <= 0.5}>
             <ZoomOut size={18} />
           </IconButton>
         </Tooltip>
         <Chip label={`${Math.round(zoom * 100)}%`} size="small" sx={{ minWidth: 60 }} />
-        <Tooltip title="Zoom in">
+        <Tooltip title={t.dashboard?.emailView?.zoomIn || 'Zoom in'}>
           <IconButton size="small" onClick={handleZoomIn} disabled={zoom >= 3}>
             <ZoomIn size={18} />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Rotate">
+        <Tooltip title={t.dashboard?.emailView?.rotate || 'Rotate'}>
           <IconButton size="small" onClick={handleRotate}>
             <RotateCw size={18} />
           </IconButton>
@@ -327,7 +330,7 @@ const ImagePreviewDialog: React.FC<ImagePreviewDialogProps> = ({
             }}
           />
         ) : (
-          <Typography color="text.secondary">Failed to load preview</Typography>
+          <Typography color="text.secondary">{t.dashboard?.emailView?.failedToLoadPreview || 'Failed to load preview'}</Typography>
         )}
       </DialogContent>
     </Dialog>
@@ -456,6 +459,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
                   attachment={attachment}
                   onPreview={() => handlePreview(attachment)}
                   onDownload={() => handleDownload(attachment)}
+                  t={t}
                 />
               ))}
             </Stack>
@@ -496,6 +500,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
         attachment={previewAttachment}
         imageUrl={previewUrl}
         isLoading={isLoadingPreview}
+        t={t}
       />
     </>
   );

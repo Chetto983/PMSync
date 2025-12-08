@@ -8,7 +8,9 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { ConfigService } from '@nestjs/config';
 import { MicrosoftCalendarSyncService } from './microsoft-calendar-sync.service';
+import { CalendarSyncQueueService } from './calendar-sync-queue.service';
 import axios from 'axios';
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 // Mock axios
 jest.mock('axios');
@@ -19,7 +21,8 @@ describe('MicrosoftCalendarWebhookService', () => {
   let prisma: jest.Mocked<PrismaService>;
   let crypto: jest.Mocked<CryptoService>;
   let _config: jest.Mocked<ConfigService>;
-  let calendarSync: jest.Mocked<MicrosoftCalendarSyncService>;
+  let _calendarSync: jest.Mocked<MicrosoftCalendarSyncService>;
+  let calendarSyncQueue: jest.Mocked<CalendarSyncQueueService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -62,6 +65,14 @@ describe('MicrosoftCalendarWebhookService', () => {
             syncCalendar: jest.fn(),
           },
         },
+        {
+          provide: CalendarSyncQueueService,
+          useValue: {
+            queueSync: jest.fn().mockResolvedValue(undefined),
+            addSyncJob: jest.fn().mockResolvedValue(undefined),
+            getQueueStats: jest.fn().mockResolvedValue({ waiting: 0, active: 0, completed: 0, failed: 0 }),
+          },
+        },
       ],
     }).compile();
 
@@ -69,7 +80,8 @@ describe('MicrosoftCalendarWebhookService', () => {
     prisma = module.get(PrismaService);
     crypto = module.get(CryptoService);
     _config = module.get(ConfigService);
-    calendarSync = module.get(MicrosoftCalendarSyncService);
+    _calendarSync = module.get(MicrosoftCalendarSyncService);
+    calendarSyncQueue = module.get(CalendarSyncQueueService);
 
     // Clear all mocks
     jest.clearAllMocks();
@@ -183,15 +195,20 @@ describe('MicrosoftCalendarWebhookService', () => {
         isActive: true,
       };
 
+      const mockProvider = {
+        tenantId: 'tenant-1',
+        email: 'user@example.com',
+      };
+
       prisma.webhookSubscription.findFirst.mockResolvedValue(mockSubscription as any);
       prisma.webhookSubscription.update.mockResolvedValue({} as any);
-      calendarSync.syncCalendar.mockResolvedValue(undefined);
+      prisma.providerConfig.findUnique.mockResolvedValue(mockProvider as any);
 
       await service.handleNotifications(notifications);
 
       expect(prisma.webhookSubscription.findFirst).toHaveBeenCalledTimes(2);
       expect(prisma.webhookSubscription.update).toHaveBeenCalledTimes(2);
-      expect(calendarSync.syncCalendar).toHaveBeenCalledTimes(2);
+      expect(calendarSyncQueue.addSyncJob).toHaveBeenCalledTimes(2);
     });
 
     it('should reject notification with invalid client state', async () => {
@@ -225,7 +242,7 @@ describe('MicrosoftCalendarWebhookService', () => {
 
       await service.handleNotifications(notifications);
 
-      expect(calendarSync.syncCalendar).not.toHaveBeenCalled();
+      expect(calendarSyncQueue.addSyncJob).not.toHaveBeenCalled();
     });
 
     it('should continue processing on individual notification error', async () => {
@@ -252,16 +269,21 @@ describe('MicrosoftCalendarWebhookService', () => {
         isActive: true,
       };
 
+      const mockProvider = {
+        tenantId: 'tenant-1',
+        email: 'user@example.com',
+      };
+
       prisma.webhookSubscription.findFirst
         .mockRejectedValueOnce(new Error('Database error'))
         .mockResolvedValueOnce(mockSubscription as any);
       prisma.webhookSubscription.update.mockResolvedValue({} as any);
-      calendarSync.syncCalendar.mockResolvedValue(undefined);
+      prisma.providerConfig.findUnique.mockResolvedValue(mockProvider as any);
 
       await service.handleNotifications(notifications);
 
       // Second notification should still be processed
-      expect(calendarSync.syncCalendar).toHaveBeenCalledTimes(1);
+      expect(calendarSyncQueue.addSyncJob).toHaveBeenCalledTimes(1);
     });
   });
 

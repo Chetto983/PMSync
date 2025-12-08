@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useEffect, useMemo, useState, useSyncExternalStore, useRef } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { useAuthStore, User } from '@/stores/auth-store';
 
@@ -16,19 +16,28 @@ export const AuthContext = createContext<AuthContextType>({
   token: null,
 });
 
+// Hydration detection using useSyncExternalStore (React 18 pattern)
+const emptySubscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const setStoreUser = useAuthStore((state) => state.setUser);
   const logout = useAuthStore((state) => state.logout);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isHydrated, setIsHydrated] = useState<boolean>(false);
+  const hasRehydratedRef = useRef(false);
 
-  // Rehydrate Zustand store from localStorage on client
+  // Detect hydration using useSyncExternalStore (no cascading renders)
+  const isHydrated = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
+
+  // Rehydrate Zustand store from localStorage on client (one-time)
   useEffect(() => {
-    // Manual rehydration for SSR-safe persist
-    useAuthStore.persist.rehydrate();
-    setIsHydrated(true);
+    if (!hasRehydratedRef.current) {
+      useAuthStore.persist.rehydrate();
+      hasRehydratedRef.current = true;
+    }
   }, []);
 
   // Validate token after hydration
@@ -43,18 +52,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Re-read token after hydration
     const currentToken = useAuthStore.getState().token;
 
+    // Helper to safely set loading state
+    const safeSetLoading = (value: boolean) => {
+      if (isActive) {
+        // Use queueMicrotask to avoid sync setState in effect (eslint react-hooks/set-state-in-effect)
+        queueMicrotask(() => {
+          if (isActive) setIsLoading(value);
+        });
+      }
+    };
+
     if (!currentToken) {
       const existingUser = useAuthStore.getState().user;
       if (existingUser) {
         setStoreUser(null);
       }
-      setIsLoading(false);
+      safeSetLoading(false);
       return () => {
         isActive = false;
       };
     }
 
-    setIsLoading(true);
+    safeSetLoading(true);
 
     apiClient
       .get('/auth/me')
@@ -81,9 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout();
       })
       .finally(() => {
-        if (isActive) {
-          setIsLoading(false);
-        }
+        safeSetLoading(false);
       });
 
     return () => {

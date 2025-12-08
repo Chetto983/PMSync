@@ -22,6 +22,8 @@ describe('CalendarController', () => {
   const mockOtherProviderId = 'provider-456';
   const mockAttachmentId = 'attachment-123';
 
+  const mockQuery = {};
+
   const mockUser = {
     id: 'user-123',
     tenantId: mockTenantId,
@@ -92,7 +94,7 @@ describe('CalendarController', () => {
       const mockEvents = [mockEvent];
       mockCalendarService.listEvents.mockResolvedValue(mockEvents);
 
-      const result = await controller.listEvents(mockRequest);
+      const result = await controller.listEvents(mockRequest, mockQuery);
 
       expect(calendarService.listEvents).toHaveBeenCalledWith(mockTenantId, {});
       expect(result).toEqual(mockEvents);
@@ -101,15 +103,14 @@ describe('CalendarController', () => {
     it('should pass filters to service', async () => {
       mockCalendarService.listEvents.mockResolvedValue([]);
 
-      await controller.listEvents(
-        mockRequest,
-        'provider-1',
-        'calendar-1',
-        '2025-12-01T00:00:00Z',
-        '2025-12-31T23:59:59Z',
-        '10',
-        '5',
-      );
+      await controller.listEvents(mockRequest, {
+        providerId: 'provider-1',
+        calendarId: 'calendar-1',
+        startTime: '2025-12-01T00:00:00Z',
+        endTime: '2025-12-31T23:59:59Z',
+        limit: 10,
+        offset: 5,
+      });
 
       expect(calendarService.listEvents).toHaveBeenCalledWith(mockTenantId, {
         providerId: 'provider-1',
@@ -124,15 +125,12 @@ describe('CalendarController', () => {
     it('should parse date strings and integers correctly', async () => {
       mockCalendarService.listEvents.mockResolvedValue([]);
 
-      await controller.listEvents(
-        mockRequest,
-        undefined,
-        undefined,
-        '2025-01-01T00:00:00Z',
-        '2025-01-31T23:59:59Z',
-        '25',
-        '50',
-      );
+      await controller.listEvents(mockRequest, {
+        startTime: '2025-01-01T00:00:00Z',
+        endTime: '2025-01-31T23:59:59Z',
+        limit: 25,
+        offset: 50,
+      });
 
       expect(calendarService.listEvents).toHaveBeenCalledWith(mockTenantId, {
         startTime: new Date('2025-01-01T00:00:00Z'),
@@ -145,7 +143,7 @@ describe('CalendarController', () => {
     it('should handle missing optional parameters', async () => {
       mockCalendarService.listEvents.mockResolvedValue([]);
 
-      await controller.listEvents(mockRequest);
+      await controller.listEvents(mockRequest, {});
 
       expect(calendarService.listEvents).toHaveBeenCalledWith(mockTenantId, {});
     });
@@ -406,7 +404,7 @@ describe('CalendarController', () => {
     it('should extract tenantId from authenticated user', async () => {
       mockCalendarService.listEvents.mockResolvedValue([]);
 
-      await controller.listEvents(mockRequest);
+      await controller.listEvents(mockRequest, {});
 
       expect(calendarService.listEvents).toHaveBeenCalledWith(mockTenantId, expect.any(Object));
     });
@@ -417,7 +415,7 @@ describe('CalendarController', () => {
       const error = new Error('Database error');
       mockCalendarService.listEvents.mockRejectedValue(error);
 
-      await expect(controller.listEvents(mockRequest)).rejects.toThrow('Database error');
+      await expect(controller.listEvents(mockRequest, {})).rejects.toThrow('Database error');
     });
 
     it('should propagate service errors for getEvent', async () => {

@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { logger } from '@/lib/logger';
 
 /**
  * WebSocket Client per connessione realtime al backend
@@ -180,13 +181,13 @@ class WebSocketClient {
   connect(token: string): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.socket?.connected) {
-        console.log('[WebSocket] Already connected');
+        logger.debug('[WebSocket] Already connected');
         resolve();
         return;
       }
 
       if (this.isConnecting) {
-        console.log('[WebSocket] Connection already in progress');
+        logger.debug('[WebSocket] Connection already in progress');
         resolve();
         return;
       }
@@ -214,7 +215,7 @@ class WebSocketClient {
       const handleConnected = (data: any) => {
         if (settled) return;
         settled = true;
-        console.log('[WebSocket] Connected successfully:', data);
+        logger.debug('[WebSocket] Connected successfully', { socketId: data?.socketId });
         this.reconnectAttempts = 0;
         this.isConnecting = false;
         this.socket?.off('connect_error', handleConnectError);
@@ -223,14 +224,14 @@ class WebSocketClient {
 
       // Connection error
       const handleConnectError = (error: Error) => {
-        console.error('[WebSocket] Connection error:', error.message);
+        logger.error('[WebSocket] Connection error', { message: error.message });
         this.reconnectAttempts++;
         this.isConnecting = false;
 
         // Check if this is an auth error
         if (isAuthError(error)) {
           isAuthFailure = true;
-          console.error('[WebSocket] Auth failure detected');
+          logger.error('[WebSocket] Auth failure detected');
         }
 
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
@@ -240,7 +241,7 @@ class WebSocketClient {
 
           // If auth failure, notify handler
           if (isAuthFailure && this.authFailureHandler) {
-            console.log('[WebSocket] Triggering auth failure handler');
+            logger.debug('[WebSocket] Triggering auth failure handler');
             this.authFailureHandler();
           }
 
@@ -253,13 +254,13 @@ class WebSocketClient {
 
       // Disconnection
       this.socket.on('disconnect', (reason: string) => {
-        console.log('[WebSocket] Disconnected:', reason);
+        logger.debug('[WebSocket] Disconnected', { reason });
         this.isConnecting = false;
       });
 
       // Socket.io reconnect event - rejoin rooms after reconnect
       this.socket.io.on('reconnect', () => {
-        console.log('[WebSocket] Reconnected - rejoining rooms...');
+        logger.debug('[WebSocket] Reconnected - rejoining rooms...');
         this.rejoinRooms();
 
         // Notify reconnect handler
@@ -270,16 +271,12 @@ class WebSocketClient {
 
       // Heartbeat
       this.socket.on('heartbeat', (data: any) => {
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('[WebSocket] Heartbeat received:', data.timestamp);
-        }
+        logger.debug('[WebSocket] Heartbeat received', { timestamp: data.timestamp });
       });
 
       // Pong response
       this.socket.on('pong', (data: any) => {
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('[WebSocket] Pong received:', data.timestamp);
-        }
+        logger.debug('[WebSocket] Pong received', { timestamp: data.timestamp });
       });
     });
   }
@@ -291,7 +288,7 @@ class WebSocketClient {
     if (!this.socket?.connected) return;
 
     for (const room of this.joinedRooms) {
-      console.log(`[WebSocket] Rejoining room: ${room}`);
+      logger.debug('[WebSocket] Rejoining room', { room });
       this.socket.emit('join_room', { room });
     }
   }
@@ -303,7 +300,7 @@ class WebSocketClient {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
-      console.log('[WebSocket] Disconnected manually');
+      logger.debug('[WebSocket] Disconnected manually');
     }
     // Clear joined rooms on manual disconnect
     this.joinedRooms.clear();

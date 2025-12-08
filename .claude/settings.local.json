@@ -56,7 +56,9 @@
       "Bash(do echo \"=== MODULE: $module ===\" if [ -f \"d:/MailAgent/backend/src/modules/$module/$module.module.ts\" ])",
       "Bash(then head -30 \"d:/MailAgent/backend/src/modules/$module/$module.module.ts\")",
       "Bash(cd:*)",
-      "Bash(Select-Object -First 50)"
+      "Bash(Select-Object -First 50)",
+      "Bash(npm test:*)",
+      "Bash(Select-Object -First 60)"
     ],
     "deny": [],
     "ask": []

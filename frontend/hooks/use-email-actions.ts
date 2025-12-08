@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import { emailApi } from '@/lib/api/email';
 import { useRouter } from 'next/router';
+import { logger } from '@/lib/logger';
 
 export interface EmailActionsCallbacks {
   onSuccess?: (message: string) => void;
@@ -53,7 +54,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
 
         callbacks?.onSuccess?.('Email deleted successfully ✓');
       } catch (error) {
-        console.error('Failed to delete email:', error);
+        logger.error('[EmailActions] Failed to delete email', { emailId, error });
         // Rollback: restore the deleted email
         if (emailToDelete) {
           useEmailStore.getState().addEmail(emailToDelete);
@@ -82,7 +83,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
 
         callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} deleted successfully ✓`);
       } catch (error) {
-        console.error('Failed to bulk delete emails:', error);
+        logger.error('[EmailActions] Failed to bulk delete emails', { count: emailIds.length, error });
         // Rollback: restore deleted emails
         if (emailsToDelete.length > 0) {
           const store = useEmailStore.getState();
@@ -115,7 +116,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         const action = isRead ? 'read' : 'unread';
         callbacks?.onSuccess?.(`Marked as ${action} ✓`);
       } catch (error) {
-        console.error('Failed to mark emails as read:', error);
+        logger.error('[EmailActions] Failed to mark emails as read', { count: emailIds.length, isRead, error });
         // Rollback: restore previous read states
         const store = useEmailStore.getState();
         previousStates.forEach(({ id, isRead: wasRead }) => {
@@ -143,7 +144,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
 
         callbacks?.onSuccess?.(newRead ? 'Marked as read ✓' : 'Marked as unread ✓');
       } catch (error) {
-        console.error('Failed to toggle read status:', error);
+        logger.error('[EmailActions] Failed to toggle read status', { emailId, error });
         // Revert on error
         updateEmail(emailId, { isRead: currentRead });
         callbacks?.onError?.('Failed to update read status. Please try again.');
@@ -168,7 +169,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
 
         callbacks?.onSuccess?.(newStarred ? 'Email starred ✓' : 'Email unstarred ✓');
       } catch (error) {
-        console.error('Failed to toggle star:', error);
+        logger.error('[EmailActions] Failed to toggle star', { emailId, error });
         // Revert on error
         markAsStarred([emailId], currentStarred);
         callbacks?.onError?.('Failed to update star status. Please try again.');
@@ -193,7 +194,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
 
         callbacks?.onSuccess?.(newImportant ? 'Marked as important ✓' : 'Unmarked as important ✓');
       } catch (error) {
-        console.error('Failed to toggle important:', error);
+        logger.error('[EmailActions] Failed to toggle important', { emailId, error });
         // Revert on error
         updateEmail(emailId, { isImportant: currentImportant });
         callbacks?.onError?.('Failed to update important status. Please try again.');
@@ -222,7 +223,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
 
         callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} archived ✓`);
       } catch (error) {
-        console.error('Failed to archive emails:', error);
+        logger.error('[EmailActions] Failed to archive emails', { count: emailIds.length, error });
         // Rollback: restore previous folders
         const store = useEmailStore.getState();
         previousFolders.forEach(({ id, folder }) => {
@@ -254,7 +255,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
 
         callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} moved ✓`);
       } catch (error) {
-        console.error('Failed to move emails to folder:', error);
+        logger.error('[EmailActions] Failed to move emails to folder', { count: emailIds.length, folderId, error });
         // Rollback: restore previous folders
         const store = useEmailStore.getState();
         previousFolders.forEach(({ id, folder }) => {
@@ -315,7 +316,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
           updateEmail(email.id, { isRead: true });
           await emailApi.updateEmail(email.id, { isRead: true });
         } catch (error) {
-          console.error('Failed to mark email as read:', error);
+          logger.error('[EmailActions] Failed to mark email as read on click', { emailId: email.id, error });
         }
       }
     },

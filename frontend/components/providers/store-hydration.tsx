@@ -8,15 +8,26 @@
  * 1. Waiting for client-side hydration before rendering persisted state
  * 2. Manually triggering rehydration after component mount
  *
+ * Uses useSyncExternalStore for React 18 recommended hydration pattern.
+ *
  * @see https://zustand.docs.pmnd.rs/integrations/persisting-store-data
- * @see https://medium.com/@koalamango/fix-next-js-hydration-error-with-zustand-state-management-0ce51a0176ad
+ * @see https://react.dev/reference/react/useSyncExternalStore
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 
 interface StoreHydrationProps {
   children: ReactNode;
 }
+
+// Subscription function that never updates (hydration is one-time)
+const emptySubscribe = () => () => {};
+
+// Client snapshot always returns true (we're hydrated on the client)
+const getClientSnapshot = () => true;
+
+// Server snapshot always returns false (not hydrated during SSR)
+const getServerSnapshot = () => false;
 
 /**
  * Provider that ensures stores are hydrated before rendering children
@@ -30,12 +41,8 @@ interface StoreHydrationProps {
  * ```
  */
 export function StoreHydration({ children }: StoreHydrationProps) {
-  const [, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    // Mark as hydrated after first render (client-side)
-    setIsHydrated(true);
-  }, []);
+  // Use useSyncExternalStore to detect hydration without causing cascading renders
+  useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
 
   // On server and during initial hydration, render with default state
   // This ensures consistency between server and client
@@ -45,6 +52,8 @@ export function StoreHydration({ children }: StoreHydrationProps) {
 /**
  * Hook to check if stores have been hydrated
  * Useful for components that depend on persisted state
+ *
+ * Uses React 18's useSyncExternalStore for hydration detection.
  *
  * @example
  * ```tsx
@@ -61,13 +70,7 @@ export function StoreHydration({ children }: StoreHydrationProps) {
  * ```
  */
 export function useIsStoreHydrated() {
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
-
-  return isHydrated;
+  return useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
 }
 
 /**

@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { Mail, Phone, Edit, Trash2, Building } from 'lucide-react';
 import type { Contact } from '@/lib/api/contacts';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 /**
  * Props for ContactListItem component
@@ -124,6 +125,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
     onCall,
     onClick,
   }) => {
+    const t = useTranslations();
     const displayName = useMemo(() => getDisplayName(contact), [contact]);
     const initials = useMemo(() => getInitials(contact), [contact]);
     const primaryEmail = useMemo(() => getPrimaryEmail(contact), [contact]);
@@ -309,28 +311,28 @@ export const ContactListItem = React.memo<ContactListItemProps>(
               }}
             >
               {primaryEmail && onEmail && (
-                <Tooltip title="Send email">
+                <Tooltip title={t.dashboard?.contacts?.actions?.sendEmail || 'Send email'}>
                   <IconButton size="small" onClick={handleEmail}>
                     <Mail size={18} />
                   </IconButton>
                 </Tooltip>
               )}
               {primaryPhone && onCall && (
-                <Tooltip title="Call">
+                <Tooltip title={t.dashboard?.contacts?.actions?.call || 'Call'}>
                   <IconButton size="small" onClick={handleCall}>
                     <Phone size={18} />
                   </IconButton>
                 </Tooltip>
               )}
               {onEdit && (
-                <Tooltip title="Edit">
+                <Tooltip title={t.common?.edit || 'Edit'}>
                   <IconButton size="small" onClick={handleEdit}>
                     <Edit size={18} />
                   </IconButton>
                 </Tooltip>
               )}
               {onDelete && (
-                <Tooltip title="Delete">
+                <Tooltip title={t.common?.delete || 'Delete'}>
                   <IconButton size="small" onClick={handleDelete} color="error">
                     <Trash2 size={18} />
                   </IconButton>

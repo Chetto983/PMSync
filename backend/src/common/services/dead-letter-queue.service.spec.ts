@@ -3,6 +3,19 @@ import { ConfigService } from '@nestjs/config';
 import { DeadLetterQueueService, DLQJobData } from './dead-letter-queue.service';
 import { CacheService } from './cache.service';
 
+// Mock the config module
+const mockReleaseSharedRedisConnection = jest.fn();
+jest.mock('../config', () => ({
+  getSharedRedisConnection: jest.fn().mockReturnValue({
+    quit: jest.fn().mockResolvedValue('OK'),
+  }),
+  releaseSharedRedisConnection: () => mockReleaseSharedRedisConnection(),
+  QUEUE_NAMES: {
+    EMAIL_SYNC: 'email-sync',
+    DEAD_LETTER: 'dead-letter-queue',
+  },
+}));
+
 describe('DeadLetterQueueService', () => {
   let service: DeadLetterQueueService;
   let _cacheService: CacheService;
@@ -591,13 +604,13 @@ describe('DeadLetterQueueService', () => {
     it('should close connections on module destroy', async () => {
       mockQueueEvents.close.mockResolvedValue(undefined);
       mockQueue.close.mockResolvedValue(undefined);
-      mockRedisConnection.quit.mockResolvedValue('OK');
+      mockReleaseSharedRedisConnection.mockClear();
 
       await service.onModuleDestroy();
 
       expect(mockQueueEvents.close).toHaveBeenCalled();
       expect(mockQueue.close).toHaveBeenCalled();
-      expect(mockRedisConnection.quit).toHaveBeenCalled();
+      expect(mockReleaseSharedRedisConnection).toHaveBeenCalled();
     });
   });
 });

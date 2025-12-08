@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { TotpService, TotpSetupResult, TotpVerifyResult } from './totp.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { authenticator } from 'otplib';
@@ -19,6 +20,16 @@ describe('TotpService', () => {
     },
   };
 
+  const mockConfigService = {
+    get: jest.fn((key: string) => {
+      const config: Record<string, string> = {
+        JWT_SECRET: 'test-jwt-secret-that-is-at-least-32-chars-long',
+        TOTP_ISSUER: 'TestApp',
+      };
+      return config[key];
+    }),
+  };
+
   beforeEach(async () => {
     // Set environment variables for testing
     process.env.JWT_SECRET = 'test-jwt-secret-that-is-at-least-32-chars-long';
@@ -30,6 +41,10 @@ describe('TotpService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();

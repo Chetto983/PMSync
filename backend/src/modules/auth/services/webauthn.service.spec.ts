@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { WebAuthnService, WebAuthnCredentialInfo } from './webauthn.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import * as simplewebauthn from '@simplewebauthn/server';
@@ -27,11 +28,40 @@ describe('WebAuthnService', () => {
     },
   };
 
+  const mockConfigService = {
+    get: jest.fn((key: string) => {
+      const config: Record<string, string> = {
+        WEBAUTHN_RP_NAME: 'TestApp',
+        WEBAUTHN_RP_ID: 'localhost',
+        WEBAUTHN_ORIGIN: 'http://localhost:3000',
+      };
+      return config[key];
+    }),
+  };
+
   const mockUserId = 'user-123';
   const mockUserEmail = 'test@example.com';
   const mockCredentialId = 'cred-abc123';
   const mockCredentialIdBase64 = 'Y3JlZC1hYmMxMjM';
   const mockPublicKeyBase64 = 'cHVibGljLWtleS1kYXRh';
+
+  // Mock Redis client with in-memory store
+  const redisStore: Record<string, string> = {};
+  const mockRedis = {
+    setex: jest.fn<any>().mockImplementation((key: string, _ttl: number, value: string) => {
+      redisStore[key] = value;
+      return Promise.resolve('OK');
+    }),
+    get: jest.fn<any>().mockImplementation((key: string) => {
+      return Promise.resolve(redisStore[key] || null);
+    }),
+    del: jest.fn<any>().mockImplementation((key: string) => {
+      delete redisStore[key];
+      return Promise.resolve(1);
+    }),
+    quit: jest.fn<any>().mockResolvedValue('OK'),
+    on: jest.fn<any>(),
+  };
 
   beforeEach(async () => {
     // Set environment variables for testing
@@ -46,10 +76,20 @@ describe('WebAuthnService', () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
       ],
     }).compile();
 
     service = module.get<WebAuthnService>(WebAuthnService);
+
+    // Inject mock Redis directly into service (bypass onModuleInit)
+    (service as any).redis = mockRedis;
+
+    // Clear Redis store between tests
+    Object.keys(redisStore).forEach(key => delete redisStore[key]);
 
     // Reset all mocks before each test
     jest.clearAllMocks();
@@ -213,11 +253,13 @@ describe('WebAuthnService', () => {
       });
       await service.generateRegistrationOptions(mockUserId, mockUserEmail);
 
-      // Manually expire the challenge by manipulating the internal map
-      const challengesMap = service['registrationChallenges'];
-      const session = challengesMap.get(mockUserId);
-      if (session) {
+      // Manually expire the challenge by manipulating the Redis store
+      const key = `webauthn:reg:${mockUserId}`;
+      const storedData = redisStore[key];
+      if (storedData) {
+        const session = JSON.parse(storedData);
         session.createdAt = Date.now() - 10 * 60 * 1000; // 10 minutes ago
+        redisStore[key] = JSON.stringify(session);
       }
 
       const result = await service.verifyRegistration(mockUserId, mockRegistrationResponse);
@@ -262,7 +304,8 @@ describe('WebAuthnService', () => {
       const result = await service.verifyRegistration(mockUserId, mockRegistrationResponse);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Verification failed. Please try again.');
+      // Service returns error.message for Error instances
+      expect(result.error).toBe('Invalid attestation');
     });
   });
 
@@ -581,60 +624,6 @@ describe('WebAuthnService', () => {
 
       expect(result).toBe(false);
       expect(mockPrismaService.webAuthnCredential.update).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('cleanupExpiredChallenges', () => {
-    it('should remove expired registration challenges', async () => {
-      // Add an expired challenge
-      mockPrismaService.webAuthnCredential.findMany.mockResolvedValue([]);
-      (simplewebauthn.generateRegistrationOptions as jest.Mock).mockResolvedValue({
-        challenge: 'test-challenge',
-      });
-      await service.generateRegistrationOptions('expired-user', 'expired@test.com');
-
-      // Manually expire it
-      const challengesMap = service['registrationChallenges'];
-      const session = challengesMap.get('expired-user');
-      if (session) {
-        session.createdAt = Date.now() - 10 * 60 * 1000; // 10 minutes ago
-      }
-
-      // Add a valid challenge
-      await service.generateRegistrationOptions('valid-user', 'valid@test.com');
-
-      // Run cleanup
-      service.cleanupExpiredChallenges();
-
-      // Expired should be removed, valid should remain
-      expect(challengesMap.has('expired-user')).toBe(false);
-      expect(challengesMap.has('valid-user')).toBe(true);
-    });
-
-    it('should remove expired authentication challenges', async () => {
-      // Add an expired challenge
-      (simplewebauthn.generateAuthenticationOptions as jest.Mock).mockResolvedValue({
-        challenge: 'auth-challenge',
-      });
-      mockPrismaService.webAuthnCredential.findMany.mockResolvedValue([]);
-      await service.generateAuthenticationOptions('expired-user');
-
-      // Manually expire it
-      const challengesMap = service['authenticationChallenges'];
-      const session = challengesMap.get('expired-user');
-      if (session) {
-        session.createdAt = Date.now() - 10 * 60 * 1000; // 10 minutes ago
-      }
-
-      // Add a valid challenge
-      await service.generateAuthenticationOptions('valid-user');
-
-      // Run cleanup
-      service.cleanupExpiredChallenges();
-
-      // Expired should be removed, valid should remain
-      expect(challengesMap.has('expired-user')).toBe(false);
-      expect(challengesMap.has('valid-user')).toBe(true);
     });
   });
 

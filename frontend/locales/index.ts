@@ -699,10 +699,16 @@ export interface AppTranslations {
       archive: string;
       more: string;
       download: string;
+      preview?: string;
+      zoomIn?: string;
+      zoomOut?: string;
+      rotate?: string;
+      failedToLoadPreview?: string;
       reply: string;
       replyAll: string;
       replyPlaceholder: string;
       forward: string;
+      openFullEditor?: string;
       summaryTitle: string;
       summaryGenerate: string;
       summaryRegenerate: string;
@@ -1236,6 +1242,8 @@ export interface AppTranslations {
       providers: string;
       actions: {
         email: string;
+        sendEmail?: string;
+        call?: string;
         schedule: string;
         addNote: string;
         aiInsights: string;
@@ -1595,6 +1603,16 @@ export interface AppTranslations {
       description: string;
       action: string;
     };
+    // API error messages
+    networkError: string;
+    timeoutError: string;
+    unauthorized: string;
+    forbidden: string;
+    sessionExpired: string;
+    conflict: string;
+    validationError: string;
+    tooManyRequests: string;
+    unknownError: string;
   };
 }
 

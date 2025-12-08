@@ -106,17 +106,23 @@ export const LazyImage: React.FC<LazyImageProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
+    let isActive = true;
+
     // Check if IntersectionObserver is available
     if (!('IntersectionObserver' in window)) {
-      // Fallback: load immediately
-      setIsInView(true);
-      return;
+      // Fallback: load immediately (use queueMicrotask to avoid sync setState in effect)
+      queueMicrotask(() => {
+        if (isActive) setIsInView(true);
+      });
+      return () => {
+        isActive = false;
+      };
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
+          if (entry.isIntersecting && isActive) {
             setIsInView(true);
             // Once in view, stop observing
             observer.unobserve(entry.target);
@@ -132,6 +138,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({
     observer.observe(container);
 
     return () => {
+      isActive = false;
       observer.disconnect();
     };
   }, [rootMargin]);

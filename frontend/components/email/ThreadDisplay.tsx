@@ -117,9 +117,10 @@ interface ThreadMessageProps {
   attachmentTooltip: string;
   isDark: boolean;
   onInviteRespond?: (emailId: string, response: 'accept' | 'decline' | 'tentative') => void;
+  t: ReturnType<typeof useTranslations>;
 }
 
-const ThreadMessage: React.FC<ThreadMessageProps> = ({
+const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(({
   email,
   isExpanded,
   onToggle,
@@ -131,6 +132,7 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
   attachmentTooltip,
   isDark,
   onInviteRespond,
+  t,
 }) => {
   const emailFromData = parseEmailFrom(email.from);
   const emailHtml = email.bodyHtml || email.bodyText || email.snippet || '';
@@ -319,17 +321,17 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
                 </Button>
               ) : (
                 <>
-                  <Tooltip title="Reply">
+                  <Tooltip title={t.dashboard?.emailView?.reply || 'Reply'}>
                     <IconButton size="small" onClick={() => onReply?.(email)}>
                       <Reply size={16} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Reply All">
+                  <Tooltip title={t.dashboard?.emailView?.replyAll || 'Reply All'}>
                     <IconButton size="small" onClick={() => onReplyAll?.(email)}>
                       <ReplyAll size={16} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Forward">
+                  <Tooltip title={t.dashboard?.emailView?.forward || 'Forward'}>
                     <IconButton size="small" onClick={() => onForward?.(email)}>
                       <Forward size={16} />
                     </IconButton>
@@ -403,7 +405,10 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
       </Collapse>
     </Paper>
   );
-};
+});
+
+// Display name for debugging
+ThreadMessage.displayName = 'ThreadMessage';
 
 /**
  * ThreadDisplay - Modern collapsible email thread viewer
@@ -848,6 +853,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
               attachmentTooltip={attachmentTooltip}
               isDark={isDark}
               onInviteRespond={handleInviteRespond}
+              t={t}
             />
           ))}
         </Box>

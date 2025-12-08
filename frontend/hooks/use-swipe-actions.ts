@@ -12,7 +12,7 @@
  * - Threshold-based action triggering
  * - Velocity detection for quick swipes
  */
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 interface SwipeConfig {
   /** Minimum distance to trigger action (px) */
@@ -233,11 +233,40 @@ export function useSwipeActions(config: SwipeConfig = {}): UseSwipeActionsReturn
     [handleEnd],
   );
 
+  // Track active mouse listeners for cleanup to prevent memory leaks
+  const mouseListenersRef = useRef<{
+    move: ((e: MouseEvent) => void) | null;
+    up: ((e: MouseEvent) => void) | null;
+  }>({ move: null, up: null });
+
+  // Cleanup function for mouse listeners
+  const cleanupMouseListeners = useCallback(() => {
+    if (mouseListenersRef.current.move) {
+      document.removeEventListener('mousemove', mouseListenersRef.current.move);
+      mouseListenersRef.current.move = null;
+    }
+    if (mouseListenersRef.current.up) {
+      document.removeEventListener('mouseup', mouseListenersRef.current.up);
+      mouseListenersRef.current.up = null;
+    }
+  }, []);
+
+  // Cleanup on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      cleanupMouseListeners();
+    };
+  }, [cleanupMouseListeners]);
+
   // Mouse handlers (for testing on desktop)
   const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
       // Only enable mouse swipe in development
       if (process.env.NODE_ENV !== 'development') return;
+
+      // Cleanup any existing listeners first
+      cleanupMouseListeners();
+
       handleStart(e.clientX, e.clientY);
       elementRef.current = e.currentTarget as HTMLElement;
 
@@ -247,14 +276,17 @@ export function useSwipeActions(config: SwipeConfig = {}): UseSwipeActionsReturn
 
       const onMouseUp = (upEvent: MouseEvent) => {
         handleEnd(upEvent.clientX);
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
+        cleanupMouseListeners();
       };
+
+      // Store refs for cleanup
+      mouseListenersRef.current.move = onMouseMove;
+      mouseListenersRef.current.up = onMouseUp;
 
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
     },
-    [handleStart, handleMove, handleEnd],
+    [handleStart, handleMove, handleEnd, cleanupMouseListeners],
   );
 
   // Style for the swiped element

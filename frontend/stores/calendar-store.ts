@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { CalendarEvent as ApiCalendarEvent } from '@/lib/api/calendar';
+import { logger } from '@/lib/logger';
 
 // Re-export the API type for convenience
 export type CalendarEvent = ApiCalendarEvent;
@@ -71,7 +72,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   syncError: null,
 
   setEvents: (events) => {
-    console.log('[Calendar Store] setEvents called:', events.length, 'events');
+    logger.debug('[Calendar Store] setEvents called', { count: events.length });
     // Auto-enable all calendars when events are loaded
     const calendarIds = new Set(events.map((e) => e.calendarId).filter(Boolean) as string[]);
     set({ events, enabledCalendarIds: calendarIds });
@@ -82,7 +83,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       // Filter out duplicates
       const existingIds = new Set(state.events.map((e) => e.id));
       const uniqueNewEvents = newEvents.filter((e) => !existingIds.has(e.id));
-      console.log('[Calendar Store] appendEvents:', uniqueNewEvents.length, 'new events');
+      logger.debug('[Calendar Store] appendEvents', { newCount: uniqueNewEvents.length });
       return {
         events: [...state.events, ...uniqueNewEvents],
       };
@@ -90,11 +91,11 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
 
   addEvent: (event) =>
     set((state) => {
-      console.log('[Calendar Store] addEvent called:', { id: event.id, title: event.title?.substring(0, 30) });
+      logger.debug('[Calendar Store] addEvent called', { id: event.id, title: event.title?.substring(0, 30) });
 
       // Prevent duplicates
       if (state.events.some((e) => e.id === event.id)) {
-        console.warn('[Calendar Store] Event already exists, skipping');
+        logger.warn('[Calendar Store] Event already exists, skipping');
         return state;
       }
 
@@ -104,7 +105,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
         newEnabledCalendars.add(event.calendarId);
       }
 
-      console.log('[Calendar Store] Event added successfully');
+      logger.debug('[Calendar Store] Event added successfully');
       return {
         events: [...state.events, event],
         enabledCalendarIds: newEnabledCalendars,
@@ -113,19 +114,19 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
 
   updateEvent: (id, updates) =>
     set((state) => {
-      console.log('[Calendar Store] updateEvent called:', { id, hasUpdates: !!updates });
+      logger.debug('[Calendar Store] updateEvent called', { id, hasUpdates: !!updates });
       const eventIndex = state.events.findIndex((e) => e.id === id);
 
       if (eventIndex === -1) {
         // Event doesn't exist - try to add if updates is a full event
         if (typeof updates === 'object' && updates !== null && 'id' in updates && 'title' in updates) {
-          console.log('[Calendar Store] Event not found, adding as new');
+          logger.debug('[Calendar Store] Event not found, adding as new');
           const newEvent = updates as CalendarEvent;
           return {
             events: [...state.events, newEvent],
           };
         }
-        console.warn('[Calendar Store] Event not found, cannot update with partial data');
+        logger.warn('[Calendar Store] Event not found, cannot update with partial data');
         return state;
       }
 
@@ -137,7 +138,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
         ? (updates as CalendarEvent)
         : { ...newEvents[eventIndex], ...updates };
 
-      console.log('[Calendar Store] Event updated successfully');
+      logger.debug('[Calendar Store] Event updated successfully');
       return {
         events: newEvents,
         selectedEvent: state.selectedEvent?.id === id
@@ -148,15 +149,15 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
 
   deleteEvent: (id) =>
     set((state) => {
-      console.log('[Calendar Store] deleteEvent called:', id);
+      logger.debug('[Calendar Store] deleteEvent called', { id });
       const eventExists = state.events.some((e) => e.id === id);
 
       if (!eventExists) {
-        console.warn('[Calendar Store] Event not found, cannot delete');
+        logger.warn('[Calendar Store] Event not found, cannot delete');
         return state;
       }
 
-      console.log('[Calendar Store] Event deleted successfully');
+      logger.debug('[Calendar Store] Event deleted successfully');
       return {
         events: state.events.filter((e) => e.id !== id),
         selectedEvent: state.selectedEvent?.id === id ? null : state.selectedEvent,

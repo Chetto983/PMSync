@@ -13,6 +13,7 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import { useTheme as useNextTheme } from 'next-themes';
 import { usersApi, type UserPreferences } from '@/lib/api/users';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { logger } from '@/lib/logger';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -86,7 +87,7 @@ export function useThemePersistence(): UseThemePersistenceReturn {
         return prefs.theme as ThemeMode;
       }
     } catch (error) {
-      console.warn('[useThemePersistence] Failed to fetch theme from DB:', error);
+      logger.warn('[useThemePersistence] Failed to fetch theme from DB', { error });
     }
     return null;
   }, [isAuthenticated, token]);
@@ -102,7 +103,7 @@ export function useThemePersistence(): UseThemePersistenceReturn {
       await usersApi.updatePreferences({ theme });
       return true;
     } catch (error) {
-      console.warn('[useThemePersistence] Failed to save theme to DB:', error);
+      logger.warn('[useThemePersistence] Failed to save theme to DB', { error });
       return false;
     } finally {
       isSavingRef.current = false;

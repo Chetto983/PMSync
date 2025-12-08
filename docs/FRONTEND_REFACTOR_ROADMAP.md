@@ -1,4 +1,4 @@
-# MailAgent Frontend Refactoring Roadmap
+# PMSync Frontend Refactoring Roadmap
 
 **Version:** 1.0
 **Date:** 2025-12-01
@@ -25,7 +25,7 @@
 ## 1. Executive Summary
 
 ### Vision
-Transform MailAgent's frontend into a modern, performant, and maintainable email client that rivals industry leaders like Gmail, Outlook, and Superhuman while providing superior AI-powered productivity features.
+Transform PMSync's frontend into a modern, performant, and maintainable email client that rivals industry leaders like Gmail, Outlook, and Superhuman while providing superior AI-powered productivity features.
 
 ### Goals
 - **Performance**: Sub-second page loads, 60fps interactions
@@ -36,7 +36,7 @@ Transform MailAgent's frontend into a modern, performant, and maintainable email
 
 ### Key Improvements Over Zero Example
 
-| Aspect | Zero | MailAgent Target |
+| Aspect | Zero | PMSync Target |
 
 |--------|------|------------------|
 | Framework | React Router v7 | Next.js 14+ App Router |
@@ -67,28 +67,102 @@ i18n:          Custom (1,200+ keys)
 ### 2.2 Identified Issues
 
 #### Critical (Must Fix)
-| Issue | Impact | Files Affected |
-|-------|--------|----------------|
-| Mixed styling (MUI + Tailwind + Emotion) | Inconsistent UI, bundle bloat | All components |
-| 212 console.log statements | Performance, security | All stores/hooks |
-| No component tests | Regression risk | 84 components |
-| Direct localStorage usage | SSR hydration errors | 7 stores |
+
+| Issue | Impact | Files Affected | Status |
+|-------|--------|----------------|--------|
+| Mixed styling (MUI + Tailwind + Emotion) | Inconsistent UI, bundle bloat | All components | 🚧 In Progress |
+| ~~212 console.log statements~~ | ~~Performance, security~~ | ~~All stores/hooks~~ | ✅ **FIXED** |
+| No component tests | Regression risk | 84 components | 🚧 In Progress |
+| Direct localStorage usage | SSR hydration errors | 7 stores | ✅ **FIXED** |
+
+##### Console.log Cleanup (2025-12-08)
+
+All stores, hooks, and core lib files migrated to production-safe `logger` utility:
+
+| File | Status | Console Statements Removed |
+|------|--------|---------------------------|
+| `stores/email-store.ts` | ✅ Done | 6 → logger |
+| `stores/label-store.ts` | ✅ Done | 8 → logger |
+| `stores/calendar-store.ts` | ✅ Done | 10 → logger |
+| `hooks/use-websocket.ts` | ✅ Done | 45 → logger |
+| `hooks/use-draft-autosave.ts` | ✅ Done | 2 → logger |
+| `hooks/use-theme-persistence.ts` | ✅ Done | 2 → logger |
+| `hooks/use-email-actions.ts` | ✅ Done | 11 → logger |
+| `hooks/use-swipe-actions.ts` | ✅ Done | Memory leak fix |
+| `lib/websocket-client.ts` | ✅ Done | 12 → logger |
+| `components/email/shared/EmailBody.tsx` | ✅ Done | useMemo optimization |
+| `components/email/ThreadDisplay.tsx` | ✅ Done | React.memo added |
+
+**Remaining console statements** (in component files - lower priority):
+
+- Dashboard components (Mailbox.tsx, Calendar.tsx, etc.)
+- These are mostly error logging in catch blocks - acceptable for MVP
 
 #### High Priority
-| Issue | Impact | Files Affected |
-|-------|--------|----------------|
-| Dual theme systems | Maintenance complexity | lib/theme/, theme/ |
-| Generic error handling | Poor UX | All API calls |
-| No loading skeletons | Layout shift (CLS) | Dashboard, Lists |
-| Magic strings | Type safety | folders-store, constants |
+
+| Issue | Impact | Files Affected | Status |
+|-------|--------|----------------|--------|
+| Dual theme systems | Maintenance complexity | lib/theme/, theme/ | 🔵 Acceptable for MVP |
+| Generic error handling | Poor UX | All API calls | ✅ **FIXED** |
+
+##### Error Handling Utilities (2025-12-08)
+
+Created centralized error handling with i18n support:
+
+| File | Purpose |
+|------|---------|
+| `lib/error-utils.ts` | Error handling utilities with getErrorMessage, handleApiError, logError |
+| `locales/en.ts` | English error messages (9 new keys) |
+| `locales/it.ts` | Italian error messages (9 new keys) |
+| `locales/index.ts` | Updated AppTranslations interface |
+
+**Features:**
+
+- Type-safe error codes mapped to i18n keys
+- Axios error detection (network, timeout, auth)
+- Backend error message extraction
+- Fallback to default messages when no i18n available
+- Structured logging with context
+
+##### Mixed Styling Analysis (2025-12-08)
+
+**Findings**: The codebase is **85-90% MUI-based** with minimal Tailwind integration. Key patterns:
+
+- MUI `sx` prop is the primary styling method (all components)
+- Tailwind is configured but mostly unused except for:
+  - `animate-spin` class on 4 RefreshCw icons (acceptable - no conflict with MUI)
+  - Some `className` props passed through for composition
+- Theme systems are separate but non-conflicting
+
+**Recommendation**: Keep current approach for MVP. The styling is consistent within MUI paradigm.
+Full consolidation to shadcn/ui can be done post-MVP as documented in Phase 1.
+
+| Issue | Impact | Files Affected | Status |
+|-------|--------|----------------|--------|
+| No loading skeletons | Layout shift (CLS) | Dashboard, Lists | ✅ **FIXED** (ThreadListSkeleton exists) |
+| Magic strings | Type safety | folders-store, constants | ✅ **FIXED** (types/constants.ts) |
 
 #### Medium Priority
-| Issue | Impact | Files Affected |
-|-------|--------|----------------|
-| Prop drilling | Readability | Email components |
-| No React.memo optimization | Unnecessary re-renders | Lists, heavy components |
-| Missing JSDoc comments | Developer onboarding | All files |
-| Outdated next-auth v4 | Security, features | Auth system |
+
+| Issue | Impact | Files Affected | Status |
+|-------|--------|----------------|--------|
+| Prop drilling | Readability | Email components | 🔵 Post-MVP |
+| No React.memo optimization | Unnecessary re-renders | Lists, heavy components | ✅ **FIXED** |
+| Missing JSDoc comments | Developer onboarding | All files | 🔵 Post-MVP |
+| Outdated next-auth v4 | Security, features | Auth system | 🔵 Post-MVP |
+
+##### React.memo Optimization (2025-12-08)
+
+All heavy list components are now optimized with React.memo:
+
+| Component | File | Status |
+|-----------|------|--------|
+| `ThreadListItem` | `components/email/ThreadListItem.tsx` | ✅ Already optimized |
+| `ThreadList` | `components/email/ThreadList.tsx` | ✅ Already optimized |
+| `ThreadMessage` | `components/email/ThreadDisplay.tsx` | ✅ Added 2025-12-08 |
+| `ThreadListSkeleton` | `components/email/ThreadListSkeleton.tsx` | ✅ Already optimized |
+| `ContactListItem` | `components/contacts/ContactListItem.tsx` | ✅ Already optimized |
+| `ContactList` | `components/contacts/ContactList.tsx` | ✅ Already optimized |
 
 #### Known Bugs (To Address)
 
@@ -1651,6 +1725,6 @@ pnpm analyze                # Bundle analysis
 
 ---
 
-**Document Version:** 1.1
-**Last Updated:** 2025-12-02
+**Document Version:** 1.2
+**Last Updated:** 2025-12-08
 **Author:** Claude Code

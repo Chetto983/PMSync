@@ -222,7 +222,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
 
         // Double-check it doesn't exist (defensive check for race conditions)
         if (state.emails.some((e) => e.id === newEmail.id)) {
-          console.warn('[Email Store] Race condition: email now exists, retrying update');
+          logger.warn('[Email Store] Race condition: email now exists, retrying update');
           // Email appeared between checks - find it and update it
           const retryIndex = state.emails.findIndex((e) => e.id === newEmail.id);
           if (retryIndex !== -1) {
@@ -253,7 +253,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
 
   deleteEmail: (id) =>
     set((state) => {
-      console.debug('[Email Store] deleteEmail called:', id);
+      logger.debug('[Email Store] deleteEmail called', { id });
       const email = state.emails.find((e) => e.id === id);
 
       if (!email) {

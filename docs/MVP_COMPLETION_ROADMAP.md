@@ -49,7 +49,7 @@
 | [Auth](#6-auth-module) | 95% | 0 | ✅ MVP READY |
 | [Providers](#7-providers-module) | 95% | 0 | ✅ MVP READY |
 | [Infrastructure](#8-infrastructure) | 100% | 0 | ✅ MVP READY |
-| [Frontend](#9-frontend) | 75% | 0 | ✅ MVP READY |
+| [Frontend](#9-frontend) | 85% | 0 | ✅ MVP READY (Deep Audit Complete) |
 | [Scalability](#11-horizontal-scalability-audit) | 95% | 0 | ✅ MVP READY |
 
 ---
@@ -144,6 +144,7 @@
   - Proper folder move operations with Gmail fallbacks
 
 **Original fix reference:**
+
   ```typescript
   // Add nodemailer SMTP transport
   const transporter = nodemailer.createTransport({
@@ -523,23 +524,120 @@ These are acceptable trade-offs - the system degrades gracefully when Redis is u
 ## 9. Frontend
 
 **Path:** `frontend/`
-**Score:** 75/100 | **Issues:** 0 critical ✅ MVP READY
+**Score:** 85/100 | **Issues:** 0 critical ✅ MVP READY
 
-### 9.1 Post-MVP Improvements (P2)
+### 9.1 Deep Audit Results (2025-12-08)
 
-> Frontend works correctly for MVP. These are quality-of-life improvements.
+#### Security Assessment ✅ EXCELLENT
 
-- [ ] **Replace console.log with logger** - 90 remaining (P2 - no sensitive data exposed)
-- [ ] **Add loading.tsx files** for all routes (P2 - UX improvement)
-- [ ] **Add error.tsx files** for all routes (P2 - UX improvement)
-- [ ] **Add component tests** with React Testing Library (P2 - code quality)
+| Category | Status | Details |
+|----------|--------|---------|
+| **Token Storage** | ✅ SECURE | Token properly isolated in localStorage with `partialize: (state) => ({ token: state.token })` |
+| **Sensitive Data** | ✅ SAFE | NO tokens, passwords, or API keys in console logs (221 total logs audited) |
+| **SSR Hydration** | ✅ FIXED | `skipHydration: typeof window === 'undefined'` prevents hydration mismatches |
+| **localStorage Security** | ✅ GOOD | Only UI preferences stored; user data fetched from API |
 
-### 9.2 Completed ✅
+#### WebSocket Implementation ✅ EXCELLENT
 
-- [x] Logger utility exists at `lib/logger.ts`
-- [x] localStorage SSR fix (Calendar.tsx)
+| Feature | Status | Implementation |
+|---------|--------|----------------|
+| Auto-reconnection | ✅ | socket.io with exponential backoff (5 attempts, 1s-5s delay) |
+| Auth failure handling | ✅ | Pattern-based detection with `websocket:auth_failed` event |
+| Room auto-rejoin | ✅ | `joinedRooms` Set tracks and re-subscribes after reconnect |
+| Event cleanup | ✅ | All 23+ listeners properly unsubscribed on unmount |
+| Fallback transport | ✅ | `transports: ['websocket', 'polling']` |
+
+#### State Management ✅ NO MEMORY LEAKS
+
+| Store | Risk | Evidence |
+|-------|------|----------|
+| auth-store | ✅ SAFE | Only token retrieval via `getState()` |
+| email-store | ✅ SAFE | Queries only, no persistent subscriptions |
+| calendar-store | ✅ SAFE | Proper cleanup in useEffect |
+| contact-store | ✅ SAFE | No direct `.subscribe()` calls |
+| label-store | ✅ SAFE | Async actions properly awaited |
+
+#### API Error Handling ✅ GOOD
+
+- ✅ axios interceptor handles 401 with auto-logout
+- ✅ TanStack Query: `retry: 1`, `staleTime: 60s`, `gcTime: 5min`
+- ✅ WebSocket events have fallback API fetch on missing data
+- ✅ `fetchWithRetry` helper with 2 retries, exponential backoff
+
+### 9.2 Production Logger ✅ COMPLETE
+
+```typescript
+// lib/logger.ts - Production-ready logging
+const MIN_LOG_LEVEL: LogLevel = isProduction ? 'warn' : 'debug';
+// - Disables debug/info logs in production
+// - Always logs errors for monitoring
+// - JSON format for log aggregators
+```
+
+### 9.3 i18n/Localization Audit ⚠️ NEEDS ATTENTION
+
+**Coverage:** 65-70% | **Hardcoded strings:** 400+ instances across 44 files
+
+The translation infrastructure exists (`locales/en.ts` with 1673 translations, `locales/it.ts` complete), but many components use hardcoded fallback strings.
+
+#### Hardcoded Strings by Category
+
+| Category | Count | Files Affected | Priority |
+|----------|-------|----------------|----------|
+| **Fallback strings** | 372 | 44 | P2 |
+| **Tooltip titles** | 17 | 9 | P2 |
+| **Empty state messages** | 15 | 5 | P2 |
+| **Aria-labels** | 4 | 4 | P3 |
+| **Form placeholders** | 4 | 2 | P3 |
+
+#### Most Affected Components
+
+1. **ContactDetail.tsx** - 30+ fallback strings (tabs, field labels, sections)
+2. ~~**SchedulingDrawer.tsx**~~ ✅ Already fully translated (calendarAi.scheduling)
+3. **Mailbox.tsx** - 15+ empty state fallback messages
+4. ~~**AttachmentPreview.tsx**~~ ✅ Fixed - 6 Tooltip titles now translated
+5. ~~**ThreadDisplay.tsx**~~ ✅ Fixed - 5 action tooltips now translated
+6. ~~**ContactListItem.tsx**~~ ✅ Fixed - 4 action tooltips now translated
+
+#### Example Pattern Issues
+
+```typescript
+// Current (hardcoded fallback)
+<Tooltip title="Reply">  // ❌ Not translated
+
+label={contactsCopy.tabs?.details || 'Details'}  // ❌ Hardcoded fallback
+
+// Should be
+<Tooltip title={t.email?.actions?.reply}>  // ✅ Translated
+label={t.contacts?.tabs?.details}  // ✅ No fallback needed
+```
+
+### 9.4 Post-MVP Improvements (P2)
+
+> These are quality-of-life improvements, not blockers.
+
+- [ ] **Fix i18n hardcoded strings** - 400+ instances in 44 files (critical for Italian users)
+- [ ] **Replace console.log with structured logger** - 90 remaining (no sensitive data)
+- [ ] **Add loading.tsx files** for all routes (UX improvement)
+- [ ] **Add error.tsx files** for all routes (UX improvement)
+- [ ] **Add component tests** with React Testing Library
+- [ ] **Add global error boundary** for unhandled API failures
+
+### 9.5 Completed ✅
+
+- [x] Logger utility at `lib/logger.ts` with production config
+- [x] localStorage SSR fix with `skipHydration`
+- [x] WebSocket reconnection logic with auth handling
+- [x] Zustand stores with proper cleanup
+- [x] API error handling with retry logic
+- [x] Token security (isolated storage, no logging)
 - [x] All critical functionality working
-- [x] No security vulnerabilities
+- [x] No security vulnerabilities found
+- [x] i18n: AttachmentPreview tooltips (Preview, Download, Zoom, Rotate)
+- [x] i18n: ThreadDisplay action tooltips (Reply, Reply All, Forward)
+- [x] i18n: ContactListItem action tooltips (Send email, Call, Edit, Delete)
+- [x] i18n: Added missing translation keys to en.ts and it.ts
+- [x] **BUG FIX**: `specialUse` param was defined but not sent to API in `listEmails()` - "All Inbox" aggregation now works
 
 ---
 
@@ -867,6 +965,10 @@ GET /health/metrics - Prometheus
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.1 | 2025-12-08 | API audit: Fixed missing specialUse param in listEmails - "All Inbox" aggregation now works |
+| 3.0 | 2025-12-08 | Frontend i18n polish: Fixed Tooltip translations in AttachmentPreview, ThreadDisplay, ContactListItem |
+| 2.9 | 2025-12-08 | Frontend i18n audit: 400+ hardcoded strings in 44 files (65-70% coverage), added P2 task |
+| 2.8 | 2025-12-08 | Frontend deep audit: Security, WebSocket, state management, API error handling verified |
 | 2.7 | 2025-12-08 | **MVP READY**: All modules marked ready for 1000 users, P2/P3 items deferred to post-MVP |
 | 2.6 | 2025-12-08 | AI Module deep audit: Fixed N+1 re-ranking, added circuit breaker, context window limits |
 | 2.5 | 2025-12-08 | Contacts Module Redis integration complete (distributed locking + caching) |

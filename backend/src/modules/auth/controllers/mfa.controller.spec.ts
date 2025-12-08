@@ -3,12 +3,16 @@ import { MfaController } from './mfa.controller';
 import { TotpService } from '../services/totp.service';
 import { BackupCodesService } from '../services/backup-codes.service';
 import { TrustedDeviceService } from '../services/trusted-device.service';
+import { WebAuthnService } from '../services/webauthn.service';
 import { BadRequestException } from '@nestjs/common';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { Request as ExpressRequest } from 'express';
 
 describe('MfaController', () => {
   let controller: MfaController;
+  let totpService: TotpService;
+  let backupCodesService: BackupCodesService;
+  let trustedDeviceService: TrustedDeviceService;
 
   const mockTotpService = {
     isEnabled: jest.fn(),
@@ -30,6 +34,17 @@ describe('MfaController', () => {
     trustDevice: jest.fn(),
     revokeDevice: jest.fn(),
     revokeAllDevices: jest.fn(),
+  };
+
+  const mockWebAuthnService = {
+    generateRegistrationOptions: jest.fn(),
+    verifyRegistration: jest.fn(),
+    generateAuthenticationOptions: jest.fn(),
+    verifyAuthentication: jest.fn(),
+    getCredentials: jest.fn().mockResolvedValue([]),
+    listCredentials: jest.fn().mockResolvedValue([]),
+    deleteCredential: jest.fn(),
+    isEnabled: jest.fn().mockResolvedValue(false),
   };
 
   const createMockRequest = (userId: string, email: string): AuthenticatedRequest => {
@@ -56,6 +71,7 @@ describe('MfaController', () => {
         { provide: TotpService, useValue: mockTotpService },
         { provide: BackupCodesService, useValue: mockBackupCodesService },
         { provide: TrustedDeviceService, useValue: mockTrustedDeviceService },
+        { provide: WebAuthnService, useValue: mockWebAuthnService },
       ],
     }).compile();
 
@@ -83,6 +99,8 @@ describe('MfaController', () => {
         totpEnabled: true,
         backupCodesRemaining: 8,
         trustedDevicesCount: 2,
+        webauthnEnabled: false,
+        webauthnCredentialsCount: 0,
       });
       expect(mockTotpService.isEnabled).toHaveBeenCalledWith('user-123');
       expect(mockBackupCodesService.getRemainingCount).toHaveBeenCalledWith('user-123');

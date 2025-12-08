@@ -4,7 +4,9 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { ConfigService } from '@nestjs/config';
 import { GoogleCalendarSyncService } from './google-calendar-sync.service';
+import { CalendarSyncQueueService } from './calendar-sync-queue.service';
 import { google } from 'googleapis';
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 // Mock googleapis
 jest.mock('googleapis');
@@ -15,6 +17,7 @@ describe('GoogleCalendarWebhookService', () => {
   let crypto: jest.Mocked<CryptoService>;
   let _config: jest.Mocked<ConfigService>;
   let calendarSync: jest.Mocked<GoogleCalendarSyncService>;
+  let calendarSyncQueue: jest.Mocked<CalendarSyncQueueService>;
 
   const mockOAuth2Client = {
     setCredentials: jest.fn(),
@@ -45,6 +48,7 @@ describe('GoogleCalendarWebhookService', () => {
           useValue: {
             providerConfig: {
               findUnique: jest.fn(),
+              findMany: jest.fn(),
             },
             webhookSubscription: {
               findFirst: jest.fn(),
@@ -76,6 +80,14 @@ describe('GoogleCalendarWebhookService', () => {
             syncCalendar: jest.fn(),
           },
         },
+        {
+          provide: CalendarSyncQueueService,
+          useValue: {
+            queueSync: jest.fn<any>().mockResolvedValue(undefined),
+            addSyncJob: jest.fn<any>().mockResolvedValue(undefined),
+            getQueueStats: jest.fn<any>().mockResolvedValue({ waiting: 0, active: 0, completed: 0, failed: 0 }),
+          },
+        },
       ],
     }).compile();
 
@@ -84,6 +96,7 @@ describe('GoogleCalendarWebhookService', () => {
     crypto = module.get(CryptoService);
     _config = module.get(ConfigService);
     calendarSync = module.get(GoogleCalendarSyncService);
+    calendarSyncQueue = module.get(CalendarSyncQueueService);
 
     // Clear all mocks
     jest.clearAllMocks();
@@ -168,7 +181,7 @@ describe('GoogleCalendarWebhookService', () => {
   });
 
   describe('handleNotification', () => {
-    it('should handle notification and trigger sync', async () => {
+    it('should handle notification and queue sync', async () => {
       const headers = {
         'x-goog-channel-id': 'channel-123',
         'x-goog-resource-id': 'resource-123',
@@ -182,9 +195,14 @@ describe('GoogleCalendarWebhookService', () => {
         isActive: true,
       };
 
+      const mockProvider = {
+        tenantId: 'tenant-1',
+        email: 'user@example.com',
+      };
+
       prisma.webhookSubscription.findFirst.mockResolvedValue(mockSubscription as any);
       prisma.webhookSubscription.update.mockResolvedValue({} as any);
-      calendarSync.syncCalendar.mockResolvedValue(undefined);
+      prisma.providerConfig.findUnique.mockResolvedValue(mockProvider as any);
 
       await service.handleNotification(headers);
 
@@ -202,10 +220,16 @@ describe('GoogleCalendarWebhookService', () => {
           notificationCount: { increment: 1 },
         },
       });
-      expect(calendarSync.syncCalendar).toHaveBeenCalledWith('provider-1');
+      expect(calendarSyncQueue.addSyncJob).toHaveBeenCalledWith({
+        tenantId: 'tenant-1',
+        providerId: 'provider-1',
+        providerType: 'google',
+        email: 'user@example.com',
+        priority: 'high',
+      });
     });
 
-    it('should not trigger sync for sync state', async () => {
+    it('should also queue sync for sync state', async () => {
       const headers = {
         'x-goog-channel-id': 'channel-123',
         'x-goog-resource-id': 'resource-123',
@@ -219,13 +243,24 @@ describe('GoogleCalendarWebhookService', () => {
         isActive: true,
       };
 
+      const mockProvider = {
+        tenantId: 'tenant-1',
+        email: 'user@example.com',
+      };
+
       prisma.webhookSubscription.findFirst.mockResolvedValue(mockSubscription as any);
       prisma.webhookSubscription.update.mockResolvedValue({} as any);
-      calendarSync.syncCalendar.mockResolvedValue(undefined);
+      prisma.providerConfig.findUnique.mockResolvedValue(mockProvider as any);
 
       await service.handleNotification(headers);
 
-      expect(calendarSync.syncCalendar).toHaveBeenCalledWith('provider-1');
+      expect(calendarSyncQueue.addSyncJob).toHaveBeenCalledWith({
+        tenantId: 'tenant-1',
+        providerId: 'provider-1',
+        providerType: 'google',
+        email: 'user@example.com',
+        priority: 'high',
+      });
     });
 
     it('should ignore notification without required headers', async () => {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { emailApi } from '@/lib/api/email';
+import { logger } from '@/lib/logger';
 
 export interface DraftData {
   providerId: string;
@@ -140,7 +141,7 @@ export function useDraftAutosave({
 
       onSaved?.(result.data.id);
     } catch (error) {
-      console.error('Failed to force save draft:', error);
+      logger.error('[DraftAutosave] Failed to force save draft', { error });
       onError?.(error as Error);
     } finally {
       setIsSaving(false);
@@ -222,7 +223,7 @@ export function useDraftAutosave({
 
       onSaved?.(result.data.id);
     } catch (error) {
-      console.error('Failed to autosave draft:', error);
+      logger.error('[DraftAutosave] Failed to autosave draft', { error });
       onError?.(error as Error);
     } finally {
       setIsSaving(false);

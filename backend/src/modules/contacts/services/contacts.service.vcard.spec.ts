@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { ContactsService } from './contacts.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
@@ -7,6 +8,7 @@ import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { jest,describe, it, expect,beforeEach} from '@jest/globals';
 
 /**
  * Unit Tests for ContactsService - vCard Import Functionality
@@ -61,6 +63,17 @@ describe('ContactsService - vCard Import', () => {
     emitToTenant: jest.fn(),
   };
 
+  const mockConfigService = {
+    get: jest.fn((key: string, defaultValue?: any) => {
+      const config: Record<string, any> = {
+        CONTACTS_LIST_MAX_LIMIT: 500,
+        CONTACTS_COUNTS_CACHE_TTL: 300,
+        CONTACTS_SYNC_LOCK_TTL: 300,
+      };
+      return config[key] ?? defaultValue;
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -92,6 +105,10 @@ describe('ContactsService - vCard Import', () => {
         {
           provide: RealtimeEventsService,
           useValue: mockRealtimeEventsService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();

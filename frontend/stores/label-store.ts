@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { labelsApi, type Label, hexToLabelColor } from '@/lib/api/labels';
+import { logger } from '@/lib/logger';
 
 interface LabelStore {
   labels: Label[];
@@ -37,14 +38,14 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
       const response = await labelsApi.listLabels();
       set({ labels: response.labels, isLoading: false });
     } catch (error) {
-      console.error('Failed to fetch labels:', error);
+      logger.error('Failed to fetch labels', { error });
       set({ error: 'Failed to fetch labels', isLoading: false });
       throw error;
     }
   },
 
   createLabel: async (name: string, colorHex: string) => {
-    console.log('[Label Store] createLabel called:', { name, colorHex });
+    logger.debug('[Label Store] createLabel called', { name, colorHex });
     set({ isLoading: true, error: null });
     try {
       const response = await labelsApi.createLabel({
@@ -52,23 +53,19 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
         color: hexToLabelColor(colorHex),
       });
       const newLabel = response.label;
-      console.log('[Label Store] createLabel API response:', newLabel);
+      logger.debug('[Label Store] createLabel API response', { labelId: newLabel.id });
       set((state) => {
-        console.log('[Label Store] createLabel - current labels:', state.labels.length);
         const newLabels = [...state.labels, newLabel];
-        console.log('[Label Store] createLabel - new labels count:', newLabels.length);
-        const newState = {
+        return {
           ...state,
           labels: newLabels,
           isLoading: false,
           error: null,
         };
-        console.log('[Label Store] createLabel - returning new state');
-        return newState;
       });
       return newLabel;
     } catch (error) {
-      console.error('[Label Store] Failed to create label:', error);
+      logger.error('[Label Store] Failed to create label', { error });
       set((state) => ({
         ...state,
         error: 'Failed to create label',
@@ -99,7 +96,7 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
       });
       return updatedLabel;
     } catch (error) {
-      console.error('Failed to update label:', error);
+      logger.error('Failed to update label', { error, labelId });
       set((state) => ({
         ...state,
         error: 'Failed to update label',
@@ -123,7 +120,7 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
         };
       });
     } catch (error) {
-      console.error('Failed to delete label:', error);
+      logger.error('Failed to delete label', { error, labelId });
       set((state) => ({
         ...state,
         error: 'Failed to delete label',
@@ -145,7 +142,7 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
     try {
       await labelsApi.reorderLabels({ labelIds });
     } catch (error) {
-      console.error('Failed to reorder labels:', error);
+      logger.error('Failed to reorder labels', { error });
       // Revert on error
       set({ labels: previousLabels, error: 'Failed to reorder labels' });
       throw error;
@@ -157,7 +154,7 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
       const result = await labelsApi.addEmailsToLabel(labelId, { emailIds });
       return result;
     } catch (error) {
-      console.error('Failed to add emails to label:', error);
+      logger.error('Failed to add emails to label', { error, labelId });
       throw error;
     }
   },
@@ -167,7 +164,7 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
       const result = await labelsApi.removeEmailFromLabel(labelId, emailId);
       return result;
     } catch (error) {
-      console.error('Failed to remove email from label:', error);
+      logger.error('Failed to remove email from label', { error, labelId, emailId });
       throw error;
     }
   },
@@ -188,15 +185,15 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
 
   // WebSocket event handlers
   handleLabelCreated: (label: Label) => {
-    console.log('[Label Store] handleLabelCreated:', label);
+    logger.debug('[Label Store] handleLabelCreated', { labelId: label.id });
     set((state) => {
       // Check if label already exists (prevent duplicates)
       const exists = state.labels.some((l) => l.id === label.id);
       if (exists) {
-        console.log('[Label Store] Label already exists, skipping');
+        logger.debug('[Label Store] Label already exists, skipping');
         return state;
       }
-      console.log('[Label Store] Adding new label to store');
+      logger.debug('[Label Store] Adding new label to store');
       const newLabels = [...state.labels, label];
       return {
         ...state,
@@ -206,7 +203,7 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
   },
 
   handleLabelUpdated: (label: Label) => {
-    console.log('[Label Store] handleLabelUpdated:', label);
+    logger.debug('[Label Store] handleLabelUpdated', { labelId: label.id });
     set((state) => {
       const updatedLabels = state.labels.map((l) => (l.id === label.id ? label : l));
       return {
@@ -217,7 +214,7 @@ export const useLabelStore = create<LabelStore>((set, get) => ({
   },
 
   handleLabelDeleted: (labelId: string) => {
-    console.log('[Label Store] handleLabelDeleted:', labelId);
+    logger.debug('[Label Store] handleLabelDeleted', { labelId });
     set((state) => {
       const filteredLabels = state.labels.filter((l) => l.id !== labelId);
       return {

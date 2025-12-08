@@ -279,6 +279,8 @@ export const emailApi = {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.providerId) queryParams.append('providerId', params.providerId);
     if (params?.folder) queryParams.append('folder', params.folder);
+    // RFC 6154: specialUse for aggregating emails across providers (INBOX, SENT, TRASH, etc.)
+    if (params?.specialUse) queryParams.append('specialUse', params.specialUse);
     if (params?.isRead !== undefined) queryParams.append('isRead', params.isRead.toString());
     if (params?.isStarred !== undefined) queryParams.append('isStarred', params.isStarred.toString());
     if (params?.hasAttachments !== undefined) {

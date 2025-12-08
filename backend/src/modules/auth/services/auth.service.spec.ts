@@ -9,6 +9,8 @@ import { OtpSecurityService } from './otp-security.service';
 import { TotpService } from './totp.service';
 import { BackupCodesService } from './backup-codes.service';
 import { TrustedDeviceService } from './trusted-device.service';
+import { WebAuthnService } from './webauthn.service';
+import { RedisRateLimiterService } from '../../../common/services/redis-rate-limiter.service';
 import{jest, describe, beforeEach, afterEach, it, expect} from '@jest/globals';
 
 // Mock bcrypt
@@ -160,6 +162,25 @@ describe('AuthService', () => {
       cleanupExpiredDevices: jest.fn().mockResolvedValue(0),
     };
 
+    const mockWebAuthnService = {
+      generateRegistrationOptions: jest.fn<any>(),
+      verifyRegistration: jest.fn<any>(),
+      generateAuthenticationOptions: jest.fn<any>(),
+      verifyAuthentication: jest.fn<any>(),
+      getCredentials: jest.fn<any>().mockResolvedValue([]),
+      deleteCredential: jest.fn<any>(),
+      isEnabled: jest.fn<any>().mockResolvedValue(false),
+    };
+
+    const mockRedisRateLimiterService = {
+      checkRateLimit: jest.fn<any>().mockResolvedValue({ allowed: true, remaining: 10, resetAt: new Date() }),
+      incrementCounter: jest.fn<any>().mockResolvedValue(1),
+      resetCounter: jest.fn<any>().mockResolvedValue(undefined),
+      isLockedOut: jest.fn<any>().mockResolvedValue({ isLockedOut: false }),
+      recordFailedAttempt: jest.fn<any>().mockResolvedValue({ isLockedOut: false, attemptsRemaining: 4 }),
+      clearFailedAttempts: jest.fn<any>().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -170,6 +191,8 @@ describe('AuthService', () => {
         { provide: TotpService, useValue: mockTotpService },
         { provide: BackupCodesService, useValue: mockBackupCodesService },
         { provide: TrustedDeviceService, useValue: mockTrustedDeviceService },
+        { provide: WebAuthnService, useValue: mockWebAuthnService },
+        { provide: RedisRateLimiterService, useValue: mockRedisRateLimiterService },
       ],
     }).compile();
 

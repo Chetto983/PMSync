@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { CacheService, CacheNamespace } from './cache.service';
+import {describe, it, expect, beforeEach, jest, afterEach} from '@jest/globals';
 
 describe('CacheService', () => {
   let service: CacheService;
@@ -73,18 +74,13 @@ describe('CacheService', () => {
       expect(service).toBeDefined();
     });
 
-    // Redis connection tests moved to integration tests
-    // These tests require actual Redis connection or more complex mocking
-    // See: test/integration/ for Redis connection integration tests
-    it.skip('should connect to Redis on module init', async () => {
-      mockRedisClient.connect.mockResolvedValue(undefined);
-      await service.onModuleInit();
-      expect(mockRedisClient.connect).toHaveBeenCalled();
+    it('should report healthy when connected', () => {
+      // Service is manually set to connected in beforeEach
+      expect(service.isHealthy()).toBe(true);
     });
 
-    it.skip('should handle Redis connection errors gracefully', async () => {
-      mockRedisClient.connect.mockRejectedValue(new Error('Connection failed'));
-      await service.onModuleInit();
+    it('should report unhealthy when not connected', () => {
+      (service as any).isConnected = false;
       expect(service.isHealthy()).toBe(false);
     });
   });
