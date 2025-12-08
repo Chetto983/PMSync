@@ -1,0 +1,205 @@
+# PmSync Alert Rules for Prometheus/Alertmanager
+# AUDIT-14: DLQ, Redis, and rate-limit (429) alerts
+#
+# Deploy: Include in prometheus.yml with rule_files directive
+# Reference: https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/
+
+groups:
+  - name: pmsync.queues
+    interval: 30s
+    rules:
+      # DLQ / Failed Jobs Alerts
+      - alert: QueueJobsFailedCritical
+        expr: sum(queue_jobs_failed) > 100
+        for: 5m
+        labels:
+          severity: critical
+          component: queues
+        annotations:
+          summary: "High number of failed queue jobs"
+          description: "Total failed jobs across all queues: {{ $value }}. Check DLQ and investigate root cause."
+          runbook_url: "docs/runbooks/QUEUE_OPERATIONS.md#failed-jobs"
+
+      - alert: QueueJobsFailedWarning
+        expr: sum(queue_jobs_failed) > 20
+        for: 10m
+        labels:
+          severity: warning
+          component: queues
+        annotations:
+          summary: "Elevated failed queue jobs"
+          description: "Total failed jobs: {{ $value }}. Monitor for increase."
+
+      - alert: SingleQueueFailedHigh
+        expr: queue_jobs_failed > 50
+        for: 5m
+        labels:
+          severity: critical
+          component: queues
+        annotations:
+          summary: "Single queue has many failed jobs"
+          description: "Queue {{ $labels.queue }} has {{ $value }} failed jobs."
+          runbook_url: "docs/runbooks/QUEUE_OPERATIONS.md#single-queue-failures"
+
+      # Queue Backlog Alerts
+      - alert: QueueBacklogCritical
+        expr: sum(queue_jobs_waiting) > 1000
+        for: 5m
+        labels:
+          severity: critical
+          component: queues
+        annotations:
+          summary: "Critical queue backlog"
+          description: "{{ $value }} jobs waiting across all queues. Workers may be overwhelmed."
+          runbook_url: "docs/runbooks/QUEUE_OPERATIONS.md#backlog"
+
+      - alert: QueueBacklogWarning
+        expr: sum(queue_jobs_waiting) > 500
+        for: 10m
+        labels:
+          severity: warning
+          component: queues
+        annotations:
+          summary: "Queue backlog building"
+          description: "{{ $value }} jobs waiting. Monitor for continued growth."
+
+      - alert: SingleQueueBacklog
+        expr: queue_jobs_waiting > 500
+        for: 5m
+        labels:
+          severity: warning
+          component: queues
+        annotations:
+          summary: "Single queue backlog"
+          description: "Queue {{ $labels.queue }} has {{ $value }} jobs waiting."
+
+  - name: pmsync.redis
+    interval: 30s
+    rules:
+      # Redis Health Alerts
+      - alert: RedisHighLatency
+        expr: redis_latency_ms > 100
+        for: 5m
+        labels:
+          severity: critical
+          component: redis
+        annotations:
+          summary: "Redis latency is high"
+          description: "Redis ping latency: {{ $value }}ms. Expected <100ms."
+          runbook_url: "docs/runbooks/REDIS_OPERATIONS.md#high-latency"
+
+      - alert: RedisLatencyWarning
+        expr: redis_latency_ms > 50
+        for: 10m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis latency elevated"
+          description: "Redis ping latency: {{ $value }}ms. Monitor for increase."
+
+      - alert: RedisMemoryCritical
+        expr: redis_memory_used_bytes > 536870912
+        for: 5m
+        labels:
+          severity: critical
+          component: redis
+        annotations:
+          summary: "Redis memory usage critical"
+          description: "Redis using {{ humanize $value }}. Risk of OOM."
+          runbook_url: "docs/runbooks/REDIS_OPERATIONS.md#memory-pressure"
+
+      - alert: RedisMemoryWarning
+        expr: redis_memory_used_bytes > 268435456
+        for: 10m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis memory usage elevated"
+          description: "Redis using {{ humanize $value }}. Monitor for growth."
+
+      - alert: RedisConnectionsHigh
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "High Redis connection count"
+          description: "{{ $value }} clients connected. Check for connection leaks."
+          runbook_url: "docs/runbooks/REDIS_OPERATIONS.md#connection-sprawl"
+
+  - name: pmsync.api
+    interval: 30s
+    rules:
+      # Rate Limit (429) Alerts
+      # Note: These require HTTP metrics from the application
+      # Add nestjs-prometheus or prom-client for http_requests_total metric
+      - alert: RateLimitTriggeredHigh
+        expr: sum(rate(http_requests_total{status="429"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High rate of 429 responses"
+          description: "{{ $value }} rate-limited requests per second. Check for abuse or misconfigured clients."
+          runbook_url: "docs/runbooks/API_OPERATIONS.md#rate-limiting"
+
+      - alert: RateLimitByIPCritical
+        expr: sum by (remote_addr) (rate(http_requests_total{status="429"}[5m])) > 50
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Single IP triggering many rate limits"
+          description: "IP {{ $labels.remote_addr }} hitting rate limits at {{ $value }}/s. Possible abuse."
+
+      # API Error Rate
+      - alert: APIErrorRateHigh
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High API error rate"
+          description: "{{ $value | humanizePercentage }} of requests returning 5xx errors."
+          runbook_url: "docs/runbooks/API_OPERATIONS.md#error-rate"
+
+  - name: pmsync.email-sync
+    interval: 60s
+    rules:
+      # Email Sync Specific Alerts
+      - alert: EmailSyncQueueStalled
+        expr: queue_jobs_waiting{queue="email-sync"} > 100 and queue_jobs_active{queue="email-sync"} == 0
+        for: 10m
+        labels:
+          severity: critical
+          component: email-sync
+        annotations:
+          summary: "Email sync queue stalled"
+          description: "{{ $value }} jobs waiting but no active workers. Email sync may be down."
+          runbook_url: "docs/runbooks/EMAIL_SYNC_OPERATIONS.md#stalled-sync"
+
+      - alert: EmbeddingQueueBacklog
+        expr: queue_jobs_waiting{queue="embedding"} > 500
+        for: 15m
+        labels:
+          severity: warning
+          component: ai
+        annotations:
+          summary: "Embedding queue backlog"
+          description: "{{ $value }} embedding jobs queued. AI features may be delayed."
+
+      - alert: AIQueueFailuresHigh
+        expr: queue_jobs_failed{queue=~"ai-.*|embedding"} > 20
+        for: 10m
+        labels:
+          severity: warning
+          component: ai
+        annotations:
+          summary: "AI queue failures elevated"
+          description: "Queue {{ $labels.queue }} has {{ $value }} failed jobs. Check AI service availability."

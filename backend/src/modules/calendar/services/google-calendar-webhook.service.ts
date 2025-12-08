@@ -5,6 +5,7 @@ import { calendar_v3, google } from 'googleapis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { GoogleCalendarSyncService } from './google-calendar-sync.service';
+import { CalendarSyncQueueService } from './calendar-sync-queue.service';
 import { nanoid } from 'nanoid';
 
 export interface GoogleCalendarPushNotification {
@@ -27,6 +28,7 @@ export class GoogleCalendarWebhookService {
     private readonly crypto: CryptoService,
     private readonly config: ConfigService,
     private readonly calendarSync: GoogleCalendarSyncService,
+    private readonly calendarSyncQueue: CalendarSyncQueueService,
   ) {
     const baseUrl =
       this.config.get<string>('api.url') ||
@@ -203,9 +205,24 @@ export class GoogleCalendarWebhookService {
         },
       });
 
-      // Trigger calendar sync for this provider
+      // Queue calendar sync for this provider (high priority for real-time webhooks)
       if (resourceState === 'sync' || resourceState === 'exists') {
-        await this.calendarSync.syncCalendar(subscription.providerId);
+        // Get provider info for queue job data
+        const provider = await this.prisma.providerConfig.findUnique({
+          where: { id: subscription.providerId },
+          select: { tenantId: true, email: true },
+        });
+
+        if (provider) {
+          await this.calendarSyncQueue.addSyncJob({
+            tenantId: provider.tenantId,
+            providerId: subscription.providerId,
+            providerType: 'google',
+            email: provider.email,
+            priority: 'high', // High priority for real-time webhook triggers
+          });
+          this.logger.debug(`Queued calendar sync for provider ${subscription.providerId}`);
+        }
       }
     } catch (error) {
       this.logger.error('Error handling Google Calendar notification:', error);

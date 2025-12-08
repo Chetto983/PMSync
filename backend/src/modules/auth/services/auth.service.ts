@@ -56,12 +56,20 @@ export class AuthService {
     // Get password reset secret (must be different from JWT secret)
     const resetSecret = process.env.PASSWORD_RESET_SECRET;
     const jwtSecret = process.env.JWT_SECRET;
+    const isProduction = process.env.NODE_ENV === 'production';
 
     if (!resetSecret || resetSecret.length < 32) {
+      if (isProduction) {
+        // SECURITY: Fail fast in production - password reset requires dedicated secret
+        throw new Error(
+          'SECURITY ERROR: PASSWORD_RESET_SECRET must be set and at least 32 characters in production. ' +
+          'Generate one with: openssl rand -base64 32',
+        );
+      }
       this.logger.warn(
-        'PASSWORD_RESET_SECRET not set or too short. Using derived secret.',
+        'PASSWORD_RESET_SECRET not set or too short. Using derived secret (development only).',
       );
-      // Derive from JWT secret if not set (for backwards compatibility)
+      // Derive from JWT secret if not set (for backwards compatibility in dev)
       this.passwordResetSecret = jwtSecret
         ? crypto.createHmac('sha256', jwtSecret).update('password-reset').digest('hex')
         : 'insecure-reset-secret';

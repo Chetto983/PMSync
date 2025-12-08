@@ -80,16 +80,26 @@ async function bootstrap() {
   // Global filters
   app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter());
 
-  // Swagger documentation
-  if (config.nodeEnv !== 'production') {
+  // Swagger documentation - disabled in production unless explicitly enabled
+  // ENABLE_SWAGGER=true can be set to enable in staging/production (not recommended)
+  const enableSwagger =
+    config.nodeEnv !== 'production' ||
+    ['1', 'true', 'yes'].includes((process.env.ENABLE_SWAGGER || '').toLowerCase());
+
+  if (enableSwagger) {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('PMSync API')
+      .setTitle('MailAgent API')
       .setDescription('AI-powered multi-tenant email assistant API')
       .setVersion('1.0')
       .addBearerAuth()
+      .addServer(config.api.url, 'Current server')
       .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup('api/docs', app, document);
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true, // Keep auth token between refreshes
+      },
+    });
   }
 
   // Legacy route watchdog (email-configs)
@@ -115,10 +125,12 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   await app.listen(config.api.port);
-  logger.log(`🚀 Application is running on ${config.api.url}`);
-  logger.log(`📊 Swagger docs available at ${config.api.url}/api/docs`);
-  logger.log(`🗄️ Database: ${config.database.host}:${config.database.port}/${config.database.database}`);
-  logger.log(`⚡ Redis: ${config.redis.host}:${config.redis.port}`);
+  logger.log(`Application is running on ${config.api.url}`);
+  if (enableSwagger) {
+    logger.log(`Swagger docs available at ${config.api.url}/api/docs`);
+  }
+  logger.log(`Database: ${config.database.host}:${config.database.port}/${config.database.database}`);
+  logger.log(`Redis: ${config.redis.host}:${config.redis.port}${config.redis.tls.enabled ? ' (TLS)' : ''}`);
 
   // Graceful shutdown handlers
   const gracefulShutdown = async (signal: string) => {

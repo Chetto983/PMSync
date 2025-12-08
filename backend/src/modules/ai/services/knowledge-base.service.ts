@@ -949,4 +949,149 @@ export class KnowledgeBaseService {
     return chunks;
   }
 
+  // ============================================
+  // AUDIT-11: Embedding TTL/Retention Management
+  // ============================================
+
+  /**
+   * Default retention period for embeddings (90 days)
+   * Can be overridden via environment variable EMBEDDING_RETENTION_DAYS
+   */
+  private static readonly DEFAULT_RETENTION_DAYS = 90;
+
+  /**
+   * Clean up old embeddings based on retention policy
+   *
+   * @param tenantId - Tenant to clean up (optional, null = all tenants)
+   * @param retentionDays - Number of days to retain (default: 90)
+   * @returns Number of embeddings deleted
+   */
+  async cleanupOldEmbeddings(
+    tenantId?: string,
+    retentionDays: number = KnowledgeBaseService.DEFAULT_RETENTION_DAYS,
+  ): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+
+    const whereClause: { createdAt: { lt: Date }; tenantId?: string } = {
+      createdAt: { lt: cutoffDate },
+    };
+
+    if (tenantId) {
+      whereClause.tenantId = tenantId;
+    }
+
+    const result = await this.prisma.embedding.deleteMany({
+      where: whereClause,
+    });
+
+    if (result.count > 0) {
+      this.logger.log(
+        `Cleaned up ${result.count} embeddings older than ${retentionDays} days` +
+          (tenantId ? ` for tenant ${tenantId}` : ' (all tenants)'),
+      );
+    }
+
+    return result.count;
+  }
+
+  /**
+   * Get embedding statistics including age distribution
+   *
+   * @param tenantId - Tenant to get stats for (required)
+   * @returns Embedding statistics
+   */
+  async getEmbeddingStats(tenantId: string): Promise<{
+    total: number;
+    byAge: {
+      last24h: number;
+      last7d: number;
+      last30d: number;
+      last90d: number;
+      older: number;
+    };
+    oldestCreatedAt: Date | null;
+    newestCreatedAt: Date | null;
+  }> {
+    const now = new Date();
+    const d24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const d7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const d30d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const d90d = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+    const [total, last24h, last7d, last30d, last90d, oldest, newest] = await Promise.all([
+      this.prisma.embedding.count({ where: { tenantId } }),
+      this.prisma.embedding.count({ where: { tenantId, createdAt: { gte: d24h } } }),
+      this.prisma.embedding.count({ where: { tenantId, createdAt: { gte: d7d } } }),
+      this.prisma.embedding.count({ where: { tenantId, createdAt: { gte: d30d } } }),
+      this.prisma.embedding.count({ where: { tenantId, createdAt: { gte: d90d } } }),
+      this.prisma.embedding.findFirst({
+        where: { tenantId },
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true },
+      }),
+      this.prisma.embedding.findFirst({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    return {
+      total,
+      byAge: {
+        last24h,
+        last7d,
+        last30d,
+        last90d,
+        older: total - last90d,
+      },
+      oldestCreatedAt: oldest?.createdAt ?? null,
+      newestCreatedAt: newest?.createdAt ?? null,
+    };
+  }
+
+  /**
+   * Bulk delete embeddings by email IDs with batching
+   * More efficient than individual deletes for large cleanups
+   *
+   * @param tenantId - Tenant ID
+   * @param emailIds - Array of email IDs to delete embeddings for
+   * @param batchSize - Size of each delete batch (default: 100)
+   * @returns Total number of embeddings deleted
+   */
+  async bulkDeleteEmbeddingsByEmailIds(
+    tenantId: string,
+    emailIds: string[],
+    batchSize: number = 100,
+  ): Promise<number> {
+    if (!emailIds || emailIds.length === 0) {
+      return 0;
+    }
+
+    let totalDeleted = 0;
+
+    for (let i = 0; i < emailIds.length; i += batchSize) {
+      const batch = emailIds.slice(i, i + batchSize).filter(Boolean);
+      if (batch.length === 0) continue;
+
+      const conditions = batch.map((emailId) => ({
+        metadata: { path: ['emailId'], equals: emailId },
+      }));
+
+      const result = await this.prisma.embedding.deleteMany({
+        where: { tenantId, OR: conditions },
+      });
+
+      totalDeleted += result.count;
+    }
+
+    if (totalDeleted > 0) {
+      this.logger.log(
+        `Bulk deleted ${totalDeleted} embeddings for ${emailIds.length} emails (tenant: ${tenantId})`,
+      );
+    }
+
+    return totalDeleted;
+  }
 }

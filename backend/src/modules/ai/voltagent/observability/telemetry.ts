@@ -17,6 +17,7 @@
  * - https://opentelemetry.io/blog/2025/ai-agent-observability/
  * - https://opentelemetry.io/blog/2024/llm-observability/
  */
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 
 /**
@@ -226,7 +227,8 @@ interface LogEntry {
  * - Non-blocking async logging
  * - Tenant-isolated queries via indexed tenantId
  */
-export class LlmTelemetry {
+@Injectable()
+export class LlmTelemetryService implements OnModuleDestroy {
   private buffer: LogEntry[] = [];
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private isFlushing = false;
@@ -272,8 +274,9 @@ export class LlmTelemetry {
 
   /**
    * Stop the telemetry service and flush remaining logs.
+   * Called automatically by NestJS on module destroy.
    */
-  async shutdown(): Promise<void> {
+  async onModuleDestroy(): Promise<void> {
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
       this.flushTimer = null;

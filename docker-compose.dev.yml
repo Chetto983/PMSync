@@ -22,12 +22,21 @@ services:
   redis:
     image: redis:7-alpine
     container_name: mailagent-redis
+    # Enable authentication and secure defaults
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-mailagent_dev_redis}
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+      --appendonly yes
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-mailagent_dev_redis}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-mailagent_dev_redis}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -57,15 +66,18 @@ services:
     networks:
       - mailagent-net
 
-  rgrock:
+  ngrok:
     image: ngrok/ngrok:latest
-    container_name: mailagent-rgrock
+    container_name: mailagent-ngrok
+    # SECURITY: Token must be set via environment variable - no defaults
     environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-35kRse8GyVYKVE1iU1jxzm6JLor_214zhKu7dbCBixcxgzVLZ}
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     command: >
-      http --url=https://vivisectional-robbie-nonsacrilegiously.ngrok-free.dev host.docker.internal:3000
+      http --url=${NGROK_URL:-http://host.docker.internal:3000} host.docker.internal:3000
     networks:
       - mailagent-net
+    profiles:
+      - tunnel  # Only start when explicitly requested: docker compose --profile tunnel up
 
   minio:
     image: minio/minio:latest
@@ -125,6 +137,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
     healthcheck:

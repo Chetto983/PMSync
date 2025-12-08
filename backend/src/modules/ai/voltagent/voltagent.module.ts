@@ -56,6 +56,8 @@ import { AiQueueService } from './services/ai-queue.service';
 // Scalability services (1000+ users)
 import { RateLimiterService } from './services/rate-limiter.service';
 import { MistralBatchService } from './services/mistral-batch.service';
+// Observability (OpenTelemetry-aligned)
+import { LlmTelemetryService } from './observability/telemetry';
 
 @Module({
   imports: [
@@ -90,6 +92,8 @@ import { MistralBatchService } from './services/mistral-batch.service';
     // Scalability services (1000+ users)
     RateLimiterService,
     MistralBatchService,
+    // Observability
+    LlmTelemetryService,
   ],
   exports: [
     VoltAgentService,
@@ -107,6 +111,8 @@ import { MistralBatchService } from './services/mistral-batch.service';
     SemanticCacheService,
     ModelRouterService,
     AiQueueService,
+    // Observability
+    LlmTelemetryService,
   ],
 })
 export class VoltAgentModule {}

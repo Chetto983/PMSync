@@ -43,9 +43,33 @@ export class EnvironmentVariables {
   @Max(65535)
   API_PORT: number = 3001;
 
-  // Database
+  // Database - supports both DATABASE_URL or individual DB_* vars
+  // configuration.ts builds URL from DB_* vars, so DATABASE_URL is optional
   @IsString()
-  DATABASE_URL: string;
+  @IsOptional()
+  DATABASE_URL?: string;
+
+  @IsString()
+  @IsOptional()
+  DB_HOST?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  @Max(65535)
+  DB_PORT?: number;
+
+  @IsString()
+  @IsOptional()
+  DB_USER?: string;
+
+  @IsString()
+  @IsOptional()
+  DB_PASSWORD?: string;
+
+  @IsString()
+  @IsOptional()
+  DB_NAME?: string;
 
   // Redis (optional in development)
   @IsString()
@@ -61,6 +85,31 @@ export class EnvironmentVariables {
   @IsString()
   @IsOptional()
   REDIS_PASSWORD?: string;
+
+  @IsNumber()
+  @IsOptional()
+  REDIS_DB?: number;
+
+  // Redis TLS (AUDIT-06)
+  @IsBoolean()
+  @IsOptional()
+  REDIS_TLS_ENABLED?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  REDIS_TLS_REJECT_UNAUTHORIZED?: boolean;
+
+  @IsString()
+  @IsOptional()
+  REDIS_TLS_CA?: string;
+
+  @IsString()
+  @IsOptional()
+  REDIS_TLS_CERT?: string;
+
+  @IsString()
+  @IsOptional()
+  REDIS_TLS_KEY?: string;
 
   // JWT
   @IsString()

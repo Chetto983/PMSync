@@ -9,8 +9,8 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # MailAgent Backend Metrics (running on host)
-  - job_name: 'mailagent-backend'
+  # PmSync Backend Metrics (running on host)
+  - job_name: 'pmsync-backend'
     metrics_path: /health/metrics
     scheme: http
     scrape_interval: 30s
@@ -23,7 +23,7 @@ scrape_configs:
           environment: development
 
   # Queue Health Metrics
-  - job_name: 'mailagent-queues'
+  - job_name: 'pmsync-queues'
     metrics_path: /health/metrics
     scheme: http
     scrape_interval: 30s

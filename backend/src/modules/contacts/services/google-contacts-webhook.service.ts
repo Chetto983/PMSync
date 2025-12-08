@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
+import { ContactsSyncQueueService } from './contacts-sync-queue.service';
 
 export const GOOGLE_CONTACTS_RESOURCE = '/contacts';
 
@@ -23,6 +24,7 @@ export class GoogleContactsWebhookService {
     private readonly crypto: CryptoService,
     private readonly config: ConfigService,
     private readonly contactsSync: GoogleContactsSyncService,
+    private readonly contactsSyncQueue: ContactsSyncQueueService,
   ) {
     this.contactsEnabled =
       (this.config.get<string>('CONTACTS_SYNC_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -124,8 +126,22 @@ export class GoogleContactsWebhookService {
         return;
       }
 
-      // Trigger sync
-      await this.contactsSync.syncContacts(providerId);
+      // Queue contacts sync (normal priority for scheduled polling)
+      const provider = await this.prisma.providerConfig.findUnique({
+        where: { id: providerId },
+        select: { tenantId: true, email: true },
+      });
+
+      if (provider) {
+        await this.contactsSyncQueue.addSyncJob({
+          tenantId: provider.tenantId,
+          providerId,
+          providerType: 'google',
+          email: provider.email,
+          priority: 'normal', // Normal priority for scheduled polling
+        });
+        this.logger.debug(`Queued contacts sync for provider ${providerId}`);
+      }
 
       // Update last poll time
       await this.prisma.webhookSubscription.update({
@@ -176,8 +192,22 @@ export class GoogleContactsWebhookService {
 
       this.logger.log(`Google Contacts notification received for provider ${providerId}`);
 
-      // Trigger sync
-      await this.contactsSync.syncContacts(providerId);
+      // Queue contacts sync (high priority for manual/webhook triggers)
+      const provider = await this.prisma.providerConfig.findUnique({
+        where: { id: providerId },
+        select: { tenantId: true, email: true },
+      });
+
+      if (provider) {
+        await this.contactsSyncQueue.addSyncJob({
+          tenantId: provider.tenantId,
+          providerId,
+          providerType: 'google',
+          email: provider.email,
+          priority: 'high', // High priority for manual triggers
+        });
+        this.logger.debug(`Queued contacts sync for provider ${providerId}`);
+      }
     } catch (error) {
       this.logger.error(
         `Error handling Google Contacts notification for provider ${providerId}:`,

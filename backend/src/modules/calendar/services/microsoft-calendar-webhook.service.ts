@@ -4,6 +4,7 @@ import axios from 'axios';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { MicrosoftCalendarSyncService } from './microsoft-calendar-sync.service';
+import { CalendarSyncQueueService } from './calendar-sync-queue.service';
 import { nanoid } from 'nanoid';
 
 export const MICROSOFT_CALENDAR_RESOURCE = '/me/events';
@@ -34,6 +35,7 @@ export class MicrosoftCalendarWebhookService {
     private readonly crypto: CryptoService,
     private readonly config: ConfigService,
     private readonly calendarSync: MicrosoftCalendarSyncService,
+    private readonly calendarSyncQueue: CalendarSyncQueueService,
   ) {
     // Derive webhook URL from API_PUBLIC_URL if not explicitly set
     const configuredWebhookUrl = this.config.get<string>('MICROSOFT_CALENDAR_WEBHOOK_URL');
@@ -198,8 +200,22 @@ export class MicrosoftCalendarWebhookService {
       `Microsoft Calendar notification: subscription=${subscriptionId}, changeType=${notification.changeType}`,
     );
 
-    // Trigger calendar sync for this provider
-    await this.calendarSync.syncCalendar(subscription.providerId);
+    // Queue calendar sync for this provider (high priority for real-time webhooks)
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: subscription.providerId },
+      select: { tenantId: true, email: true },
+    });
+
+    if (provider) {
+      await this.calendarSyncQueue.addSyncJob({
+        tenantId: provider.tenantId,
+        providerId: subscription.providerId,
+        providerType: 'microsoft',
+        email: provider.email,
+        priority: 'high', // High priority for real-time webhook triggers
+      });
+      this.logger.debug(`Queued calendar sync for provider ${subscription.providerId}`);
+    }
   }
 
   /**

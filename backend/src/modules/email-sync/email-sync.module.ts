@@ -49,6 +49,9 @@ import { ProviderTokenService } from './services/provider-token.service';
 // Workers
 import { SyncWorker } from './workers/sync.worker';
 import { FolderOperationsWorker } from './workers/folder-operations.worker';
+import { EmailSendWorker } from './workers/email-send.worker';
+import { SyncBackWorker } from './workers/sync-back.worker';
+import { BulkOperationsWorker } from './workers/bulk-operations.worker';
 
 // Controllers
 import { EmailSyncController } from './email-sync.controller';
@@ -117,6 +120,8 @@ import { FoldersController } from '../email/controllers/folders.controller';
     // Workers
     SyncWorker,
     FolderOperationsWorker,
+    EmailSendWorker,
+    SyncBackWorker,
   ],
   exports: [
     QueueService,

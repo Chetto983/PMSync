@@ -12,7 +12,73 @@
  */
 
 import { JobsOptions, WorkerOptions, QueueOptions } from 'bullmq';
+import { Redis } from 'ioredis';
 import { getRedisConnectionOptions, RedisConnectionOptions } from '../../config/configuration';
+
+/**
+ * Shared Redis connection singleton for BullMQ
+ * Prevents connection sprawl by reusing a single ioredis instance
+ * across all queue services.
+ *
+ * Use `getSharedRedisConnection()` in queue services instead of `new Redis()`
+ */
+let sharedRedisConnection: Redis | null = null;
+let connectionRefCount = 0;
+
+/**
+ * Get or create the shared Redis connection for BullMQ
+ * This connection is shared across all BullMQ queues and workers.
+ *
+ * @returns Shared ioredis connection instance
+ */
+export function getSharedRedisConnection(): Redis {
+  if (!sharedRedisConnection) {
+    const options = getRedisConnectionOptions();
+    sharedRedisConnection = new Redis({
+      ...options,
+      lazyConnect: false, // Connect immediately
+      // Connection name for debugging in Redis CLIENT LIST
+      connectionName: 'bullmq-shared',
+    });
+
+    sharedRedisConnection.on('error', (err) => {
+      console.error('[BullMQ-Shared] Redis connection error:', err.message);
+    });
+
+    sharedRedisConnection.on('connect', () => {
+      console.log('[BullMQ-Shared] Redis connected');
+    });
+  }
+  connectionRefCount++;
+  return sharedRedisConnection;
+}
+
+/**
+ * Release a reference to the shared connection
+ * Call this in onModuleDestroy to properly clean up
+ */
+export function releaseSharedRedisConnection(): void {
+  connectionRefCount--;
+  // Only close when all references are released
+  if (connectionRefCount <= 0 && sharedRedisConnection) {
+    sharedRedisConnection.quit().catch(() => {
+      // Ignore quit errors during shutdown
+    });
+    sharedRedisConnection = null;
+    connectionRefCount = 0;
+  }
+}
+
+/**
+ * Force close the shared connection (for testing/emergency)
+ */
+export function forceCloseSharedRedisConnection(): void {
+  if (sharedRedisConnection) {
+    sharedRedisConnection.disconnect();
+    sharedRedisConnection = null;
+    connectionRefCount = 0;
+  }
+}
 
 /**
  * Queue priority levels

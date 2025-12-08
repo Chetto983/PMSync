@@ -25,6 +25,14 @@ export interface DatabaseConfig {
   url: string;
 }
 
+export interface RedisTlsConfig {
+  enabled: boolean;
+  rejectUnauthorized: boolean;
+  ca?: string;
+  cert?: string;
+  key?: string;
+}
+
 export interface RedisConfig {
   host: string;
   port: number;
@@ -33,6 +41,7 @@ export interface RedisConfig {
   url: string;
   maxRetries: number;
   retryDelayMs: number;
+  tls: RedisTlsConfig;
 }
 
 /**
@@ -46,11 +55,17 @@ export interface RedisConnectionOptions {
   db?: number;
   maxRetriesPerRequest?: null;
   enableReadyCheck?: boolean;
+  tls?: {
+    rejectUnauthorized?: boolean;
+    ca?: string;
+    cert?: string;
+    key?: string;
+  };
 }
 
 export function getRedisConnectionOptions(config?: RedisConfig): RedisConnectionOptions {
   const redisConfig = config || getConfiguration().redis;
-  return {
+  const options: RedisConnectionOptions = {
     host: redisConfig.host,
     port: redisConfig.port,
     password: redisConfig.password || undefined,
@@ -58,6 +73,25 @@ export function getRedisConnectionOptions(config?: RedisConfig): RedisConnection
     maxRetriesPerRequest: null, // Required for BullMQ
     enableReadyCheck: false,
   };
+
+  // Add TLS options if enabled (AUDIT-06)
+  if (redisConfig.tls?.enabled) {
+    options.tls = {
+      rejectUnauthorized: redisConfig.tls.rejectUnauthorized,
+    };
+    // Add certificate paths if provided
+    if (redisConfig.tls.ca) {
+      options.tls.ca = redisConfig.tls.ca;
+    }
+    if (redisConfig.tls.cert) {
+      options.tls.cert = redisConfig.tls.cert;
+    }
+    if (redisConfig.tls.key) {
+      options.tls.key = redisConfig.tls.key;
+    }
+  }
+
+  return options;
 }
 
 export interface ApiConfig {
@@ -157,10 +191,20 @@ export function loadConfiguration(): Configuration {
   const redisMaxRetries = parseInt(process.env.REDIS_MAX_RETRIES || '3');
   const redisRetryDelayMs = parseInt(process.env.REDIS_RETRY_DELAY_MS || '1000');
 
-  // Build Redis URL with optional password
+  // Redis TLS configuration (AUDIT-06)
+  const redisTlsEnabled = ['1', 'true', 'yes'].includes((process.env.REDIS_TLS_ENABLED || '').toLowerCase());
+  const redisTlsRejectUnauthorized = !['0', 'false', 'no'].includes(
+    (process.env.REDIS_TLS_REJECT_UNAUTHORIZED || 'true').toLowerCase(),
+  );
+  const redisTlsCa = process.env.REDIS_TLS_CA || undefined;
+  const redisTlsCert = process.env.REDIS_TLS_CERT || undefined;
+  const redisTlsKey = process.env.REDIS_TLS_KEY || undefined;
+
+  // Build Redis URL with optional password and TLS protocol
+  const redisProtocol = redisTlsEnabled ? 'rediss' : 'redis';
   const redisUrl = redisPassword
-    ? `redis://:${encodeURIComponent(redisPassword)}@${redisHost}:${redisPort}/${redisDb}`
-    : `redis://${redisHost}:${redisPort}/${redisDb}`;
+    ? `${redisProtocol}://:${encodeURIComponent(redisPassword)}@${redisHost}:${redisPort}/${redisDb}`
+    : `${redisProtocol}://${redisHost}:${redisPort}/${redisDb}`;
 
   // API configuration - built from components
   const apiHost = process.env.API_HOST || 'localhost';
@@ -310,6 +354,13 @@ export function loadConfiguration(): Configuration {
       url: redisUrl,
       maxRetries: redisMaxRetries,
       retryDelayMs: redisRetryDelayMs,
+      tls: {
+        enabled: redisTlsEnabled,
+        rejectUnauthorized: redisTlsRejectUnauthorized,
+        ca: redisTlsCa,
+        cert: redisTlsCert,
+        key: redisTlsKey,
+      },
     },
 
     api: {

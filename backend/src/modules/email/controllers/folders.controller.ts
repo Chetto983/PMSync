@@ -71,11 +71,19 @@ export class FoldersController {
   async getFolders(@Request() req: any) {
     const tenantId = req.user.tenantId;
 
-    // Get all provider configs for this tenant
+    // Get all provider configs for this tenant - ONLY safe fields
     const providers = await this.prisma.providerConfig.findMany({
       where: {
         tenantId,
         isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        providerType: true,
+        lastSyncedAt: true,
+        isActive: true,
+        // Explicitly exclude: accessToken, refreshToken, iv, tokenIv, etc.
       },
     });
 
@@ -114,16 +122,24 @@ export class FoldersController {
   ) {
     const tenantId = req.user.tenantId;
 
-    // Verify provider belongs to tenant
+    // Verify provider belongs to tenant - ONLY safe fields
     const provider = await this.prisma.providerConfig.findFirst({
       where: {
         id: providerId,
         tenantId,
       },
+      select: {
+        id: true,
+        email: true,
+        providerType: true,
+        lastSyncedAt: true,
+        isActive: true,
+        // Explicitly exclude: accessToken, refreshToken, iv, tokenIv, etc.
+      },
     });
 
     if (!provider) {
-      throw new Error('Provider not found or access denied');
+      throw new NotFoundException('Provider not found or access denied');
     }
 
     // Refresh counts before returning folders

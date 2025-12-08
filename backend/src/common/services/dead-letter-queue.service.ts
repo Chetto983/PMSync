@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Queue, QueueEvents } from 'bullmq';
 import { Redis } from 'ioredis';
 import { CacheService, CacheNamespace } from './cache.service';
-import { getRedisConnectionOptions, QUEUE_NAMES } from '../config';
+import { getSharedRedisConnection, releaseSharedRedisConnection, QUEUE_NAMES } from '../config';
 
 /**
  * Dead Letter Queue Job Data
@@ -93,6 +93,7 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
   private redisConnection: Redis;
   private dlqQueue: Queue<DLQJobData>;
   private queueEvents: QueueEvents;
+  private cleanupTimer: NodeJS.Timeout | null = null;
   private readonly DLQ_RETENTION_DAYS = 30; // Default retention
   private readonly FAILURE_CACHE_TTL = 86400; // 24 hours
 
@@ -102,9 +103,8 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    // Initialize Redis connection using centralized config
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
+    // Use shared Redis connection to prevent connection sprawl (AUDIT-03)
+    this.redisConnection = getSharedRedisConnection();
 
     // Initialize Dead Letter Queue using centralized queue name
     this.dlqQueue = new Queue<DLQJobData>(QUEUE_NAMES.DEAD_LETTER, {
@@ -277,20 +277,23 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
       byErrorType[errorType] = (byErrorType[errorType] || 0) + 1;
 
       // Track recent failures (last 10)
+      // Note: failedAt may be Date or string after Redis deserialization
+      const failedAtStr = this.toISOString(data.failedAt);
       if (recentFailures.length < 10) {
         recentFailures.push({
           jobId: data.originalJobId,
           queue: data.originalQueue,
-          failedAt: data.failedAt.toISOString(),
+          failedAt: failedAtStr,
           error: data.lastError,
         });
       }
 
       // Track oldest failure
-      if (!oldestFailure || new Date(data.failedAt) < new Date(oldestFailure.failedAt)) {
+      const failedAtDate = new Date(data.failedAt);
+      if (!oldestFailure || failedAtDate < new Date(oldestFailure.failedAt)) {
         oldestFailure = {
           jobId: data.originalJobId,
-          failedAt: data.failedAt.toISOString(),
+          failedAt: failedAtStr,
         };
       }
     }
@@ -439,6 +442,21 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Safely convert Date or string to ISO string
+   * Handles Redis deserialization where Date becomes string
+   */
+  private toISOString(value: Date | string): string {
+    if (typeof value === 'string') {
+      return value; // Already a string (from Redis JSON)
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    // Fallback: try to create Date from value
+    return new Date(value).toISOString();
+  }
+
+  /**
    * Check if failure rate exceeds alert thresholds
    */
   private async checkAlertThresholds(queue: string): Promise<void> {
@@ -465,13 +483,17 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Schedule periodic cleanup
+   * Uses .unref() to prevent keeping event loop alive during shutdown
    */
   private scheduleCleanup(): void {
-    const cleanupInterval = this.config.get<number>('DLQ_CLEANUP_INTERVAL_MS', 86400000); // 24 hours
+    const cleanupInterval = this.config.get<number>('DLQ_CLEANUP_INTERVAL_MS') ?? 86400000; // 24 hours
 
-    setInterval(() => {
+    this.cleanupTimer = setInterval(() => {
       void this.performCleanup();
     }, cleanupInterval);
+
+    // Don't keep event loop alive just for cleanup
+    this.cleanupTimer.unref();
 
     this.logger.log(
       `Scheduled DLQ cleanup every ${cleanupInterval / 1000 / 60 / 60} hours`,
@@ -493,6 +515,12 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     this.logger.log('Closing DLQ connections...');
     try {
+      // Clear cleanup timer
+      if (this.cleanupTimer) {
+        clearInterval(this.cleanupTimer);
+        this.cleanupTimer = null;
+      }
+
       // Close queue events safely
       try {
         await this.queueEvents.close();
@@ -511,20 +539,9 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
         );
       }
 
-      // Close Redis connection safely
-      if (
-        this.redisConnection &&
-        this.redisConnection.status !== 'end' &&
-        this.redisConnection.status !== 'close'
-      ) {
-        try {
-          await this.redisConnection.quit();
-        } catch (error) {
-          this.logger.debug(
-            `DLQ Redis quit skipped: ${error instanceof Error ? error.message : error}`,
-          );
-        }
-      }
+      // Release shared Redis connection reference (AUDIT-03)
+      // Connection only closes when all references are released
+      releaseSharedRedisConnection();
     } catch (outerError) {
       this.logger.warn(
         `DeadLetterQueueService shutdown encountered an error (swallowed): ${

@@ -225,6 +225,7 @@ export function Calendar() {
   // Load UI-only preferences from localStorage (enabled state)
   // Colors are stored in the database via the API
   const loadEnabledState = useCallback((): Record<string, boolean> => {
+    if (typeof window === 'undefined') return {};
     try {
       const saved = localStorage.getItem(CALENDAR_PREFS_KEY);
       return saved ? JSON.parse(saved) : {};
@@ -235,6 +236,7 @@ export function Calendar() {
 
   // Save enabled state to localStorage (UI preference)
   const saveEnabledState = useCallback((prefs: Map<string, CalendarPreference>) => {
+    if (typeof window === 'undefined') return;
     try {
       const toSave: Record<string, boolean> = {};
       prefs.forEach((pref, key) => {

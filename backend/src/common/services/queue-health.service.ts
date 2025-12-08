@@ -1,7 +1,11 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
-import { getRedisConnectionOptions, QUEUE_NAMES } from '../config';
+import {
+  getSharedRedisConnection,
+  releaseSharedRedisConnection,
+  QUEUE_NAMES,
+} from '../config';
 
 /**
  * Queue status for a single queue
@@ -89,15 +93,15 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
   };
 
   async onModuleInit() {
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
+    // Use shared Redis connection to prevent connection sprawl (AUDIT-03)
+    this.redisConnection = getSharedRedisConnection();
 
-    // Initialize queues for monitoring
+    // Initialize queues for monitoring using shared connection
     const queueNames = Object.values(QUEUE_NAMES);
     for (const name of queueNames) {
       try {
         const queue = new Queue(name, {
-          connection: this.redisConnection.duplicate(),
+          connection: this.redisConnection,
         });
         this.queues.set(name, queue);
       } catch (error) {
@@ -362,18 +366,9 @@ export class QueueHealthService implements OnModuleInit, OnModuleDestroy {
     }
     this.queues.clear();
 
-    // Close Redis connection
-    if (
-      this.redisConnection &&
-      this.redisConnection.status !== 'end' &&
-      this.redisConnection.status !== 'close'
-    ) {
-      try {
-        await this.redisConnection.quit();
-      } catch (error) {
-        this.logger.debug(`Redis quit failed: ${error}`);
-      }
-    }
+    // Release shared Redis connection reference (AUDIT-03)
+    // Connection only closes when all references are released
+    releaseSharedRedisConnection();
 
     this.logger.log('Queue health monitoring closed');
   }

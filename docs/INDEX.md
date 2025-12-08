@@ -11,9 +11,11 @@ Welcome to the MailAgent documentation. This index provides a structured overvie
 
 | Category | Primary Document | Status |
 |----------|-----------------|--------|
+| **MVP Roadmap** | [MVP_COMPLETION_ROADMAP.md](./MVP_COMPLETION_ROADMAP.md) | **Active** |
 | **AI/Multi-Agent** | [AI_COMPREHENSIVE_ROADMAP.md](./AI_COMPREHENSIVE_ROADMAP.md) | Current |
 | **Email/Sync** | [EMAIL_EMAILSYNC_AUDIT_ROADMAP.md](./EMAIL_EMAILSYNC_AUDIT_ROADMAP.md) | Current |
 | **Redis/BullMQ** | [REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md](./REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md) | Complete |
+| **Queue Services** | [QUEUE_SERVICES_API.md](./QUEUE_SERVICES_API.md) | Current |
 | **Security** | [security/AUDIT-FINDINGS.md](./security/AUDIT-FINDINGS.md) | Current |
 | **API Reference** | [MAIL_API_REFERENCE.md](./MAIL_API_REFERENCE.md) | Current |
 
@@ -26,6 +28,7 @@ docs/
 ├── INDEX.md                              # This file - Documentation hub
 │
 ├── 📋 ROADMAPS (Primary)
+│   ├── MVP_COMPLETION_ROADMAP.md         # MVP completion checklist (Active)
 │   ├── AI_COMPREHENSIVE_ROADMAP.md       # Master AI roadmap (v3.0)
 │   ├── EMAIL_EMAILSYNC_AUDIT_ROADMAP.md  # Email/sync audit & roadmap
 │   ├── REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md  # Queue infrastructure
@@ -35,6 +38,7 @@ docs/
 │   └── FRONTEND_REFACTOR_ROADMAP.md      # Frontend modernization
 │
 ├── 📚 IMPLEMENTATION GUIDES
+│   ├── QUEUE_SERVICES_API.md             # BullMQ queue services reference
 │   ├── AI_COMPOSE_IMPLEMENTATION.md      # AI compose feature details
 │   ├── CALENDAR_INVITATION_ROADMAP.md    # Calendar invitations
 │   ├── MAIL_API_REFERENCE.md             # API endpoint reference
