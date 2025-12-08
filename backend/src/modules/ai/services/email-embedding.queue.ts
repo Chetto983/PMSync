@@ -2,6 +2,11 @@ import { Job, Queue, Worker } from 'bullmq';
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { KnowledgeBaseService } from './knowledge-base.service';
+import {
+  getRedisConnectionOptions,
+  getDefaultJobOptions,
+  QUEUE_NAMES,
+} from '../../../common/config';
 
 export interface EmailEmbeddingJob {
   tenantId: string;
@@ -61,27 +66,22 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
   }
 
   onModuleInit() {
-    const connection = {
-      host: this.config.get<string>('REDIS_HOST', 'localhost'),
-      port: Number(this.config.get<number>('REDIS_PORT', 6379)),
-      password: this.config.get<string>('REDIS_PASSWORD'),
-    };
+    // Use centralized Redis connection options (includes maxRetriesPerRequest: null for BullMQ)
+    const connection = getRedisConnectionOptions();
 
-    this.queue = new Queue<EmailEmbeddingJob>('email-embedding', {
+    // Use centralized job defaults for AI embedding operations
+    const jobDefaults = getDefaultJobOptions('AI_EMBEDDING');
+
+    this.queue = new Queue<EmailEmbeddingJob>(QUEUE_NAMES.EMAIL_EMBEDDING, {
       connection,
       defaultJobOptions: {
-        attempts: 6,
-        backoff: {
-          type: 'exponential',
-          delay: 1000,
-        },
-        removeOnComplete: true,
-        removeOnFail: 1000,
+        ...jobDefaults,
+        removeOnFail: 1000, // Override: keep more for embedding debugging
       },
     });
 
     this.worker = new Worker<EmailEmbeddingJob, boolean>(
-      'email-embedding',
+      QUEUE_NAMES.EMAIL_EMBEDDING,
       async (job: Job<EmailEmbeddingJob>) => {
         this.logger.debug(`Processing email embedding job ${job.id}`);
         try {
@@ -108,7 +108,7 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
           max: this.RATE_MAX,
           duration: this.RATE_DURATION_MS,
         },
-        lockDuration: this.WORKER_LOCK_MS, // long embeddings shouldn’t stall
+        lockDuration: this.WORKER_LOCK_MS, // long embeddings shouldn't stall
         stalledInterval: Math.max(1000, Math.floor(this.WORKER_LOCK_MS / 2)),
       },
     );

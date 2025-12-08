@@ -621,7 +621,7 @@ export class ImapSyncService extends BaseEmailSyncService {
             });
           }
         }
-      } catch (searchError) {
+      } catch {
         // Fallback to fetching last N messages if SEARCH fails
         this.logger.warn(`IMAP SEARCH failed for ${folderPath}, falling back to sequence-based fetch`);
 

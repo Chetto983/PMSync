@@ -73,7 +73,7 @@ export function shouldExcludeFolderFromEmbedding(folderNameOrPath: string | null
  */
 export function shouldExcludeFolder(
   folderNameOrPath: string | null | undefined,
-  specialUse?: string | null | undefined,
+  specialUse?: string | null  ,
 ): boolean {
   // Primary: check specialUse first (most reliable)
   if (shouldExcludeBySpecialUse(specialUse)) {

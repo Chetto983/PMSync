@@ -21,8 +21,6 @@ import {
   ApiOperation,
   ApiResponse,
   ApiQuery,
-  ApiParam,
-  ApiBody,
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';

@@ -26,9 +26,9 @@ describe('AuthService', () => {
   let jwtService: jest.Mocked<JwtService>;
   let emailService: jest.Mocked<EmailService>;
   let otpSecurityService: jest.Mocked<OtpSecurityService>;
-  let totpService: jest.Mocked<TotpService>;
-  let backupCodesService: jest.Mocked<BackupCodesService>;
-  let trustedDeviceService: jest.Mocked<TrustedDeviceService>;
+  let _totpService: jest.Mocked<TotpService>;
+  let _backupCodesService: jest.Mocked<BackupCodesService>;
+  let _trustedDeviceService: jest.Mocked<TrustedDeviceService>;
 
   // Mock data
   const mockTenant = {
@@ -178,9 +178,9 @@ describe('AuthService', () => {
     jwtService = module.get(JwtService);
     emailService = module.get(EmailService);
     otpSecurityService = module.get(OtpSecurityService);
-    totpService = module.get(TotpService);
-    backupCodesService = module.get(BackupCodesService);
-    trustedDeviceService = module.get(TrustedDeviceService);
+    _totpService = module.get(TotpService);
+    _backupCodesService = module.get(BackupCodesService);
+    _trustedDeviceService = module.get(TrustedDeviceService);
   });
 
   afterEach(() => {

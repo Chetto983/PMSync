@@ -22,6 +22,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Optional } from '@ne
 import { ConfigService } from '@nestjs/config';
 import { Queue, QueueEvents, Worker, Job, JobType } from 'bullmq';
 import { Redis } from 'ioredis';
+import { getRedisConnectionOptions, getDefaultJobOptions } from '../../../../common/config';
 
 export type AiJobType =
   | 'email-insights'
@@ -104,52 +105,44 @@ export class AiQueueService implements OnModuleInit, OnModuleDestroy {
   constructor(@Optional() private readonly configService?: ConfigService) {}
 
   async onModuleInit() {
-    const redisHost = this.configService?.get<string>('REDIS_HOST', 'localhost') ?? 'localhost';
-    const redisPort = this.configService?.get<number>('REDIS_PORT', 6379) ?? 6379;
-    const redisPassword = this.configService?.get<string>('REDIS_PASSWORD');
+    // Use centralized Redis connection options (includes maxRetriesPerRequest: null for BullMQ)
+    const redisOptions = getRedisConnectionOptions();
     const isWorkerMode = this.configService?.get<string>('AI_QUEUE_WORKER_MODE') === 'true';
 
     try {
       this.redisConnection = new Redis({
-        host: redisHost,
-        port: redisPort,
-        password: redisPassword,
-        maxRetriesPerRequest: null,
-        enableReadyCheck: false,
+        ...redisOptions,
         lazyConnect: true,
       });
 
       await this.redisConnection.connect();
-      this.logger.log(`AI Queue: Connected to Redis at ${redisHost}:${redisPort}`);
+      this.logger.log(`AI Queue: Connected to Redis at ${redisOptions.host}:${redisOptions.port}`);
 
-      // Initialize queues
+      // Use centralized queue presets for consistent job options
+      const highJobDefaults = getDefaultJobOptions('HIGH');
+      const normalJobDefaults = getDefaultJobOptions('NORMAL');
+      const lowJobDefaults = getDefaultJobOptions('LOW');
+
+      // Initialize queues with centralized job defaults
       this.highQueue = new Queue<AiJobData, AiJobResult>('ai-jobs-high', {
         connection: this.redisConnection,
         defaultJobOptions: {
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 2000 },
-          removeOnComplete: { count: 100, age: 3600 },
-          removeOnFail: { count: 50 },
+          ...highJobDefaults,
+          removeOnFail: { count: 50 }, // AI-specific override
         },
       });
 
       this.normalQueue = new Queue<AiJobData, AiJobResult>('ai-jobs-normal', {
         connection: this.redisConnection,
         defaultJobOptions: {
-          attempts: 2,
-          backoff: { type: 'exponential', delay: 5000 },
-          removeOnComplete: { count: 50, age: 1800 },
-          removeOnFail: true,
+          ...normalJobDefaults,
+          removeOnComplete: { count: 50, age: 1800 }, // AI-specific override
         },
       });
 
       this.lowQueue = new Queue<AiJobData, AiJobResult>('ai-jobs-low', {
         connection: this.redisConnection,
-        defaultJobOptions: {
-          attempts: 1,
-          removeOnComplete: true,
-          removeOnFail: true,
-        },
+        defaultJobOptions: lowJobDefaults,
       });
 
       // Setup queue events for monitoring

@@ -230,7 +230,7 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
    * Process folder rename operation
    */
   private async processRenameFolder(data: FolderJobData): Promise<FolderJobResult> {
-    const { tenantId, providerId, providerType, email, oldPath, newName } = data;
+    const { providerId, providerType, email, oldPath, newName } = data;
 
     if (!oldPath || !newName) {
       throw new Error('Old path and new name are required for rename operation');
