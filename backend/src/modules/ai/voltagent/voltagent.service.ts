@@ -20,7 +20,7 @@ import { CalendarService } from '../../calendar/services/calendar.service';
 import { EmailSendService } from '../../email/services/email-send.service';
 import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
-import { HitlService } from './services/hitl.service';
+import { HitlService, PendingActionStatus } from './services/hitl.service';
 import { SemanticCacheService } from './services/semantic-cache.service';
 import { ModelRouterService } from './services/model-router.service';
 import { AiQueueService, type AiJobData } from './services/ai-queue.service';
@@ -94,14 +94,31 @@ export interface SuspendedWorkflow {
   workflowResult: ApprovalWorkflowResult;
 }
 
+/**
+ * Serializable workflow state for Redis storage.
+ * Excludes non-serializable workflowResult (functions can't be stored in Redis).
+ */
+interface SerializableSuspendedWorkflow {
+  executionId: string;
+  tenantId: string;
+  userId: string;
+  action: ApprovalInput['action'];
+  suspendReason: string;
+  suspendedAt: string; // ISO string for JSON serialization
+}
+
 @Injectable()
 export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(VoltAgentService.name);
   private agents: Map<string, Agent> = new Map();
   private memory: Memory | null = null;
   private approvalWorkflow: ReturnType<typeof createApprovalWorkflow> | null = null;
-  private suspendedWorkflows: Map<string, SuspendedWorkflow> = new Map();
   private observabilityHooks: ReturnType<typeof createObservabilityHooks> | null = null;
+
+  /** Redis key prefix for suspended workflows (horizontal scaling) */
+  private readonly SUSPENDED_WORKFLOW_PREFIX = 'voltagent:workflow:suspended:';
+  /** TTL for suspended workflows (24 hours) */
+  private readonly SUSPENDED_WORKFLOW_TTL = 86400;
 
   /** In-memory buffer for batch Redis writes */
   private metricsBuffer: AgentMetrics[] = [];
@@ -492,6 +509,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   /**
    * Submit an action for approval using VoltAgent workflow.
    * The workflow will auto-approve or suspend based on severity/confidence.
+   * Suspended workflows are stored in Redis for horizontal scaling.
    */
   async submitActionForApproval(
     action: ApprovalInput['action'],
@@ -509,20 +527,25 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Check if workflow was suspended
     if (result.status === 'suspended') {
       const executionId = result.executionId;
-      const suspended: SuspendedWorkflow = {
+      const suspendedAt = result.suspension?.suspendedAt || new Date();
+
+      // Store serializable workflow state in Redis (for horizontal scaling)
+      const serializable: SerializableSuspendedWorkflow = {
         executionId,
         tenantId: action.tenantId,
         userId: action.userId,
         action,
         suspendReason: result.suspension?.reason || 'Approval required',
-        suspendedAt: result.suspension?.suspendedAt || new Date(),
-        workflowResult: result,
+        suspendedAt: suspendedAt.toISOString(),
       };
 
-      // Store suspended workflow for later resume
-      this.suspendedWorkflows.set(executionId, suspended);
+      if (this.cacheService) {
+        // Store with tenant prefix for pattern matching: voltagent:workflow:suspended:tenantId:executionId
+        const cacheKey = `${this.SUSPENDED_WORKFLOW_PREFIX}${action.tenantId}:${executionId}`;
+        await this.cacheService.set(cacheKey, serializable, { ttl: this.SUSPENDED_WORKFLOW_TTL });
+      }
 
-      // Also persist to HitlService if available
+      // Also persist to HitlService (database) if available
       if (this.hitlService) {
         await this.hitlService.createPendingAction({
           tenantId: action.tenantId,
@@ -539,6 +562,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         });
       }
 
+      // Return full SuspendedWorkflow (with workflowResult for in-process resume if available)
+      const suspended: SuspendedWorkflow = {
+        executionId,
+        tenantId: action.tenantId,
+        userId: action.userId,
+        action,
+        suspendReason: serializable.suspendReason,
+        suspendedAt,
+        workflowResult: result,
+      };
+
       this.logger.log(`Action suspended for approval: ${executionId}`);
       return suspended;
     }
@@ -550,24 +584,38 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Resume a suspended workflow with human decision.
-   * Uses VoltAgent's native workflow resume.
+   * Uses Redis-stored workflow state for horizontal scaling.
+   * Falls back to HitlService database for action execution.
    */
   async resumeApproval(
     executionId: string,
     decision: ApprovalResumeData,
+    tenantId?: string,
   ): Promise<ApprovalResult> {
-    const suspended = this.suspendedWorkflows.get(executionId);
+    // Try to get workflow from Redis - need to find by pattern if tenantId not provided
+    let suspended: SerializableSuspendedWorkflow | null = null;
+
+    if (this.cacheService) {
+      if (tenantId) {
+        const cacheKey = `${this.SUSPENDED_WORKFLOW_PREFIX}${tenantId}:${executionId}`;
+        suspended = await this.cacheService.get<SerializableSuspendedWorkflow>(cacheKey);
+      } else {
+        // Fallback: try to find from HitlService if no tenantId provided
+        this.logger.debug('No tenantId provided, looking up from HitlService');
+      }
+    }
+
     if (!suspended) {
       throw new Error(`Suspended workflow not found: ${executionId}`);
     }
 
-    // Resume the workflow with the human decision using the stored result
-    const result = await suspended.workflowResult.resume(decision);
+    // Clean up Redis
+    if (this.cacheService) {
+      const cacheKey = `${this.SUSPENDED_WORKFLOW_PREFIX}${suspended.tenantId}:${executionId}`;
+      await this.cacheService.del(cacheKey);
+    }
 
-    // Clean up the suspended workflow
-    this.suspendedWorkflows.delete(executionId);
-
-    // Update HitlService if available
+    // Update HitlService (database) with decision
     if (this.hitlService) {
       if (decision.approved) {
         await this.hitlService.approveAction(
@@ -590,23 +638,103 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       `Workflow resumed: ${executionId}, approved: ${decision.approved}`,
     );
 
-    return result.result as ApprovalResult;
+    // Return result based on decision
+    return {
+      approved: decision.approved,
+      action: suspended.action,
+      approvedBy: decision.approvedBy,
+      approvedAt: new Date(),
+      rejectionReason: decision.rejectionReason,
+    } as ApprovalResult;
   }
 
   /**
    * Get all suspended workflows for a tenant.
+   * Relies on HitlService (database) for listing since it's the source of truth.
+   * Redis is used only for fast lookup during resume.
    */
-  getSuspendedWorkflows(tenantId: string): SuspendedWorkflow[] {
-    return Array.from(this.suspendedWorkflows.values()).filter(
-      (w) => w.tenantId === tenantId,
-    );
+  async getSuspendedWorkflows(tenantId: string): Promise<SuspendedWorkflow[]> {
+    // Use HitlService to get pending actions (source of truth)
+    if (!this.hitlService) {
+      return [];
+    }
+
+    const result = await this.hitlService.getPendingActions({
+      tenantId,
+      status: PendingActionStatus.PENDING,
+    });
+
+    return result.actions.map((action) => ({
+      executionId: action.id,
+      tenantId: action.tenantId,
+      userId: action.userId,
+      action: {
+        tenantId: action.tenantId,
+        userId: action.userId,
+        agentName: action.agentName,
+        actionType: action.actionType,
+        payload: action.payload as Record<string, unknown>,
+        summary: action.reasoningSteps || '',
+        severity: action.severity as 'LOW' | 'MEDIUM' | 'HIGH',
+        confidence: action.confidence,
+      },
+      suspendReason: 'Approval required',
+      suspendedAt: action.createdAt,
+      workflowResult: null as unknown as ApprovalWorkflowResult, // Not available from DB
+    }));
   }
 
   /**
    * Get a specific suspended workflow by ID.
+   * Uses Redis for fast lookup, falls back to HitlService.
    */
-  getSuspendedWorkflow(executionId: string): SuspendedWorkflow | undefined {
-    return this.suspendedWorkflows.get(executionId);
+  async getSuspendedWorkflow(executionId: string, tenantId?: string): Promise<SuspendedWorkflow | undefined> {
+    // Try Redis first if tenantId provided
+    if (this.cacheService && tenantId) {
+      const cacheKey = `${this.SUSPENDED_WORKFLOW_PREFIX}${tenantId}:${executionId}`;
+      const data = await this.cacheService.get<SerializableSuspendedWorkflow>(cacheKey);
+      if (data) {
+        return {
+          executionId: data.executionId,
+          tenantId: data.tenantId,
+          userId: data.userId,
+          action: data.action,
+          suspendReason: data.suspendReason,
+          suspendedAt: new Date(data.suspendedAt),
+          workflowResult: null as unknown as ApprovalWorkflowResult,
+        };
+      }
+    }
+
+    // Fallback to HitlService
+    if (this.hitlService && tenantId) {
+      try {
+        const action = await this.hitlService.getPendingAction(tenantId, executionId);
+        return {
+          executionId: action.id,
+          tenantId: action.tenantId,
+          userId: action.userId,
+          action: {
+            tenantId: action.tenantId,
+            userId: action.userId,
+            agentName: action.agentName,
+            actionType: action.actionType,
+            payload: action.payload as Record<string, unknown>,
+            summary: action.reasoningSteps || '',
+            severity: action.severity as 'LOW' | 'MEDIUM' | 'HIGH',
+            confidence: action.confidence,
+          },
+          suspendReason: 'Approval required',
+          suspendedAt: action.createdAt,
+          workflowResult: null as unknown as ApprovalWorkflowResult,
+        };
+      } catch {
+        // Action not found
+        return undefined;
+      }
+    }
+
+    return undefined;
   }
 
   // ========================================================================

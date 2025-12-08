@@ -15,6 +15,7 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, forwardRef }
 import { Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   EmailSendJobData,
@@ -25,6 +26,7 @@ import { GoogleSyncService } from '../services/gmail/google-sync.service';
 import { MicrosoftSyncService } from '../services/microsoft/microsoft-sync.service';
 import { ImapSyncService } from '../services/imap/imap-sync.service';
 import { ProviderTokenService } from '../services/provider-token.service';
+import { CryptoService } from '../../../common/services/crypto.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 
 @Injectable()
@@ -44,6 +46,7 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
     private readonly microsoftSyncService: MicrosoftSyncService,
     private readonly imapSyncService: ImapSyncService,
     private readonly providerTokenService: ProviderTokenService,
+    private readonly cryptoService: CryptoService,
   ) {}
 
   async onModuleInit() {
@@ -247,24 +250,87 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
     _accessToken: string,
     email: EmailSendJobData['email'],
   ): Promise<{ messageId?: string; threadId?: string }> {
-    // IMAP providers use SMTP for sending
-    // TODO: Implement SMTP send via nodemailer when SMTP config is available
-    this.logger.warn(`IMAP send not yet implemented for provider ${provider.id}`);
+    // IMAP providers use SMTP for sending via nodemailer
+    const metadata = provider.metadata || {};
 
-    // For now, return a placeholder - actual SMTP implementation needed
-    throw new Error(
-      `IMAP email sending requires SMTP configuration. ` +
-        `Configure SMTP settings for provider ${provider.email} to enable sending.`,
-    );
+    // Get SMTP configuration from provider metadata
+    const smtpHost = metadata.smtpHost;
+    const smtpPort = metadata.smtpPort || 587;
+    const smtpSecure = metadata.smtpSecure !== false;
 
-    // Future implementation would use nodemailer:
-    // const transporter = nodemailer.createTransport({
-    //   host: provider.smtpHost,
-    //   port: provider.smtpPort,
-    //   secure: provider.smtpSecure,
-    //   auth: { user: provider.email, pass: decryptedPassword },
-    // });
-    // return transporter.sendMail({ ... });
+    if (!smtpHost) {
+      throw new Error(
+        `IMAP email sending requires SMTP configuration. ` +
+          `Configure SMTP settings (smtpHost, smtpPort) for provider ${provider.email} to enable sending.`,
+      );
+    }
+
+    // Decrypt password from accessToken (IMAP stores password as encrypted accessToken)
+    let password: string;
+    try {
+      password = this.cryptoService.decrypt(provider.accessToken, provider.tokenEncryptionIv);
+    } catch {
+      throw new Error('Failed to decrypt IMAP password for SMTP authentication');
+    }
+
+    // Create nodemailer transporter
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: {
+        user: provider.email,
+        pass: password,
+      },
+      // Connection timeout settings
+      connectionTimeout: 30000,
+      greetingTimeout: 15000,
+      socketTimeout: 60000,
+    });
+
+    // Build mail options
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: provider.email,
+      to: email.to.map((r) => (r.name ? `"${r.name}" <${r.email}>` : r.email)).join(', '),
+      subject: email.subject,
+      text: email.bodyText,
+      html: email.bodyHtml,
+    };
+
+    // Add CC if present
+    if (email.cc?.length) {
+      mailOptions.cc = email.cc.map((r) => (r.name ? `"${r.name}" <${r.email}>` : r.email)).join(', ');
+    }
+
+    // Add BCC if present
+    if (email.bcc?.length) {
+      mailOptions.bcc = email.bcc.map((r) => (r.name ? `"${r.name}" <${r.email}>` : r.email)).join(', ');
+    }
+
+    // Add reply headers if replying
+    if (email.inReplyTo) {
+      mailOptions.inReplyTo = email.inReplyTo;
+      mailOptions.references = email.inReplyTo;
+    }
+
+    // Add attachments if present
+    if (email.attachments?.length) {
+      mailOptions.attachments = email.attachments.map((att) => ({
+        filename: att.filename,
+        content: att.content ? Buffer.from(att.content, 'base64') : undefined,
+        contentType: att.contentType,
+      }));
+    }
+
+    // Send email
+    const result = await transporter.sendMail(mailOptions);
+
+    this.logger.log(`IMAP/SMTP email sent: messageId=${result.messageId}`);
+
+    return {
+      messageId: result.messageId || undefined,
+      threadId: email.threadId,
+    };
   }
 
   private buildRfc2822Message(from: string, email: EmailSendJobData['email']): string {
@@ -345,14 +411,23 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    this.logger.log('Shutting down email send worker...');
+    this.logger.log('Shutting down email send worker (graceful drain)...');
 
-    if (this.worker) {
-      await this.worker.close();
-    }
+    try {
+      if (this.worker) {
+        // Graceful shutdown: close with drain (waits for active jobs)
+        // BullMQ worker.close() already waits for running jobs by default
+        this.logger.log('Email send worker closing, waiting for in-flight jobs...');
+        await this.worker.close();
+      }
 
-    if (this.redisConnection && this.redisConnection.status !== 'end') {
-      await this.redisConnection.quit();
+      if (this.redisConnection && this.redisConnection.status !== 'end') {
+        await this.redisConnection.quit();
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Email send worker shutdown error: ${error instanceof Error ? error.message : error}`,
+      );
     }
 
     this.logger.log('Email send worker stopped');

@@ -11,12 +11,19 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
-import { CalendarService, CreateEventDto, UpdateEventDto, ListEventsFilters } from '../services/calendar.service';
+import { CalendarService, ListEventsFilters } from '../services/calendar.service';
+import {
+  CreateEventDto,
+  UpdateEventDto,
+  CreateCalendarDto,
+  UpdateCalendarPreferencesDto,
+  ListEventsQueryDto,
+} from '../dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
-import { ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 @Controller('calendar')
@@ -44,10 +51,7 @@ export class CalendarController {
    */
   @Post('calendars')
   @HttpCode(HttpStatus.CREATED)
-  async createCalendar(
-    @Req() req: any,
-    @Body() data: { providerId: string; name: string; description?: string; color?: string },
-  ) {
+  async createCalendar(@Req() req: any, @Body() data: CreateCalendarDto) {
     const tenantId = req.user.tenantId;
     return this.calendarService.createCalendar(tenantId, data);
   }
@@ -61,7 +65,7 @@ export class CalendarController {
     @Req() req: any,
     @Param('providerId') providerId: string,
     @Param('calendarId') calendarId: string,
-    @Body() data: { name?: string; color?: string },
+    @Body() data: UpdateCalendarPreferencesDto,
   ) {
     const tenantId = req.user.tenantId;
     return this.calendarService.updateCalendarPreferences(tenantId, providerId, calendarId, data);
@@ -73,24 +77,16 @@ export class CalendarController {
    */
   @Get('events')
   @SkipThrottle()
-  async listEvents(
-    @Req() req: any,
-    @Query('providerId') providerId?: string,
-    @Query('calendarId') calendarId?: string,
-    @Query('startTime') startTime?: string,
-    @Query('endTime') endTime?: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
-  ) {
+  async listEvents(@Req() req: any, @Query() query: ListEventsQueryDto) {
     const tenantId = req.user.tenantId;
 
     const filters: ListEventsFilters = {
-      providerId,
-      calendarId,
-      startTime: startTime ? new Date(startTime) : undefined,
-      endTime: endTime ? new Date(endTime) : undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
+      providerId: query.providerId,
+      calendarId: query.calendarId,
+      startTime: query.startTime ? new Date(query.startTime) : undefined,
+      endTime: query.endTime ? new Date(query.endTime) : undefined,
+      limit: query.limit,
+      offset: query.offset,
     };
 
     return this.calendarService.listEvents(tenantId, filters);

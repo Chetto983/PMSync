@@ -505,33 +505,33 @@ export class ContactsService {
   /**
    * Helper: Find or create unified contact by email
    * Used by sync services to deduplicate contacts
+   *
+   * OPTIMIZED: Uses PostgreSQL JSONB search instead of loading all contacts (fixes N+1)
    */
   async findOrCreateUnifiedContact(
     tenantId: string,
     email: string,
     contactData: Partial<Contact>,
   ): Promise<Contact> {
-    // Search for existing unified contact with this email
-    const existingContacts = await this.prisma.contact.findMany({
-      where: {
-        tenantId,
-        isDeleted: false,
-      },
-    });
+    // Normalize email for case-insensitive search
+    const normalizedEmail = email.toLowerCase();
 
-    // Check if any contact has this email in their emails array
-    for (const contact of existingContacts) {
-      if (contact.emails) {
-        const emails = JSON.parse(JSON.stringify(contact.emails));
-        if (Array.isArray(emails)) {
-          const hasEmail = emails.some(
-            (e: any) => e.value?.toLowerCase() === email.toLowerCase(),
-          );
-          if (hasEmail) {
-            return contact;
-          }
-        }
-      }
+    // Search for existing contact using PostgreSQL JSONB query (O(1) instead of O(n))
+    // This searches within the emails JSON array for a matching value
+    const existingContacts = await this.prisma.$queryRaw<Contact[]>`
+      SELECT * FROM "Contact"
+      WHERE tenant_id = ${tenantId}
+      AND is_deleted = false
+      AND emails IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM jsonb_array_elements(emails) AS email_obj
+        WHERE LOWER(email_obj->>'value') = ${normalizedEmail}
+      )
+      LIMIT 1
+    `;
+
+    if (existingContacts.length > 0) {
+      return existingContacts[0];
     }
 
     // No existing contact found, create new unified contact

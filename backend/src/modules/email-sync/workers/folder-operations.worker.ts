@@ -678,10 +678,13 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    this.logger.log('Stopping folder operations worker...');
+    this.logger.log('Stopping folder operations worker (graceful drain)...');
 
     try {
       if (this.worker) {
+        // Graceful shutdown: close with drain (waits for active jobs)
+        // BullMQ worker.close() already waits for running jobs by default
+        this.logger.log('Folder worker closing, waiting for in-flight jobs...');
         await this.worker.close();
       }
 

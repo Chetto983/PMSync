@@ -16,6 +16,7 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, forwardRef }
 import { Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
+import { ImapFlow } from 'imapflow';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   SyncBackJobData,
@@ -23,6 +24,7 @@ import {
   ProviderSyncBackQueueService,
 } from '../services/provider-sync-back-queue.service';
 import { ProviderTokenService } from '../services/provider-token.service';
+import { CryptoService } from '../../../common/services/crypto.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 
 @Injectable()
@@ -40,6 +42,7 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
     @Inject(forwardRef(() => ProviderSyncBackQueueService))
     private readonly queueService: ProviderSyncBackQueueService,
     private readonly providerTokenService: ProviderTokenService,
+    private readonly cryptoService: CryptoService,
   ) {}
 
   async onModuleInit() {
@@ -205,8 +208,7 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
         await this.syncToMicrosoft(accessToken, action, externalIds, options);
         break;
       case 'imap':
-        // IMAP sync-back requires different handling (direct IMAP connection)
-        this.logger.debug(`IMAP sync-back for ${action} - implementing via IMAP connection`);
+        await this.syncToImap(options.providerEmail || '', action, externalIds, options);
         break;
       default:
         throw new Error(`Unsupported provider type: ${providerType}`);
@@ -279,72 +281,262 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
     externalIds: string[],
     options: { targetFolder?: string },
   ): Promise<void> {
-    // Microsoft Graph uses batch requests for multiple items
-    const baseUrl = 'https://graph.microsoft.com/v1.0';
+    // Microsoft Graph $batch endpoint - up to 20 requests per batch
+    const MICROSOFT_BATCH_SIZE = 20;
+    const batchUrl = 'https://graph.microsoft.com/v1.0/$batch';
 
-    for (const messageId of externalIds) {
-      let endpoint = `${baseUrl}/me/messages/${messageId}`;
-      let method = 'PATCH';
-      let body: Record<string, unknown> = {};
+    // Process in batches of 20 (Microsoft's limit)
+    for (let i = 0; i < externalIds.length; i += MICROSOFT_BATCH_SIZE) {
+      const batchIds = externalIds.slice(i, i + MICROSOFT_BATCH_SIZE);
+      const requests: Array<{
+        id: string;
+        method: string;
+        url: string;
+        headers?: Record<string, string>;
+        body?: Record<string, unknown>;
+      }> = [];
 
-      switch (action) {
-        case 'mark-read':
-          body = { isRead: true };
-          break;
-        case 'mark-unread':
-          body = { isRead: false };
-          break;
-        case 'star':
-        case 'flag':
-          body = { flag: { flagStatus: 'flagged' } };
-          break;
-        case 'unstar':
-        case 'unflag':
-          body = { flag: { flagStatus: 'notFlagged' } };
-          break;
-        case 'archive':
-          endpoint = `${baseUrl}/me/messages/${messageId}/move`;
-          method = 'POST';
-          body = { destinationId: 'archive' };
-          break;
-        case 'delete':
-          method = 'DELETE';
-          body = {};
-          break;
-        case 'move':
-          endpoint = `${baseUrl}/me/messages/${messageId}/move`;
-          method = 'POST';
-          body = { destinationId: options.targetFolder };
-          break;
-        default:
-          throw new Error(`Unsupported Microsoft action: ${action}`);
+      for (let j = 0; j < batchIds.length; j++) {
+        const messageId = batchIds[j];
+        let url = `/me/messages/${messageId}`;
+        let method = 'PATCH';
+        let body: Record<string, unknown> | undefined;
+
+        switch (action) {
+          case 'mark-read':
+            body = { isRead: true };
+            break;
+          case 'mark-unread':
+            body = { isRead: false };
+            break;
+          case 'star':
+          case 'flag':
+            body = { flag: { flagStatus: 'flagged' } };
+            break;
+          case 'unstar':
+          case 'unflag':
+            body = { flag: { flagStatus: 'notFlagged' } };
+            break;
+          case 'archive':
+            url = `/me/messages/${messageId}/move`;
+            method = 'POST';
+            body = { destinationId: 'archive' };
+            break;
+          case 'delete':
+            method = 'DELETE';
+            break;
+          case 'move':
+            url = `/me/messages/${messageId}/move`;
+            method = 'POST';
+            body = { destinationId: options.targetFolder };
+            break;
+          default:
+            throw new Error(`Unsupported Microsoft action: ${action}`);
+        }
+
+        const request: {
+          id: string;
+          method: string;
+          url: string;
+          headers?: Record<string, string>;
+          body?: Record<string, unknown>;
+        } = {
+          id: String(j + 1),
+          method,
+          url,
+        };
+
+        if (body) {
+          request.headers = { 'Content-Type': 'application/json' };
+          request.body = body;
+        }
+
+        requests.push(request);
       }
 
-      const response = await fetch(endpoint, {
-        method,
+      // Execute batch request
+      const response = await fetch(batchUrl, {
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: method !== 'DELETE' ? JSON.stringify(body) : undefined,
+        body: JSON.stringify({ requests }),
       });
 
-      if (!response.ok && response.status !== 204) {
+      if (!response.ok) {
         const error = await response.text();
-        throw new Error(`Microsoft ${action} failed for ${messageId}: ${response.status} ${error}`);
+        throw new Error(`Microsoft batch request failed: ${response.status} ${error}`);
+      }
+
+      // Check individual responses for errors
+      const batchResponse = (await response.json()) as {
+        responses: Array<{ id: string; status: number; body?: { error?: { message: string } } }>;
+      };
+      const errors: string[] = [];
+
+      for (const res of batchResponse.responses) {
+        // 200, 201, 204 are success codes
+        if (res.status >= 400) {
+          const messageId = batchIds[parseInt(res.id, 10) - 1];
+          const errorMsg = res.body?.error?.message || `Status ${res.status}`;
+          errors.push(`${messageId}: ${errorMsg}`);
+        }
+      }
+
+      if (errors.length > 0) {
+        throw new Error(`Microsoft ${action} partially failed: ${errors.join('; ')}`);
       }
     }
   }
 
-  async onModuleDestroy() {
-    this.logger.log('Shutting down sync-back worker...');
+  private async syncToImap(
+    providerEmail: string,
+    action: SyncBackJobData['action'],
+    externalIds: string[],
+    options: { targetFolder?: string; labelId?: string },
+  ): Promise<void> {
+    // Get provider config for IMAP credentials
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: { email: providerEmail, providerType: 'imap' },
+    });
 
-    if (this.worker) {
-      await this.worker.close();
+    if (!provider) {
+      throw new Error(`IMAP provider not found for ${providerEmail}`);
     }
 
-    if (this.redisConnection && this.redisConnection.status !== 'end') {
-      await this.redisConnection.quit();
+    const metadata = (provider as any).metadata || {};
+
+    // Get IMAP configuration
+    const imapHost = metadata.imapHost || 'imap.gmail.com';
+    const imapPort = metadata.imapPort || 993;
+    const imapSecure = metadata.imapSecure !== false;
+
+    // Decrypt password
+    let password: string;
+    try {
+      password = this.cryptoService.decrypt(provider.accessToken!, provider.tokenEncryptionIv!);
+    } catch {
+      throw new Error('Failed to decrypt IMAP password');
+    }
+
+    // Create IMAP connection
+    const client = new ImapFlow({
+      host: imapHost,
+      port: imapPort,
+      secure: imapSecure,
+      auth: {
+        user: providerEmail,
+        pass: password,
+      },
+      logger: false,
+    });
+
+    try {
+      await client.connect();
+      await client.mailboxOpen('INBOX');
+
+      // Convert external IDs to UIDs (assuming they are UID strings)
+      const uids = externalIds.map((id) => parseInt(id, 10)).filter((uid) => !isNaN(uid));
+
+      if (uids.length === 0) {
+        this.logger.warn('No valid UIDs for IMAP sync-back');
+        return;
+      }
+
+      // Execute action based on type
+      switch (action) {
+        case 'mark-read':
+          await client.messageFlagsAdd(uids, ['\\Seen']);
+          break;
+
+        case 'mark-unread':
+          await client.messageFlagsRemove(uids, ['\\Seen']);
+          break;
+
+        case 'star':
+        case 'flag':
+          await client.messageFlagsAdd(uids, ['\\Flagged']);
+          break;
+
+        case 'unstar':
+        case 'unflag':
+          await client.messageFlagsRemove(uids, ['\\Flagged']);
+          break;
+
+        case 'archive':
+          // Move to Archive folder (try common names)
+          try {
+            await client.messageMove(uids, 'Archive');
+          } catch {
+            try {
+              await client.messageMove(uids, '[Gmail]/All Mail');
+            } catch {
+              // If no archive folder, just remove from INBOX
+              await client.messageFlagsAdd(uids, ['\\Deleted']);
+            }
+          }
+          break;
+
+        case 'delete':
+          // Move to Trash or mark as deleted
+          try {
+            await client.messageMove(uids, 'Trash');
+          } catch {
+            try {
+              await client.messageMove(uids, '[Gmail]/Trash');
+            } catch {
+              await client.messageFlagsAdd(uids, ['\\Deleted']);
+            }
+          }
+          break;
+
+        case 'move':
+          if (options.targetFolder) {
+            await client.messageMove(uids, options.targetFolder);
+          }
+          break;
+
+        case 'add-label':
+          // IMAP uses folders, copy to target folder
+          if (options.labelId) {
+            await client.messageCopy(uids, options.labelId);
+          }
+          break;
+
+        case 'remove-label':
+          // Can't remove from folder via IMAP, would need to delete from that folder
+          this.logger.debug('IMAP remove-label not directly supported');
+          break;
+
+        default:
+          throw new Error(`Unsupported IMAP action: ${action}`);
+      }
+
+      this.logger.debug(`IMAP sync-back completed: ${action} for ${uids.length} messages`);
+    } finally {
+      await client.logout();
+    }
+  }
+
+  async onModuleDestroy() {
+    this.logger.log('Shutting down sync-back worker (graceful drain)...');
+
+    try {
+      if (this.worker) {
+        // Graceful shutdown: close with drain (waits for active jobs)
+        // BullMQ worker.close() already waits for running jobs by default
+        this.logger.log('Sync-back worker closing, waiting for in-flight jobs...');
+        await this.worker.close();
+      }
+
+      if (this.redisConnection && this.redisConnection.status !== 'end') {
+        await this.redisConnection.quit();
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Sync-back worker shutdown error: ${error instanceof Error ? error.message : error}`,
+      );
     }
 
     this.logger.log('Sync-back worker stopped');

@@ -177,7 +177,7 @@ export class VoltAgentController {
   @Get('actions/pending')
   @ApiOperation({ summary: 'Get pending approval actions' })
   async getPendingActions(@Req() req: AuthenticatedRequest) {
-    const suspended = this.voltAgentService.getSuspendedWorkflows(
+    const suspended = await this.voltAgentService.getSuspendedWorkflows(
       req.user.tenantId,
     );
 
@@ -206,7 +206,10 @@ export class VoltAgentController {
     @Req() req: AuthenticatedRequest,
     @Param('executionId') executionId: string,
   ) {
-    const suspended = this.voltAgentService.getSuspendedWorkflow(executionId);
+    const suspended = await this.voltAgentService.getSuspendedWorkflow(
+      executionId,
+      req.user.tenantId,
+    );
 
     if (!suspended) {
       throw new NotFoundException(`Pending action not found: ${executionId}`);
@@ -240,7 +243,10 @@ export class VoltAgentController {
     @Req() req: AuthenticatedRequest,
     @Param('executionId') executionId: string,
   ) {
-    const suspended = this.voltAgentService.getSuspendedWorkflow(executionId);
+    const suspended = await this.voltAgentService.getSuspendedWorkflow(
+      executionId,
+      req.user.tenantId,
+    );
 
     if (!suspended) {
       throw new NotFoundException(`Pending action not found: ${executionId}`);
@@ -259,6 +265,7 @@ export class VoltAgentController {
     const result = await this.voltAgentService.resumeApproval(
       executionId,
       decision,
+      req.user.tenantId,
     );
 
     return {
@@ -280,7 +287,10 @@ export class VoltAgentController {
     @Param('executionId') executionId: string,
     @Body() body: ApprovalDecisionDto,
   ) {
-    const suspended = this.voltAgentService.getSuspendedWorkflow(executionId);
+    const suspended = await this.voltAgentService.getSuspendedWorkflow(
+      executionId,
+      req.user.tenantId,
+    );
 
     if (!suspended) {
       throw new NotFoundException(`Pending action not found: ${executionId}`);
@@ -300,6 +310,7 @@ export class VoltAgentController {
     const result = await this.voltAgentService.resumeApproval(
       executionId,
       decision,
+      req.user.tenantId,
     );
 
     return {

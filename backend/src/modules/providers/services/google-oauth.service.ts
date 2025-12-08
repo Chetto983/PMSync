@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
 import { google } from 'googleapis';
 import { randomBytes } from 'crypto';
@@ -165,8 +165,28 @@ export class GoogleOAuthService {
         expiresAt,
       };
     } catch (error) {
-      this.logger.error('Failed to refresh access token:', error);
-      throw new UnauthorizedException('Invalid refresh token');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as any)?.code || (error as any)?.response?.data?.error;
+
+      this.logger.error(`Failed to refresh Google access token: ${errorMessage}`, {
+        errorCode,
+        errorType: (error as any)?.constructor?.name,
+      });
+
+      // Differentiate error types for better handling
+      if (errorMessage.includes('insufficient_scope') || errorMessage.includes('access_denied')) {
+        throw new ForbiddenException('Permission denied by Google. Please reconnect with required permissions.');
+      }
+
+      if (errorMessage.includes('invalid_grant') || errorCode === 'invalid_grant') {
+        throw new UnauthorizedException('Re-authentication required. Google refresh token has been revoked or expired.');
+      }
+
+      if (errorMessage.includes('rate') || errorCode === 429 || errorMessage.includes('quota')) {
+        throw new UnauthorizedException('Google API rate limit exceeded. Please try again later.');
+      }
+
+      throw new UnauthorizedException('Failed to refresh Google access token. Please reconnect this account.');
     }
   }
 

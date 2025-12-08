@@ -53,7 +53,17 @@ export class CalendarWebhookController {
 
       return { success: true };
     } catch (error) {
-      this.logger.error('Error handling Google Calendar webhook:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      this.logger.error('Error handling Google Calendar webhook', {
+        error: errorMessage,
+        stack: errorStack,
+        channelId: headers['x-goog-channel-id'],
+        resourceId: headers['x-goog-resource-id'],
+        resourceState: headers['x-goog-resource-state'],
+      });
+
       // Return 200 anyway to prevent retries for transient errors
       // But throw for authentication errors
       if (error instanceof UnauthorizedException) {
@@ -103,7 +113,16 @@ export class CalendarWebhookController {
 
       return { success: true };
     } catch (error) {
-      this.logger.error('Error handling Microsoft Calendar webhook:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      this.logger.error('Error handling Microsoft Calendar webhook', {
+        error: errorMessage,
+        stack: errorStack,
+        notificationCount: payload.value?.length || 0,
+        subscriptionIds: payload.value?.map((n) => n.subscriptionId).filter(Boolean),
+      });
+
       // Return error to Microsoft for retry
       throw error;
     }

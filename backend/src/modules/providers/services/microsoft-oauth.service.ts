@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { ConfidentialClientApplication, Configuration, AccountInfo } from '@azure/msal-node';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { randomBytes } from 'crypto';
@@ -226,8 +226,32 @@ export class MicrosoftOAuthService {
         refreshToken: updatedRefreshToken || undefined,
       };
     } catch (error) {
-      this.logger.error('Failed to refresh access token:', error);
-      throw new UnauthorizedException('Invalid refresh token');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as any)?.errorCode || (error as any)?.code;
+
+      this.logger.error(`Failed to refresh Microsoft access token: ${errorMessage}`, {
+        errorCode,
+        errorType: (error as any)?.constructor?.name,
+      });
+
+      // Differentiate error types for better handling
+      if (errorMessage.includes('insufficient') || errorMessage.includes('access_denied') || errorCode === 'consent_required') {
+        throw new ForbiddenException('Permission denied by Microsoft. Please reconnect with required permissions.');
+      }
+
+      if (errorMessage.includes('invalid_grant') || errorCode === 'invalid_grant' || errorMessage.includes('AADSTS700082')) {
+        throw new UnauthorizedException('Re-authentication required. Microsoft refresh token has been revoked or expired.');
+      }
+
+      if (errorMessage.includes('AADSTS50076') || errorMessage.includes('interaction_required')) {
+        throw new UnauthorizedException('Re-authentication required. Additional verification needed by Microsoft.');
+      }
+
+      if (errorMessage.includes('rate') || errorCode === 429 || errorMessage.includes('throttled')) {
+        throw new UnauthorizedException('Microsoft API rate limit exceeded. Please try again later.');
+      }
+
+      throw new UnauthorizedException('Failed to refresh Microsoft access token. Please reconnect this account.');
     }
   }
 
