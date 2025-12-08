@@ -27,7 +27,7 @@
  * // { processed: 150, total: 500, percentage: 30 }
  * ```
  */
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue, QueueEvents, JobType } from 'bullmq';
 import { Redis } from 'ioredis';
@@ -36,6 +36,7 @@ import {
   getDefaultJobOptions,
   QUEUE_NAMES,
 } from '../../../common/config';
+import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 
 /**
  * Supported bulk operations
@@ -136,7 +137,11 @@ export class BulkOperationsQueueService implements OnModuleInit, OnModuleDestroy
     totalDurationMs: 0,
   };
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(forwardRef(() => DeadLetterQueueService))
+    private readonly deadLetterQueue: DeadLetterQueueService,
+  ) {}
 
   async onModuleInit() {
     const redisOptions = getRedisConnectionOptions();
@@ -191,6 +196,11 @@ export class BulkOperationsQueueService implements OnModuleInit, OnModuleDestroy
     this.queueEvents.on('failed', ({ jobId, failedReason }) => {
       this.logger.warn(`Bulk operation job ${jobId} failed: ${failedReason}`);
       this.metrics.failed++;
+
+      // Add to DLQ if job exhausted all retries
+      this.handlePermanentFailure(jobId, failedReason).catch((err: Error) => {
+        this.logger.error(`Failed to add job ${jobId} to DLQ: ${err.message}`);
+      });
     });
 
     this.queueEvents.on('progress', ({ jobId, data }) => {
@@ -436,6 +446,35 @@ export class BulkOperationsQueueService implements OnModuleInit, OnModuleDestroy
     } catch {
       // Ignore errors when fetching job metrics
     }
+  }
+
+  /**
+   * Handle permanently failed jobs by adding them to the DLQ
+   */
+  private async handlePermanentFailure(jobId: string, failedReason?: string): Promise<void> {
+    const job = await this.queue.getJob(jobId);
+    if (!job) return;
+
+    // Check if job has exhausted all retries (attemptsMade >= attempts)
+    const maxAttempts = job.opts.attempts || 3;
+    if (job.attemptsMade < maxAttempts) {
+      return; // Job still has retries remaining
+    }
+
+    // Add to DLQ
+    await this.deadLetterQueue.addToDeadLetter(
+      jobId,
+      QUEUE_NAMES.BULK_OPERATIONS,
+      job.data,
+      new Error(failedReason || 'Unknown error'),
+      job.attemptsMade,
+      {
+        providerId: job.data.providerId,
+        providerType: job.data.providerType,
+        operation: job.data.operation,
+        emailCount: job.data.emailIds.length,
+      },
+    );
   }
 
   async onModuleDestroy() {

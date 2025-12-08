@@ -951,7 +951,7 @@ export class EmailsController {
    */
   private extractEmailFromString(value?: string | null): string | null {
     if (!value) return null;
-    const match = value.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})/);
+    const match = value.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
     return match ? match[1].toLowerCase() : null;
   }
 }

@@ -87,9 +87,11 @@ export class AttachmentsController {
 
       // Set response headers for file download
       res.setHeader('Content-Type', result.mimeType || 'application/octet-stream');
+      // Use RFC 5987 encoding to prevent header injection and support unicode filenames
+      const safeFilename = encodeURIComponent(result.filename).replace(/['()]/g, escape);
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="${result.filename.replace(/"/g, '\\"')}"`,
+        `attachment; filename*=UTF-8''${safeFilename}`,
       );
 
       // Get content length from S3 response if available

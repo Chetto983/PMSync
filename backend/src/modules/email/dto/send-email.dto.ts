@@ -1,8 +1,11 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsEmail,
   IsOptional,
   IsString,
+  MaxLength,
+  ArrayMaxSize,
   ValidateNested,
 } from 'class-validator';
 
@@ -19,26 +22,32 @@ class EmailAttachmentDto {
 
 class BaseComposeEmailDto {
   @IsArray()
-  @IsString({ each: true })
+  @IsEmail({}, { each: true, message: 'Invalid email address in "to" field' })
+  @ArrayMaxSize(50, { message: 'Maximum 50 recipients in "to" field' })
   to!: string[];
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsEmail({}, { each: true, message: 'Invalid email address in "cc" field' })
+  @ArrayMaxSize(50, { message: 'Maximum 50 recipients in "cc" field' })
   cc?: string[];
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsEmail({}, { each: true, message: 'Invalid email address in "bcc" field' })
+  @ArrayMaxSize(50, { message: 'Maximum 50 recipients in "bcc" field' })
   bcc?: string[];
 
   @IsString()
+  @MaxLength(998, { message: 'Subject exceeds RFC 5322 limit of 998 characters' })
   subject!: string;
 
   @IsString()
+  @MaxLength(10000000, { message: 'HTML body exceeds 10MB limit' })
   bodyHtml!: string;
 
   @IsString()
+  @MaxLength(10000000, { message: 'Text body exceeds 10MB limit' })
   bodyText!: string;
 
   @IsOptional()

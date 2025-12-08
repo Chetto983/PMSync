@@ -11,6 +11,7 @@ import { TotpService } from './services/totp.service';
 import { BackupCodesService } from './services/backup-codes.service';
 import { TrustedDeviceService } from './services/trusted-device.service';
 import { WebAuthnService } from './services/webauthn.service';
+import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { EmailService } from '../email/services/email.service';
 import { PrismaModule } from '../../prisma/prisma.module';
@@ -81,6 +82,7 @@ import { UsersModule } from '../users/users.module';
     BackupCodesService,
     TrustedDeviceService,
     WebAuthnService,
+    RedisRateLimiterService,
     JwtStrategy,
     EmailService,
   ],
@@ -93,6 +95,7 @@ import { UsersModule } from '../users/users.module';
     BackupCodesService,
     TrustedDeviceService,
     WebAuthnService,
+    RedisRateLimiterService,
     JwtModule,
   ],
 })

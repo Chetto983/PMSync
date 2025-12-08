@@ -1,9 +1,10 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { ProviderConfig } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { AttachmentStorageService } from './attachment.storage';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
+import { EmailSendQueueService } from '../../email-sync/services/email-send-queue.service';
 import { ProviderFactory } from '../../providers/factory/provider.factory';
 import type { ProviderConfig as ProviderConfigType } from '../../providers/interfaces/email-provider.interface';
 import type { SendEmailData } from '../../providers/interfaces/email-provider.interface';
@@ -38,6 +39,8 @@ export class EmailSendService {
     private crypto: CryptoService,
     private attachmentStorage: AttachmentStorageService,
     private providerTokenService: ProviderTokenService,
+    @Inject(forwardRef(() => EmailSendQueueService))
+    private emailSendQueue: EmailSendQueueService,
   ) {}
 
   /**
@@ -83,6 +86,57 @@ export class EmailSendService {
       id: scheduled.id,
       scheduledAt: scheduled.scheduledAt,
     };
+  }
+
+  /**
+   * Queue email for async sending via BullMQ worker.
+   * Use this for non-blocking sends where you don't need immediate feedback.
+   *
+   * @returns Job ID for tracking send status
+   */
+  async queueSend(data: SendEmailDto): Promise<{ jobId: string }> {
+    const provider = await this.getActiveEmailProvider(data.tenantId, data.providerId);
+
+    // Convert attachments to base64 for queue serialization
+    const attachmentsForQueue = data.attachments?.map((att) => ({
+      filename: att.filename,
+      content: att.content.toString('base64'),
+      contentType: att.contentType,
+      size: att.content.length,
+    }));
+
+    const jobId = await this.emailSendQueue.enqueueSend({
+      tenantId: data.tenantId,
+      providerId: provider.id,
+      providerType: provider.providerType as 'google' | 'microsoft' | 'imap',
+      email: {
+        to: data.to.map((email) => ({ email })),
+        cc: data.cc?.map((email) => ({ email })),
+        bcc: data.bcc?.map((email) => ({ email })),
+        subject: data.subject,
+        bodyHtml: data.bodyHtml,
+        bodyText: data.bodyText,
+        attachments: attachmentsForQueue,
+        inReplyTo: data.inReplyTo,
+        threadId: data.threadId,
+      },
+      priority: 'high',
+      requestedAt: new Date().toISOString(),
+    });
+
+    this.logger.log(`Email queued for async send: ${jobId}`);
+
+    return { jobId };
+  }
+
+  /**
+   * Get status of a queued email send job.
+   */
+  async getQueuedSendStatus(jobId: string): Promise<{
+    state: string;
+    result?: { success: boolean; messageId?: string; error?: string };
+  } | null> {
+    return this.emailSendQueue.getJobStatus(jobId);
   }
 
   /**

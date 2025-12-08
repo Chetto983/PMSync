@@ -177,7 +177,7 @@ export class FoldersController {
     });
 
     if (!provider) {
-      throw new Error('Provider not found or access denied');
+      throw new NotFoundException('Provider not found or access denied');
     }
 
     // Sync folders via FolderSyncService
@@ -265,7 +265,7 @@ export class FoldersController {
     });
 
     if (!provider) {
-      throw new Error('Provider not found or access denied');
+      throw new NotFoundException('Provider not found or access denied');
     }
 
     // Update folder counts

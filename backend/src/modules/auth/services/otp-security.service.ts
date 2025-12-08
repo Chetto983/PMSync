@@ -1,5 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Redis } from 'ioredis';
 import * as crypto from 'crypto';
+import { getRedisConnectionOptions } from '../../../config/configuration';
 
 /**
  * OTP verification result
@@ -22,7 +25,7 @@ export interface RateLimitResult {
 }
 
 /**
- * Stored OTP data (in-memory)
+ * Stored OTP data (Redis)
  */
 interface StoredOtp {
   hash: string;
@@ -35,22 +38,26 @@ interface StoredOtp {
 /**
  * OtpSecurityService - Secure OTP handling with hashing and rate limiting
  *
+ * SCALABLE: Uses Redis for distributed state (works across multiple instances)
+ *
  * Security features:
  * - HMAC-SHA256 hashed OTP storage (not plaintext)
- * - Per-user rate limiting with lockout
+ * - Per-user rate limiting with lockout (Redis-based)
  * - Attempt tracking for brute force protection
- * - In-memory storage for short-lived OTPs
+ * - Redis storage with TTL for automatic expiration
  *
  * Best practices applied:
  * - OTPs are hashed before storage per OWASP recommendations
  * - Rate limiting prevents brute force attacks
  * - Lockout after N failed attempts per NIST 800-63b
+ * - Redis TTL for automatic cleanup (no memory leaks)
  *
  * @see https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html
  */
 @Injectable()
-export class OtpSecurityService {
+export class OtpSecurityService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OtpSecurityService.name);
+  private redis!: Redis;
 
   // Configuration
   private readonly otpExpirationMs: number;
@@ -60,16 +67,16 @@ export class OtpSecurityService {
   private readonly rateLimitMax: number;
   private readonly hmacSecret: string;
 
-  // In-memory stores
-  private otpStore: Map<string, StoredOtp> = new Map(); // userId:type -> OTP data
-  private rateLimitStore: Map<string, { count: number; resetAt: number }> = new Map();
-  private attemptStore: Map<string, { count: number; firstAttemptAt: number }> = new Map();
-  private lockoutStore: Map<string, number> = new Map();
+  // Redis key prefixes
+  private readonly KEY_PREFIX_OTP = 'otp:store:';
+  private readonly KEY_PREFIX_RATE_LIMIT = 'otp:ratelimit:';
+  private readonly KEY_PREFIX_ATTEMPTS = 'otp:attempts:';
+  private readonly KEY_PREFIX_LOCKOUT = 'otp:lockout:';
 
-  constructor() {
+  constructor(private readonly config: ConfigService) {
     // Get HMAC secret for OTP hashing (derived from JWT secret if not set)
-    const jwtSecret = process.env.JWT_SECRET;
-    const otpSecret = process.env.OTP_HMAC_SECRET;
+    const jwtSecret = this.config.get<string>('JWT_SECRET');
+    const otpSecret = this.config.get<string>('OTP_HMAC_SECRET');
     if (!otpSecret && (!jwtSecret || jwtSecret === 'secret')) {
       this.logger.warn(
         'OTP_HMAC_SECRET not set and JWT_SECRET is weak. Using fallback - NOT SECURE FOR PRODUCTION.',
@@ -80,14 +87,36 @@ export class OtpSecurityService {
     }
 
     // Configuration with safe defaults
-    this.otpExpirationMs = this.safeParseInt(process.env.OTP_EXPIRATION, 5 * 60 * 1000); // 5 min
-    this.maxAttempts = this.safeParseInt(process.env.OTP_MAX_ATTEMPTS, 5);
-    this.lockoutDurationMs = this.safeParseInt(process.env.OTP_LOCKOUT_DURATION, 15 * 60 * 1000);
-    this.rateLimitWindowMs = this.safeParseInt(process.env.OTP_RATE_LIMIT_WINDOW, 60 * 1000);
-    this.rateLimitMax = this.safeParseInt(process.env.OTP_RATE_LIMIT_MAX, 3);
+    this.otpExpirationMs = this.safeParseInt(this.config.get<string>('OTP_EXPIRATION'), 5 * 60 * 1000); // 5 min
+    this.maxAttempts = this.safeParseInt(this.config.get<string>('OTP_MAX_ATTEMPTS'), 5);
+    this.lockoutDurationMs = this.safeParseInt(this.config.get<string>('OTP_LOCKOUT_DURATION'), 15 * 60 * 1000);
+    this.rateLimitWindowMs = this.safeParseInt(this.config.get<string>('OTP_RATE_LIMIT_WINDOW'), 60 * 1000);
+    this.rateLimitMax = this.safeParseInt(this.config.get<string>('OTP_RATE_LIMIT_MAX'), 3);
+  }
 
-    // Periodic cleanup of expired entries (every 5 minutes)
-    setInterval(() => this.cleanupExpiredEntries(), 5 * 60 * 1000);
+  async onModuleInit() {
+    const options = getRedisConnectionOptions();
+    this.redis = new Redis({
+      ...options,
+      connectionName: 'otp-security',
+      lazyConnect: false,
+    });
+
+    this.redis.on('error', (err) => {
+      this.logger.error(`Redis OTP service error: ${err.message}`);
+    });
+
+    this.redis.on('connect', () => {
+      this.logger.log('Redis OTP service connected');
+    });
+  }
+
+  async onModuleDestroy() {
+    if (this.redis) {
+      await this.redis.quit().catch(() => {
+        // Ignore quit errors during shutdown
+      });
+    }
   }
 
   /**
@@ -124,7 +153,7 @@ export class OtpSecurityService {
   }
 
   /**
-   * Create and store hashed OTP for a user (in-memory)
+   * Create and store hashed OTP for a user (Redis)
    */
   async createOtp(
     userId: string,
@@ -132,7 +161,7 @@ export class OtpSecurityService {
   ): Promise<{ code: string; expiresAt: Date }> {
     // Check rate limit first
     const rateLimitKey = `otp-send:${userId}`;
-    const rateLimit = this.checkRateLimit(rateLimitKey);
+    const rateLimit = await this.checkRateLimit(rateLimitKey);
     if (!rateLimit.allowed) {
       this.logger.warn(
         JSON.stringify({
@@ -151,15 +180,18 @@ export class OtpSecurityService {
     const hash = this.hashOtp(code, salt);
     const expiresAt = new Date(Date.now() + this.otpExpirationMs);
 
-    // Store in-memory (overwrite any previous OTP)
-    const storeKey = `${userId}:${type}`;
-    this.otpStore.set(storeKey, {
+    // Store in Redis with TTL (overwrite any previous OTP)
+    const storeKey = `${this.KEY_PREFIX_OTP}${userId}:${type}`;
+    const otpData: StoredOtp = {
       hash,
       salt,
       expiresAt: expiresAt.getTime(),
       isUsed: false,
       type,
-    });
+    };
+
+    const ttlSeconds = Math.ceil(this.otpExpirationMs / 1000);
+    await this.redis.setex(storeKey, ttlSeconds, JSON.stringify(otpData));
 
     this.logger.log(
       JSON.stringify({
@@ -183,33 +215,54 @@ export class OtpSecurityService {
     type: 'email' | 'sms' = 'email',
   ): Promise<OtpVerifyResult> {
     // Check for lockout
-    const lockoutKey = `otp-lockout:${userId}`;
-    const lockoutEndsAt = this.lockoutStore.get(lockoutKey);
-    if (lockoutEndsAt && lockoutEndsAt > Date.now()) {
+    const lockoutKey = `${this.KEY_PREFIX_LOCKOUT}${userId}`;
+    const lockoutTtl = await this.redis.ttl(lockoutKey);
+    if (lockoutTtl > 0) {
+      const lockoutEndsAt = new Date(Date.now() + lockoutTtl * 1000);
       this.logger.warn(
         JSON.stringify({
           event: 'otp_locked_out',
           userId,
-          lockoutEndsAt: new Date(lockoutEndsAt).toISOString(),
+          lockoutEndsAt: lockoutEndsAt.toISOString(),
         }),
       );
       return {
         success: false,
         reason: 'locked_out',
-        lockoutEndsAt: new Date(lockoutEndsAt),
+        lockoutEndsAt,
       };
     }
 
     // Find valid OTP record
-    const storeKey = `${userId}:${type}`;
-    const otpRecord = this.otpStore.get(storeKey);
+    const storeKey = `${this.KEY_PREFIX_OTP}${userId}:${type}`;
+    const otpJson = await this.redis.get(storeKey);
 
-    if (!otpRecord || otpRecord.isUsed || otpRecord.expiresAt < Date.now()) {
-      this.recordFailedAttempt(userId);
+    if (!otpJson) {
+      await this.recordFailedAttempt(userId);
       return {
         success: false,
-        reason: otpRecord?.isUsed ? 'already_used' : otpRecord ? 'expired' : 'invalid',
-        attemptsRemaining: this.getAttemptsRemaining(userId),
+        reason: 'invalid',
+        attemptsRemaining: await this.getAttemptsRemaining(userId),
+      };
+    }
+
+    const otpRecord: StoredOtp = JSON.parse(otpJson);
+
+    if (otpRecord.isUsed) {
+      await this.recordFailedAttempt(userId);
+      return {
+        success: false,
+        reason: 'already_used',
+        attemptsRemaining: await this.getAttemptsRemaining(userId),
+      };
+    }
+
+    if (otpRecord.expiresAt < Date.now()) {
+      await this.recordFailedAttempt(userId);
+      return {
+        success: false,
+        reason: 'expired',
+        attemptsRemaining: await this.getAttemptsRemaining(userId),
       };
     }
 
@@ -217,11 +270,12 @@ export class OtpSecurityService {
     const isValid = this.verifyOtpHash(code, otpRecord.salt, otpRecord.hash);
 
     if (!isValid) {
-      const attemptsRemaining = this.recordFailedAttempt(userId);
+      const attemptsRemaining = await this.recordFailedAttempt(userId);
 
       // Check if should lock out
       if (attemptsRemaining === 0) {
-        this.lockoutStore.set(lockoutKey, Date.now() + this.lockoutDurationMs);
+        const lockoutSeconds = Math.ceil(this.lockoutDurationMs / 1000);
+        await this.redis.setex(lockoutKey, lockoutSeconds, '1');
         this.logger.warn(
           JSON.stringify({
             event: 'otp_lockout_triggered',
@@ -238,11 +292,15 @@ export class OtpSecurityService {
       };
     }
 
-    // Mark OTP as used
+    // Mark OTP as used (update in Redis)
     otpRecord.isUsed = true;
+    const remainingTtl = await this.redis.ttl(storeKey);
+    if (remainingTtl > 0) {
+      await this.redis.setex(storeKey, remainingTtl, JSON.stringify(otpRecord));
+    }
 
     // Clear failed attempts on success
-    this.attemptStore.delete(`otp-attempts:${userId}`);
+    await this.redis.del(`${this.KEY_PREFIX_ATTEMPTS}${userId}`);
 
     this.logger.log(
       JSON.stringify({
@@ -256,67 +314,88 @@ export class OtpSecurityService {
   }
 
   /**
-   * Check rate limit for an action
+   * Check rate limit for an action (Redis-based)
    */
-  checkRateLimit(key: string): RateLimitResult {
+  async checkRateLimit(key: string): Promise<RateLimitResult> {
+    const redisKey = `${this.KEY_PREFIX_RATE_LIMIT}${key}`;
     const now = Date.now();
-    const entry = this.rateLimitStore.get(key);
 
-    if (!entry || entry.resetAt < now) {
-      // First request or window expired
-      this.rateLimitStore.set(key, {
-        count: 1,
-        resetAt: now + this.rateLimitWindowMs,
-      });
+    try {
+      // Increment counter
+      const count = await this.redis.incr(redisKey);
+
+      // Set TTL on first request
+      if (count === 1) {
+        const ttlSeconds = Math.ceil(this.rateLimitWindowMs / 1000);
+        await this.redis.expire(redisKey, ttlSeconds);
+      }
+
+      // Get TTL for reset time
+      const ttl = await this.redis.ttl(redisKey);
+      const resetAt = new Date(now + Math.max(ttl, 0) * 1000);
+
+      if (count > this.rateLimitMax) {
+        return {
+          allowed: false,
+          attemptsRemaining: 0,
+          resetAt,
+        };
+      }
+
       return {
         allowed: true,
-        attemptsRemaining: this.rateLimitMax - 1,
+        attemptsRemaining: this.rateLimitMax - count,
+        resetAt,
+      };
+    } catch (error) {
+      // On Redis error, allow the request (fail open)
+      this.logger.error(`Rate limit check failed: ${error instanceof Error ? error.message : String(error)}`);
+      return {
+        allowed: true,
+        attemptsRemaining: this.rateLimitMax,
         resetAt: new Date(now + this.rateLimitWindowMs),
       };
     }
-
-    if (entry.count >= this.rateLimitMax) {
-      return {
-        allowed: false,
-        attemptsRemaining: 0,
-        resetAt: new Date(entry.resetAt),
-      };
-    }
-
-    entry.count++;
-    return {
-      allowed: true,
-      attemptsRemaining: this.rateLimitMax - entry.count,
-      resetAt: new Date(entry.resetAt),
-    };
   }
 
   /**
-   * Record a failed OTP attempt
+   * Record a failed OTP attempt (Redis-based)
    */
-  private recordFailedAttempt(userId: string): number {
-    const key = `otp-attempts:${userId}`;
-    const now = Date.now();
-    const entry = this.attemptStore.get(key);
+  private async recordFailedAttempt(userId: string): Promise<number> {
+    const key = `${this.KEY_PREFIX_ATTEMPTS}${userId}`;
+    const ttlSeconds = Math.ceil(this.lockoutDurationMs / 1000);
 
-    if (!entry || now - entry.firstAttemptAt > this.lockoutDurationMs) {
-      // First attempt or window expired
-      this.attemptStore.set(key, { count: 1, firstAttemptAt: now });
+    try {
+      // Increment attempts
+      const count = await this.redis.incr(key);
+
+      // Set TTL on first attempt
+      if (count === 1) {
+        await this.redis.expire(key, ttlSeconds);
+      }
+
+      return Math.max(0, this.maxAttempts - count);
+    } catch (error) {
+      this.logger.error(`Failed attempt recording error: ${error instanceof Error ? error.message : String(error)}`);
       return this.maxAttempts - 1;
     }
-
-    entry.count++;
-    return Math.max(0, this.maxAttempts - entry.count);
   }
 
   /**
    * Get remaining attempts for a user
    */
-  private getAttemptsRemaining(userId: string): number {
-    const key = `otp-attempts:${userId}`;
-    const entry = this.attemptStore.get(key);
-    if (!entry) return this.maxAttempts;
-    return Math.max(0, this.maxAttempts - entry.count);
+  private async getAttemptsRemaining(userId: string): Promise<number> {
+    const key = `${this.KEY_PREFIX_ATTEMPTS}${userId}`;
+
+    try {
+      const countStr = await this.redis.get(key);
+      if (!countStr) return this.maxAttempts;
+      const count = parseInt(countStr, 10);
+      return Math.max(0, this.maxAttempts - count);
+    } catch (error) {
+      this.logger.error(`Get attempts error: ${error instanceof Error ? error.message : String(error)}`);
+      return this.maxAttempts;
+    }
   }
 
   /**
@@ -340,37 +419,17 @@ export class OtpSecurityService {
   }
 
   /**
-   * Clean up expired entries (called periodically)
+   * Clear all OTP data for a user (for testing/admin)
    */
-  cleanupExpiredEntries() {
-    const now = Date.now();
+  async clearUserOtpData(userId: string): Promise<void> {
+    const keys = [
+      `${this.KEY_PREFIX_OTP}${userId}:email`,
+      `${this.KEY_PREFIX_OTP}${userId}:sms`,
+      `${this.KEY_PREFIX_RATE_LIMIT}otp-send:${userId}`,
+      `${this.KEY_PREFIX_ATTEMPTS}${userId}`,
+      `${this.KEY_PREFIX_LOCKOUT}${userId}`,
+    ];
 
-    // Clean up expired OTPs
-    for (const [key, otp] of this.otpStore.entries()) {
-      if (otp.expiresAt < now) {
-        this.otpStore.delete(key);
-      }
-    }
-
-    // Clean up expired rate limits
-    for (const [key, entry] of this.rateLimitStore.entries()) {
-      if (entry.resetAt < now) {
-        this.rateLimitStore.delete(key);
-      }
-    }
-
-    // Clean up expired lockouts
-    for (const [key, endsAt] of this.lockoutStore.entries()) {
-      if (endsAt < now) {
-        this.lockoutStore.delete(key);
-      }
-    }
-
-    // Clean up old attempt records
-    for (const [key, entry] of this.attemptStore.entries()) {
-      if (now - entry.firstAttemptAt > this.lockoutDurationMs) {
-        this.attemptStore.delete(key);
-      }
-    }
+    await this.redis.del(...keys);
   }
 }

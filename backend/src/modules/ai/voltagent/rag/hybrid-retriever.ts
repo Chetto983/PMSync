@@ -10,6 +10,7 @@
  * @see https://www.microsoft.com/en-us/microsoft-cloud/blog/2025/02/04/common-retrieval-augmented-generation-rag-techniques-explained/
  * @see https://stackoverflow.blog/2024/08/15/practical-tips-for-retrieval-augmented-generation-rag/
  */
+import { Logger } from '@nestjs/common';
 import { BaseRetriever, type BaseMessage } from '@voltagent/core';
 import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
@@ -60,6 +61,7 @@ interface EmbeddingResult {
  * Advanced Hybrid RAG Retriever using vector + keyword search with re-ranking.
  */
 export class HybridRetriever extends BaseRetriever {
+  private readonly nestLogger = new Logger(HybridRetriever.name);
   private readonly tenantId: string;
   private readonly locale: SupportedLocale;
   private readonly mistralService: MistralService;
@@ -123,7 +125,7 @@ export class HybridRetriever extends BaseRetriever {
       // Step 5: Format context for LLM
       return this.formatContext(finalResults);
     } catch (error) {
-      console.error('[HybridRetriever] Error:', error);
+      this.nestLogger.error('Error in hybrid retrieval', error instanceof Error ? error.stack : String(error));
       return '';
     }
   }
@@ -193,7 +195,7 @@ export class HybridRetriever extends BaseRetriever {
           });
         }
       } catch (error) {
-        console.error('[HybridRetriever] Vector search error:', error);
+        this.nestLogger.warn(`Vector search error: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -257,7 +259,7 @@ export class HybridRetriever extends BaseRetriever {
           });
         }
       } catch (error) {
-        console.error('[HybridRetriever] Keyword search error:', error);
+        this.nestLogger.warn(`Keyword search error: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -353,7 +355,7 @@ export class HybridRetriever extends BaseRetriever {
       // Sort by rerank score
       candidates.sort((a, b) => (b.rerankScore || 0) - (a.rerankScore || 0));
     } catch (error) {
-      console.error('[HybridRetriever] Rerank error:', error);
+      this.nestLogger.warn(`Rerank error, falling back to combined score: ${error instanceof Error ? error.message : String(error)}`);
       // Fall back to combined score
     }
 

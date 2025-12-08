@@ -211,7 +211,7 @@ export class BulkOperationsWorker implements OnModuleInit, OnModuleDestroy {
       case 'delete':
         await this.prisma.email.updateMany({
           where: { id: { in: emailIds }, tenantId },
-          data: { isDeleted: true, deletedAt: new Date() },
+          data: { isDeleted: true },
         });
         break;
 
@@ -254,61 +254,52 @@ export class BulkOperationsWorker implements OnModuleInit, OnModuleDestroy {
         if (targetFolderId) {
           await this.prisma.email.updateMany({
             where: { id: { in: emailIds }, tenantId },
-            data: { folderId: targetFolderId },
+            data: { folder: targetFolderId },
           });
         }
         break;
 
       case 'spam':
+        // Move to SPAM folder
         await this.prisma.email.updateMany({
           where: { id: { in: emailIds }, tenantId },
-          data: { isSpam: true },
+          data: { folder: 'SPAM' },
         });
         break;
 
       case 'not-spam':
+        // Move out of SPAM to INBOX
         await this.prisma.email.updateMany({
           where: { id: { in: emailIds }, tenantId },
-          data: { isSpam: false },
+          data: { folder: 'INBOX' },
         });
         break;
 
       case 'add-label':
         if (labelId) {
-          // Get existing emails with their labels
-          const emails = await this.prisma.email.findMany({
-            where: { id: { in: emailIds }, tenantId },
-            select: { id: true, labelIds: true },
-          });
-
-          for (const email of emails) {
-            const currentLabels = email.labelIds || [];
-            if (!currentLabels.includes(labelId)) {
-              await this.prisma.email.update({
-                where: { id: email.id },
-                data: { labelIds: [...currentLabels, labelId] },
-              });
-            }
-          }
+          // Batch update: Add label to all emails where it's not already present
+          // Using PostgreSQL array_append with a single query (fixes N+1)
+          await this.prisma.$executeRaw`
+            UPDATE "Email"
+            SET labels = array_append(labels, ${labelId}::text)
+            WHERE id = ANY(${emailIds}::uuid[])
+            AND tenant_id = ${tenantId}::uuid
+            AND NOT (${labelId}::text = ANY(labels))
+          `;
         }
         break;
 
       case 'remove-label':
         if (labelId) {
-          const emails = await this.prisma.email.findMany({
-            where: { id: { in: emailIds }, tenantId },
-            select: { id: true, labelIds: true },
-          });
-
-          for (const email of emails) {
-            const currentLabels = email.labelIds || [];
-            if (currentLabels.includes(labelId)) {
-              await this.prisma.email.update({
-                where: { id: email.id },
-                data: { labelIds: currentLabels.filter((l) => l !== labelId) },
-              });
-            }
-          }
+          // Batch update: Remove label from all emails (fixes N+1)
+          // Using PostgreSQL array_remove with a single query
+          await this.prisma.$executeRaw`
+            UPDATE "Email"
+            SET labels = array_remove(labels, ${labelId}::text)
+            WHERE id = ANY(${emailIds}::uuid[])
+            AND tenant_id = ${tenantId}::uuid
+            AND ${labelId}::text = ANY(labels)
+          `;
         }
         break;
 

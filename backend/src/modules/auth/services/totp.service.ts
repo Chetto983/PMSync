@@ -1,5 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { getRedisConnectionOptions } from '../../../config/configuration';
 import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
 import * as crypto from 'crypto';
@@ -27,10 +30,13 @@ export interface TotpVerifyResult {
 /**
  * TotpService - Time-based One-Time Password for authenticator apps
  *
+ * SCALABLE: Uses Redis for replay attack prevention (works across multiple instances)
+ *
  * Implements RFC 6238 TOTP using:
  * - Google Authenticator compatible settings (6 digits, 30s period, SHA1)
  * - AES-256-GCM encrypted secret storage
  * - QR code generation for easy setup
+ * - Redis-based replay attack prevention
  *
  * Supported authenticator apps:
  * - Google Authenticator
@@ -43,8 +49,9 @@ export interface TotpVerifyResult {
  * @see MFA_ENHANCEMENT_ROADMAP.md Phase 1
  */
 @Injectable()
-export class TotpService {
+export class TotpService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TotpService.name);
+  private redis!: Redis;
 
   // TOTP configuration
   private readonly issuer: string;
@@ -55,20 +62,24 @@ export class TotpService {
   // Encryption key for secrets (derived from JWT_SECRET)
   private readonly encryptionKey: Buffer;
 
-  // Replay attack prevention: track used codes per user
-  // Map<userId, Map<code, expiresAt>>
-  private readonly usedCodes: Map<string, Map<string, number>> = new Map();
-  private readonly codeExpiryMs: number = 60000; // 60 seconds (2 time windows)
+  // Redis key prefix for used codes
+  private readonly KEY_PREFIX_USED_CODE = 'totp:used:';
 
-  constructor(private readonly prisma: PrismaService) {
+  // Code expiry (60 seconds = 2 time windows)
+  private readonly codeExpirySeconds = 60;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {
     // Configure otplib
-    this.issuer = process.env.TOTP_ISSUER || 'PMSync';
-    this.digits = parseInt(process.env.TOTP_DIGITS || '6', 10);
-    this.period = parseInt(process.env.TOTP_PERIOD || '30', 10);
-    this.window = parseInt(process.env.TOTP_WINDOW || '1', 10);
+    this.issuer = this.config.get<string>('TOTP_ISSUER') || 'PMSync';
+    this.digits = parseInt(this.config.get<string>('TOTP_DIGITS') || '6', 10);
+    this.period = parseInt(this.config.get<string>('TOTP_PERIOD') || '30', 10);
+    this.window = parseInt(this.config.get<string>('TOTP_WINDOW') || '1', 10);
 
     // Derive encryption key from JWT_SECRET
-    const jwtSecret = process.env.JWT_SECRET;
+    const jwtSecret = this.config.get<string>('JWT_SECRET');
     if (!jwtSecret || jwtSecret === 'secret' || jwtSecret.length < 32) {
       this.logger.warn('JWT_SECRET is weak. TOTP secrets will use fallback encryption - NOT SECURE FOR PRODUCTION.');
       this.encryptionKey = crypto.scryptSync('insecure-totp-key', 'salt', 32);
@@ -82,6 +93,31 @@ export class TotpService {
       step: this.period,
       window: this.window,
     };
+  }
+
+  async onModuleInit() {
+    const options = getRedisConnectionOptions();
+    this.redis = new Redis({
+      ...options,
+      connectionName: 'totp',
+      lazyConnect: false,
+    });
+
+    this.redis.on('error', (err) => {
+      this.logger.error(`Redis TOTP service error: ${err.message}`);
+    });
+
+    this.redis.on('connect', () => {
+      this.logger.log('Redis TOTP service connected');
+    });
+  }
+
+  async onModuleDestroy() {
+    if (this.redis) {
+      await this.redis.quit().catch(() => {
+        // Ignore quit errors during shutdown
+      });
+    }
   }
 
   /**
@@ -222,8 +258,8 @@ export class TotpService {
       return { success: false, reason: 'not_enabled' };
     }
 
-    // Check for replay attack
-    if (this.isCodeUsed(userId, code)) {
+    // Check for replay attack (Redis-based)
+    if (await this.isCodeUsed(userId, code)) {
       this.logger.warn(
         JSON.stringify({
           event: 'totp_replay_attack_detected',
@@ -249,8 +285,8 @@ export class TotpService {
       return { success: false, reason: 'invalid' };
     }
 
-    // Mark code as used to prevent replay attacks
-    this.markCodeAsUsed(userId, code);
+    // Mark code as used to prevent replay attacks (Redis-based)
+    await this.markCodeAsUsed(userId, code);
 
     this.logger.log(
       JSON.stringify({
@@ -339,7 +375,7 @@ export class TotpService {
     return `${local.substring(0, 2)}***@${domain}`;
   }
 
-  // ==================== REPLAY ATTACK PREVENTION ====================
+  // ==================== REPLAY ATTACK PREVENTION (Redis-based) ====================
 
   /**
    * Check if a code has already been used within the expiry window
@@ -348,20 +384,16 @@ export class TotpService {
    * @param code - TOTP code to check
    * @returns true if code was already used
    */
-  private isCodeUsed(userId: string, code: string): boolean {
-    const userCodes = this.usedCodes.get(userId);
-    if (!userCodes) return false;
-
-    const expiresAt = userCodes.get(code);
-    if (!expiresAt) return false;
-
-    // Check if code has expired
-    if (Date.now() > expiresAt) {
-      userCodes.delete(code);
+  private async isCodeUsed(userId: string, code: string): Promise<boolean> {
+    const key = `${this.KEY_PREFIX_USED_CODE}${userId}:${code}`;
+    try {
+      const exists = await this.redis.exists(key);
+      return exists === 1;
+    } catch (error) {
+      // On Redis error, allow the request (fail open for availability)
+      this.logger.error(`Redis TOTP used code check failed: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
-
-    return true;
   }
 
   /**
@@ -370,39 +402,28 @@ export class TotpService {
    * @param userId - User ID
    * @param code - TOTP code to mark as used
    */
-  private markCodeAsUsed(userId: string, code: string): void {
-    let userCodes = this.usedCodes.get(userId);
-    if (!userCodes) {
-      userCodes = new Map();
-      this.usedCodes.set(userId, userCodes);
+  private async markCodeAsUsed(userId: string, code: string): Promise<void> {
+    const key = `${this.KEY_PREFIX_USED_CODE}${userId}:${code}`;
+    try {
+      await this.redis.setex(key, this.codeExpirySeconds, '1');
+    } catch (error) {
+      // Log but don't fail - security degraded but service available
+      this.logger.error(`Redis TOTP mark code failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    // Mark code as used with expiry time
-    userCodes.set(code, Date.now() + this.codeExpiryMs);
-
-    // Cleanup expired codes for this user
-    this.cleanupExpiredCodes(userId);
   }
 
   /**
-   * Cleanup expired codes for a user
-   *
-   * @param userId - User ID
+   * Clear all used codes for a user (for testing/admin)
    */
-  private cleanupExpiredCodes(userId: string): void {
-    const userCodes = this.usedCodes.get(userId);
-    if (!userCodes) return;
-
-    const now = Date.now();
-    for (const [code, expiresAt] of userCodes.entries()) {
-      if (now > expiresAt) {
-        userCodes.delete(code);
+  async clearUsedCodes(userId: string): Promise<void> {
+    try {
+      const pattern = `${this.KEY_PREFIX_USED_CODE}${userId}:*`;
+      const keys = await this.redis.keys(pattern);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
       }
-    }
-
-    // Remove user map if empty
-    if (userCodes.size === 0) {
-      this.usedCodes.delete(userId);
+    } catch (error) {
+      this.logger.error(`Redis TOTP clear codes failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }

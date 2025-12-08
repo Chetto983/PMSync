@@ -179,19 +179,27 @@ export class ScheduledEmailService {
         data: { status: 'processing' },
       });
 
-      // Parse attachments if present
+      // Parse attachments if present (with error handling for malformed JSON)
       let attachments: SendEmailDto['attachments'] = undefined;
       if (scheduled.attachments) {
-        const parsed = JSON.parse(scheduled.attachments as string) as {
-          filename: string;
-          contentType: string;
-          contentBase64: string;
-        }[];
-        attachments = parsed.map(att => ({
-          filename: att.filename,
-          contentType: att.contentType,
-          content: Buffer.from(att.contentBase64, 'base64'),
-        }));
+        try {
+          const parsed = JSON.parse(scheduled.attachments as string) as {
+            filename: string;
+            contentType: string;
+            contentBase64: string;
+          }[];
+          attachments = parsed.map(att => ({
+            filename: att.filename,
+            contentType: att.contentType,
+            content: Buffer.from(att.contentBase64, 'base64'),
+          }));
+        } catch (parseError) {
+          this.logger.warn(
+            `Invalid attachments JSON for scheduled email ${scheduled.id}: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
+          );
+          // Continue without attachments rather than failing the entire send
+          attachments = undefined;
+        }
       }
 
       // Send the email

@@ -8,6 +8,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { WritingStyleService } from '../voltagent/services/writing-style.service';
 import { parseArrayFromAiPayload } from '../utils/ai-output.utils';
+import { sanitizeForLLM, wrapUserContent, validatePromptLength } from '../utils/prompt-sanitizer';
 import {
   getLocale,
   getToolTranslations,
@@ -403,11 +404,23 @@ export class EmailInsightsService {
     const t = getToolTranslations(supportedLocale);
     const toList = email.to.join(', ');
 
-    const header = `${t.insights.subject}: ${email.subject || t.insights.noSubject}\n${t.insights.from}: ${email.from}\n${t.insights.to}: ${toList}`;
+    // Sanitize user-provided content to prevent prompt injection
+    const sanitizedSubject = sanitizeForLLM(email.subject || t.insights.noSubject, { maxLength: 500 });
+    const sanitizedFrom = sanitizeForLLM(email.from, { maxLength: 500 });
+    const sanitizedToList = sanitizeForLLM(toList, { maxLength: 2000 });
+
+    const header = `${t.insights.subject}: ${sanitizedSubject}\n${t.insights.from}: ${sanitizedFrom}\n${t.insights.to}: ${sanitizedToList}`;
 
     const content = this.extractEmailContent(email, supportedLocale);
+    const sanitizedContent = sanitizeForLLM(content, { maxLength: 8000 });
 
-    return `${header}\n\n${t.insights.emailBody}\n${content}`;
+    // Wrap user content with clear delimiters
+    const userContent = wrapUserContent(`${header}\n\n${t.insights.emailBody}\n${sanitizedContent}`);
+
+    // Validate total prompt length
+    validatePromptLength(userContent, 15000);
+
+    return userContent;
   }
 
   private extractEmailContent(email: EmailRecord, locale?: SupportedLocale): string {

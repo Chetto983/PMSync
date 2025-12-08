@@ -55,7 +55,8 @@
       "Bash(for module in auth users providers realtime health audit analytics labels compliance tenants)",
       "Bash(do echo \"=== MODULE: $module ===\" if [ -f \"d:/MailAgent/backend/src/modules/$module/$module.module.ts\" ])",
       "Bash(then head -30 \"d:/MailAgent/backend/src/modules/$module/$module.module.ts\")",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(Select-Object -First 50)"
     ],
     "deny": [],
     "ask": []

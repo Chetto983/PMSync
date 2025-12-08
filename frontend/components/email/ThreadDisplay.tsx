@@ -45,6 +45,7 @@ import { LabelSelector } from '@/components/labels';
 import { useLabelStore } from '@/stores/label-store';
 import { formatEmailHeaderDate, parseEmailFrom, scrollContainerSx } from './shared/utils';
 import { emailApi } from '@/lib/api/email';
+import { logger } from '@/lib/logger';
 import { EmailSummaryPanel } from '@/components/email/ai/EmailSummaryPanel';
 import { EmailBody } from './shared/EmailBody';
 import type { ParsedCalendarInvite } from '@/types/entities';
@@ -134,15 +135,17 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
   const emailFromData = parseEmailFrom(email.from);
   const emailHtml = email.bodyHtml || email.bodyText || email.snippet || '';
 
+
+
   // DEBUG: Log body data received in ThreadMessage
-  console.log('[ThreadMessage] Body data:', {
-    emailId: email.id,
-    subject: email.subject?.substring(0, 30),
-    bodyHtmlLength: email.bodyHtml?.length || 0,
-    bodyTextLength: email.bodyText?.length || 0,
-    snippetLength: email.snippet?.length || 0,
-    emailHtmlLength: emailHtml.length,
-  });
+  // logger.debug('[ThreadMessage] Body data:', {
+  //   emailId: email.id,
+  //   subject: email.subject?.substring(0, 30),
+  //   bodyHtmlLength: email.bodyHtml?.length || 0,
+  //   bodyTextLength: email.bodyText?.length || 0,
+  //   snippetLength: email.snippet?.length || 0,
+  //   emailHtmlLength: emailHtml.length,
+  // });
   const nonInlineAttachments = email.attachments?.filter((a) => !a.isInline) ?? [];
   const hasAttachments = nonInlineAttachments.length > 0;
   const isUnread = !email.isRead;
@@ -459,7 +462,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         }
       }
     } catch (error) {
-      console.error('Failed to open attachment:', error);
+      logger.error('Failed to open attachment:', { error });
     }
   };
 
@@ -500,8 +503,9 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         response === 'accept' ? 'accepted' : response === 'decline' ? 'declined' : 'tentative';
       try {
         await emailApi.respondToCalendarInvite(emailId, response);
+
       } catch (err) {
-        console.error('Failed to respond to calendar invite', err);
+        logger.error('Failed to respond to calendar invite', { error: err });
       } finally {
         emailStore.updateEmail(emailId, { calendarInviteStatus: status });
       }
@@ -619,7 +623,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         return prev.map((item) => (item.id === email.id ? updatedEmail : item));
       });
     } catch (error) {
-      console.error('Failed to update labels:', error);
+      logger.error('Failed to update labels:', { error });
     }
   };
 

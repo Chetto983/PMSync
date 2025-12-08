@@ -22,11 +22,54 @@ export class MistralService {
   private defaultModel = 'mistral-medium-latest';
   private readonly embeddingModel = 'mistral-embed';
 
+  // Rate limiting for direct embedding calls (not through queue)
+  private readonly maxConcurrentEmbeddings: number;
+  private readonly embeddingDelayMs: number;
+  private currentEmbeddingCalls = 0;
+  private lastEmbeddingTime = 0;
+
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
     private embeddingsService: EmbeddingsService,
-  ) {}
+  ) {
+    // Configure rate limiting from env (defaults: 3 concurrent, 100ms delay)
+    this.maxConcurrentEmbeddings = parseInt(
+      this.configService.get<string>('AI_CONCURRENT_LIMIT') || '3',
+      10,
+    );
+    this.embeddingDelayMs = parseInt(
+      this.configService.get<string>('AI_EMBEDDING_DELAY_MS') || '100',
+      10,
+    );
+  }
+
+  /**
+   * Simple rate limiting for embedding calls.
+   * Limits concurrent calls and adds delay between requests.
+   */
+  private async acquireEmbeddingSlot(): Promise<void> {
+    // Wait if too many concurrent calls
+    while (this.currentEmbeddingCalls >= this.maxConcurrentEmbeddings) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    // Enforce minimum delay between calls
+    const now = Date.now();
+    const elapsed = now - this.lastEmbeddingTime;
+    if (elapsed < this.embeddingDelayMs) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.embeddingDelayMs - elapsed),
+      );
+    }
+
+    this.currentEmbeddingCalls++;
+    this.lastEmbeddingTime = Date.now();
+  }
+
+  private releaseEmbeddingSlot(): void {
+    this.currentEmbeddingCalls = Math.max(0, this.currentEmbeddingCalls - 1);
+  }
 
   private getApiKey(): string | undefined {
     return this.configService.get<string>('MISTRAL_API_KEY') || process.env.MISTRAL_API_KEY;
@@ -234,9 +277,10 @@ export class MistralService {
   }
 
   /**
-   * Generate embeddings for RAG
+   * Generate embeddings for RAG (rate-limited)
    */
   async generateEmbedding(text: string, client?: Mistral): Promise<number[]> {
+    await this.acquireEmbeddingSlot();
     try {
       const mistralClient = client ?? (await this.createMistralClient());
       const response = await mistralClient.embeddings.create({
@@ -253,11 +297,13 @@ export class MistralService {
     } catch (error) {
       this.logger.error('Failed to generate embedding:', error instanceof Error ? error.message : error);
       throw error;
+    } finally {
+      this.releaseEmbeddingSlot();
     }
   }
 
   /**
-   * Generate embeddings for multiple texts in a single bulk operation
+   * Generate embeddings for multiple texts in a single bulk operation (rate-limited)
    * This is more efficient than calling generateEmbedding multiple times
    * @param texts Array of texts to generate embeddings for
    * @param client Optional Mistral client instance
@@ -268,6 +314,7 @@ export class MistralService {
       return [];
     }
 
+    await this.acquireEmbeddingSlot();
     try {
       const mistralClient = client ?? (await this.createMistralClient());
       const response = await mistralClient.embeddings.create({
@@ -303,6 +350,8 @@ export class MistralService {
         error instanceof Error ? error.message : error,
       );
       throw error;
+    } finally {
+      this.releaseEmbeddingSlot();
     }
   }
 

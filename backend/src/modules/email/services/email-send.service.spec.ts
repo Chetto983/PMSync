@@ -5,6 +5,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { AttachmentStorageService } from './attachment.storage';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
+import { EmailSendQueueService } from '../../email-sync/services/email-send-queue.service';
 import { ProviderFactory } from '../../providers/factory/provider.factory';
 
 // Mock the ProviderFactory
@@ -70,6 +71,13 @@ describe('EmailSendService', () => {
           provide: ProviderTokenService,
           useValue: {
             getProviderWithToken: jest.fn(),
+          },
+        },
+        {
+          provide: EmailSendQueueService,
+          useValue: {
+            enqueueSend: jest.fn().mockResolvedValue('job-123'),
+            getJobStatus: jest.fn().mockResolvedValue(null),
           },
         },
       ],

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { logger } from '@/lib/logger';
 
 export interface EmailAttachment {
   id: string;
@@ -166,15 +167,15 @@ export const useEmailStore = create<EmailState>((set, get) => ({
 
   addEmail: (email) =>
     set((state) => {
-      console.log('[Email Store] addEmail called:', { id: email.id, subject: email.subject?.substring(0, 50) });
+      logger.debug('[Email Store] addEmail called:', { id: email.id, subject: email.subject?.substring(0, 50) });
 
       // Prevent duplicates
       if (state.emails.some((e) => e.id === email.id)) {
-        console.warn('[Email Store] Email already exists, skipping');
+        logger.warn('[Email Store] Email already exists, skipping');
         return state;
       }
 
-      console.log('[Email Store] Email added successfully');
+      logger.debug('[Email Store] Email added successfully');
       return {
         emails: [email, ...state.emails],
         unreadCount: !email.isRead ? state.unreadCount + 1 : state.unreadCount,
@@ -183,17 +184,17 @@ export const useEmailStore = create<EmailState>((set, get) => ({
 
   updateEmail: (id, updates) =>
     set((state) => {
-      console.log('[Email Store] updateEmail called:', { id, hasFullEmail: updates && typeof updates === 'object' && 'id' in updates && 'subject' in updates });
+      logger.debug('[Email Store] updateEmail called:', { id, hasFullEmail: updates && typeof updates === 'object' && 'id' in updates && 'subject' in updates });
       const emailIndex = state.emails.findIndex((e) => e.id === id);
 
       // If email EXISTS, update it
       if (emailIndex !== -1) {
-        console.log('[Email Store] Email found at index:', emailIndex);
+        // logger.debug('[Email Store] Email found at index:', emailIndex);
         const oldEmail = state.emails[emailIndex];
 
         // Check if updates is a full email object (not just partial updates)
         const isFullEmail = typeof updates === 'object' && updates !== null &&
-                           'id' in updates && 'subject' in updates && 'from' in updates;
+          'id' in updates && 'subject' in updates && 'from' in updates;
 
         // If full email object, use it directly; otherwise merge with old email
         const newEmail = isFullEmail ? (updates as Email) : { ...oldEmail, ...updates };
@@ -206,7 +207,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
           newUnreadCount += newEmail.isRead ? -1 : 1;
         }
 
-        console.log('[Email Store] Email updated successfully, labels:', newEmail.emailLabels?.length ?? 0);
+        logger.debug('[Email Store] Email updated successfully, labels:', { count: newEmail.emailLabels?.length ?? 0 });
         return {
           emails: newEmails,
           unreadCount: Math.max(0, newUnreadCount),
@@ -215,7 +216,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
       }
 
       // Email doesn't exist - try to add it if updates is a full email object
-      console.log('[Email Store] Email not found, attempting to add');
+      logger.debug('[Email Store] Email not found, attempting to add');
       if (typeof updates === 'object' && updates !== null && 'id' in updates && 'subject' in updates) {
         const newEmail = updates as Email;
 
@@ -227,7 +228,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
           if (retryIndex !== -1) {
             const updatedEmails = [...state.emails];
             updatedEmails[retryIndex] = newEmail;
-            console.log('[Email Store] Retried successfully');
+            logger.debug('[Email Store] Retried successfully');
             return {
               emails: updatedEmails,
               selectedEmail: state.selectedEmail?.id === id ? newEmail : state.selectedEmail,
@@ -237,7 +238,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
         }
 
         // Add new email to store
-        console.log('[Email Store] Added new email to store');
+        logger.debug('[Email Store] Added new email to store');
         return {
           emails: [newEmail, ...state.emails],
           unreadCount: !newEmail.isRead ? state.unreadCount + 1 : state.unreadCount,
@@ -246,21 +247,21 @@ export const useEmailStore = create<EmailState>((set, get) => ({
       }
 
       // Can't update non-existent email with partial data
-      console.warn(`[Email Store] Cannot update non-existent email ${id} with partial data, ignoring`);
+      logger.warn(`[Email Store] Cannot update non-existent email ${id} with partial data, ignoring`);
       return state;
     }),
 
   deleteEmail: (id) =>
     set((state) => {
-      console.log('[Email Store] deleteEmail called:', id);
+      console.debug('[Email Store] deleteEmail called:', id);
       const email = state.emails.find((e) => e.id === id);
 
       if (!email) {
-        console.warn('[Email Store] Email not found, cannot delete');
+        logger.warn('[Email Store] Email not found, cannot delete');
         return state;
       }
 
-      console.log('[Email Store] Email deleted successfully');
+      logger.debug('[Email Store] Email deleted successfully');
       return {
         emails: state.emails.filter((e) => e.id !== id),
         unreadCount: !email.isRead ? Math.max(0, state.unreadCount - 1) : state.unreadCount,

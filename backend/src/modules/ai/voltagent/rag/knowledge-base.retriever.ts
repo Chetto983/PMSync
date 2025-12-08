@@ -6,6 +6,7 @@
  *
  * @see https://voltagent.dev/blog/rag-chatbot/
  */
+import { Logger } from '@nestjs/common';
 import { BaseRetriever, type BaseMessage } from '@voltagent/core';
 import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
@@ -37,6 +38,7 @@ interface EmbeddingResult {
  * before each LLM call. Uses Mistral embeddings + pgvector similarity search.
  */
 export class KnowledgeBaseRetriever extends BaseRetriever {
+  private readonly nestLogger = new Logger(KnowledgeBaseRetriever.name);
   private readonly tenantId: string;
   private readonly locale: SupportedLocale;
   private readonly mistralService: MistralService;
@@ -101,7 +103,7 @@ export class KnowledgeBaseRetriever extends BaseRetriever {
       return this.formatContext(relevantResults);
     } catch (error) {
       // Log but don't fail - RAG is optional enrichment
-      console.error('[KnowledgeBaseRetriever] Error retrieving context:', error);
+      this.nestLogger.warn(`Error retrieving context (RAG optional): ${error instanceof Error ? error.message : String(error)}`);
       return '';
     }
   }

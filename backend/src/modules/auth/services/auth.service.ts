@@ -16,6 +16,7 @@ import { TotpService } from './totp.service';
 import { BackupCodesService } from './backup-codes.service';
 import { TrustedDeviceService } from './trusted-device.service';
 import { WebAuthnService } from './webauthn.service';
+import { RedisRateLimiterService } from '../../../common/services/redis-rate-limiter.service';
 import { nanoid } from 'nanoid';
 import { Request as ExpressRequest } from 'express';
 
@@ -52,6 +53,7 @@ export class AuthService {
     private backupCodesService: BackupCodesService,
     private trustedDeviceService: TrustedDeviceService,
     private webauthnService: WebAuthnService,
+    private rateLimiter: RedisRateLimiterService,
   ) {
     // Get password reset secret (must be different from JWT secret)
     const resetSecret = process.env.PASSWORD_RESET_SECRET;
@@ -474,6 +476,39 @@ export class AuthService {
     const normalizedEmail = email.trim().toLowerCase();
     const slug = (tenantSlug || normalizedEmail).toLowerCase();
 
+    // Check for lockout first (Redis-based, works across instances)
+    const lockoutKey = `login:${ipAddress || 'unknown'}`;
+    const lockoutResult = await this.rateLimiter.isLockedOut(lockoutKey);
+    if (lockoutResult.isLockedOut) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'login_locked_out',
+          ip: ipAddress,
+          email: this.redactEmail(normalizedEmail),
+          lockoutEndsAt: lockoutResult.lockoutEndsAt?.toISOString(),
+        }),
+      );
+      throw new ForbiddenException(
+        `Account temporarily locked. Please try again in ${lockoutResult.retryAfterSeconds} seconds.`,
+      );
+    }
+
+    // Rate limit by IP address to prevent brute force attacks (Redis-based)
+    const rateLimit = await this.rateLimiter.checkRateLimit(lockoutKey, 10, 60);
+    if (!rateLimit.allowed) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'login_rate_limited',
+          ip: ipAddress,
+          email: this.redactEmail(normalizedEmail),
+          resetAt: rateLimit.resetAt.toISOString(),
+        }),
+      );
+      throw new ForbiddenException(
+        `Too many login attempts. Please try again in ${rateLimit.retryAfterSeconds} seconds.`,
+      );
+    }
+
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug },
     });
@@ -487,14 +522,37 @@ export class AuthService {
     });
 
     if (!user) {
+      // Record failed attempt (may trigger lockout)
+      await this.rateLimiter.recordFailedAttempt(lockoutKey, 5, 900);
+      this.logger.warn(
+        JSON.stringify({
+          event: 'login_failed_user_not_found',
+          ip: ipAddress,
+          email: this.redactEmail(normalizedEmail),
+        }),
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
+      // Record failed attempt (may trigger lockout after 5 failures)
+      const failResult = await this.rateLimiter.recordFailedAttempt(lockoutKey, 5, 900);
+      this.logger.warn(
+        JSON.stringify({
+          event: 'login_failed_invalid_password',
+          ip: ipAddress,
+          userId: user.id,
+          isLockedOut: failResult.isLockedOut,
+          retryAfterSeconds: failResult.retryAfterSeconds,
+        }),
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    // Clear failed attempts on successful login
+    await this.rateLimiter.clearFailedAttempts(lockoutKey);
 
     // Check if MFA is required
     if (user.isMfaEnabled) {

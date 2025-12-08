@@ -1,5 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { getRedisConnectionOptions } from '../../../config/configuration';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -58,8 +61,7 @@ export interface WebAuthnCredentialInfo {
 }
 
 /**
- * Challenge storage for WebAuthn operations
- * In production, consider using Redis for distributed systems
+ * Challenge storage for WebAuthn operations (Redis)
  */
 interface ChallengeSession {
   challenge: string;
@@ -69,6 +71,8 @@ interface ChallengeSession {
 
 /**
  * WebAuthnService - Passwordless authentication using biometrics and security keys
+ *
+ * SCALABLE: Uses Redis for challenge storage (works across multiple instances)
  *
  * Supports:
  * - Face ID / Touch ID (Apple devices)
@@ -84,24 +88,55 @@ interface ChallengeSession {
  * @see MFA_ENHANCEMENT_ROADMAP.md Phase 8
  */
 @Injectable()
-export class WebAuthnService {
+export class WebAuthnService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(WebAuthnService.name);
+  private redis!: Redis;
 
   // Relying Party configuration
   private readonly rpName: string;
   private readonly rpID: string;
   private readonly origin: string;
 
-  // Challenge storage (in-memory for single instance, use Redis for distributed)
-  private readonly registrationChallenges: Map<string, ChallengeSession> = new Map();
-  private readonly authenticationChallenges: Map<string, ChallengeSession> = new Map();
-  private readonly challengeExpiryMs = 5 * 60 * 1000; // 5 minutes
+  // Redis key prefixes
+  private readonly KEY_PREFIX_REG_CHALLENGE = 'webauthn:reg:';
+  private readonly KEY_PREFIX_AUTH_CHALLENGE = 'webauthn:auth:';
 
-  constructor(private readonly prisma: PrismaService) {
+  // Challenge expiry (5 minutes in seconds)
+  private readonly challengeExpirySeconds = 5 * 60;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {
     // Configure Relying Party (RP) settings
-    this.rpName = process.env.WEBAUTHN_RP_NAME || 'PMSync';
-    this.rpID = process.env.WEBAUTHN_RP_ID || 'localhost';
-    this.origin = process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
+    this.rpName = this.config.get<string>('WEBAUTHN_RP_NAME') || 'PMSync';
+    this.rpID = this.config.get<string>('WEBAUTHN_RP_ID') || 'localhost';
+    this.origin = this.config.get<string>('WEBAUTHN_ORIGIN') || 'http://localhost:3000';
+  }
+
+  async onModuleInit() {
+    const options = getRedisConnectionOptions();
+    this.redis = new Redis({
+      ...options,
+      connectionName: 'webauthn',
+      lazyConnect: false,
+    });
+
+    this.redis.on('error', (err) => {
+      this.logger.error(`Redis WebAuthn service error: ${err.message}`);
+    });
+
+    this.redis.on('connect', () => {
+      this.logger.log('Redis WebAuthn service connected');
+    });
+  }
+
+  async onModuleDestroy() {
+    if (this.redis) {
+      await this.redis.quit().catch(() => {
+        // Ignore quit errors during shutdown
+      });
+    }
   }
 
   /**
@@ -153,12 +188,17 @@ export class WebAuthnService {
       supportedAlgorithmIDs: [-7, -257],
     });
 
-    // Store challenge for verification (persist server-side per best practices)
-    this.registrationChallenges.set(userId, {
+    // Store challenge in Redis with TTL
+    const challengeSession: ChallengeSession = {
       challenge: options.challenge,
       userId,
       createdAt: Date.now(),
-    });
+    };
+    await this.redis.setex(
+      `${this.KEY_PREFIX_REG_CHALLENGE}${userId}`,
+      this.challengeExpirySeconds,
+      JSON.stringify(challengeSession),
+    );
 
     this.logger.log(
       JSON.stringify({
@@ -183,32 +223,33 @@ export class WebAuthnService {
     response: RegistrationResponseJSON,
     deviceName?: string,
   ): Promise<{ success: boolean; credentialId?: string; error?: string }> {
+    // Retrieve stored challenge from Redis
+    const challengeJson = await this.redis.get(`${this.KEY_PREFIX_REG_CHALLENGE}${userId}`);
+
     this.logger.debug(
       JSON.stringify({
         event: 'webauthn_verify_start',
         userId,
-        hasChallengeForUser: this.registrationChallenges.has(userId),
-        totalChallenges: this.registrationChallenges.size,
+        hasChallengeForUser: !!challengeJson,
         responseId: response?.id,
       }),
     );
 
-    // Retrieve stored challenge
-    const challengeSession = this.registrationChallenges.get(userId);
-    if (!challengeSession) {
+    if (!challengeJson) {
       this.logger.warn(
         JSON.stringify({
           event: 'webauthn_no_challenge_found',
           userId,
-          availableUserIds: Array.from(this.registrationChallenges.keys()),
         }),
       );
       return { success: false, error: 'No registration challenge found. Please try again.' };
     }
 
-    // Check challenge expiry
-    if (Date.now() - challengeSession.createdAt > this.challengeExpiryMs) {
-      this.registrationChallenges.delete(userId);
+    const challengeSession: ChallengeSession = JSON.parse(challengeJson);
+
+    // Check challenge expiry (Redis TTL handles this, but double-check)
+    if (Date.now() - challengeSession.createdAt > this.challengeExpirySeconds * 1000) {
+      await this.redis.del(`${this.KEY_PREFIX_REG_CHALLENGE}${userId}`);
       return { success: false, error: 'Registration challenge expired. Please try again.' };
     }
 
@@ -259,7 +300,7 @@ export class WebAuthnService {
       });
 
       // Cleanup challenge
-      this.registrationChallenges.delete(userId);
+      await this.redis.del(`${this.KEY_PREFIX_REG_CHALLENGE}${userId}`);
 
       this.logger.log(
         JSON.stringify({
@@ -324,13 +365,18 @@ export class WebAuthnService {
     // Generate session ID for challenge tracking
     const sessionId = crypto.randomUUID();
 
-    // Store challenge (use sessionId for unauthenticated requests)
+    // Store challenge in Redis (use sessionId for unauthenticated requests)
     const challengeKey = userId || sessionId;
-    this.authenticationChallenges.set(challengeKey, {
+    const challengeSession: ChallengeSession = {
       challenge: options.challenge,
       userId: userId || '',
       createdAt: Date.now(),
-    });
+    };
+    await this.redis.setex(
+      `${this.KEY_PREFIX_AUTH_CHALLENGE}${challengeKey}`,
+      this.challengeExpirySeconds,
+      JSON.stringify(challengeSession),
+    );
 
     this.logger.log(
       JSON.stringify({
@@ -369,15 +415,17 @@ export class WebAuthnService {
     const actualUserId = credential.userId;
     const challengeKey = userId || sessionId;
 
-    // Retrieve stored challenge
-    const challengeSession = this.authenticationChallenges.get(challengeKey);
-    if (!challengeSession) {
+    // Retrieve stored challenge from Redis
+    const challengeJson = await this.redis.get(`${this.KEY_PREFIX_AUTH_CHALLENGE}${challengeKey}`);
+    if (!challengeJson) {
       return { success: false, error: 'No authentication challenge found. Please try again.' };
     }
 
+    const challengeSession: ChallengeSession = JSON.parse(challengeJson);
+
     // Check challenge expiry
-    if (Date.now() - challengeSession.createdAt > this.challengeExpiryMs) {
-      this.authenticationChallenges.delete(challengeKey);
+    if (Date.now() - challengeSession.createdAt > this.challengeExpirySeconds * 1000) {
+      await this.redis.del(`${this.KEY_PREFIX_AUTH_CHALLENGE}${challengeKey}`);
       return { success: false, error: 'Authentication challenge expired. Please try again.' };
     }
 
@@ -410,7 +458,7 @@ export class WebAuthnService {
       });
 
       // Cleanup challenge
-      this.authenticationChallenges.delete(challengeKey);
+      await this.redis.del(`${this.KEY_PREFIX_AUTH_CHALLENGE}${challengeKey}`);
 
       this.logger.log(
         JSON.stringify({
@@ -547,25 +595,6 @@ export class WebAuthnService {
     return 'Security Key';
   }
 
-  /**
-   * Cleanup expired challenges (call periodically)
-   */
-  cleanupExpiredChallenges(): void {
-    const now = Date.now();
-
-    for (const [key, session] of this.registrationChallenges.entries()) {
-      if (now - session.createdAt > this.challengeExpiryMs) {
-        this.registrationChallenges.delete(key);
-      }
-    }
-
-    for (const [key, session] of this.authenticationChallenges.entries()) {
-      if (now - session.createdAt > this.challengeExpiryMs) {
-        this.authenticationChallenges.delete(key);
-      }
-    }
-  }
-
   // ==================== PUBLIC LOGIN METHODS ====================
 
   /**
@@ -630,14 +659,19 @@ export class WebAuthnService {
       userVerification: 'required',
     });
 
-    // Generate session ID and store challenge with user context
+    // Generate session ID and store challenge with user context in Redis
     const sessionId = crypto.randomUUID();
 
-    this.authenticationChallenges.set(sessionId, {
+    const challengeSession: ChallengeSession = {
       challenge: options.challenge,
       userId: user.id,
       createdAt: Date.now(),
-    });
+    };
+    await this.redis.setex(
+      `${this.KEY_PREFIX_AUTH_CHALLENGE}${sessionId}`,
+      this.challengeExpirySeconds,
+      JSON.stringify(challengeSession),
+    );
 
     this.logger.log(
       JSON.stringify({
@@ -714,15 +748,17 @@ export class WebAuthnService {
       return { success: false, error: 'Account is not active' };
     }
 
-    // Retrieve stored challenge
-    const challengeSession = this.authenticationChallenges.get(sessionId);
-    if (!challengeSession) {
+    // Retrieve stored challenge from Redis
+    const challengeJson = await this.redis.get(`${this.KEY_PREFIX_AUTH_CHALLENGE}${sessionId}`);
+    if (!challengeJson) {
       return { success: false, error: 'No authentication challenge found. Please try again.' };
     }
 
+    const challengeSession: ChallengeSession = JSON.parse(challengeJson);
+
     // Check challenge expiry
-    if (Date.now() - challengeSession.createdAt > this.challengeExpiryMs) {
-      this.authenticationChallenges.delete(sessionId);
+    if (Date.now() - challengeSession.createdAt > this.challengeExpirySeconds * 1000) {
+      await this.redis.del(`${this.KEY_PREFIX_AUTH_CHALLENGE}${sessionId}`);
       return { success: false, error: 'Authentication challenge expired. Please try again.' };
     }
 
@@ -767,7 +803,7 @@ export class WebAuthnService {
       });
 
       // Cleanup challenge
-      this.authenticationChallenges.delete(sessionId);
+      await this.redis.del(`${this.KEY_PREFIX_AUTH_CHALLENGE}${sessionId}`);
 
       this.logger.log(
         JSON.stringify({
@@ -796,5 +832,13 @@ export class WebAuthnService {
 
       return { success: false, error: 'Authentication failed. Please try again.' };
     }
+  }
+
+  /**
+   * Clear all challenge data for a user (for testing/admin)
+   */
+  async clearUserChallenges(userId: string): Promise<void> {
+    await this.redis.del(`${this.KEY_PREFIX_REG_CHALLENGE}${userId}`);
+    await this.redis.del(`${this.KEY_PREFIX_AUTH_CHALLENGE}${userId}`);
   }
 }
