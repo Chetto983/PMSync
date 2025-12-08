@@ -122,6 +122,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     FolderOperationsWorker,
     EmailSendWorker,
     SyncBackWorker,
+    BulkOperationsWorker,
   ],
   exports: [
     QueueService,
