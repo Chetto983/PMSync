@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { calendar_v3, google } from 'googleapis';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -19,6 +20,8 @@ export interface GoogleCalendarSyncResult {
 export class GoogleCalendarSyncService {
   private readonly logger = new Logger(GoogleCalendarSyncService.name);
   private readonly calendarEnabled: boolean;
+  /** Max events to fetch per API call (Google API max: 2500) */
+  private readonly maxEventsPerRequest: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -28,6 +31,7 @@ export class GoogleCalendarSyncService {
   ) {
     this.calendarEnabled =
       (this.configService.get<string>('CALENDAR_SYNC_ENABLED') || 'true').toLowerCase() !== 'false';
+    this.maxEventsPerRequest = this.configService.get<number>('GOOGLE_CALENDAR_MAX_EVENTS', 2500);
     if (!this.calendarEnabled) {
       this.logger.warn('GoogleCalendarSyncService disabled via CALENDAR_SYNC_ENABLED=false');
     }
@@ -176,7 +180,7 @@ export class GoogleCalendarSyncService {
         calendarId,
         timeMin,
         timeMax,
-        maxResults: 2500, // Max allowed by Google API
+        maxResults: this.maxEventsPerRequest,
         singleEvents: true,
         orderBy: 'startTime',
         pageToken,
@@ -333,7 +337,7 @@ export class GoogleCalendarSyncService {
       description,
       location,
       organizer,
-      attendees: attendees ? (attendees as any) : undefined,
+      attendees: attendees ? (attendees as unknown as Prisma.InputJsonValue) : undefined,
       startTime,
       endTime,
       isAllDay,
@@ -344,12 +348,12 @@ export class GoogleCalendarSyncService {
       visibility,
       isCancelled,
       isDeleted: isCancelled,
-      reminders: reminders ? (reminders as any) : undefined,
+      reminders: reminders ? (reminders as unknown as Prisma.InputJsonValue) : undefined,
       htmlLink,
       metadata: {
         googleCalendarId: calendarId,
         etag: event.etag,
-      } as any,
+      },
       lastSyncedAt: new Date(),
     };
   }

@@ -560,6 +560,7 @@ model CalendarEvent {
   @@unique([providerId, externalId])
   @@index([tenantId, startTime])
   @@index([tenantId, calendarId, startTime])
+  @@index([tenantId, providerId, startTime])
   @@index([iCalUID])
   @@map("calendar_events")
 }

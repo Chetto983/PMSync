@@ -3,7 +3,7 @@ import { calendar_v3, google } from 'googleapis';
 import axios from 'axios';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
-import { CalendarEvent, ProviderConfig } from '@prisma/client';
+import { CalendarEvent, ProviderConfig, Prisma } from '@prisma/client';
 import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
@@ -434,7 +434,7 @@ export class CalendarService {
         description: data.description || null,
         location: data.location || null,
         organizer: provider.email,
-        attendees: data.attendees ? (data.attendees as any) : undefined,
+        attendees: data.attendees ? (data.attendees as unknown as Prisma.InputJsonValue) : undefined,
         startTime: new Date(data.startTime),
         endTime: new Date(data.endTime),
         isAllDay: data.isAllDay || false,

@@ -24,6 +24,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
+import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { EmailsService, EmailListFilters } from '../services/emails.service';
 import { EmailRetentionService } from '../services/email-retention.service';
@@ -42,6 +43,12 @@ import { ParsedCalendarInvite } from '../../calendar/services/ics-parser.service
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { ProviderConfig } from '@prisma/client';
 
+/** Typed metadata for calendar events - used to safely access JSON fields */
+interface CalendarEventMetadata {
+  sequence?: number;
+  [key: string]: unknown;
+}
+
 const decodeAttachments = (attachments?: EmailAttachmentDto[]) =>
   attachments?.map((attachment) => {
     const [, base64 = attachment.contentBase64] =
@@ -59,6 +66,8 @@ const decodeAttachments = (attachments?: EmailAttachmentDto[]) =>
 @Controller('emails')
 @UseGuards(JwtAuthGuard)
 export class EmailsController {
+  private readonly maxEmailListLimit: number;
+
   constructor(
     private emailsService: EmailsService,
     private retentionService: EmailRetentionService,
@@ -69,7 +78,10 @@ export class EmailsController {
     private prisma: PrismaService,
     private icsGenerator: IcsGeneratorService,
     private calendarService: CalendarService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.maxEmailListLimit = this.configService.get<number>('EMAIL_LIST_MAX_LIMIT') || 1000;
+  }
 
   /**
    * GET /emails - List emails with pagination and filters
@@ -116,7 +128,6 @@ export class EmailsController {
     const parsedLimit = limit ? parseInt(limit) : 50;
 
     // Security: Enforce maximum limit to prevent DOS attacks
-    const MAX_LIMIT = 1000;
     const MIN_PAGE = 1;
 
     if (parsedPage < MIN_PAGE) {
@@ -127,8 +138,8 @@ export class EmailsController {
       throw new BadRequestException('Limit must be at least 1');
     }
 
-    if (parsedLimit > MAX_LIMIT) {
-      throw new BadRequestException(`Limit cannot exceed ${MAX_LIMIT}`);
+    if (parsedLimit > this.maxEmailListLimit) {
+      throw new BadRequestException(`Limit cannot exceed ${this.maxEmailListLimit}`);
     }
 
     const filters: EmailListFilters = {};
@@ -534,7 +545,7 @@ export class EmailsController {
     const parsed: ParsedCalendarInvite = {
       uid: event.iCalUID,
       method: 'CANCEL',
-      sequence: ((event.metadata as any)?.sequence ?? 0) + 1,
+      sequence: ((event.metadata as CalendarEventMetadata | null)?.sequence ?? 0) + 1,
       summary: event.title,
       description: body?.reason || event.description || '',
       location: event.location || undefined,

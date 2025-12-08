@@ -1,11 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { calendar_v3, google } from 'googleapis';
+import { Queue, Worker, Job } from 'bullmq';
+import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { GoogleCalendarSyncService } from './google-calendar-sync.service';
 import { CalendarSyncQueueService } from './calendar-sync-queue.service';
+import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 import { nanoid } from 'nanoid';
 
 export interface GoogleCalendarPushNotification {
@@ -18,10 +20,19 @@ export interface GoogleCalendarPushNotification {
 }
 
 @Injectable()
-export class GoogleCalendarWebhookService {
+export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(GoogleCalendarWebhookService.name);
   private readonly WEBHOOK_URL: string;
   private readonly jobsEnabled: boolean;
+  /** Webhook subscription expiration in days (default: 7) */
+  private readonly webhookExpirationDays: number;
+  /** Webhook renewal check interval in hours (default: 6) */
+  private readonly webhookRenewalIntervalHours: number;
+
+  /** BullMQ queue for webhook maintenance */
+  private maintenanceQueue: Queue | null = null;
+  private maintenanceWorker: Worker | null = null;
+  private redisConnection: Redis | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -39,9 +50,80 @@ export class GoogleCalendarWebhookService {
     this.WEBHOOK_URL = `${normalizedBase}/webhooks/calendar/google/push`;
     this.jobsEnabled =
       (this.config.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';
+    this.webhookExpirationDays = this.config.get<number>('GOOGLE_CALENDAR_WEBHOOK_EXPIRATION_DAYS', 7);
+    this.webhookRenewalIntervalHours = this.config.get<number>('GOOGLE_CALENDAR_WEBHOOK_RENEWAL_HOURS', 6);
     if (!this.jobsEnabled) {
       this.logger.warn('GoogleCalendarWebhookService disabled via JOBS_ENABLED=false');
     }
+  }
+
+  async onModuleInit() {
+    if (!this.jobsEnabled) {
+      return;
+    }
+
+    const redisOptions = getRedisConnectionOptions();
+    this.redisConnection = new Redis(redisOptions);
+
+    // Create maintenance queue
+    this.maintenanceQueue = new Queue(QUEUE_NAMES.WEBHOOK_MAINTENANCE, {
+      connection: this.redisConnection,
+      defaultJobOptions: {
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    });
+
+    // Create worker to process renewal jobs
+    this.maintenanceWorker = new Worker(
+      QUEUE_NAMES.WEBHOOK_MAINTENANCE,
+      async (job: Job) => {
+        if (job.name === 'google-calendar-webhook-renewal') {
+          await this.handleScheduledRenewal();
+        }
+      },
+      {
+        connection: this.redisConnection,
+        concurrency: 1, // Only one renewal at a time
+      },
+    );
+
+    this.maintenanceWorker.on('completed', (job) => {
+      this.logger.debug(`Webhook maintenance job ${job.id} completed`);
+    });
+
+    this.maintenanceWorker.on('failed', (job, error) => {
+      this.logger.error(`Webhook maintenance job ${job?.id} failed: ${error.message}`);
+    });
+
+    // Schedule repeatable job for webhook renewal (every N hours)
+    await this.maintenanceQueue.add(
+      'google-calendar-webhook-renewal',
+      { type: 'google-calendar' },
+      {
+        repeat: {
+          every: this.webhookRenewalIntervalHours * 60 * 60 * 1000, // Convert hours to ms
+        },
+        jobId: 'google-calendar-webhook-renewal-repeatable', // Ensures only one repeatable job
+      },
+    );
+
+    this.logger.log(
+      `Google Calendar webhook renewal scheduled every ${this.webhookRenewalIntervalHours} hours via Redis`,
+    );
+  }
+
+  async onModuleDestroy() {
+    if (this.maintenanceWorker) {
+      await this.maintenanceWorker.close();
+    }
+    if (this.maintenanceQueue) {
+      await this.maintenanceQueue.close();
+    }
+    if (this.redisConnection && this.redisConnection.status !== 'end') {
+      await this.redisConnection.quit();
+    }
+    this.logger.log('Google Calendar webhook service shut down');
   }
 
   /**
@@ -82,7 +164,7 @@ export class GoogleCalendarWebhookService {
         const calendarId = cal.id!;
         const resourcePath = `/calendar/v3/calendars/${calendarId}/events`;
         const channelId = `calendar-${providerId}-${nanoid()}`;
-        const expiration = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+        const expiration = Date.now() + this.webhookExpirationDays * 24 * 60 * 60 * 1000;
 
         const watchResponse = await calendar.events.watch({
           calendarId,
@@ -267,7 +349,9 @@ export class GoogleCalendarWebhookService {
     return renewed;
   }
 
-  @Cron(CronExpression.EVERY_6_HOURS)
+  /**
+   * Handle scheduled webhook renewal (called by BullMQ repeatable job)
+   */
   private async handleScheduledRenewal(): Promise<void> {
     if (!this.jobsEnabled) {
       return;

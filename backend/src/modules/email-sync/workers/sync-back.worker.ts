@@ -369,23 +369,35 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
         throw new Error(`Microsoft batch request failed: ${response.status} ${error}`);
       }
 
-      // Check individual responses for errors
+      // Check individual responses for errors (per-item error handling)
       const batchResponse = (await response.json()) as {
         responses: Array<{ id: string; status: number; body?: { error?: { message: string } } }>;
       };
-      const errors: string[] = [];
+      const itemErrors: string[] = [];
+      let successCount = 0;
 
       for (const res of batchResponse.responses) {
         // 200, 201, 204 are success codes
         if (res.status >= 400) {
           const messageId = batchIds[parseInt(res.id, 10) - 1];
           const errorMsg = res.body?.error?.message || `Status ${res.status}`;
-          errors.push(`${messageId}: ${errorMsg}`);
+          itemErrors.push(`${messageId}: ${errorMsg}`);
+        } else {
+          successCount++;
         }
       }
 
-      if (errors.length > 0) {
-        throw new Error(`Microsoft ${action} partially failed: ${errors.join('; ')}`);
+      // Log per-item errors but don't fail the entire batch if some succeeded
+      if (itemErrors.length > 0) {
+        this.logger.warn(
+          `Microsoft ${action} partial failures: ${itemErrors.length}/${batchIds.length} failed`,
+          { errors: itemErrors.slice(0, 5) }, // Log first 5 errors
+        );
+
+        // Only throw if ALL items failed - partial success continues
+        if (successCount === 0) {
+          throw new Error(`Microsoft ${action} completely failed: ${itemErrors.join('; ')}`);
+        }
       }
     }
   }

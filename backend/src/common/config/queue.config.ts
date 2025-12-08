@@ -389,6 +389,9 @@ export const QUEUE_NAMES = {
   CALENDAR_SYNC_NORMAL: 'calendar-sync-normal',
   CALENDAR_SYNC_LOW: 'calendar-sync-low',
 
+  // Webhook maintenance (distributed across instances)
+  WEBHOOK_MAINTENANCE: 'webhook-maintenance',
+
   // Dead letter queue
   DEAD_LETTER: 'dead-letter-queue',
 

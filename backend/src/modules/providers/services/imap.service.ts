@@ -1,10 +1,177 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, OnModuleDestroy } from '@nestjs/common';
 import { ImapFlow, ImapFlowOptions } from 'imapflow';
 import * as nodemailer from 'nodemailer';
 
+/** Pooled IMAP connection with metadata */
+interface PooledConnection {
+  client: ImapFlow;
+  key: string;
+  lastUsed: number;
+  inUse: boolean;
+}
+
 @Injectable()
-export class ImapService {
+export class ImapService implements OnModuleDestroy {
   private readonly logger = new Logger(ImapService.name);
+
+  /** Connection pool: key -> PooledConnection */
+  private readonly connectionPool = new Map<string, PooledConnection>();
+
+  /** Max connections per provider key */
+  private readonly MAX_POOL_SIZE = 5;
+
+  /** Connection idle timeout (5 minutes) */
+  private readonly IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
+  /** Cleanup interval */
+  private cleanupInterval: NodeJS.Timeout | null = null;
+
+  constructor() {
+    // Start periodic cleanup of idle connections
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupIdleConnections();
+    }, 60000); // Every minute
+  }
+
+  async onModuleDestroy() {
+    // Clear cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+
+    // Close all pooled connections
+    this.logger.log(`Closing ${this.connectionPool.size} pooled IMAP connections...`);
+
+    const closePromises: Promise<void>[] = [];
+    for (const [key, pooled] of this.connectionPool) {
+      closePromises.push(
+        this.safeLogout(pooled.client).then(() => {
+          this.connectionPool.delete(key);
+        })
+      );
+    }
+
+    await Promise.allSettled(closePromises);
+    this.logger.log('All IMAP connections closed');
+  }
+
+  /**
+   * Generate a unique key for connection pooling
+   */
+  private getConnectionKey(config: { host: string; port: number; username: string }): string {
+    return `${config.host}:${config.port}:${config.username}`;
+  }
+
+  /**
+   * Safely logout from IMAP
+   */
+  private async safeLogout(client: ImapFlow): Promise<void> {
+    try {
+      await client.logout();
+    } catch (error) {
+      this.logger.warn('Error during IMAP logout:', error);
+    }
+  }
+
+  /**
+   * Cleanup idle connections
+   */
+  private cleanupIdleConnections(): void {
+    const now = Date.now();
+    const keysToRemove: string[] = [];
+
+    for (const [key, pooled] of this.connectionPool) {
+      if (!pooled.inUse && now - pooled.lastUsed > this.IDLE_TIMEOUT_MS) {
+        keysToRemove.push(key);
+      }
+    }
+
+    for (const key of keysToRemove) {
+      const pooled = this.connectionPool.get(key);
+      if (pooled) {
+        this.logger.debug(`Closing idle IMAP connection: ${key}`);
+        this.safeLogout(pooled.client);
+        this.connectionPool.delete(key);
+      }
+    }
+
+    if (keysToRemove.length > 0) {
+      this.logger.log(`Cleaned up ${keysToRemove.length} idle IMAP connections`);
+    }
+  }
+
+  /**
+   * Get a pooled connection or create a new one
+   * Returns a connection that MUST be released after use
+   */
+  async getPooledConnection(config: {
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+    useTls: boolean;
+  }): Promise<{ client: ImapFlow; release: () => void }> {
+    const key = this.getConnectionKey(config);
+
+    // Try to find an available connection
+    const existing = this.connectionPool.get(key);
+    if (existing && !existing.inUse) {
+      existing.inUse = true;
+      existing.lastUsed = Date.now();
+
+      // Verify connection is still alive
+      try {
+        // Simple noop to check connection
+        await existing.client.noop();
+        this.logger.debug(`Reusing pooled IMAP connection: ${key}`);
+        return {
+          client: existing.client,
+          release: () => {
+            existing.inUse = false;
+            existing.lastUsed = Date.now();
+          },
+        };
+      } catch {
+        // Connection dead, remove and create new
+        this.connectionPool.delete(key);
+        this.logger.debug(`Pooled IMAP connection dead, creating new: ${key}`);
+      }
+    }
+
+    // Create new connection
+    const client = this.createClient(config);
+    await client.connect();
+
+    // Add to pool if not full
+    if (this.connectionPool.size < this.MAX_POOL_SIZE) {
+      const pooled: PooledConnection = {
+        client,
+        key,
+        lastUsed: Date.now(),
+        inUse: true,
+      };
+      this.connectionPool.set(key, pooled);
+
+      this.logger.debug(`Created new pooled IMAP connection: ${key} (pool size: ${this.connectionPool.size})`);
+
+      return {
+        client,
+        release: () => {
+          pooled.inUse = false;
+          pooled.lastUsed = Date.now();
+        },
+      };
+    }
+
+    // Pool full - return non-pooled connection that closes on release
+    this.logger.debug(`Pool full, returning non-pooled IMAP connection: ${key}`);
+    return {
+      client,
+      release: () => {
+        this.safeLogout(client);
+      },
+    };
+  }
 
   /**
    * Test IMAP connection

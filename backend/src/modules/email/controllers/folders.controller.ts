@@ -96,7 +96,7 @@ export class FoldersController {
     const foldersByProvider: Record<string, any[]> = {};
 
     for (const provider of providers) {
-      const folders = await (this.prisma as any).folder.findMany({
+      const folders = await this.prisma.folder.findMany({
         where: {
           tenantId,
           providerId: provider.id,
@@ -145,7 +145,7 @@ export class FoldersController {
     // Refresh counts before returning folders
     await this.folderSyncService.updateAllFolderCounts(provider.id);
 
-    const folders = await (this.prisma as any).folder.findMany({
+    const folders = await this.prisma.folder.findMany({
       where: {
         tenantId,
         providerId,
@@ -184,7 +184,7 @@ export class FoldersController {
     await this.folderSyncService.syncProviderFolders(tenantId, providerId);
 
     // Get synced folders
-    const syncedFolders = await (this.prisma as any).folder.findMany({
+    const syncedFolders = await this.prisma.folder.findMany({
       where: { tenantId, providerId },
     });
 
@@ -216,7 +216,7 @@ export class FoldersController {
         // Sync folders via FolderSyncService
         await this.folderSyncService.syncProviderFolders(tenantId, provider.id);
 
-        const folders = await (this.prisma as any).folder.findMany({
+        const folders = await this.prisma.folder.findMany({
           where: { tenantId, providerId: provider.id },
         });
 
