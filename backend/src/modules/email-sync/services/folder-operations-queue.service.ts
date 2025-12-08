@@ -8,7 +8,11 @@ import {
   FolderQueueStatus,
   FolderOperationType,
 } from '../interfaces/folder-job.interface';
-import { getRedisConnectionOptions } from '../../../config/configuration';
+import {
+  getRedisConnectionOptions,
+  getDefaultJobOptions,
+  QUEUE_NAMES,
+} from '../../../common/config';
 
 export interface FolderQueueMetrics {
   completed: number;
@@ -29,7 +33,7 @@ export interface FolderQueueMetrics {
  *
  * This queue handles all folder mutations that need to be synced to the provider:
  * - High priority queue for user-initiated folder operations
- * - Automatic retry with exponential backoff
+ * - Automatic retry with exponential backoff (using centralized FOLDER_OPS preset)
  * - Job deduplication to prevent duplicate operations
  * - Metrics and monitoring
  */
@@ -48,17 +52,6 @@ export class FolderOperationsQueueService implements OnModuleInit, OnModuleDestr
     totalDurationMs: 0,
   };
 
-  // Queue configuration optimized for folder operations
-  private readonly QUEUE_CONFIG = {
-    attempts: 3,
-    backoff: {
-      type: 'exponential' as const,
-      delay: 2000, // Start with 2s, then 4s, then 8s
-    },
-    removeOnComplete: { count: 100, age: 3600 }, // Keep last 100 or 1 hour
-    removeOnFail: { count: 200 }, // Keep failed jobs for debugging
-  };
-
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
@@ -72,15 +65,10 @@ export class FolderOperationsQueueService implements OnModuleInit, OnModuleDestr
       `Connecting to Redis for folder operations at ${redisOptions.host}:${redisOptions.port}`,
     );
 
-    // Initialize folder operations queue
-    this.folderQueue = new Queue<FolderJobData>('folder-operations', {
+    // Initialize folder operations queue using centralized config
+    this.folderQueue = new Queue<FolderJobData>(QUEUE_NAMES.FOLDER_OPERATIONS, {
       connection: this.redisConnection,
-      defaultJobOptions: {
-        attempts: this.QUEUE_CONFIG.attempts,
-        backoff: this.QUEUE_CONFIG.backoff,
-        removeOnComplete: this.QUEUE_CONFIG.removeOnComplete,
-        removeOnFail: this.QUEUE_CONFIG.removeOnFail,
-      },
+      defaultJobOptions: getDefaultJobOptions('FOLDER_OPS'),
     });
 
     // Setup queue events for monitoring
@@ -311,7 +299,7 @@ export class FolderOperationsQueueService implements OnModuleInit, OnModuleDestr
     const counts = await this.folderQueue.getJobCounts();
 
     return {
-      queueName: 'folder-operations',
+      queueName: QUEUE_NAMES.FOLDER_OPERATIONS,
       waiting: counts.waiting || 0,
       active: counts.active || 0,
       completed: counts.completed || 0,

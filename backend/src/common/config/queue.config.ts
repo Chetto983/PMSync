@@ -121,6 +121,35 @@ export const QUEUE_PRESETS = {
     removeOnComplete: { count: 100, age: 3600 },
     removeOnFail: { count: 200 },
   },
+
+  /**
+   * Contacts sync operations
+   * - Similar to email sync, moderate retries
+   */
+  CONTACTS_SYNC: {
+    attempts: 3,
+    backoff: {
+      type: 'exponential' as const,
+      delay: 5000, // 5s, 10s, 20s
+    },
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 100 },
+  },
+
+  /**
+   * Calendar sync operations
+   * - Similar to contacts sync, moderate retries
+   * - Calendar APIs are generally reliable
+   */
+  CALENDAR_SYNC: {
+    attempts: 3,
+    backoff: {
+      type: 'exponential' as const,
+      delay: 5000, // 5s, 10s, 20s
+    },
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 100 },
+  },
 } as const;
 
 /**
@@ -221,6 +250,24 @@ export const WORKER_PRESETS = {
       duration: 1000,
     },
   },
+
+  /**
+   * Contacts sync worker
+   */
+  CONTACTS_SYNC: {
+    concurrency: 3,
+    lockDuration: 120000, // 2 minutes
+    stalledInterval: 60000,
+  },
+
+  /**
+   * Calendar sync worker
+   */
+  CALENDAR_SYNC: {
+    concurrency: 3,
+    lockDuration: 120000, // 2 minutes
+    stalledInterval: 60000,
+  },
 } as const;
 
 /**
@@ -264,11 +311,22 @@ export const QUEUE_NAMES = {
 
   // AI/Embedding queues
   EMAIL_EMBEDDING: 'email-embedding',
+  AI_PROCESSING: 'ai-processing',
+
+  // Contacts sync queues
+  CONTACTS_SYNC_HIGH: 'contacts-sync-high',
+  CONTACTS_SYNC_NORMAL: 'contacts-sync-normal',
+  CONTACTS_SYNC_LOW: 'contacts-sync-low',
+
+  // Calendar sync queues
+  CALENDAR_SYNC_HIGH: 'calendar-sync-high',
+  CALENDAR_SYNC_NORMAL: 'calendar-sync-normal',
+  CALENDAR_SYNC_LOW: 'calendar-sync-low',
 
   // Dead letter queue
   DEAD_LETTER: 'dead-letter-queue',
 
-  // Future queues (from roadmap)
+  // Email send and sync-back queues
   EMAIL_SEND: 'email-send',
   PROVIDER_SYNC_BACK: 'provider-sync-back',
   BULK_OPERATIONS: 'bulk-operations',

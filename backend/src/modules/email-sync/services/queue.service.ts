@@ -3,7 +3,11 @@ import { Queue, QueueEvents, JobType } from 'bullmq';
 import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 import { SyncJobData, SyncStatus } from '../interfaces/sync-job.interface';
-import { getRedisConnectionOptions } from '../../../config/configuration';
+import {
+  getRedisConnectionOptions,
+  getDefaultJobOptions,
+  QUEUE_NAMES,
+} from '../../../common/config';
 
 // Extended interface for sync job processing
 // interface ProcessableSyncJobData extends SyncJobData {
@@ -90,37 +94,22 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`Connecting to Redis at ${redisOptions.host}:${redisOptions.port}`);
 
-    // Initialize HIGH priority queue
-    this.highQueue = new Queue<SyncJobData>('email-sync-high', {
+    // Initialize HIGH priority queue using centralized config
+    this.highQueue = new Queue<SyncJobData>(QUEUE_NAMES.EMAIL_SYNC_HIGH, {
       connection: this.redisConnection,
-      defaultJobOptions: {
-        attempts: this.getAttempts('HIGH'),
-        backoff: this.getBackoff('HIGH'),
-        removeOnComplete: this.getRemoveOnComplete('HIGH'),
-        removeOnFail: this.getRemoveOnFail('HIGH'),
-      },
+      defaultJobOptions: getDefaultJobOptions('HIGH'),
     });
 
-    // Initialize NORMAL priority queue
-    this.normalQueue = new Queue<SyncJobData>('email-sync-normal', {
+    // Initialize NORMAL priority queue using centralized config
+    this.normalQueue = new Queue<SyncJobData>(QUEUE_NAMES.EMAIL_SYNC_NORMAL, {
       connection: this.redisConnection,
-      defaultJobOptions: {
-        attempts: this.getAttempts('NORMAL'),
-        backoff: this.getBackoff('NORMAL'),
-        removeOnComplete: this.getRemoveOnComplete('NORMAL'),
-        removeOnFail: this.getRemoveOnFail('NORMAL'),
-      },
+      defaultJobOptions: getDefaultJobOptions('NORMAL'),
     });
 
-    // Initialize LOW priority queue
-    this.lowQueue = new Queue<SyncJobData>('email-sync-low', {
+    // Initialize LOW priority queue using centralized config
+    this.lowQueue = new Queue<SyncJobData>(QUEUE_NAMES.EMAIL_SYNC_LOW, {
       connection: this.redisConnection,
-      defaultJobOptions: {
-        attempts: this.getAttempts('LOW'),
-        backoff: this.getBackoff('LOW'),
-        removeOnComplete: this.getRemoveOnComplete('LOW'),
-        removeOnFail: this.getRemoveOnFail('LOW'),
-      },
+      defaultJobOptions: getDefaultJobOptions('LOW'),
     });
 
     // Setup queue events for monitoring
@@ -270,9 +259,9 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
   async getQueueStatus(): Promise<SyncStatus[]> {
     const queues = [
-      { name: 'high', queue: this.highQueue },
-      { name: 'normal', queue: this.normalQueue },
-      { name: 'low', queue: this.lowQueue },
+      { name: QUEUE_NAMES.EMAIL_SYNC_HIGH, queue: this.highQueue },
+      { name: QUEUE_NAMES.EMAIL_SYNC_NORMAL, queue: this.normalQueue },
+      { name: QUEUE_NAMES.EMAIL_SYNC_LOW, queue: this.lowQueue },
     ];
 
     const statuses: SyncStatus[] = [];
@@ -281,7 +270,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       const counts = await queue.getJobCounts();
 
       statuses.push({
-        queueName: `email-sync-${name}`,
+        queueName: name,
         waiting: counts.waiting || 0,
         active: counts.active || 0,
         completed: counts.completed || 0,
@@ -526,90 +515,21 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     metric.lastJobId = undefined;
   }
 
-  private getAttempts(level: 'HIGH' | 'NORMAL' | 'LOW'): number {
-    switch (level) {
-      case 'HIGH':
-        return this.getNumber('QUEUE_HIGH_ATTEMPTS', 3);
-      case 'NORMAL':
-        return this.getNumber('QUEUE_NORMAL_ATTEMPTS', 2);
-      case 'LOW':
-        return this.getNumber('QUEUE_LOW_ATTEMPTS', 1);
-      default:
-        return 1;
-    }
-  }
-
-  private getBackoff(level: 'HIGH' | 'NORMAL' | 'LOW'):
-    | { type: 'exponential'; delay: number }
-    | undefined {
-    switch (level) {
-      case 'HIGH':
-        return {
-          type: 'exponential',
-          delay: this.getNumber('QUEUE_HIGH_BACKOFF_MS', 5000),
-        };
-      case 'NORMAL':
-        return {
-          type: 'exponential',
-          delay: this.getNumber('QUEUE_NORMAL_BACKOFF_MS', 10000),
-        };
-      case 'LOW':
-        return undefined;
-      default:
-        return undefined;
-    }
-  }
-
+  /**
+   * Get jitter delay for spreading webhook bursts
+   * Higher jitter for lower priority queues
+   */
   private getJitterMs(priority: QueuePriority): number {
     switch (priority) {
       case 'high':
-        return this.getNumber('QUEUE_HIGH_JITTER_MS', 50);
+        return 50;
       case 'normal':
-        return this.getNumber('QUEUE_NORMAL_JITTER_MS', 200);
+        return 200;
       case 'low':
-        return this.getNumber('QUEUE_LOW_JITTER_MS', 500);
+        return 500;
       default:
         return 0;
     }
-  }
-
-  private getRemoveOnComplete(level: 'HIGH' | 'NORMAL' | 'LOW'): boolean | { count?: number; age?: number } {
-    switch (level) {
-      case 'HIGH':
-        return {
-          count: this.getNumber('QUEUE_HIGH_REMOVE_ON_COMPLETE_COUNT', 50),
-          age: this.getNumber('QUEUE_HIGH_REMOVE_ON_COMPLETE_AGE', 3600),
-        };
-      case 'NORMAL':
-      case 'LOW':
-        return true;
-      default:
-        return true;
-    }
-  }
-
-  private getRemoveOnFail(level: 'HIGH' | 'NORMAL' | 'LOW'): boolean | { count?: number } {
-    switch (level) {
-      case 'HIGH':
-        return {
-          count: this.getNumber('QUEUE_HIGH_REMOVE_ON_FAIL_COUNT', 100),
-        };
-      case 'NORMAL':
-      case 'LOW':
-        return true;
-      default:
-        return true;
-    }
-  }
-
-  private getNumber(envKey: string, defaultValue: number): number {
-    const raw = this.configService.get<string | number>(envKey);
-    if (raw === undefined || raw === null || raw === '') {
-      return defaultValue;
-    }
-
-    const parsed = typeof raw === 'number' ? raw : Number(raw);
-    return Number.isFinite(parsed) ? parsed : defaultValue;
   }
 
   private async hasPendingJob(providerId: string, tenantId?: string): Promise<boolean> {

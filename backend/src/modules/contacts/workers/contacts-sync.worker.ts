@@ -9,7 +9,11 @@ import {
 } from '../services/contacts-sync-queue.service';
 import { GoogleContactsSyncService } from '../services/google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from '../services/microsoft-contacts-sync.service';
-import { getRedisConnectionOptions } from '../../../config/configuration';
+import {
+  getRedisConnectionOptions,
+  getWorkerOptions,
+  QUEUE_NAMES,
+} from '../../../common/config';
 
 @Injectable()
 export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
@@ -37,16 +41,21 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
     const redisOptions = getRedisConnectionOptions();
     this.redisConnection = new Redis(redisOptions);
 
-    // Start workers for each priority queue with env-based concurrency
-    this.startWorker('high', this.getConcurrency('HIGH'));
-    this.startWorker('normal', this.getConcurrency('NORMAL'));
-    this.startWorker('low', this.getConcurrency('LOW'));
+    this.logger.log(
+      `Connecting to Redis for contacts sync workers at ${redisOptions.host}:${redisOptions.port}`,
+    );
+
+    // Start workers for each priority queue using centralized worker options
+    this.startWorker(QUEUE_NAMES.CONTACTS_SYNC_HIGH);
+    this.startWorker(QUEUE_NAMES.CONTACTS_SYNC_NORMAL);
+    this.startWorker(QUEUE_NAMES.CONTACTS_SYNC_LOW);
 
     this.logger.log('Contacts sync workers started successfully');
   }
 
-  private startWorker(priority: 'high' | 'normal' | 'low', concurrency: number) {
-    const queueName = `contacts-sync-${priority}`;
+  private startWorker(queueName: string) {
+    // Get centralized worker options
+    const workerOptions = getWorkerOptions('CONTACTS_SYNC');
 
     const worker = new Worker<ContactsSyncJobData, ContactsSyncJobResult>(
       queueName,
@@ -55,37 +64,28 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
       },
       {
         connection: this.redisConnection,
-        concurrency,
-        limiter: {
-          max: concurrency * 2, // Max jobs processed
-          duration: 60000, // per minute
-        },
-        lockDuration: Number(this.configService.get('CONTACTS_SYNC_WORKER_LOCK_MS')) || 120000, // 2 minutes
-        stalledInterval: Math.max(
-          1000,
-          Number(this.configService.get('CONTACTS_SYNC_WORKER_STALLED_INTERVAL_MS')) || 60000,
-        ), // minimum 1 second
+        ...workerOptions,
       },
     );
 
     worker.on('completed', (job, result) => {
       this.logger.log(
-        `[${priority}] Job ${job.id} completed: ${result.contactsProcessed} contacts processed, ${result.newContacts} new, ${result.updatedContacts} updated`,
+        `[${queueName}] Job ${job.id} completed: ${result.contactsProcessed} contacts processed, ${result.newContacts} new, ${result.updatedContacts} updated`,
       );
     });
 
     worker.on('failed', (job, error) => {
       this.logger.error(
-        `[${priority}] Job ${job?.id} failed for ${job?.data?.email}: ${error.message}`,
+        `[${queueName}] Job ${job?.id} failed for ${job?.data?.email}: ${error.message}`,
       );
     });
 
     worker.on('error', (error) => {
-      this.logger.error(`[${priority}] Worker error: ${error.message}`);
+      this.logger.error(`[${queueName}] Worker error: ${error.message}`);
     });
 
     this.workers.push(worker);
-    this.logger.log(`Started ${priority} priority worker with concurrency ${concurrency}`);
+    this.logger.log(`Started worker for queue ${queueName} with concurrency ${workerOptions.concurrency}`);
   }
 
   private async processJob(job: Job<ContactsSyncJobData>): Promise<ContactsSyncJobResult> {
@@ -224,31 +224,5 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
     } finally {
       this.logger.log('Contacts sync workers stopped');
     }
-  }
-
-  /**
-   * Get worker concurrency from environment variables
-   */
-  private getConcurrency(level: 'HIGH' | 'NORMAL' | 'LOW'): number {
-    switch (level) {
-      case 'HIGH':
-        return this.getNumber('CONTACTS_WORKER_HIGH_CONCURRENCY', 5);
-      case 'NORMAL':
-        return this.getNumber('CONTACTS_WORKER_NORMAL_CONCURRENCY', 3);
-      case 'LOW':
-        return this.getNumber('CONTACTS_WORKER_LOW_CONCURRENCY', 2);
-      default:
-        return 2;
-    }
-  }
-
-  private getNumber(envKey: string, defaultValue: number): number {
-    const raw = this.configService.get<string | number>(envKey);
-    if (raw === undefined || raw === null || raw === '') {
-      return defaultValue;
-    }
-
-    const parsed = typeof raw === 'number' ? raw : Number(raw);
-    return Number.isFinite(parsed) ? parsed : defaultValue;
   }
 }

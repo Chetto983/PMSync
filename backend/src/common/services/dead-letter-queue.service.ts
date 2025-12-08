@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Queue, QueueEvents } from 'bullmq';
 import { Redis } from 'ioredis';
 import { CacheService, CacheNamespace } from './cache.service';
-import { getRedisConnectionOptions } from '../../config/configuration';
+import { getRedisConnectionOptions, QUEUE_NAMES } from '../config';
 
 /**
  * Dead Letter Queue Job Data
@@ -106,8 +106,8 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
     const redisOptions = getRedisConnectionOptions();
     this.redisConnection = new Redis(redisOptions);
 
-    // Initialize Dead Letter Queue
-    this.dlqQueue = new Queue<DLQJobData>('dead-letter-queue', {
+    // Initialize Dead Letter Queue using centralized queue name
+    this.dlqQueue = new Queue<DLQJobData>(QUEUE_NAMES.DEAD_LETTER, {
       connection: this.redisConnection,
       defaultJobOptions: {
         attempts: 1, // No retries for DLQ jobs
@@ -116,8 +116,8 @@ export class DeadLetterQueueService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    // Setup event monitoring
-    this.queueEvents = new QueueEvents('dead-letter-queue', {
+    // Setup event monitoring using centralized queue name
+    this.queueEvents = new QueueEvents(QUEUE_NAMES.DEAD_LETTER, {
       connection: this.redisConnection,
     });
 

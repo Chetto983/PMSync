@@ -1,8 +1,11 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { Queue, QueueEvents } from 'bullmq';
 import { Redis } from 'ioredis';
-import { ConfigService } from '@nestjs/config';
-import { getRedisConnectionOptions, getConfiguration } from '../../../config/configuration';
+import {
+  getRedisConnectionOptions,
+  getDefaultJobOptions,
+  QUEUE_NAMES,
+} from '../../../common/config';
 
 export interface ContactsSyncJobData {
   tenantId: string;
@@ -78,47 +81,36 @@ export class ContactsSyncQueueService implements OnModuleInit, OnModuleDestroy {
     },
   };
 
-  constructor(private configService: ConfigService) {}
+  constructor() {}
 
   async onModuleInit() {
     // Initialize Redis connection using centralized config
     const redisOptions = getRedisConnectionOptions();
-    const redisConfig = getConfiguration().redis;
     this.redisConnection = new Redis(redisOptions);
 
-    this.logger.log(`Connecting to Redis at ${redisConfig.host}:${redisConfig.port}`);
+    this.logger.log(
+      `Connecting to Redis for contacts sync at ${redisOptions.host}:${redisOptions.port}`,
+    );
+
+    // Get centralized job defaults for contacts sync
+    const jobDefaults = getDefaultJobOptions('CONTACTS_SYNC');
 
     // Initialize HIGH priority queue
-    this.highQueue = new Queue<ContactsSyncJobData>('contacts-sync-high', {
+    this.highQueue = new Queue<ContactsSyncJobData>(QUEUE_NAMES.CONTACTS_SYNC_HIGH, {
       connection: this.redisConnection,
-      defaultJobOptions: {
-        attempts: this.getAttempts('HIGH'),
-        backoff: this.getBackoff('HIGH'),
-        removeOnComplete: this.getRemoveOnComplete('HIGH'),
-        removeOnFail: this.getRemoveOnFail('HIGH'),
-      },
+      defaultJobOptions: jobDefaults,
     });
 
     // Initialize NORMAL priority queue
-    this.normalQueue = new Queue<ContactsSyncJobData>('contacts-sync-normal', {
+    this.normalQueue = new Queue<ContactsSyncJobData>(QUEUE_NAMES.CONTACTS_SYNC_NORMAL, {
       connection: this.redisConnection,
-      defaultJobOptions: {
-        attempts: this.getAttempts('NORMAL'),
-        backoff: this.getBackoff('NORMAL'),
-        removeOnComplete: this.getRemoveOnComplete('NORMAL'),
-        removeOnFail: this.getRemoveOnFail('NORMAL'),
-      },
+      defaultJobOptions: jobDefaults,
     });
 
     // Initialize LOW priority queue
-    this.lowQueue = new Queue<ContactsSyncJobData>('contacts-sync-low', {
+    this.lowQueue = new Queue<ContactsSyncJobData>(QUEUE_NAMES.CONTACTS_SYNC_LOW, {
       connection: this.redisConnection,
-      defaultJobOptions: {
-        attempts: this.getAttempts('LOW'),
-        backoff: this.getBackoff('LOW'),
-        removeOnComplete: this.getRemoveOnComplete('LOW'),
-        removeOnFail: this.getRemoveOnFail('LOW'),
-      },
+      defaultJobOptions: jobDefaults,
     });
 
     // Setup queue events for monitoring
@@ -382,93 +374,5 @@ export class ContactsSyncQueueService implements OnModuleInit, OnModuleDestroy {
       this.getMetricsSummary('normal'),
       this.getMetricsSummary('low'),
     ];
-  }
-
-  /**
-   * Environment-based configuration helpers
-   */
-  private getAttempts(level: 'HIGH' | 'NORMAL' | 'LOW'): number {
-    switch (level) {
-      case 'HIGH':
-        return this.getNumber('CONTACTS_QUEUE_HIGH_ATTEMPTS', 3);
-      case 'NORMAL':
-        return this.getNumber('CONTACTS_QUEUE_NORMAL_ATTEMPTS', 3);
-      case 'LOW':
-        return this.getNumber('CONTACTS_QUEUE_LOW_ATTEMPTS', 2);
-      default:
-        return 2;
-    }
-  }
-
-  private getBackoff(level: 'HIGH' | 'NORMAL' | 'LOW'):
-    | { type: 'exponential'; delay: number }
-    | undefined {
-    switch (level) {
-      case 'HIGH':
-        return {
-          type: 'exponential',
-          delay: this.getNumber('CONTACTS_QUEUE_HIGH_BACKOFF_MS', 5000),
-        };
-      case 'NORMAL':
-        return {
-          type: 'exponential',
-          delay: this.getNumber('CONTACTS_QUEUE_NORMAL_BACKOFF_MS', 5000),
-        };
-      case 'LOW':
-        return {
-          type: 'exponential',
-          delay: this.getNumber('CONTACTS_QUEUE_LOW_BACKOFF_MS', 10000),
-        };
-      default:
-        return undefined;
-    }
-  }
-
-  private getRemoveOnComplete(level: 'HIGH' | 'NORMAL' | 'LOW'): boolean | { count?: number } {
-    switch (level) {
-      case 'HIGH':
-        return {
-          count: this.getNumber('CONTACTS_QUEUE_HIGH_REMOVE_ON_COMPLETE_COUNT', 100),
-        };
-      case 'NORMAL':
-        return {
-          count: this.getNumber('CONTACTS_QUEUE_NORMAL_REMOVE_ON_COMPLETE_COUNT', 100),
-        };
-      case 'LOW':
-        return {
-          count: this.getNumber('CONTACTS_QUEUE_LOW_REMOVE_ON_COMPLETE_COUNT', 50),
-        };
-      default:
-        return true;
-    }
-  }
-
-  private getRemoveOnFail(level: 'HIGH' | 'NORMAL' | 'LOW'): boolean | { count?: number } {
-    switch (level) {
-      case 'HIGH':
-        return {
-          count: this.getNumber('CONTACTS_QUEUE_HIGH_REMOVE_ON_FAIL_COUNT', 100),
-        };
-      case 'NORMAL':
-        return {
-          count: this.getNumber('CONTACTS_QUEUE_NORMAL_REMOVE_ON_FAIL_COUNT', 100),
-        };
-      case 'LOW':
-        return {
-          count: this.getNumber('CONTACTS_QUEUE_LOW_REMOVE_ON_FAIL_COUNT', 50),
-        };
-      default:
-        return false;
-    }
-  }
-
-  private getNumber(envKey: string, defaultValue: number): number {
-    const raw = this.configService.get<string | number>(envKey);
-    if (raw === undefined || raw === null || raw === '') {
-      return defaultValue;
-    }
-
-    const parsed = typeof raw === 'number' ? raw : Number(raw);
-    return Number.isFinite(parsed) ? parsed : defaultValue;
   }
 }

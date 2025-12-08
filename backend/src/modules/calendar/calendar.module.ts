@@ -6,6 +6,8 @@ import { GoogleCalendarSyncService } from './services/google-calendar-sync.servi
 import { MicrosoftCalendarSyncService } from './services/microsoft-calendar-sync.service';
 import { GoogleCalendarWebhookService } from './services/google-calendar-webhook.service';
 import { MicrosoftCalendarWebhookService } from './services/microsoft-calendar-webhook.service';
+import { CalendarSyncQueueService } from './services/calendar-sync-queue.service';
+import { CalendarSyncWorker } from './workers/calendar-sync.worker';
 import { IcsParserService } from './services/ics-parser.service';
 import { IcsGeneratorService } from './services/ics-generator.service';
 import { CalendarProviderFactory } from './calendar-provider.factory';
@@ -31,6 +33,8 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
     MicrosoftCalendarSyncService,
     GoogleCalendarWebhookService,
     MicrosoftCalendarWebhookService,
+    CalendarSyncQueueService,
+    CalendarSyncWorker,
     IcsParserService,
     IcsGeneratorService,
     CalendarProviderFactory,
@@ -41,6 +45,7 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
     MicrosoftCalendarSyncService,
     GoogleCalendarWebhookService,
     MicrosoftCalendarWebhookService,
+    CalendarSyncQueueService,
     IcsParserService,
     IcsGeneratorService,
     CalendarProviderFactory,

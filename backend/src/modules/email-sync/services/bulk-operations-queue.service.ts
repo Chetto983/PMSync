@@ -238,7 +238,7 @@ export class BulkOperationsQueueService implements OnModuleInit, OnModuleDestroy
 
     // If completed, return full progress
     if (state === 'completed' && job.returnvalue) {
-      const result = job.returnvalue as BulkOperationJobResult;
+      const result = job.returnvalue;
       return {
         processed: result.processed,
         total: job.data.emailIds.length,
@@ -295,7 +295,7 @@ export class BulkOperationsQueueService implements OnModuleInit, OnModuleDestroy
 
     const state = await job.getState();
     const progress = await this.getProgress(jobId);
-    const result = state === 'completed' ? (job.returnvalue as BulkOperationJobResult) : undefined;
+    const result = state === 'completed' ? (job.returnvalue) : undefined;
 
     return { state, progress: progress || undefined, result };
   }
@@ -421,7 +421,7 @@ export class BulkOperationsQueueService implements OnModuleInit, OnModuleDestroy
       if (job) {
         // Track emails processed
         if (job.returnvalue) {
-          const result = job.returnvalue as BulkOperationJobResult;
+          const result = job.returnvalue;
           this.metrics.totalEmailsProcessed += result.processed;
         }
 

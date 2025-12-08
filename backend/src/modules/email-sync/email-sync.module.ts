@@ -11,6 +11,9 @@ import { RetryService } from '../../common/services/retry.service';
 // Services
 import { QueueService } from './services/queue.service';
 import { FolderOperationsQueueService } from './services/folder-operations-queue.service';
+import { EmailSendQueueService } from './services/email-send-queue.service';
+import { ProviderSyncBackQueueService } from './services/provider-sync-back-queue.service';
+import { BulkOperationsQueueService } from './services/bulk-operations-queue.service';
 import { SyncSchedulerService } from './services/sync-scheduler.service';
 import { GoogleSyncService } from './services/gmail/google-sync.service';
 import { MicrosoftSyncService } from './services/microsoft/microsoft-sync.service';
@@ -71,6 +74,9 @@ import { FoldersController } from '../email/controllers/folders.controller';
     // Queue management
     QueueService,
     FolderOperationsQueueService,
+    EmailSendQueueService,
+    ProviderSyncBackQueueService,
+    BulkOperationsQueueService,
 
     // Scheduler
     SyncSchedulerService,
@@ -115,6 +121,9 @@ import { FoldersController } from '../email/controllers/folders.controller';
   exports: [
     QueueService,
     FolderOperationsQueueService,
+    EmailSendQueueService,
+    ProviderSyncBackQueueService,
+    BulkOperationsQueueService,
     SyncSchedulerService,
     FolderSyncService,
     GmailWebhookService,

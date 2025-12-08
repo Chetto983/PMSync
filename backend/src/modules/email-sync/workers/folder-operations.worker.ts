@@ -15,7 +15,7 @@ import { ImapService } from '../../providers/services/imap.service';
 import { ProviderTokenService } from '../services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { SyncAuthService } from '../services/sync-auth.service';
-import { getRedisConnectionOptions } from '../../../config/configuration';
+import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 import { google } from 'googleapis';
 import axios from 'axios';
 import { ConflictException } from '@nestjs/common';
@@ -74,9 +74,9 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
     const redisOptions = getRedisConnectionOptions();
     this.redisConnection = new Redis(redisOptions);
 
-    // Start the worker
+    // Start the worker using centralized queue name
     this.worker = new Worker<FolderJobData, FolderJobResult>(
-      'folder-operations',
+      QUEUE_NAMES.FOLDER_OPERATIONS,
       async (job: Job<FolderJobData>) => {
         return this.processJob(job);
       },

@@ -10,7 +10,7 @@ import { SyncAuthService } from '../services/sync-auth.service';
 import { GoogleSyncService } from '../services/gmail/google-sync.service';
 import { MicrosoftSyncService } from '../services/microsoft/microsoft-sync.service';
 import { ImapSyncService } from '../services/imap/imap-sync.service';
-import { getRedisConnectionOptions } from '../../../config/configuration';
+import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 
 @Injectable()
 export class SyncWorker implements OnModuleInit, OnModuleDestroy {
@@ -56,17 +56,15 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     const redisOptions = getRedisConnectionOptions();
     this.redisConnection = new Redis(redisOptions);
 
-    // Start workers for each priority queue
-    this.startWorker('high', this.WORKER_CONFIG.high.concurrency);
-    this.startWorker('normal', this.WORKER_CONFIG.normal.concurrency);
-    this.startWorker('low', this.WORKER_CONFIG.low.concurrency);
+    // Start workers for each priority queue using centralized queue names
+    this.startWorker(QUEUE_NAMES.EMAIL_SYNC_HIGH, this.WORKER_CONFIG.high.concurrency);
+    this.startWorker(QUEUE_NAMES.EMAIL_SYNC_NORMAL, this.WORKER_CONFIG.normal.concurrency);
+    this.startWorker(QUEUE_NAMES.EMAIL_SYNC_LOW, this.WORKER_CONFIG.low.concurrency);
 
     this.logger.log('Email sync workers started successfully');
   }
 
-  private startWorker(priority: 'high' | 'normal' | 'low', concurrency: number) {
-    const queueName = `email-sync-${priority}`;
-
+  private startWorker(queueName: string, concurrency: number) {
     const worker = new Worker<SyncJobData, SyncJobResult>(
       queueName,
       async (job: Job<SyncJobData>) => {
@@ -90,22 +88,22 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
 
     worker.on('completed', (job, result) => {
       this.logger.log(
-        `[${priority}] Job ${job.id} completed: ${result.messagesProcessed} messages, ${result.newMessages} new`,
+        `[${queueName}] Job ${job.id} completed: ${result.messagesProcessed} messages, ${result.newMessages} new`,
       );
     });
 
     worker.on('failed', (job, error) => {
       this.logger.error(
-        `[${priority}] Job ${job?.id} failed for ${job?.data?.email}: ${error.message}`,
+        `[${queueName}] Job ${job?.id} failed for ${job?.data?.email}: ${error.message}`,
       );
     });
 
     worker.on('error', (error) => {
-      this.logger.error(`[${priority}] Worker error: ${error.message}`);
+      this.logger.error(`[${queueName}] Worker error: ${error.message}`);
     });
 
     this.workers.push(worker);
-    this.logger.log(`Started ${priority} priority worker with concurrency ${concurrency}`);
+    this.logger.log(`Started worker for queue ${queueName} with concurrency ${concurrency}`);
   }
 
   private async processJob(job: Job<SyncJobData>): Promise<SyncJobResult> {

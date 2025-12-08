@@ -49,7 +49,12 @@
       "Bash(Select-Object -First 150)",
       "Bash(grep:*)",
       "Bash(cmd /c \"for /f \"\"tokens=5\"\" %a in (''netstat -ano ^| findstr :3000 ^| findstr LISTENING'') do taskkill /pid %a /f\")",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(for module in ai analytics audit auth calendar compliance contacts email email-sync health labels providers realtime tenants users)",
+      "Bash(do echo \"=== MODULE: $module ===\" ls \"d:/MailAgent/backend/src/modules/$module\")",
+      "Bash(for module in auth users providers realtime health audit analytics labels compliance tenants)",
+      "Bash(do echo \"=== MODULE: $module ===\" if [ -f \"d:/MailAgent/backend/src/modules/$module/$module.module.ts\" ])",
+      "Bash(then head -30 \"d:/MailAgent/backend/src/modules/$module/$module.module.ts\")"
     ],
     "deny": [],
     "ask": []

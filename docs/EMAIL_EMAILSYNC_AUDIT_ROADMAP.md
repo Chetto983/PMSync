@@ -1559,44 +1559,64 @@ backend/src/
 
 ### 14.6. Migration Plan
 
-#### Phase 1: Infrastructure (Week 1)
+#### Phase 1: Infrastructure (Week 1) ✅ COMPLETED
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Create `redis.config.ts` | P0 | 🔴 TODO |
-| Create `queue.config.ts` | P0 | 🔴 TODO |
-| Refactor `AiQueueService` to use centralized config | P0 | 🔴 TODO |
-| Refactor `FolderOperationsQueueService` to use env vars | P0 | 🔴 TODO |
-| Refactor `QueryEmbeddingCacheService` to use centralized Redis | P0 | 🔴 TODO |
+| Create `queue.config.ts` with QUEUE_PRESETS, WORKER_PRESETS, QUEUE_NAMES | P0 | ✅ DONE |
+| Create `common/config/index.ts` barrel export | P0 | ✅ DONE |
+| Refactor `AiQueueService` to use centralized config | P0 | ✅ DONE |
+| Refactor `EmailEmbeddingQueueService` to use centralized config | P0 | ✅ DONE |
+| Refactor `QueryEmbeddingCacheService` to use centralized Redis | P0 | ✅ DONE |
+| Refactor `ContactsSyncQueueService` to use centralized config | P0 | ✅ DONE |
+| Refactor `ContactsSyncWorker` to use centralized config | P0 | ✅ DONE |
 | Add Redis connection health check endpoint | P1 | 🔴 TODO |
 
-#### Phase 2: Critical Queues (Week 2)
+**Files Created/Modified:**
+- `backend/src/common/config/queue.config.ts` - Centralized queue configuration
+- `backend/src/common/config/index.ts` - Barrel export
+- `backend/src/modules/ai/services/email-embedding.queue.ts` - Refactored
+- `backend/src/modules/ai/services/query-embedding-cache.service.ts` - Refactored
+- `backend/src/modules/ai/voltagent/services/ai-queue.service.ts` - Refactored
+- `backend/src/modules/contacts/services/contacts-sync-queue.service.ts` - Refactored
+- `backend/src/modules/contacts/workers/contacts-sync.worker.ts` - Refactored
+
+#### Phase 2: Critical Queues (Week 2) ✅ COMPLETED
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Implement `EmailSendQueueService` | P0 | 🔴 TODO |
-| Implement `ProviderSyncBackQueueService` | P0 | 🔴 TODO |
-| Integrate sync-back queue with `ActionExecutorService` | P0 | 🔴 TODO |
-| Add DLQ integration for email-send | P0 | 🔴 TODO |
-| Write tests for email-send queue | P1 | 🔴 TODO |
+| Implement `EmailSendQueueService` | P0 | ✅ DONE |
+| Implement `ProviderSyncBackQueueService` | P0 | ✅ DONE |
+| Implement `BulkOperationsQueueService` | P0 | ✅ DONE |
+| Implement `FeedbackQueueService` | P0 | ✅ DONE |
+| Register services in `EmailSyncModule` | P0 | ✅ DONE |
+| Register `FeedbackQueueService` in `AiModule` | P0 | ✅ DONE |
+| Integrate sync-back queue with `ActionExecutorService` | P1 | 🔴 TODO |
+| Add DLQ integration for email-send | P1 | 🔴 TODO |
+| Write tests for queue services | P1 | 🔴 TODO |
+
+**Files Created:**
+- `backend/src/modules/email-sync/services/email-send-queue.service.ts`
+- `backend/src/modules/email-sync/services/provider-sync-back-queue.service.ts`
+- `backend/src/modules/email-sync/services/bulk-operations-queue.service.ts`
+- `backend/src/modules/ai/services/feedback-queue.service.ts`
 
 #### Phase 3: Secondary Queues (Week 3)
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Implement `BulkOperationsQueueService` | P1 | 🔴 TODO |
 | Implement `DraftOperationsQueueService` | P1 | 🔴 TODO |
 | Refactor `emails.controller.ts` to use bulk queue | P1 | 🔴 TODO |
 | Add progress tracking for bulk operations | P2 | 🔴 TODO |
+| Create workers for new queue services | P1 | 🔴 TODO |
 
 #### Phase 4: Tertiary Queues (Week 4)
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Implement `FeedbackQueueService` | P2 | 🔴 TODO |
 | Implement `WebhookQueueService` | P2 | 🔴 TODO |
 | Implement `CalendarSyncQueueService` | P2 | 🔴 TODO |
-| Migrate `FeedbackService` to use queue | P2 | 🔴 TODO |
+| Migrate `FeedbackService` to use `FeedbackQueueService` | P2 | 🔴 TODO |
 
 #### Phase 5: Observability (Week 5)
 

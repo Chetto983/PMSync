@@ -9,14 +9,14 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from '../app.module';
 import { MistralService } from '../modules/ai/services/mistral.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { getRedisConnectionOptions } from '../config/configuration';
+import { getRedisConnectionOptions, QUEUE_NAMES } from '../common/config';
 
 // Use centralized Redis configuration
 const connection = getRedisConnectionOptions();
 
 const queueOptions = { connection };
 
-const aiQueue = new Queue('ai-processing', queueOptions);
+const aiQueue = new Queue(QUEUE_NAMES.AI_PROCESSING, queueOptions);
 
 /**
  * Start and run the AI processing worker that consumes jobs from the "ai-processing" queue.
@@ -39,7 +39,7 @@ async function bootstrap() {
   const mistralService = appContext.get(MistralService);
 
   const aiWorker = new Worker(
-    'ai-processing',
+    QUEUE_NAMES.AI_PROCESSING,
     async (job) => {
       const { tenantId, userId, prompt, conversationHistory = [], conversationId } = job.data;
 
