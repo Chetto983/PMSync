@@ -1,13 +1,49 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
-import { Contact } from '@prisma/client';
+import { Contact, Prisma } from '@prisma/client';
 import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import * as vCard from 'vcf';
+
+// Type-safe interfaces for JSON fields
+export interface EmailAddress {
+  value: string;
+  type?: string;
+  primary?: boolean;
+}
+
+export interface PhoneNumber {
+  value: string;
+  type?: string;
+  primary?: boolean;
+}
+
+export interface Address {
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  type?: string;
+}
+
+export interface SocialProfile {
+  url: string;
+  type?: string;
+}
+
+export interface ContactMetadata {
+  source?: string;
+  extractedAt?: string;
+  createdAt?: string;
+  importedAt?: string;
+  [key: string]: unknown;
+}
 
 // Unified contact with provider sources
 export interface ContactWithProviders extends Contact {
@@ -59,6 +95,7 @@ export interface ListContactsFilters {
 @Injectable()
 export class ContactsService {
   private readonly logger = new Logger(ContactsService.name);
+  private readonly maxContactsLimit: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -68,7 +105,10 @@ export class ContactsService {
     private readonly googleContactsSync: GoogleContactsSyncService,
     private readonly microsoftContactsSync: MicrosoftContactsSyncService,
     private readonly realtimeEvents: RealtimeEventsService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.maxContactsLimit = this.configService.get<number>('CONTACTS_LIST_MAX_LIMIT', 500);
+  }
 
   /**
    * List unified contacts for a tenant
@@ -78,11 +118,13 @@ export class ContactsService {
     tenantId: string,
     filters: ListContactsFilters = {},
   ): Promise<{ contacts: ContactWithProviders[]; total: number }> {
-    // Allow larger batches for faster bulk loading (max 500)
-    const limit = filters.limit && filters.limit > 0 && filters.limit <= 500 ? filters.limit : 100;
+    // Allow larger batches for faster bulk loading (max from config)
+    const limit = filters.limit && filters.limit > 0 && filters.limit <= this.maxContactsLimit
+      ? filters.limit
+      : 100;
     const offset = filters.offset && filters.offset >= 0 ? filters.offset : 0;
 
-    const where: any = {
+    const where: Prisma.ContactWhereInput = {
       tenantId,
       isDeleted: false,
     };
@@ -293,8 +335,8 @@ export class ContactsService {
         firstName: data.firstName,
         lastName: data.lastName,
         displayName: data.displayName,
-        emails: data.emails as any,
-        phoneNumbers: data.phoneNumbers as any,
+        emails: data.emails ? (data.emails as unknown as Prisma.InputJsonValue) : undefined,
+        phoneNumbers: data.phoneNumbers ? (data.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
         company: data.company,
         jobTitle: data.jobTitle,
         notes: data.notes,
@@ -308,12 +350,12 @@ export class ContactsService {
         tenantId,
         providerId: provider.id,
         externalId: externalContact.id,
-        rawData: externalContact,
+        rawData: externalContact as Prisma.InputJsonValue,
         firstName: data.firstName,
         lastName: data.lastName,
         displayName: data.displayName,
-        emails: data.emails as any,
-        phoneNumbers: data.phoneNumbers as any,
+        emails: data.emails ? (data.emails as unknown as Prisma.InputJsonValue) : undefined,
+        phoneNumbers: data.phoneNumbers ? (data.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
         company: data.company,
         jobTitle: data.jobTitle,
         notes: data.notes,
@@ -380,9 +422,15 @@ export class ContactsService {
     const updated = await this.prisma.contact.update({
       where: { id: contactId },
       data: {
-        ...data,
-        emails: data.emails as any,
-        phoneNumbers: data.phoneNumbers as any,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        displayName: data.displayName,
+        company: data.company,
+        jobTitle: data.jobTitle,
+        notes: data.notes,
+        tags: data.tags,
+        emails: data.emails ? (data.emails as unknown as Prisma.InputJsonValue) : undefined,
+        phoneNumbers: data.phoneNumbers ? (data.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
         updatedAt: new Date(),
       },
       include: {
@@ -478,8 +526,10 @@ export class ContactsService {
   /**
    * Sync contacts from a provider
    * Delegates to provider-specific sync services
+   * @param tenantId - Tenant ID for authorization (optional for backward compatibility)
+   * @param providerId - Provider ID to sync contacts from
    */
-  async syncContacts(providerId: string): Promise<number> {
+  async syncContacts(providerId: string, tenantId?: string): Promise<number> {
     this.logger.log(`Syncing contacts for provider ${providerId}`);
 
     const provider = await this.prisma.providerConfig.findUnique({
@@ -488,6 +538,11 @@ export class ContactsService {
 
     if (!provider || !provider.supportsContacts) {
       throw new BadRequestException('Provider not found or does not support contacts');
+    }
+
+    // Tenant verification (defense in depth)
+    if (tenantId && provider.tenantId !== tenantId) {
+      throw new BadRequestException('Provider does not belong to this tenant');
     }
 
     let syncedCount = 0;
@@ -499,6 +554,10 @@ export class ContactsService {
     }
 
     this.logger.log(`Synced ${syncedCount} contacts for provider ${providerId}`);
+
+    // Emit updated counts after sync
+    void this.updateContactCounts(provider.tenantId);
+
     return syncedCount;
   }
 
@@ -545,23 +604,23 @@ export class ContactsService {
         nickname: contactData.nickname,
         prefix: contactData.prefix,
         suffix: contactData.suffix,
-        emails: contactData.emails as any,
-        phoneNumbers: contactData.phoneNumbers as any,
-        addresses: contactData.addresses as any,
+        emails: contactData.emails ? (contactData.emails as unknown as Prisma.InputJsonValue) : undefined,
+        phoneNumbers: contactData.phoneNumbers ? (contactData.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
+        addresses: contactData.addresses ? (contactData.addresses as unknown as Prisma.InputJsonValue) : undefined,
         company: contactData.company,
         jobTitle: contactData.jobTitle,
         department: contactData.department,
         birthday: contactData.birthday,
         anniversary: contactData.anniversary,
-        websites: contactData.websites as any,
-        socialProfiles: contactData.socialProfiles as any,
+        websites: contactData.websites ? (contactData.websites as unknown as Prisma.InputJsonValue) : undefined,
+        socialProfiles: contactData.socialProfiles ? (contactData.socialProfiles as unknown as Prisma.InputJsonValue) : undefined,
         notes: contactData.notes,
         photoUrl: contactData.photoUrl,
         photoEtag: contactData.photoEtag,
         isDeleted: contactData.isDeleted ?? false,
         isStarred: contactData.isStarred ?? false,
         isFavorite: contactData.isFavorite ?? false,
-        metadata: contactData.metadata as any,
+        metadata: contactData.metadata ? (contactData.metadata as unknown as Prisma.InputJsonValue) : undefined,
       },
     });
   }
@@ -652,7 +711,7 @@ export class ContactsService {
     const existingEmails = new Set<string>();
     for (const contact of existingContacts) {
       if (contact.emails && Array.isArray(contact.emails)) {
-        for (const emailObj of contact.emails as any[]) {
+        for (const emailObj of contact.emails as unknown as EmailAddress[]) {
           if (emailObj?.value) {
             existingEmails.add(emailObj.value.toLowerCase());
           }
@@ -738,12 +797,12 @@ export class ContactsService {
         firstName: data.firstName,
         lastName: data.lastName,
         displayName: data.displayName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || undefined,
-        emails: data.emails as any,
-        phoneNumbers: data.phoneNumbers as any,
+        emails: data.emails ? (data.emails as unknown as Prisma.InputJsonValue) : undefined,
+        phoneNumbers: data.phoneNumbers ? (data.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
         company: data.company,
         jobTitle: data.jobTitle,
         notes: data.notes,
-        metadata: { source: 'local', createdAt: new Date().toISOString() },
+        metadata: { source: 'local', createdAt: new Date().toISOString() } as Prisma.InputJsonValue,
       },
     });
 
@@ -784,7 +843,7 @@ export class ContactsService {
       const existingEmails = new Set<string>();
       for (const contact of existingContacts) {
         if (contact.emails && Array.isArray(contact.emails)) {
-          for (const emailObj of contact.emails as any[]) {
+          for (const emailObj of contact.emails as unknown as EmailAddress[]) {
             if (emailObj?.value) {
               existingEmails.add(emailObj.value.toLowerCase());
             }
@@ -943,13 +1002,13 @@ export class ContactsService {
               firstName,
               lastName,
               displayName: displayName || `${firstName || ''} ${lastName || ''}`.trim() || emails[0].value,
-              emails: emails as any,
-              phoneNumbers: phoneNumbers.length > 0 ? phoneNumbers as any : undefined,
+              emails: emails as unknown as Prisma.InputJsonValue,
+              phoneNumbers: phoneNumbers.length > 0 ? (phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
               company,
               jobTitle,
               notes,
               birthday,
-              metadata: { source: 'vcard_import', importedAt: new Date().toISOString() },
+              metadata: { source: 'vcard_import', importedAt: new Date().toISOString() } as Prisma.InputJsonValue,
             },
           });
 

@@ -393,8 +393,9 @@ export class GoogleContactsSyncService {
       // Map contacts by email for O(1) lookup
       const resultMap = new Map<string, Contact>();
       for (const contact of contacts) {
-        if (contact.emails) {
-          const contactEmails = JSON.parse(JSON.stringify(contact.emails)) as any[];
+        if (contact.emails && Array.isArray(contact.emails)) {
+          // Direct type assertion - no CPU-intensive JSON.parse(JSON.stringify) needed
+          const contactEmails = contact.emails as Array<{ value?: string }>;
           for (const e of contactEmails) {
             if (e.value) {
               resultMap.set(e.value.toLowerCase(), contact);

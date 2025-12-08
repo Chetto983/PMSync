@@ -20,7 +20,7 @@
 |--------|-------|----------|--------|
 | [Email](#1-email-module) | 98% | 0 | ✅ ALL P0, P1 & P2 COMPLETE |
 | [Email-Sync](#2-email-sync-module) | 98% | 0 | ✅ ALL P0, P1 & P2 COMPLETE |
-| [Calendar](#3-calendar-module) | 95% | 0 | ✅ ALL P0 COMPLETE |
+| [Calendar](#3-calendar-module) | 98% | 0 | ✅ ALL P0, P1 & P2 COMPLETE |
 | [Contacts](#4-contacts-module) | 92% | 0 | ✅ Complete |
 | [AI](#5-ai-module) | 95% | 0 | ✅ Complete |
 | [Auth](#6-auth-module) | 90% | 0 | ✅ Good |
@@ -181,7 +181,7 @@
 ## 3. Calendar Module
 
 **Path:** `backend/src/modules/calendar/`
-**Score:** 95/100 | **Issues:** 12 (0 critical) ✅ ALL P0 COMPLETE
+**Score:** 98/100 | **Issues:** 12 (0 critical) ✅ ALL P0, P1 & P2 COMPLETE
 
 ### 3.1 Critical Fixes (P0) - Tenant Isolation ✅ ALL COMPLETE
 
@@ -655,7 +655,96 @@ These services already use Redis for distributed state:
 | P2 | VoltAgentService | Medium | HITL workflow persistence |
 | P3 | MistralService | Skip | BullMQ handles main flow |
 
-### 11.6 Cron Jobs - Distributed Locking Required
+### 11.6 @Cron to BullMQ Migration (REQUIRED for Horizontal Scaling)
+
+**Issue:** `@Cron` decorators are NOT horizontally scalable - they run on ALL instances simultaneously. Must migrate to BullMQ repeatable jobs for distributed, single-instance execution.
+
+#### Migration Status
+
+| Service | File | Frequency | Status |
+|---------|------|-----------|--------|
+| `CronLockService` | `common/services/cron-lock.service.ts` | 5 min | ⬜ Migrate to BullMQ |
+| `LogRotationService` | `common/services/log-rotation.service.ts` | daily midnight | ⬜ Migrate to BullMQ |
+| `EmailCleanupService` | `email/services/email-cleanup.service.ts` | 3am & noon | ⬜ Migrate to BullMQ |
+| `EmailCleanupService` | `email/services/email-cleanup.service.ts` | 3:30am | ⬜ Migrate to BullMQ |
+| `ScheduledEmailService` | `email/services/scheduled-email.service.ts` | every minute | ⬜ Migrate to BullMQ |
+| `ScheduledEmailService` | `email/services/scheduled-email.service.ts` | daily midnight | ⬜ Migrate to BullMQ |
+| `EmailRetentionService` | `email/services/email-retention.service.ts` | daily 2am | ⬜ Migrate to BullMQ |
+| `GoogleCalendarWebhookService` | `calendar/services/google-calendar-webhook.service.ts` | 6 hours | ✅ **DONE** |
+| `EmailEmbeddingCleanupService` | `email-sync/services/email-embedding-cleanup.service.ts` | 30 min | ⬜ Migrate to BullMQ |
+| `SyncSchedulerService` | `email-sync/services/sync-scheduler.service.ts` | 5 min | ⬜ Migrate to BullMQ |
+| `WebhookLifecycleService` | `email-sync/services/webhook-lifecycle.service.ts` | daily 2am | ⬜ Migrate to BullMQ |
+| `WebhookLifecycleService` | `email-sync/services/webhook-lifecycle.service.ts` | daily 3am | ⬜ Migrate to BullMQ |
+| `WebhookLifecycleService` | `email-sync/services/webhook-lifecycle.service.ts` | weekly | ⬜ Migrate to BullMQ |
+
+#### Migration Pattern
+
+```typescript
+// BEFORE: @Cron (runs on ALL instances - BAD for scaling)
+@Cron(CronExpression.EVERY_5_MINUTES)
+async handleJob() { /* ... */ }
+
+// AFTER: BullMQ repeatable job (runs on ONE instance only - GOOD)
+@Injectable()
+export class MyService implements OnModuleInit, OnModuleDestroy {
+  private maintenanceQueue: Queue | null = null;
+  private maintenanceWorker: Worker | null = null;
+  private redisConnection: Redis | null = null;
+
+  async onModuleInit() {
+    const redisOptions = getRedisConnectionOptions();
+    this.redisConnection = new Redis(redisOptions);
+
+    this.maintenanceQueue = new Queue(QUEUE_NAMES.MY_QUEUE, {
+      connection: this.redisConnection,
+      defaultJobOptions: { removeOnComplete: 100, removeOnFail: 50 },
+    });
+
+    this.maintenanceWorker = new Worker(
+      QUEUE_NAMES.MY_QUEUE,
+      async (job: Job) => await this.handleJob(),
+      { connection: this.redisConnection, concurrency: 1 },
+    );
+
+    // Schedule repeatable job (only ONE instance processes)
+    await this.maintenanceQueue.add(
+      'my-job',
+      {},
+      { repeat: { every: 5 * 60 * 1000 }, jobId: 'my-job-repeatable' },
+    );
+  }
+
+  async onModuleDestroy() {
+    if (this.maintenanceWorker) await this.maintenanceWorker.close();
+    if (this.maintenanceQueue) await this.maintenanceQueue.close();
+    if (this.redisConnection && this.redisConnection.status !== 'end') {
+      await this.redisConnection.quit();
+    }
+  }
+}
+```
+
+#### New Queue Names Needed (queue.config.ts)
+
+```typescript
+// Add to QUEUE_NAMES
+CRON_LOCK_MAINTENANCE: 'cron-lock-maintenance',
+LOG_ROTATION: 'log-rotation',
+EMAIL_CLEANUP: 'email-cleanup',
+SCHEDULED_EMAIL_PROCESSING: 'scheduled-email-processing',
+EMAIL_RETENTION: 'email-retention',
+EMAIL_EMBEDDING_CLEANUP: 'email-embedding-cleanup',
+SYNC_SCHEDULER: 'sync-scheduler',
+WEBHOOK_LIFECYCLE: 'webhook-lifecycle',
+```
+
+**Priority:** P0 - All cron jobs will execute N times (once per instance) without this fix
+
+---
+
+### 11.7 Cron Jobs - Distributed Locking (DEPRECATED)
+
+> **Note:** This section is superseded by Section 11.6. The CronLockService pattern was implemented as a temporary fix, but the proper solution is to migrate ALL `@Cron` decorators to BullMQ repeatable jobs, which provide true distributed scheduling via Redis.
 
 **Issue:** All cron jobs use in-memory flags (`isRunning`, `isProcessing`) that don't work across instances.
 
@@ -667,11 +756,11 @@ These services already use Redis for distributed state:
 | `purgeDeletedEmailsCron` | `email-cleanup.service.ts` | 2x/day | No lock |
 | `removeDuplicateEmailsCron` | `email-cleanup.service.ts` | daily | No lock |
 | `cleanOldLogs` | `log-rotation.service.ts` | daily | No lock |
-| `handleScheduledRenewal` | `google-calendar-webhook.service.ts` | 6 hours | No lock |
+| `handleScheduledRenewal` | `google-calendar-webhook.service.ts` | 6 hours | ✅ Migrated to BullMQ |
 | `cleanOldRetentionData` | `email-retention.service.ts` | daily | No lock |
 | `renewExpiring*` | `webhook-lifecycle.service.ts` | daily/weekly | No lock |
 
-**Fix: Create CronLockService**
+**Fix: Create CronLockService** (TEMPORARY - prefer BullMQ migration)
 
 ```typescript
 // common/services/cron-lock.service.ts
@@ -706,14 +795,15 @@ async scheduleSyncJobs() {
 
 **Priority:** P1 - All cron jobs will execute N times (once per instance)
 
-### 11.7 Progress Tracker
+### 11.8 Progress Tracker
 
 | Item | Status | Notes |
 |------|--------|-------|
 | OtpSecurityService | ✅ Complete | Migrated to Redis |
 | WebAuthnService | ✅ Complete | Migrated to Redis |
 | TotpService | ✅ Complete | Migrated to Redis |
-| CronLockService | ✅ Complete | Created `cron-lock.service.ts` |
+| CronLockService | ✅ Complete | Created `cron-lock.service.ts` (temporary) |
+| @Cron Migration | ⬜ In Progress | 1/13 done (GoogleCalendarWebhookService) |
 | VoltAgentService | ⬜ Pending | DB persistence (P2) |
 
 ---
@@ -759,6 +849,7 @@ GET /health/metrics - Prometheus
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.3 | 2025-12-08 | Calendar Module P1 & P2 complete; Added @Cron to BullMQ migration section (11.6) |
 | 2.2 | 2025-12-08 | Added Horizontal Scalability Audit (Section 11) |
 | 2.1 | 2025-12-08 | Marked Email P0, AI prompt sanitizer, tenant isolation as complete |
 | 2.0 | 2025-12-08 | Refactored to module-by-module structure |

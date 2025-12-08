@@ -724,3 +724,4 @@ backend/scripts/fix-ms-webhook.ts
 backend/scripts/mail-audit.ts
 backend/scripts/test-email-operations.ts
 backend/scripts/fix-ms-webhook.ts
+frontend/next-env.d.ts
