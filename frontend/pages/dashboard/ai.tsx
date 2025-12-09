@@ -687,6 +687,24 @@ function AiAssistantView() {
     }
   }, [showHistory, actionHistory.length, loadActionHistory]);
 
+  // WebSocket reconnection handling
+  useEffect(() => {
+    const unsubReconnect = websocketClient.onReconnect(() => {
+      setNotification({
+        open: true,
+        message: t.ai?.reconnected ?? 'Reconnected to server',
+        severity: 'success',
+      });
+      // Refresh data after reconnection
+      loadPendingActions();
+      loadLearningStats();
+    });
+
+    return () => {
+      unsubReconnect();
+    };
+  }, [loadPendingActions, loadLearningStats, t.ai?.reconnected]);
+
   // WebSocket event handlers
   useEffect(() => {
     if (!token || !websocketClient.isConnected()) return;
@@ -745,6 +763,35 @@ function AiAssistantView() {
     };
   }, [token, loadPendingActions]);
 
+  // Retry logic with exponential backoff for rate-limited requests
+  const retryWithBackoff = async <T,>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000,
+  ): Promise<T> => {
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        lastError = error;
+        // Only retry on 429 (rate limit) errors
+        if (error?.response?.status === 429 && attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff: 1s, 2s, 4s
+          setNotification({
+            open: true,
+            message: t.ai?.rateLimitRetrying ?? `Rate limit reached. Retrying in ${delay / 1000}s...`,
+            severity: 'warning',
+          });
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw lastError;
+  };
+
   const handleSendPrompt = async (customPrompt?: string) => {
     const messageText = customPrompt || prompt.trim();
     if (!messageText || sending) return;
@@ -764,11 +811,12 @@ function AiAssistantView() {
     setSending(true);
 
     try {
-      const response = await multiAgentApi.processMessage({
+      // Use retry logic with exponential backoff for 429 errors
+      const response = await retryWithBackoff(() => multiAgentApi.processMessage({
         message: userMessage.content,
         sessionId: sessionIdRef.current, // Use ref to avoid race condition
         locale: currentLocale,
-      });
+      }));
 
       // processMessage now returns MultiAgentResponse directly
       const data = response;

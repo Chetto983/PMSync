@@ -178,7 +178,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
         {isLoading && <CircularProgress size={16} sx={{ color: isDark ? '#55cae5' : '#7650ce' }} />}
 
         {onDismiss && (
-          <Tooltip title="Dismiss">
+          <Tooltip title={(t as any)?.ai?.dismiss ?? 'Dismiss'}>
             <IconButton
               size="small"
               onClick={(e) => {
@@ -208,7 +208,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
               </Typography>
               <Chip
                 icon={<RefreshCw size={14} />}
-                label="Retry"
+                label={(t as any)?.common?.retry ?? 'Retry'}
                 onClick={handleRegenerate}
                 size="small"
                 variant="outlined"
@@ -221,7 +221,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
             <Box sx={{ textAlign: 'center', py: 3 }}>
               <CircularProgress size={24} sx={{ color: isDark ? '#55cae5' : '#7650ce' }} />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Generating suggestions...
+                {(t as any)?.ai?.generatingSuggestions ?? 'Generating suggestions...'}
               </Typography>
             </Box>
           )}

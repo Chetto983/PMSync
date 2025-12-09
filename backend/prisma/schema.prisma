@@ -803,6 +803,7 @@ model AgentPendingAction {
   severity           String  @default("MEDIUM") // LOW, MEDIUM, HIGH
   status             String  @default("PENDING") // PENDING, APPROVED, EXECUTED, REJECTED, EXPIRED
   reasoningSteps     String? // LLM reasoning explanation
+  actionHash         String? // Idempotency key: hash(tenantId+sessionId+actionType+payload)
 
   // Timestamps
   createdAt       DateTime  @default(now())
@@ -819,6 +820,7 @@ model AgentPendingAction {
   feedback AgentActionFeedback[]
   user     User                  @relation("AgentPendingActionsToUser", fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, actionHash]) // Idempotency: prevent duplicate actions
   @@index([tenantId, status])
   @@index([tenantId, userId, status])
   @@index([sessionId])

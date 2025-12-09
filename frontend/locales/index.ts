@@ -471,6 +471,15 @@ export interface AppTranslations {
         selectedCount: string;
         move: string;
         emailSent: string;
+        // Importance messages
+        markedImportant?: string;
+        markedImportantFailed?: string;
+        unmarkedImportant?: string;
+        unmarkedImportantFailed?: string;
+        failedToOpenEmail?: string;
+        syncTriggered?: string;
+        syncFailed?: string;
+        trySyncOrFilter?: string;
       };
       composer: {
         title: string;
@@ -1275,6 +1284,12 @@ export interface AppTranslations {
         primary: string;
         custom: string;
         main: string;
+        // ContactDetail field types
+        at?: string;
+        emailType?: string;
+        phoneType?: string;
+        addressType?: string;
+        websiteType?: string;
       };
       tabs: {
         details: string;
@@ -1413,6 +1428,15 @@ export interface AppTranslations {
     reject: string;
     confidence: string;
     tips: string;
+    // P3: Rate limiting and reconnection
+    rateLimitRetrying?: string;
+    reconnected?: string;
+    // P3: Additional UI localization
+    highSeverityRequiresReview?: string;
+    noPendingActionsMessage?: string;
+    generatingSuggestions?: string;
+    generateSummary?: string;
+    dismiss?: string;
     // Streaming chat (2025 best practices)
     chat?: {
       stop: string;

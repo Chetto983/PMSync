@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { AgentAction, ActionSeverity } from '../interfaces/agent-action.interface';
@@ -70,8 +71,25 @@ export class HitlService {
   ) {}
 
   /**
+   * Compute idempotency hash for an action.
+   * Hash = SHA256(tenantId + sessionId + actionType + sortedPayloadJSON)
+   */
+  private computeActionHash(
+    tenantId: string,
+    sessionId: string | undefined,
+    actionType: string,
+    payload: Record<string, unknown>,
+  ): string {
+    // Sort payload keys for consistent hashing
+    const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
+    const data = `${tenantId}:${sessionId || ''}:${actionType}:${sortedPayload}`;
+    return createHash('sha256').update(data).digest('hex').substring(0, 32);
+  }
+
+  /**
    * Create a new pending action for approval.
    * Always scoped by tenantId for isolation.
+   * Uses idempotency hash to prevent duplicate actions.
    */
   async createPendingAction(
     options: CreatePendingActionOptions,
@@ -89,6 +107,32 @@ export class HitlService {
       `Creating pending action for tenant ${tenantId}, agent ${agentName}, type ${action.type}`,
     );
 
+    // Compute idempotency hash
+    const actionHash = this.computeActionHash(
+      tenantId,
+      sessionId,
+      action.type,
+      action.payload as Record<string, unknown>,
+    );
+
+    // Check for existing action with same hash (idempotency)
+    const existing = await this.prisma.agentPendingAction.findFirst({
+      where: {
+        tenantId,
+        actionHash,
+        status: {
+          in: [PendingActionStatus.PENDING, PendingActionStatus.APPROVED],
+        },
+      },
+    });
+
+    if (existing) {
+      this.logger.debug(
+        `Duplicate action detected (hash: ${actionHash}), returning existing action ${existing.id}`,
+      );
+      return existing.id;
+    }
+
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
     const pendingAction = await this.prisma.agentPendingAction.create({
@@ -105,6 +149,7 @@ export class HitlService {
         reasoningSteps: action.reasoningSteps,
         status: PendingActionStatus.PENDING,
         expiresAt,
+        actionHash,
       },
     });
 

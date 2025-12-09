@@ -256,7 +256,7 @@ export function PendingActionsPanel({
                         sx={{ fontWeight: 500, fontSize: '0.7rem' }}
                       />
                       {action.severity === 'HIGH' && (
-                        <Tooltip title="High severity - requires review">
+                        <Tooltip title={t.ai?.highSeverityRequiresReview ?? 'High severity - requires review'}>
                           <AlertTriangle size={14} color={theme.palette.error.main} />
                         </Tooltip>
                       )}

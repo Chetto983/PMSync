@@ -58,7 +58,8 @@
       "Bash(cd:*)",
       "Bash(Select-Object -First 50)",
       "Bash(npm test:*)",
-      "Bash(Select-Object -First 60)"
+      "Bash(Select-Object -First 60)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

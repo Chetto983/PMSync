@@ -539,6 +539,15 @@ export const en: AppTranslations = {
         selectedCount: '{count} selected',
         move: 'Move',
         emailSent: 'Email sent successfully ✓',
+        // Importance messages
+        markedImportant: 'Marked {count} email(s) as important',
+        markedImportantFailed: 'Failed to mark as important. Please try again.',
+        unmarkedImportant: 'Unmarked {count} email(s) as important',
+        unmarkedImportantFailed: 'Failed to unmark as important. Please try again.',
+        failedToOpenEmail: 'Failed to open email',
+        syncTriggered: 'Sync triggered for all providers',
+        syncFailed: 'Sync failed',
+        trySyncOrFilter: 'Try syncing now or adjust filters.',
       },
       composer: {
         title: 'New Message',
@@ -997,6 +1006,12 @@ export const en: AppTranslations = {
         primary: 'Primary',
         custom: 'Custom',
         main: 'Main',
+        // ContactDetail field types
+        at: 'at',
+        emailType: 'Email',
+        phoneType: 'Phone',
+        addressType: 'Address',
+        websiteType: 'Website',
       },
       tabs: {
         details: 'Details',
@@ -1485,6 +1500,9 @@ export const en: AppTranslations = {
     reject: 'Reject',
     confidence: 'confidence',
     tips: 'High severity actions require approval. Low severity actions may auto-execute based on confidence.',
+    // P3: Rate limiting and reconnection
+    rateLimitRetrying: 'Rate limit reached. Retrying...',
+    reconnected: 'Reconnected to server',
     // Streaming chat (2025 best practices)
     chat: {
       stop: 'Stop',
@@ -1518,6 +1536,12 @@ export const en: AppTranslations = {
       actions: 'actions',
       more: 'more',
     },
+    // P3: Additional UI localization
+    highSeverityRequiresReview: 'High severity - requires review',
+    noPendingActionsMessage: 'No pending actions',
+    generatingSuggestions: 'Generating suggestions...',
+    generateSummary: 'Generate Summary',
+    dismiss: 'Dismiss',
     activity: {
       title: 'Agent Activity',
       totalActions: 'total actions',

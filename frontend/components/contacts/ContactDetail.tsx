@@ -137,11 +137,11 @@ interface ContactDetailProps {
 /**
  * Get display name from contact
  */
-function getContactName(contact: Contact): string {
+function getContactName(contact: Contact, fallback: string = 'Unnamed contact'): string {
   if (contact.displayName) return contact.displayName;
   const parts = [contact.firstName, contact.lastName].filter(Boolean);
   if (parts.length) return parts.join(' ');
-  return contact.emails?.[0]?.value || 'Unnamed contact';
+  return contact.emails?.[0]?.value || fallback;
 }
 
 /**
@@ -155,8 +155,8 @@ function getPrimaryEmail(contact: Contact): string | null {
 /**
  * Format date for display
  */
-function formatDate(date?: Date | string | null): string {
-  if (!date) return 'Never';
+function formatDate(date?: Date | string | null, fallback: string = 'Never'): string {
+  if (!date) return fallback;
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleDateString(undefined, {
     year: 'numeric',
@@ -184,9 +184,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
 }) => {
   const t = useTranslations();
   const contactsCopy = t.dashboard?.contacts || {};
+  const detailsCopy = contactsCopy.details || {};
   const [tabValue, setTabValue] = useState(0);
 
-  const contactName = useMemo(() => getContactName(contact), [contact]);
+  const contactName = useMemo(() => getContactName(contact, t.common?.unnamedContact ?? 'Unnamed contact'), [contact, t.common?.unnamedContact]);
   const primaryEmail = useMemo(() => getPrimaryEmail(contact), [contact]);
   const lastInteraction = contact.updatedAt || contact.createdAt;
 
@@ -226,7 +227,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
             {(contact.jobTitle || contact.company) && (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                 {contact.jobTitle}
-                {contact.company && ` at ${contact.company}`}
+                {contact.company && ` ${detailsCopy.at ?? 'at'} ${contact.company}`}
               </Typography>
             )}
           </Box>

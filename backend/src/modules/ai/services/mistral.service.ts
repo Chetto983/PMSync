@@ -203,8 +203,10 @@ export class MistralService {
     userPrompt: string;
     temperature?: number;
     maxTokens?: number;
+    /** Timeout in milliseconds (default: 30000) */
+    timeoutMs?: number;
   }): Promise<string> {
-    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512 } = options;
+    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000 } = options;
 
     // Check circuit breaker before making request
     if (!this.checkCircuitBreaker()) {
@@ -221,12 +223,19 @@ export class MistralService {
 
       messages.push({ role: 'user', content: userPrompt });
 
-      const completion = await client.chat.complete({
+      // Wrap API call with timeout
+      const completionPromise = client.chat.complete({
         model: this.getModel(),
         messages,
         temperature,
         maxTokens,
       });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`LLM request timed out after ${timeoutMs}ms`)), timeoutMs);
+      });
+
+      const completion = await Promise.race([completionPromise, timeoutPromise]);
 
       const text = this.extractAssistantContent(completion.choices?.[0]?.message).trim();
 
@@ -495,19 +504,25 @@ export class MistralService {
   }
 
   /**
-   * Call Mistral API with RAG context
+   * Call Mistral API with RAG context and timeout protection
    */
   async generateResponse(
     tenantId: string,
     userId: string,
     userPrompt: string,
     conversationHistory: any[] = [],
-    options?: { conversationId?: string; locale?: string },
+    options?: { conversationId?: string; locale?: string; timeoutMs?: number },
   ): Promise<string> {
     const apiKey = this.getApiKey();
     const model = this.getModel();
     const supportedLocale = getLocale(options?.locale);
     const t = getTranslations(supportedLocale);
+    const timeoutMs = options?.timeoutMs ?? 60000; // Default 60s for RAG responses
+
+    // Check circuit breaker
+    if (!this.checkCircuitBreaker()) {
+      return t.mistral.errors.unavailable;
+    }
 
     if (!apiKey) {
       const fallbackResponse = t.mistral.errors.notConfigured;
@@ -562,18 +577,25 @@ export class MistralService {
         } as MistralChatMessage,
       ];
 
-      // Call Mistral API
-      const completion = await mistralClient.chat.complete({
+      // Call Mistral API with timeout protection
+      const completionPromise = mistralClient.chat.complete({
         model,
         messages,
         temperature: 0.7,
         maxTokens: 1024,
       });
 
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`LLM request timed out after ${timeoutMs}ms`)), timeoutMs);
+      });
+
+      const completion = await Promise.race([completionPromise, timeoutPromise]);
+
       const assistantMessage = completion.choices?.[0]?.message;
       const assistantResponse =
         this.extractAssistantContent(assistantMessage) || t.mistral.errors.tryAgain;
 
+      this.recordSuccess();
       this.logger.log(`Generated response for user: ${userId}`);
       return assistantResponse;
     } catch (error) {
@@ -581,9 +603,13 @@ export class MistralService {
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Failed to generate response: ${errorMessage}`, errorStack);
 
+      this.recordFailure();
+
       let fallbackResponse = t.mistral.errors.unavailable;
 
-      if (error && typeof error === 'object' && 'statusCode' in error) {
+      if (errorMessage.includes('timed out')) {
+        fallbackResponse = t.mistral.errors.serverError; // Timeout treated as server error
+      } else if (error && typeof error === 'object' && 'statusCode' in error) {
         const statusCode = (error as { statusCode?: unknown }).statusCode;
         if (typeof statusCode === 'number') {
           this.logger.error(`Mistral API returned status ${statusCode}`);

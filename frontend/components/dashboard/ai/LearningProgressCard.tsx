@@ -229,7 +229,7 @@ export function LearningProgressCard({
                   {summary.overallApprovalRate.toFixed(0)}%
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Approval Rate
+                  {t.ai?.learning?.approvalRate ?? 'Approval Rate'}
                 </Typography>
               </Box>
 
@@ -245,7 +245,7 @@ export function LearningProgressCard({
                   {summary.overallSuccessRate.toFixed(0)}%
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Success Rate
+                  {t.ai?.learning?.successRate ?? 'Success Rate'}
                 </Typography>
               </Box>
 
@@ -262,7 +262,7 @@ export function LearningProgressCard({
                   {summary.totalAttempts}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Total Actions
+                  {t.ai?.learning?.totalActions ?? 'Total Actions'}
                 </Typography>
               </Box>
             </Box>
@@ -273,7 +273,7 @@ export function LearningProgressCard({
             <Box sx={{ textAlign: 'center', py: 3 }}>
               <Brain size={40} style={{ opacity: 0.3, marginBottom: 12 }} />
               <Typography variant="body2" color="text.secondary">
-                No learning data yet. Use the AI assistant to start training.
+                {t.ai?.learning?.noData ?? 'No learning data yet. Use the AI assistant to start training.'}
               </Typography>
             </Box>
           ) : (
@@ -335,7 +335,7 @@ export function LearningProgressCard({
                         }}
                       />
                       <Typography variant="caption" color="text.secondary" sx={{ minWidth: 50, textAlign: 'right' }}>
-                        {stats.total} actions
+                        {stats.total} {t.ai?.learning?.actions ?? 'actions'}
                       </Typography>
                     </Box>
 
@@ -357,7 +357,7 @@ export function LearningProgressCard({
                       {agentData.length > 3 && (
                         <Chip
                           size="small"
-                          label={`+${agentData.length - 3} more`}
+                          label={`+${agentData.length - 3} ${t.ai?.learning?.more ?? 'more'}`}
                           sx={{
                             height: 18,
                             fontSize: '0.6rem',

@@ -284,7 +284,7 @@ export const EmailSummaryPanel: React.FC<EmailSummaryPanelProps> = ({
               </Typography>
               <Chip
                 icon={<RefreshCw size={14} />}
-                label="Retry"
+                label={(t as any)?.common?.retry ?? 'Retry'}
                 onClick={handleRegenerate}
                 size="small"
                 variant="outlined"
@@ -468,7 +468,7 @@ export const EmailSummaryPanel: React.FC<EmailSummaryPanelProps> = ({
                   },
                 }}
               >
-                Generate Summary
+                {(t as any)?.ai?.generateSummary ?? 'Generate Summary'}
               </Button>
             </Box>
           )}

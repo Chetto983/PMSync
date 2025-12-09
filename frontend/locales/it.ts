@@ -537,6 +537,15 @@ export const it: AppTranslations = {
         selectedCount: '{count} selezionate',
         move: 'Sposta',
         emailSent: 'Email inviata con successo ✓',
+        // Importance messages
+        markedImportant: '{count} email contrassegnate come importanti',
+        markedImportantFailed: 'Impossibile contrassegnare come importante. Riprova.',
+        unmarkedImportant: '{count} email non più importanti',
+        unmarkedImportantFailed: 'Impossibile rimuovere importante. Riprova.',
+        failedToOpenEmail: "Impossibile aprire l'email",
+        syncTriggered: 'Sincronizzazione avviata per tutti i provider',
+        syncFailed: 'Sincronizzazione fallita',
+        trySyncOrFilter: 'Prova a sincronizzare o modifica i filtri.',
       },
       composer: {
         title: 'Nuovo Messaggio',
@@ -995,6 +1004,12 @@ export const it: AppTranslations = {
         primary: 'Principale',
         custom: 'Personalizzato',
         main: 'Principale',
+        // ContactDetail field types
+        at: 'presso',
+        emailType: 'Email',
+        phoneType: 'Telefono',
+        addressType: 'Indirizzo',
+        websiteType: 'Sito Web',
       },
       tabs: {
         details: 'Dettagli',
@@ -1482,6 +1497,9 @@ export const it: AppTranslations = {
     reject: 'Rifiuta',
     confidence: 'confidenza',
     tips: 'Le azioni ad alta severità richiedono approvazione. Le azioni a bassa severità possono essere eseguite automaticamente in base alla confidenza.',
+    // P3: Rate limiting and reconnection
+    rateLimitRetrying: 'Limite di richieste raggiunto. Riprovo...',
+    reconnected: 'Riconnesso al server',
     // Streaming chat (2025 best practices)
     chat: {
       stop: 'Ferma',
@@ -1515,6 +1533,12 @@ export const it: AppTranslations = {
       actions: 'azioni',
       more: 'altri',
     },
+    // P3: Additional UI localization
+    highSeverityRequiresReview: 'Alta severità - richiede revisione',
+    noPendingActionsMessage: 'Nessuna azione in sospeso',
+    generatingSuggestions: 'Generazione suggerimenti...',
+    generateSummary: 'Genera Riepilogo',
+    dismiss: 'Ignora',
     // AI Dashboard - Agent Activity
     activity: {
       title: 'Attività Agenti',
