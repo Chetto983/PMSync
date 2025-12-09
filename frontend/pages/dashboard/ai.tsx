@@ -57,6 +57,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { PendingActionsPanel } from '@/components/dashboard/ai/PendingActionsPanel';
 import { LearningProgressCard } from '@/components/dashboard/ai/LearningProgressCard';
 import { AgentActivityChart, type AgentActivityData } from '@/components/dashboard/ai/AgentActivityChart';
+import useIsMobile from '@/hooks/use-is-mobile';
 
 // Shimmer animation for thinking state
 const shimmer = keyframes`
@@ -532,6 +533,7 @@ function AiAssistantView() {
   const currentLocale = t.locale;
   const theme = useTheme();
   const quickActions = getQuickActions(t);
+  const isMobile = useIsMobile();
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -935,7 +937,14 @@ function AiAssistantView() {
   };
 
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)', gap: 2 }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
+        height: { xs: 'auto', md: 'calc(100vh - 64px)' },
+        gap: 2,
+      }}
+    >
       {/* Main Chat Area */}
       <Paper
         sx={{
@@ -946,6 +955,7 @@ function AiAssistantView() {
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          minHeight: { xs: 0, md: 'calc(100vh - 96px)' },
         }}
       >
         {/* Header */}
@@ -1000,10 +1010,11 @@ function AiAssistantView() {
           sx={{
             flex: 1,
             overflow: 'auto',
-            p: 3,
+            p: { xs: 2, md: 3 },
             display: 'flex',
             flexDirection: 'column',
             gap: 2,
+            maxHeight: { xs: 'none', md: 'calc(100vh - 280px)' },
           }}
         >
           {messages.length === 0 ? (
@@ -1030,7 +1041,7 @@ function AiAssistantView() {
         {/* Input Area */}
         <Box
           sx={{
-            p: 2,
+            p: { xs: 1.5, md: 2 },
             borderTop: 1,
             borderColor: 'divider',
             bgcolor: 'background.default',
@@ -1053,7 +1064,7 @@ function AiAssistantView() {
             </Stack>
           )}
 
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
             <TextField
               fullWidth
               placeholder={t.ai?.inputPlaceholder || 'Ask me anything about your emails, calendar, or contacts...'}
@@ -1067,7 +1078,7 @@ function AiAssistantView() {
               }}
               disabled={sending}
               multiline
-              maxRows={4}
+              maxRows={isMobile ? 3 : 4}
               inputRef={inputRef}
               sx={{
                 '& .MuiOutlinedInput-root': {
@@ -1081,9 +1092,9 @@ function AiAssistantView() {
               onClick={() => handleSendPrompt()}
               disabled={sending || !prompt.trim()}
               sx={{
-                minWidth: 48,
-                width: 48,
-                height: 48,
+                minWidth: { xs: 44, md: 48 },
+                width: { xs: 44, md: 48 },
+                height: { xs: 44, md: 48 },
                 borderRadius: 2,
                 background: (theme) => `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
                 '&:hover': {
@@ -1103,7 +1114,7 @@ function AiAssistantView() {
       {/* Sidebar */}
       <Box
         sx={{
-          width: 360,
+          width: { xs: '100%', md: 360 },
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
