@@ -1,6 +1,6 @@
 # MailAgent Documentation Hub
 
-**Last Updated**: 2025-12-08
+**Last Updated**: 2025-12-09
 **Status**: Active
 
 Welcome to the MailAgent documentation. This index provides a structured overview of all project documentation.
@@ -55,10 +55,8 @@ docs/
 │   └── development/
 │       ├── AI_INTEGRATION_ROADMAP.md     # AI integration phases
 │       ├── contacts-refactor-plan.md     # Contacts refactoring
-│       └── multi-agent/                  # Multi-agent detailed specs
-│           ├── INDEX.md                  # Multi-agent doc hub
-│           ├── 03_ARCHITECTURE.md        # Architecture design
-│           └── 04_API_REFERENCE.md       # Multi-agent API
+│       ├── EMAIL_AI_COMPONENTS_SPEC.md   # Email AI components spec
+│       └── BACKEND_ACTION_HANDLERS_SPEC.md # Backend action handlers
 │
 └── 📦 SETUP
     └── setup/
@@ -76,14 +74,15 @@ docs/
 |----------|---------|--------|
 | [AI_COMPREHENSIVE_ROADMAP.md](./AI_COMPREHENSIVE_ROADMAP.md) | **Master AI roadmap** - All AI features, phases, and implementation details | Current (v3.0) |
 | [AI_COMPOSE_IMPLEMENTATION.md](./AI_COMPOSE_IMPLEMENTATION.md) | AI compose feature implementation details | Current |
-| [development/multi-agent/INDEX.md](./development/multi-agent/INDEX.md) | Multi-agent detailed specifications | Reference |
 | [VOLTAGENT_AUDIT.md](./VOLTAGENT_AUDIT.md) | VoltAgent integration audit | Current |
+| [development/AI_IMPROVEMENT_ROADMAP_2025.md](./development/AI_IMPROVEMENT_ROADMAP_2025.md) | AI improvements for 2025 | Current |
 
-**Archived AI Docs** (moved to `_archived/`):
+**Archived/Removed AI Docs**:
 - AI_Roadmap.md - Superseded by AI_COMPREHENSIVE_ROADMAP.md
 - AI_MODULE_ROADMAP.md - Merged into comprehensive
 - AI_MultiAgent_Roadmap.md - Merged into comprehensive
 - AI_MultiAgent_Pipeline.md - Merged into comprehensive
+- development/multi-agent/* - Removed (consolidated into AI_COMPREHENSIVE_ROADMAP.md)
 
 ---
 

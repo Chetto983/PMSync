@@ -1,8 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
+import {
+  ScheduledJobsQueueService,
+  ScheduledJobType,
+} from '../../../common/services/scheduled-jobs.queue';
 
 interface DeletedEmailRecord {
   id: string;
@@ -11,7 +14,7 @@ interface DeletedEmailRecord {
 }
 
 @Injectable()
-export class EmailEmbeddingCleanupService {
+export class EmailEmbeddingCleanupService implements OnModuleInit {
   private readonly logger = new Logger(EmailEmbeddingCleanupService.name);
   private readonly BATCH_SIZE = 200;
   private readonly jobsEnabled: boolean;
@@ -20,6 +23,7 @@ export class EmailEmbeddingCleanupService {
     private readonly prisma: PrismaService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly configService: ConfigService,
+    private readonly scheduledJobsQueue: ScheduledJobsQueueService,
   ) {
     this.jobsEnabled =
       (this.configService.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -28,7 +32,25 @@ export class EmailEmbeddingCleanupService {
     }
   }
 
-  @Cron(CronExpression.EVERY_30_MINUTES)
+  /**
+   * Register handlers for embedding cleanup jobs with BullMQ
+   */
+  async onModuleInit() {
+    if (!this.jobsEnabled) {
+      return;
+    }
+
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.EMAIL_EMBEDDING_CLEANUP,
+      async () => this.cleanupDeletedEmailEmbeddings(),
+    );
+
+    this.logger.log('EmailEmbeddingCleanupService registered with BullMQ scheduler');
+  }
+
+  /**
+   * Cleanup embeddings for deleted emails - triggered by BullMQ every 30 minutes
+   */
   async cleanupDeletedEmailEmbeddings(): Promise<void> {
     if (!this.jobsEnabled) {
       return;

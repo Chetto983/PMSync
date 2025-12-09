@@ -1,11 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import {
+  ScheduledJobsQueueService,
+  ScheduledJobType,
+} from '../../../common/services/scheduled-jobs.queue';
 
 @Injectable()
-export class EmailRetentionService {
+export class EmailRetentionService implements OnModuleInit {
   private readonly logger = new Logger(EmailRetentionService.name);
   private readonly RETENTION_DAYS = 30; // Keep full content for 30 days
   private readonly jobsEnabled: boolean;
@@ -13,6 +16,7 @@ export class EmailRetentionService {
   constructor(
     private prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly scheduledJobsQueue: ScheduledJobsQueueService,
   ) {
     this.jobsEnabled =
       (this.configService.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -22,13 +26,28 @@ export class EmailRetentionService {
   }
 
   /**
-   * Run retention policy daily at 2 AM for ALL tenants
+   * Register handlers for email retention jobs with BullMQ
+   */
+  async onModuleInit() {
+    if (!this.jobsEnabled) {
+      return;
+    }
+
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.EMAIL_RETENTION,
+      async () => { await this.runRetentionPolicy(); },
+    );
+
+    this.logger.log('EmailRetentionService registered with BullMQ scheduler');
+  }
+
+  /**
+   * Run retention policy - triggered by BullMQ daily at 2 AM for ALL tenants
    * Archives emails older than 30 days
    *
-   * SECURITY NOTE: This cron job iterates over ALL tenants
+   * SECURITY NOTE: This job iterates over ALL tenants
    * Each tenant's emails are processed separately with proper isolation
    */
-  @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async runRetentionPolicy() {
     if (!this.jobsEnabled) {
       return;

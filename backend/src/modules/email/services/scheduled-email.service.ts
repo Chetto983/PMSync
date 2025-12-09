@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailSendService, SendEmailDto } from './email-send.service';
+import {
+  ScheduledJobsQueueService,
+  ScheduledJobType,
+} from '../../../common/services/scheduled-jobs.queue';
 
 export interface ScheduleEmailDto {
   tenantId: string;
@@ -23,14 +26,34 @@ export interface ScheduleEmailDto {
 }
 
 @Injectable()
-export class ScheduledEmailService {
+export class ScheduledEmailService implements OnModuleInit {
   private readonly logger = new Logger(ScheduledEmailService.name);
   private isProcessing = false;
 
   constructor(
     private prisma: PrismaService,
     private emailSendService: EmailSendService,
+    private scheduledJobsQueue: ScheduledJobsQueueService,
   ) {}
+
+  /**
+   * Register handlers for scheduled email jobs with BullMQ
+   */
+  async onModuleInit() {
+    // Register handler for processing scheduled emails (every minute)
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.SCHEDULED_EMAIL_PROCESS,
+      async () => this.processScheduledEmails(),
+    );
+
+    // Register handler for cleanup (daily at midnight)
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.SCHEDULED_EMAIL_CLEANUP,
+      async () => this.cleanupOldScheduledEmails(),
+    );
+
+    this.logger.log('ScheduledEmailService registered with BullMQ scheduler');
+  }
 
   /**
    * Schedule an email for later delivery
@@ -112,11 +135,11 @@ export class ScheduledEmailService {
   }
 
   /**
-   * Process scheduled emails (runs every minute)
+   * Process scheduled emails - triggered by BullMQ every minute
+   * BullMQ guarantees only one instance processes at a time
    */
-  @Cron(CronExpression.EVERY_MINUTE)
   async processScheduledEmails(): Promise<void> {
-    // Prevent concurrent processing
+    // Prevent concurrent processing within same instance
     if (this.isProcessing) {
       return;
     }
@@ -247,9 +270,9 @@ export class ScheduledEmailService {
   }
 
   /**
-   * Clean up old sent/failed scheduled emails (runs daily)
+   * Clean up old sent/failed scheduled emails - triggered by BullMQ daily at midnight
+   * BullMQ guarantees only one instance runs cleanup
    */
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async cleanupOldScheduledEmails(): Promise<void> {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

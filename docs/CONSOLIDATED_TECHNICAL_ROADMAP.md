@@ -90,39 +90,35 @@ This document provides a comprehensive roadmap for enhancing the AI capabilities
 
 ### 2.1 Backend AI Module Structure
 
+> **Note:** The multi-agent system has been fully migrated to VoltAgent architecture as of December 2025.
+
 ```text
 backend/src/modules/ai/
 ├── controllers/
 │   ├── ai.controller.ts              # Chat, sessions, summarize, smart-reply, compose
-│   ├── knowledge-base.controller.ts  # Knowledge base endpoints
-│   └── personalization.controller.ts # Personalization endpoints
+│   └── knowledge-base.controller.ts  # Knowledge base endpoints
 ├── services/
-│   ├── mistral.service.ts            # LLM provider wrapper
-│   ├── agent.service.ts              # LangChain agent orchestration
-│   ├── chat-session.service.ts       # Session management
+│   ├── mistral.service.ts            # LLM provider wrapper with circuit breaker
 │   ├── email-insights.service.ts     # Summarize, smart-reply, categorize, compose
 │   ├── knowledge-base.service.ts     # RAG/embeddings
 │   ├── embeddings.service.ts         # Vector operations
-│   ├── llm-telemetry.service.ts      # LLM call tracking (exists, unused)
-│   ├── prompt-registry.service.ts    # Prompt templates
-│   └── writing-style.service.ts      # Writing style analysis
-├── multi-agent/
-│   ├── agents/
-│   │   ├── base.agent.ts             # Abstract base agent
-│   │   ├── router.agent.ts           # Intent classification
-│   │   ├── email.agent.ts            # Email operations
-│   │   ├── calendar.agent.ts         # Calendar operations
-│   │   ├── contacts.agent.ts         # Contacts operations
-│   │   ├── knowledge.agent.ts        # RAG knowledge agent
-│   │   └── general.agent.ts          # General chat
-│   ├── services/
-│   │   ├── multi-agent.service.ts    # Main orchestrator
-│   │   ├── action-executor.service.ts # Executes approved actions
-│   │   ├── hitl.service.ts           # Human-in-the-loop workflow
-│   │   ├── feedback.service.ts       # Learning feedback loop
-│   │   ├── memory.service.ts         # FIFO conversation memory
-│   │   └── ai-queue.service.ts       # BullMQ queue (exists, unused)
-│   └── interfaces/                   # Types and contracts
+│   └── sentiment.service.ts          # Sentiment analysis
+├── voltagent/                        # ✅ NEW: Migrated from multi-agent/
+│   ├── agents/                       # Domain-specific agents
+│   ├── interfaces/                   # Types and contracts
+│   ├── locales/                      # Multi-language support
+│   ├── memory/                       # Conversation memory service
+│   ├── observability/                # Telemetry and metrics
+│   ├── prompts/                      # Prompt templates
+│   ├── providers/                    # LLM provider integrations
+│   ├── rag/                          # RAG/hybrid retriever
+│   ├── services/                     # Core services (action-executor, HITL, feedback)
+│   ├── tools/                        # Agent tools
+│   ├── workflows/                    # Multi-step workflows
+│   ├── voltagent.controller.ts       # API endpoints
+│   ├── voltagent.service.ts          # Main orchestrator
+│   └── voltagent.module.ts           # NestJS module
+├── utils/                            # Prompt sanitizer, utilities
 └── dto/                              # Request/response DTOs
 ```
 

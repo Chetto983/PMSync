@@ -216,6 +216,21 @@ export const QUEUE_PRESETS = {
     removeOnComplete: { count: 100 },
     removeOnFail: { count: 100 },
   },
+
+  /**
+   * Scheduled/maintenance jobs (migrated from @Cron)
+   * - Single attempt by default (don't spam maintenance ops)
+   * - Short backoff to retry quickly if failed
+   */
+  SCHEDULED: {
+    attempts: 1,
+    backoff: {
+      type: 'exponential' as const,
+      delay: 1000,
+    },
+    removeOnComplete: { count: 10, age: 86400 }, // Keep 10 or 24h
+    removeOnFail: { count: 50 },
+  },
 } as const;
 
 /**
@@ -400,4 +415,13 @@ export const QUEUE_NAMES = {
   PROVIDER_SYNC_BACK: 'provider-sync-back',
   BULK_OPERATIONS: 'bulk-operations',
   FEEDBACK: 'feedback',
+
+  // Scheduled/maintenance jobs (migrated from @Cron)
+  SCHEDULED_EMAIL_PROCESSING: 'scheduled-email-processing',
+  EMAIL_CLEANUP: 'email-cleanup',
+  EMAIL_RETENTION: 'email-retention',
+  EMAIL_EMBEDDING_CLEANUP: 'email-embedding-cleanup',
+  SYNC_SCHEDULER: 'sync-scheduler',
+  WEBHOOK_LIFECYCLE: 'webhook-lifecycle',
+  LOG_ROTATION: 'log-rotation',
 } as const;

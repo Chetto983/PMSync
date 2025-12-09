@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { MistralService } from './mistral.service';
@@ -63,7 +64,12 @@ export interface KnowledgeBaseSearchHit {
 @Injectable()
 export class KnowledgeBaseService {
   private readonly logger = new Logger(KnowledgeBaseService.name);
-  private static readonly MAX_CHARS_PER_CHUNK = 12000;
+
+  /**
+   * Maximum characters per embedding chunk.
+   * Configurable via AI_EMBEDDING_CHUNK_SIZE env var (default: 12000)
+   */
+  private readonly maxCharsPerChunk: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -73,7 +79,10 @@ export class KnowledgeBaseService {
     private readonly emailEmbeddingQueue: EmailEmbeddingQueueService,
     private readonly queryEmbeddingCache: QueryEmbeddingCacheService,
     private readonly attachmentContentExtractor: AttachmentContentExtractorService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.maxCharsPerChunk = this.configService.get<number>('AI_EMBEDDING_CHUNK_SIZE', 12000);
+  }
 
   async backfillEmailEmbeddingsForTenant(
     tenantId: string,
@@ -203,7 +212,7 @@ export class KnowledgeBaseService {
         continue;
       }
 
-      const chunks = KnowledgeBaseService.chunkContentForEmbedding(content);
+      const chunks = this.chunkContentForEmbedding(content);
       const receivedAtIso =
         options.receivedAt instanceof Date
           ? options.receivedAt.toISOString()
@@ -333,7 +342,7 @@ export class KnowledgeBaseService {
     }
 
     try {
-      const chunks = KnowledgeBaseService.chunkContentForEmbedding(content);
+      const chunks = this.chunkContentForEmbedding(content);
 
       if (chunks.length > 1) {
         this.logger.debug(
@@ -916,8 +925,8 @@ export class KnowledgeBaseService {
     return combined.length > 0 ? combined : null;
   }
 
-  private static chunkContentForEmbedding(content: string): Array<{ content: string; index: number }> {
-    const maxChars = KnowledgeBaseService.MAX_CHARS_PER_CHUNK;
+  private chunkContentForEmbedding(content: string): Array<{ content: string; index: number }> {
+    const maxChars = this.maxCharsPerChunk;
 
     if (content.length <= maxChars) {
       return [{ content, index: 0 }];

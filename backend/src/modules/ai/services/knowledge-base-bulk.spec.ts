@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { KnowledgeBaseService } from './knowledge-base.service';
 import { MistralService } from './mistral.service';
 import { EmbeddingsService } from './embeddings.service';
@@ -41,6 +42,9 @@ describe('KnowledgeBaseService - Bulk Embeddings', () => {
     const mockAttachmentContentExtractor = {
       extractText: jest.fn().mockResolvedValue(''),
     };
+    const mockConfigService = {
+      get: jest.fn().mockReturnValue(12000),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -51,6 +55,7 @@ describe('KnowledgeBaseService - Bulk Embeddings', () => {
         { provide: EmailEmbeddingQueueService, useValue: mockEmailEmbeddingQueue },
         { provide: QueryEmbeddingCacheService, useValue: mockQueryEmbeddingCache },
         { provide: AttachmentContentExtractorService, useValue: mockAttachmentContentExtractor },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 

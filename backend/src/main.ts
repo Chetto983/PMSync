@@ -30,8 +30,31 @@ async function bootstrap() {
   // Respect real client IPs behind reverse proxies (prevents rate-limit false positives)
   app.set('trust proxy', config.api.trustProxy);
 
-  // Security middleware
-  app.use(helmet());
+  // Security middleware with Content Security Policy
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"], // Needed for Swagger UI
+          styleSrc: ["'self'", "'unsafe-inline'"], // Needed for Swagger UI
+          imgSrc: ["'self'", 'data:', 'https:'],
+          connectSrc: ["'self'", 'wss:', 'https:'],
+          fontSrc: ["'self'", 'https:', 'data:'],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
+          baseUri: ["'self'"],
+          upgradeInsecureRequests: [],
+        },
+      },
+      crossOriginEmbedderPolicy: false, // Allow embedding from other origins (for OAuth callbacks)
+      crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }, // Allow OAuth popups
+      crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow cross-origin resources (API)
+    }),
+  );
 
   // CORS configuration - allowlist + regex + optional allow-all
   app.enableCors({

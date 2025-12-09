@@ -1,12 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { GmailWebhookService, GMAIL_WEBHOOK_RESOURCE } from './gmail-webhook.service';
 import { MicrosoftWebhookService, MICROSOFT_MAIL_RESOURCE } from './microsoft-webhook.service';
 import { ConfigService } from '@nestjs/config';
+import {
+  ScheduledJobsQueueService,
+  ScheduledJobType,
+} from '../../../common/services/scheduled-jobs.queue';
 
 @Injectable()
-export class WebhookLifecycleService {
+export class WebhookLifecycleService implements OnModuleInit {
   private readonly logger = new Logger(WebhookLifecycleService.name);
   private isRenewalRunning = false;
   private isDeepCheckRunning = false;
@@ -17,12 +20,42 @@ export class WebhookLifecycleService {
     private gmailWebhook: GmailWebhookService,
     private microsoftWebhook: MicrosoftWebhookService,
     private configService: ConfigService,
+    private scheduledJobsQueue: ScheduledJobsQueueService,
   ) {
     this.jobsEnabled =
       (this.configService.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';
     if (!this.jobsEnabled) {
       this.logger.warn('WebhookLifecycleService disabled via JOBS_ENABLED=false');
     }
+  }
+
+  /**
+   * Register handlers for webhook lifecycle jobs with BullMQ
+   */
+  async onModuleInit() {
+    if (!this.jobsEnabled) {
+      return;
+    }
+
+    // Register handler for webhook renewal (daily at 2 AM)
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.WEBHOOK_RENEWAL,
+      async () => this.renewExpiringWebhooks(),
+    );
+
+    // Register handler for deep check (daily at 3 AM)
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.WEBHOOK_DEEP_CHECK,
+      async () => this.performDeepCheck(),
+    );
+
+    // Register handler for webhook cleanup (weekly)
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.WEBHOOK_CLEANUP,
+      async () => this.cleanupInactiveWebhooks(),
+    );
+
+    this.logger.log('WebhookLifecycleService registered with BullMQ scheduler');
   }
 
   /**
@@ -91,16 +124,14 @@ export class WebhookLifecycleService {
   }
 
   /**
-   * Renew expiring webhooks - runs daily at 2 AM
+   * Renew expiring webhooks - triggered by BullMQ daily at 2 AM
+   * BullMQ guarantees only one instance runs at a time
    */
-  @Cron('0 2 * * *', {
-    name: 'renew-webhooks',
-    timeZone: 'UTC',
-  })
   async renewExpiringWebhooks(): Promise<void> {
     if (!this.jobsEnabled) {
       return;
     }
+
     if (this.isRenewalRunning) {
       this.logger.warn('Webhook renewal already running, skipping...');
       return;
@@ -127,12 +158,8 @@ export class WebhookLifecycleService {
 
   /**
    * Deep check - full sync for all accounts once per day
-   * Runs at 3 AM UTC to catch any missed changes
+   * Triggered by BullMQ at 3 AM UTC to catch any missed changes
    */
-  @Cron('0 3 * * *', {
-    name: 'deep-check-sync',
-    timeZone: 'UTC',
-  })
   async performDeepCheck(): Promise<void> {
     if (!this.jobsEnabled) {
       return;
@@ -193,11 +220,8 @@ export class WebhookLifecycleService {
   }
 
   /**
-   * Cleanup failed/inactive webhooks - runs weekly
+   * Cleanup failed/inactive webhooks - triggered by BullMQ weekly
    */
-  @Cron(CronExpression.EVERY_WEEK, {
-    name: 'cleanup-webhooks',
-  })
   async cleanupInactiveWebhooks(): Promise<void> {
     if (!this.jobsEnabled) {
       return;

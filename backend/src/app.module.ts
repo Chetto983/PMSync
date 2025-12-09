@@ -11,6 +11,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ResponseTimeInterceptor } from './common/interceptors/response-time.interceptor';
 import { LogRotationService } from './common/services/log-rotation.service';
 import { CacheModule } from './common/services/cache.module';
+import { ScheduledJobsModule } from './common/services/scheduled-jobs.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -49,6 +50,7 @@ const config = getConfiguration();
       },
     ]),
     CacheModule, // Redis-based caching for horizontal scaling
+    ScheduledJobsModule, // BullMQ-based scheduled jobs for horizontal scaling
     PrismaModule,
     AuthModule,
     UsersModule,

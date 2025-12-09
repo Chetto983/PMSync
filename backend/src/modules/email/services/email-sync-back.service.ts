@@ -466,34 +466,37 @@ export class EmailSyncBackService {
       await client.mailboxOpen(currentFolder);
 
       // Execute operation based on type
+      // Note: imapflow expects SequenceString (e.g. "123") or number[] (e.g. [123]) for range parameter
+      const uidStr = String(uid);
+
       switch (operation.operation) {
         case 'markRead':
-          await client.messageFlagsAdd({ uid }, ['\\Seen'], { uid: true });
+          await client.messageFlagsAdd(uidStr, ['\\Seen'], { uid: true });
           this.logger.log(`✅ IMAP: Marked message ${uid} as read`);
           break;
 
         case 'markUnread':
-          await client.messageFlagsRemove({ uid }, ['\\Seen'], { uid: true });
+          await client.messageFlagsRemove(uidStr, ['\\Seen'], { uid: true });
           this.logger.log(`✅ IMAP: Marked message ${uid} as unread`);
           break;
 
         case 'star':
-          await client.messageFlagsAdd({ uid }, ['\\Flagged'], { uid: true });
+          await client.messageFlagsAdd(uidStr, ['\\Flagged'], { uid: true });
           this.logger.log(`✅ IMAP: Starred message ${uid}`);
           break;
 
         case 'unstar':
-          await client.messageFlagsRemove({ uid }, ['\\Flagged'], { uid: true });
+          await client.messageFlagsRemove(uidStr, ['\\Flagged'], { uid: true });
           this.logger.log(`✅ IMAP: Unstarred message ${uid}`);
           break;
 
         case 'flag':
-          await client.messageFlagsAdd({ uid }, ['\\Flagged'], { uid: true });
+          await client.messageFlagsAdd(uidStr, ['\\Flagged'], { uid: true });
           this.logger.log(`✅ IMAP: Flagged message ${uid}`);
           break;
 
         case 'unflag':
-          await client.messageFlagsRemove({ uid }, ['\\Flagged'], { uid: true });
+          await client.messageFlagsRemove(uidStr, ['\\Flagged'], { uid: true });
           this.logger.log(`✅ IMAP: Unflagged message ${uid}`);
           break;
 
@@ -504,14 +507,14 @@ export class EmailSyncBackService {
           const trashFolder = await this.getImapFolderPath(provider.id, 'TRASH');
           this.logger.debug(`IMAP delete: using trash folder path "${trashFolder}"`);
           try {
-            await client.messageMove({ uid }, trashFolder, { uid: true });
+            await client.messageMove(uidStr, trashFolder, { uid: true });
             this.logger.log(`✅ IMAP: Moved message ${uid} to ${trashFolder}`);
           } catch (moveError) {
             // Fallback to COPY + DELETE if MOVE not supported
             const moveMsg = moveError instanceof Error ? moveError.message : String(moveError);
             this.logger.warn(`MOVE to ${trashFolder} failed (${moveMsg}), using COPY + DELETE fallback`);
-            await client.messageCopy({ uid }, trashFolder, { uid: true });
-            await client.messageDelete({ uid }, { uid: true });
+            await client.messageCopy(uidStr, trashFolder, { uid: true });
+            await client.messageDelete(uidStr, { uid: true });
             this.logger.log(`✅ IMAP: Moved message ${uid} to ${trashFolder} (via COPY+DELETE)`);
           }
           break;
@@ -527,22 +530,22 @@ export class EmailSyncBackService {
 
           // Use MOVE command if supported, otherwise COPY + DELETE
           try {
-            await client.messageMove({ uid }, targetFolder, { uid: true });
+            await client.messageMove(uidStr, targetFolder, { uid: true });
             this.logger.log(`✅ IMAP: Moved message ${uid} to ${targetFolder}`);
           } catch (moveErr) {
             // Fallback to COPY + DELETE with proper expunge
             const moveErrMsg = moveErr instanceof Error ? moveErr.message : String(moveErr);
             this.logger.warn(`MOVE to ${targetFolder} failed (${moveErrMsg}), using COPY + DELETE fallback`);
-            await client.messageCopy({ uid }, targetFolder, { uid: true });
+            await client.messageCopy(uidStr, targetFolder, { uid: true });
             // Use messageDelete which marks as \Deleted AND expunges
-            await client.messageDelete({ uid }, { uid: true });
+            await client.messageDelete(uidStr, { uid: true });
             this.logger.log(`✅ IMAP: Moved message ${uid} to ${targetFolder} (via COPY+DELETE)`);
           }
           break;
 
         case 'hardDelete':
           // Use messageDelete which marks as \Deleted AND expunges in one operation
-          await client.messageDelete({ uid }, { uid: true });
+          await client.messageDelete(uidStr, { uid: true });
           this.logger.log(`✅ IMAP: Hard deleted message ${uid} from ${currentFolder}`);
           break;
 

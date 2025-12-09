@@ -12,11 +12,11 @@
 |--------|-------|
 | **Overall Score** | 95/100 |
 | **Security Score** | 92/100 |
-| **Scalability Score** | 95/100 |
+| **Scalability Score** | 98/100 |
 | **Critical Issues** | 0 ✅ |
 | **P0 Issues** | 0 ✅ |
 | **P1 Issues** | 0 ✅ |
-| **Remaining P2/P3** | 12 (Post-MVP) |
+| **Remaining P2/P3** | 8 (Post-MVP) |
 
 ### What's Ready ✅
 
@@ -30,10 +30,10 @@
 
 ### What's Deferred (Post-MVP)
 
-- CSP headers (Helmet provides basic protection)
-- Global rate limiter (per-endpoint limiting exists)
-- Token revocation on password change
-- httpOnly cookies for refresh tokens
+- ~~CSP headers~~ ✅ **DONE** - Full CSP configuration added to main.ts
+- ~~Global rate limiter~~ ✅ **DONE** - ThrottlerModule already provides global rate limiting
+- Token revocation on password change (P2)
+- httpOnly cookies for refresh tokens (P2)
 - Frontend loading/error boundaries
 - Additional i18n for AI responses
 
@@ -411,8 +411,10 @@
 
 > These items are deferred to post-MVP. They don't block 1000 users.
 
-- [ ] **Extract chunk size 12000 to config** - `services/knowledge-base.service.ts:66`
-- [ ] **Add action summaries to all 26 methods** - `multi-agent/services/action-executor.service.ts`
+- [x] **Extract chunk size 12000 to config** - `services/knowledge-base.service.ts` ✅
+  - Added ConfigService dependency injection
+  - Uses `AI_EMBEDDING_CHUNK_SIZE` env variable (default: 12000)
+- [ ] **Add action summaries to all 26 methods** - `voltagent/services/action-executor.service.ts`
 - [ ] **Add i18n for AI responses** - Create `i18n/` directory
 
 ### 5.4 Redis & Scaling Notes
@@ -516,8 +518,10 @@ These are acceptable trade-offs - the system degrades gracefully when Redis is u
 
 > These enhance security but don't block MVP launch. Current setup is production-ready.
 
-- [ ] **CSP headers** - `main.ts` (P2 - Helmet already provides basic protection)
-- [ ] **Global rate limiter** - `app.module.ts` (P2 - Per-endpoint rate limiting exists)
+- [x] **CSP headers** - `main.ts` ✅
+  - Added Helmet CSP configuration with secure directives
+  - defaultSrc, scriptSrc, styleSrc, imgSrc, connectSrc, fontSrc, objectSrc, frameAncestors
+- [x] **Global rate limiter** - Already exists via ThrottlerModule in `app.module.ts` ✅
 
 ---
 
@@ -775,23 +779,24 @@ These services already use Redis for distributed state:
 
 **Issue:** `@Cron` decorators are NOT horizontally scalable - they run on ALL instances simultaneously. Must migrate to BullMQ repeatable jobs for distributed, single-instance execution.
 
-#### Migration Status
+#### Migration Status ✅ ALL COMPLETE
 
 | Service | File | Frequency | Status |
 |---------|------|-----------|--------|
-| `CronLockService` | `common/services/cron-lock.service.ts` | 5 min | ⬜ Migrate to BullMQ |
-| `LogRotationService` | `common/services/log-rotation.service.ts` | daily midnight | ⬜ Migrate to BullMQ |
-| `EmailCleanupService` | `email/services/email-cleanup.service.ts` | 3am & noon | ⬜ Migrate to BullMQ |
-| `EmailCleanupService` | `email/services/email-cleanup.service.ts` | 3:30am | ⬜ Migrate to BullMQ |
-| `ScheduledEmailService` | `email/services/scheduled-email.service.ts` | every minute | ⬜ Migrate to BullMQ |
-| `ScheduledEmailService` | `email/services/scheduled-email.service.ts` | daily midnight | ⬜ Migrate to BullMQ |
-| `EmailRetentionService` | `email/services/email-retention.service.ts` | daily 2am | ⬜ Migrate to BullMQ |
+| `LogRotationService` | `common/services/log-rotation.service.ts` | daily midnight | ✅ **DONE** |
+| `EmailCleanupService` | `email/services/email-cleanup.service.ts` | 3am & noon | ✅ **DONE** |
+| `EmailCleanupService` | `email/services/email-cleanup.service.ts` | 3:30am | ✅ **DONE** |
+| `ScheduledEmailService` | `email/services/scheduled-email.service.ts` | every minute | ✅ **DONE** |
+| `ScheduledEmailService` | `email/services/scheduled-email.service.ts` | daily midnight | ✅ **DONE** |
+| `EmailRetentionService` | `email/services/email-retention.service.ts` | daily 2am | ✅ **DONE** |
 | `GoogleCalendarWebhookService` | `calendar/services/google-calendar-webhook.service.ts` | 6 hours | ✅ **DONE** |
-| `EmailEmbeddingCleanupService` | `email-sync/services/email-embedding-cleanup.service.ts` | 30 min | ⬜ Migrate to BullMQ |
-| `SyncSchedulerService` | `email-sync/services/sync-scheduler.service.ts` | 5 min | ⬜ Migrate to BullMQ |
-| `WebhookLifecycleService` | `email-sync/services/webhook-lifecycle.service.ts` | daily 2am | ⬜ Migrate to BullMQ |
-| `WebhookLifecycleService` | `email-sync/services/webhook-lifecycle.service.ts` | daily 3am | ⬜ Migrate to BullMQ |
-| `WebhookLifecycleService` | `email-sync/services/webhook-lifecycle.service.ts` | weekly | ⬜ Migrate to BullMQ |
+| `EmailEmbeddingCleanupService` | `email-sync/services/email-embedding-cleanup.service.ts` | 30 min | ✅ **DONE** |
+| `SyncSchedulerService` | `email-sync/services/sync-scheduler.service.ts` | 5 min | ✅ **DONE** |
+| `WebhookLifecycleService` | `email-sync/services/webhook-lifecycle.service.ts` | daily 2am | ✅ **DONE** |
+| `WebhookLifecycleService` | `email-sync/services/webhook-lifecycle.service.ts` | daily 3am | ✅ **DONE** |
+| `WebhookLifecycleService` | `email-sync/services/webhook-lifecycle.service.ts` | weekly | ✅ **DONE** |
+
+**Implementation:** Created `ScheduledJobsQueueService` (`common/services/scheduled-jobs.queue.ts`) - a centralized BullMQ-based scheduler that replaces all @Cron decorators. Each service registers its handler via `OnModuleInit` and the queue ensures only one instance processes each job.
 
 #### Migration Pattern
 
@@ -918,8 +923,7 @@ async scheduleSyncJobs() {
 | OtpSecurityService | ✅ Complete | Migrated to Redis |
 | WebAuthnService | ✅ Complete | Migrated to Redis |
 | TotpService | ✅ Complete | Migrated to Redis |
-| CronLockService | ✅ Complete | Created `cron-lock.service.ts` (temporary) |
-| @Cron Migration | ⬜ In Progress | 1/13 done (GoogleCalendarWebhookService) |
+| @Cron Migration | ✅ Complete | All 12 jobs migrated to BullMQ via `ScheduledJobsQueueService` |
 | VoltAgentService | ⬜ Pending | DB persistence (P2) |
 
 ---
@@ -965,6 +969,7 @@ GET /health/metrics - Prometheus
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.2 | 2025-12-09 | **SCALABILITY COMPLETE**: All 12 @Cron jobs migrated to BullMQ via ScheduledJobsQueueService; CSP headers added; AI chunk size externalized to config |
 | 3.1 | 2025-12-08 | API audit: Fixed missing specialUse param in listEmails - "All Inbox" aggregation now works |
 | 3.0 | 2025-12-08 | Frontend i18n polish: Fixed Tooltip translations in AttachmentPreview, ThreadDisplay, ContactListItem |
 | 2.9 | 2025-12-08 | Frontend i18n audit: 400+ hardcoded strings in 44 files (65-70% coverage), added P2 task |

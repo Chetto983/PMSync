@@ -1,7 +1,10 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import {
+  ScheduledJobsQueueService,
+  ScheduledJobType,
+} from './scheduled-jobs.queue';
 
 /**
  * Servizio per la gestione della rotazione e pulizia dei log
@@ -17,9 +20,19 @@ export class LogRotationService implements OnModuleInit {
   private readonly logDir = process.env.LOG_DIR || join(process.cwd(), 'logs');
   private readonly retentionDays = 2; // FIFO di 2 giorni
 
+  constructor(private readonly scheduledJobsQueue: ScheduledJobsQueueService) {}
+
   async onModuleInit() {
     // Verifica che la directory log esista
     await this.ensureLogDirectory();
+
+    // Register handler for log rotation with BullMQ
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.LOG_ROTATION,
+      async () => this.cleanOldLogs(),
+    );
+
+    this.logger.log('LogRotationService registered with BullMQ scheduler');
 
     // Esegui pulizia all'avvio
     await this.cleanOldLogs();
@@ -38,10 +51,9 @@ export class LogRotationService implements OnModuleInit {
   }
 
   /**
-   * Pulizia automatica ogni giorno a mezzanotte
+   * Log cleanup - triggered by BullMQ daily at midnight
    * Elimina log più vecchi di 2 giorni
    */
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async cleanOldLogs() {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - this.retentionDays);

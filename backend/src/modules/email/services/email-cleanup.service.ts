@@ -1,11 +1,14 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { StorageService } from './storage.service';
 import { AttachmentMetricsService } from './attachment-metrics.service';
+import {
+  ScheduledJobsQueueService,
+  ScheduledJobType,
+} from '../../../common/services/scheduled-jobs.queue';
 
 /**
  * Result of a cleanup operation with detailed metrics
@@ -50,7 +53,7 @@ export interface DryRunResult {
  * @see EMAIL_MODULE_ROADMAP.md Phase 4 - Retention & Cleanup
  */
 @Injectable()
-export class EmailCleanupService {
+export class EmailCleanupService implements OnModuleInit {
   private readonly logger = new Logger(EmailCleanupService.name);
   private readonly purgeAfterHours = 24;
   private readonly jobsEnabled: boolean;
@@ -63,6 +66,7 @@ export class EmailCleanupService {
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly configService: ConfigService,
     private readonly storage: StorageService,
+    private readonly scheduledJobsQueue: ScheduledJobsQueueService,
     @Optional() private readonly metrics?: AttachmentMetricsService,
   ) {
     this.jobsEnabled =
@@ -72,8 +76,32 @@ export class EmailCleanupService {
     }
   }
 
-  // Run cleanup twice daily: at 3 AM and at noon (12 PM)
-  @Cron('0 3,12 * * *')
+  /**
+   * Register handlers for email cleanup jobs with BullMQ
+   */
+  async onModuleInit() {
+    if (!this.jobsEnabled) {
+      return;
+    }
+
+    // Register handler for trash cleanup (twice daily)
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.EMAIL_CLEANUP_TRASH,
+      async () => this.purgeDeletedEmailsCron(),
+    );
+
+    // Register handler for orphan cleanup (daily at 3:30 AM)
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.EMAIL_CLEANUP_ORPHANS,
+      async () => this.removeDuplicateEmailsCron(),
+    );
+
+    this.logger.log('EmailCleanupService registered with BullMQ scheduler');
+  }
+
+  /**
+   * Cleanup soft-deleted emails - triggered by BullMQ twice daily (3 AM and noon)
+   */
   async purgeDeletedEmailsCron() {
     if (!this.jobsEnabled) {
       return;
@@ -81,7 +109,9 @@ export class EmailCleanupService {
     await this.purgeSoftDeletedEmails();
   }
 
-  @Cron('0 30 3 * * *')
+  /**
+   * Remove duplicate emails - triggered by BullMQ daily at 3:30 AM
+   */
   async removeDuplicateEmailsCron() {
     if (!this.jobsEnabled) {
       return;

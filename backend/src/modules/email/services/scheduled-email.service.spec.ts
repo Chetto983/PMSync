@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ScheduledEmailService } from './scheduled-email.service';
 import { EmailSendService } from './email-send.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { ScheduledJobsQueueService } from '../../../common/services/scheduled-jobs.queue';
 
 describe('ScheduledEmailService', () => {
   let service: ScheduledEmailService;
@@ -21,6 +22,10 @@ describe('ScheduledEmailService', () => {
     sendEmail: jest.fn(),
   };
 
+  const mockScheduledJobsQueueService = {
+    registerHandler: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -32,6 +37,10 @@ describe('ScheduledEmailService', () => {
         {
           provide: EmailSendService,
           useValue: mockEmailSendService,
+        },
+        {
+          provide: ScheduledJobsQueueService,
+          useValue: mockScheduledJobsQueueService,
         },
       ],
     }).compile();

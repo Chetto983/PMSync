@@ -1,13 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { QueueService } from './queue.service';
 import { SyncJobData } from '../interfaces/sync-job.interface';
+import {
+  ScheduledJobsQueueService,
+  ScheduledJobType,
+} from '../../../common/services/scheduled-jobs.queue';
 
 @Injectable()
-export class SyncSchedulerService {
+export class SyncSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(SyncSchedulerService.name);
   private isRunning = false;
 
@@ -47,6 +50,7 @@ export class SyncSchedulerService {
     private prisma: PrismaService,
     private queueService: QueueService,
     private readonly configService: ConfigService,
+    private readonly scheduledJobsQueue: ScheduledJobsQueueService,
   ) {
     const enabled =
       (this.configService.get<string>('EMAIL_SYNC_SCHEDULER_ENABLED') || 'true').toLowerCase() !==
@@ -67,10 +71,27 @@ export class SyncSchedulerService {
   }
 
   /**
-   * Main scheduler - runs every 5 minutes
-   * Selects providers to sync and adds them to queues
+   * Register this service's scheduled job handler with BullMQ
    */
-  @Cron(CronExpression.EVERY_5_MINUTES)
+  async onModuleInit() {
+    if (!this.schedulerEnabled) {
+      return;
+    }
+
+    // Register handler for sync scheduler job
+    this.scheduledJobsQueue.registerHandler(
+      ScheduledJobType.SYNC_SCHEDULER,
+      async () => this.scheduleSyncJobs(),
+    );
+
+    this.logger.log('SyncSchedulerService registered with BullMQ scheduler');
+  }
+
+  /**
+   * Main scheduler - triggered by BullMQ repeatable job every 5 minutes
+   * Selects providers to sync and adds them to queues
+   * BullMQ guarantees only one instance runs at a time (no distributed lock needed)
+   */
   async scheduleSyncJobs() {
     if (!this.schedulerEnabled) {
       return;
