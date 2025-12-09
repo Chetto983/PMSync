@@ -47,7 +47,10 @@ export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestr
       this.config.get<string>('BACKEND_URL') ||
       'http://localhost:3000';
     const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    this.WEBHOOK_URL = `${normalizedBase}/webhooks/calendar/google/push`;
+    // Include webhook token in URL for authentication (Google Calendar doesn't support custom headers)
+    const webhookToken = this.config.get<string>('EMAIL_SYNC_WEBHOOK_TOKEN');
+    const tokenParam = webhookToken ? `?token=${webhookToken}` : '';
+    this.WEBHOOK_URL = `${normalizedBase}/webhooks/calendar/google/push${tokenParam}`;
     this.jobsEnabled =
       (this.config.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';
     this.webhookExpirationDays = this.config.get<number>('GOOGLE_CALENDAR_WEBHOOK_EXPIRATION_DAYS', 7);

@@ -67,7 +67,11 @@ export class KnowledgeBaseService {
 
   /**
    * Maximum characters per embedding chunk.
-   * Configurable via AI_EMBEDDING_CHUNK_SIZE env var (default: 12000)
+   * Configurable via AI_EMBEDDING_CHUNK_SIZE env var (default: 6000)
+   *
+   * Note: Mistral's mistral-embed model has an 8192 token limit.
+   * Since tokens ≠ characters (worst case ~1 token per 2-3 chars for code/special chars),
+   * we use 6000 chars as a safe default to stay well under the limit.
    */
   private readonly maxCharsPerChunk: number;
 
@@ -81,7 +85,7 @@ export class KnowledgeBaseService {
     private readonly attachmentContentExtractor: AttachmentContentExtractorService,
     private readonly configService: ConfigService,
   ) {
-    this.maxCharsPerChunk = this.configService.get<number>('AI_EMBEDDING_CHUNK_SIZE', 12000);
+    this.maxCharsPerChunk = this.configService.get<number>('AI_EMBEDDING_CHUNK_SIZE', 6000);
   }
 
   async backfillEmailEmbeddingsForTenant(

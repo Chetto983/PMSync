@@ -33,10 +33,11 @@ export class CalendarWebhookController {
   async handleGoogleCalendarPush(
     @Headers() headers: Record<string, string>,
     @Headers('x-webhook-token') webhookToken?: string,
+    @Query('token') queryToken?: string,
   ) {
     try {
-      // Validate webhook authentication
-      this.syncAuth.validateWebhookToken(webhookToken);
+      // Validate webhook authentication (token can be in header or query param)
+      this.syncAuth.validateWebhookToken(webhookToken, queryToken);
 
       this.logger.log('Received Google Calendar push notification');
 

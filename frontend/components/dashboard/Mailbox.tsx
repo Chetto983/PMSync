@@ -769,49 +769,88 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
           total: emailsRes.data.pagination?.total || filteredEmails.length,
         });
       } else {
-        // Build query params with proper priority: advanced filters override quick filters
-        const queryParams: EmailListParams = {
-          limit: 50,
-          page: 1,
-          ...currentActiveFolder.queryOverrides,
-          search: advancedFilters.searchQuery || searchQuery || undefined,
-          from: advancedFilters.from || undefined,
-          to: advancedFilters.to || undefined,
-          subject: advancedFilters.subject || undefined,
-          labelIds: advancedFilters.labelIds || undefined,
-          // Only override date filters if advanced filters are set
-          ...(advancedFilters.startDate ? { startDate: advancedFilters.startDate } : {}),
-          ...(advancedFilters.endDate ? { endDate: advancedFilters.endDate } : {}),
-          // Only override boolean filters if advanced filters are explicitly set
-          ...(advancedFilters.hasAttachments !== undefined ? { hasAttachments: advancedFilters.hasAttachments } : {}),
-          ...(advancedFilters.isRead != null ? { isRead: advancedFilters.isRead } : {}),
-          ...(advancedFilters.isStarred !== undefined ? { isStarred: advancedFilters.isStarred } : {}),
-        };
+        // Check if any search/filter is active - if so, use listEmails for full results
+        const hasActiveFilters = searchQuery ||
+          advancedFilters.searchQuery ||
+          advancedFilters.from ||
+          advancedFilters.to ||
+          advancedFilters.subject ||
+          advancedFilters.labelIds?.length ||
+          advancedFilters.startDate ||
+          advancedFilters.endDate ||
+          advancedFilters.hasAttachments !== undefined ||
+          advancedFilters.isRead != null ||
+          advancedFilters.isStarred !== undefined;
 
-        const emailsRes = await emailApi.listEmails(queryParams);
+        if (hasActiveFilters) {
+          // Use listEmails for search/filtered results (shows all matching emails)
+          const queryParams: EmailListParams = {
+            limit: 50,
+            page: 1,
+            ...currentActiveFolder.queryOverrides,
+            search: advancedFilters.searchQuery || searchQuery || undefined,
+            from: advancedFilters.from || undefined,
+            to: advancedFilters.to || undefined,
+            subject: advancedFilters.subject || undefined,
+            labelIds: advancedFilters.labelIds || undefined,
+            ...(advancedFilters.startDate ? { startDate: advancedFilters.startDate } : {}),
+            ...(advancedFilters.endDate ? { endDate: advancedFilters.endDate } : {}),
+            ...(advancedFilters.hasAttachments !== undefined ? { hasAttachments: advancedFilters.hasAttachments } : {}),
+            ...(advancedFilters.isRead != null ? { isRead: advancedFilters.isRead } : {}),
+            ...(advancedFilters.isStarred !== undefined ? { isStarred: advancedFilters.isStarred } : {}),
+          };
 
-        // DEBUG: Log body data from API response
-        logger.debug('[Mailbox] API Response - emails', { count: emailsRes.data.emails?.length });
-        if (emailsRes.data.emails?.[0]) {
-          const firstEmail = emailsRes.data.emails[0];
-          logger.debug('[Mailbox] First email body data', {
-            id: firstEmail.id,
-            subject: firstEmail.subject?.substring(0, 30),
-            bodyHtmlLength: firstEmail.bodyHtml?.length || 0,
-            bodyTextLength: firstEmail.bodyText?.length || 0,
-            snippetLength: firstEmail.snippet?.length || 0,
+          const emailsRes = await emailApi.listEmails(queryParams);
+          logger.debug('[Mailbox] API Response - emails (filtered)', { count: emailsRes.data.emails?.length });
+
+          setEmails((emailsRes.data.emails || []).map((e) => mapApiEmailToStore(e as unknown as ApiEmail)));
+          setSelectedEmail(null);
+
+          setPagination({
+            page: 1,
+            hasMore: emailsRes.data.pagination.page < emailsRes.data.pagination.totalPages,
+            total: emailsRes.data.pagination.total,
+          });
+        } else {
+          // Use getConversations for default view (groups emails by thread, shows only latest)
+          const convParams = {
+            limit: 50,
+            page: 1,
+            providerId: currentActiveFolder.providerId,
+            folder: currentActiveFolder.filterFolder || currentActiveFolder.queryOverrides?.folder,
+          };
+
+          const convRes = await emailApi.getConversations(convParams);
+          logger.debug('[Mailbox] API Response - conversations', { count: convRes.data.conversations?.length });
+
+          // Map conversations to Email-like format for ThreadList compatibility
+          const conversationsAsEmails = (convRes.data.conversations || []).map((conv: Conversation) => ({
+            id: conv.latestEmailId,
+            threadId: conv.threadId,
+            providerId: currentActiveFolder.providerId || '',
+            externalId: conv.latestEmailId,
+            from: conv.from,
+            to: conv.to,
+            subject: conv.subject,
+            snippet: conv.snippet,
+            receivedAt: conv.receivedAt,
+            isRead: conv.isRead,
+            isStarred: conv.isStarred,
+            isImportant: conv.isFlagged,
+            folder: conv.folder,
+            emailLabels: conv.emailLabels,
+            emailCount: conv.emailCount, // Pass email count for thread badge
+          })) as Email[];
+
+          setEmails(conversationsAsEmails);
+          setSelectedEmail(null);
+
+          setPagination({
+            page: 1,
+            hasMore: convRes.data.pagination.page < convRes.data.pagination.totalPages,
+            total: convRes.data.pagination.total,
           });
         }
-
-        setEmails((emailsRes.data.emails || []).map((e) => mapApiEmailToStore(e as unknown as ApiEmail)));
-        setSelectedEmail(null);
-
-        // Update pagination
-        setPagination({
-          page: 1,
-          hasMore: emailsRes.data.pagination.page < emailsRes.data.pagination.totalPages,
-          total: emailsRes.data.pagination.total,
-        });
       }
     } catch (error) {
       logger.error('Failed to load mailbox data', { error });
@@ -1259,19 +1298,46 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       return;
     }
 
-    const droppedEmail = dragData.email as Email;
+    const droppedEmail = dragData.email as Email & { emailCount?: number };
     const targetFolder = dropData.folder;
 
     // Get list of email IDs to move (either single or bulk if selected)
     let emailIdsToMove: string[];
+    let movedCount = 0;
+
     if (dragData.isSelected && selectedIds.size > 0) {
-      // Bulk drag - move all selected emails
-      emailIdsToMove = storeEmails
-        .filter((e) => selectedIds.has(e.threadId || e.id))
-        .map((e) => e.id);
+      // Bulk drag - move all selected emails/threads
+      // For conversation view, we need to get all emails in selected threads
+      const selectedThreadIds = Array.from(selectedIds);
+      const threadEmailPromises = selectedThreadIds.map(async (threadId) => {
+        // Check if any email in store has this threadId with emailCount > 1 (conversation view)
+        const conversationEmail = storeEmails.find(e => (e.threadId === threadId || e.id === threadId) && (e as any).emailCount > 1);
+        if (conversationEmail?.threadId) {
+          // Fetch all emails in thread
+          const threadRes = await emailApi.getThread(conversationEmail.threadId);
+          return threadRes.data.map(e => e.id);
+        }
+        // Single email, just return its ID
+        const singleEmail = storeEmails.find(e => e.threadId === threadId || e.id === threadId);
+        return singleEmail ? [singleEmail.id] : [];
+      });
+      const allEmailIds = await Promise.all(threadEmailPromises);
+      emailIdsToMove = allEmailIds.flat();
+      movedCount = selectedIds.size; // Show thread count, not email count
+    } else if (droppedEmail.emailCount && droppedEmail.emailCount > 1 && droppedEmail.threadId) {
+      // Single conversation drag - move all emails in thread
+      try {
+        const threadRes = await emailApi.getThread(droppedEmail.threadId);
+        emailIdsToMove = threadRes.data.map(e => e.id);
+        movedCount = 1; // 1 conversation
+      } catch {
+        emailIdsToMove = [droppedEmail.id];
+        movedCount = 1;
+      }
     } else {
-      // Single drag
+      // Single email drag
       emailIdsToMove = [droppedEmail.id];
+      movedCount = 1;
     }
 
     if (emailIdsToMove.length === 0) return;
@@ -1287,7 +1353,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       setSnackbar({
         open: true,
         message: t.email.messages.moved
-          .replace('{count}', emailIdsToMove.length.toString())
+          .replace('{count}', movedCount.toString())
           .replace('{folder}', targetFolder.label),
         severity: 'success',
       });

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { ListItemButton, Box, Typography, Checkbox, Chip, Divider } from '@mui/material';
-import { Paperclip, Users, Calendar as CalendarIcon } from 'lucide-react';
+import { Paperclip, Users, Calendar as CalendarIcon, ChevronRight, ChevronDown } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -71,6 +71,16 @@ interface ThreadListItemProps {
    * Search query to highlight in subject and snippet
    */
   searchQuery?: string;
+
+  /**
+   * Whether this thread is expanded (showing child emails)
+   */
+  isExpanded?: boolean;
+
+  /**
+   * Callback to toggle thread expansion
+   */
+  onToggleExpand?: (threadId: string) => void;
 }
 
 /**
@@ -111,6 +121,8 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     getProviderIcon,
     onClick,
     searchQuery,
+    isExpanded = false,
+    onToggleExpand,
   }) => {
     const t = useTranslations();
 
@@ -358,9 +370,18 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
               {emailCount && emailCount > 1 && (
                 <Chip
                   size="small"
-                  icon={<Users size={12} />}
+                  icon={onToggleExpand ? (isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />) : <Users size={12} />}
                   label={`${emailCount}`}
-                  sx={{ height: 18, fontSize: '0.65rem' }}
+                  onClick={onToggleExpand ? (e) => {
+                    e.stopPropagation();
+                    onToggleExpand(threadId);
+                  } : undefined}
+                  sx={{
+                    height: 18,
+                    fontSize: '0.65rem',
+                    cursor: onToggleExpand ? 'pointer' : 'default',
+                    '&:hover': onToggleExpand ? { bgcolor: 'action.hover' } : undefined,
+                  }}
                 />
               )}
             </Box>

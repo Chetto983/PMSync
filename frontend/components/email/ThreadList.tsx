@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { List, Box, Typography, CircularProgress } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -6,7 +6,7 @@ import { ThreadListItem } from './ThreadListItem';
 import { ThreadListSkeleton } from './ThreadListSkeleton';
 import { DraggableThreadListItem } from './shared';
 import { useEmailStore, type Email } from '@/stores/email-store';
-import type { Conversation } from '@/lib/api/email';
+import { emailApi, type Conversation } from '@/lib/api/email';
 
 /**
  * Props for ThreadList component
@@ -173,6 +173,10 @@ export const ThreadList: React.FC<ThreadListProps> = ({
   const t = useTranslations();
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // Track expanded threads and their child emails
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const [threadChildEmails, setThreadChildEmails] = useState<Map<string, Email[]>>(new Map());
+
   // Get thread data from store for thread count badges
   const emailStore = useEmailStore();
 
@@ -235,6 +239,31 @@ export const ThreadList: React.FC<ThreadListProps> = ({
     },
     [onThreadClick]
   );
+
+  // Handle thread expansion toggle
+  const handleToggleExpand = useCallback(async (threadId: string) => {
+    setExpandedThreads(prev => {
+      const next = new Set(prev);
+      if (next.has(threadId)) {
+        next.delete(threadId);
+      } else {
+        next.add(threadId);
+        // Fetch child emails if not already loaded
+        if (!threadChildEmails.has(threadId)) {
+          emailApi.getThread(threadId).then(res => {
+            // Sort by date ascending (oldest first) and exclude the first (shown in list)
+            const sortedEmails = res.data
+              .sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime())
+              .slice(0, -1); // Exclude the latest (already shown)
+            setThreadChildEmails(prev => new Map(prev).set(threadId, sortedEmails));
+          }).catch(() => {
+            // Silently fail - just don't show expanded emails
+          });
+        }
+      }
+      return next;
+    });
+  }, [threadChildEmails]);
 
   // Infinite scroll with Intersection Observer
   useEffect(() => {
@@ -318,30 +347,59 @@ export const ThreadList: React.FC<ThreadListProps> = ({
   const renderThread = (thread: Email | Conversation, measureRef?: (el: HTMLElement | null) => void) => {
     const threadId = thread.threadId || ('id' in thread ? thread.id : '') || '';
     const isMultiSelected = selectedIds.has(threadId);
+    const emailCount = 'emailCount' in thread ? (thread as { emailCount?: number }).emailCount : undefined;
+    const isExpanded = expandedThreads.has(threadId);
+    const childEmails = threadChildEmails.get(threadId) || [];
 
     return (
-      <DraggableThreadListItem
-        thread={thread}
-        isDragEnabled={isDragEnabled}
-        isSelected={isMultiSelected}
-      >
-        <div ref={measureRef}>
-          <ThreadListItem
-            thread={thread}
-            selected={selectedId === threadId}
-            multiSelected={isMultiSelected}
-            onToggleSelect={onToggleSelect}
-            onToggleRead={onToggleRead}
-            onToggleStar={onToggleStar}
-            onToggleImportant={onToggleImportant}
-            onArchive={onArchive}
-            onDelete={onDelete}
-            getProviderIcon={getProviderIcon}
-            onClick={() => handleThreadClick(thread)}
-            searchQuery={searchQuery}
-          />
-        </div>
-      </DraggableThreadListItem>
+      <>
+        <DraggableThreadListItem
+          thread={thread}
+          isDragEnabled={isDragEnabled}
+          isSelected={isMultiSelected}
+        >
+          <div ref={measureRef}>
+            <ThreadListItem
+              thread={thread}
+              selected={selectedId === threadId}
+              multiSelected={isMultiSelected}
+              onToggleSelect={onToggleSelect}
+              onToggleRead={onToggleRead}
+              onToggleStar={onToggleStar}
+              onToggleImportant={onToggleImportant}
+              onArchive={onArchive}
+              onDelete={onDelete}
+              getProviderIcon={getProviderIcon}
+              onClick={() => handleThreadClick(thread)}
+              searchQuery={searchQuery}
+              isExpanded={isExpanded}
+              onToggleExpand={emailCount && emailCount > 1 ? handleToggleExpand : undefined}
+            />
+          </div>
+        </DraggableThreadListItem>
+        {/* Render child emails when expanded */}
+        {isExpanded && childEmails.map((childEmail) => (
+          <Box
+            key={childEmail.id}
+            sx={{ pl: 4, borderLeft: '2px solid', borderColor: 'divider', ml: 2 }}
+          >
+            <ThreadListItem
+              thread={childEmail}
+              selected={selectedId === childEmail.id}
+              multiSelected={selectedIds.has(childEmail.id)}
+              onToggleSelect={onToggleSelect}
+              onToggleRead={onToggleRead}
+              onToggleStar={onToggleStar}
+              onToggleImportant={onToggleImportant}
+              onArchive={onArchive}
+              onDelete={onDelete}
+              getProviderIcon={getProviderIcon}
+              onClick={() => handleThreadClick(childEmail)}
+              searchQuery={searchQuery}
+            />
+          </Box>
+        ))}
+      </>
     );
   };
 

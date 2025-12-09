@@ -207,6 +207,8 @@ export type Conversation = {
   to: string[];
   snippet?: string;
   folder: string;
+  labels?: string[];
+  emailLabels?: { label: { id: string; name: string; color?: { backgroundColor: string; textColor: string } | null } }[];
   isRead: boolean;
   isStarred: boolean;
   isFlagged: boolean;

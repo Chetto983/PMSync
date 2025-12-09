@@ -145,9 +145,11 @@ export default function LoginPage() {
       return;
     }
 
-    // Backup codes are 8 chars, TOTP/email OTP are 6
+    // Backup codes are 8 chars (or 9 with dash XXXX-XXXX), TOTP/email OTP are 6
+    // Normalize backup code by removing dash before validation
+    const normalizedCode = step === 'backup' ? trimmedCode.replace(/-/g, '') : trimmedCode;
     const expectedLength = step === 'backup' ? 8 : 6;
-    if (trimmedCode.length !== expectedLength) {
+    if (normalizedCode.length !== expectedLength) {
       setFieldError(
         step === 'backup'
           ? translations.auth.mfa?.backupCodes?.verify?.invalid || 'Backup code must be 8 characters'

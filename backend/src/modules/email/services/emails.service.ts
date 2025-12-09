@@ -945,6 +945,7 @@ export class EmailsService {
           snippet: latestEmail.snippet,
           folder: latestEmail.folder,
           labels: latestEmail.labels,
+          emailLabels: latestEmail.emailLabels,
           isRead: !hasUnread,
           isStarred: thread.some((e) => e.isStarred),
           isFlagged: thread.some((e) => e.isFlagged),
