@@ -68,7 +68,7 @@ export function Header({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
-  const logout = useAuthStore((state: any) => state.logout);
+  const logout = useAuthStore((state: { logout: () => void }) => state.logout);
   const { user } = useAuth();
   const t = useTranslations();
 

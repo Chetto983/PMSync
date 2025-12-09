@@ -152,9 +152,12 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy 
     }
 
     // Remove existing repeatable jobs to avoid duplicates
-    const existingJobs = await this.queue.getRepeatableJobs();
+    const existingJobs = await this.queue.getJobSchedulers();
     for (const job of existingJobs) {
-      await this.queue.removeRepeatableByKey(job.key);
+      // Use removeJobScheduler (the non-deprecated replacement for removeRepeatableByKey)
+      if (job.key) {
+        await this.queue.removeJobScheduler(job.key);
+      }
     }
 
     // Add repeatable jobs for each registered handler

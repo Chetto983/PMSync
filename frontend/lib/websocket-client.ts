@@ -11,14 +11,20 @@ import { logger } from '@/lib/logger';
  * - Type-safe event handlers
  */
 
-export interface RealtimeEmailEvent {
+/**
+ * Email data for realtime events
+ * Uses generic types to allow full Email objects from backend
+ * Type safety enforced at consumer level with type guards/casts
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface RealtimeEmailEvent<T = any> {
   emailId?: string;
   externalId?: string;
   providerId: string;
   folder?: string;
   reason: 'message-processed' | 'message-deleted' | 'labels-updated' | 'message-sent' | 'sync-complete';
-  email?: any;
-  updates?: any;
+  email?: T;
+  updates?: Partial<T>;
   unreadCount?: number;
   threadId?: string;
   timestamp: string;
@@ -33,24 +39,34 @@ export interface RealtimeFolderCountsEvent {
   timestamp: string;
 }
 
-export interface RealtimeCalendarEvent {
+/**
+ * Calendar event data for realtime events
+ * Uses generic type for flexibility with backend data
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface RealtimeCalendarEvent<T = any> {
   eventId?: string;
   externalId?: string;
   calendarId: string;
   providerId?: string;
   reason: 'event-created' | 'event-updated' | 'event-deleted';
-  event?: any;
-  updates?: any;
+  event?: T;
+  updates?: Partial<T>;
   timestamp: string;
 }
 
-export interface RealtimeContactEvent {
+/**
+ * Contact event data for realtime events
+ * Uses generic type for flexibility with backend data
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface RealtimeContactEvent<T = any> {
   contactId?: string;
   externalId?: string;
   providerId?: string;
   reason: 'contact-created' | 'contact-updated' | 'contact-deleted';
-  contact?: any;
-  updates?: any;
+  contact?: T;
+  updates?: Partial<T>;
   timestamp: string;
 }
 
@@ -63,11 +79,16 @@ export interface RealtimeContactCountsEvent {
   timestamp: string;
 }
 
-export interface RealtimeLabelEvent {
+/**
+ * Label event data for realtime events
+ * Uses generic type for flexibility with backend data
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface RealtimeLabelEvent<T = any> {
   labelId: string;
   reason: 'label-created' | 'label-updated' | 'label-deleted';
-  label?: any;
-  updates?: any;
+  label?: T;
+  updates?: Partial<T>;
   timestamp: string;
 }
 
@@ -102,7 +123,7 @@ export interface RealtimeAiActionEvent {
   status: 'pending' | 'approved' | 'rejected' | 'executed' | 'failed';
   confidence?: number;
   severity?: 'LOW' | 'MEDIUM' | 'HIGH';
-  payload?: any;
+  payload?: Record<string, unknown>;
   reason?: string;
   error?: string;
   timestamp: string;
@@ -212,7 +233,7 @@ class WebSocketClient {
       let isAuthFailure = false;
 
       // Connection success (initial connect)
-      const handleConnected = (data: any) => {
+      const handleConnected = (data: { socketId?: string }) => {
         if (settled) return;
         settled = true;
         logger.debug('[WebSocket] Connected successfully', { socketId: data?.socketId });
@@ -270,12 +291,12 @@ class WebSocketClient {
       });
 
       // Heartbeat
-      this.socket.on('heartbeat', (data: any) => {
+      this.socket.on('heartbeat', (data: { timestamp: string }) => {
         logger.debug('[WebSocket] Heartbeat received', { timestamp: data.timestamp });
       });
 
       // Pong response
-      this.socket.on('pong', (data: any) => {
+      this.socket.on('pong', (data: { timestamp: string }) => {
         logger.debug('[WebSocket] Pong received', { timestamp: data.timestamp });
       });
     });

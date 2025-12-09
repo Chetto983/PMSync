@@ -113,7 +113,7 @@ interface ThreadMessageProps {
   onReplyAll?: (email: Email) => void;
   onForward?: (email: Email) => void;
   onEditDraft?: (email: Email) => void;
-  onAttachmentOpen: (attachment: any, e: React.MouseEvent) => void;
+  onAttachmentOpen: (attachment: NonNullable<Email['attachments']>[number], e: React.MouseEvent) => void;
   attachmentTooltip: string;
   isDark: boolean;
   onInviteRespond?: (emailId: string, response: 'accept' | 'decline' | 'tentative') => void;
@@ -431,7 +431,8 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const { addEmailsToLabel, removeEmailFromLabel } = useLabelStore();
-  const attachmentTooltip = (t as any)?.dashboard?.email?.attachments?.tooltip ?? 'Click to open. Ctrl/Cmd+click to download.';
+  const translations = t as { dashboard?: { email?: { attachments?: { tooltip?: string } }; emailView?: { fetchArchived?: string } } };
+  const attachmentTooltip = translations?.dashboard?.email?.attachments?.tooltip ?? 'Click to open. Ctrl/Cmd+click to download.';
   const [threadData, setThreadData] = useState<Email[]>([]);
   const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set());
   const emailStore = useEmailStore();
@@ -694,7 +695,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 
         {/* Edit Draft button - shows for drafts */}
         {(email.folder === 'DRAFTS' || email.isDraft || email.externalId?.startsWith('draft-')) && onEditDraft && (
-          <Tooltip title={(t as any).common?.edit || 'Edit Draft'}>
+          <Tooltip title={t.common?.edit || 'Edit Draft'}>
             <Button
               size="small"
               variant="contained"
@@ -703,7 +704,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
               onClick={() => onEditDraft(email)}
               sx={{ mr: 1 }}
             >
-              {(t as any).common?.edit || 'Edit'}
+              {t.common?.edit || 'Edit'}
             </Button>
           </Tooltip>
         )}
@@ -831,7 +832,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           {/* Load archived content button */}
           {!primaryEmail.bodyHtml && !primaryEmail.bodyText && (
             <Button variant="outlined" size="small" onClick={handleFetchArchived} sx={{ mb: 2 }}>
-              {(t as any)?.dashboard?.emailView?.fetchArchived || 'Load archived content'}
+              {translations?.dashboard?.emailView?.fetchArchived || 'Load archived content'}
             </Button>
           )}
         </Box>

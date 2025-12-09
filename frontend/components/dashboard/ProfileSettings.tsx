@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logger } from '@/lib/logger';
 import {
   Typography,
   Paper,
@@ -29,7 +30,7 @@ export function ProfileSettings() {
       await usersApi.updateProfile({ firstName, lastName });
       // TODO: Add success/error feedback using translations
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      logger.error('Failed to update profile', { error });
     } finally {
       setIsSaving(false);
     }

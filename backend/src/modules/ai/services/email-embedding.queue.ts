@@ -261,12 +261,16 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
       return false;
     }
 
+    // Type guard for error objects with potential status codes
+    const err = error as Record<string, unknown>;
+    const response = err.response as Record<string, unknown> | undefined;
+
     // Check HTTP status codes
     const possibleStatus =
-      (error as any)?.status ??
-      (error as any)?.statusCode ??
-      (error as any)?.response?.status ??
-      (error as any)?.response?.statusCode;
+      err.status ??
+      err.statusCode ??
+      response?.status ??
+      response?.statusCode;
 
     if (typeof possibleStatus === 'number' && possibleStatus === 429) {
       return true;
@@ -292,11 +296,17 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
   private extractRetryAfter(error: unknown): number | null {
     if (!error) return null;
 
+    // Type guard for error objects with potential headers
+    const err = error as Record<string, unknown>;
+    const response = err.response as Record<string, unknown> | undefined;
+    const responseHeaders = response?.headers as Record<string, unknown> | undefined;
+    const errHeaders = err.headers as Record<string, unknown> | undefined;
+
     // Check for Retry-After header in response
     const retryAfter =
-      (error as any)?.response?.headers?.['retry-after'] ??
-      (error as any)?.headers?.['retry-after'] ??
-      (error as any)?.retryAfter;
+      responseHeaders?.['retry-after'] ??
+      errHeaders?.['retry-after'] ??
+      err.retryAfter;
 
     if (retryAfter !== undefined && retryAfter !== null) {
       const parsed = parseInt(String(retryAfter), 10);

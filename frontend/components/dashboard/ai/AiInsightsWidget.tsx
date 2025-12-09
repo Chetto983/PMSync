@@ -27,11 +27,43 @@ import { useRouter } from 'next/router';
 import { multiAgentApi } from '@/lib/api/ai';
 import { logger } from '@/lib/logger';
 
+interface TranslationObject {
+  dashboard?: {
+    home?: {
+      sections?: {
+        aiInsights?: string;
+        priorityInbox?: string;
+        aiAssistMessage?: string;
+        aiAssistMessageSingular?: string;
+        analyzeInbox?: string;
+        smartCompose?: string;
+      };
+    };
+  };
+  common?: {
+    allCaughtUp?: string;
+    refresh?: string;
+    review?: string;
+  };
+  ai?: {
+    urgent?: string;
+    actionNeeded?: string;
+    unread?: string;
+    pendingActions?: string;
+    pendingActionsHint?: string;
+    writingStyleLearning?: string;
+    writingStyleLearningLow?: string;
+    writingStyleLearningMedium?: string;
+    writingStyleLearningHigh?: string;
+    lastUpdated?: string;
+  };
+}
+
 interface AiInsightsWidgetProps {
   /** Number of unread emails for context */
   unreadCount: number;
   /** Translation object */
-  t: any;
+  t: TranslationObject;
 }
 
 interface InboxInsights {
@@ -105,7 +137,7 @@ export function AiInsightsWidget({ unreadCount, t }: AiInsightsWidgetProps) {
     loadInsights();
   }, [loadInsights]);
 
-  const getDefaultSummary = (count: number, translations: any) => {
+  const getDefaultSummary = (count: number, translations: TranslationObject) => {
     if (count === 0) return translations?.common?.allCaughtUp || 'All caught up!';
     if (count === 1) return translations?.dashboard?.home?.sections?.aiAssistMessageSingular?.replace('{count}', '1') || 'You have 1 unread email to review.';
     return translations?.dashboard?.home?.sections?.aiAssistMessage?.replace('{count}', count.toString())?.replace('{plural}', 's') || `You have ${count} unread emails to review.`;

@@ -3,6 +3,7 @@
  *
  * Tests for centralized error handling utilities.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- Test mocks require any for flexibility */
 import { AxiosError, AxiosHeaders } from 'axios';
 import {
   getErrorMessage,
@@ -250,6 +251,7 @@ describe('error-utils', () => {
     });
 
     it('should log the error', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { logger } = require('./logger');
       const error = createAxiosErrorWithStatus(500);
 

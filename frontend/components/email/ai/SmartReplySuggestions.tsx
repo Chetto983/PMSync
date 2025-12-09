@@ -25,6 +25,7 @@ import {
 import { aiApi } from '@/lib/api/ai';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLocale } from '@/lib/hooks/use-locale';
+import { logger } from '@/lib/logger';
 
 export type ReplyTone = 'formal' | 'casual' | 'technical';
 
@@ -85,7 +86,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
         setError('Failed to generate replies');
       }
     } catch (err) {
-      console.error('Failed to generate smart replies:', err);
+      logger.error('Failed to generate smart replies', { error: err });
       setError('Failed to generate replies. Please try again.');
     } finally {
       setIsLoading(false);
@@ -125,16 +126,37 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
     loadReplies();
   };
 
+  // Type helper for translations
+  type SmartRepliesTranslations = {
+    dashboard?: {
+      emailAi?: {
+        smartReplies?: {
+          title?: string;
+          generateMore?: string;
+          tone?: string;
+          formal?: string;
+          casual?: string;
+          technical?: string;
+          noReplies?: string;
+          clickToInsert?: string;
+        };
+      };
+    };
+    common?: { retry?: string };
+    ai?: { generatingSuggestions?: string; dismiss?: string };
+  };
+  const translations = t as SmartRepliesTranslations;
+
   // Translations with fallbacks
   const labels = {
-    title: (t as any)?.dashboard?.emailAi?.smartReplies?.title || 'Smart Replies',
-    generateMore: (t as any)?.dashboard?.emailAi?.smartReplies?.generateMore || 'Generate More',
-    tone: (t as any)?.dashboard?.emailAi?.smartReplies?.tone || 'Tone',
-    formal: (t as any)?.dashboard?.emailAi?.smartReplies?.formal || 'Formal',
-    casual: (t as any)?.dashboard?.emailAi?.smartReplies?.casual || 'Casual',
-    technical: (t as any)?.dashboard?.emailAi?.smartReplies?.technical || 'Technical',
-    noReplies: (t as any)?.dashboard?.emailAi?.smartReplies?.noReplies || 'No suggestions available',
-    clickToInsert: (t as any)?.dashboard?.emailAi?.smartReplies?.clickToInsert || 'Click to insert',
+    title: translations?.dashboard?.emailAi?.smartReplies?.title || 'Smart Replies',
+    generateMore: translations?.dashboard?.emailAi?.smartReplies?.generateMore || 'Generate More',
+    tone: translations?.dashboard?.emailAi?.smartReplies?.tone || 'Tone',
+    formal: translations?.dashboard?.emailAi?.smartReplies?.formal || 'Formal',
+    casual: translations?.dashboard?.emailAi?.smartReplies?.casual || 'Casual',
+    technical: translations?.dashboard?.emailAi?.smartReplies?.technical || 'Technical',
+    noReplies: translations?.dashboard?.emailAi?.smartReplies?.noReplies || 'No suggestions available',
+    clickToInsert: translations?.dashboard?.emailAi?.smartReplies?.clickToInsert || 'Click to insert',
   };
 
   return (
@@ -178,7 +200,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
         {isLoading && <CircularProgress size={16} sx={{ color: isDark ? '#55cae5' : '#7650ce' }} />}
 
         {onDismiss && (
-          <Tooltip title={(t as any)?.ai?.dismiss ?? 'Dismiss'}>
+          <Tooltip title={translations?.ai?.dismiss ?? 'Dismiss'}>
             <IconButton
               size="small"
               onClick={(e) => {
@@ -208,7 +230,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
               </Typography>
               <Chip
                 icon={<RefreshCw size={14} />}
-                label={(t as any)?.common?.retry ?? 'Retry'}
+                label={translations?.common?.retry ?? 'Retry'}
                 onClick={handleRegenerate}
                 size="small"
                 variant="outlined"
@@ -221,7 +243,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
             <Box sx={{ textAlign: 'center', py: 3 }}>
               <CircularProgress size={24} sx={{ color: isDark ? '#55cae5' : '#7650ce' }} />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {(t as any)?.ai?.generatingSuggestions ?? 'Generating suggestions...'}
+                {translations?.ai?.generatingSuggestions ?? 'Generating suggestions...'}
               </Typography>
             </Box>
           )}

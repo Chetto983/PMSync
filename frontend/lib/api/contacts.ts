@@ -64,7 +64,7 @@ export interface Contact {
   tags?: string[];
   createdAt: string;
   updatedAt: string;
-  metadata?: Record<string, any> | null;
+  metadata?: Record<string, unknown> | null;
   // Provider contacts - links to external provider contacts
   providerContacts?: ProviderContact[];
 }
@@ -94,7 +94,8 @@ export interface CreateContactDto {
   notes?: string;
 }
 
-export interface UpdateContactDto extends Partial<CreateContactDto> {}
+// Using type alias instead of empty interface to avoid ESLint no-empty-object-type error
+export type UpdateContactDto = Partial<CreateContactDto>;
 
 export interface ContactCounts {
   total: number;

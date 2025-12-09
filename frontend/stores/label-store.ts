@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { labelsApi, type Label, hexToLabelColor } from '@/lib/api/labels';
+import type { Email } from '@/lib/api/email';
 import { logger } from '@/lib/logger';
 
 interface LabelStore {
@@ -13,8 +14,8 @@ interface LabelStore {
   updateLabel: (labelId: string, name?: string, colorHex?: string) => Promise<Label>;
   deleteLabel: (labelId: string) => Promise<void>;
   reorderLabels: (labelIds: string[]) => Promise<void>;
-  addEmailsToLabel: (labelId: string, emailIds: string[]) => Promise<{ count: number; emails: any[] }>;
-  removeEmailFromLabel: (labelId: string, emailId: string) => Promise<{ email: any }>;
+  addEmailsToLabel: (labelId: string, emailIds: string[]) => Promise<{ count: number; emails: Email[] }>;
+  removeEmailFromLabel: (labelId: string, emailId: string) => Promise<{ email: Email }>;
 
   // Helpers
   getLabelById: (labelId: string) => Label | undefined;

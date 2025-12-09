@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import {
   LineChart,
   Line,
@@ -23,7 +23,7 @@ export function AnalyticsChart() {
         const data = await analyticsApi.getEmailAnalytics();
         setData(data);
       } catch (error) {
-        console.error('Failed to fetch analytics data:', error);
+        logger.error('Failed to fetch analytics data', { error });
       } finally {
         setLoading(false);
       }

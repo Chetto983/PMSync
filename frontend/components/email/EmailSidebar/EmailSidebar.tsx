@@ -660,7 +660,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
     }) => {
       try {
         await usersApi.updatePreferences(data);
-      } catch (error) {
+      } catch {
         // Silently fail - preferences will sync on next load
       }
     }, 1000),

@@ -393,6 +393,7 @@ export const QUEUE_NAMES = {
   // AI/Embedding queues
   EMAIL_EMBEDDING: 'email-embedding',
   AI_PROCESSING: 'ai-processing',
+  AI_SUMMARIZATION: 'ai-summarization',
 
   // Contacts sync queues
   CONTACTS_SYNC_HIGH: 'contacts-sync-high',

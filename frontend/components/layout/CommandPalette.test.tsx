@@ -174,6 +174,7 @@ describe('CommandPalette', () => {
     });
 
     it('should search emails when query is longer than 2 characters', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { emailApi } = require('@/lib/api/email');
       render(<CommandPalette {...defaultProps} />);
 

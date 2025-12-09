@@ -1,6 +1,6 @@
 # PmSync MVP Completion Roadmap
 
-**Version:** 2.7 | **Date:** 2025-12-08 | **Status:** ✅ MVP READY (1000 Users)
+**Version:** 3.3 | **Date:** 2025-12-09 | **Status:** ✅ MVP READY (1000 Users)
 
 ---
 
@@ -431,10 +431,37 @@ These are acceptable trade-offs - the system degrades gracefully when Redis is u
 
 ### 5.5 Post-MVP (P3)
 
-- [ ] Memory summarization for long conversations (via LLM)
+- [x] **Memory summarization for long conversations** ✅ DONE (2025-12-09)
+  - Created `SummarizationQueueService` using BullMQ for proper job management
+  - Memory service uses queue instead of fire-and-forget promises
+  - Eliminates memory leak risk from orphaned promises
+  - Includes job deduplication, retry logic, and rate limiting
 - [ ] Idempotency for AI actions
 
-### 5.6 Completed ✅
+### 5.6 Code Review Improvements (2025-12-09) ✅
+
+- [x] **Input validation for LLM calls** - `services/mistral.service.ts`
+  - Added `validatePromptInputs()` with max length checks
+  - User prompt: 10,000 chars max
+  - System prompt: 5,000 chars max
+  - Prevents excessive LLM costs and potential prompt injection
+
+- [x] **Mistral provider lazy initialization** - `voltagent/providers/mistral.provider.ts`
+  - Fixed silent API key failure (was falling back to empty string)
+  - Now throws clear error when `MISTRAL_API_KEY` not configured
+  - Added `isMistralConfigured()` helper function
+
+- [x] **Configurable model names** - `voltagent/providers/mistral.provider.ts`
+  - `MISTRAL_MODEL_SMALL` (default: `mistral-small-latest`)
+  - `MISTRAL_MODEL_MEDIUM` (default: `mistral-medium-latest`)
+  - `MISTRAL_MODEL_LARGE` (default: `mistral-large-latest`)
+
+- [x] **BullMQ summarization queue** - `voltagent/memory/summarization.queue.ts` (NEW)
+  - Uses `AI_SUMMARIZATION` queue name
+  - Proper job lifecycle management
+  - Graceful shutdown support
+
+### 5.7 Completed ✅
 
 - [x] Telemetry wired
 - [x] Queue wired (BullMQ)
@@ -973,6 +1000,7 @@ GET /health/metrics - Prometheus
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.3 | 2025-12-09 | **CODE REVIEW PHASE 1 COMPLETE**: Fixed ESLint config, added LLM input validation, fixed Mistral API key failure, created BullMQ summarization queue, fixed deprecated BullMQ APIs, model names now configurable via env |
 | 3.2 | 2025-12-09 | **SCALABILITY COMPLETE**: All 12 @Cron jobs migrated to BullMQ via ScheduledJobsQueueService; CSP headers added; AI chunk size externalized to config |
 | 3.1 | 2025-12-08 | API audit: Fixed missing specialUse param in listEmails - "All Inbox" aggregation now works |
 | 3.0 | 2025-12-08 | Frontend i18n polish: Fixed Tooltip translations in AttachmentPreview, ThreadDisplay, ContactListItem |

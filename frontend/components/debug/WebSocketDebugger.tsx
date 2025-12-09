@@ -22,7 +22,7 @@ interface WebSocketEvent {
   emailId?: string;
   hasEmailObject?: boolean;
   emailLabelsCount?: number;
-  data: any;
+  data: unknown;
 }
 
 /**
@@ -48,23 +48,27 @@ export const WebSocketDebugger: React.FC = () => {
   useEffect(() => {
     // Listen to all WebSocket events
     const unsubEmailNew = websocketClient.onEmailNew((data) => {
+      const email = data.email as Record<string, unknown> | undefined;
+      const emailLabels = email?.emailLabels as unknown[] | undefined;
       addEvent({
         type: 'email:new',
         reason: data.reason,
         emailId: data.emailId,
         hasEmailObject: !!data.email,
-        emailLabelsCount: (data.email as any)?.emailLabels?.length || 0,
+        emailLabelsCount: emailLabels?.length || 0,
         data,
       });
     });
 
     const unsubEmailUpdate = websocketClient.onEmailUpdate((data) => {
+      const email = data.email as Record<string, unknown> | undefined;
+      const emailLabels = email?.emailLabels as unknown[] | undefined;
       addEvent({
         type: 'email:update',
         reason: data.reason,
-        emailId: data.emailId || (data.email as any)?.id,
+        emailId: data.emailId || (email?.id as string | undefined),
         hasEmailObject: !!data.email,
-        emailLabelsCount: (data.email as any)?.emailLabels?.length || 0,
+        emailLabelsCount: emailLabels?.length || 0,
         data,
       });
     });

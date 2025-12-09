@@ -28,3 +28,10 @@ export {
   SessionBridgeService,
   type SessionInfo,
 } from './session-bridge.service';
+
+// Summarization queue service (BullMQ-based)
+export {
+  SummarizationQueueService,
+  type SummarizationJobData,
+  type SummarizationJobResult,
+} from './summarization.queue';

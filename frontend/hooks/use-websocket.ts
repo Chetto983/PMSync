@@ -172,7 +172,16 @@ export function useWebSocket(token: string | null, enabled = true) {
 
     logger.debug('[useWebSocket] Registering event listeners (before/during connection)...');
 
-    const emitFolderRefresh = debounce((detail?: { type: 'created' | 'renamed' | 'deleted'; payload: any }) => {
+    interface FolderRefreshDetail {
+      type: 'created' | 'renamed' | 'deleted';
+      payload: {
+        folderId: string;
+        providerId: string;
+        folderName: string;
+        folderPath: string;
+      };
+    }
+    const emitFolderRefresh = debounce((detail?: FolderRefreshDetail) => {
       if (detail?.type === 'created') {
         upsertFolder({
           id: detail.payload.folderId,
@@ -279,18 +288,18 @@ export function useWebSocket(token: string | null, enabled = true) {
     // FOLDER EVENTS - trigger global refresh for sidebar
     const unsubFolderCreated = websocketClient.onFolderCreated((data) => {
       logger.debug('[WS] Folder created', { folderId: data.folderId });
-      emitFolderRefresh({ type: 'created', payload: data });
+      emitFolderRefresh({ type: 'created', payload: { folderId: data.folderId, providerId: data.providerId, folderName: data.folderName, folderPath: data.folderPath } });
     });
     const unsubFolderRenamed = websocketClient.onFolderRenamed((data) => {
       logger.debug('[WS] Folder renamed', { folderId: data.folderId });
-      emitFolderRefresh({ type: 'renamed', payload: data });
+      emitFolderRefresh({ type: 'renamed', payload: { folderId: data.folderId, providerId: data.providerId, folderName: data.folderName, folderPath: data.folderPath } });
     });
     const unsubFolderDeleted = websocketClient.onFolderDeleted((data) => {
       logger.debug('[WS] Folder deleted', { folderId: data.folderId });
-      emitFolderRefresh({ type: 'deleted', payload: data });
+      emitFolderRefresh({ type: 'deleted', payload: { folderId: data.folderId, providerId: data.providerId, folderName: data.folderName, folderPath: data.folderPath } });
     });
 
-    const emitAiEvent = (type: string, payload: any) => {
+    const emitAiEvent = (type: string, payload: unknown) => {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('ai:event', { detail: { type, payload } }));
       }

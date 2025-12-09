@@ -208,7 +208,7 @@ export function Tasks() {
                       <Chip
                         size="small"
                         label={task.priority}
-                        color={getPriorityColor(task.priority) as any}
+                        color={getPriorityColor(task.priority) as 'default' | 'error' | 'warning'}
                         icon={<Flag size={12} />}
                       />
                       {task.dueDate && (

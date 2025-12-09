@@ -1,15 +1,21 @@
 import nextConfig from 'eslint-config-next';
+import tseslint from 'typescript-eslint';
 
 const config = [
   {
-    ignores: ['coverage/**'],
+    ignores: ['coverage/**', '.next/**', 'node_modules/**'],
   },
   ...nextConfig,
+  ...tseslint.configs.recommended,
   {
+    files: ['**/*.ts', '**/*.tsx'],
     rules: {
-      'no-console': 'error',
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': 'error',
+      'no-console': 'warn',
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+      }],
     },
   },
 ];

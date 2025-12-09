@@ -39,6 +39,8 @@ import {
 } from 'lucide-react';
 import { voltAgentApi, aiApi } from '@/lib/api/ai';
 import { TypingIndicator } from '@/components/ai/TypingIndicator';
+import type { AppTranslations } from '@/locales';
+import { logger } from '@/lib/logger';
 
 interface ChatMessage {
   id: string;
@@ -67,7 +69,7 @@ interface AiChatPanelProps {
   /** Callback when user wants to update subject */
   onUpdateSubject: (text: string) => void;
   /** Translation object */
-  t: any;
+  t: AppTranslations;
   /** Locale for AI */
   locale?: string;
 }
@@ -289,10 +291,8 @@ export function AiChatPanel({
         },
         // onError
         (errorMessage) => {
-          console.error('AI stream error:', errorMessage);
-          const errorContent = localeKey === 'it'
-            ? 'Si è verificato un errore. Riprova.'
-            : 'An error occurred. Please try again.';
+          logger.error('AI stream error', { errorMessage });
+          const errorContent = t.email?.composer?.aiChatError ?? 'An error occurred. Please try again.';
 
           setMessages((prev) => {
             const lastMessage = prev[prev.length - 1];
@@ -310,7 +310,7 @@ export function AiChatPanel({
         },
       );
     },
-    [inputValue, isStreaming, handleStop, buildContextPrompt, localeKey],
+    [inputValue, isStreaming, handleStop, buildContextPrompt, localeKey, t],
   );
 
   // Generate smart subject
@@ -330,7 +330,7 @@ export function AiChatPanel({
         onUpdateSubject(data.subject);
       }
     } catch (error) {
-      console.error('Subject generation error:', error);
+      logger.error('Subject generation error', { error });
     } finally {
       setGeneratingSubject(false);
     }
@@ -430,7 +430,7 @@ export function AiChatPanel({
           {isStreaming && (
             <Chip
               size="small"
-              label={localeKey === 'it' ? 'Generando...' : 'Generating...'}
+              label={t.email?.composer?.aiChatGenerating ?? 'Generating...'}
               color="primary"
               sx={{ height: 18, fontSize: '0.7rem' }}
             />
@@ -453,7 +453,7 @@ export function AiChatPanel({
           {/* Tone selector */}
           <Box sx={{ mb: 2 }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-              {localeKey === 'it' ? 'Tono:' : 'Tone:'}
+              {t.email?.composer?.aiChatTone ?? 'Tone:'}
             </Typography>
             <ToggleButtonGroup
               value={tone}
@@ -488,8 +488,8 @@ export function AiChatPanel({
                 sx={{ fontSize: '0.75rem' }}
               >
                 {generatingSubject
-                  ? (localeKey === 'it' ? 'Generando oggetto...' : 'Generating subject...')
-                  : (localeKey === 'it' ? 'Genera oggetto' : 'Generate subject')}
+                  ? (t.email?.composer?.aiChatGeneratingSubject ?? 'Generating subject...')
+                  : (t.email?.composer?.aiChatGenerateSubject ?? 'Generate subject')}
               </Button>
             </Box>
           )}

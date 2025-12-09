@@ -51,7 +51,7 @@ describe('MistralService', () => {
       MISTRAL_MODEL: 'mistral-medium-latest',
     };
     configService = {
-      get: jest.fn((key: string) => configValues[key]),
+      get: jest.fn((key: string, defaultValue?: unknown) => configValues[key] ?? defaultValue),
     };
     // PrismaService mock - Message model was removed from schema
     prismaService = {};
@@ -258,6 +258,232 @@ describe('MistralService', () => {
       const results = await service.searchSimilarContent('tenant', [0.1], 5);
 
       expect(results).toEqual([]);
+    });
+  });
+
+  describe('Circuit Breaker', () => {
+    // Each test creates its own fresh service instance to avoid state leakage
+    // We don't rely on the global service or beforeEach
+
+    it('should start in closed state', () => {
+      const status = service.getCircuitBreakerStatus();
+      expect(status.state).toBe('closed');
+      expect(status.failures).toBe(0);
+    });
+
+    it('should allow requests when circuit is closed', async () => {
+      mockChatComplete.mockResolvedValue({
+        choices: [{ message: { content: 'Success' } }],
+      });
+
+      const result = await service.completePrompt({ userPrompt: 'test' });
+      expect(result).toBe('Success');
+    });
+
+    it('should track last success timestamp', async () => {
+      const beforeTime = Date.now();
+      mockChatComplete.mockResolvedValue({
+        choices: [{ message: { content: 'Success' } }],
+      });
+
+      await service.completePrompt({ userPrompt: 'test' });
+
+      const status = service.getCircuitBreakerStatus();
+      expect(status.lastSuccess).toBeGreaterThanOrEqual(beforeTime);
+    });
+
+    it('should open circuit after threshold failures (5 consecutive)', async () => {
+      // Use mockImplementation to always reject for multiple calls
+      mockChatComplete.mockImplementation(() => Promise.reject(new Error('API Error')));
+
+      for (let i = 0; i < 5; i++) {
+        await expect(service.completePrompt({ userPrompt: 'test' })).rejects.toThrow('API Error');
+      }
+
+      const status = service.getCircuitBreakerStatus();
+      expect(status.state).toBe('open');
+      expect(status.failures).toBe(5);
+    });
+
+    it('should not open circuit before reaching threshold', async () => {
+      mockChatComplete.mockImplementation(() => Promise.reject(new Error('API Error')));
+
+      // Make 4 failing requests (threshold is 5)
+      for (let i = 0; i < 4; i++) {
+        await expect(service.completePrompt({ userPrompt: 'test' })).rejects.toThrow('API Error');
+      }
+
+      const status = service.getCircuitBreakerStatus();
+      expect(status.state).toBe('closed');
+      expect(status.failures).toBe(4);
+    });
+
+    it('should reset failure count on successful request', async () => {
+      mockChatComplete
+        .mockRejectedValueOnce(new Error('API Error'))
+        .mockRejectedValueOnce(new Error('API Error'))
+        .mockResolvedValueOnce({ choices: [{ message: { content: 'Success' } }] });
+
+      // 2 failures
+      await expect(service.completePrompt({ userPrompt: 'fail1' })).rejects.toThrow();
+      await expect(service.completePrompt({ userPrompt: 'fail2' })).rejects.toThrow();
+
+      expect(service.getCircuitBreakerStatus().failures).toBe(2);
+
+      // 1 success - should reset failures
+      await service.completePrompt({ userPrompt: 'success' });
+
+      expect(service.getCircuitBreakerStatus().failures).toBe(0);
+      expect(service.getCircuitBreakerStatus().state).toBe('closed');
+    });
+
+    it('should block requests when circuit is open', async () => {
+      // Open the circuit first with 5 failures
+      mockChatComplete.mockImplementation(() => Promise.reject(new Error('API Error')));
+
+      for (let i = 0; i < 5; i++) {
+        await expect(service.completePrompt({ userPrompt: 'fail' })).rejects.toThrow('API Error');
+      }
+
+      expect(service.getCircuitBreakerStatus().state).toBe('open');
+
+      // Clear mock to verify it's not called for blocked request
+      mockChatComplete.mockClear();
+
+      // Next request should be blocked
+      await expect(service.completePrompt({ userPrompt: 'blocked' })).rejects.toThrow(
+        'Mistral API circuit breaker is open - service temporarily unavailable',
+      );
+
+      expect(mockChatComplete).not.toHaveBeenCalled();
+    });
+
+    it('should block embedding requests when circuit is open', async () => {
+      // Open the circuit first
+      mockChatComplete.mockImplementation(() => Promise.reject(new Error('API Error')));
+
+      for (let i = 0; i < 5; i++) {
+        await expect(service.completePrompt({ userPrompt: 'fail' })).rejects.toThrow('API Error');
+      }
+
+      expect(service.getCircuitBreakerStatus().state).toBe('open');
+
+      mockEmbeddingsCreate.mockClear();
+
+      await expect(service.generateEmbedding('blocked text')).rejects.toThrow(
+        'Mistral API circuit breaker is open - service temporarily unavailable',
+      );
+
+      expect(mockEmbeddingsCreate).not.toHaveBeenCalled();
+    });
+
+    it('should block bulk embedding requests when circuit is open', async () => {
+      // Open the circuit first
+      mockChatComplete.mockImplementation(() => Promise.reject(new Error('API Error')));
+
+      for (let i = 0; i < 5; i++) {
+        await expect(service.completePrompt({ userPrompt: 'fail' })).rejects.toThrow('API Error');
+      }
+
+      expect(service.getCircuitBreakerStatus().state).toBe('open');
+
+      mockEmbeddingsCreate.mockClear();
+
+      await expect(service.generateBulkEmbeddings(['text1', 'text2'])).rejects.toThrow(
+        'Mistral API circuit breaker is open - service temporarily unavailable',
+      );
+
+      expect(mockEmbeddingsCreate).not.toHaveBeenCalled();
+    });
+
+    it('should return unavailable message in generateResponse when circuit is open', async () => {
+      // Open the circuit first
+      mockChatComplete.mockImplementation(() => Promise.reject(new Error('API Error')));
+
+      for (let i = 0; i < 5; i++) {
+        await expect(service.completePrompt({ userPrompt: 'fail' })).rejects.toThrow('API Error');
+      }
+
+      expect(service.getCircuitBreakerStatus().state).toBe('open');
+
+      // generateResponse returns a fallback message instead of throwing
+      const response = await service.generateResponse('tenant', 'user', 'prompt', []);
+
+      expect(response).toContain('unavailable');
+    });
+  });
+
+  // Half-open state tests need fake timers, so we put them in a separate describe
+  describe('Circuit Breaker - Half-open state transitions', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should transition to half-open after reset time', async () => {
+      mockChatComplete.mockImplementation(() => Promise.reject(new Error('API Error')));
+
+      // Open the circuit
+      for (let i = 0; i < 5; i++) {
+        await expect(service.completePrompt({ userPrompt: 'test' })).rejects.toThrow('API Error');
+      }
+
+      expect(service.getCircuitBreakerStatus().state).toBe('open');
+
+      // Advance time past reset period (30 seconds)
+      jest.advanceTimersByTime(31000);
+
+      // Now circuit should allow a test request (transition to half-open)
+      mockChatComplete.mockResolvedValue({
+        choices: [{ message: { content: 'Recovered' } }],
+      });
+
+      const result = await service.completePrompt({ userPrompt: 'test after reset' });
+      expect(result).toBe('Recovered');
+    });
+
+    it('should close circuit after successful request in half-open state', async () => {
+      mockChatComplete.mockImplementation(() => Promise.reject(new Error('API Error')));
+
+      // Open the circuit
+      for (let i = 0; i < 5; i++) {
+        await expect(service.completePrompt({ userPrompt: 'test' })).rejects.toThrow('API Error');
+      }
+
+      // Advance time past reset period
+      jest.advanceTimersByTime(31000);
+
+      // Successful request in half-open state
+      mockChatComplete.mockResolvedValue({
+        choices: [{ message: { content: 'Success' } }],
+      });
+
+      await service.completePrompt({ userPrompt: 'recovery test' });
+
+      const status = service.getCircuitBreakerStatus();
+      expect(status.state).toBe('closed');
+      expect(status.failures).toBe(0);
+    });
+
+    it('should reopen circuit on failure in half-open state', async () => {
+      mockChatComplete.mockImplementation(() => Promise.reject(new Error('API Error')));
+
+      // Open the circuit
+      for (let i = 0; i < 5; i++) {
+        await expect(service.completePrompt({ userPrompt: 'test' })).rejects.toThrow('API Error');
+      }
+
+      // Advance time past reset period
+      jest.advanceTimersByTime(31000);
+
+      // Failed request in half-open state - circuit reopens immediately
+      await expect(service.completePrompt({ userPrompt: 'failed recovery' })).rejects.toThrow('API Error');
+
+      const status = service.getCircuitBreakerStatus();
+      expect(status.state).toBe('open');
     });
   });
 

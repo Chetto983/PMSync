@@ -106,7 +106,7 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function App({ Component, pageProps }: AppProps & { Component: any }) {
+export default function App({ Component, pageProps }: AppProps & { Component: React.ComponentType & { skipAuthGuard?: boolean } }) {
   // Skip RouteGuard for error pages and pages with skipAuthGuard flag
   const skipAuth = Component.skipAuthGuard || false;
 

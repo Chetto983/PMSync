@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, Typography, IconButton } from '@mui/material';
+import { Card, CardContent, CardHeader, Typography, IconButton, SxProps, Theme } from '@mui/material';
 import { MoreVertical } from 'lucide-react';
 
 export interface DashboardCardProps {
@@ -7,7 +7,7 @@ export interface DashboardCardProps {
   subtitle?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
-  sx?: any;
+  sx?: SxProps<Theme>;
 }
 
 export function DashboardCard({

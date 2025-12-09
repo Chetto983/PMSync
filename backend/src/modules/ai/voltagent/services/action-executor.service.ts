@@ -22,7 +22,7 @@ const IDEMPOTENCY_TTL_SECONDS = 300;
  */
 export interface ActionExecutionResult {
   success: boolean;
-  data?: any;
+  data?: Record<string, unknown>;
   summary?: string | string[];
   error?: string;
   executionTimeMs: number;
@@ -820,7 +820,7 @@ export class ActionExecutorService {
       endTime: new Date(endTime),
       isAllDay: isAllDay || false,
       timeZone: timeZone || 'UTC',
-      attendees: attendees?.map((a: any) => typeof a === 'string' ? { email: a } : a),
+      attendees: attendees?.map((a: string | { email: string }) => typeof a === 'string' ? { email: a } : a),
     });
 
     this.logger.log(`Created calendar event ${event.id}`);
@@ -858,7 +858,7 @@ export class ActionExecutorService {
       location,
       startTime: startTime ? new Date(startTime) : undefined,
       endTime: endTime ? new Date(endTime) : undefined,
-      attendees: attendees?.map((a: any) => typeof a === 'string' ? { email: a } : a),
+      attendees: attendees?.map((a: string | { email: string }) => typeof a === 'string' ? { email: a } : a),
     });
 
     this.logger.log(`Updated calendar event ${eventId}`);
@@ -1306,7 +1306,13 @@ export class ActionExecutorService {
     const { limit = 10, providerId, folder } = action.payload;
     const lang = getLocale(context.preferences?.language);
 
-    const whereClause: any = {
+    const whereClause: {
+      tenantId: string;
+      isRead: boolean;
+      isDeleted: boolean;
+      providerId?: string;
+      folder?: string;
+    } = {
       tenantId: context.tenantId,
       isRead: false,
       isDeleted: false,

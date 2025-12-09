@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logger } from '@/lib/logger';
 import {
   Box,
   Paper,
@@ -74,7 +75,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
     try {
       await action();
     } catch (error) {
-      console.error(`Failed to ${actionName}:`, error);
+      logger.error(`Failed to ${actionName}`, { error });
     } finally {
       setLoading(null);
     }

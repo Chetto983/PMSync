@@ -1,4 +1,5 @@
 import { apiClient } from '../api-client';
+import type { Email } from './email';
 
 // ===== UTILITIES =====
 
@@ -97,7 +98,7 @@ export interface LabelResponse {
 }
 
 export interface LabelEmailsResponse {
-  emails: any[]; // Using any for now, could be Email type from email.ts
+  emails: Email[];
 }
 
 // ===== API CLIENT =====
@@ -151,7 +152,7 @@ export const labelsApi = {
    * Add emails to a label
    * POST /labels/:id/emails
    */
-  async addEmailsToLabel(labelId: string, dto: AddEmailsToLabelDto): Promise<{ count: number; emails: any[] }> {
+  async addEmailsToLabel(labelId: string, dto: AddEmailsToLabelDto): Promise<{ count: number; emails: Email[] }> {
     const response = await apiClient.post(`/labels/${labelId}/emails`, dto);
     return response.data;
   },
@@ -160,7 +161,7 @@ export const labelsApi = {
    * Remove an email from a label
    * DELETE /labels/:id/emails/:emailId
    */
-  async removeEmailFromLabel(labelId: string, emailId: string): Promise<{ email: any }> {
+  async removeEmailFromLabel(labelId: string, emailId: string): Promise<{ email: Email }> {
     const response = await apiClient.delete(`/labels/${labelId}/emails/${emailId}`);
     return response.data;
   },

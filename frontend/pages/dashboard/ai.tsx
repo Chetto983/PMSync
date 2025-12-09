@@ -866,36 +866,37 @@ function AiAssistantView() {
       if (data.pendingActionIds && data.pendingActionIds.length > 0) {
         await loadPendingActions();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Failed to send message', { error });
-      if (error?.response?.status === 403) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError?.response?.status === 403) {
         setNotification({
           open: true,
-          message: 'Session non valida o non autorizzata. Riprova più tardi.',
+          message: t.errors.forbidden,
           severity: 'error',
         });
-      } else if (error?.response?.status === 429) {
+      } else if (axiosError?.response?.status === 429) {
         setNotification({
           open: true,
-          message: 'Rate limit raggiunto. Attendi qualche secondo e riprova.',
+          message: t.errors.tooManyRequests,
           severity: 'warning',
         });
-      } else if (error?.response?.status === 400) {
+      } else if (axiosError?.response?.status === 400) {
         setNotification({
           open: true,
-          message: "Richiesta non valida (controlla l'agente forzato o i parametri).",
+          message: t.errors.badRequest,
           severity: 'error',
         });
       } else {
         setNotification({
           open: true,
-          message: 'Errore durante l’elaborazione. Riprova.',
+          message: t.errors.processingError,
           severity: 'error',
         });
       }
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request. Please try again.',
+        content: t.ai?.chat?.error || 'Sorry, I encountered an error processing your request. Please try again.',
         timestamp: new Date(),
       };
       setMessages((prev) => {

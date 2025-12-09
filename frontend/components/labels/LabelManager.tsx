@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import {
   Dialog,
   DialogTitle,
@@ -78,13 +79,13 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
 
   // Debug: Track label changes
   useEffect(() => {
-    console.log('[LabelManager] Labels changed:', labels.length, labels);
+    logger.debug('[LabelManager] Labels changed', { count: labels.length, labels });
   }, [labels]);
 
   // Load labels when dialog opens
   useEffect(() => {
     if (open) {
-      console.log('[LabelManager] Dialog opened, fetching labels');
+      logger.debug('[LabelManager] Dialog opened, fetching labels');
       fetchLabels();
     }
   }, [open, fetchLabels]);
@@ -115,7 +116,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
       setLabelName('');
       setLabelColor(LABEL_COLORS[0]);
       setIsCreating(false);
-    } catch (err) {
+    } catch {
       setActionError(t.email.labels.failedToCreate);
     } finally {
       setActionLoading(false);
@@ -137,7 +138,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
       setEditingLabelId(null);
       setLabelName('');
       setLabelColor(LABEL_COLORS[0]);
-    } catch (err) {
+    } catch {
       setActionError(t.email.labels.failedToUpdate);
     } finally {
       setActionLoading(false);
@@ -154,7 +155,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
 
     try {
       await deleteLabel(labelId);
-    } catch (err) {
+    } catch {
       setActionError(t.email.labels.failedToDelete);
     } finally {
       setActionLoading(false);

@@ -204,6 +204,31 @@ export class MistralService {
     return this.createClient(apiKey);
   }
 
+  // Input validation constants
+  private static readonly MAX_USER_PROMPT_LENGTH = 10000;
+  private static readonly MAX_SYSTEM_PROMPT_LENGTH = 5000;
+
+  /**
+   * Validate prompt inputs before sending to LLM
+   */
+  private validatePromptInputs(userPrompt: string, systemPrompt?: string): void {
+    if (!userPrompt || typeof userPrompt !== 'string') {
+      throw new Error('userPrompt is required and must be a string');
+    }
+
+    if (userPrompt.length > MistralService.MAX_USER_PROMPT_LENGTH) {
+      throw new Error(`userPrompt exceeds maximum length of ${MistralService.MAX_USER_PROMPT_LENGTH} characters`);
+    }
+
+    if (systemPrompt !== undefined && typeof systemPrompt !== 'string') {
+      throw new Error('systemPrompt must be a string if provided');
+    }
+
+    if (systemPrompt && systemPrompt.length > MistralService.MAX_SYSTEM_PROMPT_LENGTH) {
+      throw new Error(`systemPrompt exceeds maximum length of ${MistralService.MAX_SYSTEM_PROMPT_LENGTH} characters`);
+    }
+  }
+
   async completePrompt(options: {
     systemPrompt?: string;
     userPrompt: string;
@@ -216,6 +241,9 @@ export class MistralService {
   }): Promise<string> {
     const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000, telemetryContext } = options;
     const model = this.getModel();
+
+    // Validate inputs before processing
+    this.validatePromptInputs(userPrompt, systemPrompt);
 
     // Check circuit breaker before making request
     if (!this.checkCircuitBreaker()) {
@@ -294,7 +322,7 @@ export class MistralService {
     });
   }
 
-  private normaliseConversation(history: any[]): MistralChatMessage[] {
+  private normaliseConversation(history: Array<{ role?: string; content?: unknown }>): MistralChatMessage[] {
     const result = history
       .filter((item): item is ConversationMessage => {
         return (
@@ -593,7 +621,7 @@ export class MistralService {
     tenantId: string,
     userId: string,
     userPrompt: string,
-    conversationHistory: any[] = [],
+    conversationHistory: Array<{ role?: string; content?: unknown }> = [],
     options?: { conversationId?: string; locale?: string; timeoutMs?: number },
   ): Promise<string> {
     const apiKey = this.getApiKey();
@@ -637,7 +665,7 @@ export class MistralService {
 
         if (similarContent.length > 0) {
           const contextBlocks = similarContent
-            .map((contentItem: any, index: number) => {
+            .map((contentItem, index) => {
               const title = contentItem.documentName || t.mistral.rag.sourceLabel(index + 1);
               return `### ${title}\n${contentItem.content}`;
             })

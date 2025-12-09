@@ -38,6 +38,7 @@ import { aiApi } from '@/lib/api/ai';
 import { useDraftAutosave } from '@/hooks/use-draft-autosave';
 import { useComposeEditor } from '@/hooks/use-compose-editor';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import type { AppTranslations } from '@/locales';
 import { EditorToolbar } from './EditorToolbar';
 import { SmartReplySuggestions } from '@/components/email/ai/SmartReplySuggestions';
 import { AiChatPanel } from './AiChatPanel';
@@ -1486,7 +1487,7 @@ function AiComposeDialog({
   loading: boolean;
   mode: 'compose' | 'reply' | 'forward';
   preview: string | null;
-  t: any;
+  t: AppTranslations;
 }) {
   // Example prompts based on mode
   const examplePrompts = useMemo(() => {
@@ -1562,7 +1563,7 @@ function AiComposeDialog({
               labelId="ai-tone-label"
               label={t.email?.composer?.aiComposeToneLabel ?? 'Tone'}
               value={tone || ''}
-              onChange={(e) => setTone(e.target.value as any)}
+              onChange={(e) => setTone(e.target.value as 'formal' | 'casual' | 'technical' | '')}
               disabled={loading}
             >
               <MenuItem value="">

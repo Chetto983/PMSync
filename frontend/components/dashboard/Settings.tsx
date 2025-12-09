@@ -213,7 +213,8 @@ export function Settings() {
   );
 
   const copy = useMemo(() => {
-    const sc: any = settingsCopy;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- settingsCopy has dynamic nested structure
+    const sc = settingsCopy as any;
     return {
       pageTitle: sc.pageTitle || 'Settings',
       general: {

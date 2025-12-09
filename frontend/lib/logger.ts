@@ -91,6 +91,7 @@ function log(level: LogLevel, message: string, context?: LogContext, component?:
 
   const formattedMessage = formatLogEntry(entry);
 
+  /* eslint-disable no-console -- This is the logger implementation that wraps console */
   switch (level) {
     case 'debug':
       console.debug(formattedMessage);
@@ -105,6 +106,7 @@ function log(level: LogLevel, message: string, context?: LogContext, component?:
       console.error(formattedMessage);
       break;
   }
+  /* eslint-enable no-console */
 }
 
 /**

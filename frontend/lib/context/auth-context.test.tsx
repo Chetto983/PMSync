@@ -3,6 +3,7 @@
  *
  * Tests for the authentication context provider and user session management.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- Test mocks require any for flexibility */
 import React from 'react';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { AuthProvider, AuthContext, AuthContextType } from './auth-context';

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Test mocks require any for flexibility */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AttachmentPreview, type Attachment } from './AttachmentPreview';

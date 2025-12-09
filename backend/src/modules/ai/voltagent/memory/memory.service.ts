@@ -11,11 +11,17 @@
  * - https://voltagent.dev/docs/agents/memory/overview/
  * - https://dev.to/jakob_sandstrm_a11b3056c/under-the-hood-building-a-hybrid-search-engine-for-ai-memory-nodejs-pgvector-3c5k
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Job } from 'bullmq';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { MistralService } from '../../services/mistral.service';
 import { getLocale } from '../locales';
+import {
+  SummarizationQueueService,
+  SummarizationJobData,
+  SummarizationJobResult,
+} from './summarization.queue';
 
 /**
  * Message role type
@@ -121,13 +127,66 @@ export interface TokenBudgetResult {
 }
 
 @Injectable()
-export class VoltAgentMemoryService {
+export class VoltAgentMemoryService implements OnModuleInit {
   private readonly logger = new Logger(VoltAgentMemoryService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly mistralService: MistralService,
+    @Optional() private readonly summarizationQueue?: SummarizationQueueService,
   ) {}
+
+  /**
+   * Register the summarization handler with the queue on module init
+   */
+  async onModuleInit(): Promise<void> {
+    if (this.summarizationQueue) {
+      this.summarizationQueue.registerHandler(
+        async (job: Job<SummarizationJobData>): Promise<SummarizationJobResult> => {
+          return this.handleSummarizationJob(job);
+        },
+      );
+      this.logger.log('Summarization handler registered with queue');
+    } else {
+      this.logger.warn('SummarizationQueueService not available - using fallback mode');
+    }
+  }
+
+  /**
+   * Handle a summarization job from the queue
+   */
+  private async handleSummarizationJob(
+    job: Job<SummarizationJobData>,
+  ): Promise<SummarizationJobResult> {
+    const { conversationId, tenantId, userId, locale } = job.data;
+
+    try {
+      const ctx: ConversationContext = { tenantId, userId, conversationId, locale };
+      await this.executeLlmSummarization(conversationId, ctx);
+
+      return {
+        success: true,
+        messagesProcessed: job.data.messageCount,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Summarization job failed: ${message}`);
+      return { success: false, error: message };
+    }
+  }
+
+  /**
+   * Get summarization queue statistics (if queue is available)
+   */
+  async getSummarizationStats(): Promise<{
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+  } | null> {
+    if (!this.summarizationQueue) return null;
+    return this.summarizationQueue.getQueueStats();
+  }
 
   /**
    * Get or create a conversation for the user.
@@ -354,13 +413,15 @@ export class VoltAgentMemoryService {
       };
     }
 
-    // Get all messages (we'll filter by budget)
+    // Get recent messages (limited to prevent memory issues with very long conversations)
+    // We fetch more than typical budget needs to allow for token-based filtering
     const allMessages = await this.prisma.voltAgentMessage.findMany({
       where: {
         conversationId,
         tenantId: ctx.tenantId,
       },
       orderBy: { messageIndex: 'desc' },
+      take: 100, // Limit to most recent 100 messages - should be more than enough for any budget
       select: {
         role: true,
         content: true,
@@ -425,16 +486,36 @@ export class VoltAgentMemoryService {
     const wasTruncated = messagesDropped > 0;
     let summarizationTriggered = false;
 
-    // If we dropped significant messages, trigger async summarization
+    // If we dropped significant messages, trigger async summarization via queue
     if (messagesDropped >= SUMMARIZATION_CONFIG.llmSummarizationThreshold) {
       this.logger.debug(
         `Token budget exceeded: dropped ${messagesDropped} messages, triggering summarization`,
       );
-      // Trigger summarization in background (don't await)
-      this.triggerLlmSummarization(conversationId, ctx).catch((err) =>
-        this.logger.error('Background summarization failed', err),
-      );
-      summarizationTriggered = true;
+
+      // Use queue if available (preferred - no memory leak risk)
+      if (this.summarizationQueue) {
+        try {
+          await this.summarizationQueue.addSummarizationJob({
+            conversationId,
+            tenantId: ctx.tenantId,
+            userId: ctx.userId,
+            locale: ctx.locale,
+            messageCount: messagesDropped,
+          });
+          summarizationTriggered = true;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.error(`Failed to queue summarization job: ${message}`);
+        }
+      } else {
+        // Fallback: fire-and-forget (only when queue not available)
+        this.logger.warn('Queue not available, using fire-and-forget summarization');
+        this.executeLlmSummarization(conversationId, ctx).catch((err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.error(`Background summarization failed for ${conversationId}: ${message}`);
+        });
+        summarizationTriggered = true;
+      }
     }
 
     return {
@@ -449,10 +530,10 @@ export class VoltAgentMemoryService {
   }
 
   /**
-   * Trigger LLM-powered summarization for long conversations.
-   * Called when token budget is exceeded significantly.
+   * Execute LLM-powered summarization for long conversations.
+   * Called by the queue handler or as fallback fire-and-forget.
    */
-  private async triggerLlmSummarization(
+  private async executeLlmSummarization(
     conversationId: string,
     ctx: ConversationContext,
   ): Promise<void> {

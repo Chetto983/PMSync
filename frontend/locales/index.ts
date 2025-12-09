@@ -562,6 +562,11 @@ export interface AppTranslations {
       aiChatCopy: string;
       aiChatInsert: string;
       aiChatClear: string;
+      aiChatTone: string;
+      aiChatGenerating: string;
+      aiChatGenerateSubject: string;
+      aiChatGeneratingSubject: string;
+      aiChatError: string;
       sendNow: string;
       tomorrowMorning: string;
       nextMonday: string;
@@ -1697,6 +1702,8 @@ export interface AppTranslations {
     conflict: string;
     validationError: string;
     tooManyRequests: string;
+    badRequest: string;
+    processingError: string;
     unknownError: string;
     setupFailed: string;
     verifyFailed: string;

@@ -15,7 +15,7 @@ export function cleanEmailAddresses(raw: string): string[] {
 /**
  * Build initial form values from query params.
  */
-export function getInitialComposeFromQuery(query: Record<string, any>): {
+export function getInitialComposeFromQuery(query: Record<string, string | string[] | undefined>): {
   to: string;
   cc: string;
   bcc: string;

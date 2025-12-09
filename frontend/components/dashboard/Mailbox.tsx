@@ -22,7 +22,8 @@ import {
   useSensors,
   pointerWithin,
 } from '@dnd-kit/core';
-import { emailApi, type EmailListParams } from '@/lib/api/email';
+import { emailApi, type EmailListParams, type Conversation } from '@/lib/api/email';
+import type { MemorySearchItem } from '@/lib/api/ai';
 import { logger } from '@/lib/logger';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { getFolders, type Folder } from '@/lib/api/folders';
@@ -68,10 +69,70 @@ interface FolderItem {
 }
 
 /**
+ * API Email type (matches backend response)
+ * Used for mapping from API to store format
+ */
+interface ApiEmail {
+  id: string;
+  providerId: string;
+  externalId: string;
+  threadId?: string;
+  from: string;
+  to?: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  body?: string;
+  bodyPreview?: string;
+  bodyHtml?: string;
+  bodyText?: string;
+  snippet?: string;
+  receivedAt: string;
+  isRead: boolean;
+  isStarred?: boolean;
+  isFlagged?: boolean;
+  isDraft?: boolean;
+  emailLabels?: { label: { id: string; name: string; color?: { backgroundColor: string; textColor: string } | null } }[];
+  folder?: string;
+  attachments?: { id: string; filename: string; size: number; mimeType: string; isInline: boolean }[];
+  inReplyTo?: string;
+  references?: string;
+  hasCalendarInvite?: boolean;
+  calendarInviteStatus?: 'pending' | 'accepted' | 'declined' | 'tentative';
+  calendarInviteData?: {
+    summary?: string;
+    description?: string;
+    location?: string;
+    startTime?: string | Date;
+    endTime?: string | Date;
+    isAllDay?: boolean;
+    timezone?: string;
+    organizer?: { email: string; name?: string };
+    attendees?: Array<{ email: string; name?: string; status?: string }>;
+    method?: string;
+  } | null;
+}
+
+/**
+ * Compose prefill data for reply/forward operations
+ */
+interface ComposePrefillData {
+  originalEmailId?: string;
+  to?: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject?: string;
+  body?: string;
+  inReplyTo?: string;
+  references?: string;
+  draftId?: string;
+}
+
+/**
  * Map API email to store email format
  * Handles field name differences between API and store
  */
-function mapApiEmailToStore(apiEmail: any): any {
+function mapApiEmailToStore(apiEmail: ApiEmail): Email {
   return {
     ...apiEmail,
     // Map isFlagged (API) to isImportant (store)
@@ -108,18 +169,18 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const localText = useMemo(() => {
-    const rt = (t as any)?.dashboard?.email?.realtime || {};
-    const empty = (t as any)?.dashboard?.email?.empty || {};
+    const rt = t.email.realtime;
+    const empty = t.email.empty;
     return {
       connection: {
-        connecting: rt.connecting ?? t?.common?.loading ?? 'Connecting...',
+        connecting: rt.connecting ?? t.common.loading ?? 'Connecting...',
         live: rt.live ?? 'Live',
         reconnecting: rt.reconnecting ?? 'Reconnecting...',
         warning: rt.disconnectedNotice ?? 'Realtime disconnected. Data may be stale until connection is restored.',
       },
       empty: {
         defaultTitle: empty.defaultTitle ?? 'No emails',
-        defaultSubtitle: empty.defaultSubtitle ?? t?.common?.allCaughtUp ?? 'All caught up',
+        defaultSubtitle: empty.defaultSubtitle ?? t.common.allCaughtUp ?? 'All caught up',
         trashTitle: empty.trashTitle ?? 'Trash is empty',
         trashSubtitle: empty.trashSubtitle ?? 'No deleted messages here.',
         sentTitle: empty.sentTitle ?? 'No sent emails',
@@ -180,7 +241,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const [, setRefreshing] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeMode, setComposeMode] = useState<'compose' | 'reply' | 'forward'>('compose');
-  const [composePrefill, setComposePrefill] = useState<any>(null);
+  const [composePrefill, setComposePrefill] = useState<ComposePrefillData | null>(null);
   const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedSearchFilters>({});
   const [_pagination, setPagination] = useState({ page: 1, hasMore: true, total: 0 });
@@ -385,14 +446,14 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   });
 
   // Handle email click
-  const handleEmailClick = useCallback((thread: any) => {
+  const handleEmailClick = useCallback((thread: Email | Conversation) => {
     if ('providerId' in thread) {
-      handleEmailClickOriginal(thread);
+      handleEmailClickOriginal(thread as Email);
     }
   }, [handleEmailClickOriginal]);
 
   // Handle AI search result click
-  const handleAISearchResultClick = useCallback(async (item: any) => {
+  const handleAISearchResultClick = useCallback(async (item: MemorySearchItem) => {
     if (!item.emailId) return;
 
     try {
@@ -410,6 +471,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- t.email.messages is stable
   }, [setSelectedEmail]);
 
   // Smart Filters for quick access
@@ -639,8 +701,9 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     try {
       setFoldersLoading(true);
       const folderResponse = await getFolders();
-      setFoldersData(folderResponse.providers as any, folderResponse.foldersByProvider as any);
-      setProviders(folderResponse.providers as any);
+      setFoldersData(folderResponse.providers, folderResponse.foldersByProvider);
+      // Note: Provider from folders API is a subset of ProviderConfig - safe cast for display purposes
+      setProviders(folderResponse.providers as unknown as ProviderConfig[]);
       setFoldersLoading(false);
     } catch (error) {
       logger.error('Failed to load folders', { error });
@@ -695,8 +758,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         };
 
         const emailsRes = await emailApi.listEmails(queryParams);
-        const filteredEmails = (emailsRes.data.emails || []).map(mapApiEmailToStore);
-        setEmails(filteredEmails as any);
+        const filteredEmails = (emailsRes.data.emails || []).map((e) => mapApiEmailToStore(e as unknown as ApiEmail));
+        setEmails(filteredEmails);
         setSelectedEmail(null);
 
         // Update pagination for label-filtered results
@@ -740,7 +803,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
           });
         }
 
-        setEmails((emailsRes.data.emails || []).map(mapApiEmailToStore) as any);
+        setEmails((emailsRes.data.emails || []).map((e) => mapApiEmailToStore(e as unknown as ApiEmail)));
         setSelectedEmail(null);
 
         // Update pagination
@@ -762,7 +825,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
 
   // Handle label changes - backend always returns updated email
-  const handleLabelsChange = useCallback(async (emailId: string, labelIds: string[], updatedEmail?: any) => {
+  const handleLabelsChange = useCallback(async (emailId: string, labelIds: string[], updatedEmail?: Email) => {
     if (!updatedEmail) {
       logger.warn('[Mailbox] No updated email provided - this should not happen');
       return;
@@ -784,13 +847,13 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     // Ensure store state syncs immediately (and add if missing)
     const storeApi = useEmailStore.getState();
     if (currentList.some((email) => email.id === emailId)) {
-      storeApi.updateEmail(emailId, updatedEmail as Email);
+      storeApi.updateEmail(emailId, updatedEmail);
     } else {
-      storeApi.addEmail(updatedEmail as Email);
+      storeApi.addEmail(updatedEmail);
     }
 
     // Maintain thread mapping without dropping other emails in the thread
-    const threadId = (updatedEmail as Email).threadId;
+    const threadId = updatedEmail.threadId;
     if (threadId) {
       const existingIds = storeApi.getThreadEmails(threadId).map((e) => e.id);
       const mergedIds = Array.from(new Set([...existingIds, updatedEmail.id]));
@@ -840,10 +903,10 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       };
 
       const emailsRes = await emailApi.listEmails(queryParams);
-      const newEmails = (emailsRes.data.emails || []).map(mapApiEmailToStore);
+      const newEmails = (emailsRes.data.emails || []).map((e) => mapApiEmailToStore(e as unknown as ApiEmail));
 
       // Append new emails to existing ones
-      appendEmails(newEmails as any);
+      appendEmails(newEmails);
 
       // Update pagination
       setPagination({
@@ -1064,6 +1127,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- t.email.messages is stable
   }, [selectedIds, storeEmails, storeMarkAsImportant]);
 
   const handleBulkUnflag = useCallback(async () => {
@@ -1097,6 +1161,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- t.email.messages is stable
   }, [selectedIds, storeEmails, storeMarkAsImportant]);
 
   const handleBulkAddLabels = useCallback(async (labelIds: string[]) => {
@@ -1508,7 +1573,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
                     startIcon={!syncLoading ? <RefreshCcw size={16} /> : undefined}
                     sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
                   >
-                    {syncLoading ? <CircularProgress size={14} /> : ((t as any)?.dashboard?.email?.actions?.syncNow || 'Sync')}
+                    {syncLoading ? <CircularProgress size={14} /> : (t.email.actions?.syncNow || 'Sync')}
                   </Button>
                 </Stack>
                 {!isConnected && (
@@ -1599,7 +1664,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         open={composeOpen}
         mode={composeMode}
         defaultProviderId={defaultProviderId}
-        prefillData={composePrefill}
+        prefillData={composePrefill ?? undefined}
         onClose={() => {
           setComposeOpen(false);
           setComposeMode('compose');

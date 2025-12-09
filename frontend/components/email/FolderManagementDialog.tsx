@@ -108,8 +108,9 @@ export function FolderManagementDialog({
       onSuccess();
       onClose();
     } catch (err) {
-      const status = (err as any)?.response?.status;
-      const apiMessage = (err as any)?.response?.data?.message;
+      const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+      const status = axiosError?.response?.status;
+      const apiMessage = axiosError?.response?.data?.message;
       if (status === 409) {
         setError(t.folders?.duplicateError || 'Folder already exists');
       } else {

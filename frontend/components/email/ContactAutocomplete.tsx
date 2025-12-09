@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { logger } from '@/lib/logger';
 import { Autocomplete, TextField, Chip, Avatar, Box, Typography, CircularProgress } from '@mui/material';
 import { Mail } from 'lucide-react';
 import { contactsApi, type Contact } from '@/lib/api/contacts';
@@ -53,7 +54,7 @@ export const ContactAutocomplete: React.FC<ContactAutocompleteProps> = ({
         const response = await contactsApi.listContacts({ limit: 200 });
         setContacts(response.contacts);
       } catch (error) {
-        console.error('Failed to load contacts:', error);
+        logger.error('Failed to load contacts', { error });
       } finally {
         setLoading(false);
       }
@@ -106,7 +107,7 @@ export const ContactAutocomplete: React.FC<ContactAutocompleteProps> = ({
   }, [selectedEmails, contactOptions]);
 
   // Handle value change
-  const handleChange = (_event: any, newValue: (string | ContactOption)[]) => {
+  const handleChange = (_event: React.SyntheticEvent, newValue: (string | ContactOption)[]) => {
     const emails = newValue.map((item) => {
       if (typeof item === 'string') {
         return item.trim();

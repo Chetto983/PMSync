@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { logger } from '@/lib/logger';
 import {
   Box,
   Button,
@@ -110,7 +111,7 @@ export function PasskeyCard({ credentials, onRefresh }: PasskeyCardProps) {
         setError(result.error || passkeysCopy.setupError);
       }
     } catch (err: unknown) {
-      console.error('Passkey registration error:', err);
+      logger.error('Passkey registration error', { error: err });
 
       // Handle specific WebAuthn errors
       if (err instanceof Error) {

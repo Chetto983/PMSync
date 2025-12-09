@@ -504,7 +504,8 @@ export interface UpdateUserRequest {
   lastName?: string;
 }
 
-export interface UpdatePreferencesRequest extends Partial<Omit<UserPreferences, 'id' | 'userId'>> {}
+// Using type alias instead of empty interface to avoid ESLint no-empty-object-type error
+export type UpdatePreferencesRequest = Partial<Omit<UserPreferences, 'id' | 'userId'>>;
 
 export interface GetPreferencesResponse {
   success: boolean;

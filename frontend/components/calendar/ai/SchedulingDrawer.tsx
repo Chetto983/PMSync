@@ -36,6 +36,7 @@ import { multiAgentApi } from '@/lib/api/ai';
 import { calendarApi, type CreateEventDto } from '@/lib/api/calendar';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useLocale } from '@/lib/hooks/use-locale';
+import { logger } from '@/lib/logger';
 
 export interface TimeSlot {
   id: string;
@@ -207,7 +208,7 @@ export function SchedulingDrawer({
         return { ...slot, isAvailable: true };
       });
     } catch (err) {
-      console.error('Failed to check conflicts:', err);
+      logger.error('Failed to check conflicts', { error: err });
       return slots;
     }
   }, [selectedProvider]);
@@ -253,7 +254,7 @@ export function SchedulingDrawer({
         }
       }
     } catch (err) {
-      console.error('Failed to generate time slots:', err);
+      logger.error('Failed to generate time slots', { error: err });
       setError(labels.errorGenerating);
     } finally {
       setIsLoading(false);
@@ -311,7 +312,7 @@ export function SchedulingDrawer({
       setShowDetails(false);
       setAiResponse('');
     } catch (err) {
-      console.error('Failed to create event:', err);
+      logger.error('Failed to create event', { error: err });
       setError(labels.errorCreating);
     } finally {
       setIsLoading(false);

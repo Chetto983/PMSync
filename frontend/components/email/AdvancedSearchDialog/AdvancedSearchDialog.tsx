@@ -117,7 +117,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
   }, [open, labels.length, fetchLabels]);
 
   // Update filter value
-  const updateFilter = useCallback((key: keyof AdvancedSearchFilters, value: any) => {
+  const updateFilter = useCallback((key: keyof AdvancedSearchFilters, value: AdvancedSearchFilters[keyof AdvancedSearchFilters]) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   }, []);
 
