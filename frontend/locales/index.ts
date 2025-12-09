@@ -1417,6 +1417,13 @@ export interface AppTranslations {
       dangerTitle: string;
       dangerDescription: string;
       deleteCta: string;
+      deleteDialogTitle: string;
+      deleteDialogDescription: string;
+      deleteDialogConfirmLabel: string;
+      deleteDialogCancel: string;
+      deleteDialogConfirm: string;
+      deleteDialogDeleting: string;
+      deleteDialogError: string;
     };
     notificationsPanel: {
       title: string;

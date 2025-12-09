@@ -507,7 +507,35 @@ export class ProviderConfigService {
 
     await this.webhookLifecycle.removeWebhookForProvider(provider.id).catch((error) => {
       this.logger.warn(
-        `Failed to remove webhook for provider ${provider.id}: ${
+        `Failed to remove email webhook for provider ${provider.id}: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+    });
+
+    // Cleanup calendar webhooks (Google/Microsoft)
+    if (provider.providerType === 'google') {
+      await this.googleCalendarWebhook.stopWatch(provider.id).catch((error) => {
+        this.logger.warn(
+          `Failed to stop Google Calendar watch for provider ${provider.id}: ${
+            error instanceof Error ? error.message : error
+          }`,
+        );
+      });
+    } else if (provider.providerType === 'microsoft') {
+      await this.microsoftCalendarWebhook.deleteSubscription(provider.id).catch((error) => {
+        this.logger.warn(
+          `Failed to delete Microsoft Calendar subscription for provider ${provider.id}: ${
+            error instanceof Error ? error.message : error
+          }`,
+        );
+      });
+    }
+
+    // Cleanup provider contacts before deleting emails
+    await this.contactsService.deleteProviderContacts(provider.id, tenantId).catch((error) => {
+      this.logger.warn(
+        `Failed to cleanup contacts for provider ${provider.id}: ${
           error instanceof Error ? error.message : error
         }`,
       );

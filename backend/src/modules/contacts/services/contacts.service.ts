@@ -661,6 +661,58 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Delete all contacts associated with a provider
+   * Called when a provider is being deleted
+   * @param providerId - Provider ID being deleted
+   * @param tenantId - Tenant ID for authorization
+   */
+  async deleteProviderContacts(providerId: string, tenantId: string): Promise<void> {
+    this.logger.log(`Deleting all contacts for provider ${providerId}`);
+
+    // Get all provider contacts for this provider
+    const providerContacts = await this.prisma.providerContact.findMany({
+      where: { providerId },
+      include: { contact: true },
+    });
+
+    if (providerContacts.length === 0) {
+      this.logger.log(`No contacts to delete for provider ${providerId}`);
+      return;
+    }
+
+    // Delete provider contact links
+    await this.prisma.providerContact.deleteMany({
+      where: { providerId },
+    });
+
+    this.logger.log(`Deleted ${providerContacts.length} provider contact links for provider ${providerId}`);
+
+    // Find orphaned unified contacts (no remaining provider links)
+    const contactIds = [...new Set(providerContacts.map(pc => pc.contactId))];
+
+    for (const contactId of contactIds) {
+      const remainingLinks = await this.prisma.providerContact.count({
+        where: { contactId },
+      });
+
+      if (remainingLinks === 0) {
+        // Delete orphaned unified contact
+        await this.prisma.contact.delete({
+          where: { id: contactId },
+        }).catch((error) => {
+          // May have been deleted by cascade, ignore
+          this.logger.debug(`Could not delete orphaned contact ${contactId}: ${error.message}`);
+        });
+      }
+    }
+
+    this.logger.log(`Provider contacts cleanup completed for provider ${providerId}`);
+
+    // Emit updated counts
+    void this.updateContactCounts(tenantId);
+  }
+
+  /**
    * Sync contacts from a provider
    * Delegates to provider-specific sync services
    * Uses Redis distributed locking to prevent concurrent syncs across instances

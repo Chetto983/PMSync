@@ -1331,6 +1331,13 @@ export const it: AppTranslations = {
       dangerTitle: 'Zona pericolosa',
       dangerDescription: 'Elimina il tuo account e tutti i dati associati in modo permanente.',
       deleteCta: 'Elimina account',
+      deleteDialogTitle: 'Elimina account',
+      deleteDialogDescription: 'Questa azione è permanente e non può essere annullata. Tutti i tuoi dati, inclusi email, contatti e impostazioni saranno eliminati definitivamente.',
+      deleteDialogConfirmLabel: 'Digita ELIMINA per confermare',
+      deleteDialogCancel: 'Annulla',
+      deleteDialogConfirm: 'Elimina il mio account',
+      deleteDialogDeleting: 'Eliminazione in corso...',
+      deleteDialogError: 'Impossibile eliminare l\'account. Riprova.',
     },
     notificationsPanel: {
       title: 'Impostazioni notifiche',

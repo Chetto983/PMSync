@@ -28,6 +28,11 @@ import {
   IconButton,
   Tooltip,
   alpha,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -201,6 +206,12 @@ export function Settings() {
   const [summarizationEnabled, setSummarizationEnabled] = useState(true);
   const [schedulingEnabled, setSchedulingEnabled] = useState(true);
 
+  // Delete account state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
   const sections = useMemo(
     () => [
       { id: 'general', label: settingsCopy.sections.general, icon: <SettingsIcon size={18} /> },
@@ -274,6 +285,13 @@ export function Settings() {
         email: sc.accountPanel?.email || 'Email',
         role: sc.accountPanel?.role || 'Role',
         profileTitle: sc.accountPanel?.profileTitle,
+        deleteDialogTitle: sc.accountPanel?.deleteDialogTitle || 'Delete Account',
+        deleteDialogDescription: sc.accountPanel?.deleteDialogDescription || 'This action is permanent and cannot be undone. All your data will be permanently deleted.',
+        deleteDialogConfirmLabel: sc.accountPanel?.deleteDialogConfirmLabel || 'Type DELETE to confirm',
+        deleteDialogCancel: sc.accountPanel?.deleteDialogCancel || 'Cancel',
+        deleteDialogConfirm: sc.accountPanel?.deleteDialogConfirm || 'Delete My Account',
+        deleteDialogDeleting: sc.accountPanel?.deleteDialogDeleting || 'Deleting...',
+        deleteDialogError: sc.accountPanel?.deleteDialogError || 'Failed to delete account. Please try again.',
       },
       notifications: {
         description: sc.notificationsPanel?.description || 'Configure how and when you receive notifications.',
@@ -432,6 +450,34 @@ export function Settings() {
     setProviderSuccess('Account disconnected');
     loadProviders();
   }, [loadProviders]);
+
+  // Delete account handler
+  const handleDeleteAccount = useCallback(async () => {
+    // Determine the confirmation word based on locale
+    const confirmWord = language === 'it' ? 'ELIMINA' : 'DELETE';
+    if (deleteConfirmText !== confirmWord) {
+      return;
+    }
+
+    try {
+      setDeleteLoading(true);
+      setDeleteError('');
+      await usersApi.deleteAccount();
+      // Redirect to login after successful deletion
+      router.push('/login');
+    } catch (error) {
+      logger.error('Failed to delete account', { error });
+      setDeleteError(copy.account.deleteDialogError);
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [deleteConfirmText, language, router, copy.account.deleteDialogError]);
+
+  const handleCloseDeleteDialog = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setDeleteConfirmText('');
+    setDeleteError('');
+  }, []);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -973,11 +1019,61 @@ export function Settings() {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                       {copy.account.dangerZoneDescription}
                     </Typography>
-                    <Button variant="outlined" color="error" startIcon={<Trash2 size={16} />}>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<Trash2 size={16} />}
+                      onClick={() => setDeleteDialogOpen(true)}
+                    >
                       {copy.account.deleteAccount}
                     </Button>
                   </CardContent>
                 </Card>
+
+                {/* Delete Account Confirmation Dialog */}
+                <Dialog
+                  open={deleteDialogOpen}
+                  onClose={handleCloseDeleteDialog}
+                  maxWidth="sm"
+                  fullWidth
+                >
+                  <DialogTitle sx={{ color: 'error.main' }}>
+                    {copy.account.deleteDialogTitle}
+                  </DialogTitle>
+                  <DialogContent>
+                    <DialogContentText sx={{ mb: 2 }}>
+                      {copy.account.deleteDialogDescription}
+                    </DialogContentText>
+                    {deleteError && (
+                      <Alert severity="error" sx={{ mb: 2 }}>
+                        {deleteError}
+                      </Alert>
+                    )}
+                    <TextField
+                      autoFocus
+                      fullWidth
+                      label={copy.account.deleteDialogConfirmLabel}
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
+                      placeholder={language === 'it' ? 'ELIMINA' : 'DELETE'}
+                      error={deleteConfirmText.length > 0 && deleteConfirmText !== (language === 'it' ? 'ELIMINA' : 'DELETE')}
+                    />
+                  </DialogContent>
+                  <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={handleCloseDeleteDialog} disabled={deleteLoading}>
+                      {copy.account.deleteDialogCancel}
+                    </Button>
+                    <Button
+                      onClick={handleDeleteAccount}
+                      color="error"
+                      variant="contained"
+                      disabled={deleteLoading || deleteConfirmText !== (language === 'it' ? 'ELIMINA' : 'DELETE')}
+                      startIcon={deleteLoading ? <CircularProgress size={16} color="inherit" /> : <Trash2 size={16} />}
+                    >
+                      {deleteLoading ? copy.account.deleteDialogDeleting : copy.account.deleteDialogConfirm}
+                    </Button>
+                  </DialogActions>
+                </Dialog>
               </Box>
             )}
 

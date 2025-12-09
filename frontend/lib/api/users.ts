@@ -43,4 +43,12 @@ export const usersApi = {
     const response = await apiClient.patch('/users/me/preferences', data);
     return response.data;
   },
+
+  /**
+   * Delete user account (GDPR)
+   * Permanently deletes user and all associated data
+   */
+  deleteAccount: async (): Promise<void> => {
+    await apiClient.delete('/users/me');
+  },
 };

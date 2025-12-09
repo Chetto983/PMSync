@@ -1346,6 +1346,13 @@ export const en: AppTranslations = {
       dangerTitle: 'Danger Zone',
       dangerDescription: 'Delete your account and all associated data permanently.',
       deleteCta: 'Delete account',
+      deleteDialogTitle: 'Delete Account',
+      deleteDialogDescription: 'This action is permanent and cannot be undone. All your data, including emails, contacts, and settings will be permanently deleted.',
+      deleteDialogConfirmLabel: 'Type DELETE to confirm',
+      deleteDialogCancel: 'Cancel',
+      deleteDialogConfirm: 'Delete My Account',
+      deleteDialogDeleting: 'Deleting...',
+      deleteDialogError: 'Failed to delete account. Please try again.',
     },
     notificationsPanel: {
       title: 'Notification Settings',
