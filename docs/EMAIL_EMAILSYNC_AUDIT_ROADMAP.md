@@ -52,7 +52,7 @@ The use of a BullMQ-based queue (`queue.service.ts`) for managing synchronizatio
 
 | ID | Issue | Description | Recommendation | Priority |
 | --- | --- | --- | --- | --- |
-| API-01 | **Provider secrets leaked in folder APIs** | `folders.controller.ts` returns full `providerConfig` objects to the frontend (access/refresh tokens, IVs) without projection. This unnecessarily exposes secrets in API responses. | Project only non-sensitive fields (id, email, providerType, status); scrub tokens/IVs in controllers or Prisma selects. | Critical |
+| API-01 | ~~**Provider secrets leaked in folder APIs**~~ | ✅ **FIXED** - `folders.controller.ts` now uses explicit `select` projection returning only safe fields (id, email, providerType, lastSyncedAt, isActive). Tokens/IVs explicitly excluded. | N/A - Resolved | ~~Critical~~ ✅ |
 | API-02 | **Folder audit stubbed for OAuth providers** | `folder-sync.service.ts::auditFolderSync` sets `serverPaths = dbPaths` for Gmail/Microsoft, so `/folders/audit/:providerId` returns “in sync” even when drift exists. | Implement real audits for Gmail (labels) and Microsoft (Graph `mailFolders/delta`), and fail fast when audit is not supported. | High |
 | API-03 | **Folder identity mismatch UI ↔ provider** | Gmail sync stores `path = label.id` while returning `name = displayName` without a normalized `specialUse`; frontend filtering by RFC 6154 types can disagree with provider state. | Return normalized `specialUse` and stable identifiers for folders, and expose both label id and display name so UI filters remain consistent. | High |
 | API-04 | **Over-counting queries on GET /folders** | `folders.controller.ts` triggers `updateAllFolderCounts` on every GET, performing two full counts per folder; large tenants get slow UIs and stale numbers. | Move counts to a background job with cached results; expose a last-updated timestamp and a “refresh” action instead of recomputing on read. | Medium |
@@ -74,7 +74,7 @@ The use of a BullMQ-based queue (`queue.service.ts`) for managing synchronizatio
 
 ## 4. Actionable TODO Checklist
 
-- [ ] Folders API projection: strip tokens/IVs and return only id/email/providerType/status (`backend/src/modules/email/controllers/folders.controller.ts`).
+- [x] ~~Folders API projection: strip tokens/IVs and return only id/email/providerType/status~~ ✅ **DONE** - `folders.controller.ts` now uses explicit `select` with safe fields only.
 - [ ] Implement Gmail folder audit: fetch labels, map `label.id` ↔ DB path, surface `onlyOnServer`/`onlyInDb`, cap pagination (`backend/src/modules/email-sync/services/folder-sync.service.ts`).
 - [ ] Implement Microsoft folder audit via Graph `mailFolders/delta` with `@odata.nextLink`/`@odata.deltaLink` and retry/backoff (`folder-sync.service.ts`).
 - [ ] Normalize folder identity in responses: include `specialUse` and stable ids for Gmail labels; ensure frontend can filter by RFC 6154 types.

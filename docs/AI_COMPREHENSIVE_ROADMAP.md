@@ -89,16 +89,18 @@ backend/src/modules/ai/
 | Component | Status | Maturity |
 |-----------|--------|----------|
 | Intent Classification | ✅ Working | Production |
-| Email Agent | ✅ Working | MVP |
-| Calendar Agent | ✅ Working | MVP |
-| Contacts Agent | ✅ Working | MVP |
+| Email Agent | ✅ Working | Production |
+| Calendar Agent | ✅ Working | Production |
+| Contacts Agent | ✅ Working | Production |
 | Knowledge/RAG | ✅ Working | Production |
 | HITL Approval | ✅ Working | Production |
-| Learning Loop | ✅ Working | MVP |
-| Memory Service | ✅ Working | MVP (FIFO only) |
-| AI Queue Service | ⚠️ Available | Not wired |
-| LLM Telemetry | ⚠️ Available | Not wired |
-| AI Compose | ✅ Working | Basic |
+| Learning Loop | ✅ Working | Production |
+| Memory Service | ✅ Working | Production (with summarization) |
+| AI Queue Service | ✅ Working | Production |
+| LLM Telemetry | ✅ Working | Production |
+| Circuit Breaker | ✅ Working | Production |
+| Idempotency | ✅ Working | Production |
+| AI Compose | ✅ Working | Production |
 | Multi-language | ✅ Working | en, it, es, fr, de, pt |
 
 ### 2.3 Critical Gaps
@@ -108,10 +110,10 @@ backend/src/modules/ai/
 | Executor Summaries | P0 | Many branches return `success` without user messages | ✅ FIXED |
 | Locale Handling | P0 | Inconsistent language resolution, corrupted strings | ✅ FIXED |
 | Placeholder Success | P0 | Services return success when dependencies unavailable | ✅ FIXED |
-| LLM Calls Unqueued | P1 | Direct Mistral calls without rate limiting/timeouts | 🔄 Pending |
-| No Idempotency | P1 | Duplicate actions not suppressed on retries | 🔄 Pending |
-| Memory Limitations | P2 | No summarization when token budget exceeded | 🔄 Pending |
-| Observability Gaps | P1 | Telemetry not hooked, logs lack correlation IDs | 🔄 Pending |
+| LLM Calls Unqueued | P1 | Direct Mistral calls without rate limiting/timeouts | ✅ FIXED - Circuit breaker + timeouts implemented |
+| No Idempotency | P1 | Duplicate actions not suppressed on retries | ✅ FIXED - `checkIdempotency()` + Redis cache |
+| Memory Limitations | P2 | No summarization when token budget exceeded | ✅ FIXED - `SummarizationQueueService` added |
+| Observability Gaps | P1 | Telemetry not hooked, logs lack correlation IDs | ✅ FIXED - `LlmTelemetryService` + `CorrelationContextService` |
 
 ### 2.4 Comprehensive Issues Found (November 2025 Deep Audit)
 

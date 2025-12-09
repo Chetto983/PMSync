@@ -43,6 +43,14 @@ jest.mock('@/lib/hooks/use-translations', () => ({
     common: {
       compose: 'Compose',
     },
+    email: {
+      labels: {
+        manageLabels: 'Manage labels',
+      },
+      advancedSearch: {
+        title: 'Advanced Search',
+      },
+    },
     commandPalette: {
       searchPlaceholder: 'Search emails, navigate, or run commands...',
       navigation: 'Navigation',

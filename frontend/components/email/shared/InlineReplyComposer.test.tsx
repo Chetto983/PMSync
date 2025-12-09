@@ -17,6 +17,19 @@ jest.mock('@/lib/hooks/use-translations', () => ({
         },
       },
     },
+    email: {
+      view: {
+        reply: 'Click to reply',
+        replyAll: 'Reply all',
+        replyPlaceholder: 'Write your reply...',
+        openFullEditor: 'Open full editor',
+      },
+      compose: {
+        send: 'Send',
+        cancel: 'Cancel',
+        discard: 'Discard',
+      },
+    },
   }),
 }));
 

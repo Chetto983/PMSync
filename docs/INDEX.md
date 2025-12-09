@@ -179,6 +179,28 @@ docs/
 
 ---
 
+## New Services Added (2025-12-06 to 2025-12-09)
+
+The following new services were added but not yet fully documented in roadmaps:
+
+| Service | Path | Purpose |
+|---------|------|---------|
+| `SummarizationQueueService` | `ai/voltagent/memory/summarization.queue.ts` | BullMQ-based conversation summarization |
+| `CorrelationContextService` | `common/services/correlation-context.service.ts` | Async context tracking for distributed tracing |
+| `CorrelationInterceptor` | `common/interceptors/correlation.interceptor.ts` | Injects correlation IDs into requests |
+
+**New Environment Variables:**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MISTRAL_MODEL_SMALL` | mistral-small-latest | Small model selection |
+| `MISTRAL_MODEL_MEDIUM` | mistral-medium-latest | Medium model selection |
+| `MISTRAL_MODEL_LARGE` | mistral-large-latest | Large model selection |
+| `MISTRAL_CIRCUIT_BREAKER_THRESHOLD` | 5 | Failures before circuit opens |
+| `MISTRAL_CIRCUIT_BREAKER_RESET_MS` | 30000 | Time before half-open state |
+
+---
+
 ## Recent Cleanup (2025-12-09)
 
 The following obsolete documents were removed:

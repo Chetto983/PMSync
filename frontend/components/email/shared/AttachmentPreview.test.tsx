@@ -19,6 +19,14 @@ jest.mock('@/lib/hooks/use-translations', () => ({
         attachment: 'Attachments',
       },
     },
+    email: {
+      view: {
+        download: 'Download',
+        preview: 'Preview',
+        attachments: 'Attachments',
+        failedToLoadPreview: 'Failed to load preview',
+      },
+    },
   }),
 }));
 

@@ -961,6 +961,22 @@ async scheduleSyncJobs() {
 
 ## 12. Quick Reference
 
+### Test Coverage Summary (2025-12-09)
+
+| Suite | Tests | Status |
+|-------|-------|--------|
+| **Backend Total** | 1,019 | ✅ All Passing (28 skipped - integration) |
+| **Frontend Total** | 452 | ✅ All Passing |
+| **Grand Total** | **1,471** | ✅ **All Passing** |
+
+**Key Test Suites:**
+
+- `action-executor.service.spec.ts`: 205 tests
+- `memory.service.spec.ts`: 400 tests
+- `mistral.service.spec.ts`: 228 tests (14 circuit breaker tests)
+- `multi-agent/*.spec.ts`: 158 tests
+- `voltagent.integration.spec.ts`: E2E workflow tests
+
 ### Running Tests
 
 ```bash
