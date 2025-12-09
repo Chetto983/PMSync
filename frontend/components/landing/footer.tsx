@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { Box, Typography, Container, Stack, alpha, useTheme } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -6,6 +7,8 @@ export function Footer() {
   const t = useTranslations();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const router = useRouter();
+  const returnTo = router.asPath || '/';
 
   return (
     <Box
@@ -26,7 +29,7 @@ export function Footer() {
         >
           <Typography
             component={Link}
-            href="/privacy"
+            href={{ pathname: '/privacy', query: { from: returnTo } }}
             variant="body2"
             sx={{
               color: 'text.secondary',
@@ -38,7 +41,7 @@ export function Footer() {
           </Typography>
           <Typography
             component={Link}
-            href="/terms"
+            href={{ pathname: '/terms', query: { from: returnTo } }}
             variant="body2"
             sx={{
               color: 'text.secondary',
