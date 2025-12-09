@@ -102,7 +102,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
 
   const handleCreateLabel = async () => {
     if (!labelName.trim()) {
-      setActionError(t.dashboard.labels.labelNameRequired);
+      setActionError(t.email.labels.labelNameRequired);
       return;
     }
 
@@ -116,7 +116,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
       setLabelColor(LABEL_COLORS[0]);
       setIsCreating(false);
     } catch (err) {
-      setActionError(t.dashboard.labels.failedToCreate);
+      setActionError(t.email.labels.failedToCreate);
     } finally {
       setActionLoading(false);
     }
@@ -124,7 +124,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
 
   const handleUpdateLabel = async () => {
     if (!editingLabelId || !labelName.trim()) {
-      setActionError(t.dashboard.labels.labelNameRequired);
+      setActionError(t.email.labels.labelNameRequired);
       return;
     }
 
@@ -138,14 +138,14 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
       setLabelName('');
       setLabelColor(LABEL_COLORS[0]);
     } catch (err) {
-      setActionError(t.dashboard.labels.failedToUpdate);
+      setActionError(t.email.labels.failedToUpdate);
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleDeleteLabel = async (labelId: string) => {
-    if (!window.confirm(t.dashboard.labels.deleteConfirm)) {
+    if (!window.confirm(t.email.labels.deleteConfirm)) {
       return;
     }
 
@@ -155,7 +155,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
     try {
       await deleteLabel(labelId);
     } catch (err) {
-      setActionError(t.dashboard.labels.failedToDelete);
+      setActionError(t.email.labels.failedToDelete);
     } finally {
       setActionLoading(false);
     }
@@ -186,7 +186,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">{t.dashboard.labels.manageLabels}</Typography>
+          <Typography variant="h6">{t.email.labels.manageLabels}</Typography>
           <IconButton size="small" onClick={onClose}>
             <X size={20} />
           </IconButton>
@@ -205,12 +205,12 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
         {(isCreating || editingLabelId) && (
           <Box sx={{ mb: 3, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
             <Typography variant="subtitle2" gutterBottom>
-              {editingLabelId ? t.dashboard.labels.editLabel : t.dashboard.labels.createLabel}
+              {editingLabelId ? t.email.labels.editLabel : t.email.labels.createLabel}
             </Typography>
             <TextField
               fullWidth
               size="small"
-              label={t.dashboard.labels.labelName}
+              label={t.email.labels.labelName}
               value={labelName}
               onChange={(e) => setLabelName(e.target.value)}
               sx={{ mb: 2 }}
@@ -228,10 +228,10 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
                 onClick={editingLabelId ? handleUpdateLabel : handleCreateLabel}
                 disabled={actionLoading || !labelName.trim()}
               >
-                {actionLoading ? <CircularProgress size={20} /> : editingLabelId ? t.dashboard.labels.updateButton : t.dashboard.labels.createButton}
+                {actionLoading ? <CircularProgress size={20} /> : editingLabelId ? t.email.labels.updateButton : t.email.labels.createButton}
               </Button>
               <Button variant="outlined" size="small" onClick={handleCancelEdit}>
-                {t.dashboard.labels.cancelButton}
+                {t.email.labels.cancelButton}
               </Button>
             </Box>
           </Box>
@@ -246,7 +246,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
             onClick={handleStartCreate}
             sx={{ mb: 2 }}
           >
-            {t.dashboard.labels.addLabel}
+            {t.email.labels.addLabel}
           </Button>
         )}
 
@@ -257,7 +257,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
           </Box>
         ) : labels.length === 0 ? (
           <Typography color="text.secondary" textAlign="center" py={4}>
-            {t.dashboard.labels.noLabels}. {t.dashboard.labels.noLabelsDescription}.
+            {t.email.labels.noLabels}. {t.email.labels.noLabelsDescription}.
           </Typography>
         ) : (
           <List>
@@ -307,7 +307,7 @@ export const LabelManager: React.FC<LabelManagerProps> = ({ open, onClose }) => 
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>{t.dashboard.labels.closeButton}</Button>
+        <Button onClick={onClose}>{t.email.labels.closeButton}</Button>
       </DialogActions>
     </Dialog>
   );

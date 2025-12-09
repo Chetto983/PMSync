@@ -23,6 +23,7 @@ import {
   pointerWithin,
 } from '@dnd-kit/core';
 import { emailApi, type EmailListParams } from '@/lib/api/email';
+import { logger } from '@/lib/logger';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { getFolders, type Folder } from '@/lib/api/folders';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -157,13 +158,13 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
   // Debug: Track email changes
   useEffect(() => {
-    console.log('[Mailbox] Store emails changed:', storeEmails.length, 'emails');
+    logger.debug('[Mailbox] Store emails changed', { count: storeEmails.length });
   }, [storeEmails]);
 
   // Debug: Track selected email changes
   useEffect(() => {
     if (storeSelectedEmail) {
-      console.log('[Mailbox] Selected email changed:', storeSelectedEmail.id, 'labels:', storeSelectedEmail.emailLabels?.length);
+      logger.debug('[Mailbox] Selected email changed', { emailId: storeSelectedEmail.id, labelCount: storeSelectedEmail.emailLabels?.length });
     }
   }, [storeSelectedEmail]);
 
@@ -309,7 +310,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         unread: stats.unread,
         starred: stats.starred,
       });
-    }).catch(() => {});
+    }).catch(() => { });
 
     emailApi.getRetentionStats().then((res) => {
       const stats = res.data;
@@ -318,7 +319,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         archivedEmails: stats.archivedEmails,
         estimatedSpaceSavedMB: stats.estimatedSpaceSavedMB,
       });
-    }).catch(() => {});
+    }).catch(() => { });
 
     emailApi.getSyncStatus().then(() => {
       setSyncStatusMessage(null);
@@ -330,11 +331,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     setSyncLoading(true);
     try {
       await Promise.all(providers.map((p) => emailApi.syncProvider(p.id)));
-      setSyncStatusMessage(t.dashboard.email.messages.syncTriggered ?? 'Sync triggered for all providers');
+      setSyncStatusMessage(t.email.messages.syncTriggered ?? 'Sync triggered for all providers');
       const res = await emailApi.getStats();
       setEmailStats({ total: res.data.total, unread: res.data.unread, starred: res.data.starred });
     } catch {
-      setSyncStatusMessage(t.dashboard.email.messages.syncFailed ?? 'Sync failed');
+      setSyncStatusMessage(t.email.messages.syncFailed ?? 'Sync failed');
     } finally {
       setSyncLoading(false);
     }
@@ -402,10 +403,10 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       // Set as selected email to open in ThreadDisplay
       setSelectedEmail(email);
     } catch (error) {
-      console.error('Failed to open email from AI search:', error);
+      logger.error('Failed to open email from AI search', { error });
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.failedToOpenEmail ?? 'Failed to open email',
+        message: t.email.messages.failedToOpenEmail ?? 'Failed to open email',
         severity: 'error',
       });
     }
@@ -421,31 +422,31 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     return [
       {
         id: 'smart:unread',
-        label: t.dashboard.email.quickFilters.unread,
+        label: t.email.quickFilters.unread,
         icon: <MailIcon size={18} />,
         color: '#0B7EFF',
       },
       {
         id: 'smart:today',
-        label: t.dashboard.email.quickFilters.today,
+        label: t.email.quickFilters.today,
         icon: <Clock size={18} />,
         color: '#00C853',
       },
       {
         id: 'smart:this-week',
-        label: t.dashboard.email.quickFilters.thisWeek,
+        label: t.email.quickFilters.thisWeek,
         icon: <CalendarIcon size={18} />,
         color: '#9C27B0',
       },
       {
         id: 'smart:attachments',
-        label: t.dashboard.email.quickFilters.hasAttachments,
+        label: t.email.quickFilters.hasAttachments,
         icon: <Paperclip size={18} />,
         color: '#FF9800',
       },
       {
         id: 'smart:important',
-        label: t.dashboard.email.quickFilters.important,
+        label: t.email.quickFilters.important,
         icon: <Star size={18} />,
         color: '#FFB300',
       },
@@ -458,7 +459,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     () => [
       {
         id: 'all:inbox',
-        label: t.dashboard.folders.inbox,
+        label: t.folders.inbox,
         icon: <Inbox size={20} />,
         aggregate: true,
         specialUse: 'INBOX',
@@ -466,7 +467,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       },
       {
         id: 'all:starred',
-        label: t.dashboard.email.starredFolderLabel || t.dashboard.folders.starred,
+        label: t.email.starredFolderLabel || t.folders.starred,
         icon: <Star size={20} />,
         color: '#FFB300',
         aggregate: true,
@@ -571,7 +572,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     if (aggregatorFolders.length) {
       groups.push({
         providerId: 'all',
-        providerEmail: t.dashboard.email.allAccountsLabel || 'All accounts',
+        providerEmail: t.email.allAccountsLabel || 'All accounts',
         folders: aggregatorFolders,
       });
     }
@@ -586,7 +587,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       if (!providerMap.has(folder.providerId)) {
         providerMap.set(folder.providerId, {
           providerId: folder.providerId,
-          providerEmail: folder.providerEmail || t.dashboard.email.noProviders,
+          providerEmail: folder.providerEmail || t.email.noProviders,
           folders: [],
         });
       }
@@ -611,10 +612,10 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     if (provider.providerType === 'google') {
       return (
         <svg viewBox="0 0 24 24" width="20" height="20">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
         </svg>
       );
     }
@@ -622,10 +623,10 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     if (provider.providerType === 'microsoft') {
       return (
         <svg viewBox="0 0 24 24" width="20" height="20">
-          <path fill="#f25022" d="M1 1h10v10H1z"/>
-          <path fill="#00a4ef" d="M13 1h10v10H13z"/>
-          <path fill="#7fba00" d="M1 13h10v10H1z"/>
-          <path fill="#ffb900" d="M13 13h10v10H13z"/>
+          <path fill="#f25022" d="M1 1h10v10H1z" />
+          <path fill="#00a4ef" d="M13 1h10v10H13z" />
+          <path fill="#7fba00" d="M1 13h10v10H1z" />
+          <path fill="#ffb900" d="M13 13h10v10H13z" />
         </svg>
       );
     }
@@ -642,7 +643,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       setProviders(folderResponse.providers as any);
       setFoldersLoading(false);
     } catch (error) {
-      console.error('Failed to load folders:', error);
+      logger.error('Failed to load folders', { error });
       setFoldersLoading(false);
     }
   }, [setFoldersData]);
@@ -727,10 +728,10 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         const emailsRes = await emailApi.listEmails(queryParams);
 
         // DEBUG: Log body data from API response
-        console.log('[Mailbox] API Response - emails:', emailsRes.data.emails?.length);
+        logger.debug('[Mailbox] API Response - emails', { count: emailsRes.data.emails?.length });
         if (emailsRes.data.emails?.[0]) {
           const firstEmail = emailsRes.data.emails[0];
-          console.log('[Mailbox] First email body data:', {
+          logger.debug('[Mailbox] First email body data', {
             id: firstEmail.id,
             subject: firstEmail.subject?.substring(0, 30),
             bodyHtmlLength: firstEmail.bodyHtml?.length || 0,
@@ -750,7 +751,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         });
       }
     } catch (error) {
-      console.error('Failed to load mailbox data:', error);
+      logger.error('Failed to load mailbox data', { error });
       setEmails([]);
       setSelectedEmail(null);
       setPagination({ page: 1, hasMore: false, total: 0 });
@@ -763,11 +764,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   // Handle label changes - backend always returns updated email
   const handleLabelsChange = useCallback(async (emailId: string, labelIds: string[], updatedEmail?: any) => {
     if (!updatedEmail) {
-      console.warn('[Mailbox] No updated email provided - this should not happen');
+      logger.warn('[Mailbox] No updated email provided - this should not happen');
       return;
     }
 
-    console.log('[Mailbox] handleLabelsChange:', {
+    logger.debug('[Mailbox] handleLabelsChange', {
       emailId,
       labelIds,
       updatedEmail,
@@ -851,7 +852,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         total: emailsRes.data.pagination.total,
       });
     } catch (error) {
-      console.error('Failed to load more emails:', error);
+      logger.error('Failed to load more emails', { error });
     } finally {
       setLoading(false);
     }
@@ -877,20 +878,20 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       await emailApi.bulkMarkRead(emailIds, true);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.markRead.replace('{count}', emailIds.length.toString()),
+        message: t.email.messages.markRead.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to mark emails as read:', error);
+      logger.error('Failed to mark emails as read', { error });
       // Rollback - mark as unread
       emailIds.forEach(id => useEmailStore.getState().updateEmail(id, { isRead: false }));
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.markReadFailed,
+        message: t.email.messages.markReadFailed,
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeMarkAsRead, t.dashboard.email.messages.markRead, t.dashboard.email.messages.markReadFailed]);
+  }, [selectedIds, storeEmails, storeMarkAsRead, t.email.messages.markRead, t.email.messages.markReadFailed]);
 
   const handleBulkMarkUnread = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -910,20 +911,20 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       await emailApi.bulkMarkRead(emailIds, false);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.markUnread.replace('{count}', emailIds.length.toString()),
+        message: t.email.messages.markUnread.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to mark emails as unread:', error);
+      logger.error('Failed to mark emails as unread', { error });
       // Rollback - mark as read
       emailIds.forEach(id => useEmailStore.getState().updateEmail(id, { isRead: true }));
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.markUnreadFailed,
+        message: t.email.messages.markUnreadFailed,
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, t.dashboard.email.messages.markUnread, t.dashboard.email.messages.markUnreadFailed]);
+  }, [selectedIds, storeEmails, t.email.messages.markUnread, t.email.messages.markUnreadFailed]);
 
   const handleBulkDelete = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -936,7 +937,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     if (emailIds.length === 0) return;
 
-    if (!window.confirm(t.dashboard.email.messages.deleteConfirm.replace('{count}', emailIds.length.toString()))) {
+    if (!window.confirm(t.email.messages.deleteConfirm.replace('{count}', emailIds.length.toString()))) {
       return;
     }
 
@@ -951,20 +952,20 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       await emailApi.bulkDelete(emailIds);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.deleted.replace('{count}', emailIds.length.toString()),
+        message: t.email.messages.deleted.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to delete emails:', error);
+      logger.error('Failed to delete emails', { error });
       // Rollback - restore deleted emails
       emailsToDelete.forEach(email => useEmailStore.getState().addEmail(email));
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.deleteFailed,
+        message: t.email.messages.deleteFailed,
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.dashboard.email.messages.deleteConfirm, t.dashboard.email.messages.deleted, t.dashboard.email.messages.deleteFailed]);
+  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.email.messages.deleteConfirm, t.email.messages.deleted, t.email.messages.deleteFailed]);
 
   const handleBulkStar = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -984,20 +985,20 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       await emailApi.bulkStar(emailIds, true);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.starred.replace('{count}', emailIds.length.toString()),
+        message: t.email.messages.starred.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to star emails:', error);
+      logger.error('Failed to star emails', { error });
       // Rollback - unstar
       storeMarkAsStarred(emailIds, false);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.starFailed,
+        message: t.email.messages.starFailed,
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeMarkAsStarred, t.dashboard.email.messages.starred, t.dashboard.email.messages.starFailed]);
+  }, [selectedIds, storeEmails, storeMarkAsStarred, t.email.messages.starred, t.email.messages.starFailed]);
 
   const handleBulkUnstar = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -1017,20 +1018,20 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       await emailApi.bulkStar(emailIds, false);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.unstarred.replace('{count}', emailIds.length.toString()),
+        message: t.email.messages.unstarred.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to unstar emails:', error);
+      logger.error('Failed to unstar emails', { error });
       // Rollback - star again
       storeMarkAsStarred(emailIds, true);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.unstarFailed,
+        message: t.email.messages.unstarFailed,
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeMarkAsStarred, t.dashboard.email.messages.unstarred, t.dashboard.email.messages.unstarFailed]);
+  }, [selectedIds, storeEmails, storeMarkAsStarred, t.email.messages.unstarred, t.email.messages.unstarFailed]);
 
   const handleBulkFlag = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -1050,16 +1051,16 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       await emailApi.bulkFlag(emailIds, true);
       setSnackbar({
         open: true,
-        message: (t.dashboard.email.messages.markedImportant ?? 'Marked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
+        message: (t.email.messages.markedImportant ?? 'Marked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to flag emails:', error);
+      logger.error('Failed to flag emails', { error });
       // Rollback - unflag
       storeMarkAsImportant(emailIds, false);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.markedImportantFailed ?? 'Failed to mark as important. Please try again.',
+        message: t.email.messages.markedImportantFailed ?? 'Failed to mark as important. Please try again.',
         severity: 'error',
       });
     }
@@ -1083,16 +1084,16 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       await emailApi.bulkFlag(emailIds, false);
       setSnackbar({
         open: true,
-        message: (t.dashboard.email.messages.unmarkedImportant ?? 'Unmarked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
+        message: (t.email.messages.unmarkedImportant ?? 'Unmarked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to unflag emails:', error);
+      logger.error('Failed to unflag emails', { error });
       // Rollback - flag again
       storeMarkAsImportant(emailIds, true);
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.unmarkedImportantFailed ?? 'Failed to unmark as important. Please try again.',
+        message: t.email.messages.unmarkedImportantFailed ?? 'Failed to unmark as important. Please try again.',
         severity: 'error',
       });
     }
@@ -1115,18 +1116,18 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       // WebSocket will automatically update the UI with the new labels
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.labelsAdded.replace('{count}', emailIds.length.toString()),
+        message: t.email.messages.labelsAdded.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to add labels:', error);
+      logger.error('Failed to add labels', { error });
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.labelsFailed,
+        message: t.email.messages.labelsFailed,
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, clearSelection, t.dashboard.email.messages.labelsAdded, t.dashboard.email.messages.labelsFailed]);
+  }, [selectedIds, storeEmails, clearSelection, t.email.messages.labelsAdded, t.email.messages.labelsFailed]);
 
   const handleBulkMoveToFolder = useCallback(async (folder: string) => {
     const threadIds = Array.from(selectedIds);
@@ -1146,18 +1147,18 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       clearSelection();
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.moved.replace('{count}', emailIds.length.toString()).replace('{folder}', folder),
+        message: t.email.messages.moved.replace('{count}', emailIds.length.toString()).replace('{folder}', folder),
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to move emails:', error);
+      logger.error('Failed to move emails', { error });
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.moveFailed,
+        message: t.email.messages.moveFailed,
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.dashboard.email.messages.moved, t.dashboard.email.messages.moveFailed]);
+  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.email.messages.moved, t.email.messages.moveFailed]);
 
   // Handle drag start - track which email is being dragged
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -1168,7 +1169,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       const email = dragData.email as Email;
       setDraggedEmail(email);
       setIsDraggingEmail(true);
-      console.log('[Mailbox] Drag started:', { emailId: email.id, subject: email.subject?.substring(0, 30) });
+      logger.debug('[Mailbox] Drag started', { emailId: email.id, subject: email.subject?.substring(0, 30) });
     }
   }, []);
 
@@ -1220,20 +1221,20 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       clearSelection();
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.moved
+        message: t.email.messages.moved
           .replace('{count}', emailIdsToMove.length.toString())
           .replace('{folder}', targetFolder.label),
         severity: 'success',
       });
     } catch (error) {
-      console.error('[Mailbox] Failed to move emails:', error);
+      logger.error('[Mailbox] Failed to move emails', { error });
       setSnackbar({
         open: true,
-        message: t.dashboard.email.messages.moveFailed,
+        message: t.email.messages.moveFailed,
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.dashboard.email.messages.moved, t.dashboard.email.messages.moveFailed]);
+  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.email.messages.moved, t.email.messages.moveFailed]);
 
   // Get drag count for overlay
   const dragCount = useMemo(() => {
@@ -1332,7 +1333,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
   // Handle Reply All - open ComposeDialog
   const handleReplyAllLocal = useCallback((email: Email) => {
-    const allRecipients = [email.from, ...(!email.to ? []  : email.to), ...(!email.cc ? [] : email.cc)];
+    const allRecipients = [email.from, ...(!email.to ? [] : email.to), ...(!email.cc ? [] : email.cc)];
     const uniqueRecipients = Array.from(new Set(allRecipients));
 
     setComposeMode('reply');
@@ -1378,7 +1379,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const listLoading = storeLoading;
   const hasMoreItems = _pagination.hasMore;
   const onLoadMoreThreads = loadMoreEmails;
-  const emptyState = { ...getEmptyState(), subtitle: `${getEmptyState().subtitle} ${t.dashboard.email.messages.trySyncOrFilter ?? 'Try syncing now or adjust filters.'}`.trim() };
+  const emptyState = { ...getEmptyState(), subtitle: `${getEmptyState().subtitle} ${t.email.messages.trySyncOrFilter ?? 'Try syncing now or adjust filters.'}`.trim() };
 
 
 
@@ -1392,9 +1393,9 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       onDragEnd={handleDragEnd}
     >
       <ResizableEmailLayout
-          sidebarOpen={mobileSidebarOpen}
-          onSidebarClose={() => setMobileSidebarOpen(false)}
-          sidebar={
+        sidebarOpen={mobileSidebarOpen}
+        onSidebarClose={() => setMobileSidebarOpen(false)}
+        sidebar={
           <EmailSidebar
             folderGroups={folderGroups}
             selectedFolderId={selectedFolderId}
@@ -1486,7 +1487,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
                   <Box sx={{ flex: '1 1 200px', minWidth: 150, maxWidth: { xs: '100%', sm: 350 } }}>
                     <AISearchBar
                       onResultClick={handleAISearchResultClick}
-                      placeholder={t.dashboard.emailList.aiSearchPlaceholder}
+                      placeholder={t.email.list.aiSearchPlaceholder}
                       size="small"
                     />
                   </Box>
@@ -1497,7 +1498,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
                     startIcon={<Filter size={16} />}
                     sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
                   >
-                    {t.dashboard.email.advancedSearch.title}
+                    {t.email.advancedSearch.title}
                   </Button>
                   <Button
                     size="small"
@@ -1607,7 +1608,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         onSent={() => {
           setSnackbar({
             open: true,
-            message: t.dashboard.email.messages.emailSent,
+            message: t.email.messages.emailSent,
             severity: 'success',
           });
           setComposeOpen(false);

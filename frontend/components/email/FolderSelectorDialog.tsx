@@ -39,12 +39,12 @@ export const FolderSelectorDialog: React.FC<FolderSelectorDialogProps> = ({
 
   // Build folders list with translations
   const commonFolders = useMemo(() => [
-    { id: 'INBOX', name: t.dashboard.folders.inbox, icon: <Inbox size={20} /> },
-    { id: 'SENT', name: t.dashboard.folders.sent, icon: <Send size={20} /> },
-    { id: 'ARCHIVE', name: t.dashboard.folders.archive, icon: <Archive size={20} /> },
-    { id: 'TRASH', name: t.dashboard.folders.trash, icon: <Trash2 size={20} /> },
-    { id: 'DRAFTS', name: t.dashboard.folders.drafts, icon: <Mail size={20} /> },
-    { id: 'SPAM', name: t.dashboard.folders.spam, icon: <Folder size={20} /> },
+    { id: 'INBOX', name: t.folders.inbox, icon: <Inbox size={20} /> },
+    { id: 'SENT', name: t.folders.sent, icon: <Send size={20} /> },
+    { id: 'ARCHIVE', name: t.folders.archive, icon: <Archive size={20} /> },
+    { id: 'TRASH', name: t.folders.trash, icon: <Trash2 size={20} /> },
+    { id: 'DRAFTS', name: t.folders.drafts, icon: <Mail size={20} /> },
+    { id: 'SPAM', name: t.folders.spam, icon: <Folder size={20} /> },
   ], [t]);
 
   const handleSelect = (folderId: string) => {
@@ -67,7 +67,7 @@ export const FolderSelectorDialog: React.FC<FolderSelectorDialogProps> = ({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {t.dashboard.email.bulkBar.moveToFolder} ({t.dashboard.email.messages.selectedCount.replace('{count}', selectedCount.toString())})
+        {t.email.bulkBar.moveToFolder} ({t.email.messages.selectedCount.replace('{count}', selectedCount.toString())})
       </DialogTitle>
       <DialogContent sx={{ p: 0 }}>
         <List>
@@ -91,7 +91,7 @@ export const FolderSelectorDialog: React.FC<FolderSelectorDialogProps> = ({
           variant="contained"
           disabled={!selectedFolder}
         >
-          {t.dashboard.email.messages.move}
+          {t.email.messages.move}
         </Button>
       </DialogActions>
     </Dialog>

@@ -58,6 +58,7 @@ import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { useRouter } from 'next/router';
+import { logger } from '@/lib/logger';
 import { calendarApi, type CreateEventDto, type CalendarInfo, type CalendarEvent as ApiCalendarEvent, type UpdateEventDto, type CalendarEventAttachment } from '@/lib/api/calendar';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { allFullCalendarLocales, getFullCalendarLocale } from '@/locales';
@@ -97,7 +98,7 @@ const CALENDAR_PREFS_KEY = 'calendar-preferences';
 export function Calendar() {
   const router = useRouter();
   const translations = useTranslations();
-  const calendarCopy = translations.dashboard.calendar;
+  const calendarCopy = translations.calendar;
   const calendarRef = useRef<FullCalendar>(null);
   const [currentMonth, setCurrentMonth] = useState('');
   const [currentYear, setCurrentYear] = useState('');
@@ -244,7 +245,7 @@ export function Calendar() {
       });
       localStorage.setItem(CALENDAR_PREFS_KEY, JSON.stringify(toSave));
     } catch (e) {
-      console.warn('Failed to save calendar enabled state:', e);
+      logger.warn('Failed to save calendar enabled state', { error: e });
     }
   }, []);
 
@@ -279,7 +280,7 @@ export function Calendar() {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to update calendar color:', error);
+      logger.error('Failed to update calendar color', { error });
       setSnackbar({
         open: true,
         message: calendarCopy.failedToUpdateColor || 'Failed to update color',
@@ -334,7 +335,7 @@ export function Calendar() {
       });
       setProviderGroups(Array.from(groupsMap.values()));
     } catch (error) {
-      console.warn('Failed to load calendars:', error);
+      logger.warn('Failed to load calendars', { error });
     }
   }, [loadEnabledState]);
 
@@ -351,7 +352,7 @@ export function Calendar() {
         loadedProviders = providersRes || [];
         setProviders(loadedProviders);
       } catch (providerError) {
-        console.warn('Failed to load providers for calendar:', providerError);
+        logger.warn('Failed to load providers for calendar', { error: providerError });
         setProviders([]);
       }
 
@@ -359,16 +360,16 @@ export function Calendar() {
       // This syncs events from Google/Microsoft to our database
       if (triggerSync && loadedProviders.length > 0) {
         const calendarProviders = loadedProviders.filter(p => p.supportsCalendar);
-        console.log(`[Calendar] Syncing ${calendarProviders.length} calendar providers...`);
+        logger.debug('[Calendar] Syncing providers', { count: calendarProviders.length });
 
         // Sync all providers in parallel (non-blocking)
         const syncPromises = calendarProviders.map(async (provider) => {
           try {
             const result = await calendarApi.syncProvider(provider.id);
-            console.log(`[Calendar] Synced ${provider.email}: ${result.data?.newEvents || 0} new, ${result.data?.updatedEvents || 0} updated`);
+            logger.info(`[Calendar] Synced ${provider.email}`, { newEvents: result.data?.newEvents || 0, updatedEvents: result.data?.updatedEvents || 0 });
             return result;
           } catch (syncError) {
-            console.warn(`[Calendar] Failed to sync ${provider.email}:`, syncError);
+            logger.warn(`[Calendar] Failed to sync ${provider.email}`, { error: syncError });
             return null;
           }
         });
@@ -406,7 +407,7 @@ export function Calendar() {
       setStoreEvents(eventsRes.data.events || []);
       setLastSyncAt(new Date());
     } catch (error) {
-      console.error('Failed to load calendar data:', error);
+      logger.error('Failed to load calendar data', { error });
       setStoreEvents([]);
     } finally {
       setLoading(false);
@@ -424,10 +425,10 @@ export function Calendar() {
       viewType === 'day'
         ? 'timeGridDay'
         : viewType === 'week'
-        ? 'timeGridWeek'
-        : viewType === 'list'
-        ? 'listWeek'
-        : 'dayGridMonth';
+          ? 'timeGridWeek'
+          : viewType === 'list'
+            ? 'listWeek'
+            : 'dayGridMonth';
     calendarApi.changeView(viewName);
   }, [viewType]);
 
@@ -471,7 +472,7 @@ export function Calendar() {
     };
 
     const handleCalendarEventNew = async (event: RealtimeCalendarEvent) => {
-      console.log('[Calendar] WebSocket: calendar:event_new', event);
+      logger.debug('[Calendar] WebSocket: calendar:event_new', { event });
       if (event.eventId) {
         try {
           const calEvent = await fetchWithRetry(() => calendarApi.getEvent(event.eventId!));
@@ -479,7 +480,7 @@ export function Calendar() {
             useCalendarStore.getState().addEvent(calEvent.data);
           }
         } catch (error) {
-          console.error('Failed to fetch new calendar event after retries:', error);
+          logger.error('Failed to fetch new calendar event after retries', { error });
           setSnackbar({
             open: true,
             message: 'Failed to load new calendar event. Try refreshing.',
@@ -490,7 +491,7 @@ export function Calendar() {
     };
 
     const handleCalendarEventUpdate = async (event: RealtimeCalendarEvent) => {
-      console.log('[Calendar] WebSocket: calendar:event_update', event);
+      logger.debug('[Calendar] WebSocket: calendar:event_update', { event });
       if (event.eventId) {
         try {
           const calEvent = await fetchWithRetry(() => calendarApi.getEvent(event.eventId!));
@@ -498,7 +499,7 @@ export function Calendar() {
             useCalendarStore.getState().updateEvent(event.eventId, calEvent.data);
           }
         } catch (error) {
-          console.error('Failed to fetch updated calendar event after retries:', error);
+          logger.error('Failed to fetch updated calendar event after retries', { error });
           setSnackbar({
             open: true,
             message: 'Failed to sync calendar update. Try refreshing.',
@@ -509,7 +510,7 @@ export function Calendar() {
     };
 
     const handleCalendarEventDelete = (event: RealtimeCalendarEvent) => {
-      console.log('[Calendar] WebSocket: calendar:event_delete', event);
+      logger.debug('[Calendar] WebSocket: calendar:event_delete', { event });
       if (event.eventId) {
         useCalendarStore.getState().deleteEvent(event.eventId);
       }
@@ -518,11 +519,11 @@ export function Calendar() {
     const handleSyncStatus = (event: RealtimeSyncStatus) => {
       // Handle sync completion
       if (event.status === 'completed') {
-        console.log('[Calendar] WebSocket: sync completed for provider', event.providerId);
+        logger.info('[Calendar] WebSocket: sync completed', { providerId: event.providerId });
         useCalendarStore.getState().setSyncing(false);
         useCalendarStore.getState().setLastSyncAt(new Date());
       } else if (event.status === 'failed') {
-        console.error('[Calendar] WebSocket: sync failed for provider', event.providerId);
+        logger.error('[Calendar] WebSocket: sync failed', { providerId: event.providerId });
         useCalendarStore.getState().setSyncing(false);
         setSnackbar({
           open: true,
@@ -605,7 +606,7 @@ export function Calendar() {
         const response = await calendarApi.listAttachments(fullEvent.id);
         setAttachments(response.data?.attachments || []);
       } catch (error) {
-        console.error('Failed to fetch attachments:', error);
+        logger.error('Failed to fetch attachments', { error });
         setAttachments([]);
       } finally {
         setLoadingAttachments(false);
@@ -648,8 +649,8 @@ export function Calendar() {
 
         // Check if title matches and times overlap
         return existingTitle === titleLower &&
-               eventStart < existingEnd &&
-               eventEnd > existingStart;
+          eventStart < existingEnd &&
+          eventEnd > existingStart;
       });
 
       if (duplicate) {
@@ -695,7 +696,7 @@ export function Calendar() {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to update event:', error);
+      logger.error('Failed to update event', { error });
       // Rollback on error - reload from server
       await loadData();
       setSnackbar({
@@ -729,7 +730,7 @@ export function Calendar() {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to delete event:', error);
+      logger.error('Failed to delete event', { error });
       // Rollback on error - reload from server
       await loadData();
       setSnackbar({
@@ -758,7 +759,7 @@ export function Calendar() {
         window.open(response.data.url, '_blank');
       }
     } catch (error) {
-      console.error('Failed to download attachment:', error);
+      logger.error('Failed to download attachment', { error });
       setSnackbar({
         open: true,
         message: calendarCopy.failedToDownloadAttachment || 'Failed to download attachment',
@@ -825,8 +826,8 @@ export function Calendar() {
 
         // Check if title matches and times overlap
         return existingTitle === titleLower &&
-               eventStart < existingEnd &&
-               eventEnd > existingStart;
+          eventStart < existingEnd &&
+          eventEnd > existingStart;
       });
 
       if (duplicate) {
@@ -895,7 +896,7 @@ export function Calendar() {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to create event:', error);
+      logger.error('Failed to create event', { error });
       setSnackbar({
         open: true,
         message: calendarCopy.failedToCreateEvent,
@@ -942,7 +943,7 @@ export function Calendar() {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to create quick event:', error);
+      logger.error('Failed to create quick event', { error });
       setSnackbar({
         open: true,
         message: calendarCopy.failedToCreateQuickEvent,

@@ -67,7 +67,7 @@ export const LabelSelector: React.FC<LabelSelectorProps> = ({
   selectedLabels: passedSelectedLabels,
 }) => {
   const t = useTranslations();
-  const labelsCopy = t.dashboard.labels;
+  const labelsCopy = t.email.labels;
   const { labels, fetchLabels, isLoading } = useLabelStore();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);

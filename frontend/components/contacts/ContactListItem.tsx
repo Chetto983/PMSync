@@ -311,14 +311,14 @@ export const ContactListItem = React.memo<ContactListItemProps>(
               }}
             >
               {primaryEmail && onEmail && (
-                <Tooltip title={t.dashboard?.contacts?.actions?.sendEmail || 'Send email'}>
+                <Tooltip title={t.contacts?.actions?.sendEmail || 'Send email'}>
                   <IconButton size="small" onClick={handleEmail}>
                     <Mail size={18} />
                   </IconButton>
                 </Tooltip>
               )}
               {primaryPhone && onCall && (
-                <Tooltip title={t.dashboard?.contacts?.actions?.call || 'Call'}>
+                <Tooltip title={t.contacts?.actions?.call || 'Call'}>
                   <IconButton size="small" onClick={handleCall}>
                     <Phone size={18} />
                   </IconButton>

@@ -45,6 +45,8 @@ import {
   //Star,
   //MessageSquare,
 } from 'lucide-react';
+import { isAxiosError } from 'axios';
+import { logger } from '@/lib/logger';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Layout } from '@/components/layout/Layout';
@@ -574,7 +576,7 @@ function AiAssistantView() {
       // API returns { actions: [], total, limit, offset }
       setPendingActions(response.data?.actions || []);
     } catch (error) {
-      console.error('Failed to load pending actions:', error);
+      logger.error('Failed to load pending actions', { error });
     } finally {
       setLoadingActions(false);
     }
@@ -588,13 +590,13 @@ function AiAssistantView() {
       const feedbackData = response.data;
       if (Array.isArray(feedbackData)) {
         setActionHistory(feedbackData);
-      } else if (feedbackData && Array.isArray((feedbackData as any).feedback)) {
-        setActionHistory((feedbackData as any).feedback);
+      } else if (feedbackData && typeof feedbackData === 'object' && 'feedback' in feedbackData && Array.isArray((feedbackData as { feedback: ActionFeedback[] }).feedback)) {
+        setActionHistory((feedbackData as { feedback: ActionFeedback[] }).feedback);
       } else {
         setActionHistory([]);
       }
     } catch (error) {
-      console.error('Failed to load action history:', error);
+      logger.error('Failed to load action history', { error });
       setActionHistory([]);
     } finally {
       setLoadingHistory(false);
@@ -652,7 +654,7 @@ function AiAssistantView() {
         );
       }
     } catch (error) {
-      console.error('Failed to load learning stats:', error);
+      logger.error('Failed to load learning stats', { error });
     } finally {
       setLoadingLearning(false);
       setLoadingActivity(false);
@@ -675,7 +677,7 @@ function AiAssistantView() {
         }, {});
         setAgentInfoMap(map);
       } catch (error) {
-        console.error('Failed to load agent metadata:', error);
+        logger.error('Failed to load agent metadata', { error });
       }
     };
     fetchAgents();
@@ -773,10 +775,10 @@ function AiAssistantView() {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await fn();
-      } catch (error: any) {
-        lastError = error;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
         // Only retry on 429 (rate limit) errors
-        if (error?.response?.status === 429 && attempt < maxRetries) {
+        if (isAxiosError(error) && error.response?.status === 429 && attempt < maxRetries) {
           const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff: 1s, 2s, 4s
           setNotification({
             open: true,
@@ -865,7 +867,7 @@ function AiAssistantView() {
         await loadPendingActions();
       }
     } catch (error: any) {
-      console.error('Failed to send message:', error);
+      logger.error('Failed to send message', { error });
       if (error?.response?.status === 403) {
         setNotification({
           open: true,
@@ -911,7 +913,7 @@ function AiAssistantView() {
       await multiAgentApi.approveAction(actionId);
       await loadPendingActions();
     } catch (error) {
-      console.error('Failed to approve action:', error);
+      logger.error('Failed to approve action', { error });
     }
   };
 
@@ -920,7 +922,7 @@ function AiAssistantView() {
       await multiAgentApi.rejectAction(actionId, 'User rejected');
       await loadPendingActions();
     } catch (error) {
-      console.error('Failed to reject action:', error);
+      logger.error('Failed to reject action', { error });
     }
   };
 

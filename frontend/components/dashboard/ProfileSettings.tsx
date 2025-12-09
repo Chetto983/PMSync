@@ -13,7 +13,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 
 export function ProfileSettings() {
   const translations = useTranslations();
-  const settingsCopy = translations.dashboard.settings;
+  const settingsCopy = translations.settings;
   const { user } = useAuth();
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');

@@ -167,10 +167,10 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <SearchIcon size={20} />
-            <Typography variant="h6">{t.dashboard.email.advancedSearch.title}</Typography>
+            <Typography variant="h6">{t.email.advancedSearch.title}</Typography>
             {activeFiltersCount > 0 && (
               <Typography variant="caption" color="primary">
-                ({activeFiltersCount} {t.dashboard.email.advancedSearch.active})
+                ({activeFiltersCount} {t.email.advancedSearch.active})
               </Typography>
             )}
           </Box>
@@ -183,8 +183,8 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
       <DialogContent dividers sx={{ p: 0 }}>
         {/* Tabs */}
         <Tabs value={currentTab} onChange={(_, v) => setCurrentTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}>
-          <Tab icon={<Filter size={18} />} label={t.dashboard.email.advancedSearch.standardSearch} value="standard" iconPosition="start" />
-          <Tab icon={<Sparkles size={18} />} label={t.dashboard.email.advancedSearch.aiSearch} value="ai" iconPosition="start" />
+          <Tab icon={<Filter size={18} />} label={t.email.advancedSearch.standardSearch} value="standard" iconPosition="start" />
+          <Tab icon={<Sparkles size={18} />} label={t.email.advancedSearch.aiSearch} value="ai" iconPosition="start" />
         </Tabs>
 
         <Box sx={{ p: 3 }}>
@@ -194,8 +194,8 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
               {/* Text Search Query */}
               <TextField
                 fullWidth
-                label={t.dashboard.email.advancedSearch.searchInSubjectBody}
-                placeholder={t.dashboard.email.advancedSearch.enterKeywords}
+                label={t.email.advancedSearch.searchInSubjectBody}
+                placeholder={t.email.advancedSearch.enterKeywords}
                 value={filters.searchQuery || ''}
                 onChange={(e) => updateFilter('searchQuery', e.target.value)}
                 InputProps={{
@@ -208,30 +208,30 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
               {/* From & To */}
               <TextField
                 fullWidth
-                label={t.dashboard.email.advancedSearch.fromSender}
-                placeholder={t.dashboard.email.advancedSearch.senderPlaceholder}
+                label={t.email.advancedSearch.fromSender}
+                placeholder={t.email.advancedSearch.senderPlaceholder}
                 value={filters.from || ''}
                 onChange={(e) => updateFilter('from', e.target.value)}
-                helperText={t.dashboard.email.advancedSearch.filterBySender}
+                helperText={t.email.advancedSearch.filterBySender}
               />
 
               <TextField
                 fullWidth
-                label={t.dashboard.email.advancedSearch.toRecipient}
-                placeholder={t.dashboard.email.advancedSearch.recipientPlaceholder}
+                label={t.email.advancedSearch.toRecipient}
+                placeholder={t.email.advancedSearch.recipientPlaceholder}
                 value={filters.to || ''}
                 onChange={(e) => updateFilter('to', e.target.value)}
-                helperText={t.dashboard.email.advancedSearch.filterByRecipient}
+                helperText={t.email.advancedSearch.filterByRecipient}
               />
 
               {/* Subject */}
               <TextField
                 fullWidth
-                label={t.dashboard.email.advancedSearch.subject}
-                placeholder={t.dashboard.email.advancedSearch.subjectPlaceholder}
+                label={t.email.advancedSearch.subject}
+                placeholder={t.email.advancedSearch.subjectPlaceholder}
                 value={filters.subject || ''}
                 onChange={(e) => updateFilter('subject', e.target.value)}
-                helperText={t.dashboard.email.advancedSearch.filterBySubject}
+                helperText={t.email.advancedSearch.filterBySubject}
               />
 
               {/* Labels */}
@@ -245,9 +245,9 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label={t.dashboard.email.advancedSearch.labelsLabel}
-                    placeholder={t.dashboard.email.advancedSearch.labelsPlaceholder}
-                    helperText={t.dashboard.email.advancedSearch.filterByLabels}
+                    label={t.email.advancedSearch.labelsLabel}
+                    placeholder={t.email.advancedSearch.labelsPlaceholder}
+                    helperText={t.email.advancedSearch.filterByLabels}
                   />
                 )}
                 renderTags={(value, getTagProps) =>
@@ -274,12 +274,12 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
           {/* Date Range */}
           <Box>
             <FormLabel component="legend" sx={{ mb: 2 }}>
-              {t.dashboard.email.advancedSearch.dateRange}
+              {t.email.advancedSearch.dateRange}
             </FormLabel>
             <Stack spacing={2}>
               <TextField
                 fullWidth
-                label={t.dashboard.email.advancedSearch.fromDate}
+                label={t.email.advancedSearch.fromDate}
                 type="date"
                 value={filters.startDate || ''}
                 onChange={(e) => updateFilter('startDate', e.target.value)}
@@ -290,7 +290,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
               />
               <TextField
                 fullWidth
-                label={t.dashboard.email.advancedSearch.toDate}
+                label={t.email.advancedSearch.toDate}
                 type="date"
                 value={filters.endDate || ''}
                 onChange={(e) => updateFilter('endDate', e.target.value)}
@@ -307,7 +307,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
           {/* Status Filters */}
           <Box>
             <FormLabel component="legend" sx={{ mb: 1 }}>
-              {t.dashboard.email.advancedSearch.statusFilters}
+              {t.email.advancedSearch.statusFilters}
             </FormLabel>
             <FormGroup>
               <FormControlLabel
@@ -317,7 +317,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                     onChange={(e) => updateFilter('hasAttachments', e.target.checked)}
                   />
                 }
-                label={t.dashboard.email.advancedSearch.hasAttachments}
+                label={t.email.advancedSearch.hasAttachments}
               />
               <FormControlLabel
                 control={
@@ -326,7 +326,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                     onChange={(e) => updateFilter('isStarred', e.target.checked)}
                   />
                 }
-                label={t.dashboard.email.advancedSearch.starredOnly}
+                label={t.email.advancedSearch.starredOnly}
               />
             </FormGroup>
           </Box>
@@ -334,7 +334,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
           {/* Read Status */}
           <Box>
             <FormLabel component="legend" sx={{ mb: 1 }}>
-              {t.dashboard.email.advancedSearch.readStatus}
+              {t.email.advancedSearch.readStatus}
             </FormLabel>
             <FormGroup>
               <FormControlLabel
@@ -344,7 +344,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                     onChange={(e) => updateFilter('isRead', e.target.checked ? false : null)}
                   />
                 }
-                label={t.dashboard.email.advancedSearch.unreadOnly}
+                label={t.email.advancedSearch.unreadOnly}
               />
               <FormControlLabel
                 control={
@@ -353,7 +353,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                     onChange={(e) => updateFilter('isRead', e.target.checked ? true : null)}
                   />
                 }
-                label={t.dashboard.email.advancedSearch.readOnly}
+                label={t.email.advancedSearch.readOnly}
               />
             </FormGroup>
           </Box>
@@ -364,7 +364,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
           {currentTab === 'ai' && (
             <Stack spacing={3}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t.dashboard.email.advancedSearch.aiSearchDescription}
+                {t.email.advancedSearch.aiSearchDescription}
               </Typography>
 
               {/* Semantic Query */}
@@ -372,14 +372,14 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                 fullWidth
                 multiline
                 rows={4}
-                label={t.dashboard.email.advancedSearch.aiSearchLabel}
-                placeholder={t.dashboard.email.advancedSearch.aiSearchPlaceholder}
+                label={t.email.advancedSearch.aiSearchLabel}
+                placeholder={t.email.advancedSearch.aiSearchPlaceholder}
                 value={filters.semanticQuery || ''}
                 onChange={(e) => updateFilter('semanticQuery', e.target.value)}
                 InputProps={{
                   startAdornment: <Sparkles size={18} style={{ marginRight: 8, opacity: 0.7, color: '#9c27b0' }} />,
                 }}
-                helperText={t.dashboard.email.advancedSearch.aiSearchHelperText}
+                helperText={t.email.advancedSearch.aiSearchHelperText}
               />
 
               <Box
@@ -392,7 +392,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                 }}
               >
                 <Typography variant="caption" fontWeight={600} gutterBottom display="block">
-                  💡 {t.dashboard.email.advancedSearch.aiExamples}
+                  💡 {t.email.advancedSearch.aiExamples}
                 </Typography>
                 <Typography variant="caption" component="div" color="text.secondary" sx={{ pl: 2 }}>
                   • &ldquo;Emails about invoice payments from this month&rdquo;<br />
@@ -409,7 +409,7 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                     onChange={(e) => updateFilter('useAI', e.target.checked)}
                   />
                 }
-                label={t.dashboard.email.advancedSearch.enableAiSearch}
+                label={t.email.advancedSearch.enableAiSearch}
               />
             </Stack>
           )}
@@ -418,12 +418,12 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
 
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button onClick={handleReset} color="inherit">
-          {t.dashboard.email.advancedSearch.resetAll}
+          {t.email.advancedSearch.resetAll}
         </Button>
         <Box sx={{ flex: 1 }} />
-        <Button onClick={handleClose}>{t.dashboard.email.advancedSearch.cancel}</Button>
+        <Button onClick={handleClose}>{t.email.advancedSearch.cancel}</Button>
         <Button variant="contained" onClick={handleSearch} startIcon={<SearchIcon size={16} />}>
-          {t.dashboard.email.advancedSearch.search}
+          {t.email.advancedSearch.search}
         </Button>
       </DialogActions>
     </Dialog>

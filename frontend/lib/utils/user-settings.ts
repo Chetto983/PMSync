@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger';
+
 export type ThemePreference = 'light' | 'dark' | 'system';
 
 export interface StoredUserSettings {
@@ -77,7 +79,7 @@ export const getStoredUserSettings = (): StoredUserSettings => {
       ...parsed,
     };
   } catch (error) {
-    console.warn('Failed to parse stored user settings:', error);
+    logger.warn('Failed to parse stored user settings', { error });
     return {
       ...DEFAULT_USER_SETTINGS,
       theme: readLegacyTheme(),

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { multiAgentApi } from '@/lib/api/ai';
+import { logger } from '@/lib/logger';
 
 interface AiInsightsWidgetProps {
   /** Number of unread emails for context */
@@ -94,7 +95,7 @@ export function AiInsightsWidget({ unreadCount, t }: AiInsightsWidgetProps) {
 
       setLastRefresh(new Date());
     } catch (error) {
-      console.error('Failed to load AI insights:', error);
+      logger.error('Failed to load AI insights', { error });
     } finally {
       setLoading(false);
     }
@@ -309,8 +310,8 @@ export function AiInsightsWidget({ unreadCount, t }: AiInsightsWidgetProps) {
                   {writingStyleProgress < 20
                     ? t?.ai?.writingStyleLearningLow || 'Just getting started - send more emails to improve'
                     : writingStyleProgress < 60
-                    ? t?.ai?.writingStyleLearningMedium || 'Learning your style - keep it up!'
-                    : t?.ai?.writingStyleLearningHigh || 'AI has learned your writing style well'}
+                      ? t?.ai?.writingStyleLearningMedium || 'Learning your style - keep it up!'
+                      : t?.ai?.writingStyleLearningHigh || 'AI has learned your writing style well'}
                 </Typography>
               </Box>
 

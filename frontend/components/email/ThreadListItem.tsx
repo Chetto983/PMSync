@@ -340,7 +340,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
                 <Chip
                   size="small"
                   icon={<Paperclip size={12} />}
-                  label={t.dashboard.email.attachment}
+                  label={t.email.attachment}
                   sx={{ height: 18, fontSize: '0.65rem' }}
                 />
               )}

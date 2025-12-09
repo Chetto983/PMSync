@@ -62,7 +62,7 @@ export const LabelSelectorDialog: React.FC<LabelSelectorDialogProps> = ({
       setLabels(response.labels || []);
     } catch (err) {
       console.error('Failed to load labels:', err);
-      setError(t.dashboard.email.messages.loadLabelsFailed);
+      setError(t.email.messages.loadLabelsFailed);
     } finally {
       setLoading(false);
     }
@@ -86,7 +86,7 @@ export const LabelSelectorDialog: React.FC<LabelSelectorDialogProps> = ({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {t.dashboard.email.bulkBar.addLabels} ({selectedCount} selected)
+        {t.email.bulkBar.addLabels} ({selectedCount} selected)
       </DialogTitle>
       <DialogContent>
         {loading ? (
@@ -96,7 +96,7 @@ export const LabelSelectorDialog: React.FC<LabelSelectorDialogProps> = ({
         ) : error ? (
           <Alert severity="error">{error}</Alert>
         ) : labels.length === 0 ? (
-          <Alert severity="info">{t.dashboard.labels.noLabels}</Alert>
+          <Alert severity="info">{t.email.labels.noLabels}</Alert>
         ) : (
           <FormGroup>
             {labels.map((label) => (

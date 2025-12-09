@@ -21,7 +21,7 @@ interface ProvidersListProps {
 
 export function ProvidersList({ providers, onDelete }: ProvidersListProps) {
   const translations = useTranslations();
-  const providersCopy = translations.dashboard.providers;
+  const providersCopy = translations.providers;
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

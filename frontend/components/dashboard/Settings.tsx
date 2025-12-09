@@ -61,6 +61,7 @@ import {
 } from '@/lib/api/personalization';
 import { multiAgentApi } from '@/lib/api/ai';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { logger } from '@/lib/logger';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { GoogleProviderCard } from '@/components/providers/GoogleProviderCard';
 import { MicrosoftProviderCard } from '@/components/providers/MicrosoftProviderCard';
@@ -171,7 +172,7 @@ export function Settings() {
   const { user } = useAuth();
   const t = useTranslations();
   const { theme, setTheme } = useThemePersistence();
-  const settingsCopy = useMemo(() => t.dashboard.settings, [t]);
+  const settingsCopy = useMemo(() => t.settings, [t]);
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('general');
   const [language, setLanguage] = useState(DEFAULT_USER_SETTINGS.language);
   const [timezone, setTimezone] = useState(DEFAULT_USER_SETTINGS.timezone);
@@ -300,8 +301,8 @@ export function Settings() {
       const response = await providersApi.getProviders();
       setProviders(response || []);
     } catch (error) {
-      console.error('Failed to load providers:', error);
-      setProviderError(t.dashboard.settings.mailAccountsPanel.loadError);
+      logger.error('Failed to load providers', { error });
+      setProviderError(t.settings.mailAccountsPanel.loadError);
     } finally {
       setProvidersLoading(false);
     }
@@ -601,403 +602,403 @@ export function Settings() {
         {/* Content */}
         <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 4 }, bgcolor: 'background.default' }}>
           <Box sx={{ maxWidth: { xs: '100%', md: 800 }, mx: 'auto' }}>
-          {/* General Settings */}
-          {selectedSection === 'general' && (
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                {generalCopy.title}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                {generalCopy.description}
-              </Typography>
-              {(generalSuccess || generalError) && (
-                <Box sx={{ mb: 2 }}>
-                  {generalSuccess && <Alert severity="success" onClose={() => setGeneralSuccess('')}>{generalSuccess}</Alert>}
-                  {generalError && <Alert severity="error" onClose={() => setGeneralError('')}>{generalError}</Alert>}
-                </Box>
-              )}
+            {/* General Settings */}
+            {selectedSection === 'general' && (
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  {generalCopy.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                  {generalCopy.description}
+                </Typography>
+                {(generalSuccess || generalError) && (
+                  <Box sx={{ mb: 2 }}>
+                    {generalSuccess && <Alert severity="success" onClose={() => setGeneralSuccess('')}>{generalSuccess}</Alert>}
+                    {generalError && <Alert severity="error" onClose={() => setGeneralError('')}>{generalError}</Alert>}
+                  </Box>
+                )}
 
-              <SectionCard title={generalCopy.appearanceTitle || 'Appearance'}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 1.5 }}>
-                    {generalCopy.themeLabel || 'Theme'}
-                  </Typography>
-                  <ToggleButtonGroup
-                    value={theme}
-                    exclusive
-                    onChange={(_, v) => v && setTheme(v)}
-                    size="small"
-                  >
-                    <ToggleButton value="light" sx={{ px: 3 }}>
-                      <Sun size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.light || 'Light'}
-                    </ToggleButton>
-                    <ToggleButton value="dark" sx={{ px: 3 }}>
-                      <Moon size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.dark || 'Dark'}
-                    </ToggleButton>
-                    <ToggleButton value="system" sx={{ px: 3 }}>
-                      <Monitor size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.system || 'System'}
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-                </Box>
-              </SectionCard>
-
-              <SectionCard title={generalCopy.languageTitle || 'Language & Region'}>
-                <Stack spacing={2}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{generalCopy.languageLabel || 'Language'}</InputLabel>
-                    <Select value={language} onChange={(e) => setLanguage(e.target.value)} label={generalCopy.languageLabel || 'Language'}>
-                      <MenuItem value="en">English</MenuItem>
-                      <MenuItem value="it">Italiano</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{generalCopy.timezoneLabel || 'Timezone'}</InputLabel>
-                    <Select value={timezone} onChange={(e) => setTimezone(e.target.value)} label={generalCopy.timezoneLabel || 'Timezone'}>
-                      <MenuItem value="GMT-08:00">(GMT-08:00) Pacific Time</MenuItem>
-                      <MenuItem value="GMT-05:00">(GMT-05:00) Eastern Time</MenuItem>
-                      <MenuItem value="GMT+00:00">(GMT+00:00) London</MenuItem>
-                      <MenuItem value="GMT+01:00">(GMT+01:00) Rome</MenuItem>
-                      <MenuItem value="GMT+09:00">(GMT+09:00) Tokyo</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Stack>
-              </SectionCard>
-
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Button variant="contained" onClick={handleSaveSettings} disabled={saveLoading}>
-                  {saveLoading ? copy.ai.saving : copy.notifications.save}
-                </Button>
-              </Box>
-            </Box>
-          )}
-
-          {/* Security Settings */}
-          {selectedSection === 'security' && (
-            <Box>
-              <MfaSettings />
-            </Box>
-          )}
-
-          {/* AI Settings */}
-          {selectedSection === 'ai' && (
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                {aiCopy.title}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                {aiCopy.description || 'Customize how AI assists you with emails, calendar, and more.'}
-              </Typography>
-
-              {(aiError || aiSuccess) && (
-                <Box sx={{ mb: 3 }}>
-                  {aiError && <Alert severity="error" onClose={() => setAiError('')}>{aiError}</Alert>}
-                  {aiSuccess && <Alert severity="success" onClose={() => setAiSuccess('')}>{aiSuccess}</Alert>}
-                </Box>
-              )}
-
-              {aiProfileLoading ? (
-                <Box sx={{ py: 8, display: 'flex', justifyContent: 'center' }}>
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <>
-                  <SectionCard
-                    title={aiCopy.featuresTitle || 'AI Features'}
-                    description={aiCopy.featuresDescription || 'Enable or disable AI capabilities'}
-                  >
-                    <SettingRow
-                      icon={<MessageSquare size={18} />}
-                      title={aiCopy.smartRepliesTitle || 'Smart Replies'}
-                      description={aiCopy.smartRepliesDescription || 'AI-generated response suggestions'}
-                    >
-                      <Switch checked={smartRepliesEnabled} onChange={(e) => setSmartRepliesEnabled(e.target.checked)} />
-                    </SettingRow>
-                    <SettingRow
-                      icon={<FileText size={18} />}
-                      title={aiCopy.summarizationTitle || 'Email Summarization'}
-                      description={aiCopy.summarizationDescription || 'Automatic summaries for long emails'}
-                    >
-                      <Switch checked={summarizationEnabled} onChange={(e) => setSummarizationEnabled(e.target.checked)} />
-                    </SettingRow>
-                    <SettingRow
-                      icon={<Calendar size={18} />}
-                      title={aiCopy.schedulingTitle || 'Smart Scheduling'}
-                      description={aiCopy.schedulingDescription || 'AI-assisted meeting scheduling'}
-                      noBorder
-                    >
-                      <Switch checked={schedulingEnabled} onChange={(e) => setSchedulingEnabled(e.target.checked)} />
-                    </SettingRow>
-                  </SectionCard>
-
-                  <SectionCard
-                    title={aiCopy.personalizationTitle || 'Personalization'}
-                    description={aiCopy.personalizationDescription || 'Customize AI behavior to match your work style'}
-                  >
-                    <Stack spacing={3}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>{aiCopy.roleLabel || 'Your Role'}</InputLabel>
-                        <Select value={jobRole} onChange={(e) => setJobRole(e.target.value as JobRole)} label={aiCopy.roleLabel || 'Your Role'}>
-                          <MenuItem value="EXECUTIVE">Executive</MenuItem>
-                          <MenuItem value="MANAGER">Manager</MenuItem>
-                          <MenuItem value="IC">Individual Contributor</MenuItem>
-                          <MenuItem value="FREELANCER">Freelancer</MenuItem>
-                          <MenuItem value="STUDENT">Student</MenuItem>
-                          <MenuItem value="SUPPORT">Support</MenuItem>
-                          <MenuItem value="SALES">Sales</MenuItem>
-                          <MenuItem value="TECHNICAL">Technical</MenuItem>
-                        </Select>
-                      </FormControl>
-
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                          {aiCopy.communicationLabel || 'Communication Style'}
-                        </Typography>
-                        <ToggleButtonGroup
-                          value={communicationStyle}
-                          exclusive
-                          onChange={(_, v) => v && setCommunicationStyle(v)}
-                          fullWidth
-                          size="small"
-                        >
-                          <ToggleButton value="FORMAL">Formal</ToggleButton>
-                          <ToggleButton value="CASUAL">Casual</ToggleButton>
-                          <ToggleButton value="TECHNICAL">Technical</ToggleButton>
-                        </ToggleButtonGroup>
-                      </Box>
-
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                          {aiCopy.responseLengthLabel || 'Response Length'}
-                        </Typography>
-                        <ToggleButtonGroup
-                          value={responseLength}
-                          exclusive
-                          onChange={(_, v) => v && setResponseLength(v)}
-                          fullWidth
-                          size="small"
-                        >
-                          <ToggleButton value="CONCISE">Concise</ToggleButton>
-                          <ToggleButton value="MODERATE">Moderate</ToggleButton>
-                          <ToggleButton value="DETAILED">Detailed</ToggleButton>
-                        </ToggleButtonGroup>
-                      </Box>
-
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                          {aiCopy.proactivityLabel || 'Proactivity'}
-                        </Typography>
-                        <ToggleButtonGroup
-                          value={proactivityLevel}
-                          exclusive
-                          onChange={(_, v) => v && setProactivityLevel(v)}
-                          fullWidth
-                          size="small"
-                        >
-                          <ToggleButton value="LOW">Low</ToggleButton>
-                          <ToggleButton value="MEDIUM">Medium</ToggleButton>
-                          <ToggleButton value="HIGH">High</ToggleButton>
-                        </ToggleButtonGroup>
-                      </Box>
-
-                      <Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {copy.ai.autoApproveLabel}
-                          </Typography>
-                          <Chip label={`${autoApproveThreshold}%`} size="small" />
-                        </Box>
-                        <Slider
-                          value={autoApproveThreshold}
-                          onChange={(_, v) => setAutoApproveThreshold(v as number)}
-                          min={50}
-                          max={100}
-                          step={5}
-                        />
-                        <Typography variant="caption" color="text.secondary">
-                          {copy.ai.autoApproveHint}
-                        </Typography>
-                      </Box>
-                    </Stack>
-
-                    <Divider sx={{ my: 3 }} />
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Button variant="contained" onClick={handleSaveAiProfile} disabled={aiSaveLoading}>
-                        {aiSaveLoading ? copy.ai.saving : copy.ai.savePreferences}
-                      </Button>
-                      <Button variant="text" endIcon={<ExternalLink size={14} />} onClick={() => router.push('/dashboard/ai')}>
-                        {copy.ai.openAssistant}
-                      </Button>
-                    </Box>
-                  </SectionCard>
-
-                  <SectionCard
-                    title={copy.ai.dataManagementTitle}
-                    description={copy.ai.dataManagementDescription}
-                  >
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                      <Button
-                        variant="outlined"
-                        color="warning"
-                        startIcon={<Trash2 size={16} />}
-                        onClick={handleClearAiMemory}
-                        disabled={aiSaveLoading}
-                      >
-                        {copy.ai.clearMemory}
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<RotateCcw size={16} />}
-                        onClick={handleResetAiLearning}
-                        disabled={aiSaveLoading}
-                      >
-                        {copy.ai.resetLearning}
-                      </Button>
-                    </Stack>
-                  </SectionCard>
-                </>
-              )}
-            </Box>
-          )}
-
-          {/* Mail Accounts */}
-          {selectedSection === 'accounts' && (
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                {mailAccountsCopy.title}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                {copy.accounts.description}
-              </Typography>
-
-              {(providerError || providerSuccess) && (
-                <Box sx={{ mb: 3 }}>
-                  {providerError && <Alert severity="error" onClose={() => setProviderError('')}>{providerError}</Alert>}
-                  {providerSuccess && <Alert severity="success" onClose={() => setProviderSuccess('')}>{providerSuccess}</Alert>}
-                </Box>
-              )}
-
-              <SectionCard
-                title={copy.accounts.connectedTitle}
-                action={
-                  <Stack direction="row" spacing={1}>
-                    <Tooltip title={copy.accounts.refreshTooltip}>
-                      <IconButton size="small" onClick={loadProviders} disabled={providersLoading}>
-                        <RefreshCw size={16} className={providersLoading ? 'animate-spin' : ''} />
-                      </IconButton>
-                    </Tooltip>
-                    <Button
+                <SectionCard title={generalCopy.appearanceTitle || 'Appearance'}>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, mb: 1.5 }}>
+                      {generalCopy.themeLabel || 'Theme'}
+                    </Typography>
+                    <ToggleButtonGroup
+                      value={theme}
+                      exclusive
+                      onChange={(_, v) => v && setTheme(v)}
                       size="small"
-                      variant="outlined"
-                      onClick={handleSyncAll}
-                      disabled={syncAllLoading || providers.length === 0}
                     >
-                      {syncAllLoading ? copy.accounts.syncing : copy.accounts.syncAll}
-                    </Button>
+                      <ToggleButton value="light" sx={{ px: 3 }}>
+                        <Sun size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.light || 'Light'}
+                      </ToggleButton>
+                      <ToggleButton value="dark" sx={{ px: 3 }}>
+                        <Moon size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.dark || 'Dark'}
+                      </ToggleButton>
+                      <ToggleButton value="system" sx={{ px: 3 }}>
+                        <Monitor size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.system || 'System'}
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
+                </SectionCard>
+
+                <SectionCard title={generalCopy.languageTitle || 'Language & Region'}>
+                  <Stack spacing={2}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>{generalCopy.languageLabel || 'Language'}</InputLabel>
+                      <Select value={language} onChange={(e) => setLanguage(e.target.value)} label={generalCopy.languageLabel || 'Language'}>
+                        <MenuItem value="en">English</MenuItem>
+                        <MenuItem value="it">Italiano</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>{generalCopy.timezoneLabel || 'Timezone'}</InputLabel>
+                      <Select value={timezone} onChange={(e) => setTimezone(e.target.value)} label={generalCopy.timezoneLabel || 'Timezone'}>
+                        <MenuItem value="GMT-08:00">(GMT-08:00) Pacific Time</MenuItem>
+                        <MenuItem value="GMT-05:00">(GMT-05:00) Eastern Time</MenuItem>
+                        <MenuItem value="GMT+00:00">(GMT+00:00) London</MenuItem>
+                        <MenuItem value="GMT+01:00">(GMT+01:00) Rome</MenuItem>
+                        <MenuItem value="GMT+09:00">(GMT+09:00) Tokyo</MenuItem>
+                      </Select>
+                    </FormControl>
                   </Stack>
-                }
-              >
-                {providersLoading ? (
-                  <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
-                    <CircularProgress size={24} />
+                </SectionCard>
+
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button variant="contained" onClick={handleSaveSettings} disabled={saveLoading}>
+                    {saveLoading ? copy.ai.saving : copy.notifications.save}
+                  </Button>
+                </Box>
+              </Box>
+            )}
+
+            {/* Security Settings */}
+            {selectedSection === 'security' && (
+              <Box>
+                <MfaSettings />
+              </Box>
+            )}
+
+            {/* AI Settings */}
+            {selectedSection === 'ai' && (
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  {aiCopy.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                  {aiCopy.description || 'Customize how AI assists you with emails, calendar, and more.'}
+                </Typography>
+
+                {(aiError || aiSuccess) && (
+                  <Box sx={{ mb: 3 }}>
+                    {aiError && <Alert severity="error" onClose={() => setAiError('')}>{aiError}</Alert>}
+                    {aiSuccess && <Alert severity="success" onClose={() => setAiSuccess('')}>{aiSuccess}</Alert>}
+                  </Box>
+                )}
+
+                {aiProfileLoading ? (
+                  <Box sx={{ py: 8, display: 'flex', justifyContent: 'center' }}>
+                    <CircularProgress />
                   </Box>
                 ) : (
-                  <ProvidersList providers={providers} onDelete={handleProviderDeleted} />
+                  <>
+                    <SectionCard
+                      title={aiCopy.featuresTitle || 'AI Features'}
+                      description={aiCopy.featuresDescription || 'Enable or disable AI capabilities'}
+                    >
+                      <SettingRow
+                        icon={<MessageSquare size={18} />}
+                        title={aiCopy.smartRepliesTitle || 'Smart Replies'}
+                        description={aiCopy.smartRepliesDescription || 'AI-generated response suggestions'}
+                      >
+                        <Switch checked={smartRepliesEnabled} onChange={(e) => setSmartRepliesEnabled(e.target.checked)} />
+                      </SettingRow>
+                      <SettingRow
+                        icon={<FileText size={18} />}
+                        title={aiCopy.summarizationTitle || 'Email Summarization'}
+                        description={aiCopy.summarizationDescription || 'Automatic summaries for long emails'}
+                      >
+                        <Switch checked={summarizationEnabled} onChange={(e) => setSummarizationEnabled(e.target.checked)} />
+                      </SettingRow>
+                      <SettingRow
+                        icon={<Calendar size={18} />}
+                        title={aiCopy.schedulingTitle || 'Smart Scheduling'}
+                        description={aiCopy.schedulingDescription || 'AI-assisted meeting scheduling'}
+                        noBorder
+                      >
+                        <Switch checked={schedulingEnabled} onChange={(e) => setSchedulingEnabled(e.target.checked)} />
+                      </SettingRow>
+                    </SectionCard>
+
+                    <SectionCard
+                      title={aiCopy.personalizationTitle || 'Personalization'}
+                      description={aiCopy.personalizationDescription || 'Customize AI behavior to match your work style'}
+                    >
+                      <Stack spacing={3}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>{aiCopy.roleLabel || 'Your Role'}</InputLabel>
+                          <Select value={jobRole} onChange={(e) => setJobRole(e.target.value as JobRole)} label={aiCopy.roleLabel || 'Your Role'}>
+                            <MenuItem value="EXECUTIVE">Executive</MenuItem>
+                            <MenuItem value="MANAGER">Manager</MenuItem>
+                            <MenuItem value="IC">Individual Contributor</MenuItem>
+                            <MenuItem value="FREELANCER">Freelancer</MenuItem>
+                            <MenuItem value="STUDENT">Student</MenuItem>
+                            <MenuItem value="SUPPORT">Support</MenuItem>
+                            <MenuItem value="SALES">Sales</MenuItem>
+                            <MenuItem value="TECHNICAL">Technical</MenuItem>
+                          </Select>
+                        </FormControl>
+
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                            {aiCopy.communicationLabel || 'Communication Style'}
+                          </Typography>
+                          <ToggleButtonGroup
+                            value={communicationStyle}
+                            exclusive
+                            onChange={(_, v) => v && setCommunicationStyle(v)}
+                            fullWidth
+                            size="small"
+                          >
+                            <ToggleButton value="FORMAL">Formal</ToggleButton>
+                            <ToggleButton value="CASUAL">Casual</ToggleButton>
+                            <ToggleButton value="TECHNICAL">Technical</ToggleButton>
+                          </ToggleButtonGroup>
+                        </Box>
+
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                            {aiCopy.responseLengthLabel || 'Response Length'}
+                          </Typography>
+                          <ToggleButtonGroup
+                            value={responseLength}
+                            exclusive
+                            onChange={(_, v) => v && setResponseLength(v)}
+                            fullWidth
+                            size="small"
+                          >
+                            <ToggleButton value="CONCISE">Concise</ToggleButton>
+                            <ToggleButton value="MODERATE">Moderate</ToggleButton>
+                            <ToggleButton value="DETAILED">Detailed</ToggleButton>
+                          </ToggleButtonGroup>
+                        </Box>
+
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                            {aiCopy.proactivityLabel || 'Proactivity'}
+                          </Typography>
+                          <ToggleButtonGroup
+                            value={proactivityLevel}
+                            exclusive
+                            onChange={(_, v) => v && setProactivityLevel(v)}
+                            fullWidth
+                            size="small"
+                          >
+                            <ToggleButton value="LOW">Low</ToggleButton>
+                            <ToggleButton value="MEDIUM">Medium</ToggleButton>
+                            <ToggleButton value="HIGH">High</ToggleButton>
+                          </ToggleButtonGroup>
+                        </Box>
+
+                        <Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {copy.ai.autoApproveLabel}
+                            </Typography>
+                            <Chip label={`${autoApproveThreshold}%`} size="small" />
+                          </Box>
+                          <Slider
+                            value={autoApproveThreshold}
+                            onChange={(_, v) => setAutoApproveThreshold(v as number)}
+                            min={50}
+                            max={100}
+                            step={5}
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            {copy.ai.autoApproveHint}
+                          </Typography>
+                        </Box>
+                      </Stack>
+
+                      <Divider sx={{ my: 3 }} />
+
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Button variant="contained" onClick={handleSaveAiProfile} disabled={aiSaveLoading}>
+                          {aiSaveLoading ? copy.ai.saving : copy.ai.savePreferences}
+                        </Button>
+                        <Button variant="text" endIcon={<ExternalLink size={14} />} onClick={() => router.push('/dashboard/ai')}>
+                          {copy.ai.openAssistant}
+                        </Button>
+                      </Box>
+                    </SectionCard>
+
+                    <SectionCard
+                      title={copy.ai.dataManagementTitle}
+                      description={copy.ai.dataManagementDescription}
+                    >
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                        <Button
+                          variant="outlined"
+                          color="warning"
+                          startIcon={<Trash2 size={16} />}
+                          onClick={handleClearAiMemory}
+                          disabled={aiSaveLoading}
+                        >
+                          {copy.ai.clearMemory}
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          startIcon={<RotateCcw size={16} />}
+                          onClick={handleResetAiLearning}
+                          disabled={aiSaveLoading}
+                        >
+                          {copy.ai.resetLearning}
+                        </Button>
+                      </Stack>
+                    </SectionCard>
+                  </>
                 )}
-              </SectionCard>
+              </Box>
+            )}
 
-              <SectionCard title={copy.accounts.addTitle} description={copy.accounts.addDescription}>
-                <Stack spacing={2} direction={{ xs: 'column', md: 'row' }}>
-                  <Box sx={{ flex: 1 }}>
-                    <GoogleProviderCard onSuccess={handleProviderInitiated} />
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <MicrosoftProviderCard onSuccess={handleProviderInitiated} />
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <GenericProviderCard onSuccess={handleProviderConnected} />
-                  </Box>
-                </Stack>
-              </SectionCard>
-            </Box>
-          )}
-
-          {/* Account Settings */}
-          {selectedSection === 'account' && (
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                {accountCopy.title}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                {copy.account.description}
-              </Typography>
-
-              <SectionCard title={accountCopy.profileTitle || 'Profile'}>
-                <Stack spacing={2}>
-                  <TextField label={copy.account.fullName} value={accountName} fullWidth size="small" disabled />
-                  <TextField label={copy.account.email} value={user?.email || ''} fullWidth size="small" disabled />
-                  <TextField label={copy.account.role} value={user?.role || ''} fullWidth size="small" disabled />
-                </Stack>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-                  {copy.account.contactAdmin}
+            {/* Mail Accounts */}
+            {selectedSection === 'accounts' && (
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  {mailAccountsCopy.title}
                 </Typography>
-              </SectionCard>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                  {copy.accounts.description}
+                </Typography>
 
-              <Card variant="outlined" sx={{ borderColor: 'error.main' }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: 'error.main', mb: 1 }}>
-                    {copy.account.dangerZoneTitle}
+                {(providerError || providerSuccess) && (
+                  <Box sx={{ mb: 3 }}>
+                    {providerError && <Alert severity="error" onClose={() => setProviderError('')}>{providerError}</Alert>}
+                    {providerSuccess && <Alert severity="success" onClose={() => setProviderSuccess('')}>{providerSuccess}</Alert>}
+                  </Box>
+                )}
+
+                <SectionCard
+                  title={copy.accounts.connectedTitle}
+                  action={
+                    <Stack direction="row" spacing={1}>
+                      <Tooltip title={copy.accounts.refreshTooltip}>
+                        <IconButton size="small" onClick={loadProviders} disabled={providersLoading}>
+                          <RefreshCw size={16} className={providersLoading ? 'animate-spin' : ''} />
+                        </IconButton>
+                      </Tooltip>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={handleSyncAll}
+                        disabled={syncAllLoading || providers.length === 0}
+                      >
+                        {syncAllLoading ? copy.accounts.syncing : copy.accounts.syncAll}
+                      </Button>
+                    </Stack>
+                  }
+                >
+                  {providersLoading ? (
+                    <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : (
+                    <ProvidersList providers={providers} onDelete={handleProviderDeleted} />
+                  )}
+                </SectionCard>
+
+                <SectionCard title={copy.accounts.addTitle} description={copy.accounts.addDescription}>
+                  <Stack spacing={2} direction={{ xs: 'column', md: 'row' }}>
+                    <Box sx={{ flex: 1 }}>
+                      <GoogleProviderCard onSuccess={handleProviderInitiated} />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <MicrosoftProviderCard onSuccess={handleProviderInitiated} />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <GenericProviderCard onSuccess={handleProviderConnected} />
+                    </Box>
+                  </Stack>
+                </SectionCard>
+              </Box>
+            )}
+
+            {/* Account Settings */}
+            {selectedSection === 'account' && (
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  {accountCopy.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                  {copy.account.description}
+                </Typography>
+
+                <SectionCard title={accountCopy.profileTitle || 'Profile'}>
+                  <Stack spacing={2}>
+                    <TextField label={copy.account.fullName} value={accountName} fullWidth size="small" disabled />
+                    <TextField label={copy.account.email} value={user?.email || ''} fullWidth size="small" disabled />
+                    <TextField label={copy.account.role} value={user?.role || ''} fullWidth size="small" disabled />
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+                    {copy.account.contactAdmin}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {copy.account.dangerZoneDescription}
-                  </Typography>
-                  <Button variant="outlined" color="error" startIcon={<Trash2 size={16} />}>
-                    {copy.account.deleteAccount}
-                  </Button>
-                </CardContent>
-              </Card>
-            </Box>
-          )}
+                </SectionCard>
 
-          {/* Notifications */}
-          {selectedSection === 'notifications' && (
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                {notificationsCopy.title}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                {copy.notifications.description}
-              </Typography>
+                <Card variant="outlined" sx={{ borderColor: 'error.main' }}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'error.main', mb: 1 }}>
+                      {copy.account.dangerZoneTitle}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {copy.account.dangerZoneDescription}
+                    </Typography>
+                    <Button variant="outlined" color="error" startIcon={<Trash2 size={16} />}>
+                      {copy.account.deleteAccount}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Box>
+            )}
 
-              <SectionCard title={notificationsCopy.emailTitle || copy.notifications.newEmailsTitle}>
-                <SettingRow
-                  icon={<Mail size={18} />}
-                  title={copy.notifications.newEmailsTitle}
-                  description={copy.notifications.newEmailsDesc}
-                >
-                  <Switch defaultChecked />
-                </SettingRow>
-                <SettingRow
-                  icon={<Calendar size={18} />}
-                  title={copy.notifications.calendarTitle}
-                  description={copy.notifications.calendarDesc}
-                >
-                  <Switch defaultChecked />
-                </SettingRow>
-                <SettingRow
-                  icon={<Bell size={18} />}
-                  title={copy.notifications.aiActionsTitle}
-                  description={copy.notifications.aiActionsDesc}
-                  noBorder
-                >
-                  <Switch defaultChecked />
-                </SettingRow>
-              </SectionCard>
+            {/* Notifications */}
+            {selectedSection === 'notifications' && (
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  {notificationsCopy.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                  {copy.notifications.description}
+                </Typography>
 
-              <Button variant="contained">{copy.notifications.save}</Button>
-            </Box>
-          )}
+                <SectionCard title={notificationsCopy.emailTitle || copy.notifications.newEmailsTitle}>
+                  <SettingRow
+                    icon={<Mail size={18} />}
+                    title={copy.notifications.newEmailsTitle}
+                    description={copy.notifications.newEmailsDesc}
+                  >
+                    <Switch defaultChecked />
+                  </SettingRow>
+                  <SettingRow
+                    icon={<Calendar size={18} />}
+                    title={copy.notifications.calendarTitle}
+                    description={copy.notifications.calendarDesc}
+                  >
+                    <Switch defaultChecked />
+                  </SettingRow>
+                  <SettingRow
+                    icon={<Bell size={18} />}
+                    title={copy.notifications.aiActionsTitle}
+                    description={copy.notifications.aiActionsDesc}
+                    noBorder
+                  >
+                    <Switch defaultChecked />
+                  </SettingRow>
+                </SectionCard>
+
+                <Button variant="contained">{copy.notifications.save}</Button>
+              </Box>
+            )}
           </Box>
         </Box>
       </Box>

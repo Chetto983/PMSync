@@ -26,7 +26,7 @@ interface GenericProviderCardProps {
 
 export function GenericProviderCard({ onSuccess }: GenericProviderCardProps) {
   const t = useTranslations();
-  const genericCopy = t.dashboard.providers.genericCard;
+  const genericCopy = t.providers.genericCard;
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

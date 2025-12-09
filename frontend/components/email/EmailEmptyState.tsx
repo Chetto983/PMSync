@@ -95,7 +95,7 @@ export const EmailEmptyState: React.FC<EmailEmptyStateProps> = ({
   const isDark = theme.palette.mode === 'dark';
   const config = EMPTY_STATE_CONFIG[type];
   const IconComponent = config.icon;
-  const texts = getEmptyStateText(type, (t.dashboard?.email as Record<string, unknown>)?.empty as Record<string, string | undefined> | undefined);
+  const texts = getEmptyStateText(type, (t.email as Record<string, unknown>)?.empty as Record<string, string | undefined> | undefined);
 
   return (
     <Box

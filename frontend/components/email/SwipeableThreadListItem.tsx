@@ -145,7 +145,7 @@ export const SwipeableThreadListItem: React.FC<SwipeableThreadListItemProps> = (
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // Get translated swipe labels
-  const swipeTexts = (t.dashboard?.email as Record<string, unknown>)?.swipe as Record<string, string> | undefined;
+  const swipeTexts = (t.email as Record<string, unknown>)?.swipe as Record<string, string> | undefined;
   const swipeLabels: SwipeLabels = {
     delete: swipeTexts?.delete ?? 'Delete',
     markRead: swipeTexts?.markRead ?? 'Mark Read',

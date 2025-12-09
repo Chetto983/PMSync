@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import type { PendingAction, AgentInfo } from '@/lib/api/ai';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { logger } from '@/lib/logger';
 
 export interface PendingActionsPanelProps {
   /** Pending actions */
@@ -97,7 +98,7 @@ export function PendingActionsPanel({
     try {
       await onApprove?.(actionId);
     } catch (error) {
-      console.error(`Failed to approve action ${actionId}:`, error);
+      logger.error(`Failed to approve action ${actionId}`, { error });
       onError?.(error instanceof Error ? error : new Error(String(error)), actionId, 'approve');
     } finally {
       setProcessingIds((prev) => {
@@ -113,7 +114,7 @@ export function PendingActionsPanel({
     try {
       await onReject?.(actionId);
     } catch (error) {
-      console.error(`Failed to reject action ${actionId}:`, error);
+      logger.error(`Failed to reject action ${actionId}`, { error });
       onError?.(error instanceof Error ? error : new Error(String(error)), actionId, 'reject');
     } finally {
       setProcessingIds((prev) => {

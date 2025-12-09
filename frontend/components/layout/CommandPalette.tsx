@@ -36,6 +36,7 @@ import {
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { emailApi, type Email } from '@/lib/api/email';
+import { logger } from '@/lib/logger';
 
 /**
  * Command item in the palette
@@ -163,7 +164,7 @@ export function CommandPalette({
       id: 'nav-inbox',
       type: 'navigation',
       icon: <Inbox size={18} />,
-      label: t.dashboard?.folders?.inbox || 'Inbox',
+      label: t.folders?.inbox || 'Inbox',
       path: '/dashboard/email',
       category: t.commandPalette?.navigation || 'Navigation',
     },
@@ -171,7 +172,7 @@ export function CommandPalette({
       id: 'nav-sent',
       type: 'navigation',
       icon: <Send size={18} />,
-      label: t.dashboard?.folders?.sent || 'Sent',
+      label: t.folders?.sent || 'Sent',
       path: '/dashboard/email?folder=sent',
       category: t.commandPalette?.navigation || 'Navigation',
     },
@@ -179,7 +180,7 @@ export function CommandPalette({
       id: 'nav-drafts',
       type: 'navigation',
       icon: <FileText size={18} />,
-      label: t.dashboard?.folders?.drafts || 'Drafts',
+      label: t.folders?.drafts || 'Drafts',
       path: '/dashboard/email?folder=drafts',
       category: t.commandPalette?.navigation || 'Navigation',
     },
@@ -187,7 +188,7 @@ export function CommandPalette({
       id: 'nav-archive',
       type: 'navigation',
       icon: <Archive size={18} />,
-      label: t.dashboard?.folders?.archive || 'Archive',
+      label: t.folders?.archive || 'Archive',
       path: '/dashboard/email?folder=archive',
       category: t.commandPalette?.navigation || 'Navigation',
     },
@@ -195,7 +196,7 @@ export function CommandPalette({
       id: 'nav-trash',
       type: 'navigation',
       icon: <Trash2 size={18} />,
-      label: t.dashboard?.folders?.trash || 'Trash',
+      label: t.folders?.trash || 'Trash',
       path: '/dashboard/email?folder=trash',
       category: t.commandPalette?.navigation || 'Navigation',
     },
@@ -203,7 +204,7 @@ export function CommandPalette({
       id: 'nav-starred',
       type: 'navigation',
       icon: <Star size={18} />,
-      label: t.dashboard?.folders?.starred || 'Starred',
+      label: t.folders?.starred || 'Starred',
       path: '/dashboard/email?folder=starred',
       category: t.commandPalette?.navigation || 'Navigation',
     },
@@ -259,7 +260,7 @@ export function CommandPalette({
       id: 'action-search',
       type: 'action',
       icon: <Search size={18} />,
-      label: t.dashboard?.email?.advancedSearch?.title || 'Advanced search',
+      label: t.email?.advancedSearch?.title || 'Advanced search',
       shortcut: '/',
       action: () => {
         onClose();
@@ -271,7 +272,7 @@ export function CommandPalette({
       id: 'action-labels',
       type: 'action',
       icon: <Tag size={18} />,
-      label: t.dashboard?.labels?.manageLabels || 'Manage labels',
+      label: t.email.labels?.manageLabels || 'Manage labels',
       path: '/dashboard/settings?tab=labels',
       category: t.commandPalette?.actions || 'Actions',
     },
@@ -302,7 +303,7 @@ export function CommandPalette({
 
       setSearchResults(results);
     } catch (error) {
-      console.error('Search failed:', error);
+      logger.error('Search failed', { error });
       setSearchResults([]);
     } finally {
       setSearching(false);
@@ -322,7 +323,7 @@ export function CommandPalette({
       },
       category: t.commandPalette?.recentSearches || 'Recent Searches',
     })),
-  [recentSearches, t, handleSearchEmails]);
+    [recentSearches, t, handleSearchEmails]);
 
   // Filter commands based on query
   const filteredCommands = useMemo(() => {

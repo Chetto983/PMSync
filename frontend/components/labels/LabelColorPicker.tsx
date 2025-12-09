@@ -24,7 +24,7 @@ export const LabelColorPicker: React.FC<LabelColorPickerProps> = ({
   return (
     <Box>
       <Typography variant="caption" color="text.secondary" gutterBottom>
-        {t.dashboard.labels.chooseColor}
+        {t.email.labels.chooseColor}
       </Typography>
       <Box
         sx={{

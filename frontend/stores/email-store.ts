@@ -37,6 +37,7 @@ export interface Email {
   isRead: boolean;
   isStarred?: boolean;
   isImportant?: boolean;
+  isDraft?: boolean;
   emailLabels?: { label: EmailLabelData }[];
   folder?: string;
   hasAttachments?: boolean;

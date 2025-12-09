@@ -183,7 +183,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   isLoading = false,
 }) => {
   const t = useTranslations();
-  const contactsCopy = t.dashboard?.contacts || {};
+  const contactsCopy = t.contacts || {};
   const detailsCopy = contactsCopy.details || {};
   const [tabValue, setTabValue] = useState(0);
 

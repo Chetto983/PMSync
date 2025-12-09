@@ -248,8 +248,8 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
 
   const collapsedText = placeholder ||
     (isReplyAll
-      ? (t.dashboard?.emailView?.replyAll || 'Reply all') + '...'
-      : (t.dashboard?.emailView?.reply || 'Click to reply') + '...');
+      ? (t.email.view?.replyAll || 'Reply all') + '...'
+      : (t.email.view?.reply || 'Click to reply') + '...');
 
   return (
     <Paper
@@ -363,7 +363,7 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
             minRows={3}
             maxRows={8}
             fullWidth
-            placeholder={t.dashboard?.emailView?.replyPlaceholder || 'Write your reply...'}
+            placeholder={t.email.view?.replyPlaceholder || 'Write your reply...'}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -408,7 +408,7 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
                   }
                   sx={{ minWidth: 80 }}
                 >
-                  {isSending ? 'Sending...' : t.dashboard?.email?.composer?.send || 'Send'}
+                  {isSending ? 'Sending...' : t.email?.composer?.send || 'Send'}
                 </Button>
               ) : (
                 <Button

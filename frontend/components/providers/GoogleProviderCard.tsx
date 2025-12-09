@@ -12,7 +12,7 @@ interface GoogleProviderCardProps {
 
 export function GoogleProviderCard({ onSuccess }: GoogleProviderCardProps) {
   const translations = useTranslations();
-  const providersCopy = translations.dashboard.providers;
+  const providersCopy = translations.providers;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 

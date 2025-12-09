@@ -61,6 +61,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - **Dead Letter Queue System** - Automatic retry with exponential backoff for failed sync jobs
 
 ### 🔒 Security Improvements
+
 - Fixed critical tenant isolation vulnerabilities in retention service
 - Enhanced Redis operations (KEYS → SCAN for production safety)
 - Implemented CTE-based tenant filtering in vector queries
@@ -136,6 +137,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 ## Technology Stack
 
 ### Backend (100% Complete ✅ PRODUCTION READY)
+
 - **Framework**: NestJS 11.1.9 (TypeScript)
 - **Database**: PostgreSQL 16+ with pgvector for RAG
 - **ORM**: Prisma 6.19.0
@@ -151,6 +153,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - **Voice**: Vosk (STT), Piper (TTS) - Planned
 
 ### Frontend (97% Complete ✅)
+
 - **Framework**: Next.js 14 with React 18
 - **Styling**: TailwindCSS + Material UI (Material Design 3)
 - **Rich Text Editor**: TipTap
@@ -161,6 +164,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - **Features**: Email (complete), Contacts (complete), Labels (complete), Calendar (complete)
 
 ### DevOps
+
 - **Containerization**: Docker + docker-compose
 - **Reverse Proxy**: Nginx with HTTPS/SSL
 - **Database Migration**: Prisma Migrate
@@ -178,34 +182,40 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 ### Installation with Docker
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd mailagent
    ```
 
 2. **Setup environment variables**
+
    ```bash
    cp .env.example .env
    # Edit .env with your configurations
    ```
 
 3. **Generate SSL certificates (development)**
+
    ```bash
    mkdir -p nginx/certs
    openssl req -x509 -newkey rsa:4096 -keyout nginx/certs/key.pem -out nginx/certs/cert.pem -days 365 -nodes
    ```
 
 4. **Start all services**
+
    ```bash
    docker-compose up -d
    ```
 
 5. **Run database migrations**
+
    ```bash
    docker-compose exec backend npx prisma migrate deploy
    ```
 
 6. **Seed the database**
+
    ```bash
    docker-compose exec backend npx prisma db seed
    ```
@@ -220,7 +230,6 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 
 ### Local Development (without Docker)
 
-1. **Backend setup**
    ```bash
    cd backend
    npm install
@@ -229,6 +238,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
    ```
 
 2. **Frontend setup**
+
    ```bash
    cd frontend
    npm install
@@ -236,6 +246,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
    ```
 
 3. **Database setup**
+
    ```bash
    # PostgreSQL and Redis must be running
    docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=password pgvector/pgvector:pg15-latest
@@ -246,6 +257,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 ## API Endpoints
 
 ### Authentication
+
 - `POST /auth/register` - User registration
 - `POST /auth/login` - Login
 - `POST /auth/send-otp` - Send OTP code
@@ -256,6 +268,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - `GET /auth/me` - Get current user profile
 
 ### Emails
+
 - `GET /emails` - List emails with filtering
 - `GET /emails/:id` - Get single email with attachments
 - `GET /emails/:id/attachments` - List email attachments
@@ -266,6 +279,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - `DELETE /emails/:id` - Delete email
 
 ### Calendar
+
 - `GET /calendar/calendars` - List all calendars from all providers
 - `POST /calendar/calendars` - Create a new calendar
 - `PATCH /calendar/calendars/:providerId/:calendarId` - Update calendar preferences (name, color)
@@ -288,6 +302,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - `POST /contacts/sync-all` - Sync all providers
 
 ### AI Chat
+
 - `POST /ai/chat` - Send message to AI
 - `GET /ai/chat/sessions` - List chat sessions
 - `POST /ai/chat/sessions` - Create new session
@@ -296,6 +311,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - `POST /ai/agent` - Agentic workflow with automatic persistence
 
 ### AI Knowledge Base
+
 - `POST /ai/knowledge-base/search` - Semantic search across emails and attachments
 - `POST /ai/knowledge-base/emails/backfill` - Generate embeddings for existing emails
 - `GET /ai/knowledge-base/embeddings` - Inspect stored embeddings
@@ -303,6 +319,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - `DELETE /ai/knowledge-base/embeddings/email/:emailId` - Purge email embeddings
 
 ### Providers & Sync
+
 - `POST /providers/google/auth-url` - Get Google OAuth URL
 - `POST /providers/google/connect` - Connect Google account
 - `POST /providers/microsoft/auth-url` - Get Microsoft OAuth URL
@@ -312,6 +329,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - `GET /providers/:id/test/*` - Diagnostic APIs
 
 ### Health & Monitoring
+
 - `GET /health` - System health status
 - `GET /health/ready` - Readiness probe
 - `GET /health/live` - Liveness probe
@@ -338,6 +356,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 ## 📚 Complete Documentation
 
 ### 📋 Quick Links
+
 - **[Backend Delivery](docs/BACKEND_DELIVERY.md)** - ✨ NEW: Complete backend delivery documentation (600+ lines)
 - **[Test Coverage Report](docs/development/TEST_COVERAGE_REPORT.md)** - ✨ NEW: Comprehensive test status & roadmap
 - **[Next Steps Analysis](docs/development/NEXT_STEPS_ANALYSIS.md)** - ✨ NEW: Prioritized development roadmap
@@ -348,19 +367,23 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 ### 📁 Documentation Index
 
 #### 🚀 [Setup & Getting Started](docs/setup/)
+
 - [OAuth Complete Guide](docs/setup/oauth-complete-guide.md) - Google & Microsoft OAuth setup
 - [OAuth Vercel Deployment](docs/setup/oauth-vercel.md) - Production OAuth configuration
 
 #### 🏗️ [Architecture & Design](docs/architecture/)
+
 - [AI Embeddings Optimization](docs/architecture/ai-embeddings-optimization.md) - Performance optimization strategies
 - [Email Frontend Refactor](docs/architecture/email-frontend-refactor.md) - Frontend architecture analysis
 - [Provider Pattern](backend/src/modules/providers/README.md) - Unified provider abstraction
 
 #### 🔐 [Security](docs/security/)
+
 - [Tenant Isolation Audit](docs/security/tenant-isolation-audit-2025-11-19.md) - Critical security findings
 - [XSS Fix Guide](docs/security/xss-fix-dompurify.md) - XSS vulnerability remediation
 
 #### 💻 [Development](docs/development/)
+
 - [Project Status](docs/development/PROJECT_STATUS.md) - Current implementation state
 - [Recent Implementation](docs/development/recent-implementation-summary.md) - Latest session summary
 - [Labels Implementation Plan](docs/development/labels-implementation-plan.md) - Advanced categorization
@@ -368,6 +391,7 @@ MailAgent è una piattaforma full-stack completa e moderna per la gestione intel
 - [Folder Management Roadmap](docs/development/folder-management-roadmap.md) - Email folder features
 
 #### 📦 [Archive](docs/archive/)
+
 - [Implementation Analysis](docs/archive/implementation-analysis/) - Historical refactoring docs
 - [Testing Reports](docs/archive/testing/) - Previous test session results
 
@@ -421,12 +445,14 @@ docker-compose up -d prometheus grafana
 - **Grafana**: http://localhost:3002 (admin/admin)
 
 ### Available Metrics
+
 - `email_sync_queue_completed{queue="high"}` - Completed jobs per queue
 - `email_sync_queue_failed{queue="normal"}` - Failed jobs per queue
 - `email_sync_queue_last_duration_ms{queue="low"}` - Last job duration
 - `email_sync_queue_avg_duration_ms{queue="high"}` - Average duration
 
 ### Health Checks
+
 ```bash
 $ curl http://localhost:3000/health
 {
@@ -446,16 +472,19 @@ $ curl http://localhost:3000/health
 ## Troubleshooting
 
 ### Database Connection Error
+
 ```bash
 docker-compose exec postgres psql -U mailuser -d mailagent -c "SELECT 1"
 ```
 
 ### Redis Connection Error
+
 ```bash
 docker-compose exec redis redis-cli ping
 ```
 
 ### SSL Certificate Issues
+
 ```bash
 rm -rf nginx/certs/*
 openssl req -x509 -newkey rsa:4096 -keyout nginx/certs/key.pem -out nginx/certs/cert.pem -days 365 -nodes
@@ -473,6 +502,7 @@ open http://localhost:9001
 ```
 
 **Production Security**:
+
 - Generate strong credentials (minimum 16 characters)
 - Use IAM authentication instead of access keys
 - Enable TLS/HTTPS for MinIO API

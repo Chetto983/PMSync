@@ -30,6 +30,7 @@ import { X, Send, Paperclip, Check, FileText, Trash2, Maximize2, Minimize2, Uplo
 import { EditorContent } from '@tiptap/react';
 import { marked } from 'marked';
 import type { SendEmailPayload, EmailAttachmentUpload } from '@/lib/api/email';
+import { isAxiosError } from 'axios';
 import { emailApi } from '@/lib/api/email';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { contactsApi, type Contact } from '@/lib/api/contacts';
@@ -40,6 +41,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { EditorToolbar } from './EditorToolbar';
 import { SmartReplySuggestions } from '@/components/email/ai/SmartReplySuggestions';
 import { AiChatPanel } from './AiChatPanel';
+import { logger } from '@/lib/logger';
 
 /**
  * File upload constants
@@ -229,7 +231,7 @@ export function ComposeDialog({
   // TipTap editor
   const editor = useComposeEditor({
     initialContent: body,
-    placeholder: t.dashboard.email.composer.bodyPlaceholder,
+    placeholder: t.email.composer.bodyPlaceholder,
     onChange: (html) => setBody(html),
     autofocus: false,
     editable: !sending,
@@ -304,7 +306,7 @@ export function ComposeDialog({
           setContacts(response.contacts);
         })
         .catch((error) => {
-          console.error('Failed to load contacts:', error);
+          logger.error('Failed to load contacts', { error });
         })
         .finally(() => {
           setContactsLoading(false);
@@ -391,20 +393,20 @@ export function ComposeDialog({
       for (const file of Array.from(files)) {
         if (!isFileTypeAllowed(file)) {
           onError?.(
-            t.dashboard.email.composer.fileTypeNotAllowed?.replace('{filename}', file.name) ||
+            t.email.composer.fileTypeNotAllowed?.replace('{filename}', file.name) ||
             `File type not allowed: ${file.name}`
           );
           continue;
         }
 
         if (file.size > MAX_FILE_SIZE) {
-          onError?.(t.dashboard.email.composer.fileTooLarge.replace('{filename}', file.name));
+          onError?.(t.email.composer.fileTooLarge.replace('{filename}', file.name));
           continue;
         }
 
         if (runningTotal + file.size > MAX_TOTAL_SIZE) {
           onError?.(
-            t.dashboard.email.composer.totalSizeExceeded ||
+            t.email.composer.totalSizeExceeded ||
             'Total attachment size exceeds 25MB limit'
           );
           break;
@@ -432,8 +434,8 @@ export function ComposeDialog({
 
       setAttachments((prev) => [...prev, ...newAttachments]);
     } catch (error) {
-      console.error('Failed to process dropped files:', error);
-      onError?.(t.dashboard.email.composer.uploadError);
+      logger.error('Failed to process dropped files', { error });
+      onError?.(t.email.composer.uploadError);
     } finally {
       setUploading(false);
     }
@@ -505,7 +507,7 @@ export function ComposeDialog({
         // Check file type (security whitelist)
         if (!isFileTypeAllowed(file)) {
           onError?.(
-            t.dashboard.email.composer.fileTypeNotAllowed?.replace('{filename}', file.name) ||
+            t.email.composer.fileTypeNotAllowed?.replace('{filename}', file.name) ||
             `File type not allowed: ${file.name}`
           );
           continue;
@@ -513,14 +515,14 @@ export function ComposeDialog({
 
         // Check file size (max per file)
         if (file.size > MAX_FILE_SIZE) {
-          onError?.(t.dashboard.email.composer.fileTooLarge.replace('{filename}', file.name));
+          onError?.(t.email.composer.fileTooLarge.replace('{filename}', file.name));
           continue;
         }
 
         // Check total size limit
         if (runningTotal + file.size > MAX_TOTAL_SIZE) {
           onError?.(
-            t.dashboard.email.composer.totalSizeExceeded ||
+            t.email.composer.totalSizeExceeded ||
             'Total attachment size exceeds 25MB limit'
           );
           break; // Stop processing more files
@@ -550,8 +552,8 @@ export function ComposeDialog({
 
       setAttachments((prev) => [...prev, ...newAttachments]);
     } catch (error) {
-      console.error('Failed to upload attachments:', error);
-      onError?.(t.dashboard.email.composer.uploadError);
+      logger.error('Failed to upload attachments', { error });
+      onError?.(t.email.composer.uploadError);
     } finally {
       setUploading(false);
       // Reset file input
@@ -608,29 +610,29 @@ export function ComposeDialog({
     const diff = now.getTime() - date.getTime();
     const seconds = Math.floor(diff / 1000);
 
-    if (seconds < 60) return t.dashboard.email.composer.savedJustNow;
+    if (seconds < 60) return t.email.composer.savedJustNow;
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return t.dashboard.email.composer.savedMinutesAgo.replace('{minutes}', String(minutes));
+    if (minutes < 60) return t.email.composer.savedMinutesAgo.replace('{minutes}', String(minutes));
     const hours = Math.floor(minutes / 60);
-    return t.dashboard.email.composer.savedHoursAgo.replace('{hours}', String(hours));
+    return t.email.composer.savedHoursAgo.replace('{hours}', String(hours));
   }, [t]);
 
   // Handle send
   const handleSend = useCallback(async () => {
     // Validation
     if (!selectedProvider) {
-      onError?.(t.dashboard.email.composer.noProvider);
+      onError?.(t.email.composer.noProvider);
       return;
     }
 
     const toEmails = cleanEmailArray(to);
     if (toEmails.length === 0) {
-      onError?.(t.dashboard.email.composer.validationTo);
+      onError?.(t.email.composer.validationTo);
       return;
     }
 
     if (!subject.trim()) {
-      onError?.(t.dashboard.email.composer.validationSubject);
+      onError?.(t.email.composer.validationSubject);
       return;
     }
 
@@ -657,7 +659,7 @@ export function ComposeDialog({
         try {
           await emailApi.deleteDraft(prefillData.draftId);
         } catch (draftErr) {
-          console.warn('Failed to delete draft after send:', draftErr);
+          logger.warn('Failed to delete draft after send', { error: draftErr });
           // Don't fail the whole operation if draft deletion fails
         }
       }
@@ -674,8 +676,8 @@ export function ComposeDialog({
       setBody('');
       setAttachments([]);
     } catch (error) {
-      console.error('Failed to send email:', error);
-      onError?.(t.dashboard.email.composer.sendError);
+      logger.error('Failed to send email', { error });
+      onError?.(t.email.composer.sendError);
     } finally {
       setSending(false);
     }
@@ -704,11 +706,11 @@ export function ComposeDialog({
         setAiPreviewSubject(data.subject);
       }
     } catch (error) {
-      console.error('AI compose failed', error);
-      const message =
-        (error as any)?.response?.data?.message ||
-        t.dashboard?.email?.composer?.aiComposeError ||
-        'Unable to compose email';
+      logger.error('AI compose failed', { error });
+      let message = t.email?.composer?.aiComposeError || 'Unable to compose email';
+      if (isAxiosError(error)) {
+        message = error.response?.data?.message || message;
+      }
       onError?.(message);
     } finally {
       setAiComposing(false);
@@ -740,7 +742,7 @@ export function ComposeDialog({
   // Handle close with confirmation
   const handleClose = useCallback(() => {
     if (hasChanges() && !sending) {
-      const confirmed = window.confirm(t.dashboard.email.composer.discardConfirm);
+      const confirmed = window.confirm(t.email.composer.discardConfirm);
       if (!confirmed) return;
     }
     onClose();
@@ -759,8 +761,8 @@ export function ComposeDialog({
     nextMonday9am.setHours(9, 0, 0, 0);
 
     return [
-      { label: t.dashboard.email.composer.tomorrowMorning, value: tomorrow9am.toISOString() },
-      { label: t.dashboard.email.composer.nextMonday, value: nextMonday9am.toISOString() },
+      { label: t.email.composer.tomorrowMorning, value: tomorrow9am.toISOString() },
+      { label: t.email.composer.nextMonday, value: nextMonday9am.toISOString() },
     ];
   }, [t]);
 
@@ -775,18 +777,18 @@ export function ComposeDialog({
 
     // Validation (same as handleSend)
     if (!selectedProvider) {
-      onError?.(t.dashboard.email.composer.noProvider);
+      onError?.(t.email.composer.noProvider);
       return;
     }
 
     const toEmails = cleanEmailArray(to);
     if (toEmails.length === 0) {
-      onError?.(t.dashboard.email.composer.validationTo);
+      onError?.(t.email.composer.validationTo);
       return;
     }
 
     if (!subject.trim()) {
-      onError?.(t.dashboard.email.composer.validationSubject);
+      onError?.(t.email.composer.validationSubject);
       return;
     }
 
@@ -822,8 +824,8 @@ export function ComposeDialog({
       setAttachments([]);
       setScheduledAt(null);
     } catch (error) {
-      console.error('Failed to schedule email:', error);
-      onError?.(t.dashboard.email.composer.sendError);
+      logger.error('Failed to schedule email', { error });
+      onError?.(t.email.composer.sendError);
     } finally {
       setSending(false);
     }
@@ -851,602 +853,602 @@ export function ComposeDialog({
 
   return (
     <>
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth={isFullscreen ? false : 'md'}
-      fullWidth={!isFullscreen}
-      fullScreen={isMobile || isFullscreen}
-      PaperProps={{
-        sx: {
-          height: isMobile || isFullscreen ? '100%' : '80vh',
-          maxHeight: isMobile || isFullscreen ? '100%' : 800,
-          // Smooth transition for fullscreen toggle
-          transition: 'all 0.2s ease-in-out',
-        },
-      }}
-    >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6">
-              {mode === 'reply' && t.dashboard.email.composer.titleReply}
-              {mode === 'forward' && t.dashboard.email.composer.titleForward}
-              {mode === 'compose' && t.dashboard.email.composer.title}
-            </Typography>
-            {mode === 'compose' && (
-              <Chip
-                size="small"
-                icon={isDraftSaving ? <CircularProgress size={12} /> : <Check size={12} />}
-                label={isDraftSaving ? t.dashboard.email.composer.saving : formatLastSaved(lastSaved)}
-                sx={{
-                  height: 20,
-                  fontSize: '0.7rem',
-                  display: lastSaved || isDraftSaving ? 'flex' : 'none',
-                }}
-              />
-            )}
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            {/* Fullscreen toggle - desktop only */}
-            {!isMobile && (
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        maxWidth={isFullscreen ? false : 'md'}
+        fullWidth={!isFullscreen}
+        fullScreen={isMobile || isFullscreen}
+        PaperProps={{
+          sx: {
+            height: isMobile || isFullscreen ? '100%' : '80vh',
+            maxHeight: isMobile || isFullscreen ? '100%' : 800,
+            // Smooth transition for fullscreen toggle
+            transition: 'all 0.2s ease-in-out',
+          },
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6">
+                {mode === 'reply' && t.email.composer.titleReply}
+                {mode === 'forward' && t.email.composer.titleForward}
+                {mode === 'compose' && t.email.composer.title}
+              </Typography>
+              {mode === 'compose' && (
+                <Chip
+                  size="small"
+                  icon={isDraftSaving ? <CircularProgress size={12} /> : <Check size={12} />}
+                  label={isDraftSaving ? t.email.composer.saving : formatLastSaved(lastSaved)}
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    display: lastSaved || isDraftSaving ? 'flex' : 'none',
+                  }}
+                />
+              )}
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {/* Fullscreen toggle - desktop only */}
+              {!isMobile && (
+                <IconButton
+                  size="small"
+                  onClick={() => setIsFullscreen((prev) => !prev)}
+                  disabled={sending}
+                  title={isFullscreen ? 'Exit fullscreen (F11)' : 'Fullscreen (F11)'}
+                  sx={{
+                    width: { xs: 44, sm: 'auto' },
+                    height: { xs: 44, sm: 'auto' },
+                  }}
+                >
+                  {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                </IconButton>
+              )}
               <IconButton
                 size="small"
-                onClick={() => setIsFullscreen((prev) => !prev)}
+                onClick={handleClose}
                 disabled={sending}
-                title={isFullscreen ? 'Exit fullscreen (F11)' : 'Fullscreen (F11)'}
                 sx={{
                   width: { xs: 44, sm: 'auto' },
                   height: { xs: 44, sm: 'auto' },
                 }}
               >
-                {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                <X size={20} />
               </IconButton>
+            </Box>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent
+          dividers
+          sx={{ p: 0, position: 'relative' }}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {/* Drag overlay */}
+          {isDragging && (
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                bgcolor: 'rgba(25, 118, 210, 0.08)',
+                border: '2px dashed',
+                borderColor: 'primary.main',
+                borderRadius: 1,
+                zIndex: 10,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1,
+                pointerEvents: 'none',
+              }}
+            >
+              <Upload size={48} color="#1976d2" />
+              <Typography variant="h6" color="primary">
+                Drop files here
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Release to attach files
+              </Typography>
+            </Box>
+          )}
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* From Field - Provider Selection */}
+            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
+                  {t.email.composer.from}:
+                </Typography>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  value={selectedProvider}
+                  onChange={(e) => setSelectedProvider(e.target.value)}
+                  disabled={sending || providers.length === 0}
+                  slotProps={{
+                    htmlInput: {
+                      'aria-label': t.email.composer.selectProvider
+                    }
+                  }}
+                  SelectProps={{
+                    native: true,
+                    inputProps: {
+                      title: t.email.composer.selectProvider,
+                      'aria-label': t.email.composer.selectProvider,
+                    },
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { border: 'none' },
+                    },
+                  }}
+                >
+                  {providers.length === 0 && (
+                    <option value="">{t.email.composer.noProvider}</option>
+                  )}
+                  {providers.map((provider) => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.email} {provider.displayName ? `(${provider.displayName})` : ''}
+                    </option>
+                  ))}
+                </TextField>
+              </Box>
+            </Box>
+
+            {/* To Field */}
+            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
+                  {t.email.composer.toLabel}
+                </Typography>
+                <Autocomplete
+                  multiple
+                  freeSolo
+                  autoSelect
+                  fullWidth
+                  size="small"
+                  options={emailOptions}
+                  value={to}
+                  onChange={(_, newValue) => setTo(newValue)}
+                  disabled={sending}
+                  loading={contactsLoading}
+                  filterOptions={contactFilterOptions}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={t.email.composer.toPlaceholder}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': { border: 'none' },
+                        },
+                      }}
+                    />
+                  )}
+                  sx={{
+                    '& .MuiAutocomplete-tag': {
+                      margin: '2px',
+                    },
+                  }}
+                />
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  {!showCc && (
+                    <Button size="small" onClick={() => setShowCc(true)}>
+                      {t.email.composer.cc}
+                    </Button>
+                  )}
+                  {!showBcc && (
+                    <Button size="small" onClick={() => setShowBcc(true)}>
+                      {t.email.composer.bcc}
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+
+            {/* CC Field */}
+            <Collapse in={showCc}>
+              <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
+                    {t.email.composer.ccLabel}
+                  </Typography>
+                  <Autocomplete
+                    multiple
+                    freeSolo
+                    autoSelect
+                    fullWidth
+                    size="small"
+                    options={emailOptions}
+                    value={cc}
+                    onChange={(_, newValue) => setCc(newValue)}
+                    disabled={sending}
+                    loading={contactsLoading}
+                    filterOptions={contactFilterOptions}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder={t.email.composer.toPlaceholder}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '& fieldset': { border: 'none' },
+                          },
+                        }}
+                      />
+                    )}
+                    sx={{
+                      '& .MuiAutocomplete-tag': {
+                        margin: '2px',
+                      },
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Collapse>
+
+            {/* BCC Field */}
+            <Collapse in={showBcc}>
+              <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
+                    {t.email.composer.bccLabel}
+                  </Typography>
+                  <Autocomplete
+                    multiple
+                    freeSolo
+                    autoSelect
+                    fullWidth
+                    size="small"
+                    options={emailOptions}
+                    value={bcc}
+                    onChange={(_, newValue) => setBcc(newValue)}
+                    disabled={sending}
+                    loading={contactsLoading}
+                    filterOptions={contactFilterOptions}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder={t.email.composer.toPlaceholder}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '& fieldset': { border: 'none' },
+                          },
+                        }}
+                      />
+                    )}
+                    sx={{
+                      '& .MuiAutocomplete-tag': {
+                        margin: '2px',
+                      },
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Collapse>
+
+            {/* Subject Field */}
+            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
+                  {t.email.composer.subjectLabel}
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder={t.email.composer.subjectPlaceholder}
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  disabled={sending}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { border: 'none' },
+                    },
+                  }}
+                />
+              </Box>
+            </Box>
+
+            {/* Smart Reply Suggestions - Only for reply mode */}
+            {mode === 'reply' && prefillData?.originalEmailId && !smartRepliesDismissed && (
+              <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                <SmartReplySuggestions
+                  emailId={prefillData.originalEmailId}
+                  onSelectReply={handleSmartReplySelect}
+                  onDismiss={() => setSmartRepliesDismissed(true)}
+                  defaultExpanded={false}
+                  showToneSelector={true}
+                />
+              </Box>
             )}
+
+            {/* Attachments Preview */}
+            {attachments.length > 0 && (
+              <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  {t.email.composer.attachments.replace('{count}', String(attachments.length))}
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {attachments.map((attachment, index) => (
+                    <Chip
+                      key={index}
+                      icon={<FileText size={14} />}
+                      label={`${attachment.filename} (${formatFileSize(getBase64Size(attachment.contentBase64))})`}
+                      onDelete={() => handleRemoveAttachment(index)}
+                      deleteIcon={<Trash2 size={14} />}
+                      size="small"
+                      sx={{ maxWidth: '100%' }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            {/* Editor Toolbar - Compact on mobile for better touch targets */}
+            <EditorToolbar
+              editor={editor}
+              onAiCompose={() => {
+                setAiPrompt('');
+                setAiTone(mode === 'reply' ? 'formal' : '');
+                setAiPreview(null);
+                setAiPreviewSubject(null);
+                setAiDialogOpen(true);
+              }}
+              aiComposing={aiComposing}
+              compact={isMobile}
+            />
+
+            {/* Body Field - TipTap Editor */}
+            <Box
+              sx={{
+                flex: 1,
+                overflow: 'auto',
+                '& .ProseMirror': {
+                  minHeight: 200,
+                  maxHeight: 400,
+                  outline: 'none',
+                  p: 2,
+                  '&:focus': {
+                    outline: 'none',
+                  },
+                },
+                '& .ProseMirror p.is-editor-empty:first-child::before': {
+                  color: 'text.disabled',
+                  content: 'attr(data-placeholder)',
+                  float: 'left',
+                  height: 0,
+                  pointerEvents: 'none',
+                },
+              }}
+            >
+              <EditorContent editor={editor} />
+            </Box>
+
+            {/* AI Chat Panel - Collapsible assistant */}
+            <AiChatPanel
+              emailBody={body}
+              emailSubject={subject}
+              recipients={cleanEmailArray(to)}
+              mode={mode}
+              onInsertSuggestion={(text) => {
+                // Insert at cursor position - convert markdown to HTML
+                if (editor) {
+                  const html = marked.parse(text, { async: false }) as string;
+                  editor.commands.insertContent(html);
+                }
+              }}
+              onReplaceBody={(text) => {
+                // Convert markdown to HTML before setting content
+                const html = marked.parse(text, { async: false }) as string;
+                setBody(html);
+                if (editor) {
+                  editor.commands.setContent(html);
+                }
+              }}
+              onUpdateSubject={(text) => {
+                if (!subject) {
+                  setSubject(text);
+                }
+              }}
+              t={t}
+              locale={t.locale}
+            />
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 2, py: 1.5, flexWrap: 'wrap' }}>
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
+            flexWrap: { xs: 'wrap', sm: 'nowrap' },
+            justifyContent: { xs: 'flex-end', sm: 'flex-start' },
+          }}>
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+              accept="*/*"
+              aria-label={t.email.composer.attachFiles}
+            />
+            {/* Attach files button */}
             <IconButton
               size="small"
-              onClick={handleClose}
-              disabled={sending}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending || uploading}
+              title={t.email.composer.attachFiles}
               sx={{
                 width: { xs: 44, sm: 'auto' },
                 height: { xs: 44, sm: 'auto' },
               }}
             >
-              <X size={20} />
+              {uploading ? <CircularProgress size={18} /> : <Paperclip size={18} />}
             </IconButton>
-          </Box>
-        </Box>
-      </DialogTitle>
+            <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
 
-      <DialogContent
-        dividers
-        sx={{ p: 0, position: 'relative' }}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-      >
-        {/* Drag overlay */}
-        {isDragging && (
-          <Box
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              bgcolor: 'rgba(25, 118, 210, 0.08)',
-              border: '2px dashed',
-              borderColor: 'primary.main',
-              borderRadius: 1,
-              zIndex: 10,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1,
-              pointerEvents: 'none',
-            }}
-          >
-            <Upload size={48} color="#1976d2" />
-            <Typography variant="h6" color="primary">
-              Drop files here
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Release to attach files
-            </Typography>
-          </Box>
-        )}
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* From Field - Provider Selection */}
-          <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
-                {t.dashboard.email.composer.from}:
-              </Typography>
-              <TextField
-                select
-                fullWidth
+            {/* Scheduled indicator */}
+            {scheduledAt && (
+              <Chip
+                icon={<Clock size={14} />}
+                label={formatScheduledTime(scheduledAt)}
+                onDelete={() => setScheduledAt(null)}
                 size="small"
-                value={selectedProvider}
-                onChange={(e) => setSelectedProvider(e.target.value)}
-                disabled={sending || providers.length === 0}
-                slotProps={{
-                  htmlInput: {
-                    'aria-label': t.dashboard.email.composer.selectProvider
-                  }
-                }}
-                SelectProps={{
-                  native: true,
-                  inputProps: {
-                    title: t.dashboard.email.composer.selectProvider,
-                    'aria-label': t.dashboard.email.composer.selectProvider,
-                  },
-                }}
+                color="primary"
+                variant="outlined"
+              />
+            )}
+
+            <Button onClick={handleClose} disabled={sending}>
+              {t.email.composer.discard}
+            </Button>
+
+            {/* Send button with schedule dropdown */}
+            <Box sx={{ display: 'flex' }}>
+              <Button
+                variant="contained"
+                startIcon={sending ? <CircularProgress size={16} /> : <Send size={16} />}
+                onClick={scheduledAt ? handleScheduleSend : handleSend}
+                disabled={sending || to.length === 0}
                 sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { border: 'none' },
-                  },
+                  borderTopRightRadius: 0,
+                  borderBottomRightRadius: 0,
                 }}
               >
-                {providers.length === 0 && (
-                  <option value="">{t.dashboard.email.composer.noProvider}</option>
-                )}
-                {providers.map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {provider.email} {provider.displayName ? `(${provider.displayName})` : ''}
-                  </option>
-                ))}
-              </TextField>
-            </Box>
-          </Box>
-
-          {/* To Field */}
-          <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
-                {t.dashboard.email.composer.toLabel}
-              </Typography>
-              <Autocomplete
-                multiple
-                freeSolo
-                autoSelect
-                fullWidth
+                {sending
+                  ? t.email.composer.sending
+                  : scheduledAt
+                    ? 'Schedule'
+                    : t.email.composer.send}
+              </Button>
+              <Button
+                variant="contained"
                 size="small"
-                options={emailOptions}
-                value={to}
-                onChange={(_, newValue) => setTo(newValue)}
-                disabled={sending}
-                loading={contactsLoading}
-                filterOptions={contactFilterOptions}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    placeholder={t.dashboard.email.composer.toPlaceholder}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { border: 'none' },
-                      },
-                    }}
-                  />
-                )}
+                onClick={(e) => setScheduleMenuAnchor(e.currentTarget)}
+                disabled={sending || to.length === 0}
                 sx={{
-                  '& .MuiAutocomplete-tag': {
-                    margin: '2px',
-                  },
+                  minWidth: 32,
+                  px: 0.5,
+                  borderTopLeftRadius: 0,
+                  borderBottomLeftRadius: 0,
+                  borderLeft: '1px solid rgba(255,255,255,0.3)',
                 }}
-              />
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
-                {!showCc && (
-                  <Button size="small" onClick={() => setShowCc(true)}>
-                    {t.dashboard.email.composer.cc}
-                  </Button>
-                )}
-                {!showBcc && (
-                  <Button size="small" onClick={() => setShowBcc(true)}>
-                    {t.dashboard.email.composer.bcc}
-                  </Button>
-                )}
-              </Box>
+                aria-label="Schedule send options"
+              >
+                <ChevronDown size={16} />
+              </Button>
             </Box>
-          </Box>
 
-          {/* CC Field */}
-          <Collapse in={showCc}>
-            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
-                  {t.dashboard.email.composer.ccLabel}
-                </Typography>
-                <Autocomplete
-                  multiple
-                  freeSolo
-                  autoSelect
-                  fullWidth
-                  size="small"
-                  options={emailOptions}
-                  value={cc}
-                  onChange={(_, newValue) => setCc(newValue)}
-                  disabled={sending}
-                  loading={contactsLoading}
-                  filterOptions={contactFilterOptions}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder={t.dashboard.email.composer.toPlaceholder}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': { border: 'none' },
-                        },
-                      }}
-                    />
-                  )}
-                  sx={{
-                    '& .MuiAutocomplete-tag': {
-                      margin: '2px',
-                    },
-                  }}
-                />
-              </Box>
-            </Box>
-          </Collapse>
-
-          {/* BCC Field */}
-          <Collapse in={showBcc}>
-            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
-                  {t.dashboard.email.composer.bccLabel}
-                </Typography>
-                <Autocomplete
-                  multiple
-                  freeSolo
-                  autoSelect
-                  fullWidth
-                  size="small"
-                  options={emailOptions}
-                  value={bcc}
-                  onChange={(_, newValue) => setBcc(newValue)}
-                  disabled={sending}
-                  loading={contactsLoading}
-                  filterOptions={contactFilterOptions}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder={t.dashboard.email.composer.toPlaceholder}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': { border: 'none' },
-                        },
-                      }}
-                    />
-                  )}
-                  sx={{
-                    '& .MuiAutocomplete-tag': {
-                      margin: '2px',
-                    },
-                  }}
-                />
-              </Box>
-            </Box>
-          </Collapse>
-
-          {/* Subject Field */}
-          <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2" sx={{ minWidth: 40, fontWeight: 500 }}>
-                {t.dashboard.email.composer.subjectLabel}
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder={t.dashboard.email.composer.subjectPlaceholder}
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                disabled={sending}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': { border: 'none' },
-                  },
-                }}
-              />
-            </Box>
-          </Box>
-
-          {/* Smart Reply Suggestions - Only for reply mode */}
-          {mode === 'reply' && prefillData?.originalEmailId && !smartRepliesDismissed && (
-            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-              <SmartReplySuggestions
-                emailId={prefillData.originalEmailId}
-                onSelectReply={handleSmartReplySelect}
-                onDismiss={() => setSmartRepliesDismissed(true)}
-                defaultExpanded={false}
-                showToneSelector={true}
-              />
-            </Box>
-          )}
-
-          {/* Attachments Preview */}
-          {attachments.length > 0 && (
-            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                {t.dashboard.email.composer.attachments.replace('{count}', String(attachments.length))}
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {attachments.map((attachment, index) => (
-                  <Chip
-                    key={index}
-                    icon={<FileText size={14} />}
-                    label={`${attachment.filename} (${formatFileSize(getBase64Size(attachment.contentBase64))})`}
-                    onDelete={() => handleRemoveAttachment(index)}
-                    deleteIcon={<Trash2 size={14} />}
-                    size="small"
-                    sx={{ maxWidth: '100%' }}
-                  />
-                ))}
-              </Box>
-            </Box>
-          )}
-
-          {/* Editor Toolbar - Compact on mobile for better touch targets */}
-          <EditorToolbar
-            editor={editor}
-            onAiCompose={() => {
-              setAiPrompt('');
-              setAiTone(mode === 'reply' ? 'formal' : '');
-              setAiPreview(null);
-              setAiPreviewSubject(null);
-              setAiDialogOpen(true);
-            }}
-            aiComposing={aiComposing}
-            compact={isMobile}
-          />
-
-          {/* Body Field - TipTap Editor */}
-          <Box
-            sx={{
-              flex: 1,
-              overflow: 'auto',
-              '& .ProseMirror': {
-                minHeight: 200,
-                maxHeight: 400,
-                outline: 'none',
-                p: 2,
-                '&:focus': {
-                  outline: 'none',
-                },
-              },
-              '& .ProseMirror p.is-editor-empty:first-child::before': {
-                color: 'text.disabled',
-                content: 'attr(data-placeholder)',
-                float: 'left',
-                height: 0,
-                pointerEvents: 'none',
-              },
-            }}
-          >
-            <EditorContent editor={editor} />
-          </Box>
-
-          {/* AI Chat Panel - Collapsible assistant */}
-          <AiChatPanel
-            emailBody={body}
-            emailSubject={subject}
-            recipients={cleanEmailArray(to)}
-            mode={mode}
-            onInsertSuggestion={(text) => {
-              // Insert at cursor position - convert markdown to HTML
-              if (editor) {
-                const html = marked.parse(text, { async: false }) as string;
-                editor.commands.insertContent(html);
-              }
-            }}
-            onReplaceBody={(text) => {
-              // Convert markdown to HTML before setting content
-              const html = marked.parse(text, { async: false }) as string;
-              setBody(html);
-              if (editor) {
-                editor.commands.setContent(html);
-              }
-            }}
-            onUpdateSubject={(text) => {
-              if (!subject) {
-                setSubject(text);
-              }
-            }}
-            t={t}
-            locale={t.locale}
-          />
-        </Box>
-      </DialogContent>
-
-      <DialogActions sx={{ px: 2, py: 1.5, flexWrap: 'wrap' }}>
-        <Box sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          width: '100%',
-          flexWrap: { xs: 'wrap', sm: 'nowrap' },
-          justifyContent: { xs: 'flex-end', sm: 'flex-start' },
-        }}>
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-            accept="*/*"
-            aria-label={t.dashboard.email.composer.attachFiles}
-          />
-          {/* Attach files button */}
-          <IconButton
-            size="small"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={sending || uploading}
-            title={t.dashboard.email.composer.attachFiles}
-            sx={{
-              width: { xs: 44, sm: 'auto' },
-              height: { xs: 44, sm: 'auto' },
-            }}
-          >
-            {uploading ? <CircularProgress size={18} /> : <Paperclip size={18} />}
-          </IconButton>
-          <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
-
-          {/* Scheduled indicator */}
-          {scheduledAt && (
-            <Chip
-              icon={<Clock size={14} />}
-              label={formatScheduledTime(scheduledAt)}
-              onDelete={() => setScheduledAt(null)}
-              size="small"
-              color="primary"
-              variant="outlined"
-            />
-          )}
-
-          <Button onClick={handleClose} disabled={sending}>
-            {t.dashboard.email.composer.discard}
-          </Button>
-
-          {/* Send button with schedule dropdown */}
-          <Box sx={{ display: 'flex' }}>
-            <Button
-              variant="contained"
-              startIcon={sending ? <CircularProgress size={16} /> : <Send size={16} />}
-              onClick={scheduledAt ? handleScheduleSend : handleSend}
-              disabled={sending || to.length === 0}
-              sx={{
-                borderTopRightRadius: 0,
-                borderBottomRightRadius: 0,
-              }}
+            {/* Schedule menu */}
+            <Menu
+              anchorEl={scheduleMenuAnchor}
+              open={Boolean(scheduleMenuAnchor)}
+              onClose={() => setScheduleMenuAnchor(null)}
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             >
-              {sending
-                ? t.dashboard.email.composer.sending
-                : scheduledAt
-                  ? 'Schedule'
-                  : t.dashboard.email.composer.send}
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={(e) => setScheduleMenuAnchor(e.currentTarget)}
-              disabled={sending || to.length === 0}
-              sx={{
-                minWidth: 32,
-                px: 0.5,
-                borderTopLeftRadius: 0,
-                borderBottomLeftRadius: 0,
-                borderLeft: '1px solid rgba(255,255,255,0.3)',
-              }}
-              aria-label="Schedule send options"
-            >
-              <ChevronDown size={16} />
-            </Button>
-          </Box>
-
-          {/* Schedule menu */}
-          <Menu
-            anchorEl={scheduleMenuAnchor}
-            open={Boolean(scheduleMenuAnchor)}
-            onClose={() => setScheduleMenuAnchor(null)}
-            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          >
-            <MenuItem
-              onClick={() => {
-                setScheduledAt(null);
-                setScheduleMenuAnchor(null);
-              }}
-            >
-              <ListItemIcon>
-                <Send size={16} />
-              </ListItemIcon>
-              <ListItemText>{t.dashboard.email.composer.sendNow}</ListItemText>
-            </MenuItem>
-            {getSchedulePresets().map((preset) => (
               <MenuItem
-                key={preset.value}
-                onClick={() => handleScheduleSelect(preset.value)}
+                onClick={() => {
+                  setScheduledAt(null);
+                  setScheduleMenuAnchor(null);
+                }}
               >
+                <ListItemIcon>
+                  <Send size={16} />
+                </ListItemIcon>
+                <ListItemText>{t.email.composer.sendNow}</ListItemText>
+              </MenuItem>
+              {getSchedulePresets().map((preset) => (
+                <MenuItem
+                  key={preset.value}
+                  onClick={() => handleScheduleSelect(preset.value)}
+                >
+                  <ListItemIcon>
+                    <Clock size={16} />
+                  </ListItemIcon>
+                  <ListItemText>{preset.label}</ListItemText>
+                </MenuItem>
+              ))}
+              <MenuItem onClick={() => setShowSchedulePicker(true)}>
                 <ListItemIcon>
                   <Clock size={16} />
                 </ListItemIcon>
-                <ListItemText>{preset.label}</ListItemText>
+                <ListItemText>{t.email.composer.pickDateTime}</ListItemText>
               </MenuItem>
-            ))}
-            <MenuItem onClick={() => setShowSchedulePicker(true)}>
-              <ListItemIcon>
-                <Clock size={16} />
-              </ListItemIcon>
-              <ListItemText>{t.dashboard.email.composer.pickDateTime}</ListItemText>
-            </MenuItem>
-          </Menu>
+            </Menu>
 
-          {/* Custom date/time picker popover */}
-          <Popover
-            open={showSchedulePicker}
-            anchorEl={scheduleMenuAnchor}
-            onClose={() => {
-              setShowSchedulePicker(false);
-              setScheduleMenuAnchor(null);
-            }}
-            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          >
-            <Box sx={{ p: 2, minWidth: 280 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                {t.dashboard.email.composer.scheduleSend}
-              </Typography>
-              <Stack spacing={2}>
-                <TextField
-                  type="datetime-local"
-                  fullWidth
-                  size="small"
-                  inputProps={{
-                    min: new Date().toISOString().slice(0, 16),
-                  }}
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleScheduleSelect(new Date(e.target.value).toISOString());
-                    }
-                  }}
-                />
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => {
-                    setShowSchedulePicker(false);
-                    setScheduleMenuAnchor(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </Stack>
-            </Box>
-          </Popover>
-        </Box>
-      </DialogActions>
-    </Dialog>
+            {/* Custom date/time picker popover */}
+            <Popover
+              open={showSchedulePicker}
+              anchorEl={scheduleMenuAnchor}
+              onClose={() => {
+                setShowSchedulePicker(false);
+                setScheduleMenuAnchor(null);
+              }}
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+              <Box sx={{ p: 2, minWidth: 280 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  {t.email.composer.scheduleSend}
+                </Typography>
+                <Stack spacing={2}>
+                  <TextField
+                    type="datetime-local"
+                    fullWidth
+                    size="small"
+                    inputProps={{
+                      min: new Date().toISOString().slice(0, 16),
+                    }}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleScheduleSelect(new Date(e.target.value).toISOString());
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      setShowSchedulePicker(false);
+                      setScheduleMenuAnchor(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Stack>
+              </Box>
+            </Popover>
+          </Box>
+        </DialogActions>
+      </Dialog>
 
-    <AiComposeDialog
-      open={aiDialogOpen}
-      onClose={() => {
-        setAiDialogOpen(false);
-        setAiPreview(null);
-        setAiPreviewSubject(null);
-      }}
-      onSubmit={handleAiComposeSubmit}
-      onGenerate={handleAiGenerate}
-      prompt={aiPrompt}
-      setPrompt={setAiPrompt}
-      tone={aiTone}
-      setTone={setAiTone}
-      variant={aiVariant}
-      setVariant={setAiVariant}
-      loading={aiComposing}
-      mode={mode}
-      preview={aiPreview}
-      t={t}
-    />
+      <AiComposeDialog
+        open={aiDialogOpen}
+        onClose={() => {
+          setAiDialogOpen(false);
+          setAiPreview(null);
+          setAiPreviewSubject(null);
+        }}
+        onSubmit={handleAiComposeSubmit}
+        onGenerate={handleAiGenerate}
+        prompt={aiPrompt}
+        setPrompt={setAiPrompt}
+        tone={aiTone}
+        setTone={setAiTone}
+        variant={aiVariant}
+        setVariant={setAiVariant}
+        loading={aiComposing}
+        mode={mode}
+        preview={aiPreview}
+        t={t}
+      />
     </>
   );
 }
@@ -1488,7 +1490,7 @@ function AiComposeDialog({
 }) {
   // Example prompts based on mode
   const examplePrompts = useMemo(() => {
-    const composer = t.dashboard?.email?.composer;
+    const composer = t.email?.composer;
     if (mode === 'reply') {
       return [
         composer?.aiComposeExampleReplyConfirm ?? 'Confirm receipt and schedule call',
@@ -1505,10 +1507,10 @@ function AiComposeDialog({
 
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{t.dashboard?.email?.composer?.aiComposeTitle ?? 'Draft with AI'}</DialogTitle>
+      <DialogTitle>{t.email?.composer?.aiComposeTitle ?? 'Draft with AI'}</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
         <Typography variant="body2" color="text.secondary">
-          {t.dashboard?.email?.composer?.aiComposeHelp ??
+          {t.email?.composer?.aiComposeHelp ??
             'Provide a short prompt. AI will draft the email body and suggest a subject.'}
         </Typography>
 
@@ -1516,7 +1518,7 @@ function AiComposeDialog({
         {!preview && (
           <Box>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-              {t.dashboard?.email?.composer?.aiComposeExamples ?? 'Try these:'}
+              {t.email?.composer?.aiComposeExamples ?? 'Try these:'}
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
               {examplePrompts.map((example, i) => (
@@ -1538,7 +1540,7 @@ function AiComposeDialog({
         )}
 
         <TextField
-          label={t.dashboard?.email?.composer?.aiComposePrompt ?? 'Prompt'}
+          label={t.email?.composer?.aiComposePrompt ?? 'Prompt'}
           multiline
           minRows={3}
           value={prompt}
@@ -1554,11 +1556,11 @@ function AiComposeDialog({
         <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
           <FormControl fullWidth size="small">
             <InputLabel id="ai-tone-label">
-              {t.dashboard?.email?.composer?.aiComposeToneLabel ?? 'Tone'}
+              {t.email?.composer?.aiComposeToneLabel ?? 'Tone'}
             </InputLabel>
             <Select
               labelId="ai-tone-label"
-              label={t.dashboard?.email?.composer?.aiComposeToneLabel ?? 'Tone'}
+              label={t.email?.composer?.aiComposeToneLabel ?? 'Tone'}
               value={tone || ''}
               onChange={(e) => setTone(e.target.value as any)}
               disabled={loading}
@@ -1573,11 +1575,11 @@ function AiComposeDialog({
           </FormControl>
           <FormControl fullWidth size="small">
             <InputLabel id="ai-variant-label">
-              {t.dashboard?.email?.composer?.aiComposeVariantLabel ?? 'Variant'}
+              {t.email?.composer?.aiComposeVariantLabel ?? 'Variant'}
             </InputLabel>
             <Select
               labelId="ai-variant-label"
-              label={t.dashboard?.email?.composer?.aiComposeVariantLabel ?? 'Variant'}
+              label={t.email?.composer?.aiComposeVariantLabel ?? 'Variant'}
               value={variant}
               onChange={(e) => setVariant(e.target.value as 'A' | 'B')}
               disabled={loading}
@@ -1605,7 +1607,7 @@ function AiComposeDialog({
               color="text.secondary"
               sx={{ mb: 1, display: 'block', fontWeight: 500 }}
             >
-              {t.dashboard?.email?.composer?.aiComposePreview ?? 'Preview'}:
+              {t.email?.composer?.aiComposePreview ?? 'Preview'}:
             </Typography>
             <Typography
               variant="body2"
@@ -1622,7 +1624,7 @@ function AiComposeDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={loading}>
-          {t.dashboard?.email?.composer?.aiComposeCancel ?? 'Cancel'}
+          {t.email?.composer?.aiComposeCancel ?? 'Cancel'}
         </Button>
         {!preview ? (
           <Button
@@ -1632,8 +1634,8 @@ function AiComposeDialog({
             startIcon={loading ? <CircularProgress size={16} /> : undefined}
           >
             {loading
-              ? t.dashboard?.email?.composer?.sending ?? 'Generating...'
-              : t.dashboard?.email?.composer?.aiComposeGenerate ?? 'Generate'}
+              ? t.email?.composer?.sending ?? 'Generating...'
+              : t.email?.composer?.aiComposeGenerate ?? 'Generate'}
           </Button>
         ) : (
           <>
@@ -1643,10 +1645,10 @@ function AiComposeDialog({
               disabled={loading}
               startIcon={loading ? <CircularProgress size={16} /> : undefined}
             >
-              {t.dashboard?.email?.composer?.aiComposeRegenerate ?? 'Regenerate'}
+              {t.email?.composer?.aiComposeRegenerate ?? 'Regenerate'}
             </Button>
             <Button variant="contained" onClick={onSubmit} disabled={loading}>
-              {t.dashboard?.email?.composer?.aiComposeConfirm ?? 'Insert draft'}
+              {t.email?.composer?.aiComposeConfirm ?? 'Insert draft'}
             </Button>
           </>
         )}

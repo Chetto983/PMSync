@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { emailApi } from '@/lib/api/email';
+import { logger } from '@/lib/logger';
 
 /**
  * Attachment interface
@@ -207,13 +208,13 @@ const AttachmentItem: React.FC<AttachmentItemProps & { t: ReturnType<typeof useT
       {/* Actions */}
       <Stack direction="row" spacing={0.5}>
         {isPreviewable && (
-          <Tooltip title={t.dashboard?.emailView?.preview || 'Preview'}>
+          <Tooltip title={t.email.view?.preview || 'Preview'}>
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); onPreview(); }}>
               <ExternalLink size={16} />
             </IconButton>
           </Tooltip>
         )}
-        <Tooltip title={t.dashboard?.emailView?.download || 'Download'}>
+        <Tooltip title={t.email.view?.download || 'Download'}>
           <IconButton
             size="small"
             onClick={(e) => {
@@ -282,18 +283,18 @@ const ImagePreviewDialog: React.FC<ImagePreviewDialogProps> = ({
         </Typography>
 
         {/* Zoom controls */}
-        <Tooltip title={t.dashboard?.emailView?.zoomOut || 'Zoom out'}>
+        <Tooltip title={t.email.view?.zoomOut || 'Zoom out'}>
           <IconButton size="small" onClick={handleZoomOut} disabled={zoom <= 0.5}>
             <ZoomOut size={18} />
           </IconButton>
         </Tooltip>
         <Chip label={`${Math.round(zoom * 100)}%`} size="small" sx={{ minWidth: 60 }} />
-        <Tooltip title={t.dashboard?.emailView?.zoomIn || 'Zoom in'}>
+        <Tooltip title={t.email.view?.zoomIn || 'Zoom in'}>
           <IconButton size="small" onClick={handleZoomIn} disabled={zoom >= 3}>
             <ZoomIn size={18} />
           </IconButton>
         </Tooltip>
-        <Tooltip title={t.dashboard?.emailView?.rotate || 'Rotate'}>
+        <Tooltip title={t.email.view?.rotate || 'Rotate'}>
           <IconButton size="small" onClick={handleRotate}>
             <RotateCw size={18} />
           </IconButton>
@@ -330,7 +331,7 @@ const ImagePreviewDialog: React.FC<ImagePreviewDialogProps> = ({
             }}
           />
         ) : (
-          <Typography color="text.secondary">{t.dashboard?.emailView?.failedToLoadPreview || 'Failed to load preview'}</Typography>
+          <Typography color="text.secondary">{t.email.view?.failedToLoadPreview || 'Failed to load preview'}</Typography>
         )}
       </DialogContent>
     </Dialog>
@@ -386,7 +387,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
       const url = URL.createObjectURL(blob);
       setPreviewUrl(url);
     } catch (error) {
-      console.error('Failed to load preview:', error);
+      logger.error('Failed to load preview', { error });
     } finally {
       setIsLoadingPreview(false);
     }
@@ -406,7 +407,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Failed to download attachment:', error);
+      logger.error('Failed to download attachment', { error });
     }
   }, []);
 
@@ -443,7 +444,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
           >
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                {t.dashboard?.email?.attachment || 'Attachments'}
+                {t.email?.attachment || 'Attachments'}
               </Typography>
               <Chip
                 label={displayAttachments.length}

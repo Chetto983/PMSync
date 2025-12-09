@@ -111,7 +111,7 @@ export function FolderContextMenu({
         <ListItemIcon>
           <FolderPlus size={18} />
         </ListItemIcon>
-        <ListItemText>{t.dashboard?.folders?.createSubfolder || 'Create Subfolder'}</ListItemText>
+        <ListItemText>{t.folders?.createSubfolder || 'Create Subfolder'}</ListItemText>
       </MenuItem>
 
       {/* Move emails to folder */}
@@ -120,7 +120,7 @@ export function FolderContextMenu({
           <ListItemIcon>
             <FolderInput size={18} />
           </ListItemIcon>
-          <ListItemText>{t.dashboard?.folders?.moveEmailsHere || 'Move Emails Here'}</ListItemText>
+          <ListItemText>{t.folders?.moveEmailsHere || 'Move Emails Here'}</ListItemText>
         </MenuItem>
       )}
 
@@ -130,7 +130,7 @@ export function FolderContextMenu({
           <ListItemIcon>
             <RefreshCw size={18} />
           </ListItemIcon>
-          <ListItemText>{t.dashboard?.folders?.refresh || 'Refresh'}</ListItemText>
+          <ListItemText>{t.folders?.refresh || 'Refresh'}</ListItemText>
         </MenuItem>
       )}
 
@@ -145,7 +145,7 @@ export function FolderContextMenu({
           {t.common?.rename || 'Rename'}
           {isSystemFolder && (
             <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: 8 }}>
-              ({t.dashboard?.folders?.systemFolder || 'System folder'})
+              ({t.folders?.systemFolder || 'System folder'})
             </span>
           )}
         </ListItemText>
@@ -169,7 +169,7 @@ export function FolderContextMenu({
           {t.common?.delete || 'Delete'}
           {isSystemFolder && (
             <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: 8 }}>
-              ({t.dashboard?.folders?.systemFolder || 'System folder'})
+              ({t.folders?.systemFolder || 'System folder'})
             </span>
           )}
         </ListItemText>

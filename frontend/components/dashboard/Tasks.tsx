@@ -36,7 +36,7 @@ interface Task {
 
 export function Tasks() {
   const t = useTranslations();
-  const tasksCopy = t.dashboard.tasks;
+  const tasksCopy = t.tasks;
   const [tasks, setTasks] = useState<Task[]>([
     {
       id: '1',

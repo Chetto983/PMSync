@@ -95,7 +95,7 @@ export function SchedulingDrawer({
   }, [open, selectedProvider]);
 
   // Translations - use calendarAi if available, fallback to hardcoded
-  const labels = t?.calendarAi?.scheduling ?? {
+  const labels = t?.ai?.calendarAi?.scheduling ?? {
     title: 'AI Scheduling Assistant',
     promptPlaceholder: 'Schedule a 1-hour meeting with John next week...',
     suggestedTimes: 'Suggested Times',

@@ -165,7 +165,7 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
               fontSize: '1rem',
             }}
           >
-            {t.dashboard?.contacts?.newContact || 'New Contact'}
+            {t.contacts?.newContact || 'New Contact'}
           </Button>
         )}
 
@@ -180,8 +180,8 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
             sx={{ textTransform: 'none', fontWeight: 500 }}
           >
             {isSyncing
-              ? (t.dashboard?.contacts?.syncing || 'Syncing...')
-              : (t.dashboard?.contacts?.sync || 'Sync Contacts')}
+              ? (t.contacts?.syncing || 'Syncing...')
+              : (t.contacts?.sync || 'Sync Contacts')}
           </Button>
         )}
       </Box>
@@ -235,7 +235,7 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
                 color="text.secondary"
                 sx={{ fontWeight: 600, textTransform: 'uppercase' }}
               >
-                {t.dashboard?.contacts?.filters || 'Filters'}
+                {t.contacts?.filters || 'Filters'}
               </Typography>
             </Stack>
           </AccordionSummary>
@@ -262,7 +262,7 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
                   <Users size={18} />
                 </ListItemIcon>
                 <ListItemText
-                  primary={t.dashboard?.contacts?.allContacts || 'All Contacts'}
+                  primary={t.contacts?.allContacts || 'All Contacts'}
                   primaryTypographyProps={{
                     fontSize: '0.8125rem',
                     fontWeight: (!selectedFilter && !selectedProviderId) ? 600 : 500,
@@ -299,7 +299,7 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
                     <Mail size={18} />
                   </ListItemIcon>
                   <ListItemText
-                    primary={t.dashboard?.contacts?.withEmail || 'With Email'}
+                    primary={t.contacts?.withEmail || 'With Email'}
                     primaryTypographyProps={{
                       fontSize: '0.8125rem',
                       fontWeight: selectedFilter === 'hasEmail' ? 600 : 500,
@@ -337,7 +337,7 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
                     <Phone size={18} />
                   </ListItemIcon>
                   <ListItemText
-                    primary={t.dashboard?.contacts?.withPhone || 'With Phone'}
+                    primary={t.contacts?.withPhone || 'With Phone'}
                     primaryTypographyProps={{
                       fontSize: '0.8125rem',
                       fontWeight: selectedFilter === 'hasPhone' ? 600 : 500,
@@ -375,7 +375,7 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
                     <Building size={18} />
                   </ListItemIcon>
                   <ListItemText
-                    primary={t.dashboard?.contacts?.withCompany || 'With Company'}
+                    primary={t.contacts?.withCompany || 'With Company'}
                     primaryTypographyProps={{
                       fontSize: '0.8125rem',
                       fontWeight: selectedFilter === 'hasCompany' ? 600 : 500,
@@ -426,7 +426,7 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
                 color="text.secondary"
                 sx={{ fontWeight: 600, textTransform: 'uppercase' }}
               >
-                {t.dashboard?.contacts?.providers || 'Providers'}
+                {t.contacts?.providers || 'Providers'}
               </Typography>
             </AccordionSummary>
 

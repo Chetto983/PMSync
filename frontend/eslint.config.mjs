@@ -7,7 +7,9 @@ const config = [
   ...nextConfig,
   {
     rules: {
-      // 'react-hooks/set-state-in-effect': 'warn', // Re-enabled (commented out to use default)
+      'no-console': 'error',
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': 'error',
     },
   },
 ];

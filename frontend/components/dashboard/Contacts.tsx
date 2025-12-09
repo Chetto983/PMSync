@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import { Search } from 'lucide-react';
 import { contactsApi, type Contact, type ContactCounts } from '@/lib/api/contacts';
+import { logger } from '@/lib/logger';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useContactStore } from '@/stores/contact-store';
@@ -60,7 +61,7 @@ const getPrimaryPhone = (contact?: Contact | null) =>
 
 export function Contacts() {
   const translations = useTranslations();
-  const contactsCopy = translations.dashboard.contacts;
+  const contactsCopy = translations.contacts;
 
   // Store state
   const {
@@ -199,7 +200,7 @@ export function Contacts() {
         (reset ? contactsData[0] : currentContactsForSelection[0] || contactsData[0]);
       setSelectedContact(updatedSelection);
     } catch (error) {
-      console.error('Failed to load contacts:', error);
+      logger.error('Failed to load contacts', { error });
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -235,7 +236,7 @@ export function Contacts() {
       const counts = await contactsApi.getContactCounts();
       setContactCounts(counts);
     } catch (error) {
-      console.error('Failed to load contact counts:', error);
+      logger.error('Failed to load contact counts', { error });
     }
   }, []);
 
@@ -246,31 +247,31 @@ export function Contacts() {
   // WebSocket event handling
   useEffect(() => {
     const handleContactNew = async (event: RealtimeContactEvent) => {
-      console.log('[Contacts] WebSocket: contact:new', event);
+      logger.debug('[Contacts] WebSocket: contact:new', { event });
       if (event.contactId) {
         try {
           const contact = await contactsApi.getContact(event.contactId);
           useContactStore.getState().addContact(contact);
         } catch (error) {
-          console.error('Failed to fetch new contact:', error);
+          logger.error('Failed to fetch new contact', { error });
         }
       }
     };
 
     const handleContactUpdate = async (event: RealtimeContactEvent) => {
-      console.log('[Contacts] WebSocket: contact:update', event);
+      logger.debug('[Contacts] WebSocket: contact:update', { event });
       if (event.contactId) {
         try {
           const contact = await contactsApi.getContact(event.contactId);
           useContactStore.getState().updateContact(event.contactId, contact);
         } catch (error) {
-          console.error('Failed to fetch updated contact:', error);
+          logger.error('Failed to fetch updated contact', { error });
         }
       }
     };
 
     const handleContactDelete = (event: RealtimeContactEvent) => {
-      console.log('[Contacts] WebSocket: contact:delete', event);
+      logger.debug('[Contacts] WebSocket: contact:delete', { event });
       if (event.contactId) {
         useContactStore.getState().deleteContact(event.contactId);
       }
@@ -278,7 +279,7 @@ export function Contacts() {
 
     const handleSyncStatus = (event: RealtimeSyncStatus) => {
       if (event.status === 'completed') {
-        console.log('[Contacts] WebSocket: sync completed for provider', event.providerId);
+        logger.info('[Contacts] WebSocket: sync completed', { providerId: event.providerId });
         setSyncingProviders((prev) => {
           const next = new Set(prev);
           next.delete(event.providerId);
@@ -289,7 +290,7 @@ export function Contacts() {
 
     // Real-time contact counts updates from DB
     const handleContactCounts = (event: RealtimeContactCountsEvent) => {
-      console.log('[Contacts] WebSocket: contact:counts', event);
+      logger.debug('[Contacts] WebSocket: contact:counts', { event });
       setContactCounts({
         total: event.total,
         withEmail: event.withEmail,
@@ -324,7 +325,7 @@ export function Contacts() {
         providerId: prev.providerId || providerData?.[0]?.id,
       }));
     } catch (error) {
-      console.error('Failed to load providers:', error);
+      logger.error('Failed to load providers', { error });
     }
   }, []);
 
@@ -418,7 +419,7 @@ export function Contacts() {
     if (!contactForm.providerId) {
       setSnackbar({
         open: true,
-        message: contactsCopy.alerts.selectProvider,
+        message: contactsCopy.alerts?.selectProvider || 'Please select a provider',
         severity: 'warning',
       });
       return;
@@ -470,15 +471,15 @@ export function Contacts() {
       setSnackbar({
         open: true,
         message: contactDialogMode === 'create'
-          ? `${contactsCopy.createDialog.create} ✓`
-          : contactsCopy.editDialog.success,
+          ? `${contactsCopy.createDialog?.create || 'Create Contact'} ✓`
+          : contactsCopy.editDialog?.success || 'Contact updated successfully.',
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to save contact:', error);
+      logger.error('Failed to save contact', { error });
       setSnackbar({
         open: true,
-        message: contactsCopy.alerts.failedToSave,
+        message: contactsCopy.alerts?.failedToSave || 'Failed to save contact. Please try again.',
         severity: 'error',
       });
     } finally {
@@ -505,14 +506,14 @@ export function Contacts() {
       }
       setSnackbar({
         open: true,
-        message: contactsCopy.alerts.deleteSuccess,
+        message: contactsCopy.alerts?.deleteSuccess || 'Contact deleted successfully.',
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to delete contact:', error);
+      logger.error('Failed to delete contact', { error });
       setSnackbar({
         open: true,
-        message: contactsCopy.alerts.deleteError,
+        message: contactsCopy.alerts?.deleteError || 'Unable to delete this contact. Please try again.',
         severity: 'error',
       });
     } finally {
@@ -537,10 +538,10 @@ export function Contacts() {
         severity: 'success',
       });
     } catch (error) {
-      console.error('Failed to delete contacts:', error);
+      logger.error('Failed to delete contacts', { error });
       setSnackbar({
         open: true,
-        message: contactsCopy.alerts.deleteError,
+        message: contactsCopy.alerts?.deleteError || 'Unable to delete contacts',
         severity: 'error',
       });
     } finally {
@@ -600,7 +601,7 @@ export function Contacts() {
         setSyncingProviders(new Set());
       }
     } catch (error) {
-      console.error('Failed to sync contacts:', error);
+      logger.error('Failed to sync contacts', { error });
       setSnackbar({
         open: true,
         message: 'Failed to sync contacts from providers.',
@@ -740,15 +741,15 @@ export function Contacts() {
         maxWidth="sm"
       >
         <DialogTitle>
-          {contactDialogMode === 'create' ? contactsCopy.createDialog.title : contactsCopy.editDialog.title}
+          {contactDialogMode === 'create' ? contactsCopy.createDialog?.title || 'New Contact' : contactsCopy.editDialog?.title || 'Edit Contact'}
         </DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
             {/* Provider Selection */}
             <FormControl fullWidth disabled={contactDialogMode === 'edit'}>
-              <InputLabel>{contactsCopy.createDialog.provider}</InputLabel>
+              <InputLabel>{contactsCopy.createDialog?.provider || 'Provider'}</InputLabel>
               <Select
-                label={contactsCopy.createDialog.provider}
+                label={contactsCopy.createDialog?.provider || 'Provider'}
                 value={contactForm.providerId || ''}
                 onChange={(event) =>
                   handleContactFormChange('providerId', String(event.target.value))
@@ -783,11 +784,11 @@ export function Contacts() {
                   />
                 </Box>
                 <TextField
-                  label={contactsCopy.createDialog.name}
+                  label={contactsCopy.createDialog?.name || 'Name'}
                   value={contactForm.displayName}
                   onChange={(event) => handleContactFormChange('displayName', event.target.value)}
                   fullWidth
-                  helperText="Display name (optional if first/last name provided)"
+                  helperText={contactsCopy.createDialog?.displayNameHelper || 'Display name'}
                 />
                 <TextField
                   label="Birthday"
@@ -807,7 +808,7 @@ export function Contacts() {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <TextField
-                  label={contactsCopy.createDialog.email}
+                  label={contactsCopy.createDialog?.email || 'Email'}
                   type="email"
                   value={contactForm.email}
                   onChange={(event) => handleContactFormChange('email', event.target.value)}
@@ -839,14 +840,14 @@ export function Contacts() {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <TextField
-                  label={contactsCopy.createDialog.company}
+                  label={contactsCopy.createDialog?.company || 'Company'}
                   value={contactForm.company}
                   onChange={(event) => handleContactFormChange('company', event.target.value)}
                   fullWidth
                 />
                 <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)' }}>
                   <TextField
-                    label={contactsCopy.createDialog.jobTitle}
+                    label={contactsCopy.createDialog?.jobTitle || 'Job Title'}
                     value={contactForm.jobTitle}
                     onChange={(event) => handleContactFormChange('jobTitle', event.target.value)}
                     fullWidth
@@ -863,7 +864,7 @@ export function Contacts() {
 
             {/* Notes */}
             <TextField
-              label={contactsCopy.createDialog.notes}
+              label={contactsCopy.createDialog?.notes || 'Notes'}
               value={contactForm.notes}
               onChange={(event) => handleContactFormChange('notes', event.target.value)}
               fullWidth
@@ -873,13 +874,13 @@ export function Contacts() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setContactDialogOpen(false)}>{contactsCopy.createDialog.cancel}</Button>
+          <Button onClick={() => setContactDialogOpen(false)}>{contactsCopy.createDialog?.cancel || 'Cancel'}</Button>
           <Button
             variant="contained"
             onClick={handleSubmitContact}
             disabled={actionLoading || (contactDialogMode === 'create' && !contactForm.providerId)}
           >
-            {contactDialogMode === 'create' ? contactsCopy.createDialog.create : contactsCopy.editDialog.save}
+            {contactDialogMode === 'create' ? contactsCopy.createDialog?.create || 'Create' : contactsCopy.editDialog?.save || 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -891,10 +892,10 @@ export function Contacts() {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>{contactsCopy.alerts.deleteConfirmTitle}</DialogTitle>
+        <DialogTitle>{contactsCopy.alerts?.deleteConfirmTitle || 'Delete'}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {contactsCopy.alerts.deleteConfirmDescription}
+            {contactsCopy.alerts?.deleteConfirmDescription || 'Are you sure?'}
           </DialogContentText>
         </DialogContent>
         <DialogActions>

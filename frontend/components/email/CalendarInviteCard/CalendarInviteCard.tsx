@@ -79,8 +79,7 @@ export const CalendarInviteCard: React.FC<CalendarInviteCardProps> = ({
 
   const labels = useMemo(() => {
     return (
-      (t as any)?.calendar?.invitation ||
-      (t as any)?.dashboard?.email?.invitation ||
+      t.calendar.invitation ||
       defaultLabels
     );
   }, [t]);
@@ -113,8 +112,8 @@ export const CalendarInviteCard: React.FC<CalendarInviteCardProps> = ({
         response === 'accept'
           ? 'accepted'
           : response === 'decline'
-          ? 'declined'
-          : 'tentative',
+            ? 'declined'
+            : 'tentative',
       );
     } finally {
       setLoading(null);
@@ -145,12 +144,12 @@ export const CalendarInviteCard: React.FC<CalendarInviteCardProps> = ({
             isCancelled
               ? 'default'
               : currentStatus === 'accepted'
-              ? 'success'
-              : currentStatus === 'declined'
-              ? 'error'
-              : currentStatus === 'tentative'
-              ? 'warning'
-              : 'default'
+                ? 'success'
+                : currentStatus === 'declined'
+                  ? 'error'
+                  : currentStatus === 'tentative'
+                    ? 'warning'
+                    : 'default'
           }
           sx={{ ml: 1 }}
         />
@@ -208,10 +207,10 @@ export const CalendarInviteCard: React.FC<CalendarInviteCardProps> = ({
                       att.status === 'ACCEPTED'
                         ? 'success'
                         : att.status === 'DECLINED'
-                        ? 'error'
-                        : att.status === 'TENTATIVE'
-                        ? 'warning'
-                        : 'default'
+                          ? 'error'
+                          : att.status === 'TENTATIVE'
+                            ? 'warning'
+                            : 'default'
                     }
                     title={attendeeStatusLabel(att.status)}
                   />

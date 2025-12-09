@@ -161,7 +161,7 @@ export const ThreadActionBar: React.FC<ThreadActionBarProps> = ({
       >
         {/* Read/Unread Button */}
         <Tooltip
-          title={isRead ? t.dashboard.email.bulkBar.markUnread : t.dashboard.email.bulkBar.markRead}
+          title={isRead ? t.email.bulkBar.markUnread : t.email.bulkBar.markRead}
           arrow
           placement="top"
         >
@@ -186,7 +186,7 @@ export const ThreadActionBar: React.FC<ThreadActionBarProps> = ({
 
         {/* Star Button */}
         <Tooltip
-          title={isStarred ? t.dashboard.email.bulkBar.removeStar : t.dashboard.email.bulkBar.addStar}
+          title={isStarred ? t.email.bulkBar.removeStar : t.email.bulkBar.addStar}
           arrow
           placement="top"
         >
@@ -211,7 +211,7 @@ export const ThreadActionBar: React.FC<ThreadActionBarProps> = ({
 
         {/* Important Button */}
         <Tooltip
-          title={t.dashboard.email.quickFilters.important}
+          title={t.email.quickFilters.important}
           arrow
           placement="top"
         >
@@ -236,7 +236,7 @@ export const ThreadActionBar: React.FC<ThreadActionBarProps> = ({
 
         {/* Archive Button */}
         <Tooltip
-          title={t.dashboard.email.bulkBar.archive}
+          title={t.email.bulkBar.archive}
           arrow
           placement="top"
         >
@@ -257,7 +257,7 @@ export const ThreadActionBar: React.FC<ThreadActionBarProps> = ({
 
         {/* Delete Button */}
         <Tooltip
-          title={t.dashboard.email.bulkBar.delete}
+          title={t.email.bulkBar.delete}
           arrow
           placement="top"
         >

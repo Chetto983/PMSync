@@ -308,7 +308,7 @@ const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(({
             {/* Quick Actions */}
             <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
               {/* Show Edit button for drafts */}
-              {(email.folder === 'DRAFTS' || (email as any).isDraft || email.externalId?.startsWith('draft-')) && onEditDraft ? (
+              {(email.folder === 'DRAFTS' || email.isDraft || email.externalId?.startsWith('draft-')) && onEditDraft ? (
                 <Button
                   size="small"
                   variant="contained"
@@ -321,17 +321,17 @@ const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(({
                 </Button>
               ) : (
                 <>
-                  <Tooltip title={t.dashboard?.emailView?.reply || 'Reply'}>
+                  <Tooltip title={t.email.view?.reply || 'Reply'}>
                     <IconButton size="small" onClick={() => onReply?.(email)}>
                       <Reply size={16} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title={t.dashboard?.emailView?.replyAll || 'Reply All'}>
+                  <Tooltip title={t.email.view?.replyAll || 'Reply All'}>
                     <IconButton size="small" onClick={() => onReplyAll?.(email)}>
                       <ReplyAll size={16} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title={t.dashboard?.emailView?.forward || 'Forward'}>
+                  <Tooltip title={t.email.view?.forward || 'Forward'}>
                     <IconButton size="small" onClick={() => onForward?.(email)}>
                       <Forward size={16} />
                     </IconButton>
@@ -354,7 +354,7 @@ const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(({
             >
               <CalendarInviteCard
                 invite={email.calendarInviteData as ParsedCalendarInvite}
-                status={email.calendarInviteStatus as any}
+                status={email.calendarInviteStatus}
                 onRespond={async (response) => {
                   if (onInviteRespond) {
                     await onInviteRespond(email.id, response);
@@ -658,7 +658,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
       >
         <Mail size={48} color={isDark ? '#55cae5' : '#7650ce'} strokeWidth={1.5} />
         <Typography variant="h6" color="text.secondary" sx={{ mt: 2 }}>
-          {t.dashboard.email.selectEmail}
+          {t.email.selectEmail}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, opacity: 0.7 }}>
           Select an email to read
@@ -692,9 +692,8 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        {/* Edit Draft button - shows for draft emails */}
-        {/* Check multiple conditions: folder name, isDraft flag, or draft- prefix in externalId */}
-        {(email.folder === 'DRAFTS' || (email as any).isDraft || email.externalId?.startsWith('draft-')) && onEditDraft && (
+        {/* Edit Draft button - shows for drafts */}
+        {(email.folder === 'DRAFTS' || email.isDraft || email.externalId?.startsWith('draft-')) && onEditDraft && (
           <Tooltip title={(t as any).common?.edit || 'Edit Draft'}>
             <Button
               size="small"
@@ -710,19 +709,19 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         )}
 
         {/* Hide Reply/Forward for drafts since they should be edited instead */}
-        {!(email.folder === 'DRAFTS' || (email as any).isDraft || email.externalId?.startsWith('draft-')) && (
+        {!(email.folder === 'DRAFTS' || email.isDraft || email.externalId?.startsWith('draft-')) && (
           <>
-            <Tooltip title={t.dashboard.emailView.reply}>
+            <Tooltip title={t.email.view.reply}>
               <IconButton size="small" onClick={() => onReply?.(email)}>
                 <Reply size={18} />
               </IconButton>
             </Tooltip>
-            <Tooltip title={t.dashboard.emailView.replyAll}>
+            <Tooltip title={t.email.view.replyAll}>
               <IconButton size="small" onClick={() => onReplyAll?.(email)}>
                 <ReplyAll size={18} />
               </IconButton>
             </Tooltip>
-            <Tooltip title={t.dashboard.emailView.forward}>
+            <Tooltip title={t.email.view.forward}>
               <IconButton size="small" onClick={() => onForward?.(email)}>
                 <Forward size={18} />
               </IconButton>
@@ -732,17 +731,17 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 
         <Box sx={{ flex: 1 }} />
 
-        <Tooltip title={email.isStarred ? t.dashboard.email.bulkBar.removeStar : t.dashboard.email.bulkBar.addStar}>
+        <Tooltip title={email.isStarred ? t.email.bulkBar.removeStar : t.email.bulkBar.addStar}>
           <IconButton size="small" onClick={() => onToggleStar?.(email.id, email.isStarred || false)}>
             <Star size={18} fill={email.isStarred ? '#FFB300' : 'none'} color={email.isStarred ? '#FFB300' : 'currentColor'} />
           </IconButton>
         </Tooltip>
-        <Tooltip title={t.dashboard.email.bulkBar.archive}>
+        <Tooltip title={t.email.bulkBar.archive}>
           <IconButton size="small" onClick={() => onArchive?.(email.id)}>
             <Archive size={18} />
           </IconButton>
         </Tooltip>
-        <Tooltip title={t.dashboard.email.bulkBar.delete}>
+        <Tooltip title={t.email.bulkBar.delete}>
           <IconButton size="small" onClick={() => onDelete?.(email.id)}>
             <Trash2 size={18} />
           </IconButton>
@@ -750,7 +749,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-        <Tooltip title={t.dashboard.emailView.more}>
+        <Tooltip title={t.email.view.more}>
           <IconButton size="small">
             <MoreVertical size={18} />
           </IconButton>
@@ -858,7 +857,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           ))}
         </Box>
       </Box>
-    </Box>
+    </Box >
   );
 };
 

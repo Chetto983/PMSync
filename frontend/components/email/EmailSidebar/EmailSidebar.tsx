@@ -819,7 +819,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                   color="text.secondary"
                   sx={{ fontWeight: 600, textTransform: 'uppercase' }}
                 >
-                  {t.dashboard.email.quickFilters.title}
+                  {t.email.quickFilters.title}
                 </Typography>
               </Stack>
             </AccordionSummary>
@@ -1052,7 +1052,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
         ) : folderGroups.length === 0 ? (
           <Box sx={{ px: 2, py: 3 }}>
             <Typography variant="body2" color="text.secondary">
-              {t.dashboard.email.noProviders}
+              {t.email.noProviders}
             </Typography>
           </Box>
         ) : (
@@ -1087,7 +1087,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                     {group.providerEmail}
                   </Typography>
                   <Box sx={{ flex: 1 }} />
-                  <Tooltip title={t.dashboard?.folders?.createFolder || 'Create Folder'}>
+                  <Tooltip title={t.folders?.createFolder || 'Create Folder'}>
                     <IconButton
                       size="small"
                       onClick={(e) => {

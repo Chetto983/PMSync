@@ -68,7 +68,7 @@ export function FolderManagementDialog({
 
   const handleSubmit = async () => {
     if (mode !== 'delete' && !name.trim()) {
-      setError(t.dashboard?.folders?.folderName || 'Folder name is required');
+      setError(t.folders?.folderName || 'Folder name is required');
       return;
     }
 
@@ -78,7 +78,7 @@ export function FolderManagementDialog({
     try {
       if (mode === 'create') {
         if (!providerId) {
-          setError(t.dashboard?.folders?.genericError || 'Provider ID is required');
+          setError(t.folders?.genericError || 'Provider ID is required');
           setLoading(false);
           return;
         }
@@ -89,7 +89,7 @@ export function FolderManagementDialog({
         });
       } else if (mode === 'rename') {
         if (!folder) {
-          setError(t.dashboard?.folders?.genericError || 'Folder is required for rename');
+          setError(t.folders?.genericError || 'Folder is required for rename');
           setLoading(false);
           return;
         }
@@ -98,7 +98,7 @@ export function FolderManagementDialog({
         });
       } else if (mode === 'delete') {
         if (!folder) {
-          setError(t.dashboard?.folders?.genericError || 'Folder is required for delete');
+          setError(t.folders?.genericError || 'Folder is required for delete');
           setLoading(false);
           return;
         }
@@ -111,9 +111,9 @@ export function FolderManagementDialog({
       const status = (err as any)?.response?.status;
       const apiMessage = (err as any)?.response?.data?.message;
       if (status === 409) {
-        setError(t.dashboard?.folders?.duplicateError || 'Folder already exists');
+        setError(t.folders?.duplicateError || 'Folder already exists');
       } else {
-        setError(apiMessage || t.dashboard?.folders?.genericError || 'Operation failed');
+        setError(apiMessage || t.folders?.genericError || 'Operation failed');
       }
     } finally {
       setLoading(false);
@@ -123,11 +123,11 @@ export function FolderManagementDialog({
   const getTitle = () => {
     switch (mode) {
       case 'create':
-        return t.dashboard?.folders?.createFolder || 'Create Folder';
+        return t.folders?.createFolder || 'Create Folder';
       case 'rename':
-        return t.dashboard?.folders?.renameFolder || 'Rename Folder';
+        return t.folders?.renameFolder || 'Rename Folder';
       case 'delete':
-        return t.dashboard?.folders?.deleteFolder || 'Delete Folder';
+        return t.folders?.deleteFolder || 'Delete Folder';
     }
   };
 
@@ -211,11 +211,11 @@ export function FolderManagementDialog({
                 },
               }}
             >
-              {t.dashboard?.folders?.deleteWarning ||
+              {t.folders?.deleteWarning ||
                 'This action cannot be undone. All emails in this folder will be permanently deleted.'}
             </Alert>
             <Typography variant="body1" color="text.primary">
-              {t.dashboard?.folders?.deleteConfirm || 'Are you sure you want to delete the folder'}{' '}
+              {t.folders?.deleteConfirm || 'Are you sure you want to delete the folder'}{' '}
               <Box component="span" sx={{ fontWeight: 600, color: 'error.main' }}>
                 &quot;{folder?.name}&quot;
               </Box>
@@ -259,8 +259,8 @@ export function FolderManagementDialog({
             <TextField
               autoFocus
               fullWidth
-              label={t.dashboard?.folders?.folderName || 'Folder Name'}
-              placeholder={t.dashboard?.folders?.enterNewName || 'Enter folder name'}
+              label={t.folders?.folderName || 'Folder Name'}
+              placeholder={t.folders?.enterNewName || 'Enter folder name'}
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={loading}

@@ -130,7 +130,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
             <X size={20} />
           </IconButton>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {t.dashboard.email.bulkBar.selected.replace('{count}', selectedCount.toString())}
+            {t.email.bulkBar.selected.replace('{count}', selectedCount.toString())}
           </Typography>
         </Box>
 
@@ -148,7 +148,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
               }}
               disabled={loading !== null}
             >
-              {t.dashboard.email.bulkBar.selectAll}
+              {t.email.bulkBar.selectAll}
             </Button>
           </>
         )}
@@ -158,7 +158,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           {/* Mark as Read */}
-          <Tooltip title={t.dashboard.email.bulkBar.markRead}>
+          <Tooltip title={t.email.bulkBar.markRead}>
             <span>
               <IconButton
                 size="small"
@@ -180,7 +180,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
           </Tooltip>
 
           {/* Mark as Unread */}
-          <Tooltip title={t.dashboard.email.bulkBar.markUnread}>
+          <Tooltip title={t.email.bulkBar.markUnread}>
             <span>
               <IconButton
                 size="small"
@@ -202,7 +202,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
           </Tooltip>
 
           {/* Delete */}
-          <Tooltip title={t.dashboard.email.bulkBar.delete}>
+          <Tooltip title={t.email.bulkBar.delete}>
             <span>
               <IconButton
                 size="small"
@@ -224,7 +224,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
           </Tooltip>
 
           {/* More Actions Menu */}
-          <Tooltip title={t.dashboard.email.bulkBar.moreActions}>
+          <Tooltip title={t.email.bulkBar.moreActions}>
             <span>
               <IconButton
                 size="small"
@@ -263,7 +263,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 disabled={loading !== null}
               >
                 <Star size={18} style={{ marginRight: 8 }} />
-                {t.dashboard.email.bulkBar.addStar}
+                {t.email.bulkBar.addStar}
               </MenuItem>
             )}
             {onUnstar && (
@@ -275,7 +275,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 disabled={loading !== null}
               >
                 <Star size={18} style={{ marginRight: 8 }} />
-                {t.dashboard.email.bulkBar.removeStar}
+                {t.email.bulkBar.removeStar}
               </MenuItem>
             )}
             {onFlag && (
@@ -287,7 +287,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 disabled={loading !== null}
               >
                 <Flag size={18} style={{ marginRight: 8 }} />
-                {t.dashboard.email.bulkBar.markImportant}
+                {t.email.bulkBar.markImportant}
               </MenuItem>
             )}
             {onUnflag && (
@@ -299,7 +299,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 disabled={loading !== null}
               >
                 <Flag size={18} style={{ marginRight: 8 }} />
-                {t.dashboard.email.bulkBar.unmarkImportant}
+                {t.email.bulkBar.unmarkImportant}
               </MenuItem>
             )}
             {onAddLabels && (
@@ -311,7 +311,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 disabled={loading !== null}
               >
                 <Tag size={18} style={{ marginRight: 8 }} />
-                {t.dashboard.email.bulkBar.addLabels}
+                {t.email.bulkBar.addLabels}
               </MenuItem>
             )}
             {onMoveToFolder && (
@@ -323,7 +323,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 disabled={loading !== null}
               >
                 <FolderInput size={18} style={{ marginRight: 8 }} />
-                {t.dashboard.email.bulkBar.moveToFolder}
+                {t.email.bulkBar.moveToFolder}
               </MenuItem>
             )}
           </Menu>

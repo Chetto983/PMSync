@@ -38,6 +38,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { multiAgentApi } from '@/lib/api/ai';
 import { websocketClient } from '@/lib/websocket-client';
 import { useAuthStore } from '@/stores/auth-store';
+import { logger } from '@/lib/logger';
 
 interface Email {
   id: string;
@@ -134,7 +135,7 @@ export function Dashboard() {
         totalInteractions,
       });
     } catch (error) {
-      console.error('Failed to load AI stats:', error);
+      logger.error('Failed to load AI stats', { error });
     } finally {
       setAiLoading(false);
     }
@@ -210,7 +211,7 @@ export function Dashboard() {
         setEvents(todayEvents);
         todayEventsCount = todayEvents.length;
       } catch (error) {
-        console.error('Failed to load calendar events:', error);
+        logger.error('Failed to load calendar events', { error });
         setEvents([]);
       }
 
@@ -221,7 +222,7 @@ export function Dashboard() {
         totalContacts: contactsResponse.data.total || contactsResponse.data.contacts?.length || 0,
       });
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      logger.error('Failed to load dashboard data', { error });
     } finally {
       setLoading(false);
     }
@@ -751,8 +752,8 @@ export function Dashboard() {
                   {aiStats.learningProgress < 20
                     ? t.ai?.writingStyleLearningLow || 'Getting started - send more emails'
                     : aiStats.learningProgress < 60
-                    ? t.ai?.writingStyleLearningMedium || 'Learning your style'
-                    : t.ai?.writingStyleLearningHigh || 'AI knows your style well'}
+                      ? t.ai?.writingStyleLearningMedium || 'Learning your style'
+                      : t.ai?.writingStyleLearningHigh || 'AI knows your style well'}
                 </Typography>
               </Box>
 

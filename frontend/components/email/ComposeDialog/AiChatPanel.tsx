@@ -397,8 +397,8 @@ export function AiChatPanel({
     setMessages([]);
   }, [handleStop]);
 
-  const panelTitle = t.dashboard?.email?.composer?.aiChatTitle ?? 'AI Assistant';
-  const inputPlaceholder = t.dashboard?.email?.composer?.aiChatPlaceholder ?? 'Ask AI to help...';
+  const panelTitle = t.email?.composer?.aiChatTitle ?? 'AI Assistant';
+  const inputPlaceholder = t.email?.composer?.aiChatPlaceholder ?? 'Ask AI to help...';
 
   return (
     <Box
@@ -498,7 +498,7 @@ export function AiChatPanel({
           {messages.length === 0 && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                {t.dashboard?.email?.composer?.aiChatSuggestions ?? 'Quick actions:'}
+                {t.email?.composer?.aiChatSuggestions ?? 'Quick actions:'}
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 {suggestions.map((item, idx) => (
@@ -602,12 +602,12 @@ export function AiChatPanel({
                       {/* Actions for completed assistant messages */}
                       {message.role === 'assistant' && !message.isStreaming && message.suggestion && (
                         <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
-                          <Tooltip title={t.dashboard?.email?.composer?.aiChatCopy ?? 'Copy'}>
+                          <Tooltip title={t.email?.composer?.aiChatCopy ?? 'Copy'}>
                             <IconButton size="small" onClick={() => handleCopySuggestion(message)}>
                               {copiedId === message.id ? <Check size={14} /> : <Copy size={14} />}
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title={t.dashboard?.email?.composer?.aiChatInsert ?? 'Insert'}>
+                          <Tooltip title={t.email?.composer?.aiChatInsert ?? 'Insert'}>
                             <IconButton
                               size="small"
                               onClick={() => handleInsert(message)}
@@ -678,7 +678,7 @@ export function AiChatPanel({
             )}
 
             {messages.length > 0 && (
-              <Tooltip title={t.dashboard?.email?.composer?.aiChatClear ?? 'Clear'}>
+              <Tooltip title={t.email?.composer?.aiChatClear ?? 'Clear'}>
                 <IconButton size="small" onClick={clearChat} disabled={isStreaming}>
                   <RefreshCw size={16} />
                 </IconButton>

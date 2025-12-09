@@ -44,6 +44,7 @@ import { emailApi } from '@/lib/api/email';
 import { multiAgentApi } from '@/lib/api/ai';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { logger } from '@/lib/logger';
 
 interface HeaderNotification {
   id: string;
@@ -145,9 +146,9 @@ export function Header({
       }));
       setNotifications(mapped);
     } catch (error) {
-      console.error('Failed to load notifications:', error);
+      logger.error('Failed to load notifications', { error });
       setNotifications([]);
-      setNotificationsError(t.dashboard.settings.mailAccountsPanel.loadError);
+      setNotificationsError(t.settings.mailAccountsPanel.loadError);
     } finally {
       setNotificationsLoading(false);
     }

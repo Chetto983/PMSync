@@ -77,7 +77,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
     >
       {/* AI Compose - Always show, important for mobile */}
       {onAiCompose && (
-        <Tooltip title={t.dashboard?.email?.composer?.aiCompose ?? 'AI compose'}>
+        <Tooltip title={t.email?.composer?.aiCompose ?? 'AI compose'}>
           <span>
             <IconButton
               size="small"
@@ -96,7 +96,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
       )}
 
       {/* Undo/Redo - Show on both */}
-      <Tooltip title={t.dashboard.email.composer.undo}>
+      <Tooltip title={t.email.composer.undo}>
         <span>
           <IconButton
             size="small"
@@ -113,7 +113,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
         </span>
       </Tooltip>
 
-      <Tooltip title={t.dashboard.email.composer.redo}>
+      <Tooltip title={t.email.composer.redo}>
         <span>
           <IconButton
             size="small"
@@ -133,7 +133,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
       <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
       {/* Text Formatting - Essential buttons first */}
-      <Tooltip title={t.dashboard.email.composer.bold}>
+      <Tooltip title={t.email.composer.bold}>
         <IconButton
           size="small"
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -148,7 +148,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
         </IconButton>
       </Tooltip>
 
-      <Tooltip title={t.dashboard.email.composer.italic}>
+      <Tooltip title={t.email.composer.italic}>
         <IconButton
           size="small"
           onClick={() => editor.chain().focus().toggleItalic().run()}
@@ -163,7 +163,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
       </Tooltip>
 
       {/* Lists - Essential for mobile */}
-      <Tooltip title={t.dashboard.email.composer.bulletList}>
+      <Tooltip title={t.email.composer.bulletList}>
         <IconButton
           size="small"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -180,7 +180,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
       {/* Desktop-only buttons */}
       {!compact && (
         <>
-          <Tooltip title={t.dashboard.email.composer.underline}>
+          <Tooltip title={t.email.composer.underline}>
             <IconButton
               size="small"
               onClick={() => editor.chain().focus().toggleUnderline().run()}
@@ -194,7 +194,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
             </IconButton>
           </Tooltip>
 
-          <Tooltip title={t.dashboard.email.composer.strikethrough}>
+          <Tooltip title={t.email.composer.strikethrough}>
             <IconButton
               size="small"
               onClick={() => editor.chain().focus().toggleStrike().run()}
@@ -211,7 +211,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
           {/* Headings - Desktop only */}
-          <Tooltip title={t.dashboard.email.composer.heading1}>
+          <Tooltip title={t.email.composer.heading1}>
             <IconButton
               size="small"
               onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -225,7 +225,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
             </IconButton>
           </Tooltip>
 
-          <Tooltip title={t.dashboard.email.composer.heading2}>
+          <Tooltip title={t.email.composer.heading2}>
             <IconButton
               size="small"
               onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
@@ -239,7 +239,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
             </IconButton>
           </Tooltip>
 
-          <Tooltip title={t.dashboard.email.composer.heading3}>
+          <Tooltip title={t.email.composer.heading3}>
             <IconButton
               size="small"
               onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
@@ -255,7 +255,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
 
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-          <Tooltip title={t.dashboard.email.composer.numberedList}>
+          <Tooltip title={t.email.composer.numberedList}>
             <IconButton
               size="small"
               onClick={() => editor.chain().focus().toggleOrderedList().run()}
@@ -272,7 +272,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
           {/* Blockquote - Desktop only */}
-          <Tooltip title={t.dashboard.email.composer.quote}>
+          <Tooltip title={t.email.composer.quote}>
             <IconButton
               size="small"
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
