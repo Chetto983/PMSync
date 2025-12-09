@@ -28,6 +28,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const returnToPath = '/auth/register';
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -225,8 +226,7 @@ export default function RegisterPage() {
                     <Typography variant="body2" color="text.secondary">
                       {copy.form.agreeToTerms}{' '}
                       <Link
-                        href="/terms"
-                        target="_blank"
+                        href={{ pathname: '/terms', query: { from: returnToPath } }}
                         style={{ color: 'inherit', textDecoration: 'underline' }}
                       >
                         {copy.form.termsOfService}
@@ -247,8 +247,7 @@ export default function RegisterPage() {
                     <Typography variant="body2" color="text.secondary">
                       {copy.form.agreeToTerms}{' '}
                       <Link
-                        href="/privacy"
-                        target="_blank"
+                        href={{ pathname: '/privacy', query: { from: returnToPath } }}
                         style={{ color: 'inherit', textDecoration: 'underline' }}
                       >
                         {copy.form.privacyPolicy}

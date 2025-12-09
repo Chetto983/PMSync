@@ -8,6 +8,11 @@ export default function TermsOfService() {
 
   const handleBack = (event: React.MouseEvent) => {
     event.preventDefault();
+    const returnTo = Array.isArray(router.query.from) ? router.query.from[0] : router.query.from;
+    if (returnTo) {
+      router.push(returnTo);
+      return;
+    }
     if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer) {
       router.back();
       return;

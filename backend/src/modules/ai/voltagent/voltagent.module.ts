@@ -44,7 +44,7 @@ import { ActionExecutorService } from './services/action-executor.service';
 import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
 // Memory services (2025 Best Practices)
-import { VoltAgentMemoryService, SessionBridgeService } from './memory';
+import { VoltAgentMemoryService, SessionBridgeService, SummarizationQueueService } from './memory';
 // Consolidated AI services
 import { PersonalizationService } from './services/personalization.service';
 import { WritingStyleService } from './services/writing-style.service';
@@ -81,6 +81,7 @@ import { LlmTelemetryService } from './observability/telemetry';
     // Memory services (2025 Best Practices)
     VoltAgentMemoryService,
     SessionBridgeService,
+    SummarizationQueueService,
     // Consolidated AI services (Step 8)
     PersonalizationService,
     WritingStyleService,
@@ -103,6 +104,7 @@ import { LlmTelemetryService } from './observability/telemetry';
     // Memory services
     VoltAgentMemoryService,
     SessionBridgeService,
+    SummarizationQueueService,
     // Consolidated AI services
     PersonalizationService,
     WritingStyleService,
