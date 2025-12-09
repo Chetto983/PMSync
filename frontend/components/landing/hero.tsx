@@ -133,6 +133,7 @@ export function Hero() {
               sx={{
                 position: 'relative',
                 animation: `${pulse} 4s ease-in-out infinite`,
+                width: { xs: 'min(260px, 70vw)', sm: 'min(320px, 70vw)', md: 400 },
               }}
             >
              <Image
@@ -140,6 +141,11 @@ export function Hero() {
                 alt="PMSync logo"
                 width={400}
                 height={400}
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  maxWidth: '100%',
+                }}
                 priority
               />
             </Box>

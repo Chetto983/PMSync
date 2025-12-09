@@ -6,15 +6,21 @@ import { ArrowLeft } from 'lucide-react';
 export default function TermsOfService() {
   const router = useRouter();
 
+  const handleBack = (event: React.MouseEvent) => {
+    event.preventDefault();
+    if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer) {
+      router.back();
+      return;
+    }
+    router.push('/');
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', py: 4 }}>
       <Container maxWidth="md">
         <Link
           href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            router.back();
-          }}
+          onClick={handleBack}
           sx={{
             display: 'inline-flex',
             alignItems: 'center',

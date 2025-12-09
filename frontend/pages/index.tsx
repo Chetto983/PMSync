@@ -12,15 +12,8 @@ import {
   alpha,
   useTheme,
   Stack,
-  IconButton,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
 } from '@mui/material';
-import { Menu, X, ArrowRight } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowRight } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -40,7 +33,6 @@ export default function Home() {
   const t = useTranslations();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -152,7 +144,6 @@ export default function Home() {
                 href="/auth/login"
                 variant="text"
                 sx={{
-                  display: { xs: 'none', sm: 'inline-flex' },
                   px: 2.5,
                   fontWeight: 600,
                   color: 'text.secondary',
@@ -166,7 +157,6 @@ export default function Home() {
                 component={Link}
                 href="/auth/register"
                 sx={{
-                  display: { xs: 'none', sm: 'inline-flex' },
                   px: 3,
                   py: 1,
                   fontWeight: 600,
@@ -183,80 +173,10 @@ export default function Home() {
               >
                 {t.nav.register}
               </Button>
-
-              {/* Mobile Menu Button */}
-              <IconButton
-                sx={{ display: { md: 'none' } }}
-                onClick={() => setMobileMenuOpen(true)}
-              >
-                <Menu size={24} />
-              </IconButton>
             </Stack>
           </Toolbar>
         </Container>
       </AppBar>
-
-      {/* Mobile Drawer */}
-      <Drawer
-        anchor="right"
-        open={mobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
-        PaperProps={{
-          sx: {
-            width: 280,
-            bgcolor: 'background.paper',
-            backgroundImage: 'none',
-          },
-        }}
-      >
-        <Box sx={{ p: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-            <Image src="/Logo PMSync.svg" alt={t.app.name} width={40} height={40} />
-            <IconButton onClick={() => setMobileMenuOpen(false)}>
-              <X size={24} />
-            </IconButton>
-          </Stack>
-
-          <List>
-            {navLinks.map((link) => (
-              <ListItem key={link.href} disablePadding>
-                <ListItemButton
-                  component="a"
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  sx={{ borderRadius: 2, mb: 0.5 }}
-                >
-                  <ListItemText primary={link.label} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-
-          <Stack spacing={2} sx={{ mt: 3 }}>
-            <Button
-              component={Link}
-              href="/auth/login"
-              variant="outlined"
-              fullWidth
-              sx={{ borderRadius: 2 }}
-            >
-              {t.nav.login}
-            </Button>
-            <Button
-              component={Link}
-              href="/auth/register"
-              fullWidth
-              sx={{
-                borderRadius: 2,
-                background: pmSyncColors.brand.gradient,
-              }}
-              endIcon={<ArrowRight size={16} />}
-            >
-              {t.nav.register}
-            </Button>
-          </Stack>
-        </Box>
-      </Drawer>
 
       {/* Main Content */}
       <Box component="main">
