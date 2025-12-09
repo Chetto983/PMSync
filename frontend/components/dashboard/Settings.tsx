@@ -66,6 +66,7 @@ import {
 } from '@/lib/api/personalization';
 import { multiAgentApi } from '@/lib/api/ai';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { useAuthStore } from '@/stores/auth-store';
 import { logger } from '@/lib/logger';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { GoogleProviderCard } from '@/components/providers/GoogleProviderCard';
@@ -451,6 +452,9 @@ export function Settings() {
     loadProviders();
   }, [loadProviders]);
 
+  // Get logout function from auth store
+  const logout = useAuthStore((state) => state.logout);
+
   // Delete account handler
   const handleDeleteAccount = useCallback(async () => {
     // Determine the confirmation word based on locale
@@ -463,7 +467,8 @@ export function Settings() {
       setDeleteLoading(true);
       setDeleteError('');
       await usersApi.deleteAccount();
-      // Redirect to login after successful deletion
+      // Clear auth state and redirect to login
+      logout();
       router.push('/login');
     } catch (error) {
       logger.error('Failed to delete account', { error });
@@ -471,7 +476,7 @@ export function Settings() {
     } finally {
       setDeleteLoading(false);
     }
-  }, [deleteConfirmText, language, router, copy.account.deleteDialogError]);
+  }, [deleteConfirmText, language, router, copy.account.deleteDialogError, logout]);
 
   const handleCloseDeleteDialog = useCallback(() => {
     setDeleteDialogOpen(false);
