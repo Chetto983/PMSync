@@ -912,20 +912,36 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                 </Typography>
                 <Box sx={{ flex: 1 }} />
                 {onManageLabels && (
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
+                  <Box
+                    component="span"
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e: React.MouseEvent) => {
                       e.stopPropagation();
                       onManageLabels();
+                    }}
+                    onKeyDown={(e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation();
+                        onManageLabels();
+                      }
                     }}
                     sx={{
                       width: 28,
                       height: 28,
                       mr: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '50%',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
                     }}
                   >
                     <Settings size={14} />
-                  </IconButton>
+                  </Box>
                 )}
               </Stack>
             </AccordionSummary>

@@ -516,24 +516,24 @@ export function Header({
           </MenuItem>
 
           {/* Mobile-only options */}
+          {isMobile && <Divider />}
           {isMobile && (
-            <>
-              <Divider />
-              <MenuItem onClick={handleLanguageOpen} sx={{ py: 1.25 }}>
-                <ListItemIcon>
-                  <Languages size={18} />
-                </ListItemIcon>
-                <ListItemText>
-                  {t.nav.language}: {locale === 'en' ? 'EN' : 'IT'}
-                </ListItemText>
-              </MenuItem>
-              <MenuItem onClick={onThemeToggle} sx={{ py: 1.25 }}>
-                <ListItemIcon>
-                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                </ListItemIcon>
-                <ListItemText>{isDarkMode ? t.nav.lightMode : t.nav.darkMode}</ListItemText>
-              </MenuItem>
-            </>
+            <MenuItem onClick={handleLanguageOpen} sx={{ py: 1.25 }}>
+              <ListItemIcon>
+                <Languages size={18} />
+              </ListItemIcon>
+              <ListItemText>
+                {t.nav.language}: {locale === 'en' ? 'EN' : 'IT'}
+              </ListItemText>
+            </MenuItem>
+          )}
+          {isMobile && (
+            <MenuItem onClick={onThemeToggle} sx={{ py: 1.25 }}>
+              <ListItemIcon>
+                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </ListItemIcon>
+              <ListItemText>{isDarkMode ? t.nav.lightMode : t.nav.darkMode}</ListItemText>
+            </MenuItem>
           )}
 
           <Divider />

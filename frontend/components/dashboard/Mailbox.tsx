@@ -445,12 +445,26 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     },
   });
 
-  // Handle email click
-  const handleEmailClick = useCallback((thread: Email | Conversation) => {
+  // Handle email click - supports both Email and Conversation types
+  const handleEmailClick = useCallback(async (thread: Email | Conversation) => {
     if ('providerId' in thread) {
+      // Direct Email object - use original handler
       handleEmailClickOriginal(thread as Email);
+    } else if ('latestEmailId' in thread && thread.latestEmailId) {
+      // Conversation object - fetch the latest email and display it
+      try {
+        const response = await emailApi.getEmail(thread.latestEmailId);
+        setSelectedEmail(response.data);
+      } catch (error) {
+        logger.error('Failed to open conversation email', { error });
+        setSnackbar({
+          open: true,
+          message: t.email.messages.failedToOpenEmail ?? 'Failed to open email',
+          severity: 'error',
+        });
+      }
     }
-  }, [handleEmailClickOriginal]);
+  }, [handleEmailClickOriginal, setSelectedEmail, setSnackbar, t.email.messages.failedToOpenEmail]);
 
   // Handle AI search result click
   const handleAISearchResultClick = useCallback(async (item: MemorySearchItem) => {
