@@ -30,7 +30,7 @@ import { MistralBatchService } from './services/mistral-batch.service';
 import { ActionSeverity } from './interfaces/agent-action.interface';
 import { createSupervisorAgent } from './agents';
 import { getLocale, type SupportedLocale } from './locales';
-import { createMemory, VoltAgentMemoryService, TOKEN_BUDGET_CONFIG } from './memory';
+import { createMemory, VoltAgentMemoryService } from './memory';
 import { createObservabilityHooks, type AgentMetrics } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import {

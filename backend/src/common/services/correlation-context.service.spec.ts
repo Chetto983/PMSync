@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from '@jest/globals';
 import {
   CorrelationContextService,
   CorrelationContext,
-  CorrelationData,
+  type CorrelationData as _CorrelationData,
 } from './correlation-context.service';
 
 describe('CorrelationContextService', () => {

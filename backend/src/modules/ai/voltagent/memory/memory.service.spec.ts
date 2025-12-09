@@ -12,7 +12,7 @@ import { MistralService } from '../../services/mistral.service';
 describe('VoltAgentMemoryService', () => {
   let service: VoltAgentMemoryService;
   let prisma: jest.Mocked<PrismaService>;
-  let mistralService: jest.Mocked<MistralService>;
+  let _mistralService: jest.Mocked<MistralService>;
 
   const mockContext = {
     tenantId: 'tenant-123',
@@ -58,7 +58,7 @@ describe('VoltAgentMemoryService', () => {
 
     service = module.get<VoltAgentMemoryService>(VoltAgentMemoryService);
     prisma = module.get(PrismaService);
-    mistralService = module.get(MistralService);
+    _mistralService = module.get(MistralService);
   });
 
   afterEach(() => {

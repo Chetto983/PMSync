@@ -342,7 +342,7 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
         if (!exists) {
           return; // Lock released
         }
-      } catch (error) {
+      } catch {
         // On error, stop waiting
         return;
       }

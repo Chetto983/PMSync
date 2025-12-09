@@ -309,7 +309,18 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
       err.retryAfter;
 
     if (retryAfter !== undefined && retryAfter !== null) {
-      const parsed = parseInt(String(retryAfter), 10);
+      // Handle different types: number, string, or object
+      let retryValue: string;
+      if (typeof retryAfter === 'number') {
+        retryValue = retryAfter.toString();
+      } else if (typeof retryAfter === 'string') {
+        retryValue = retryAfter;
+      } else if (typeof retryAfter === 'object') {
+        retryValue = JSON.stringify(retryAfter);
+      } else {
+        retryValue = String(retryAfter as string | number);
+      }
+      const parsed = parseInt(retryValue, 10);
       if (!isNaN(parsed) && parsed > 0) {
         return parsed;
       }

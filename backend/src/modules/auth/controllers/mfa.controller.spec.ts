@@ -10,9 +10,9 @@ import { Request as ExpressRequest } from 'express';
 
 describe('MfaController', () => {
   let controller: MfaController;
-  let totpService: TotpService;
-  let backupCodesService: BackupCodesService;
-  let trustedDeviceService: TrustedDeviceService;
+  let _totpService: TotpService;
+  let _backupCodesService: BackupCodesService;
+  let _trustedDeviceService: TrustedDeviceService;
 
   const mockTotpService = {
     isEnabled: jest.fn(),
@@ -76,9 +76,9 @@ describe('MfaController', () => {
     }).compile();
 
     controller = module.get<MfaController>(MfaController);
-    totpService = module.get(TotpService);
-    backupCodesService = module.get(BackupCodesService);
-    trustedDeviceService = module.get(TrustedDeviceService);
+    _totpService = module.get(TotpService);
+    _backupCodesService = module.get(BackupCodesService);
+    _trustedDeviceService = module.get(TrustedDeviceService);
 
     jest.clearAllMocks();
   });

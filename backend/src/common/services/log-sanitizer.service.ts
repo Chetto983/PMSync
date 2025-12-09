@@ -178,7 +178,7 @@ export class LogSanitizerService {
   /**
    * Sanitize error for logging
    */
-  sanitizeError(error: Error | unknown): Record<string, any> {
+  sanitizeError(error: unknown): Record<string, unknown> {
     if (error instanceof Error) {
       return {
         name: error.name,

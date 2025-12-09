@@ -90,7 +90,7 @@ export class ImapService implements OnModuleDestroy {
       const pooled = this.connectionPool.get(key);
       if (pooled) {
         this.logger.debug(`Closing idle IMAP connection: ${key}`);
-        this.safeLogout(pooled.client);
+        void this.safeLogout(pooled.client);
         this.connectionPool.delete(key);
       }
     }
@@ -168,7 +168,7 @@ export class ImapService implements OnModuleDestroy {
     return {
       client,
       release: () => {
-        this.safeLogout(client);
+        void this.safeLogout(client);
       },
     };
   }
