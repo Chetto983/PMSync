@@ -87,6 +87,14 @@ export interface AgentAction {
     boost: number;
     profileAttempts: number;
   };
+  /**
+   * Idempotency key to prevent duplicate action execution on retries.
+   * If provided, the action executor will skip execution if this key
+   * was already executed within the TTL window (default: 5 minutes).
+   *
+   * Recommended format: `${tenantId}:${actionType}:${uniquePayloadHash}`
+   */
+  idempotencyKey?: string;
 }
 
 /**

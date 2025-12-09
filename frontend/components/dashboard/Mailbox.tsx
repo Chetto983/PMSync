@@ -330,11 +330,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     setSyncLoading(true);
     try {
       await Promise.all(providers.map((p) => emailApi.syncProvider(p.id)));
-      setSyncStatusMessage('Sync triggered for all providers');
+      setSyncStatusMessage(t.dashboard.email.messages.syncTriggered ?? 'Sync triggered for all providers');
       const res = await emailApi.getStats();
       setEmailStats({ total: res.data.total, unread: res.data.unread, starred: res.data.starred });
     } catch {
-      setSyncStatusMessage('Sync failed');
+      setSyncStatusMessage(t.dashboard.email.messages.syncFailed ?? 'Sync failed');
     } finally {
       setSyncLoading(false);
     }
@@ -405,7 +405,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       console.error('Failed to open email from AI search:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to open email',
+        message: t.dashboard.email.messages.failedToOpenEmail ?? 'Failed to open email',
         severity: 'error',
       });
     }
@@ -1050,7 +1050,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       await emailApi.bulkFlag(emailIds, true);
       setSnackbar({
         open: true,
-        message: `Marked ${emailIds.length} email(s) as important`,
+        message: (t.dashboard.email.messages.markedImportant ?? 'Marked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
@@ -1059,7 +1059,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       storeMarkAsImportant(emailIds, false);
       setSnackbar({
         open: true,
-        message: 'Failed to mark as important. Please try again.',
+        message: t.dashboard.email.messages.markedImportantFailed ?? 'Failed to mark as important. Please try again.',
         severity: 'error',
       });
     }
@@ -1083,7 +1083,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       await emailApi.bulkFlag(emailIds, false);
       setSnackbar({
         open: true,
-        message: `Unmarked ${emailIds.length} email(s) as important`,
+        message: (t.dashboard.email.messages.unmarkedImportant ?? 'Unmarked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
@@ -1092,7 +1092,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       storeMarkAsImportant(emailIds, true);
       setSnackbar({
         open: true,
-        message: 'Failed to unmark as important. Please try again.',
+        message: t.dashboard.email.messages.unmarkedImportantFailed ?? 'Failed to unmark as important. Please try again.',
         severity: 'error',
       });
     }
@@ -1378,7 +1378,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const listLoading = storeLoading;
   const hasMoreItems = _pagination.hasMore;
   const onLoadMoreThreads = loadMoreEmails;
-  const emptyState = { ...getEmptyState(), subtitle: `${getEmptyState().subtitle} ${(t as any)?.dashboard?.email?.actions?.syncNow || 'Try syncing now or adjust filters.'}`.trim() };
+  const emptyState = { ...getEmptyState(), subtitle: `${getEmptyState().subtitle} ${t.dashboard.email.messages.trySyncOrFilter ?? 'Try syncing now or adjust filters.'}`.trim() };
 
 
 

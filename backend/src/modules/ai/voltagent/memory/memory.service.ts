@@ -69,6 +69,22 @@ export interface MemoryRetrievalResult {
 }
 
 /**
+ * Token budget configuration for different model tiers
+ */
+export const TOKEN_BUDGET_CONFIG = {
+  /** Default budget for most conversations (Mistral small) */
+  default: 4000,
+  /** Extended budget for complex tasks (Mistral medium/large) */
+  extended: 8000,
+  /** Compact budget for simple queries */
+  compact: 2000,
+  /** Reserve tokens for system prompt and response */
+  systemReserve: 500,
+  /** Reserve tokens for model response */
+  responseReserve: 1000,
+};
+
+/**
  * Summarization threshold configuration
  */
 const SUMMARIZATION_CONFIG = {
@@ -79,8 +95,30 @@ const SUMMARIZATION_CONFIG = {
   /** Max messages to summarize in one batch */
   batchSize: 15,
   /** Max token estimate for context window */
-  maxContextTokens: 4000,
+  maxContextTokens: TOKEN_BUDGET_CONFIG.default,
+  /** Min messages before LLM summarization (use rule-based for fewer) */
+  llmSummarizationThreshold: 5,
 };
+
+/**
+ * Token budget result interface
+ */
+export interface TokenBudgetResult {
+  /** Messages that fit within the budget */
+  messages: MemoryMessage[];
+  /** Summaries included for context */
+  summaries: string[];
+  /** Total tokens used */
+  totalTokens: number;
+  /** Budget limit used */
+  budgetLimit: number;
+  /** Whether messages were truncated */
+  wasTruncated: boolean;
+  /** Number of messages dropped due to budget */
+  messagesDropped: number;
+  /** Whether summarization was triggered */
+  summarizationTriggered: boolean;
+}
 
 @Injectable()
 export class VoltAgentMemoryService {
@@ -271,6 +309,297 @@ export class VoltAgentMemoryService {
       totalMessages,
       hasMore: totalMessages > limit,
     };
+  }
+
+  /**
+   * Get conversation context optimized for a specific token budget.
+   * Implements intelligent truncation and on-demand summarization.
+   *
+   * Strategy:
+   * 1. Always include system messages and recent context
+   * 2. Include summaries of older conversation
+   * 3. Truncate oldest messages first if budget exceeded
+   * 4. Trigger LLM summarization if significant context is lost
+   *
+   * @param ctx - Conversation context
+   * @param budget - Token budget type ('default' | 'extended' | 'compact') or number
+   * @param currentMessage - Current user message to include in budget calculation
+   */
+  async getContextWithBudget(
+    ctx: ConversationContext,
+    budget: keyof typeof TOKEN_BUDGET_CONFIG | number = 'default',
+    currentMessage?: string,
+  ): Promise<TokenBudgetResult> {
+    const budgetLimit = typeof budget === 'number'
+      ? budget
+      : TOKEN_BUDGET_CONFIG[budget];
+
+    // Reserve space for system prompt, current message, and response
+    const availableBudget = budgetLimit
+      - TOKEN_BUDGET_CONFIG.systemReserve
+      - TOKEN_BUDGET_CONFIG.responseReserve
+      - (currentMessage ? this.estimateTokens(currentMessage) : 0);
+
+    const { id: conversationId, isNew } = await this.getOrCreateConversation(ctx);
+
+    if (isNew) {
+      return {
+        messages: [],
+        summaries: [],
+        totalTokens: 0,
+        budgetLimit,
+        wasTruncated: false,
+        messagesDropped: 0,
+        summarizationTriggered: false,
+      };
+    }
+
+    // Get all messages (we'll filter by budget)
+    const allMessages = await this.prisma.voltAgentMessage.findMany({
+      where: {
+        conversationId,
+        tenantId: ctx.tenantId,
+      },
+      orderBy: { messageIndex: 'desc' },
+      select: {
+        role: true,
+        content: true,
+        toolCalls: true,
+        toolResults: true,
+        tokenCount: true,
+        metadata: true,
+        messageIndex: true,
+      },
+    });
+
+    // Get existing summaries
+    const summaryRecords = await this.prisma.conversationSummary.findMany({
+      where: {
+        conversationId,
+        tenantId: ctx.tenantId,
+      },
+      orderBy: { startMessageIndex: 'desc' },
+      take: 3,
+      select: { summary: true, summaryTokens: true },
+    });
+
+    // Calculate summary tokens
+    let summaryTokens = 0;
+    const summaries: string[] = [];
+    for (const s of summaryRecords) {
+      const tokens = s.summaryTokens ?? this.estimateTokens(s.summary);
+      if (summaryTokens + tokens <= availableBudget * 0.2) { // Max 20% of budget for summaries
+        summaries.push(s.summary);
+        summaryTokens += tokens;
+      }
+    }
+
+    // Fill remaining budget with recent messages
+    const remainingBudget = availableBudget - summaryTokens;
+    const includedMessages: MemoryMessage[] = [];
+    let totalTokens = summaryTokens;
+    let messagesDropped = 0;
+
+    // Process messages from most recent to oldest
+    for (const m of allMessages) {
+      const tokenCount = m.tokenCount ?? this.estimateTokens(m.content);
+
+      if (totalTokens + tokenCount <= remainingBudget + summaryTokens) {
+        totalTokens += tokenCount;
+        includedMessages.push({
+          role: m.role as MessageRole,
+          content: m.content,
+          toolCalls: m.toolCalls as MemoryMessage['toolCalls'],
+          toolResults: m.toolResults as MemoryMessage['toolResults'],
+          tokenCount,
+          metadata: m.metadata as MemoryMessage['metadata'],
+        });
+      } else {
+        messagesDropped++;
+      }
+    }
+
+    // Reverse to chronological order
+    includedMessages.reverse();
+
+    const wasTruncated = messagesDropped > 0;
+    let summarizationTriggered = false;
+
+    // If we dropped significant messages, trigger async summarization
+    if (messagesDropped >= SUMMARIZATION_CONFIG.llmSummarizationThreshold) {
+      this.logger.debug(
+        `Token budget exceeded: dropped ${messagesDropped} messages, triggering summarization`,
+      );
+      // Trigger summarization in background (don't await)
+      this.triggerLlmSummarization(conversationId, ctx).catch((err) =>
+        this.logger.error('Background summarization failed', err),
+      );
+      summarizationTriggered = true;
+    }
+
+    return {
+      messages: includedMessages,
+      summaries,
+      totalTokens,
+      budgetLimit,
+      wasTruncated,
+      messagesDropped,
+      summarizationTriggered,
+    };
+  }
+
+  /**
+   * Trigger LLM-powered summarization for long conversations.
+   * Called when token budget is exceeded significantly.
+   */
+  private async triggerLlmSummarization(
+    conversationId: string,
+    ctx: ConversationContext,
+  ): Promise<void> {
+    const conversation = await this.prisma.voltAgentConversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        messageCount: true,
+        summaryUpToIndex: true,
+      },
+    });
+
+    if (!conversation) return;
+
+    const unsummarizedStart = conversation.summaryUpToIndex ?? 0;
+    const totalMessages = conversation.messageCount;
+    const unsummarizedCount = totalMessages - unsummarizedStart;
+
+    // Only summarize if we have enough unsummarized messages
+    if (unsummarizedCount < SUMMARIZATION_CONFIG.llmSummarizationThreshold) {
+      return;
+    }
+
+    // Get messages to summarize (excluding recent ones)
+    const messagesToSummarizeCount = Math.min(
+      unsummarizedCount - SUMMARIZATION_CONFIG.keepRecentCount,
+      SUMMARIZATION_CONFIG.batchSize,
+    );
+
+    if (messagesToSummarizeCount <= 0) return;
+
+    const messages = await this.prisma.voltAgentMessage.findMany({
+      where: {
+        conversationId,
+        messageIndex: {
+          gte: unsummarizedStart,
+          lt: unsummarizedStart + messagesToSummarizeCount,
+        },
+      },
+      orderBy: { messageIndex: 'asc' },
+      select: { role: true, content: true, messageIndex: true },
+    });
+
+    if (messages.length === 0) return;
+
+    const startIndex = messages[0].messageIndex;
+    const endIndex = messages[messages.length - 1].messageIndex;
+
+    try {
+      // Use LLM for summarization if available and enough messages
+      let summary: { text: string; keyFacts: Array<{ fact: string; importance: number }>; topics: string[] };
+
+      if (messages.length >= SUMMARIZATION_CONFIG.llmSummarizationThreshold) {
+        summary = await this.generateLlmSummary(messages, ctx.locale);
+      } else {
+        summary = this.generateRuleBasedSummary(messages, ctx.locale);
+      }
+
+      // Store summary with embedding for semantic search
+      let vector: number[] | undefined;
+      try {
+        vector = await this.mistralService.generateEmbedding(summary.text);
+      } catch {
+        this.logger.debug('Failed to generate embedding for summary, storing without vector');
+      }
+
+      await this.prisma.conversationSummary.create({
+        data: {
+          conversationId,
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
+          summary: summary.text,
+          startMessageIndex: startIndex,
+          endMessageIndex: endIndex,
+          messageCountCovered: messages.length,
+          keyFacts: summary.keyFacts as Prisma.InputJsonValue,
+          topics: summary.topics,
+          summaryTokens: this.estimateTokens(summary.text),
+          ...(vector ? { vector } : {}),
+        },
+      });
+
+      // Update conversation
+      await this.prisma.voltAgentConversation.update({
+        where: { id: conversationId },
+        data: {
+          isSummarized: true,
+          summaryUpToIndex: endIndex + 1,
+        },
+      });
+
+      this.logger.log(`LLM summarized messages ${startIndex}-${endIndex} for conversation ${conversationId}`);
+    } catch (error) {
+      this.logger.error('LLM summarization failed', error);
+    }
+  }
+
+  /**
+   * Generate summary using LLM (Mistral).
+   * More accurate than rule-based for longer conversations.
+   */
+  private async generateLlmSummary(
+    messages: Array<{ role: string; content: string }>,
+    locale?: string,
+  ): Promise<{ text: string; keyFacts: Array<{ fact: string; importance: number }>; topics: string[] }> {
+    const isItalian = locale?.startsWith('it');
+
+    // Format messages for LLM
+    const transcript = messages
+      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 500)}`)
+      .join('\n');
+
+    const systemPrompt = isItalian
+      ? `Sei un assistente che riassume conversazioni. Crea un riassunto conciso che catturi:
+1. Gli argomenti principali discussi
+2. Le richieste chiave dell'utente
+3. Le azioni o risposte importanti
+Rispondi in formato JSON: {"summary": "...", "topics": ["..."], "keyFacts": [{"fact": "...", "importance": 0.8}]}`
+      : `You are a conversation summarizer. Create a concise summary capturing:
+1. Main topics discussed
+2. Key user requests
+3. Important actions or responses
+Reply in JSON format: {"summary": "...", "topics": ["..."], "keyFacts": [{"fact": "...", "importance": 0.8}]}`;
+
+    try {
+      const response = await this.mistralService.completePrompt({
+        systemPrompt,
+        userPrompt: `Conversation to summarize:\n${transcript}`,
+        temperature: 0.3,
+        maxTokens: 300,
+      });
+
+      // Parse JSON response
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          text: parsed.summary || this.generateRuleBasedSummary(messages, locale).text,
+          keyFacts: parsed.keyFacts || [],
+          topics: parsed.topics || [],
+        };
+      }
+    } catch (error) {
+      this.logger.warn('LLM summarization failed, falling back to rule-based', error);
+    }
+
+    // Fallback to rule-based
+    return this.generateRuleBasedSummary(messages, locale);
   }
 
   /**
@@ -524,7 +853,7 @@ export class VoltAgentMemoryService {
     const endIndex = messages[messages.length - 1].messageIndex;
 
     try {
-      const summary = this.generateSummary(messages, ctx.locale);
+      const summary = this.generateRuleBasedSummary(messages, ctx.locale);
 
       // Store summary
       await this.prisma.conversationSummary.create({
@@ -558,11 +887,11 @@ export class VoltAgentMemoryService {
   }
 
   /**
-   * Generate a summary of messages.
-   * Uses efficient rule-based extraction for memory compression.
+   * Generate a summary of messages using rule-based extraction.
+   * Fast and reliable fallback for memory compression.
    * Keeps key information while reducing token count.
    */
-  private generateSummary(
+  private generateRuleBasedSummary(
     messages: Array<{ role: string; content: string }>,
     locale?: string,
   ): { text: string; keyFacts: Array<{ fact: string; importance: number }>; topics: string[] } {

@@ -308,7 +308,19 @@ export class MicrosoftEmailProvider extends BaseEmailProvider implements IEmailP
 
   // ==================== Sync Operations ====================
 
+  /**
+   * @deprecated This method provides only a basic delta listing and should NOT be used
+   * for actual email synchronization. Use MicrosoftSyncService for proper incremental sync,
+   * which handles delta tracking, error aggregation, and proper state management.
+   *
+   * This implementation exists only for interface compatibility and returns
+   * misleading results (e.g., updatedEmails/deletedEmails are always 0).
+   */
   async syncEmails(options: SyncOptions): Promise<SyncResult> {
+    this.logger.warn(
+      'syncEmails() is deprecated. Use MicrosoftSyncService for proper incremental sync.',
+    );
+
     return this.withErrorHandling('syncEmails', async () => {
       const query: any = {};
       if (options.maxMessages) query.$top = options.maxMessages;

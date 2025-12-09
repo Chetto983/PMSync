@@ -368,10 +368,14 @@ export interface IEmailProvider {
   // ==================== Sync Operations ====================
 
   /**
-   * Sync emails from provider
+   * @deprecated Sync operations should be handled by dedicated sync services
+   * (e.g., GoogleSyncService, MicrosoftSyncService) which have proper
+   * incremental sync logic, history tracking, and error aggregation.
+   * This method exists only for interface compatibility.
+   *
    * @param options - Sync options
    */
-  syncEmails(options: SyncOptions): Promise<SyncResult>;
+  syncEmails?(options: SyncOptions): Promise<SyncResult>;
 
   /**
    * Get history ID for incremental sync (Gmail specific)

@@ -14,11 +14,13 @@ export { createMemory, createTestMemory, type MemoryOptions } from './memory.con
 // Enhanced memory service (Prisma-based)
 export {
   VoltAgentMemoryService,
+  TOKEN_BUDGET_CONFIG,
   type MessageRole,
   type MemoryMessage,
   type ConversationContext,
   type HybridSearchOptions,
   type MemoryRetrievalResult,
+  type TokenBudgetResult,
 } from './memory.service';
 
 // Session bridge for legacy ChatSession migration

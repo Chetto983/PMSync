@@ -15,6 +15,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Optional, Logger } from '@nestjs/common';
 import type { Agent, Memory } from '@voltagent/core';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { EmailSendService } from '../../email/services/email-send.service';
@@ -29,7 +30,7 @@ import { MistralBatchService } from './services/mistral-batch.service';
 import { ActionSeverity } from './interfaces/agent-action.interface';
 import { createSupervisorAgent } from './agents';
 import { getLocale, type SupportedLocale } from './locales';
-import { createMemory } from './memory';
+import { createMemory, VoltAgentMemoryService, TOKEN_BUDGET_CONFIG } from './memory';
 import { createObservabilityHooks, type AgentMetrics } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import {
@@ -63,6 +64,8 @@ export interface ChatResult {
   fromCache?: boolean;
   /** Cache similarity score if from cache */
   cacheSimilarity?: number;
+  /** Whether conversation context was truncated due to token budget */
+  contextTruncated?: boolean;
 }
 
 export interface PendingAction {
@@ -139,6 +142,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly aiQueueService?: AiQueueService,
     @Optional() private readonly rateLimiterService?: RateLimiterService,
     @Optional() private readonly mistralBatchService?: MistralBatchService,
+    @Optional() private readonly voltAgentMemoryService?: VoltAgentMemoryService,
   ) {}
 
   async onModuleInit() {
@@ -346,6 +350,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    */
   async chat(message: string, options: ChatOptions): Promise<ChatResult> {
     const startTime = Date.now();
+    // Get or create correlation ID for this chat request
+    const correlationId = CorrelationContext.getCorrelationId();
+    const logPrefix = `[${correlationId}] [tenant:${options.tenantId}]`;
 
     // 0. Check rate limits (1000+ user scalability)
     if (this.rateLimiterService) {
@@ -354,7 +361,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
       if (!rateLimit.allowed) {
         this.logger.warn(
-          `Rate limit exceeded for tenant ${options.tenantId}: ${rateLimit.reason}`,
+          `${logPrefix} Rate limit exceeded: ${rateLimit.reason}`,
         );
         return {
           text: `Rate limit exceeded. Please try again in ${rateLimit.resetInSeconds} seconds.`,
@@ -372,7 +379,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       );
 
       if (cacheResult.hit && cacheResult.response) {
-        this.logger.debug(`Semantic cache hit: similarity=${cacheResult.similarity?.toFixed(3)}`);
+        this.logger.debug(`${logPrefix} Semantic cache hit: similarity=${cacheResult.similarity?.toFixed(3)}`);
         return {
           text: cacheResult.response,
           fromCache: true,
@@ -390,7 +397,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       });
       selectedModel = routing.recommendedModel;
       this.logger.debug(
-        `Model router: ${routing.recommendedModel} (${routing.complexity}, confidence=${routing.confidence.toFixed(2)})`,
+        `${logPrefix} Model router: ${routing.recommendedModel} (${routing.complexity}, confidence=${routing.confidence.toFixed(2)})`,
       );
     }
 
@@ -399,6 +406,33 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Use tenant-isolated userId for memory
     const tenantUserId = this.getTenantUserId(options.tenantId, options.userId);
+
+    // 3. Enforce token budget before LLM call (P2 Memory Optimization)
+    let contextTruncated = false;
+    if (this.voltAgentMemoryService) {
+      // Determine budget based on model tier (large models get extended budget)
+      const budgetType = selectedModel === 'large' || selectedModel === 'medium' ? 'extended' : 'default';
+
+      const budgetResult = await this.voltAgentMemoryService.getContextWithBudget(
+        {
+          tenantId: options.tenantId,
+          userId: options.userId,
+          conversationId: options.conversationId,
+          locale: options.locale,
+        },
+        budgetType,
+        message,
+      );
+
+      contextTruncated = budgetResult.wasTruncated;
+
+      if (budgetResult.wasTruncated) {
+        this.logger.debug(
+          `${logPrefix} Token budget enforced: ${budgetResult.totalTokens}/${budgetResult.budgetLimit} tokens, ` +
+          `dropped ${budgetResult.messagesDropped} messages, summarization=${budgetResult.summarizationTriggered}`,
+        );
+      }
+    }
 
     const result = await agent.generateText(message, {
       userId: tenantUserId,
@@ -475,6 +509,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       pendingActions: pendingActions.length > 0 ? pendingActions : undefined,
       model: selectedModel,
       fromCache: false,
+      contextTruncated,
     };
   }
 
@@ -573,12 +608,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         workflowResult: result,
       };
 
-      this.logger.log(`Action suspended for approval: ${executionId}`);
+      const corrId = CorrelationContext.getCorrelationId();
+      this.logger.log(`[${corrId}] [tenant:${action.tenantId}] Action suspended for approval: ${executionId}`);
       return suspended;
     }
 
     // Workflow completed (auto-approved or error)
-    this.logger.log(`Action auto-approved: ${action.actionType}`);
+    const corrId = CorrelationContext.getCorrelationId();
+    this.logger.log(`[${corrId}] [tenant:${action.tenantId}] Action auto-approved: ${action.actionType}`);
     return result.result as ApprovalResult;
   }
 
@@ -634,8 +671,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    const resumeCorrId = CorrelationContext.getCorrelationId();
     this.logger.log(
-      `Workflow resumed: ${executionId}, approved: ${decision.approved}`,
+      `[${resumeCorrId}] [tenant:${suspended.tenantId}] Workflow resumed: ${executionId}, approved: ${decision.approved}`,
     );
 
     // Return result based on decision

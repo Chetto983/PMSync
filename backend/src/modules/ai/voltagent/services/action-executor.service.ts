@@ -3,13 +3,19 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { AgentAction, AgentActionType } from '../interfaces/agent-action.interface';
 import { AgentContext } from '../interfaces/agent-context.interface';
 import { EmailSendService } from '../../../email/services/email-send.service';
+import { EmailSyncBackService } from '../../../email/services/email-sync-back.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
 import { FolderSyncService } from '../../../email-sync/services/folder-sync.service';
+import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
+import { CorrelationContext } from '../../../../common/services/correlation-context.service';
 import {
   getLocale,
   actionSummaries as t,
   formatDateForLocale,
 } from '../locales/action-summaries';
+
+/** Default TTL for idempotency keys (5 minutes) */
+const IDEMPOTENCY_TTL_SECONDS = 300;
 
 /**
  * Result of executing an action.
@@ -36,23 +42,44 @@ export class ActionExecutorService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly emailSendService: EmailSendService,
+    @Optional() private readonly emailSyncBackService: EmailSyncBackService,
     @Optional() private readonly calendarService: CalendarService,
     @Optional() @Inject(forwardRef(() => FolderSyncService))
     private readonly folderSyncService: FolderSyncService,
+    @Optional() private readonly cacheService?: CacheService,
   ) {}
 
   /**
    * Execute an action and return the result.
    * Routes to appropriate handler based on action type.
+   *
+   * Supports idempotency keys to prevent duplicate execution on retries.
+   * If an action has an idempotencyKey and was already executed within
+   * the TTL window, returns the cached result instead of re-executing.
    */
   async execute(
     action: AgentAction,
     context: AgentContext,
   ): Promise<ActionExecutionResult> {
     const startTime = Date.now();
+    // Get correlation ID from context or global context
+    const corrId = context.correlationId || CorrelationContext.getCorrelationId();
+    const logPrefix = `[${corrId}] [tenant:${context.tenantId}]`;
+
     this.logger.log(
-      `Executing action ${action.type} for tenant ${context.tenantId}`,
+      `${logPrefix} Executing action ${action.type}`,
     );
+
+    // Check idempotency key if provided
+    if (action.idempotencyKey && this.cacheService) {
+      const existingResult = await this.checkIdempotency(action.idempotencyKey);
+      if (existingResult) {
+        this.logger.log(
+          `${logPrefix} Action ${action.type} skipped - idempotency key already executed`,
+        );
+        return existingResult;
+      }
+    }
 
     try {
       let result: ActionExecutionResult;
@@ -161,19 +188,87 @@ export class ActionExecutorService {
 
       result.executionTimeMs = Date.now() - startTime;
       this.logger.log(
-        `Action ${action.type} completed in ${result.executionTimeMs}ms, success: ${result.success}`,
+        `${logPrefix} Action ${action.type} completed in ${result.executionTimeMs}ms, success: ${result.success}`,
       );
+
+      // Store idempotency key if action succeeded and key was provided
+      if (result.success && action.idempotencyKey && this.cacheService) {
+        await this.storeIdempotencyResult(action.idempotencyKey, result);
+      }
 
       return result;
     } catch (error: unknown) {
       const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`Action ${action.type} failed: ${err.message}`, err.stack);
+      this.logger.error(`${logPrefix} Action ${action.type} failed: ${err.message}`, err.stack);
       return {
         success: false,
         error: err.message,
         executionTimeMs: Date.now() - startTime,
       };
     }
+  }
+
+  // ===============================
+  // IDEMPOTENCY HELPERS
+  // ===============================
+
+  /**
+   * Check if an action with this idempotency key was already executed.
+   * Returns the cached result if found, null otherwise.
+   */
+  private async checkIdempotency(
+    idempotencyKey: string,
+  ): Promise<ActionExecutionResult | null> {
+    if (!this.cacheService) return null;
+
+    try {
+      const cached = await this.cacheService.get<ActionExecutionResult>(
+        idempotencyKey,
+        { namespace: CacheNamespace.ACTION_IDEMPOTENCY },
+      );
+      return cached ?? null;
+    } catch (error) {
+      // Log but don't fail - idempotency is best-effort
+      this.logger.warn(
+        `Failed to check idempotency key ${idempotencyKey}: ${error instanceof Error ? error.message : error}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Store the result of an action execution for idempotency.
+   */
+  private async storeIdempotencyResult(
+    idempotencyKey: string,
+    result: ActionExecutionResult,
+  ): Promise<void> {
+    if (!this.cacheService) return;
+
+    try {
+      await this.cacheService.set(idempotencyKey, result, {
+        namespace: CacheNamespace.ACTION_IDEMPOTENCY,
+        ttl: IDEMPOTENCY_TTL_SECONDS,
+      });
+      this.logger.debug(`Stored idempotency key ${idempotencyKey} (TTL: ${IDEMPOTENCY_TTL_SECONDS}s)`);
+    } catch (error) {
+      // Log but don't fail - idempotency storage is best-effort
+      this.logger.warn(
+        `Failed to store idempotency key ${idempotencyKey}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
+
+  /**
+   * Generate an idempotency key for an action based on its type and payload.
+   * Use this helper to create consistent keys for actions.
+   */
+  static generateIdempotencyKey(
+    tenantId: string,
+    actionType: AgentActionType,
+    payloadHash: string,
+  ): string {
+    return `${tenantId}:${actionType}:${payloadHash}`;
   }
 
   // ===============================
@@ -354,22 +449,49 @@ export class ActionExecutorService {
     action: AgentAction,
     context: AgentContext,
   ): Promise<ActionExecutionResult> {
-    const { emailId } = action.payload;
+    const { emailId, permanent } = action.payload;
 
-    // Get email info for summary before deleting
+    // Get email info for summary and sync
     const email = await this.prisma.email.findFirst({
       where: { id: emailId, tenantId: context.tenantId },
-      select: { subject: true, from: true },
+      select: { id: true, subject: true, from: true, externalId: true, providerId: true, folder: true },
     });
 
-    // Soft delete the email
+    if (!email) {
+      return {
+        success: false,
+        error: 'Email not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Update local database (soft delete)
     await this.prisma.email.update({
       where: { id: emailId, tenantId: context.tenantId },
-      data: { isDeleted: true },
+      data: { isDeleted: true, folder: 'TRASH' },
     });
 
+    // Sync to email provider (Gmail/Microsoft/IMAP)
+    if (this.emailSyncBackService && email.externalId && email.providerId) {
+      try {
+        await this.emailSyncBackService.syncOperationToProvider({
+          emailId: email.id,
+          externalId: email.externalId,
+          providerId: email.providerId,
+          tenantId: context.tenantId,
+          operation: permanent ? 'hardDelete' : 'delete',
+          sourceFolder: email.folder || 'INBOX',
+        });
+      } catch (syncError) {
+        this.logger.warn(
+          `Failed to sync delete to provider: ${syncError instanceof Error ? syncError.message : syncError}`,
+        );
+        // Don't fail the action - local state is updated, sync can retry
+      }
+    }
+
     const lang = getLocale(context.preferences?.language);
-    const subjectText = email?.subject || t.noSubject[lang];
+    const subjectText = email.subject || t.noSubject[lang];
 
     return {
       success: true,
@@ -385,20 +507,48 @@ export class ActionExecutorService {
   ): Promise<ActionExecutionResult> {
     const { emailId } = action.payload;
 
-    // Get email info for summary before archiving
+    // Get email info for summary and sync
     const email = await this.prisma.email.findFirst({
       where: { id: emailId, tenantId: context.tenantId },
-      select: { subject: true, from: true },
+      select: { id: true, subject: true, from: true, externalId: true, providerId: true, folder: true },
     });
 
-    // Move email to archive folder
+    if (!email) {
+      return {
+        success: false,
+        error: 'Email not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Update local database - move to archive folder
     await this.prisma.email.update({
       where: { id: emailId, tenantId: context.tenantId },
       data: { folder: 'ARCHIVE' },
     });
 
+    // Sync to email provider (Gmail/Microsoft/IMAP)
+    if (this.emailSyncBackService && email.externalId && email.providerId) {
+      try {
+        await this.emailSyncBackService.syncOperationToProvider({
+          emailId: email.id,
+          externalId: email.externalId,
+          providerId: email.providerId,
+          tenantId: context.tenantId,
+          operation: 'moveToFolder',
+          folder: 'ARCHIVE',
+          sourceFolder: email.folder || 'INBOX',
+        });
+      } catch (syncError) {
+        this.logger.warn(
+          `Failed to sync archive to provider: ${syncError instanceof Error ? syncError.message : syncError}`,
+        );
+        // Don't fail the action - local state is updated, sync can retry
+      }
+    }
+
     const lang = getLocale(context.preferences?.language);
-    const subjectText = email?.subject || t.noSubject[lang];
+    const subjectText = email.subject || t.noSubject[lang];
 
     return {
       success: true,
@@ -415,10 +565,44 @@ export class ActionExecutorService {
     const { emailId } = action.payload;
     const isRead = action.type === AgentActionType.MARK_READ;
 
+    // Get email info for sync
+    const email = await this.prisma.email.findFirst({
+      where: { id: emailId, tenantId: context.tenantId },
+      select: { id: true, externalId: true, providerId: true, folder: true },
+    });
+
+    if (!email) {
+      return {
+        success: false,
+        error: 'Email not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Update local database
     await this.prisma.email.update({
       where: { id: emailId, tenantId: context.tenantId },
       data: { isRead },
     });
+
+    // Sync to email provider (Gmail/Microsoft/IMAP)
+    if (this.emailSyncBackService && email.externalId && email.providerId) {
+      try {
+        await this.emailSyncBackService.syncOperationToProvider({
+          emailId: email.id,
+          externalId: email.externalId,
+          providerId: email.providerId,
+          tenantId: context.tenantId,
+          operation: isRead ? 'markRead' : 'markUnread',
+          sourceFolder: email.folder || 'INBOX',
+        });
+      } catch (syncError) {
+        this.logger.warn(
+          `Failed to sync read status to provider: ${syncError instanceof Error ? syncError.message : syncError}`,
+        );
+        // Don't fail the action - local state is updated, sync can retry
+      }
+    }
 
     const lang = getLocale(context.preferences?.language);
 
@@ -437,10 +621,44 @@ export class ActionExecutorService {
     const { emailId } = action.payload;
     const isStarred = action.type === AgentActionType.STAR_EMAIL;
 
+    // Get email info for sync
+    const email = await this.prisma.email.findFirst({
+      where: { id: emailId, tenantId: context.tenantId },
+      select: { id: true, externalId: true, providerId: true, folder: true },
+    });
+
+    if (!email) {
+      return {
+        success: false,
+        error: 'Email not found',
+        executionTimeMs: 0,
+      };
+    }
+
+    // Update local database
     await this.prisma.email.update({
       where: { id: emailId, tenantId: context.tenantId },
       data: { isStarred },
     });
+
+    // Sync to email provider (Gmail/Microsoft/IMAP)
+    if (this.emailSyncBackService && email.externalId && email.providerId) {
+      try {
+        await this.emailSyncBackService.syncOperationToProvider({
+          emailId: email.id,
+          externalId: email.externalId,
+          providerId: email.providerId,
+          tenantId: context.tenantId,
+          operation: isStarred ? 'star' : 'unstar',
+          sourceFolder: email.folder || 'INBOX',
+        });
+      } catch (syncError) {
+        this.logger.warn(
+          `Failed to sync star status to provider: ${syncError instanceof Error ? syncError.message : syncError}`,
+        );
+        // Don't fail the action - local state is updated, sync can retry
+      }
+    }
 
     const lang = getLocale(context.preferences?.language);
 

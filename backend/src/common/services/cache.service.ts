@@ -18,6 +18,8 @@ export enum CacheNamespace {
   VOLTAGENT_METRICS = 'voltagent:metrics',
   MULTIAGENT_METRICS = 'multiagent:metrics',
   OAUTH_STATE = 'oauth:state',
+  /** Idempotency keys for action executor to prevent duplicate execution */
+  ACTION_IDEMPOTENCY = 'action:idempotency',
 }
 
 /**

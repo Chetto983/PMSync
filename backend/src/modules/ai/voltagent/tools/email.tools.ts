@@ -233,6 +233,7 @@ export function createEmailTools(
     }),
 
     // ========== MARK READ ==========
+    // Note: This action routes through action-executor which syncs to email provider via EmailSyncBackService
     createTool({
       name: 'mark_read',
       description: 'Mark an email as read.',
@@ -249,21 +250,20 @@ export function createEmailTools(
           return { success: false, error: t.email.notFound };
         }
 
-        await prisma.email.update({
-          where: { id: emailId },
-          data: { isRead: true },
-        });
-
         const subjectText = email.subject || t.email.noSubject;
         return {
           success: true,
-          data: { emailId, isRead: true },
+          requiresApproval: true,
+          actionType: 'MARK_READ',
+          severity: 'LOW',
+          payload: { emailId },
           summary: t.email.markedRead(subjectText),
         };
       },
     }),
 
     // ========== MARK UNREAD ==========
+    // Note: This action routes through action-executor which syncs to email provider via EmailSyncBackService
     createTool({
       name: 'mark_unread',
       description: 'Mark an email as unread.',
@@ -280,21 +280,20 @@ export function createEmailTools(
           return { success: false, error: t.email.notFound };
         }
 
-        await prisma.email.update({
-          where: { id: emailId },
-          data: { isRead: false },
-        });
-
         const subjectText = email.subject || t.email.noSubject;
         return {
           success: true,
-          data: { emailId, isRead: false },
+          requiresApproval: true,
+          actionType: 'MARK_UNREAD',
+          severity: 'LOW',
+          payload: { emailId },
           summary: t.email.markedUnread(subjectText),
         };
       },
     }),
 
     // ========== STAR EMAIL ==========
+    // Note: This action routes through action-executor which syncs to email provider via EmailSyncBackService
     createTool({
       name: 'star_email',
       description: 'Star/flag an email for importance.',
@@ -311,21 +310,20 @@ export function createEmailTools(
           return { success: false, error: t.email.notFound };
         }
 
-        await prisma.email.update({
-          where: { id: emailId },
-          data: { isStarred: true },
-        });
-
         const subjectText = email.subject || t.email.noSubject;
         return {
           success: true,
-          data: { emailId, isStarred: true },
+          requiresApproval: true,
+          actionType: 'STAR_EMAIL',
+          severity: 'LOW',
+          payload: { emailId },
           summary: t.email.starred(subjectText),
         };
       },
     }),
 
     // ========== UNSTAR EMAIL ==========
+    // Note: This action routes through action-executor which syncs to email provider via EmailSyncBackService
     createTool({
       name: 'unstar_email',
       description: 'Remove star/flag from an email.',
@@ -342,15 +340,13 @@ export function createEmailTools(
           return { success: false, error: t.email.notFound };
         }
 
-        await prisma.email.update({
-          where: { id: emailId },
-          data: { isStarred: false },
-        });
-
         const subjectText = email.subject || t.email.noSubject;
         return {
           success: true,
-          data: { emailId, isStarred: false },
+          requiresApproval: true,
+          actionType: 'UNSTAR_EMAIL',
+          severity: 'LOW',
+          payload: { emailId },
           summary: t.email.unstarred(subjectText),
         };
       },

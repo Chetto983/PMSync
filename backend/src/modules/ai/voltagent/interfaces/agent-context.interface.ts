@@ -24,6 +24,12 @@ export interface AgentContext {
   /** Chat session ID (optional) */
   sessionId?: string;
 
+  /**
+   * Correlation ID for request tracing across services and logs.
+   * If not provided, services will use the session ID or generate one.
+   */
+  correlationId?: string;
+
   /** The user's message/request */
   userMessage: string;
 

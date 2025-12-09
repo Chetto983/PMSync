@@ -444,7 +444,19 @@ export class GoogleEmailProvider extends BaseEmailProvider implements IEmailProv
 
   // ==================== Sync Operations ====================
 
+  /**
+   * @deprecated This method provides only a basic listing and should NOT be used
+   * for actual email synchronization. Use GoogleSyncService.syncIncremental() instead,
+   * which properly handles history tracking, delta updates, and error aggregation.
+   *
+   * This implementation exists only for interface compatibility and returns
+   * misleading results (e.g., updatedEmails/deletedEmails are always 0).
+   */
   async syncEmails(options: SyncOptions): Promise<SyncResult> {
+    this.logger.warn(
+      'syncEmails() is deprecated. Use GoogleSyncService for proper incremental sync.',
+    );
+
     return this.withErrorHandling('syncEmails', async () => {
       if (options.syncType === 'incremental' && options.historyId) {
         const historyResult = await this.listHistory(options.historyId);

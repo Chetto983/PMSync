@@ -307,7 +307,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <Mail size={18} color="#0B7EFF" />
                         <Typography variant="subtitle2" color="text.secondary">
-                          {email.type || 'Email'} {email.primary && '(Primary)'}
+                          {email.type || detailsCopy.emailType || 'Email'} {email.primary && `(${detailsCopy.primary ?? 'Primary'})`}
                         </Typography>
                       </Box>
                       <Link href={`mailto:${email.value}`} underline="hover">
@@ -333,7 +333,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <Phone size={18} color="#00C853" />
                         <Typography variant="subtitle2" color="text.secondary">
-                          {phone.type || 'Phone'} {phone.primary && '(Primary)'}
+                          {phone.type || detailsCopy.phoneType || 'Phone'} {phone.primary && `(${detailsCopy.primary ?? 'Primary'})`}
                         </Typography>
                       </Box>
                       <Link href={`tel:${phone.value}`} underline="hover">
@@ -359,7 +359,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <MapPin size={18} color="#9C27B0" />
                         <Typography variant="subtitle2" color="text.secondary">
-                          {address.type || 'Address'}
+                          {address.type || detailsCopy.addressType || 'Address'}
                         </Typography>
                       </Box>
                       <Typography variant="body1">
@@ -478,7 +478,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <Globe size={18} color="#4CAF50" />
                         <Typography variant="subtitle2" color="text.secondary">
-                          {website.type || 'Website'}
+                          {website.type || detailsCopy.websiteType || 'Website'}
                         </Typography>
                       </Box>
                       <Link href={website.url} target="_blank" rel="noopener noreferrer" underline="hover">
@@ -515,7 +515,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                     {contactsCopy.details?.lastInteraction || 'Last Interaction'}
                   </Typography>
                 </Box>
-                <Typography variant="body1">{formatDate(lastInteraction)}</Typography>
+                <Typography variant="body1">{formatDate(lastInteraction, detailsCopy.never ?? 'Never')}</Typography>
               </CardContent>
             </Card>
           </Box>

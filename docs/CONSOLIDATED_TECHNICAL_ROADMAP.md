@@ -25,7 +25,7 @@ The following tasks should be prioritized to improve the stability, performance,
 
 | Task ID | Priority | Task | Description | Status |
 |---|---|---|---|---|
-| **SYNC-001** | **High** | Remove Misleading Code from `GoogleEmailProvider` | The `syncEmails` method in `d:\MailAgent\backend\src\modules\providers\providers\google-email.provider.ts` is non-functional and deeply misleading. It should be deleted to avoid confusing future developers. The `IEmailProvider` interface should be updated to reflect that synchronization is not the responsibility of a simple provider. | `To-Do` |
+| **SYNC-001** | **High** | Remove Misleading Code from `GoogleEmailProvider` | The `syncEmails` method in `d:\MailAgent\backend\src\modules\providers\providers\google-email.provider.ts` is non-functional and deeply misleading. It should be deleted to avoid confusing future developers. The `IEmailProvider` interface should be updated to reflect that synchronization is not the responsibility of a simple provider. | ✅ **DONE** - Marked `@deprecated` with warning log; interface updated to optional `syncEmails?()` |
 | **SYNC-002** | **Medium** | Fix Potential Race Condition in Incremental Sync | In `google-sync.service.ts`, the `syncIncremental` method should use the `historyId` from the **last page** of the `gmail.users.history.list` API response as the new sync token, not the one fetched at the start. This will prevent missed events under high load. | `To-Do` |
 | **SYNC-003** | **Medium** | Improve Inefficiency and Rate-Limit Handling | Refactor methods like `deleteThreads` and `modifyLabels` in `google-email.provider.ts` to use the Gmail API's batch endpoint (`gmail.newBatch()`). This will improve efficiency and avoid rate-limiting errors on bulk actions. | `To-Do` |
 | **SYNC-004** | **Low** | Refine Backfill Strategy | Introduce a dedicated "backfill" queue (e.g., `email-sync-backfill`) with lower concurrency. The `SyncSchedulerService` should submit jobs with `backfillRequired: true` to this queue to prevent clogging the main queues with long-running jobs. | `To-Do` |
@@ -146,10 +146,10 @@ backend/src/modules/ai/
 | Executor Summaries | P0 | Many branches return `success` without user messages | ✅ FIXED |
 | Locale Handling | P0 | Inconsistent language resolution, corrupted strings | ✅ FIXED |
 | Placeholder Success | P0 | Services return success when dependencies unavailable | ✅ FIXED |
-| LLM Calls Unqueued | P1 | Direct Mistral calls without rate limiting/timeouts | 🔄 Pending |
-| No Idempotency | P1 | Duplicate actions not suppressed on retries | 🔄 Pending |
+| LLM Calls Unqueued | P1 | Direct Mistral calls without rate limiting/timeouts | ✅ FIXED - Circuit breaker + timeouts |
+| No Idempotency | P1 | Duplicate actions not suppressed on retries | ✅ FIXED - Idempotency keys with Redis cache |
 | Memory Limitations | P2 | No summarization when token budget exceeded | 🔄 Pending |
-| Observability Gaps | P1 | Telemetry not hooked, logs lack correlation IDs | 🔄 Pending |
+| Observability Gaps | P1 | Telemetry not hooked, logs lack correlation IDs | ✅ DONE - LlmTelemetryService wired; CorrelationContext service added |
 
 #### 2.4 Comprehensive Issues Found (November 2025 Deep Audit)
 

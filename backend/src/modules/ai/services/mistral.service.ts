@@ -1,15 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Mistral } from '@mistralai/mistralai';
 import type { Messages as MistralChatMessage } from '@mistralai/mistralai/models/components/chatcompletionrequest.js';
 import type { AssistantMessage } from '@mistralai/mistralai/models/components/assistantmessage.js';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmbeddingsService } from './embeddings.service';
+import { CorrelationContext } from '../../../common/services/correlation-context.service';
 import {
   getLocale,
   getTranslations,
   type SupportedLocale,
 } from '../voltagent/locales';
+import {
+  LlmTelemetryService,
+  type LlmCallContext,
+} from '../voltagent/observability/telemetry';
 
 type ConversationMessage = {
   role: 'assistant' | 'user';
@@ -58,6 +63,7 @@ export class MistralService {
     private prisma: PrismaService,
     private configService: ConfigService,
     private embeddingsService: EmbeddingsService,
+    @Optional() private telemetry?: LlmTelemetryService,
   ) {
     // Configure rate limiting from env (defaults: 3 concurrent, 100ms delay)
     this.maxConcurrentEmbeddings = parseInt(
@@ -205,15 +211,18 @@ export class MistralService {
     maxTokens?: number;
     /** Timeout in milliseconds (default: 30000) */
     timeoutMs?: number;
+    /** Telemetry context for tracking */
+    telemetryContext?: { tenantId: string; userId?: string; promptName?: string };
   }): Promise<string> {
-    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000 } = options;
+    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000, telemetryContext } = options;
+    const model = this.getModel();
 
     // Check circuit breaker before making request
     if (!this.checkCircuitBreaker()) {
       throw new Error('Mistral API circuit breaker is open - service temporarily unavailable');
     }
 
-    try {
+    const executeCall = async () => {
       const client = await this.createMistralClient();
       const messages: MistralChatMessage[] = [];
 
@@ -225,7 +234,7 @@ export class MistralService {
 
       // Wrap API call with timeout
       const completionPromise = client.chat.complete({
-        model: this.getModel(),
+        model,
         messages,
         temperature,
         maxTokens,
@@ -243,13 +252,35 @@ export class MistralService {
         throw new Error('Empty response from AI service');
       }
 
-      // Record success - reset circuit breaker
+      // Return both text and usage for telemetry
+      return { text, usage: completion.usage };
+    };
+
+    try {
+      // Use telemetry tracking if available and context provided
+      if (this.telemetry && telemetryContext?.tenantId) {
+        const context: LlmCallContext = {
+          tenantId: telemetryContext.tenantId,
+          userId: telemetryContext.userId,
+          operation: 'completion',
+          promptName: telemetryContext.promptName,
+          model,
+        };
+
+        const { result } = await this.telemetry.trackCall(context, executeCall);
+        this.recordSuccess();
+        return result.text;
+      }
+
+      // Fallback: execute without telemetry
+      const result = await executeCall();
       this.recordSuccess();
-      return text;
+      return result.text;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Prompt completion failed: ${message}`, stack);
+      const corrId = CorrelationContext.getCorrelationId();
+      this.logger.error(`[${corrId}] Prompt completion failed: ${message}`, stack);
 
       // Record failure - may trip circuit breaker
       this.recordFailure();
@@ -400,7 +431,11 @@ export class MistralService {
   /**
    * Generate embeddings for RAG (rate-limited with circuit breaker)
    */
-  async generateEmbedding(text: string, client?: Mistral): Promise<number[]> {
+  async generateEmbedding(
+    text: string,
+    client?: Mistral,
+    telemetryContext?: { tenantId: string; userId?: string },
+  ): Promise<number[]> {
     // Check circuit breaker before making request
     if (!this.checkCircuitBreaker()) {
       throw new Error('Mistral API circuit breaker is open - service temporarily unavailable');
@@ -408,21 +443,42 @@ export class MistralService {
 
     await this.acquireEmbeddingSlot();
     try {
-      const mistralClient = client ?? (await this.createMistralClient());
-      const response = await mistralClient.embeddings.create({
-        model: this.embeddingModel,
-        inputs: text,
-      });
+      const executeCall = async () => {
+        const mistralClient = client ?? (await this.createMistralClient());
+        const response = await mistralClient.embeddings.create({
+          model: this.embeddingModel,
+          inputs: text,
+        });
 
-      const embedding = response.data?.[0]?.embedding;
-      if (!embedding || embedding.length === 0) {
-        throw new Error('Mistral embeddings response did not contain data');
+        const embedding = response.data?.[0]?.embedding;
+        if (!embedding || embedding.length === 0) {
+          throw new Error('Mistral embeddings response did not contain data');
+        }
+
+        return { embedding, usage: response.usage };
+      };
+
+      // Use telemetry tracking if available and context provided
+      if (this.telemetry && telemetryContext?.tenantId) {
+        const context: LlmCallContext = {
+          tenantId: telemetryContext.tenantId,
+          userId: telemetryContext.userId,
+          operation: 'embedding',
+          model: this.embeddingModel,
+        };
+
+        const { result } = await this.telemetry.trackCall(context, executeCall);
+        this.recordSuccess();
+        return result.embedding;
       }
 
+      // Fallback: execute without telemetry
+      const result = await executeCall();
       this.recordSuccess();
-      return embedding;
+      return result.embedding;
     } catch (error) {
-      this.logger.error('Failed to generate embedding:', error instanceof Error ? error.message : error);
+      const corrId = CorrelationContext.getCorrelationId();
+      this.logger.error(`[${corrId}] Failed to generate embedding:`, error instanceof Error ? error.message : error);
       this.recordFailure();
       throw error;
     } finally {
@@ -435,9 +491,14 @@ export class MistralService {
    * This is more efficient than calling generateEmbedding multiple times
    * @param texts Array of texts to generate embeddings for
    * @param client Optional Mistral client instance
+   * @param telemetryContext Optional telemetry context for tracking
    * @returns Array of embeddings in the same order as input texts
    */
-  async generateBulkEmbeddings(texts: string[], client?: Mistral): Promise<number[][]> {
+  async generateBulkEmbeddings(
+    texts: string[],
+    client?: Mistral,
+    telemetryContext?: { tenantId: string; userId?: string },
+  ): Promise<number[][]> {
     if (!texts || texts.length === 0) {
       return [];
     }
@@ -449,38 +510,59 @@ export class MistralService {
 
     await this.acquireEmbeddingSlot();
     try {
-      const mistralClient = client ?? (await this.createMistralClient());
-      const response = await mistralClient.embeddings.create({
-        model: this.embeddingModel,
-        inputs: texts,
-      });
+      const executeCall = async () => {
+        const mistralClient = client ?? (await this.createMistralClient());
+        const response = await mistralClient.embeddings.create({
+          model: this.embeddingModel,
+          inputs: texts,
+        });
 
-      if (!response.data || response.data.length === 0) {
-        throw new Error('Mistral bulk embeddings response did not contain data');
-      }
-
-      // Sort by index to ensure correct order
-      const sortedData = response.data.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-
-      const embeddings = sortedData.map((item, index) => {
-        if (!item.embedding || item.embedding.length === 0) {
-          throw new Error(`Embedding at index ${index} is empty or invalid`);
+        if (!response.data || response.data.length === 0) {
+          throw new Error('Mistral bulk embeddings response did not contain data');
         }
-        return item.embedding;
-      });
 
-      if (embeddings.length !== texts.length) {
-        throw new Error(
-          `Expected ${texts.length} embeddings but received ${embeddings.length}`,
-        );
+        // Sort by index to ensure correct order
+        const sortedData = response.data.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+
+        const embeddings = sortedData.map((item, index) => {
+          if (!item.embedding || item.embedding.length === 0) {
+            throw new Error(`Embedding at index ${index} is empty or invalid`);
+          }
+          return item.embedding;
+        });
+
+        if (embeddings.length !== texts.length) {
+          throw new Error(
+            `Expected ${texts.length} embeddings but received ${embeddings.length}`,
+          );
+        }
+
+        this.logger.debug(`Generated ${embeddings.length} embeddings in bulk`);
+        return { embeddings, usage: response.usage };
+      };
+
+      // Use telemetry tracking if available and context provided
+      if (this.telemetry && telemetryContext?.tenantId) {
+        const context: LlmCallContext = {
+          tenantId: telemetryContext.tenantId,
+          userId: telemetryContext.userId,
+          operation: 'bulk_embedding',
+          model: this.embeddingModel,
+        };
+
+        const { result } = await this.telemetry.trackCall(context, executeCall);
+        this.recordSuccess();
+        return result.embeddings;
       }
 
+      // Fallback: execute without telemetry
+      const result = await executeCall();
       this.recordSuccess();
-      this.logger.debug(`Generated ${embeddings.length} embeddings in bulk`);
-      return embeddings;
+      return result.embeddings;
     } catch (error) {
+      const corrId = CorrelationContext.getCorrelationId();
       this.logger.error(
-        'Failed to generate bulk embeddings:',
+        `[${corrId}] Failed to generate bulk embeddings:`,
         error instanceof Error ? error.message : error,
       );
       this.recordFailure();
@@ -498,7 +580,8 @@ export class MistralService {
       return await this.embeddingsService.findSimilarContent(tenantId, embedding, limit);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Similarity search failed: ${errorMessage}`);
+      const corrId = CorrelationContext.getCorrelationId();
+      this.logger.error(`[${corrId}] [tenant:${tenantId}] Similarity search failed: ${errorMessage}`);
       return [];
     }
   }
@@ -534,10 +617,9 @@ export class MistralService {
       const mistralClient = this.createClient(apiKey);
 
       let ragContext = '';
-      let userEmbedding: number[] | undefined;
       try {
-        // Generate embedding for user prompt
-        userEmbedding = await this.generateEmbedding(userPrompt, mistralClient);
+        // Generate embedding for user prompt (with telemetry context)
+        const userEmbedding = await this.generateEmbedding(userPrompt, mistralClient, { tenantId, userId });
 
         await this.embeddingsService.saveEmbedding({
           tenantId,
@@ -577,31 +659,60 @@ export class MistralService {
         } as MistralChatMessage,
       ];
 
-      // Call Mistral API with timeout protection
-      const completionPromise = mistralClient.chat.complete({
-        model,
-        messages,
-        temperature: 0.7,
-        maxTokens: 1024,
-      });
+      // Define the chat completion call
+      const executeChatCall = async () => {
+        const completionPromise = mistralClient.chat.complete({
+          model,
+          messages,
+          temperature: 0.7,
+          maxTokens: 1024,
+        });
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error(`LLM request timed out after ${timeoutMs}ms`)), timeoutMs);
-      });
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error(`LLM request timed out after ${timeoutMs}ms`)), timeoutMs);
+        });
 
-      const completion = await Promise.race([completionPromise, timeoutPromise]);
+        const completion = await Promise.race([completionPromise, timeoutPromise]);
 
-      const assistantMessage = completion.choices?.[0]?.message;
-      const assistantResponse =
-        this.extractAssistantContent(assistantMessage) || t.mistral.errors.tryAgain;
+        const assistantMessage = completion.choices?.[0]?.message;
+        const assistantResponse =
+          this.extractAssistantContent(assistantMessage) || t.mistral.errors.tryAgain;
 
+        return { response: assistantResponse, usage: completion.usage };
+      };
+
+      // Get correlation ID for logging
+      const corrId = CorrelationContext.getCorrelationId();
+      const logPrefix = `[${corrId}] [tenant:${tenantId}]`;
+
+      // Use telemetry tracking if available
+      if (this.telemetry) {
+        const context: LlmCallContext = {
+          tenantId,
+          userId,
+          operation: 'chat',
+          model,
+          sessionId: options?.conversationId,
+          traceId: corrId,
+        };
+
+        const { result } = await this.telemetry.trackCall(context, executeChatCall);
+        this.recordSuccess();
+        this.logger.log(`${logPrefix} Generated response for user: ${userId}`);
+        return result.response;
+      }
+
+      // Fallback: execute without telemetry
+      const result = await executeChatCall();
       this.recordSuccess();
-      this.logger.log(`Generated response for user: ${userId}`);
-      return assistantResponse;
+      this.logger.log(`${logPrefix} Generated response for user: ${userId}`);
+      return result.response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Failed to generate response: ${errorMessage}`, errorStack);
+      const corrId = CorrelationContext.getCorrelationId();
+      const logPrefix = `[${corrId}] [tenant:${tenantId}]`;
+      this.logger.error(`${logPrefix} Failed to generate response: ${errorMessage}`, errorStack);
 
       this.recordFailure();
 
@@ -612,7 +723,7 @@ export class MistralService {
       } else if (error && typeof error === 'object' && 'statusCode' in error) {
         const statusCode = (error as { statusCode?: unknown }).statusCode;
         if (typeof statusCode === 'number') {
-          this.logger.error(`Mistral API returned status ${statusCode}`);
+          this.logger.error(`${logPrefix} Mistral API returned status ${statusCode}`);
           if (statusCode === 401 || statusCode === 403) {
             fallbackResponse = t.mistral.errors.unauthorized;
           } else if (statusCode >= 500) {
