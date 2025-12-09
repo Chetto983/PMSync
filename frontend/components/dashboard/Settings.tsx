@@ -173,6 +173,7 @@ export function Settings() {
   const t = useTranslations();
   const { theme, setTheme } = useThemePersistence();
   const settingsCopy = useMemo(() => t.settings, [t]);
+  const [hydrated, setHydrated] = useState(false);
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('general');
   const [language, setLanguage] = useState(DEFAULT_USER_SETTINGS.language);
   const [timezone, setTimezone] = useState(DEFAULT_USER_SETTINGS.timezone);
@@ -470,6 +471,7 @@ export function Settings() {
     setLanguage(saved.language);
     setTimezone(saved.timezone);
     setEmailNotifications(saved.emailNotifications);
+    setHydrated(true);
   }, []);
 
   const accountName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
@@ -478,6 +480,23 @@ export function Settings() {
   const mailAccountsCopy = settingsCopy.mailAccountsPanel;
   const accountCopy = settingsCopy.accountPanel;
   const notificationsCopy = settingsCopy.notificationsPanel;
+
+  if (!hydrated) {
+    return (
+      <Box
+        sx={{
+          minHeight: 'calc(100vh - 64px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'background.default',
+          p: 3,
+        }}
+      >
+        <CircularProgress size={28} />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'row', bgcolor: 'background.default' }}>

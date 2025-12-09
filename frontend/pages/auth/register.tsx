@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
+
+const REGISTER_FORM_STORAGE_KEY = 'pmsync-register-form';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -28,7 +30,44 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
   const returnToPath = '/auth/register';
+
+  // Hydrate form from sessionStorage so leaving for terms/privacy preserves state
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(REGISTER_FORM_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setFormData((prev) => ({
+          ...prev,
+          ...parsed.formData,
+        }));
+        if (typeof parsed.agreedToTerms === 'boolean') setAgreedToTerms(parsed.agreedToTerms);
+        if (typeof parsed.agreedToPrivacy === 'boolean') setAgreedToPrivacy(parsed.agreedToPrivacy);
+      }
+    } catch {
+      // ignore malformed storage
+    }
+    setHasHydrated(true);
+  }, []);
+
+  // Persist form to sessionStorage on change
+  useEffect(() => {
+    if (!hasHydrated) return;
+    try {
+      sessionStorage.setItem(
+        REGISTER_FORM_STORAGE_KEY,
+        JSON.stringify({
+          formData,
+          agreedToTerms,
+          agreedToPrivacy,
+        }),
+      );
+    } catch {
+      // storage unavailable; ignore
+    }
+  }, [formData, agreedToTerms, agreedToPrivacy, hasHydrated]);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -82,9 +121,10 @@ export default function RegisterPage() {
       });
 
       if (response.data.success) {
+        sessionStorage.removeItem(REGISTER_FORM_STORAGE_KEY);
         router.push({
           pathname: '/auth/login',
-          query: { email: formData.email },
+          query: { email: formData.email, step: 'email-otp', from: 'register' },
         });
       }
     } catch (err) {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import type { AppProps } from 'next/app';
 import { useRouter } from 'next/router';
 import { ThemeProvider as NextThemeProvider, useTheme } from 'next-themes';
@@ -109,6 +109,15 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
 export default function App({ Component, pageProps }: AppProps & { Component: React.ComponentType & { skipAuthGuard?: boolean } }) {
   // Skip RouteGuard for error pages and pages with skipAuthGuard flag
   const skipAuth = Component.skipAuthGuard || false;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <QueryProvider>

@@ -47,6 +47,20 @@ export default function LoginPage() {
     }
   }, [router.query.email]);
 
+  // If redirected from registration with an existing OTP email, skip the login step
+  useEffect(() => {
+    if (!router.isReady) return;
+    const stepParam = router.query.step;
+    if (stepParam === 'email-otp') {
+      setStep('email-otp');
+      setAvailableMethods(['email']);
+      setMfaToken(null);
+      setPassword('');
+      setError('');
+      setFieldError(null);
+    }
+  }, [router.isReady, router.query.step]);
+
   const loginCopy = translations.auth.login;
   const otpCopy = translations.auth.otp;
   const copy = step === 'login' ? loginCopy : otpCopy;
