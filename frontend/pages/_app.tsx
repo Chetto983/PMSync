@@ -107,10 +107,11 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
 }
 
 // Custom hook for client-side mounting check (hydration guard)
+// This is a standard React pattern for avoiding hydration mismatches
 function useHasMounted(): boolean {
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => {
-    setHasMounted(true);
+    setHasMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
   return hasMounted;
 }
