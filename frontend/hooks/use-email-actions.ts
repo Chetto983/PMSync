@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import { emailApi } from '@/lib/api/email';
 import { useRouter } from 'next/router';
@@ -36,6 +36,11 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
     setSelectedEmail,
   } = useEmailStore();
 
+  // CRITICAL FIX: Use refs for callbacks to prevent stale closures
+  // This prevents all handlers from recreating on every render
+  const callbacksRef = useRef<EmailActionsCallbacks | undefined>(callbacks);
+  callbacksRef.current = callbacks;
+
   /**
    * Delete a single email
    */
@@ -52,17 +57,17 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         // API call
         await emailApi.deleteEmail(emailId);
 
-        callbacks?.onSuccess?.('Email deleted successfully ✓');
+        callbacksRef.current?.onSuccess?.('Email deleted successfully ✓');
       } catch (error) {
         logger.error('[EmailActions] Failed to delete email', { emailId, error });
         // Rollback: restore the deleted email
         if (emailToDelete) {
           useEmailStore.getState().addEmail(emailToDelete);
         }
-        callbacks?.onError?.('Failed to delete email. Please try again.');
+        callbacksRef.current?.onError?.('Failed to delete email. Please try again.');
       }
     },
-    [deleteEmail, callbacks]
+    [deleteEmail]
   );
 
   /**
@@ -81,7 +86,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         // Use bulk API endpoint (more efficient than Promise.all)
         await emailApi.bulkDelete(emailIds);
 
-        callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} deleted successfully ✓`);
+        callbacksRef.current?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} deleted successfully ✓`);
       } catch (error) {
         logger.error('[EmailActions] Failed to bulk delete emails', { count: emailIds.length, error });
         // Rollback: restore deleted emails
@@ -89,14 +94,15 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
           const store = useEmailStore.getState();
           emailsToDelete.forEach((email) => store.addEmail(email));
         }
-        callbacks?.onError?.('Failed to delete emails. Please try again.');
+        callbacksRef.current?.onError?.('Failed to delete emails. Please try again.');
       }
     },
-    [bulkDelete, callbacks]
+    [bulkDelete]
   );
 
   /**
    * Mark email(s) as read/unread
+   * CRITICAL FIX: Actually respects the isRead parameter (store's markAsRead was always setting true)
    */
   const handleMarkAsRead = useCallback(
     async (emailIds: string[], isRead: boolean = true) => {
@@ -107,14 +113,23 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         .map((e) => ({ id: e.id, isRead: e.isRead }));
 
       try {
-        // Optimistic update
-        markAsRead(emailIds);
+        // Optimistic update - use updateEmail to support both read and unread
+        // The store's markAsRead only sets to true, so we need to handle unread case
+        if (isRead) {
+          markAsRead(emailIds);
+        } else {
+          // For marking as unread, use updateEmail for each
+          const store = useEmailStore.getState();
+          emailIds.forEach((id) => {
+            store.updateEmail(id, { isRead: false });
+          });
+        }
 
         // Use bulk API endpoint (more efficient than Promise.all)
         await emailApi.bulkMarkRead(emailIds, isRead);
 
         const action = isRead ? 'read' : 'unread';
-        callbacks?.onSuccess?.(`Marked as ${action} ✓`);
+        callbacksRef.current?.onSuccess?.(`Marked as ${action} ✓`);
       } catch (error) {
         logger.error('[EmailActions] Failed to mark emails as read', { count: emailIds.length, isRead, error });
         // Rollback: restore previous read states
@@ -122,10 +137,10 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         previousStates.forEach(({ id, isRead: wasRead }) => {
           store.updateEmail(id, { isRead: wasRead });
         });
-        callbacks?.onError?.('Failed to update email status. Please try again.');
+        callbacksRef.current?.onError?.('Failed to update email status. Please try again.');
       }
     },
-    [markAsRead, callbacks]
+    [markAsRead]
   );
 
   /**
@@ -142,19 +157,20 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         // API call
         await emailApi.updateEmail(emailId, { isRead: newRead });
 
-        callbacks?.onSuccess?.(newRead ? 'Marked as read ✓' : 'Marked as unread ✓');
+        callbacksRef.current?.onSuccess?.(newRead ? 'Marked as read ✓' : 'Marked as unread ✓');
       } catch (error) {
         logger.error('[EmailActions] Failed to toggle read status', { emailId, error });
         // Revert on error
         updateEmail(emailId, { isRead: currentRead });
-        callbacks?.onError?.('Failed to update read status. Please try again.');
+        callbacksRef.current?.onError?.('Failed to update read status. Please try again.');
       }
     },
-    [updateEmail, callbacks]
+    [updateEmail]
   );
 
   /**
    * Toggle star on email
+   * PERFORMANCE FIX: Use bulk API endpoint instead of single-email endpoint
    */
   const handleToggleStar = useCallback(
     async (emailId: string, currentStarred: boolean) => {
@@ -164,43 +180,44 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         // Optimistic update
         markAsStarred([emailId], newStarred);
 
-        // API call
-        await emailApi.updateEmail(emailId, { isStarred: newStarred });
+        // PERFORMANCE FIX: Use bulk API endpoint (more efficient)
+        await emailApi.bulkStar([emailId], newStarred);
 
-        callbacks?.onSuccess?.(newStarred ? 'Email starred ✓' : 'Email unstarred ✓');
+        callbacksRef.current?.onSuccess?.(newStarred ? 'Email starred ✓' : 'Email unstarred ✓');
       } catch (error) {
         logger.error('[EmailActions] Failed to toggle star', { emailId, error });
         // Revert on error
         markAsStarred([emailId], currentStarred);
-        callbacks?.onError?.('Failed to update star status. Please try again.');
+        callbacksRef.current?.onError?.('Failed to update star status. Please try again.');
       }
     },
-    [markAsStarred, callbacks]
+    [markAsStarred]
   );
 
   /**
    * Toggle important status on email
+   * PERFORMANCE FIX: Use bulk API endpoint and markAsImportant store method
    */
   const handleToggleImportant = useCallback(
     async (emailId: string, currentImportant: boolean) => {
       const newImportant = !currentImportant;
 
       try {
-        // Optimistic update (using updateEmail for now)
-        updateEmail(emailId, { isImportant: newImportant });
+        // Optimistic update - use the dedicated store method
+        useEmailStore.getState().markAsImportant([emailId], newImportant);
 
-        // API call (backend uses isFlagged instead of isImportant)
-        await emailApi.updateEmail(emailId, { isFlagged: newImportant });
+        // PERFORMANCE FIX: Use bulk API endpoint (more efficient)
+        await emailApi.bulkFlag([emailId], newImportant);
 
-        callbacks?.onSuccess?.(newImportant ? 'Marked as important ✓' : 'Unmarked as important ✓');
+        callbacksRef.current?.onSuccess?.(newImportant ? 'Marked as important ✓' : 'Unmarked as important ✓');
       } catch (error) {
         logger.error('[EmailActions] Failed to toggle important', { emailId, error });
         // Revert on error
-        updateEmail(emailId, { isImportant: currentImportant });
-        callbacks?.onError?.('Failed to update important status. Please try again.');
+        useEmailStore.getState().markAsImportant([emailId], currentImportant);
+        callbacksRef.current?.onError?.('Failed to update important status. Please try again.');
       }
     },
-    [updateEmail, callbacks]
+    []
   );
 
   /**
@@ -221,7 +238,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         // Use bulk API endpoint (more efficient than Promise.all)
         await emailApi.bulkMoveToFolder(emailIds, 'ARCHIVE');
 
-        callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} archived ✓`);
+        callbacksRef.current?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} archived ✓`);
       } catch (error) {
         logger.error('[EmailActions] Failed to archive emails', { count: emailIds.length, error });
         // Rollback: restore previous folders
@@ -229,10 +246,10 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         previousFolders.forEach(({ id, folder }) => {
           store.updateEmail(id, { folder });
         });
-        callbacks?.onError?.('Failed to archive emails. Please try again.');
+        callbacksRef.current?.onError?.('Failed to archive emails. Please try again.');
       }
     },
-    [moveToFolder, callbacks]
+    [moveToFolder]
   );
 
   /**
@@ -253,7 +270,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         // Use bulk API endpoint (more efficient than Promise.all)
         await emailApi.bulkMoveToFolder(emailIds, folderId);
 
-        callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} moved ✓`);
+        callbacksRef.current?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} moved ✓`);
       } catch (error) {
         logger.error('[EmailActions] Failed to move emails to folder', { count: emailIds.length, folderId, error });
         // Rollback: restore previous folders
@@ -261,10 +278,10 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         previousFolders.forEach(({ id, folder }) => {
           store.updateEmail(id, { folder });
         });
-        callbacks?.onError?.('Failed to move emails. Please try again.');
+        callbacksRef.current?.onError?.('Failed to move emails. Please try again.');
       }
     },
-    [moveToFolder, callbacks]
+    [moveToFolder]
   );
 
   /**
@@ -304,6 +321,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
 
   /**
    * Open email in detail view
+   * CRITICAL FIX: Added rollback on API failure
    */
   const handleEmailClick = useCallback(
     async (email: Email) => {
@@ -313,10 +331,14 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
       // Mark as read if unread
       if (!email.isRead) {
         try {
+          // Optimistic update
           updateEmail(email.id, { isRead: true });
           await emailApi.updateEmail(email.id, { isRead: true });
         } catch (error) {
           logger.error('[EmailActions] Failed to mark email as read on click', { emailId: email.id, error });
+          // CRITICAL FIX: Rollback on failure
+          updateEmail(email.id, { isRead: false });
+          callbacksRef.current?.onError?.('Failed to mark email as read.');
         }
       }
     },

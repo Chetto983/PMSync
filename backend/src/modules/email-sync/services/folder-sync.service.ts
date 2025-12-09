@@ -488,7 +488,8 @@ export class FolderSyncService {
       });
 
       const existingPaths = new Set<string>(existingFolders.map((f: any) => f.path as string));
-      const newPaths = new Set<string>(folders.map((f: any) => f.id as string));
+      // Use displayName as path key (matches email.folder and determineFolderFromParentId)
+      const newPaths = new Set<string>(folders.map((f: any) => f.displayName as string).filter(Boolean));
 
       const deletedPaths: string[] = [];
       existingPaths.forEach((path) => {
@@ -511,13 +512,16 @@ export class FolderSyncService {
           this.determineMicrosoftFolderType(folder.displayName) ||
           this.normalizeFolderName(folder.displayName);
 
+        // CRITICAL: Use displayName as path to match email.folder field
+        // email.folder stores displayName (e.g., "Posta in arrivo")
+        // folder.path must match for joins to work correctly
         await (this.prisma as any).folder.upsert({
-          where: { providerId_path: { providerId, path: folder.id } },
+          where: { providerId_path: { providerId, path: folder.displayName } },
           create: {
             tenantId,
             providerId,
             externalId: folder.id,
-            path: folder.id,
+            path: folder.displayName,  // Use displayName, not folder.id
             name: folder.displayName,
             delimiter: '/',
             specialUse,
@@ -739,18 +743,28 @@ export class FolderSyncService {
 
   /**
    * Resolve folder keys used for counting/filtering.
-   * Prefer normalized specialUse if present, otherwise use the display name as-is.
+   * Returns BOTH the original folder name AND normalized specialUse to match
+   * emails stored with either the display name or the normalized key.
    */
   private getFolderKeys(folder: {
     name: string;
     specialUse?: string | null;
   }): string[] {
+    const keys = new Set<string>();
+
+    // Always include the original folder name (emails are stored with display name)
+    keys.add(folder.name);
+
+    // Also include the normalized specialUse if present
     if (folder.specialUse) {
-      return [folder.specialUse.replace('\\', '').toUpperCase()];
+      keys.add(folder.specialUse.replace('\\', '').toUpperCase());
     }
 
-    // Fallback: normalize common folder names even if specialUse was not set
-    return [this.normalizeFolderName(folder.name)];
+    // Also include the normalized version of the folder name
+    const normalized = this.normalizeFolderName(folder.name);
+    keys.add(normalized);
+
+    return Array.from(keys);
   }
 
   private normalizeFolderName(name: string): string {

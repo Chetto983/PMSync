@@ -20,7 +20,43 @@ export const apiClient = axios.create({
     'ngrok-skip-browser-warning': 'true',
   },
   withCredentials: true,
+  // CRITICAL FIX: Add timeout to prevent requests hanging indefinitely
+  timeout: 30000, // 30 seconds default
 });
+
+/**
+ * Helper to extract user-friendly error message from API errors
+ * @param error - Any error (axios or otherwise)
+ * @returns User-friendly error message
+ */
+export function getApiErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    // Check for server error message
+    const serverMessage = error.response?.data?.message;
+    if (serverMessage) {
+      return typeof serverMessage === 'string' ? serverMessage : JSON.stringify(serverMessage);
+    }
+    // Check for validation errors array
+    const validationErrors = error.response?.data?.errors;
+    if (Array.isArray(validationErrors) && validationErrors.length > 0) {
+      return validationErrors.map((e: { message?: string }) => e.message || String(e)).join(', ');
+    }
+    // Network errors
+    if (error.code === 'ECONNABORTED') {
+      return 'Request timed out. Please try again.';
+    }
+    if (error.code === 'ERR_NETWORK') {
+      return 'Network error. Please check your connection.';
+    }
+    // Fallback to axios message
+    return error.message || 'An error occurred';
+  }
+  // Non-axios errors
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'An unexpected error occurred';
+}
 
 // Add token to requests
 apiClient.interceptors.request.use((config) => {

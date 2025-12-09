@@ -209,14 +209,56 @@ export const ThreadList: React.FC<ThreadListProps> = ({
     });
   }, [threads, threadEmailCounts]);
 
+  // Clean up expansion state when threads change (e.g., after bulk delete)
+  // This prevents stale expanded state for deleted threads
+  useEffect(() => {
+    const validThreadIds = new Set(
+      threads.map(t => t.threadId || ('id' in t ? t.id : ''))
+    );
+
+    // Clean up expandedThreads - remove deleted thread IDs
+    setExpandedThreads(prev => {
+      let hasChanges = false;
+      const cleaned = new Set(prev);
+      for (const threadId of cleaned) {
+        if (!validThreadIds.has(threadId)) {
+          cleaned.delete(threadId);
+          hasChanges = true;
+        }
+      }
+      return hasChanges ? cleaned : prev;
+    });
+
+    // Clean up threadChildEmails - remove deleted thread entries
+    setThreadChildEmails(prev => {
+      let hasChanges = false;
+      const cleaned = new Map(prev);
+      for (const threadId of cleaned.keys()) {
+        if (!validThreadIds.has(threadId)) {
+          cleaned.delete(threadId);
+          hasChanges = true;
+        }
+      }
+      return hasChanges ? cleaned : prev;
+    });
+  }, [threads]);
+
   // Auto-enable virtualization for lists > 50 items (2025 best practice)
   const shouldVirtualize = enableVirtualization ?? threadsWithCount.length > 50;
 
-  // Memoized key getter for virtualizer (best practice: avoid index keys)
+  // Store threads ref for stable key getter (prevents scroll position reset on data changes)
+  const threadsRef = useRef(threadsWithCount);
+  threadsRef.current = threadsWithCount;
+
+  // Track previous count to detect appends (infinite scroll)
+  const prevCountRef = useRef(threadsWithCount.length);
+
+  // Memoized key getter for virtualizer - uses ref to avoid dependency on threadsWithCount
+  // This prevents the virtualizer from resetting scroll position when new emails are appended
   const getItemKey = useCallback((index: number) => {
-    const thread = threadsWithCount[index];
+    const thread = threadsRef.current[index];
     return thread ? getThreadKey(thread) : `item-${index}`;
-  }, [threadsWithCount]);
+  }, []); // Empty deps - uses ref for stable reference
 
   // TanStack Virtual setup
   const virtualizer = useVirtualizer({
@@ -232,6 +274,41 @@ export const ThreadList: React.FC<ThreadListProps> = ({
     // Enable only when needed
     enabled: shouldVirtualize,
   });
+
+  // CRITICAL FIX: Preserve scroll position when new items are appended (infinite scroll)
+  // Store scroll position before any update, restore after render if items were appended
+  const savedScrollRef = useRef<number>(0);
+
+  // Save scroll position before threadsWithCount changes
+  useEffect(() => {
+    const scrollElement = parentRef.current;
+    if (scrollElement) {
+      savedScrollRef.current = scrollElement.scrollTop;
+    }
+  }); // Run on every render to capture scroll before state update
+
+  useEffect(() => {
+    const prevCount = prevCountRef.current;
+    const newCount = threadsWithCount.length;
+
+    // Only preserve scroll when appending (count increased from a non-zero value)
+    // If count went from 0 to N, or from N to 0, let it reset naturally
+    if (prevCount > 0 && newCount > prevCount && savedScrollRef.current > 0) {
+      const scrollElement = parentRef.current;
+      if (scrollElement) {
+        // Use double RAF to ensure DOM has updated
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (scrollElement.scrollTop === 0 && savedScrollRef.current > 0) {
+              scrollElement.scrollTop = savedScrollRef.current;
+            }
+          });
+        });
+      }
+    }
+
+    prevCountRef.current = newCount;
+  }, [threadsWithCount.length]);
 
   const handleThreadClick = useCallback(
     (thread: Email | Conversation) => {

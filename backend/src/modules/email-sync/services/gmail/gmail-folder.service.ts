@@ -147,6 +147,10 @@ export class GmailFolderService {
         // determineFolderFromLabels returns: INBOX, SENT, TRASH, SPAM, PROMOTIONS, SOCIAL, UPDATES, FORUMS, DRAFTS
         const folderPath = this.labelIdToFolderPath(label.id, label.name);
 
+        // CRITICAL: folder.name MUST equal folder.path for consistency
+        // This ensures email.folder can match either field
+        const folderName = folderPath;
+
         await (this.prisma as any).folder.upsert({
           where: {
             providerId_path: {
@@ -159,7 +163,7 @@ export class GmailFolderService {
             providerId,
             path: folderPath,
             externalId: label.id, // Keep original label ID for API operations
-            name: label.name,
+            name: folderName,  // Use normalized name, not label.name
             delimiter: '/',
             specialUse,
             isSelectable,
@@ -168,7 +172,7 @@ export class GmailFolderService {
             level: 0,
           },
           update: {
-            name: label.name,
+            name: folderName,  // Use normalized name, not label.name
             externalId: label.id, // Update external ID if needed
             specialUse,
             isSelectable,

@@ -67,7 +67,11 @@
       "Bash(cmd /c \"cd /d d:\\MailAgent\\backend && set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=delete database we restart && npx prisma db push --force-reset\")",
       "Bash(docker-compose:*)",
       "Bash(docker logs mailagent-rgrock)",
-      "Bash(cmd /c \"taskkill /F /IM node.exe 2>nul & echo Done\")"
+      "Bash(cmd /c \"taskkill /F /IM node.exe 2>nul & echo Done\")",
+      "Bash(npx prisma:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx prisma migrate resolve:*)",
+      "Bash(taskkill /F /PID 28732)"
     ],
     "deny": [],
     "ask": []

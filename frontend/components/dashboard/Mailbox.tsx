@@ -254,7 +254,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     message: '',
     severity: 'info',
   });
-  const [emailStats, setEmailStats] = useState<{ total: number; unread: number; starred: number } | null>(null);
+  const [emailStats, setEmailStats] = useState<{ total: number; unread: number; starred: number; important: number; today: number; thisWeek: number; attachments: number } | null>(null);
   const [retentionStats, setRetentionStats] = useState<{ totalEmails: number; archivedEmails: number; estimatedSpaceSavedMB: number } | null>(null);
   const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
@@ -370,6 +370,10 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         total: stats.total,
         unread: stats.unread,
         starred: stats.starred,
+        important: stats.important,
+        today: stats.today,
+        thisWeek: stats.thisWeek,
+        attachments: stats.attachments,
       });
     }).catch(() => { });
 
@@ -387,14 +391,32 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     }).catch(() => setSyncStatusMessage(null));
   }, []);
 
+  // Refresh email stats from database (used after bulk operations, sync, etc.)
+  const refreshStats = useCallback(async () => {
+    try {
+      const res = await emailApi.getStats();
+      const stats = res.data;
+      setEmailStats({
+        total: stats.total,
+        unread: stats.unread,
+        starred: stats.starred,
+        important: stats.important,
+        today: stats.today,
+        thisWeek: stats.thisWeek,
+        attachments: stats.attachments,
+      });
+    } catch {
+      // Silently fail - stats are not critical
+    }
+  }, []);
+
   const handleSyncProviders = async () => {
     if (!providers || providers.length === 0) return;
     setSyncLoading(true);
     try {
       await Promise.all(providers.map((p) => emailApi.syncProvider(p.id)));
       setSyncStatusMessage(t.email.messages.syncTriggered ?? 'Sync triggered for all providers');
-      const res = await emailApi.getStats();
-      setEmailStats({ total: res.data.total, unread: res.data.unread, starred: res.data.starred });
+      await refreshStats();
     } catch {
       setSyncStatusMessage(t.email.messages.syncFailed ?? 'Sync failed');
     } finally {
@@ -489,45 +511,46 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   }, [setSelectedEmail]);
 
   // Smart Filters for quick access
+  // Note: Counts come from database API (emailStats) - no need to load all emails
   const smartFilters = useMemo<SmartFilter[]>(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay());
-
     return [
       {
         id: 'smart:unread',
         label: t.email.quickFilters.unread,
         icon: <MailIcon size={18} />,
         color: '#0B7EFF',
+        count: emailStats?.unread && emailStats.unread > 0 ? emailStats.unread : undefined,
       },
       {
         id: 'smart:today',
         label: t.email.quickFilters.today,
         icon: <Clock size={18} />,
         color: '#00C853',
+        count: emailStats?.today && emailStats.today > 0 ? emailStats.today : undefined,
       },
       {
         id: 'smart:this-week',
         label: t.email.quickFilters.thisWeek,
         icon: <CalendarIcon size={18} />,
         color: '#9C27B0',
+        count: emailStats?.thisWeek && emailStats.thisWeek > 0 ? emailStats.thisWeek : undefined,
       },
       {
         id: 'smart:attachments',
         label: t.email.quickFilters.hasAttachments,
         icon: <Paperclip size={18} />,
         color: '#FF9800',
+        count: emailStats?.attachments && emailStats.attachments > 0 ? emailStats.attachments : undefined,
       },
       {
         id: 'smart:important',
         label: t.email.quickFilters.important,
         icon: <Star size={18} />,
         color: '#FFB300',
+        count: emailStats?.important && emailStats.important > 0 ? emailStats.important : undefined,
       },
     ];
-  }, [t]);
+  }, [t, emailStats]);
 
   // Aggregator folders (All Inbox, All Starred)
   // RFC 6154: Use specialUse for aggregation across providers with different folder names
@@ -784,6 +807,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         });
       } else {
         // Check if any search/filter is active - if so, use listEmails for full results
+        // CRITICAL: Include folder queryOverrides (smart filters like unread, starred, etc.)
         const hasActiveFilters = searchQuery ||
           advancedFilters.searchQuery ||
           advancedFilters.from ||
@@ -794,7 +818,13 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
           advancedFilters.endDate ||
           advancedFilters.hasAttachments !== undefined ||
           advancedFilters.isRead != null ||
-          advancedFilters.isStarred !== undefined;
+          advancedFilters.isStarred !== undefined ||
+          // Smart filter queryOverrides must trigger filtered view
+          currentActiveFolder.queryOverrides?.isRead !== undefined ||
+          currentActiveFolder.queryOverrides?.isStarred !== undefined ||
+          currentActiveFolder.queryOverrides?.hasAttachments !== undefined ||
+          currentActiveFolder.queryOverrides?.startDate !== undefined ||
+          currentActiveFolder.queryOverrides?.endDate !== undefined;
 
         if (hasActiveFilters) {
           // Use listEmails for search/filtered results (shows all matching emails)
@@ -992,6 +1022,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     try {
       await emailApi.bulkMarkRead(emailIds, true);
+      await refreshStats(); // Update counts from database
       setSnackbar({
         open: true,
         message: t.email.messages.markRead.replace('{count}', emailIds.length.toString()),
@@ -1007,7 +1038,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeMarkAsRead, t.email.messages.markRead, t.email.messages.markReadFailed]);
+  }, [selectedIds, storeEmails, storeMarkAsRead, t.email.messages.markRead, t.email.messages.markReadFailed, refreshStats]);
 
   const handleBulkMarkUnread = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -1025,6 +1056,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     try {
       await emailApi.bulkMarkRead(emailIds, false);
+      await refreshStats(); // Update counts from database
       setSnackbar({
         open: true,
         message: t.email.messages.markUnread.replace('{count}', emailIds.length.toString()),
@@ -1040,7 +1072,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, t.email.messages.markUnread, t.email.messages.markUnreadFailed]);
+  }, [selectedIds, storeEmails, t.email.messages.markUnread, t.email.messages.markUnreadFailed, refreshStats]);
 
   const handleBulkDelete = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -1060,12 +1092,16 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     // Save emails for potential rollback
     const emailsToDelete = storeEmails.filter(e => emailIds.includes(e.id));
 
+    // Clear selection FIRST to avoid race conditions with filter updates
+    // (storeBulkDelete also cleans up selectedIds, but this ensures UI consistency)
+    clearSelection();
+
     // Optimistic delete - remove from store immediately
     storeBulkDelete(emailIds);
-    clearSelection();
 
     try {
       await emailApi.bulkDelete(emailIds);
+      await refreshStats(); // Update counts from database
       setSnackbar({
         open: true,
         message: t.email.messages.deleted.replace('{count}', emailIds.length.toString()),
@@ -1081,7 +1117,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.email.messages.deleteConfirm, t.email.messages.deleted, t.email.messages.deleteFailed]);
+  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.email.messages.deleteConfirm, t.email.messages.deleted, t.email.messages.deleteFailed, refreshStats]);
 
   const handleBulkStar = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -1099,6 +1135,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     try {
       await emailApi.bulkStar(emailIds, true);
+      await refreshStats(); // Update counts from database
       setSnackbar({
         open: true,
         message: t.email.messages.starred.replace('{count}', emailIds.length.toString()),
@@ -1114,7 +1151,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeMarkAsStarred, t.email.messages.starred, t.email.messages.starFailed]);
+  }, [selectedIds, storeEmails, storeMarkAsStarred, t.email.messages.starred, t.email.messages.starFailed, refreshStats]);
 
   const handleBulkUnstar = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -1132,6 +1169,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     try {
       await emailApi.bulkStar(emailIds, false);
+      await refreshStats(); // Update counts from database
       setSnackbar({
         open: true,
         message: t.email.messages.unstarred.replace('{count}', emailIds.length.toString()),
@@ -1147,7 +1185,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeMarkAsStarred, t.email.messages.unstarred, t.email.messages.unstarFailed]);
+  }, [selectedIds, storeEmails, storeMarkAsStarred, t.email.messages.unstarred, t.email.messages.unstarFailed, refreshStats]);
 
   const handleBulkFlag = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -1165,6 +1203,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     try {
       await emailApi.bulkFlag(emailIds, true);
+      await refreshStats(); // Update counts from database
       setSnackbar({
         open: true,
         message: (t.email.messages.markedImportant ?? 'Marked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
@@ -1181,7 +1220,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- t.email.messages is stable
-  }, [selectedIds, storeEmails, storeMarkAsImportant]);
+  }, [selectedIds, storeEmails, storeMarkAsImportant, refreshStats]);
 
   const handleBulkUnflag = useCallback(async () => {
     const threadIds = Array.from(selectedIds);
@@ -1199,6 +1238,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     try {
       await emailApi.bulkFlag(emailIds, false);
+      await refreshStats(); // Update counts from database
       setSnackbar({
         open: true,
         message: (t.email.messages.unmarkedImportant ?? 'Unmarked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
@@ -1215,7 +1255,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- t.email.messages is stable
-  }, [selectedIds, storeEmails, storeMarkAsImportant]);
+  }, [selectedIds, storeEmails, storeMarkAsImportant, refreshStats]);
 
   const handleBulkAddLabels = useCallback(async (labelIds: string[]) => {
     const threadIds = Array.from(selectedIds);
@@ -1263,6 +1303,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       // Remove moved emails from current view
       storeBulkDelete(emailIds);
       clearSelection();
+      await refreshStats(); // Update counts from database
       setSnackbar({
         open: true,
         message: t.email.messages.moved.replace('{count}', emailIds.length.toString()).replace('{folder}', folder),
@@ -1276,7 +1317,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.email.messages.moved, t.email.messages.moveFailed]);
+  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.email.messages.moved, t.email.messages.moveFailed, refreshStats]);
 
   // Handle drag start - track which email is being dragged
   const handleDragStart = useCallback((event: DragStartEvent) => {

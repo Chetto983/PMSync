@@ -175,6 +175,10 @@ export type EmailStats = {
   total: number;
   unread: number;
   starred: number;
+  important: number;
+  today: number;
+  thisWeek: number;
+  attachments: number;
   byFolder: Record<string, number>;
   byProvider?: Record<string, number>;
 };
@@ -476,6 +480,105 @@ export const emailApi = {
     return apiClient.get<Record<string, unknown>>('/email-sync/status');
   },
 
+  // ===== SYNC MANAGEMENT ENDPOINTS =====
+
+  /**
+   * Get sync health summary (queues + webhooks)
+   * GET /email-sync/health
+   */
+  getSyncHealth() {
+    return apiClient.get<{
+      queues: Record<string, unknown>;
+      webhooks: Record<string, unknown>;
+    }>('/email-sync/health');
+  },
+
+  /**
+   * Get queue status for all queues
+   * GET /email-sync/queues
+   */
+  getQueues() {
+    return apiClient.get<Record<string, unknown>>('/email-sync/queues');
+  },
+
+  /**
+   * Sync all providers (DANGEROUS - purges all emails first)
+   * POST /email-sync/sync-all
+   */
+  syncAllProviders() {
+    return apiClient.post<{
+      success: boolean;
+      deletedEmails: number;
+      providersQueued: number;
+      message: string;
+    }>('/email-sync/sync-all');
+  },
+
+  /**
+   * Pause a queue by priority
+   * POST /email-sync/queues/:priority/pause
+   */
+  pauseQueue(priority: 'high' | 'normal' | 'low') {
+    return apiClient.post<{ success: boolean; message: string }>(
+      `/email-sync/queues/${priority}/pause`
+    );
+  },
+
+  /**
+   * Resume a queue by priority
+   * POST /email-sync/queues/:priority/resume
+   */
+  resumeQueue(priority: 'high' | 'normal' | 'low') {
+    return apiClient.post<{ success: boolean; message: string }>(
+      `/email-sync/queues/${priority}/resume`
+    );
+  },
+
+  /**
+   * Clear all jobs from a queue (DANGEROUS)
+   * POST /email-sync/queues/:priority/clear
+   */
+  clearQueue(priority: 'high' | 'normal' | 'low') {
+    return apiClient.post<{ success: boolean; message: string }>(
+      `/email-sync/queues/${priority}/clear`
+    );
+  },
+
+  /**
+   * Create webhook subscriptions for all eligible providers
+   * POST /email-sync/webhooks/create-all
+   */
+  createAllWebhooks() {
+    return apiClient.post<{
+      success: boolean;
+      created: number;
+      failed: number;
+      message: string;
+    }>('/email-sync/webhooks/create-all');
+  },
+
+  /**
+   * Manually trigger webhook renewal
+   * POST /email-sync/webhooks/renew
+   */
+  renewWebhooks() {
+    return apiClient.post<{ success: boolean; message: string }>(
+      '/email-sync/webhooks/renew'
+    );
+  },
+
+  /**
+   * Get webhook system health status
+   * GET /email-sync/webhooks/health
+   */
+  getWebhookHealth() {
+    return apiClient.get<{
+      webhooks: Record<string, unknown>;
+      queues: Record<string, unknown>;
+      syncSummary: Record<string, unknown>;
+    }>('/email-sync/webhooks/health');
+  },
+
   /**
    * Get conversations (threaded view of all emails)
    * GET /emails/conversations
@@ -628,5 +731,43 @@ export const emailApi = {
    */
   respondToCalendarInvite(emailId: string, response: 'accept' | 'decline' | 'tentative') {
     return respondToCalendarInvite(emailId, response);
+  },
+
+  // ===== CALENDAR INVITE MANAGEMENT =====
+
+  /**
+   * Send a new calendar/meeting invitation (REQUEST)
+   * POST /emails/calendar-invite/send
+   */
+  sendCalendarInvite(payload: {
+    providerId: string;
+    to: Array<{ email: string; name?: string }>;
+    cc?: Array<{ email: string; name?: string }>;
+    bcc?: Array<{ email: string; name?: string }>;
+    summary: string;
+    description?: string;
+    location?: string;
+    startTime: string | Date;
+    endTime: string | Date;
+    isAllDay?: boolean;
+    timeZone?: string;
+    recurrence?: string[];
+    subject?: string;
+  }) {
+    return apiClient.post<{ success: boolean; eventId: string; messageId: string }>(
+      '/emails/calendar-invite/send',
+      payload
+    );
+  },
+
+  /**
+   * Cancel a calendar/meeting invitation (CANCEL)
+   * POST /emails/calendar-invite/:eventId/cancel
+   */
+  cancelCalendarInvite(eventId: string, reason?: string) {
+    return apiClient.post<{ success: boolean; eventId: string; messageId: string }>(
+      `/emails/calendar-invite/${eventId}/cancel`,
+      reason ? { reason } : undefined
+    );
   },
 };

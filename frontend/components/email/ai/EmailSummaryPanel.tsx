@@ -80,6 +80,16 @@ export const EmailSummaryPanel: React.FC<EmailSummaryPanelProps> = ({
   const [hasLoaded, setHasLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Reset state when emailId changes (selecting a different email)
+  useEffect(() => {
+    setSummary(null);
+    setHasLoaded(false);
+    setError(null);
+    setIsLoading(false);
+    setCopied(false);
+    // Keep isExpanded as user preference
+  }, [emailId]);
+
   // Parse summary for key points (lines starting with - or *)
   const keyPoints = React.useMemo(() => {
     if (!summary) return [];

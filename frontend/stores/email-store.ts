@@ -161,13 +161,25 @@ export const useEmailStore = create<EmailState>((set, get) => ({
 
   setEmails: (emails) => set({ emails }),
 
+  // Maximum emails to keep in memory to prevent unbounded growth
+  // WebSocket events can grow this indefinitely without a limit
   appendEmails: (newEmails) =>
-    set((state) => ({
-      emails: [...state.emails, ...newEmails],
-    })),
+    set((state) => {
+      const MAX_EMAILS = 2000;
+      const combined = [...state.emails, ...newEmails];
+      // Keep only the most recent MAX_EMAILS (sorted by receivedAt desc, newest first)
+      const trimmed = combined.length > MAX_EMAILS
+        ? combined.slice(0, MAX_EMAILS)
+        : combined;
+      if (combined.length > MAX_EMAILS) {
+        logger.debug(`[Email Store] Trimmed emails from ${combined.length} to ${MAX_EMAILS}`);
+      }
+      return { emails: trimmed };
+    }),
 
   addEmail: (email) =>
     set((state) => {
+      const MAX_EMAILS = 2000;
       logger.debug('[Email Store] addEmail called:', { id: email.id, subject: email.subject?.substring(0, 50) });
 
       // Prevent duplicates
@@ -176,9 +188,16 @@ export const useEmailStore = create<EmailState>((set, get) => ({
         return state;
       }
 
+      // Add at front, trim if over limit
+      let newEmails = [email, ...state.emails];
+      if (newEmails.length > MAX_EMAILS) {
+        newEmails = newEmails.slice(0, MAX_EMAILS);
+        logger.debug(`[Email Store] Trimmed emails to ${MAX_EMAILS} after add`);
+      }
+
       logger.debug('[Email Store] Email added successfully');
       return {
-        emails: [email, ...state.emails],
+        emails: newEmails,
         unreadCount: !email.isRead ? state.unreadCount + 1 : state.unreadCount,
       };
     }),
@@ -227,11 +246,20 @@ export const useEmailStore = create<EmailState>((set, get) => ({
           // Email appeared between checks - find it and update it
           const retryIndex = state.emails.findIndex((e) => e.id === newEmail.id);
           if (retryIndex !== -1) {
+            const oldEmail = state.emails[retryIndex];
             const updatedEmails = [...state.emails];
             updatedEmails[retryIndex] = newEmail;
+
+            // CRITICAL FIX: Update unread count in retry path too
+            let newUnreadCount = state.unreadCount;
+            if (oldEmail.isRead !== newEmail.isRead) {
+              newUnreadCount += newEmail.isRead ? -1 : 1;
+            }
+
             logger.debug('[Email Store] Retried successfully');
             return {
               emails: updatedEmails,
+              unreadCount: Math.max(0, newUnreadCount),
               selectedEmail: state.selectedEmail?.id === id ? newEmail : state.selectedEmail,
             };
           }
@@ -262,11 +290,34 @@ export const useEmailStore = create<EmailState>((set, get) => ({
         return state;
       }
 
+      // CRITICAL: Clean up threads Map (same as bulkDelete)
+      const newThreads = new Map(state.threads);
+      if (email.threadId) {
+        const threadEmails = newThreads.get(email.threadId);
+        if (threadEmails) {
+          const remaining = threadEmails.filter(eid => eid !== id);
+          if (remaining.length === 0) {
+            newThreads.delete(email.threadId);
+          } else {
+            newThreads.set(email.threadId, remaining);
+          }
+        }
+      }
+
+      // CRITICAL: Clean up selectedIds Set (same as bulkDelete)
+      const newSelectedIds = new Set(state.selectedIds);
+      newSelectedIds.delete(id);
+      if (email.threadId) {
+        newSelectedIds.delete(email.threadId);
+      }
+
       logger.debug('[Email Store] Email deleted successfully');
       return {
         emails: state.emails.filter((e) => e.id !== id),
         unreadCount: !email.isRead ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
         selectedEmail: state.selectedEmail?.id === id ? null : state.selectedEmail,
+        threads: newThreads,
+        selectedIds: newSelectedIds,
       };
     }),
 
@@ -319,27 +370,43 @@ export const useEmailStore = create<EmailState>((set, get) => ({
   // Bulk actions
   markAsRead: (ids) =>
     set((state) => {
+      // CRITICAL FIX: Check both id AND threadId to match selectAll behavior
+      const idSet = new Set(ids);
       const updatedEmails = state.emails.map((email) =>
-        ids.includes(email.id) ? { ...email, isRead: true } : email
+        idSet.has(email.id) || (email.threadId && idSet.has(email.threadId))
+          ? { ...email, isRead: true }
+          : email
       );
 
       // Recalculate unread count
       const unreadCount = updatedEmails.filter((e) => !e.isRead).length;
 
+      // Also update selectedEmail if it was marked as read
+      const updatedSelectedEmail = state.selectedEmail &&
+        (idSet.has(state.selectedEmail.id) || (state.selectedEmail.threadId && idSet.has(state.selectedEmail.threadId)))
+        ? { ...state.selectedEmail, isRead: true }
+        : state.selectedEmail;
+
       return {
         emails: updatedEmails,
         unreadCount,
+        selectedEmail: updatedSelectedEmail,
       };
     }),
 
   markAsStarred: (ids, starred) =>
     set((state) => {
+      // CRITICAL FIX: Check both id AND threadId to match selectAll behavior
+      const idSet = new Set(ids);
       const updatedEmails = state.emails.map((email) =>
-        ids.includes(email.id) ? { ...email, isStarred: starred } : email
+        idSet.has(email.id) || (email.threadId && idSet.has(email.threadId))
+          ? { ...email, isStarred: starred }
+          : email
       );
 
       // Also update selectedEmail if it was starred/unstarred
-      const updatedSelectedEmail = state.selectedEmail && ids.includes(state.selectedEmail.id)
+      const updatedSelectedEmail = state.selectedEmail &&
+        (idSet.has(state.selectedEmail.id) || (state.selectedEmail.threadId && idSet.has(state.selectedEmail.threadId)))
         ? { ...state.selectedEmail, isStarred: starred }
         : state.selectedEmail;
 
@@ -351,12 +418,17 @@ export const useEmailStore = create<EmailState>((set, get) => ({
 
   markAsImportant: (ids, important) =>
     set((state) => {
+      // CRITICAL FIX: Check both id AND threadId to match selectAll behavior
+      const idSet = new Set(ids);
       const updatedEmails = state.emails.map((email) =>
-        ids.includes(email.id) ? { ...email, isImportant: important } : email
+        idSet.has(email.id) || (email.threadId && idSet.has(email.threadId))
+          ? { ...email, isImportant: important }
+          : email
       );
 
       // Also update selectedEmail if it was marked as important/unimportant
-      const updatedSelectedEmail = state.selectedEmail && ids.includes(state.selectedEmail.id)
+      const updatedSelectedEmail = state.selectedEmail &&
+        (idSet.has(state.selectedEmail.id) || (state.selectedEmail.threadId && idSet.has(state.selectedEmail.threadId)))
         ? { ...state.selectedEmail, isImportant: important }
         : state.selectedEmail;
 
@@ -368,26 +440,65 @@ export const useEmailStore = create<EmailState>((set, get) => ({
 
   bulkDelete: (ids) =>
     set((state) => {
-      const deletedEmails = state.emails.filter((e) => ids.includes(e.id));
+      // CRITICAL FIX: Check both id AND threadId to match selectAll behavior
+      const idSet = new Set(ids);
+      const deletedEmails = state.emails.filter((e) =>
+        idSet.has(e.id) || (e.threadId && idSet.has(e.threadId))
+      );
       const deletedUnreadCount = deletedEmails.filter((e) => !e.isRead).length;
 
+      // CRITICAL: Clean up threads Map - remove deleted email IDs from thread entries
+      const newThreads = new Map(state.threads);
+      for (const [threadId, emailIds] of newThreads.entries()) {
+        const remaining = emailIds.filter(id => !idSet.has(id));
+        if (remaining.length === 0) {
+          // All emails in thread deleted - remove thread entirely
+          newThreads.delete(threadId);
+        } else if (remaining.length !== emailIds.length) {
+          // Some emails remain - update thread with remaining IDs
+          newThreads.set(threadId, remaining);
+        }
+      }
+
+      // CRITICAL: Clean up selectedIds Set - remove deleted email IDs and their threadIds
+      const newSelectedIds = new Set(state.selectedIds);
+      for (const id of ids) {
+        newSelectedIds.delete(id);
+      }
+      for (const email of deletedEmails) {
+        newSelectedIds.delete(email.id);
+        if (email.threadId) {
+          newSelectedIds.delete(email.threadId);
+        }
+      }
+
       return {
-        emails: state.emails.filter((e) => !ids.includes(e.id)),
+        emails: state.emails.filter((e) =>
+          !idSet.has(e.id) && !(e.threadId && idSet.has(e.threadId))
+        ),
         unreadCount: Math.max(0, state.unreadCount - deletedUnreadCount),
-        selectedEmail: state.selectedEmail && ids.includes(state.selectedEmail.id)
+        selectedEmail: state.selectedEmail &&
+          (idSet.has(state.selectedEmail.id) || (state.selectedEmail.threadId && idSet.has(state.selectedEmail.threadId)))
           ? null
           : state.selectedEmail,
+        threads: newThreads,
+        selectedIds: newSelectedIds,
       };
     }),
 
   moveToFolder: (ids, folderId) =>
     set((state) => {
+      // CRITICAL FIX: Check both id AND threadId to match selectAll behavior
+      const idSet = new Set(ids);
       const updatedEmails = state.emails.map((email) =>
-        ids.includes(email.id) ? { ...email, folder: folderId } : email
+        idSet.has(email.id) || (email.threadId && idSet.has(email.threadId))
+          ? { ...email, folder: folderId }
+          : email
       );
 
       // Also update selectedEmail if it was moved
-      const updatedSelectedEmail = state.selectedEmail && ids.includes(state.selectedEmail.id)
+      const updatedSelectedEmail = state.selectedEmail &&
+        (idSet.has(state.selectedEmail.id) || (state.selectedEmail.threadId && idSet.has(state.selectedEmail.threadId)))
         ? { ...state.selectedEmail, folder: folderId }
         : state.selectedEmail;
 

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { EmailSyncBackService } from './email-sync-back.service';
@@ -41,8 +41,9 @@ export class EmailsService {
   ) {}
 
   /**
-   * Get folder paths by their RFC 6154 specialUse type
-   * This is used to filter emails by folder type regardless of localized folder names
+   * Get folder names by their RFC 6154 specialUse type
+   * This is used to filter emails by folder type regardless of localized folder names.
+   * Returns folder NAMES (not paths) because emails are stored with display name in `folder` field.
    */
   private async getFolderPathsBySpecialUse(
     tenantId: string,
@@ -55,9 +56,9 @@ export class EmailsService {
         ...(providerId && { providerId }),
         specialUse: { in: specialUseTypes, mode: 'insensitive' },
       },
-      select: { path: true },
+      select: { name: true },
     });
-    return folders.map((f) => f.path);
+    return folders.map((f) => f.name);
   }
 
   /**
@@ -154,6 +155,7 @@ export class EmailsService {
 
   /**
    * Get paginated list of emails with filters
+   * CRITICAL FIX: Added input validation for pagination params
    */
   async listEmails(params: EmailListParams) {
     const {
@@ -163,6 +165,14 @@ export class EmailsService {
       limit = 50,
       filters = {},
     } = params;
+
+    // CRITICAL FIX: Input validation
+    if (page < 1) {
+      throw new BadRequestException('Page must be >= 1');
+    }
+    if (limit < 1 || limit > 100) {
+      throw new BadRequestException('Limit must be between 1 and 100');
+    }
 
     const skip = (page - 1) * limit;
 
@@ -307,10 +317,15 @@ export class EmailsService {
 
   /**
    * Get email by ID
+   * CRITICAL FIX: Now filters by isDeleted to be consistent with other methods
    */
   async getEmailById(id: string, tenantId: string) {
     const email = await this.prisma.email.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+        isDeleted: false, // CRITICAL FIX: Exclude soft-deleted emails
+      },
       include: {
         provider: {
           select: {
@@ -402,10 +417,31 @@ export class EmailsService {
 
     await this.ensureProvidersActive(tenantId, [email.providerId]);
 
-    // Update in database first
+    // PERFORMANCE FIX: Use include in update to avoid duplicate query
     const updated = await this.prisma.email.update({
       where: { id },
       data,
+      include: {
+        provider: {
+          select: {
+            id: true,
+            email: true,
+            providerType: true,
+          },
+        },
+        attachments: true,
+        emailLabels: {
+          select: {
+            label: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     const targetFolder = data.folder ?? email.folder;
@@ -438,9 +474,8 @@ export class EmailsService {
       this.logger.error(`Failed to sync email update to provider: ${error.message}`);
     });
 
-    // Return complete email with all relationships
-    const [updatedEmail] = await this.getEmailsByIds([id], tenantId);
-    return updatedEmail || updated;
+    // Return the already-complete email (no duplicate query needed)
+    return updated;
   }
 
   /**
@@ -522,8 +557,11 @@ export class EmailsService {
 
     // If already deleted, permanent delete
     if (email.isDeleted) {
-      await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
-      await this.prisma.email.delete({ where: { id } });
+      // CRITICAL FIX: Wrap in transaction for atomicity
+      await this.prisma.$transaction(async (tx) => {
+        await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
+        await tx.email.delete({ where: { id } });
+      });
 
       this.emailSyncBack
         .syncOperationToProvider({
@@ -537,6 +575,14 @@ export class EmailsService {
         .catch((error) => {
           this.logger.error(`Failed to sync permanent delete: ${error.message}`);
         });
+
+      // Emit WebSocket event for hard delete (CRITICAL FIX: was missing)
+      this.realtimeEvents.emitEmailDelete(tenantId, {
+        emailId: email.id,
+        providerId: email.providerId,
+        folder: email.folder,
+        reason: 'message-deleted',
+      });
 
       this.updateFolderCounts(tenantId, email.providerId, [email.folder]).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
@@ -567,6 +613,14 @@ export class EmailsService {
         this.logger.error(`Failed to sync delete: ${error.message}`);
       });
 
+    // Emit WebSocket event for soft delete (CRITICAL FIX: was missing, only bulkDelete had this)
+    this.realtimeEvents.emitEmailDelete(tenantId, {
+      emailId: email.id,
+      providerId: email.providerId,
+      folder: email.folder,
+      reason: 'message-deleted',
+    });
+
     this.updateFolderCounts(tenantId, email.providerId, [email.folder]).catch((error) => {
       this.logger.error(`Failed to update folder counts: ${error.message}`);
     });
@@ -576,17 +630,51 @@ export class EmailsService {
 
   /**
    * Get email statistics
+   * Returns counts for smart filters (unread, starred, today, thisWeek, attachments, important)
    */
   async getStats(tenantId: string, providerId?: string) {
     const where: Prisma.EmailWhereInput = {
       tenantId,
+      isDeleted: false,
       ...(providerId && { providerId }),
     };
 
-    const [total, unread, starred, byFolder] = await Promise.all([
+    // Calculate date ranges for smart filters
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const startOfWeek = new Date(startOfToday);
+    startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const [total, unread, starred, important, today, thisWeek, attachments, byFolder] = await Promise.all([
       this.prisma.email.count({ where }),
       this.prisma.email.count({ where: { ...where, isRead: false } }),
       this.prisma.email.count({ where: { ...where, isStarred: true } }),
+      this.prisma.email.count({ where: { ...where, OR: [{ isStarred: true }, { isFlagged: true }] } }),
+      this.prisma.email.count({
+        where: {
+          ...where,
+          receivedAt: { gte: startOfToday, lte: endOfToday },
+        },
+      }),
+      this.prisma.email.count({
+        where: {
+          ...where,
+          receivedAt: { gte: startOfWeek, lte: endOfWeek },
+        },
+      }),
+      this.prisma.email.count({
+        where: {
+          ...where,
+          attachments: { some: {} },
+        },
+      }),
       this.prisma.email.groupBy({
         by: ['folder'],
         where,
@@ -598,6 +686,10 @@ export class EmailsService {
       total,
       unread,
       starred,
+      important,
+      today,
+      thisWeek,
+      attachments,
       byFolder: byFolder.reduce((acc, item) => {
         acc[item.folder] = item._count.id;
         return acc;
@@ -871,19 +963,38 @@ export class EmailsService {
       ? await this.getFolderPathsBySpecialUse(tenantId, ['TRASH', 'SPAM', 'JUNK'], providerId)
       : [];
 
-    // Get all non-deleted emails
+    // Check if we're viewing the TRASH folder (need to show isDeleted emails)
+    const trashFolderPaths = await this.getFolderPathsBySpecialUse(tenantId, ['TRASH'], providerId);
+    const isTrashView = folder
+      ? trashFolderPaths.some(p => p.toUpperCase() === folder.toUpperCase()) || folder.toUpperCase() === 'TRASH'
+      : false;
+
+    // Get emails - show deleted emails only in TRASH view
     const where: Prisma.EmailWhereInput = {
       tenantId,
       ...(providerId && { providerId }),
-      isDeleted: false,
+      // Only show deleted emails if we're viewing the TRASH folder
+      ...(!isTrashView ? { isDeleted: false } : {}),
       // If folder is specified, filter by it; otherwise exclude TRASH and SPAM by actual paths
       ...(folder
-        ? { folder }
+        ? { folder: { equals: folder, mode: 'insensitive' } }
         : excludedFolderPaths.length > 0
           ? { folder: { notIn: excludedFolderPaths, mode: 'insensitive' } }
           : {}
       ),
     };
+
+    // CRITICAL FIX: Check email count first to prevent memory bomb
+    // Loading all emails into memory will crash on large mailboxes
+    const MAX_EMAILS_FOR_GROUPING = 10000;
+    const emailCount = await this.prisma.email.count({ where });
+
+    if (emailCount > MAX_EMAILS_FOR_GROUPING) {
+      throw new BadRequestException(
+        `Too many emails (${emailCount}) to group into conversations. ` +
+        `Please use folder filters to narrow down the results. Maximum: ${MAX_EMAILS_FOR_GROUPING}`,
+      );
+    }
 
     // Get emails grouped by thread - find the latest email in each thread
     const emails = await this.prisma.email.findMany({
@@ -1076,24 +1187,32 @@ export class EmailsService {
 
     this.logger.log(`[BULK DELETE] ${toSoftDelete.length} soft delete, ${toHardDelete.length} hard delete`);
 
-    let totalDeleted = 0;
+    // CRITICAL FIX: Wrap all database operations in transaction for atomicity
+    const { softDeleteCount, hardDeleteCount } = await this.prisma.$transaction(async (tx) => {
+      let softCount = 0;
+      let hardCount = 0;
 
-    // Soft delete - just mark isDeleted, provider handles folder move
-    if (toSoftDelete.length > 0) {
-      const result = await this.prisma.email.updateMany({
-        where: { id: { in: toSoftDelete.map((e) => e.id) }, tenantId },
-        data: { isDeleted: true },
-      });
-      totalDeleted += result.count;
-    }
+      // Soft delete - just mark isDeleted, provider handles folder move
+      if (toSoftDelete.length > 0) {
+        const result = await tx.email.updateMany({
+          where: { id: { in: toSoftDelete.map((e) => e.id) }, tenantId },
+          data: { isDeleted: true },
+        });
+        softCount = result.count;
+      }
 
-    // Hard delete - remove from DB
-    if (toHardDelete.length > 0) {
-      const result = await this.prisma.email.deleteMany({
-        where: { id: { in: toHardDelete.map((e) => e.id) }, tenantId },
-      });
-      totalDeleted += result.count;
-    }
+      // Hard delete - remove from DB
+      if (toHardDelete.length > 0) {
+        const result = await tx.email.deleteMany({
+          where: { id: { in: toHardDelete.map((e) => e.id) }, tenantId },
+        });
+        hardCount = result.count;
+      }
+
+      return { softDeleteCount: softCount, hardDeleteCount: hardCount };
+    });
+
+    const totalDeleted = softDeleteCount + hardDeleteCount;
 
     // Track affected folders for count updates
     const affectedFolders = new Map<string, Set<string>>();
@@ -1372,24 +1491,38 @@ export class EmailsService {
 
   /**
    * Bulk add labels to emails
+   * PERFORMANCE FIX: Parallelized labels and emails queries
    */
   async bulkAddLabels(
     emailIds: string[],
     tenantId: string,
     labelIds: string[],
   ) {
-    // Verify labels exist and belong to tenant
-    const labels = await this.prisma.userLabel.findMany({
-      where: {
-        id: { in: labelIds },
-        tenantId,
-      },
-      select: { id: true },
-    });
+    // PERFORMANCE FIX: Parallelize the two independent queries
+    const [labels, emails] = await Promise.all([
+      // Verify labels exist and belong to tenant
+      this.prisma.userLabel.findMany({
+        where: {
+          id: { in: labelIds },
+          tenantId,
+        },
+        select: { id: true },
+      }),
+      // Get emails for provider validation
+      this.prisma.email.findMany({
+        where: { id: { in: emailIds }, tenantId },
+        select: { providerId: true },
+      }),
+    ]);
 
     if (labels.length !== labelIds.length) {
       throw new NotFoundException('One or more labels not found');
     }
+
+    await this.ensureProvidersActive(
+      tenantId,
+      Array.from(new Set(emails.map((email) => email.providerId))),
+    );
 
     // Create email-label associations
     const emailLabelPairs = emailIds.flatMap((emailId) =>
@@ -1398,15 +1531,6 @@ export class EmailsService {
         labelId,
         tenantId,
       }))
-    );
-
-    const emails = await this.prisma.email.findMany({
-      where: { id: { in: emailIds }, tenantId },
-      select: { providerId: true },
-    });
-    await this.ensureProvidersActive(
-      tenantId,
-      Array.from(new Set(emails.map((email) => email.providerId))),
     );
 
     // Use createMany with skipDuplicates to avoid conflicts
