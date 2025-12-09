@@ -412,10 +412,10 @@ export default function LoginPage() {
                         ? translations.auth.mfa?.backupCodes?.verify?.title || 'Backup Code'
                         : otpCopy.form.otpLabel
                   }
-                  placeholder={step === 'backup' ? 'XXXXXXXX' : '000000'}
+                  placeholder={step === 'backup' ? 'XXXX-XXXX' : '000000'}
                   value={otp}
                   onChange={(event) => setOtp(event.target.value)}
-                  inputProps={{ maxLength: step === 'backup' ? 8 : 6 }}
+                  inputProps={{ maxLength: step === 'backup' ? 9 : 6 }}
                   required
                   autoFocus
                 />
