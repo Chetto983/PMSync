@@ -106,14 +106,19 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Custom hook for client-side mounting check (hydration guard)
+function useHasMounted(): boolean {
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+  return hasMounted;
+}
+
 export default function App({ Component, pageProps }: AppProps & { Component: React.ComponentType & { skipAuthGuard?: boolean } }) {
   // Skip RouteGuard for error pages and pages with skipAuthGuard flag
   const skipAuth = Component.skipAuthGuard || false;
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useHasMounted();
 
   if (!mounted) {
     return null;

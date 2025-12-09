@@ -64,7 +64,9 @@
       "Bash(git rev-parse:*)",
       "Bash(Select-Object -Last 20)",
       "Bash(Select-Object -First 100)",
-      "Bash(cmd /c \"cd /d d:\\MailAgent\\backend && set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=delete database we restart && npx prisma db push --force-reset\")"
+      "Bash(cmd /c \"cd /d d:\\MailAgent\\backend && set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=delete database we restart && npx prisma db push --force-reset\")",
+      "Bash(docker-compose:*)",
+      "Bash(docker logs mailagent-rgrock)"
     ],
     "deny": [],
     "ask": []

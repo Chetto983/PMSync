@@ -66,18 +66,19 @@ services:
     networks:
       - mailagent-net
 
-  ngrok:
+  rgrock:
     image: ngrok/ngrok:latest
-    container_name: mailagent-ngrok
-    # SECURITY: Token must be set via environment variable - no defaults
+    container_name: mailagent-rgrock
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    # Use dynamic URL (free plan) - check logs for actual URL
+    # For paid plans with custom domain, use: http --url=${NGROK_URL} host.docker.internal:3000
     command: >
-      http --url=${NGROK_URL:-http://host.docker.internal:3000} host.docker.internal:3000
+      http host.docker.internal:3000
+    ports:
+      - "4040:4040"  # ngrok web interface to see the URL
     networks:
       - mailagent-net
-    profiles:
-      - tunnel  # Only start when explicitly requested: docker compose --profile tunnel up
 
   minio:
     image: minio/minio:latest

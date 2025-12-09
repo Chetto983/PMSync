@@ -195,13 +195,28 @@ export default function LoginPage() {
   };
 
   // Switch to a different MFA method
-  const switchMfaMethod = (method: MfaMethod) => {
+  const switchMfaMethod = async (method: MfaMethod) => {
     setOtp('');
     setError('');
     setFieldError(null);
-    if (method === 'totp') setStep('totp');
-    else if (method === 'email') setStep('email-otp');
-    else if (method === 'backup') setStep('backup');
+
+    if (method === 'totp') {
+      setStep('totp');
+    } else if (method === 'email') {
+      // Send OTP email when switching to email method
+      setLoading(true);
+      try {
+        await apiClient.post('/auth/send-otp', { email: email.trim() });
+        setStep('email-otp');
+      } catch (err) {
+        const errorResponse = err as { response?: { data?: { message?: string } } };
+        setError(errorResponse.response?.data?.message || translations.common.genericError);
+      } finally {
+        setLoading(false);
+      }
+    } else if (method === 'backup') {
+      setStep('backup');
+    }
   };
 
   // Handle passkey/biometric login
