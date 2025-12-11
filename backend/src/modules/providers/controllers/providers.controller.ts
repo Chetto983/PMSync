@@ -22,11 +22,13 @@ import {
   ConnectGoogleProviderDto,
   ConnectMicrosoftProviderDto,
   ConnectGenericProviderDto,
+  TestImapCredentialsDto,
   GoogleOAuthUrlDto,
   MicrosoftOAuthUrlDto,
   ProviderConfigResponseDto,
   OAuthUrlResponseDto,
 } from '../dto';
+import { ImapService } from '../services/imap.service';
 
 @ApiTags('Providers')
 @ApiBearerAuth()
@@ -38,6 +40,7 @@ export class ProvidersController {
     private readonly googleOAuth: GoogleOAuthService,
     private readonly microsoftOAuth: MicrosoftOAuthService,
     private readonly oauthStateService: OAuthStateService,
+    private readonly imapService: ImapService,
   ) {}
 
   // ========== GOOGLE PROVIDER ==========
@@ -146,6 +149,89 @@ export class ProvidersController {
   ): Promise<ProviderConfigResponseDto> {
     const { tenantId, userId } = req.user;
     return this.providerConfigService.connectGenericProvider(tenantId, userId, dto);
+  }
+
+  @Post('generic/test')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Test IMAP/SMTP credentials before creating provider' })
+  @ApiResponse({
+    status: 200,
+    description: 'Connection test results',
+    schema: {
+      type: 'object',
+      properties: {
+        imap: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+          },
+        },
+        smtp: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            message: { type: 'string' },
+            skipped: { type: 'boolean' },
+          },
+        },
+      },
+    },
+  })
+  async testGenericCredentials(
+    @Body() dto: TestImapCredentialsDto,
+  ): Promise<{ imap: { success: boolean; message: string }; smtp: { success: boolean; message: string; skipped?: boolean } }> {
+    // Test IMAP connection
+    let imapResult: { success: boolean; message: string };
+    try {
+      const imapSuccess = await this.imapService.testConnection({
+        host: dto.imapHost,
+        port: dto.imapPort || 993,
+        username: dto.imapUsername,
+        password: dto.imapPassword,
+        useTls: dto.imapUseTls !== false,
+      });
+      imapResult = {
+        success: imapSuccess,
+        message: imapSuccess ? 'IMAP connection successful' : 'IMAP connection failed',
+      };
+    } catch (error) {
+      imapResult = {
+        success: false,
+        message: error instanceof Error ? error.message : 'IMAP connection failed',
+      };
+    }
+
+    // Test SMTP connection if host provided
+    let smtpResult: { success: boolean; message: string; skipped?: boolean };
+    if (dto.smtpHost) {
+      try {
+        const smtpSuccess = await this.imapService.testSmtpConnection({
+          host: dto.smtpHost,
+          port: dto.smtpPort || 587,
+          username: dto.smtpUsername || dto.imapUsername,
+          password: dto.smtpPassword || dto.imapPassword,
+          useTls: dto.smtpUseTls !== false,
+        });
+        smtpResult = {
+          success: smtpSuccess,
+          message: smtpSuccess ? 'SMTP connection successful' : 'SMTP connection failed',
+        };
+      } catch (error) {
+        smtpResult = {
+          success: false,
+          message: error instanceof Error ? error.message : 'SMTP connection failed',
+        };
+      }
+    } else {
+      smtpResult = {
+        success: true,
+        message: 'SMTP test skipped (no host provided)',
+        skipped: true,
+      };
+    }
+
+    return { imap: imapResult, smtp: smtpResult };
   }
 
   // ========== COMMON OPERATIONS ==========

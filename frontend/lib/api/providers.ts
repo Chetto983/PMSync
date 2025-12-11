@@ -68,6 +68,24 @@ export interface ConnectGenericDto {
   isDefault?: boolean;
 }
 
+export interface TestCredentialsDto {
+  imapHost: string;
+  imapPort?: number;
+  imapUsername: string;
+  imapPassword: string;
+  imapUseTls?: boolean;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUsername?: string;
+  smtpPassword?: string;
+  smtpUseTls?: boolean;
+}
+
+export interface TestCredentialsResult {
+  imap: { success: boolean; message: string };
+  smtp: { success: boolean; message: string; skipped?: boolean };
+}
+
 export const providersApi = {
   // Google
   async getGoogleAuthUrl(scopes?: string[]): Promise<OAuthUrlResponse> {
@@ -94,6 +112,11 @@ export const providersApi = {
   // Generic
   async connectGeneric(dto: ConnectGenericDto): Promise<ProviderConfig> {
     const response = await apiClient.post('/providers/generic/connect', dto);
+    return response.data;
+  },
+
+  async testGenericCredentials(dto: TestCredentialsDto): Promise<TestCredentialsResult> {
+    const response = await apiClient.post('/providers/generic/test', dto);
     return response.data;
   },
 

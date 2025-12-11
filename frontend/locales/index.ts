@@ -1187,6 +1187,7 @@ export interface AppTranslations {
       port: string;
       username: string;
       password: string;
+      useTls: string;
       smtpSettings: string;
       smtpSubtitle: string;
       smtpHost: string;
@@ -1198,6 +1199,22 @@ export interface AppTranslations {
       cancel: string;
       connecting: string;
       connectProvider: string;
+      // Test connection
+      testConnection: string;
+      testing: string;
+      testSuccess: string;
+      testFailed: string;
+      imapSuccess: string;
+      imapFailed: string;
+      smtpSuccess: string;
+      smtpFailed: string;
+      smtpSkipped: string;
+      // Provider presets
+      presets: string;
+      presetsDescription: string;
+      selectProvider: string;
+      customProvider: string;
+      presetApplied: string;
     };
   };
   settings: {

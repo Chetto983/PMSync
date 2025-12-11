@@ -18,9 +18,12 @@ import {
   EmailAddress,
   ProviderType,
   CanonicalFolderType,
+  ProviderChange,
+  ProviderSubscription,
   IMAP_SPECIAL_USE_TO_CANONICAL,
   folderNameToCanonical,
 } from '../interfaces/canonical.types';
+import { ChangeCallback } from '../interfaces/email-driver.interface';
 
 /**
  * IMAP Connection Pool Configuration
@@ -87,6 +90,12 @@ export class IMAPDriver extends BaseEmailDriver {
   };
   private readonly FOLDER_CACHE_TTL = 300000; // 5 minutes
 
+  // IDLE connection for real-time updates (separate from pool)
+  private idleConnection?: ImapFlow;
+  private idleCallback?: ChangeCallback;
+  private idleFolder?: string;
+  private idleActive = false;
+
   async connect(credentials: DriverCredentials): Promise<void> {
     if (credentials.type !== 'basic' && credentials.type !== 'app-password') {
       throw new Error('IMAP driver requires basic or app-password authentication');
@@ -138,6 +147,9 @@ export class IMAPDriver extends BaseEmailDriver {
   }
 
   async disconnect(): Promise<void> {
+    // Stop IDLE subscription first
+    await this.stopIdleSubscription();
+
     // Close all pooled connections
     for (const pooled of this.connectionPool) {
       try {
@@ -151,6 +163,212 @@ export class IMAPDriver extends BaseEmailDriver {
     this.connectionPool = [];
     this.folderCache = undefined;
     await super.disconnect();
+  }
+
+  // ============================================
+  // IDLE / Real-time Subscriptions
+  // ============================================
+
+  /**
+   * Subscribe to real-time change notifications using IMAP IDLE
+   *
+   * IMPORTANT: IMAP IDLE only monitors ONE folder at a time.
+   * For multi-folder monitoring, you need multiple connections or
+   * use this primarily for INBOX and poll other folders.
+   *
+   * Production considerations for >1000 users:
+   * - Each IDLE subscription uses a dedicated connection
+   * - The service layer should use Redis Pub/Sub to distribute
+   *   notifications to all app instances
+   * - Consider connection limits per server (usually ~10-50 concurrent)
+   *
+   * @param callback Function called when changes are detected
+   * @param folder Folder to monitor (default: INBOX)
+   * @returns Subscription handle to stop monitoring
+   */
+  async subscribeToChanges(
+    callback: ChangeCallback,
+    folder = 'INBOX',
+  ): Promise<ProviderSubscription> {
+    this.ensureConnected();
+
+    if (!this.imapConfig) {
+      throw new Error('IMAP configuration not set');
+    }
+
+    // Stop any existing IDLE subscription
+    await this.stopIdleSubscription();
+
+    // Resolve folder path
+    const folderPath = await this.resolveFolder(folder);
+    this.idleFolder = folderPath;
+    this.idleCallback = callback;
+
+    // Create dedicated IDLE connection (separate from pool)
+    // IDLE blocks the connection, so it can't be shared
+    this.idleConnection = new ImapFlow({
+      host: this.imapConfig.host,
+      port: this.imapConfig.port,
+      secure: this.imapConfig.secure,
+      auth: this.imapConfig.auth,
+      logger: false,
+      // IDLE configuration
+      disableAutoIdle: false,  // Enable auto-IDLE
+      maxIdleTime: 29 * 60 * 1000, // 29 minutes (RFC recommends < 30 min)
+    });
+
+    await this.idleConnection.connect();
+    this.idleActive = true;
+
+    // Set up event handlers BEFORE selecting mailbox
+    this.setupIdleEventHandlers();
+
+    // Select the folder to start IDLE monitoring
+    // ImapFlow automatically enters IDLE when the mailbox is opened
+    await this.idleConnection.mailboxOpen(folderPath);
+
+    this.logger.log(`IDLE subscription started for folder: ${folderPath}`);
+
+    // Return subscription handle
+    return {
+      unsubscribe: async (): Promise<void> => {
+        await this.stopIdleSubscription();
+      },
+      isActive: (): boolean => {
+        return this.idleActive && (this.idleConnection?.usable ?? false);
+      },
+    };
+  }
+
+  /**
+   * Set up event handlers for IDLE notifications
+   */
+  private setupIdleEventHandlers(): void {
+    if (!this.idleConnection) return;
+
+    // 'exists' - New messages or message count changed
+    this.idleConnection.on('exists', async (data: { path: string; count: number; prevCount: number }) => {
+      this.logger.debug(`IDLE exists event: ${data.path} count=${data.count} prev=${data.prevCount}`);
+
+      if (!this.idleCallback) return;
+
+      // New messages detected
+      if (data.count > data.prevCount) {
+        const newCount = data.count - data.prevCount;
+        const changes: ProviderChange[] = [];
+
+        // Create change entries for new messages
+        // Note: We don't have UIDs here, the callback should trigger a sync
+        for (let i = 0; i < newCount; i++) {
+          changes.push({
+            type: 'added',
+            messageId: `${data.path}:new_${Date.now()}_${i}`,
+            folder: this.pathToCanonicalFolder(data.path),
+            timestamp: new Date(),
+          });
+        }
+
+        try {
+          await this.idleCallback(changes);
+        } catch (error) {
+          this.logger.error('Error in IDLE callback (exists):', error);
+        }
+      }
+    });
+
+    // 'expunge' - Message deleted
+    // Note: Using 'as any' because ImapFlow types may not include all event types
+    (this.idleConnection as any).on('expunge', async (data: { path: string; seq: number }) => {
+      this.logger.debug(`IDLE expunge event: ${data.path} seq=${data.seq}`);
+
+      if (!this.idleCallback) return;
+
+      const changes: ProviderChange[] = [{
+        type: 'deleted',
+        messageId: `${data.path}:seq_${data.seq}`,
+        folder: this.pathToCanonicalFolder(data.path),
+        timestamp: new Date(),
+      }];
+
+      try {
+        await this.idleCallback(changes);
+      } catch (error) {
+        this.logger.error('Error in IDLE callback (expunge):', error);
+      }
+    });
+
+    // 'flags' - Message flags changed (read/unread, starred, etc.)
+    // Note: Using 'as any' because ImapFlow types may not include all event types
+    (this.idleConnection as any).on('flags', async (data: { path: string; seq: number; uid?: number; flags: Set<string> }) => {
+      this.logger.debug(`IDLE flags event: ${data.path} seq=${data.seq} flags=${Array.from(data.flags).join(',')}`);
+
+      if (!this.idleCallback) return;
+
+      const messageId = data.uid
+        ? `${data.path}:${data.uid}`
+        : `${data.path}:seq_${data.seq}`;
+
+      const changes: ProviderChange[] = [{
+        type: 'modified',
+        messageId,
+        folder: this.pathToCanonicalFolder(data.path),
+        timestamp: new Date(),
+      }];
+
+      try {
+        await this.idleCallback(changes);
+      } catch (error) {
+        this.logger.error('Error in IDLE callback (flags):', error);
+      }
+    });
+
+    // Connection error handling
+    this.idleConnection.on('error', (error: Error) => {
+      this.logger.error('IDLE connection error:', error);
+      this.idleActive = false;
+    });
+
+    // Connection close handling
+    this.idleConnection.on('close', () => {
+      this.logger.warn('IDLE connection closed');
+      this.idleActive = false;
+    });
+  }
+
+  /**
+   * Stop the IDLE subscription and close the dedicated connection
+   */
+  private async stopIdleSubscription(): Promise<void> {
+    if (this.idleConnection) {
+      try {
+        if (this.idleConnection.usable) {
+          await this.idleConnection.logout();
+        }
+      } catch (error) {
+        this.logger.warn('Error closing IDLE connection:', error);
+      }
+      this.idleConnection = undefined;
+    }
+
+    this.idleCallback = undefined;
+    this.idleFolder = undefined;
+    this.idleActive = false;
+  }
+
+  /**
+   * Convert IMAP folder path to canonical folder type
+   */
+  private pathToCanonicalFolder(path: string): CanonicalFolderType {
+    // Check folder cache for canonical type
+    if (this.folderCache) {
+      const folder = this.folderCache.folders.find((f) => f.path === path);
+      if (folder) {
+        return folder.type;
+      }
+    }
+
+    // Fallback to heuristic mapping
+    return folderNameToCanonical(path.split('/').pop() || path);
   }
 
   // ============================================

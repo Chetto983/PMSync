@@ -15,10 +15,82 @@ import {
   FormControlLabel,
   Alert,
   Divider,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  CircularProgress,
 } from '@mui/material';
-import { Mail } from 'lucide-react';
-import { providersApi, ConnectGenericDto } from '@/lib/api/providers';
+import { Mail, CheckCircle, XCircle, Wifi } from 'lucide-react';
+import { providersApi, ConnectGenericDto, TestCredentialsResult } from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
+
+// Provider presets with common IMAP/SMTP settings
+const PROVIDER_PRESETS = {
+  yahoo: {
+    name: 'Yahoo Mail',
+    imapHost: 'imap.mail.yahoo.com',
+    imapPort: 993,
+    imapUseTls: true,
+    smtpHost: 'smtp.mail.yahoo.com',
+    smtpPort: 465,
+    smtpUseTls: true,
+  },
+  icloud: {
+    name: 'iCloud Mail',
+    imapHost: 'imap.mail.me.com',
+    imapPort: 993,
+    imapUseTls: true,
+    smtpHost: 'smtp.mail.me.com',
+    smtpPort: 587,
+    smtpUseTls: true,
+  },
+  fastmail: {
+    name: 'Fastmail',
+    imapHost: 'imap.fastmail.com',
+    imapPort: 993,
+    imapUseTls: true,
+    smtpHost: 'smtp.fastmail.com',
+    smtpPort: 465,
+    smtpUseTls: true,
+  },
+  aol: {
+    name: 'AOL Mail',
+    imapHost: 'imap.aol.com',
+    imapPort: 993,
+    imapUseTls: true,
+    smtpHost: 'smtp.aol.com',
+    smtpPort: 465,
+    smtpUseTls: true,
+  },
+  zoho: {
+    name: 'Zoho Mail',
+    imapHost: 'imap.zoho.com',
+    imapPort: 993,
+    imapUseTls: true,
+    smtpHost: 'smtp.zoho.com',
+    smtpPort: 465,
+    smtpUseTls: true,
+  },
+  gmx: {
+    name: 'GMX',
+    imapHost: 'imap.gmx.com',
+    imapPort: 993,
+    imapUseTls: true,
+    smtpHost: 'mail.gmx.com',
+    smtpPort: 587,
+    smtpUseTls: true,
+  },
+  aruba: {
+    name: 'Aruba PEC',
+    imapHost: 'imaps.pec.aruba.it',
+    imapPort: 993,
+    imapUseTls: true,
+    smtpHost: 'smtps.pec.aruba.it',
+    smtpPort: 465,
+    smtpUseTls: true,
+  },
+} as const;
 
 interface GenericProviderCardProps {
   onSuccess: () => void;
@@ -31,6 +103,9 @@ export function GenericProviderCard({ onSuccess }: GenericProviderCardProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showCalDAV, setShowCalDAV] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestCredentialsResult | null>(null);
 
   const [formData, setFormData] = useState<ConnectGenericDto>({
     email: '',
@@ -98,6 +173,55 @@ export function GenericProviderCard({ onSuccess }: GenericProviderCardProps) {
   const updateField = (field: keyof ConnectGenericDto, value: string | number | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const handlePresetChange = (presetKey: string) => {
+    setSelectedPreset(presetKey);
+    setTestResult(null);
+
+    if (presetKey && presetKey !== 'custom') {
+      const preset = PROVIDER_PRESETS[presetKey as keyof typeof PROVIDER_PRESETS];
+      if (preset) {
+        setFormData((prev) => ({
+          ...prev,
+          imapHost: preset.imapHost,
+          imapPort: preset.imapPort,
+          imapUseTls: preset.imapUseTls,
+          smtpHost: preset.smtpHost,
+          smtpPort: preset.smtpPort,
+          smtpUseTls: preset.smtpUseTls,
+        }));
+      }
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    setError('');
+
+    try {
+      const result = await providersApi.testGenericCredentials({
+        imapHost: formData.imapHost,
+        imapPort: formData.imapPort,
+        imapUsername: formData.imapUsername,
+        imapPassword: formData.imapPassword,
+        imapUseTls: formData.imapUseTls,
+        smtpHost: formData.smtpHost || undefined,
+        smtpPort: formData.smtpPort,
+        smtpUsername: formData.smtpUsername || undefined,
+        smtpPassword: formData.smtpPassword || undefined,
+        smtpUseTls: formData.smtpUseTls,
+      });
+      setTestResult(result);
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || genericCopy.testFailed);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const canTest = formData.imapHost && formData.imapUsername && formData.imapPassword;
 
   return (
     <>
@@ -181,6 +305,70 @@ export function GenericProviderCard({ onSuccess }: GenericProviderCardProps) {
               </Alert>
             )}
 
+            {/* Test Connection Results */}
+            {testResult && (
+              <Alert
+                severity={testResult.imap.success && (testResult.smtp.skipped || testResult.smtp.success) ? 'success' : 'warning'}
+                sx={{ mb: 3 }}
+                onClose={() => setTestResult(null)}
+              >
+                <Stack spacing={0.5}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {testResult.imap.success ? (
+                      <CheckCircle size={16} color="green" />
+                    ) : (
+                      <XCircle size={16} color="red" />
+                    )}
+                    <Typography variant="body2">
+                      {testResult.imap.success ? genericCopy.imapSuccess : `${genericCopy.imapFailed}: ${testResult.imap.message}`}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {testResult.smtp.skipped ? (
+                      <Wifi size={16} color="gray" />
+                    ) : testResult.smtp.success ? (
+                      <CheckCircle size={16} color="green" />
+                    ) : (
+                      <XCircle size={16} color="red" />
+                    )}
+                    <Typography variant="body2">
+                      {testResult.smtp.skipped
+                        ? genericCopy.smtpSkipped
+                        : testResult.smtp.success
+                          ? genericCopy.smtpSuccess
+                          : `${genericCopy.smtpFailed}: ${testResult.smtp.message}`}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Alert>
+            )}
+
+            {/* Provider Presets */}
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              {genericCopy.presets}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {genericCopy.presetsDescription}
+            </Typography>
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel>{genericCopy.selectProvider}</InputLabel>
+              <Select
+                value={selectedPreset}
+                label={genericCopy.selectProvider}
+                onChange={(e) => handlePresetChange(e.target.value)}
+              >
+                <MenuItem value="">{genericCopy.selectProvider}</MenuItem>
+                <MenuItem value="custom">{genericCopy.customProvider}</MenuItem>
+                {Object.entries(PROVIDER_PRESETS).map(([key, preset]) => (
+                  <MenuItem key={key} value={key}>
+                    {preset.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Divider sx={{ my: 3 }} />
+
             {/* Basic Info */}
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
               {genericCopy.basicInfo}
@@ -246,6 +434,15 @@ export function GenericProviderCard({ onSuccess }: GenericProviderCardProps) {
                   required
                 />
               </Stack>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.imapUseTls}
+                    onChange={(e) => updateField('imapUseTls', e.target.checked)}
+                  />
+                }
+                label={genericCopy.useTls}
+              />
             </Stack>
 
             <Divider sx={{ my: 3 }} />
@@ -257,22 +454,33 @@ export function GenericProviderCard({ onSuccess }: GenericProviderCardProps) {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {genericCopy.smtpSubtitle}
             </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
-              <TextField
-                fullWidth
-                label={genericCopy.smtpHost}
-                placeholder={genericCopy.smtpHostPlaceholder}
-                value={formData.smtpHost}
-                onChange={(e) => updateField('smtpHost', e.target.value)}
-                sx={{ flex: 2 }}
-              />
-              <TextField
-                fullWidth
-                label={genericCopy.port}
-                type="number"
-                value={formData.smtpPort}
-                onChange={(e) => updateField('smtpPort', parseInt(e.target.value))}
-                sx={{ flex: 1 }}
+            <Stack spacing={2} sx={{ mb: 3 }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label={genericCopy.smtpHost}
+                  placeholder={genericCopy.smtpHostPlaceholder}
+                  value={formData.smtpHost}
+                  onChange={(e) => updateField('smtpHost', e.target.value)}
+                  sx={{ flex: 2 }}
+                />
+                <TextField
+                  fullWidth
+                  label={genericCopy.port}
+                  type="number"
+                  value={formData.smtpPort}
+                  onChange={(e) => updateField('smtpPort', parseInt(e.target.value))}
+                  sx={{ flex: 1 }}
+                />
+              </Stack>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.smtpUseTls}
+                    onChange={(e) => updateField('smtpUseTls', e.target.checked)}
+                  />
+                }
+                label={genericCopy.useTls}
               />
             </Stack>
 
@@ -322,13 +530,23 @@ export function GenericProviderCard({ onSuccess }: GenericProviderCardProps) {
             )}
           </DialogContent>
 
-          <DialogActions sx={{ px: 3, py: 2 }}>
-            <Button onClick={() => setOpen(false)} disabled={loading}>
-              {genericCopy.cancel}
+          <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
+            <Button
+              onClick={handleTestConnection}
+              disabled={testing || !canTest}
+              startIcon={testing ? <CircularProgress size={16} /> : <Wifi size={16} />}
+              variant="outlined"
+            >
+              {testing ? genericCopy.testing : genericCopy.testConnection}
             </Button>
-            <Button type="submit" variant="contained" disabled={loading}>
-              {loading ? genericCopy.connecting : genericCopy.connectProvider}
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button onClick={() => setOpen(false)} disabled={loading}>
+                {genericCopy.cancel}
+              </Button>
+              <Button type="submit" variant="contained" disabled={loading}>
+                {loading ? genericCopy.connecting : genericCopy.connectProvider}
+              </Button>
+            </Box>
           </DialogActions>
         </form>
       </Dialog>
