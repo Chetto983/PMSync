@@ -637,6 +637,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       folders.forEach((folder) => {
         const IconComponent = getIconForFolderUtil(folder.specialUse);
         const countOverride = countsByFolderId[`${providerId}:${folder.id}`];
+        // CANONICAL FOLDER ARCHITECTURE:
+        // Backend expects canonical folder names (INBOX, SENT, TRASH, etc.)
+        // Use specialUse (which is canonical) for API queries
+        // Fall back to path only for custom folders without specialUse
+        const canonicalFolder = folder.specialUse?.toUpperCase() || folder.path || folder.name;
         items.push({
           id: folder.id,
           label: folder.name,
@@ -644,13 +649,13 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
           count: countOverride?.unreadCount ?? folder.unreadCount,
           providerId: folder.providerId,
           providerEmail,
-          filterFolder: folder.path || folder.name, // Use actual path, not normalized
+          filterFolder: canonicalFolder, // Use canonical name for API queries
           specialUse: folder.specialUse,
           path: folder.path,
           folderData: folder as Folder, // Pass full folder data for CRUD operations
           queryOverrides: {
             providerId: folder.providerId,
-            folder: folder.path || folder.name, // Use actual path for API query
+            folder: canonicalFolder, // Use canonical name for API query
           },
         });
       });

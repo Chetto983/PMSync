@@ -8,6 +8,9 @@ import { AiModule } from '../ai/ai.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { RetryService } from '../../common/services/retry.service';
 
+// Email Drivers (Phase 2 Driver Abstraction)
+import { DriversModule } from './drivers/drivers.module';
+
 // Services
 import { QueueService } from './services/queue.service';
 import { FolderOperationsQueueService } from './services/folder-operations-queue.service';
@@ -67,6 +70,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     forwardRef(() => EmailModule), // For AttachmentStorageService
     forwardRef(() => AiModule),
     RealtimeModule, // WebSocket events
+    DriversModule, // Email Drivers (Phase 2)
   ],
   controllers: [
     EmailSyncController,
@@ -141,6 +145,8 @@ import { FoldersController } from '../email/controllers/folders.controller';
     // Attachment handlers (for on-demand download in EmailModule)
     GmailAttachmentHandler,
     MicrosoftAttachmentHandler,
+    // Email Drivers (Phase 2) - re-exported from DriversModule
+    DriversModule,
   ],
 })
 export class EmailSyncModule {}

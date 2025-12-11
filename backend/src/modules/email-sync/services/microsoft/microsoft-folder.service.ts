@@ -23,66 +23,186 @@ export class MicrosoftFolderService {
   ) {}
 
   /**
-   * Determine folder name from Microsoft folder ID
-   * Returns the actual folder name from the provider, not normalized names
-   * This ensures sync-back operations work correctly with provider-specific folder names
+   * Determine CANONICAL folder type from Microsoft folder ID
+   * Returns canonical folder types (INBOX, SENT, TRASH, etc.) for multi-provider compatibility
+   *
+   * CANONICAL FOLDER ARCHITECTURE:
+   * All emails across providers use canonical folder names (INBOX, SENT, TRASH, SPAM, etc.)
+   * This enables simple queries without complex JOINs or specialUse lookups.
    *
    * @param parentFolderId - Microsoft folder ID
    * @param providerId - Provider config ID
    * @param isDraft - Whether the message is a draft
-   * @returns Actual folder name from the provider
+   * @returns Canonical folder type (INBOX, SENT, TRASH, SPAM, DRAFTS, ARCHIVE, or custom name)
    */
   async determineFolderFromParentId(
     parentFolderId: string | undefined,
     providerId: string,
     isDraft: boolean,
   ): Promise<string> {
-    // Default fallback
+    // Default fallback - use canonical names
     if (!parentFolderId) {
-      return isDraft ? 'Drafts' : 'Inbox';
+      return isDraft ? 'DRAFTS' : 'INBOX';
     }
 
     try {
-      // Lookup folder in database by externalId (Microsoft folder ID)
-      // folder.path now stores displayName, folder.externalId stores the API folder ID
+      // Strategy 1: Exact match by externalId
       const folder = await this.prisma.folder.findFirst({
         where: {
           providerId,
-          externalId: parentFolderId, // Lookup by external ID (Microsoft folder ID)
+          externalId: parentFolderId,
         },
         select: {
           specialUse: true,
           name: true,
           path: true,
-          id: true,
         },
       });
 
-      if (!folder) {
-        // Fallback: try looking up by path (for backwards compatibility)
-        const folderByPath = await this.prisma.folder.findFirst({
-          where: {
-            providerId,
-            path: parentFolderId,
-          },
-          select: { name: true },
-        });
-        if (folderByPath) {
-          return folderByPath.name;
+      if (folder) {
+        if (folder.specialUse) {
+          return this.specialUseToCanonical(folder.specialUse);
         }
-        return isDraft ? 'Drafts' : 'Inbox';
+        return this.displayNameToCanonical(folder.name);
       }
 
-      // Return the folder name (which matches folder.path)
-      // This ensures email.folder joins correctly with folder.path
-      return folder.name;
+      // Strategy 2: Partial match - Microsoft folder IDs share common prefixes
+      // The message.parentFolderId may differ slightly from folder.id
+      const allFolders = await this.prisma.folder.findMany({
+        where: { providerId },
+        select: { externalId: true, specialUse: true, name: true },
+      });
+
+      // Try to find a folder whose externalId shares a common prefix (first 80 chars)
+      const parentIdPrefix = parentFolderId.substring(0, 80);
+      const matchedFolder = allFolders.find(
+        (f) => f.externalId && f.externalId.substring(0, 80) === parentIdPrefix,
+      );
+
+      if (matchedFolder) {
+        if (matchedFolder.specialUse) {
+          return this.specialUseToCanonical(matchedFolder.specialUse);
+        }
+        return this.displayNameToCanonical(matchedFolder.name);
+      }
+
+      // Strategy 3: Fallback to path lookup (backwards compatibility)
+      const folderByPath = await this.prisma.folder.findFirst({
+        where: {
+          providerId,
+          path: parentFolderId,
+        },
+        select: { specialUse: true, name: true },
+      });
+      if (folderByPath?.specialUse) {
+        return this.specialUseToCanonical(folderByPath.specialUse);
+      }
+      if (folderByPath?.name) {
+        return this.displayNameToCanonical(folderByPath.name);
+      }
+
+      // Strategy 4: If all lookups fail, default to INBOX (not TRASH!)
+      // This prevents emails from being incorrectly marked as deleted
+      this.logger.debug(
+        `Could not find folder for parentId ${parentFolderId.substring(0, 50)}..., defaulting to INBOX`,
+      );
+      return isDraft ? 'DRAFTS' : 'INBOX';
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.warn(
         `Failed to determine folder from parentId ${parentFolderId}: ${errorMessage}`,
       );
-      return isDraft ? 'Drafts' : 'Inbox';
+      return isDraft ? 'DRAFTS' : 'INBOX';
     }
+  }
+
+  /**
+   * Convert RFC 6154 specialUse attribute to canonical folder type
+   */
+  private specialUseToCanonical(specialUse: string): string {
+    const mapping: Record<string, string> = {
+      'INBOX': 'INBOX',
+      'SENT': 'SENT',
+      'DRAFTS': 'DRAFTS',
+      'TRASH': 'TRASH',
+      'JUNK': 'SPAM',
+      'SPAM': 'SPAM',
+      'ARCHIVE': 'ARCHIVE',
+      'FLAGGED': 'STARRED',
+      'IMPORTANT': 'IMPORTANT',
+    };
+    return mapping[specialUse.toUpperCase()] || specialUse.toUpperCase();
+  }
+
+  /**
+   * Convert Microsoft display name to canonical folder type
+   * Used as fallback when specialUse is not available
+   */
+  private displayNameToCanonical(displayName: string): string {
+    const lowerName = displayName.toLowerCase().trim();
+
+    // Inbox variations (English, Italian, German)
+    if (lowerName === 'inbox' || lowerName === 'posta in arrivo' || lowerName === 'posteingang') {
+      return 'INBOX';
+    }
+
+    // Sent variations
+    if (
+      lowerName === 'sent items' ||
+      lowerName === 'sentitems' ||
+      lowerName === 'sent' ||
+      lowerName === 'posta inviata' ||
+      lowerName === 'inviata' ||
+      lowerName === 'elementi inviati'
+    ) {
+      return 'SENT';
+    }
+
+    // Trash variations
+    if (
+      lowerName === 'deleted items' ||
+      lowerName === 'deleteditems' ||
+      lowerName === 'trash' ||
+      lowerName === 'posta eliminata' ||
+      lowerName === 'cestino' ||
+      lowerName === 'eliminata'
+    ) {
+      return 'TRASH';
+    }
+
+    // Drafts variations
+    if (lowerName === 'drafts' || lowerName === 'bozze' || lowerName === 'draft') {
+      return 'DRAFTS';
+    }
+
+    // Spam/Junk variations
+    if (
+      lowerName === 'junk email' ||
+      lowerName === 'junk' ||
+      lowerName === 'spam' ||
+      lowerName === 'posta indesiderata' ||
+      lowerName === 'post indiserata'
+    ) {
+      return 'SPAM';
+    }
+
+    // Archive variations
+    if (
+      lowerName === 'archive' ||
+      lowerName === 'archivia' ||
+      lowerName === 'archivio' ||
+      lowerName === 'all mail'
+    ) {
+      return 'ARCHIVE';
+    }
+
+    // Outbox
+    if (lowerName === 'outbox' || lowerName === 'posta in uscita') {
+      return 'OUTBOX';
+    }
+
+    // Return original name in uppercase for custom folders
+    return displayName.toUpperCase();
   }
 
   /**

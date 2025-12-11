@@ -958,29 +958,23 @@ export class EmailsService {
     const { tenantId, providerId, folder, page = 1, limit = 50 } = params;
     const skip = (page - 1) * limit;
 
-    // Get folder paths for TRASH and SPAM by their specialUse type (locale-independent)
-    const excludedFolderPaths = !folder
-      ? await this.getFolderPathsBySpecialUse(tenantId, ['TRASH', 'SPAM', 'JUNK'], providerId)
-      : [];
+    // CANONICAL FOLDER ARCHITECTURE:
+    // All emails now have canonical folder names (INBOX, SENT, TRASH, SPAM, etc.)
+    // This enables simple folder matching across all providers without complex JOINs.
 
     // Check if we're viewing the TRASH folder (need to show isDeleted emails)
-    const trashFolderPaths = await this.getFolderPathsBySpecialUse(tenantId, ['TRASH'], providerId);
-    const isTrashView = folder
-      ? trashFolderPaths.some(p => p.toUpperCase() === folder.toUpperCase()) || folder.toUpperCase() === 'TRASH'
-      : false;
+    const isTrashView = folder?.toUpperCase() === 'TRASH';
 
-    // Get emails - show deleted emails only in TRASH view
+    // Build the WHERE clause
     const where: Prisma.EmailWhereInput = {
       tenantId,
       ...(providerId && { providerId }),
       // Only show deleted emails if we're viewing the TRASH folder
       ...(!isTrashView ? { isDeleted: false } : {}),
-      // If folder is specified, filter by it; otherwise exclude TRASH and SPAM by actual paths
+      // Folder filter - simple canonical name matching works across all providers
       ...(folder
-        ? { folder: { equals: folder, mode: 'insensitive' } }
-        : excludedFolderPaths.length > 0
-          ? { folder: { notIn: excludedFolderPaths, mode: 'insensitive' } }
-          : {}
+        ? { folder: { equals: folder.toUpperCase(), mode: 'insensitive' } }
+        : { folder: { notIn: ['TRASH', 'SPAM'], mode: 'insensitive' } }
       ),
     };
 

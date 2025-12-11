@@ -71,7 +71,8 @@
       "Bash(npx prisma:*)",
       "Bash(npx prisma migrate:*)",
       "Bash(npx prisma migrate resolve:*)",
-      "Bash(taskkill /F /PID 28732)"
+      "Bash(taskkill /F /PID 28732)",
+      "Skill(superpowers:brainstorming)"
     ],
     "deny": [],
     "ask": []
