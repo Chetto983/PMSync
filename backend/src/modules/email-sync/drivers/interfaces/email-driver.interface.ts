@@ -38,6 +38,10 @@ export interface DriverCredentials {
   smtpHost?: string;
   smtpPort?: number;
   smtpTls?: boolean;
+
+  // Optional email hint when User.Read scope may not be available
+  // Used as fallback for getUserInfo() when /me endpoint returns 403
+  emailHint?: string;
 }
 
 /**

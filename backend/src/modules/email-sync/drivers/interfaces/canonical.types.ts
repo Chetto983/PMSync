@@ -9,10 +9,10 @@
  */
 
 /**
- * Canonical folder types based on RFC 6154 special-use attributes
- * These are locale-independent identifiers for standard mailbox folders
+ * Known canonical folder types based on RFC 6154 special-use attributes.
+ * These are locale-independent identifiers for standard mailbox folders.
  */
-export type CanonicalFolderType =
+export type KnownFolderType =
   | 'INBOX'      // Primary inbox - \Inbox
   | 'SENT'       // Sent messages - \Sent
   | 'DRAFTS'     // Draft messages - \Drafts
@@ -27,9 +27,13 @@ export type CanonicalFolderType =
   | 'PROMOTIONS'
   | 'UPDATES'
   | 'FORUMS'
-  | 'PERSONAL'
-  // Custom folder (user-created)
-  | string;
+  | 'PERSONAL';
+
+/**
+ * CanonicalFolderType allows any string for custom user folders.
+ * Use KnownFolderType when you need strict type checking for system folders.
+ */
+export type CanonicalFolderType = KnownFolderType | (string & Record<never, never>);
 
 /**
  * Mapping from provider-specific folder identifiers to canonical types

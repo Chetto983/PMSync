@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import {
-  IEmailDriver,
   BaseEmailDriver,
   DriverCredentials,
   ListMessagesOptions,
@@ -54,15 +53,35 @@ export class MicrosoftDriver extends BaseEmailDriver {
     this.credentials = credentials;
     this.connected = true;
 
-    // Get user email and cache folder IDs
-    try {
-      const profile = await this.client.get('/me');
-      this.userEmail = profile.data.mail || profile.data.userPrincipalName || null;
+    // Use email hint as fallback if provided (for when User.Read scope unavailable)
+    if (credentials.emailHint) {
+      this.userEmail = credentials.emailHint;
+    }
 
-      // Cache folder IDs for canonical lookups
+    // Get user email - only try if we don't have an email hint (reduces API calls)
+    // The /me endpoint requires User.Read scope which may not always be granted
+    // for personal Outlook.com accounts with limited scopes
+    if (!this.userEmail) {
+      try {
+        const profile = await this.client.get('/me', {
+          params: { $select: 'mail,userPrincipalName' },
+        });
+        this.userEmail = profile.data.mail || profile.data.userPrincipalName || null;
+      } catch (error: any) {
+        // 403 Forbidden is expected when User.Read scope is not available
+        if (error.response?.status !== 403) {
+          this.logger.warn(`Could not fetch user profile: ${error.response?.status || error.message}`);
+        }
+        // Continue without user profile - we can still operate on mail folders
+      }
+    }
+
+    // Cache folder IDs for canonical lookups (Mail.Read/Mail.ReadWrite is sufficient)
+    try {
       await this.cacheFolderIds();
-    } catch (error) {
-      this.logger.warn('Could not fetch user profile during connect');
+    } catch (error: any) {
+      // Log but don't fail - folder cache will be populated on first use
+      this.logger.debug(`Could not cache folder IDs during connect: ${error.message}`);
     }
   }
 
@@ -376,15 +395,29 @@ export class MicrosoftDriver extends BaseEmailDriver {
   async getUserInfo(): Promise<{ email: string; name: string; photo?: string }> {
     this.ensureConnected();
 
-    const response = await this.client!.get('/me', {
-      params: { $select: 'mail,userPrincipalName,displayName' },
-    });
+    try {
+      const response = await this.client!.get('/me', {
+        params: { $select: 'mail,userPrincipalName,displayName' },
+      });
 
-    return {
-      email: response.data.mail || response.data.userPrincipalName || this.userEmail || '',
-      name: response.data.displayName || '',
-      photo: undefined, // Would need separate call to /me/photo
-    };
+      return {
+        email: response.data.mail || response.data.userPrincipalName || this.userEmail || '',
+        name: response.data.displayName || '',
+        photo: undefined, // Would need separate call to /me/photo
+      };
+    } catch (error: any) {
+      // 403 can happen if User.Read scope is not consented
+      // Fall back to cached email from connect
+      if (error.response?.status === 403 && this.userEmail) {
+        this.logger.warn('getUserInfo: User.Read scope not available, using cached email');
+        return {
+          email: this.userEmail,
+          name: this.userEmail.split('@')[0],
+          photo: undefined,
+        };
+      }
+      throw error;
+    }
   }
 
   // ============================================
@@ -519,7 +552,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
           this.folderIdCache.set(folder.type.toUpperCase(), folder.id);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       this.logger.warn('Could not cache folder IDs');
     }
   }
@@ -690,7 +723,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
   }
 
   private composeToGraphMessage(message: ComposeMessage): any {
-    return {
+    const graphMessage: any = {
       subject: message.subject,
       body: {
         contentType: 'html',
@@ -705,13 +738,26 @@ export class MicrosoftDriver extends BaseEmailDriver {
       bccRecipients: message.bcc?.map((addr) => ({
         emailAddress: { name: addr.name, address: addr.email },
       })),
-      // Threading
-      ...(message.inReplyTo && {
-        internetMessageHeaders: [
-          { name: 'In-Reply-To', value: message.inReplyTo },
-          ...(message.references ? [{ name: 'References', value: message.references }] : []),
-        ],
-      }),
     };
+
+    // Add attachments if present (per Microsoft Graph API spec)
+    if (message.attachments?.length) {
+      graphMessage.attachments = message.attachments.map((att) => ({
+        '@odata.type': '#microsoft.graph.fileAttachment',
+        name: att.filename,
+        contentType: att.mimeType,
+        contentBytes: att.content, // Already base64 encoded
+      }));
+    }
+
+    // Threading
+    if (message.inReplyTo) {
+      graphMessage.internetMessageHeaders = [
+        { name: 'In-Reply-To', value: message.inReplyTo },
+        ...(message.references ? [{ name: 'References', value: message.references }] : []),
+      ];
+    }
+
+    return graphMessage;
   }
 }

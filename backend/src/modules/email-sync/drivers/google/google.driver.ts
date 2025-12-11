@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { gmail_v1, google } from 'googleapis';
 import {
-  IEmailDriver,
   BaseEmailDriver,
   DriverCredentials,
   ListMessagesOptions,
@@ -54,7 +53,7 @@ export class GoogleDriver extends BaseEmailDriver {
     try {
       const profile = await this.gmail.users.getProfile({ userId: 'me' });
       this.userEmail = profile.data.emailAddress || null;
-    } catch (error) {
+    } catch (_error) {
       this.logger.warn('Could not fetch user profile during connect');
     }
   }
@@ -282,10 +281,11 @@ export class GoogleDriver extends BaseEmailDriver {
 
     const currentLabels = message.data.labelIds || [];
 
-    // Remove all folder labels except UNREAD, STARRED, IMPORTANT
-    const systemLabels = ['UNREAD', 'STARRED', 'IMPORTANT'];
+    // Labels that cannot be removed (Gmail system labels that are immutable)
+    // SENT, DRAFT labels are assigned by Gmail and cannot be removed
+    const immutableLabels = ['UNREAD', 'STARRED', 'IMPORTANT', 'SENT', 'DRAFT'];
     const labelsToRemove = currentLabels.filter(
-      (l) => !systemLabels.includes(l) && l !== targetLabelId
+      (l) => !immutableLabels.includes(l) && l !== targetLabelId
     );
 
     await this.gmail!.users.messages.modify({
@@ -758,6 +758,11 @@ export class GoogleDriver extends BaseEmailDriver {
 
   private composeToRaw(message: ComposeMessage): string {
     const lines: string[] = [];
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+    const hasAttachments = message.attachments && message.attachments.length > 0;
+
+    // MIME-Version header (required for proper MIME parsing)
+    lines.push('MIME-Version: 1.0');
 
     // From header
     if (message.fromEmail) {
@@ -786,8 +791,13 @@ export class GoogleDriver extends BaseEmailDriver {
       lines.push(`Bcc: ${bccAddrs.join(', ')}`);
     }
 
-    // Subject
-    lines.push(`Subject: ${message.subject}`);
+    // Subject (encode if non-ASCII)
+    const subject = message.subject;
+    if (/[^\x00-\x7F]/.test(subject)) {
+      lines.push(`Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`);
+    } else {
+      lines.push(`Subject: ${subject}`);
+    }
 
     // Threading headers
     if (message.inReplyTo) {
@@ -797,12 +807,46 @@ export class GoogleDriver extends BaseEmailDriver {
       lines.push(`References: ${message.references}`);
     }
 
-    // Content type
-    lines.push('Content-Type: text/html; charset=utf-8');
-    lines.push('');
+    if (hasAttachments) {
+      // Multipart MIME message with attachments
+      lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+      lines.push('');
 
-    // Body
-    lines.push(message.bodyHtml);
+      // Body part
+      lines.push(`--${boundary}`);
+      lines.push('Content-Type: text/html; charset=utf-8');
+      lines.push('Content-Transfer-Encoding: quoted-printable');
+      lines.push('');
+      lines.push(message.bodyHtml);
+      lines.push('');
+
+      // Attachment parts
+      for (const att of message.attachments!) {
+        lines.push(`--${boundary}`);
+        lines.push(`Content-Type: ${att.mimeType}; name="${att.filename}"`);
+        lines.push('Content-Transfer-Encoding: base64');
+        lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
+        if (att.contentId) {
+          lines.push(`Content-ID: <${att.contentId}>`);
+        }
+        lines.push('');
+        // Break base64 content into 76-character lines (RFC 2045)
+        const base64Content = att.content || '';
+        const chunkSize = 76;
+        for (let i = 0; i < base64Content.length; i += chunkSize) {
+          lines.push(base64Content.substring(i, i + chunkSize));
+        }
+        lines.push('');
+      }
+
+      // End boundary
+      lines.push(`--${boundary}--`);
+    } else {
+      // Simple message without attachments
+      lines.push('Content-Type: text/html; charset=utf-8');
+      lines.push('');
+      lines.push(message.bodyHtml);
+    }
 
     const rawMessage = lines.join('\r\n');
     return Buffer.from(rawMessage).toString('base64url');

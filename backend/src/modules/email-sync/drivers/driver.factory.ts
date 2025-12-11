@@ -1,8 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { IEmailDriver, DriverCredentials } from './interfaces/email-driver.interface';
 import { ProviderType } from './interfaces/canonical.types';
 import { GoogleDriver } from './google/google.driver';
 import { MicrosoftDriver } from './microsoft/microsoft.driver';
+import { IMAPDriver } from './imap/imap.driver';
+import { ResilienceService } from './resilience/resilience.service';
+import { ResilientDriverWrapper } from './resilience/resilient-driver.wrapper';
+import { ResilienceConfig } from './resilience/resilience.types';
 
 /**
  * Email Driver Factory
@@ -10,14 +14,19 @@ import { MicrosoftDriver } from './microsoft/microsoft.driver';
  * Creates and manages email driver instances for different providers.
  * Provides a unified way to get connected drivers for email operations.
  *
+ * Features:
+ * - Standard drivers for direct API access
+ * - Resilient drivers with retry, rate limiting, and circuit breaker (recommended for production)
+ *
  * Usage:
  * ```typescript
- * // Get a new driver instance
+ * // Get a new driver instance (basic)
  * const driver = factory.createDriver('google');
  * await driver.connect(credentials);
  *
- * // Or get a connected driver directly
- * const connectedDriver = await factory.createConnectedDriver('microsoft', credentials);
+ * // Get a resilient driver (recommended for production)
+ * const driver = await factory.createResilientDriver('google', 'account-123', credentials);
+ * // Includes: retry with backoff, rate limiting, circuit breaker
  * ```
  */
 @Injectable()
@@ -27,6 +36,8 @@ export class EmailDriverFactory {
   constructor(
     private readonly googleDriver: GoogleDriver,
     private readonly microsoftDriver: MicrosoftDriver,
+    private readonly imapDriver: IMAPDriver,
+    @Optional() private readonly resilienceService?: ResilienceService,
   ) {}
 
   /**
@@ -46,7 +57,7 @@ export class EmailDriverFactory {
         return new MicrosoftDriver();
 
       case 'imap':
-        throw new Error('IMAP driver not yet implemented');
+        return new IMAPDriver();
 
       default:
         throw new Error(`Unknown provider type: ${providerType}`);
@@ -86,7 +97,7 @@ export class EmailDriverFactory {
         return this.microsoftDriver;
 
       case 'imap':
-        throw new Error('IMAP driver not yet implemented');
+        return this.imapDriver;
 
       default:
         throw new Error(`Unknown provider type: ${providerType}`);
@@ -100,7 +111,7 @@ export class EmailDriverFactory {
    * @returns true if supported
    */
   isSupported(providerType: string): boolean {
-    return ['google', 'microsoft'].includes(providerType);
+    return ['google', 'microsoft', 'imap'].includes(providerType);
   }
 
   /**
@@ -109,6 +120,91 @@ export class EmailDriverFactory {
    * @returns Array of supported provider types
    */
   getSupportedProviders(): ProviderType[] {
-    return ['google', 'microsoft'];
+    return ['google', 'microsoft', 'imap'];
+  }
+
+  // ============================================
+  // Resilient Driver Methods (Production-Ready)
+  // ============================================
+
+  /**
+   * Create a resilient driver with retry, rate limiting, and circuit breaker.
+   * This is the RECOMMENDED method for production use with >1000 users.
+   *
+   * @param providerType Provider type (google, microsoft, imap)
+   * @param accountId Unique account identifier for rate limiting/circuit breaker
+   * @param credentials Authentication credentials
+   * @param config Optional resilience configuration overrides
+   * @returns Connected resilient driver
+   */
+  async createResilientDriver(
+    providerType: ProviderType,
+    accountId: string,
+    credentials: DriverCredentials,
+    config?: Partial<ResilienceConfig>,
+  ): Promise<IEmailDriver> {
+    if (!this.resilienceService) {
+      this.logger.warn(
+        'ResilienceService not available, falling back to basic driver. ' +
+        'Ensure ResilienceModule is imported for production use.',
+      );
+      return this.createConnectedDriver(providerType, credentials);
+    }
+
+    const baseDriver = this.createDriver(providerType);
+    const resilientDriver = new ResilientDriverWrapper(
+      baseDriver,
+      accountId,
+      this.resilienceService,
+      config,
+    );
+
+    await resilientDriver.connect(credentials);
+    this.logger.debug(`Created resilient ${providerType} driver for account ${accountId}`);
+
+    return resilientDriver;
+  }
+
+  /**
+   * Wrap an existing driver with resilience.
+   * Useful when you already have a connected driver.
+   *
+   * @param driver Existing driver instance
+   * @param accountId Unique account identifier
+   * @param config Optional resilience configuration
+   * @returns Resilient wrapper around the driver
+   */
+  wrapWithResilience(
+    driver: IEmailDriver,
+    accountId: string,
+    config?: Partial<ResilienceConfig>,
+  ): IEmailDriver {
+    if (!this.resilienceService) {
+      this.logger.warn('ResilienceService not available, returning unwrapped driver');
+      return driver;
+    }
+
+    return new ResilientDriverWrapper(
+      driver,
+      accountId,
+      this.resilienceService,
+      config,
+    );
+  }
+
+  /**
+   * Check if resilience features are available.
+   * Returns false if ResilienceService is not injected.
+   */
+  isResilienceAvailable(): boolean {
+    return !!this.resilienceService;
+  }
+
+  /**
+   * Get the resilience service for direct access to metrics/status.
+   * Returns null if not available.
+   */
+  getResilienceService(): ResilienceService | null {
+    return this.resilienceService || null;
   }
 }

@@ -1,9 +1,9 @@
 # Email Provider Driver Abstraction Roadmap
 
-> **Status:** Phase 2 Complete ✅ (Driver Layer)
+> **Status:** Phase 3.5 Complete ✅ (Resilience Layer for Production)
 > **Created:** 2025-12-10
 > **Updated:** 2025-12-11
-> **Goal:** Clean multi-provider email architecture with unified folder handling
+> **Goal:** Clean multi-provider email architecture with unified folder handling, production-ready for >1000 users
 
 ## Phase 2 Completion Summary (2025-12-11)
 
@@ -958,16 +958,60 @@ interface IMAPProviderConfig {
 - [ ] Remove old duplicated code (after gradual migration)
 - [ ] Add comprehensive tests for drivers
 
-### Phase 3: IMAP Support
-- [ ] Add `imapflow` dependency
-- [ ] Implement `IMAPDriver`
-- [ ] Implement `IMAPFolderMapper` with RFC 6154 + heuristics
-- [ ] Implement `SMTPService` for sending
+### Phase 3: IMAP Support ✅ COMPLETE
+
+- [x] Add `imapflow` dependency (already installed)
+- [x] Implement `IMAPDriver` with IEmailDriver interface
+- [x] Implement IMAP folder mapping with RFC 6154 + heuristics
+- [x] Implement SMTP sending via nodemailer
+- [x] Add connection pooling for scalability (>1000 users)
+- [x] Test with real IMAP provider (Libero.it) - ALL TESTS PASSED
 - [ ] Add IMAP provider configuration UI
 - [ ] Add IMAP provider setup wizard
-- [ ] Test with common IMAP providers (Yahoo, iCloud, custom)
+- [ ] Test with more IMAP providers (Yahoo, iCloud, custom)
 - [ ] Add IDLE support for real-time updates
 - [ ] Document IMAP setup process
+
+### Phase 3.5: Resilience Layer (Production-Ready) ✅ COMPLETE
+
+- [x] Create shared resilience layer (`resilience/` module)
+  - [x] `ResilienceService` with retry, rate limiting, circuit breaker
+  - [x] `ResilienceConfig`, `RetryConfig`, `RateLimitConfig`, `CircuitBreakerConfig` types
+  - [x] Provider-specific rate limits (Google ~10 QPS, Microsoft ~4 QPS, IMAP ~5 QPS)
+  - [x] Exponential backoff with jitter to prevent thundering herd
+  - [x] Per-account circuit breaker to isolate failures
+  - [x] Request timeouts with configurable durations
+- [x] Create `ResilientDriverWrapper` (decorator pattern)
+  - [x] Wraps any `IEmailDriver` with resilience features
+  - [x] Automatic retry on transient errors (429, 500, 502, 503, 504)
+  - [x] Handles optional methods properly
+  - [x] Extended timeouts for batch operations
+- [x] Update `EmailDriverFactory` with resilient driver creation
+  - [x] `createResilientDriver()` - recommended for production
+  - [x] `wrapWithResilience()` - wrap existing drivers
+  - [x] `isResilienceAvailable()` - check if resilience module loaded
+  - [x] `getResilienceService()` - access metrics/status
+- [x] Add metrics tracking for monitoring
+  - [x] Total/successful/failed/retried/rate-limited requests
+  - [x] Circuit breaker trips count
+  - [x] Per-account circuit and rate limit status
+- [x] Write comprehensive tests (22 tests, all passing)
+- [x] Fix all lint errors, TypeScript compilation verified
+- [x] Build verified successful
+
+**Usage (Production):**
+
+```typescript
+// Recommended: Use resilient driver for production
+const driver = await factory.createResilientDriver(
+  'google',
+  'account-123',  // Used for per-account rate limiting & circuit breaker
+  credentials,
+);
+
+// All operations now have retry, rate limit, and circuit breaker protection
+const folders = await driver.listFolders();
+```
 
 ---
 
