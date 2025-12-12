@@ -55,7 +55,7 @@ export enum ScheduledJobType {
  */
 export const SCHEDULED_JOB_PATTERNS = {
   [ScheduledJobType.SYNC_SCHEDULER]: '*/5 * * * *', // Every 5 minutes
-  [ScheduledJobType.WEBHOOK_RENEWAL]: '0 2 * * *', // Daily at 2 AM
+  [ScheduledJobType.WEBHOOK_RENEWAL]: '0 */6 * * *', // Every 6 hours (Microsoft subscriptions expire after ~3 days)
   [ScheduledJobType.WEBHOOK_DEEP_CHECK]: '0 3 * * *', // Daily at 3 AM
   [ScheduledJobType.WEBHOOK_CLEANUP]: '0 4 * * 0', // Weekly on Sunday at 4 AM
   [ScheduledJobType.SCHEDULED_EMAIL_PROCESS]: '* * * * *', // Every minute

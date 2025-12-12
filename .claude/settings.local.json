@@ -82,7 +82,10 @@
       "Bash(npx dotenv:*)",
       "Bash(Select-String -Pattern \"error|failed|Exception\" -Context 2)",
       "Bash(npm uninstall:*)",
-      "Bash(Select-Object -Last 80)"
+      "Bash(Select-Object -Last 80)",
+      "Bash(docker logs:*)",
+      "Bash(echo:*)",
+      "Bash(git -C d:MailAgent status --short)"
     ],
     "deny": [],
     "ask": []

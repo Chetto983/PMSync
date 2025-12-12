@@ -339,7 +339,31 @@ export class MicrosoftCalendarWebhookService implements OnModuleInit, OnModuleDe
       },
     });
 
+    // Also find failed subscriptions that should be retried
+    // (inactive due to previous failures, but provider still exists and is active)
+    const failedSubscriptions = await this.prisma.webhookSubscription.findMany({
+      where: {
+        providerType: 'microsoft',
+        resourcePath: MICROSOFT_CALENDAR_RESOURCE,
+        isActive: false,
+        errorCount: { lt: 10 }, // Don't retry if too many failures
+        provider: {
+          isActive: true,
+          supportsCalendar: true,
+        },
+      },
+      include: {
+        provider: {
+          select: { email: true },
+        },
+      },
+    });
+
     let renewed = 0;
+
+    this.logger.log(
+      `Found ${expiring.length} Microsoft Calendar subscriptions to renew, ${failedSubscriptions.length} failed to retry`,
+    );
 
     for (const subscription of expiring) {
       try {
@@ -352,6 +376,33 @@ export class MicrosoftCalendarWebhookService implements OnModuleInit, OnModuleDe
           `Failed to renew Microsoft Calendar subscription for ${subscription.providerId}:`,
           error,
         );
+      }
+    }
+
+    // Retry failed subscriptions
+    for (const subscription of failedSubscriptions) {
+      try {
+        this.logger.log(
+          `Retrying failed Microsoft Calendar subscription for ${subscription.provider?.email}...`,
+        );
+        await this.setupSubscription(subscription.providerId);
+        renewed++;
+        this.logger.log(
+          `Successfully recreated Microsoft Calendar subscription for ${subscription.provider?.email}`,
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Failed to retry calendar subscription for ${subscription.provider?.email}: ${errorMessage}`,
+        );
+        // Increment error count
+        await this.prisma.webhookSubscription.update({
+          where: { id: subscription.id },
+          data: {
+            errorCount: { increment: 1 },
+            lastError: errorMessage,
+          },
+        });
       }
     }
 

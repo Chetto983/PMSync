@@ -335,7 +335,33 @@ export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestr
       },
     });
 
+    // Also find failed subscriptions that should be retried
+    // (inactive due to previous failures, but provider still exists and is active)
+    const failedSubscriptions = await this.prisma.webhookSubscription.findMany({
+      where: {
+        providerType: 'google',
+        resourcePath: {
+          startsWith: '/calendar/',
+        },
+        isActive: false,
+        errorCount: { lt: 10 }, // Don't retry if too many failures
+        provider: {
+          isActive: true,
+          supportsCalendar: true,
+        },
+      },
+      include: {
+        provider: {
+          select: { email: true },
+        },
+      },
+    });
+
     let renewed = 0;
+
+    this.logger.log(
+      `Found ${expiring.length} Google Calendar subscriptions to renew, ${failedSubscriptions.length} failed to retry`,
+    );
 
     for (const subscription of expiring) {
       try {
@@ -346,6 +372,33 @@ export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestr
           `Failed to renew Google Calendar watch for ${subscription.providerId}:`,
           error,
         );
+      }
+    }
+
+    // Retry failed subscriptions
+    for (const subscription of failedSubscriptions) {
+      try {
+        this.logger.log(
+          `Retrying failed Google Calendar subscription for ${subscription.provider?.email}...`,
+        );
+        await this.setupWatch(subscription.providerId);
+        renewed++;
+        this.logger.log(
+          `Successfully recreated Google Calendar subscription for ${subscription.provider?.email}`,
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Failed to retry calendar subscription for ${subscription.provider?.email}: ${errorMessage}`,
+        );
+        // Increment error count
+        await this.prisma.webhookSubscription.update({
+          where: { id: subscription.id },
+          data: {
+            errorCount: { increment: 1 },
+            lastError: errorMessage,
+          },
+        });
       }
     }
 

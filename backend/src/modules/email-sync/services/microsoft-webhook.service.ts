@@ -241,11 +241,14 @@ export class MicrosoftWebhookService {
 
   /**
    * Renew expiring Microsoft Graph subscriptions
-   * Should be called daily via cron
+   * Should be called every 6 hours via cron (Microsoft subscriptions expire after ~3 days)
    */
   async renewExpiringSubscriptions(): Promise<void> {
     try {
-      // Find subscriptions expiring in next 24 hours
+      const now = new Date();
+      const next24h = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      // Find subscriptions expiring in next 24 hours OR already expired (active ones)
       const expiringSubscriptions =
         await this.prisma.webhookSubscription.findMany({
           where: {
@@ -253,29 +256,115 @@ export class MicrosoftWebhookService {
             resourcePath: MICROSOFT_MAIL_RESOURCE,
             isActive: true,
             expiresAt: {
-              lte: new Date(Date.now() + 24 * 60 * 60 * 1000), // Next 24h
+              lte: next24h, // Next 24h or already expired
             },
           },
         });
 
+      // Also find failed subscriptions that should be retried
+      // (inactive due to previous failures, but provider still exists and is active)
+      const failedSubscriptions = await this.prisma.webhookSubscription.findMany({
+        where: {
+          providerType: 'microsoft',
+          resourcePath: MICROSOFT_MAIL_RESOURCE,
+          isActive: false,
+          errorCount: { lt: 10 }, // Don't retry if too many failures
+          provider: {
+            isActive: true, // Only if provider is still active
+          },
+        },
+        include: {
+          provider: {
+            select: { email: true },
+          },
+        },
+      });
+
+      // Separate expired from expiring-soon
+      const expired = expiringSubscriptions.filter((s) => s.expiresAt && s.expiresAt < now);
+      const expiringSoon = expiringSubscriptions.filter((s) => s.expiresAt && s.expiresAt >= now);
+
       this.logger.log(
-        `Found ${expiringSubscriptions.length} Microsoft subscriptions to renew`,
+        `Found ${expiringSubscriptions.length} Microsoft subscriptions to renew (${expired.length} expired, ${expiringSoon.length} expiring soon), ${failedSubscriptions.length} failed to retry`,
       );
 
+      // Process active subscriptions that need renewal
       for (const subscription of expiringSubscriptions) {
+        const isExpired = subscription.expiresAt && subscription.expiresAt < now;
+
         try {
-          await this.renewSubscription(subscription.subscriptionId, subscription.providerId);
+          if (isExpired) {
+            // Expired subscriptions need to be recreated, not renewed
+            this.logger.warn(
+              `Microsoft subscription ${subscription.subscriptionId} has expired, recreating...`,
+            );
+            await this.recreateSubscription(subscription.providerId);
+          } else {
+            await this.renewSubscription(subscription.subscriptionId, subscription.providerId);
+          }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           this.logger.error(
-            `Failed to renew subscription ${subscription.subscriptionId}: ${errorMessage}`,
+            `Failed to ${isExpired ? 'recreate' : 'renew'} subscription ${subscription.subscriptionId}: ${errorMessage}`,
           );
           await this.failOpenToCron(subscription.providerId, subscription.subscriptionId);
+        }
+      }
+
+      // Retry failed subscriptions
+      for (const subscription of failedSubscriptions) {
+        try {
+          this.logger.log(
+            `Retrying failed Microsoft subscription for ${subscription.provider?.email}...`,
+          );
+          await this.recreateSubscription(subscription.providerId);
+          this.logger.log(
+            `Successfully recreated Microsoft subscription for ${subscription.provider?.email}`,
+          );
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `Failed to retry subscription for ${subscription.provider?.email}: ${errorMessage}`,
+          );
+          // Increment error count
+          await this.prisma.webhookSubscription.update({
+            where: { id: subscription.id },
+            data: {
+              errorCount: { increment: 1 },
+              lastError: errorMessage,
+            },
+          });
         }
       }
     } catch (error) {
       this.logger.error('Error renewing Microsoft subscriptions:', error);
     }
+  }
+
+  /**
+   * Recreate an expired Microsoft Graph subscription
+   */
+  private async recreateSubscription(providerId: string): Promise<void> {
+    // First delete the old subscription from our DB (it's already expired on Microsoft's side)
+    await this.prisma.webhookSubscription.updateMany({
+      where: {
+        providerId,
+        resourcePath: MICROSOFT_MAIL_RESOURCE,
+      },
+      data: { isActive: false },
+    });
+
+    // Get webhook URL from config
+    const configuredUrl = this.configService.get<string>('MICROSOFT_EMAIL_WEBHOOK_URL');
+    const apiUrl = this.configService.get<string>('API_PUBLIC_URL', 'http://localhost:3000');
+    const webhookUrl = configuredUrl || `${apiUrl}/webhooks/microsoft/notifications`;
+
+    // Create a fresh subscription
+    await this.createSubscription({
+      providerId,
+      providerType: 'microsoft',
+      webhookUrl,
+    });
   }
 
   /**

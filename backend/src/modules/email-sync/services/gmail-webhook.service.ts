@@ -277,8 +277,27 @@ export class GmailWebhookService {
         },
       });
 
+      // Also find failed subscriptions that should be retried
+      // (inactive due to previous failures, but provider still exists and is active)
+      const failedSubscriptions = await this.prisma.webhookSubscription.findMany({
+        where: {
+          providerType: 'google',
+          resourcePath: GMAIL_WEBHOOK_RESOURCE,
+          isActive: false,
+          errorCount: { lt: 10 }, // Don't retry if too many failures
+          provider: {
+            isActive: true, // Only if provider is still active
+          },
+        },
+        include: {
+          provider: {
+            select: { email: true },
+          },
+        },
+      });
+
       this.logger.log(
-        `Found ${expiringSubscriptions.length} Gmail subscriptions to renew`,
+        `Found ${expiringSubscriptions.length} Gmail subscriptions to renew, ${failedSubscriptions.length} failed to retry`,
       );
 
       for (const subscription of expiringSubscriptions) {
@@ -292,6 +311,35 @@ export class GmailWebhookService {
           this.logger.error(
             `Failed to renew subscription for provider ${subscription.providerId}: ${errorMessage}`,
           );
+        }
+      }
+
+      // Retry failed subscriptions
+      for (const subscription of failedSubscriptions) {
+        try {
+          this.logger.log(
+            `Retrying failed Gmail subscription for ${subscription.provider?.email}...`,
+          );
+          await this.createSubscription({
+            providerId: subscription.providerId,
+            providerType: 'google',
+          });
+          this.logger.log(
+            `Successfully recreated Gmail subscription for ${subscription.provider?.email}`,
+          );
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `Failed to retry subscription for ${subscription.provider?.email}: ${errorMessage}`,
+          );
+          // Increment error count
+          await this.prisma.webhookSubscription.update({
+            where: { id: subscription.id },
+            data: {
+              errorCount: { increment: 1 },
+              lastError: errorMessage,
+            },
+          });
         }
       }
     } catch (error) {
