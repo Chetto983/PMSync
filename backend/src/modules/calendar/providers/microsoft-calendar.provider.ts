@@ -222,12 +222,33 @@ export class MicrosoftCalendarProvider implements ICalendarProvider {
         throw new CalendarProviderError('Calendar not found', 'CALENDAR_NOT_FOUND', 'microsoft');
       }
 
-      // Delete all events in this calendar
-      await this.prisma.calendarEvent.deleteMany({
-        where: {
-          providerId: this.config.providerId,
-          calendarId: calendarId,
-        },
+      // Delete calendar data atomically: attachments first, then events
+      await this.prisma.$transaction(async (tx) => {
+        // Get event IDs for attachment cleanup
+        const eventIds = await tx.calendarEvent.findMany({
+          where: {
+            providerId: this.config.providerId,
+            calendarId: calendarId,
+          },
+          select: { id: true },
+        });
+
+        // Delete attachments for these events
+        if (eventIds.length > 0) {
+          await tx.calendarEventAttachment.deleteMany({
+            where: {
+              eventId: { in: eventIds.map((e) => e.id) },
+            },
+          });
+        }
+
+        // Delete all events in this calendar
+        await tx.calendarEvent.deleteMany({
+          where: {
+            providerId: this.config.providerId,
+            calendarId: calendarId,
+          },
+        });
       });
 
       this.logger.log(`Deleted calendar ${calendarId} and all ${calendarEvents} associated events for provider ${this.config.providerId}`);

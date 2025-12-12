@@ -85,7 +85,8 @@
       "Bash(Select-Object -Last 80)",
       "Bash(docker logs:*)",
       "Bash(echo:*)",
-      "Bash(git -C d:MailAgent status --short)"
+      "Bash(git -C d:MailAgent status --short)",
+      "Bash(git -C d:/MailAgent status --short)"
     ],
     "deny": [],
     "ask": []

@@ -607,7 +607,7 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
     // Get existing contact with provider links
     const contact = await this.getContact(tenantId, contactId);
 
-    // Delete from all linked providers
+    // Delete from all linked providers (external API calls - done outside transaction)
     if (contact.providerContacts && contact.providerContacts.length > 0) {
       for (const providerContact of contact.providerContacts) {
         try {
@@ -637,24 +637,31 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Soft delete unified contact locally
-    await this.prisma.contact.update({
-      where: { id: contactId },
-      data: {
-        isDeleted: true,
-        updatedAt: new Date(),
-      },
-    });
-
-    // Update provider contacts sync timestamp
-    await this.prisma.providerContact.updateMany({
-      where: { contactId },
-      data: {
-        lastSyncedAt: new Date(),
-      },
-    });
+    // Soft delete unified contact and update provider contacts atomically
+    await this.prisma.$transaction([
+      this.prisma.contact.update({
+        where: { id: contactId },
+        data: {
+          isDeleted: true,
+          updatedAt: new Date(),
+        },
+      }),
+      this.prisma.providerContact.updateMany({
+        where: { contactId },
+        data: {
+          lastSyncedAt: new Date(),
+        },
+      }),
+    ]);
 
     this.logger.log(`Contact deleted: ${contactId}`);
+
+    // Emit real-time event for deletion
+    this.realtimeEvents.emitContactDelete(tenantId, {
+      contactId,
+      reason: 'contact-deleted',
+      timestamp: new Date().toISOString(),
+    });
 
     // Emit updated counts
     void this.updateContactCounts(tenantId);
@@ -669,10 +676,21 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
   async deleteProviderContacts(providerId: string, tenantId: string): Promise<void> {
     this.logger.log(`Deleting all contacts for provider ${providerId}`);
 
-    // Get all provider contacts for this provider
+    // Verify provider belongs to tenant (defense in depth)
+    const providerCheck = await this.prisma.providerConfig.findFirst({
+      where: { id: providerId, tenantId },
+      select: { id: true },
+    });
+
+    if (!providerCheck) {
+      this.logger.warn(`Provider ${providerId} not found or doesn't belong to tenant ${tenantId}`);
+      return;
+    }
+
+    // Get all contact IDs linked to this provider (for orphan detection)
     const providerContacts = await this.prisma.providerContact.findMany({
       where: { providerId },
-      include: { contact: true },
+      select: { contactId: true },
     });
 
     if (providerContacts.length === 0) {
@@ -680,33 +698,49 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    // Delete provider contact links
-    await this.prisma.providerContact.deleteMany({
-      where: { providerId },
-    });
-
-    this.logger.log(`Deleted ${providerContacts.length} provider contact links for provider ${providerId}`);
-
-    // Find orphaned unified contacts (no remaining provider links)
     const contactIds = [...new Set(providerContacts.map(pc => pc.contactId))];
 
-    for (const contactId of contactIds) {
-      const remainingLinks = await this.prisma.providerContact.count({
-        where: { contactId },
+    // Execute deletion and orphan cleanup in a single transaction (fixes race condition)
+    await this.prisma.$transaction(async (tx) => {
+      // Delete provider contact links
+      await tx.providerContact.deleteMany({
+        where: { providerId },
       });
 
-      if (remainingLinks === 0) {
-        // Delete orphaned unified contact
-        await this.prisma.contact.delete({
-          where: { id: contactId },
-        }).catch((error) => {
-          // May have been deleted by cascade, ignore
-          this.logger.debug(`Could not delete orphaned contact ${contactId}: ${error.message}`);
+      this.logger.log(`Deleted ${providerContacts.length} provider contact links for provider ${providerId}`);
+
+      // Find orphaned contacts using a single aggregated query (fixes N+1)
+      // Count remaining links for all affected contacts in one query
+      const contactsWithLinks = await tx.providerContact.groupBy({
+        by: ['contactId'],
+        where: {
+          contactId: { in: contactIds },
+        },
+        _count: { contactId: true },
+      });
+
+      // Build set of contacts that still have links
+      const contactsWithRemainingLinks = new Set(contactsWithLinks.map(c => c.contactId));
+
+      // Find orphaned contacts (no remaining links)
+      const orphanedContactIds = contactIds.filter(id => !contactsWithRemainingLinks.has(id));
+
+      // Delete orphaned contacts in bulk
+      if (orphanedContactIds.length > 0) {
+        await tx.contact.deleteMany({
+          where: { id: { in: orphanedContactIds } },
         });
+        this.logger.log(`Deleted ${orphanedContactIds.length} orphaned contacts`);
       }
-    }
+    });
 
     this.logger.log(`Provider contacts cleanup completed for provider ${providerId}`);
+
+    // Emit real-time events for bulk deletion
+    this.realtimeEvents.emitContactSyncComplete(tenantId, {
+      providerId,
+      count: providerContacts.length,
+    });
 
     // Emit updated counts
     void this.updateContactCounts(tenantId);
@@ -870,6 +904,20 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
     // Extract unique email addresses with names
     const addressMap = new Map<string, { email: string; name?: string }>();
 
+    // Helper to process address arrays
+    const processAddressArray = (addresses: unknown) => {
+      if (!addresses) return;
+      const addrArray = Array.isArray(addresses) ? addresses : [];
+      for (const addr of addrArray) {
+        if (typeof addr === 'string') {
+          const lower = addr.toLowerCase().trim();
+          if (!addressMap.has(lower)) {
+            addressMap.set(lower, { email: lower });
+          }
+        }
+      }
+    };
+
     for (const email of emails) {
       // From
       if (email.from) {
@@ -879,55 +927,50 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
-      // To (JSON array)
-      if (email.to) {
-        const toAddresses = Array.isArray(email.to) ? email.to : [];
-        for (const addr of toAddresses) {
-          if (typeof addr === 'string') {
-            const lower = addr.toLowerCase().trim();
-            if (!addressMap.has(lower)) {
-              addressMap.set(lower, { email: lower });
-            }
-          }
-        }
-      }
-
-      // CC (JSON array)
-      if (email.cc) {
-        const ccAddresses = Array.isArray(email.cc) ? email.cc : [];
-        for (const addr of ccAddresses) {
-          if (typeof addr === 'string') {
-            const lower = addr.toLowerCase().trim();
-            if (!addressMap.has(lower)) {
-              addressMap.set(lower, { email: lower });
-            }
-          }
-        }
-      }
+      // To, CC, BCC (JSON arrays) - CON-2.3: Now processing BCC
+      processAddressArray(email.to);
+      processAddressArray(email.cc);
+      processAddressArray(email.bcc);
     }
 
-    // Get existing contacts for this tenant
-    const existingContacts = await this.prisma.contact.findMany({
-      where: { tenantId, isDeleted: false },
-      select: { emails: true },
+    // CON-2.4 FIX: Use database query to check existing emails instead of loading all contacts
+    // Get candidate emails to check (filter by domain first to reduce query size)
+    const candidateEmails = Array.from(addressMap.keys()).filter((emailAddr) => {
+      const domain = emailAddr.split('@')[1];
+      if (!domain) return false;
+      if (excludePublicDomains && publicDomains.has(domain.toLowerCase())) return false;
+      return true;
     });
 
-    // Build set of existing email addresses
-    const existingEmails = new Set<string>();
-    for (const contact of existingContacts) {
-      if (contact.emails && Array.isArray(contact.emails)) {
-        for (const emailObj of contact.emails as unknown as EmailAddress[]) {
-          if (emailObj?.value) {
-            existingEmails.add(emailObj.value.toLowerCase());
-          }
-        }
-      }
+    if (candidateEmails.length === 0) {
+      this.logger.log('No candidate emails after filtering');
+      return { created: 0, skipped: addressMap.size, total: addressMap.size };
     }
 
-    let created = 0;
+    // Check which emails already exist using PostgreSQL JSONB query (O(1) per batch, not O(n))
+    const existingEmailsResult = await this.prisma.$queryRaw<{ email: string }[]>`
+      SELECT DISTINCT LOWER(email_obj->>'value') as email
+      FROM "Contact",
+           jsonb_array_elements(emails) AS email_obj
+      WHERE tenant_id = ${tenantId}
+        AND is_deleted = false
+        AND LOWER(email_obj->>'value') = ANY(${candidateEmails}::text[])
+    `;
+    const existingEmails = new Set(existingEmailsResult.map(r => r.email));
+
+    // Prepare batch of contacts to create
+    const contactsToCreate: Array<{
+      tenantId: string;
+      firstName?: string;
+      lastName?: string;
+      displayName: string;
+      emails: Prisma.InputJsonValue;
+      company?: string;
+      metadata: Prisma.InputJsonValue;
+    }> = [];
+
     let skipped = 0;
 
-    // Create contacts for new addresses
     for (const [emailAddr, info] of addressMap) {
       // Skip if already exists
       if (existingEmails.has(emailAddr)) {
@@ -957,24 +1000,34 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
         lastName = parts.length > 1 ? parts.slice(1).join(' ') : undefined;
       }
 
-      // Create local contact
+      // Add to batch
+      contactsToCreate.push({
+        tenantId,
+        firstName,
+        lastName,
+        displayName: info.name || emailAddr,
+        emails: [{ value: emailAddr, type: 'work', primary: true }] as unknown as Prisma.InputJsonValue,
+        company: domain.split('.')[0],
+        metadata: { source: 'email_extraction', extractedAt: new Date().toISOString() } as Prisma.InputJsonValue,
+      });
+
+      // Prevent duplicates within this run
+      existingEmails.add(emailAddr);
+    }
+
+    // CON-1.3 FIX: Create all contacts in a single transaction
+    let created = 0;
+    if (contactsToCreate.length > 0) {
       try {
-        await this.prisma.contact.create({
-          data: {
-            tenantId,
-            firstName,
-            lastName,
-            displayName: info.name || emailAddr,
-            emails: [{ value: emailAddr, type: 'work', primary: true }],
-            company: domain.split('.')[0], // Use domain as company hint
-            metadata: { source: 'email_extraction', extractedAt: new Date().toISOString() },
-          },
+        const result = await this.prisma.contact.createMany({
+          data: contactsToCreate,
+          skipDuplicates: true,
         });
-        created++;
-        existingEmails.add(emailAddr); // Prevent duplicates within this run
+        created = result.count;
       } catch (error: any) {
-        this.logger.warn(`Failed to create contact for ${emailAddr}: ${error.message}`);
-        skipped++;
+        this.logger.error(`Failed to batch create contacts: ${error.message}`);
+        // Rollback is automatic with createMany
+        skipped += contactsToCreate.length;
       }
     }
 
