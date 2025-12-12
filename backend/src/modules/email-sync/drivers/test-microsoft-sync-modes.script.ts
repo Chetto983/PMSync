@@ -23,17 +23,10 @@ async function main() {
 
   try {
     // Find a Microsoft provider
-    const provider = await prisma.provider.findFirst({
+    const provider = await prisma.providerConfig.findFirst({
       where: {
-        type: 'microsoft',
-        status: 'active',
-      },
-      include: {
-        user: {
-          select: {
-            tenantId: true,
-          },
-        },
+        providerType: 'microsoft',
+        accessToken: { not: null },
       },
     });
 
@@ -45,7 +38,7 @@ async function main() {
 
     console.log(`✅ Found Microsoft provider: ${provider.email}`);
     console.log(`   Provider ID: ${provider.id}`);
-    console.log(`   Tenant ID: ${provider.user.tenantId}\n`);
+    console.log(`   Tenant ID: ${provider.tenantId}\n`);
 
     // Get sync token from metadata
     const metadata = (provider.metadata as any) || {};
@@ -67,7 +60,7 @@ async function main() {
       email: provider.email,
       syncType: 'full',
       priority: 'high',
-      tenantId: provider.user.tenantId,
+      tenantId: provider.tenantId,
       providerType: 'microsoft',
     };
 
@@ -84,7 +77,7 @@ async function main() {
 
     // Update provider metadata with new sync token
     if (fullResult.lastSyncToken) {
-      await prisma.provider.update({
+      await prisma.providerConfig.update({
         where: { id: provider.id },
         data: {
           metadata: {
@@ -106,7 +99,7 @@ async function main() {
       email: provider.email,
       syncType: 'incremental',
       priority: 'high',
-      tenantId: provider.user.tenantId,
+      tenantId: provider.tenantId,
       providerType: 'microsoft',
     };
 
