@@ -1,10 +1,12 @@
 # Email Provider Driver Abstraction Roadmap
 
-> **Status:** Phase 5 Complete ✅ (All Sync Services Refactored!)
+> **Status:** Phase 5 ⏳ **IMAP NOT TESTED** - Code Complete, Needs Real Provider Validation
 > **Created:** 2025-12-10
 > **Updated:** 2025-12-12
 > **Goal:** Clean multi-provider email architecture with unified folder handling, production-ready for >1000 users
 > **Achievement:** 69.5% avg code reduction across all sync services!
+>
+> **⚠️ CRITICAL:** IMAP sync service refactored but NOT tested with real provider (testopta@libero.it)
 
 ---
 
