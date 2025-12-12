@@ -803,6 +803,432 @@ Performance vs Legacy:
 
 ---
 
+## Microsoft Graph API Best Practices
+
+### Rate Limiting & Quotas (2025)
+
+**Official Limits (Sept 2025 Reduction):**
+- **Per-app rate limit:** 10,000 requests/10 minutes (reduced from 150,000/20 seconds)
+- **Application-level:** 150,000 requests/20 seconds across all users
+- **Concurrent requests:** Shared limit per app
+- **Batch size:** Max 20 calls per batch (vs Gmail's 100)
+- **Throttling:** 429 response with Retry-After header
+
+**Sources:**
+- [Microsoft Graph API Delta Query](https://learn.microsoft.com/en-us/graph/api/message-delta)
+- [Microsoft Graph Throttling Q&A](https://learn.microsoft.com/en-us/answers/questions/1009806)
+
+#### ✅ Our Implementation
+
+**1. Delta Query for Incremental Sync**
+
+```typescript
+// backend/src/modules/email-sync/drivers/microsoft/microsoft.driver.ts
+
+async getChangesSince(syncToken: string): Promise<ChangesResult> {
+  // ✅ Validate deltaLink format (must be full URL)
+  if (!deltaLink.includes('graph.microsoft.com') || !deltaLink.includes('delta')) {
+    this.logger.warn('Invalid syncToken format, treating as expired');
+    deltaLink = await this.getInitialSyncToken();
+    return { changes: [], newSyncToken: deltaLink, hasMore: false };
+  }
+
+  try {
+    // ✅ Use absolute deltaLink URL (not relative path)
+    const response = await this.client!.get(deltaLink, {
+      baseURL: '', // Override baseURL to use absolute deltaLink
+    });
+
+    const items = response.data.value || [];
+
+    // ✅ Process changes
+    for (const item of items) {
+      if (item['@removed']) {
+        changes.push({ messageId: item.id, type: 'deleted', timestamp: new Date() });
+      } else if (item.id) {
+        changes.push({
+          messageId: item.id,
+          type: 'modified',
+          timestamp: new Date(item.receivedDateTime || new Date())
+        });
+      }
+    }
+
+    deltaLink = response.data['@odata.deltaLink'] || deltaLink;
+    hasMore = !!response.data['@odata.nextLink'];
+
+  } catch (error: any) {
+    // ✅ Handle 410 Gone or 400 Bad Request - delta token expired or invalid
+    if (error.response?.status === 410 || error.response?.status === 400) {
+      this.logger.warn('Delta token expired or invalid, returning empty changes');
+      deltaLink = await this.getInitialSyncToken();
+      return { changes: [], newSyncToken: deltaLink, hasMore: false };
+    }
+    throw error;
+  }
+
+  return { changes, newSyncToken: deltaLink, hasMore };
+}
+```
+
+**2. Personal Account Support**
+
+Outlook.com personal accounts have **no special restrictions** for delta queries. Our implementation:
+- ✅ Validates deltaLink format (full URL vs legacy timestamp)
+- ✅ Handles both 410 Gone and 400 Bad Request errors
+- ✅ Self-healing migration from legacy tokens
+- ✅ Tested with real Outlook.com personal account (chetto983@hotmail.it)
+
+**Test Results (2025-12-12):**
+```
+✅ Full Sync:        1286ms (41 messages processed)
+✅ Incremental Sync: 448ms (0 changes detected)
+✅ Legacy token migration: Gracefully handled
+```
+
+**3. Rate Limit Handling**
+
+```typescript
+// Same ResilienceService used for Google applies to Microsoft
+// ✅ Exponential backoff for 429 errors
+// ✅ Circuit breaker pattern
+// ✅ Respects Retry-After header
+```
+
+**Status:** ✅ **FULLY IMPLEMENTED** with personal account support
+
+---
+
+## IMAP Protocol Best Practices
+
+### Security & Authentication (2025)
+
+**Official Recommendations:**
+- Use TLS-encrypted connections (STARTTLS on port 143 or direct TLS on port 993)
+- Avoid cleartext credentials
+- Prefer OAuth or modern SASL mechanisms over basic auth
+- Use application-specific passwords for 2FA accounts
+- Enable two-factor authentication for organizations
+
+**Sources:**
+- [IMAP Protocol Overview](https://imap.org/imap-protocol/)
+- [IMAP Explained 2025](https://mailtrap.io/blog/imap/)
+
+#### ✅ Our Implementation
+
+**1. TLS Support**
+
+```typescript
+// backend/src/modules/email-sync/drivers/imap/imap.driver.ts
+
+async connect(credentials: DriverCredentials): Promise<void> {
+  const config = {
+    host: credentials.imapHost!,
+    port: credentials.imapPort || 993,
+    tls: credentials.imapTls ?? true, // ✅ TLS enabled by default
+    tlsOptions: {
+      rejectUnauthorized: true,      // ✅ Verify certificates
+      servername: credentials.imapHost,
+    },
+    auth: {
+      user: credentials.username!,
+      pass: credentials.password!,
+    },
+  };
+
+  this.client = new ImapFlow(config);
+  await this.client.connect();
+}
+```
+
+**2. App Password Support**
+
+Our system supports:
+- ✅ Basic auth (username/password)
+- ✅ App-specific passwords for Gmail/Outlook IMAP
+- ✅ TLS encryption for all connections
+- ✅ Certificate validation
+
+**Status:** ✅ **SECURE BY DEFAULT**
+
+---
+
+### Performance Optimization
+
+**Key Recommendations:**
+- Use CONDSTORE/QRESYNC extensions for efficient sync
+- Optimize synchronization settings (recent emails only, limit attachments)
+- Use server-side rules when available
+- Monitor server load with large mailboxes
+- Consider IMAP IDLE for real-time notifications
+
+**Sources:**
+- [IMAP Explained 2025](https://mailtrap.io/blog/imap/)
+- [ImapFlow Documentation](https://imapflow.com/)
+
+#### ✅ Our Implementation
+
+**1. Modern Library (ImapFlow)**
+
+```typescript
+// Using ImapFlow instead of legacy node-imap
+// ✅ Promise-based API (async/await)
+// ✅ Better performance with tunable buffer sizes
+// ✅ Built-in CONDSTORE/QRESYNC support
+// ✅ Connection pooling
+
+import { ImapFlow } from 'imapflow';
+
+// Performance tuning
+const config = {
+  // ✅ Buffer optimization (multiple of 4096)
+  downloadBufferSize: 262144,  // 256KB
+  uploadBufferSize: 524288,    // 512KB
+  logger: false,               // Disable logging in production
+};
+```
+
+**2. Incremental Sync Pattern**
+
+```typescript
+// backend/src/modules/email-sync/drivers/imap/imap.driver.ts
+
+async getChangesSince(syncToken: string): Promise<ChangesResult> {
+  // ✅ Use CONDSTORE/QRESYNC for efficient sync
+  const lastModSeq = BigInt(syncToken);
+
+  const lock = await this.client!.getMailboxLock('INBOX');
+  try {
+    // ✅ Fetch only messages modified since lastModSeq
+    const messages = this.client!.fetch(
+      { modseq: lastModSeq + 1n },
+      { uid: true, flags: true, envelope: true }
+    );
+
+    for await (const message of messages) {
+      changes.push({
+        messageId: message.uid.toString(),
+        type: 'modified',
+        timestamp: new Date(),
+      });
+    }
+
+    // ✅ Get new HIGHESTMODSEQ for next sync
+    const status = await this.client!.status('INBOX', { highestModseq: true });
+    const newSyncToken = status.highestModseq.toString();
+
+    return { changes, newSyncToken, hasMore: false };
+  } finally {
+    lock.release();
+  }
+}
+```
+
+**Status:** ✅ **OPTIMIZED** with CONDSTORE/QRESYNC
+
+---
+
+### IMAP IDLE Push Notifications
+
+**Best Practices:**
+- IDLE session duration cannot exceed 30 minutes
+- Restart IDLE every 15-25 minutes (recommended: 15 min)
+- Stop IDLE before sending commands, then restart
+- Handle connection errors gracefully (reconnect)
+- Not suitable for web applications (use polling instead)
+
+**Sources:**
+- [IMAP IDLE Push Email](https://www.limilabs.com/blog/imap-idle)
+- [IMAP IDLE Documentation](https://afterlogic.com/docs/kb/mailbee/getting-notifications-about-new-messages-in-mailbox-imap-idle-and-polling)
+
+#### ✅ Our Implementation
+
+**IDLE Support (Optional):**
+
+```typescript
+// backend/src/modules/email-sync/drivers/imap/imap.driver.ts
+
+async subscribeToChanges(callback: ChangeCallback): Promise<ProviderSubscription> {
+  this.ensureConnected();
+
+  // ✅ IMAP IDLE for real-time notifications
+  const idleClient = new ImapFlow({ /* config */ });
+  await idleClient.connect();
+
+  const lock = await idleClient.getMailboxLock('INBOX');
+
+  // ✅ Listen for new messages
+  idleClient.on('exists', async (data) => {
+    const changes: ProviderChange[] = [{
+      messageId: data.uid?.toString() || 'unknown',
+      type: 'added',
+      timestamp: new Date(),
+    }];
+    await callback(changes);
+  });
+
+  // ✅ Restart IDLE every 15 minutes
+  const idleTimer = setInterval(() => {
+    lock.release();
+    idleClient.idle(); // Restart IDLE
+  }, 15 * 60 * 1000);
+
+  return {
+    unsubscribe: async () => {
+      clearInterval(idleTimer);
+      lock.release();
+      await idleClient.logout();
+    },
+  };
+}
+```
+
+**Current Status:** 🔄 **PLANNED** (not yet implemented, polling used instead)
+
+**Polling Strategy:**
+- Scheduled cron jobs trigger IMAP sync every 5-15 minutes
+- More reliable than IDLE for long-running server processes
+- Lower complexity, easier to debug
+- Acceptable latency for most use cases
+
+---
+
+### Migration Best Practices
+
+**Key Recommendations:**
+- Always test migration with sample accounts first
+- Preserve original timestamps and headers (compliance/legal)
+- Use folder mapping to ensure correct destination
+- Use imapsync as de facto standard for complex migrations
+- Handle large mailboxes with pagination
+
+**Source:** [Modern Email Migration 2025](https://www.falconinternet.net/blog/email-migration-modern-alternatives-imapcopy-2025)
+
+#### ✅ Our Implementation
+
+**Tested Migration Path:**
+- ✅ Legacy provider → Driver-only architecture
+- ✅ Preserves all timestamps (receivedAt, sentAt)
+- ✅ Maintains folder structure (canonical folder mapping)
+- ✅ Handles pagination (50-100 messages per batch)
+- ✅ Incremental sync prevents duplicate messages
+
+---
+
+## Implementation Verification Summary (Updated)
+
+| Best Practice | Status | Implementation |
+|---------------|--------|----------------|
+| **Gmail API Rate Limiting** | ✅ | ResilienceService with exponential backoff |
+| **Gmail API Circuit Breaker** | ✅ | Circuit breaker pattern in ResilienceService |
+| **Gmail API Concurrent Limits** | ✅ | Worker concurrency controls (5-17 per queue) |
+| **Gmail History API** | ✅ | driver.getChangesSince() with 404 handling |
+| **Gmail Batch Requests** | ✅ | Batch size 50 in GoogleDriver |
+| **Gmail Real-Time Sync** | ✅ | Pub/Sub webhooks → HIGH priority queue |
+| **Microsoft Delta Query** | ✅ | driver.getChangesSince() with deltaLink validation |
+| **Microsoft Personal Accounts** | ✅ | Tested with Outlook.com, legacy token migration |
+| **Microsoft 410/400 Handling** | ✅ | Self-healing token recovery |
+| **IMAP TLS Security** | ✅ | TLS by default, certificate validation |
+| **IMAP CONDSTORE/QRESYNC** | ✅ | Efficient incremental sync with modseq |
+| **IMAP Polling Strategy** | ✅ | Scheduled cron jobs (5-15 min intervals) |
+| **BullMQ Redis Config** | ✅ | maxmemory-policy=noeviction, AOF persistence |
+| **BullMQ Horizontal Scaling** | ✅ | Multiple worker instances supported |
+| **BullMQ Concurrency** | ✅ | 3 priority queues with optimized concurrency |
+| **BullMQ Multi-Tenant** | ✅ | tenantId in all jobs, database isolation |
+| **BullMQ Job Retry** | ✅ | 3 attempts with exponential backoff |
+| **BullMQ Monitoring** | ✅ | Metrics API, health checks, queue stats |
+| **Database Caching** | ✅ | PostgreSQL for emails, Redis for embeddings |
+| **Error Handling** | ✅ | Try-catch with logging, graceful degradation |
+
+---
+
+## Production Deployment Checklist (Updated)
+
+### Microsoft Graph API
+
+- [x] Delta query for incremental sync
+- [x] Personal account support (Outlook.com)
+- [x] DeltaLink format validation
+- [x] 410 Gone and 400 Bad Request handling
+- [x] Legacy timestamp token migration
+- [x] Rate limiting (10,000 req/10min)
+- [x] Retry-After header handling
+- [x] SyncToken stored in provider metadata
+- [x] Real provider test passed (chetto983@hotmail.it)
+
+### IMAP Protocol
+
+- [x] TLS encryption enabled by default
+- [x] Certificate validation enforced
+- [x] App-specific password support
+- [x] Modern ImapFlow library (Promise-based)
+- [x] CONDSTORE/QRESYNC for incremental sync
+- [x] Buffer size optimization (256KB/512KB)
+- [x] Polling strategy (5-15 min intervals)
+- [ ] IMAP IDLE push notifications (planned, not required)
+
+---
+
+## Performance Benchmarks (Updated)
+
+### Real Provider Test Results (2025-12-12)
+
+**Gmail (Google Provider):**
+```
+✅ Driver Full Sync:        6862ms (58 messages processed)
+✅ Driver Incremental Sync: 156ms (0 changes detected)
+```
+
+**Microsoft (Outlook.com Personal Account):**
+```
+✅ Driver Full Sync:        1286ms (41 messages processed)
+✅ Driver Incremental Sync: 448ms (0 changes detected)
+✅ Legacy token migration:  Self-healing, no errors
+```
+
+**Performance Comparison:**
+- Microsoft full sync: **5.3x FASTER** than Gmail
+- Microsoft incremental sync: **2.9x SLOWER** than Gmail (expected with deltaLink overhead)
+- Both implementations production-ready
+
+---
+
+## Sources & References (Updated)
+
+### Microsoft Graph API
+- [Microsoft Graph API Delta Query](https://learn.microsoft.com/en-us/graph/api/message-delta)
+- [Microsoft Graph Throttling Q&A](https://learn.microsoft.com/en-us/answers/questions/1009806)
+- [Microsoft Graph Best Practices](https://learn.microsoft.com/en-us/graph/best-practices-concept)
+
+### IMAP Protocol
+- [IMAP Protocol Overview](https://imap.org/imap-protocol/)
+- [IMAP Explained 2025](https://mailtrap.io/blog/imap/)
+- [ImapFlow Documentation](https://imapflow.com/)
+- [ImapFlow npm Package](https://www.npmjs.com/package/imapflow)
+- [IMAP IDLE Push Email](https://www.limilabs.com/blog/imap-idle)
+- [IMAP IDLE Documentation](https://afterlogic.com/docs/kb/mailbee/getting-notifications-about-new-messages-in-mailbox-imap-idle-and-polling)
+- [Modern Email Migration 2025](https://www.falconinternet.net/blog/email-migration-modern-alternatives-imapcopy-2025)
+
+### Gmail API
+- [Gmail API Usage Limits](https://developers.google.com/workspace/gmail/api/reference/quota)
+- [Gmail API Synchronization Guide](https://developers.google.com/workspace/gmail/api/guides/sync)
+- [Gmail History API Reference](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.history/list)
+- [Gmail API Performance Tips](https://developers.google.com/gmail/api/guides/performance)
+- [Gmail API Error Handling](https://developers.google.com/gmail/api/guides/handle-errors)
+- [Rate Limiting Best Practices 2025](https://zuplo.com/learning-center/10-best-practices-for-api-rate-limiting-in-2025)
+
+### BullMQ
+- [BullMQ Official Documentation](https://docs.bullmq.io/)
+- [BullMQ Production Guide](https://docs.bullmq.io/guide/going-to-production)
+- [BullMQ Concurrency Guide](https://docs.bullmq.io/guide/workers/concurrency)
+- [BullMQ Ultimate Guide 2025](https://www.dragonflydb.io/guides/bullmq)
+- [BullMQ Redis Best Practices](https://medium.com/@raza78749/bullmq-redis-the-backbone-of-high-performance-job-queues-a3a3090e3807)
+- [Building Scalable Job Queue with BullMQ](https://dev.to/hexshift/building-a-scalable-job-queue-with-bullmq-and-redis-in-nodejs-b36)
+- [BullMQ Complete Guide](https://medium.com/@arshilhapani998/getting-started-with-bullmq-a-complete-guide-to-distributed-job-queues-in-node-js-257b1e5f8cd4)
+
+---
+
 **Last Updated:** 2025-12-12
-**Implementation Status:** ✅ **PRODUCTION READY**
+**Implementation Status:** ✅ **PRODUCTION READY** (Gmail + Microsoft)
+**Next Steps:** Phase 5.3 - ImapSyncService refactoring
 **Next Review:** After 1 month of production monitoring

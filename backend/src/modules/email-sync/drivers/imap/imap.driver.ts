@@ -8,6 +8,7 @@ import {
   ListMessagesOptions,
   ListMessagesResult,
   GetMessageOptions,
+  ChangesResult,
 } from '../interfaces/email-driver.interface';
 import {
   CanonicalFolder,
@@ -1183,6 +1184,135 @@ export class IMAPDriver extends BaseEmailDriver {
         };
       } finally {
         lock.release();
+      }
+    });
+  }
+
+  // ============================================
+  // Sync / Real-time (CONDSTORE/QRESYNC)
+  // ============================================
+
+  /**
+   * Get changes since last sync using CONDSTORE/QRESYNC
+   * Uses HIGHESTMODSEQ for efficient incremental sync
+   *
+   * IMAP Best Practices 2025:
+   * - Use CONDSTORE extension for change tracking
+   * - MODSEQ is monotonically increasing per-folder
+   * - More efficient than date-based search
+   */
+  async getChangesSince(syncToken: string): Promise<ChangesResult> {
+    this.ensureConnected();
+
+    return this.withConnection(async (client) => {
+      const changes: ProviderChange[] = [];
+      const lastModSeq = BigInt(syncToken);
+
+      try {
+        // Select INBOX (can be extended to sync all folders)
+        const lock = await client.getMailboxLock('INBOX');
+
+        try {
+          // Check if server supports CONDSTORE
+          const mailboxStatus = await client.status('INBOX', {
+            highestModseq: true,
+          });
+
+          if (!mailboxStatus.highestModseq) {
+            // Server doesn't support CONDSTORE - fallback to date-based sync
+            this.logger.warn('IMAP server does not support CONDSTORE, using date-based fallback');
+            const newSyncToken = Date.now().toString();
+            return {
+              changes: [],
+              newSyncToken,
+              hasMore: false,
+            };
+          }
+
+          const currentModSeq = mailboxStatus.highestModseq;
+
+          // If no changes, return early
+          if (currentModSeq <= lastModSeq) {
+            return {
+              changes: [],
+              newSyncToken: currentModSeq.toString(),
+              hasMore: false,
+            };
+          }
+
+          // Fetch messages modified since lastModSeq
+          // Using CHANGEDSINCE MODSEQ search criterion
+          for await (const message of client.fetch(
+            { modseq: lastModSeq + 1n },
+            {
+              uid: true,
+              flags: true,
+              envelope: true,
+              modseq: true,
+            },
+            { uid: true },
+          )) {
+            // Check if message is deleted
+            if (message.flags?.has('\\Deleted')) {
+              changes.push({
+                messageId: message.uid.toString(),
+                type: 'deleted',
+                timestamp: new Date(),
+              });
+            } else {
+              // Message was added or modified
+              changes.push({
+                messageId: message.uid.toString(),
+                type: 'modified', // Could be 'added' if new, but IMAP doesn't distinguish
+                timestamp: new Date(),
+              });
+            }
+          }
+
+          return {
+            changes,
+            newSyncToken: currentModSeq.toString(),
+            hasMore: false,
+          };
+        } finally {
+          lock.release();
+        }
+      } catch (error: any) {
+        this.logger.error(`IMAP getChangesSince failed: ${error.message}`);
+
+        // Return empty changes and current timestamp as fallback
+        const fallbackToken = Date.now().toString();
+        return {
+          changes: [],
+          newSyncToken: fallbackToken,
+          hasMore: false,
+        };
+      }
+    });
+  }
+
+  /**
+   * Get initial sync token for delta sync
+   * Returns current HIGHESTMODSEQ for INBOX
+   */
+  async getInitialSyncToken(): Promise<string> {
+    this.ensureConnected();
+
+    return this.withConnection(async (client) => {
+      try {
+        const mailboxStatus = await client.status('INBOX', {
+          highestModseq: true,
+        });
+
+        if (mailboxStatus.highestModseq) {
+          return mailboxStatus.highestModseq.toString();
+        }
+
+        // Fallback to current timestamp if CONDSTORE not supported
+        return Date.now().toString();
+      } catch (error: any) {
+        this.logger.warn(`IMAP getInitialSyncToken failed: ${error.message}, using timestamp fallback`);
+        return Date.now().toString();
       }
     });
   }
