@@ -1,15 +1,28 @@
+/**
+ * Type declarations for vcf module
+ * Custom types to avoid conflicts with @types/vcf
+ */
+
 declare module 'vcf' {
-  class vCard {
-    constructor();
-    toString(): string;
-    get(key: string): any;
-    set(key: string, value: any): void;
-    [key: string]: any;
+  class Property {
+    valueOf(): string;
+    value?: string;
+    type?: string;
+    params?: Record<string, any>;
   }
 
-  namespace vCard {
-    function parse(vcard: string): vCard;
+  class VCard {
+    version: string;
+    data: Record<string, any>;
+
+    get(key: string): Property | Property[] | undefined;
+    set(key: string, value: string | Property, params?: Record<string, any>): VCard;
+    toString(version?: string): string;
+    toJSON(): any;
+
+    static parse(vcfString: string): VCard | VCard[];
+    static fromJSON(json: any): VCard;
   }
 
-  export = vCard;
+  export = VCard;
 }

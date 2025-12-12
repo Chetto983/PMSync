@@ -1,0 +1,268 @@
+/**
+ * Real Email Send Migration Validation
+ * Sends actual test emails through all configured providers
+ */
+
+const { PrismaClient } = require('@prisma/client');
+const axios = require('axios');
+
+const prisma = new PrismaClient();
+const BASE_URL = 'http://localhost:3000';
+
+async function main() {
+  console.log('\n' + '='.repeat(80));
+  console.log('🚀 PHASE 7.1 MIGRATION VALIDATION - REAL EMAIL SEND TEST');
+  console.log('='.repeat(80) + '\n');
+
+  try {
+    // Fetch all active email providers
+    console.log('📊 Fetching active email providers from database...\n');
+
+    const providers = await prisma.providerConfig.findMany({
+      where: {
+        isActive: true,
+        supportsEmail: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        providerType: true,
+        tenantId: true,
+      },
+    });
+
+    if (providers.length === 0) {
+      console.log('❌ No active email providers found in database');
+      console.log('   Please configure at least one provider to test\n');
+      return;
+    }
+
+    console.log(`Found ${providers.length} active provider(s):\n`);
+    providers.forEach((p, i) => {
+      console.log(`  ${i + 1}. ${p.providerType.toUpperCase().padEnd(10)} - ${p.email}`);
+    });
+    console.log('');
+
+    const results = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    // Test each provider
+    for (let i = 0; i < providers.length; i++) {
+      const provider = providers[i];
+      const providerNum = i + 1;
+
+      console.log('\n' + '-'.repeat(80));
+      console.log(`📧 Test ${providerNum}/${providers.length}: ${provider.providerType.toUpperCase()} - ${provider.email}`);
+      console.log('-'.repeat(80));
+
+      const timestamp = new Date().toISOString();
+      const startTime = Date.now();
+
+      const emailData = {
+        tenantId: provider.tenantId,
+        providerId: provider.id,
+        to: [provider.email], // Send to self
+        subject: `✅ Migration Test ${providerNum}/${providers.length} - ${provider.providerType.toUpperCase()} Driver`,
+        bodyHtml: `
+          <html>
+            <head>
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; }
+                .content { background: #f7fafc; padding: 30px; border-radius: 0 0 10px 10px; }
+                .success { color: #48bb78; font-weight: bold; }
+                .metric { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #667eea; }
+                .footer { text-align: center; color: #718096; font-size: 12px; margin-top: 30px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>✅ Email Send Service Migration Validation</h1>
+                  <p>Phase 7.1: EmailDriverFactory Implementation Test</p>
+                </div>
+                <div class="content">
+                  <h2>🎯 Test Results</h2>
+                  <p class="success">✓ Email sent successfully using NEW driver pattern</p>
+
+                  <div class="metric">
+                    <strong>Provider:</strong> ${provider.providerType.toUpperCase()}<br>
+                    <strong>Email:</strong> ${provider.email}<br>
+                    <strong>Test #:</strong> ${providerNum} of ${providers.length}
+                  </div>
+
+                  <h3>🔧 Technical Stack (NEW)</h3>
+                  <div class="metric">
+                    <strong>✅ EmailDriverFactory</strong> - Factory pattern for driver creation<br>
+                    <strong>✅ driver.sendMessage()</strong> - Canonical send method<br>
+                    <strong>✅ ComposeMessage</strong> - Unified message type<br>
+                    <strong>✅ DriverCredentials</strong> - Standard auth interface<br>
+                    <strong>✅ driver.disconnect()</strong> - Resource cleanup
+                  </div>
+
+                  <h3>❌ Legacy Stack (REMOVED)</h3>
+                  <div class="metric">
+                    <strong>❌ ProviderFactory</strong> - Deprecated<br>
+                    <strong>❌ emailProvider.sendEmail()</strong> - Replaced<br>
+                    <strong>❌ SendEmailData</strong> - Replaced by ComposeMessage
+                  </div>
+
+                  <h3>📋 Migration Details</h3>
+                  <ul>
+                    <li><strong>Phase:</strong> 7.1 - Email Send Service</li>
+                    <li><strong>Pattern:</strong> Driver-only architecture</li>
+                    <li><strong>Compliance:</strong> RFC 5322, RFC 2045/2046, RFC 2183</li>
+                    <li><strong>Timestamp:</strong> ${timestamp}</li>
+                  </ul>
+
+                  <div class="footer">
+                    <p>🤖 Generated by Claude Code - Phase 7.1 Migration Validation</p>
+                    <p><em>This email confirms the EmailSendService migration is working correctly</em></p>
+                  </div>
+                </div>
+              </div>
+            </body>
+          </html>
+        `,
+        bodyText: `
+EMAIL SEND SERVICE MIGRATION VALIDATION
+Phase 7.1: EmailDriverFactory Implementation Test
+
+✅ TEST RESULTS
+Email sent successfully using NEW driver pattern
+
+PROVIDER DETAILS:
+- Provider: ${provider.providerType.toUpperCase()}
+- Email: ${provider.email}
+- Test #: ${providerNum} of ${providers.length}
+
+TECHNICAL STACK (NEW):
+✅ EmailDriverFactory - Factory pattern for driver creation
+✅ driver.sendMessage() - Canonical send method
+✅ ComposeMessage - Unified message type
+✅ DriverCredentials - Standard auth interface
+✅ driver.disconnect() - Resource cleanup
+
+LEGACY STACK (REMOVED):
+❌ ProviderFactory - Deprecated
+❌ emailProvider.sendEmail() - Replaced
+❌ SendEmailData - Replaced by ComposeMessage
+
+MIGRATION DETAILS:
+- Phase: 7.1 - Email Send Service
+- Pattern: Driver-only architecture
+- Compliance: RFC 5322, RFC 2045/2046, RFC 2183
+- Timestamp: ${timestamp}
+
+🤖 Generated by Claude Code - Phase 7.1 Migration Validation
+        `,
+      };
+
+      try {
+        console.log('⏳ Sending test email via API...');
+
+        const response = await axios.post(`${BASE_URL}/api/emails/send`, emailData, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000, // 30 second timeout
+        });
+
+        const duration = Date.now() - startTime;
+        const result = response.data;
+
+        console.log('✅ SUCCESS!');
+        console.log(`   Status: ${response.status} ${response.statusText}`);
+        console.log(`   Message ID: ${result.messageId || 'N/A'}`);
+        console.log(`   Duration: ${duration}ms`);
+
+        if (result.success) {
+          console.log(`   ✓ Email delivered to: ${provider.email}`);
+        }
+
+        results.push({
+          provider: `${provider.providerType} (${provider.email})`,
+          success: true,
+          messageId: result.messageId,
+          duration,
+        });
+        successCount++;
+
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        const errorMsg = error.response?.data?.message || error.message;
+        const statusCode = error.response?.status;
+
+        console.log('❌ FAILED');
+        console.log(`   Error: ${errorMsg}`);
+        if (statusCode) {
+          console.log(`   HTTP Status: ${statusCode}`);
+        }
+        console.log(`   Duration: ${duration}ms`);
+
+        results.push({
+          provider: `${provider.providerType} (${provider.email})`,
+          success: false,
+          error: errorMsg,
+          duration,
+        });
+        failCount++;
+      }
+    }
+
+    // Final Summary
+    console.log('\n' + '='.repeat(80));
+    console.log('📊 VALIDATION SUMMARY');
+    console.log('='.repeat(80) + '\n');
+
+    results.forEach((result, index) => {
+      const status = result.success ? '✅' : '❌';
+      console.log(`${index + 1}. ${status} ${result.provider}`);
+
+      if (result.success) {
+        console.log(`   Message ID: ${result.messageId}`);
+        console.log(`   Duration: ${result.duration}ms`);
+      } else {
+        console.log(`   Error: ${result.error}`);
+        console.log(`   Duration: ${result.duration}ms`);
+      }
+      console.log('');
+    });
+
+    console.log('-'.repeat(80));
+    console.log(`Total Tests: ${results.length}`);
+    console.log(`✅ Passed: ${successCount}`);
+    console.log(`❌ Failed: ${failCount}`);
+    console.log(`Success Rate: ${((successCount / results.length) * 100).toFixed(1)}%`);
+    console.log('-'.repeat(80) + '\n');
+
+    if (successCount === results.length) {
+      console.log('🎉 ALL TESTS PASSED!');
+      console.log('✓ EmailSendService migration is FULLY VALIDATED');
+      console.log('✓ Driver-only architecture is working correctly');
+      console.log('✓ Ready for production deployment\n');
+    } else if (successCount > 0) {
+      console.log('⚠️  PARTIAL SUCCESS');
+      console.log(`✓ ${successCount} provider(s) working correctly`);
+      console.log(`✗ ${failCount} provider(s) need attention\n`);
+    } else {
+      console.log('💥 ALL TESTS FAILED');
+      console.log('✗ Migration issues detected - review errors above\n');
+    }
+
+    console.log('='.repeat(80) + '\n');
+
+    await prisma.$disconnect();
+    process.exit(successCount === results.length ? 0 : 1);
+
+  } catch (error) {
+    console.error('\n💥 Fatal Error:', error.message);
+    console.error('Stack:', error.stack);
+    await prisma.$disconnect();
+    process.exit(1);
+  }
+}
+
+main();

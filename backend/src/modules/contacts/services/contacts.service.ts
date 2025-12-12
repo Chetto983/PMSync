@@ -10,7 +10,7 @@ import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service'
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { getRedisConnectionOptions } from '../../../common/config';
 import { Redis } from 'ioredis';
-import * as vCard from 'vcf';
+import vCard from 'vcf';
 
 // Type-safe interfaces for JSON fields
 export interface EmailAddress {

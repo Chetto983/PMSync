@@ -80,7 +80,8 @@
       "Bash(pkill:*)",
       "Bash(npm run:*)",
       "Bash(npx dotenv:*)",
-      "Bash(Select-String -Pattern \"error|failed|Exception\" -Context 2)"
+      "Bash(Select-String -Pattern \"error|failed|Exception\" -Context 2)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

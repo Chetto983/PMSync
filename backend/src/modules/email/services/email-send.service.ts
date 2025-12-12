@@ -5,9 +5,9 @@ import { CryptoService } from '../../../common/services/crypto.service';
 import { AttachmentStorageService } from './attachment.storage';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { EmailSendQueueService } from '../../email-sync/services/email-send-queue.service';
-import { ProviderFactory } from '../../providers/factory/provider.factory';
-import type { ProviderConfig as ProviderConfigType } from '../../providers/interfaces/email-provider.interface';
-import type { SendEmailData } from '../../providers/interfaces/email-provider.interface';
+import { EmailDriverFactory } from '../../email-sync/drivers/driver.factory';
+import type { ComposeMessage } from '../../email-sync/drivers/interfaces/canonical.types';
+import type { DriverCredentials } from '../../email-sync/drivers/interfaces/email-driver.interface';
 
 export interface SendEmailDto {
   tenantId: string;
@@ -41,6 +41,7 @@ export class EmailSendService {
     private providerTokenService: ProviderTokenService,
     @Inject(forwardRef(() => EmailSendQueueService))
     private emailSendQueue: EmailSendQueueService,
+    private driverFactory: EmailDriverFactory,
   ) {}
 
   /**
@@ -140,7 +141,7 @@ export class EmailSendService {
   }
 
   /**
-   * Send email via Provider Factory (Zero-inspired pattern)
+   * Send email via Email Driver Factory (Driver-only pattern)
    */
   async sendEmail(data: SendEmailDto): Promise<{ success: boolean; messageId: string }> {
     const provider = await this.getActiveEmailProvider(data.tenantId, data.providerId);
@@ -160,68 +161,70 @@ export class EmailSendService {
             )
           : [];
 
-      // Create provider factory config (Zero createDriver pattern)
-      // For IMAP providers, include SMTP configuration in metadata
+      // Get access token (SMTP password for IMAP, OAuth token for others)
       const isImapProvider = provider.providerType === 'imap';
-
-      // For IMAP providers, use SMTP password (falls back to IMAP password)
       const accessToken = isImapProvider
         ? await this.getSmtpPassword(provider)
         : await this.getAccessToken(provider);
 
-      const providerConfig: ProviderConfigType = {
-        userId: data.tenantId,
-        providerId: provider.id,
-        providerType: provider.providerType as 'google' | 'microsoft' | 'imap',
-        email: provider.email,
-        accessToken,
-        refreshToken: '', // Token refresh is delegated to OAuth service layer
-        ...(isImapProvider && {
-          metadata: {
-            imapHost: provider.imapHost,
-            imapPort: provider.imapPort,
-            imapSecure: provider.imapUseTls,
-            smtpHost: provider.smtpHost,
-            smtpPort: provider.smtpPort,
-            smtpSecure: provider.smtpUseTls,
-          },
-        }),
-      };
+      // Create driver credentials
+      const credentials: DriverCredentials = isImapProvider
+        ? {
+            type: 'basic',
+            username: provider.email,
+            password: accessToken,
+            smtpHost: provider.smtpHost || undefined,
+            smtpPort: provider.smtpPort || undefined,
+            smtpTls: provider.smtpUseTls ?? true,
+          }
+        : {
+            type: 'oauth2',
+            accessToken,
+            emailHint: provider.email,
+          };
 
-      // Use Provider Factory to create provider instance
-      const emailProvider = ProviderFactory.create(provider.providerType, providerConfig);
+      // Create connected driver
+      const driver = await this.driverFactory.createConnectedDriver(
+        provider.providerType as 'google' | 'microsoft' | 'imap',
+        credentials,
+      );
 
-      // Prepare data for provider interface
-      const sendData: SendEmailData = {
-        to: data.to.map(email => ({ email })),
-        cc: data.cc?.map(email => ({ email })),
-        bcc: data.bcc?.map(email => ({ email })),
+      // Prepare compose message for driver
+      const composeMessage: ComposeMessage = {
+        to: data.to.map(email => ({ email, name: '' })),
+        cc: data.cc?.map(email => ({ email, name: '' })),
+        bcc: data.bcc?.map(email => ({ email, name: '' })),
         subject: data.subject,
         bodyHtml: data.bodyHtml,
         bodyText: data.bodyText,
-        attachments: uploadedAttachments.map(att => ({
-          id: '', // Will be generated
+        attachments: uploadedAttachments.map((att, index) => ({
+          id: `att-${index}-${Date.now()}`,
           filename: att.filename,
           mimeType: att.mimeType,
           size: att.size,
-          data: att.storagePath, // Send storage path instead of buffer
+          isInline: att.isInline,
+          contentId: att.contentId,
+          content: att.storagePath, // Driver will read from storage path
         })),
       };
 
       if (data.inReplyTo) {
-        sendData.inReplyTo = data.inReplyTo;
-        sendData.references = data.references;
+        composeMessage.inReplyTo = data.inReplyTo;
+        composeMessage.references = data.references;
       }
 
-      // Send via provider interface
-      const result = await emailProvider.sendEmail(sendData);
+      // Send via driver interface
+      const messageId = await driver.sendMessage(composeMessage);
 
-      this.logger.log(`Email sent successfully via ${provider.providerType}: ${result.id}`);
+      this.logger.log(`Email sent successfully via ${provider.providerType}: ${messageId}`);
+
+      // Disconnect driver
+      await driver.disconnect();
 
       // Save to database
-      await this.saveSentEmail(data, result.id, provider.id, uploadedAttachments);
+      await this.saveSentEmail(data, messageId, provider.id, uploadedAttachments);
 
-      return { success: true, messageId: result.id };
+      return { success: true, messageId };
     } catch (error) /* istanbul ignore next */ {
       const message = error instanceof Error ? error.message : 'Unknown error';
       const stack = error instanceof Error ? error.stack : undefined;
