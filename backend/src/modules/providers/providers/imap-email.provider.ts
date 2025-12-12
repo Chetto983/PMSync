@@ -507,7 +507,12 @@ export class ImapEmailProvider extends BaseEmailProvider implements IEmailProvid
   // ==================== Helpers ====================
 
   private async parseImapMessage(message: FetchMessageObject): Promise<EmailMessage> {
-    const parsed = await simpleParser(message.source);
+    const source = message.source;
+    if (!source) {
+      throw new Error('Message source is undefined');
+    }
+
+    const parsed = await simpleParser(source);
 
     return {
       id: message.uid.toString(),
@@ -524,7 +529,7 @@ export class ImapEmailProvider extends BaseEmailProvider implements IEmailProvid
       isRead: message.flags?.has('\\Seen') || false,
       isStarred: message.flags?.has('\\Flagged') || false,
       hasAttachments: (parsed.attachments?.length || 0) > 0,
-      attachments: this.extractAttachments(parsed.attachments),
+      attachments: this.extractAttachments(parsed.attachments || []),
       headers: this.extractHeaders(parsed.headers),
       labels: this.extractLabelsFromFlags(message.flags || new Set()),
     };
