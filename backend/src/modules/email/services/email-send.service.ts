@@ -161,8 +161,8 @@ export class EmailSendService {
           : [];
 
       // Create provider factory config (Zero createDriver pattern)
-      // For IMAP/generic providers, include SMTP configuration in metadata
-      const isImapProvider = provider.providerType === 'imap' || provider.providerType === 'generic';
+      // For IMAP providers, include SMTP configuration in metadata
+      const isImapProvider = provider.providerType === 'imap';
 
       // For IMAP providers, use SMTP password (falls back to IMAP password)
       const accessToken = isImapProvider

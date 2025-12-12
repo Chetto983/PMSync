@@ -182,7 +182,7 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
         return this.googleSyncService.syncProvider(jobData);
       case 'microsoft':
         return this.microsoftSyncService.syncProvider(jobData);
-      case 'generic':
+      case 'imap':
         return this.imapSyncService.syncProvider(jobData);
       default:
         throw new Error(`Unsupported provider type: ${jobData.providerType}`);

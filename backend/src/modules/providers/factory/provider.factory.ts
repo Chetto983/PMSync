@@ -20,7 +20,6 @@ const SUPPORTED_PROVIDERS = {
   google: GoogleEmailProvider,
   microsoft: MicrosoftEmailProvider,
   imap: ImapEmailProvider,
-  generic: ImapEmailProvider, // 'generic' is an alias for IMAP providers
 } as const;
 
 export type SupportedProviderType = keyof typeof SUPPORTED_PROVIDERS;

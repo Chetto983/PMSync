@@ -284,7 +284,7 @@ export class ProviderConfigService {
   }
 
   /**
-   * Connect generic provider (IMAP/SMTP + CalDAV/CardDAV)
+   * Connect IMAP provider (IMAP/SMTP + CalDAV/CardDAV)
    */
   async connectGenericProvider(
     tenantId: string,
@@ -354,13 +354,13 @@ export class ProviderConfigService {
           tenantId_email_providerType: {
             tenantId,
             email: dto.email,
-            providerType: 'generic',
+            providerType: 'imap',
           },
         },
         create: {
           tenantId,
           userId,
-          providerType: 'generic',
+          providerType: 'imap',
           email: dto.email,
           displayName: dto.displayName,
           supportsEmail: true,
@@ -624,11 +624,11 @@ export class ProviderConfigService {
   }
 
   /**
-   * Test IMAP connection for generic provider
+   * Test IMAP connection for IMAP provider
    */
   async testImapConnection(tenantId: string, providerId: string): Promise<any> {
     const provider = await this.prisma.providerConfig.findFirst({
-      where: { id: providerId, tenantId, providerType: 'generic' },
+      where: { id: providerId, tenantId, providerType: 'imap' },
     });
 
     if (!provider) {
@@ -660,11 +660,11 @@ export class ProviderConfigService {
   }
 
   /**
-   * Test IMAP folders listing for generic provider
+   * Test IMAP folders listing for IMAP provider
    */
   async testImapFolders(tenantId: string, providerId: string): Promise<any> {
     const provider = await this.prisma.providerConfig.findFirst({
-      where: { id: providerId, tenantId, providerType: 'generic' },
+      where: { id: providerId, tenantId, providerType: 'imap' },
     });
 
     if (!provider) {
@@ -695,11 +695,11 @@ export class ProviderConfigService {
   }
 
   /**
-   * Test SMTP connection for generic provider
+   * Test SMTP connection for IMAP provider
    */
   async testSmtpConnection(tenantId: string, providerId: string): Promise<any> {
     const provider = await this.prisma.providerConfig.findFirst({
-      where: { id: providerId, tenantId, providerType: 'generic' },
+      where: { id: providerId, tenantId, providerType: 'imap' },
     });
 
     if (!provider) {
@@ -731,11 +731,11 @@ export class ProviderConfigService {
   }
 
   /**
-   * Fetch recent messages via IMAP for generic provider
+   * Fetch recent messages via IMAP for IMAP provider
    */
   async testImapMessages(tenantId: string, providerId: string): Promise<any> {
     const provider = await this.prisma.providerConfig.findFirst({
-      where: { id: providerId, tenantId, providerType: 'generic' },
+      where: { id: providerId, tenantId, providerType: 'imap' },
     });
 
     if (!provider) {

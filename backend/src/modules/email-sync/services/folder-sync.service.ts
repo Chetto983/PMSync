@@ -45,7 +45,7 @@ export class FolderSyncService {
       throw new Error(`Provider ${providerId} not found`);
     }
 
-    if (provider.providerType === 'generic') {
+    if (provider.providerType === 'imap') {
       await this.syncImapFolders(tenantId, providerId);
     } else if (provider.providerType === 'google') {
       await this.syncGmailFolders(tenantId, providerId);
@@ -77,9 +77,9 @@ export class FolderSyncService {
         throw new Error(`Provider ${providerId} not found`);
       }
 
-      if (provider.providerType !== 'generic') {
+      if (provider.providerType !== 'imap') {
         throw new Error(
-          `Provider ${providerId} is not a generic IMAP provider`,
+          `Provider ${providerId} is not an IMAP provider`,
         );
       }
 
@@ -842,7 +842,7 @@ export class FolderSyncService {
     let serverPaths: Set<string>;
     let serverFolders: { path: string; name: string }[] = [];
 
-    if (provider.providerType === 'generic') {
+    if (provider.providerType === 'imap') {
       const imapCreds = this.providerTokenService.getImapCredentials(provider);
       const imapFolders = await this.imapService.listFolders({
         host: imapCreds.host,
@@ -944,7 +944,7 @@ export class FolderSyncService {
 
     let result: { externalId: string; path: string };
 
-    if (provider.providerType === 'generic') {
+    if (provider.providerType === 'imap') {
       result = await this.createImapFolder(providerId, name, parentPath);
     } else if (provider.providerType === 'google') {
       result = await this.createGmailLabel(providerId, name);
@@ -1001,7 +1001,7 @@ export class FolderSyncService {
 
     let newPath: string;
 
-    if (provider.providerType === 'generic') {
+    if (provider.providerType === 'imap') {
       newPath = await this.renameImapFolder(providerId, folderPath, newName);
     } else if (provider.providerType === 'google') {
       await this.renameGmailLabel(providerId, folder.externalId || folderPath, newName);
@@ -1058,7 +1058,7 @@ export class FolderSyncService {
 
     this.logger.log(`Deleting folder "${folder.name}" for provider ${providerId}`);
 
-    if (provider.providerType === 'generic') {
+    if (provider.providerType === 'imap') {
       await this.deleteImapFolder(providerId, folderPath);
     } else if (provider.providerType === 'google') {
       await this.deleteGmailLabel(providerId, folder.externalId || folderPath);
