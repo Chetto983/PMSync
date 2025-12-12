@@ -6,6 +6,7 @@ import {
   ListMessagesOptions,
   ListMessagesResult,
   GetMessageOptions,
+  ChangesResult,
 } from '../interfaces/email-driver.interface';
 import {
   CanonicalFolder,
@@ -13,6 +14,7 @@ import {
   ComposeMessage,
   AttachmentData,
   ProviderType,
+  ProviderChange,
   MICROSOFT_WELLKNOWN_TO_CANONICAL,
   CANONICAL_TO_MICROSOFT,
   CanonicalFolderType,
@@ -434,6 +436,67 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     // Return the deltaLink as sync token
     return response.data['@odata.deltaLink'] || '';
+  }
+
+  async getChangesSince(syncToken: string): Promise<ChangesResult> {
+    this.ensureConnected();
+
+    const changes: ProviderChange[] = [];
+    let deltaLink = syncToken;
+    let hasMore = false;
+
+    try {
+      // Delta sync using the deltaLink
+      const response = await this.client!.get(deltaLink);
+
+      const items = response.data.value || [];
+
+      for (const item of items) {
+        if (item['@removed']) {
+          // Deleted message
+          changes.push({
+            messageId: item.id,
+            type: 'deleted',
+            timestamp: new Date(),
+          });
+        } else if (item.id) {
+          // Added or modified message
+          // Microsoft doesn't distinguish between added/modified in delta
+          // We treat all as "modified" - the sync service will check if it's new
+          changes.push({
+            messageId: item.id,
+            type: 'modified',
+            timestamp: new Date(item.receivedDateTime || new Date()),
+          });
+        }
+      }
+
+      // Get new delta link for next sync
+      deltaLink = response.data['@odata.deltaLink'] || deltaLink;
+
+      // Check if there are more pages (@odata.nextLink)
+      hasMore = !!response.data['@odata.nextLink'];
+
+    } catch (error: any) {
+      // Handle 410 Gone - delta token expired
+      if (error.response?.status === 410) {
+        this.logger.warn('Delta token expired (410 Gone), returning empty changes');
+        // Get new delta token
+        deltaLink = await this.getInitialSyncToken();
+        return {
+          changes: [],
+          newSyncToken: deltaLink,
+          hasMore: false,
+        };
+      }
+      throw error;
+    }
+
+    return {
+      changes,
+      newSyncToken: deltaLink,
+      hasMore,
+    };
   }
 
   // ============================================
