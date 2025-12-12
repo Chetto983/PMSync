@@ -1,9 +1,82 @@
 # Email Provider Driver Abstraction Roadmap
 
-> **Status:** Phase 4 Complete ✅ (Production Validated with Real Data)
+> **Status:** Phase 5 In Progress 🚀 (Legacy Code Removal)
 > **Created:** 2025-12-10
-> **Updated:** 2025-12-11
+> **Updated:** 2025-12-12
 > **Goal:** Clean multi-provider email architecture with unified folder handling, production-ready for >1000 users
+
+---
+
+## Phase 5: Legacy Code Removal (2025-12-12) 🚀
+
+### Status: IN PROGRESS
+
+GoogleSyncService has been **completely rewritten** to use only the driver architecture, removing all legacy Gmail API code.
+
+### ✅ Completed
+
+1. **GoogleSyncService Driver-Only Refactoring**
+   - **Location:** `backend/src/modules/email-sync/services/gmail/google-sync.service.ts`
+   - **Before:** 789 lines with direct Gmail API calls
+   - **After:** 384 lines (51% reduction) using EmailDriverFactory
+   - **Status:** ✅ All tests passing (7/7)
+
+   **Key Changes:**
+   - Removed `createGmailClient()` - now uses `EmailDriverFactory.createConnectedDriver()`
+   - Removed `syncFull()` - replaced with `syncFullWithDriver()` using `driver.listMessages()`
+   - Removed `syncIncremental()` - replaced with `syncIncrementalWithDriver()` using `driver.getChangesSince()`
+   - Removed `withRetry()` - now handled by driver's resilience module
+   - Added `upsertMessageFromDriver()` - shared helper for canonical message format
+   - Added `handleMessageDeletion()` - simplified deletion logic
+
+   **Maintained Features:**
+   - ✅ Multi-tenancy (tenantId tracking)
+   - ✅ BullMQ integration (embeddings queue)
+   - ✅ Realtime events (Socket.IO)
+   - ✅ Full and incremental sync modes
+   - ✅ Sync token management for Gmail History API
+
+2. **Test Results**
+   - `google-sync.service.spec.ts`: 7/7 tests passing ✅
+   - `gmail-webhook.service.spec.ts`: All tests passing ✅
+   - TypeScript compilation: No errors in production code ✅
+
+### 🔄 In Progress
+
+3. **Email Send Service Migration**
+   - **Location:** `backend/src/modules/email/services/email-send.service.ts`
+   - **Current:** Uses `ProviderFactory.create()` for sending emails
+   - **Target:** Use `EmailDriverFactory.createConnectedDriver()` with `driver.sendMessage()`
+   - **Status:** Pending
+
+4. **Calendar Service Migration**
+   - **Location:** `backend/src/modules/calendar/`
+   - **Current:** May use ProviderFactory for calendar operations
+   - **Target:** Use EmailDriverFactory if applicable
+   - **Status:** Investigation needed
+
+### 📋 Pending
+
+5. **Delete Legacy Provider Implementations**
+   - `backend/src/modules/providers/providers/google-email.provider.ts`
+   - `backend/src/modules/providers/providers/microsoft-email.provider.ts`
+   - `backend/src/modules/providers/providers/imap-email.provider.ts`
+   - `backend/src/modules/providers/factory/provider.factory.ts`
+   - **Blocked by:** Email send service and calendar service migration
+
+6. **Update ProvidersModule**
+   - **Location:** `backend/src/modules/providers/providers.module.ts`
+   - **Keep:** OAuth services only (GoogleOAuthService, MicrosoftOAuthService)
+   - **Remove:** IEmailProvider interface, ProviderFactory exports
+   - **Status:** Pending
+
+### Next Steps
+
+1. Migrate `email-send.service.ts` to use EmailDriverFactory
+2. Verify calendar services don't depend on ProviderFactory
+3. Delete legacy provider implementations
+4. Update ProvidersModule to export only OAuth services
+5. Apply same pattern to MicrosoftSyncService and ImapSyncService
 
 ---
 
@@ -62,7 +135,7 @@ Real-time notifications verified with live testing:
 **Webhook Lifecycle Features:**
 
 - Auto-create subscriptions on provider add
-- Daily renewal cron (2 AM)
+- Daily renewal (BullMQ)
 - Weekly cleanup of failed webhooks
 - Health monitoring and stats
 - Fail-safe fallback to polling
@@ -398,6 +471,7 @@ WHERE "specialUse" IN ('INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'JUNK', 'ARCH
 Update sync services to store canonical folder types:
 
 **Files to modify:**
+
 - `backend/src/modules/email-sync/services/gmail/gmail-folder.service.ts`
 - `backend/src/modules/email-sync/services/microsoft/microsoft-folder.service.ts`
 - `backend/src/modules/email-sync/services/gmail/gmail-message-parser.ts`
@@ -566,7 +640,7 @@ export interface GetMessageOptions {
 
 ### 2.2 Directory Structure
 
-```
+``` typescript
 backend/src/modules/email-sync/
 ├── drivers/
 │   ├── interfaces/
@@ -1016,11 +1090,20 @@ interface IMAPProviderConfig {
 - [x] Implement `MicrosoftDriver` wrapping existing code
 - [x] Create `EmailDriverFactory`
 - [x] Test drivers with real Gmail and Outlook.com accounts
-- [ ] Create `UnifiedSyncService` using drivers (deferred - use gradual migration)
+- [ ] Create `UnifiedSyncService` using drivers (deferred - see DRIVER_MIGRATION_PLAN.md)
 - [ ] Migrate `sync-scheduler.service.ts` to use factory (deferred)
 - [ ] Migrate webhook handlers to use drivers (deferred)
-- [ ] Remove old duplicated code (after gradual migration)
+- [ ] Remove old duplicated code (deferred - see Phase 4 in migration plan)
 - [ ] Add comprehensive tests for drivers
+
+**Note:** The migration from old sync services to driver-based architecture is documented in [DRIVER_MIGRATION_PLAN.md](./DRIVER_MIGRATION_PLAN.md). The current approach is **gradual migration** (Option A), keeping old services for stability while new features use drivers.
+
+**Related Documentation:**
+
+- [REFACTORING_ROADMAP_SUMMARY.md](./REFACTORING_ROADMAP_SUMMARY.md) - High-level overview of all refactoring (START HERE)
+- [DRIVER_MIGRATION_PLAN.md](./DRIVER_MIGRATION_PLAN.md) - Detailed migration strategy (Phase 2-4)
+- [GOOGLE_SYNC_WRAPPER_IMPLEMENTATION.md](./GOOGLE_SYNC_WRAPPER_IMPLEMENTATION.md) - Sprint 1 implementation guide
+- [PROVIDER_ARCHITECTURE_ANALYSIS.md](./PROVIDER_ARCHITECTURE_ANALYSIS.md) - Provider consolidation analysis
 
 ### Phase 3: IMAP Support ✅ COMPLETE
 
@@ -1032,9 +1115,9 @@ interface IMAPProviderConfig {
 - [x] Test with real IMAP provider (Libero.it) - ALL TESTS PASSED
 - [x] Add IDLE support for real-time updates (RFC 2177) - VERIFIED WORKING
 - [x] Add IMAP provider configuration UI (with test connection, TLS toggles, provider presets)
+- [x] Document IMAP setup process (see [IMAP_SETUP_GUIDE.md](../guides/IMAP_SETUP_GUIDE.md))
 - [ ] Add IMAP provider setup wizard
 - [ ] Test with more IMAP providers (Yahoo, iCloud, custom)
-- [ ] Document IMAP setup process
 
 ### Phase 3.5: Resilience Layer (Production-Ready) ✅ COMPLETE
 

@@ -1,47 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { gmail_v1, google } from 'googleapis';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { CryptoService } from '../../../../common/services/crypto.service';
 import { SyncJobData, SyncJobResult } from '../../interfaces/sync-job.interface';
 import { EmailEmbeddingQueueService } from '../../../ai/services/email-embedding.queue';
-import { EmbeddingsService } from '../../../ai/services/embeddings.service';
-import { KnowledgeBaseService } from '../../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
-import { EmailEventReason } from '../../../realtime/types/realtime.types';
-import { mergeEmailStatusMetadata } from '../../utils/email-metadata.util';
 import { ConfigService } from '@nestjs/config';
 import { ProviderTokenService } from '../provider-token.service';
-import { RetryService } from '../../../../common/services/retry.service';
-import { AttachmentStorageService } from '../../../email/services/attachment.storage';
-import { StorageService } from '../../../email/services/storage.service';
 import { BaseEmailSyncService } from '../base-email-sync.service';
-import { GmailAttachmentHandler } from './gmail-attachment-handler';
-import { GmailFolderService } from './gmail-folder.service';
-import { GmailMessageParser } from './gmail-message-parser';
-import { GmailBatchProcessor } from './gmail-batch-processor';
+import { EmailDriverFactory } from '../../drivers/driver.factory';
+import { GoogleDriver } from '../../drivers/google/google.driver';
+import { CanonicalMessage } from '../../drivers/interfaces/canonical.types';
 
+/**
+ * GoogleSyncService - Driver-based implementation
+ *
+ * This service uses the GoogleDriver abstraction for all Gmail operations.
+ * Legacy direct Gmail API code has been removed.
+ */
 @Injectable()
 export class GoogleSyncService extends BaseEmailSyncService {
   protected readonly logger = new Logger(GoogleSyncService.name);
-  private GMAIL_HISTORY_MAX_PAGES: number;
-  private suppressMessageEvents = false;
 
   constructor(
     prisma: PrismaService,
     realtimeEvents: RealtimeEventsService,
     config: ConfigService,
-    private crypto: CryptoService,
     private emailEmbeddingQueue: EmailEmbeddingQueueService,
-    private embeddingsService: EmbeddingsService,
-    private knowledgeBaseService: KnowledgeBaseService,
     private providerTokenService: ProviderTokenService,
-    private retryService: RetryService,
-    private attachmentStorage: AttachmentStorageService,
-    private storage: StorageService,
-    private gmailAttachmentHandler: GmailAttachmentHandler,
-    private gmailFolderService: GmailFolderService,
-    private gmailMessageParser: GmailMessageParser,
-    private gmailBatchProcessor: GmailBatchProcessor,
+    private driverFactory: EmailDriverFactory,
   ) {
     super(prisma, realtimeEvents, config);
   }
@@ -52,737 +37,346 @@ export class GoogleSyncService extends BaseEmailSyncService {
     // Gmail-specific configuration overrides
     this.batchSize = this.config.get<number>('GMAIL_BATCH_GET_SIZE', 100);
     this.fullSyncMaxMessages = this.config.get<number>('GMAIL_FULL_MAX_MESSAGES', 200);
-    this.retryMaxAttempts = this.config.get<number>('GMAIL_RETRY_MAX_ATTEMPTS', 3);
-    this.retry429DelayMs = this.config.get<number>('GMAIL_RETRY_429_DELAY_MS', 2000);
-    this.retry5xxDelayMs = this.config.get<number>('GMAIL_RETRY_5XX_DELAY_MS', 2000);
-
-    // Gmail-only configuration
-    this.GMAIL_HISTORY_MAX_PAGES = this.config.get<number>('GMAIL_HISTORY_MAX_PAGES', 25);
-    this.suppressMessageEvents = this.config.get<boolean>('REALTIME_SUPPRESS_MESSAGE_EVENTS', false);
   }
 
   async syncProvider(jobData: SyncJobData): Promise<SyncJobResult> {
-    const { providerId, email, syncType } = jobData;
+    const { providerId, email, syncType, tenantId } = jobData;
 
-    this.logger.log(`Starting ${syncType} Gmail sync for ${email}`);
+    this.logger.log(`Starting ${syncType} Gmail sync for ${email} (driver mode)`);
 
     try {
+      // Get provider and access token
       const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(
         providerId,
       );
 
-      // Create Gmail client
-      const gmail = this.createGmailClient(accessToken);
+      // Create connected driver
+      const driver = await this.driverFactory.createConnectedDriver('google', {
+        type: 'oauth2',
+        accessToken,
+        emailHint: provider.email,
+      }) as GoogleDriver;
 
-      // Get last sync token from metadata (for incremental sync)
-      const metadata = (provider.metadata as any) || {};
-      const lastHistoryId = metadata.lastSyncToken;
+      if (!driver.isConnected()) {
+        throw new Error('Driver failed to connect');
+      }
 
-      let messagesProcessed = 0;
-      let newMessages = 0;
-      let newHistoryId: string | undefined;
-      let metadataUpdates: Record<string, any> | undefined;
+      try {
+        // Get last sync token from metadata
+        const metadata = (provider.metadata as any) || {};
+        const lastSyncToken = metadata.lastSyncToken;
 
-      if (syncType === 'incremental' && lastHistoryId) {
-        // Incremental sync using historyId
-        const historyResult = await this.syncIncremental(
-          gmail,
-          lastHistoryId,
+        let messagesProcessed = 0;
+        let newMessages = 0;
+        let newSyncToken: string | undefined;
+
+        if (syncType === 'incremental' && lastSyncToken) {
+          // Incremental sync using driver
+          const result = await this.syncIncrementalWithDriver(
+            driver,
+            lastSyncToken,
+            providerId,
+            tenantId,
+          );
+          messagesProcessed = result.messagesProcessed;
+          newMessages = result.newMessages;
+          newSyncToken = result.newSyncToken;
+        } else {
+          // Full sync using driver
+          const result = await this.syncFullWithDriver(
+            driver,
+            providerId,
+            tenantId,
+          );
+          messagesProcessed = result.messagesProcessed;
+          newMessages = result.newMessages;
+          newSyncToken = result.syncToken;
+        }
+
+        // Emit realtime events
+        if (messagesProcessed > 0) {
+          this.realtimeEvents.emitEmailBatchProcessed(tenantId, {
+            providerId,
+            processed: messagesProcessed,
+            created: newMessages,
+            syncType,
+          });
+          this.realtimeEvents.emitSyncStatus(tenantId, {
+            providerId,
+            status: 'in_progress',
+            processed: messagesProcessed,
+          });
+        }
+
+        return {
+          success: true,
           providerId,
-          provider.tenantId,
-        );
-        messagesProcessed = historyResult.messagesProcessed;
-        newMessages = historyResult.newMessages;
-        newHistoryId = historyResult.newHistoryId;
-        metadataUpdates = historyResult.metadata;
-      } else {
-        // Full sync - fetch recent messages
-        const fullResult = await this.syncFull(
-          gmail,
           email,
-          providerId,
-          provider.tenantId,
-        );
-        messagesProcessed = fullResult.messagesProcessed;
-        newMessages = fullResult.newMessages;
-        newHistoryId = fullResult.historyId;
+          messagesProcessed,
+          newMessages,
+          syncDuration: 0, // Will be set by worker
+          lastSyncToken: newSyncToken,
+        };
+      } finally {
+        await driver.disconnect();
       }
-
-      if (this.suppressMessageEvents && messagesProcessed > 0) {
-        this.realtimeEvents.emitEmailBatchProcessed(provider.tenantId, {
-          providerId,
-          processed: messagesProcessed,
-          created: newMessages,
-          syncType,
-        });
-        this.realtimeEvents.emitSyncStatus(provider.tenantId, {
-          providerId,
-          status: 'in_progress',
-          processed: messagesProcessed,
-        });
-      }
-
-      return {
-        success: true,
-        providerId,
-        email,
-        messagesProcessed,
-        newMessages,
-        syncDuration: 0, // Will be set by worker
-        lastSyncToken: newHistoryId,
-        metadata: metadataUpdates,
-      };
     } catch (error) {
       this.logger.error(`Gmail sync failed for ${email}:`, error);
       throw error;
     }
   }
 
-  private createGmailClient(accessToken: string): gmail_v1.Gmail {
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: accessToken });
-
-    return google.gmail({ version: 'v1', auth: oauth2Client });
-  }
-
-  private async withRetry<T>(fn: () => Promise<T>): Promise<T> {
-    return this.retryService.withRetry(fn, {
-      maxAttempts: this.retryMaxAttempts,
-      delay429Ms: this.retry429DelayMs,
-      delay5xxMs: this.retry5xxDelayMs,
-      loggerName: 'Gmail',
-    });
-  }
-
   /**
-   * Incremental sync using Gmail History API
+   * Full sync using GoogleDriver
    */
-  private async syncIncremental(
-    gmail: gmail_v1.Gmail,
-    startHistoryId: string,
+  private async syncFullWithDriver(
+    driver: GoogleDriver,
     providerId: string,
     tenantId: string,
   ): Promise<{
     messagesProcessed: number;
     newMessages: number;
-    newHistoryId: string;
-    metadata?: Record<string, any>;
+    syncToken: string;
   }> {
-    this.logger.debug(`Incremental sync from historyId: ${startHistoryId}`);
+    this.logger.debug(`Full sync with driver - fetching latest ${this.fullSyncMaxMessages} messages`);
 
-    try {
-      // Get profile to obtain the latest historyId
-      const profile = await gmail.users.getProfile({ userId: 'me' });
-      const currentHistoryId = profile.data.historyId!;
+    let messagesProcessed = 0;
+    let newMessages = 0;
+    let pageToken: string | undefined;
+    let fetchedCount = 0;
 
-      if (currentHistoryId === startHistoryId) {
-        return {
-          messagesProcessed: 0,
-          newMessages: 0,
-          newHistoryId: currentHistoryId,
-        };
-      }
+    // List messages from INBOX
+    do {
+      const result = await driver.listMessages({
+        folder: 'INBOX',
+        pageSize: Math.min(100, this.fullSyncMaxMessages - fetchedCount),
+        pageToken,
+      });
 
-      let messagesProcessed = 0;
-      let newMessages = 0;
-      let pageToken: string | undefined;
-      let pagesFetched = 0;
-      const MAX_PAGES = this.GMAIL_HISTORY_MAX_PAGES;
-      const addedMessageIds = new Set<string>();
-      const labelRefreshIds = new Set<string>();
-      const deletedMessageIds = new Set<string>();
-      let truncated = false;
-
-      do {
-        const historyResponse = await gmail.users.history.list({
-          userId: 'me',
-          startHistoryId,
-          pageToken,
-          historyTypes: ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved'],
-          maxResults: 500,
-        });
-
-        const history = historyResponse.data.history || [];
-
-        for (const record of history) {
-          if (record.messagesAdded) {
-            for (const added of record.messagesAdded) {
-              const messageId = added.message?.id;
-              if (!messageId) {
-                continue;
-              }
-              addedMessageIds.add(messageId);
-            }
-          }
-
-          if (record.labelsAdded) {
-            for (const labelChange of record.labelsAdded) {
-              const messageId = labelChange.message?.id;
-              if (!messageId) {
-                continue;
-              }
-              labelRefreshIds.add(messageId);
-            }
-          }
-
-          if (record.labelsRemoved) {
-            for (const labelChange of record.labelsRemoved) {
-              const messageId = labelChange.message?.id;
-              if (!messageId) {
-                continue;
-              }
-              labelRefreshIds.add(messageId);
-            }
-          }
-
-          if (record.messagesDeleted) {
-            for (const deleted of record.messagesDeleted) {
-              const messageId = deleted.message?.id;
-              if (!messageId) {
-                continue;
-              }
-              deletedMessageIds.add(messageId);
-            }
-          }
-        }
-
-        pageToken = historyResponse.data.nextPageToken ?? undefined;
-        pagesFetched += 1;
-      } while (pageToken && pagesFetched < MAX_PAGES);
-
-      if (pageToken) {
-        this.logger.warn(
-          `Gmail history pagination truncated after ${pagesFetched} pages for provider ${providerId}.`,
-        );
-        truncated = true;
-      }
-
-      // Process added messages in batches
-      const addedIds = Array.from(addedMessageIds);
-      for (let i = 0; i < addedIds.length; i += this.batchSize) {
-        const chunkIds = addedIds.slice(i, i + this.batchSize);
-        if (!chunkIds.length) continue;
-
-        const batchGet = (gmail.users.messages as any)?.batchGet;
-        let fullMessages: gmail_v1.Schema$Message[] = [];
-
-        if (typeof batchGet === 'function') {
-          const batchResponse = await batchGet.call(gmail.users.messages, {
-            userId: 'me',
-            ids: chunkIds,
-            format: 'full',
-          });
-
-          const responses = batchResponse.data.responses || [];
-          fullMessages = responses
-            .map((r: { message?: gmail_v1.Schema$Message }) => r.message)
-            .filter(
-              (msg: gmail_v1.Schema$Message | undefined | null): msg is gmail_v1.Schema$Message =>
-                !!msg?.id,
-            );
-        } else {
-          const chunkResponses = await Promise.all(
-            chunkIds.map((id) =>
-              gmail.users.messages
-                .get({ userId: 'me', id, format: 'full' })
-                .then((res) => res.data)
-                .catch(() => null),
-            ),
-          );
-          fullMessages = chunkResponses.filter((msg): msg is gmail_v1.Schema$Message => !!msg?.id);
-        }
-
-        if (fullMessages.length) {
-          const batchResult = await this.gmailBatchProcessor.processMessagesBatch(
-            fullMessages,
-            providerId,
-            tenantId,
-            this.truncateText.bind(this),
-            this.createGmailClient.bind(this),
-          );
-          messagesProcessed += batchResult.processed;
-          newMessages += batchResult.created;
+      // Process messages in this page
+      for (const message of result.messages) {
+        const upsertResult = await this.upsertMessageFromDriver(message, providerId, tenantId);
+        messagesProcessed++;
+        if (upsertResult.wasNew) {
+          newMessages++;
         }
       }
 
-      // Process label changes
-      await Promise.allSettled(
-        Array.from(labelRefreshIds).map((id) =>
-          this.refreshMessageMetadata(gmail, id, providerId, tenantId).then(() => {
-            messagesProcessed++;
-          }),
-        ),
-      );
+      fetchedCount += result.messages.length;
+      pageToken = result.nextPageToken;
 
-      await Promise.allSettled(
-        Array.from(deletedMessageIds).map((id) =>
-          this.handleMessageDeletion(gmail, id, providerId, tenantId).then(() => {
-            messagesProcessed++;
-          }),
-        ),
-      );
+      // Stop if we've reached the limit or no more pages
+      if (fetchedCount >= this.fullSyncMaxMessages || !pageToken) {
+        break;
+      }
+    } while (pageToken);
 
-      return {
-        messagesProcessed,
-        newMessages,
-        newHistoryId: currentHistoryId,
-        metadata: truncated ? { historyTruncated: true, backfillRequired: true } : undefined,
-      };
-    } catch (error) {
-      this.logger.error('Incremental sync error:', error);
-      throw error;
-    }
+    // Get current sync token
+    const syncToken = await driver.getInitialSyncToken();
+
+    this.logger.debug(
+      `Full sync complete: ${messagesProcessed} processed, ${newMessages} new, syncToken: ${syncToken}`,
+    );
+
+    return {
+      messagesProcessed,
+      newMessages,
+      syncToken,
+    };
   }
 
   /**
-   * Full sync - fetch the most recent messages up to configured cap
+   * Incremental sync using GoogleDriver
    */
-  private async syncFull(
-    gmail: gmail_v1.Gmail,
-    email: string,
+  private async syncIncrementalWithDriver(
+    driver: GoogleDriver,
+    lastSyncToken: string,
     providerId: string,
     tenantId: string,
   ): Promise<{
     messagesProcessed: number;
     newMessages: number;
-    historyId: string;
+    newSyncToken: string;
   }> {
-    this.logger.debug(`Full sync - fetching latest Gmail messages (limit ${this.fullSyncMaxMessages})`);
+    this.logger.debug(`Incremental sync with driver from token: ${lastSyncToken}`);
 
-    try {
-      // Get profile for historyId
-      const profile = await gmail.users.getProfile({ userId: 'me' });
-      const historyId = profile.data.historyId!;
+    let messagesProcessed = 0;
+    let newMessages = 0;
+    const processedIds = new Set<string>();
 
-      // List newest messages (all folders) up to the configured cap
-      const remaining = this.fullSyncMaxMessages;
-      const messagesResponse = await gmail.users.messages.list({
-        userId: 'me',
-        maxResults: Math.min(500, remaining), // Gmail API max per request
-      });
+    // Get changes since last sync
+    const changesResult = await driver.getChangesSince(lastSyncToken);
 
-      let messages = messagesResponse.data.messages || [];
-      let pageToken = messagesResponse.data.nextPageToken;
-
-      // Fetch additional pages if needed (up to configured total)
-      while (pageToken && messages.length < this.fullSyncMaxMessages) {
-        const nextResponse = await gmail.users.messages.list({
-          userId: 'me',
-          maxResults: Math.min(500, this.fullSyncMaxMessages - messages.length),
-          pageToken,
-        });
-
-        messages = [...messages, ...(nextResponse.data.messages || [])];
-        pageToken = nextResponse.data.nextPageToken;
-
-        if (!pageToken || messages.length >= this.fullSyncMaxMessages) {
-          break;
-        }
-      }
-
-      this.logger.debug(`Found ${messages.length} Gmail messages from the most recent pages`);
-
-      let messagesProcessed = 0;
-      let newMessages = 0;
-
-      for (let i = 0; i < messages.length; i += this.batchSize) {
-        const chunkIds = messages.slice(i, i + this.batchSize).map((m) => m.id!).filter(Boolean);
-        if (!chunkIds.length) continue;
-
-        const fullMessages = await this.gmailBatchProcessor.fetchMessagesBatch(
-          gmail,
-          chunkIds,
-          'full',
-          this.withRetry.bind(this),
-          this.extractErrorMessage.bind(this),
-        );
-
-        if (fullMessages.length) {
-          const batchResult = await this.gmailBatchProcessor.processMessagesBatch(
-            fullMessages,
-            providerId,
-            tenantId,
-            this.truncateText.bind(this),
-            this.createGmailClient.bind(this),
-          );
-          messagesProcessed += batchResult.processed;
-          newMessages += batchResult.created;
-        }
-      }
-
+    if (changesResult.changes.length === 0) {
+      this.logger.debug('No changes detected');
       return {
-        messagesProcessed,
-        newMessages,
-        historyId,
+        messagesProcessed: 0,
+        newMessages: 0,
+        newSyncToken: changesResult.newSyncToken,
       };
-    } catch (error) {
-      this.logger.error('Full sync error:', error);
-      throw error;
     }
+
+    this.logger.debug(`Found ${changesResult.changes.length} changes`);
+
+    // Process each change
+    for (const change of changesResult.changes) {
+      // Skip if already processed (deduplication)
+      if (processedIds.has(change.messageId)) {
+        continue;
+      }
+      processedIds.add(change.messageId);
+
+      try {
+        if (change.type === 'deleted') {
+          // Handle deletion
+          await this.handleMessageDeletion(change.messageId, providerId, tenantId);
+          messagesProcessed++;
+        } else if (change.type === 'added' || change.type === 'modified') {
+          // Fetch and upsert the message
+          const message = await driver.getMessage(change.messageId);
+          if (message) {
+            const upsertResult = await this.upsertMessageFromDriver(message, providerId, tenantId);
+            messagesProcessed++;
+            if (upsertResult.wasNew) {
+              newMessages++;
+            }
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to process change for message ${change.messageId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        // Continue processing other changes
+      }
+    }
+
+    this.logger.debug(
+      `Incremental sync complete: ${messagesProcessed} processed, ${newMessages} new, newToken: ${changesResult.newSyncToken}`,
+    );
+
+    return {
+      messagesProcessed,
+      newMessages,
+      newSyncToken: changesResult.newSyncToken,
+    };
   }
-
-
-
 
   /**
-   * Refresh Gmail message metadata when labels change.
+   * Upsert a message from driver canonical format into database
    */
-  private async refreshMessageMetadata(
-    gmail: gmail_v1.Gmail,
-    messageId: string,
+  private async upsertMessageFromDriver(
+    canonicalMsg: CanonicalMessage,
     providerId: string,
     tenantId: string,
-  ): Promise<void> {
-    // Gmail messageIds are globally unique, so we can find by providerId + externalId
+  ): Promise<{ wasNew: boolean }> {
+    // Check if message already exists
     const existing = await this.prisma.email.findFirst({
-      where: {
-        providerId,
-        externalId: messageId,
-      },
-      select: {
-        id: true,
-        folder: true,
-        isDeleted: true,
-        labels: true,
-        metadata: true,
-      },
+      where: { providerId, externalId: canonicalMsg.id },
+      select: { id: true },
     });
 
-    if (!existing) {
-      return;
-    }
-
-    try {
-      const response = await gmail.users.messages.get({
-        userId: 'me',
-        id: messageId,
-        format: 'metadata',
-      });
-
-      const labelIds = response.data.labelIds ?? [];
-      const folder = this.gmailFolderService.determineFolderFromLabels(labelIds, existing.folder);
-      const isDeleted = labelIds.includes('TRASH');
-      const isRead = !labelIds.includes('UNREAD');
-      const isStarred = labelIds.includes('STARRED');
-      const isFlagged = labelIds.includes('IMPORTANT');
-      const metadata = mergeEmailStatusMetadata(existing.metadata as Record<string, any> | null, isDeleted ? 'deleted' : 'active');
-
-      try {
-        const updatedEmail = await this.prisma.email.update({
-          where: { id: existing.id },
-          data: {
-            labels: labelIds,
-            folder,
-            isDeleted,
-            isRead,
-            isStarred,
-            isFlagged,
-            metadata,
-          },
-          include: {
-            emailLabels: {
-              include: {
-                label: true,
-              },
-            },
-          },
-        });
-
-        // Emit WebSocket event with full email object so frontend can update immediately
-        this.realtimeEvents.emitEmailUpdate(tenantId, {
-          emailId: updatedEmail.id,
-          providerId: updatedEmail.providerId,
-          folder: updatedEmail.folder,
-          reason: 'labels-updated',
-          email: updatedEmail as any,
-        });
-      } catch (updateError) {
-        const message = updateError instanceof Error ? updateError.message : String(updateError);
-        this.logger.warn(
-          `Failed to update Gmail message ${messageId} after label change: ${message}`,
-        );
-      }
-    } catch (error) {
-      if (this.isNotFoundError(error)) {
-        await this.enforceTrashState(existing, tenantId);
-
-        this.notifyGmailMailboxChange(tenantId, providerId, 'message-deleted', {
-          emailId: existing.id,
-          externalId: messageId,
-        });
-      } else {
-        const message = this.extractErrorMessage(error);
-        this.logger.warn(`Failed to refresh Gmail message ${messageId}: ${message}`);
-      }
-    }
-  }
-
-  private async handleMessageDeletion(
-    gmail: gmail_v1.Gmail,
-    messageId: string,
-    providerId: string,
-    tenantId: string,
-  ): Promise<void> {
-    // Gmail messageIds are globally unique, so we can find by providerId + externalId
-    const existing = await this.prisma.email.findFirst({
-      where: {
-        providerId,
-        externalId: messageId,
-      },
-      select: {
-        id: true,
-        folder: true,
-        isDeleted: true,
-        labels: true,
-        metadata: true,
-      },
-    });
-
-    if (!existing) {
-      return;
-    }
-
-    try {
-      const response = await gmail.users.messages.get({
-        userId: 'me',
-        id: messageId,
-        format: 'metadata',
-      });
-
-      const labelIds = response.data.labelIds ?? [];
-      const labelsWithTrash = Array.from(new Set([...labelIds, 'TRASH']));
-      const isRead = !labelsWithTrash.includes('UNREAD');
-      const isStarred = labelsWithTrash.includes('STARRED');
-      const metadata = mergeEmailStatusMetadata(existing.metadata as Record<string, any> | null, 'deleted');
-
-      try {
-        await this.prisma.email.update({
-          where: { id: existing.id },
-          data: {
-            labels: labelsWithTrash,
-            folder: 'TRASH',
-            isDeleted: true,
-            isRead,
-            isStarred,
-            metadata,
-          },
-        });
-      } catch (updateError) {
-        const message = updateError instanceof Error ? updateError.message : String(updateError);
-        this.logger.warn(
-          `Failed to mark Gmail message ${messageId} as deleted: ${message}`,
-        );
-      }
-    } catch (error) {
-      if (this.isNotFoundError(error)) {
-        await this.enforceTrashState(existing, tenantId);
-      } else {
-        const message = this.extractErrorMessage(error);
-        this.logger.warn(`Error while handling Gmail deletion for ${messageId}: ${message}`);
-      }
-    }
-  }
-
-  private async enforceTrashState(
-    existing: {
-      id: string;
-      folder: string;
-      isDeleted: boolean;
-      labels: string[] | null;
-      metadata: any;
-    },
-    tenantId: string,
-    forceHardDelete = false,
-  ): Promise<void> {
-    const currentLabels = Array.isArray(existing.labels) ? existing.labels : [];
-
-    if (forceHardDelete || existing.folder === 'TRASH' || existing.isDeleted) {
-      await this.removeEmailPermanently(existing.id, tenantId);
-      return;
-    }
-
-    const updatedLabels = currentLabels.includes('TRASH')
-      ? currentLabels
-      : [...currentLabels, 'TRASH'];
-    const metadata = mergeEmailStatusMetadata(existing.metadata, 'deleted');
-
-    try {
+    if (existing) {
+      // Update existing message
       await this.prisma.email.update({
         where: { id: existing.id },
         data: {
-          isDeleted: true,
-          folder: 'TRASH',
-          labels: updatedLabels,
-          metadata,
+          subject: canonicalMsg.subject || '(No Subject)',
+          from: canonicalMsg.from.email,
+          to: canonicalMsg.to?.map((r) => r.email) || [],
+          cc: canonicalMsg.cc?.map((r) => r.email) || [],
+          bcc: canonicalMsg.bcc?.map((r) => r.email) || [],
+          bodyText: canonicalMsg.bodyText || '',
+          bodyHtml: canonicalMsg.bodyHtml || '',
+          snippet: canonicalMsg.snippet || '',
+          receivedAt: canonicalMsg.receivedAt,
+          isRead: canonicalMsg.isRead ?? false,
+          isStarred: canonicalMsg.isStarred ?? false,
+          isFlagged: canonicalMsg.isFlagged ?? false,
+          folder: canonicalMsg.folder,
+          labels: canonicalMsg.labels || [],
         },
       });
-    } catch (error) {
-      const message = this.extractErrorMessage(error);
-      this.logger.warn(
-        `Failed to soft-delete Gmail message ${existing.id} locally: ${message}`,
-      );
-    }
-  }
 
-  private async removeEmailPermanently(emailId: string, tenantId: string): Promise<void> {
-    // 1. Get attachments BEFORE deleting email
-    const attachments = await this.prisma.emailAttachment.findMany({
-      where: { emailId },
-      select: { storagePath: true, storageType: true },
-    });
-
-    // 2. Delete embeddings
-    try {
-      await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, emailId);
-    } catch (error) {
-      const message = this.extractErrorMessage(error);
-      this.logger.warn(
-        `Failed to delete embeddings for email ${emailId} during hard-delete: ${message}`,
-      );
-    }
-
-    // 3. Delete email from database (cascade deletes EmailAttachment records)
-    try {
-      await this.prisma.email.delete({
-        where: { id: emailId },
-      });
-    } catch (error) {
-      const message = this.extractErrorMessage(error);
-      this.logger.warn(`Failed to remove email ${emailId} from database: ${message}`);
-      throw error; // Re-throw to prevent S3 cleanup if DB deletion failed
-    }
-
-    // 4. Delete S3 files (after DB deletion)
-    const s3Keys = attachments
-      .filter((a) => a.storageType === 's3' && a.storagePath)
-      .map((a) => a.storagePath!);
-
-    if (s3Keys.length > 0) {
-      try {
-        const result = await this.storage.deleteObjects(s3Keys);
-        this.logger.debug(
-          `Deleted ${result.deleted} S3 objects for email ${emailId} (${result.failed} failed)`,
-        );
-      } catch (error) {
-        const message = this.extractErrorMessage(error);
-        this.logger.error(`Failed to delete S3 objects for email ${emailId}: ${message}`);
-        // Don't throw - email already deleted from DB
-      }
-    }
-  }
-
-  private async applyStatusMetadata(
-    emailId: string,
-    existing: Record<string, any> | null | undefined,
-    status: 'deleted' | 'active',
-  ): Promise<void> {
-    const next = mergeEmailStatusMetadata(existing, status);
-    const shouldUpdate =
-      !existing ||
-      existing.status !== next.status ||
-      existing.deletedAt !== next.deletedAt;
-
-    if (!shouldUpdate) {
-      return;
-    }
-
-    try {
-      await this.prisma.email.update({
-        where: { id: emailId },
+      return { wasNew: false };
+    } else {
+      // Create new message
+      const createdEmail = await this.prisma.email.create({
         data: {
-          metadata: next,
+          tenantId,
+          providerId,
+          externalId: canonicalMsg.id,
+          subject: canonicalMsg.subject || '(No Subject)',
+          from: canonicalMsg.from.email,
+          to: canonicalMsg.to?.map((r) => r.email) || [],
+          cc: canonicalMsg.cc?.map((r) => r.email) || [],
+          bcc: canonicalMsg.bcc?.map((r) => r.email) || [],
+          bodyText: canonicalMsg.bodyText || '',
+          bodyHtml: canonicalMsg.bodyHtml || '',
+          snippet: canonicalMsg.snippet || '',
+          receivedAt: canonicalMsg.receivedAt,
+          sentAt: canonicalMsg.sentAt || canonicalMsg.receivedAt,
+          isRead: canonicalMsg.isRead ?? false,
+          isStarred: canonicalMsg.isStarred ?? false,
+          isFlagged: canonicalMsg.isFlagged ?? false,
+          isDeleted: false,
+          folder: canonicalMsg.folder,
+          labels: canonicalMsg.labels || [],
+          threadId: canonicalMsg.threadId || null,
         },
       });
-    } catch (error) {
-      const message = this.extractErrorMessage(error);
-      this.logger.warn(`Failed to update metadata for email ${emailId}: ${message}`);
+
+      // Queue for embeddings
+      await this.emailEmbeddingQueue.enqueue({
+        emailId: createdEmail.id,
+        tenantId,
+        subject: createdEmail.subject,
+        snippet: createdEmail.snippet || '',
+      });
+
+      // Emit realtime event
+      this.realtimeEvents.emitEmailNew(tenantId, {
+        emailId: createdEmail.id,
+        providerId,
+        folder: createdEmail.folder,
+        reason: 'message-processed',
+      });
+
+      return { wasNew: true };
     }
   }
-
 
   /**
-   * Process a single Gmail message and persist it locally.
-   * Kept for incremental/webhook paths when batch data is not available.
+   * Handle message deletion
    */
-  private async processMessage(
-    gmail: gmail_v1.Gmail,
+  private async handleMessageDeletion(
     messageId: string,
     providerId: string,
     tenantId: string,
-  ): Promise<boolean> {
-    try {
-      const messages = await this.gmailBatchProcessor.fetchMessagesBatch(
-        gmail,
-        [messageId],
-        'full',
-        this.withRetry.bind(this),
-        this.extractErrorMessage.bind(this),
-      );
-      if (!messages.length) return false;
-
-      const result = await this.gmailBatchProcessor.processMessagesBatch(
-        messages,
-        providerId,
-        tenantId,
-        this.truncateText.bind(this),
-        this.createGmailClient.bind(this),
-      );
-      return result.processed > 0;
-    } catch (error) {
-      if (this.isNotFoundError(error)) {
-        this.logger.verbose(
-          `Gmail returned 404 for message ${messageId}; marking local record as deleted if present.`,
-        );
-        await this.handleMissingRemoteMessage(providerId, tenantId, messageId);
-        return true;
-      }
-
-      this.logger.error(`Failed to process message ${messageId}:`, error);
-      return false;
-    }
-  }
-
-  private async handleMissingRemoteMessage(
-    providerId: string,
-    tenantId: string,
-    messageId: string,
   ): Promise<void> {
-    // Gmail messageIds are globally unique, so we can find by providerId + externalId
     const existing = await this.prisma.email.findFirst({
-      where: {
-        providerId,
-        externalId: messageId,
-      },
-      select: {
-        id: true,
-        folder: true,
-        isDeleted: true,
-        labels: true,
-        metadata: true,
-      },
+      where: { providerId, externalId: messageId },
+      select: { id: true, folder: true },
     });
 
     if (!existing) {
-      return;
+      return; // Message not in our database
     }
 
-    await this.enforceTrashState(existing, tenantId, true);
-
-    this.notifyGmailMailboxChange(tenantId, providerId, 'message-deleted', {
-      emailId: existing.id,
-      externalId: messageId,
+    // Mark as deleted or move to trash
+    await this.prisma.email.update({
+      where: { id: existing.id },
+      data: {
+        isDeleted: true,
+        folder: 'TRASH',
+      },
     });
-  }
 
-  private notifyGmailMailboxChange(
-    tenantId: string,
-    providerId: string,
-    reason: EmailEventReason,
-    payload?: { emailId?: string; externalId?: string; folder?: string },
-  ): void {
-    // Gmail-specific wrapper with suppressMessageEvents support
-    this.realtimeEvents.notifyMailboxChange(tenantId, providerId, reason, payload, {
-      suppressMessageEvents: this.suppressMessageEvents,
+    // Emit realtime event
+    this.realtimeEvents.emitEmailDelete(tenantId, {
+      emailId: existing.id,
+      providerId,
+      folder: existing.folder,
+      reason: 'message-deleted',
     });
   }
 }
