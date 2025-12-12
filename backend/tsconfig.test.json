@@ -3,8 +3,12 @@
   "compilerOptions": {
     "rootDir": ".",
     "noEmit": true,
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
-  "include": ["src/**/*", "test/**/*"],
+  "ts-node": {
+    "files": true
+  },
+  "include": ["src/**/*", "src/types/**/*.d.ts", "test/**/*"],
   "exclude": []
 }
