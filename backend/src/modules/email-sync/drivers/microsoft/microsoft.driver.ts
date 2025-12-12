@@ -445,9 +445,27 @@ export class MicrosoftDriver extends BaseEmailDriver {
     let deltaLink = syncToken;
     let hasMore = false;
 
+    // Validate syncToken format - must be a full delta URL
+    // Legacy format was timestamp (e.g., "2025-12-11T17:17:57Z") - these are invalid
+    if (!deltaLink.includes('graph.microsoft.com') || !deltaLink.includes('delta')) {
+      this.logger.warn(
+        `Invalid syncToken format (expected deltaLink URL): ${deltaLink.substring(0, 50)}...`,
+      );
+      this.logger.warn('Treating as expired token, returning empty changes');
+      deltaLink = await this.getInitialSyncToken();
+      return {
+        changes: [],
+        newSyncToken: deltaLink,
+        hasMore: false,
+      };
+    }
+
     try {
-      // Delta sync using the deltaLink
-      const response = await this.client!.get(deltaLink);
+      // Delta sync using the deltaLink URL
+      // Must use absolute URL, not relative path
+      const response = await this.client!.get(deltaLink, {
+        baseURL: '', // Override baseURL to use absolute deltaLink
+      });
 
       const items = response.data.value || [];
 
@@ -478,9 +496,11 @@ export class MicrosoftDriver extends BaseEmailDriver {
       hasMore = !!response.data['@odata.nextLink'];
 
     } catch (error: any) {
-      // Handle 410 Gone - delta token expired
-      if (error.response?.status === 410) {
-        this.logger.warn('Delta token expired (410 Gone), returning empty changes');
+      // Handle 410 Gone or 400 Bad Request - delta token expired or invalid
+      if (error.response?.status === 410 || error.response?.status === 400) {
+        this.logger.warn(
+          `Delta token expired or invalid (${error.response.status}), returning empty changes`,
+        );
         // Get new delta token
         deltaLink = await this.getInitialSyncToken();
         return {
