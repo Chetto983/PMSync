@@ -1,10 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { Queue, Worker, Job } from 'bullmq';
+import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { MicrosoftCalendarSyncService } from './microsoft-calendar-sync.service';
 import { CalendarSyncQueueService } from './calendar-sync-queue.service';
+import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
 import { nanoid } from 'nanoid';
 
 export const MICROSOFT_CALENDAR_RESOURCE = '/me/events';
@@ -24,11 +27,19 @@ export interface MicrosoftCalendarNotification {
 }
 
 @Injectable()
-export class MicrosoftCalendarWebhookService {
+export class MicrosoftCalendarWebhookService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MicrosoftCalendarWebhookService.name);
   private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
   private readonly WEBHOOK_URL: string;
   private readonly CLIENT_STATE: string;
+  private readonly jobsEnabled: boolean;
+  /** Webhook renewal check interval in hours (default: 6) */
+  private readonly webhookRenewalIntervalHours: number;
+
+  /** BullMQ queue for webhook maintenance */
+  private maintenanceQueue: Queue | null = null;
+  private maintenanceWorker: Worker | null = null;
+  private redisConnection: Redis | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -46,6 +57,98 @@ export class MicrosoftCalendarWebhookService {
       this.WEBHOOK_URL = `${apiUrl}/webhooks/calendar/microsoft/notifications`;
     }
     this.CLIENT_STATE = this.config.get<string>('WEBHOOK_CLIENT_STATE', nanoid());
+    this.jobsEnabled =
+      (this.config.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';
+    this.webhookRenewalIntervalHours = this.config.get<number>('MICROSOFT_CALENDAR_WEBHOOK_RENEWAL_HOURS', 6);
+    if (!this.jobsEnabled) {
+      this.logger.warn('MicrosoftCalendarWebhookService disabled via JOBS_ENABLED=false');
+    }
+  }
+
+  async onModuleInit() {
+    if (!this.jobsEnabled) {
+      return;
+    }
+
+    const redisOptions = getRedisConnectionOptions();
+    this.redisConnection = new Redis(redisOptions);
+
+    // Create maintenance queue (shared with Google Calendar webhook service)
+    this.maintenanceQueue = new Queue(QUEUE_NAMES.WEBHOOK_MAINTENANCE, {
+      connection: this.redisConnection,
+      defaultJobOptions: {
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    });
+
+    // Create worker to process Microsoft renewal jobs
+    this.maintenanceWorker = new Worker(
+      QUEUE_NAMES.WEBHOOK_MAINTENANCE,
+      async (job: Job) => {
+        if (job.name === 'microsoft-calendar-webhook-renewal') {
+          await this.handleScheduledRenewal();
+        }
+      },
+      {
+        connection: this.redisConnection,
+        concurrency: 1,
+      },
+    );
+
+    this.maintenanceWorker.on('completed', (job) => {
+      this.logger.debug(`Microsoft webhook maintenance job ${job.id} completed`);
+    });
+
+    this.maintenanceWorker.on('failed', (job, error) => {
+      this.logger.error(`Microsoft webhook maintenance job ${job?.id} failed: ${error.message}`);
+    });
+
+    // Schedule repeatable job for webhook renewal (every N hours)
+    await this.maintenanceQueue.add(
+      'microsoft-calendar-webhook-renewal',
+      { type: 'microsoft-calendar' },
+      {
+        repeat: {
+          every: this.webhookRenewalIntervalHours * 60 * 60 * 1000,
+        },
+        jobId: 'microsoft-calendar-webhook-renewal-repeatable',
+      },
+    );
+
+    this.logger.log(
+      `Microsoft Calendar webhook renewal scheduled every ${this.webhookRenewalIntervalHours} hours via Redis`,
+    );
+  }
+
+  async onModuleDestroy() {
+    if (this.maintenanceWorker) {
+      await this.maintenanceWorker.close();
+    }
+    if (this.maintenanceQueue) {
+      await this.maintenanceQueue.close();
+    }
+    if (this.redisConnection && this.redisConnection.status !== 'end') {
+      await this.redisConnection.quit();
+    }
+    this.logger.log('Microsoft Calendar webhook service shut down');
+  }
+
+  /**
+   * Handle scheduled webhook renewal (called by BullMQ repeatable job)
+   */
+  private async handleScheduledRenewal(): Promise<void> {
+    if (!this.jobsEnabled) {
+      return;
+    }
+    try {
+      const renewed = await this.renewExpiringSoon();
+      if (renewed > 0) {
+        this.logger.log(`Renewed ${renewed} Microsoft Calendar webhook subscriptions via scheduled job`);
+      }
+    } catch (error) {
+      this.logger.error('Scheduled Microsoft Calendar webhook renewal failed:', error);
+    }
   }
 
   /**

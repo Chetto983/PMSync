@@ -14,6 +14,7 @@ export interface GoogleCalendarSyncResult {
   updatedEvents: number;
   deletedEvents: number;
   syncDuration: number;
+  syncType: 'full' | 'incremental';
 }
 
 @Injectable()
@@ -22,6 +23,8 @@ export class GoogleCalendarSyncService {
   private readonly calendarEnabled: boolean;
   /** Max events to fetch per API call (Google API max: 2500) */
   private readonly maxEventsPerRequest: number;
+  /** Max consecutive errors before forcing full sync */
+  private readonly maxErrorsBeforeFullSync: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -32,6 +35,7 @@ export class GoogleCalendarSyncService {
     this.calendarEnabled =
       (this.configService.get<string>('CALENDAR_SYNC_ENABLED') || 'true').toLowerCase() !== 'false';
     this.maxEventsPerRequest = this.configService.get<number>('GOOGLE_CALENDAR_MAX_EVENTS', 2500);
+    this.maxErrorsBeforeFullSync = this.configService.get<number>('CALENDAR_SYNC_MAX_ERRORS', 3);
     if (!this.calendarEnabled) {
       this.logger.warn('GoogleCalendarSyncService disabled via CALENDAR_SYNC_ENABLED=false');
     }
@@ -39,9 +43,9 @@ export class GoogleCalendarSyncService {
 
   /**
    * Sync calendar events from Google Calendar
-   * Syncs events from last 60 days to next 60 days (120 days total)
+   * Uses incremental sync (syncToken) when available, falls back to full sync
    */
-  async syncCalendar(providerId: string): Promise<GoogleCalendarSyncResult> {
+  async syncCalendar(providerId: string, forceFullSync = false): Promise<GoogleCalendarSyncResult> {
     if (!this.calendarEnabled) {
       this.logger.warn(
         `Skipping Google calendar sync for ${providerId} (CALENDAR_SYNC_ENABLED=false)`,
@@ -54,6 +58,7 @@ export class GoogleCalendarSyncService {
         updatedEvents: 0,
         deletedEvents: 0,
         syncDuration: 0,
+        syncType: 'full',
       };
     }
     const startTime = Date.now();
@@ -72,21 +77,11 @@ export class GoogleCalendarSyncService {
       // Create Google Calendar client
       const calendar = this.createCalendarClient(accessToken);
 
-      // Calculate time range: last 60 days to next 60 days
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-
-      const sixtyDaysAhead = new Date();
-      sixtyDaysAhead.setDate(sixtyDaysAhead.getDate() + 60);
-
-      this.logger.debug(
-        `Fetching Google Calendar events from ${sixtyDaysAgo.toISOString()} to ${sixtyDaysAhead.toISOString()}`,
-      );
-
       let eventsProcessed = 0;
       let newEvents = 0;
       let updatedEvents = 0;
       let deletedEvents = 0;
+      let syncType: 'full' | 'incremental' = 'incremental';
 
       // Get list of calendars
       const calendarList = await calendar.calendarList.list();
@@ -103,31 +98,35 @@ export class GoogleCalendarSyncService {
         }
 
         try {
-          const result = await this.syncCalendarEvents(
+          const result = await this.syncCalendarWithState(
             calendar,
             cal.id,
             providerId,
             provider.tenantId,
-            sixtyDaysAgo.toISOString(),
-            sixtyDaysAhead.toISOString(),
             cal.summaryOverride || cal.summary || cal.description || cal.id,
+            forceFullSync,
           );
 
           eventsProcessed += result.eventsProcessed;
           newEvents += result.newEvents;
           updatedEvents += result.updatedEvents;
           deletedEvents += result.deletedEvents;
+          if (result.syncType === 'full') {
+            syncType = 'full';
+          }
         } catch (calError) {
           this.logger.warn(
             `Failed to sync calendar ${cal.id}: ${calError instanceof Error ? calError.message : String(calError)}`,
           );
+          // Record error in sync state
+          await this.recordSyncError(providerId, cal.id, calError);
         }
       }
 
       const syncDuration = Date.now() - startTime;
 
       this.logger.log(
-        `Google Calendar sync completed for provider ${providerId}: ${eventsProcessed} events processed, ${newEvents} new, ${updatedEvents} updated, ${deletedEvents} deleted in ${syncDuration}ms`,
+        `Google Calendar sync completed for provider ${providerId}: ${eventsProcessed} events (${syncType}), ${newEvents} new, ${updatedEvents} updated, ${deletedEvents} deleted in ${syncDuration}ms`,
       );
 
       if (newEvents > 0 || updatedEvents > 0 || deletedEvents > 0) {
@@ -146,6 +145,7 @@ export class GoogleCalendarSyncService {
         updatedEvents,
         deletedEvents,
         syncDuration,
+        syncType,
       };
     } catch (error) {
       this.logger.error(`Google Calendar sync failed for provider ${providerId}:`, error);
@@ -154,98 +154,332 @@ export class GoogleCalendarSyncService {
   }
 
   /**
-   * Sync events from a specific calendar (BULK OPTIMIZED)
-   * Uses batch operations to reduce database queries from O(n) to O(1)
+   * Sync a single calendar using sync state (incremental when possible)
    */
-  private async syncCalendarEvents(
+  private async syncCalendarWithState(
     calendar: calendar_v3.Calendar,
     calendarId: string,
     providerId: string,
     tenantId: string,
-    timeMin: string,
-    timeMax: string,
-    calendarName?: string | null,
+    calendarName: string,
+    forceFullSync: boolean,
+  ): Promise<{
+    eventsProcessed: number;
+    newEvents: number;
+    updatedEvents: number;
+    deletedEvents: number;
+    syncType: 'full' | 'incremental';
+  }> {
+    // Get or create sync state for this calendar
+    const syncState = await this.prisma.calendarSyncState.findUnique({
+      where: {
+        providerId_calendarId: { providerId, calendarId },
+      },
+    });
+
+    // Determine if we need full sync
+    const needsFullSync =
+      forceFullSync ||
+      !syncState ||
+      syncState.fullSyncRequired ||
+      !syncState.syncToken ||
+      syncState.consecutiveErrors >= this.maxErrorsBeforeFullSync;
+
+    if (needsFullSync) {
+      this.logger.debug(`Running FULL sync for calendar ${calendarId}`);
+      return this.runFullSync(calendar, calendarId, providerId, tenantId, calendarName);
+    }
+
+    // Try incremental sync
+    this.logger.debug(`Running INCREMENTAL sync for calendar ${calendarId} with syncToken`);
+    try {
+      return await this.runIncrementalSync(
+        calendar,
+        calendarId,
+        providerId,
+        tenantId,
+        calendarName,
+        syncState.syncToken!,
+      );
+    } catch (error: any) {
+      // Handle sync token invalidation (410 Gone)
+      if (error?.code === 410 || error?.response?.status === 410) {
+        this.logger.warn(`Sync token expired for calendar ${calendarId}, falling back to full sync`);
+        // Invalidate the sync token
+        await this.prisma.calendarSyncState.update({
+          where: { providerId_calendarId: { providerId, calendarId } },
+          data: {
+            syncToken: null,
+            fullSyncRequired: true,
+            lastError: 'Sync token expired (410 Gone)',
+            lastErrorAt: new Date(),
+          },
+        });
+        // Run full sync
+        return this.runFullSync(calendar, calendarId, providerId, tenantId, calendarName);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Run full calendar sync (fetches all events in time window)
+   */
+  private async runFullSync(
+    calendar: calendar_v3.Calendar,
+    calendarId: string,
+    providerId: string,
+    tenantId: string,
+    calendarName: string,
+  ): Promise<{
+    eventsProcessed: number;
+    newEvents: number;
+    updatedEvents: number;
+    deletedEvents: number;
+    syncType: 'full' | 'incremental';
+  }> {
+    // Calculate time range: last 60 days to next 60 days
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const sixtyDaysAhead = new Date();
+    sixtyDaysAhead.setDate(sixtyDaysAhead.getDate() + 60);
+
+    // Fetch ALL events from Google Calendar API
+    const allGoogleEvents: calendar_v3.Schema$Event[] = [];
+    let pageToken: string | undefined;
+    let nextSyncToken: string | undefined;
+
+    // NOTE: To get syncToken for incremental sync, we MUST NOT use:
+    // - singleEvents: true (prevents syncToken from being returned)
+    // - timeMin/timeMax (prevents syncToken from being returned)
+    // Instead, we fetch ALL events and filter client-side for the display window
+    do {
+      const eventsResponse = await calendar.events.list({
+        calendarId,
+        maxResults: this.maxEventsPerRequest,
+        showDeleted: true, // Required for incremental sync to detect deletions
+        pageToken,
+      });
+
+      const events = eventsResponse.data.items || [];
+      // Filter to time window client-side
+      const filtered = events.filter((e) => {
+        if (!e.id) return false;
+        // Include cancelled events for deletion tracking
+        if (e.status === 'cancelled') return true;
+        // Check if event falls within our time window
+        const startDate = e.start?.dateTime || e.start?.date;
+        const endDate = e.end?.dateTime || e.end?.date;
+        if (!startDate) return false;
+        const eventStart = new Date(startDate);
+        const eventEnd = endDate ? new Date(endDate) : eventStart;
+        // Include if event overlaps with our window
+        return eventEnd >= sixtyDaysAgo && eventStart <= sixtyDaysAhead;
+      });
+      allGoogleEvents.push(...filtered);
+      pageToken = eventsResponse.data.nextPageToken || undefined;
+      nextSyncToken = eventsResponse.data.nextSyncToken || undefined;
+    } while (pageToken);
+
+    // Process events in bulk
+    const result = await this.processEvents(
+      allGoogleEvents,
+      calendarId,
+      providerId,
+      tenantId,
+      calendarName,
+      true, // isFullSync - mark deleted events
+    );
+
+    // Save sync state with new syncToken
+    await this.prisma.calendarSyncState.upsert({
+      where: {
+        providerId_calendarId: { providerId, calendarId },
+      },
+      create: {
+        providerId,
+        calendarId,
+        calendarName,
+        syncToken: nextSyncToken,
+        fullSyncRequired: false,
+        lastFullSyncAt: new Date(),
+        consecutiveErrors: 0,
+      },
+      update: {
+        calendarName,
+        syncToken: nextSyncToken,
+        fullSyncRequired: false,
+        lastFullSyncAt: new Date(),
+        consecutiveErrors: 0,
+        lastError: null,
+        lastErrorAt: null,
+      },
+    });
+
+    this.logger.debug(
+      `Full sync saved syncToken for calendar ${calendarId}: ${nextSyncToken ? 'yes' : 'no'}`,
+    );
+
+    return {
+      ...result,
+      syncType: 'full',
+    };
+  }
+
+  /**
+   * Run incremental calendar sync using syncToken
+   * Only fetches changes since last sync
+   */
+  private async runIncrementalSync(
+    calendar: calendar_v3.Calendar,
+    calendarId: string,
+    providerId: string,
+    tenantId: string,
+    calendarName: string,
+    syncToken: string,
+  ): Promise<{
+    eventsProcessed: number;
+    newEvents: number;
+    updatedEvents: number;
+    deletedEvents: number;
+    syncType: 'full' | 'incremental';
+  }> {
+    // Fetch only changed events using syncToken
+    const changedEvents: calendar_v3.Schema$Event[] = [];
+    let pageToken: string | undefined;
+    let nextSyncToken: string | undefined;
+
+    do {
+      const eventsResponse = await calendar.events.list({
+        calendarId,
+        syncToken,
+        maxResults: this.maxEventsPerRequest,
+        showDeleted: true, // Required to detect event deletions
+        pageToken,
+      });
+
+      const events = eventsResponse.data.items || [];
+      changedEvents.push(...events.filter((e) => e.id));
+      pageToken = eventsResponse.data.nextPageToken || undefined;
+      nextSyncToken = eventsResponse.data.nextSyncToken || undefined;
+    } while (pageToken);
+
+    this.logger.debug(
+      `Incremental sync found ${changedEvents.length} changed events for calendar ${calendarId}`,
+    );
+
+    // Process only changed events
+    const result = await this.processEvents(
+      changedEvents,
+      calendarId,
+      providerId,
+      tenantId,
+      calendarName,
+      false, // isFullSync - don't mark other events as deleted
+    );
+
+    // Update sync state with new syncToken
+    await this.prisma.calendarSyncState.update({
+      where: {
+        providerId_calendarId: { providerId, calendarId },
+      },
+      data: {
+        syncToken: nextSyncToken,
+        lastIncrementalAt: new Date(),
+        consecutiveErrors: 0,
+        lastError: null,
+        lastErrorAt: null,
+      },
+    });
+
+    return {
+      ...result,
+      syncType: 'incremental',
+    };
+  }
+
+  /**
+   * Process events (shared between full and incremental sync)
+   */
+  private async processEvents(
+    events: calendar_v3.Schema$Event[],
+    calendarId: string,
+    providerId: string,
+    tenantId: string,
+    calendarName: string,
+    isFullSync: boolean,
   ): Promise<{
     eventsProcessed: number;
     newEvents: number;
     updatedEvents: number;
     deletedEvents: number;
   }> {
-    // STEP 1: Fetch ALL events from Google Calendar API (collect all pages)
-    const allGoogleEvents: calendar_v3.Schema$Event[] = [];
-    let pageToken: string | undefined;
-
-    do {
-      const eventsResponse = await calendar.events.list({
-        calendarId,
-        timeMin,
-        timeMax,
-        maxResults: this.maxEventsPerRequest,
-        singleEvents: true,
-        orderBy: 'startTime',
-        pageToken,
-      });
-
-      const events = eventsResponse.data.items || [];
-      allGoogleEvents.push(...events.filter((e) => e.id));
-      pageToken = eventsResponse.data.nextPageToken || undefined;
-    } while (pageToken);
-
-    if (allGoogleEvents.length === 0) {
+    if (events.length === 0) {
       return { eventsProcessed: 0, newEvents: 0, updatedEvents: 0, deletedEvents: 0 };
     }
 
-    // STEP 2: Fetch ALL existing events for this calendar in ONE query
+    // Fetch ALL existing events for this calendar in ONE query
     const existingEvents = await this.prisma.calendarEvent.findMany({
       where: { providerId, calendarId },
       select: { id: true, externalId: true, syncVersion: true },
     });
     const existingByExternalId = new Map(existingEvents.map((e) => [e.externalId, e]));
 
-    // STEP 3: Prepare bulk operations
-    const newEvents: any[] = [];
-    const updateEvents: { externalId: string; id: string }[] = [];
+    // Prepare bulk operations
+    const newEventsToCreate: any[] = [];
+    const eventsToUpdate: { externalId: string; id: string; data: any }[] = [];
+    const eventsToDelete: string[] = [];
     const allAttachments: { eventExternalId: string; attachments: calendar_v3.Schema$EventAttachment[] }[] = [];
-    const allGoogleEventIds = new Set<string>();
+    const processedEventIds = new Set<string>();
 
-    for (const event of allGoogleEvents) {
-      const eventId = event.id!;
-      allGoogleEventIds.add(eventId);
+    for (const event of events) {
+      if (!event.id) continue;
 
-      const eventData = this.extractEventData(event, calendarId, providerId, tenantId, calendarName ?? calendarId);
-      const existing = existingByExternalId.get(eventId);
+      processedEventIds.add(event.id);
+      const existing = existingByExternalId.get(event.id);
 
-      if (existing) {
-        updateEvents.push({ externalId: eventId, id: existing.id });
-      } else {
-        newEvents.push(eventData);
+      // Handle cancelled/deleted events
+      if (event.status === 'cancelled') {
+        if (existing) {
+          eventsToDelete.push(event.id);
+        }
+        continue;
       }
 
-      // Collect attachments for bulk processing later
+      const eventData = this.extractEventData(event, calendarId, providerId, tenantId, calendarName);
+
+      if (existing) {
+        eventsToUpdate.push({ externalId: event.id, id: existing.id, data: eventData });
+      } else {
+        newEventsToCreate.push(eventData);
+      }
+
+      // Collect attachments for bulk processing
       if (event.attachments && event.attachments.length > 0) {
-        allAttachments.push({ eventExternalId: eventId, attachments: event.attachments });
+        allAttachments.push({ eventExternalId: event.id, attachments: event.attachments });
       }
     }
 
-    // STEP 4: Execute bulk operations in transaction
+    // Execute bulk operations in transaction
     let createdCount = 0;
     let updatedCount = 0;
 
     await this.prisma.$transaction(
       async (tx) => {
-        // 4a. Bulk create new events using createManyAndReturn (Prisma 5.14+)
-        if (newEvents.length > 0) {
+        // Create new events
+        if (newEventsToCreate.length > 0) {
           await tx.calendarEvent.createMany({
-            data: newEvents,
+            data: newEventsToCreate,
             skipDuplicates: true,
           });
-          createdCount = newEvents.length;
+          createdCount = newEventsToCreate.length;
         }
 
-        // 4b. Bulk update existing events using raw SQL
-        if (updateEvents.length > 0) {
+        // Update existing events
+        if (eventsToUpdate.length > 0) {
           const now = new Date();
-          const externalIds = updateEvents.map((e) => e.externalId);
+          const externalIds = eventsToUpdate.map((e) => e.externalId);
 
           await tx.$executeRaw`
             UPDATE "calendar_events"
@@ -254,42 +488,87 @@ export class GoogleCalendarSyncService {
             WHERE "providerId" = ${providerId}
               AND "externalId" = ANY(${externalIds}::text[])
           `;
-          updatedCount = updateEvents.length;
+          updatedCount = eventsToUpdate.length;
+        }
+
+        // Mark deleted events (only from incremental sync)
+        if (eventsToDelete.length > 0) {
+          await tx.calendarEvent.updateMany({
+            where: {
+              providerId,
+              calendarId,
+              externalId: { in: eventsToDelete },
+              isDeleted: false,
+            },
+            data: { isDeleted: true, isCancelled: true },
+          });
         }
       },
       { timeout: 60000 },
     );
 
-    // STEP 5: Handle deleted events using bulk updateMany
-    let deletedCount = 0;
-    const deletedExternalIds = existingEvents
-      .filter((e) => !allGoogleEventIds.has(e.externalId))
-      .map((e) => e.externalId);
+    // Handle deleted events for full sync (events not in response)
+    let deletedCount = eventsToDelete.length;
+    if (isFullSync) {
+      const deletedExternalIds = existingEvents
+        .filter((e) => !processedEventIds.has(e.externalId))
+        .map((e) => e.externalId);
 
-    if (deletedExternalIds.length > 0) {
-      const result = await this.prisma.calendarEvent.updateMany({
-        where: {
-          providerId,
-          calendarId,
-          externalId: { in: deletedExternalIds },
-          isDeleted: false,
-        },
-        data: { isDeleted: true },
-      });
-      deletedCount = result.count;
+      if (deletedExternalIds.length > 0) {
+        const result = await this.prisma.calendarEvent.updateMany({
+          where: {
+            providerId,
+            calendarId,
+            externalId: { in: deletedExternalIds },
+            isDeleted: false,
+          },
+          data: { isDeleted: true },
+        });
+        deletedCount += result.count;
+      }
     }
 
-    // STEP 6: Bulk process attachments
+    // Bulk process attachments
     if (allAttachments.length > 0) {
       await this.processBulkAttachments(providerId, allAttachments);
     }
 
     return {
-      eventsProcessed: allGoogleEvents.length,
+      eventsProcessed: events.length,
       newEvents: createdCount,
       updatedEvents: updatedCount,
       deletedEvents: deletedCount,
     };
+  }
+
+  /**
+   * Record sync error for a calendar
+   */
+  private async recordSyncError(
+    providerId: string,
+    calendarId: string,
+    error: unknown,
+  ): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    await this.prisma.calendarSyncState.upsert({
+      where: {
+        providerId_calendarId: { providerId, calendarId },
+      },
+      create: {
+        providerId,
+        calendarId,
+        fullSyncRequired: true,
+        consecutiveErrors: 1,
+        lastError: errorMessage,
+        lastErrorAt: new Date(),
+      },
+      update: {
+        consecutiveErrors: { increment: 1 },
+        lastError: errorMessage,
+        lastErrorAt: new Date(),
+      },
+    });
   }
 
   /**
@@ -456,5 +735,29 @@ export class GoogleCalendarSyncService {
     if (updates.length > 0) {
       await this.prisma.$transaction(updates);
     }
+  }
+
+  /**
+   * Force a full sync for a provider (clears all sync tokens)
+   */
+  async forceFullSync(providerId: string): Promise<void> {
+    await this.prisma.calendarSyncState.updateMany({
+      where: { providerId },
+      data: {
+        syncToken: null,
+        fullSyncRequired: true,
+      },
+    });
+    this.logger.log(`Forced full sync for provider ${providerId}`);
+  }
+
+  /**
+   * Get sync state for a provider's calendars
+   */
+  async getSyncStates(providerId: string) {
+    return this.prisma.calendarSyncState.findMany({
+      where: { providerId },
+      orderBy: { calendarName: 'asc' },
+    });
   }
 }

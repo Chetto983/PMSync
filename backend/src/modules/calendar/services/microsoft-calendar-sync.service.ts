@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosResponse } from 'axios';
-import { URLSearchParams } from 'url';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -29,11 +28,13 @@ interface MicrosoftEvent {
   isCancelled?: boolean;
   webLink?: string;
   lastModifiedDateTime?: string;
+  '@removed'?: { reason: string }; // Delta sync: event was deleted
 }
 
 interface MicrosoftEventsResponse {
   value?: MicrosoftEvent[];
   '@odata.nextLink'?: string;
+  '@odata.deltaLink'?: string;
 }
 
 export interface MicrosoftCalendarSyncResult {
@@ -44,6 +45,7 @@ export interface MicrosoftCalendarSyncResult {
   updatedEvents: number;
   deletedEvents: number;
   syncDuration: number;
+  syncType: 'full' | 'incremental';
 }
 
 @Injectable()
@@ -51,6 +53,8 @@ export class MicrosoftCalendarSyncService {
   private readonly logger = new Logger(MicrosoftCalendarSyncService.name);
   private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
   private readonly calendarEnabled: boolean;
+  /** Max consecutive errors before forcing full sync */
+  private readonly maxErrorsBeforeFullSync: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -60,6 +64,7 @@ export class MicrosoftCalendarSyncService {
   ) {
     this.calendarEnabled =
       (this.configService.get<string>('CALENDAR_SYNC_ENABLED') || 'true').toLowerCase() !== 'false';
+    this.maxErrorsBeforeFullSync = this.configService.get<number>('CALENDAR_SYNC_MAX_ERRORS', 3);
     if (!this.calendarEnabled) {
       this.logger.warn('MicrosoftCalendarSyncService disabled via CALENDAR_SYNC_ENABLED=false');
     }
@@ -67,9 +72,9 @@ export class MicrosoftCalendarSyncService {
 
   /**
    * Sync calendar events from Microsoft Calendar
-   * Syncs events from last 60 days to next 60 days (120 days total)
+   * Uses incremental sync (deltaLink) when available, falls back to full sync
    */
-  async syncCalendar(providerId: string): Promise<MicrosoftCalendarSyncResult> {
+  async syncCalendar(providerId: string, forceFullSync = false): Promise<MicrosoftCalendarSyncResult> {
     if (!this.calendarEnabled) {
       this.logger.warn(
         `Skipping Microsoft calendar sync for ${providerId} (CALENDAR_SYNC_ENABLED=false)`,
@@ -82,6 +87,7 @@ export class MicrosoftCalendarSyncService {
         updatedEvents: 0,
         deletedEvents: 0,
         syncDuration: 0,
+        syncType: 'full',
       };
     }
     const startTime = Date.now();
@@ -97,21 +103,11 @@ export class MicrosoftCalendarSyncService {
         throw new Error('Provider does not support calendar');
       }
 
-      // Calculate time range: last 60 days to next 60 days
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-
-      const sixtyDaysAhead = new Date();
-      sixtyDaysAhead.setDate(sixtyDaysAhead.getDate() + 60);
-
-      this.logger.debug(
-        `Fetching Microsoft Calendar events from ${sixtyDaysAgo.toISOString()} to ${sixtyDaysAhead.toISOString()}`,
-      );
-
       let eventsProcessed = 0;
       let newEvents = 0;
       let updatedEvents = 0;
       let deletedEvents = 0;
+      let syncType: 'full' | 'incremental' = 'incremental';
 
       // Get list of calendars
       const calendarsUrl = `${this.GRAPH_API_BASE}/me/calendars`;
@@ -130,31 +126,35 @@ export class MicrosoftCalendarSyncService {
       // Sync events from each calendar
       for (const cal of calendars) {
         try {
-          const result = await this.syncCalendarEvents(
+          const result = await this.syncCalendarWithState(
             accessToken,
             cal.id,
             providerId,
             provider.tenantId,
-            sixtyDaysAgo.toISOString(),
-            sixtyDaysAhead.toISOString(),
             cal.name,
+            forceFullSync,
           );
 
           eventsProcessed += result.eventsProcessed;
           newEvents += result.newEvents;
           updatedEvents += result.updatedEvents;
           deletedEvents += result.deletedEvents;
+          if (result.syncType === 'full') {
+            syncType = 'full';
+          }
         } catch (calError) {
           this.logger.warn(
             `Failed to sync calendar ${cal.id}: ${calError instanceof Error ? calError.message : String(calError)}`,
           );
+          // Record error in sync state
+          await this.recordSyncError(providerId, cal.id, calError);
         }
       }
 
       const syncDuration = Date.now() - startTime;
 
       this.logger.log(
-        `Microsoft Calendar sync completed for provider ${providerId}: ${eventsProcessed} events processed, ${newEvents} new, ${updatedEvents} updated, ${deletedEvents} deleted in ${syncDuration}ms`,
+        `Microsoft Calendar sync completed for provider ${providerId}: ${eventsProcessed} events (${syncType}), ${newEvents} new, ${updatedEvents} updated, ${deletedEvents} deleted in ${syncDuration}ms`,
       );
 
       if (newEvents > 0 || updatedEvents > 0 || deletedEvents > 0) {
@@ -173,6 +173,7 @@ export class MicrosoftCalendarSyncService {
         updatedEvents,
         deletedEvents,
         syncDuration,
+        syncType,
       };
     } catch (error) {
       this.logger.error(`Microsoft Calendar sync failed for provider ${providerId}:`, error);
@@ -181,94 +182,329 @@ export class MicrosoftCalendarSyncService {
   }
 
   /**
-   * Sync events from a specific calendar (BULK OPTIMIZED)
-   * Uses batch operations to reduce database queries from O(n) to O(1)
+   * Sync a single calendar using sync state (incremental when possible)
    */
-  private async syncCalendarEvents(
+  private async syncCalendarWithState(
     accessToken: string,
     calendarId: string,
     providerId: string,
     tenantId: string,
-    startDateTime: string,
-    endDateTime: string,
-    calendarName?: string | null,
+    calendarName: string,
+    forceFullSync: boolean,
+  ): Promise<{
+    eventsProcessed: number;
+    newEvents: number;
+    updatedEvents: number;
+    deletedEvents: number;
+    syncType: 'full' | 'incremental';
+  }> {
+    // Get or create sync state for this calendar
+    const syncState = await this.prisma.calendarSyncState.findUnique({
+      where: {
+        providerId_calendarId: { providerId, calendarId },
+      },
+    });
+
+    // Determine if we need full sync
+    const needsFullSync =
+      forceFullSync ||
+      !syncState ||
+      syncState.fullSyncRequired ||
+      !syncState.deltaLink ||
+      syncState.consecutiveErrors >= this.maxErrorsBeforeFullSync;
+
+    if (needsFullSync) {
+      this.logger.debug(`Running FULL sync for calendar ${calendarId}`);
+      return this.runFullSync(accessToken, calendarId, providerId, tenantId, calendarName);
+    }
+
+    // Try incremental sync
+    this.logger.debug(`Running INCREMENTAL sync for calendar ${calendarId} with deltaLink`);
+    try {
+      return await this.runIncrementalSync(
+        accessToken,
+        calendarId,
+        providerId,
+        tenantId,
+        calendarName,
+        syncState.deltaLink!,
+      );
+    } catch (error: any) {
+      // Handle delta token invalidation (410 Gone or token expired)
+      const status = error?.response?.status || error?.code;
+      if (status === 410 || status === 404) {
+        this.logger.warn(`Delta token expired for calendar ${calendarId}, falling back to full sync`);
+        // Invalidate the delta link
+        await this.prisma.calendarSyncState.update({
+          where: { providerId_calendarId: { providerId, calendarId } },
+          data: {
+            deltaLink: null,
+            fullSyncRequired: true,
+            lastError: `Delta token expired (${status})`,
+            lastErrorAt: new Date(),
+          },
+        });
+        // Run full sync
+        return this.runFullSync(accessToken, calendarId, providerId, tenantId, calendarName);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Run full calendar sync using delta query (fetches all events, gets deltaLink)
+   * Uses calendarView/delta endpoint for initial sync
+   */
+  private async runFullSync(
+    accessToken: string,
+    calendarId: string,
+    providerId: string,
+    tenantId: string,
+    calendarName: string,
+  ): Promise<{
+    eventsProcessed: number;
+    newEvents: number;
+    updatedEvents: number;
+    deletedEvents: number;
+    syncType: 'full' | 'incremental';
+  }> {
+    // Calculate time range: last 60 days to next 60 days
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const sixtyDaysAhead = new Date();
+    sixtyDaysAhead.setDate(sixtyDaysAhead.getDate() + 60);
+
+    // Use delta query for initial full sync (gets all events + deltaLink for future)
+    // Note: calendarView/delta requires startDateTime and endDateTime
+    const startDateTimeParam = encodeURIComponent(sixtyDaysAgo.toISOString());
+    const endDateTimeParam = encodeURIComponent(sixtyDaysAhead.toISOString());
+
+    let deltaUrl: string | undefined =
+      `${this.GRAPH_API_BASE}/me/calendars/${calendarId}/calendarView/delta?startDateTime=${startDateTimeParam}&endDateTime=${endDateTimeParam}`;
+
+    // Fetch ALL events using delta pagination
+    const allEvents: MicrosoftEvent[] = [];
+    let nextDeltaLink: string | undefined;
+
+    while (deltaUrl) {
+      const response: AxiosResponse<MicrosoftEventsResponse> = await axios.get(deltaUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const events = response.data.value || [];
+      allEvents.push(...events);
+
+      // Check for more pages or final deltaLink
+      if (response.data['@odata.nextLink']) {
+        deltaUrl = response.data['@odata.nextLink'];
+      } else {
+        deltaUrl = undefined;
+        nextDeltaLink = response.data['@odata.deltaLink'];
+      }
+    }
+
+    // Process events in bulk (full sync mode)
+    const result = await this.processEvents(
+      allEvents,
+      calendarId,
+      providerId,
+      tenantId,
+      calendarName,
+      true, // isFullSync - mark deleted events
+    );
+
+    // Save sync state with new deltaLink
+    await this.prisma.calendarSyncState.upsert({
+      where: {
+        providerId_calendarId: { providerId, calendarId },
+      },
+      create: {
+        providerId,
+        calendarId,
+        calendarName,
+        deltaLink: nextDeltaLink,
+        fullSyncRequired: false,
+        lastFullSyncAt: new Date(),
+        consecutiveErrors: 0,
+      },
+      update: {
+        calendarName,
+        deltaLink: nextDeltaLink,
+        fullSyncRequired: false,
+        lastFullSyncAt: new Date(),
+        consecutiveErrors: 0,
+        lastError: null,
+        lastErrorAt: null,
+      },
+    });
+
+    this.logger.debug(
+      `Full sync saved deltaLink for calendar ${calendarId}: ${nextDeltaLink ? 'yes' : 'no'}`,
+    );
+
+    return {
+      ...result,
+      syncType: 'full',
+    };
+  }
+
+  /**
+   * Run incremental calendar sync using deltaLink
+   * Only fetches changes since last sync
+   */
+  private async runIncrementalSync(
+    accessToken: string,
+    calendarId: string,
+    providerId: string,
+    tenantId: string,
+    calendarName: string,
+    deltaLink: string,
+  ): Promise<{
+    eventsProcessed: number;
+    newEvents: number;
+    updatedEvents: number;
+    deletedEvents: number;
+    syncType: 'full' | 'incremental';
+  }> {
+    // Fetch only changed events using deltaLink
+    const changedEvents: MicrosoftEvent[] = [];
+    let deltaUrl: string | undefined = deltaLink;
+    let nextDeltaLink: string | undefined;
+
+    while (deltaUrl) {
+      const response: AxiosResponse<MicrosoftEventsResponse> = await axios.get(deltaUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const events = response.data.value || [];
+      changedEvents.push(...events);
+
+      if (response.data['@odata.nextLink']) {
+        deltaUrl = response.data['@odata.nextLink'];
+      } else {
+        deltaUrl = undefined;
+        nextDeltaLink = response.data['@odata.deltaLink'];
+      }
+    }
+
+    this.logger.debug(
+      `Incremental sync found ${changedEvents.length} changed events for calendar ${calendarId}`,
+    );
+
+    // Process only changed events
+    const result = await this.processEvents(
+      changedEvents,
+      calendarId,
+      providerId,
+      tenantId,
+      calendarName,
+      false, // isFullSync - don't mark other events as deleted
+    );
+
+    // Update sync state with new deltaLink
+    await this.prisma.calendarSyncState.update({
+      where: {
+        providerId_calendarId: { providerId, calendarId },
+      },
+      data: {
+        deltaLink: nextDeltaLink,
+        lastIncrementalAt: new Date(),
+        consecutiveErrors: 0,
+        lastError: null,
+        lastErrorAt: null,
+      },
+    });
+
+    return {
+      ...result,
+      syncType: 'incremental',
+    };
+  }
+
+  /**
+   * Process events (shared between full and incremental sync)
+   */
+  private async processEvents(
+    events: MicrosoftEvent[],
+    calendarId: string,
+    providerId: string,
+    tenantId: string,
+    calendarName: string,
+    isFullSync: boolean,
   ): Promise<{
     eventsProcessed: number;
     newEvents: number;
     updatedEvents: number;
     deletedEvents: number;
   }> {
-    // STEP 1: Fetch ALL events from Microsoft Graph API (collect all pages)
-    const allMsEvents: MicrosoftEvent[] = [];
-
-    const params = new URLSearchParams({
-      startDateTime,
-      endDateTime,
-      $top: '999', // Max for better efficiency
-      $orderby: 'start/dateTime',
-    });
-
-    let eventsUrl: string | undefined = `${this.GRAPH_API_BASE}/me/calendars/${calendarId}/calendarView?${params.toString()}`;
-
-    while (eventsUrl) {
-      const eventsResponse: AxiosResponse<MicrosoftEventsResponse> = await axios.get(eventsUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      const events = eventsResponse.data.value || [];
-      allMsEvents.push(...events);
-      eventsUrl = eventsResponse.data['@odata.nextLink'];
-    }
-
-    if (allMsEvents.length === 0) {
+    if (events.length === 0) {
       return { eventsProcessed: 0, newEvents: 0, updatedEvents: 0, deletedEvents: 0 };
     }
 
-    // STEP 2: Fetch ALL existing events for this calendar in ONE query
+    // Fetch ALL existing events for this calendar in ONE query
     const existingEvents = await this.prisma.calendarEvent.findMany({
       where: { providerId, calendarId },
       select: { id: true, externalId: true, syncVersion: true },
     });
     const existingByExternalId = new Map(existingEvents.map((e) => [e.externalId, e]));
 
-    // STEP 3: Prepare bulk operations
-    const newEvents: any[] = [];
-    const updateEvents: { externalId: string; id: string }[] = [];
-    const allMsEventIds = new Set<string>();
+    // Prepare bulk operations
+    const newEventsToCreate: any[] = [];
+    const eventsToUpdate: { externalId: string; id: string; data: any }[] = [];
+    const eventsToDelete: string[] = [];
+    const processedEventIds = new Set<string>();
 
-    for (const event of allMsEvents) {
-      const eventId = event.id;
-      allMsEventIds.add(eventId);
+    for (const event of events) {
+      if (!event.id) continue;
 
-      const eventData = this.extractEventData(event, calendarId, providerId, tenantId, calendarName ?? calendarId);
-      const existing = existingByExternalId.get(eventId);
+      processedEventIds.add(event.id);
+      const existing = existingByExternalId.get(event.id);
+
+      // Handle deleted events from delta sync (@removed property)
+      if (event['@removed']) {
+        if (existing) {
+          eventsToDelete.push(event.id);
+        }
+        continue;
+      }
+
+      // Handle cancelled events
+      if (event.isCancelled) {
+        if (existing) {
+          eventsToDelete.push(event.id);
+        }
+        continue;
+      }
+
+      const eventData = this.extractEventData(event, calendarId, providerId, tenantId, calendarName);
 
       if (existing) {
-        updateEvents.push({ externalId: eventId, id: existing.id });
+        eventsToUpdate.push({ externalId: event.id, id: existing.id, data: eventData });
       } else {
-        newEvents.push(eventData);
+        newEventsToCreate.push(eventData);
       }
     }
 
-    // STEP 4: Execute bulk operations in transaction
+    // Execute bulk operations in transaction
     let createdCount = 0;
     let updatedCount = 0;
 
     await this.prisma.$transaction(
       async (tx) => {
-        // 4a. Bulk create new events
-        if (newEvents.length > 0) {
+        // Create new events
+        if (newEventsToCreate.length > 0) {
           await tx.calendarEvent.createMany({
-            data: newEvents,
+            data: newEventsToCreate,
             skipDuplicates: true,
           });
-          createdCount = newEvents.length;
+          createdCount = newEventsToCreate.length;
         }
 
-        // 4b. Bulk update existing events using raw SQL
-        if (updateEvents.length > 0) {
+        // Update existing events
+        if (eventsToUpdate.length > 0) {
           const now = new Date();
-          const externalIds = updateEvents.map((e) => e.externalId);
+          const externalIds = eventsToUpdate.map((e) => e.externalId);
 
           await tx.$executeRaw`
             UPDATE "calendar_events"
@@ -277,37 +513,82 @@ export class MicrosoftCalendarSyncService {
             WHERE "providerId" = ${providerId}
               AND "externalId" = ANY(${externalIds}::text[])
           `;
-          updatedCount = updateEvents.length;
+          updatedCount = eventsToUpdate.length;
+        }
+
+        // Mark deleted events (from incremental sync)
+        if (eventsToDelete.length > 0) {
+          await tx.calendarEvent.updateMany({
+            where: {
+              providerId,
+              calendarId,
+              externalId: { in: eventsToDelete },
+              isDeleted: false,
+            },
+            data: { isDeleted: true, isCancelled: true },
+          });
         }
       },
       { timeout: 60000 },
     );
 
-    // STEP 5: Handle deleted events using bulk updateMany
-    let deletedCount = 0;
-    const deletedExternalIds = existingEvents
-      .filter((e) => !allMsEventIds.has(e.externalId))
-      .map((e) => e.externalId);
+    // Handle deleted events for full sync (events not in response)
+    let deletedCount = eventsToDelete.length;
+    if (isFullSync) {
+      const deletedExternalIds = existingEvents
+        .filter((e) => !processedEventIds.has(e.externalId))
+        .map((e) => e.externalId);
 
-    if (deletedExternalIds.length > 0) {
-      const result = await this.prisma.calendarEvent.updateMany({
-        where: {
-          providerId,
-          calendarId,
-          externalId: { in: deletedExternalIds },
-          isDeleted: false,
-        },
-        data: { isDeleted: true },
-      });
-      deletedCount = result.count;
+      if (deletedExternalIds.length > 0) {
+        const result = await this.prisma.calendarEvent.updateMany({
+          where: {
+            providerId,
+            calendarId,
+            externalId: { in: deletedExternalIds },
+            isDeleted: false,
+          },
+          data: { isDeleted: true },
+        });
+        deletedCount += result.count;
+      }
     }
 
     return {
-      eventsProcessed: allMsEvents.length,
+      eventsProcessed: events.length,
       newEvents: createdCount,
       updatedEvents: updatedCount,
       deletedEvents: deletedCount,
     };
+  }
+
+  /**
+   * Record sync error for a calendar
+   */
+  private async recordSyncError(
+    providerId: string,
+    calendarId: string,
+    error: unknown,
+  ): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    await this.prisma.calendarSyncState.upsert({
+      where: {
+        providerId_calendarId: { providerId, calendarId },
+      },
+      create: {
+        providerId,
+        calendarId,
+        fullSyncRequired: true,
+        consecutiveErrors: 1,
+        lastError: errorMessage,
+        lastErrorAt: new Date(),
+      },
+      update: {
+        consecutiveErrors: { increment: 1 },
+        lastError: errorMessage,
+        lastErrorAt: new Date(),
+      },
+    });
   }
 
   /**
@@ -413,5 +694,29 @@ export class MicrosoftCalendarSyncService {
     if (updates.length > 0) {
       await this.prisma.$transaction(updates);
     }
+  }
+
+  /**
+   * Force a full sync for a provider (clears all delta links)
+   */
+  async forceFullSync(providerId: string): Promise<void> {
+    await this.prisma.calendarSyncState.updateMany({
+      where: { providerId },
+      data: {
+        deltaLink: null,
+        fullSyncRequired: true,
+      },
+    });
+    this.logger.log(`Forced full sync for provider ${providerId}`);
+  }
+
+  /**
+   * Get sync state for a provider's calendars
+   */
+  async getSyncStates(providerId: string) {
+    return this.prisma.calendarSyncState.findMany({
+      where: { providerId },
+      orderBy: { calendarName: 'asc' },
+    });
   }
 }

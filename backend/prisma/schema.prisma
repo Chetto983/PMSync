@@ -285,6 +285,7 @@ model ProviderConfig {
   lastActivityCheck        DateTime?
   refreshTokenEncryptionIv String?
   calendarEvents           CalendarEvent[]
+  calendarSyncStates       CalendarSyncState[]
   providerContacts         ProviderContact[]     @relation("ProviderContactToProvider")
   emails                   Email[]
   folders                  Folder[]
@@ -583,6 +584,40 @@ model CalendarEventAttachment {
 
   @@index([eventId])
   @@map("calendar_event_attachments")
+}
+
+/// CalendarSyncState - Per-calendar sync tokens for incremental sync
+/// Stores Google syncToken and Microsoft deltaLink for efficient calendar syncing
+/// Reduces API calls by ~95% after initial full sync
+model CalendarSyncState {
+  id           String   @id @default(cuid())
+  providerId   String
+  calendarId   String   // External calendar ID (Google/Microsoft)
+  calendarName String?  // Human-readable name for debugging
+
+  // Sync tokens (provider-specific)
+  syncToken    String?  // Google Calendar syncToken
+  deltaLink    String?  // Microsoft Graph deltaLink (full URL)
+
+  // Sync metadata
+  lastFullSyncAt    DateTime?  // When we last did a full sync
+  lastIncrementalAt DateTime?  // When we last did an incremental sync
+  fullSyncRequired  Boolean    @default(true)  // Force full sync on next run
+
+  // Error tracking for resilience
+  consecutiveErrors Int       @default(0)
+  lastError         String?
+  lastErrorAt       DateTime?
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  provider     ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, calendarId])
+  @@index([providerId])
+  @@index([fullSyncRequired])
+  @@map("calendar_sync_states")
 }
 
 // Unified Contact - Single source of truth for each person

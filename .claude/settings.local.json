@@ -81,7 +81,8 @@
       "Bash(npm run:*)",
       "Bash(npx dotenv:*)",
       "Bash(Select-String -Pattern \"error|failed|Exception\" -Context 2)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(Select-Object -Last 80)"
     ],
     "deny": [],
     "ask": []
