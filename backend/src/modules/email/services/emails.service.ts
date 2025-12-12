@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { StorageService } from './storage.service';
 
 export interface EmailListFilters {
   folder?: string;
@@ -38,7 +39,26 @@ export class EmailsService {
     private emailSyncBack: EmailSyncBackService,
     private knowledgeBaseService: KnowledgeBaseService,
     private realtimeEvents: RealtimeEventsService,
+    private storageService: StorageService,
   ) {}
+
+  /** Maximum emails per bulk operation to prevent DoS */
+  private readonly MAX_BULK_EMAILS = 1000;
+
+  /**
+   * Validate bulk operation input size
+   * @throws BadRequestException if array exceeds limit
+   */
+  private validateBulkInput(ids: string[], operationName: string): void {
+    if (!ids || ids.length === 0) {
+      throw new BadRequestException(`${operationName}: No IDs provided`);
+    }
+    if (ids.length > this.MAX_BULK_EMAILS) {
+      throw new BadRequestException(
+        `${operationName}: Maximum ${this.MAX_BULK_EMAILS} items per operation (received ${ids.length})`,
+      );
+    }
+  }
 
   /**
    * Get folder names by their RFC 6154 specialUse type
@@ -800,12 +820,52 @@ export class EmailsService {
   }
 
   /**
-   * Delete draft
+   * Delete draft with proper S3 attachment cleanup
+   * EMAIL-1.2 FIX: Get attachments before deletion, then clean up S3
    */
   async deleteDraft(id: string, tenantId: string) {
-    await this.prisma.email.deleteMany({
+    // Get draft with attachments BEFORE deletion (to get S3 keys)
+    const draft = await this.prisma.email.findFirst({
       where: { id, tenantId, isDraft: true },
+      include: {
+        attachments: {
+          where: { storageType: 's3' },
+          select: { storagePath: true },
+        },
+      },
     });
+
+    if (!draft) {
+      // Draft doesn't exist or doesn't belong to tenant - nothing to delete
+      return;
+    }
+
+    // Collect S3 keys for cleanup
+    const s3Keys = draft.attachments
+      .filter((a) => a.storagePath)
+      .map((a) => a.storagePath!);
+
+    // Delete email from database (cascades to attachments table)
+    await this.prisma.email.delete({
+      where: { id },
+    });
+
+    // Clean up S3 files after DB deletion (best effort - orphans tracked by cleanup service)
+    if (s3Keys.length > 0) {
+      try {
+        const result = await this.storageService.deleteObjects(s3Keys);
+        if (result.failed > 0) {
+          this.logger.warn(
+            `Draft ${id}: ${result.failed}/${s3Keys.length} S3 objects failed to delete`,
+          );
+        }
+      } catch (error) {
+        // Log but don't fail - orphaned S3 keys will be cleaned up by scheduled job
+        this.logger.warn(
+          `Draft ${id}: S3 cleanup failed - ${error instanceof Error ? error.message : 'unknown error'}`,
+        );
+      }
+    }
   }
 
   /**
@@ -816,6 +876,8 @@ export class EmailsService {
     tenantId: string,
     isRead: boolean,
   ) {
+    this.validateBulkInput(emailIds, 'bulkUpdateRead');
+
     // Get emails for syncing and folder tracking
     const emails = await this.prisma.email.findMany({
       where: {
@@ -1168,6 +1230,8 @@ export class EmailsService {
    * Provider is source of truth - next sync updates folder from provider
    */
   async bulkDelete(emailIds: string[], tenantId: string) {
+    this.validateBulkInput(emailIds, 'bulkDelete');
+
     const emails = await this.prisma.email.findMany({
       where: { id: { in: emailIds }, tenantId },
       select: { id: true, externalId: true, providerId: true, tenantId: true, folder: true, isDeleted: true },
@@ -1266,6 +1330,8 @@ export class EmailsService {
     tenantId: string,
     isStarred: boolean,
   ) {
+    this.validateBulkInput(emailIds, 'bulkUpdateStarred');
+
     // Get emails for syncing
     const emails = await this.prisma.email.findMany({
       where: {
@@ -1334,6 +1400,8 @@ export class EmailsService {
     tenantId: string,
     isFlagged: boolean,
   ) {
+    this.validateBulkInput(emailIds, 'bulkUpdateFlagged');
+
     // Get emails for syncing
     const emails = await this.prisma.email.findMany({
       where: {
@@ -1402,6 +1470,8 @@ export class EmailsService {
     tenantId: string,
     folder: string,
   ) {
+    this.validateBulkInput(emailIds, 'bulkMoveToFolder');
+
     // Get emails for syncing and folder tracking
     const emails = await this.prisma.email.findMany({
       where: {
@@ -1492,6 +1562,9 @@ export class EmailsService {
     tenantId: string,
     labelIds: string[],
   ) {
+    this.validateBulkInput(emailIds, 'bulkAddLabels');
+    this.validateBulkInput(labelIds, 'bulkAddLabels (labels)');
+
     // PERFORMANCE FIX: Parallelize the two independent queries
     const [labels, emails] = await Promise.all([
       // Verify labels exist and belong to tenant
@@ -1558,6 +1631,9 @@ export class EmailsService {
     tenantId: string,
     labelIds: string[],
   ) {
+    this.validateBulkInput(emailIds, 'bulkRemoveLabels');
+    this.validateBulkInput(labelIds, 'bulkRemoveLabels (labels)');
+
     const emails = await this.prisma.email.findMany({
       where: { id: { in: emailIds }, tenantId },
       select: { providerId: true },

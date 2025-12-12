@@ -1,8 +1,8 @@
-# Calendar & Contacts Module Audit Roadmap
+# Calendar, Contacts & Email Module Audit Roadmap
 
 **Generated:** December 12, 2025
 **Status:** Active Development
-**Total Issues Found:** 20 issues across 2 major components
+**Total Issues Found:** 45 issues across 5 major components (Calendar, Contacts, Email, Email-Sync, Providers)
 
 ---
 
@@ -22,9 +22,15 @@ A comprehensive audit of Calendar and Contacts modules identified critical bugs 
 |--------|---------------|-----------|-------------|-------|-------|
 | Calendar | 4 | 5 | 0 | 9 | 3 |
 | Contacts | 3 | 6 | 2 | 11 | 7 |
-| **Total** | **7** | **11** | **2** | **20** | **10** |
+| Email | 0 | 6 | 8 | 14 | 4 |
+| Email-Sync | 0 | 3 | 1 | 4 | 0 |
+| Providers | 1 | 0 | 0 | 1 | 0 |
+| Code Duplication | 0 | 0 | 6 | 6 | 0 |
+| **Total** | **8** | **20** | **17** | **45** | **14** |
 
-> **Progress:** 10/20 issues fixed (50%) - All P0 critical issues resolved
+> **Progress:** 14/45 issues fixed (31%) - All Calendar/Contacts P0 critical issues resolved
+>
+> **Note:** Email module has better baseline - uses transactions on critical operations. Email-Sync has excellent base patterns (BaseEmailSyncService, drivers). Providers module has one critical transaction issue.
 
 ---
 
@@ -369,6 +375,155 @@ where: { providerId, provider: { tenantId } }
 
 ---
 
+## Email Module Issues
+
+> **Note:** Email module has a better baseline than Calendar/Contacts. Critical operations already use transactions.
+> The main issues found are related to input validation (DoS prevention) and minor performance optimizations.
+
+### P1 Issues (High)
+
+#### Issue EMAIL-1.1: Missing Input Validation on Bulk Operations ✅ FIXED
+**Priority:** P1 - High
+**File:** `backend/src/modules/email/services/emails.service.ts`
+**Lines:** All bulk methods
+
+**Problem:** Bulk operations had no input size validation, allowing DoS attacks via unbounded arrays.
+
+**Fix Applied:**
+```typescript
+private readonly MAX_BULK_EMAILS = 1000;
+
+private validateBulkInput(ids: string[], operationName: string): void {
+  if (!ids || ids.length === 0) {
+    throw new BadRequestException(`${operationName}: No IDs provided`);
+  }
+  if (ids.length > this.MAX_BULK_EMAILS) {
+    throw new BadRequestException(
+      `${operationName}: Maximum ${this.MAX_BULK_EMAILS} items per operation`,
+    );
+  }
+}
+```
+
+**Methods Fixed:**
+- `bulkUpdateRead()` ✅
+- `bulkDelete()` ✅
+- `bulkUpdateStarred()` ✅
+- `bulkUpdateFlagged()` ✅
+- `bulkMoveToFolder()` ✅
+- `bulkAddLabels()` ✅ (validates both emailIds and labelIds)
+- `bulkRemoveLabels()` ✅ (validates both emailIds and labelIds)
+
+---
+
+#### Issue EMAIL-1.2: Draft Deletion S3 Orphans ✅ FIXED
+**Priority:** P1 - High
+**File:** `backend/src/modules/email/services/emails.service.ts`
+**Lines:** 822-869
+
+**Problem:** `deleteDraft()` used simple `deleteMany` which relied on CASCADE for DB cleanup but left S3 attachments orphaned.
+
+**Fix Applied:**
+```typescript
+async deleteDraft(id: string, tenantId: string) {
+  // Get draft with S3 attachments BEFORE deletion
+  const draft = await this.prisma.email.findFirst({
+    where: { id, tenantId, isDraft: true },
+    include: { attachments: { where: { storageType: 's3' }, select: { storagePath: true } } },
+  });
+  if (!draft) return;
+
+  const s3Keys = draft.attachments.filter(a => a.storagePath).map(a => a.storagePath!);
+
+  // Delete from DB (cascades to attachments table)
+  await this.prisma.email.delete({ where: { id } });
+
+  // Clean up S3 files (best effort)
+  if (s3Keys.length > 0) {
+    await this.storageService.deleteObjects(s3Keys);
+  }
+}
+```
+
+---
+
+#### Issue EMAIL-1.3: Conversation Grouping Memory Issue
+**Priority:** P1 - High
+**File:** `backend/src/modules/email/services/emails.service.ts`
+
+**Problem:** `getConversation()` loads all emails with matching subject into memory before filtering.
+
+**Risk:** OOM on tenants with many emails having similar subjects.
+
+---
+
+#### Issue EMAIL-1.4: Missing WebSocket Events in Bulk Operations ✅ VERIFIED OK
+**Priority:** P1 - High (False Positive)
+**File:** `backend/src/modules/email/services/emails.service.ts`
+
+**Status:** Already implemented correctly. All 7 bulk operations emit WebSocket events:
+- `bulkUpdateRead` → `emitEmailUpdate` for each email
+- `bulkDelete` → `emitEmailDelete` for soft and hard deletes
+- `bulkUpdateStarred` → `emitEmailUpdate`
+- `bulkUpdateFlagged` → `emitEmailUpdate`
+- `bulkMoveToFolder` → `emitEmailUpdate`
+- `bulkAddLabels` → `emitEmailUpdate`
+- `bulkRemoveLabels` → `emitEmailUpdate`
+
+---
+
+#### Issue EMAIL-1.5: Attachment Download Without Tenant Verification ✅ VERIFIED OK
+**Priority:** P1 - High (False Positive)
+**File:** `backend/src/modules/email/services/emails.service.ts`
+
+**Status:** Already implemented correctly. `getAttachmentDownloadUrl()` verifies `tenantId` in query:
+```typescript
+const email = await this.prisma.email.findFirst({
+  where: { id: emailId, tenantId, isDeleted: false },  // ✅ tenantId verified
+  include: { attachments: { where: { id: attachmentId } } },
+});
+```
+
+---
+
+#### Issue EMAIL-1.6: Missing Rate Limiting on Compose/Send
+**Priority:** P1 - High
+**File:** `backend/src/modules/email/services/email-send.service.ts`
+
+**Problem:** No rate limiting on email sending operations.
+
+---
+
+### P2 Issues (Medium)
+
+#### Issue EMAIL-2.1: Redundant Queries in bulkUpdateRead
+**Priority:** P2 - Medium
+**File:** `backend/src/modules/email/services/emails.service.ts`
+
+**Problem:** Fetches emails twice - once for validation and once for folder tracking.
+
+---
+
+#### Issue EMAIL-2.2: Missing Pagination on Email Search
+**Priority:** P2 - Medium
+**File:** `backend/src/modules/email/services/emails.service.ts`
+
+**Problem:** Search operations should have default limits to prevent large result sets.
+
+---
+
+#### Issue EMAIL-2.3-2.8: Various Minor Optimizations
+**Priority:** P2 - Medium
+**Problems:**
+- Redundant provider validation in bulk operations
+- Inefficient folder count updates (could batch)
+- Missing indexes for common queries
+- Duplicate code patterns
+
+---
+
+---
+
 ## Implementation Checklist
 
 ### Week 1: Critical Fixes (P0) ✅ COMPLETED 2025-12-12
@@ -401,11 +556,24 @@ where: { providerId, provider: { tenantId } }
 - [x] CON-2.5: Add tenant isolation to deleteProviderContacts() ✅ (Added provider tenant check)
 - [ ] CON-2.6: Standardize webhook error handling
 
+**Email:**
+- [x] EMAIL-1.1: Add input validation to bulk operations ✅ (MAX_BULK_EMAILS = 1000)
+- [x] EMAIL-1.2: Fix draft deletion S3 orphans ✅ (Get S3 keys before delete, cleanup after)
+- [ ] EMAIL-1.3: Fix conversation grouping memory issue
+- [x] EMAIL-1.4: WebSocket events in bulk operations ✅ (Already implemented - false positive)
+- [x] EMAIL-1.5: Tenant verification in attachment downloads ✅ (Already implemented - false positive)
+- [ ] EMAIL-1.6: Add rate limiting to compose/send
+
 ### Week 3: Medium Priority (P2)
 
 **Contacts:**
 - [ ] CON-3.1: Add batch validation for vCard import
 - [ ] CON-3.2: Optimize listContacts() query
+
+**Email:**
+- [ ] EMAIL-2.1: Reduce redundant queries in bulkUpdateRead
+- [ ] EMAIL-2.2: Add pagination to email search
+- [ ] EMAIL-2.3-2.8: Various minor optimizations
 
 ---
 
@@ -422,6 +590,8 @@ where: { providerId, provider: { tenantId } }
 | `calendar/controllers/calendar-webhook.controller.ts` | 2 | P1 |
 | `contacts/services/contacts.service.ts` | 9 | P0-P2 |
 | `contacts/controllers/contacts-webhook.controller.ts` | 1 | P1 |
+| `email/services/emails.service.ts` | 8 | P1-P2 |
+| `email/services/email-send.service.ts` | 1 | P1 |
 
 ---
 
@@ -440,6 +610,12 @@ After each fix, verify:
 3. Extract from emails → verify BCC contacts extracted
 4. Large tenant → verify no OOM on 10K+ contacts
 
+**Email:**
+1. Bulk operations → verify 1001+ items rejected with 400 error
+2. Bulk operations → verify empty array rejected with 400 error
+3. Delete draft → verify S3 attachments cleaned up (after EMAIL-1.2 fix)
+4. Cross-tenant → verify attachment download blocked for other tenants
+
 ---
 
 ## References
@@ -447,3 +623,311 @@ After each fix, verify:
 - [Prisma Transactions](https://www.prisma.io/docs/concepts/components/prisma-client/transactions)
 - [NestJS Validation Pipes](https://docs.nestjs.com/techniques/validation)
 - [class-validator Decorators](https://github.com/typestack/class-validator)
+
+---
+
+## Email-Sync Module Issues
+
+> **Note:** Email-Sync module has excellent baseline architecture with BaseEmailSyncService abstract class
+> and proper driver abstraction (GoogleDriver, MicrosoftDriver). Only minor issues found.
+
+### P1 Issues (High)
+
+#### Issue SYNC-1.1: Missing Transaction in Gmail Attachment Handler
+**Priority:** P1 - High
+**File:** `backend/src/modules/email-sync/services/gmail/gmail-attachment-handler.ts`
+**Lines:** 99-102
+
+**Problem:** `processEmailAttachments()` deletes existing attachments then creates new ones in a loop, without transaction wrapper.
+
+**Current Code:**
+```typescript
+// Delete existing attachments for this email (in case of re-sync)
+await this.prisma.emailAttachment.deleteMany({
+  where: { emailId },
+});
+
+// Process each attachment (creates happen in loop without transaction)
+for (const attachment of attachments) { ... }
+```
+
+**Risk:** If re-sync fails mid-way, attachments could be partially deleted
+
+---
+
+#### Issue SYNC-1.2: Missing Transaction in Microsoft Attachment Handler
+**Priority:** P1 - High
+**File:** `backend/src/modules/email-sync/services/microsoft/microsoft-attachment-handler.ts`
+**Lines:** 147-153
+
+**Problem:** Same pattern as SYNC-1.1 for Microsoft attachments
+
+---
+
+#### Issue SYNC-1.3: Missing Transaction in Folder Sync Service
+**Priority:** P1 - High
+**File:** `backend/src/modules/email-sync/services/folder-sync.service.ts`
+
+**Problem:** Multiple deleteMany operations without transactions
+
+---
+
+### P2 Issues (Medium)
+
+#### Issue SYNC-2.1: Webhook Controller Logs Payload Content
+**Priority:** P2 - Medium
+**File:** `backend/src/modules/email-sync/controllers/webhook.controller.ts`
+**Line:** 47
+
+**Problem:** Debug logging includes payload content which may contain sensitive data
+
+**Current Code:**
+```typescript
+this.logger.debug('[WEBHOOK] Payload:', JSON.stringify(payload).substring(0, 200));
+```
+
+**Risk:** Sensitive email metadata in logs
+
+**Fix:** Remove or sanitize payload logging
+
+---
+
+### Positive Findings
+
+- **BaseEmailSyncService** (392 lines) - Excellent abstract base class with:
+  - Common configuration management
+  - Folder name normalization (i18n support)
+  - Error handling utilities (isNotFoundError, isRateLimitError, isServerError)
+  - HTML to plain text extraction
+  - WebSocket notifications
+
+- **Driver abstraction** - GoogleDriver and MicrosoftDriver properly abstract provider differences
+
+- **BullMQ integration** - Bulk operations use queues correctly with chunking
+
+- **cross-provider-dedup.service.ts** - Properly uses `$transaction` for atomic dedup operations
+
+---
+
+## Providers Module Issues
+
+### P0 Issues (Critical)
+
+#### Issue PROV-1.1: Missing Transaction in deleteProviderConfig()
+**Priority:** P0 - Critical
+**File:** `backend/src/modules/providers/services/provider-config.service.ts`
+**Lines:** 600-617
+
+**Problem:** Three sequential database operations without transaction wrapper:
+1. Delete all emails for provider
+2. Delete provider config
+3. Delete orphaned contacts
+
+**Current Code:**
+```typescript
+// Line 600-617 - NOT IN TRANSACTION
+await this.prisma.email.deleteMany({
+  where: { providerId: provider.id },
+});
+
+await this.prisma.providerConfig.delete({
+  where: { id: provider.id },
+});
+
+const orphanedContactsResult = await this.prisma.contact.deleteMany({
+  where: {
+    tenantId,
+    providerContacts: { none: {} },
+  },
+});
+```
+
+**Risk:** If any operation fails mid-way, data is left in inconsistent state:
+- Emails deleted but provider still exists
+- Provider deleted but orphaned contacts not cleaned
+
+**Fix Required:**
+```typescript
+await this.prisma.$transaction(async (tx) => {
+  await tx.email.deleteMany({ where: { providerId: provider.id } });
+  await tx.providerConfig.delete({ where: { id: provider.id } });
+  await tx.contact.deleteMany({
+    where: { tenantId, providerContacts: { none: {} } },
+  });
+});
+```
+
+---
+
+### Positive Findings
+
+- **DTOs have proper validation** - google-provider.dto.ts and microsoft-provider.dto.ts use class-validator decorators (@IsEmail, @IsString, @IsNotEmpty, etc.)
+
+- **OAuth services** - Proper PKCE support, token refresh with error differentiation
+
+- **Token encryption** - Access/refresh tokens properly encrypted with AES
+
+---
+
+## Code Duplication Findings
+
+> **Audit Date:** December 12, 2025
+> **Estimated Savings:** 500-600 lines of duplicated code
+
+### DUP-1: Attachment Handlers (~150 lines duplicated)
+**Priority:** P2 - Medium (Refactoring)
+**Files:**
+- `backend/src/modules/email-sync/services/gmail/gmail-attachment-handler.ts` (352 lines)
+- `backend/src/modules/email-sync/services/microsoft/microsoft-attachment-handler.ts` (400 lines)
+
+**Duplicated Methods (90%+ identical):**
+- `saveCalendarInvite()` - 16 lines IDENTICAL
+- `serializeInvite()` - 9 lines IDENTICAL
+- `syncCalendarEventFromInvite()` - 75+ lines IDENTICAL
+- `processEmailAttachments()` core logic - 90% similar
+
+**Refactoring Recommendation:**
+Create `BaseAttachmentHandler` abstract class with:
+```typescript
+abstract class BaseAttachmentHandler {
+  // Shared methods
+  protected async saveCalendarInvite(...) { ... }
+  protected serializeInvite(...) { ... }
+  protected async syncCalendarEventFromInvite(...) { ... }
+  protected async processAttachmentWithStrategy(...) { ... }
+
+  // Provider-specific (abstract)
+  protected abstract downloadAttachment(...): Promise<Buffer | null>;
+}
+```
+
+---
+
+### DUP-2: Calendar Providers (~350 lines duplicated)
+**Priority:** P2 - Medium (Refactoring)
+**Files:**
+- `backend/src/modules/calendar/providers/google-calendar.provider.ts` (461 lines)
+- `backend/src/modules/calendar/providers/microsoft-calendar.provider.ts` (507 lines)
+
+**Duplicated Methods (90%+ identical):**
+- `refreshToken()` - ~35 lines each
+- `listCalendars()` - ~30 lines each
+- `getCalendar()` - ~12 lines each (IDENTICAL)
+- `createCalendar()` - ~50 lines each
+- `updateCalendar()` - ~35 lines each
+- `deleteCalendar()` - ~45 lines each
+- `listEvents()` - ~15 lines each
+- `getEvent()` - ~15 lines each
+- `createEvent()` - ~40 lines each
+- `updateEvent()` - ~25 lines each
+- `deleteEvent()` - ~15 lines each
+- `testConnection()` - ~8 lines each (IDENTICAL)
+- `withErrorHandling()` - ~25 lines each (nearly IDENTICAL)
+- `mapToCalendarEvent()` - ~25 lines each (IDENTICAL)
+
+**Only Difference:** `syncCalendars()` calls different sync services
+
+**Refactoring Recommendation:**
+Create `BaseCalendarProvider` abstract class:
+```typescript
+abstract class BaseCalendarProvider implements ICalendarProvider {
+  // Shared implementations for all 13 methods above
+
+  // Only this needs to be provider-specific
+  abstract syncCalendars(options?: CalendarSyncOptions): Promise<CalendarSyncResult>;
+}
+```
+
+---
+
+### DUP-3: OAuth Services (~100 lines similar)
+**Priority:** P2 - Medium (Refactoring)
+**Files:**
+- `backend/src/modules/providers/services/google-oauth.service.ts` (509 lines)
+- `backend/src/modules/providers/services/microsoft-oauth.service.ts` (748 lines)
+
+**Similar Patterns:**
+- `getProviderWithTokens()` - Token decryption + refresh logic
+- `generateRandomState()` - Identical (both use randomBytes)
+- Error handling patterns in `refreshAccessToken()`
+- Test method structures
+
+**Refactoring Recommendation:**
+- Move common token operations to `ProviderTokenService` (partially exists)
+- Extract shared error handling to utility
+
+---
+
+### DUP-4: Contacts Providers (Likely Similar Pattern)
+**Priority:** P2 - Medium
+**Note:** Not fully audited, but based on patterns likely has similar duplication to calendar providers
+
+---
+
+### DUP-5: Webhook Controllers
+**Priority:** P2 - Medium
+**Files:**
+- `calendar/controllers/calendar-webhook.controller.ts`
+- `contacts/controllers/contacts-webhook.controller.ts`
+- `email-sync/controllers/webhook.controller.ts`
+
+**Similar Patterns:**
+- Token validation (Gmail)
+- clientState validation (Microsoft)
+- Error handling inconsistencies
+
+---
+
+### DUP-6: Test Method Patterns
+**Priority:** P2 - Low
+**Files:** Various OAuth services
+
+**Pattern:** `testGmailLabels`, `testMailFolders`, `testCalendars`, etc. follow similar structure
+
+---
+
+## Refactoring Priority Matrix
+
+| Issue | Effort | Impact | ROI | Priority |
+|-------|--------|--------|-----|----------|
+| DUP-2: Calendar Providers | Medium | High | High | 1 |
+| DUP-1: Attachment Handlers | Medium | Medium | Medium | 2 |
+| PROV-1.1: Transaction | Low | High | Very High | **CRITICAL** |
+| SYNC-1.1-1.3: Transactions | Low | High | Very High | **HIGH** |
+| DUP-3: OAuth Services | High | Medium | Medium | 3 |
+
+---
+
+## Implementation Checklist (Email-Sync & Providers)
+
+### Immediate: Critical Fixes
+
+**Providers:**
+- [ ] PROV-1.1: Add transaction to deleteProviderConfig()
+
+**Email-Sync:**
+- [ ] SYNC-1.1: Add transaction to Gmail attachment handler
+- [ ] SYNC-1.2: Add transaction to Microsoft attachment handler
+- [ ] SYNC-1.3: Add transaction to folder-sync operations
+- [ ] SYNC-2.1: Remove/sanitize webhook payload logging
+
+### Future: Refactoring (P2)
+
+**Code Duplication:**
+- [ ] DUP-2: Extract BaseCalendarProvider class (~350 lines savings)
+- [ ] DUP-1: Extract BaseAttachmentHandler class (~150 lines savings)
+- [ ] DUP-3: Consolidate OAuth token operations
+
+---
+
+## Files to Modify (Email-Sync & Providers)
+
+| File | Issues | Priority |
+|------|--------|----------|
+| `providers/services/provider-config.service.ts` | 1 | P0 |
+| `email-sync/services/gmail/gmail-attachment-handler.ts` | 1 | P1 |
+| `email-sync/services/microsoft/microsoft-attachment-handler.ts` | 1 | P1 |
+| `email-sync/services/folder-sync.service.ts` | 1 | P1 |
+| `email-sync/controllers/webhook.controller.ts` | 1 | P2 |
+| `calendar/providers/google-calendar.provider.ts` | Refactor | P2 |
+| `calendar/providers/microsoft-calendar.provider.ts` | Refactor | P2 |
