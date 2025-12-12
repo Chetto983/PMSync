@@ -70,6 +70,7 @@ async function testGoogleSyncModes() {
       syncType: 'full',
       priority: 'high',
       tenantId: provider.tenantId,
+      providerType: 'google',
     });
     const legacyFullDuration = Date.now() - legacyFullStart;
 
@@ -107,6 +108,7 @@ async function testGoogleSyncModes() {
       syncType: 'incremental',
       priority: 'high',
       tenantId: provider.tenantId,
+      providerType: 'google',
     });
     const legacyIncrDuration = Date.now() - legacyIncrStart;
 
@@ -133,6 +135,7 @@ async function testGoogleSyncModes() {
       syncType: 'full',
       priority: 'high',
       tenantId: provider.tenantId,
+      providerType: 'google',
     });
     const driverFullDuration = Date.now() - driverFullStart;
 
@@ -170,6 +173,7 @@ async function testGoogleSyncModes() {
       syncType: 'incremental',
       priority: 'high',
       tenantId: provider.tenantId,
+      providerType: 'google',
     });
     const driverIncrDuration = Date.now() - driverIncrStart;
 
