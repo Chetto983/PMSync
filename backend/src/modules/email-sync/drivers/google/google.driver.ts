@@ -55,7 +55,7 @@ export class GoogleDriver extends BaseEmailDriver {
     try {
       const profile = await this.gmail.users.getProfile({ userId: 'me' });
       this.userEmail = profile.data.emailAddress || null;
-    } catch (_error) {
+    } catch {
       this.logger.warn('Could not fetch user profile during connect');
     }
   }

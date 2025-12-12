@@ -49,7 +49,7 @@ describe('Email Drivers Integration Tests', () => {
   let prisma: PrismaService;
   let factory: EmailDriverFactory;
   let providerTokenService: ProviderTokenService;
-  let providers: TestProvider[] = [];
+  const providers: TestProvider[] = [];
   const logger = new Logger('DriverIntegrationTest');
 
   beforeAll(async () => {

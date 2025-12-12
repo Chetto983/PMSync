@@ -75,7 +75,12 @@
       "Skill(superpowers:brainstorming)",
       "Skill(superpowers:using-superpowers)",
       "Skill(superpowers:executing-plans)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(node:*)",
+      "Bash(pkill:*)",
+      "Bash(npm run:*)",
+      "Bash(npx dotenv:*)",
+      "Bash(Select-String -Pattern \"error|failed|Exception\" -Context 2)"
     ],
     "deny": [],
     "ask": []

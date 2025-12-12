@@ -121,7 +121,12 @@ export class GoogleSyncService extends BaseEmailSyncService {
         await driver.disconnect();
       }
     } catch (error) {
-      this.logger.error(`Gmail sync failed for ${email}:`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Gmail sync failed for ${email}: ${errorMessage}`);
+      if (errorStack) {
+        this.logger.error(`Stack trace: ${errorStack}`);
+      }
       throw error;
     }
   }

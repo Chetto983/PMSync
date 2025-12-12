@@ -635,7 +635,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
           this.folderIdCache.set(folder.type.toUpperCase(), folder.id);
         }
       }
-    } catch (_error) {
+    } catch {
       this.logger.warn('Could not cache folder IDs');
     }
   }

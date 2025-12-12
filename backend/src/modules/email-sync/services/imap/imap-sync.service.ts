@@ -144,7 +144,12 @@ export class ImapSyncService extends BaseEmailSyncService {
         await driver.disconnect();
       }
     } catch (error) {
-      this.logger.error(`IMAP sync failed for ${email}:`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`IMAP sync failed for ${email}: ${errorMessage}`);
+      if (errorStack) {
+        this.logger.error(`Stack trace: ${errorStack}`);
+      }
       throw error;
     }
   }
