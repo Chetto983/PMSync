@@ -1243,12 +1243,11 @@ export class IMAPDriver extends BaseEmailDriver {
           // Fetch messages modified since lastModSeq
           // Using CHANGEDSINCE MODSEQ search criterion
           for await (const message of client.fetch(
-            { modseq: lastModSeq + 1n },
+            { modseq: lastModSeq + 1n }, // SearchObject with modseq filter
             {
               uid: true,
               flags: true,
               envelope: true,
-              modseq: true,
             },
             { uid: true },
           )) {
