@@ -1,3 +1,0 @@
-ERRORE: Sintassi non valida. L'opzione predefinita non Š consentita per 
-un numero di volte superiore a '1'.
-Digitare "TIMEOUT /?" per informazioni sull'utilizzo.
