@@ -10,7 +10,6 @@ import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service'
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { getRedisConnectionOptions } from '../../../common/config';
 import { Redis } from 'ioredis';
-// @ts-ignore - vcf module doesn't have types
 import * as vCard from 'vcf';
 
 // Type-safe interfaces for JSON fields
@@ -1038,7 +1037,10 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
 
     try {
       // Parse vCard content - can contain multiple vCards
-      const cards = vCard.parse(vcfContent);
+      const parsed = vCard.parse(vcfContent);
+
+      // vCard.parse returns a single vCard or array, normalize to array
+      const cards = Array.isArray(parsed) ? parsed : [parsed];
 
       // Get existing emails for deduplication
       const existingContacts = await this.prisma.contact.findMany({
