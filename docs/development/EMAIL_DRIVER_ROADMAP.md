@@ -109,6 +109,47 @@ All three sync services (Google, Microsoft, IMAP) have been **completely rewritt
    - Polling strategy (5-15 min) more reliable than IDLE
    - Preserve timestamps and folder structure
 
+5. **Provider Type Migration: 'generic' → 'imap'**
+   - **Goal:** Remove legacy 'generic' provider type, use explicit 'imap' type
+   - **Status:** ✅ COMPLETE
+
+   **Changes Made:**
+   - `provider-config.service.ts`: Changed all database operations from `providerType: 'generic'` to `providerType: 'imap'` (6 locations)
+   - `folder-sync.service.ts`: Updated all providerType checks from `'generic'` to `'imap'` (6 locations)
+   - `email-send.service.ts`: Updated isImapProvider check to only use `'imap'`
+   - `sync.worker.ts`: Changed job routing from `case 'generic'` to `case 'imap'`
+   - `provider.factory.ts`: Removed `generic: ImapEmailProvider` alias from SUPPORTED_PROVIDERS
+   - `sync-job.interface.ts`: Updated SyncJobData.providerType to `'google' | 'microsoft' | 'imap'`
+
+   **Migration Notes:**
+   - API endpoints remain `/providers/generic/*` for backward compatibility
+   - Frontend unchanged (still calls 'generic' endpoints)
+   - Database field now consistently uses `providerType: 'imap'`
+   - Existing providers updated via manual SQL: `UPDATE provider_configs SET "providerType" = 'imap' WHERE "providerType" = 'generic'`
+
+   **Benefits:**
+   - Consistent technical terminology ('imap' reflects the implementation)
+   - Cleaner type system without legacy aliases
+   - Easier to understand codebase for new developers
+
+### 📊 Phase 5 Summary
+
+**Total Code Reduction:**
+
+- GoogleSyncService: 789 → 384 lines (51% reduction)
+- MicrosoftSyncService: 951 → 389 lines (59% reduction)
+- ImapSyncService: 1327 → 405 lines (69.5% reduction)
+- **Total: 3067 → 1178 lines (1889 lines removed, 61.6% overall reduction)**
+
+**Architecture Wins:**
+
+- ✅ All sync services use EmailDriverFactory pattern
+- ✅ No direct API client code in sync services
+- ✅ Canonical message format across all providers
+- ✅ Consistent error handling and resilience
+- ✅ Simplified testing (mock driver instead of API)
+- ✅ Clean provider type system ('google', 'microsoft', 'imap')
+
 ### 📋 Next Steps
 
 1. **Email Send Service Migration**
