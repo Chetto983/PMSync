@@ -10,6 +10,7 @@ import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service'
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { getRedisConnectionOptions } from '../../../common/config';
 import { Redis } from 'ioredis';
+// @ts-ignore - vcf module doesn't have types
 import * as vCard from 'vcf';
 
 // Type-safe interfaces for JSON fields
