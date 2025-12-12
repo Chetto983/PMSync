@@ -5,7 +5,7 @@
 export interface SyncJobData {
   tenantId: string;
   providerId: string;
-  providerType: 'google' | 'microsoft' | 'generic';
+  providerType: 'google' | 'microsoft' | 'imap';
   email: string;
   priority: 'high' | 'normal' | 'low';
   syncType: 'full' | 'incremental';
