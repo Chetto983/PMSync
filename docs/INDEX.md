@@ -1,6 +1,6 @@
 # MailAgent Documentation Hub
 
-**Last Updated**: 2025-12-09
+**Last Updated**: 2025-12-12
 **Status**: Active
 
 Welcome to the MailAgent documentation. This index provides a structured overview of all project documentation.
@@ -11,9 +11,9 @@ Welcome to the MailAgent documentation. This index provides a structured overvie
 
 | Category | Primary Document | Status |
 |----------|-----------------|--------|
-| **MVP Roadmap** | [MVP_COMPLETION_ROADMAP.md](./MVP_COMPLETION_ROADMAP.md) | **Active** |
+| **MVP Roadmap** | [MVP_COMPLETION_ROADMAP.md](./MVP_COMPLETION_ROADMAP.md) | Complete |
 | **AI/Multi-Agent** | [AI_COMPREHENSIVE_ROADMAP.md](./AI_COMPREHENSIVE_ROADMAP.md) | Current |
-| **Email/Sync** | [EMAIL_EMAILSYNC_AUDIT_ROADMAP.md](./EMAIL_EMAILSYNC_AUDIT_ROADMAP.md) | Current |
+| **Email Driver** | [development/EMAIL_DRIVER_ROADMAP.md](./development/EMAIL_DRIVER_ROADMAP.md) | Complete |
 | **Redis/BullMQ** | [REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md](./REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md) | Complete |
 | **Queue Services** | [QUEUE_SERVICES_API.md](./QUEUE_SERVICES_API.md) | Current |
 | **Security** | [security/AUDIT-FINDINGS.md](./security/AUDIT-FINDINGS.md) | Current |
@@ -27,9 +27,9 @@ Welcome to the MailAgent documentation. This index provides a structured overvie
 docs/
 ├── INDEX.md                              # This file - Documentation hub
 │
-├── 📋 ROADMAPS
-│   ├── MVP_COMPLETION_ROADMAP.md         # Master MVP checklist (Active)
-│   ├── AI_COMPREHENSIVE_ROADMAP.md       # Master AI roadmap (v3.1)
+├── ROADMAPS (Current)
+│   ├── MVP_COMPLETION_ROADMAP.md         # Master MVP checklist (Complete)
+│   ├── AI_COMPREHENSIVE_ROADMAP.md       # Master AI roadmap
 │   ├── EMAIL_EMAILSYNC_AUDIT_ROADMAP.md  # Email/sync audit & roadmap
 │   ├── EMAIL_SYNC_REFACTOR_ROADMAP.md    # Email sync refactoring details
 │   ├── REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md  # Queue infrastructure (Complete)
@@ -40,7 +40,7 @@ docs/
 │   ├── CALENDAR_INVITATION_ROADMAP.md    # Calendar invitations
 │   └── FRONTEND_REFACTOR_ROADMAP.md      # Frontend modernization
 │
-├── 📚 REFERENCES
+├── REFERENCES
 │   ├── QUEUE_SERVICES_API.md             # BullMQ queue services API
 │   ├── MAIL_API_REFERENCE.md             # Email API endpoints
 │   ├── MAIL_API_TEST_ROADMAP.md          # API testing status
@@ -48,7 +48,7 @@ docs/
 │   ├── AI_COMPOSE_IMPLEMENTATION.md      # AI compose feature
 │   └── VOLTAGENT_AUDIT.md                # VoltAgent framework audit
 │
-├── 🔐 SECURITY
+├── SECURITY
 │   └── security/
 │       ├── README.md                     # Security overview
 │       ├── AUDIT-FINDINGS.md             # Security audit findings
@@ -59,16 +59,23 @@ docs/
 │       ├── FIXES-APPLIED.md              # Security fixes applied
 │       └── TEST-COVERAGE-REPORT.md       # Test coverage status
 │
-├── 🛠️ DEVELOPMENT
+├── DEVELOPMENT
 │   └── development/
+│       ├── EMAIL_DRIVER_ROADMAP.md       # Email driver abstraction (Complete)
+│       ├── BULLMQ_ARCHITECTURE.md        # BullMQ queue architecture
+│       ├── API_BEST_PRACTICES_2025.md    # API development guidelines
 │       └── contacts-refactor-plan.md     # Contacts refactoring (Future)
 │
-├── 📦 SETUP
+├── GUIDES
+│   └── guides/
+│       └── IMAP_SETUP_GUIDE.md           # User guide for IMAP setup
+│
+├── SETUP
 │   └── setup/
 │       ├── oauth-complete-guide.md       # OAuth setup guide
 │       └── oauth-vercel.md               # Vercel OAuth config
 │
-└── 📖 RUNBOOKS
+└── RUNBOOKS
     └── runbooks/
         ├── QUEUE_OPERATIONS.md           # Queue operations guide
         └── REDIS_OPERATIONS.md           # Redis operations guide
@@ -82,7 +89,7 @@ docs/
 
 | Document | Purpose | Status |
 |----------|---------|--------|
-| [AI_COMPREHENSIVE_ROADMAP.md](./AI_COMPREHENSIVE_ROADMAP.md) | **Master AI roadmap** - All AI features, VoltAgent architecture, phases | Current (v3.1) |
+| [AI_COMPREHENSIVE_ROADMAP.md](./AI_COMPREHENSIVE_ROADMAP.md) | Master AI roadmap - All AI features, architecture, phases | Current |
 | [AI_COMPOSE_IMPLEMENTATION.md](./AI_COMPOSE_IMPLEMENTATION.md) | AI compose feature implementation details | Current |
 | [VOLTAGENT_AUDIT.md](./VOLTAGENT_AUDIT.md) | VoltAgent framework audit and recommendations | Current |
 
@@ -92,10 +99,12 @@ docs/
 
 | Document | Purpose | Status |
 |----------|---------|--------|
-| [EMAIL_EMAILSYNC_AUDIT_ROADMAP.md](./EMAIL_EMAILSYNC_AUDIT_ROADMAP.md) | **Master email/sync audit** - Comprehensive audit with action items | Current |
+| [development/EMAIL_DRIVER_ROADMAP.md](./development/EMAIL_DRIVER_ROADMAP.md) | Email driver abstraction - unified provider architecture | **Complete** |
+| [EMAIL_EMAILSYNC_AUDIT_ROADMAP.md](./EMAIL_EMAILSYNC_AUDIT_ROADMAP.md) | Comprehensive email/sync audit with action items | Current |
 | [EMAIL_SYNC_REFACTOR_ROADMAP.md](./EMAIL_SYNC_REFACTOR_ROADMAP.md) | Refactoring plan details | Current |
 | [MAIL_API_REFERENCE.md](./MAIL_API_REFERENCE.md) | Email API endpoint reference | Current |
 | [MAIL_API_TEST_ROADMAP.md](./MAIL_API_TEST_ROADMAP.md) | API test status and results | Current |
+| [guides/IMAP_SETUP_GUIDE.md](./guides/IMAP_SETUP_GUIDE.md) | User documentation for IMAP provider setup | Current |
 
 ---
 
@@ -103,8 +112,9 @@ docs/
 
 | Document | Purpose | Status |
 |----------|---------|--------|
-| [REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md](./REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md) | BullMQ queue standardization | Complete |
+| [REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md](./REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md) | BullMQ queue standardization | **Complete** |
 | [QUEUE_SERVICES_API.md](./QUEUE_SERVICES_API.md) | Queue services API reference | Current |
+| [development/BULLMQ_ARCHITECTURE.md](./development/BULLMQ_ARCHITECTURE.md) | BullMQ architecture documentation | Current |
 | [REALTIME_MODULE_ROADMAP.md](./REALTIME_MODULE_ROADMAP.md) | WebSocket/realtime features | Current |
 | [runbooks/QUEUE_OPERATIONS.md](./runbooks/QUEUE_OPERATIONS.md) | Queue operations runbook | Current |
 | [runbooks/REDIS_OPERATIONS.md](./runbooks/REDIS_OPERATIONS.md) | Redis operations runbook | Current |
@@ -151,8 +161,8 @@ docs/
 ### For Backend Developers
 
 1. Start with [API_BACKEND_OVERVIEW.md](./API_BACKEND_OVERVIEW.md) for architecture
-2. Review [REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md](./REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md) for queue patterns
-3. Check [EMAIL_EMAILSYNC_AUDIT_ROADMAP.md](./EMAIL_EMAILSYNC_AUDIT_ROADMAP.md) for email sync details
+2. Review [development/EMAIL_DRIVER_ROADMAP.md](./development/EMAIL_DRIVER_ROADMAP.md) for email driver patterns
+3. Check [development/BULLMQ_ARCHITECTURE.md](./development/BULLMQ_ARCHITECTURE.md) for queue patterns
 4. Review [security/AUDIT-FINDINGS.md](./security/AUDIT-FINDINGS.md) for security requirements
 
 ### For Frontend Developers
@@ -179,29 +189,30 @@ docs/
 
 ---
 
-## New Services Added (2025-12-06 to 2025-12-09)
+## Recent Cleanup (2025-12-12)
 
-The following new services were added but not yet fully documented in roadmaps:
+The following obsolete migration documents were removed (work completed):
 
-| Service | Path | Purpose |
-|---------|------|---------|
-| `SummarizationQueueService` | `ai/voltagent/memory/summarization.queue.ts` | BullMQ-based conversation summarization |
-| `CorrelationContextService` | `common/services/correlation-context.service.ts` | Async context tracking for distributed tracing |
-| `CorrelationInterceptor` | `common/interceptors/correlation.interceptor.ts` | Injects correlation IDs into requests |
+**Deleted Files:**
 
-**New Environment Variables:**
+- `development/DRIVER_MIGRATION_PLAN.md` - Migration complete
+- `development/GOOGLE_SYNC_WRAPPER_IMPLEMENTATION.md` - Merged into EMAIL_DRIVER_ROADMAP
+- `development/REFACTORING_ROADMAP_SUMMARY.md` - Work complete
+- `development/PHASE5_DRIVER_ONLY_MIGRATION.md` - Phase complete
+- `development/PHASE7_EMAIL_SEND_MIGRATION.md` - Phase complete
+- `development/PHASE7_VALIDATION_COMPLETE.md` - Merged into EMAIL_DRIVER_ROADMAP
+- `development/PHASE7_2_CALENDAR_AUDIT.md` - Audit complete
+- `development/PHASE7_3_LEGACY_CLEANUP_PLAN.md` - Cleanup done
+- `development/MIGRATION_VALIDATION_READY.md` - Validation complete
+- `development/PROVIDER_ARCHITECTURE_ANALYSIS.md` - Analysis merged
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `MISTRAL_MODEL_SMALL` | mistral-small-latest | Small model selection |
-| `MISTRAL_MODEL_MEDIUM` | mistral-medium-latest | Medium model selection |
-| `MISTRAL_MODEL_LARGE` | mistral-large-latest | Large model selection |
-| `MISTRAL_CIRCUIT_BREAKER_THRESHOLD` | 5 | Failures before circuit opens |
-| `MISTRAL_CIRCUIT_BREAKER_RESET_MS` | 30000 | Time before half-open state |
+**Updated Files:**
+
+- `development/EMAIL_DRIVER_ROADMAP.md` - Now shows complete status with all phases done
 
 ---
 
-## Recent Cleanup (2025-12-09)
+## Previous Cleanup (2025-12-09)
 
 The following obsolete documents were removed:
 
