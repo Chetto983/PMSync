@@ -28,7 +28,7 @@ import { AiQueueService, type AiJobData } from './services/ai-queue.service';
 import { RateLimiterService } from './services/rate-limiter.service';
 import { MistralBatchService } from './services/mistral-batch.service';
 import { ActionSeverity } from './interfaces/agent-action.interface';
-import { createSupervisorAgent } from './agents';
+import { createSupervisorAgent, type UserContext } from './agents';
 import { getLocale, type SupportedLocale } from './locales';
 import { createMemory, VoltAgentMemoryService } from './memory';
 import { createObservabilityHooks, type AgentMetrics } from './observability';
@@ -311,12 +311,75 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Fetch user context (profile + preferences) for personalized instructions.
+   * Uses Redis caching for tenant isolation and performance.
+   * Returns null if user not found.
+   */
+  private async getUserContext(userId: string, tenantId: string): Promise<UserContext | null> {
+    // Check Redis cache first (tenant-isolated key)
+    const cacheKey = `voltagent:user-context:${tenantId}:${userId}`;
+    if (this.cacheService) {
+      const cached = await this.cacheService.get<UserContext>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          userPreferences: true,
+        },
+      });
+
+      if (!user) {
+        return null;
+      }
+
+      const userContext: UserContext = {
+        firstName: user.firstName ?? undefined,
+        lastName: user.lastName ?? undefined,
+        email: user.email,
+        role: user.role,
+        jobTitle: user.userPreferences?.jobTitle ?? undefined,
+        jobRole: user.userPreferences?.jobRole ?? undefined,
+        department: user.userPreferences?.department ?? undefined,
+        industry: user.userPreferences?.industry ?? undefined,
+        companySize: user.userPreferences?.companySize ?? undefined,
+        communicationStyle: user.userPreferences?.communicationStyle ?? undefined,
+        responseLength: user.userPreferences?.responseLength ?? undefined,
+        language: user.userPreferences?.language ?? undefined,
+        timezone: user.userPreferences?.timezone ?? undefined,
+      };
+
+      // Cache for 5 minutes (user preferences don't change often)
+      if (this.cacheService) {
+        await this.cacheService.set(cacheKey, userContext, { ttl: 300 });
+      }
+
+      return userContext;
+    } catch (error) {
+      this.logger.warn(`Failed to fetch user context for ${userId}: ${error}`);
+      return null;
+    }
+  }
+
+  /**
    * Get or create an agent for the given context.
-   * Agents are cached per locale+model (not tenant, since tools use tenantId).
+   * Agents are cached per user+locale+model for personalized instructions.
    * Includes RAG services for HybridRetriever when available.
    */
-  private getOrCreateAgent(tenantId: string, locale: SupportedLocale, modelType: MistralModel = 'small'): Agent {
-    const cacheKey = `${locale}:${modelType}`;
+  private getOrCreateAgent(
+    tenantId: string,
+    locale: SupportedLocale,
+    modelType: MistralModel = 'small',
+    userContext?: UserContext | null,
+  ): Agent {
+    // Cache key includes userId if userContext is provided (personalized agents)
+    // Fall back to locale+model for anonymous/system calls
+    const userKey = userContext?.email ?? 'anonymous';
+    const cacheKey = `${userKey}:${locale}:${modelType}`;
 
     if (!this.agents.has(cacheKey)) {
       const model = getMistralModel(modelType);
@@ -332,6 +395,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         // RAG services for HybridRetriever (optional - gracefully degrades)
         mistralService: this.mistralService,
         embeddingsService: this.embeddingsService,
+        // User context for personalized instructions
+        userContext: userContext ?? undefined,
       });
       this.agents.set(cacheKey, agent);
     }
@@ -402,7 +467,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     const locale = getLocale(options.locale);
-    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel);
+
+    // Fetch user context for personalized agent instructions
+    const userContext = await this.getUserContext(options.userId, options.tenantId);
+    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext);
 
     // Use tenant-isolated userId for memory
     const tenantUserId = this.getTenantUserId(options.tenantId, options.userId);
@@ -544,7 +612,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    */
   async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string> {
     const locale = getLocale(options.locale);
-    const agent = this.getOrCreateAgent(options.tenantId, locale, options.model);
+
+    // Fetch user context for personalized agent instructions
+    const userContext = await this.getUserContext(options.userId, options.tenantId);
+    const agent = this.getOrCreateAgent(options.tenantId, locale, options.model, userContext);
 
     // Use tenant-isolated userId for memory
     const tenantUserId = this.getTenantUserId(options.tenantId, options.userId);

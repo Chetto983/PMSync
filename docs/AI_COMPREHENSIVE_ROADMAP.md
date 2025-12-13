@@ -1,8 +1,8 @@
 # AI Comprehensive Roadmap - MailAgent
 
-**Version:** 3.1
-**Date:** 2025-12-09
-**Status:** Implementation Phase - Migrated to VoltAgent Architecture
+**Version:** 3.2
+**Date:** 2025-12-13
+**Status:** Implementation Phase - Migrated to VoltAgent Architecture + User Context Personalization
 
 ---
 
@@ -95,7 +95,7 @@ backend/src/modules/ai/
 | Knowledge/RAG | ✅ Working | Production |
 | HITL Approval | ✅ Working | Production |
 | Learning Loop | ✅ Working | Production |
-| Memory Service | ✅ Working | Production (with summarization) |
+| Memory Service | ✅ Working | Production (with summarization + user context) |
 | AI Queue Service | ✅ Working | Production |
 | LLM Telemetry | ✅ Working | Production |
 | Circuit Breaker | ✅ Working | Production |
