@@ -131,7 +131,8 @@ export class EmailsService {
         folderRecords.map((f) => [f.path.toUpperCase(), f]),
       );
 
-      for (const folder of folders) {
+      // OPTIMIZATION: Run all folder count queries in parallel instead of sequentially
+      const countPromises = folders.map(async (folder) => {
         const folderRecord = folderMap.get(folder.toUpperCase());
         // Check if folder is TRASH by specialUse attribute (locale-independent)
         const isTrashFolder = folderRecord?.specialUse?.toUpperCase() === 'TRASH';
@@ -157,15 +158,22 @@ export class EmailsService {
           }),
         ]);
 
-        // Emit websocket event with updated counts
-        // Use folder ID if found, otherwise fall back to folder name
+        return { folder, folderRecord, totalCount, unreadCount };
+      });
+
+      // Wait for all folder counts in parallel
+      const results = await Promise.all(countPromises);
+
+      // Emit websocket events for each folder
+      const timestamp = new Date().toISOString();
+      for (const { folder, folderRecord, totalCount, unreadCount } of results) {
         this.realtimeEvents.emitFolderCountsUpdate(tenantId, {
           providerId,
           folderId: folderRecord?.id || folder,
           folderName: folderRecord?.name || folder,
           totalCount,
           unreadCount,
-          timestamp: new Date().toISOString(),
+          timestamp,
         });
       }
     } catch (error: any) {
@@ -316,13 +324,6 @@ export class EmailsService {
         },
       }),
     ]);
-
-    // Debug: log what we're returning including body data
-    this.logger.debug(`[listEmails] Returning ${emails.length} emails (total: ${total}) for tenantId=${tenantId}, providerId=${providerId || 'all'}, folder=${filters.folder || 'none'}`);
-    if (emails.length > 0) {
-      const firstEmail = emails[0] as any;
-      this.logger.debug(`[listEmails] First email body data: id=${firstEmail.id}, bodyHtmlLen=${firstEmail.bodyHtml?.length || 0}, bodyTextLen=${firstEmail.bodyText?.length || 0}, snippetLen=${firstEmail.snippet?.length || 0}`)
-    }
 
     return {
       emails,
@@ -1243,7 +1244,7 @@ export class EmailsService {
     const toHardDelete = emails.filter((e) => e.isDeleted);
     const toSoftDelete = emails.filter((e) => !e.isDeleted);
 
-    this.logger.log(`[BULK DELETE] ${toSoftDelete.length} soft delete, ${toHardDelete.length} hard delete`);
+    this.logger.debug(`[bulkDelete] Processing ${toSoftDelete.length} soft, ${toHardDelete.length} hard deletes`);
 
     // CRITICAL FIX: Wrap all database operations in transaction for atomicity
     const { softDeleteCount, hardDeleteCount } = await this.prisma.$transaction(async (tx) => {

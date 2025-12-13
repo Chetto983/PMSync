@@ -42,12 +42,16 @@ export function getSharedRedisConnection(): Redis {
     });
 
     sharedRedisConnection.on('error', (err) => {
+      // Always log errors - critical for production debugging
       console.error('[BullMQ-Shared] Redis connection error:', err.message);
     });
 
-    sharedRedisConnection.on('connect', () => {
-      console.log('[BullMQ-Shared] Redis connected');
-    });
+    // Only log connect in non-production (reduce noise in production logs)
+    if (process.env.NODE_ENV !== 'production') {
+      sharedRedisConnection.on('connect', () => {
+        console.log('[BullMQ-Shared] Redis connected');
+      });
+    }
   }
   connectionRefCount++;
   return sharedRedisConnection;

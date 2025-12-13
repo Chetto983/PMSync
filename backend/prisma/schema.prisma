@@ -354,6 +354,10 @@ model Email {
   @@index([sentAt])
   @@index([crossProviderLinkId])
   @@index([tenantId, hasCalendarInvite])
+  // P2 Optimization: Additional composite indexes for common query patterns
+  @@index([tenantId, providerId, folder, receivedAt])  // Provider-specific folder listing
+  @@index([tenantId, isStarred, receivedAt])  // Starred emails listing
+  @@index([tenantId, providerId, isDeleted])  // Provider deletion queries
   @@map("emails")
 }
 

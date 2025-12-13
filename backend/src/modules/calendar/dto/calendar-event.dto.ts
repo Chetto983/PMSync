@@ -10,7 +10,6 @@ import {
   IsInt,
   Min,
   Max,
-  IsUUID,
   IsIn,
   ArrayMaxSize,
 } from 'class-validator';
@@ -65,7 +64,8 @@ export class AttendeeDto {
  * DTO for creating a calendar event
  */
 export class CreateEventDto {
-  @IsUUID()
+  @IsString()
+  @MaxLength(50)
   providerId!: string;
 
   @IsOptional()
@@ -186,7 +186,8 @@ export class UpdateEventDto {
  * DTO for creating a calendar
  */
 export class CreateCalendarDto {
-  @IsUUID()
+  @IsString()
+  @MaxLength(50)
   providerId!: string;
 
   @IsString()
@@ -224,7 +225,8 @@ export class UpdateCalendarPreferencesDto {
  */
 export class ListEventsQueryDto {
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  @MaxLength(50)
   providerId?: string;
 
   @IsOptional()
