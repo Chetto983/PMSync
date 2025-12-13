@@ -35,6 +35,10 @@ import { MicrosoftAttachmentHandler } from './services/microsoft/microsoft-attac
 import { MicrosoftFolderService } from './services/microsoft/microsoft-folder.service';
 import { MicrosoftMessageParser } from './services/microsoft/microsoft-message-parser';
 import { MicrosoftBatchProcessor } from './services/microsoft/microsoft-batch-processor';
+
+// IMAP-specific services (pluggable adapters)
+import { ImapAttachmentHandler } from './services/imap/imap-attachment-handler';
+
 import { IcsParserService } from '../calendar/services/ics-parser.service';
 
 // Webhook Services (Strategy 2: Real-time Sync)
@@ -106,6 +110,10 @@ import { FoldersController } from '../email/controllers/folders.controller';
     MicrosoftFolderService,
     MicrosoftMessageParser,
     MicrosoftBatchProcessor,
+
+    // IMAP-specific services (pluggable adapters)
+    ImapAttachmentHandler,
+
     IcsParserService,
 
     // Webhook services (Strategy 2: Real-time)

@@ -12,12 +12,11 @@
  * Usage: npx ts-node scripts/test-calendar-apis.ts
  */
 
-import axios, { AxiosInstance } from 'axios';
-import { PrismaClient } from '@prisma/client';
 import 'dotenv/config';
+import { createPrismaClient } from '../src/prisma/prisma-client.factory';
+import axios, { AxiosInstance } from 'axios';
 
-const API_BASE = process.env.API_BASE_URL || 'http://localhost:3000/api';
-const prisma = new PrismaClient();
+const API_URL = process.env.API_URL || 'http://localhost:3000';
 
 interface TestResult {
   name: string;
@@ -50,10 +49,10 @@ async function runTest(
       name,
       status: 'FAIL',
       duration: Date.now() - start,
-      error: error.message,
+      error: error.response?.data?.message || error.message,
     };
     results.push(result);
-    console.log(`  ❌ ${name}: FAIL - ${error.message}`);
+    console.log(`  ❌ ${name}: FAIL - ${result.error}`);
     return result;
   }
 }
@@ -62,380 +61,382 @@ async function main() {
   console.log('============================================================');
   console.log('CALENDAR API COMPREHENSIVE TEST');
   console.log('============================================================');
-  console.log(`API Base: ${API_BASE}`);
+  console.log(`API URL: ${API_URL}`);
   console.log(`Started at: ${new Date().toISOString()}`);
   console.log('');
 
-  // Get a user with active providers
-  const user = await prisma.user.findFirst({
-    where: {
-      providers: {
-        some: {
-          isActive: true,
-          providerType: { in: ['google', 'microsoft'] },
-        },
+  const prisma = createPrismaClient();
+
+  try {
+    // Get a user with active providers
+    const user = await prisma.user.findFirst({
+      where: { isActive: true },
+      include: { tenant: true },
+    });
+
+    if (!user) {
+      console.log('❌ No active user found for testing');
+      await prisma.$disconnect();
+      process.exit(1);
+    }
+
+    // Get providers separately (correct Prisma pattern)
+    const providers = await prisma.providerConfig.findMany({
+      where: {
+        tenantId: user.tenantId,
+        isActive: true,
+        providerType: { in: ['google', 'microsoft'] },
       },
-    },
-    include: {
-      providers: {
-        where: {
-          isActive: true,
-          providerType: { in: ['google', 'microsoft'] },
-        },
+    });
+
+    if (providers.length === 0) {
+      console.log('❌ No Google/Microsoft providers found');
+      console.log('   Calendar tests require OAuth-connected providers');
+      await prisma.$disconnect();
+      process.exit(1);
+    }
+
+    console.log(`Using user: ${user.email}`);
+    console.log(`Tenant: ${user.tenant.name} (${user.tenantId})`);
+    console.log(`Providers: ${providers.map((p) => `${p.providerType} (${p.email})`).join(', ')}`);
+    console.log('');
+
+    // Create JWT token for API calls
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { userId: user.id, tenantId: user.tenantId, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' },
+    );
+
+    // Create authenticated API client
+    const api: AxiosInstance = axios.create({
+      baseURL: API_URL,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
-    },
-  });
+      validateStatus: () => true, // Don't throw on non-2xx
+    });
 
-  if (!user || user.providers.length === 0) {
-    console.log('❌ No user with active Google/Microsoft provider found');
-    console.log('   Calendar tests require OAuth-connected providers');
-    await prisma.$disconnect();
-    process.exit(1);
-  }
+    // ============================================================
+    // CALENDAR LIST TESTS
+    // ============================================================
+    console.log('============================================================');
+    console.log('CALENDAR LIST OPERATIONS');
+    console.log('============================================================');
 
-  console.log(`Using user: ${user.email}`);
-  console.log(`Tenant: ${user.tenantId}`);
-  console.log(`Providers: ${user.providers.map((p) => `${p.providerType} (${p.email})`).join(', ')}`);
-  console.log('');
+    let calendars: any[] = [];
 
-  // Create a test session/token
-  const session = await prisma.session.findFirst({
-    where: { userId: user.id },
-    orderBy: { expiresAt: 'desc' },
-  });
-
-  if (!session) {
-    console.log('❌ No active session found for user');
-    await prisma.$disconnect();
-    process.exit(1);
-  }
-
-  // Create authenticated API client
-  const api: AxiosInstance = axios.create({
-    baseURL: API_BASE,
-    headers: {
-      Authorization: `Bearer ${session.token}`,
-      'Content-Type': 'application/json',
-    },
-    validateStatus: () => true, // Don't throw on non-2xx
-  });
-
-  // ============================================================
-  // CALENDAR LIST TESTS
-  // ============================================================
-  console.log('============================================================');
-  console.log('CALENDAR LIST OPERATIONS');
-  console.log('============================================================');
-
-  let calendars: any[] = [];
-
-  await runTest('list-calendars', async () => {
-    const res = await api.get('/calendar/calendars');
-    if (res.status !== 200) {
-      throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
-    }
-    calendars = res.data;
-    return { count: calendars.length, calendars: calendars.slice(0, 3) };
-  });
-
-  // ============================================================
-  // CALENDAR EVENT LIST TESTS
-  // ============================================================
-  console.log('\n============================================================');
-  console.log('CALENDAR EVENT LIST OPERATIONS');
-  console.log('============================================================');
-
-  let events: any[] = [];
-
-  await runTest('list-events-all', async () => {
-    const res = await api.get('/calendar/events');
-    if (res.status !== 200) {
-      throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
-    }
-    events = res.data.events || res.data || [];
-    return { count: events.length };
-  });
-
-  await runTest('list-events-with-date-filter', async () => {
-    const now = new Date();
-    const startTime = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const endTime = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
-
-    const res = await api.get(`/calendar/events?startTime=${startTime}&endTime=${endTime}`);
-    if (res.status !== 200) {
-      throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
-    }
-    const filteredEvents = res.data.events || res.data || [];
-    return { count: filteredEvents.length, dateRange: { startTime, endTime } };
-  });
-
-  await runTest('list-events-with-limit', async () => {
-    const res = await api.get('/calendar/events?limit=5');
-    if (res.status !== 200) {
-      throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
-    }
-    const limitedEvents = res.data.events || res.data || [];
-    return { count: limitedEvents.length, limitApplied: limitedEvents.length <= 5 };
-  });
-
-  // Test per-provider calendar listing
-  for (const provider of user.providers) {
-    await runTest(`list-events-provider-${provider.providerType}`, async () => {
-      const res = await api.get(`/calendar/events?providerId=${provider.id}`);
+    await runTest('list-calendars', async () => {
+      const res = await api.get('/calendar/calendars');
       if (res.status !== 200) {
         throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
       }
-      const providerEvents = res.data.events || res.data || [];
-      return { provider: provider.providerType, count: providerEvents.length };
+      calendars = res.data.calendars || [];
+      return { count: calendars.length, total: res.data.total, calendars: calendars.slice(0, 3) };
     });
-  }
 
-  // ============================================================
-  // SINGLE EVENT GET TEST
-  // ============================================================
-  console.log('\n============================================================');
-  console.log('SINGLE EVENT OPERATIONS');
-  console.log('============================================================');
+    // ============================================================
+    // CALENDAR EVENT LIST TESTS
+    // ============================================================
+    console.log('\n============================================================');
+    console.log('CALENDAR EVENT LIST OPERATIONS');
+    console.log('============================================================');
 
-  if (events.length > 0) {
-    const testEvent = events[0];
+    let events: any[] = [];
 
-    await runTest('get-single-event', async () => {
-      const res = await api.get(`/calendar/events/${testEvent.id}`);
+    await runTest('list-events-all', async () => {
+      const res = await api.get('/calendar/events');
       if (res.status !== 200) {
         throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
       }
-      return {
-        id: res.data.id,
-        title: res.data.title,
-        startTime: res.data.startTime,
-      };
+      events = res.data.events || res.data || [];
+      return { count: events.length };
     });
 
-    await runTest('get-event-attachments', async () => {
-      const res = await api.get(`/calendar/events/${testEvent.id}/attachments`);
+    await runTest('list-events-with-date-filter', async () => {
+      const now = new Date();
+      const startTime = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const endTime = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+
+      const res = await api.get(`/calendar/events?startTime=${startTime}&endTime=${endTime}`);
       if (res.status !== 200) {
         throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
       }
-      return { attachmentCount: (res.data || []).length };
-    });
-  } else {
-    console.log('  ⏭️  Skipping single event tests - no events available');
-  }
-
-  // ============================================================
-  // EVENT CREATE/UPDATE/DELETE TESTS (Non-destructive)
-  // ============================================================
-  console.log('\n============================================================');
-  console.log('EVENT CRUD OPERATIONS (Test Event Lifecycle)');
-  console.log('============================================================');
-
-  // Use first provider with calendar capability
-  const testProvider = user.providers[0];
-  let createdEventId: string | null = null;
-
-  // Find a calendar ID for this provider
-  const providerCalendar = calendars.find((c) => c.providerId === testProvider.id);
-  const testCalendarId = providerCalendar?.id || 'primary';
-
-  await runTest(`create-test-event-${testProvider.providerType}`, async () => {
-    const now = new Date();
-    const startTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // Tomorrow
-    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // +1 hour
-
-    const res = await api.post('/calendar/events', {
-      providerId: testProvider.id,
-      calendarId: testCalendarId,
-      title: `[TEST] Calendar API Test Event - ${now.toISOString()}`,
-      description: 'This event was created by test-calendar-apis.ts to validate the refactored calendar providers.',
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
-      isAllDay: false,
-      timeZone: 'Europe/Rome',
+      const filteredEvents = res.data.events || res.data || [];
+      return { count: filteredEvents.length, dateRange: { startTime, endTime } };
     });
 
-    if (res.status !== 201 && res.status !== 200) {
-      throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
+    await runTest('list-events-with-limit', async () => {
+      const res = await api.get('/calendar/events?limit=5');
+      if (res.status !== 200) {
+        throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
+      }
+      const limitedEvents = res.data.events || res.data || [];
+      return { count: limitedEvents.length, limitApplied: limitedEvents.length <= 5 };
+    });
+
+    // Test per-provider calendar listing
+    for (const provider of providers) {
+      await runTest(`list-events-provider-${provider.providerType}`, async () => {
+        const res = await api.get(`/calendar/events?providerId=${provider.id}`);
+        if (res.status !== 200) {
+          throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
+        }
+        const providerEvents = res.data.events || res.data || [];
+        return { provider: provider.providerType, count: providerEvents.length };
+      });
     }
 
-    createdEventId = res.data.id || res.data.eventId;
-    return { eventId: createdEventId, provider: testProvider.providerType };
-  });
+    // ============================================================
+    // SINGLE EVENT GET TEST
+    // ============================================================
+    console.log('\n============================================================');
+    console.log('SINGLE EVENT OPERATIONS');
+    console.log('============================================================');
 
-  if (createdEventId) {
-    await runTest(`get-created-event-${testProvider.providerType}`, async () => {
-      const res = await api.get(`/calendar/events/${createdEventId}`);
-      if (res.status !== 200) {
-        throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
-      }
-      return { title: res.data.title, verified: true };
-    });
+    if (events.length > 0) {
+      const testEvent = events[0];
 
-    await runTest(`update-test-event-${testProvider.providerType}`, async () => {
-      const res = await api.patch(`/calendar/events/${createdEventId}`, {
-        title: `[TEST UPDATED] Calendar API Test Event`,
-        description: 'Updated by test script to validate updateEvent()',
+      await runTest('get-single-event', async () => {
+        const res = await api.get(`/calendar/events/${testEvent.id}`);
+        if (res.status !== 200) {
+          throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
+        }
+        return {
+          id: res.data.id,
+          title: res.data.title,
+          startTime: res.data.startTime,
+        };
       });
 
+      await runTest('get-event-attachments', async () => {
+        const res = await api.get(`/calendar/events/${testEvent.id}/attachments`);
+        if (res.status !== 200) {
+          throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
+        }
+        return { attachmentCount: (res.data || []).length };
+      });
+    } else {
+      console.log('  ⏭️  Skipping single event tests - no events available');
+    }
+
+    // ============================================================
+    // EVENT CREATE/UPDATE/DELETE TESTS (Non-destructive)
+    // ============================================================
+    console.log('\n============================================================');
+    console.log('EVENT CRUD OPERATIONS (Test Event Lifecycle)');
+    console.log('============================================================');
+
+    // Use first provider with calendar capability
+    const testProvider = providers[0];
+    let createdEventId: string | null = null;
+
+    // Find a calendar ID for this provider
+    const providerCalendar = calendars.find((c: any) => c.providerId === testProvider.id);
+    const testCalendarId = providerCalendar?.id || 'primary';
+
+    await runTest(`create-test-event-${testProvider.providerType}`, async () => {
+      const now = new Date();
+      const startTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // Tomorrow
+      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // +1 hour
+
+      const res = await api.post('/calendar/events', {
+        providerId: testProvider.id,
+        calendarId: testCalendarId,
+        title: `[TEST] Calendar API Test Event - ${now.toISOString()}`,
+        description: 'This event was created by test-calendar-apis.ts to validate the refactored calendar providers.',
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        isAllDay: false,
+        timeZone: 'Europe/Rome',
+      });
+
+      if (res.status !== 201 && res.status !== 200) {
+        throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
+      }
+
+      createdEventId = res.data.id || res.data.eventId;
+      return { eventId: createdEventId, provider: testProvider.providerType };
+    });
+
+    if (createdEventId) {
+      await runTest(`get-created-event-${testProvider.providerType}`, async () => {
+        const res = await api.get(`/calendar/events/${createdEventId}`);
+        if (res.status !== 200) {
+          throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
+        }
+        return { title: res.data.title, verified: true };
+      });
+
+      await runTest(`update-test-event-${testProvider.providerType}`, async () => {
+        const res = await api.patch(`/calendar/events/${createdEventId}`, {
+          title: `[TEST UPDATED] Calendar API Test Event`,
+          description: 'Updated by test script to validate updateEvent()',
+        });
+
+        if (res.status !== 200) {
+          throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
+        }
+        return { updated: true };
+      });
+
+      await runTest(`delete-test-event-${testProvider.providerType}`, async () => {
+        const res = await api.delete(`/calendar/events/${createdEventId}`);
+        if (res.status !== 204 && res.status !== 200) {
+          throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
+        }
+        return { deleted: true };
+      });
+
+      // Verify deletion
+      await runTest(`verify-event-deleted-${testProvider.providerType}`, async () => {
+        const res = await api.get(`/calendar/events/${createdEventId}`);
+        // Should return 404 or the event with isDeleted=true
+        if (res.status === 404) {
+          return { verified: true, status: 'not_found' };
+        }
+        if (res.status === 200 && res.data.isDeleted === true) {
+          return { verified: true, status: 'soft_deleted' };
+        }
+        throw new Error(`Event still accessible: ${res.status}`);
+      });
+    }
+
+    // ============================================================
+    // CALENDAR SYNC TESTS
+    // ============================================================
+    console.log('\n============================================================');
+    console.log('CALENDAR SYNC OPERATIONS');
+    console.log('============================================================');
+
+    for (const provider of providers) {
+      await runTest(`sync-calendar-${provider.providerType}`, async () => {
+        const res = await api.post(`/calendar/sync/${provider.id}`);
+        if (res.status !== 200 && res.status !== 201 && res.status !== 202) {
+          throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
+        }
+        return res.data;
+      });
+    }
+
+    // ============================================================
+    // CALENDAR WEBHOOK HEALTH
+    // ============================================================
+    console.log('\n============================================================');
+    console.log('CALENDAR WEBHOOK HEALTH');
+    console.log('============================================================');
+
+    await runTest('calendar-webhook-health', async () => {
+      const res = await api.get('/webhooks/calendar/health');
       if (res.status !== 200) {
-        throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
-      }
-      return { updated: true };
-    });
-
-    await runTest(`delete-test-event-${testProvider.providerType}`, async () => {
-      const res = await api.delete(`/calendar/events/${createdEventId}`);
-      if (res.status !== 204 && res.status !== 200) {
-        throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
-      }
-      return { deleted: true };
-    });
-
-    // Verify deletion
-    await runTest(`verify-event-deleted-${testProvider.providerType}`, async () => {
-      const res = await api.get(`/calendar/events/${createdEventId}`);
-      // Should return 404 or the event with isDeleted=true
-      if (res.status === 404) {
-        return { verified: true, status: 'not_found' };
-      }
-      if (res.status === 200 && res.data.isDeleted === true) {
-        return { verified: true, status: 'soft_deleted' };
-      }
-      throw new Error(`Event still accessible: ${res.status}`);
-    });
-  }
-
-  // ============================================================
-  // CALENDAR SYNC TESTS
-  // ============================================================
-  console.log('\n============================================================');
-  console.log('CALENDAR SYNC OPERATIONS');
-  console.log('============================================================');
-
-  for (const provider of user.providers) {
-    await runTest(`sync-calendar-${provider.providerType}`, async () => {
-      const res = await api.post(`/calendar/sync/${provider.id}`);
-      if (res.status !== 200 && res.status !== 201 && res.status !== 202) {
         throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
       }
       return res.data;
     });
-  }
 
-  // ============================================================
-  // CALENDAR WEBHOOK HEALTH
-  // ============================================================
-  console.log('\n============================================================');
-  console.log('CALENDAR WEBHOOK HEALTH');
-  console.log('============================================================');
+    // ============================================================
+    // DATABASE VALIDATION (Calendar Provider Refactoring)
+    // ============================================================
+    console.log('\n============================================================');
+    console.log('DATABASE VALIDATION (Provider Refactoring Check)');
+    console.log('============================================================');
 
-  await runTest('calendar-webhook-health', async () => {
-    const res = await api.get('/webhooks/calendar/health');
-    if (res.status !== 200) {
-      throw new Error(`Status ${res.status}: ${JSON.stringify(res.data)}`);
-    }
-    return res.data;
-  });
-
-  // ============================================================
-  // DATABASE VALIDATION (Calendar Provider Refactoring)
-  // ============================================================
-  console.log('\n============================================================');
-  console.log('DATABASE VALIDATION (Provider Refactoring Check)');
-  console.log('============================================================');
-
-  await runTest('db-calendar-events-count', async () => {
-    const count = await prisma.calendarEvent.count({
-      where: { tenantId: user.tenantId },
-    });
-    return { totalEvents: count };
-  });
-
-  await runTest('db-calendar-events-by-provider', async () => {
-    const eventsByProvider = await prisma.calendarEvent.groupBy({
-      by: ['providerId'],
-      where: { tenantId: user.tenantId },
-      _count: true,
-    });
-
-    const providerNames = await Promise.all(
-      eventsByProvider.map(async (e) => {
-        const provider = await prisma.providerConfig.findUnique({
-          where: { id: e.providerId },
-          select: { providerType: true, email: true },
-        });
-        return {
-          providerId: e.providerId,
-          providerType: provider?.providerType,
-          email: provider?.email,
-          count: e._count,
-        };
-      }),
-    );
-
-    return providerNames;
-  });
-
-  await runTest('db-calendar-orphaned-events', async () => {
-    // Check for events without valid provider
-    const orphaned = await prisma.$queryRaw<{ count: bigint }[]>`
-      SELECT COUNT(*) as count FROM calendar_events ce
-      WHERE NOT EXISTS (SELECT 1 FROM provider_configs pc WHERE pc.id = ce."providerId")
-    `;
-    const count = Number(orphaned[0]?.count || 0);
-    if (count > 0) {
-      throw new Error(`Found ${count} orphaned calendar events`);
-    }
-    return { orphanedEvents: 0, healthy: true };
-  });
-
-  await runTest('db-calendar-attachments-integrity', async () => {
-    // Check for attachments without valid event
-    const orphaned = await prisma.$queryRaw<{ count: bigint }[]>`
-      SELECT COUNT(*) as count FROM calendar_event_attachments cea
-      WHERE NOT EXISTS (SELECT 1 FROM calendar_events ce WHERE ce.id = cea."eventId")
-    `;
-    const count = Number(orphaned[0]?.count || 0);
-    if (count > 0) {
-      throw new Error(`Found ${count} orphaned calendar attachments`);
-    }
-    return { orphanedAttachments: 0, healthy: true };
-  });
-
-  // ============================================================
-  // SUMMARY
-  // ============================================================
-  console.log('\n============================================================');
-  console.log('TEST SUMMARY');
-  console.log('============================================================');
-
-  const passed = results.filter((r) => r.status === 'PASS').length;
-  const failed = results.filter((r) => r.status === 'FAIL').length;
-  const skipped = results.filter((r) => r.status === 'SKIP').length;
-
-  console.log(`\nTotal Tests: ${results.length}`);
-  console.log(`  ✅ Passed: ${passed}`);
-  console.log(`  ❌ Failed: ${failed}`);
-  console.log(`  ⏭️  Skipped: ${skipped}`);
-
-  if (failed > 0) {
-    console.log('\n❌ FAILED TESTS:');
-    results
-      .filter((r) => r.status === 'FAIL')
-      .forEach((r) => {
-        console.log(`  - ${r.name}: ${r.error}`);
+    await runTest('db-calendar-events-count', async () => {
+      const count = await prisma.calendarEvent.count({
+        where: { tenantId: user.tenantId },
       });
+      return { totalEvents: count };
+    });
+
+    await runTest('db-calendar-events-by-provider', async () => {
+      const eventsByProvider = await prisma.calendarEvent.groupBy({
+        by: ['providerId'],
+        where: { tenantId: user.tenantId },
+        _count: true,
+      });
+
+      const providerNames = await Promise.all(
+        eventsByProvider.map(async (e) => {
+          const provider = await prisma.providerConfig.findUnique({
+            where: { id: e.providerId },
+            select: { providerType: true, email: true },
+          });
+          return {
+            providerId: e.providerId,
+            providerType: provider?.providerType,
+            email: provider?.email,
+            count: e._count,
+          };
+        }),
+      );
+
+      return providerNames;
+    });
+
+    await runTest('db-calendar-orphaned-events', async () => {
+      // Check for events without valid provider
+      const orphaned = await prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*) as count FROM calendar_events ce
+        WHERE NOT EXISTS (SELECT 1 FROM provider_configs pc WHERE pc.id = ce."providerId")
+      `;
+      const count = Number(orphaned[0]?.count || 0);
+      if (count > 0) {
+        throw new Error(`Found ${count} orphaned calendar events`);
+      }
+      return { orphanedEvents: 0, healthy: true };
+    });
+
+    await runTest('db-calendar-attachments-integrity', async () => {
+      // Check for attachments without valid event
+      const orphaned = await prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*) as count FROM calendar_event_attachments cea
+        WHERE NOT EXISTS (SELECT 1 FROM calendar_events ce WHERE ce.id = cea."eventId")
+      `;
+      const count = Number(orphaned[0]?.count || 0);
+      if (count > 0) {
+        throw new Error(`Found ${count} orphaned calendar attachments`);
+      }
+      return { orphanedAttachments: 0, healthy: true };
+    });
+
+    // ============================================================
+    // SUMMARY
+    // ============================================================
+    console.log('\n============================================================');
+    console.log('TEST SUMMARY');
+    console.log('============================================================');
+
+    const passed = results.filter((r) => r.status === 'PASS').length;
+    const failed = results.filter((r) => r.status === 'FAIL').length;
+    const skipped = results.filter((r) => r.status === 'SKIP').length;
+
+    console.log(`\nTotal Tests: ${results.length}`);
+    console.log(`  ✅ Passed: ${passed}`);
+    console.log(`  ❌ Failed: ${failed}`);
+    console.log(`  ⏭️  Skipped: ${skipped}`);
+
+    if (failed > 0) {
+      console.log('\n❌ FAILED TESTS:');
+      results
+        .filter((r) => r.status === 'FAIL')
+        .forEach((r) => {
+          console.log(`  - ${r.name}: ${r.error}`);
+        });
+    }
+
+    console.log('\n============================================================');
+    console.log(`Completed at: ${new Date().toISOString()}`);
+    console.log('============================================================');
+
+    await prisma.$disconnect();
+    process.exit(failed > 0 ? 1 : 0);
+  } catch (error: any) {
+    console.error('Fatal error:', error.message);
+    await prisma.$disconnect();
+    process.exit(1);
   }
-
-  console.log('\n============================================================');
-  console.log(`Completed at: ${new Date().toISOString()}`);
-  console.log('============================================================');
-
-  await prisma.$disconnect();
-  process.exit(failed > 0 ? 1 : 0);
 }
 
-main().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+main();

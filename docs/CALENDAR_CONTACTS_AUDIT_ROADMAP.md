@@ -26,14 +26,18 @@ A comprehensive audit of Calendar and Contacts modules identified critical bugs 
 | Email | 0 | 6 | 8 | 14 | 14 |
 | Email-Sync | 0 | 3 | 1 | 4 | 4 |
 | Providers | 1 | 0 | 0 | 1 | 1 |
-| Code Duplication | 0 | 0 | 6 | 6 | 0 |
-| **Total** | **8** | **20** | **17** | **45** | **39** |
+| Code Duplication | 0 | 0 | 6 | 6 | 2 |
+| **Total** | **8** | **20** | **17** | **45** | **41** |
 
-> **Progress:** 39/45 issues fixed (87%) - All P0, P1, and P2 issues resolved!
+> **Progress:** 41/45 issues fixed (91%) - All P0, P1, and P2 issues resolved!
 >
 > **✅ 100% Complete:** Email-Sync, Providers, Calendar, Contacts, Email
 >
-> **Remaining:** Code Duplication refactoring (6) - DEFERRED (working code, low ROI)
+> **✅ DUP-1 Complete:** Attachment Handlers refactored (2025-12-13)
+>
+> **✅ DUP-2 Complete:** Calendar Providers refactored (2025-12-13)
+>
+> **Remaining:** Code Duplication refactoring (4) - DEFERRED (working code, low ROI)
 
 ---
 
@@ -897,11 +901,26 @@ abstract class BaseAttachmentHandler {
 
 ---
 
-### DUP-2: Calendar Providers (~350 lines duplicated)
+### DUP-2: Calendar Providers (~350 lines duplicated) ✅ COMPLETED 2025-12-13
+
 **Priority:** P2 - Medium (Refactoring)
-**Files:**
-- `backend/src/modules/calendar/providers/google-calendar.provider.ts` (461 lines)
-- `backend/src/modules/calendar/providers/microsoft-calendar.provider.ts` (507 lines)
+**Status:** ✅ COMPLETED
+
+**Files Modified:**
+
+- `backend/src/modules/calendar/providers/base-calendar.provider.ts` (NEW - 400 lines shared base)
+- `backend/src/modules/calendar/providers/google-calendar.provider.ts` (461 → 88 lines, -81%)
+- `backend/src/modules/calendar/providers/microsoft-calendar.provider.ts` (507 → 227 lines, -55%)
+
+**Solution:** Created `BaseCalendarProvider` abstract class with:
+
+- All shared calendar/event CRUD operations
+- Common error handling via `withErrorHandling()`
+- Shared `mapToCalendarEvent()` helper
+- Provider-specific methods remain in subclasses: `refreshToken()`, `syncCalendars()`
+- Microsoft provider preserves extra validation in `createEvent`, `updateEvent`, `deleteEvent`
+
+**Validation:** 20/20 calendar API tests pass with real providers (Google + Microsoft)
 
 **Duplicated Methods (90%+ identical):**
 - `refreshToken()` - ~35 lines each
@@ -1017,11 +1036,11 @@ abstract class BaseCalendarProvider implements ICalendarProvider {
 
 **Code Duplication:** (Low priority - code is working, refactoring is risky)
 
-- [ ] DUP-2: Extract BaseCalendarProvider class (~350 lines savings) - DEFERRED
-  - Analyzed: Google (460 lines) and Microsoft (506 lines) providers are 90% identical
-  - Only differences: OAuth service, sync service, provider type string
-  - Risk: Significant refactoring that requires extensive testing
-  - Recommendation: Defer until next major feature addition to calendar module
+- [x] DUP-2: Extract BaseCalendarProvider class (~350 lines savings) ✅ COMPLETED 2025-12-13
+  - Created `base-calendar.provider.ts` with 400 lines of shared code
+  - Google provider: 461 → 88 lines (-81%)
+  - Microsoft provider: 507 → 227 lines (-55%)
+  - Validated with 20/20 real provider API tests
 - [ ] DUP-1: Extract BaseAttachmentHandler class (~150 lines savings) - DEFERRED
   - Similar pattern to calendar providers
 - [ ] DUP-3: Consolidate OAuth token operations - DEFERRED

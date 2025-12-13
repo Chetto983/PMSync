@@ -9,6 +9,7 @@ import { BaseEmailSyncService } from '../base-email-sync.service';
 import { EmailDriverFactory } from '../../drivers/driver.factory';
 import { IMAPDriver } from '../../drivers/imap/imap.driver';
 import { CanonicalMessage } from '../../drivers/interfaces/canonical.types';
+import { ImapAttachmentHandler } from './imap-attachment-handler';
 
 /**
  * ImapSyncService - Driver-based implementation
@@ -34,6 +35,7 @@ export class ImapSyncService extends BaseEmailSyncService {
     private emailEmbeddingQueue: EmailEmbeddingQueueService,
     private crypto: CryptoService,
     private driverFactory: EmailDriverFactory,
+    private imapAttachmentHandler: ImapAttachmentHandler,
   ) {
     super(prisma, realtimeEvents, config);
   }
@@ -183,7 +185,7 @@ export class ImapSyncService extends BaseEmailSyncService {
 
       // Process messages in this page
       for (const message of result.messages) {
-        const upsertResult = await this.upsertMessageFromDriver(message, providerId, tenantId);
+        const upsertResult = await this.upsertMessageFromDriver(driver, message, providerId, tenantId);
         messagesProcessed++;
         if (upsertResult.wasNew) {
           newMessages++;
@@ -263,7 +265,7 @@ export class ImapSyncService extends BaseEmailSyncService {
           // Fetch and upsert the message
           const message = await driver.getMessage(change.messageId);
           if (message) {
-            const upsertResult = await this.upsertMessageFromDriver(message, providerId, tenantId);
+            const upsertResult = await this.upsertMessageFromDriver(driver, message, providerId, tenantId);
             messagesProcessed++;
             if (upsertResult.wasNew) {
               newMessages++;
@@ -293,6 +295,7 @@ export class ImapSyncService extends BaseEmailSyncService {
    * Upsert a message from driver canonical format into database
    */
   private async upsertMessageFromDriver(
+    driver: IMAPDriver,
     canonicalMsg: CanonicalMessage,
     providerId: string,
     tenantId: string,
@@ -304,7 +307,17 @@ export class ImapSyncService extends BaseEmailSyncService {
     });
 
     if (existing) {
-      // Update existing message
+      // Update existing message - also process attachments for updates
+      if (canonicalMsg.hasAttachments && canonicalMsg.attachments.length > 0) {
+        await this.imapAttachmentHandler.processImapAttachments(
+          driver,
+          existing.id,
+          canonicalMsg.id,
+          canonicalMsg.attachments,
+          tenantId,
+          providerId,
+        );
+      }
       await this.prisma.email.update({
         where: { id: existing.id },
         data: {
@@ -352,6 +365,18 @@ export class ImapSyncService extends BaseEmailSyncService {
           threadId: canonicalMsg.threadId || null,
         },
       });
+
+      // Process attachments for new emails
+      if (canonicalMsg.hasAttachments && canonicalMsg.attachments.length > 0) {
+        await this.imapAttachmentHandler.processImapAttachments(
+          driver,
+          createdEmail.id,
+          canonicalMsg.id,
+          canonicalMsg.attachments,
+          tenantId,
+          providerId,
+        );
+      }
 
       // Queue for embeddings
       await this.emailEmbeddingQueue.enqueue({

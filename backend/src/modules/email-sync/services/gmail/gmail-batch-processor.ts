@@ -283,7 +283,7 @@ export class GmailBatchProcessor {
       // Process attachments if any
       if (m.attachments.length > 0 && gmail) {
         attachmentPromises.push(
-          this.gmailAttachmentHandler.processEmailAttachments(
+          this.gmailAttachmentHandler.processGmailAttachments(
             gmail,
             persistedEmail.id,
             m.externalId,

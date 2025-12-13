@@ -443,10 +443,9 @@ export class AttachmentOnDemandService {
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
       // Download attachment using existing handler
-      const buffer = await this.gmailHandler.downloadGmailAttachment(
+      const buffer = await this.gmailHandler.downloadAttachment(
+        { messageId, attachmentId },
         gmail,
-        messageId,
-        attachmentId,
       );
 
       if (!buffer) {
@@ -515,10 +514,9 @@ export class AttachmentOnDemandService {
       };
 
       // Download attachment using existing handler
-      const buffer = await this.microsoftHandler.downloadMicrosoftAttachment(
+      const buffer = await this.microsoftHandler.downloadAttachment(
+        { messageId, attachmentId },
         accessToken,
-        messageId,
-        attachmentId,
         msRequestWithRetry,
       );
 

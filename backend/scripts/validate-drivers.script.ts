@@ -4,23 +4,23 @@
  * Tests the email driver abstraction layer against REAL providers
  * using credentials stored in the database.
  *
- * Usage: npx ts-node --transpile-only -r tsconfig-paths/register src/modules/email-sync/drivers/validate-drivers.script.ts
+ * Usage: npx ts-node --transpile-only scripts/validate-drivers.script.ts
  */
 
 import { NestFactory } from '@nestjs/core';
 import { Module, Logger } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { PrismaModule } from '../../../prisma/prisma.module';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { CryptoService } from '../../../common/services/crypto.service';
-import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
-import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
-import { ProviderTokenService } from '../services/provider-token.service';
-import { DriversModule } from './drivers.module';
-import { EmailDriverFactory } from './driver.factory';
-import { ResilienceService } from './resilience/resilience.service';
-import { ProviderType } from './interfaces/canonical.types';
-import { DriverCredentials } from './interfaces/email-driver.interface';
+import { PrismaModule } from '../src/prisma/prisma.module';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { CryptoService } from '../src/common/services/crypto.service';
+import { GoogleOAuthService } from '../src/modules/providers/services/google-oauth.service';
+import { MicrosoftOAuthService } from '../src/modules/providers/services/microsoft-oauth.service';
+import { ProviderTokenService } from '../src/modules/email-sync/services/provider-token.service';
+import { DriversModule } from '../src/modules/email-sync/drivers/drivers.module';
+import { EmailDriverFactory } from '../src/modules/email-sync/drivers/driver.factory';
+import { ResilienceService } from '../src/modules/email-sync/drivers/resilience/resilience.service';
+import { ProviderType } from '../src/modules/email-sync/drivers/interfaces/canonical.types';
+import { DriverCredentials } from '../src/modules/email-sync/drivers/interfaces/email-driver.interface';
 
 // Minimal module for validation
 @Module({

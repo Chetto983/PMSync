@@ -108,6 +108,7 @@ export class MicrosoftBatchProcessor {
    * @param tenantId - Tenant ID
    * @param accessToken - Microsoft access token (optional, for attachments)
    * @param truncateText - Text truncation function from BaseEmailSyncService
+   * @param msRequestWithRetry - Optional retry wrapper for Microsoft API calls
    * @returns Number of processed and created messages
    */
   async processMessagesBatch(
@@ -116,6 +117,7 @@ export class MicrosoftBatchProcessor {
     tenantId: string,
     accessToken: string | undefined,
     truncateText: (text: string, maxLength: number) => string,
+    msRequestWithRetry?: <T>(fn: () => Promise<T>) => Promise<T>,
   ): Promise<{ processed: number; created: number }> {
     const parsed: ParsedMicrosoftMessage[] = [];
 
@@ -130,7 +132,7 @@ export class MicrosoftBatchProcessor {
       }
     }
 
-    return this.processParsedMessagesBatch(parsed, providerId, tenantId, accessToken);
+    return this.processParsedMessagesBatch(parsed, providerId, tenantId, accessToken, msRequestWithRetry);
   }
 
   /**
@@ -141,6 +143,7 @@ export class MicrosoftBatchProcessor {
    * @param providerId - Provider config ID
    * @param tenantId - Tenant ID
    * @param accessToken - Microsoft access token (optional, for attachments)
+   * @param msRequestWithRetry - Optional retry wrapper for Microsoft API calls (defaults to no-retry passthrough)
    * @returns Number of processed and created messages
    */
   async processParsedMessagesBatch(
@@ -148,6 +151,7 @@ export class MicrosoftBatchProcessor {
     providerId: string,
     tenantId: string,
     accessToken?: string,
+    msRequestWithRetry: <T>(fn: () => Promise<T>) => Promise<T> = async (fn) => fn(),
   ): Promise<{ processed: number; created: number }> {
     if (!mapped.length) return { processed: 0, created: 0 };
 
@@ -292,15 +296,13 @@ export class MicrosoftBatchProcessor {
       // Process attachments if any and accessToken is available
       if (m.hasAttachments && accessToken) {
         attachmentPromises.push(
-          this.microsoftAttachmentHandler.processEmailAttachments(
+          this.microsoftAttachmentHandler.processMicrosoftAttachments(
             accessToken,
             persistedEmail.id,
             m.externalId,
             tenantId,
             providerId,
-            // msRequestWithRetry will be passed from MicrosoftSyncService
-            // This is a limitation of the current design - we'll pass it as a bound function
-            async <T>(fn: () => Promise<T>) => fn(), // Placeholder, will be overridden
+            msRequestWithRetry,
           ),
         );
       }
