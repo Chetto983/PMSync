@@ -1965,12 +1965,170 @@ interface ActionExecutionResult {
 
 ---
 
-**Document Version:** 3.1
-**Last Updated:** 2025-11-28
+**Document Version:** 3.2
+**Last Updated:** 2025-12-13
 **Author:** Claude Code
-**Next Review:** 2025-12-15
+**Next Review:** 2025-12-28
+
+---
+
+## 15. December 2025 Comprehensive Audit
+
+### 15.1 Audit Overview
+
+This section documents findings from the comprehensive AI module audit conducted on 2025-12-13 using:
+- Sequential code analysis across 85+ TypeScript files (~28,796 lines)
+- Web search for 2025 LLM/AI best practices
+- VoltAgent framework documentation review
+- Code duplication pattern analysis
+
+### 15.2 Security Assessment (2025 Best Practices Comparison)
+
+| Best Practice | Status | Notes |
+|---------------|--------|-------|
+| **Input Validation** | ✅ Implemented | `MistralService.validatePromptInputs()` enforces length limits (10K/5K chars) |
+| **Circuit Breaker** | ✅ Implemented | `MistralService` has full circuit breaker (5 failures, 30s reset) |
+| **Rate Limiting** | ✅ Implemented | `RateLimiterService` with token bucket algorithm for 1000+ user scalability |
+| **Tenant Isolation** | ✅ Implemented | All queries filter by `tenantId`, `getTenantUserId()` namespacing |
+| **API Key Security** | ✅ Implemented | Keys from env, not hardcoded |
+| **RBAC/Access Control** | ✅ Implemented | `HitlService.canActOnAction()` with role-based checks |
+| **Audit Logging** | ✅ Implemented | `LlmTelemetryService` + `CorrelationContext` for distributed tracing |
+| **Idempotency** | ✅ Implemented | `ActionExecutorService` uses SHA256 hash + Redis cache |
+| **Timeout Protection** | ✅ Implemented | `timeoutMs` parameter with Promise.race pattern |
+| **Prompt Injection Defense** | ⚠️ Partial | Prompts use templates but no explicit sanitization layer |
+| **Output Validation** | ⚠️ Partial | JSON parsing exists but no schema validation on LLM output |
+
+**Sources:**
+- [LLM Security in 2025 - Oligo Security](https://www.oligo.security/academy/llm-security-in-2025-risks-examples-and-best-practices)
+- [OWASP LLM Top 10 2025 - Confident AI](https://www.confident-ai.com/blog/the-comprehensive-guide-to-llm-security)
+- [LLM Observability Best Practices - GetMaxim](https://www.getmaxim.ai/articles/llm-observability-best-practices-for-2025/)
+
+### 15.3 VoltAgent Architecture Review
+
+The codebase uses [VoltAgent](https://voltagent.dev/) framework correctly:
+
+| VoltAgent Pattern | Implementation | Status |
+|-------------------|----------------|--------|
+| **Agent Definition** | `createSupervisorAgent()` with typed tools | ✅ Correct |
+| **Workflow Suspend/Resume** | `approval.workflow.ts` uses `andThen()` + `suspend()` | ✅ Correct |
+| **Memory Management** | PostgreSQL-backed via `createMemory()` | ✅ Correct |
+| **Tool Registry** | Zod-typed tools in `tools/` directory | ✅ Correct |
+| **Observability Hooks** | `createObservabilityHooks()` with metrics callback | ✅ Correct |
+| **Multi-Agent Coordination** | Supervisor routes to specialist agents | ✅ Correct |
+
+**Source:** [VoltAgent GitHub](https://github.com/VoltAgent/voltagent)
+
+### 15.4 Code Duplication Analysis
+
+| Pattern | Occurrences | Est. Lines | Priority | Recommendation |
+|---------|-------------|------------|----------|----------------|
+| Error message extraction (`error instanceof Error ? error.message : String(error)`) | 29 | 35-40 | P2 | Extract to `getErrorMessage()` utility |
+| Logger initialization (`new Logger(ClassName.name)`) | 26 | 26 | P3 | Low impact, NestJS convention |
+| Locale resolution (`getLocale()` + `getToolTranslations()`) | 26 | 30-35 | P2 | Create locale context helper |
+| Tenant validation in Prisma queries | 40+ | 100+ | P1 | Create tenant-scoped Prisma extension |
+| JSON parsing with markdown fence removal | 3 | 15-20 | P2 | Extract to `parseJsonFromAiOutput()` |
+| Action executor response templates | 30+ | 40-50 | P1 | Extract handler wrapper function |
+| Email content composition for embeddings | 2 | 25-30 | P3 | Create `composeEmailContent()` helper |
+
+**Total Estimated Duplication:** ~270-330 lines across 60 files
+
+### 15.5 Performance Optimizations Verified
+
+| Optimization | Implementation | Verified |
+|--------------|----------------|----------|
+| **Semantic Caching** | `SemanticCacheService` with 0.92 similarity threshold | ✅ |
+| **Model Routing** | `ModelRouterService` for complexity-based model selection | ✅ |
+| **BullMQ Queues** | `AiQueueService` for background job processing | ✅ |
+| **Batch API** | `MistralBatchService` for 50% cost reduction | ✅ |
+| **Token Budget** | `VoltAgentMemoryService.getContextWithBudget()` | ✅ |
+| **Embedding Cache** | In-memory LRU cache (100 entries) in `SemanticCacheService` | ✅ |
+
+### 15.6 New Issues Identified
+
+#### P1: High Priority
+
+| Issue | Location | Description |
+|-------|----------|-------------|
+| **Prompt Injection Risk** | `MistralService` | No explicit input sanitization beyond length limits |
+| **LLM Output Schema Validation** | `email-insights.service.ts` | JSON parsing without Zod schema validation |
+| **Semantic Cache Memory Growth** | `SemanticCacheService` | In-memory `embeddingCache` has no eviction telemetry |
+
+#### P2: Medium Priority
+
+| Issue | Location | Description |
+|-------|----------|-------------|
+| **Duplication: Error Handling** | 14 files | 29 instances of identical error extraction pattern |
+| **Duplication: Tenant Queries** | Action executors | 40+ repeated `where: { tenantId }` patterns |
+| **Missing Retry Logic** | `MistralService` | Circuit breaker opens but no exponential backoff retry |
+| **Redis Connection Handling** | `ProviderTokenService` | Creates new Redis connection in `onModuleInit()` |
+
+#### P3: Low Priority
+
+| Issue | Location | Description |
+|-------|----------|-------------|
+| **Hardcoded Defaults** | `SemanticCacheService` | Configuration via env vars but no runtime config endpoint |
+| **Missing Health Metrics** | `VoltAgentService` | No `/health` endpoint exposing circuit breaker state |
+
+### 15.7 Recommendations
+
+#### Immediate Actions (P1)
+
+1. **Add Prompt Sanitization Layer**
+   ```typescript
+   // Create: backend/src/modules/ai/utils/prompt-sanitizer.ts
+   export function sanitizeUserInput(input: string): string {
+     // Remove potential injection patterns
+     // Escape special characters
+     // Enforce content policy
+   }
+   ```
+
+2. **Add LLM Output Validation**
+   ```typescript
+   // Use Zod schemas for all JSON parsing from LLM responses
+   const EmailInsightSchema = z.object({
+     category: z.enum(['Urgent', 'Normal', 'Promotional']),
+     summary: z.string().max(500),
+     // ...
+   });
+   ```
+
+3. **Extract Tenant-Scoped Prisma Helper**
+   ```typescript
+   // Create: backend/src/common/prisma/tenant-queries.ts
+   export function tenantWhere<T>(tenantId: string, where: T): T & { tenantId: string } {
+     return { ...where, tenantId };
+   }
+   ```
+
+#### Short-Term Actions (P2)
+
+4. **Create Error Utility Module**
+   ```typescript
+   // backend/src/common/utils/error.utils.ts
+   export const getErrorMessage = (error: unknown): string =>
+     error instanceof Error ? error.message : String(error);
+   ```
+
+5. **Add Retry with Exponential Backoff**
+   - Implement in `MistralService.completePrompt()` when circuit breaker is half-open
+
+6. **Add Health Endpoint for AI Module**
+   - Expose circuit breaker state, cache stats, queue metrics
+
+---
 
 ### Changelog
+
+#### v3.2 (2025-12-13)
+
+- Added Section 15: December 2025 Comprehensive Audit
+- Security assessment against 2025 LLM best practices (OWASP, industry standards)
+- VoltAgent framework implementation review (all patterns verified correct)
+- Code duplication analysis (~270-330 lines identified across 60 files)
+- Performance optimizations verified (semantic cache, model routing, batch API)
+- Identified 3 P1 issues, 4 P2 issues, 2 P3 issues
+- Added recommendations with code examples
 
 #### v3.1 (2025-11-28)
 

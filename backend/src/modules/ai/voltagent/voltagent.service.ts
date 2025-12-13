@@ -439,6 +439,30 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       conversationId: options.conversationId,
     });
 
+    // 4. Persist messages to Prisma-based memory (conversation history)
+    if (this.voltAgentMemoryService) {
+      const memoryContext = {
+        tenantId: options.tenantId,
+        userId: options.userId,
+        conversationId: options.conversationId,
+        locale: options.locale,
+      };
+
+      // Save user message
+      await this.voltAgentMemoryService.addMessage(memoryContext, {
+        role: 'user',
+        content: message,
+      });
+
+      // Save assistant response
+      await this.voltAgentMemoryService.addMessage(memoryContext, {
+        role: 'assistant',
+        content: result.text,
+      });
+
+      this.logger.debug(`${logPrefix} Messages persisted to memory`);
+    }
+
     // Record latency for model router accuracy
     if (this.modelRouterService && selectedModel) {
       this.modelRouterService.recordLatency(selectedModel, Date.now() - startTime);
@@ -516,6 +540,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   /**
    * Process a chat message with streaming response.
    * Uses tenant-isolated userId for memory operations.
+   * Persists messages to Prisma-based memory after streaming completes.
    */
   async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string> {
     const locale = getLocale(options.locale);
@@ -529,8 +554,33 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       conversationId: options.conversationId,
     });
 
+    // Collect full response for memory persistence
+    let fullResponse = '';
     for await (const chunk of result.textStream) {
+      fullResponse += chunk;
       yield chunk;
+    }
+
+    // Persist messages to Prisma-based memory after streaming completes
+    if (this.voltAgentMemoryService) {
+      const memoryContext = {
+        tenantId: options.tenantId,
+        userId: options.userId,
+        conversationId: options.conversationId,
+        locale: options.locale,
+      };
+
+      // Save user message
+      await this.voltAgentMemoryService.addMessage(memoryContext, {
+        role: 'user',
+        content: message,
+      });
+
+      // Save assistant response
+      await this.voltAgentMemoryService.addMessage(memoryContext, {
+        role: 'assistant',
+        content: fullResponse,
+      });
     }
   }
 
