@@ -44,7 +44,8 @@ export class WebhookController {
       this.syncAuth.validateWebhookToken(webhookToken, queryToken);
       this.logger.log('[WEBHOOK] Token validated, received Gmail Pub/Sub notification');
 
-      this.logger.debug('[WEBHOOK] Payload:', JSON.stringify(payload).substring(0, 200));
+      // SECURITY: Only log structure, not content (payload may contain sensitive email metadata)
+      this.logger.debug('[WEBHOOK] Payload received with keys:', Object.keys(payload || {}).join(', '));
 
       // Decode and process the message
       await this.gmailWebhook.handleNotification(payload);

@@ -1126,7 +1126,8 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
           // FN (Full Name)
           if (fnProp) {
             const fnValue = Array.isArray(fnProp) ? fnProp[0] : fnProp;
-            displayName = fnValue?.valueOf?.() || fnValue?.value || String(fnValue || '');
+            const fnResolved = fnValue?.valueOf?.() ?? fnValue?.value ?? fnValue;
+            displayName = typeof fnResolved === 'string' ? fnResolved : '';
           }
 
           // N (Structured Name: family;given;middle;prefix;suffix)
@@ -1156,7 +1157,8 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
             let hasPrimary = false;
 
             for (const email of emailArray) {
-              const emailValue = email?.valueOf?.() || email?.value || String(email || '');
+              const emailResolved = email?.valueOf?.() ?? email?.value ?? email;
+              const emailValue = typeof emailResolved === 'string' ? emailResolved : '';
               if (emailValue && typeof emailValue === 'string') {
                 // Get type from parameters
                 const typeParam = email?.type || email?.params?.type;
@@ -1200,7 +1202,8 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
           if (telProp) {
             const telArray = Array.isArray(telProp) ? telProp : [telProp];
             for (const tel of telArray) {
-              const telValue = tel?.valueOf?.() || tel?.value || String(tel || '');
+              const telResolved = tel?.valueOf?.() ?? tel?.value ?? tel;
+              const telValue = typeof telResolved === 'string' ? telResolved : '';
               if (telValue && typeof telValue === 'string') {
                 const typeParam = tel?.type || tel?.params?.type;
                 const type = Array.isArray(typeParam) ? typeParam[0] : typeParam;
@@ -1218,9 +1221,10 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
           let company: string | undefined;
           if (orgProp) {
             const orgValue = Array.isArray(orgProp) ? orgProp[0] : orgProp;
-            company = orgValue?.valueOf?.() || orgValue?.value || String(orgValue || '');
-            if (typeof company === 'string') {
-              company = company.split(';')[0]?.trim() || undefined;
+            const orgResolved = orgValue?.valueOf?.() ?? orgValue?.value ?? orgValue;
+            const orgStr = typeof orgResolved === 'string' ? orgResolved : '';
+            if (orgStr) {
+              company = orgStr.split(';')[0]?.trim() || undefined;
             }
           }
 
@@ -1229,7 +1233,8 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
           let jobTitle: string | undefined;
           if (titleProp) {
             const titleValue = Array.isArray(titleProp) ? titleProp[0] : titleProp;
-            jobTitle = titleValue?.valueOf?.() || titleValue?.value || String(titleValue || '');
+            const titleResolved = titleValue?.valueOf?.() ?? titleValue?.value ?? titleValue;
+            jobTitle = typeof titleResolved === 'string' ? titleResolved : undefined;
           }
 
           // Extract notes
@@ -1237,7 +1242,8 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
           let notes: string | undefined;
           if (noteProp) {
             const noteValue = Array.isArray(noteProp) ? noteProp[0] : noteProp;
-            notes = noteValue?.valueOf?.() || noteValue?.value || String(noteValue || '');
+            const noteResolved = noteValue?.valueOf?.() ?? noteValue?.value ?? noteValue;
+            notes = typeof noteResolved === 'string' ? noteResolved : undefined;
           }
 
           // Extract birthday
@@ -1245,7 +1251,8 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
           let birthday: Date | undefined;
           if (bdayProp) {
             const bdayValue = Array.isArray(bdayProp) ? bdayProp[0] : bdayProp;
-            const bdayStr = bdayValue?.valueOf?.() || bdayValue?.value || String(bdayValue || '');
+            const bdayResolved = bdayValue?.valueOf?.() ?? bdayValue?.value ?? bdayValue;
+            const bdayStr = typeof bdayResolved === 'string' ? bdayResolved : '';
             if (bdayStr) {
               try {
                 birthday = new Date(bdayStr);

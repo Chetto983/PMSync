@@ -171,4 +171,4 @@ Timestamp: ${new Date().toISOString()}
   }
 }
 
-main();
+void main();

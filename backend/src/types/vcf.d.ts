@@ -4,11 +4,22 @@
  */
 
 declare module 'vcf' {
-  class Property {
+  interface PropertyLike {
     valueOf(): string;
     value?: string;
     type?: string;
     params?: Record<string, any>;
+    _data?: string;
+    [key: string]: any;
+  }
+
+  class Property implements PropertyLike {
+    valueOf(): string;
+    value?: string;
+    type?: string;
+    params?: Record<string, any>;
+    _data?: string;
+    [key: string]: any;
   }
 
   class VCard {

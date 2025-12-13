@@ -10,6 +10,16 @@ import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.
 import { GoogleCalendarSyncService } from './google-calendar-sync.service';
 import { MicrosoftCalendarSyncService } from './microsoft-calendar-sync.service';
 
+export interface ReminderOverride {
+  method: 'email' | 'popup' | 'sms';
+  minutes: number;
+}
+
+export interface Reminders {
+  useDefault?: boolean;
+  overrides?: ReminderOverride[];
+}
+
 export interface CreateEventDto {
   providerId: string;
   calendarId?: string;
@@ -22,7 +32,7 @@ export interface CreateEventDto {
   isAllDay?: boolean;
   timeZone?: string;
   attendees?: Array<{ email: string; name?: string }>;
-  reminders?: any;
+  reminders?: Reminders;
   recurrence?: string[];
 }
 
@@ -35,7 +45,7 @@ export interface UpdateEventDto {
   isAllDay?: boolean;
   timeZone?: string;
   attendees?: Array<{ email: string; name?: string }>;
-  reminders?: any;
+  reminders?: Reminders;
   calendarName?: string;
   recurrence?: string[];
 }
@@ -442,7 +452,7 @@ export class CalendarService {
         recurrence: [],
         status: 'confirmed',
         visibility: 'default',
-        reminders: data.reminders ? (data.reminders) : undefined,
+        reminders: data.reminders ? (data.reminders as unknown as Prisma.InputJsonValue) : undefined,
         lastSyncedAt: new Date(),
       },
     });
@@ -508,7 +518,7 @@ export class CalendarService {
     if (data.isAllDay !== undefined) updateData.isAllDay = data.isAllDay;
     if (data.timeZone !== undefined) updateData.timeZone = data.timeZone;
     if (data.attendees !== undefined) updateData.attendees = data.attendees;
-    if (data.reminders !== undefined) updateData.reminders = data.reminders;
+    if (data.reminders !== undefined) updateData.reminders = data.reminders as unknown as Prisma.InputJsonValue;
     if (data.calendarName !== undefined) {
       updateData.calendarName = data.calendarName;
     }

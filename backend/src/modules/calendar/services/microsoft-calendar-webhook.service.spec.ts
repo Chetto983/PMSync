@@ -192,17 +192,15 @@ describe('MicrosoftCalendarWebhookService', () => {
       const mockSubscription = {
         id: 'sub-db-1',
         providerId: 'provider-1',
-        isActive: true,
-      };
-
-      const mockProvider = {
         tenantId: 'tenant-1',
-        email: 'user@example.com',
+        isActive: true,
+        provider: {
+          email: 'user@example.com',
+        },
       };
 
       prisma.webhookSubscription.findFirst.mockResolvedValue(mockSubscription as any);
       prisma.webhookSubscription.update.mockResolvedValue({} as any);
-      prisma.providerConfig.findUnique.mockResolvedValue(mockProvider as any);
 
       await service.handleNotifications(notifications);
 
@@ -266,19 +264,17 @@ describe('MicrosoftCalendarWebhookService', () => {
       const mockSubscription = {
         id: 'sub-db-1',
         providerId: 'provider-1',
-        isActive: true,
-      };
-
-      const mockProvider = {
         tenantId: 'tenant-1',
-        email: 'user@example.com',
+        isActive: true,
+        provider: {
+          email: 'user@example.com',
+        },
       };
 
       prisma.webhookSubscription.findFirst
         .mockRejectedValueOnce(new Error('Database error'))
         .mockResolvedValueOnce(mockSubscription as any);
       prisma.webhookSubscription.update.mockResolvedValue({} as any);
-      prisma.providerConfig.findUnique.mockResolvedValue(mockProvider as any);
 
       await service.handleNotifications(notifications);
 

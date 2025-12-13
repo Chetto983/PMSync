@@ -274,12 +274,17 @@ export class MicrosoftCalendarWebhookService implements OnModuleInit, OnModuleDe
 
     const subscriptionId = notification.subscriptionId;
 
-    // Find provider by subscription ID
+    // Find provider by subscription ID (include provider to avoid N+1 query)
     const subscription = await this.prisma.webhookSubscription.findFirst({
       where: {
         subscriptionId,
         providerType: 'microsoft',
         isActive: true,
+      },
+      include: {
+        provider: {
+          select: { email: true },
+        },
       },
     });
 
@@ -304,21 +309,15 @@ export class MicrosoftCalendarWebhookService implements OnModuleInit, OnModuleDe
     );
 
     // Queue calendar sync for this provider (high priority for real-time webhooks)
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: subscription.providerId },
-      select: { tenantId: true, email: true },
+    // N+1 FIX: Use subscription.tenantId and subscription.provider.email (included in query above)
+    await this.calendarSyncQueue.addSyncJob({
+      tenantId: subscription.tenantId,
+      providerId: subscription.providerId,
+      providerType: 'microsoft',
+      email: subscription.provider.email,
+      priority: 'high', // High priority for real-time webhook triggers
     });
-
-    if (provider) {
-      await this.calendarSyncQueue.addSyncJob({
-        tenantId: provider.tenantId,
-        providerId: subscription.providerId,
-        providerType: 'microsoft',
-        email: provider.email,
-        priority: 'high', // High priority for real-time webhook triggers
-      });
-      this.logger.debug(`Queued calendar sync for provider ${subscription.providerId}`);
-    }
+    this.logger.debug(`Queued calendar sync for provider ${subscription.providerId}`);
   }
 
   /**

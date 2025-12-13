@@ -1,9 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ContactsController } from './contacts.controller';
-import { ContactsService, CreateContactDto, UpdateContactDto } from '../services/contacts.service';
+import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import{jest,describe,it,expect,beforeEach}from'@jest/globals'; 
 import { ForbiddenException } from '@nestjs/common';
+import {
+  CreateContactDto,
+  UpdateContactDto,
+  ListContactsQueryDto,
+} from '../dto/contact.dto';
 
 /**
  * Unit Tests for ContactsController
@@ -98,23 +104,30 @@ describe('ContactsController', () => {
       const mockContacts = [mockContact];
       mockContactsService.listContacts.mockResolvedValue(mockContacts);
 
-      const result = await controller.listContacts(mockRequest);
+      const query: ListContactsQueryDto = {};
+      const result = await controller.listContacts(mockRequest, query);
 
-      expect(contactsService.listContacts).toHaveBeenCalledWith(mockTenantId, {});
+      expect(contactsService.listContacts).toHaveBeenCalledWith(mockTenantId, {
+        providerId: undefined,
+        search: undefined,
+        company: undefined,
+        limit: undefined,
+        offset: undefined,
+      });
       expect(result).toEqual(mockContacts);
     });
 
     it('should pass filters to service', async () => {
       mockContactsService.listContacts.mockResolvedValue([]);
 
-      await controller.listContacts(
-        mockRequest,
-        'provider-1',
-        'search-term',
-        'company-name',
-        '10',
-        '5',
-      );
+      const query: ListContactsQueryDto = {
+        providerId: 'provider-1',
+        search: 'search-term',
+        company: 'company-name',
+        limit: 10,
+        offset: 5,
+      };
+      await controller.listContacts(mockRequest, query);
 
       expect(contactsService.listContacts).toHaveBeenCalledWith(mockTenantId, {
         providerId: 'provider-1',
@@ -128,9 +141,13 @@ describe('ContactsController', () => {
     it('should parse limit and offset as integers', async () => {
       mockContactsService.listContacts.mockResolvedValue([]);
 
-      await controller.listContacts(mockRequest, undefined, undefined, undefined, '25', '50');
+      const query: ListContactsQueryDto = { limit: 25, offset: 50 };
+      await controller.listContacts(mockRequest, query);
 
       expect(contactsService.listContacts).toHaveBeenCalledWith(mockTenantId, {
+        providerId: undefined,
+        search: undefined,
+        company: undefined,
         limit: 25,
         offset: 50,
       });
@@ -139,9 +156,16 @@ describe('ContactsController', () => {
     it('should handle missing optional parameters', async () => {
       mockContactsService.listContacts.mockResolvedValue([]);
 
-      await controller.listContacts(mockRequest);
+      const query: ListContactsQueryDto = {};
+      await controller.listContacts(mockRequest, query);
 
-      expect(contactsService.listContacts).toHaveBeenCalledWith(mockTenantId, {});
+      expect(contactsService.listContacts).toHaveBeenCalledWith(mockTenantId, {
+        providerId: undefined,
+        search: undefined,
+        company: undefined,
+        limit: undefined,
+        offset: undefined,
+      });
     });
   });
 
@@ -348,7 +372,7 @@ describe('ContactsController', () => {
     it('should extract tenantId from authenticated user', async () => {
       mockContactsService.listContacts.mockResolvedValue([]);
 
-      await controller.listContacts(mockRequest);
+      await controller.listContacts(mockRequest, {});
 
       expect(contactsService.listContacts).toHaveBeenCalledWith(
         mockTenantId,
@@ -362,7 +386,7 @@ describe('ContactsController', () => {
       const error = new Error('Database error');
       mockContactsService.listContacts.mockRejectedValue(error);
 
-      await expect(controller.listContacts(mockRequest)).rejects.toThrow('Database error');
+      await expect(controller.listContacts(mockRequest, {})).rejects.toThrow('Database error');
     });
 
     it('should propagate service errors for getContact', async () => {

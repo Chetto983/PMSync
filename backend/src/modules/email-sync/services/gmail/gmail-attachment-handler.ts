@@ -96,15 +96,24 @@ export class GmailAttachmentHandler {
     }
 
     try {
-      // Delete existing attachments for this email (in case of re-sync)
-      await this.prisma.emailAttachment.deleteMany({
-        where: { emailId },
-      });
+      // PHASE 1: Process all attachments and collect DB records to create
+      // This includes external operations (Gmail API downloads, S3 uploads, calendar parsing)
+      // We do this BEFORE any DB modifications to ensure atomicity
+      const attachmentRecords: Array<{
+        emailId: string;
+        filename: string;
+        mimeType: string;
+        size: number;
+        contentId: string | null;
+        storageType: string;
+        storagePath: string | null;
+        contentHash: string | null;
+        isInline: boolean;
+      }> = [];
 
-      // Process each attachment with intelligent strategy
       for (const attachment of attachments) {
         try {
-          // Calendar detection
+          // Calendar detection (side effect: updates email record)
           if (this.icsParser.isCalendarAttachment(attachment.mimeType, attachment.filename)) {
             const data = await this.downloadGmailAttachment(
               gmail,
@@ -155,17 +164,16 @@ export class GmailAttachmentHandler {
               );
               // Fall back to metadata-only
               const stored = this.attachmentStorage.storeAttachmentMetadata(providerId, metadata);
-              await this.prisma.emailAttachment.create({
-                data: {
-                  emailId,
-                  filename: stored.filename,
-                  mimeType: stored.mimeType,
-                  size: stored.size,
-                  contentId: stored.contentId,
-                  storageType: stored.storageType,
-                  storagePath: stored.storagePath,
-                  isInline: stored.isInline,
-                },
+              attachmentRecords.push({
+                emailId,
+                filename: stored.filename,
+                mimeType: stored.mimeType,
+                size: stored.size,
+                contentId: stored.contentId || null,
+                storageType: stored.storageType,
+                storagePath: stored.storagePath || null,
+                contentHash: null,
+                isInline: stored.isInline,
               });
               continue;
             }
@@ -177,19 +185,16 @@ export class GmailAttachmentHandler {
               contentType: attachment.mimeType,
             });
 
-            // Save to database with s3 storage
-            await this.prisma.emailAttachment.create({
-              data: {
-                emailId,
-                filename: uploaded.filename,
-                mimeType: uploaded.mimeType,
-                size: uploaded.size,
-                contentId: attachment.contentId,
-                storageType: uploaded.storageType,
-                storagePath: uploaded.storagePath,
-                contentHash: uploaded.contentHash,
-                isInline: uploaded.isInline,
-              },
+            attachmentRecords.push({
+              emailId,
+              filename: uploaded.filename,
+              mimeType: uploaded.mimeType,
+              size: uploaded.size,
+              contentId: attachment.contentId || null,
+              storageType: uploaded.storageType,
+              storagePath: uploaded.storagePath || null,
+              contentHash: uploaded.contentHash || null,
+              isInline: uploaded.isInline,
             });
 
             this.logger.debug(
@@ -202,17 +207,16 @@ export class GmailAttachmentHandler {
             // metadata-only: save reference for on-demand download
             const stored = this.attachmentStorage.storeAttachmentMetadata(providerId, metadata);
 
-            await this.prisma.emailAttachment.create({
-              data: {
-                emailId,
-                filename: stored.filename,
-                mimeType: stored.mimeType,
-                size: stored.size,
-                contentId: stored.contentId,
-                storageType: stored.storageType,
-                storagePath: stored.storagePath,
-                isInline: stored.isInline,
-              },
+            attachmentRecords.push({
+              emailId,
+              filename: stored.filename,
+              mimeType: stored.mimeType,
+              size: stored.size,
+              contentId: stored.contentId || null,
+              storageType: stored.storageType,
+              storagePath: stored.storagePath || null,
+              contentHash: null,
+              isInline: stored.isInline,
             });
 
             this.logger.debug(
@@ -226,6 +230,27 @@ export class GmailAttachmentHandler {
           );
           // Continue processing other attachments
         }
+      }
+
+      // PHASE 2: Atomic DB operation - delete old + create new in transaction
+      // This ensures we don't lose attachment records if something fails mid-way
+      if (attachmentRecords.length > 0) {
+        await this.prisma.$transaction(async (tx) => {
+          // Delete existing attachments for this email (in case of re-sync)
+          await tx.emailAttachment.deleteMany({
+            where: { emailId },
+          });
+
+          // Create all new attachment records
+          await tx.emailAttachment.createMany({
+            data: attachmentRecords,
+          });
+        });
+      } else {
+        // No new attachments to create, just delete existing ones
+        await this.prisma.emailAttachment.deleteMany({
+          where: { emailId },
+        });
       }
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));

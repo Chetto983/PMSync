@@ -191,18 +191,16 @@ describe('GoogleCalendarWebhookService', () => {
       const mockSubscription = {
         id: 'sub-1',
         providerId: 'provider-1',
+        tenantId: 'tenant-1',
         resourcePath: '/calendar/v3/calendars/cal-1/events',
         isActive: true,
-      };
-
-      const mockProvider = {
-        tenantId: 'tenant-1',
-        email: 'user@example.com',
+        provider: {
+          email: 'user@example.com',
+        },
       };
 
       prisma.webhookSubscription.findFirst.mockResolvedValue(mockSubscription as any);
       prisma.webhookSubscription.update.mockResolvedValue({} as any);
-      prisma.providerConfig.findUnique.mockResolvedValue(mockProvider as any);
 
       await service.handleNotification(headers);
 
@@ -211,6 +209,11 @@ describe('GoogleCalendarWebhookService', () => {
           subscriptionId: 'channel-123',
           providerType: 'google',
           isActive: true,
+        },
+        include: {
+          provider: {
+            select: { email: true },
+          },
         },
       });
       expect(prisma.webhookSubscription.update).toHaveBeenCalledWith({
@@ -239,18 +242,16 @@ describe('GoogleCalendarWebhookService', () => {
       const mockSubscription = {
         id: 'sub-1',
         providerId: 'provider-1',
+        tenantId: 'tenant-1',
         resourcePath: '/calendar/v3/calendars/cal-1/events',
         isActive: true,
-      };
-
-      const mockProvider = {
-        tenantId: 'tenant-1',
-        email: 'user@example.com',
+        provider: {
+          email: 'user@example.com',
+        },
       };
 
       prisma.webhookSubscription.findFirst.mockResolvedValue(mockSubscription as any);
       prisma.webhookSubscription.update.mockResolvedValue({} as any);
-      prisma.providerConfig.findUnique.mockResolvedValue(mockProvider as any);
 
       await service.handleNotification(headers);
 

@@ -11,8 +11,42 @@ import {
   Min,
   Max,
   IsUUID,
+  IsIn,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+
+/**
+ * Reminder override DTO for calendar events
+ * Supports Google Calendar and Microsoft Graph reminder formats
+ */
+export class ReminderOverrideDto {
+  @IsString()
+  @IsIn(['email', 'popup', 'sms'])
+  method!: 'email' | 'popup' | 'sms';
+
+  @IsInt()
+  @Min(0)
+  @Max(40320) // Max 4 weeks in minutes
+  minutes!: number;
+}
+
+/**
+ * Reminders DTO for calendar events
+ * Compatible with Google Calendar API format
+ */
+export class RemindersDto {
+  @IsOptional()
+  @IsBoolean()
+  useDefault?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReminderOverrideDto)
+  @ArrayMaxSize(5) // Limit number of reminders
+  overrides?: ReminderOverrideDto[];
+}
 
 /**
  * Attendee DTO for calendar events
@@ -80,7 +114,9 @@ export class CreateEventDto {
   attendees?: AttendeeDto[];
 
   @IsOptional()
-  reminders?: any;
+  @ValidateNested()
+  @Type(() => RemindersDto)
+  reminders?: RemindersDto;
 
   @IsOptional()
   @IsArray()
@@ -131,7 +167,9 @@ export class UpdateEventDto {
   attendees?: AttendeeDto[];
 
   @IsOptional()
-  reminders?: any;
+  @ValidateNested()
+  @Type(() => RemindersDto)
+  reminders?: RemindersDto;
 
   @IsOptional()
   @IsString()

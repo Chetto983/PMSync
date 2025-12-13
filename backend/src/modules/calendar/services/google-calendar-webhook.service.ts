@@ -262,12 +262,17 @@ export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestr
         `Google Calendar notification: channel=${channelId}, state=${resourceState}`,
       );
 
-      // Find provider by channel ID
+      // Find provider by channel ID (include provider to avoid N+1 query)
       const subscription = await this.prisma.webhookSubscription.findFirst({
         where: {
           subscriptionId: channelId,
           providerType: 'google',
           isActive: true,
+        },
+        include: {
+          provider: {
+            select: { email: true },
+          },
         },
       });
 
@@ -291,23 +296,16 @@ export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestr
       });
 
       // Queue calendar sync for this provider (high priority for real-time webhooks)
+      // N+1 FIX: Use subscription.tenantId and subscription.provider.email (included in query above)
       if (resourceState === 'sync' || resourceState === 'exists') {
-        // Get provider info for queue job data
-        const provider = await this.prisma.providerConfig.findUnique({
-          where: { id: subscription.providerId },
-          select: { tenantId: true, email: true },
+        await this.calendarSyncQueue.addSyncJob({
+          tenantId: subscription.tenantId,
+          providerId: subscription.providerId,
+          providerType: 'google',
+          email: subscription.provider.email,
+          priority: 'high', // High priority for real-time webhook triggers
         });
-
-        if (provider) {
-          await this.calendarSyncQueue.addSyncJob({
-            tenantId: provider.tenantId,
-            providerId: subscription.providerId,
-            providerType: 'google',
-            email: provider.email,
-            priority: 'high', // High priority for real-time webhook triggers
-          });
-          this.logger.debug(`Queued calendar sync for provider ${subscription.providerId}`);
-        }
+        this.logger.debug(`Queued calendar sync for provider ${subscription.providerId}`);
       }
     } catch (error) {
       this.logger.error('Error handling Google Calendar notification:', error);

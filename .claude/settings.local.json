@@ -86,7 +86,8 @@
       "Bash(docker logs:*)",
       "Bash(echo:*)",
       "Bash(git -C d:MailAgent status --short)",
-      "Bash(git -C d:/MailAgent status --short)"
+      "Bash(git -C d:/MailAgent status --short)",
+      "Skill(superpowers:verification-before-completion)"
     ],
     "deny": [],
     "ask": []

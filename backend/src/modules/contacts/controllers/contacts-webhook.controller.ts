@@ -16,6 +16,7 @@ import {
   MicrosoftContactsNotification,
 } from '../services/microsoft-contacts-webhook.service';
 import { SyncAuthService } from '../../email-sync/services/sync-auth.service';
+import { GoogleContactsSyncDto } from '../dto/contact.dto';
 
 @Controller('webhooks/contacts')
 export class ContactsWebhookController {
@@ -35,7 +36,7 @@ export class ContactsWebhookController {
   @Post('google/sync')
   @HttpCode(HttpStatus.OK)
   async triggerGoogleContactsSync(
-    @Body() body: { providerId: string },
+    @Body() body: GoogleContactsSyncDto,
     @Headers('x-webhook-token') webhookToken?: string,
   ) {
     try {
@@ -44,18 +45,26 @@ export class ContactsWebhookController {
 
       this.logger.log(`Manual Google Contacts sync triggered for provider ${body.providerId}`);
 
-      if (!body.providerId) {
-        throw new UnauthorizedException('Missing providerId in request body');
-      }
-
       await this.googleContactsWebhook.handleNotification(body.providerId);
 
       return { success: true };
     } catch (error) {
-      this.logger.error('Error handling Google Contacts sync:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      this.logger.error('Error handling Google Contacts sync', {
+        error: errorMessage,
+        stack: errorStack,
+        providerId: body.providerId,
+      });
+
+      // Re-throw authentication errors
       if (error instanceof UnauthorizedException) {
         throw error;
       }
+
+      // Return 200 OK for processing errors to prevent webhook retries
+      // (consistent with Calendar webhook pattern)
       return { success: false, error: 'Processing failed' };
     }
   }
@@ -100,8 +109,17 @@ export class ContactsWebhookController {
 
       return { success: true };
     } catch (error) {
-      this.logger.error('Error handling Microsoft Contacts webhook:', error);
-      // Return error to Microsoft for retry
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      this.logger.error('Error handling Microsoft Contacts webhook', {
+        error: errorMessage,
+        stack: errorStack,
+        notificationCount: payload.value?.length || 0,
+        subscriptionIds: payload.value?.map((n) => n.subscriptionId).filter(Boolean),
+      });
+
+      // Return error to Microsoft for retry (different from Google - Microsoft needs 500 for retry)
       throw error;
     }
   }

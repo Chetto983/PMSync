@@ -597,27 +597,35 @@ export class ProviderConfigService {
       }
     }
 
-    await this.prisma.email.deleteMany({
-      where: { providerId: provider.id },
-    });
+    // CRITICAL: All DB deletions must be atomic to prevent inconsistent state
+    // If any operation fails, the entire deletion should be rolled back
+    const { orphanedContactsCount } = await this.prisma.$transaction(async (tx) => {
+      // Delete all emails for this provider (cascade deletes attachments)
+      await tx.email.deleteMany({
+        where: { providerId: provider.id },
+      });
 
-    await this.prisma.providerConfig.delete({
-      where: { id: provider.id },
-    });
+      // Delete the provider config itself
+      await tx.providerConfig.delete({
+        where: { id: provider.id },
+      });
 
-    // Clean up orphaned unified_contacts that no longer have any provider_contacts
-    // This happens because cascade deletes provider_contacts but not unified_contacts
-    const orphanedContactsResult = await this.prisma.contact.deleteMany({
-      where: {
-        tenantId,
-        providerContacts: {
-          none: {},
+      // Clean up orphaned unified_contacts that no longer have any provider_contacts
+      // This happens because cascade deletes provider_contacts but not unified_contacts
+      const orphanedContactsResult = await tx.contact.deleteMany({
+        where: {
+          tenantId,
+          providerContacts: {
+            none: {},
+          },
         },
-      },
+      });
+
+      return { orphanedContactsCount: orphanedContactsResult.count };
     });
 
-    if (orphanedContactsResult.count > 0) {
-      this.logger.log(`Cleaned up ${orphanedContactsResult.count} orphaned contacts for tenant ${tenantId}`);
+    if (orphanedContactsCount > 0) {
+      this.logger.log(`Cleaned up ${orphanedContactsCount} orphaned contacts for tenant ${tenantId}`);
     }
 
     this.logger.log(`Provider config ${configId} deleted`);

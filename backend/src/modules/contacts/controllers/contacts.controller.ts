@@ -14,20 +14,24 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SkipThrottle } from '@nestjs/throttler';
-import {
-  ContactsService,
-  CreateContactDto,
-  UpdateContactDto,
-  ListContactsFilters,
-} from '../services/contacts.service';
+import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  CreateContactDto,
+  UpdateContactDto,
+  ListContactsQueryDto,
+  CreateLocalContactDto,
+  ExtractContactsDto,
+  VCardImportBodyDto,
+} from '../dto/contact.dto';
 
 @Controller('contacts')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -44,25 +48,16 @@ export class ContactsController {
    */
   @Get()
   @SkipThrottle()
-  async listContacts(
-    @Req() req: any,
-    @Query('providerId') providerId?: string,
-    @Query('search') search?: string,
-    @Query('company') company?: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
-  ) {
+  async listContacts(@Req() req: any, @Query() query: ListContactsQueryDto) {
     const tenantId = req.user.tenantId;
 
-    const filters: ListContactsFilters = {
-      providerId,
-      search,
-      company,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
-    };
-
-    return this.contactsService.listContacts(tenantId, filters);
+    return this.contactsService.listContacts(tenantId, {
+      providerId: query.providerId,
+      search: query.search,
+      company: query.company,
+      limit: query.limit,
+      offset: query.offset,
+    });
   }
 
   /**
@@ -82,7 +77,7 @@ export class ContactsController {
    */
   @Get(':id')
   @SkipThrottle()
-  async getContact(@Req() req: any, @Param('id') contactId: string) {
+  async getContact(@Req() req: any, @Param('id', ParseUUIDPipe) contactId: string) {
     const tenantId = req.user.tenantId;
     return this.contactsService.getContact(tenantId, contactId);
   }
@@ -105,7 +100,7 @@ export class ContactsController {
   @Patch(':id')
   async updateContact(
     @Req() req: any,
-    @Param('id') contactId: string,
+    @Param('id', ParseUUIDPipe) contactId: string,
     @Body() data: UpdateContactDto,
   ) {
     const tenantId = req.user.tenantId;
@@ -118,7 +113,7 @@ export class ContactsController {
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteContact(@Req() req: any, @Param('id') contactId: string) {
+  async deleteContact(@Req() req: any, @Param('id', ParseUUIDPipe) contactId: string) {
     const tenantId = req.user.tenantId;
     await this.contactsService.deleteContact(tenantId, contactId);
   }
@@ -129,7 +124,7 @@ export class ContactsController {
    */
   @Post('local')
   @HttpCode(HttpStatus.CREATED)
-  async createLocalContact(@Req() req: any, @Body() data: Omit<CreateContactDto, 'providerId'>) {
+  async createLocalContact(@Req() req: any, @Body() data: CreateLocalContactDto) {
     const tenantId = req.user.tenantId;
     return this.contactsService.createLocalContact(tenantId, data);
   }
@@ -140,10 +135,7 @@ export class ContactsController {
    * Works for any provider, especially useful for generic IMAP
    */
   @Post('extract-from-emails')
-  async extractContactsFromEmails(
-    @Req() req: any,
-    @Body() body: { providerId?: string; excludePublicDomains?: boolean },
-  ) {
+  async extractContactsFromEmails(@Req() req: any, @Body() body: ExtractContactsDto) {
     const tenantId = req.user.tenantId;
     const result = await this.contactsService.extractContactsFromEmails(
       tenantId,
@@ -166,7 +158,7 @@ export class ContactsController {
   async importFromVCard(
     @Req() req: any,
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: { content?: string },
+    @Body() body: VCardImportBodyDto,
   ) {
     const tenantId = req.user.tenantId;
 
@@ -197,7 +189,7 @@ export class ContactsController {
    * POST /api/contacts/sync/:providerId
    */
   @Post('sync/:providerId')
-  async syncProvider(@Req() req: any, @Param('providerId') providerId: string) {
+  async syncProvider(@Req() req: any, @Param('providerId', ParseUUIDPipe) providerId: string) {
     const tenantId = req.user.tenantId;
 
     // ✅ SECURITY: Verify provider ownership before syncing

@@ -23,7 +23,7 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { SkipThrottle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { EmailsService, EmailListFilters } from '../services/emails.service';
@@ -423,8 +423,10 @@ export class EmailsController {
 
   /**
    * POST /emails/calendar-invite/send - Send a new meeting invitation (REQUEST)
+   * Rate limited: 10 emails per minute per user to prevent spam/abuse
    */
   @Post('calendar-invite/send')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   async sendCalendarInvite(
     @Req() req: any,
     @Body()
@@ -611,8 +613,10 @@ export class EmailsController {
 
   /**
    * POST /emails/send - Send a new email
+   * Rate limited: 10 emails per minute per user to prevent spam/abuse
    */
   @Post('send')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   async sendEmail(@Req() req: any, @Body() body: SendEmailRequestDto) {
     const tenantId = req.user.tenantId;
     const { providerId, attachments, ...rest } = body;
@@ -627,8 +631,10 @@ export class EmailsController {
 
   /**
    * POST /emails/:id/reply - Reply to an email
+   * Rate limited: 10 emails per minute per user to prevent spam/abuse
    */
   @Post(':id/reply')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   async replyToEmail(
     @Req() req: any,
     @Param('id') id: string,
@@ -644,8 +650,10 @@ export class EmailsController {
 
   /**
    * POST /emails/:id/forward - Forward an email
+   * Rate limited: 10 emails per minute per user to prevent spam/abuse
    */
   @Post(':id/forward')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   async forwardEmail(
     @Req() req: any,
     @Param('id') id: string,
