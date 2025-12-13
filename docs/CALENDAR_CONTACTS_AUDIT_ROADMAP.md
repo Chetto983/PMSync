@@ -26,10 +26,10 @@ A comprehensive audit of Calendar and Contacts modules identified critical bugs 
 | Email | 0 | 6 | 8 | 14 | 14 |
 | Email-Sync | 0 | 3 | 1 | 4 | 4 |
 | Providers | 1 | 0 | 0 | 1 | 1 |
-| Code Duplication | 0 | 0 | 6 | 6 | 3 |
-| **Total** | **8** | **20** | **17** | **45** | **42** |
+| Code Duplication | 0 | 0 | 6 | 6 | 4 |
+| **Total** | **8** | **20** | **17** | **45** | **43** |
 
-> **Progress:** 42/45 issues fixed (93%) - All P0, P1, and P2 issues resolved!
+> **Progress:** 43/45 issues fixed (96%) - All P0, P1, and P2 issues resolved!
 >
 > **✅ 100% Complete:** Email-Sync, Providers, Calendar, Contacts, Email
 >
@@ -37,7 +37,9 @@ A comprehensive audit of Calendar and Contacts modules identified critical bugs 
 >
 > **✅ DUP-2 Complete:** Calendar Providers refactored (2025-12-13)
 >
-> **Remaining:** Code Duplication refactoring (3) - DEFERRED (working code, low ROI)
+> **✅ DUP-4 Complete:** Contacts Providers refactored (2025-12-13)
+>
+> **Remaining:** Code Duplication refactoring (2) - DEFERRED (working code, low ROI)
 
 ---
 
@@ -872,32 +874,35 @@ await this.prisma.$transaction(async (tx) => {
 > **Audit Date:** December 12, 2025
 > **Estimated Savings:** 500-600 lines of duplicated code
 
-### DUP-1: Attachment Handlers (~150 lines duplicated)
+### DUP-1: Attachment Handlers (~150 lines duplicated) ✅ COMPLETED 2025-12-13
+
 **Priority:** P2 - Medium (Refactoring)
-**Files:**
-- `backend/src/modules/email-sync/services/gmail/gmail-attachment-handler.ts` (352 lines)
-- `backend/src/modules/email-sync/services/microsoft/microsoft-attachment-handler.ts` (400 lines)
+**Status:** ✅ COMPLETED
 
-**Duplicated Methods (90%+ identical):**
-- `saveCalendarInvite()` - 16 lines IDENTICAL
-- `serializeInvite()` - 9 lines IDENTICAL
-- `syncCalendarEventFromInvite()` - 75+ lines IDENTICAL
-- `processEmailAttachments()` core logic - 90% similar
+**Files Created/Modified:**
+- `backend/src/modules/email-sync/services/base-attachment-handler.ts` (NEW - 330 lines shared base)
+- `backend/src/modules/email-sync/services/gmail/gmail-attachment-handler.ts` (377 → 137 lines, -63%)
+- `backend/src/modules/email-sync/services/microsoft/microsoft-attachment-handler.ts` (426 → 197 lines, -54%)
+- `backend/src/modules/email-sync/services/imap/imap-attachment-handler.ts` (NEW - 100 lines)
+- `backend/src/modules/email-sync/services/imap/imap-sync.service.ts` (MODIFIED - integrated IMAP attachments)
+- `backend/src/modules/email-sync/email-sync.module.ts` (MODIFIED - added ImapAttachmentHandler)
 
-**Refactoring Recommendation:**
-Create `BaseAttachmentHandler` abstract class with:
-```typescript
-abstract class BaseAttachmentHandler {
-  // Shared methods
-  protected async saveCalendarInvite(...) { ... }
-  protected serializeInvite(...) { ... }
-  protected async syncCalendarEventFromInvite(...) { ... }
-  protected async processAttachmentWithStrategy(...) { ... }
+**Solution:** Created `BaseAttachmentHandler` abstract class with:
+- All shared attachment processing logic (`processEmailAttachments()`, `persistAttachmentRecords()`)
+- Calendar invite handling (`saveCalendarInvite()`, `serializeInvite()`, `syncCalendarEventFromInvite()`)
+- Provider-agnostic `AttachmentMeta` interface
+- Abstract `downloadAttachment()` method for provider-specific implementation
+- Added new `ImapAttachmentHandler` for IMAP provider support
 
-  // Provider-specific (abstract)
-  protected abstract downloadAttachment(...): Promise<Buffer | null>;
-}
-```
+**Additional Fixes:**
+- Fixed Microsoft batch processor to accept `msRequestWithRetry` parameter
+- Integrated IMAP attachment processing into `imap-sync.service.ts`
+
+**Verification:**
+- TypeScript compiles without errors
+- 72/72 S3 attachments coherent (verified with `check-attachments-coherence.ts`)
+- 310 pending attachments (metadata-only, on-demand download)
+- 0 missing S3 files, 10 orphaned S3 objects (expected from previous tests)
 
 ---
 
@@ -971,9 +976,38 @@ abstract class BaseCalendarProvider implements ICalendarProvider {
 
 ---
 
-### DUP-4: Contacts Providers (Likely Similar Pattern)
-**Priority:** P2 - Medium
-**Note:** Not fully audited, but based on patterns likely has similar duplication to calendar providers
+### DUP-4: Contacts Sync Services (~350 lines duplicated) ✅ COMPLETED 2025-12-13
+
+**Priority:** P2 - Medium (Refactoring)
+**Status:** ✅ COMPLETED
+
+**Files Created/Modified:**
+
+- `backend/src/modules/contacts/services/base-contacts-sync.service.ts` (NEW - 380 lines shared base)
+- `backend/src/modules/contacts/services/google-contacts-sync.service.ts` (610 → 210 lines, -66%)
+- `backend/src/modules/contacts/services/microsoft-contacts-sync.service.ts` (620 → 225 lines, -64%)
+
+**Solution:** Created `BaseContactsSyncService` abstract class with:
+
+- Shared bulk sync flow (`syncContacts()` with 4-step process)
+- Batch processing with Prisma transactions (`processBatch()`)
+- Email-based unified contact lookup (`batchFindUnifiedContactsByEmail()`)
+- Real-time WebSocket notifications (`notifyContactsBulk()`, `notifyContactChange()`)
+- Provider-agnostic `ExtractedContactData` interface
+- Abstract methods: `fetchAllContacts()`, `getExternalId()`, `extractContactData()`, `createContact()`, `updateContact()`, `deleteContact()`
+
+**Duplicated Methods Eliminated (100% IDENTICAL):**
+
+- `batchFindUnifiedContactsByEmail()` - 40 lines
+- `notifyContactsBulk()` - 35 lines
+- `notifyContactChange()` - 40 lines
+- `processBatch()` - 170 lines
+- `syncContacts()` main flow - 90 lines
+
+**Verification:**
+
+- TypeScript compiles without errors
+- Module unchanged (class names preserved for backward compatibility)
 
 ---
 
@@ -1041,8 +1075,17 @@ abstract class BaseCalendarProvider implements ICalendarProvider {
   - Google provider: 461 → 88 lines (-81%)
   - Microsoft provider: 507 → 227 lines (-55%)
   - Validated with 20/20 real provider API tests
-- [ ] DUP-1: Extract BaseAttachmentHandler class (~150 lines savings) - DEFERRED
-  - Similar pattern to calendar providers
+- [x] DUP-1: Extract BaseAttachmentHandler class (~150 lines savings) ✅ COMPLETED 2025-12-13
+  - Created `base-attachment-handler.ts` with 330 lines of shared code
+  - Gmail handler: 377 → 137 lines (-63%)
+  - Microsoft handler: 426 → 197 lines (-54%)
+  - Added new `ImapAttachmentHandler` (100 lines)
+  - Verified 72/72 S3 attachments coherent
+- [x] DUP-4: Extract BaseContactsSyncService class (~350 lines savings) ✅ COMPLETED 2025-12-13
+  - Created `base-contacts-sync.service.ts` with 380 lines of shared code
+  - Google contacts sync: 610 → 210 lines (-66%)
+  - Microsoft contacts sync: 620 → 225 lines (-64%)
+  - TypeScript compiles, module unchanged
 - [ ] DUP-3: Consolidate OAuth token operations - DEFERRED
   - ProviderTokenService already handles most shared operations
 
