@@ -2052,6 +2052,7 @@ The codebase uses [VoltAgent](https://voltagent.dev/) framework correctly:
 | **Prompt Injection Risk** | `MistralService` | No explicit input sanitization beyond length limits |
 | **LLM Output Schema Validation** | `email-insights.service.ts` | JSON parsing without Zod schema validation |
 | **Semantic Cache Memory Growth** | `SemanticCacheService` | In-memory `embeddingCache` has no eviction telemetry |
+| **VoltAgent Memory Tool-Call Format Bug** | `@voltagent/postgres` | Multi-turn conversations fail when loading history with tool-call parts (see details below) |
 
 #### P2: Medium Priority
 
@@ -2118,6 +2119,81 @@ The codebase uses [VoltAgent](https://voltagent.dev/) framework correctly:
 
 ---
 
+### 15.8 Known Upstream Bugs
+
+#### VoltAgent PostgreSQL Memory Tool-Call Format Bug (P1)
+
+**Issue Date:** 2025-12-13
+**Package:** `@voltagent/postgres`
+**Status:** Upstream bug - waiting for fix from VoltAgent team
+
+**Description:**
+Multi-turn conversations fail when the conversation history contains messages with tool-call parts. The `@voltagent/postgres` memory adapter stores messages in UIMessage format with a `parts` array. When these messages are loaded back for subsequent conversation turns, the format is incompatible with what the Mistral AI API expects.
+
+**Error:**
+
+```text
+AI_InvalidPromptError: Invalid prompt format
+- Expected: string content or specific part types (text, image, file)
+- Received: Array with tool-call parts that Mistral doesn't recognize
+```
+
+**Reproduction Steps:**
+
+1. Start a conversation that triggers tool usage (e.g., "Search my emails for mutuo")
+2. Agent successfully uses tools and responds
+3. Send follow-up message that requires conversation context
+4. Second turn fails with `AI_InvalidPromptError`
+
+**Test Script:** `backend/scripts/test-voltagent-mutuo-draft.ts`
+
+**Affected Scenarios:**
+
+- Multi-turn conversations with tool usage
+- Draft creation after email search
+- Any follow-up requiring context from tool-using turns
+
+**What Works:**
+
+- Single-turn tool usage
+- Multi-turn conversations without tools
+- User context personalization
+- Datetime awareness
+
+**Workaround:**
+Currently none available in our codebase. Options being considered:
+
+1. Filter out tool-call parts from history before sending to Mistral
+2. Convert UIMessage format back to simple string content
+3. Wait for upstream fix from VoltAgent
+
+**Root Cause:**
+The `@voltagent/postgres` adapter uses UIMessage format internally:
+
+```typescript
+// Message stored with parts array
+{
+  id: 'xxx',
+  role: 'assistant',
+  parts: [
+    { type: 'text', text: '...' },
+    { type: 'tool-call', toolName: 'search_emails', args: {...} },
+    { type: 'tool-result', toolName: 'search_emails', result: {...} }
+  ]
+}
+```
+
+When loaded for next turn, Mistral API receives this format but expects:
+
+```typescript
+{
+  role: 'assistant',
+  content: '...' // string only
+}
+```
+
+---
+
 ### Changelog
 
 #### v3.2 (2025-12-13)
@@ -2127,8 +2203,9 @@ The codebase uses [VoltAgent](https://voltagent.dev/) framework correctly:
 - VoltAgent framework implementation review (all patterns verified correct)
 - Code duplication analysis (~270-330 lines identified across 60 files)
 - Performance optimizations verified (semantic cache, model routing, batch API)
-- Identified 3 P1 issues, 4 P2 issues, 2 P3 issues
+- Identified 4 P1 issues (including VoltAgent memory bug), 4 P2 issues, 2 P3 issues
 - Added recommendations with code examples
+- Added Section 15.8: Known Upstream Bugs documenting `@voltagent/postgres` tool-call format issue
 
 #### v3.1 (2025-11-28)
 
