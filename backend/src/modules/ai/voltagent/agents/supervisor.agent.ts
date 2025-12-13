@@ -59,14 +59,58 @@ export interface UserContext {
 }
 
 /**
+ * Format current datetime for a specific timezone.
+ * Returns a human-readable date/time string.
+ */
+function formatCurrentDateTime(timezone?: string): string {
+  const now = new Date();
+  const tz = timezone || 'UTC';
+
+  try {
+    // Format date in user's timezone
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
+    const formattedDate = dateFormatter.format(now);
+    const formattedTime = timeFormatter.format(now);
+
+    return `${formattedDate} at ${formattedTime} (${tz})`;
+  } catch {
+    // Fallback if timezone is invalid
+    return now.toISOString();
+  }
+}
+
+/**
  * Builds dynamic instructions with user context injected.
+ * Includes current datetime in the user's timezone for temporal awareness.
  */
 export function buildDynamicInstructions(
   baseInstructions: string,
   userContext?: UserContext,
 ): string {
+  // Always add current datetime section (even without user context)
+  const currentDateTime = formatCurrentDateTime(userContext?.timezone);
+  const dateTimeSection = `
+## Current Date and Time
+The current date and time is: ${currentDateTime}
+Use this information when answering questions about "today", "tomorrow", "this week", scheduling, or any time-relative queries.
+`;
+
   if (!userContext) {
-    return baseInstructions;
+    return `${baseInstructions}\n${dateTimeSection}`;
   }
 
   // Build user profile section
@@ -120,7 +164,7 @@ export function buildDynamicInstructions(
   }
 
   if (userInfo.length === 0) {
-    return baseInstructions;
+    return `${baseInstructions}\n${dateTimeSection}`;
   }
 
   // Inject user context into instructions
@@ -132,7 +176,7 @@ ${userInfo.join('\n')}
 IMPORTANT: Remember and use this information throughout the conversation. Address the user by name when appropriate.
 `;
 
-  return `${baseInstructions}\n${userContextSection}`;
+  return `${baseInstructions}\n${dateTimeSection}\n${userContextSection}`;
 }
 
 /**

@@ -110,10 +110,16 @@ interface SerializableSuspendedWorkflow {
   suspendedAt: string; // ISO string for JSON serialization
 }
 
+/** Cached agent with creation timestamp for TTL-based expiration */
+interface CachedAgent {
+  agent: Agent;
+  createdAt: number;
+}
+
 @Injectable()
 export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(VoltAgentService.name);
-  private agents: Map<string, Agent> = new Map();
+  private agents: Map<string, CachedAgent> = new Map();
   private memory: Memory | null = null;
   private approvalWorkflow: ReturnType<typeof createApprovalWorkflow> | null = null;
   private observabilityHooks: ReturnType<typeof createObservabilityHooks> | null = null;
@@ -122,6 +128,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private readonly SUSPENDED_WORKFLOW_PREFIX = 'voltagent:workflow:suspended:';
   /** TTL for suspended workflows (24 hours) */
   private readonly SUSPENDED_WORKFLOW_TTL = 86400;
+  /** TTL for cached agents (5 minutes) - ensures datetime is refreshed periodically */
+  private readonly AGENT_CACHE_TTL_MS = 5 * 60 * 1000;
 
   /** In-memory buffer for batch Redis writes */
   private metricsBuffer: AgentMetrics[] = [];
@@ -367,7 +375,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Get or create an agent for the given context.
-   * Agents are cached per user+locale+model for personalized instructions.
+   * Agents are cached per user+locale+model with TTL for personalized instructions.
+   * TTL ensures datetime in instructions stays fresh (refreshed every 5 minutes).
    * Includes RAG services for HybridRetriever when available.
    */
   private getOrCreateAgent(
@@ -380,28 +389,36 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Fall back to locale+model for anonymous/system calls
     const userKey = userContext?.email ?? 'anonymous';
     const cacheKey = `${userKey}:${locale}:${modelType}`;
+    const now = Date.now();
 
-    if (!this.agents.has(cacheKey)) {
-      const model = getMistralModel(modelType);
-      const agent = createSupervisorAgent({
-        model,
-        prisma: this.prisma,
-        emailSendService: this.emailSendService,
-        calendarService: this.calendarService,
-        locale,
-        tenantId,
-        memory: this.memory ?? undefined,
-        hooks: this.observabilityHooks ?? undefined,
-        // RAG services for HybridRetriever (optional - gracefully degrades)
-        mistralService: this.mistralService,
-        embeddingsService: this.embeddingsService,
-        // User context for personalized instructions
-        userContext: userContext ?? undefined,
-      });
-      this.agents.set(cacheKey, agent);
+    // Check if cached agent exists and is not expired
+    const cached = this.agents.get(cacheKey);
+    if (cached && (now - cached.createdAt) < this.AGENT_CACHE_TTL_MS) {
+      return cached.agent;
     }
 
-    return this.agents.get(cacheKey)!;
+    // Create new agent (or replace expired one)
+    const model = getMistralModel(modelType);
+    const agent = createSupervisorAgent({
+      model,
+      prisma: this.prisma,
+      emailSendService: this.emailSendService,
+      calendarService: this.calendarService,
+      locale,
+      tenantId,
+      memory: this.memory ?? undefined,
+      hooks: this.observabilityHooks ?? undefined,
+      // RAG services for HybridRetriever (optional - gracefully degrades)
+      mistralService: this.mistralService,
+      embeddingsService: this.embeddingsService,
+      // User context for personalized instructions
+      userContext: userContext ?? undefined,
+    });
+
+    // Cache with timestamp for TTL
+    this.agents.set(cacheKey, { agent, createdAt: now });
+
+    return agent;
   }
 
   /**
