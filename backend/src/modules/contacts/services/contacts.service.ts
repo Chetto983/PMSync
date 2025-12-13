@@ -1088,12 +1088,34 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
     let imported = 0;
     let skipped = 0;
 
+    // Batch validation: check content size and format before processing
+    const MAX_VCARD_SIZE = 10 * 1024 * 1024; // 10MB max
+    const MAX_CONTACTS_PER_IMPORT = 5000;
+
+    if (vcfContent.length > MAX_VCARD_SIZE) {
+      throw new BadRequestException(`vCard file too large. Maximum size: ${MAX_VCARD_SIZE / 1024 / 1024}MB`);
+    }
+
+    // Quick format validation - vCard must start with BEGIN:VCARD
+    if (!vcfContent.trim().toUpperCase().startsWith('BEGIN:VCARD')) {
+      throw new BadRequestException('Invalid vCard format: file must start with BEGIN:VCARD');
+    }
+
     try {
       // Parse vCard content - can contain multiple vCards
       const parsed = vCard.parse(vcfContent);
 
       // vCard.parse returns a single vCard or array, normalize to array
       const cards = Array.isArray(parsed) ? parsed : [parsed];
+
+      // Validate contact count before processing
+      if (cards.length > MAX_CONTACTS_PER_IMPORT) {
+        throw new BadRequestException(
+          `Too many contacts (${cards.length}). Maximum per import: ${MAX_CONTACTS_PER_IMPORT}`,
+        );
+      }
+
+      this.logger.log(`Parsed ${cards.length} vCards for import`);
 
       // Get existing emails for deduplication
       const existingContacts = await this.prisma.contact.findMany({

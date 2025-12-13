@@ -177,6 +177,7 @@ export class EmailsController {
 
   /**
    * GET /emails/search - Search emails
+   * Default limit: 20, Max limit: 100 (prevents large result sets)
    */
   @Get('search')
   @SkipThrottle()
@@ -187,14 +188,15 @@ export class EmailsController {
     @Query('limit') limit?: string,
   ) {
     const tenantId = req.user.tenantId;
+    const parsedLimit = limit ? Math.min(parseInt(limit) || 20, 100) : 20;
     const emails = await this.emailsService.searchEmails(
       tenantId,
       query,
       providerId,
-      limit ? parseInt(limit) : 20,
+      parsedLimit,
     );
 
-    return { emails };
+    return { emails, limit: parsedLimit };
   }
 
   /**
