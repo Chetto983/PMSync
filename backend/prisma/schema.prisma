@@ -683,6 +683,8 @@ model Contact {
   @@index([tenantId, displayName])
   @@index([tenantId, lastName, firstName])
   @@index([tenantId, company])
+  // Composite index for OR search across multiple fields (perf optimization)
+  @@index([tenantId, displayName, firstName, lastName, company])
   @@map("unified_contacts")
 }
 

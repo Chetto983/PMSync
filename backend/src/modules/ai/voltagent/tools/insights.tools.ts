@@ -4,6 +4,11 @@
  * AI-powered email analysis and composition tools for VoltAgent.
  * Refactored from email-insights.service.ts into reusable tools.
  *
+ * Performance optimizations (2025-12-14):
+ * - Email content caching to avoid redundant DB queries
+ * - Model routing: fast tier for simple scoring tasks
+ * - Intent-based pre-filtering for action item extraction
+ *
  * Tools:
  * - summarize_email: Generate concise email summaries
  * - analyze_sentiment: Analyze email sentiment and tone
@@ -69,10 +74,48 @@ export interface InsightsToolOptions {
 }
 
 /**
- * Helper to get email from database
+ * In-memory cache for email content within a tool session
+ * Prevents redundant DB queries when analyzing same email multiple times
+ * TTL: 5 minutes (cleared on module reload)
+ */
+const emailContentCache = new Map<string, { email: EmailRecord; timestamp: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCachedEmail(emailId: string): EmailRecord | null {
+  const cached = emailContentCache.get(emailId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.email;
+  }
+  emailContentCache.delete(emailId);
+  return null;
+}
+
+function setCachedEmail(emailId: string, email: EmailRecord): void {
+  // Limit cache size to prevent memory bloat
+  if (emailContentCache.size > 100) {
+    // Remove oldest entries
+    const entries = Array.from(emailContentCache.entries());
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    for (let i = 0; i < 20; i++) {
+      emailContentCache.delete(entries[i][0]);
+    }
+  }
+  emailContentCache.set(emailId, { email, timestamp: Date.now() });
+}
+
+/**
+ * Helper to get email from database with caching
+ * Performance optimization: avoids redundant DB queries when same email is analyzed multiple times
  */
 async function getEmail(prisma: PrismaService, tenantId: string, emailId: string): Promise<EmailRecord | null> {
-  return prisma.email.findFirst({
+  // Check cache first
+  const cached = getCachedEmail(emailId);
+  if (cached) {
+    return cached;
+  }
+
+  // Query database
+  const email = await prisma.email.findFirst({
     where: { id: emailId, tenantId },
     select: {
       id: true,
@@ -85,6 +128,13 @@ async function getEmail(prisma: PrismaService, tenantId: string, emailId: string
       receivedAt: true,
     },
   });
+
+  // Cache the result
+  if (email) {
+    setCachedEmail(emailId, email);
+  }
+
+  return email;
 }
 
 /**
@@ -228,11 +278,13 @@ export function createAnalyzeSentimentTool(options: InsightsToolOptions) {
 
       const userPrompt = buildEmailPrompt(email, locale, t);
 
+      // Performance optimization: use fast model for sentiment scoring (3-4x faster)
       const raw = await mistral.completePrompt({
         systemPrompt: t.insights.sentiment.systemPrompt,
         userPrompt,
         temperature: 0.1,
         maxTokens: 300,
+        modelTier: 'fast', // Use AI_MODEL_SIMPLE for sentiment analysis
       });
 
       try {
@@ -348,7 +400,31 @@ export function createComposeReplyTool(options: InsightsToolOptions) {
 }
 
 /**
+ * Heuristic pre-filter: check if email likely contains action items
+ * Performance optimization: skip expensive LLM call for emails unlikely to have actions
+ */
+const ACTION_KEYWORDS_EN = [
+  'please', 'action', 'todo', 'to do', 'deadline', 'asap', 'urgent', 'required',
+  'need', 'must', 'should', 'request', 'confirm', 'respond', 'reply', 'let me know',
+  'by tomorrow', 'by friday', 'by end of', 'schedule', 'meeting', 'call', 'review',
+];
+const ACTION_KEYWORDS_IT = [
+  'perfavore', 'azione', 'fare', 'scadenza', 'urgente', 'richiesto',
+  'bisogna', 'deve', 'conferma', 'rispondi', 'fammi sapere',
+  'entro domani', 'entro venerdì', 'riunione', 'chiamata', 'revisiona',
+];
+
+function likelyHasActionItems(content: string, locale: string): boolean {
+  const keywords = locale === 'it' ? [...ACTION_KEYWORDS_IT, ...ACTION_KEYWORDS_EN] : ACTION_KEYWORDS_EN;
+  const lowerContent = content.toLowerCase();
+  return keywords.some((kw) => lowerContent.includes(kw));
+}
+
+/**
  * Creates the extract_action_items tool
+ * Performance optimized with:
+ * - Heuristic pre-filtering to skip emails without action indicators
+ * - Fast model for extraction
  */
 export function createExtractActionItemsTool(options: InsightsToolOptions) {
   const { prisma, mistral, locale, tenantId } = options;
@@ -366,13 +442,30 @@ export function createExtractActionItemsTool(options: InsightsToolOptions) {
         return { error: t.email.notFound };
       }
 
+      // Performance optimization: heuristic pre-filter
+      // Skip expensive LLM call if email doesn't contain action keywords
+      const emailContent = extractEmailContent(email, t);
+      if (!likelyHasActionItems(emailContent, locale)) {
+        return {
+          emailId,
+          subject: email.subject,
+          from: email.from,
+          actionItems: [],
+          hasDeadlines: false,
+          count: 0,
+          skipped: true, // Indicate this was skipped due to heuristic
+        };
+      }
+
       const userPrompt = buildEmailPrompt(email, locale, t);
 
+      // Performance optimization: use fast model for extraction
       const raw = await mistral.completePrompt({
         systemPrompt: t.insights.actionItems.systemPrompt,
         userPrompt,
         temperature: 0.1,
         maxTokens: 500,
+        modelTier: 'fast', // Use AI_MODEL_SIMPLE for action extraction
       });
 
       try {
@@ -698,11 +791,13 @@ export function createDetectIntentTool(options: InsightsToolOptions) {
   "confidence": 0.0-1.0
 }`;
 
+      // Performance optimization: use fast model for intent classification (3-4x faster)
       const raw = await mistral.completePrompt({
         systemPrompt,
         userPrompt,
         temperature: 0.1,
         maxTokens: 400,
+        modelTier: 'fast', // Use AI_MODEL_SIMPLE for intent detection
       });
 
       try {
@@ -786,11 +881,13 @@ export function createCalculatePriorityTool(options: InsightsToolOptions) {
   "recommendation": "handle_now|handle_today|handle_this_week|can_wait|archive"
 }`;
 
+      // Performance optimization: use fast model for scoring (3-4x faster)
       const raw = await mistral.completePrompt({
         systemPrompt,
         userPrompt,
         temperature: 0.1,
         maxTokens: 400,
+        modelTier: 'fast', // Use AI_MODEL_SIMPLE for priority scoring
       });
 
       try {

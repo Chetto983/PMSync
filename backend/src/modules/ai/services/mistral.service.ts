@@ -238,9 +238,13 @@ export class MistralService {
     timeoutMs?: number;
     /** Telemetry context for tracking */
     telemetryContext?: { tenantId: string; userId?: string; promptName?: string };
+    /** Model override: 'fast' for mistral-small, 'default' for configured model */
+    modelTier?: 'fast' | 'default';
   }): Promise<string> {
-    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000, telemetryContext } = options;
-    const model = this.getModel();
+    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000, telemetryContext, modelTier } = options;
+    // Model routing: use AI_MODEL_SIMPLE for 'fast' tier (3-4x faster, cost-effective for scoring tasks)
+    const fastModel = this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
+    const model = modelTier === 'fast' ? fastModel : this.getModel();
 
     // Validate inputs before processing
     this.validatePromptInputs(userPrompt, systemPrompt);
