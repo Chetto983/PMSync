@@ -39,6 +39,20 @@ export interface SupervisorAgentOptions {
  * User profile context passed to agent for personalization.
  * Combines user data and preferences for a complete user profile.
  */
+/**
+ * Connected email/calendar provider info for AI context.
+ */
+export interface ConnectedProvider {
+  providerType: string; // 'GOOGLE', 'MICROSOFT', 'IMAP'
+  email: string;
+  displayName?: string; // Custom name like 'Work Gmail', 'Personal Outlook'
+  scope?: string; // Purpose: 'WORK', 'PERSONAL', 'LEGAL', 'INFO', etc.
+  supportsEmail: boolean;
+  supportsCalendar: boolean;
+  supportsContacts: boolean;
+  isDefault: boolean;
+}
+
 export interface UserContext {
   // Basic user info
   firstName?: string;
@@ -56,6 +70,8 @@ export interface UserContext {
   responseLength?: string;
   language?: string;
   timezone?: string;
+  // Connected providers (email/calendar accounts)
+  connectedProviders?: ConnectedProvider[];
 }
 
 /**
@@ -163,20 +179,46 @@ Use this information when answering questions about "today", "tomorrow", "this w
     userInfo.push(`- Timezone: ${userContext.timezone}`);
   }
 
-  if (userInfo.length === 0) {
+  // Build connected providers section
+  let providersSection = '';
+  if (userContext.connectedProviders && userContext.connectedProviders.length > 0) {
+    const providerLines: string[] = [];
+    for (const provider of userContext.connectedProviders) {
+      const providerLabel = provider.displayName || provider.email;
+      const typeLabel = provider.providerType === 'GOOGLE' ? 'Gmail' :
+                        provider.providerType === 'MICROSOFT' ? 'Outlook/Microsoft 365' :
+                        provider.providerType === 'IMAP' ? 'IMAP' : provider.providerType;
+      const capabilities: string[] = [];
+      if (provider.supportsEmail) capabilities.push('email');
+      if (provider.supportsCalendar) capabilities.push('calendar');
+      if (provider.supportsContacts) capabilities.push('contacts');
+      const defaultLabel = provider.isDefault ? ' (default)' : '';
+      const scopeLabel = provider.scope ? ` [${provider.scope}]` : '';
+      providerLines.push(`- ${providerLabel}${defaultLabel}${scopeLabel}: ${typeLabel} (${capabilities.join(', ')})`);
+    }
+    providersSection = `
+## Connected Email Accounts
+The user has the following email/calendar accounts connected:
+${providerLines.join('\n')}
+
+Use this information when the user asks about their email accounts, mentions specific providers (Gmail, Outlook), or references accounts by name or scope (Work, Personal, Legal, Info, etc.).
+`;
+  }
+
+  if (userInfo.length === 0 && !providersSection) {
     return `${baseInstructions}\n${dateTimeSection}`;
   }
 
   // Inject user context into instructions
-  const userContextSection = `
+  const userContextSection = userInfo.length > 0 ? `
 ## Current User Profile
 You are assisting this user:
 ${userInfo.join('\n')}
 
 IMPORTANT: Remember and use this information throughout the conversation. Address the user by name when appropriate.
-`;
+` : '';
 
-  return `${baseInstructions}\n${dateTimeSection}\n${userContextSection}`;
+  return `${baseInstructions}\n${dateTimeSection}${userContextSection}${providersSection}`;
 }
 
 /**

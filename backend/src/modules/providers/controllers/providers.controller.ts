@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Delete,
   Body,
   Param,
@@ -27,6 +28,7 @@ import {
   MicrosoftOAuthUrlDto,
   ProviderConfigResponseDto,
   OAuthUrlResponseDto,
+  UpdateProviderDto,
 } from '../dto';
 import { ImapService } from '../services/imap.service';
 
@@ -255,6 +257,18 @@ export class ProvidersController {
   ): Promise<ProviderConfigResponseDto> {
     const { tenantId } = req.user;
     return this.providerConfigService.getProviderConfig(tenantId, id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update provider settings (displayName, scope, isDefault)' })
+  @ApiResponse({ status: 200, type: ProviderConfigResponseDto })
+  async updateProvider(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateProviderDto,
+  ): Promise<ProviderConfigResponseDto> {
+    const { tenantId } = req.user;
+    return this.providerConfigService.updateProviderConfig(tenantId, id, dto);
   }
 
   @Get(':id/aliases')

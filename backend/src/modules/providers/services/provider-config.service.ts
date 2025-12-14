@@ -478,6 +478,45 @@ export class ProviderConfigService {
   }
 
   /**
+   * Update provider settings (displayName, scope, isDefault).
+   * When setting isDefault=true, clears isDefault on other providers for same tenant.
+   */
+  async updateProviderConfig(
+    tenantId: string,
+    configId: string,
+    data: { displayName?: string; scope?: string; isDefault?: boolean },
+  ) {
+    const config = await this.prisma.providerConfig.findFirst({
+      where: { id: configId, tenantId },
+    });
+
+    if (!config) {
+      throw new NotFoundException('Provider config not found');
+    }
+
+    // If setting as default, unset other defaults first
+    if (data.isDefault === true) {
+      await this.prisma.providerConfig.updateMany({
+        where: { tenantId, isDefault: true, id: { not: configId } },
+        data: { isDefault: false },
+      });
+    }
+
+    const updated = await this.prisma.providerConfig.update({
+      where: { id: configId },
+      data: {
+        displayName: data.displayName,
+        scope: data.scope,
+        isDefault: data.isDefault,
+      },
+    });
+
+    this.logger.log(`Provider ${configId} updated: ${JSON.stringify(data)}`);
+
+    return this.sanitizeProviderConfig(updated);
+  }
+
+  /**
    * Delete a provider config
    */
   async deleteProviderConfig(tenantId: string, configId: string) {

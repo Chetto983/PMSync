@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Stack, Typography, Divider } from '@mui/material';
+import { Box, Stack, Typography, Divider, TextField, IconButton, Tooltip } from '@mui/material';
 import {
   Dialog,
   DialogTitle,
@@ -11,25 +11,46 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ProviderConfig, providersApi } from '@/lib/api/providers';
+import { ProviderConfig, providersApi, UpdateProviderDto } from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
+
+const EditIcon = () => (
+  <svg width={18} height={18} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+  </svg>
+);
 
 interface ProvidersListProps {
   providers: ProviderConfig[];
   onDelete: () => void;
+  onUpdate?: () => void;
 }
 
-export function ProvidersList({ providers, onDelete }: ProvidersListProps) {
+export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListProps) {
   const translations = useTranslations();
   const providersCopy = translations.providers;
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [providerToDelete, setProviderToDelete] = useState<{ id: string; email: string } | null>(null);
+  const [providerToEdit, setProviderToEdit] = useState<ProviderConfig | null>(null);
+  const [editForm, setEditForm] = useState<UpdateProviderDto>({});
 
   const openDeleteDialog = (id: string, email: string) => {
     setProviderToDelete({ id, email });
     setDeleteDialogOpen(true);
+  };
+
+  const openEditDialog = (provider: ProviderConfig) => {
+    setProviderToEdit(provider);
+    setEditForm({
+      displayName: provider.displayName || '',
+      scope: provider.scope || '',
+      isDefault: provider.isDefault,
+    });
+    setEditDialogOpen(true);
   };
 
   const handleDelete = async () => {
@@ -48,6 +69,25 @@ export function ProvidersList({ providers, onDelete }: ProvidersListProps) {
       setError(error.response?.data?.message || 'Failed to delete provider');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!providerToEdit) return;
+
+    setUpdatingId(providerToEdit.id);
+    setError('');
+
+    try {
+      await providersApi.updateProvider(providerToEdit.id, editForm);
+      onUpdate?.();
+      setEditDialogOpen(false);
+      setProviderToEdit(null);
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to update provider');
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -165,7 +205,10 @@ export function ProvidersList({ providers, onDelete }: ProvidersListProps) {
                 </CardDescription>
               </Box>
             </Stack>
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {provider.scope && (
+                <Badge variant="info" label={provider.scope} sx={{ fontSize: '0.7rem', px: 1.5, py: 0.25 }} />
+              )}
               {provider.isDefault && (
                 <Badge variant="success" label={providersCopy.badges.default} sx={{ fontSize: '0.7rem', px: 1.5, py: 0.25 }} />
               )}
@@ -178,6 +221,11 @@ export function ProvidersList({ providers, onDelete }: ProvidersListProps) {
                   sx={{ fontSize: '0.7rem', px: 1.5, py: 0.25 }}
                 />
               )}
+              <Tooltip title="Edit provider settings">
+                <IconButton size="small" onClick={() => openEditDialog(provider)}>
+                  <EditIcon />
+                </IconButton>
+              </Tooltip>
             </Stack>
           </CardHeader>
           <Divider />
@@ -287,6 +335,48 @@ export function ProvidersList({ providers, onDelete }: ProvidersListProps) {
             disabled={deletingId !== null}
           >
             {deletingId !== null ? providersCopy.disconnecting : providersCopy.disconnect}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Provider Dialog */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => setEditDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Edit Provider Settings</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <TextField
+              label="Display Name"
+              placeholder="e.g., Work Gmail, Personal Outlook"
+              value={editForm.displayName || ''}
+              onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+              fullWidth
+              helperText="A friendly name to identify this account"
+            />
+            <TextField
+              label="Scope / Purpose"
+              placeholder="e.g., Work, Personal, Legal, Info, Kork"
+              value={editForm.scope || ''}
+              onChange={(e) => setEditForm({ ...editForm, scope: e.target.value })}
+              fullWidth
+              helperText="What this email account is used for (helps AI understand context)"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialogOpen(false)} disabled={updatingId !== null}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpdate}
+            variant="contained"
+            disabled={updatingId !== null}
+          >
+            {updatingId !== null ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>

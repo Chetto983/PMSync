@@ -91,7 +91,13 @@
       "Bash(git -C d:/MailAgent diff --stat)",
       "Bash(git -C d:/MailAgent add:*)",
       "Bash(git -C d:/MailAgent commit -m \"$(cat <<''EOF''\nfeat(ai): add user context personalization to VoltAgent\n\n- Add UserContext interface with user profile + preferences (name, email,\n  job, department, communication style, etc.)\n- Implement buildDynamicInstructions() to inject user context into agent\n  system prompt for personalized responses\n- Add getUserContext() method with Redis caching (5min TTL) for tenant\n  isolation and performance\n- Update agent cache key to include user email for personalized agents\n- Update test script to verify user context recognition and memory recall\n\nTest Results:\n- AI correctly identifies user by name (Davide)\n- AI knows user job title (Software Developer)\n- Memory persists across messages in same conversation\n- Secret code recall test PASS\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git -C d:/MailAgent push)"
+      "Bash(git -C d:/MailAgent push)",
+      "Bash(npm show:*)",
+      "Bash(npx prisma db execute:*)",
+      "Bash(psql:*)",
+      "Bash(dir /s d:MailAgentbackendsrcmodulesaivoltagenttools)",
+      "Bash(dir /s d:MailAgentbackendsrcmodulesaivoltagentagents)",
+      "Bash(node -e:*)"
     ],
     "deny": [],
     "ask": []

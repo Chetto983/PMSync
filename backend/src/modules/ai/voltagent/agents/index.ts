@@ -14,4 +14,5 @@ export {
   buildDynamicInstructions,
   type SupervisorAgentOptions,
   type UserContext,
+  type ConnectedProvider,
 } from './supervisor.agent';

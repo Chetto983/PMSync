@@ -28,9 +28,9 @@ import { AiQueueService, type AiJobData } from './services/ai-queue.service';
 import { RateLimiterService } from './services/rate-limiter.service';
 import { MistralBatchService } from './services/mistral-batch.service';
 import { ActionSeverity } from './interfaces/agent-action.interface';
-import { createSupervisorAgent, type UserContext } from './agents';
+import { createSupervisorAgent, type UserContext, type ConnectedProvider } from './agents';
 import { getLocale, type SupportedLocale } from './locales';
-import { createMemory, VoltAgentMemoryService } from './memory';
+import { VoltAgentMemoryService } from './memory';
 import { createObservabilityHooks, type AgentMetrics } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import {
@@ -154,11 +154,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    // Initialize shared PostgreSQL memory for all agents
-    this.memory = createMemory({
-      tablePrefix: 'voltagent_memory',
-      schema: 'public',
-    });
+    // DISABLED: VoltAgent native PostgreSQL memory causes AI_InvalidPromptError
+    // when conversation history contains tool-call parts with null fields.
+    // See: https://github.com/vercel/ai/issues/8061, https://github.com/vercel/ai/issues/8520
+    // Using Prisma-based VoltAgentMemoryService instead (persists in chat() method).
+    this.memory = null;
+
+    // Original code (disabled due to upstream bug):
+    // this.memory = createMemory({
+    //   tablePrefix: 'voltagent_memory',
+    //   schema: 'public',
+    // });
 
     // Initialize observability hooks with NestJS logger adapter
     this.observabilityHooks = createObservabilityHooks({
@@ -310,13 +316,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     this.agents.clear();
   }
 
-  /**
-   * Generate tenant-isolated userId for VoltAgent memory.
-   * Format: tenantId:userId to ensure data isolation between tenants.
-   */
-  private getTenantUserId(tenantId: string, userId: string): string {
-    return `${tenantId}:${userId}`;
-  }
+  // NOTE: getTenantUserId was removed - VoltAgent native memory disabled due to upstream bug
+  // Tenant isolation is now handled by Prisma-based VoltAgentMemoryService
 
   /**
    * Fetch user context (profile + preferences) for personalized instructions.
@@ -334,16 +335,52 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          userPreferences: true,
-        },
-      });
+      // Fetch user with preferences and connected providers in parallel
+      const [user, providers] = await Promise.all([
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          include: {
+            userPreferences: true,
+          },
+        }),
+        this.prisma.providerConfig.findMany({
+          where: {
+            tenantId,
+            userId,
+            isActive: true,
+          },
+          select: {
+            providerType: true,
+            email: true,
+            displayName: true,
+            scope: true,
+            supportsEmail: true,
+            supportsCalendar: true,
+            supportsContacts: true,
+            isDefault: true,
+          },
+          orderBy: [
+            { isDefault: 'desc' }, // Default provider first
+            { createdAt: 'asc' },
+          ],
+        }),
+      ]);
 
       if (!user) {
         return null;
       }
+
+      // Map providers to ConnectedProvider format
+      const connectedProviders: ConnectedProvider[] = providers.map((p) => ({
+        providerType: p.providerType,
+        email: p.email,
+        displayName: p.displayName ?? undefined,
+        scope: p.scope ?? undefined,
+        supportsEmail: p.supportsEmail,
+        supportsCalendar: p.supportsCalendar,
+        supportsContacts: p.supportsContacts,
+        isDefault: p.isDefault,
+      }));
 
       const userContext: UserContext = {
         firstName: user.firstName ?? undefined,
@@ -359,6 +396,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         responseLength: user.userPreferences?.responseLength ?? undefined,
         language: user.userPreferences?.language ?? undefined,
         timezone: user.userPreferences?.timezone ?? undefined,
+        connectedProviders: connectedProviders.length > 0 ? connectedProviders : undefined,
       };
 
       // Cache for 5 minutes (user preferences don't change often)
@@ -489,8 +527,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const userContext = await this.getUserContext(options.userId, options.tenantId);
     const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext);
 
-    // Use tenant-isolated userId for memory
-    const tenantUserId = this.getTenantUserId(options.tenantId, options.userId);
+    // NOTE: tenantUserId was previously used for VoltAgent's native memory (disabled due to bug)
+    // Tenant isolation is now handled by our Prisma-based VoltAgentMemoryService
 
     // 3. Enforce token budget before LLM call (P2 Memory Optimization)
     let contextTruncated = false;
@@ -519,9 +557,18 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // WORKAROUND: Use unique requestId instead of persistent conversationId
+    // to avoid VoltAgent's internal memory loading corrupted tool-call history.
+    // VoltAgent stores UIMessage parts with null fields that cause AI_InvalidPromptError.
+    // See: https://github.com/vercel/ai/issues/8061, https://github.com/vercel/ai/issues/8520
+    // Our Prisma-based VoltAgentMemoryService handles conversation persistence instead.
+    // Tenant isolation: userId includes tenantId prefix for data segregation.
+    const tenantUserId = `${options.tenantId}:${options.userId}`;
+    const uniqueRequestId = `${options.conversationId || 'req'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
     const result = await agent.generateText(message, {
       userId: tenantUserId,
-      conversationId: options.conversationId,
+      conversationId: uniqueRequestId, // Unique per request - no history loaded
     });
 
     // 4. Persist messages to Prisma-based memory (conversation history)
@@ -624,7 +671,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Process a chat message with streaming response.
-   * Uses tenant-isolated userId for memory operations.
    * Persists messages to Prisma-based memory after streaming completes.
    */
   async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string> {
@@ -634,12 +680,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const userContext = await this.getUserContext(options.userId, options.tenantId);
     const agent = this.getOrCreateAgent(options.tenantId, locale, options.model, userContext);
 
-    // Use tenant-isolated userId for memory
-    const tenantUserId = this.getTenantUserId(options.tenantId, options.userId);
+    // WORKAROUND: Use unique requestId instead of persistent conversationId
+    // See chat() method for full explanation of the VoltAgent memory bug workaround.
+    const tenantUserId = `${options.tenantId}:${options.userId}`;
+    const uniqueRequestId = `${options.conversationId || 'req'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const result = await agent.streamText(message, {
       userId: tenantUserId,
-      conversationId: options.conversationId,
+      conversationId: uniqueRequestId,
     });
 
     // Collect full response for memory persistence

@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 import Chip, { ChipProps } from '@mui/material/Chip';
 import type { SxProps, Theme } from '@mui/material/styles';
 
-type Variant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
+type Variant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'info';
 
 const variantMap: Record<Variant, { color: ChipProps['color']; variant: ChipProps['variant']; sx?: SxProps<Theme> }> =
   {
@@ -11,6 +11,7 @@ const variantMap: Record<Variant, { color: ChipProps['color']; variant: ChipProp
     destructive: { color: 'error', variant: 'outlined' },
     outline: { color: 'default', variant: 'outlined' },
     success: { color: 'success', variant: 'outlined' },
+    info: { color: 'info', variant: 'outlined' },
   };
 
 export interface BadgeProps extends Omit<ChipProps, 'variant' | 'color'> {

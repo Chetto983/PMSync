@@ -60,6 +60,10 @@ async function runConversation() {
       userMessage: 'Ciao! Chi sono io? Dimmi il mio nome e cosa faccio di lavoro.',
     },
     {
+      description: '1️⃣b Provider Awareness Test',
+      userMessage: 'Quali account email ho collegato? Dimmi il tipo (Gmail, Outlook) e il nome.',
+    },
+    {
       description: '2️⃣  Email Search - Komoot notifications',
       userMessage: 'Ho ricevuto email da Komoot? Chi è andato in bici recentemente?',
     },

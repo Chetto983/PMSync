@@ -1,4 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsBoolean, MaxLength } from 'class-validator';
 
 export class ProviderConfigResponseDto {
   @ApiProperty({ example: 'clx123abc456' })
@@ -10,8 +11,14 @@ export class ProviderConfigResponseDto {
   @ApiProperty({ example: 'user@gmail.com' })
   email!: string;
 
-  @ApiProperty({ example: 'John Doe', required: false })
+  @ApiProperty({ example: 'Work Gmail', required: false })
   displayName?: string;
+
+  @ApiPropertyOptional({
+    example: 'Work',
+    description: 'Free-form purpose/category of this email account (e.g., Work, Personal, Legal, Kork, etc.)',
+  })
+  scope?: string;
 
   @ApiProperty({ example: true })
   supportsEmail!: boolean;
@@ -36,6 +43,37 @@ export class ProviderConfigResponseDto {
 
   @ApiProperty({ example: '2025-10-29T10:30:00Z' })
   updatedAt!: Date;
+}
+
+/**
+ * DTO for updating provider settings (displayName, scope, isDefault).
+ * Scope is free-form text - users can put whatever they want (Work, Personal, Legal, Kork, etc.)
+ */
+export class UpdateProviderDto {
+  @ApiPropertyOptional({
+    example: 'Work Gmail',
+    description: 'Custom display name for this provider',
+  })
+  @IsOptional()
+  @IsString()
+  displayName?: string;
+
+  @ApiPropertyOptional({
+    example: 'Work',
+    description: 'Free-form purpose/category (e.g., Work, Personal, Legal, Info, etc.)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  scope?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Set this provider as the default',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean;
 }
 
 export class OAuthUrlResponseDto {

@@ -5,6 +5,8 @@ export interface ProviderConfig {
   providerType: 'google' | 'microsoft' | 'generic';
   email: string;
   displayName?: string;
+  /** Free-form purpose/category (e.g., Work, Personal, Legal, Info, Kork, etc.) */
+  scope?: string;
   supportsEmail: boolean;
   supportsCalendar: boolean;
   supportsContacts: boolean;
@@ -13,6 +15,13 @@ export interface ProviderConfig {
   lastSyncedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UpdateProviderDto {
+  displayName?: string;
+  /** Free-form purpose/category (e.g., Work, Personal, Legal, Info, etc.) */
+  scope?: string;
+  isDefault?: boolean;
 }
 
 export interface OAuthUrlResponse {
@@ -138,6 +147,11 @@ export const providersApi = {
 
   async deleteProvider(id: string): Promise<void> {
     await apiClient.delete(`/providers/${id}`);
+  },
+
+  async updateProvider(id: string, dto: UpdateProviderDto): Promise<ProviderConfig> {
+    const response = await apiClient.patch(`/providers/${id}`, dto);
+    return response.data;
   },
 
   // Sync operations

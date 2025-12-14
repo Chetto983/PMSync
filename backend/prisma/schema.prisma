@@ -244,6 +244,7 @@ model ProviderConfig {
   providerType             String
   email                    String
   displayName              String?
+  scope                    String?               // Purpose/category: WORK, PERSONAL, LEGAL, INFO, etc.
   supportsEmail            Boolean               @default(true)
   supportsCalendar         Boolean               @default(false)
   supportsContacts         Boolean               @default(false)
