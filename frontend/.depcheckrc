@@ -1,0 +1,13 @@
+{
+  "ignores": [
+    "@tailwindcss/postcss",
+    "autoprefixer",
+    "postcss",
+    "@types/jest",
+    "@types/node",
+    "@typescript-eslint/eslint-plugin",
+    "@typescript-eslint/parser",
+    "baseline-browser-mapping",
+    "jest-environment-jsdom"
+  ]
+}

@@ -1,6 +1,8 @@
 import { Params } from 'nestjs-pino';
 import { join } from 'path';
 import pino from 'pino';
+import 'pino-pretty'; // ensure dependency is detected/available for transports
+import 'pino-roll'; // ensure dependency is detected/available for transports
 
 /**
  * Configurazione Pino Logger con rotazione file FIFO 2 giorni

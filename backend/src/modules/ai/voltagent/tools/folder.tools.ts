@@ -3,11 +3,76 @@
  *
  * Provides folder operations as VoltAgent tools with Zod schemas.
  * Uses centralized locale system for translations.
+ *
+ * Performance optimizations (2025-12-14):
+ * - Redis caching for folder metadata lookups (tenant-scoped)
+ * - Memory fallback when Redis unavailable
  */
 import { createTool } from '@voltagent/core';
 import { z } from 'zod';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
+
+/**
+ * Folder metadata for caching
+ */
+interface FolderMetadata {
+  id: string;
+  name: string;
+  path: string;
+  providerId: string;
+  totalCount: number;
+}
+
+/**
+ * Cache configuration
+ */
+const FOLDER_METADATA_CACHE_TTL = 300; // 5 minutes
+
+/**
+ * Get folder metadata with Redis caching
+ */
+async function getFolderMetadata(
+  prisma: PrismaService,
+  tenantId: string,
+  folderId: string,
+  cacheService?: CacheService,
+): Promise<FolderMetadata | null> {
+  const cacheKey = `${tenantId}:folder:${folderId}`;
+
+  // Try Redis cache first
+  if (cacheService?.isHealthy()) {
+    try {
+      const cached = await cacheService.get<FolderMetadata>(cacheKey, {
+        namespace: CacheNamespace.FOLDER_METADATA,
+      });
+      if (cached) return cached;
+    } catch {
+      // Fall through to DB
+    }
+  }
+
+  // Query database
+  const folder = await prisma.folder.findFirst({
+    where: { id: folderId, tenantId },
+    select: { id: true, name: true, path: true, providerId: true, totalCount: true },
+  });
+
+  // Cache the result
+  if (folder && cacheService?.isHealthy()) {
+    try {
+      await cacheService.set(cacheKey, folder, {
+        namespace: CacheNamespace.FOLDER_METADATA,
+        ttl: FOLDER_METADATA_CACHE_TTL,
+      });
+    } catch {
+      // Ignore cache errors
+    }
+  }
+
+  return folder;
+}
 
 /**
  * Creates all folder-related tools for VoltAgent.
@@ -15,11 +80,13 @@ import { getToolTranslations, type SupportedLocale } from '../locales';
  * @param prisma - Prisma service for database access
  * @param locale - User's locale for translations
  * @param tenantId - Tenant ID for data isolation
+ * @param cacheService - Optional cache service for Redis caching
  */
 export function createFolderTools(
   prisma: PrismaService,
   locale: SupportedLocale = 'en',
   tenantId: string,
+  cacheService?: CacheService,
 ) {
   const t = getToolTranslations(locale);
 
@@ -132,10 +199,7 @@ export function createFolderTools(
           .describe('New name for the folder'),
       }),
       execute: async ({ folderId, newName }) => {
-        const folder = await prisma.folder.findFirst({
-          where: { id: folderId, tenantId },
-          select: { id: true, name: true, path: true, providerId: true },
-        });
+        const folder = await getFolderMetadata(prisma, tenantId, folderId, cacheService);
 
         if (!folder) {
           return { success: false, error: t.folder.notFound };
@@ -167,16 +231,7 @@ export function createFolderTools(
         folderId: z.string().describe('ID of the folder to delete'),
       }),
       execute: async ({ folderId }) => {
-        const folder = await prisma.folder.findFirst({
-          where: { id: folderId, tenantId },
-          select: {
-            id: true,
-            name: true,
-            path: true,
-            providerId: true,
-            totalCount: true,
-          },
-        });
+        const folder = await getFolderMetadata(prisma, tenantId, folderId, cacheService);
 
         if (!folder) {
           return { success: false, error: t.folder.notFound };
@@ -227,10 +282,7 @@ export function createFolderTools(
           return { success: false, error: 'Email not found' };
         }
 
-        const folder = await prisma.folder.findFirst({
-          where: { id: folderId, tenantId },
-          select: { id: true, name: true, path: true },
-        });
+        const folder = await getFolderMetadata(prisma, tenantId, folderId, cacheService);
 
         if (!folder) {
           return { success: false, error: t.folder.notFound };

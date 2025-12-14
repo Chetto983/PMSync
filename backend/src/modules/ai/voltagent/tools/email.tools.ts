@@ -3,12 +3,75 @@
  *
  * Provides email operations as VoltAgent tools with Zod schemas.
  * Uses centralized locale system for translations.
+ *
+ * Performance optimizations (2025-12-14):
+ * - Redis caching for email metadata lookups (tenant-scoped)
+ * - Memory fallback when Redis unavailable
  */
 import { createTool } from '@voltagent/core';
 import { z } from 'zod';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { EmailSendService } from '../../../email/services/email-send.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
+
+/**
+ * Email metadata for caching
+ */
+interface EmailMetadata {
+  id: string;
+  subject: string | null;
+  from: string;
+}
+
+/**
+ * Cache configuration
+ */
+const EMAIL_METADATA_CACHE_TTL = 300; // 5 minutes
+
+/**
+ * Get email metadata with Redis caching
+ */
+async function getEmailMetadata(
+  prisma: PrismaService,
+  tenantId: string,
+  emailId: string,
+  cacheService?: CacheService,
+): Promise<EmailMetadata | null> {
+  const cacheKey = `${tenantId}:meta:${emailId}`;
+
+  // Try Redis cache first
+  if (cacheService?.isHealthy()) {
+    try {
+      const cached = await cacheService.get<EmailMetadata>(cacheKey, {
+        namespace: CacheNamespace.EMAIL_METADATA,
+      });
+      if (cached) return cached;
+    } catch {
+      // Fall through to DB
+    }
+  }
+
+  // Query database
+  const email = await prisma.email.findFirst({
+    where: { id: emailId, tenantId },
+    select: { id: true, subject: true, from: true },
+  });
+
+  // Cache the result
+  if (email && cacheService?.isHealthy()) {
+    try {
+      await cacheService.set(cacheKey, email, {
+        namespace: CacheNamespace.EMAIL_METADATA,
+        ttl: EMAIL_METADATA_CACHE_TTL,
+      });
+    } catch {
+      // Ignore cache errors
+    }
+  }
+
+  return email;
+}
 
 /**
  * Creates all email-related tools for VoltAgent.
@@ -17,12 +80,14 @@ import { getToolTranslations, type SupportedLocale } from '../locales';
  * @param emailSendService - Email send service (nullable)
  * @param locale - User's locale for translations
  * @param tenantId - Tenant ID for data isolation
+ * @param cacheService - Optional cache service for Redis caching
  */
 export function createEmailTools(
   prisma: PrismaService,
   emailSendService: EmailSendService | null,
   locale: SupportedLocale = 'en',
   tenantId: string,
+  cacheService?: CacheService,
 ) {
   const t = getToolTranslations(locale);
 
@@ -71,10 +136,7 @@ export function createEmailTools(
           return { success: false, error: t.email.serviceUnavailable };
         }
 
-        const originalEmail = await prisma.email.findFirst({
-          where: { id: emailId, tenantId },
-          select: { subject: true, from: true },
-        });
+        const originalEmail = await getEmailMetadata(prisma, tenantId, emailId, cacheService);
 
         if (!originalEmail) {
           return { success: false, error: t.email.notFound };
@@ -112,10 +174,7 @@ export function createEmailTools(
           return { success: false, error: t.email.serviceUnavailable };
         }
 
-        const originalEmail = await prisma.email.findFirst({
-          where: { id: emailId, tenantId },
-          select: { subject: true },
-        });
+        const originalEmail = await getEmailMetadata(prisma, tenantId, emailId, cacheService);
 
         if (!originalEmail) {
           return { success: false, error: t.email.notFound };
@@ -182,10 +241,7 @@ export function createEmailTools(
         permanent: z.boolean().optional().describe('Permanently delete instead of moving to trash'),
       }),
       execute: async ({ emailId, permanent }) => {
-        const email = await prisma.email.findFirst({
-          where: { id: emailId, tenantId },
-          select: { subject: true },
-        });
+        const email = await getEmailMetadata(prisma, tenantId, emailId, cacheService);
 
         if (!email) {
           return { success: false, error: t.email.notFound };
@@ -211,10 +267,7 @@ export function createEmailTools(
         emailId: z.string().describe('ID of the email to archive'),
       }),
       execute: async ({ emailId }) => {
-        const email = await prisma.email.findFirst({
-          where: { id: emailId, tenantId },
-          select: { subject: true },
-        });
+        const email = await getEmailMetadata(prisma, tenantId, emailId, cacheService);
 
         if (!email) {
           return { success: false, error: t.email.notFound };
@@ -241,10 +294,7 @@ export function createEmailTools(
         emailId: z.string().describe('ID of the email'),
       }),
       execute: async ({ emailId }) => {
-        const email = await prisma.email.findFirst({
-          where: { id: emailId, tenantId },
-          select: { subject: true },
-        });
+        const email = await getEmailMetadata(prisma, tenantId, emailId, cacheService);
 
         if (!email) {
           return { success: false, error: t.email.notFound };
@@ -271,10 +321,7 @@ export function createEmailTools(
         emailId: z.string().describe('ID of the email'),
       }),
       execute: async ({ emailId }) => {
-        const email = await prisma.email.findFirst({
-          where: { id: emailId, tenantId },
-          select: { subject: true },
-        });
+        const email = await getEmailMetadata(prisma, tenantId, emailId, cacheService);
 
         if (!email) {
           return { success: false, error: t.email.notFound };
@@ -301,10 +348,7 @@ export function createEmailTools(
         emailId: z.string().describe('ID of the email to star'),
       }),
       execute: async ({ emailId }) => {
-        const email = await prisma.email.findFirst({
-          where: { id: emailId, tenantId },
-          select: { subject: true },
-        });
+        const email = await getEmailMetadata(prisma, tenantId, emailId, cacheService);
 
         if (!email) {
           return { success: false, error: t.email.notFound };
@@ -331,10 +375,7 @@ export function createEmailTools(
         emailId: z.string().describe('ID of the email to unstar'),
       }),
       execute: async ({ emailId }) => {
-        const email = await prisma.email.findFirst({
-          where: { id: emailId, tenantId },
-          select: { subject: true },
-        });
+        const email = await getEmailMetadata(prisma, tenantId, emailId, cacheService);
 
         if (!email) {
           return { success: false, error: t.email.notFound };

@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -29,6 +30,9 @@ async function bootstrap() {
 
   // Respect real client IPs behind reverse proxies (prevents rate-limit false positives)
   app.set('trust proxy', config.api.trustProxy);
+
+  // Parse signed/unsigned cookies for auth flows (JWT, MFA device tokens, etc.)
+  app.use(cookieParser());
 
   // Security middleware with Content Security Policy
   app.use(

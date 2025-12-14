@@ -1,0 +1,6 @@
+{
+  "ignores": [
+    "rimraf",
+    "tsconfig-paths"
+  ]
+}

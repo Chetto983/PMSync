@@ -3,21 +3,90 @@
  *
  * Provides calendar operations as VoltAgent tools with Zod schemas.
  * Uses centralized locale system for translations.
+ *
+ * Performance optimizations (2025-12-14):
+ * - Redis caching for event metadata lookups (tenant-scoped)
+ * - Memory fallback when Redis unavailable
  */
 import { createTool } from '@voltagent/core';
 import { z } from 'zod';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 
 /**
+ * Event metadata for caching
+ */
+interface EventMetadata {
+  id: string;
+  title: string;
+}
+
+/**
+ * Cache configuration
+ */
+const EVENT_METADATA_CACHE_TTL = 300; // 5 minutes
+
+/**
+ * Get event metadata with Redis caching
+ */
+async function getEventMetadata(
+  prisma: PrismaService,
+  tenantId: string,
+  eventId: string,
+  cacheService?: CacheService,
+): Promise<EventMetadata | null> {
+  const cacheKey = `${tenantId}:event:${eventId}`;
+
+  // Try Redis cache first
+  if (cacheService?.isHealthy()) {
+    try {
+      const cached = await cacheService.get<EventMetadata>(cacheKey, {
+        namespace: CacheNamespace.CALENDAR_EVENT,
+      });
+      if (cached) return cached;
+    } catch {
+      // Fall through to DB
+    }
+  }
+
+  // Query database
+  const event = await prisma.calendarEvent.findFirst({
+    where: { id: eventId, tenantId },
+    select: { id: true, title: true },
+  });
+
+  // Cache the result
+  if (event && cacheService?.isHealthy()) {
+    try {
+      await cacheService.set(cacheKey, event, {
+        namespace: CacheNamespace.CALENDAR_EVENT,
+        ttl: EVENT_METADATA_CACHE_TTL,
+      });
+    } catch {
+      // Ignore cache errors
+    }
+  }
+
+  return event;
+}
+
+/**
  * Creates all calendar-related tools for VoltAgent.
+ *
+ * @param prisma - Prisma service for database access
+ * @param calendarService - Calendar service (nullable)
+ * @param locale - User's locale for translations
+ * @param tenantId - Tenant ID for data isolation
+ * @param cacheService - Optional cache service for Redis caching
  */
 export function createCalendarTools(
   prisma: PrismaService,
   calendarService: CalendarService | null,
   locale: SupportedLocale = 'en',
   tenantId: string,
+  cacheService?: CacheService,
 ) {
   const t = getToolTranslations(locale);
   const dateLocale = locale === 'it' ? 'it-IT' : 'en-US';
@@ -123,10 +192,7 @@ export function createCalendarTools(
           return { success: false, error: t.calendar.serviceUnavailable };
         }
 
-        const event = await prisma.calendarEvent.findFirst({
-          where: { id: eventId, tenantId },
-          select: { title: true },
-        });
+        const event = await getEventMetadata(prisma, tenantId, eventId, cacheService);
 
         if (!event) {
           return { success: false, error: t.calendar.notFound };
@@ -155,10 +221,7 @@ export function createCalendarTools(
           return { success: false, error: t.calendar.serviceUnavailable };
         }
 
-        const event = await prisma.calendarEvent.findFirst({
-          where: { id: eventId, tenantId },
-          select: { title: true },
-        });
+        const event = await getEventMetadata(prisma, tenantId, eventId, cacheService);
 
         if (!event) {
           return { success: false, error: t.calendar.notFound };

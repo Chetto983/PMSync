@@ -261,12 +261,16 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
   const dynamicInstructions = buildDynamicInstructions(t.supervisor.instructions, userContext);
 
   // Create all specialist agents with shared hooks for per-agent metrics
+  // Pass cacheService for Redis-based metadata caching (multi-instance support)
   const emailAgent = createEmailAgent({
     model,
     prisma,
     emailSendService,
+    mistral: mistralService,
+    cacheService,
     locale,
     tenantId,
+    userId,
     hooks,
   });
 
@@ -274,6 +278,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     model,
     prisma,
     calendarService,
+    cacheService,
     locale,
     tenantId,
     hooks,
@@ -282,6 +287,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
   const contactsAgent = createContactsAgent({
     model,
     prisma,
+    cacheService,
     locale,
     tenantId,
     hooks,

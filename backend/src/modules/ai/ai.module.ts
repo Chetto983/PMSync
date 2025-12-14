@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MistralService } from './services/mistral.service';
 import { AiController } from './controllers/ai.controller';
+import { AiHealthController } from './controllers/ai-health.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { EmbeddingsService } from './services/embeddings.service';
 import { KnowledgeBaseService } from './services/knowledge-base.service';
@@ -35,7 +36,7 @@ import { VoltAgentModule } from './voltagent/voltagent.module';
     EmbeddingBackfillSchedulerService,
     FeedbackQueueService,
   ],
-  controllers: [AiController, KnowledgeBaseController, PersonalizationController],
+  controllers: [AiController, AiHealthController, KnowledgeBaseController, PersonalizationController],
   exports: [
     // Core AI services
     MistralService,

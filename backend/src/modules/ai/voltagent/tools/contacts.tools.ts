@@ -3,19 +3,88 @@
  *
  * Provides contact management operations as VoltAgent tools with Zod schemas.
  * Uses centralized locale system for translations.
+ *
+ * Performance optimizations (2025-12-14):
+ * - Redis caching for contact metadata lookups (tenant-scoped)
+ * - Memory fallback when Redis unavailable
  */
 import { createTool } from '@voltagent/core';
 import { z } from 'zod';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 
 /**
+ * Contact metadata for caching
+ */
+interface ContactMetadata {
+  id: string;
+  displayName: string | null;
+  emails: unknown;
+}
+
+/**
+ * Cache configuration
+ */
+const CONTACT_METADATA_CACHE_TTL = 300; // 5 minutes
+
+/**
+ * Get contact metadata with Redis caching
+ */
+async function getContactMetadata(
+  prisma: PrismaService,
+  tenantId: string,
+  contactId: string,
+  cacheService?: CacheService,
+): Promise<ContactMetadata | null> {
+  const cacheKey = `${tenantId}:contact:${contactId}`;
+
+  // Try Redis cache first
+  if (cacheService?.isHealthy()) {
+    try {
+      const cached = await cacheService.get<ContactMetadata>(cacheKey, {
+        namespace: CacheNamespace.CONTACT_METADATA,
+      });
+      if (cached) return cached;
+    } catch {
+      // Fall through to DB
+    }
+  }
+
+  // Query database
+  const contact = await prisma.contact.findFirst({
+    where: { id: contactId, tenantId },
+    select: { id: true, displayName: true, emails: true },
+  });
+
+  // Cache the result
+  if (contact && cacheService?.isHealthy()) {
+    try {
+      await cacheService.set(cacheKey, contact, {
+        namespace: CacheNamespace.CONTACT_METADATA,
+        ttl: CONTACT_METADATA_CACHE_TTL,
+      });
+    } catch {
+      // Ignore cache errors
+    }
+  }
+
+  return contact;
+}
+
+/**
  * Creates all contact-related tools for VoltAgent.
+ *
+ * @param prisma - Prisma service for database access
+ * @param locale - User's locale for translations
+ * @param tenantId - Tenant ID for data isolation
+ * @param cacheService - Optional cache service for Redis caching
  */
 export function createContactsTools(
   prisma: PrismaService,
   locale: SupportedLocale = 'en',
   tenantId: string,
+  cacheService?: CacheService,
 ) {
   const t = getToolTranslations(locale);
 
@@ -145,13 +214,7 @@ export function createContactsTools(
         notes: z.string().optional().describe('New notes'),
       }),
       execute: async ({ contactId, email, displayName, firstName, lastName, phone, company, jobTitle, notes }) => {
-        const contact = await prisma.contact.findFirst({
-          where: {
-            id: contactId,
-            tenantId,
-          },
-          select: { displayName: true, emails: true },
-        });
+        const contact = await getContactMetadata(prisma, tenantId, contactId, cacheService);
 
         if (!contact) {
           return { success: false, error: t.contacts.notFound };
@@ -190,13 +253,7 @@ export function createContactsTools(
         contactId: z.string().describe('ID of the contact to delete'),
       }),
       execute: async ({ contactId }) => {
-        const contact = await prisma.contact.findFirst({
-          where: {
-            id: contactId,
-            tenantId,
-          },
-          select: { displayName: true, emails: true },
-        });
+        const contact = await getContactMetadata(prisma, tenantId, contactId, cacheService);
 
         if (!contact) {
           return { success: false, error: t.contacts.notFound };

@@ -99,7 +99,9 @@
       "Bash(dir /s d:MailAgentbackendsrcmodulesaivoltagentagents)",
       "Bash(node -e:*)",
       "Bash(git rev-list:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(git push)",
+      "Bash(npx tsc --noEmit)"
     ],
     "deny": [],
     "ask": []

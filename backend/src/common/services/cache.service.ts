@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, RedisClientType } from 'redis';
 import { getConfiguration } from '../../config/configuration';
@@ -24,6 +24,14 @@ export enum CacheNamespace {
   WEB_SEARCH_AGENT = 'websearch:agent',
   /** Web search results cache */
   WEB_SEARCH_RESULT = 'websearch:result',
+  /** Email content cache for VoltAgent insights tools (tenant-scoped) */
+  EMAIL_CONTENT = 'email:content',
+  /** Calendar event metadata cache for VoltAgent tools (tenant-scoped) */
+  CALENDAR_EVENT = 'calendar:event',
+  /** Contact metadata cache for VoltAgent tools (tenant-scoped) */
+  CONTACT_METADATA = 'contact:meta',
+  /** Folder metadata cache for VoltAgent tools (tenant-scoped) */
+  FOLDER_METADATA = 'folder:meta',
 }
 
 /**

@@ -5,9 +5,10 @@
  * Refactored from email-insights.service.ts into reusable tools.
  *
  * Performance optimizations (2025-12-14):
- * - Email content caching to avoid redundant DB queries
+ * - Redis-based email content caching (tenant-scoped) for multi-instance scalability
  * - Model routing: fast tier for simple scoring tasks
  * - Intent-based pre-filtering for action item extraction
+ * - Fallback to in-memory cache when Redis unavailable
  *
  * Tools:
  * - summarize_email: Generate concise email summaries
@@ -20,6 +21,7 @@
 import { createTool } from '@voltagent/core';
 import { z } from 'zod';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { MistralService } from '../../services/mistral.service';
 import { WritingStyleService } from '../services/writing-style.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
@@ -68,48 +70,118 @@ export interface InsightsToolOptions {
   prisma: PrismaService;
   mistral: MistralService;
   writingStyle?: WritingStyleService;
+  cacheService?: CacheService;
   locale: SupportedLocale;
   tenantId: string;
   userId?: string;
 }
 
 /**
- * In-memory cache for email content within a tool session
- * Prevents redundant DB queries when analyzing same email multiple times
- * TTL: 5 minutes (cleared on module reload)
+ * Email content cache configuration
+ * Redis TTL: 5 minutes for tenant-scoped email content
+ * Supports multi-instance deployments with shared Redis
  */
-const emailContentCache = new Map<string, { email: EmailRecord; timestamp: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const EMAIL_CACHE_TTL_SECONDS = 300; // 5 minutes
 
-function getCachedEmail(emailId: string): EmailRecord | null {
-  const cached = emailContentCache.get(emailId);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return cached.email;
-  }
-  emailContentCache.delete(emailId);
-  return null;
-}
+/**
+ * Fallback in-memory cache when Redis is unavailable
+ * Limited size to prevent memory bloat in single-instance scenarios
+ */
+const memoryFallbackCache = new Map<string, { email: EmailRecord; timestamp: number }>();
+const MEMORY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MEMORY_CACHE_MAX_SIZE = 100;
 
-function setCachedEmail(emailId: string, email: EmailRecord): void {
-  // Limit cache size to prevent memory bloat
-  if (emailContentCache.size > 100) {
-    // Remove oldest entries
-    const entries = Array.from(emailContentCache.entries());
-    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-    for (let i = 0; i < 20; i++) {
-      emailContentCache.delete(entries[i][0]);
-    }
-  }
-  emailContentCache.set(emailId, { email, timestamp: Date.now() });
+/**
+ * Build tenant-scoped cache key for email content
+ */
+function buildEmailCacheKey(tenantId: string, emailId: string): string {
+  return `${tenantId}:${emailId}`;
 }
 
 /**
- * Helper to get email from database with caching
- * Performance optimization: avoids redundant DB queries when same email is analyzed multiple times
+ * Get cached email from Redis or memory fallback
  */
-async function getEmail(prisma: PrismaService, tenantId: string, emailId: string): Promise<EmailRecord | null> {
-  // Check cache first
-  const cached = getCachedEmail(emailId);
+async function getCachedEmail(
+  cacheService: CacheService | undefined,
+  tenantId: string,
+  emailId: string,
+): Promise<EmailRecord | null> {
+  const cacheKey = buildEmailCacheKey(tenantId, emailId);
+
+  // Try Redis first if available
+  if (cacheService?.isHealthy()) {
+    try {
+      const cached = await cacheService.get<EmailRecord>(cacheKey, {
+        namespace: CacheNamespace.EMAIL_CONTENT,
+      });
+      if (cached) {
+        return cached;
+      }
+    } catch {
+      // Fall through to memory cache
+    }
+  }
+
+  // Fallback to memory cache
+  const memoryCached = memoryFallbackCache.get(cacheKey);
+  if (memoryCached && Date.now() - memoryCached.timestamp < MEMORY_CACHE_TTL_MS) {
+    return memoryCached.email;
+  }
+  memoryFallbackCache.delete(cacheKey);
+  return null;
+}
+
+/**
+ * Set email in Redis cache with memory fallback
+ */
+async function setCachedEmail(
+  cacheService: CacheService | undefined,
+  tenantId: string,
+  emailId: string,
+  email: EmailRecord,
+): Promise<void> {
+  const cacheKey = buildEmailCacheKey(tenantId, emailId);
+
+  // Try Redis first if available
+  if (cacheService?.isHealthy()) {
+    try {
+      await cacheService.set(cacheKey, email, {
+        namespace: CacheNamespace.EMAIL_CONTENT,
+        ttl: EMAIL_CACHE_TTL_SECONDS,
+      });
+      return; // Success, no need for memory fallback
+    } catch {
+      // Fall through to memory cache
+    }
+  }
+
+  // Fallback to memory cache
+  // Limit cache size to prevent memory bloat
+  if (memoryFallbackCache.size >= MEMORY_CACHE_MAX_SIZE) {
+    // Remove oldest entries (20% of max size)
+    const entries = Array.from(memoryFallbackCache.entries());
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const removeCount = Math.floor(MEMORY_CACHE_MAX_SIZE * 0.2);
+    for (let i = 0; i < removeCount && i < entries.length; i++) {
+      memoryFallbackCache.delete(entries[i][0]);
+    }
+  }
+  memoryFallbackCache.set(cacheKey, { email, timestamp: Date.now() });
+}
+
+/**
+ * Helper to get email from database with Redis caching
+ * Performance optimization: avoids redundant DB queries when same email is analyzed multiple times
+ * Multi-instance ready: uses Redis with tenant-scoped keys
+ */
+async function getEmail(
+  prisma: PrismaService,
+  tenantId: string,
+  emailId: string,
+  cacheService?: CacheService,
+): Promise<EmailRecord | null> {
+  // Check cache first (Redis or memory fallback)
+  const cached = await getCachedEmail(cacheService, tenantId, emailId);
   if (cached) {
     return cached;
   }
@@ -131,7 +203,7 @@ async function getEmail(prisma: PrismaService, tenantId: string, emailId: string
 
   // Cache the result
   if (email) {
-    setCachedEmail(emailId, email);
+    await setCachedEmail(cacheService, tenantId, emailId, email);
   }
 
   return email;
@@ -223,7 +295,7 @@ function parseArrayFromPayload(payload: string, key: string): string[] {
  * Creates the summarize_email tool
  */
 export function createSummarizeEmailTool(options: InsightsToolOptions) {
-  const { prisma, mistral, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -233,7 +305,7 @@ export function createSummarizeEmailTool(options: InsightsToolOptions) {
       emailId: z.string().describe('The ID of the email to summarize'),
     }),
     execute: async ({ emailId }) => {
-      const email = await getEmail(prisma, tenantId, emailId);
+      const email = await getEmail(prisma, tenantId, emailId, cacheService);
       if (!email) {
         return { error: t.email.notFound };
       }
@@ -261,7 +333,7 @@ export function createSummarizeEmailTool(options: InsightsToolOptions) {
  * Creates the analyze_sentiment tool
  */
 export function createAnalyzeSentimentTool(options: InsightsToolOptions) {
-  const { prisma, mistral, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -271,7 +343,7 @@ export function createAnalyzeSentimentTool(options: InsightsToolOptions) {
       emailId: z.string().describe('The ID of the email to analyze'),
     }),
     execute: async ({ emailId }) => {
-      const email = await getEmail(prisma, tenantId, emailId);
+      const email = await getEmail(prisma, tenantId, emailId, cacheService);
       if (!email) {
         return { error: t.email.notFound };
       }
@@ -322,7 +394,7 @@ export function createAnalyzeSentimentTool(options: InsightsToolOptions) {
  * Creates the compose_reply tool
  */
 export function createComposeReplyTool(options: InsightsToolOptions) {
-  const { prisma, mistral, writingStyle, locale, tenantId, userId } = options;
+  const { prisma, mistral, writingStyle, cacheService, locale, tenantId, userId } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -334,7 +406,7 @@ export function createComposeReplyTool(options: InsightsToolOptions) {
       tone: z.enum(['formal', 'casual', 'technical']).optional().describe('Tone for the reply'),
     }),
     execute: async ({ emailId, instructions, tone = 'casual' }) => {
-      const email = await getEmail(prisma, tenantId, emailId);
+      const email = await getEmail(prisma, tenantId, emailId, cacheService);
       if (!email) {
         return { error: t.email.notFound };
       }
@@ -427,7 +499,7 @@ function likelyHasActionItems(content: string, locale: string): boolean {
  * - Fast model for extraction
  */
 export function createExtractActionItemsTool(options: InsightsToolOptions) {
-  const { prisma, mistral, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -437,7 +509,7 @@ export function createExtractActionItemsTool(options: InsightsToolOptions) {
       emailId: z.string().describe('The ID of the email to analyze'),
     }),
     execute: async ({ emailId }) => {
-      const email = await getEmail(prisma, tenantId, emailId);
+      const email = await getEmail(prisma, tenantId, emailId, cacheService);
       if (!email) {
         return { error: t.email.notFound };
       }
@@ -502,7 +574,7 @@ export function createExtractActionItemsTool(options: InsightsToolOptions) {
  * Creates the categorize_email tool
  */
 export function createCategorizeEmailTool(options: InsightsToolOptions) {
-  const { prisma, mistral, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -512,7 +584,7 @@ export function createCategorizeEmailTool(options: InsightsToolOptions) {
       emailId: z.string().describe('The ID of the email to categorize'),
     }),
     execute: async ({ emailId }) => {
-      const email = await getEmail(prisma, tenantId, emailId);
+      const email = await getEmail(prisma, tenantId, emailId, cacheService);
       if (!email) {
         return { error: t.email.notFound };
       }
@@ -564,7 +636,7 @@ export function createCategorizeEmailTool(options: InsightsToolOptions) {
  * Creates the generate_smart_replies tool
  */
 export function createSmartRepliesTool(options: InsightsToolOptions) {
-  const { prisma, mistral, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -575,7 +647,7 @@ export function createSmartRepliesTool(options: InsightsToolOptions) {
       tone: z.enum(['formal', 'casual', 'technical']).optional().describe('Tone for the replies'),
     }),
     execute: async ({ emailId, tone = 'casual' }) => {
-      const email = await getEmail(prisma, tenantId, emailId);
+      const email = await getEmail(prisma, tenantId, emailId, cacheService);
       if (!email) {
         return { error: t.email.notFound };
       }
@@ -643,7 +715,7 @@ export type EmailIntent = (typeof EMAIL_INTENTS)[number];
  * Best practice 2025: Aspect-based analysis for better insights.
  */
 export function createAnalyzeEmailTool(options: InsightsToolOptions) {
-  const { prisma, mistral, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -653,7 +725,7 @@ export function createAnalyzeEmailTool(options: InsightsToolOptions) {
       emailId: z.string().describe('The ID of the email to analyze'),
     }),
     execute: async ({ emailId }) => {
-      const email = await getEmail(prisma, tenantId, emailId);
+      const email = await getEmail(prisma, tenantId, emailId, cacheService);
       if (!email) {
         return { error: t.email.notFound };
       }
@@ -752,7 +824,7 @@ export function createAnalyzeEmailTool(options: InsightsToolOptions) {
  * Best practice 2025: Intent-based routing for better handling.
  */
 export function createDetectIntentTool(options: InsightsToolOptions) {
-  const { prisma, mistral, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -762,7 +834,7 @@ export function createDetectIntentTool(options: InsightsToolOptions) {
       emailId: z.string().describe('The ID of the email to classify'),
     }),
     execute: async ({ emailId }) => {
-      const email = await getEmail(prisma, tenantId, emailId);
+      const email = await getEmail(prisma, tenantId, emailId, cacheService);
       if (!email) {
         return { error: t.email.notFound };
       }
@@ -842,7 +914,7 @@ export function createDetectIntentTool(options: InsightsToolOptions) {
  * Best practice 2025: Multi-factor priority scoring.
  */
 export function createCalculatePriorityTool(options: InsightsToolOptions) {
-  const { prisma, mistral, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -853,7 +925,7 @@ export function createCalculatePriorityTool(options: InsightsToolOptions) {
       senderImportance: z.enum(['vip', 'important', 'normal', 'low']).optional().describe('Known sender importance level'),
     }),
     execute: async ({ emailId, senderImportance = 'normal' }) => {
-      const email = await getEmail(prisma, tenantId, emailId);
+      const email = await getEmail(prisma, tenantId, emailId, cacheService);
       if (!email) {
         return { error: t.email.notFound };
       }

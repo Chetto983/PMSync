@@ -283,11 +283,7 @@ export class ActionExecutorService {
 
     if (!this.emailSendService) {
       this.logger.error('EmailSendService not available');
-      return {
-        success: false,
-        error: 'Email service is not available. Please try again later.',
-        executionTimeMs: 0,
-      };
+      throw new Error('Email service is not available. Please try again later.');
     }
 
     // Find provider if not specified
@@ -297,11 +293,7 @@ export class ActionExecutorService {
         where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
       });
       if (!provider) {
-        return {
-          success: false,
-          error: 'No email provider available',
-          executionTimeMs: 0,
-        };
+        throw new Error('No email provider available');
       }
       actualProviderId = provider.id;
     }
@@ -328,7 +320,7 @@ export class ActionExecutorService {
       success: result.success,
       data: { messageId: result.messageId, to, subject },
       summary: t.emailSent[lang](recipientList, subjectText),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -340,11 +332,7 @@ export class ActionExecutorService {
 
     if (!this.emailSendService) {
       this.logger.error('EmailSendService not available');
-      return {
-        success: false,
-        error: 'Email service is not available. Please try again later.',
-        executionTimeMs: 0,
-      };
+      throw new Error('Email service is not available. Please try again later.');
     }
 
     // Get the original email to reply to
@@ -353,11 +341,7 @@ export class ActionExecutorService {
     });
 
     if (!originalEmail) {
-      return {
-        success: false,
-        error: 'Original email not found',
-        executionTimeMs: 0,
-      };
+      throw new Error('Original email not found');
     }
 
     // Send reply
@@ -381,7 +365,7 @@ export class ActionExecutorService {
       success: result.success,
       data: { messageId: result.messageId, emailId, replyTo: originalEmail.from },
       summary: t.replySent[lang](originalEmail.from),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -393,11 +377,7 @@ export class ActionExecutorService {
 
     if (!this.emailSendService) {
       this.logger.error('EmailSendService not available');
-      return {
-        success: false,
-        error: 'Email service is not available. Please try again later.',
-        executionTimeMs: 0,
-      };
+      throw new Error('Email service is not available. Please try again later.');
     }
 
     // Get the original email to forward
@@ -406,11 +386,7 @@ export class ActionExecutorService {
     });
 
     if (!originalEmail) {
-      return {
-        success: false,
-        error: 'Original email not found',
-        executionTimeMs: 0,
-      };
+      throw new Error('Original email not found');
     }
 
     // Build forwarded body with original email content
@@ -441,7 +417,7 @@ export class ActionExecutorService {
       success: result.success,
       data: { messageId: result.messageId, emailId, forwardedTo: to },
       summary: t.emailForwarded[lang](recipientList),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -458,11 +434,7 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      return {
-        success: false,
-        error: 'Email not found',
-        executionTimeMs: 0,
-      };
+      throw new Error('Email not found');
     }
 
     // Update local database (soft delete)
@@ -497,7 +469,7 @@ export class ActionExecutorService {
       success: true,
       data: { emailId, deleted: true },
       summary: t.emailDeleted[lang](subjectText),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -514,11 +486,7 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      return {
-        success: false,
-        error: 'Email not found',
-        executionTimeMs: 0,
-      };
+      throw new Error('Email not found');
     }
 
     // Update local database - move to archive folder
@@ -554,7 +522,7 @@ export class ActionExecutorService {
       success: true,
       data: { emailId, archived: true },
       summary: t.emailArchived[lang](subjectText),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -572,11 +540,7 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      return {
-        success: false,
-        error: 'Email not found',
-        executionTimeMs: 0,
-      };
+      throw new Error('Email not found');
     }
 
     // Update local database
@@ -610,7 +574,7 @@ export class ActionExecutorService {
       success: true,
       data: { emailId, isRead },
       summary: isRead ? t.emailMarkedRead[lang] : t.emailMarkedUnread[lang],
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -628,11 +592,7 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      return {
-        success: false,
-        error: 'Email not found',
-        executionTimeMs: 0,
-      };
+      throw new Error('Email not found');
     }
 
     // Update local database
@@ -666,7 +626,7 @@ export class ActionExecutorService {
       success: true,
       data: { emailId, isStarred },
       summary: isStarred ? t.emailStarred[lang] : t.emailUnstarred[lang],
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -707,7 +667,7 @@ export class ActionExecutorService {
       success: true,
       data: { emails, count: emails.length },
       summary,
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -724,11 +684,7 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      return {
-        success: false,
-        error: 'Email not found',
-        executionTimeMs: 0,
-      };
+      throw new Error('Email not found');
     }
 
     // Determine labels to add/remove (labels is a String[] array)
@@ -770,7 +726,7 @@ export class ActionExecutorService {
       success: true,
       data: { emailId, labelsAdded: labelsToAdd, labelsRemoved: labelsToRemove, currentLabels: newLabels },
       summary,
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -786,11 +742,7 @@ export class ActionExecutorService {
 
     if (!this.calendarService) {
       this.logger.error('CalendarService not available');
-      return {
-        success: false,
-        error: 'Calendar service is not available. Please try again later.',
-        executionTimeMs: 0,
-      };
+      throw new Error('Calendar service is not available. Please try again later.');
     }
 
     // Find provider if not specified
@@ -800,11 +752,7 @@ export class ActionExecutorService {
         where: { tenantId: context.tenantId, supportsCalendar: true, isActive: true },
       });
       if (!provider) {
-        return {
-          success: false,
-          error: 'No calendar provider available',
-          executionTimeMs: 0,
-        };
+        throw new Error('No calendar provider available');
       }
       actualProviderId = provider.id;
     }
@@ -832,7 +780,7 @@ export class ActionExecutorService {
       success: true,
       data: { eventId: event.id, externalId: event.externalId, title, startTime, endTime },
       summary: t.eventCreated[lang](title, dateStr),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -844,11 +792,7 @@ export class ActionExecutorService {
 
     if (!this.calendarService) {
       this.logger.error('CalendarService not available');
-      return {
-        success: false,
-        error: 'Calendar service is not available. Please try again later.',
-        executionTimeMs: 0,
-      };
+      throw new Error('Calendar service is not available. Please try again later.');
     }
 
     // Update event via CalendarService
@@ -870,7 +814,7 @@ export class ActionExecutorService {
       success: true,
       data: { eventId, updated: true, event },
       summary: t.eventUpdated[lang](eventTitle),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -882,11 +826,7 @@ export class ActionExecutorService {
 
     if (!this.calendarService) {
       this.logger.error('CalendarService not available');
-      return {
-        success: false,
-        error: 'Calendar service is not available. Please try again later.',
-        executionTimeMs: 0,
-      };
+      throw new Error('Calendar service is not available. Please try again later.');
     }
 
     // Get event info for summary before deleting
@@ -907,7 +847,7 @@ export class ActionExecutorService {
       success: true,
       data: { eventId, deleted: true },
       summary: t.eventDeleted[lang](eventTitle),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -933,7 +873,7 @@ export class ActionExecutorService {
       success: true,
       data: { events, count: events.length },
       summary: t.eventsFound[lang](events.length),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -971,7 +911,7 @@ export class ActionExecutorService {
       summary: hasFreeTime
         ? t.availabilityFree[lang](busySlots.length)
         : t.availabilityBusy[lang](busySlots.length),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -991,11 +931,7 @@ export class ActionExecutorService {
     });
 
     if (!provider) {
-      return {
-        success: false,
-        error: 'No provider available for contacts',
-        executionTimeMs: 0,
-      };
+      throw new Error('No provider available for contacts');
     }
 
     const displayName = name || `${firstName || ''} ${lastName || ''}`.trim();
@@ -1019,7 +955,7 @@ export class ActionExecutorService {
       success: true,
       data: { contactId: contact.id, contact },
       summary: t.contactCreated[lang](displayName),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1056,7 +992,7 @@ export class ActionExecutorService {
       success: true,
       data: { contactId, updated: true },
       summary: t.contactUpdated[lang](contactName),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1083,7 +1019,7 @@ export class ActionExecutorService {
       success: true,
       data: { contactId, deleted: true },
       summary: t.contactDeleted[lang](contactName),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1116,7 +1052,7 @@ export class ActionExecutorService {
       success: true,
       data: { contacts, count: contacts.length },
       summary,
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1127,11 +1063,7 @@ export class ActionExecutorService {
     const { contactIds, primaryId } = action.payload;
 
     if (!contactIds || contactIds.length < 2) {
-      return {
-        success: false,
-        error: 'Need at least 2 contacts to merge',
-        executionTimeMs: 0,
-      };
+      throw new Error('Need at least 2 contacts to merge');
     }
 
     // Get all contacts to merge
@@ -1143,11 +1075,7 @@ export class ActionExecutorService {
     });
 
     if (contacts.length < 2) {
-      return {
-        success: false,
-        error: 'Could not find enough contacts to merge',
-        executionTimeMs: 0,
-      };
+      throw new Error('Could not find enough contacts to merge');
     }
 
     // Determine primary contact (first one or specified)
@@ -1156,11 +1084,7 @@ export class ActionExecutorService {
     const secondaryContacts = contacts.filter((c) => c.id !== primaryContactId);
 
     if (!primaryContact) {
-      return {
-        success: false,
-        error: 'Primary contact not found',
-        executionTimeMs: 0,
-      };
+      throw new Error('Primary contact not found');
     }
 
     // Merge data from secondary contacts into primary
@@ -1221,7 +1145,7 @@ export class ActionExecutorService {
         updatedContact,
       },
       summary: t.contactsMerged[lang](contacts.length, updatedContact.displayName || t.contact[lang], secondaryIds.length),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1281,18 +1205,14 @@ export class ActionExecutorService {
     const lang = getLocale(context.preferences?.language);
 
     if (!contact) {
-      return {
-        success: false,
-        error: t.contactNotFound[lang],
-        executionTimeMs: 0,
-      };
+      throw new Error(t.contactNotFound[lang]);
     }
 
     return {
       success: true,
       data: { contact },
       summary: t.contactFound[lang](contact.displayName || t.contact[lang]),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1358,7 +1278,7 @@ export class ActionExecutorService {
       success: true,
       data: { count: emails.length, emails, summary },
       summary,
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1377,22 +1297,14 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      return {
-        success: false,
-        error: 'Email not found',
-        executionTimeMs: 0,
-      };
+      throw new Error('Email not found');
     }
 
     // Determine labels to apply (support both array and single category)
     const labelsToApply: string[] = labels || categories || (category ? [category] : []);
 
     if (labelsToApply.length === 0) {
-      return {
-        success: false,
-        error: 'No categories or labels provided',
-        executionTimeMs: 0,
-      };
+      throw new Error('No categories or labels provided');
     }
 
     // Get current labels and merge with new ones
@@ -1418,7 +1330,7 @@ export class ActionExecutorService {
         allLabels: newLabels,
       },
       summary: t.emailCategorized[lang](labelsToApply.join(', ')),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1433,11 +1345,7 @@ export class ActionExecutorService {
 
     if (!this.calendarService) {
       this.logger.error('CalendarService not available');
-      return {
-        success: false,
-        error: 'Calendar service is not available. Please try again later.',
-        executionTimeMs: 0,
-      };
+      throw new Error('Calendar service is not available. Please try again later.');
     }
 
     // Get the event to verify ownership and get provider info
@@ -1447,11 +1355,7 @@ export class ActionExecutorService {
     });
 
     if (!event) {
-      return {
-        success: false,
-        error: 'Event not found',
-        executionTimeMs: 0,
-      };
+      throw new Error('Event not found');
     }
 
     // Calculate duration if only newStartTime is provided
@@ -1497,7 +1401,7 @@ export class ActionExecutorService {
         event: updatedEvent,
       },
       summary: t.eventRescheduled[lang](eventTitle, dateStr),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1513,19 +1417,11 @@ export class ActionExecutorService {
 
     if (!this.folderSyncService) {
       this.logger.warn('FolderSyncService not available');
-      return {
-        success: false,
-        error: 'Folder service not available',
-        executionTimeMs: 0,
-      };
+      throw new Error('Folder service not available');
     }
 
     if (!name) {
-      return {
-        success: false,
-        error: 'Folder name is required',
-        executionTimeMs: 0,
-      };
+      throw new Error('Folder name is required');
     }
 
     // Find provider if not specified
@@ -1535,11 +1431,7 @@ export class ActionExecutorService {
         where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
       });
       if (!provider) {
-        return {
-          success: false,
-          error: 'No email provider available',
-          executionTimeMs: 0,
-        };
+        throw new Error('No email provider available');
       }
       actualProviderId = provider.id;
     }
@@ -1559,7 +1451,7 @@ export class ActionExecutorService {
       success: true,
       data: { folderId: result.id, folderPath: result.path, folderName: result.name },
       summary: t.folderCreated[lang](name),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1571,19 +1463,11 @@ export class ActionExecutorService {
 
     if (!this.folderSyncService) {
       this.logger.warn('FolderSyncService not available');
-      return {
-        success: false,
-        error: 'Folder service not available',
-        executionTimeMs: 0,
-      };
+      throw new Error('Folder service not available');
     }
 
     if (!folderPath || !newName) {
-      return {
-        success: false,
-        error: 'Folder path and new name are required',
-        executionTimeMs: 0,
-      };
+      throw new Error('Folder path and new name are required');
     }
 
     // Find provider if not specified
@@ -1593,11 +1477,7 @@ export class ActionExecutorService {
         where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
       });
       if (!provider) {
-        return {
-          success: false,
-          error: 'No email provider available',
-          executionTimeMs: 0,
-        };
+        throw new Error('No email provider available');
       }
       actualProviderId = provider.id;
     }
@@ -1617,7 +1497,7 @@ export class ActionExecutorService {
       success: true,
       data: { folderId: result.id, folderPath: result.path, folderName: result.name },
       summary: t.folderRenamed[lang](newName),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 
@@ -1629,19 +1509,11 @@ export class ActionExecutorService {
 
     if (!this.folderSyncService) {
       this.logger.warn('FolderSyncService not available');
-      return {
-        success: false,
-        error: 'Folder service not available',
-        executionTimeMs: 0,
-      };
+      throw new Error('Folder service not available');
     }
 
     if (!folderPath) {
-      return {
-        success: false,
-        error: 'Folder path is required',
-        executionTimeMs: 0,
-      };
+      throw new Error('Folder path is required');
     }
 
     // Find provider if not specified
@@ -1651,11 +1523,7 @@ export class ActionExecutorService {
         where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
       });
       if (!provider) {
-        return {
-          success: false,
-          error: 'No email provider available',
-          executionTimeMs: 0,
-        };
+        throw new Error('No email provider available');
       }
       actualProviderId = provider.id;
     }
@@ -1674,7 +1542,7 @@ export class ActionExecutorService {
       success: true,
       data: { folderPath, deleted: true },
       summary: t.folderDeleted[lang](folderPath),
-      executionTimeMs: 0,
+      executionTimeMs: 0, // Overwritten by execute()
     };
   }
 }

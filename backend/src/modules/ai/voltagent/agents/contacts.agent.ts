@@ -7,12 +7,14 @@
 import { Agent, type AgentHooks } from '@voltagent/core';
 import type { LanguageModel } from 'ai';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { CacheService } from '../../../../common/services/cache.service';
 import { getAgentTranslations, type SupportedLocale } from '../locales';
 import { createContactsTools } from '../tools/contacts.tools';
 
 export interface ContactsAgentOptions {
   model: LanguageModel;
   prisma: PrismaService;
+  cacheService?: CacheService;
   locale: SupportedLocale;
   tenantId: string;
   hooks?: AgentHooks;
@@ -22,7 +24,7 @@ export interface ContactsAgentOptions {
  * Creates a Contacts Agent with all contact tools.
  */
 export function createContactsAgent(options: ContactsAgentOptions): Agent {
-  const { model, prisma, locale, tenantId, hooks } = options;
+  const { model, prisma, cacheService, locale, tenantId, hooks } = options;
   const t = getAgentTranslations(locale);
 
   return new Agent({
@@ -30,7 +32,7 @@ export function createContactsAgent(options: ContactsAgentOptions): Agent {
     purpose: 'Handle contact operations including search, create, update, and delete',
     model,
     instructions: t.contacts.instructions,
-    tools: createContactsTools(prisma, locale, tenantId),
+    tools: createContactsTools(prisma, locale, tenantId, cacheService),
     hooks,
     maxSteps: 5,
   });
