@@ -19,9 +19,9 @@
  */
 import * as chrono from 'chrono-node';
 import { Job, Queue, Worker } from 'bullmq';
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, DeadlineStatus } from '@prisma/client';
+import { DeadlineStatus } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { getConfiguration } from '../../../../config/configuration';

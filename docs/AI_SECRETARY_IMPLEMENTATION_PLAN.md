@@ -1526,18 +1526,40 @@ interface EnhancedDailyBriefing {
 
 ## Implementation Priority
 
-| Priority | Feature | Library/Tool | Effort | Impact |
-|----------|---------|--------------|--------|--------|
-| 🥇 P0 | Mem0 Long-Term Memory | mem0ai | 2 days | Critical |
-| 🥈 P0 | Deadline Extraction | chrono-node | 1 day | High |
-| 🥉 P0 | Follow-up Tracking | Custom + patterns | 2 days | Critical |
-| P1 | Action Item Extraction | Mistral + patterns | 2 days | High |
-| P1 | Enhanced Daily Briefing | Aggregate services | 1 day | High |
-| P1.5 | Analytics & Visualization | Mistral Code Interpreter | 1 day | High |
-| P2 | Conflict Detection | Custom | 2 days | Medium |
-| P2 | Focus Time Protection | Custom | 1 day | Medium |
-| P3 | Relationship Tracking | Custom | 2 days | Medium |
-| P3 | Important Date Alerts | Custom | 1 day | Low |
+| Priority | Feature | Library/Tool | Effort | Impact | Status |
+|----------|---------|--------------|--------|--------|--------|
+| 🥇 P0 | Mem0 Long-Term Memory | Prisma + pgvector | 2 days | Critical | ✅ DONE |
+| 🥈 P0 | Deadline Extraction | chrono-node + BullMQ | 1 day | High | ✅ DONE |
+| 🥉 P0 | Follow-up Tracking | Custom + patterns | 2 days | Critical | 🔜 Next |
+| P1 | Action Item Extraction | Mistral + patterns | 2 days | High | |
+| P1 | Enhanced Daily Briefing | Aggregate services | 1 day | High | |
+| P1.5 | Analytics & Visualization | Mistral Code Interpreter | 1 day | High | |
+| P2 | Conflict Detection | Custom | 2 days | Medium | |
+| P2 | Focus Time Protection | Custom | 1 day | Medium | |
+| P3 | Relationship Tracking | Custom | 2 days | Medium | |
+| P3 | Important Date Alerts | Custom | 1 day | Low | |
+
+### Completed Phase 0 Implementation Notes
+
+**Long-Term Memory (Dec 14, 2025):**
+
+- Custom implementation using Prisma + Mistral + pgvector (no mem0ai dependency)
+- `LongTermMemoryService` with `addFact`, `addMemory`, `searchMemories`, `getContextForPrompt`
+- Vector similarity search with tenant isolation
+- GDPR-compliant `deleteUserMemories` for right to erasure
+- Integrated with VoltAgent `chat()` and `streamChat()` for automatic context injection
+- Test script: `backend/scripts/test-long-term-memory.ts`
+
+**Deadline Extraction (Dec 14, 2025):**
+
+- `DeadlineExtractorService` using chrono-node NLP parser
+- Multi-language support (English + Italian)
+- Redis caching for fast retrieval (designed for >1000 users)
+- BullMQ queue for reminder scheduling (every 15 min overdue check)
+- Confidence scoring with keyword detection
+- Recurring pattern detection (weekly, monthly, etc.)
+- API endpoints: `GET /deadlines`, `POST /deadlines/extract`, `POST /deadlines/:id/complete`
+- Test script: `backend/scripts/test-deadline-extractor.ts`
 
 ---
 

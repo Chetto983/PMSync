@@ -31,9 +31,46 @@
 - [x] **Implementation Plan** - Detailed plan with recommended libraries
 - [x] **Self-Hosted Docker Stack** - Updated plan for 100% self-hosted deployment
 
+#### Evening: AI Secretary Implementation (Phase 0)
+
+- [x] **Long-Term Memory Service** - Prisma + pgvector + Mistral embeddings
+  - Custom implementation (no external mem0ai dependency)
+  - Vector similarity search for semantic retrieval
+  - GDPR-compliant user memory deletion
+  - Integrated with VoltAgent chat for context injection
+  - 7 tests passing: add fact, add memory, search, context, get all, stats, delete
+
+- [x] **Deadline Extractor Service** - chrono-node NLP + BullMQ + Redis
+  - Natural language date parsing (English + Italian)
+  - Redis caching for fast retrieval (>1000 users)
+  - BullMQ queue for reminder scheduling
+  - Confidence scoring with keyword detection
+  - Recurring pattern detection
+  - 5 API endpoints: GET/POST deadlines, complete, dismiss, stats, queue
+
+**New Files Created:**
+
+- `backend/src/modules/ai/voltagent/memory/long-term-memory.service.ts`
+- `backend/src/modules/ai/voltagent/services/deadline-extractor.service.ts`
+- `backend/scripts/test-long-term-memory.ts`
+- `backend/scripts/test-deadline-extractor.ts`
+
+**Environment Variables Added:**
+
+```env
+# Long-term memory
+MEM0_ENABLED=true
+MEM0_MAX_MEMORIES=10
+
+# Deadline extraction
+DEADLINE_EXTRACTION_ENABLED=true
+DEADLINE_BATCH_SIZE=50
+DEADLINE_MIN_CONFIDENCE=0.5
+```
+
 **Self-Hosted Stack (Uses Existing Infrastructure):**
 
-- **Mem0 SDK** - Direct integration, no extra backend server
+- **LongTermMemoryService** - Prisma + Mistral + pgvector (no mem0ai SDK)
 - **Mistral** - Existing API for LLM + embeddings
 - **PostgreSQL + pgvector** - Vector storage for semantic search (existing)
 - **BullMQ + Redis** - Job queues for scheduled tasks (existing)
