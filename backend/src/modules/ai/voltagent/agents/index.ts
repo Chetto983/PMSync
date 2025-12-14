@@ -9,6 +9,7 @@ export { createCalendarAgent, type CalendarAgentOptions } from './calendar.agent
 export { createContactsAgent, type ContactsAgentOptions } from './contacts.agent';
 export { createKnowledgeAgent, type KnowledgeAgentOptions } from './knowledge.agent';
 export { createGeneralAgent, type GeneralAgentOptions } from './general.agent';
+export { createWebSearchAgent, type WebSearchAgentOptions } from './websearch.agent';
 export {
   createSupervisorAgent,
   buildDynamicInstructions,

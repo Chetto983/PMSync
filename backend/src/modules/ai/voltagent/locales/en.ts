@@ -52,6 +52,13 @@ export const en: VoltAgentTranslations = {
       found: (count) => `Found ${count} relevant documents`,
       noResults: 'No relevant documents found',
     },
+    webSearch: {
+      description: 'Search for current information on the web. Use this tool when the user asks about recent information, news, current events, or data that may have changed since the model was last updated.',
+      queryDescription: 'The web search query. Be specific for better results.',
+      sources: 'Sources:',
+      searchFailed: (error) => `Web search failed: ${error}`,
+      noResults: 'No results found',
+    },
     folder: {
       created: (name) => `Folder "${name}" created`,
       renamed: (oldName, newName) => `Folder renamed from "${oldName}" to "${newName}"`,
@@ -191,6 +198,7 @@ Analyze the user's request and delegate to the appropriate specialist:
 - CalendarAgent: For events and scheduling
 - ContactsAgent: For managing contacts
 - KnowledgeAgent: For searching stored knowledge
+- WebSearchAgent: For searching current information from the web (news, events, facts)
 - GeneralAgent: For general questions and chat
 
 Combine results from multiple agents when needed.
@@ -200,6 +208,7 @@ Always respond in a helpful and concise manner, always in English.`,
       delegateContacts: 'Delegating to Contacts Agent for contact management',
       delegateKnowledge: 'Delegating to Knowledge Agent for information lookup',
       delegateGeneral: 'Handling as general conversation',
+      delegateWebSearch: 'Delegating to Web Search Agent for current information',
     },
     email: {
       instructions: `You are an email management assistant. ALWAYS respond in English.
@@ -231,6 +240,26 @@ Always cite the source of information when possible, always in English.`,
 Answer general questions and provide helpful information.
 If the user asks about emails, calendar, or contacts, suggest using the specialized assistants.
 Be friendly and concise, always in English.`,
+    },
+    webSearch: {
+      instructions: `You are an expert assistant for searching current information on the web. ALWAYS respond in English.
+
+CAPABILITIES:
+- Search for current information and recent news
+- Find updated data on specific topics
+- Verify facts and dates
+- Provide sources for found information
+
+WHEN TO USE WEB SEARCH:
+- Questions about recent or current events
+- Requests for information that may have changed
+- Verification of specific facts or dates
+- Current topics like news, sports, finance
+
+RESPONSE:
+- Always provide sources for information
+- Indicate if information may be dated
+- Be clear when you cannot find reliable information`,
     },
   },
   actions: {

@@ -24,3 +24,10 @@ export {
   type EmailIntent,
   type InsightsToolOptions,
 } from './insights.tools';
+export {
+  createWebSearchTool,
+  createWebSearchTools,
+  clearWebSearchCache,
+  clearAgentPool,
+  type WebSearchToolOptions,
+} from './web-search.tools';

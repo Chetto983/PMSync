@@ -6,17 +6,20 @@
  */
 import { Agent, type Memory, type AgentHooks } from '@voltagent/core';
 import type { LanguageModel } from 'ai';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
 import { EmailSendService } from '../../../email/services/email-send.service';
 import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
+import { CacheService } from '../../../../common/services/cache.service';
 import { getAgentTranslations, type SupportedLocale } from '../locales';
 import { createCalendarAgent } from './calendar.agent';
 import { createContactsAgent } from './contacts.agent';
 import { createEmailAgent } from './email.agent';
 import { createGeneralAgent } from './general.agent';
 import { createKnowledgeAgent } from './knowledge.agent';
+import { createWebSearchAgent } from './websearch.agent';
 
 export interface SupervisorAgentOptions {
   model: LanguageModel;
@@ -33,6 +36,12 @@ export interface SupervisorAgentOptions {
   embeddingsService?: EmbeddingsService;
   /** Optional: User context for personalization */
   userContext?: UserContext;
+  /** Optional: ConfigService for web search agent */
+  configService?: ConfigService;
+  /** Optional: User ID for web search context */
+  userId?: string;
+  /** Optional: CacheService for Redis-based caching (multi-instance support) */
+  cacheService?: CacheService;
 }
 
 /**
@@ -242,6 +251,9 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     mistralService,
     embeddingsService,
     userContext,
+    configService,
+    userId,
+    cacheService,
   } = options;
   const t = getAgentTranslations(locale);
 
@@ -292,6 +304,22 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     hooks,
   });
 
+  // Web Search agent - only create if configService is provided
+  const subAgents = [emailAgent, calendarAgent, contactsAgent, knowledgeAgent, generalAgent];
+
+  if (configService) {
+    const webSearchAgent = createWebSearchAgent({
+      model,
+      configService,
+      locale,
+      tenantId,
+      userId,
+      hooks,
+      cacheService,
+    });
+    subAgents.push(webSearchAgent);
+  }
+
   // Create the supervisor agent with all sub-agents
   // Memory is shared - tenant isolation is handled via userId format: tenantId:userId
   // Instructions include user context for personalization when available
@@ -300,7 +328,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     purpose: 'Intelligent email assistant coordinator',
     model,
     instructions: dynamicInstructions,
-    subAgents: [emailAgent, calendarAgent, contactsAgent, knowledgeAgent, generalAgent],
+    subAgents,
     memory,
     hooks,
     maxSteps: 10,

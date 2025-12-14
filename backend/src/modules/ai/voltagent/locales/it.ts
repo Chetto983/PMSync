@@ -52,6 +52,13 @@ export const it: VoltAgentTranslations = {
       found: (count) => `Trovati ${count} documenti rilevanti`,
       noResults: 'Nessun documento rilevante trovato',
     },
+    webSearch: {
+      description: "Cerca informazioni attuali sul web. Usa questo strumento quando l'utente chiede informazioni recenti, notizie, eventi attuali, o dati che potrebbero essere cambiati dopo l'ultimo aggiornamento del modello.",
+      queryDescription: 'La query di ricerca web. Sii specifico per ottenere risultati migliori.',
+      sources: 'Fonti:',
+      searchFailed: (error) => `Ricerca web fallita: ${error}`,
+      noResults: 'Nessun risultato trovato',
+    },
     folder: {
       created: (name) => `Cartella "${name}" creata`,
       renamed: (oldName, newName) => `Cartella rinominata da "${oldName}" a "${newName}"`,
@@ -191,6 +198,7 @@ Analizza la richiesta dell'utente e delega allo specialista appropriato:
 - CalendarAgent: Per eventi e pianificazione
 - ContactsAgent: Per gestire i contatti
 - KnowledgeAgent: Per cercare nella knowledge base
+- WebSearchAgent: Per cercare informazioni attuali sul web (notizie, eventi, fatti)
 - GeneralAgent: Per domande generali e conversazione
 
 Combina i risultati di più agenti quando necessario.
@@ -200,6 +208,7 @@ Rispondi sempre in modo utile e conciso, sempre in italiano.`,
       delegateContacts: 'Delegando all\'Agente Contatti per la gestione contatti',
       delegateKnowledge: 'Delegando all\'Agente Knowledge per la ricerca informazioni',
       delegateGeneral: 'Gestendo come conversazione generale',
+      delegateWebSearch: 'Delegando all\'Agente Web Search per informazioni attuali',
     },
     email: {
       instructions: `Sei un assistente per la gestione delle email. Rispondi SEMPRE in italiano.
@@ -231,6 +240,26 @@ Cita sempre la fonte delle informazioni quando possibile, sempre in italiano.`,
 Rispondi a domande generali e fornisci informazioni utili.
 Se l'utente chiede di email, calendario o contatti, suggerisci di usare gli assistenti specializzati.
 Sii amichevole e conciso, sempre in italiano.`,
+    },
+    webSearch: {
+      instructions: `Sei un assistente esperto nella ricerca di informazioni attuali sul web. Rispondi SEMPRE in italiano.
+
+CAPACITÀ:
+- Ricercare informazioni attuali e notizie recenti
+- Trovare dati aggiornati su argomenti specifici
+- Verificare fatti e date
+- Fornire fonti per le informazioni trovate
+
+QUANDO USARE LA RICERCA WEB:
+- Domande su eventi recenti o attuali
+- Richieste di informazioni che potrebbero essere cambiate
+- Verifica di fatti o date specifiche
+- Argomenti di attualità come notizie, sport, finanza
+
+RISPOSTA:
+- Fornisci sempre le fonti delle informazioni
+- Indica se le informazioni potrebbero essere datate
+- Sii chiaro quando non riesci a trovare informazioni affidabili`,
     },
   },
   actions: {

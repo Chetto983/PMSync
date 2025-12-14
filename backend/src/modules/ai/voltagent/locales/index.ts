@@ -66,6 +66,13 @@ export interface ToolTranslations {
     found: (count: number) => string;
     noResults: string;
   };
+  webSearch: {
+    description: string;
+    queryDescription: string;
+    sources: string;
+    searchFailed: (error: string) => string;
+    noResults: string;
+  };
   folder: {
     created: (name: string) => string;
     renamed: (oldName: string, newName: string) => string;
@@ -167,6 +174,7 @@ export interface AgentTranslations {
     delegateContacts: string;
     delegateKnowledge: string;
     delegateGeneral: string;
+    delegateWebSearch: string;
   };
   email: {
     instructions: string;
@@ -182,6 +190,9 @@ export interface AgentTranslations {
     instructions: string;
   };
   general: {
+    instructions: string;
+  };
+  webSearch: {
     instructions: string;
   };
 }

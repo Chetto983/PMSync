@@ -20,6 +20,10 @@ export enum CacheNamespace {
   OAUTH_STATE = 'oauth:state',
   /** Idempotency keys for action executor to prevent duplicate execution */
   ACTION_IDEMPOTENCY = 'action:idempotency',
+  /** Mistral web search agents (shared across instances) */
+  WEB_SEARCH_AGENT = 'websearch:agent',
+  /** Web search results cache */
+  WEB_SEARCH_RESULT = 'websearch:result',
 }
 
 /**

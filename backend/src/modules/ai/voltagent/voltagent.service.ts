@@ -13,6 +13,7 @@
  * - Batch Writes: Metrics buffering for >1000 tenant scalability
  */
 import { Injectable, OnModuleInit, OnModuleDestroy, Optional, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Agent, Memory } from '@voltagent/core';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
@@ -141,6 +142,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly emailSendService: EmailSendService,
     private readonly calendarService: CalendarService,
+    private readonly configService: ConfigService,
     @Optional() private readonly cacheService?: CacheService,
     @Optional() private readonly hitlService?: HitlService,
     @Optional() private readonly mistralService?: MistralService,
@@ -451,6 +453,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       embeddingsService: this.embeddingsService,
       // User context for personalized instructions
       userContext: userContext ?? undefined,
+      // Web search agent requires ConfigService + CacheService for Redis caching
+      configService: this.configService,
+      cacheService: this.cacheService,
     });
 
     // Cache with timestamp for TTL
