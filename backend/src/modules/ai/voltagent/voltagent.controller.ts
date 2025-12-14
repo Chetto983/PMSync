@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { VoltAgentService, type ChatOptions } from './voltagent.service';
 import { FeedbackService } from './services/feedback.service';
 import { HitlService } from './services/hitl.service';
+import { DailyBriefingService } from './services/daily-briefing.service';
 import type { ApprovalResumeData } from './workflows';
 
 interface AuthenticatedRequest {
@@ -103,6 +104,7 @@ export class VoltAgentController {
     private readonly voltAgentService: VoltAgentService,
     private readonly feedbackService: FeedbackService,
     private readonly hitlService: HitlService,
+    private readonly dailyBriefingService: DailyBriefingService,
   ) {}
 
   /**
@@ -588,5 +590,57 @@ export class VoltAgentController {
         res.end();
       }
     }
+  }
+
+  // ============ Daily Briefing Endpoints ============
+
+  /**
+   * Get daily briefing for the current user.
+   * Returns cached briefing if available, generates on-demand if not.
+   */
+  @Get('briefing')
+  @ApiOperation({ summary: 'Get daily email briefing' })
+  async getBriefing(@Req() req: AuthenticatedRequest) {
+    const briefing = await this.dailyBriefingService.generateBriefingOnDemand(
+      req.user.tenantId,
+      req.user.userId,
+    );
+
+    return {
+      success: true,
+      briefing,
+    };
+  }
+
+  /**
+   * Force regenerate daily briefing for the current user.
+   */
+  @Post('briefing/refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Refresh daily briefing' })
+  async refreshBriefing(@Req() req: AuthenticatedRequest) {
+    const result = await this.dailyBriefingService.triggerManualBriefing(
+      req.user.tenantId,
+      req.user.userId,
+    );
+
+    return {
+      success: true,
+      jobId: result.jobId,
+      message: 'Briefing refresh triggered',
+    };
+  }
+
+  /**
+   * Get daily briefing service status.
+   */
+  @Get('briefing/status')
+  @ApiOperation({ summary: 'Get briefing service status' })
+  async getBriefingStatus() {
+    const status = await this.dailyBriefingService.getStatus();
+    return {
+      success: true,
+      ...status,
+    };
   }
 }

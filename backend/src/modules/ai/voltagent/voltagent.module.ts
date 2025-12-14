@@ -56,6 +56,8 @@ import { AiQueueService } from './services/ai-queue.service';
 // Scalability services (1000+ users)
 import { RateLimiterService } from './services/rate-limiter.service';
 import { MistralBatchService } from './services/mistral-batch.service';
+// Daily briefing (pre-computed summaries)
+import { DailyBriefingService } from './services/daily-briefing.service';
 // Observability (OpenTelemetry-aligned)
 import { LlmTelemetryService } from './observability/telemetry';
 
@@ -93,6 +95,8 @@ import { LlmTelemetryService } from './observability/telemetry';
     // Scalability services (1000+ users)
     RateLimiterService,
     MistralBatchService,
+    // Daily briefing (pre-computed summaries)
+    DailyBriefingService,
     // Observability
     LlmTelemetryService,
   ],
@@ -113,6 +117,8 @@ import { LlmTelemetryService } from './observability/telemetry';
     SemanticCacheService,
     ModelRouterService,
     AiQueueService,
+    // Daily briefing
+    DailyBriefingService,
     // Observability
     LlmTelemetryService,
   ],

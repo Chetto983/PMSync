@@ -513,11 +513,11 @@ const result = await agent.generateText(message, {
 
 | Task | Status | Impact |
 |------|--------|--------|
-| Add response streaming | 🔴 Open | Better UX for slow ops |
-| Pre-compute daily briefings | 🔴 Open | Instant briefing access |
+| Add response streaming | ✅ Done | SSE streaming in `/voltagent/chat/stream` |
+| Pre-compute daily briefings | ✅ Done | `DailyBriefingService` with Redis caching |
+| Health endpoint for AI module | ✅ Done | `GET /ai/health` (public endpoint) |
 | Semantic caching tuning | 🔴 Open | 50% cost reduction |
 | Frontend i18n completion | 🔴 Open | Full localization |
-| Health endpoint for AI module | 🔴 Open | Better monitoring |
 
 ### 9.4 Long-Term (P3) - Backlog
 
