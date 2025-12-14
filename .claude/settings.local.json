@@ -97,7 +97,9 @@
       "Bash(psql:*)",
       "Bash(dir /s d:MailAgentbackendsrcmodulesaivoltagenttools)",
       "Bash(dir /s d:MailAgentbackendsrcmodulesaivoltagentagents)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(git rev-list:*)",
+      "Bash(git fetch:*)"
     ],
     "deny": [],
     "ask": []

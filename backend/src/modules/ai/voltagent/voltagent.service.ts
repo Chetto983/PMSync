@@ -671,17 +671,56 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Process a chat message with streaming response.
+   * Enhanced with rate limiting and semantic cache for production use.
    * Persists messages to Prisma-based memory after streaming completes.
    */
   async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string> {
+    const logPrefix = `[stream] [tenant:${options.tenantId}]`;
+
+    // 0. Check rate limits (same as non-streaming)
+    if (this.rateLimiterService) {
+      const estimatedTokens = this.modelRouterService?.routeMessage(message).estimatedTokens ?? 500;
+      const rateLimit = await this.rateLimiterService.checkLimit(options.tenantId, estimatedTokens);
+
+      if (!rateLimit.allowed) {
+        this.logger.warn(`${logPrefix} Rate limit exceeded`);
+        yield `Rate limit exceeded. Please try again in ${rateLimit.resetInSeconds} seconds.`;
+        return;
+      }
+    }
+
+    // 1. Check semantic cache (50-60% cost reduction) - return cached if hit
+    if (!options.skipCache && this.semanticCacheService?.isEnabled()) {
+      const cacheResult = await this.semanticCacheService.get(
+        options.tenantId,
+        message,
+        options.model,
+      );
+
+      if (cacheResult.hit && cacheResult.response) {
+        this.logger.debug(`${logPrefix} Cache hit, returning cached response`);
+        yield cacheResult.response;
+        return;
+      }
+    }
+
+    // 2. Route to optimal model
+    let selectedModel = options.model;
+    if (!selectedModel && this.modelRouterService) {
+      const routing = this.modelRouterService.routeMessage(message, {
+        preferSpeed: options.preferSpeed,
+        preferQuality: options.preferQuality,
+      });
+      selectedModel = routing.recommendedModel;
+    }
+
     const locale = getLocale(options.locale);
 
     // Fetch user context for personalized agent instructions
     const userContext = await this.getUserContext(options.userId, options.tenantId);
-    const agent = this.getOrCreateAgent(options.tenantId, locale, options.model, userContext);
+    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext);
 
     // WORKAROUND: Use unique requestId instead of persistent conversationId
-    // See chat() method for full explanation of the VoltAgent memory bug workaround.
     const tenantUserId = `${options.tenantId}:${options.userId}`;
     const uniqueRequestId = `${options.conversationId || 'req'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -690,14 +729,26 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       conversationId: uniqueRequestId,
     });
 
-    // Collect full response for memory persistence
+    // Collect full response for memory persistence and caching
     let fullResponse = '';
     for await (const chunk of result.textStream) {
       fullResponse += chunk;
       yield chunk;
     }
 
-    // Persist messages to Prisma-based memory after streaming completes
+    // 3. Cache response for future similar queries
+    if (!options.skipCache && this.semanticCacheService?.isEnabled() && fullResponse.length > 0) {
+      const estimatedTokens = this.modelRouterService?.routeMessage(message).estimatedTokens ?? 500;
+      await this.semanticCacheService.set(
+        options.tenantId,
+        message,
+        fullResponse,
+        selectedModel || 'small',
+        estimatedTokens,
+      ).catch((err) => this.logger.warn(`${logPrefix} Cache set failed: ${err.message}`));
+    }
+
+    // 4. Persist messages to Prisma-based memory after streaming completes
     if (this.voltAgentMemoryService) {
       const memoryContext = {
         tenantId: options.tenantId,
