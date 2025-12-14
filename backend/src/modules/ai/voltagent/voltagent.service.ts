@@ -31,7 +31,7 @@ import { MistralBatchService } from './services/mistral-batch.service';
 import { ActionSeverity } from './interfaces/agent-action.interface';
 import { createSupervisorAgent, type UserContext, type ConnectedProvider } from './agents';
 import { getLocale, type SupportedLocale } from './locales';
-import { VoltAgentMemoryService } from './memory';
+import { VoltAgentMemoryService, LongTermMemoryService } from './memory';
 import { createObservabilityHooks, type AgentMetrics } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import {
@@ -153,6 +153,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly rateLimiterService?: RateLimiterService,
     @Optional() private readonly mistralBatchService?: MistralBatchService,
     @Optional() private readonly voltAgentMemoryService?: VoltAgentMemoryService,
+    @Optional() private readonly longTermMemoryService?: LongTermMemoryService,
   ) {}
 
   async onModuleInit() {
@@ -562,6 +563,27 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // 3.5. Inject long-term memory context (26% accuracy improvement)
+    let enhancedMessage = message;
+    if (this.longTermMemoryService?.isEnabled()) {
+      try {
+        const memoryContext = await this.longTermMemoryService.getContextForPrompt(
+          options.tenantId,
+          options.userId,
+          message,
+          { limit: 5, minImportance: 0.3 },
+        );
+        if (memoryContext) {
+          // Prepend memory context to the message for the agent
+          enhancedMessage = `${memoryContext}\n\n---\n\n${message}`;
+          this.logger.debug(`${logPrefix} Long-term memory context injected`);
+        }
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`${logPrefix} Failed to get long-term memory context: ${errMsg}`);
+      }
+    }
+
     // WORKAROUND: Use unique requestId instead of persistent conversationId
     // to avoid VoltAgent's internal memory loading corrupted tool-call history.
     // VoltAgent stores UIMessage parts with null fields that cause AI_InvalidPromptError.
@@ -571,7 +593,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const tenantUserId = `${options.tenantId}:${options.userId}`;
     const uniqueRequestId = `${options.conversationId || 'req'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    const result = await agent.generateText(message, {
+    const result = await agent.generateText(enhancedMessage, {
       userId: tenantUserId,
       conversationId: uniqueRequestId, // Unique per request - no history loaded
     });
@@ -598,6 +620,23 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       });
 
       this.logger.debug(`${logPrefix} Messages persisted to memory`);
+    }
+
+    // 5. Store to long-term memory (async, non-blocking)
+    if (this.longTermMemoryService?.isEnabled()) {
+      // Fire-and-forget: don't block the response
+      this.longTermMemoryService.addMemory(
+        options.tenantId,
+        options.userId,
+        [
+          { role: 'user', content: message },
+          { role: 'assistant', content: result.text },
+        ],
+        { sourceType: 'CONVERSATION', sourceId: options.conversationId },
+      ).catch((err) => {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`${logPrefix} Failed to store long-term memory: ${errMsg}`);
+      });
     }
 
     // Record latency for model router accuracy
@@ -725,11 +764,31 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const userContext = await this.getUserContext(options.userId, options.tenantId);
     const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext);
 
+    // 2.5. Inject long-term memory context
+    let enhancedMessage = message;
+    if (this.longTermMemoryService?.isEnabled()) {
+      try {
+        const memoryContext = await this.longTermMemoryService.getContextForPrompt(
+          options.tenantId,
+          options.userId,
+          message,
+          { limit: 5, minImportance: 0.3 },
+        );
+        if (memoryContext) {
+          enhancedMessage = `${memoryContext}\n\n---\n\n${message}`;
+          this.logger.debug(`${logPrefix} Long-term memory context injected`);
+        }
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`${logPrefix} Failed to get long-term memory context: ${errMsg}`);
+      }
+    }
+
     // WORKAROUND: Use unique requestId instead of persistent conversationId
     const tenantUserId = `${options.tenantId}:${options.userId}`;
     const uniqueRequestId = `${options.conversationId || 'req'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    const result = await agent.streamText(message, {
+    const result = await agent.streamText(enhancedMessage, {
       userId: tenantUserId,
       conversationId: uniqueRequestId,
     });
@@ -772,6 +831,22 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       await this.voltAgentMemoryService.addMessage(memoryContext, {
         role: 'assistant',
         content: fullResponse,
+      });
+    }
+
+    // 5. Store to long-term memory (async, non-blocking)
+    if (this.longTermMemoryService?.isEnabled() && fullResponse.length > 0) {
+      this.longTermMemoryService.addMemory(
+        options.tenantId,
+        options.userId,
+        [
+          { role: 'user', content: message },
+          { role: 'assistant', content: fullResponse },
+        ],
+        { sourceType: 'CONVERSATION', sourceId: options.conversationId },
+      ).catch((err) => {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`${logPrefix} Failed to store long-term memory: ${errMsg}`);
       });
     }
   }

@@ -44,7 +44,12 @@ import { ActionExecutorService } from './services/action-executor.service';
 import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
 // Memory services (2025 Best Practices)
-import { VoltAgentMemoryService, SessionBridgeService, SummarizationQueueService } from './memory';
+import {
+  VoltAgentMemoryService,
+  SessionBridgeService,
+  SummarizationQueueService,
+  LongTermMemoryService,
+} from './memory';
 // Consolidated AI services
 import { PersonalizationService } from './services/personalization.service';
 import { WritingStyleService } from './services/writing-style.service';
@@ -58,6 +63,8 @@ import { RateLimiterService } from './services/rate-limiter.service';
 import { MistralBatchService } from './services/mistral-batch.service';
 // Daily briefing (pre-computed summaries)
 import { DailyBriefingService } from './services/daily-briefing.service';
+// Deadline extraction (chrono-node NLP)
+import { DeadlineExtractorService } from './services/deadline-extractor.service';
 // Observability (OpenTelemetry-aligned)
 import { LlmTelemetryService } from './observability/telemetry';
 
@@ -84,6 +91,7 @@ import { LlmTelemetryService } from './observability/telemetry';
     VoltAgentMemoryService,
     SessionBridgeService,
     SummarizationQueueService,
+    LongTermMemoryService,
     // Consolidated AI services (Step 8)
     PersonalizationService,
     WritingStyleService,
@@ -97,6 +105,8 @@ import { LlmTelemetryService } from './observability/telemetry';
     MistralBatchService,
     // Daily briefing (pre-computed summaries)
     DailyBriefingService,
+    // Deadline extraction (chrono-node NLP + BullMQ)
+    DeadlineExtractorService,
     // Observability
     LlmTelemetryService,
   ],
@@ -109,6 +119,7 @@ import { LlmTelemetryService } from './observability/telemetry';
     VoltAgentMemoryService,
     SessionBridgeService,
     SummarizationQueueService,
+    LongTermMemoryService,
     // Consolidated AI services
     PersonalizationService,
     WritingStyleService,
@@ -119,6 +130,8 @@ import { LlmTelemetryService } from './observability/telemetry';
     AiQueueService,
     // Daily briefing
     DailyBriefingService,
+    // Deadline extraction
+    DeadlineExtractorService,
     // Observability
     LlmTelemetryService,
   ],

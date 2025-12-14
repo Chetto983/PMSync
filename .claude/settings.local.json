@@ -103,7 +103,10 @@
       "Bash(git push)",
       "Bash(npx tsc --noEmit)",
       "Bash(npx @vibedevid/ai-memory init:*)",
-      "Bash(npx prisma validate)"
+      "Bash(npx prisma validate)",
+      "Bash(npm search:*)",
+      "Bash(MEM0_ENABLED=true npx ts-node:*)",
+      "Bash(set:*)"
     ],
     "deny": [],
     "ask": []

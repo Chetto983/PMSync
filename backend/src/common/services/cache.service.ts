@@ -32,6 +32,8 @@ export enum CacheNamespace {
   CONTACT_METADATA = 'contact:meta',
   /** Folder metadata cache for VoltAgent tools (tenant-scoped) */
   FOLDER_METADATA = 'folder:meta',
+  /** Upcoming deadlines cache (tenant:userId scoped) */
+  DEADLINE_UPCOMING = 'deadline:upcoming',
 }
 
 /**

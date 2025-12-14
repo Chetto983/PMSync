@@ -35,3 +35,12 @@ export {
   type SummarizationJobData,
   type SummarizationJobResult,
 } from './summarization.queue';
+
+// Long-term memory service (Mem0 integration)
+export {
+  LongTermMemoryService,
+  type MemoryResult,
+  type MemoryCategory,
+  type StoreMemoryOptions,
+  type SearchMemoryOptions,
+} from './long-term-memory.service';

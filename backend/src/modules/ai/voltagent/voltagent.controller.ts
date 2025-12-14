@@ -27,6 +27,8 @@ import { FeedbackService } from './services/feedback.service';
 import { HitlService } from './services/hitl.service';
 import { DailyBriefingService } from './services/daily-briefing.service';
 import { SemanticCacheService } from './services/semantic-cache.service';
+import { DeadlineExtractorService } from './services/deadline-extractor.service';
+import { LongTermMemoryService, type MemoryCategory } from './memory';
 import type { ApprovalResumeData } from './workflows';
 
 interface AuthenticatedRequest {
@@ -107,6 +109,8 @@ export class VoltAgentController {
     private readonly hitlService: HitlService,
     private readonly dailyBriefingService: DailyBriefingService,
     private readonly semanticCacheService: SemanticCacheService,
+    private readonly deadlineExtractorService: DeadlineExtractorService,
+    private readonly longTermMemoryService: LongTermMemoryService,
   ) {}
 
   /**
@@ -730,6 +734,289 @@ export class VoltAgentController {
     return {
       success: true,
       ...status,
+    };
+  }
+
+  // ========================================================================
+  // Long-Term Memory (Mem0) Endpoints
+  // ========================================================================
+
+  /**
+   * Get all long-term memories for the current user.
+   */
+  @Get('memory')
+  @ApiOperation({ summary: 'Get all long-term memories' })
+  async getMemories(
+    @Req() req: AuthenticatedRequest,
+    @Query('category') category?: MemoryCategory,
+    @Query('limit') limit?: number,
+  ) {
+    const memories = await this.longTermMemoryService.getAllMemories(
+      req.user.tenantId,
+      req.user.userId,
+      { category, limit: limit ? Number(limit) : undefined },
+    );
+
+    return {
+      success: true,
+      count: memories.length,
+      memories,
+    };
+  }
+
+  /**
+   * Search long-term memories using semantic search.
+   */
+  @Get('memory/search')
+  @ApiOperation({ summary: 'Search long-term memories' })
+  async searchMemories(
+    @Req() req: AuthenticatedRequest,
+    @Query('query') query: string,
+    @Query('category') category?: MemoryCategory,
+    @Query('limit') limit?: number,
+    @Query('minImportance') minImportance?: number,
+  ) {
+    if (!query) {
+      return {
+        success: false,
+        error: 'Query parameter is required',
+      };
+    }
+
+    const memories = await this.longTermMemoryService.searchMemories(
+      req.user.tenantId,
+      req.user.userId,
+      query,
+      {
+        category,
+        limit: limit ? Number(limit) : undefined,
+        minImportance: minImportance ? Number(minImportance) : undefined,
+        includeMetadata: true,
+      },
+    );
+
+    return {
+      success: true,
+      count: memories.length,
+      memories,
+    };
+  }
+
+  /**
+   * Add a fact/memory manually.
+   */
+  @Post('memory')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Add a memory fact' })
+  async addMemory(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: {
+      fact: string;
+      category?: MemoryCategory;
+      importance?: number;
+    },
+  ) {
+    const memoryId = await this.longTermMemoryService.addFact(
+      req.user.tenantId,
+      req.user.userId,
+      body.fact,
+      {
+        category: body.category,
+        importance: body.importance,
+      },
+    );
+
+    return {
+      success: !!memoryId,
+      memoryId,
+    };
+  }
+
+  /**
+   * Delete a specific memory.
+   */
+  @Post('memory/:memoryId/delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a memory' })
+  @ApiParam({ name: 'memoryId', description: 'Memory ID to delete' })
+  async deleteMemory(
+    @Req() req: AuthenticatedRequest,
+    @Param('memoryId') memoryId: string,
+  ) {
+    const deleted = await this.longTermMemoryService.deleteMemory(
+      req.user.tenantId,
+      memoryId,
+    );
+
+    return {
+      success: deleted,
+    };
+  }
+
+  /**
+   * Delete all memories for the current user (GDPR compliance).
+   */
+  @Post('memory/delete-all')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete all memories (GDPR)' })
+  async deleteAllMemories(@Req() req: AuthenticatedRequest) {
+    const count = await this.longTermMemoryService.deleteUserMemories(
+      req.user.tenantId,
+      req.user.userId,
+    );
+
+    return {
+      success: true,
+      deletedCount: count,
+    };
+  }
+
+  /**
+   * Get memory statistics.
+   */
+  @Get('memory/stats')
+  @ApiOperation({ summary: 'Get memory statistics' })
+  async getMemoryStats(@Req() req: AuthenticatedRequest) {
+    const stats = await this.longTermMemoryService.getStats(
+      req.user.tenantId,
+      req.user.userId,
+    );
+
+    return {
+      success: true,
+      enabled: this.longTermMemoryService.isEnabled(),
+      ...stats,
+    };
+  }
+
+  // ==========================================================================
+  // DEADLINE EXTRACTION ENDPOINTS
+  // ==========================================================================
+
+  /**
+   * Get upcoming deadlines for the current user.
+   * Uses Redis cache for fast retrieval (supports >1000 users).
+   */
+  @Get('deadlines')
+  @ApiOperation({ summary: 'Get upcoming deadlines' })
+  async getUpcomingDeadlines(
+    @Req() req: AuthenticatedRequest,
+    @Query('days') days?: string,
+  ) {
+    const daysNum = days ? parseInt(days, 10) : 7;
+    const deadlines = await this.deadlineExtractorService.getUpcomingDeadlines(
+      req.user.tenantId,
+      req.user.userId,
+      daysNum,
+    );
+
+    return {
+      success: true,
+      enabled: this.deadlineExtractorService.isEnabled(),
+      count: deadlines.length,
+      deadlines,
+    };
+  }
+
+  /**
+   * Extract deadlines from text (preview mode).
+   */
+  @Post('deadlines/extract')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Extract deadlines from text' })
+  async extractDeadlines(
+    @Req() _req: AuthenticatedRequest,
+    @Body() body: { text: string; locale?: 'en' | 'it' },
+  ) {
+    const extracted = this.deadlineExtractorService.extractDeadlines(
+      body.text,
+      new Date(),
+      body.locale || 'en',
+    );
+
+    return {
+      success: true,
+      count: extracted.length,
+      deadlines: extracted.map((d) => ({
+        date: d.date.toISOString(),
+        text: d.text,
+        context: d.context,
+        confidence: d.confidence,
+        isRecurring: d.isRecurring,
+      })),
+    };
+  }
+
+  /**
+   * Mark a deadline as completed.
+   */
+  @Post('deadlines/:id/complete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Mark deadline as completed' })
+  @ApiParam({ name: 'id', description: 'Deadline ID' })
+  async completeDeadline(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    await this.deadlineExtractorService.completeDeadline(
+      req.user.tenantId,
+      req.user.userId,
+      id,
+    );
+
+    return { success: true };
+  }
+
+  /**
+   * Dismiss a deadline.
+   */
+  @Post('deadlines/:id/dismiss')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Dismiss a deadline' })
+  @ApiParam({ name: 'id', description: 'Deadline ID' })
+  async dismissDeadline(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    await this.deadlineExtractorService.dismissDeadline(
+      req.user.tenantId,
+      req.user.userId,
+      id,
+    );
+
+    return { success: true };
+  }
+
+  /**
+   * Get deadline statistics.
+   */
+  @Get('deadlines/stats')
+  @ApiOperation({ summary: 'Get deadline statistics' })
+  async getDeadlineStats(@Req() req: AuthenticatedRequest) {
+    const stats = await this.deadlineExtractorService.getDeadlineStats(
+      req.user.tenantId,
+      req.user.userId,
+    );
+
+    return {
+      success: true,
+      enabled: this.deadlineExtractorService.isEnabled(),
+      ...stats,
+    };
+  }
+
+  /**
+   * Get deadline queue statistics (admin).
+   */
+  @Get('deadlines/queue')
+  @ApiOperation({ summary: 'Get deadline queue stats' })
+  async getDeadlineQueueStats(@Req() _req: AuthenticatedRequest) {
+    const stats = await this.deadlineExtractorService.getQueueStats();
+
+    return {
+      success: true,
+      ...stats,
     };
   }
 }
