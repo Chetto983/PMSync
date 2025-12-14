@@ -302,7 +302,7 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
     const recentEmails = await this.getRecentUnreadEmails(tenantId, userId, 20);
 
     // Generate AI summary
-    const aiSummary = await this.generateAISummary(recentEmails, stats);
+    const aiSummary = await this.generateAISummary(tenantId, userId, recentEmails, stats);
 
     const now = new Date();
     const validUntil = new Date(now.getTime() + BRIEFING_TTL_SEC * 1000);
@@ -426,6 +426,8 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
    * Generate AI summary from emails
    */
   private async generateAISummary(
+    tenantId: string,
+    userId: string,
     emails: Array<{ subject: string | null; from: string | null; snippet: string | null }>,
     stats: DailyBriefing['stats'],
   ): Promise<{ summary: string; highlights: string[]; urgent: string[] }> {
@@ -462,8 +464,8 @@ Respond ONLY with valid JSON, no markdown.`;
 
     try {
       const response = await this.mistralService.generateResponse(
-        'system',
-        'briefing-generator',
+        tenantId,
+        userId,
         prompt,
         [],
         { conversationId: 'daily-briefing' },

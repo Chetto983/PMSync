@@ -26,6 +26,7 @@ import { VoltAgentService, type ChatOptions } from './voltagent.service';
 import { FeedbackService } from './services/feedback.service';
 import { HitlService } from './services/hitl.service';
 import { DailyBriefingService } from './services/daily-briefing.service';
+import { SemanticCacheService } from './services/semantic-cache.service';
 import type { ApprovalResumeData } from './workflows';
 
 interface AuthenticatedRequest {
@@ -105,6 +106,7 @@ export class VoltAgentController {
     private readonly feedbackService: FeedbackService,
     private readonly hitlService: HitlService,
     private readonly dailyBriefingService: DailyBriefingService,
+    private readonly semanticCacheService: SemanticCacheService,
   ) {}
 
   /**
@@ -590,6 +592,93 @@ export class VoltAgentController {
         res.end();
       }
     }
+  }
+
+  // ============ Semantic Cache Analytics Endpoints ============
+
+  /**
+   * Get detailed semantic cache analytics.
+   * Includes hit rate, category breakdown, and tuning recommendations.
+   */
+  @Get('cache/analytics')
+  @ApiOperation({ summary: 'Get semantic cache analytics and recommendations' })
+  async getCacheAnalytics(@Req() req: AuthenticatedRequest) {
+    const analytics = await this.semanticCacheService.getDetailedAnalytics(req.user.tenantId);
+    return {
+      success: true,
+      analytics: {
+        enabled: this.semanticCacheService.isEnabled(),
+        lookups: analytics.analytics.lookups,
+        hits: analytics.analytics.hits,
+        misses: analytics.analytics.misses,
+        hitRate: analytics.analytics.lookups > 0
+          ? `${((analytics.analytics.hits / analytics.analytics.lookups) * 100).toFixed(1)}%`
+          : '0%',
+        avgHitSimilarity: analytics.analytics.avgHitSimilarity.toFixed(3),
+        adaptiveThreshold: analytics.analytics.adaptiveThreshold.toFixed(3),
+        lastThresholdAdjustment: new Date(analytics.analytics.lastThresholdAdjustment).toISOString(),
+        thresholdHistory: analytics.analytics.thresholdHistory.map(h => ({
+          threshold: h.threshold.toFixed(3),
+          hitRate: `${(h.hitRate * 100).toFixed(1)}%`,
+          timestamp: new Date(h.timestamp).toISOString(),
+        })),
+        categoryStats: Object.entries(analytics.analytics.categoryStats).map(([category, stats]) => ({
+          category,
+          lookups: stats.lookups,
+          hits: stats.hits,
+          hitRate: stats.lookups > 0 ? `${((stats.hits / stats.lookups) * 100).toFixed(1)}%` : '0%',
+          threshold: analytics.categoryThresholds[category as keyof typeof analytics.categoryThresholds]?.toFixed(3) || '0.920',
+        })),
+      },
+      config: {
+        baseThreshold: analytics.config.similarityThreshold,
+        adaptiveEnabled: analytics.config.adaptiveThreshold,
+        categoryThresholdsEnabled: analytics.config.categoryThresholds,
+        targetHitRate: `${(analytics.config.targetHitRate * 100).toFixed(0)}%`,
+        minLookupsForTuning: analytics.config.minLookupsForTuning,
+      },
+      recommendations: analytics.recommendations,
+    };
+  }
+
+  /**
+   * Reset semantic cache analytics for current tenant.
+   * Useful for recalibrating adaptive threshold after major changes.
+   */
+  @Post('cache/analytics/reset')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset cache analytics for recalibration' })
+  async resetCacheAnalytics(@Req() req: AuthenticatedRequest) {
+    await this.semanticCacheService.resetAnalytics(req.user.tenantId);
+    return {
+      success: true,
+      message: 'Cache analytics reset. Adaptive threshold will recalibrate based on new data.',
+    };
+  }
+
+  /**
+   * Manually set adaptive threshold for current tenant (admin override).
+   */
+  @Post('cache/threshold')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Manually set adaptive threshold (admin)' })
+  async setAdaptiveThreshold(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { threshold: number },
+  ) {
+    if (body.threshold < 0.80 || body.threshold > 0.98) {
+      return {
+        success: false,
+        error: 'Threshold must be between 0.80 and 0.98',
+      };
+    }
+
+    this.semanticCacheService.setAdaptiveThreshold(req.user.tenantId, body.threshold);
+    return {
+      success: true,
+      message: `Adaptive threshold set to ${body.threshold.toFixed(3)}`,
+      newThreshold: body.threshold,
+    };
   }
 
   // ============ Daily Briefing Endpoints ============

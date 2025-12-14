@@ -516,7 +516,7 @@ const result = await agent.generateText(message, {
 | Add response streaming | ✅ Done | SSE streaming in `/voltagent/chat/stream` |
 | Pre-compute daily briefings | ✅ Done | `DailyBriefingService` with Redis caching |
 | Health endpoint for AI module | ✅ Done | `GET /ai/health` (public endpoint) |
-| Semantic caching tuning | 🔴 Open | 50% cost reduction |
+| Semantic caching tuning | ✅ Done | Adaptive thresholds + category-specific tuning |
 | Frontend i18n completion | 🔴 Open | Full localization |
 
 ### 9.4 Long-Term (P3) - Backlog

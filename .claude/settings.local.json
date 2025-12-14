@@ -101,7 +101,9 @@
       "Bash(git rev-list:*)",
       "Bash(git fetch:*)",
       "Bash(git push)",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx @vibedevid/ai-memory init:*)",
+      "Bash(npx prisma validate)"
     ],
     "deny": [],
     "ask": []

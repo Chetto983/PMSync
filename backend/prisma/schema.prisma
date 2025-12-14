@@ -1207,3 +1207,218 @@ model ConversationSummary {
   @@index([tenantId, userId])
   @@map("conversation_summaries")
 }
+
+// =============================================================================
+// AI SECRETARY TASK TRACKING
+// =============================================================================
+
+/// Tracks action items extracted from emails, meetings, and conversations
+model AiTask {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String
+
+  // Task content
+  title       String
+  description String?  @db.Text
+
+  // Source tracking
+  sourceType  AiTaskSource // EMAIL, CALENDAR, CONVERSATION, MANUAL
+  sourceId    String?      // Reference to email.id, calendarEvent.id, etc.
+
+  // Status and priority
+  status      AiTaskStatus @default(TODO)
+  priority    Int          @default(5) // 1 (highest) to 10 (lowest)
+
+  // Timing
+  dueDate     DateTime?
+  reminderAt  DateTime?
+  completedAt DateTime?
+
+  // AI metadata
+  confidence  Float?       // AI confidence in extraction (0-1)
+  aiExtracted Boolean      @default(false) // Was this auto-extracted by AI?
+
+  // Timestamps
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  reminders   AiTaskReminder[]
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, status])
+  @@index([tenantId, userId, dueDate])
+  @@index([sourceType, sourceId])
+  @@map("ai_tasks")
+}
+
+enum AiTaskSource {
+  EMAIL
+  CALENDAR
+  CONVERSATION
+  MANUAL
+}
+
+enum AiTaskStatus {
+  TODO
+  IN_PROGRESS
+  WAITING
+  DONE
+  CANCELLED
+}
+
+/// Tracks reminders sent for tasks
+model AiTaskReminder {
+  id        String   @id @default(cuid())
+  taskId    String
+  sentAt    DateTime @default(now())
+  channel   String   // EMAIL, PUSH, IN_APP
+
+  task      AiTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("ai_task_reminders")
+}
+
+/// Tracks emails that need follow-up
+model EmailFollowUp {
+  id          String           @id @default(cuid())
+  tenantId    String
+  userId      String
+  emailId     String           @unique // Reference to email.id
+
+  // Follow-up details
+  status      FollowUpStatus   @default(PENDING)
+  reason      String?          // Why follow-up is needed
+  dueDate     DateTime         // When to remind
+
+  // Reminder tracking
+  remindCount Int              @default(0)
+  lastRemindedAt DateTime?
+
+  // Resolution
+  resolvedAt  DateTime?
+  resolvedBy  String?          // "REPLY_RECEIVED", "MANUAL", "AUTO_EXPIRED"
+
+  // Timestamps
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, status])
+  @@index([dueDate])
+  @@map("email_follow_ups")
+}
+
+enum FollowUpStatus {
+  PENDING
+  REMINDED
+  RESOLVED
+  EXPIRED
+}
+
+/// Tracks contact interaction history for relationship intelligence
+model ContactInteraction {
+  id          String   @id @default(cuid())
+  tenantId    String
+  contactId   String   // Reference to unified_contacts.id
+
+  // Interaction details
+  type        ContactInteractionType
+  date        DateTime
+  summary     String?  @db.Text
+  sentiment   String?  // POSITIVE, NEUTRAL, NEGATIVE
+
+  // Source tracking
+  sourceType  String?  // EMAIL, CALENDAR, MANUAL
+  sourceId    String?  // Reference to source record
+
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, contactId])
+  @@index([tenantId, contactId, date])
+  @@map("contact_interactions")
+}
+
+enum ContactInteractionType {
+  EMAIL_SENT
+  EMAIL_RECEIVED
+  MEETING
+  CALL
+  NOTE
+}
+
+/// Stores long-term AI memories (Mem0-compatible schema for future migration)
+model AiMemory {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String
+
+  // Memory content
+  content     String   @db.Text  // The actual memory fact
+  category    String?            // PREFERENCE, CONTACT, SCHEDULE, HABIT, etc.
+
+  // Semantic search
+  vector      Unsupported("vector")? // Embedding for similarity search
+
+  // Metadata
+  metadata    Json?              // Additional structured data
+  importance  Float    @default(0.5) // 0-1 importance score
+
+  // Source tracking
+  sourceType  String?            // CONVERSATION, EMAIL, CALENDAR
+  sourceId    String?
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastAccessedAt DateTime?       // For LRU-style management
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, category])
+  @@map("ai_memories")
+}
+
+/// Tracks deadlines extracted from emails and calendar
+model AiDeadline {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String
+
+  // Deadline details
+  title       String
+  description String?  @db.Text
+  deadline    DateTime
+
+  // Source tracking
+  sourceType  String   // EMAIL, CALENDAR
+  sourceId    String?
+
+  // Status
+  status      DeadlineStatus @default(UPCOMING)
+  acknowledgedAt DateTime?
+
+  // Reminder tracking
+  remindBefore Int[]    @default([1440, 60]) // Minutes before deadline (default: 1 day, 1 hour)
+  lastRemindedAt DateTime?
+
+  // AI metadata
+  confidence  Float?   // AI confidence in extraction
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, status])
+  @@index([deadline])
+  @@map("ai_deadlines")
+}
+
+enum DeadlineStatus {
+  UPCOMING
+  DUE_SOON
+  OVERDUE
+  COMPLETED
+  DISMISSED
+}
