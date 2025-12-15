@@ -31,3 +31,11 @@ export {
   clearAgentPool,
   type WebSearchToolOptions,
 } from './web-search.tools';
+export {
+  createAnalyticsTool,
+  createAnalyticsTools,
+  clearAnalyticsCache,
+  clearAnalyticsAgentPool,
+  type AnalyticsToolOptions,
+  type AnalyticsResult,
+} from './analytics.tools';

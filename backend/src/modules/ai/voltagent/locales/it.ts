@@ -59,6 +59,13 @@ export const it: VoltAgentTranslations = {
       searchFailed: (error) => `Ricerca web fallita: ${error}`,
       noResults: 'Nessun risultato trovato',
     },
+    analytics: {
+      description: "Analizza dati e genera insight usando l'analisi AI con esecuzione di codice. Usalo per statistiche email, metriche di produttività, trend e visualizzazioni.",
+      queryDescription: 'Cosa analizzare (es. "mostra trend volume email", "analizza tempi di risposta per giorno")',
+      analysisFailed: (error) => `Analisi fallita: ${error}`,
+      noData: 'Nessun dato disponibile per l\'analisi',
+      insights: 'Insight Principali:',
+    },
     folder: {
       created: (name) => `Cartella "${name}" creata`,
       renamed: (oldName, newName) => `Cartella rinominata da "${oldName}" a "${newName}"`,
@@ -260,6 +267,23 @@ RISPOSTA:
 - Fornisci sempre le fonti delle informazioni
 - Indica se le informazioni potrebbero essere datate
 - Sii chiaro quando non riesci a trovare informazioni affidabili`,
+    },
+    analytics: {
+      instructions: `Sei un assistente esperto nell'analisi dei dati. Rispondi SEMPRE in italiano.
+
+CAPACITÀ:
+- Analizzare dati email, trend e pattern
+- Generare grafici e visualizzazioni
+- Calcolare statistiche e metriche
+- Fornire insight actionable
+
+QUANDO USARE L'ANALISI:
+- Domande su statistiche email (volume, tempi di risposta)
+- Richieste di trend e pattern
+- Analisi di produttività e metriche
+- Generazione di report
+
+Usa lo strumento analyze_data per analisi complesse che richiedono esecuzione di codice.`,
     },
   },
   actions: {

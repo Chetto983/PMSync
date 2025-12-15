@@ -30,7 +30,9 @@ import { SemanticCacheService } from './services/semantic-cache.service';
 import { DeadlineExtractorService } from './services/deadline-extractor.service';
 import { FollowUpService } from './services/follow-up.service';
 import { ActionItemService } from './services/action-item.service';
+import { AnalyticsService } from './services/analytics.service';
 import { LongTermMemoryService, type MemoryCategory } from './memory';
+import type { AnalyticsResult, EmailAnalytics, DashboardAnalytics } from './services/analytics.service';
 import type { ApprovalResumeData } from './workflows';
 
 interface AuthenticatedRequest {
@@ -114,6 +116,7 @@ export class VoltAgentController {
     private readonly deadlineExtractorService: DeadlineExtractorService,
     private readonly followUpService: FollowUpService,
     private readonly actionItemService: ActionItemService,
+    private readonly analyticsService: AnalyticsService,
     private readonly longTermMemoryService: LongTermMemoryService,
   ) {}
 
@@ -689,14 +692,31 @@ export class VoltAgentController {
     };
   }
 
-  // ============ Daily Briefing Endpoints ============
+  // ============ Enhanced Daily Briefing Endpoints ============
 
   /**
-   * Get daily briefing for the current user.
+   * Get enhanced daily briefing for the current user.
+   * Aggregates data from all AI Secretary services:
+   * - Email summary (unread count, highlights, urgent items)
+   * - Follow-up tracking (pending, overdue, due today)
+   * - Deadline alerts (today, this week, overdue)
+   * - Action items (todo, in progress, overdue, high priority)
+   * - Calendar events (today's meetings)
+   *
    * Returns cached briefing if available, generates on-demand if not.
    */
   @Get('briefing')
-  @ApiOperation({ summary: 'Get daily email briefing' })
+  @ApiOperation({
+    summary: 'Get enhanced daily briefing',
+    description: `Returns a comprehensive daily briefing aggregating all AI Secretary data:
+    - **Email summary**: Unread count, urgent emails, key highlights
+    - **Follow-ups**: Pending follow-ups, overdue items, due today
+    - **Deadlines**: Today's deadlines, this week, overdue count
+    - **Action items**: Todo count, in-progress, overdue, high priority items
+    - **Calendar**: Today's meetings (if calendar connected)
+
+    Briefings are cached for 24 hours. Use /briefing/refresh to force regeneration.`,
+  })
   async getBriefing(@Req() req: AuthenticatedRequest) {
     const briefing = await this.dailyBriefingService.generateBriefingOnDemand(
       req.user.tenantId,
@@ -711,10 +731,14 @@ export class VoltAgentController {
 
   /**
    * Force regenerate daily briefing for the current user.
+   * Clears the cache and generates a fresh briefing with latest data.
    */
   @Post('briefing/refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Refresh daily briefing' })
+  @ApiOperation({
+    summary: 'Refresh daily briefing',
+    description: 'Force regenerates the daily briefing with fresh data from all AI Secretary services.',
+  })
   async refreshBriefing(@Req() req: AuthenticatedRequest) {
     const result = await this.dailyBriefingService.triggerManualBriefing(
       req.user.tenantId,
@@ -732,7 +756,10 @@ export class VoltAgentController {
    * Get daily briefing service status.
    */
   @Get('briefing/status')
-  @ApiOperation({ summary: 'Get briefing service status' })
+  @ApiOperation({
+    summary: 'Get briefing service status',
+    description: 'Returns service configuration and queue statistics.',
+  })
   async getBriefingStatus() {
     const status = await this.dailyBriefingService.getStatus();
     return {
@@ -1534,6 +1561,163 @@ export class VoltAgentController {
     return {
       success: true,
       item,
+    };
+  }
+
+  // ===========================================================================
+  // ANALYTICS ENDPOINTS (P1.5 - Mistral Code Interpreter)
+  // ===========================================================================
+
+  /**
+   * Get dashboard analytics with email statistics and insights.
+   */
+  @Get('analytics/dashboard')
+  @ApiOperation({
+    summary: 'Get dashboard analytics',
+    description: `Returns comprehensive dashboard analytics including:
+    - **Email summary**: Total emails, unread count, sent/received today
+    - **Volume trends**: Email volume over the past week
+    - **Top senders**: Most frequent email senders
+    - **Hourly distribution**: Email activity by hour of day
+    - **AI insights**: Actionable recommendations based on email patterns
+
+    Results are cached for 30 minutes. Use /analytics/dashboard/refresh to force regeneration.`,
+  })
+  async getDashboardAnalytics(@Req() req: AuthenticatedRequest): Promise<{
+    success: boolean;
+    analytics: DashboardAnalytics;
+  }> {
+    const { tenantId, userId } = req.user;
+    const analytics = await this.analyticsService.getDashboardAnalytics(tenantId, userId);
+
+    return {
+      success: true,
+      analytics,
+    };
+  }
+
+  /**
+   * Get email analytics for a specific period.
+   */
+  @Get('analytics/email')
+  @ApiOperation({
+    summary: 'Get email analytics',
+    description: `Returns detailed email analytics for the specified period:
+    - **Volume trends**: Sent vs received over time
+    - **Top senders**: Most frequent email senders (top 10)
+    - **Hourly distribution**: When you receive the most emails
+    - **Insights**: AI-generated recommendations
+
+    Periods: day, week (default), month`,
+  })
+  async getEmailAnalytics(
+    @Req() req: AuthenticatedRequest,
+    @Query('period') period?: 'day' | 'week' | 'month',
+  ): Promise<{
+    success: boolean;
+    analytics: EmailAnalytics;
+  }> {
+    const { tenantId, userId } = req.user;
+    const analytics = await this.analyticsService.getEmailAnalytics(
+      tenantId,
+      userId,
+      period || 'week',
+    );
+
+    return {
+      success: true,
+      analytics,
+    };
+  }
+
+  /**
+   * Run AI-powered custom analytics using Mistral code_interpreter.
+   * This endpoint executes Python code to analyze provided data.
+   */
+  @Post('analytics/ai')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Run AI-powered analytics',
+    description: `Execute AI-powered analytics using Mistral's code_interpreter tool.
+    This allows for complex data analysis with Python code execution.
+
+    **Request body:**
+    - query: What to analyze (e.g., "show email volume trends", "find peak activity hours")
+    - data: Optional JSON data to analyze. If not provided, will use available user data.
+    - locale: Optional locale for response language (en, it)
+
+    **Response includes:**
+    - answer: Natural language analysis result
+    - insights: Key findings (3-5 bullet points)
+    - codeExecuted: Python code that was run (if any)
+    - visualization: Base64-encoded chart image (if generated)
+
+    Results are cached for 30 minutes based on query + data hash.`,
+  })
+  async runAiAnalytics(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: {
+      query: string;
+      data?: Record<string, unknown>;
+      locale?: string;
+    },
+  ): Promise<{
+    success: boolean;
+    result: AnalyticsResult;
+  }> {
+    const { tenantId, userId } = req.user;
+
+    const result = await this.analyticsService.runAiAnalytics(
+      tenantId,
+      userId,
+      body.query,
+      body.data || {},
+      body.locale || 'en',
+    );
+
+    return {
+      success: true,
+      result,
+    };
+  }
+
+  /**
+   * Invalidate analytics cache for the current user.
+   */
+  @Post('analytics/invalidate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Invalidate analytics cache',
+    description: 'Clears cached analytics data for the current user. Use this after significant email changes.',
+  })
+  async invalidateAnalyticsCache(@Req() req: AuthenticatedRequest): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    const { tenantId, userId } = req.user;
+    await this.analyticsService.invalidateCache(tenantId, userId);
+
+    return {
+      success: true,
+      message: 'Analytics cache invalidated',
+    };
+  }
+
+  /**
+   * Check if analytics service is enabled.
+   */
+  @Get('analytics/status')
+  @ApiOperation({
+    summary: 'Get analytics service status',
+    description: 'Returns whether the analytics service is enabled and configured.',
+  })
+  async getAnalyticsStatus(): Promise<{
+    success: boolean;
+    enabled: boolean;
+  }> {
+    return {
+      success: true,
+      enabled: this.analyticsService.isEnabled(),
     };
   }
 }

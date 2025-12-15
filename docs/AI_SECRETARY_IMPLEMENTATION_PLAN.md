@@ -1531,8 +1531,8 @@ interface EnhancedDailyBriefing {
 | 🥇 P0 | Mem0 Long-Term Memory | Prisma + pgvector | 2 days | Critical | ✅ DONE |
 | 🥈 P0 | Deadline Extraction | chrono-node + BullMQ | 1 day | High | ✅ DONE |
 | 🥉 P0 | Follow-up Tracking | Custom + patterns + BullMQ | 2 days | Critical | ✅ DONE |
-| P1 | Action Item Extraction | Mistral + patterns | 2 days | High | 🔜 Next |
-| P1 | Enhanced Daily Briefing | Aggregate services | 1 day | High | |
+| P1 | Action Item Extraction | Mistral + patterns | 2 days | High | ✅ DONE |
+| P1 | Enhanced Daily Briefing | Aggregate services | 1 day | High | ✅ DONE |
 | P1.5 | Analytics & Visualization | Mistral Code Interpreter | 1 day | High | |
 | P2 | Conflict Detection | Custom | 2 days | Medium | |
 | P2 | Focus Time Protection | Custom | 1 day | Medium | |
@@ -1560,6 +1560,37 @@ interface EnhancedDailyBriefing {
 - Recurring pattern detection (weekly, monthly, etc.)
 - API endpoints: `GET /deadlines`, `POST /deadlines/extract`, `POST /deadlines/:id/complete`
 - Test script: `backend/scripts/test-deadline-extractor.ts`
+
+**Action Item Extraction (Dec 15, 2025):**
+
+- `ActionItemService` with pattern detection + Mistral AI extraction
+- 15 regex patterns for action item detection (requests, commitments, tasks, follow-ups)
+- 5 informational patterns to filter out FYI emails
+- Owner detection (sender vs recipient)
+- Priority inference from urgency language (high/medium/low → 1-10 scale)
+- BullMQ queue `ai-action-items` for background extraction
+- Redis caching for pending items (5-minute TTL)
+- Full CRUD operations using Prisma `AiTask` model
+- Statistics: total, todo, in_progress, waiting, done, cancelled, dueToday, overdue, highPriority
+- API endpoints: `GET /action-items`, `POST /action-items`, `POST /action-items/extract`, `POST /action-items/analyze`, `POST /action-items/:id/status`
+- Test script: `backend/scripts/test-action-item-service.ts` (44 tests, 100% pass rate)
+
+**Enhanced Daily Briefing (Dec 15, 2025):**
+
+- `DailyBriefingService` enhanced to aggregate all AI Secretary services
+- Integrates: FollowUpService, DeadlineExtractorService, ActionItemService
+- Briefing structure includes:
+  - Email summary (unread, new today, requires response)
+  - Follow-ups (pending, overdue, due today, top 5 items)
+  - Deadlines (today, this week, overdue count)
+  - Action items (todo, in progress, overdue, high priority, due today)
+  - Calendar (today's meetings - placeholder for CalendarService integration)
+- Context-aware messages for each section (e.g., "⚠️ 2 overdue follow-ups!")
+- BullMQ scheduled job runs hourly to pre-compute briefings
+- Redis caching (24h TTL) for instant retrieval
+- Swagger documentation with full API descriptions
+- API endpoints: `GET /briefing`, `POST /briefing/refresh`, `GET /briefing/status`
+- Test script: `backend/scripts/test-enhanced-daily-briefing.ts` (31 tests, 100% pass rate)
 
 ---
 

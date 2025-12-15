@@ -59,6 +59,13 @@ export const en: VoltAgentTranslations = {
       searchFailed: (error) => `Web search failed: ${error}`,
       noResults: 'No results found',
     },
+    analytics: {
+      description: 'Analyze data and generate insights using AI-powered analytics with code execution. Use this for email statistics, productivity metrics, trends, and visualizations.',
+      queryDescription: 'What to analyze (e.g., "show email volume trends", "analyze response times by day of week")',
+      analysisFailed: (error) => `Analytics failed: ${error}`,
+      noData: 'No data available for analysis',
+      insights: 'Key Insights:',
+    },
     folder: {
       created: (name) => `Folder "${name}" created`,
       renamed: (oldName, newName) => `Folder renamed from "${oldName}" to "${newName}"`,
@@ -260,6 +267,23 @@ RESPONSE:
 - Always provide sources for information
 - Indicate if information may be dated
 - Be clear when you cannot find reliable information`,
+    },
+    analytics: {
+      instructions: `You are a data analytics assistant. ALWAYS respond in English.
+
+CAPABILITIES:
+- Analyze email data, trends, and patterns
+- Generate charts and visualizations
+- Calculate statistics and metrics
+- Provide actionable insights
+
+WHEN TO USE ANALYTICS:
+- Questions about email statistics (volume, response times)
+- Requests for trends and patterns
+- Productivity analysis and metrics
+- Report generation
+
+Use the analyze_data tool for complex analyses that require code execution.`,
     },
   },
   actions: {

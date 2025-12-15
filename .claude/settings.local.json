@@ -14,7 +14,11 @@
       "Bash(claude mcp add claude-flow \"npx claude-flow mcp start --stdio\")",
       "Bash(npm rebuild:*)",
       "Bash(npx tsc:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(d:)",
+      "Bash(npx prisma db execute:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }

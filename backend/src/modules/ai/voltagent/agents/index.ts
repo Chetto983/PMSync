@@ -10,6 +10,7 @@ export { createContactsAgent, type ContactsAgentOptions } from './contacts.agent
 export { createKnowledgeAgent, type KnowledgeAgentOptions } from './knowledge.agent';
 export { createGeneralAgent, type GeneralAgentOptions } from './general.agent';
 export { createWebSearchAgent, type WebSearchAgentOptions } from './websearch.agent';
+export { createAnalyticsAgent, type AnalyticsAgentOptions } from './analytics.agent';
 export {
   createSupervisorAgent,
   buildDynamicInstructions,

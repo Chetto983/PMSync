@@ -73,6 +73,13 @@ export interface ToolTranslations {
     searchFailed: (error: string) => string;
     noResults: string;
   };
+  analytics: {
+    description: string;
+    queryDescription: string;
+    analysisFailed: (error: string) => string;
+    noData: string;
+    insights: string;
+  };
   folder: {
     created: (name: string) => string;
     renamed: (oldName: string, newName: string) => string;
@@ -193,6 +200,9 @@ export interface AgentTranslations {
     instructions: string;
   };
   webSearch: {
+    instructions: string;
+  };
+  analytics: {
     instructions: string;
   };
 }

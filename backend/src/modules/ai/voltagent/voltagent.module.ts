@@ -71,6 +71,8 @@ import { DeadlineExtractorService } from './services/deadline-extractor.service'
 import { FollowUpService } from './services/follow-up.service';
 // Action item extraction (P1 feature)
 import { ActionItemService } from './services/action-item.service';
+// Analytics (P1.5 - Mistral code_interpreter)
+import { AnalyticsService } from './services/analytics.service';
 // Observability (OpenTelemetry-aligned)
 import { LlmTelemetryService } from './observability/telemetry';
 
@@ -118,6 +120,8 @@ import { LlmTelemetryService } from './observability/telemetry';
     FollowUpService,
     // Action item extraction (P1 feature)
     ActionItemService,
+    // Analytics (P1.5 - Mistral code_interpreter)
+    AnalyticsService,
     // Observability
     LlmTelemetryService,
   ],
@@ -148,6 +152,8 @@ import { LlmTelemetryService } from './observability/telemetry';
     FollowUpService,
     // Action item extraction
     ActionItemService,
+    // Analytics
+    AnalyticsService,
     // Observability
     LlmTelemetryService,
   ],

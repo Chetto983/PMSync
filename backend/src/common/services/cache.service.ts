@@ -34,6 +34,8 @@ export enum CacheNamespace {
   FOLDER_METADATA = 'folder:meta',
   /** Upcoming deadlines cache (tenant:userId scoped) */
   DEADLINE_UPCOMING = 'deadline:upcoming',
+  /** AI Analytics agents and results cache */
+  AI_ANALYTICS = 'ai:analytics',
 }
 
 /**
