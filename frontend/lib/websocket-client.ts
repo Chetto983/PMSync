@@ -22,12 +22,21 @@ export interface RealtimeEmailEvent<T = any> {
   externalId?: string;
   providerId: string;
   folder?: string;
-  reason: 'message-processed' | 'message-deleted' | 'labels-updated' | 'message-sent' | 'sync-complete';
+  reason:
+    | 'message-processed'
+    | 'message-deleted'
+    | 'labels-updated'
+    | 'message-sent'
+    | 'sync-complete'
+    | 'read-status-updated'
+    | 'starred-updated'
+    | 'flagged-updated'
+    | 'folder-updated';
   email?: T;
   updates?: Partial<T>;
   unreadCount?: number;
   threadId?: string;
-  timestamp: string;
+  timestamp?: string;
 }
 
 export interface RealtimeFolderCountsEvent {
@@ -52,7 +61,17 @@ export interface RealtimeCalendarEvent<T = any> {
   reason: 'event-created' | 'event-updated' | 'event-deleted';
   event?: T;
   updates?: Partial<T>;
-  timestamp: string;
+  timestamp?: string;
+}
+
+export interface RealtimeCalendarListUpdateEvent {
+  calendarId: string;
+  calendarName: string;
+  providerId: string;
+  providerEmail?: string;
+  color?: string;
+  reason: 'calendar-created' | 'calendar-updated' | 'calendar-deleted';
+  timestamp?: string;
 }
 
 /**
@@ -67,7 +86,7 @@ export interface RealtimeContactEvent<T = any> {
   reason: 'contact-created' | 'contact-updated' | 'contact-deleted';
   contact?: T;
   updates?: Partial<T>;
-  timestamp: string;
+  timestamp?: string;
 }
 
 export interface RealtimeContactCountsEvent {
@@ -89,7 +108,7 @@ export interface RealtimeLabelEvent<T = any> {
   reason: 'label-created' | 'label-updated' | 'label-deleted';
   label?: T;
   updates?: Partial<T>;
-  timestamp: string;
+  timestamp?: string;
 }
 
 export interface RealtimeFolderEvent {
@@ -99,7 +118,7 @@ export interface RealtimeFolderEvent {
   folderPath: string;
   oldName?: string;
   reason: 'folder-created' | 'folder-renamed' | 'folder-deleted';
-  timestamp: string;
+  timestamp?: string;
 }
 
 export interface RealtimeSyncStatus {
@@ -109,7 +128,7 @@ export interface RealtimeSyncStatus {
   error?: string;
   processed?: number;
   total?: number;
-  timestamp: string;
+  timestamp?: string;
   // Optional fields for sync completion events (aligned with backend RealtimeEventPayloads)
   type?: 'email' | 'calendar' | 'contacts' | 'folders';
   count?: number;
@@ -126,7 +145,7 @@ export interface RealtimeAiActionEvent {
   payload?: Record<string, unknown>;
   reason?: string;
   error?: string;
-  timestamp: string;
+  timestamp?: string;
 }
 
 export interface RealtimeAiSessionEvent {
@@ -485,6 +504,12 @@ class WebSocketClient {
     if (!this.socket) return () => {};
     this.socket.on('calendar:event_delete', handler);
     return () => this.socket?.off('calendar:event_delete', handler);
+  }
+
+  onCalendarListUpdate(handler: EventHandler<RealtimeCalendarListUpdateEvent>): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('calendar:list_update', handler);
+    return () => this.socket?.off('calendar:list_update', handler);
   }
 
   /**

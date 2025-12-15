@@ -339,6 +339,20 @@ export function Calendar() {
     }
   }, [loadEnabledState]);
 
+  // Refresh calendars list when backend emits realtime calendar list updates
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleCalendarsRefresh = () => {
+      void loadCalendars();
+    };
+
+    window.addEventListener('calendars:refresh', handleCalendarsRefresh as EventListener);
+    return () => {
+      window.removeEventListener('calendars:refresh', handleCalendarsRefresh as EventListener);
+    };
+  }, [loadCalendars]);
+
   // Load providers and events
   // triggerSync: if true, sync from Google/Microsoft before loading from database
   const loadData = useCallback(async (triggerSync = false) => {

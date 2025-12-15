@@ -390,6 +390,14 @@ export function useWebSocket(token: string | null, enabled = true) {
       }
     });
 
+    // CALENDAR LIST EVENTS - refresh calendars list in UI
+    const unsubCalendarListUpdate = websocketClient.onCalendarListUpdate((data) => {
+      logger.debug('[WS] Calendar list update', { calendarId: data.calendarId, reason: data.reason });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('calendars:refresh', { detail: data }));
+      }
+    });
+
     // CONTACT EVENTS - with error recovery
     const unsubContactNew = websocketClient.onContactNew((data) => {
       logger.debug('[WS] Contact new', { contactId: data.contact?.id });
@@ -467,7 +475,7 @@ export function useWebSocket(token: string | null, enabled = true) {
           status: data.status,
           progress: data.progress,
           error: data.error,
-          timestamp: data.timestamp,
+          timestamp: data.timestamp || new Date().toISOString(),
         });
       } catch (error) {
         logger.error('[WS] Error processing sync status', { error });
@@ -498,6 +506,7 @@ export function useWebSocket(token: string | null, enabled = true) {
       unsubCalendarNew();
       unsubCalendarUpdate();
       unsubCalendarDelete();
+      unsubCalendarListUpdate();
       unsubContactNew();
       unsubContactUpdate();
       unsubContactDelete();
