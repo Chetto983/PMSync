@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Box, SxProps, Theme } from '@mui/material';
 import DOMPurify from 'dompurify';
 
@@ -118,14 +118,17 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [imagesProcessed, setImagesProcessed] = useState(false);
+  const [sanitizedHtml, setSanitizedHtml] = useState('');
 
-  // Memoize sanitized HTML to prevent re-sanitization on every render
-  const sanitizedHtml = useMemo(() => sanitizeEmailBody(html || ''), [html]);
+  // Avoid rendering untrusted HTML during SSR: sanitize after hydration on the client
+  useEffect(() => {
+    setSanitizedHtml(sanitizeEmailBody(html || ''));
+  }, [html]);
 
   // Process images for lazy loading after initial render
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !lazyLoadImages || imagesProcessed) return;
+    if (!container || !lazyLoadImages || imagesProcessed || !sanitizedHtml) return;
 
     // Find all images in the rendered content
     const images = container.querySelectorAll('img');

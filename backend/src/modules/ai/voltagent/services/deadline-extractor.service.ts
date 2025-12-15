@@ -27,7 +27,6 @@ import { CacheService, CacheNamespace } from '../../../../common/services/cache.
 import { getConfiguration } from '../../../../config/configuration';
 import {
   getDeadlineKeywords,
-  getLocale,
   type SupportedLocale,
 } from '../locales';
 
@@ -703,7 +702,7 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
           );
           processed++;
         }
-      } catch (error) {
+      } catch {
         errors++;
       }
     }

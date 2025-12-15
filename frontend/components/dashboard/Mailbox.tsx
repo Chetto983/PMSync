@@ -1371,7 +1371,10 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       const selectedThreadIds = Array.from(selectedIds);
       const threadEmailPromises = selectedThreadIds.map(async (threadId) => {
         // Check if any email in store has this threadId with emailCount > 1 (conversation view)
-        const conversationEmail = storeEmails.find(e => (e.threadId === threadId || e.id === threadId) && (e as any).emailCount > 1);
+        const conversationEmail = storeEmails.find((email) => {
+          const emailCount = (email as Email & { emailCount?: number }).emailCount;
+          return (email.threadId === threadId || email.id === threadId) && (emailCount ?? 0) > 1;
+        });
         if (conversationEmail?.threadId) {
           // Fetch all emails in thread
           const threadRes = await emailApi.getThread(conversationEmail.threadId);

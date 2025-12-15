@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import { emailApi } from '@/lib/api/email';
 import { useRouter } from 'next/router';
@@ -39,7 +39,9 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   // CRITICAL FIX: Use refs for callbacks to prevent stale closures
   // This prevents all handlers from recreating on every render
   const callbacksRef = useRef<EmailActionsCallbacks | undefined>(callbacks);
-  callbacksRef.current = callbacks;
+  useEffect(() => {
+    callbacksRef.current = callbacks;
+  }, [callbacks]);
 
   /**
    * Delete a single email

@@ -696,12 +696,6 @@ Please:
    * Invalidate analytics cache for a tenant/user.
    */
   async invalidateCache(tenantId: string, userId?: string): Promise<void> {
-    const patterns = [
-      `${this.CACHE_PREFIX}:email:${tenantId}:${userId || '*'}:*`,
-      `${this.CACHE_PREFIX}:dashboard:${tenantId}:${userId || '*'}`,
-      `${this.CACHE_PREFIX}:result:${tenantId}:${userId || '*'}:*`,
-    ];
-
     // Clear from Redis (pattern-based deletion would need SCAN)
     // For simplicity, just clear the specific user's cache
     if (userId && this.cacheService.isHealthy()) {
