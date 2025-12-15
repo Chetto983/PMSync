@@ -197,6 +197,38 @@ export function useConversations(params?: { page?: number; limit?: number; provi
 }
 
 /**
+ * Hook for infinite scroll conversations (threaded view)
+ *
+ * @example
+ * ```tsx
+ * const { data, fetchNextPage, hasNextPage } = useInfiniteConversations({ folder: 'INBOX', limit: 50 });
+ * const conversations = data?.pages.flatMap((p) => p.conversations) ?? [];
+ * ```
+ */
+export function useInfiniteConversations(
+  params?: { limit?: number; providerId?: string; folder?: string },
+  options?: { enabled?: boolean },
+) {
+  const limit = params?.limit ?? 50;
+
+  return useInfiniteQuery({
+    queryKey: emailKeys.conversationInfinite({ ...(params ?? {}), limit }),
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await emailApi.getConversations({ ...params, limit, page: pageParam });
+      return response.data;
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const { page, totalPages } = lastPage.pagination;
+      return page < totalPages ? page + 1 : undefined;
+    },
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    enabled: options?.enabled ?? true,
+  });
+}
+
+/**
  * Hook for infinite scroll email list
  *
  * @example
@@ -212,7 +244,10 @@ export function useConversations(params?: { page?: number; limit?: number; provi
  * const emails = data?.pages.flatMap(page => page.emails) ?? [];
  * ```
  */
-export function useInfiniteEmails(params?: Omit<EmailListParams, 'page'>) {
+export function useInfiniteEmails(
+  params?: Omit<EmailListParams, 'page'>,
+  options?: { enabled?: boolean },
+) {
   return useInfiniteQuery({
     queryKey: [...emailKeys.lists(), 'infinite', params ?? {}],
     queryFn: async ({ pageParam = 1 }) => {
@@ -230,6 +265,7 @@ export function useInfiniteEmails(params?: Omit<EmailListParams, 'page'>) {
     },
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
+    enabled: options?.enabled ?? true,
   });
 }
 

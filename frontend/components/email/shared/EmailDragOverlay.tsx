@@ -3,6 +3,7 @@ import { DragOverlay } from '@dnd-kit/core';
 import { Box, Paper, Typography, Avatar, Chip, Stack } from '@mui/material';
 import { Mail, GripVertical } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
+import type { Conversation } from '@/lib/api/email';
 
 /**
  * Props for EmailDragOverlay component
@@ -11,7 +12,7 @@ export interface EmailDragOverlayProps {
   /**
    * The email(s) being dragged
    */
-  activeEmail: Email | null;
+  activeEmail: Email | Conversation | null;
 
   /**
    * Number of emails being dragged (for bulk drag)

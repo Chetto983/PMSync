@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useEmailStore, type Email } from '@/stores/email-store';
+import type { Conversation } from '@/lib/api/email';
 
 /**
  * Keyboard navigation hook for email list
@@ -22,17 +23,23 @@ import { useEmailStore, type Email } from '@/stores/email-store';
  * ```
  */
 export function useKeyboardNavigation(options: {
-  emails: Email[];
+  threads: (Email | Conversation)[];
   enabled?: boolean;
   onDelete?: (id: string) => void;
   onReply?: (email: Email) => void;
   onToggleStar?: (id: string, isStarred: boolean) => void;
+  onThreadClick?: (thread: Email | Conversation) => void;
 }) {
-  const { emails, enabled = true, onDelete, onReply, onToggleStar } = options;
+  const { threads, enabled = true, onDelete, onReply, onToggleStar, onThreadClick } = options;
   const { selectedEmail, setSelectedEmail } = useEmailStore();
 
   useEffect(() => {
-    if (!enabled || emails.length === 0 || typeof window === 'undefined') return;
+    if (!enabled || threads.length === 0 || typeof window === 'undefined') return;
+
+    const getThreadKey = (thread: Email | Conversation) => {
+      if ('providerId' in thread) return thread.threadId || thread.id;
+      return thread.threadId;
+    };
 
     const handleKeyPress = (e: KeyboardEvent) => {
       // Ignore if typing in input/textarea
@@ -41,30 +48,43 @@ export function useKeyboardNavigation(options: {
         return;
       }
 
-      const currentIndex = selectedEmail
-        ? emails.findIndex((email) => email.id === selectedEmail.id)
-        : -1;
+      const selectedKey = selectedEmail ? (selectedEmail.threadId || selectedEmail.id) : '';
+      const currentIndex = selectedEmail ? threads.findIndex((thread) => getThreadKey(thread) === selectedKey) : -1;
+
+      const openThreadAtIndex = (index: number) => {
+        const thread = threads[index];
+        if (!thread) return;
+
+        if (onThreadClick) {
+          onThreadClick(thread);
+          return;
+        }
+
+        if ('providerId' in thread) {
+          setSelectedEmail(thread);
+        }
+      };
 
       switch (e.key.toLowerCase()) {
         case 'j': // Next email
           e.preventDefault();
-          if (currentIndex < emails.length - 1) {
-            setSelectedEmail(emails[currentIndex + 1]);
+          if (currentIndex < threads.length - 1) {
+            openThreadAtIndex(currentIndex + 1);
           }
           break;
 
         case 'k': // Previous email
           e.preventDefault();
           if (currentIndex > 0) {
-            setSelectedEmail(emails[currentIndex - 1]);
-          } else if (currentIndex === -1 && emails.length > 0) {
-            setSelectedEmail(emails[0]);
+            openThreadAtIndex(currentIndex - 1);
+          } else if (currentIndex === -1 && threads.length > 0) {
+            openThreadAtIndex(0);
           }
           break;
 
         case 'enter': // Open email
           if (selectedEmail && currentIndex !== -1) {
-            setSelectedEmail(selectedEmail);
+            openThreadAtIndex(currentIndex);
           }
           break;
 
@@ -98,5 +118,5 @@ export function useKeyboardNavigation(options: {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [enabled, emails, selectedEmail, setSelectedEmail, onDelete, onReply, onToggleStar]);
+  }, [enabled, threads, selectedEmail, setSelectedEmail, onDelete, onReply, onToggleStar, onThreadClick]);
 }

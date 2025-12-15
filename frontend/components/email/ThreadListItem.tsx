@@ -91,13 +91,6 @@ function isEmail(thread: Email | Conversation): thread is Email {
 }
 
 /**
- * Type guard to check if thread is Conversation
- */
-function isConversation(thread: Email | Conversation): thread is Conversation {
-  return 'emailCount' in thread;
-}
-
-/**
  * ThreadListItem - Unified list item for emails and conversations
  *
  * Features:
@@ -147,18 +140,18 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             emailLabels: thread.emailLabels || undefined,
           };
         } else {
-          // For Conversation: use threadId for both (conversations don't have individual email operations)
+          // For Conversation: use threadId for UI, and latestEmailId for email-level operations
           return {
             threadId: thread.threadId || '',
-            emailId: thread.threadId || '',
+            emailId: thread.latestEmailId || thread.threadId || '',
             from: thread.from,
             subject: thread.subject,
             snippet: thread.snippet || '',
             receivedAt: thread.receivedAt,
             isRead: thread.isRead,
             isStarred: thread.isStarred || false,
-            isImportant: false,
-            emailLabels: undefined,
+            isImportant: thread.isFlagged || false,
+            emailLabels: thread.emailLabels || undefined,
           };
         }
       }, [thread]);
@@ -208,7 +201,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     }, [emailLabels]);
 
     // Get email count for conversations
-    const emailCount = isConversation(thread) ? thread.emailCount : undefined;
+    const emailCount = thread.emailCount;
 
     return (
       <>

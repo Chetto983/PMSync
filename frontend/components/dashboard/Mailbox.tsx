@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Inbox,
   Star,
@@ -12,7 +13,6 @@ import {
   Menu,
 } from 'lucide-react';
 import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Chip, Alert, Stack, Typography, Button, CircularProgress, Paper, IconButton } from '@mui/material';
-import { debounce } from 'lodash-es';
 import {
   DndContext,
   DragStartEvent,
@@ -25,7 +25,7 @@ import {
 import { emailApi, type EmailListParams, type Conversation } from '@/lib/api/email';
 import type { MemorySearchItem } from '@/lib/api/ai';
 import { logger } from '@/lib/logger';
-import { providersApi, type ProviderConfig } from '@/lib/api/providers';
+import type { ProviderConfig } from '@/lib/api/providers';
 import { getFolders, type Folder } from '@/lib/api/folders';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailStore, type Email } from '@/stores/email-store';
@@ -35,6 +35,7 @@ import { useEmailActions } from '@/hooks/use-email-actions';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { getFolderIcon as getIconForFolderUtil } from '@/lib/utils/folder-normalization';
+import { emailKeys, useEmailStats, useInfiniteConversations, useInfiniteEmails, useRetentionStats } from '@/hooks/queries';
 
 // Components
 import { ResizableEmailLayout } from '@/components/email/ResizableEmailLayout';
@@ -168,6 +169,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const t = useTranslations();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const queryClient = useQueryClient();
   const localText = useMemo(() => {
     const rt = t.email.realtime;
     const empty = t.email.empty;
@@ -198,34 +200,22 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
   // Store state
   // Use explicit selectors for better re-render reliability
-  const storeEmails = useEmailStore((state) => state.emails);
   const storeSelectedEmail = useEmailStore((state) => state.selectedEmail);
-  const storeLoading = useEmailStore((state) => state.isLoading);
   const selectedIds = useEmailStore((state) => state.selectedIds);
-  const setEmails = useEmailStore((state) => state.setEmails);
-  const appendEmails = useEmailStore((state) => state.appendEmails);
   const setSelectedEmail = useEmailStore((state) => state.setSelectedEmail);
-  const setLoading = useEmailStore((state) => state.setLoading);
   const toggleSelection = useEmailStore((state) => state.toggleSelection);
-  const selectAll = useEmailStore((state) => state.selectAll);
   const clearSelection = useEmailStore((state) => state.clearSelection);
-  const storeMarkAsRead = useEmailStore((state) => state.markAsRead);
-  const storeBulkDelete = useEmailStore((state) => state.bulkDelete);
-  const storeMarkAsStarred = useEmailStore((state) => state.markAsStarred);
-  const storeMarkAsImportant = useEmailStore((state) => state.markAsImportant);
 
   // WebSocket for real-time updates (email events, folder counts, etc.)
   const { isConnected, connectionStatus } = useWebSocket(token, true);
 
-  // Debug: Track email changes
-  useEffect(() => {
-    logger.debug('[Mailbox] Store emails changed', { count: storeEmails.length });
-  }, [storeEmails]);
-
   // Debug: Track selected email changes
   useEffect(() => {
     if (storeSelectedEmail) {
-      logger.debug('[Mailbox] Selected email changed', { emailId: storeSelectedEmail.id, labelCount: storeSelectedEmail.emailLabels?.length });
+      logger.debug('[Mailbox] Selected email changed', {
+        emailId: storeSelectedEmail.id,
+        labelCount: storeSelectedEmail.emailLabels?.length,
+      });
     }
   }, [storeSelectedEmail]);
 
@@ -238,13 +228,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [searchQuery] = useState(initialSearchQuery || '');
-  const [, setRefreshing] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeMode, setComposeMode] = useState<'compose' | 'reply' | 'forward'>('compose');
   const [composePrefill, setComposePrefill] = useState<ComposePrefillData | null>(null);
   const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedSearchFilters>({});
-  const [_pagination, setPagination] = useState({ page: 1, hasMore: true, total: 0 });
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -254,13 +242,16 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     message: '',
     severity: 'info',
   });
-  const [emailStats, setEmailStats] = useState<{ total: number; unread: number; starred: number; important: number; today: number; thisWeek: number; attachments: number } | null>(null);
-  const [retentionStats, setRetentionStats] = useState<{ totalEmails: number; archivedEmails: number; estimatedSpaceSavedMB: number } | null>(null);
   const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
 
+  const emailStatsQuery = useEmailStats();
+  const retentionStatsQuery = useRetentionStats();
+  const emailStats = emailStatsQuery.data ?? null;
+  const retentionStats = retentionStatsQuery.data ?? null;
+
   // Drag-and-drop state for email-to-folder
-  const [draggedEmail, setDraggedEmail] = useState<Email | null>(null);
+  const [draggedEmail, setDraggedEmail] = useState<Email | Conversation | null>(null);
   const [isDraggingEmail, setIsDraggingEmail] = useState(false);
 
   // Setup DnD sensors with activation constraint to avoid accidental drags
@@ -275,11 +266,26 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   // Handle compose query params (for reply/forward/new compose from other pages)
   useEffect(() => {
     const { compose, replyTo, forward, to, subject } = router.query;
-    if (compose) {
+
+    if (!compose) return;
+
+    const openFromQuery = async () => {
+      const storeApi = useEmailStore.getState();
+
       if (compose === 'reply' && replyTo) {
         const emailId = String(replyTo);
-        // Find the original email to get its body for quoting
-        const originalEmail = storeEmails.find(e => e.id === emailId);
+
+        let originalEmail = storeApi.emails.find((e) => e.id === emailId);
+        if (!originalEmail) {
+          try {
+            const response = await emailApi.getEmail(emailId);
+            originalEmail = mapApiEmailToStore(response.data as unknown as ApiEmail);
+            storeApi.updateEmail(emailId, originalEmail);
+          } catch (error) {
+            logger.error('[Mailbox] Failed to fetch email for reply prefill', { emailId, error });
+          }
+        }
+
         const quotedBody = originalEmail?.bodyHtml || originalEmail?.bodyText || '';
         const formattedQuote = quotedBody
           ? `<br/><br/><blockquote style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 0; color: #666;">
@@ -299,8 +305,18 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         });
       } else if (compose === 'forward' && forward) {
         const emailId = String(forward);
-        // Find the original email to get its body for forwarding
-        const originalEmail = storeEmails.find(e => e.id === emailId);
+
+        let originalEmail = storeApi.emails.find((e) => e.id === emailId);
+        if (!originalEmail) {
+          try {
+            const response = await emailApi.getEmail(emailId);
+            originalEmail = mapApiEmailToStore(response.data as unknown as ApiEmail);
+            storeApi.updateEmail(emailId, originalEmail);
+          } catch (error) {
+            logger.error('[Mailbox] Failed to fetch email for forward prefill', { emailId, error });
+          }
+        }
+
         const forwardBody = originalEmail?.bodyHtml || originalEmail?.bodyText || '';
         const formattedForward = forwardBody
           ? `<br/><br/>---------- Forwarded message ----------<br/>
@@ -321,11 +337,14 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         setComposeMode('compose');
         setComposePrefill(null);
       }
+
       setComposeOpen(true);
       // Clear the compose query params to avoid reopening on refresh
       router.replace({ pathname: router.pathname, query: {} }, undefined, { shallow: true });
-    }
-  }, [router, router.query, storeEmails]);
+    };
+
+    void openFromQuery();
+  }, [router, router.query]);
 
   const getEmptyState = useCallback(() => {
     if (!selectedFolderId) {
@@ -362,78 +381,25 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     return { title: localText.empty.defaultTitle, subtitle: localText.empty.defaultSubtitle };
   }, [selectedFolderId, localText, foldersByProvider]);
 
-  // Load stats, retention, sync status
-  useEffect(() => {
-    emailApi.getStats().then((res) => {
-      const stats = res.data;
-      setEmailStats({
-        total: stats.total,
-        unread: stats.unread,
-        starred: stats.starred,
-        important: stats.important,
-        today: stats.today,
-        thisWeek: stats.thisWeek,
-        attachments: stats.attachments,
-      });
-    }).catch(() => { });
-
-    emailApi.getRetentionStats().then((res) => {
-      const stats = res.data;
-      setRetentionStats({
-        totalEmails: stats.totalEmails,
-        archivedEmails: stats.archivedEmails,
-        estimatedSpaceSavedMB: stats.estimatedSpaceSavedMB,
-      });
-    }).catch(() => { });
-
-    emailApi.getSyncStatus().then(() => {
-      setSyncStatusMessage(null);
-    }).catch(() => setSyncStatusMessage(null));
-  }, []);
-
-  // Refresh email stats from database (used after bulk operations, sync, etc.)
-  const refreshStats = useCallback(async () => {
-    try {
-      const res = await emailApi.getStats();
-      const stats = res.data;
-      setEmailStats({
-        total: stats.total,
-        unread: stats.unread,
-        starred: stats.starred,
-        important: stats.important,
-        today: stats.today,
-        thisWeek: stats.thisWeek,
-        attachments: stats.attachments,
-      });
-    } catch {
-      // Silently fail - stats are not critical
-    }
-  }, []);
-
-  const handleSyncProviders = async () => {
+  const handleSyncProviders = useCallback(async () => {
     if (!providers || providers.length === 0) return;
     setSyncLoading(true);
     try {
       await Promise.all(providers.map((p) => emailApi.syncProvider(p.id)));
       setSyncStatusMessage(t.email.messages.syncTriggered ?? 'Sync triggered for all providers');
-      await refreshStats();
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.syncStatus() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
     } catch {
       setSyncStatusMessage(t.email.messages.syncFailed ?? 'Sync failed');
     } finally {
       setSyncLoading(false);
     }
-  };
+  }, [providers, queryClient, t.email.messages.syncFailed, t.email.messages.syncTriggered]);
 
   // Mobile sidebar state
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-  // Refs for logging without causing dependency issues
-  const storeEmailsRef = useRef(storeEmails);
-
-  // Update refs on each render
-  useEffect(() => {
-    storeEmailsRef.current = storeEmails;
-  });
 
   // Label manager state
   const [labelManagerOpen, setLabelManagerOpen] = useState(false);
@@ -443,6 +409,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   // Custom hooks
   const {
     handleDelete,
+    handleBulkDelete: handleBulkDeleteEmails,
+    handleMarkAsRead,
     handleToggleRead,
     handleToggleStar,
     handleToggleImportant,
@@ -471,12 +439,15 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const handleEmailClick = useCallback(async (thread: Email | Conversation) => {
     if ('providerId' in thread) {
       // Direct Email object - use original handler
+      useEmailStore.getState().updateEmail(thread.id, thread);
       handleEmailClickOriginal(thread as Email);
     } else if ('latestEmailId' in thread && thread.latestEmailId) {
       // Conversation object - fetch the latest email and display it
       try {
         const response = await emailApi.getEmail(thread.latestEmailId);
-        setSelectedEmail(response.data);
+        const email = mapApiEmailToStore(response.data as unknown as ApiEmail);
+        useEmailStore.getState().updateEmail(email.id, email);
+        handleEmailClickOriginal(email);
       } catch (error) {
         logger.error('Failed to open conversation email', { error });
         setSnackbar({
@@ -486,7 +457,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         });
       }
     }
-  }, [handleEmailClickOriginal, setSelectedEmail, setSnackbar, t.email.messages.failedToOpenEmail]);
+  }, [handleEmailClickOriginal, setSnackbar, t.email.messages.failedToOpenEmail]);
 
   // Handle AI search result click
   const handleAISearchResultClick = useCallback(async (item: MemorySearchItem) => {
@@ -753,163 +724,136 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     }
   }, [setFoldersData]);
 
-  // Refresh folders when realtime folder events fire
-  useEffect(() => {
-    const handler = () => {
-      // Store is updated optimistically via WS; skip full refetch to reduce chatter
-      // Fallback refresh can be triggered manually if needed
+  const activeFolder = useMemo<FolderItem | null>(() => {
+    if (selectedFolderId) {
+      return combinedFolders.find((folder) => folder.id === selectedFolderId) ?? combinedFolders[0] ?? null;
+    }
+    return combinedFolders[0] ?? null;
+  }, [combinedFolders, selectedFolderId]);
+
+  const labelFolderId = useMemo(() => {
+    if (!activeFolder) return undefined;
+    return activeFolder.id.startsWith('label:') ? activeFolder.id.replace('label:', '') : undefined;
+  }, [activeFolder]);
+
+  const useEmailListView = useMemo(() => {
+    if (labelFolderId) return true;
+    if (!activeFolder) return true;
+
+    const hasActiveFilters = Boolean(
+      searchQuery ||
+        advancedFilters.searchQuery ||
+        advancedFilters.from ||
+        advancedFilters.to ||
+        advancedFilters.subject ||
+        (advancedFilters.labelIds?.length ?? 0) > 0 ||
+        advancedFilters.startDate ||
+        advancedFilters.endDate ||
+        advancedFilters.hasAttachments !== undefined ||
+        advancedFilters.isRead != null ||
+        advancedFilters.isStarred !== undefined ||
+        activeFolder.queryOverrides?.isRead !== undefined ||
+        activeFolder.queryOverrides?.isStarred !== undefined ||
+        activeFolder.queryOverrides?.hasAttachments !== undefined ||
+        activeFolder.queryOverrides?.startDate !== undefined ||
+        activeFolder.queryOverrides?.endDate !== undefined,
+    );
+
+    return hasActiveFilters;
+  }, [activeFolder, advancedFilters, labelFolderId, searchQuery]);
+
+  const emailListParams = useMemo<Omit<EmailListParams, 'page'>>(() => {
+    if (!activeFolder) {
+      return { limit: 50 };
+    }
+
+    if (labelFolderId) {
+      return {
+        limit: 50,
+        search: advancedFilters.searchQuery || searchQuery || undefined,
+        from: advancedFilters.from || undefined,
+        to: advancedFilters.to || undefined,
+        subject: advancedFilters.subject || undefined,
+        labelIds: [labelFolderId, ...(advancedFilters.labelIds || [])],
+        startDate: advancedFilters.startDate || undefined,
+        endDate: advancedFilters.endDate || undefined,
+        hasAttachments: advancedFilters.hasAttachments || undefined,
+        isRead: advancedFilters.isRead !== null ? advancedFilters.isRead : undefined,
+        isStarred: advancedFilters.isStarred || undefined,
+      };
+    }
+
+    return {
+      limit: 50,
+      ...activeFolder.queryOverrides,
+      search: advancedFilters.searchQuery || searchQuery || undefined,
+      from: advancedFilters.from || undefined,
+      to: advancedFilters.to || undefined,
+      subject: advancedFilters.subject || undefined,
+      labelIds: advancedFilters.labelIds || undefined,
+      ...(advancedFilters.startDate ? { startDate: advancedFilters.startDate } : {}),
+      ...(advancedFilters.endDate ? { endDate: advancedFilters.endDate } : {}),
+      ...(advancedFilters.hasAttachments !== undefined ? { hasAttachments: advancedFilters.hasAttachments } : {}),
+      ...(advancedFilters.isRead != null ? { isRead: advancedFilters.isRead } : {}),
+      ...(advancedFilters.isStarred !== undefined ? { isStarred: advancedFilters.isStarred } : {}),
     };
+  }, [activeFolder, advancedFilters, labelFolderId, searchQuery]);
 
-    window.addEventListener('folders:refresh', handler);
-    return () => window.removeEventListener('folders:refresh', handler);
-  }, []);
+  const conversationParams = useMemo(() => {
+    return {
+      limit: 50,
+      providerId: activeFolder?.providerId,
+      folder:
+        activeFolder?.filterFolder ||
+        activeFolder?.queryOverrides?.folder ||
+        activeFolder?.specialUse ||
+        activeFolder?.queryOverrides?.specialUse,
+    };
+  }, [activeFolder]);
 
-  // Load emails data
-  const loadData = useCallback(async () => {
-    // Calculate active folder directly from selectedFolderId to avoid stale closure
-    const currentActiveFolder = combinedFolders.find((folder) => folder.id === selectedFolderId) ||
-      combinedFolders[0] ||
-      null;
+  const emailsQuery = useInfiniteEmails(emailListParams, {
+    enabled: Boolean(activeFolder) && useEmailListView,
+  });
 
-    if (!currentActiveFolder) {
+  const conversationsQuery = useInfiniteConversations(conversationParams, {
+    enabled: Boolean(activeFolder) && !useEmailListView,
+  });
+
+  const emailThreads = useMemo(
+    () => emailsQuery.data?.pages.flatMap((page) => page.emails) ?? [],
+    [emailsQuery.data],
+  );
+
+  const conversationThreads = useMemo(
+    () => conversationsQuery.data?.pages.flatMap((page) => page.conversations) ?? [],
+    [conversationsQuery.data],
+  );
+
+  const threads = useMemo<(Email | Conversation)[]>(() => {
+    if (useEmailListView) {
+      return emailThreads.map((e) => mapApiEmailToStore(e as unknown as ApiEmail));
+    }
+    return conversationThreads;
+  }, [conversationThreads, emailThreads, useEmailListView]);
+
+  const listLoading = useEmailListView
+    ? emailsQuery.isPending || emailsQuery.isFetchingNextPage
+    : conversationsQuery.isPending || conversationsQuery.isFetchingNextPage;
+
+  const hasMoreItems = useEmailListView ? Boolean(emailsQuery.hasNextPage) : Boolean(conversationsQuery.hasNextPage);
+
+  const onLoadMoreThreads = useCallback(() => {
+    if (useEmailListView) {
+      if (emailsQuery.hasNextPage && !emailsQuery.isFetchingNextPage) {
+        void emailsQuery.fetchNextPage();
+      }
       return;
     }
 
-    try {
-      setLoading(true);
-
-      const providersRes = await providersApi.getProviders();
-      setProviders(providersRes || []);
-
-      // Check if filtering by label - use backend labelIds filter
-      if (currentActiveFolder.id.startsWith('label:')) {
-        const labelId = currentActiveFolder.id.replace('label:', '');
-        const queryParams: EmailListParams = {
-          limit: 50,
-          page: 1,
-          search: advancedFilters.searchQuery || searchQuery || undefined,
-          from: advancedFilters.from || undefined,
-          to: advancedFilters.to || undefined,
-          subject: advancedFilters.subject || undefined,
-          labelIds: [labelId, ...(advancedFilters.labelIds || [])],
-          startDate: advancedFilters.startDate || undefined,
-          endDate: advancedFilters.endDate || undefined,
-          hasAttachments: advancedFilters.hasAttachments || undefined,
-          isRead: advancedFilters.isRead !== null ? advancedFilters.isRead : undefined,
-          isStarred: advancedFilters.isStarred || undefined,
-        };
-
-        const emailsRes = await emailApi.listEmails(queryParams);
-        const filteredEmails = (emailsRes.data.emails || []).map((e) => mapApiEmailToStore(e as unknown as ApiEmail));
-        setEmails(filteredEmails);
-        setSelectedEmail(null);
-
-        // Update pagination for label-filtered results
-        setPagination({
-          page: 1,
-          hasMore: emailsRes.data.emails?.length === 50,
-          total: emailsRes.data.pagination?.total || filteredEmails.length,
-        });
-      } else {
-        // Check if any search/filter is active - if so, use listEmails for full results
-        // CRITICAL: Include folder queryOverrides (smart filters like unread, starred, etc.)
-        const hasActiveFilters = searchQuery ||
-          advancedFilters.searchQuery ||
-          advancedFilters.from ||
-          advancedFilters.to ||
-          advancedFilters.subject ||
-          advancedFilters.labelIds?.length ||
-          advancedFilters.startDate ||
-          advancedFilters.endDate ||
-          advancedFilters.hasAttachments !== undefined ||
-          advancedFilters.isRead != null ||
-          advancedFilters.isStarred !== undefined ||
-          // Smart filter queryOverrides must trigger filtered view
-          currentActiveFolder.queryOverrides?.isRead !== undefined ||
-          currentActiveFolder.queryOverrides?.isStarred !== undefined ||
-          currentActiveFolder.queryOverrides?.hasAttachments !== undefined ||
-          currentActiveFolder.queryOverrides?.startDate !== undefined ||
-          currentActiveFolder.queryOverrides?.endDate !== undefined;
-
-        if (hasActiveFilters) {
-          // Use listEmails for search/filtered results (shows all matching emails)
-          const queryParams: EmailListParams = {
-            limit: 50,
-            page: 1,
-            ...currentActiveFolder.queryOverrides,
-            search: advancedFilters.searchQuery || searchQuery || undefined,
-            from: advancedFilters.from || undefined,
-            to: advancedFilters.to || undefined,
-            subject: advancedFilters.subject || undefined,
-            labelIds: advancedFilters.labelIds || undefined,
-            ...(advancedFilters.startDate ? { startDate: advancedFilters.startDate } : {}),
-            ...(advancedFilters.endDate ? { endDate: advancedFilters.endDate } : {}),
-            ...(advancedFilters.hasAttachments !== undefined ? { hasAttachments: advancedFilters.hasAttachments } : {}),
-            ...(advancedFilters.isRead != null ? { isRead: advancedFilters.isRead } : {}),
-            ...(advancedFilters.isStarred !== undefined ? { isStarred: advancedFilters.isStarred } : {}),
-          };
-
-          const emailsRes = await emailApi.listEmails(queryParams);
-          logger.debug('[Mailbox] API Response - emails (filtered)', { count: emailsRes.data.emails?.length });
-
-          setEmails((emailsRes.data.emails || []).map((e) => mapApiEmailToStore(e as unknown as ApiEmail)));
-          setSelectedEmail(null);
-
-          setPagination({
-            page: 1,
-            hasMore: emailsRes.data.pagination.page < emailsRes.data.pagination.totalPages,
-            total: emailsRes.data.pagination.total,
-          });
-        } else {
-          // Use getConversations for default view (groups emails by thread, shows only latest)
-          const convParams = {
-            limit: 50,
-            page: 1,
-            providerId: currentActiveFolder.providerId,
-            folder: currentActiveFolder.filterFolder || currentActiveFolder.queryOverrides?.folder,
-          };
-
-          const convRes = await emailApi.getConversations(convParams);
-          logger.debug('[Mailbox] API Response - conversations', { count: convRes.data.conversations?.length });
-
-          // Map conversations to Email-like format for ThreadList compatibility
-          const conversationsAsEmails = (convRes.data.conversations || []).map((conv: Conversation) => ({
-            id: conv.latestEmailId,
-            threadId: conv.threadId,
-            providerId: currentActiveFolder.providerId || '',
-            externalId: conv.latestEmailId,
-            from: conv.from,
-            to: conv.to,
-            subject: conv.subject,
-            snippet: conv.snippet,
-            receivedAt: conv.receivedAt,
-            isRead: conv.isRead,
-            isStarred: conv.isStarred,
-            isImportant: conv.isFlagged,
-            folder: conv.folder,
-            emailLabels: conv.emailLabels,
-            emailCount: conv.emailCount, // Pass email count for thread badge
-          })) as Email[];
-
-          setEmails(conversationsAsEmails);
-          setSelectedEmail(null);
-
-          setPagination({
-            page: 1,
-            hasMore: convRes.data.pagination.page < convRes.data.pagination.totalPages,
-            total: convRes.data.pagination.total,
-          });
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to load mailbox data', { error });
-      setEmails([]);
-      setSelectedEmail(null);
-      setPagination({ page: 1, hasMore: false, total: 0 });
-    } finally {
-      setLoading(false);
+    if (conversationsQuery.hasNextPage && !conversationsQuery.isFetchingNextPage) {
+      void conversationsQuery.fetchNextPage();
     }
-  }, [combinedFolders, selectedFolderId, searchQuery, advancedFilters, setEmails, setLoading, setSelectedEmail]);
+  }, [conversationsQuery, emailsQuery, useEmailListView]);
 
 
   // Handle label changes - backend always returns updated email
@@ -919,228 +863,117 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       return;
     }
 
-    logger.debug('[Mailbox] handleLabelsChange', {
-      emailId,
-      labelIds,
-      updatedEmail,
-    });
+    logger.debug('[Mailbox] handleLabelsChange', { emailId, labelIds });
 
-    // Update/insert email in store with backend data (dedup by id)
-    const currentList = storeEmailsRef.current;
-    const updatedList = currentList.some((email) => email.id === emailId)
-      ? currentList.map((email) => (email.id === emailId ? updatedEmail : email))
-      : [updatedEmail, ...currentList];
-    setEmails(updatedList.filter((email, idx, arr) => arr.findIndex((e) => e.id === email.id) === idx));
-
-    // Ensure store state syncs immediately (and add if missing)
-    const storeApi = useEmailStore.getState();
-    if (currentList.some((email) => email.id === emailId)) {
-      storeApi.updateEmail(emailId, updatedEmail);
-    } else {
-      storeApi.addEmail(updatedEmail);
-    }
-
-    // Maintain thread mapping without dropping other emails in the thread
-    const threadId = updatedEmail.threadId;
-    if (threadId) {
-      const existingIds = storeApi.getThreadEmails(threadId).map((e) => e.id);
-      const mergedIds = Array.from(new Set([...existingIds, updatedEmail.id]));
-      storeApi.updateThread(threadId, mergedIds);
-    }
-
-    // Also update selected email if it's the one being modified
+    // Keep selected email in sync immediately
     if (storeSelectedEmail?.id === emailId) {
       setSelectedEmail(updatedEmail);
     }
+
+    // Store cache for compose/reply prefill and keyboard actions
+    useEmailStore.getState().updateEmail(emailId, updatedEmail);
+
+    // Ensure list/detail reflect the new labels
+    queryClient.invalidateQueries({ queryKey: emailKeys.detail(emailId) });
+    queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+    queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+    queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+
+    const threadKey = updatedEmail.threadId || emailId;
+    queryClient.invalidateQueries({ queryKey: emailKeys.thread(threadKey) });
 
     setSnackbar({
       open: true,
       message: t.common.save || 'Labels updated',
       severity: 'success',
     });
-  }, [storeSelectedEmail, setEmails, setSelectedEmail, t]);
+  }, [queryClient, setSelectedEmail, storeSelectedEmail, t]);
 
   // Refresh emails
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  }, [loadData]);
+  const handleRefresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+    queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+    queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+  }, [queryClient]);
 
-  // Load more emails (infinite scroll)
-  const loadMoreEmails = useCallback(async () => {
-    if (!_pagination.hasMore || storeLoading) return;
+  const getThreadKey = useCallback((thread: Email | Conversation) => {
+    return 'providerId' in thread ? thread.threadId || thread.id : thread.threadId;
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    const next = new Set<string>();
+    for (const thread of threads) {
+      const key = getThreadKey(thread);
+      if (key) next.add(key);
+    }
+    useEmailStore.getState().setSelectedIds(next);
+  }, [getThreadKey, threads]);
+
+  const resolveEmailIdsForThread = useCallback(async (thread: Email | Conversation) => {
+    if ('providerId' in thread) return [thread.id];
 
     try {
-      setLoading(true);
-      const nextPage = _pagination.page + 1;
-      const currentActiveFolder = combinedFolders.find((f) => f.id === selectedFolderId);
-      if (!currentActiveFolder) return;
-
-      const queryParams: EmailListParams = {
-        limit: 50,
-        page: nextPage,
-        ...currentActiveFolder.queryOverrides,
-        search: advancedFilters.searchQuery || searchQuery || undefined,
-        from: advancedFilters.from || undefined,
-        ...(advancedFilters.startDate ? { startDate: advancedFilters.startDate } : {}),
-        ...(advancedFilters.endDate ? { endDate: advancedFilters.endDate } : {}),
-        ...(advancedFilters.hasAttachments !== undefined ? { hasAttachments: advancedFilters.hasAttachments } : {}),
-        ...(advancedFilters.isRead != null ? { isRead: advancedFilters.isRead } : {}),
-        ...(advancedFilters.isStarred !== undefined ? { isStarred: advancedFilters.isStarred } : {}),
-      };
-
-      const emailsRes = await emailApi.listEmails(queryParams);
-      const newEmails = (emailsRes.data.emails || []).map((e) => mapApiEmailToStore(e as unknown as ApiEmail));
-
-      // Append new emails to existing ones
-      appendEmails(newEmails);
-
-      // Update pagination
-      setPagination({
-        page: nextPage,
-        hasMore: emailsRes.data.pagination.page < emailsRes.data.pagination.totalPages,
-        total: emailsRes.data.pagination.total,
-      });
+      const threadRes = await emailApi.getThread(thread.threadId);
+      return threadRes.data.map((e) => e.id);
     } catch (error) {
-      logger.error('Failed to load more emails', { error });
-    } finally {
-      setLoading(false);
+      logger.error('[Mailbox] Failed to expand thread for bulk operation', { threadId: thread.threadId, error });
+      return [thread.latestEmailId];
     }
-  }, [_pagination, storeLoading, combinedFolders, selectedFolderId, searchQuery, advancedFilters, appendEmails, setLoading]);
+  }, []);
+
+  const resolveSelectedEmailIds = useCallback(async () => {
+    const threadIds = Array.from(selectedIds);
+    if (threadIds.length === 0) return { emailIds: [], threadCount: 0 };
+
+    const selectedSet = new Set(threadIds);
+    const selectedThreads = threads.filter((thread) => selectedSet.has(getThreadKey(thread)));
+
+    const emailIdArrays = await Promise.all(selectedThreads.map(resolveEmailIdsForThread));
+    const emailIds = Array.from(new Set(emailIdArrays.flat())).filter(Boolean);
+
+    return { emailIds, threadCount: threadIds.length };
+  }, [getThreadKey, resolveEmailIdsForThread, selectedIds, threads]);
 
 
   // Bulk operations handlers with optimistic updates
   const handleBulkMarkRead = useCallback(async () => {
-    const threadIds = Array.from(selectedIds);
-    if (threadIds.length === 0) return;
-
-    // Map threadIds to email IDs for API call
-    const emailIds = storeEmails
-      .filter((e) => threadIds.includes(e.threadId || e.id))
-      .map((e) => e.id);
-
+    const { emailIds } = await resolveSelectedEmailIds();
     if (emailIds.length === 0) return;
-
-    // Optimistic update - update store immediately
-    storeMarkAsRead(emailIds);
-
-    try {
-      await emailApi.bulkMarkRead(emailIds, true);
-      await refreshStats(); // Update counts from database
-      setSnackbar({
-        open: true,
-        message: t.email.messages.markRead.replace('{count}', emailIds.length.toString()),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to mark emails as read', { error });
-      // Rollback - mark as unread
-      emailIds.forEach(id => useEmailStore.getState().updateEmail(id, { isRead: false }));
-      setSnackbar({
-        open: true,
-        message: t.email.messages.markReadFailed,
-        severity: 'error',
-      });
-    }
-  }, [selectedIds, storeEmails, storeMarkAsRead, t.email.messages.markRead, t.email.messages.markReadFailed, refreshStats]);
+    await handleMarkAsRead(emailIds, true);
+  }, [handleMarkAsRead, resolveSelectedEmailIds]);
 
   const handleBulkMarkUnread = useCallback(async () => {
-    const threadIds = Array.from(selectedIds);
-    if (threadIds.length === 0) return;
-
-    // Map threadIds to email IDs for API call
-    const emailIds = storeEmails
-      .filter((e) => threadIds.includes(e.threadId || e.id))
-      .map((e) => e.id);
-
+    const { emailIds } = await resolveSelectedEmailIds();
     if (emailIds.length === 0) return;
-
-    // Optimistic update - mark as unread immediately
-    emailIds.forEach(id => useEmailStore.getState().updateEmail(id, { isRead: false }));
-
-    try {
-      await emailApi.bulkMarkRead(emailIds, false);
-      await refreshStats(); // Update counts from database
-      setSnackbar({
-        open: true,
-        message: t.email.messages.markUnread.replace('{count}', emailIds.length.toString()),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to mark emails as unread', { error });
-      // Rollback - mark as read
-      emailIds.forEach(id => useEmailStore.getState().updateEmail(id, { isRead: true }));
-      setSnackbar({
-        open: true,
-        message: t.email.messages.markUnreadFailed,
-        severity: 'error',
-      });
-    }
-  }, [selectedIds, storeEmails, t.email.messages.markUnread, t.email.messages.markUnreadFailed, refreshStats]);
+    await handleMarkAsRead(emailIds, false);
+  }, [handleMarkAsRead, resolveSelectedEmailIds]);
 
   const handleBulkDelete = useCallback(async () => {
-    const threadIds = Array.from(selectedIds);
-    if (threadIds.length === 0) return;
-
-    // Map threadIds to email IDs for API call
-    const emailIds = storeEmails
-      .filter((e) => threadIds.includes(e.threadId || e.id))
-      .map((e) => e.id);
-
+    const { emailIds, threadCount } = await resolveSelectedEmailIds();
     if (emailIds.length === 0) return;
 
-    if (!window.confirm(t.email.messages.deleteConfirm.replace('{count}', emailIds.length.toString()))) {
-      return;
-    }
+    const confirmMessage =
+      t.email.messages.deleteConfirm?.replace('{count}', threadCount.toString()) ??
+      `Delete ${threadCount} item${threadCount === 1 ? '' : 's'}?`;
 
-    // Save emails for potential rollback
-    const emailsToDelete = storeEmails.filter(e => emailIds.includes(e.id));
+    if (!window.confirm(confirmMessage)) return;
 
-    // Clear selection FIRST to avoid race conditions with filter updates
-    // (storeBulkDelete also cleans up selectedIds, but this ensures UI consistency)
     clearSelection();
-
-    // Optimistic delete - remove from store immediately
-    storeBulkDelete(emailIds);
-
-    try {
-      await emailApi.bulkDelete(emailIds);
-      await refreshStats(); // Update counts from database
-      setSnackbar({
-        open: true,
-        message: t.email.messages.deleted.replace('{count}', emailIds.length.toString()),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to delete emails', { error });
-      // Rollback - restore deleted emails
-      emailsToDelete.forEach(email => useEmailStore.getState().addEmail(email));
-      setSnackbar({
-        open: true,
-        message: t.email.messages.deleteFailed,
-        severity: 'error',
-      });
-    }
-  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.email.messages.deleteConfirm, t.email.messages.deleted, t.email.messages.deleteFailed, refreshStats]);
+    await handleBulkDeleteEmails(emailIds);
+  }, [clearSelection, handleBulkDeleteEmails, resolveSelectedEmailIds, t.email.messages.deleteConfirm]);
 
   const handleBulkStar = useCallback(async () => {
-    const threadIds = Array.from(selectedIds);
-    if (threadIds.length === 0) return;
-
-    // Map threadIds to email IDs for API call
-    const emailIds = storeEmails
-      .filter((e) => threadIds.includes(e.threadId || e.id))
-      .map((e) => e.id);
-
+    const { emailIds } = await resolveSelectedEmailIds();
     if (emailIds.length === 0) return;
 
-    // Optimistic update - star immediately
-    storeMarkAsStarred(emailIds, true);
+    // Optimistic update
+    useEmailStore.getState().markAsStarred(emailIds, true);
 
     try {
       await emailApi.bulkStar(emailIds, true);
-      await refreshStats(); // Update counts from database
+      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       setSnackbar({
         open: true,
         message: t.email.messages.starred.replace('{count}', emailIds.length.toString()),
@@ -1149,32 +982,27 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     } catch (error) {
       logger.error('Failed to star emails', { error });
       // Rollback - unstar
-      storeMarkAsStarred(emailIds, false);
+      useEmailStore.getState().markAsStarred(emailIds, false);
       setSnackbar({
         open: true,
         message: t.email.messages.starFailed,
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeMarkAsStarred, t.email.messages.starred, t.email.messages.starFailed, refreshStats]);
+  }, [queryClient, resolveSelectedEmailIds, t.email.messages.starFailed, t.email.messages.starred]);
 
   const handleBulkUnstar = useCallback(async () => {
-    const threadIds = Array.from(selectedIds);
-    if (threadIds.length === 0) return;
-
-    // Map threadIds to email IDs for API call
-    const emailIds = storeEmails
-      .filter((e) => threadIds.includes(e.threadId || e.id))
-      .map((e) => e.id);
-
+    const { emailIds } = await resolveSelectedEmailIds();
     if (emailIds.length === 0) return;
 
-    // Optimistic update - unstar immediately
-    storeMarkAsStarred(emailIds, false);
+    // Optimistic update
+    useEmailStore.getState().markAsStarred(emailIds, false);
 
     try {
       await emailApi.bulkStar(emailIds, false);
-      await refreshStats(); // Update counts from database
+      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       setSnackbar({
         open: true,
         message: t.email.messages.unstarred.replace('{count}', emailIds.length.toString()),
@@ -1183,32 +1011,27 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     } catch (error) {
       logger.error('Failed to unstar emails', { error });
       // Rollback - star again
-      storeMarkAsStarred(emailIds, true);
+      useEmailStore.getState().markAsStarred(emailIds, true);
       setSnackbar({
         open: true,
         message: t.email.messages.unstarFailed,
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeMarkAsStarred, t.email.messages.unstarred, t.email.messages.unstarFailed, refreshStats]);
+  }, [queryClient, resolveSelectedEmailIds, t.email.messages.unstarFailed, t.email.messages.unstarred]);
 
   const handleBulkFlag = useCallback(async () => {
-    const threadIds = Array.from(selectedIds);
-    if (threadIds.length === 0) return;
-
-    // Map threadIds to email IDs for API call
-    const emailIds = storeEmails
-      .filter((e) => threadIds.includes(e.threadId || e.id))
-      .map((e) => e.id);
-
+    const { emailIds } = await resolveSelectedEmailIds();
     if (emailIds.length === 0) return;
 
-    // Optimistic update - flag immediately
-    storeMarkAsImportant(emailIds, true);
+    // Optimistic update
+    useEmailStore.getState().markAsImportant(emailIds, true);
 
     try {
       await emailApi.bulkFlag(emailIds, true);
-      await refreshStats(); // Update counts from database
+      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       setSnackbar({
         open: true,
         message: (t.email.messages.markedImportant ?? 'Marked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
@@ -1217,33 +1040,27 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     } catch (error) {
       logger.error('Failed to flag emails', { error });
       // Rollback - unflag
-      storeMarkAsImportant(emailIds, false);
+      useEmailStore.getState().markAsImportant(emailIds, false);
       setSnackbar({
         open: true,
         message: t.email.messages.markedImportantFailed ?? 'Failed to mark as important. Please try again.',
         severity: 'error',
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- t.email.messages is stable
-  }, [selectedIds, storeEmails, storeMarkAsImportant, refreshStats]);
+  }, [queryClient, resolveSelectedEmailIds, t.email.messages.markedImportant, t.email.messages.markedImportantFailed]);
 
   const handleBulkUnflag = useCallback(async () => {
-    const threadIds = Array.from(selectedIds);
-    if (threadIds.length === 0) return;
-
-    // Map threadIds to email IDs for API call
-    const emailIds = storeEmails
-      .filter((e) => threadIds.includes(e.threadId || e.id))
-      .map((e) => e.id);
-
+    const { emailIds } = await resolveSelectedEmailIds();
     if (emailIds.length === 0) return;
 
-    // Optimistic update - unflag immediately
-    storeMarkAsImportant(emailIds, false);
+    // Optimistic update
+    useEmailStore.getState().markAsImportant(emailIds, false);
 
     try {
       await emailApi.bulkFlag(emailIds, false);
-      await refreshStats(); // Update counts from database
+      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       setSnackbar({
         open: true,
         message: (t.email.messages.unmarkedImportant ?? 'Unmarked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
@@ -1252,31 +1069,27 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     } catch (error) {
       logger.error('Failed to unflag emails', { error });
       // Rollback - flag again
-      storeMarkAsImportant(emailIds, true);
+      useEmailStore.getState().markAsImportant(emailIds, true);
       setSnackbar({
         open: true,
         message: t.email.messages.unmarkedImportantFailed ?? 'Failed to unmark as important. Please try again.',
         severity: 'error',
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- t.email.messages is stable
-  }, [selectedIds, storeEmails, storeMarkAsImportant, refreshStats]);
+  }, [queryClient, resolveSelectedEmailIds, t.email.messages.unmarkedImportant, t.email.messages.unmarkedImportantFailed]);
 
   const handleBulkAddLabels = useCallback(async (labelIds: string[]) => {
-    const threadIds = Array.from(selectedIds);
-    if (threadIds.length === 0 || labelIds.length === 0) return;
+    if (labelIds.length === 0) return;
 
-    // Map threadIds to email IDs for API call
-    const emailIds = storeEmails
-      .filter((e) => threadIds.includes(e.threadId || e.id))
-      .map((e) => e.id);
-
+    const { emailIds } = await resolveSelectedEmailIds();
     if (emailIds.length === 0) return;
 
     try {
       await emailApi.bulkAddLabels(emailIds, labelIds);
       clearSelection();
-      // WebSocket will automatically update the UI with the new labels
+      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       setSnackbar({
         open: true,
         message: t.email.messages.labelsAdded.replace('{count}', emailIds.length.toString()),
@@ -1290,25 +1103,18 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, clearSelection, t.email.messages.labelsAdded, t.email.messages.labelsFailed]);
+  }, [clearSelection, queryClient, resolveSelectedEmailIds, t.email.messages.labelsAdded, t.email.messages.labelsFailed]);
 
   const handleBulkMoveToFolder = useCallback(async (folder: string) => {
-    const threadIds = Array.from(selectedIds);
-    if (threadIds.length === 0) return;
-
-    // Map threadIds to email IDs for API call
-    const emailIds = storeEmails
-      .filter((e) => threadIds.includes(e.threadId || e.id))
-      .map((e) => e.id);
-
+    const { emailIds } = await resolveSelectedEmailIds();
     if (emailIds.length === 0) return;
 
     try {
       await emailApi.bulkMoveToFolder(emailIds, folder);
-      // Remove moved emails from current view
-      storeBulkDelete(emailIds);
       clearSelection();
-      await refreshStats(); // Update counts from database
+      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       setSnackbar({
         open: true,
         message: t.email.messages.moved.replace('{count}', emailIds.length.toString()).replace('{folder}', folder),
@@ -1322,7 +1128,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.email.messages.moved, t.email.messages.moveFailed, refreshStats]);
+  }, [clearSelection, queryClient, resolveSelectedEmailIds, t.email.messages.moved, t.email.messages.moveFailed]);
 
   // Handle drag start - track which email is being dragged
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -1330,10 +1136,10 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     const dragData = active.data.current;
 
     if (dragData?.type === 'email') {
-      const email = dragData.email as Email;
-      setDraggedEmail(email);
+      const thread = dragData.email as Email | Conversation;
+      setDraggedEmail(thread);
       setIsDraggingEmail(true);
-      logger.debug('[Mailbox] Drag started', { emailId: email.id, subject: email.subject?.substring(0, 30) });
+      logger.debug('[Mailbox] Drag started', { emailId: dragData.emailId, threadId: dragData.threadId });
     }
   }, []);
 
@@ -1358,61 +1164,30 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       return;
     }
 
-    const droppedEmail = dragData.email as Email & { emailCount?: number };
-    const targetFolder = dropData.folder;
+    const droppedThread = dragData.email as Email | Conversation;
+    const targetFolder = dropData.folder as FolderItem;
+    const targetFolderName = targetFolder.filterFolder || targetFolder.label;
 
-    // Get list of email IDs to move (either single or bulk if selected)
-    let emailIdsToMove: string[];
+    let emailIdsToMove: string[] = [];
     let movedCount = 0;
 
     if (dragData.isSelected && selectedIds.size > 0) {
-      // Bulk drag - move all selected emails/threads
-      // For conversation view, we need to get all emails in selected threads
-      const selectedThreadIds = Array.from(selectedIds);
-      const threadEmailPromises = selectedThreadIds.map(async (threadId) => {
-        // Check if any email in store has this threadId with emailCount > 1 (conversation view)
-        const conversationEmail = storeEmails.find((email) => {
-          const emailCount = (email as Email & { emailCount?: number }).emailCount;
-          return (email.threadId === threadId || email.id === threadId) && (emailCount ?? 0) > 1;
-        });
-        if (conversationEmail?.threadId) {
-          // Fetch all emails in thread
-          const threadRes = await emailApi.getThread(conversationEmail.threadId);
-          return threadRes.data.map(e => e.id);
-        }
-        // Single email, just return its ID
-        const singleEmail = storeEmails.find(e => e.threadId === threadId || e.id === threadId);
-        return singleEmail ? [singleEmail.id] : [];
-      });
-      const allEmailIds = await Promise.all(threadEmailPromises);
-      emailIdsToMove = allEmailIds.flat();
-      movedCount = selectedIds.size; // Show thread count, not email count
-    } else if (droppedEmail.emailCount && droppedEmail.emailCount > 1 && droppedEmail.threadId) {
-      // Single conversation drag - move all emails in thread
-      try {
-        const threadRes = await emailApi.getThread(droppedEmail.threadId);
-        emailIdsToMove = threadRes.data.map(e => e.id);
-        movedCount = 1; // 1 conversation
-      } catch {
-        emailIdsToMove = [droppedEmail.id];
-        movedCount = 1;
-      }
+      const resolved = await resolveSelectedEmailIds();
+      emailIdsToMove = resolved.emailIds;
+      movedCount = resolved.threadCount;
     } else {
-      // Single email drag
-      emailIdsToMove = [droppedEmail.id];
+      emailIdsToMove = await resolveEmailIdsForThread(droppedThread);
       movedCount = 1;
     }
 
     if (emailIdsToMove.length === 0) return;
 
-    // Use the folder's filterFolder or label for the move operation
-    const targetFolderName = targetFolder.filterFolder || targetFolder.label;
-
     try {
       await emailApi.bulkMoveToFolder(emailIdsToMove, targetFolderName);
-      // Remove moved emails from current view
-      storeBulkDelete(emailIdsToMove);
       clearSelection();
+      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       setSnackbar({
         open: true,
         message: t.email.messages.moved
@@ -1428,17 +1203,18 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         severity: 'error',
       });
     }
-  }, [selectedIds, storeEmails, storeBulkDelete, clearSelection, t.email.messages.moved, t.email.messages.moveFailed]);
+  }, [clearSelection, queryClient, resolveEmailIdsForThread, resolveSelectedEmailIds, selectedIds, t.email.messages.moved, t.email.messages.moveFailed]);
 
   // Get drag count for overlay
   const dragCount = useMemo(() => {
     if (!isDraggingEmail) return 1;
     // If the dragged email is selected and there are multiple selections, show count
-    if (draggedEmail && selectedIds.has(draggedEmail.threadId || draggedEmail.id) && selectedIds.size > 1) {
+    const draggedKey = draggedEmail ? getThreadKey(draggedEmail) : '';
+    if (draggedKey && selectedIds.has(draggedKey) && selectedIds.size > 1) {
       return selectedIds.size;
     }
     return 1;
-  }, [isDraggingEmail, draggedEmail, selectedIds]);
+  }, [getThreadKey, isDraggingEmail, draggedEmail, selectedIds]);
 
   // Load folders on mount
   useEffect(() => {
@@ -1452,48 +1228,20 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     }
   }, [combinedFolders, selectedFolderId]);
 
-  // Ref to always access latest loadData without triggering useMemo dependencies
-  const loadDataRef = useRef(loadData);
+  // Close detail + selection on context changes (folder/filter/search)
   useEffect(() => {
-    loadDataRef.current = loadData;
-  });
-
-  // Create a debounced version of loadData for filter changes (500ms delay)
-  const debouncedLoadData = useMemo(
-    () =>
-      debounce(() => {
-        if (loadDataRef.current) {
-          loadDataRef.current();
-        }
-      }, 500),
-    []
-  );
-
-  // Load emails immediately when folder ID changes
-  useEffect(() => {
-    if (!selectedFolderId) return;
-    // Cancel any pending debounced loads from filter changes
-    debouncedLoadData.cancel();
-    // Load immediately
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFolderId]);
-
-  // Load emails with debounce when advanced filters change
-  useEffect(() => {
-    if (selectedFolderId) {
-      debouncedLoadData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [advancedFilters]);
+    clearSelection();
+    setSelectedEmail(null);
+  }, [advancedFilters, clearSelection, selectedFolderId, setSelectedEmail]);
 
   // Keyboard navigation
   useKeyboardNavigation({
-    emails: storeEmails,
+    threads,
     enabled: true,
     onDelete: handleDelete,
     onReply: handleReply,
     onToggleStar: handleToggleStar,
+    onThreadClick: handleEmailClick,
   });
 
   // Get default provider for compose
@@ -1568,12 +1316,12 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     setSelectedEmail(null);
   }, [setSelectedEmail]);
 
-  const threads = storeEmails;
-  const selectedListId = storeSelectedEmail?.id;
-  const listLoading = storeLoading;
-  const hasMoreItems = _pagination.hasMore;
-  const onLoadMoreThreads = loadMoreEmails;
-  const emptyState = { ...getEmptyState(), subtitle: `${getEmptyState().subtitle} ${t.email.messages.trySyncOrFilter ?? 'Try syncing now or adjust filters.'}`.trim() };
+  const selectedListId = storeSelectedEmail?.threadId || storeSelectedEmail?.id;
+  const emptyBase = getEmptyState();
+  const emptyState = {
+    ...emptyBase,
+    subtitle: `${emptyBase.subtitle} ${t.email.messages.trySyncOrFilter ?? 'Try syncing now or adjust filters.'}`.trim(),
+  };
 
 
 
@@ -1715,8 +1463,8 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
             {/* Bulk Action Bar */}
             <BulkActionBar
               selectedCount={selectedIds.size}
-              totalCount={storeEmails.length}
-              onSelectAll={selectAll}
+              totalCount={threads.length}
+              onSelectAll={handleSelectAll}
               onClearSelection={clearSelection}
               onMarkRead={handleBulkMarkRead}
               onMarkUnread={handleBulkMarkUnread}

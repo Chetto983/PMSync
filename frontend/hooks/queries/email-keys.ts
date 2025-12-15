@@ -31,6 +31,8 @@ export const emailKeys = {
   conversations: () => [...emailKeys.all, 'conversations'] as const,
   conversationList: (params?: { page?: number; limit?: number; providerId?: string; folder?: string }) =>
     [...emailKeys.conversations(), params ?? {}] as const,
+  conversationInfinite: (params?: { limit?: number; providerId?: string; folder?: string }) =>
+    [...emailKeys.conversations(), 'infinite', params ?? {}] as const,
 
   // Search queries
   search: () => [...emailKeys.all, 'search'] as const,
