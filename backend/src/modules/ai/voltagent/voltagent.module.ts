@@ -67,6 +67,10 @@ import { MistralBatchService } from './services/mistral-batch.service';
 import { DailyBriefingService } from './services/daily-briefing.service';
 // Deadline extraction (chrono-node NLP)
 import { DeadlineExtractorService } from './services/deadline-extractor.service';
+// Follow-up tracking (P0 critical feature)
+import { FollowUpService } from './services/follow-up.service';
+// Action item extraction (P1 feature)
+import { ActionItemService } from './services/action-item.service';
 // Observability (OpenTelemetry-aligned)
 import { LlmTelemetryService } from './observability/telemetry';
 
@@ -110,6 +114,10 @@ import { LlmTelemetryService } from './observability/telemetry';
     DailyBriefingService,
     // Deadline extraction (chrono-node NLP + BullMQ)
     DeadlineExtractorService,
+    // Follow-up tracking (P0 critical feature)
+    FollowUpService,
+    // Action item extraction (P1 feature)
+    ActionItemService,
     // Observability
     LlmTelemetryService,
   ],
@@ -136,6 +144,10 @@ import { LlmTelemetryService } from './observability/telemetry';
     DailyBriefingService,
     // Deadline extraction
     DeadlineExtractorService,
+    // Follow-up tracking
+    FollowUpService,
+    // Action item extraction
+    ActionItemService,
     // Observability
     LlmTelemetryService,
   ],

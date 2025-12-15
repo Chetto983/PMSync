@@ -1530,8 +1530,8 @@ interface EnhancedDailyBriefing {
 |----------|---------|--------------|--------|--------|--------|
 | 🥇 P0 | Mem0 Long-Term Memory | Prisma + pgvector | 2 days | Critical | ✅ DONE |
 | 🥈 P0 | Deadline Extraction | chrono-node + BullMQ | 1 day | High | ✅ DONE |
-| 🥉 P0 | Follow-up Tracking | Custom + patterns | 2 days | Critical | 🔜 Next |
-| P1 | Action Item Extraction | Mistral + patterns | 2 days | High | |
+| 🥉 P0 | Follow-up Tracking | Custom + patterns + BullMQ | 2 days | Critical | ✅ DONE |
+| P1 | Action Item Extraction | Mistral + patterns | 2 days | High | 🔜 Next |
 | P1 | Enhanced Daily Briefing | Aggregate services | 1 day | High | |
 | P1.5 | Analytics & Visualization | Mistral Code Interpreter | 1 day | High | |
 | P2 | Conflict Detection | Custom | 2 days | Medium | |

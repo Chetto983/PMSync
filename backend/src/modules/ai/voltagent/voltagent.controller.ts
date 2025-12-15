@@ -28,6 +28,8 @@ import { HitlService } from './services/hitl.service';
 import { DailyBriefingService } from './services/daily-briefing.service';
 import { SemanticCacheService } from './services/semantic-cache.service';
 import { DeadlineExtractorService } from './services/deadline-extractor.service';
+import { FollowUpService } from './services/follow-up.service';
+import { ActionItemService } from './services/action-item.service';
 import { LongTermMemoryService, type MemoryCategory } from './memory';
 import type { ApprovalResumeData } from './workflows';
 
@@ -110,6 +112,8 @@ export class VoltAgentController {
     private readonly dailyBriefingService: DailyBriefingService,
     private readonly semanticCacheService: SemanticCacheService,
     private readonly deadlineExtractorService: DeadlineExtractorService,
+    private readonly followUpService: FollowUpService,
+    private readonly actionItemService: ActionItemService,
     private readonly longTermMemoryService: LongTermMemoryService,
   ) {}
 
@@ -1017,6 +1021,519 @@ export class VoltAgentController {
     return {
       success: true,
       ...stats,
+    };
+  }
+
+  // ==========================================================================
+  // FOLLOW-UP TRACKING (P0 Critical Feature)
+  // ==========================================================================
+
+  /**
+   * Get pending follow-ups for the user.
+   */
+  @Get('follow-ups')
+  @ApiOperation({ summary: 'Get follow-ups' })
+  async getFollowUps(
+    @Req() req: AuthenticatedRequest,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    // Parse status filter (PENDING, REMINDED, RESOLVED, EXPIRED)
+    const statusFilter = status
+      ? (status.split(',') as Array<'PENDING' | 'REMINDED' | 'RESOLVED' | 'EXPIRED'>)
+      : undefined;
+
+    const followUps = await this.followUpService.listFollowUps(
+      req.user.tenantId,
+      req.user.userId,
+      {
+        status: statusFilter && statusFilter.length === 1 ? statusFilter[0] : statusFilter,
+        limit: limit ? parseInt(limit, 10) : 50,
+        offset: offset ? parseInt(offset, 10) : 0,
+      },
+    );
+
+    return {
+      success: true,
+      count: followUps.length,
+      followUps,
+    };
+  }
+
+  /**
+   * Get pending follow-ups (cached, fast).
+   */
+  @Get('follow-ups/pending')
+  @ApiOperation({ summary: 'Get pending follow-ups (cached)' })
+  async getPendingFollowUps(
+    @Req() req: AuthenticatedRequest,
+    @Query('limit') limit?: string,
+  ) {
+    const followUps = await this.followUpService.getPendingFollowUps(
+      req.user.tenantId,
+      req.user.userId,
+      limit ? parseInt(limit, 10) : 20,
+    );
+
+    return {
+      success: true,
+      count: followUps.length,
+      followUps,
+    };
+  }
+
+  /**
+   * Get overdue follow-ups.
+   */
+  @Get('follow-ups/overdue')
+  @ApiOperation({ summary: 'Get overdue follow-ups' })
+  async getOverdueFollowUps(
+    @Req() req: AuthenticatedRequest,
+    @Query('limit') limit?: string,
+  ) {
+    const followUps = await this.followUpService.getOverdueFollowUps(
+      req.user.tenantId,
+      req.user.userId,
+      limit ? parseInt(limit, 10) : 20,
+    );
+
+    return {
+      success: true,
+      count: followUps.length,
+      followUps,
+    };
+  }
+
+  /**
+   * Get follow-up statistics.
+   */
+  @Get('follow-ups/stats')
+  @ApiOperation({ summary: 'Get follow-up statistics' })
+  async getFollowUpStats(@Req() req: AuthenticatedRequest) {
+    const stats = await this.followUpService.getStats(
+      req.user.tenantId,
+      req.user.userId,
+    );
+
+    return {
+      success: true,
+      ...stats,
+    };
+  }
+
+  /**
+   * Create a follow-up for an email.
+   */
+  @Post('follow-ups')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a follow-up' })
+  async createFollowUp(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { emailId: string; reason?: string; dueDate?: string },
+  ) {
+    const followUp = await this.followUpService.createFollowUp({
+      tenantId: req.user.tenantId,
+      userId: req.user.userId,
+      emailId: body.emailId,
+      reason: body.reason,
+      dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
+    });
+
+    return {
+      success: true,
+      followUp,
+    };
+  }
+
+  /**
+   * Analyze email text for follow-up patterns.
+   */
+  @Post('follow-ups/analyze')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Analyze text for follow-up patterns' })
+  async analyzeForFollowUp(
+    @Req() _req: AuthenticatedRequest,
+    @Body() body: { body: string; subject?: string },
+  ) {
+    const result = this.followUpService.analyzeForFollowUp(body.body, body.subject);
+
+    return {
+      success: true,
+      ...result,
+    };
+  }
+
+  /**
+   * Get a specific follow-up.
+   */
+  @Get('follow-ups/:id')
+  @ApiOperation({ summary: 'Get a follow-up by ID' })
+  @ApiParam({ name: 'id', description: 'Follow-up ID' })
+  async getFollowUp(
+    @Req() _req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const followUp = await this.followUpService.getFollowUp(id);
+
+    if (!followUp) {
+      throw new NotFoundException('Follow-up not found');
+    }
+
+    return {
+      success: true,
+      followUp,
+    };
+  }
+
+  /**
+   * Resolve a follow-up.
+   */
+  @Post('follow-ups/:id/resolve')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resolve a follow-up' })
+  @ApiParam({ name: 'id', description: 'Follow-up ID' })
+  async resolveFollowUp(
+    @Req() _req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const followUp = await this.followUpService.resolveFollowUp(id, 'MANUAL');
+
+    return {
+      success: true,
+      followUp,
+    };
+  }
+
+  /**
+   * Snooze a follow-up (extend due date).
+   */
+  @Post('follow-ups/:id/snooze')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Snooze a follow-up' })
+  @ApiParam({ name: 'id', description: 'Follow-up ID' })
+  async snoozeFollowUp(
+    @Req() _req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { dueDate: string },
+  ) {
+    const followUp = await this.followUpService.snoozeFollowUp(
+      id,
+      new Date(body.dueDate),
+    );
+
+    return {
+      success: true,
+      followUp,
+    };
+  }
+
+  // ===========================================================================
+  // ACTION ITEMS ENDPOINTS (P1 Feature)
+  // ===========================================================================
+
+  /**
+   * List action items with optional filters.
+   */
+  @Get('action-items')
+  @ApiOperation({ summary: 'List action items' })
+  async listActionItems(
+    @Req() req: AuthenticatedRequest,
+    @Query('status') status?: string,
+    @Query('sourceType') sourceType?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const items = await this.actionItemService.list(tenantId, userId, {
+      status: status ? (status.split(',') as never) : undefined,
+      sourceType: sourceType as never,
+      limit: limit ? parseInt(limit, 10) : 50,
+      offset: offset ? parseInt(offset, 10) : 0,
+    });
+
+    return {
+      success: true,
+      items,
+      count: items.length,
+    };
+  }
+
+  /**
+   * Get pending action items (cached for performance).
+   */
+  @Get('action-items/pending')
+  @ApiOperation({ summary: 'Get pending action items (cached)' })
+  async getPendingActionItems(@Req() req: AuthenticatedRequest) {
+    const { tenantId, userId } = req.user;
+    const items = await this.actionItemService.getPending(tenantId, userId);
+
+    return {
+      success: true,
+      items,
+      count: items.length,
+    };
+  }
+
+  /**
+   * Get overdue action items.
+   */
+  @Get('action-items/overdue')
+  @ApiOperation({ summary: 'Get overdue action items' })
+  async getOverdueActionItems(@Req() req: AuthenticatedRequest) {
+    const { tenantId, userId } = req.user;
+    const items = await this.actionItemService.getOverdue(tenantId, userId);
+
+    return {
+      success: true,
+      items,
+      count: items.length,
+    };
+  }
+
+  /**
+   * Get action item statistics.
+   */
+  @Get('action-items/stats')
+  @ApiOperation({ summary: 'Get action item statistics' })
+  async getActionItemStats(@Req() req: AuthenticatedRequest) {
+    const { tenantId, userId } = req.user;
+    const stats = await this.actionItemService.getStats(tenantId, userId);
+
+    return {
+      success: true,
+      stats,
+    };
+  }
+
+  /**
+   * Create a new action item manually.
+   */
+  @Post('action-items')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create an action item' })
+  async createActionItem(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: {
+      title: string;
+      description?: string;
+      sourceType?: string;
+      sourceId?: string;
+      priority?: number;
+      dueDate?: string;
+    },
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const item = await this.actionItemService.create({
+      tenantId,
+      userId,
+      title: body.title,
+      description: body.description,
+      sourceType: (body.sourceType as never) || 'MANUAL',
+      sourceId: body.sourceId,
+      priority: body.priority,
+      dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
+      aiExtracted: false,
+    });
+
+    return {
+      success: true,
+      item,
+    };
+  }
+
+  /**
+   * Analyze text for action item patterns (pattern detection, no AI).
+   */
+  @Post('action-items/analyze')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Analyze text for action item patterns' })
+  async analyzeForActionItems(
+    @Req() _req: AuthenticatedRequest,
+    @Body() body: { text: string },
+  ) {
+    const detected = this.actionItemService.detectActionPatterns(body.text);
+    const needsExtraction = this.actionItemService.needsExtraction(body.text);
+
+    return {
+      success: true,
+      needsExtraction,
+      detected,
+      count: detected.length,
+    };
+  }
+
+  /**
+   * Extract action items from email using AI.
+   */
+  @Post('action-items/extract')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Extract action items from email using AI' })
+  async extractActionItems(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: {
+      emailId: string;
+      subject: string;
+      body: string;
+      senderEmail?: string;
+    },
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const createdIds = await this.actionItemService.extractFromEmail(
+      tenantId,
+      userId,
+      body.emailId,
+      body.subject,
+      body.body,
+      body.senderEmail,
+    );
+
+    return {
+      success: true,
+      createdIds,
+      count: createdIds.length,
+    };
+  }
+
+  /**
+   * Queue action item extraction for background processing.
+   */
+  @Post('action-items/queue')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Queue action item extraction for email' })
+  async queueActionItemExtraction(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { emailId?: string; emailIds?: string[] },
+  ) {
+    const { tenantId, userId } = req.user;
+
+    let jobId: string;
+    if (body.emailIds && body.emailIds.length > 0) {
+      jobId = await this.actionItemService.queueBatchExtraction(
+        tenantId,
+        userId,
+        body.emailIds,
+      );
+    } else if (body.emailId) {
+      jobId = await this.actionItemService.queueExtraction(
+        tenantId,
+        userId,
+        body.emailId,
+      );
+    } else {
+      return { success: false, error: 'Either emailId or emailIds required' };
+    }
+
+    return {
+      success: true,
+      jobId,
+    };
+  }
+
+  /**
+   * Get a specific action item.
+   */
+  @Get('action-items/:id')
+  @ApiOperation({ summary: 'Get an action item by ID' })
+  @ApiParam({ name: 'id', description: 'Action item ID' })
+  async getActionItem(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const { tenantId, userId } = req.user;
+    const item = await this.actionItemService.getById(tenantId, userId, id);
+
+    if (!item) {
+      throw new NotFoundException('Action item not found');
+    }
+
+    return {
+      success: true,
+      item,
+    };
+  }
+
+  /**
+   * Update action item status.
+   */
+  @Post('action-items/:id/status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update action item status' })
+  @ApiParam({ name: 'id', description: 'Action item ID' })
+  async updateActionItemStatus(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { status: string },
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const item = await this.actionItemService.updateStatus(
+      tenantId,
+      userId,
+      id,
+      body.status as never,
+    );
+
+    return {
+      success: true,
+      item,
+    };
+  }
+
+  /**
+   * Update action item priority.
+   */
+  @Post('action-items/:id/priority')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update action item priority' })
+  @ApiParam({ name: 'id', description: 'Action item ID' })
+  async updateActionItemPriority(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { priority: number },
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const item = await this.actionItemService.updatePriority(
+      tenantId,
+      userId,
+      id,
+      body.priority,
+    );
+
+    return {
+      success: true,
+      item,
+    };
+  }
+
+  /**
+   * Update action item due date.
+   */
+  @Post('action-items/:id/due-date')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update action item due date' })
+  @ApiParam({ name: 'id', description: 'Action item ID' })
+  async updateActionItemDueDate(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { dueDate: string | null },
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const item = await this.actionItemService.updateDueDate(
+      tenantId,
+      userId,
+      id,
+      body.dueDate ? new Date(body.dueDate) : null,
+    );
+
+    return {
+      success: true,
+      item,
     };
   }
 }
