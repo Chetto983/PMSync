@@ -51,7 +51,7 @@ export function excludeJunkFolders(...additionalExclude: string[]) {
  * @returns true if the folder is SPAM or TRASH
  */
 export function isJunkFolder(folder: string): boolean {
-  return JUNK_FOLDERS.includes(folder as (typeof JUNK_FOLDERS)[number]);
+  return JUNK_FOLDERS.includes(folder);
 }
 
 /**

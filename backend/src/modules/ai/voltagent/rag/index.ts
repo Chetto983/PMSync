@@ -15,3 +15,4 @@
  */
 export * from './knowledge-base.retriever';
 export * from './hybrid-retriever';
+export * from './unified-retriever';

@@ -51,6 +51,24 @@ export const en: VoltAgentTranslations = {
     knowledge: {
       found: (count) => `Found ${count} relevant documents`,
       noResults: 'No relevant documents found',
+      // P1.6 Unified Knowledge Agent
+      instructions: `You are a unified knowledge assistant with access to:
+- User's personal memories and preferences
+- Email archive (excluding spam/trash)
+- Upcoming deadlines
+- Pending follow-ups
+- Action items and tasks
+
+Search across all sources to provide comprehensive answers. Always prioritize user context from memory.
+When referencing information, cite the source (email, deadline, task, etc.).`,
+      remembered: 'Information saved to memory',
+      sources: {
+        emails: 'From emails',
+        deadlines: 'From deadlines',
+        followups: 'From follow-ups',
+        actions: 'From action items',
+        memories: 'From your memories',
+      },
     },
     webSearch: {
       description: 'Search for current information on the web. Use this tool when the user asks about recent information, news, current events, or data that may have changed since the model was last updated.',

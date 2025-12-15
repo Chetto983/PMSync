@@ -31,6 +31,7 @@ import { DeadlineExtractorService } from './services/deadline-extractor.service'
 import { FollowUpService } from './services/follow-up.service';
 import { ActionItemService } from './services/action-item.service';
 import { AnalyticsService } from './services/analytics.service';
+import { UnifiedKnowledgeService } from './services/unified-knowledge.service';
 import { LongTermMemoryService, type MemoryCategory } from './memory';
 import type { AnalyticsResult, EmailAnalytics, DashboardAnalytics } from './services/analytics.service';
 import type { ApprovalResumeData } from './workflows';
@@ -118,6 +119,7 @@ export class VoltAgentController {
     private readonly actionItemService: ActionItemService,
     private readonly analyticsService: AnalyticsService,
     private readonly longTermMemoryService: LongTermMemoryService,
+    private readonly unifiedKnowledgeService: UnifiedKnowledgeService,
   ) {}
 
   /**
@@ -1718,6 +1720,114 @@ export class VoltAgentController {
     return {
       success: true,
       enabled: this.analyticsService.isEnabled(),
+    };
+  }
+
+  // ===========================================================================
+  // UNIFIED KNOWLEDGE ENDPOINTS (P1.6 - Memory-First RAG)
+  // ===========================================================================
+
+  /**
+   * Search across all knowledge sources with memory-first RAG.
+   * Searches: emails, deadlines, follow-ups, action items, and user memories.
+   */
+  @Post('knowledge/search')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Unified knowledge search',
+    description: `Performs memory-first RAG search across all knowledge sources:
+    - **Memories**: User's long-term memories and preferences (searched first)
+    - **Emails**: Semantic + keyword search (excluding spam/trash)
+    - **Deadlines**: Upcoming and pending deadlines
+    - **Follow-ups**: Pending follow-up items
+    - **Action items**: Tasks and action items
+
+    The search uses self-reflection to determine which sources are relevant
+    based on the query, then performs parallel multi-source retrieval with
+    memory-boosted re-ranking for personalized results.`,
+  })
+  async unifiedKnowledgeSearch(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: {
+      query: string;
+      sources?: Array<'emails' | 'deadlines' | 'followups' | 'actions'>;
+      limit?: number;
+    },
+  ): Promise<{
+    success: boolean;
+    context: string;
+    sources: string[];
+    itemCount: number;
+  }> {
+    const { tenantId, userId } = req.user;
+    const locale = (req as unknown as Request).headers?.['accept-language'] || 'en';
+
+    return this.unifiedKnowledgeService.search(tenantId, userId, body.query, {
+      sources: body.sources,
+      limit: body.limit,
+      locale: typeof locale === 'string' ? locale : 'en',
+    });
+  }
+
+  /**
+   * Store information in long-term memory via unified knowledge service.
+   */
+  @Post('knowledge/remember')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Remember information',
+    description: `Store information in long-term memory for future retrieval.
+    Categories:
+    - **preference**: User preferences and settings
+    - **fact**: Facts about the user or their work
+    - **contact**: Information about contacts and relationships
+    - **project**: Project-related information
+    - **general**: General information`,
+  })
+  async rememberKnowledge(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: {
+      content: string;
+      category?: 'preference' | 'fact' | 'contact' | 'project' | 'general';
+    },
+  ): Promise<{
+    success: boolean;
+    memoryId?: string;
+  }> {
+    const { tenantId, userId } = req.user;
+    const locale = (req as unknown as Request).headers?.['accept-language'] || 'en';
+
+    return this.unifiedKnowledgeService.remember(tenantId, userId, body.content, {
+      category: body.category,
+      locale: typeof locale === 'string' ? locale : 'en',
+    });
+  }
+
+  /**
+   * Get unified knowledge base statistics.
+   */
+  @Get('knowledge/stats')
+  @ApiOperation({
+    summary: 'Get knowledge base statistics',
+    description: `Returns counts of items across all knowledge sources:
+    - Memory count (long-term memories)
+    - Deadline count (pending + due soon)
+    - Follow-up count (pending + overdue)
+    - Action item count (not done)`,
+  })
+  async getKnowledgeStats(@Req() req: AuthenticatedRequest): Promise<{
+    success: boolean;
+    memoryCount: number;
+    deadlineCount: number;
+    followupCount: number;
+    actionCount: number;
+  }> {
+    const { tenantId, userId } = req.user;
+    const stats = await this.unifiedKnowledgeService.getStats(tenantId, userId);
+
+    return {
+      success: true,
+      ...stats,
     };
   }
 }

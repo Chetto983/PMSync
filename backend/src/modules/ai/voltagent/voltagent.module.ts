@@ -73,6 +73,8 @@ import { FollowUpService } from './services/follow-up.service';
 import { ActionItemService } from './services/action-item.service';
 // Analytics (P1.5 - Mistral code_interpreter)
 import { AnalyticsService } from './services/analytics.service';
+// Unified Knowledge (P1.6 - Memory-First RAG)
+import { UnifiedKnowledgeService } from './services/unified-knowledge.service';
 // Observability (OpenTelemetry-aligned)
 import { LlmTelemetryService } from './observability/telemetry';
 
@@ -122,6 +124,8 @@ import { LlmTelemetryService } from './observability/telemetry';
     ActionItemService,
     // Analytics (P1.5 - Mistral code_interpreter)
     AnalyticsService,
+    // Unified Knowledge (P1.6 - Memory-First RAG)
+    UnifiedKnowledgeService,
     // Observability
     LlmTelemetryService,
   ],
@@ -154,6 +158,8 @@ import { LlmTelemetryService } from './observability/telemetry';
     ActionItemService,
     // Analytics
     AnalyticsService,
+    // Unified Knowledge (P1.6)
+    UnifiedKnowledgeService,
     // Observability
     LlmTelemetryService,
   ],

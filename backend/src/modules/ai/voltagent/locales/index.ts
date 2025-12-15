@@ -65,6 +65,16 @@ export interface ToolTranslations {
   knowledge: {
     found: (count: number) => string;
     noResults: string;
+    // P1.6 Unified Knowledge Agent
+    instructions: string;
+    remembered: string;
+    sources: {
+      emails: string;
+      deadlines: string;
+      followups: string;
+      actions: string;
+      memories: string;
+    };
   };
   webSearch: {
     description: string;

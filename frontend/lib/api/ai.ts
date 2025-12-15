@@ -430,6 +430,63 @@ export const voltAgentApi = {
   },
 };
 
+// ============ Unified Knowledge Types (P1.6) ============
+
+export type UnifiedSearchSource = 'emails' | 'deadlines' | 'followups' | 'actions';
+
+export type UnifiedSearchResult = {
+  success: boolean;
+  context: string;
+  sources: string[];
+  itemCount: number;
+};
+
+export type RememberResult = {
+  success: boolean;
+  memoryId?: string;
+};
+
+export type KnowledgeStats = {
+  success: boolean;
+  memoryCount: number;
+  deadlineCount: number;
+  followupCount: number;
+  actionCount: number;
+};
+
+// ============ Unified Knowledge API (P1.6 - Memory-First RAG) ============
+
+export const unifiedKnowledgeApi = {
+  /**
+   * Search across all knowledge sources with memory-first RAG.
+   * Searches: emails, deadlines, follow-ups, action items, and user memories.
+   */
+  search(payload: {
+    query: string;
+    sources?: UnifiedSearchSource[];
+    limit?: number;
+  }) {
+    return apiClient.post<UnifiedSearchResult>('/api/v1/voltagent/knowledge/search', payload);
+  },
+
+  /**
+   * Store information in long-term memory for future retrieval.
+   */
+  remember(payload: {
+    content: string;
+    category?: 'preference' | 'fact' | 'contact' | 'project' | 'general';
+  }) {
+    return apiClient.post<RememberResult>('/api/v1/voltagent/knowledge/remember', payload);
+  },
+
+  /**
+   * Get unified knowledge base statistics.
+   */
+  getStats() {
+    return apiClient.get<KnowledgeStats>('/api/v1/voltagent/knowledge/stats');
+  },
+};
+
 // Legacy API alias for backwards compatibility (maps to voltAgentApi)
 export const multiAgentApi = {
   processMessage: async (payload: {

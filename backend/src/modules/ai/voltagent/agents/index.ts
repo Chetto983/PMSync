@@ -12,6 +12,10 @@ export { createGeneralAgent, type GeneralAgentOptions } from './general.agent';
 export { createWebSearchAgent, type WebSearchAgentOptions } from './websearch.agent';
 export { createAnalyticsAgent, type AnalyticsAgentOptions } from './analytics.agent';
 export {
+  createUnifiedKnowledgeAgent,
+  type UnifiedKnowledgeAgentOptions,
+} from './unified-knowledge.agent';
+export {
   createSupervisorAgent,
   buildDynamicInstructions,
   type SupervisorAgentOptions,
