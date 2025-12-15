@@ -25,6 +25,11 @@ import { DeadlineStatus } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { getConfiguration } from '../../../../config/configuration';
+import {
+  getDeadlineKeywords,
+  getLocale,
+  type SupportedLocale,
+} from '../locales';
 
 /** Cache namespace for deadline data */
 const DEADLINE_NAMESPACE = CacheNamespace.DEADLINE_UPCOMING;
@@ -34,18 +39,6 @@ const DEADLINE_CACHE_TTL_SEC = 3600;
 
 /** Max upcoming deadlines to cache per user */
 const MAX_CACHED_DEADLINES = 50;
-
-/** Keywords that indicate deadlines */
-const DEADLINE_KEYWORDS_EN = [
-  'deadline', 'due', 'by', 'before', 'until', 'no later than',
-  'must be done', 'submit by', 'complete by', 'finish by',
-  'expires', 'expiration', 'cutoff', 'end date',
-];
-
-const DEADLINE_KEYWORDS_IT = [
-  'scadenza', 'entro', 'prima di', 'entro e non oltre',
-  'data limite', 'termine', 'consegnare entro',
-];
 
 /** Extracted deadline from text */
 export interface ExtractedDeadline {
@@ -196,19 +189,21 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
   /**
    * Extract deadlines from text using chrono-node NLP.
    * Supports English and Italian with keyword context validation.
+   * Keywords are loaded from the locale system.
    */
   extractDeadlines(
     text: string,
     referenceDate = new Date(),
-    locale: 'en' | 'it' = 'en',
+    locale: SupportedLocale = 'en',
   ): ExtractedDeadline[] {
     if (!text || text.length < 10) return [];
 
     // Select parser based on locale
     const parser = locale === 'it' ? chrono.it : chrono;
-    const keywords = locale === 'it'
-      ? [...DEADLINE_KEYWORDS_EN, ...DEADLINE_KEYWORDS_IT]
-      : DEADLINE_KEYWORDS_EN;
+
+    // Get keywords from locale system
+    const localeKeywords = getDeadlineKeywords(locale);
+    const keywords = localeKeywords.deadlineKeywords;
 
     const results = parser.parse(text, referenceDate, { forwardDate: true });
     const deadlines: ExtractedDeadline[] = [];
@@ -222,7 +217,12 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
       const hasDeadlineKeyword = keywords.some((k) => contextLower.includes(k));
 
       // Calculate confidence based on keyword presence and date certainty
-      const confidence = this.calculateConfidence(result, hasDeadlineKeyword, context);
+      const confidence = this.calculateConfidence(
+        result,
+        hasDeadlineKeyword,
+        context,
+        localeKeywords.urgencyKeywords,
+      );
 
       // Only include if confidence meets threshold or has explicit keyword
       if (confidence >= this.MIN_CONFIDENCE || hasDeadlineKeyword) {
@@ -234,7 +234,7 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
         };
 
         // Check for recurring patterns
-        if (this.isRecurringPattern(context)) {
+        if (this.isRecurringPattern(context, localeKeywords.recurringPatterns)) {
           deadline.isRecurring = true;
         }
 
@@ -256,11 +256,13 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Calculate confidence score for extracted deadline.
+   * Uses locale-specific urgency keywords.
    */
   private calculateConfidence(
     result: chrono.ParsedResult,
     hasKeyword: boolean,
     context: string,
+    urgencyKeywords: string[],
   ): number {
     let confidence = 0.3; // Base confidence
 
@@ -285,9 +287,8 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
       confidence -= 0.2;
     }
 
-    // Boost for urgency words
-    const urgencyWords = ['urgent', 'asap', 'immediately', 'critical', 'importante', 'urgente'];
-    if (urgencyWords.some((w) => context.toLowerCase().includes(w))) {
+    // Boost for urgency words (from locale)
+    if (urgencyKeywords.some((w) => context.toLowerCase().includes(w))) {
       confidence += 0.1;
     }
 
@@ -296,15 +297,10 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Check if the context indicates a recurring deadline.
+   * Uses locale-specific recurring patterns.
    */
-  private isRecurringPattern(context: string): boolean {
-    const recurringPatterns = [
-      /every (week|month|day|monday|tuesday|wednesday|thursday|friday)/i,
-      /weekly|monthly|daily|annually/i,
-      /ogni (settimana|mese|giorno|lunedì|martedì)/i,
-      /settimanale|mensile|giornaliero/i,
-    ];
-    return recurringPatterns.some((p) => p.test(context));
+  private isRecurringPattern(context: string, patterns: RegExp[]): boolean {
+    return patterns.some((p) => p.test(context));
   }
 
   // ==========================================================================
@@ -321,7 +317,7 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
     emailId: string,
     subject: string,
     body: string,
-    locale: 'en' | 'it' = 'en',
+    locale: SupportedLocale = 'en',
   ): Promise<string[]> {
     const text = `${subject}\n\n${body}`;
     const deadlines = this.extractDeadlines(text, new Date(), locale);

@@ -367,4 +367,46 @@ RESPONSE:
       tryAgain: 'I could not generate a response just now. Please try asking again.',
     },
   },
+  deadline: {
+    deadlineKeywords: [
+      // Explicit deadline words
+      'deadline',
+      'due',
+      'due date',
+      'cutoff',
+      'cut-off',
+      'end date',
+      // Prepositions indicating deadline
+      'by',
+      'before',
+      'until',
+      'no later than',
+      'not later than',
+      // Action phrases
+      'must be done',
+      'submit by',
+      'complete by',
+      'finish by',
+      'deliver by',
+      'send by',
+      // Expiration
+      'expires',
+      'expiration',
+      'expiry',
+      'valid until',
+    ],
+    urgencyKeywords: [
+      'urgent',
+      'asap',
+      'immediately',
+      'critical',
+      'time-sensitive',
+      'priority',
+      'important',
+    ],
+    recurringPatterns: [
+      /every\s+(week|month|day|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i,
+      /weekly|monthly|daily|annually|yearly/i,
+    ],
+  },
 };

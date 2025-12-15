@@ -364,4 +364,45 @@ RISPOSTA:
       tryAgain: 'Non sono riuscito a generare una risposta. Riprova.',
     },
   },
+  deadline: {
+    deadlineKeywords: [
+      // Parole esplicite per scadenza
+      'scadenza',
+      'data limite',
+      'termine',
+      'termine ultimo',
+      'data di consegna',
+      // Preposizioni che indicano scadenza
+      'entro',
+      'entro il',
+      'entro e non oltre',
+      'prima di',
+      'prima del',
+      'non oltre',
+      'al più tardi',
+      // Frasi d'azione
+      'consegnare entro',
+      'inviare entro',
+      'completare entro',
+      'finire entro',
+      'presentare entro',
+      // Scadenza
+      'scade',
+      'in scadenza',
+      'valido fino a',
+      'validità fino',
+    ],
+    urgencyKeywords: [
+      'urgente',
+      'importante',
+      'critico',
+      'priorità',
+      'immediato',
+      'tempestivo',
+    ],
+    recurringPatterns: [
+      /ogni\s+(settimana|mese|giorno|lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica)/i,
+      /settimanale|mensile|giornaliero|annuale/i,
+    ],
+  },
 };

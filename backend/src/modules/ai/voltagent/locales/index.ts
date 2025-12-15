@@ -306,6 +306,18 @@ export interface MistralTranslations {
 }
 
 /**
+ * Deadline extraction keywords for NLP parsing (chrono-node)
+ */
+export interface DeadlineKeywordsTranslations {
+  /** Keywords that indicate a deadline (e.g., "deadline", "due", "scadenza") */
+  deadlineKeywords: string[];
+  /** Keywords that indicate urgency (boost confidence) */
+  urgencyKeywords: string[];
+  /** Regex patterns for recurring deadlines */
+  recurringPatterns: RegExp[];
+}
+
+/**
  * Complete translation structure for VoltAgent
  */
 export interface VoltAgentTranslations {
@@ -314,6 +326,7 @@ export interface VoltAgentTranslations {
   actions: ActionSummaryTranslations;
   observability: ObservabilityTranslations;
   mistral: MistralTranslations;
+  deadline: DeadlineKeywordsTranslations;
 }
 
 /**
@@ -385,6 +398,13 @@ export function formatDateForLocale(date: Date, locale: SupportedLocale): string
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+/**
+ * Get deadline keywords for a specific locale
+ */
+export function getDeadlineKeywords(locale: SupportedLocale): DeadlineKeywordsTranslations {
+  return (locales[locale] || locales.en).deadline;
 }
 
 // Legacy export for backward compatibility with action-executor.service.ts

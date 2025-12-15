@@ -2090,5 +2090,277 @@ async function testMem0Integration() {
 
 ---
 
-*Last Updated: December 14, 2025*
-*Version: 2.1 - Added Mistral Code Interpreter for Analytics*
+*Last Updated: December 15, 2025*
+*Version: 2.2 - Added Mem0 Gap Analysis & Library Comparison*
+
+---
+
+## Appendix A: Mem0 Gap Analysis & Library Comparison
+
+> 📊 **Research Date:** December 15, 2025
+> **Purpose:** Compare our LongTermMemoryService with Mem0 and identify improvement opportunities
+
+### A.1 Current Implementation vs Mem0
+
+#### What We Have ✅
+
+| Feature | Our Implementation | Status |
+|---------|-------------------|--------|
+| **Vector storage** | Prisma + pgvector | ✅ Done |
+| **Embeddings** | Mistral API | ✅ Done |
+| **Semantic search** | CTE with cosine similarity | ✅ Done |
+| **Memory categories** | 7 types (PREFERENCE, CONTACT, SCHEDULE, etc.) | ✅ Done |
+| **Importance scoring** | Static 0-1 scale | ✅ Done |
+| **GDPR compliance** | `deleteUserMemories()` | ✅ Done |
+| **Multi-tenant** | `tenantId` + `userId` isolation | ✅ Done |
+| **LLM extraction** | `extractMemoryFromMessages()` | ✅ Done |
+| **Context injection** | `getContextForPrompt()` | ✅ Done |
+
+#### Gaps Identified 🔴
+
+| Gap | Mem0 Feature | Our Status | Priority | Effort |
+|-----|-------------|------------|----------|--------|
+| **Multi-Level Memory** | User, Session, Agent levels | ❌ Missing | High | Medium |
+| **Memory History** | Track memory changes over time | ❌ Missing | Medium | Medium |
+| **Consolidation** | Auto-merge similar memories | ❌ Missing | High | High |
+| **Deduplication** | Prevent duplicate memories | ❌ Missing | High | Medium |
+| **Memory Update** | Modify existing memories | ❌ Missing | Medium | Low |
+| **Graph Memory** | Relationship-based retrieval | ❌ Missing | Low | High |
+| **Time Decay** | Recency-based relevance boost | ❌ Missing | Medium | Low |
+| **Batch Operations** | Bulk update/delete | ❌ Missing | Low | Low |
+| **Custom Prompts** | Configurable extraction | ❌ Missing | Low | Low |
+| **Feedback Loop** | Learn from memory usefulness | ❌ Missing | Low | Medium |
+
+### A.2 Open-Source Library Comparison (December 2025)
+
+| Library | pgvector | Consolidation | TypeScript | Multi-tenant | License | Weekly Downloads |
+|---------|----------|---------------|------------|--------------|---------|------------------|
+| **mem0ai/oss** ⭐ | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | Apache 2.0 | 23K+ |
+| **mcp-ai-memory** | ✅ Yes | ✅ DBSCAN | ✅ Yes | ❌ No | MIT | - |
+| **OpenMemory** | ⚠️ SQLite | ❌ No | ✅ Yes | ❌ No | MIT | - |
+| **Memori** | ✅ Yes | ✅ Yes | ❌ Python | ✅ Yes | MIT | - |
+| **claude-flow** | ❌ Custom | ⚠️ Basic | ✅ Yes | ❌ No | MIT | - |
+
+#### mem0ai (Recommended) ⭐
+
+**Why best fit for our stack:**
+
+1. **Free & Open Source** - Apache 2.0, fully self-hosted option
+2. **pgvector Native** - Exact match for our PostgreSQL + pgvector setup
+3. **Mistral Support** - Via `litellm` provider (our existing LLM)
+4. **Memory Consolidation** - Built-in deduplication and merging
+5. **History Tracking** - Memory versioning included
+6. **Production-Tested** - 26% accuracy improvement proven in research
+7. **TypeScript SDK** - `import { Memory } from "mem0ai/oss"`
+
+**Installation:**
+
+```bash
+npm install mem0ai
+```
+
+**Configuration with our stack:**
+
+```typescript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  vectorStore: {
+    provider: "pgvector",
+    config: {
+      host: process.env.DB_HOST,
+      port: "5432",
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+    }
+  },
+  llm: {
+    provider: "litellm",
+    config: {
+      model: "mistral/mistral-small-latest",
+      apiKey: process.env.MISTRAL_API_KEY,
+    }
+  },
+  embedder: {
+    provider: "mistral",
+    config: {
+      apiKey: process.env.MISTRAL_API_KEY,
+      model: "mistral-embed",
+    }
+  }
+});
+```
+
+#### mcp-ai-memory (Alternative)
+
+**Strengths:**
+
+- DBSCAN clustering for intelligent consolidation
+- Memory decay with exponential lifecycle
+- Graph-based relationship traversal
+- Exclusively uses pgvector (perfect match)
+
+**Limitations:**
+
+- Designed as MCP server, not library
+- Would require forking/extracting core services
+- No multi-tenant support out-of-box
+
+**Key features we could adopt:**
+
+```typescript
+// DBSCAN clustering for memory consolidation
+// From mcp-ai-memory architecture
+
+interface ConsolidationConfig {
+  minSimilarity: 0.95;      // Threshold for merging
+  minClusterSize: 2;        // Minimum memories to form cluster
+  maxIterations: 100;       // DBSCAN iterations
+}
+
+async function consolidateMemories(
+  tenantId: string,
+  userId: string,
+  config: ConsolidationConfig
+): Promise<ConsolidationResult> {
+  // 1. Fetch all user memories with embeddings
+  // 2. Run DBSCAN clustering on embedding vectors
+  // 3. For each cluster, merge content using LLM
+  // 4. Keep highest importance, combine metadata
+  // 5. Delete redundant entries, keep merged
+}
+```
+
+### A.3 Recommended Improvement Path
+
+#### Option 1: Integrate mem0ai (Recommended)
+
+**Pros:**
+
+- All gaps solved immediately
+- Battle-tested (23K weekly downloads)
+- Maintains existing Prisma schema for backup
+
+**Implementation:**
+
+```typescript
+// Hybrid approach: mem0ai for features, Prisma for tenant isolation
+
+@Injectable()
+export class EnhancedMemoryService {
+  private mem0: Memory;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {
+    this.mem0 = new Memory({
+      vectorStore: { provider: "pgvector", config: {...} },
+      llm: { provider: "litellm", config: { model: "mistral-small" } },
+    });
+  }
+
+  // Use Mem0 for extraction + consolidation
+  async addMemory(tenantId: string, userId: string, messages: Message[]) {
+    const mem0Result = await this.mem0.add(messages, {
+      userId: `${tenantId}:${userId}`,  // Tenant isolation via composite key
+      metadata: { tenantId, userId },
+    });
+    return mem0Result;
+  }
+
+  // Use Mem0 search with tenant filtering
+  async searchMemories(tenantId: string, userId: string, query: string) {
+    return this.mem0.search(query, {
+      userId: `${tenantId}:${userId}`,
+      filters: { tenantId },
+    });
+  }
+
+  // Keep GDPR compliance via both systems
+  async deleteUserMemories(tenantId: string, userId: string) {
+    await this.mem0.deleteAll({ userId: `${tenantId}:${userId}` });
+    await this.prisma.aiMemory.deleteMany({ where: { tenantId, userId } });
+  }
+}
+```
+
+#### Option 2: Enhance Current Implementation
+
+**Add these features manually:**
+
+| Feature | Effort | Implementation |
+|---------|--------|----------------|
+| Time decay | 1 hour | Add recency factor to search scoring |
+| Update method | 2 hours | Add `updateMemory()` to service |
+| Memory history | 4 hours | New `ai_memory_history` table + triggers |
+| Consolidation | 8 hours | DBSCAN clustering from mcp-ai-memory |
+| Session memory | 4 hours | Add `level` field + TTL cleanup job |
+
+**Quick win - Time decay:**
+
+```typescript
+// Add to searchMemories() scoring
+private applyTimeDecay(memories: MemoryResult[]): MemoryResult[] {
+  const now = Date.now();
+  const HALF_LIFE_DAYS = 30; // Memories lose half relevance in 30 days
+
+  return memories.map(m => {
+    const daysSince = (now - m.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+    const decayFactor = Math.exp(-daysSince / HALF_LIFE_DAYS * Math.LN2);
+    return {
+      ...m,
+      score: (m.score || 1) * decayFactor,
+    };
+  }).sort((a, b) => b.score - a.score);
+}
+```
+
+### A.4 Additional Resources
+
+#### Neural Module (claude-flow)
+
+Based on [Claude Flow Neural Module](https://github.com/ruvnet/claude-flow/wiki/Neural-Module):
+
+**Four-Tier Memory Model:**
+
+1. **Vector Memory** - Dense representations for similarity search
+2. **Episodic Memory** - Complete interaction histories
+3. **Semantic Memory** - Knowledge base of facts
+4. **Working Memory** - Active context for current task
+
+**Performance claims:**
+
+- 95%+ recall accuracy
+- 172K+ ops/second
+- 60% compression with maintained recall
+- 100% cross-session persistence
+
+**Relevance to our implementation:**
+
+- The tiered model aligns with our short-term (Redis) + long-term (Prisma) architecture
+- Could inspire future enhancements for working memory management
+- WASM SIMD optimization could improve embedding operations
+
+### A.5 Decision Matrix
+
+| Criteria | mem0ai | Manual Enhancement | Status Quo |
+|----------|--------|-------------------|------------|
+| Development time | 1-2 days | 2-3 weeks | 0 |
+| All gaps solved | ✅ Yes | ✅ Yes | ❌ No |
+| Maintenance burden | Low (upstream) | High (custom) | Low |
+| Risk | Low (proven) | Medium | Low |
+| Learning curve | Low | Medium | None |
+| **Recommendation** | ⭐⭐⭐ | ⭐⭐ | ⭐ |
+
+### A.6 Sources
+
+- [mem0ai npm package](https://www.npmjs.com/package/mem0ai) - 23K weekly downloads
+- [Mem0 pgvector docs](https://docs.mem0.ai/components/vectordbs/dbs/pgvector)
+- [Mem0 Mistral AI config](https://docs.mem0.ai/v0x/components/llms/models/mistral_AI)
+- [Mem0 Node.js OSS Quickstart](https://docs.mem0.ai/open-source/node-quickstart)
+- [Mem0 Research Paper](https://arxiv.org/abs/2504.19413) - 26% accuracy improvement
+- [mcp-ai-memory GitHub](https://github.com/scanadi/mcp-ai-memory) - DBSCAN clustering
+- [OpenMemory GitHub](https://github.com/CaviraOSS/OpenMemory) - MIT, 2.5K stars
+- [Memori GitHub](https://github.com/archit15singh/memori) - pgvector, Python
+- [Claude Flow Neural Module](https://github.com/ruvnet/claude-flow/wiki/Neural-Module)

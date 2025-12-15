@@ -50,6 +50,8 @@ import {
   SummarizationQueueService,
   LongTermMemoryService,
 } from './memory';
+// Mem0 enhanced memory (consolidation, history, time decay)
+import { Mem0EnhancedMemoryService } from './memory/mem0-enhanced-memory.service';
 // Consolidated AI services
 import { PersonalizationService } from './services/personalization.service';
 import { WritingStyleService } from './services/writing-style.service';
@@ -92,6 +94,7 @@ import { LlmTelemetryService } from './observability/telemetry';
     SessionBridgeService,
     SummarizationQueueService,
     LongTermMemoryService,
+    Mem0EnhancedMemoryService,
     // Consolidated AI services (Step 8)
     PersonalizationService,
     WritingStyleService,
@@ -120,6 +123,7 @@ import { LlmTelemetryService } from './observability/telemetry';
     SessionBridgeService,
     SummarizationQueueService,
     LongTermMemoryService,
+    Mem0EnhancedMemoryService,
     // Consolidated AI services
     PersonalizationService,
     WritingStyleService,
