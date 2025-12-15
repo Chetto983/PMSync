@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useQueryClient } from '@tanstack/react-query';
 import { List, Box, Typography, CircularProgress } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadListItem } from './ThreadListItem';
 import { ThreadListSkeleton } from './ThreadListSkeleton';
 import { DraggableThreadListItem } from './shared';
-import { useEmailStore, type Email } from '@/stores/email-store';
-import { emailApi, type Conversation } from '@/lib/api/email';
+import type { Email } from '@/stores/email-store';
+import type { Conversation } from '@/lib/api/email';
+import { emailThreadOptions } from '@/hooks/queries';
 
 /**
  * Props for ThreadList component
@@ -172,42 +174,37 @@ export const ThreadList: React.FC<ThreadListProps> = ({
 }) => {
   const t = useTranslations();
   const parentRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
-  // Track expanded threads and their child emails
+  type ThreadChildrenState = Record<string, { emails: Email[]; count: number }>;
+
+  // Track expanded threads and their child emails (loaded on-demand)
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
-  const [threadChildEmails, setThreadChildEmails] = useState<Map<string, Email[]>>(new Map());
+  const [threadChildrenByThreadId, setThreadChildrenByThreadId] = useState<ThreadChildrenState>({});
 
-  // Get thread data from store for thread count badges
-  const emailStore = useEmailStore();
-
-  // Pre-compute thread email counts in O(n) instead of O(n²)
-  // Build a Map of threadId -> email count once, then use it for all threads
-  const threadEmailCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    // Count emails per threadId from the store's threads map
-    emailStore.threads.forEach((emailIds, threadId) => {
-      counts.set(threadId, emailIds.length);
-    });
-    return counts;
-  }, [emailStore.threads]);
-
-  // Enhance threads with email count for thread conversations
+  // Enhance threads with email count when we have it (conversation view or after expanding)
   const threadsWithCount = useMemo(() => {
-    return threads.map(thread => {
-      if ('providerId' in thread && thread.threadId) {
-        // This is an Email with a threadId - check if it's part of a multi-email thread
-        const count = threadEmailCounts.get(thread.threadId) || 1;
-        if (count > 1) {
-          // Add emailCount property for display (this is what ThreadListItem looks for)
-          return {
-            ...thread,
-            emailCount: count,
-          } as Email & { emailCount: number };
-        }
+    return threads.map((thread) => {
+      // For Conversation objects (threaded endpoint), the emailCount is already present
+      if (!('providerId' in thread)) return thread;
+
+      const threadId = thread.threadId;
+      if (!threadId) return thread;
+
+      const providedCount = (thread as Email & { emailCount?: number }).emailCount;
+      const fetchedCount = threadChildrenByThreadId[threadId]?.count;
+      const count = providedCount ?? fetchedCount;
+
+      if (count && count > 1) {
+        return {
+          ...thread,
+          emailCount: count,
+        } as Email & { emailCount: number };
       }
+
       return thread;
     });
-  }, [threads, threadEmailCounts]);
+  }, [threads, threadChildrenByThreadId]);
 
   // Clean up expansion state when threads change (e.g., after bulk delete)
   // This prevents stale expanded state for deleted threads
@@ -229,13 +226,13 @@ export const ThreadList: React.FC<ThreadListProps> = ({
       return hasChanges ? cleaned : prev;
     });
 
-    // Clean up threadChildEmails - remove deleted thread entries
-    setThreadChildEmails(prev => {
+    // Clean up cached child emails - remove deleted thread entries
+    setThreadChildrenByThreadId((prev) => {
       let hasChanges = false;
-      const cleaned = new Map(prev);
-      for (const threadId of cleaned.keys()) {
+      const cleaned: ThreadChildrenState = { ...prev };
+      for (const threadId of Object.keys(cleaned)) {
         if (!validThreadIds.has(threadId)) {
-          cleaned.delete(threadId);
+          delete cleaned[threadId];
           hasChanges = true;
         }
       }
@@ -317,30 +314,42 @@ export const ThreadList: React.FC<ThreadListProps> = ({
     [onThreadClick]
   );
 
-  // Handle thread expansion toggle
-  const handleToggleExpand = useCallback(async (threadId: string) => {
-    setExpandedThreads(prev => {
-      const next = new Set(prev);
-      if (next.has(threadId)) {
-        next.delete(threadId);
-      } else {
-        next.add(threadId);
-        // Fetch child emails if not already loaded
-        if (!threadChildEmails.has(threadId)) {
-          emailApi.getThread(threadId).then(res => {
-            // Sort by date ascending (oldest first) and exclude the first (shown in list)
-            const sortedEmails = res.data
-              .sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime())
-              .slice(0, -1); // Exclude the latest (already shown)
-            setThreadChildEmails(prev => new Map(prev).set(threadId, sortedEmails));
-          }).catch(() => {
-            // Silently fail - just don't show expanded emails
-          });
+  // Handle thread expansion toggle (loads thread emails on-demand, cached via TanStack Query)
+  const handleToggleExpand = useCallback(
+    async (threadId: string) => {
+      const willExpand = !expandedThreads.has(threadId);
+
+      setExpandedThreads((prev) => {
+        const next = new Set(prev);
+        if (next.has(threadId)) {
+          next.delete(threadId);
+        } else {
+          next.add(threadId);
         }
+        return next;
+      });
+
+      if (!willExpand) return;
+      if (threadChildrenByThreadId[threadId]) return;
+
+      try {
+        const threadEmails = await queryClient.fetchQuery(emailThreadOptions(threadId));
+        // Backend returns receivedAt ascending, but keep sort defensive
+        const sorted = [...threadEmails].sort(
+          (a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime(),
+        );
+        const children = sorted.slice(0, -1); // Exclude the latest (already shown in list)
+
+        setThreadChildrenByThreadId((prev) => ({
+          ...prev,
+          [threadId]: { emails: children, count: sorted.length },
+        }));
+      } catch {
+        // Silently fail - just don't show expanded emails
       }
-      return next;
-    });
-  }, [threadChildEmails]);
+    },
+    [expandedThreads, queryClient, threadChildrenByThreadId],
+  );
 
   // Infinite scroll with Intersection Observer
   useEffect(() => {
@@ -426,7 +435,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
     const isMultiSelected = selectedIds.has(threadId);
     const emailCount = 'emailCount' in thread ? (thread as { emailCount?: number }).emailCount : undefined;
     const isExpanded = expandedThreads.has(threadId);
-    const childEmails = threadChildEmails.get(threadId) || [];
+    const childEmails = threadChildrenByThreadId[threadId]?.emails ?? [];
 
     return (
       <>

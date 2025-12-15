@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { debounce } from 'lodash-es';
+import { useQueryClient } from '@tanstack/react-query';
 import { websocketClient } from '@/lib/websocket-client';
 import { useEmailStore } from '@/stores/email-store';
 import { useCalendarStore } from '@/stores/calendar-store';
@@ -9,6 +10,7 @@ import { useFoldersStore } from '@/stores/folders-store';
 import { useSyncStore } from '@/stores/sync-store';
 import { emailApi } from '@/lib/api/email';
 import { logger } from '@/lib/logger';
+import { emailKeys } from '@/hooks/queries';
 
 /**
  * Helper function to retry failed operations with exponential backoff
@@ -49,6 +51,7 @@ export function useWebSocket(token: string | null, enabled = true) {
   const isConnectedRef = useRef(false);
   const cleanupRef = useRef<(() => void)[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'auth_failed'>('disconnected');
+  const queryClient = useQueryClient();
 
   // Store actions
   const { addEmail, updateEmail, deleteEmail, setUnreadCount, updateThread } = useEmailStore();
@@ -199,17 +202,31 @@ export function useWebSocket(token: string | null, enabled = true) {
       }
     }, 300);
 
+    const invalidateEmailCollections = debounce(() => {
+      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+    }, 750);
+
     // EMAIL EVENTS - with error recovery
     const unsubEmailNew = websocketClient.onEmailNew(async (data) => {
       logger.debug('[WS] Email new', { emailId: data.emailId });
       try {
         if (data.email) {
           addEmail(data.email);
+          queryClient.setQueryData(emailKeys.detail(data.email.id), data.email);
+          const threadKey = data.email.threadId || data.email.id;
+          queryClient.invalidateQueries({ queryKey: emailKeys.thread(threadKey) });
+          invalidateEmailCollections();
         } else if (data.emailId) {
           // Fallback: fetch from API if email data not included
           const response = await fetchWithRetry(() => emailApi.getEmail(data.emailId!));
           if (response?.data) {
             addEmail(response.data);
+            queryClient.setQueryData(emailKeys.detail(response.data.id), response.data);
+            const threadKey = response.data.threadId || response.data.id;
+            queryClient.invalidateQueries({ queryKey: emailKeys.thread(threadKey) });
+            invalidateEmailCollections();
           }
         }
       } catch (error) {
@@ -219,6 +236,10 @@ export function useWebSocket(token: string | null, enabled = true) {
           const response = await fetchWithRetry(() => emailApi.getEmail(data.emailId!));
           if (response?.data) {
             addEmail(response.data);
+            queryClient.setQueryData(emailKeys.detail(response.data.id), response.data);
+            const threadKey = response.data.threadId || response.data.id;
+            queryClient.invalidateQueries({ queryKey: emailKeys.thread(threadKey) });
+            invalidateEmailCollections();
           }
         }
       }
@@ -231,11 +252,19 @@ export function useWebSocket(token: string | null, enabled = true) {
         if (data.email) {
           // Replace the entire email with the updated version from backend
           updateEmail(data.emailId || data.email.id, data.email);
+          queryClient.setQueryData(emailKeys.detail(data.email.id), data.email);
+          const threadKey = data.email.threadId || data.email.id;
+          queryClient.invalidateQueries({ queryKey: emailKeys.thread(threadKey) });
+          invalidateEmailCollections();
         } else if (data.emailId) {
           // Fallback: fetch from API if email data not included
           const response = await fetchWithRetry(() => emailApi.getEmail(data.emailId!));
           if (response?.data) {
             updateEmail(data.emailId, response.data);
+            queryClient.setQueryData(emailKeys.detail(response.data.id), response.data);
+            const threadKey = response.data.threadId || response.data.id;
+            queryClient.invalidateQueries({ queryKey: emailKeys.thread(threadKey) });
+            invalidateEmailCollections();
           }
         }
       } catch (error) {
@@ -246,6 +275,10 @@ export function useWebSocket(token: string | null, enabled = true) {
           const response = await fetchWithRetry(() => emailApi.getEmail(emailId));
           if (response?.data) {
             updateEmail(emailId, response.data);
+            queryClient.setQueryData(emailKeys.detail(response.data.id), response.data);
+            const threadKey = response.data.threadId || response.data.id;
+            queryClient.invalidateQueries({ queryKey: emailKeys.thread(threadKey) });
+            invalidateEmailCollections();
           }
         }
       }
@@ -256,6 +289,8 @@ export function useWebSocket(token: string | null, enabled = true) {
       try {
         if (data.emailId) {
           deleteEmail(data.emailId);
+          queryClient.removeQueries({ queryKey: emailKeys.detail(data.emailId) });
+          invalidateEmailCollections();
         }
       } catch (error) {
         logger.error('[WS] Error processing email delete event', { error });
@@ -267,6 +302,7 @@ export function useWebSocket(token: string | null, enabled = true) {
       logger.debug('[WS] Unread count update', { count: data.count });
       try {
         setUnreadCount(data.count);
+        invalidateEmailCollections();
       } catch (error) {
         logger.error('[WS] Error processing unread count update', { error });
       }
@@ -335,6 +371,8 @@ export function useWebSocket(token: string | null, enabled = true) {
       try {
         if (data.threadId && data.emailIds) {
           updateThread(data.threadId, data.emailIds);
+          queryClient.invalidateQueries({ queryKey: emailKeys.thread(data.threadId) });
+          invalidateEmailCollections();
         }
       } catch (error) {
         logger.error('[WS] Error processing thread update', { error });
@@ -487,6 +525,7 @@ export function useWebSocket(token: string | null, enabled = true) {
     // Cleanup on unmount or when connection drops
     return () => {
       logger.debug('[useWebSocket] Cleaning up event listeners...');
+      invalidateEmailCollections.cancel();
       unsubEmailNew();
       unsubEmailUpdate();
       unsubEmailDelete();
@@ -538,6 +577,7 @@ export function useWebSocket(token: string | null, enabled = true) {
     renameFolder,
     deleteFolder,
     setSyncStatus,
+    queryClient,
     // AI event dispatchers are local to the effect
     token,
     enabled,

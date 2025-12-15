@@ -139,11 +139,11 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             emailId: thread.id,
             from: thread.from,
             subject: thread.subject,
-            snippet: thread.bodyPreview || '',
+            snippet: thread.snippet || thread.bodyPreview || '',
             receivedAt: thread.receivedAt,
             isRead: thread.isRead,
             isStarred: thread.isStarred || false,
-            isImportant: thread.isImportant || false,
+            isImportant: thread.isImportant ?? thread.isFlagged ?? false,
             emailLabels: thread.emailLabels || undefined,
           };
         } else {
@@ -437,12 +437,21 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     const labelsChanged = prevLabels.length !== nextLabels.length ||
       prevLabels.some((pl, idx) => pl.label.id !== nextLabels[idx]?.label.id);
 
+    const prevImportant =
+      (prevThread as { isImportant?: boolean; isFlagged?: boolean }).isImportant ??
+      (prevThread as { isImportant?: boolean; isFlagged?: boolean }).isFlagged ??
+      false;
+
+    const nextImportant =
+      (nextThread as { isImportant?: boolean; isFlagged?: boolean }).isImportant ??
+      (nextThread as { isImportant?: boolean; isFlagged?: boolean }).isFlagged ??
+      false;
+
     return (
       prevId === nextId &&
       prevThread.isRead === nextThread.isRead &&
       prevThread.isStarred === nextThread.isStarred &&
-      ('isImportant' in prevThread ? prevThread.isImportant : false) ===
-        ('isImportant' in nextThread ? nextThread.isImportant : false) &&
+      prevImportant === nextImportant &&
       prevProps.selected === nextProps.selected &&
       prevProps.multiSelected === nextProps.multiSelected &&
       prevProps.searchQuery === nextProps.searchQuery &&

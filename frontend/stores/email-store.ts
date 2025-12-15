@@ -23,6 +23,11 @@ export interface Email {
   providerId: string;
   externalId: string;
   threadId?: string;
+  /**
+   * Optional thread/conversation message count (used in conversation list views).
+   * This is not guaranteed to be present for all list endpoints.
+   */
+  emailCount?: number;
   from: string;
   to?: string[];
   cc?: string[];
@@ -36,6 +41,11 @@ export interface Email {
   receivedAt: string;
   isRead: boolean;
   isStarred?: boolean;
+  /**
+   * Backend uses `isFlagged`; legacy UI uses `isImportant`.
+   * Keep both to avoid losing realtime updates and to simplify migration.
+   */
+  isFlagged?: boolean;
   isImportant?: boolean;
   isDraft?: boolean;
   emailLabels?: { label: EmailLabelData }[];
@@ -58,6 +68,36 @@ export interface Email {
     attendees?: Array<{ email: string; name?: string; status?: string }>;
     method?: string;
   } | null;
+}
+
+function normalizeEmail(email: Email): Email {
+  const isFlagged =
+    typeof email.isFlagged === 'boolean'
+      ? email.isFlagged
+      : typeof email.isImportant === 'boolean'
+        ? email.isImportant
+        : undefined;
+
+  const isImportant =
+    typeof email.isImportant === 'boolean'
+      ? email.isImportant
+      : typeof email.isFlagged === 'boolean'
+        ? email.isFlagged
+        : undefined;
+
+  const hasAttachments =
+    typeof email.hasAttachments === 'boolean'
+      ? email.hasAttachments
+      : Array.isArray(email.attachments)
+        ? email.attachments.some((a) => !a.isInline)
+        : undefined;
+
+  return {
+    ...email,
+    ...(typeof isFlagged === 'boolean' ? { isFlagged } : null),
+    ...(typeof isImportant === 'boolean' ? { isImportant } : null),
+    ...(typeof hasAttachments === 'boolean' ? { hasAttachments } : null),
+  };
 }
 
 /**
@@ -159,14 +199,14 @@ export const useEmailStore = create<EmailState>((set, get) => ({
   selectedIds: new Set<string>(),
   threads: new Map<string, string[]>(),
 
-  setEmails: (emails) => set({ emails }),
+  setEmails: (emails) => set({ emails: emails.map(normalizeEmail) }),
 
   // Maximum emails to keep in memory to prevent unbounded growth
   // WebSocket events can grow this indefinitely without a limit
   appendEmails: (newEmails) =>
     set((state) => {
       const MAX_EMAILS = 2000;
-      const combined = [...state.emails, ...newEmails];
+      const combined = [...state.emails, ...newEmails.map(normalizeEmail)];
       // Keep only the most recent MAX_EMAILS (sorted by receivedAt desc, newest first)
       const trimmed = combined.length > MAX_EMAILS
         ? combined.slice(0, MAX_EMAILS)
@@ -180,16 +220,17 @@ export const useEmailStore = create<EmailState>((set, get) => ({
   addEmail: (email) =>
     set((state) => {
       const MAX_EMAILS = 2000;
-      logger.debug('[Email Store] addEmail called:', { id: email.id, subject: email.subject?.substring(0, 50) });
+      const normalized = normalizeEmail(email);
+      logger.debug('[Email Store] addEmail called:', { id: normalized.id, subject: normalized.subject?.substring(0, 50) });
 
       // Prevent duplicates
-      if (state.emails.some((e) => e.id === email.id)) {
+      if (state.emails.some((e) => e.id === normalized.id)) {
         logger.warn('[Email Store] Email already exists, skipping');
         return state;
       }
 
       // Add at front, trim if over limit
-      let newEmails = [email, ...state.emails];
+      let newEmails = [normalized, ...state.emails];
       if (newEmails.length > MAX_EMAILS) {
         newEmails = newEmails.slice(0, MAX_EMAILS);
         logger.debug(`[Email Store] Trimmed emails to ${MAX_EMAILS} after add`);
@@ -198,7 +239,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
       logger.debug('[Email Store] Email added successfully');
       return {
         emails: newEmails,
-        unreadCount: !email.isRead ? state.unreadCount + 1 : state.unreadCount,
+        unreadCount: !normalized.isRead ? state.unreadCount + 1 : state.unreadCount,
       };
     }),
 
@@ -217,7 +258,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
           'id' in updates && 'subject' in updates && 'from' in updates;
 
         // If full email object, use it directly; otherwise merge with old email
-        const newEmail = isFullEmail ? (updates as Email) : { ...oldEmail, ...updates };
+        const newEmail = normalizeEmail(isFullEmail ? (updates as Email) : { ...oldEmail, ...updates });
         const newEmails = [...state.emails];
         newEmails[emailIndex] = newEmail;
 
@@ -238,7 +279,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
       // Email doesn't exist - try to add it if updates is a full email object
       logger.debug('[Email Store] Email not found, attempting to add');
       if (typeof updates === 'object' && updates !== null && 'id' in updates && 'subject' in updates) {
-        const newEmail = updates as Email;
+        const newEmail = normalizeEmail(updates as Email);
 
         // Double-check it doesn't exist (defensive check for race conditions)
         if (state.emails.some((e) => e.id === newEmail.id)) {
@@ -321,7 +362,7 @@ export const useEmailStore = create<EmailState>((set, get) => ({
       };
     }),
 
-  setSelectedEmail: (email) => set({ selectedEmail: email }),
+  setSelectedEmail: (email) => set({ selectedEmail: email ? normalizeEmail(email) : null }),
 
   setUnreadCount: (count) => set({ unreadCount: count }),
 
@@ -422,14 +463,14 @@ export const useEmailStore = create<EmailState>((set, get) => ({
       const idSet = new Set(ids);
       const updatedEmails = state.emails.map((email) =>
         idSet.has(email.id) || (email.threadId && idSet.has(email.threadId))
-          ? { ...email, isImportant: important }
+          ? { ...email, isImportant: important, isFlagged: important }
           : email
       );
 
       // Also update selectedEmail if it was marked as important/unimportant
       const updatedSelectedEmail = state.selectedEmail &&
         (idSet.has(state.selectedEmail.id) || (state.selectedEmail.threadId && idSet.has(state.selectedEmail.threadId)))
-        ? { ...state.selectedEmail, isImportant: important }
+        ? { ...state.selectedEmail, isImportant: important, isFlagged: important }
         : state.selectedEmail;
 
       return {
