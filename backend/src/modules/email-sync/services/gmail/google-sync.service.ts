@@ -9,6 +9,7 @@ import { BaseEmailSyncService } from '../base-email-sync.service';
 import { EmailDriverFactory } from '../../drivers/driver.factory';
 import { GoogleDriver } from '../../drivers/google/google.driver';
 import { CanonicalMessage } from '../../drivers/interfaces/canonical.types';
+import { isJunkFolder } from '../../../email/email.helpers';
 
 /**
  * GoogleSyncService - Driver-based implementation
@@ -330,13 +331,15 @@ export class GoogleSyncService extends BaseEmailSyncService {
         },
       });
 
-      // Queue for embeddings
-      await this.emailEmbeddingQueue.enqueue({
-        emailId: createdEmail.id,
-        tenantId,
-        subject: createdEmail.subject,
-        snippet: createdEmail.snippet || '',
-      });
+      // Queue for embeddings (skip SPAM/TRASH - they're junk)
+      if (!isJunkFolder(createdEmail.folder)) {
+        await this.emailEmbeddingQueue.enqueue({
+          emailId: createdEmail.id,
+          tenantId,
+          subject: createdEmail.subject,
+          snippet: createdEmail.snippet || '',
+        });
+      }
 
       // Emit realtime event
       this.realtimeEvents.emitEmailNew(tenantId, {

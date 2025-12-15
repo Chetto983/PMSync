@@ -10,6 +10,7 @@ import { EmailDriverFactory } from '../../drivers/driver.factory';
 import { IMAPDriver } from '../../drivers/imap/imap.driver';
 import { CanonicalMessage } from '../../drivers/interfaces/canonical.types';
 import { ImapAttachmentHandler } from './imap-attachment-handler';
+import { isJunkFolder } from '../../../email/email.helpers';
 
 /**
  * ImapSyncService - Driver-based implementation
@@ -378,13 +379,15 @@ export class ImapSyncService extends BaseEmailSyncService {
         );
       }
 
-      // Queue for embeddings
-      await this.emailEmbeddingQueue.enqueue({
-        emailId: createdEmail.id,
-        tenantId,
-        subject: createdEmail.subject,
-        snippet: createdEmail.snippet || '',
-      });
+      // Queue for embeddings (skip SPAM/TRASH - they're junk)
+      if (!isJunkFolder(createdEmail.folder)) {
+        await this.emailEmbeddingQueue.enqueue({
+          emailId: createdEmail.id,
+          tenantId,
+          subject: createdEmail.subject,
+          snippet: createdEmail.snippet || '',
+        });
+      }
 
       // Emit realtime event
       this.realtimeEvents.emitEmailNew(tenantId, {

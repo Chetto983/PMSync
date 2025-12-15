@@ -13,6 +13,7 @@ import {
   actionSummaries as t,
   formatDateForLocale,
 } from '../locales/action-summaries';
+import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
 
 /** Default TTL for idempotency keys (5 minutes) */
 const IDEMPOTENCY_TTL_SECONDS = 300;
@@ -636,9 +637,11 @@ export class ActionExecutorService {
   ): Promise<ActionExecutionResult> {
     const { query, limit = 20 } = action.payload;
 
+    // Exclude SPAM and TRASH from search results - they're junk
     const emails = await this.prisma.email.findMany({
       where: {
         tenantId: context.tenantId,
+        folder: EXCLUDE_JUNK_FOLDERS,
         OR: [
           { subject: { contains: query, mode: 'insensitive' } },
           { snippet: { contains: query, mode: 'insensitive' } },
@@ -1226,12 +1229,13 @@ export class ActionExecutorService {
     const { limit = 10, providerId, folder } = action.payload;
     const lang = getLocale(context.preferences?.language);
 
+    // Build where clause - exclude SPAM/TRASH by default unless user specifies a folder
     const whereClause: {
       tenantId: string;
       isRead: boolean;
       isDeleted: boolean;
       providerId?: string;
-      folder?: string;
+      folder?: string | { notIn: string[] };
     } = {
       tenantId: context.tenantId,
       isRead: false,
@@ -1243,7 +1247,11 @@ export class ActionExecutorService {
     }
 
     if (folder) {
+      // User explicitly requested a specific folder
       whereClause.folder = folder;
+    } else {
+      // Exclude SPAM and TRASH by default - they're junk
+      whereClause.folder = EXCLUDE_JUNK_FOLDERS;
     }
 
     const emails = await this.prisma.email.findMany({

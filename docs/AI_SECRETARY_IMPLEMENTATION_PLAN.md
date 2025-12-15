@@ -18,22 +18,28 @@ This plan incorporates extensive research into 2025 best practices for:
 | **Multi-tenant Security** | Strict namespace isolation, per-tenant quotas | [Azure Multi-tenant AI](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/approaches/ai-ml) |
 | **RAG 2025** | Hybrid search, Long RAG, Self-RAG patterns | [2025 RAG Guide](https://www.edenai.co/post/the-2025-guide-to-retrieval-augmented-generation-rag) |
 | **Code Interpreter** | Safe code execution in isolated container for analytics | [Mistral Code Interpreter](https://docs.mistral.ai/agents/tools/built-in/code_interpreter) |
+| **A-MEM (Agentic Memory)** | Zettelkasten-style interconnected knowledge networks | [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) |
+| **GraphRAG** | Vector + Graph hybrid, relationship-aware retrieval | [Microsoft GraphRAG](https://techcommunity.microsoft.com/blog/adforpostgresql/introducing-the-graphrag-solution-for-azure-database-for-postgresql/4299871) |
+| **Apache AGE** | Graph extension for PostgreSQL, OpenCypher + SQL | [Apache AGE](https://age.apache.org/) |
+| **HybridRAG** | Combine vector embeddings with knowledge graphs | [HybridRAG Guide](https://memgraph.com/blog/why-hybridrag) |
 
 ---
 
 ## Table of Contents
 
 1. [Infrastructure Overview](#infrastructure-overview)
-2. [Phase 0: Long-Term Memory (Mem0)](#phase-0-long-term-memory-mem0) ⭐ **CRITICAL**
-3. [Phase 1: Proactive Intelligence](#phase-1-proactive-intelligence)
-4. [Phase 1.5: Analytics & Visualization](#phase-15-analytics--visualization) 📊 **NEW**
-5. [Phase 2: Smart Scheduling](#phase-2-smart-scheduling)
-6. [Phase 3: Relationship Intelligence](#phase-3-relationship-intelligence)
-7. [Recommended Libraries](#recommended-libraries)
-8. [Architecture Patterns](#architecture-patterns)
-9. [Security & Multi-Tenancy](#security--multi-tenancy) 🔒 **NEW**
-10. [Performance Optimization](#performance-optimization) ⚡ **NEW**
-11. [Testing Strategy](#testing-strategy) 🧪 **NEW**
+2. [Phase 0: Long-Term Memory (Mem0)](#phase-0-long-term-memory-mem0) ⭐ **CRITICAL** ✅
+3. [Phase 1: Proactive Intelligence](#phase-1-proactive-intelligence) ✅
+4. [Phase 1.5: Analytics & Visualization](#phase-15-analytics--visualization) ✅
+5. [Phase 1.6: Unified Knowledge Agent](#phase-16-unified-knowledge-agent-2025-best-practices) 🧠 **NEW**
+6. [Phase 1.7: Graph RAG + CRM Intelligence](#phase-17-graph-rag--crm-intelligence-2025-advanced) 🔗 **NEW**
+7. [Phase 2: Smart Scheduling](#phase-2-smart-scheduling)
+8. [Phase 3: Relationship Intelligence](#phase-3-relationship-intelligence) → Merged into P1.7
+9. [Recommended Libraries](#recommended-libraries)
+10. [Architecture Patterns](#architecture-patterns)
+11. [Security & Multi-Tenancy](#security--multi-tenancy)
+12. [Performance Optimization](#performance-optimization)
+13. [Testing Strategy](#testing-strategy)
 
 ---
 
@@ -1120,6 +1126,1118 @@ AI_MAX_VISUALIZATION_SIZE_KB=500
 
 ---
 
+## Phase 1.6: Unified Knowledge Agent (2025 Best Practices)
+
+> 🧠 **NEW FEATURE** - Transform the Knowledge Agent into a unified search hub with memory-first RAG, multi-source retrieval, and 2025 advanced techniques.
+
+### 2025 RAG Research & Best Practices
+
+Based on latest research (December 2025):
+
+| Technique | Description | Source |
+|-----------|-------------|--------|
+| **A-MEM (Agentic Memory)** | Zettelkasten-style interconnected knowledge networks | [arXiv:2502.12110](https://arxiv.org/abs/2502.12110) |
+| **Self-RAG** | Self-reflective retrieval - agent decides when to retrieve vs use memory | [2025 RAG Guide](https://www.edenai.co/post/the-2025-guide-to-retrieval-augmented-generation-rag) |
+| **Chain-of-Retrieval** | Multi-hop reasoning for complex queries | [RAG Best Practices](https://arxiv.org/abs/2501.07391) |
+| **Memory + RAG Fusion** | Inject user memory context before RAG search | Our Mem0 implementation |
+| **Hybrid Search** | Vector similarity + keyword/lexical search combined | Already in HybridRetriever |
+| **Re-ranking** | LLM-based re-ranking for better relevance | Already in HybridRetriever |
+
+### Current State vs Target
+
+| Aspect | Current Knowledge Agent | Target Unified Agent |
+|--------|------------------------|---------------------|
+| **Sources** | Emails only | Emails + Memories + Deadlines + Follow-ups + Action Items |
+| **Memory** | None | Memory-first (search user context before data) |
+| **Search** | Basic keyword | Hybrid (vector + keyword) with re-ranking |
+| **Multi-hop** | No | Yes (chain queries for complex questions) |
+| **Self-reflection** | No | Yes (decide when to retrieve vs answer from memory) |
+
+### Architecture: Memory-First Unified RAG
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    UNIFIED KNOWLEDGE AGENT (P1.6)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   User Query: "What did John say about the deadline?"                       │
+│        │                                                                     │
+│        ▼                                                                     │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │  Step 1: MEMORY-FIRST (Personal Context)                           │   │
+│   │  ┌─────────────────┐    ┌─────────────────┐                        │   │
+│   │  │ LongTermMemory  │    │ Mem0Enhanced    │                        │   │
+│   │  │ - User facts    │    │ - Preferences   │                        │   │
+│   │  │ - Relationships │    │ - History       │                        │   │
+│   │  └─────────────────┘    └─────────────────┘                        │   │
+│   │  → "User knows John Smith (project manager, prefers email)"        │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│        │                                                                     │
+│        ▼                                                                     │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │  Step 2: SELF-REFLECTION (Decide what to search)                   │   │
+│   │  Query Analysis → "Need to search: emails, deadlines"              │   │
+│   │  Skip: action items (not relevant), follow-ups (not relevant)      │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│        │                                                                     │
+│        ▼                                                                     │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │  Step 3: MULTI-SOURCE RETRIEVAL (Parallel)                         │   │
+│   │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐           │   │
+│   │  │  Emails  │  │Deadlines │  │Follow-ups│  │ Actions  │           │   │
+│   │  │ (Hybrid) │  │(Prisma)  │  │(Prisma)  │  │(Prisma)  │           │   │
+│   │  └──────────┘  └──────────┘  └──────────┘  └──────────┘           │   │
+│   │  Vector+Keyword  Direct query  Direct query  Direct query          │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│        │                                                                     │
+│        ▼                                                                     │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │  Step 4: FUSION & RE-RANKING                                       │   │
+│   │  - Merge results from all sources                                  │   │
+│   │  - Apply memory context boost (John-related items +20%)            │   │
+│   │  - LLM re-rank for relevance                                       │   │
+│   │  - Return top 5 with source attribution                            │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│        │                                                                     │
+│        ▼                                                                     │
+│   Response: "Based on emails from John Smith, the project deadline is..."   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Implementation
+
+```typescript
+// backend/src/modules/ai/voltagent/agents/unified-knowledge.agent.ts
+
+import { Agent, createTool, type BaseRetriever } from '@voltagent/core';
+import { LongTermMemoryService } from '../../memory/long-term-memory.service';
+import { Mem0EnhancedMemoryService } from '../../memory/mem0-enhanced-memory.service';
+import { DeadlineExtractorService } from '../../services/deadline-extractor.service';
+import { FollowUpService } from '../../services/follow-up.service';
+import { ActionItemService } from '../../services/action-item.service';
+import { HybridRetriever } from '../rag/hybrid-retriever';
+
+export interface UnifiedKnowledgeAgentOptions {
+  model: LanguageModel;
+  prisma: PrismaService;
+  locale: SupportedLocale;
+  tenantId: string;
+  userId: string;
+  // Memory services
+  longTermMemory: LongTermMemoryService;
+  mem0Memory?: Mem0EnhancedMemoryService;
+  // Data services
+  deadlineService: DeadlineExtractorService;
+  followUpService: FollowUpService;
+  actionItemService: ActionItemService;
+  // RAG
+  mistralService: MistralService;
+  embeddingsService: EmbeddingsService;
+}
+
+/**
+ * Unified Knowledge Agent with Memory-First RAG (2025 Best Practices)
+ *
+ * Search flow:
+ * 1. Memory-first: Search user's long-term memory for context
+ * 2. Self-reflection: Analyze query to determine which sources to search
+ * 3. Multi-source retrieval: Parallel search across emails, deadlines, follow-ups, actions
+ * 4. Fusion & re-ranking: Merge results, apply memory boost, re-rank
+ */
+export function createUnifiedKnowledgeAgent(options: UnifiedKnowledgeAgentOptions): Agent {
+  const {
+    model, prisma, locale, tenantId, userId,
+    longTermMemory, mem0Memory,
+    deadlineService, followUpService, actionItemService,
+    mistralService, embeddingsService
+  } = options;
+
+  // Create unified retriever that searches all sources
+  const retriever = new UnifiedRetriever({
+    tenantId,
+    userId,
+    locale,
+    prisma,
+    longTermMemory,
+    mem0Memory,
+    deadlineService,
+    followUpService,
+    actionItemService,
+    mistralService,
+    embeddingsService,
+  });
+
+  return new Agent({
+    name: 'UnifiedKnowledgeAgent',
+    purpose: 'Search and retrieve information from all knowledge sources with memory context',
+    model,
+    instructions: getUnifiedAgentInstructions(locale),
+    tools: createUnifiedKnowledgeTools(options),
+    retriever,
+    maxSteps: 5, // Allow multi-hop queries
+  });
+}
+
+/**
+ * Create tools for unified knowledge search
+ */
+function createUnifiedKnowledgeTools(options: UnifiedKnowledgeAgentOptions) {
+  const { prisma, tenantId, userId, locale, deadlineService, followUpService, actionItemService } = options;
+  const t = getToolTranslations(locale);
+
+  return [
+    // Unified search across all sources
+    createTool({
+      name: 'unified_search',
+      description: 'Search across all knowledge sources: emails, memories, deadlines, follow-ups, action items',
+      parameters: z.object({
+        query: z.string().describe('Search query'),
+        sources: z.array(z.enum(['emails', 'memories', 'deadlines', 'followups', 'actions']))
+          .optional()
+          .describe('Sources to search (default: all)'),
+        limit: z.number().optional().describe('Maximum results per source (default: 5)'),
+      }),
+      execute: async ({ query, sources, limit }) => {
+        // Implementation searches all specified sources in parallel
+        // Returns unified results with source attribution
+      },
+    }),
+
+    // Get upcoming deadlines
+    createTool({
+      name: 'get_deadlines',
+      description: 'Get upcoming deadlines',
+      parameters: z.object({
+        days: z.number().optional().describe('Days ahead to look (default: 7)'),
+      }),
+      execute: async ({ days }) => {
+        return deadlineService.getUpcoming(tenantId, userId, days ?? 7);
+      },
+    }),
+
+    // Get pending follow-ups
+    createTool({
+      name: 'get_followups',
+      description: 'Get pending follow-ups',
+      parameters: z.object({
+        status: z.enum(['pending', 'overdue', 'all']).optional(),
+      }),
+      execute: async ({ status }) => {
+        return followUpService.getPending(tenantId, userId, status);
+      },
+    }),
+
+    // Get action items
+    createTool({
+      name: 'get_action_items',
+      description: 'Get action items and tasks',
+      parameters: z.object({
+        status: z.enum(['todo', 'in_progress', 'done', 'all']).optional(),
+        priority: z.enum(['high', 'medium', 'low']).optional(),
+      }),
+      execute: async ({ status, priority }) => {
+        return actionItemService.getItems(tenantId, userId, { status, priority });
+      },
+    }),
+
+    // Remember something (store in memory)
+    createTool({
+      name: 'remember',
+      description: 'Store information in long-term memory for future reference',
+      parameters: z.object({
+        content: z.string().describe('What to remember'),
+        category: z.enum(['preference', 'fact', 'contact', 'project']).optional(),
+      }),
+      execute: async ({ content, category }) => {
+        await options.longTermMemory.addMemory(tenantId, userId, content, category);
+        return { success: true, message: t.knowledge.remembered };
+      },
+    }),
+  ];
+}
+```
+
+### UnifiedRetriever: Memory-First RAG
+
+```typescript
+// backend/src/modules/ai/voltagent/rag/unified-retriever.ts
+
+/**
+ * Unified Retriever with Memory-First RAG (2025 Best Practices)
+ *
+ * Implements:
+ * - Memory-First: Personal context before data search
+ * - Self-Reflection: Determines which sources to query
+ * - Multi-Source: Parallel retrieval from all knowledge sources
+ * - Fusion: Merge and re-rank across sources
+ */
+export class UnifiedRetriever extends BaseRetriever {
+  async retrieve(input: string | BaseMessage[]): Promise<string> {
+    const query = this.extractQuery(input);
+    if (!query) return '';
+
+    // Step 1: Memory-First - Get user context
+    const memoryContext = await this.getMemoryContext(query);
+
+    // Step 2: Self-Reflection - Determine sources to search
+    const sourcesToSearch = await this.analyzeQuerySources(query, memoryContext);
+
+    // Step 3: Multi-Source Retrieval (parallel)
+    const results = await this.searchSources(query, sourcesToSearch);
+
+    // Step 4: Fusion & Re-ranking
+    const rankedResults = await this.fuseAndRerank(query, results, memoryContext);
+
+    // Format for LLM
+    return this.formatContext(rankedResults, memoryContext);
+  }
+
+  /**
+   * Memory-First: Get user's personal context
+   */
+  private async getMemoryContext(query: string): Promise<MemoryContext> {
+    const [longTermMemories, mem0Memories] = await Promise.all([
+      this.longTermMemory.searchMemories(this.tenantId, this.userId, query, 5),
+      this.mem0Memory?.search(this.tenantId, this.userId, query, 5) ?? [],
+    ]);
+
+    return {
+      facts: longTermMemories.filter(m => m.category === 'FACT'),
+      preferences: longTermMemories.filter(m => m.category === 'PREFERENCE'),
+      contacts: longTermMemories.filter(m => m.category === 'CONTACT'),
+      history: mem0Memories,
+    };
+  }
+
+  /**
+   * Self-Reflection: Analyze query to determine which sources to search
+   */
+  private async analyzeQuerySources(query: string, context: MemoryContext): Promise<SearchSource[]> {
+    // Simple heuristic-based source selection (can be LLM-enhanced)
+    const sources: SearchSource[] = [];
+    const lowerQuery = query.toLowerCase();
+
+    // Always search emails (primary source)
+    sources.push('emails');
+
+    // Deadline-related queries
+    if (/deadline|due|when|by when|urgent/.test(lowerQuery)) {
+      sources.push('deadlines');
+    }
+
+    // Follow-up related queries
+    if (/follow.?up|waiting|response|reply|pending/.test(lowerQuery)) {
+      sources.push('followups');
+    }
+
+    // Action item related queries
+    if (/task|action|todo|need to|should|must/.test(lowerQuery)) {
+      sources.push('actions');
+    }
+
+    // If context mentions a known contact, prioritize email search
+    if (context.contacts.length > 0) {
+      sources.push('contacts');
+    }
+
+    return sources;
+  }
+
+  /**
+   * Multi-Source Retrieval: Search all relevant sources in parallel
+   */
+  private async searchSources(
+    query: string,
+    sources: SearchSource[]
+  ): Promise<MultiSourceResults> {
+    const searchPromises: Promise<any>[] = [];
+
+    if (sources.includes('emails')) {
+      searchPromises.push(this.searchEmails(query));
+    }
+    if (sources.includes('deadlines')) {
+      searchPromises.push(this.searchDeadlines(query));
+    }
+    if (sources.includes('followups')) {
+      searchPromises.push(this.searchFollowUps(query));
+    }
+    if (sources.includes('actions')) {
+      searchPromises.push(this.searchActionItems(query));
+    }
+
+    const results = await Promise.all(searchPromises);
+    return this.mergeSourceResults(sources, results);
+  }
+
+  /**
+   * Fusion & Re-ranking: Combine results and re-rank with memory boost
+   */
+  private async fuseAndRerank(
+    query: string,
+    results: MultiSourceResults,
+    memoryContext: MemoryContext
+  ): Promise<RankedResult[]> {
+    // Flatten all results
+    const allResults = this.flattenResults(results);
+
+    // Apply memory context boost
+    // Items related to known contacts get +20% score
+    for (const result of allResults) {
+      const contactMatch = memoryContext.contacts.find(c =>
+        result.content.toLowerCase().includes(c.content.toLowerCase())
+      );
+      if (contactMatch) {
+        result.score *= 1.2; // 20% boost for memory-related items
+      }
+    }
+
+    // Re-rank using embeddings
+    const reranked = await this.rerankWithEmbeddings(query, allResults);
+
+    return reranked.slice(0, this.finalLimit);
+  }
+}
+```
+
+### Key Features
+
+| Feature | Description | Benefit |
+|---------|-------------|---------|
+| **Memory-First** | Search user memories before data | Personal context improves relevance |
+| **Self-Reflection** | Query analysis determines sources | Efficient (skip irrelevant sources) |
+| **Multi-Source** | Parallel search across all data | Comprehensive results |
+| **Memory Boost** | Items matching known contacts boosted | Personalized ranking |
+| **Source Attribution** | Results tagged with source | User knows where info came from |
+
+### API Endpoints
+
+```typescript
+// Add to VoltAgentController
+
+@Post('knowledge/search')
+@UseGuards(AuthGuard)
+async unifiedSearch(
+  @Req() req: AuthenticatedRequest,
+  @Body() body: { query: string; sources?: string[] },
+): Promise<UnifiedSearchResponse> {
+  return this.knowledgeService.unifiedSearch(
+    req.user.tenantId,
+    req.user.id,
+    body.query,
+    body.sources,
+  );
+}
+
+@Post('knowledge/remember')
+@UseGuards(AuthGuard)
+async remember(
+  @Req() req: AuthenticatedRequest,
+  @Body() body: { content: string; category?: string },
+): Promise<{ success: boolean }> {
+  return this.knowledgeService.remember(
+    req.user.tenantId,
+    req.user.id,
+    body.content,
+    body.category,
+  );
+}
+```
+
+### Environment Variables
+
+```env
+# Unified Knowledge Agent
+UNIFIED_KNOWLEDGE_ENABLED=true
+UNIFIED_KNOWLEDGE_MEMORY_BOOST=0.2      # 20% boost for memory-related items
+UNIFIED_KNOWLEDGE_MAX_SOURCES=5         # Max results per source
+UNIFIED_KNOWLEDGE_SELF_REFLECT=true     # Enable self-reflection for source selection
+```
+
+### P1.6 Sources
+
+- [A-MEM: Agentic Memory for LLMs](https://arxiv.org/abs/2502.12110) - Zettelkasten-style knowledge networks
+- [2025 RAG Guide](https://www.edenai.co/post/the-2025-guide-to-retrieval-augmented-generation-rag) - Self-RAG, Chain-of-Retrieval
+- [RAG Best Practices 2025](https://arxiv.org/abs/2501.07391) - Multi-hop reasoning
+- [Microsoft RAG Techniques](https://www.microsoft.com/en-us/microsoft-cloud/blog/2025/02/04/common-retrieval-augmented-generation-rag-techniques-explained/)
+
+---
+
+## Phase 1.7: Graph RAG + CRM Intelligence (2025 Advanced)
+
+> 🔗 **BREAKTHROUGH FEATURE** - Transform the knowledge base into a full CRM with Graph RAG on PostgreSQL. Embed contacts, calendar events, and build relationship intelligence using Apache AGE.
+
+### Why Graph RAG for CRM?
+
+Traditional vector RAG finds **similar** content but misses **relationships**. Graph RAG enables:
+
+| Capability | Vector RAG | Graph RAG |
+|------------|-----------|-----------|
+| "Find emails about Project X" | ✅ Good | ✅ Good |
+| "Who works with John on Project X?" | ❌ Poor | ✅ Excellent |
+| "Show me the communication chain for this deal" | ❌ Impossible | ✅ Native |
+| "Which contacts haven't I emailed in 30 days?" | ❌ Impossible | ✅ Native |
+| "What's the relationship between Company A and Contact B?" | ❌ Impossible | ✅ Native |
+
+### 2025 Research: HybridRAG Architecture
+
+Based on [HybridRAG research](https://memgraph.com/blog/why-hybridrag) and [Microsoft GraphRAG](https://techcommunity.microsoft.com/blog/adforpostgresql/introducing-the-graphrag-solution-for-azure-database-for-postgresql/4299871):
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    HYBRID RAG: VECTOR + GRAPH (P1.7)                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   Query: "What's my relationship history with Acme Corp?"                   │
+│        │                                                                     │
+│        ▼                                                                     │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │  QUERY ROUTER (Self-Reflection)                                    │   │
+│   │  Analyze → "Relationship query" → Route to GRAPH                   │   │
+│   │  (vs "Find similar emails" → Route to VECTOR)                      │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│        │                                                                     │
+│        ├─────────────────────┬─────────────────────┐                        │
+│        ▼                     ▼                     ▼                        │
+│   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                 │
+│   │ VECTOR SEARCH│    │ GRAPH QUERY  │    │ STRUCTURED   │                 │
+│   │ (pgvector)   │    │ (Apache AGE) │    │ (Prisma)     │                 │
+│   │              │    │              │    │              │                 │
+│   │ Semantic     │    │ Cypher:      │    │ SQL:         │                 │
+│   │ similarity   │    │ MATCH paths, │    │ Counts,      │                 │
+│   │ on emails    │    │ relationships│    │ aggregates   │                 │
+│   └──────────────┘    └──────────────┘    └──────────────┘                 │
+│        │                     │                     │                        │
+│        └─────────────────────┴─────────────────────┘                        │
+│                              │                                               │
+│                              ▼                                               │
+│   ┌────────────────────────────────────────────────────────────────────┐   │
+│   │  FUSION LAYER                                                       │   │
+│   │  - Merge vector results + graph traversal + structured data        │   │
+│   │  - Apply memory context boost                                       │   │
+│   │  - Re-rank by relevance + relationship strength                    │   │
+│   └────────────────────────────────────────────────────────────────────┘   │
+│        │                                                                     │
+│        ▼                                                                     │
+│   Response: "You have 47 emails with Acme Corp across 3 contacts:          │
+│   John (PM, 32 emails), Sarah (Legal, 10 emails), Mike (Sales, 5 emails).  │
+│   Last contact: 3 days ago. Relationship strength: Strong."                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Apache AGE: Graph Extension for PostgreSQL
+
+**Why Apache AGE?** (vs Neo4j, TigerGraph)
+
+| Feature | Apache AGE | Neo4j | TigerGraph |
+|---------|-----------|-------|------------|
+| **Infrastructure** | Same PostgreSQL! | Separate server | Separate server |
+| **Query Language** | OpenCypher + SQL | Cypher only | GSQL |
+| **Vector Search** | pgvector (same DB) | Separate | Separate |
+| **Transactions** | PostgreSQL ACID | Native | Native |
+| **Cost** | Free (extension) | Enterprise $$ | Enterprise $$ |
+| **Node.js Client** | [apache-age-client](https://github.com/clayrisser/node-apache-age-client) | neo4j-driver | pyTigerGraph |
+
+**Installation:**
+
+```bash
+# Install Apache AGE extension (Docker or manual)
+# In PostgreSQL:
+CREATE EXTENSION age;
+LOAD 'age';
+SET search_path = ag_catalog, "$user", public;
+
+# Create graph
+SELECT create_graph('mailgraph');
+```
+
+**Node.js Client:**
+
+```bash
+npm install apache-age-client
+```
+
+```typescript
+import ApacheAgeClient from 'apache-age-client';
+
+const graph = ApacheAgeClient.connect({
+  database: process.env.DB_NAME,
+  graph: 'mailgraph',
+  host: process.env.DB_HOST,
+  password: process.env.DB_PASSWORD,
+  port: 5432,
+  user: process.env.DB_USER,
+});
+
+// Cypher query for relationship
+const result = await graph.executeCypher(`
+  MATCH (c:Contact {email: 'john@acme.com'})-[r:EMAILED]->(e:Email)
+  RETURN c, r, e
+  ORDER BY e.receivedAt DESC
+  LIMIT 10
+`);
+```
+
+### Knowledge Graph Schema
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         MAILGRAPH KNOWLEDGE GRAPH                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌─────────────┐         EMAILED          ┌─────────────┐                  │
+│   │   CONTACT   │◄────────────────────────►│    EMAIL    │                  │
+│   │             │         RECEIVED         │             │                  │
+│   │ • email     │◄────────────────────────►│ • id        │                  │
+│   │ • name      │         CC_ON            │ • subject   │                  │
+│   │ • company   │◄────────────────────────►│ • date      │                  │
+│   │ • role      │                          │ • folder    │                  │
+│   │ • embedding │                          │ • embedding │                  │
+│   └─────────────┘                          └─────────────┘                  │
+│         │                                         │                          │
+│         │ WORKS_AT                               │ HAS_DEADLINE              │
+│         ▼                                         ▼                          │
+│   ┌─────────────┐                          ┌─────────────┐                  │
+│   │   COMPANY   │                          │  DEADLINE   │                  │
+│   │             │                          │             │                  │
+│   │ • name      │                          │ • title     │                  │
+│   │ • domain    │                          │ • date      │                  │
+│   │ • industry  │                          │ • priority  │                  │
+│   │ • embedding │                          └─────────────┘                  │
+│   └─────────────┘                                                            │
+│         │                                                                    │
+│         │ ATTENDED                                                           │
+│         ▼                                                                    │
+│   ┌─────────────┐         SCHEDULED_WITH   ┌─────────────┐                  │
+│   │   MEETING   │◄────────────────────────►│   CONTACT   │                  │
+│   │             │                          │             │                  │
+│   │ • title     │         ABOUT_PROJECT    └─────────────┘                  │
+│   │ • date      │◄────────────────────────►┌─────────────┐                  │
+│   │ • duration  │                          │   PROJECT   │                  │
+│   │ • embedding │                          │             │                  │
+│   └─────────────┘                          │ • name      │                  │
+│                                            │ • status    │                  │
+│   ┌─────────────┐                          └─────────────┘                  │
+│   │  FOLLOW_UP  │                                                            │
+│   │             │────────── REGARDING ──────────►│EMAIL│                    │
+│   │ • status    │                                                            │
+│   │ • dueDate   │────────── ASSIGNED_TO ────────►│CONTACT│                  │
+│   └─────────────┘                                                            │
+│                                                                              │
+│   ┌─────────────┐                                                            │
+│   │ ACTION_ITEM │                                                            │
+│   │             │────────── FROM_EMAIL ─────────►│EMAIL│                    │
+│   │ • title     │                                                            │
+│   │ • status    │────────── ASSIGNED_TO ────────►│CONTACT│                  │
+│   │ • priority  │                                                            │
+│   └─────────────┘                                                            │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+EDGES (Relationships):
+• EMAILED: Contact → Email (sent)
+• RECEIVED: Contact ← Email (received)
+• CC_ON: Contact ← Email (cc'd)
+• WORKS_AT: Contact → Company
+• ATTENDED: Contact → Meeting
+• SCHEDULED_WITH: Meeting → Contact (attendees)
+• ABOUT_PROJECT: Meeting/Email → Project
+• HAS_DEADLINE: Email → Deadline
+• REGARDING: FollowUp → Email
+• FROM_EMAIL: ActionItem → Email
+• ASSIGNED_TO: ActionItem/FollowUp → Contact
+```
+
+### CRM Features Enabled by Graph RAG
+
+| Feature | Graph Query | Use Case |
+|---------|-------------|----------|
+| **Relationship Strength** | Count edges between Contact ↔ User | "How close am I to John?" |
+| **Communication Frequency** | Edge timestamps | "When did I last email Sarah?" |
+| **Network Analysis** | 2-hop traversal | "Who introduced me to Company X?" |
+| **Reconnection Alerts** | Edges older than N days | "You haven't contacted John in 30 days" |
+| **Deal Tracking** | Project → Email → Contact path | "All communications about Project X" |
+| **Meeting Prep** | Contact → Company → Past Meetings | "Brief me on Acme Corp before meeting" |
+| **VIP Detection** | Edge count + recency scoring | Auto-identify important contacts |
+
+### Embedding All Entities
+
+Embed contacts, companies, meetings, and calendar events for semantic search:
+
+```typescript
+// backend/src/modules/ai/graph/entity-embedder.service.ts
+
+@Injectable()
+export class EntityEmbedderService {
+  constructor(
+    private readonly mistral: MistralService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  /**
+   * Generate embedding for a contact (for semantic search)
+   */
+  async embedContact(contact: Contact): Promise<number[]> {
+    const text = [
+      contact.name,
+      contact.email,
+      contact.company,
+      contact.role,
+      contact.notes,
+    ].filter(Boolean).join(' | ');
+
+    return this.mistral.generateEmbedding(text);
+  }
+
+  /**
+   * Generate embedding for a calendar event
+   */
+  async embedCalendarEvent(event: CalendarEvent): Promise<number[]> {
+    const attendees = event.attendees?.map(a => a.email).join(', ') || '';
+    const text = [
+      event.title,
+      event.description,
+      `Attendees: ${attendees}`,
+      event.location,
+    ].filter(Boolean).join(' | ');
+
+    return this.mistral.generateEmbedding(text);
+  }
+
+  /**
+   * Generate embedding for a company (inferred from contacts)
+   */
+  async embedCompany(company: string, contacts: Contact[]): Promise<number[]> {
+    const roles = contacts.map(c => c.role).filter(Boolean).join(', ');
+    const text = `Company: ${company} | Contacts: ${contacts.length} | Roles: ${roles}`;
+
+    return this.mistral.generateEmbedding(text);
+  }
+}
+```
+
+### Graph RAG Service Implementation
+
+```typescript
+// backend/src/modules/ai/graph/graph-rag.service.ts
+
+import ApacheAgeClient from 'apache-age-client';
+
+@Injectable()
+export class GraphRagService {
+  private graph: ApacheAgeClient;
+
+  async onModuleInit() {
+    this.graph = ApacheAgeClient.connect({
+      database: this.config.get('DB_NAME'),
+      graph: 'mailgraph',
+      host: this.config.get('DB_HOST'),
+      password: this.config.get('DB_PASSWORD'),
+      port: this.config.get('DB_PORT'),
+      user: this.config.get('DB_USER'),
+    });
+  }
+
+  /**
+   * Hybrid search: Vector (semantic) + Graph (relationships)
+   */
+  async hybridSearch(
+    tenantId: string,
+    query: string,
+    options: { includeGraph?: boolean; maxHops?: number } = {},
+  ): Promise<HybridSearchResult> {
+    // 1. Vector search (pgvector)
+    const vectorResults = await this.vectorSearch(tenantId, query);
+
+    // 2. Graph traversal if relationship query detected
+    let graphResults: GraphResult[] = [];
+    if (options.includeGraph && this.isRelationshipQuery(query)) {
+      graphResults = await this.graphTraversal(tenantId, query, options.maxHops || 2);
+    }
+
+    // 3. Fuse results
+    return this.fuseResults(vectorResults, graphResults);
+  }
+
+  /**
+   * Get relationship insights for a contact
+   */
+  async getContactRelationships(
+    tenantId: string,
+    contactEmail: string,
+  ): Promise<ContactRelationships> {
+    const result = await this.graph.executeCypher(`
+      MATCH (c:Contact {email: $email, tenantId: $tenantId})
+      OPTIONAL MATCH (c)-[sent:EMAILED]->(e:Email)
+      OPTIONAL MATCH (c)<-[received:RECEIVED]-(e2:Email)
+      OPTIONAL MATCH (c)-[:WORKS_AT]->(company:Company)
+      OPTIONAL MATCH (c)-[:ATTENDED]->(meeting:Meeting)
+      RETURN c,
+             count(DISTINCT sent) as emailsSent,
+             count(DISTINCT received) as emailsReceived,
+             company,
+             count(DISTINCT meeting) as meetingsAttended,
+             max(e.receivedAt) as lastSent,
+             max(e2.receivedAt) as lastReceived
+    `, { email: contactEmail, tenantId });
+
+    return this.formatContactRelationships(result);
+  }
+
+  /**
+   * Get communication chain for a project/topic
+   */
+  async getCommunicationChain(
+    tenantId: string,
+    topic: string,
+  ): Promise<CommunicationChain> {
+    const result = await this.graph.executeCypher(`
+      MATCH path = (c:Contact)-[:EMAILED|RECEIVED*1..3]-(e:Email)
+      WHERE e.tenantId = $tenantId
+        AND (e.subject CONTAINS $topic OR e.body CONTAINS $topic)
+      RETURN path, c, e
+      ORDER BY e.receivedAt DESC
+      LIMIT 50
+    `, { tenantId, topic });
+
+    return this.formatCommunicationChain(result);
+  }
+
+  /**
+   * Find reconnection opportunities
+   */
+  async getReconnectionSuggestions(
+    tenantId: string,
+    daysThreshold: number = 30,
+  ): Promise<ReconnectionSuggestion[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysThreshold);
+
+    const result = await this.graph.executeCypher(`
+      MATCH (c:Contact {tenantId: $tenantId})-[r:EMAILED|RECEIVED]-(e:Email)
+      WITH c, max(e.receivedAt) as lastContact, count(r) as totalEmails
+      WHERE lastContact < $cutoffDate
+      RETURN c.email, c.name, c.company, lastContact, totalEmails
+      ORDER BY totalEmails DESC
+      LIMIT 10
+    `, { tenantId, cutoffDate: cutoffDate.toISOString() });
+
+    return result.map(r => ({
+      contact: { email: r.email, name: r.name, company: r.company },
+      lastContact: new Date(r.lastContact),
+      totalEmails: r.totalEmails,
+      daysSinceContact: Math.floor((Date.now() - new Date(r.lastContact).getTime()) / (1000 * 60 * 60 * 24)),
+      suggestion: `Reconnect with ${r.name} - ${r.totalEmails} past emails, no contact in ${daysThreshold}+ days`,
+    }));
+  }
+
+  /**
+   * Detect if query is relationship-based (route to graph)
+   */
+  private isRelationshipQuery(query: string): boolean {
+    const relationshipPatterns = [
+      /who.*work.*with/i,
+      /relationship.*with/i,
+      /connection.*to/i,
+      /introduced.*by/i,
+      /communication.*chain/i,
+      /history.*with/i,
+      /last.*contact/i,
+      /how.*know/i,
+    ];
+    return relationshipPatterns.some(p => p.test(query));
+  }
+}
+```
+
+### CRM Dashboard Queries
+
+```typescript
+// Example CRM queries using Graph RAG
+
+// 1. Contact Overview
+const contactOverview = await graphRag.executeCypher(`
+  MATCH (c:Contact {tenantId: $tenantId})
+  OPTIONAL MATCH (c)-[r]-(e:Email)
+  WITH c, count(r) as interactions, max(e.receivedAt) as lastContact
+  RETURN c.name, c.email, c.company, interactions, lastContact
+  ORDER BY interactions DESC
+  LIMIT 20
+`);
+
+// 2. Company Relationship Map
+const companyMap = await graphRag.executeCypher(`
+  MATCH (c:Contact {tenantId: $tenantId})-[:WORKS_AT]->(company:Company)
+  WITH company, collect(c) as contacts, count(c) as contactCount
+  MATCH (contacts)-[r:EMAILED|RECEIVED]-(e:Email)
+  RETURN company.name, contactCount, count(r) as totalEmails
+  ORDER BY totalEmails DESC
+`);
+
+// 3. Meeting Network
+const meetingNetwork = await graphRag.executeCypher(`
+  MATCH (m:Meeting {tenantId: $tenantId})-[:SCHEDULED_WITH]->(c:Contact)
+  WHERE m.startTime > datetime()
+  RETURN m.title, m.startTime, collect(c.name) as attendees
+  ORDER BY m.startTime
+`);
+
+// 4. VIP Contacts (auto-detected)
+const vipContacts = await graphRag.executeCypher(`
+  MATCH (c:Contact {tenantId: $tenantId})-[r:EMAILED|RECEIVED]-(e:Email)
+  WITH c, count(r) as emailCount,
+       max(e.receivedAt) as lastContact,
+       avg(CASE WHEN e.isRead THEN 1 ELSE 0 END) as readRate
+  WHERE emailCount > 10
+  RETURN c.name, c.email, c.company, emailCount, lastContact,
+         CASE
+           WHEN emailCount > 50 AND readRate > 0.9 THEN 'VIP'
+           WHEN emailCount > 20 THEN 'Important'
+           ELSE 'Regular'
+         END as tier
+  ORDER BY emailCount DESC
+`);
+```
+
+### Updated Implementation Priority
+
+| Priority | Feature | Library/Tool | Effort | Impact | Status |
+|----------|---------|--------------|--------|--------|--------|
+| **P1.6** | **Unified Knowledge Agent** | **Memory + RAG** | **2 days** | **High** | |
+| **P1.7** | **Graph RAG + CRM** | **Apache AGE + pgvector** | **3 days** | **Critical** | |
+
+### P1.7 Environment Variables
+
+```env
+# Graph RAG Configuration
+GRAPH_RAG_ENABLED=true
+GRAPH_NAME=mailgraph
+GRAPH_MAX_HOPS=3                    # Max relationship hops
+GRAPH_ENTITY_EMBEDDING=true          # Embed contacts, companies, meetings
+GRAPH_RELATIONSHIP_SCORING=true      # Calculate relationship strength
+GRAPH_RECONNECTION_DAYS=30          # Days threshold for reconnection alerts
+```
+
+### P1.7 Infrastructure: Apache AGE Setup
+
+**Option 1: Docker (Recommended)**
+
+Update `docker-compose.yml` to use Apache AGE image:
+
+```yaml
+# docker-compose.yml
+services:
+  postgres:
+    image: apache/age:PG16_latest  # Instead of standard postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: mailagent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-age.sql:/docker-entrypoint-initdb.d/init-age.sql
+```
+
+**Init Script (`init-age.sql`):**
+
+```sql
+-- Enable Apache AGE extension
+CREATE EXTENSION IF NOT EXISTS age;
+LOAD 'age';
+
+-- Enable pgvector (for hybrid RAG)
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Set search path for AGE
+SET search_path = ag_catalog, "$user", public;
+
+-- Create the mail knowledge graph
+SELECT create_graph('mailgraph');
+```
+
+**Option 2: Add to existing PostgreSQL**
+
+```bash
+# Install Apache AGE from source
+git clone https://github.com/apache/age.git
+cd age
+make install
+
+# Or use pgxn
+pgxn install apache-age
+```
+
+### P1.7 Database Migration
+
+No Prisma schema changes needed for the graph itself (Apache AGE stores graph data in its own tables). However, add embedding columns for entities:
+
+```prisma
+// schema.prisma additions for P1.7
+
+model Contact {
+  // ... existing fields ...
+
+  // Graph RAG embeddings
+  embedding     Unsupported("vector(1024)")?  // Mistral embedding
+  embeddedAt    DateTime?
+
+  // Relationship metadata (cached from graph)
+  emailCount    Int       @default(0)
+  lastContact   DateTime?
+  tier          String?   // 'VIP', 'Important', 'Regular'
+}
+
+model CalendarEvent {
+  // ... existing fields ...
+
+  // Graph RAG embeddings
+  embedding     Unsupported("vector(1024)")?
+  embeddedAt    DateTime?
+}
+
+model Company {
+  id            String    @id @default(cuid())
+  tenantId      String
+  name          String
+  domain        String?
+  industry      String?
+
+  // Graph RAG embeddings
+  embedding     Unsupported("vector(1024)")?
+  embeddedAt    DateTime?
+
+  // Relationship metadata
+  contactCount  Int       @default(0)
+  emailCount    Int       @default(0)
+  lastContact   DateTime?
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+```
+
+### P1.7 Graph Population Job
+
+BullMQ job to populate graph from existing data:
+
+```typescript
+// backend/src/modules/ai/graph/graph-population.job.ts
+
+@Processor('graph-population')
+export class GraphPopulationProcessor {
+  @Process('populate-graph')
+  async populateGraph(job: Job<{ tenantId: string }>) {
+    const { tenantId } = job.data;
+
+    // 1. Create Contact nodes from emails
+    const contacts = await this.extractContactsFromEmails(tenantId);
+    for (const contact of contacts) {
+      await this.graph.executeCypher(`
+        MERGE (c:Contact {email: $email, tenantId: $tenantId})
+        SET c.name = $name, c.company = $company
+      `, contact);
+    }
+
+    // 2. Create Email nodes
+    const emails = await this.prisma.email.findMany({
+      where: { tenantId, folder: EXCLUDE_JUNK_FOLDERS },
+      select: { id: true, subject: true, from: true, to: true, receivedAt: true }
+    });
+
+    for (const email of emails) {
+      await this.graph.executeCypher(`
+        MERGE (e:Email {id: $id, tenantId: $tenantId})
+        SET e.subject = $subject, e.receivedAt = $receivedAt
+      `, email);
+
+      // Create EMAILED/RECEIVED edges
+      await this.graph.executeCypher(`
+        MATCH (c:Contact {email: $from, tenantId: $tenantId})
+        MATCH (e:Email {id: $id, tenantId: $tenantId})
+        MERGE (c)-[:EMAILED]->(e)
+      `, { from: email.from, id: email.id, tenantId });
+    }
+
+    // 3. Infer Company nodes from email domains
+    await this.inferCompanies(tenantId);
+
+    // 4. Link Calendar events
+    await this.linkCalendarEvents(tenantId);
+  }
+}
+```
+
+### P1.7 Testing Strategy
+
+```typescript
+// backend/src/modules/ai/graph/__tests__/graph-rag.spec.ts
+
+describe('GraphRagService', () => {
+  describe('Relationship Queries', () => {
+    it('should find contacts by company', async () => {
+      const results = await graphRag.executeCypher(`
+        MATCH (c:Contact {tenantId: $tenantId})-[:WORKS_AT]->(company:Company {name: 'Acme Corp'})
+        RETURN c.email, c.name
+      `, { tenantId: 'test-tenant' });
+
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    it('should calculate relationship strength', async () => {
+      const strength = await graphRag.getRelationshipStrength(
+        'test-tenant',
+        'john@acme.com'
+      );
+
+      expect(strength).toHaveProperty('emailCount');
+      expect(strength).toHaveProperty('tier');
+    });
+
+    it('should detect reconnection opportunities', async () => {
+      const suggestions = await graphRag.getReconnectionSuggestions(
+        'test-tenant',
+        30 // days
+      );
+
+      expect(suggestions).toBeInstanceOf(Array);
+      suggestions.forEach(s => {
+        expect(s.daysSinceContact).toBeGreaterThanOrEqual(30);
+      });
+    });
+  });
+
+  describe('Hybrid Search', () => {
+    it('should combine vector and graph results', async () => {
+      const results = await graphRag.hybridSearch(
+        'test-tenant',
+        'What is my history with Acme Corp?',
+        { includeGraph: true }
+      );
+
+      expect(results.vectorResults).toBeDefined();
+      expect(results.graphResults).toBeDefined();
+      expect(results.fusedResults).toBeDefined();
+    });
+  });
+});
+```
+
+### P1.7 Sources
+
+- [GraphRAG Explained](https://www.puppygraph.com/blog/graph-rag) - Why GraphRAG over Vector RAG
+- [Microsoft GraphRAG for PostgreSQL](https://techcommunity.microsoft.com/blog/adforpostgresql/introducing-the-graphrag-solution-for-azure-database-for-postgresql/4299871) - Azure implementation
+- [Apache AGE](https://age.apache.org/) - Graph extension for PostgreSQL
+- [Apache AGE Node.js Client](https://github.com/clayrisser/node-apache-age-client) - TypeScript client
+- [HybridRAG: Vector + Graph](https://memgraph.com/blog/why-hybridrag) - Combining approaches
+- [LightRAG](https://github.com/HKUDS/LightRAG) - 24K stars, knowledge graph RAG framework
+- [PostgreSQL Graph Database Guide](https://www.puppygraph.com/blog/postgresql-graph-database) - Best practices
+- [Graph RAG Implementation](https://towardsdatascience.com/how-to-implement-graph-rag-using-knowledge-graphs-and-vector-databases-60bb69a22759/) - Step-by-step guide
+
+---
+
 ## Phase 2: Smart Scheduling
 
 ### Key Insights from Research
@@ -1376,7 +2494,7 @@ export class ImportantDateService {
 
 ## Recommended Libraries
 
-### Core Libraries
+### Core Libraries (P0-P1)
 
 | Library | Purpose | npm Package | Weekly Downloads |
 |---------|---------|-------------|------------------|
@@ -1384,6 +2502,23 @@ export class ImportantDateService {
 | **chrono-node** | Date/time parsing | `chrono-node` | 1M+ |
 | **compromise** | NLP text processing | `compromise` | 500K+ |
 | **compromise-dates** | Date extraction | `compromise-dates` | 50K+ |
+
+### P1.6 Libraries (Unified Knowledge Agent)
+
+| Library | Purpose | npm Package | Notes |
+|---------|---------|-------------|-------|
+| **@voltagent/core** | Agent framework | `@voltagent/core` | Already installed |
+| **ai** | Vercel AI SDK | `ai` | Already installed |
+| **zod** | Schema validation | `zod` | Already installed |
+
+> ℹ️ P1.6 uses existing libraries - no new npm packages needed!
+
+### P1.7 Libraries (Graph RAG + CRM)
+
+| Library | Purpose | npm Package | Notes |
+|---------|---------|-------------|-------|
+| **apache-age-client** | Apache AGE Node.js client | `apache-age-client` | **NEW** - Graph queries |
+| **pg** | PostgreSQL client (for AGE) | `pg` | Already installed |
 
 ### Supporting Libraries
 
@@ -1397,12 +2532,27 @@ export class ImportantDateService {
 ### Installation
 
 ```bash
-# Core
+# Core (P0-P1)
 npm install mem0ai chrono-node compromise compromise-dates
+
+# P1.7 Graph RAG
+npm install apache-age-client
 
 # Supporting
 npm install date-fns rrule natural sentiment
 ```
+
+### All npm Packages Summary
+
+| Phase | Packages to Install | Status |
+|-------|---------------------|--------|
+| P0 | `mem0ai` (optional, we use custom) | ✅ Using custom |
+| P0 | `chrono-node` | ✅ Installed |
+| P1 | `compromise`, `compromise-dates` | ✅ Installed |
+| P1.5 | None (uses Mistral API) | ✅ Ready |
+| **P1.6** | **None (uses existing)** | 🆕 Ready |
+| **P1.7** | **`apache-age-client`** | 🆕 To install |
+| P2 | `date-fns`, `rrule` | ⏳ When needed |
 
 ---
 
@@ -1533,10 +2683,12 @@ interface EnhancedDailyBriefing {
 | 🥉 P0 | Follow-up Tracking | Custom + patterns + BullMQ | 2 days | Critical | ✅ DONE |
 | P1 | Action Item Extraction | Mistral + patterns | 2 days | High | ✅ DONE |
 | P1 | Enhanced Daily Briefing | Aggregate services | 1 day | High | ✅ DONE |
-| P1.5 | Analytics & Visualization | Mistral Code Interpreter | 1 day | High | |
+| P1.5 | Analytics & Visualization | Mistral Code Interpreter | 1 day | High | ✅ DONE |
+| **P1.6** | **Unified Knowledge Agent** | **Memory + RAG + Multi-source** | **2 days** | **High** | |
+| **P1.7** | **Graph RAG + CRM Intelligence** | **Apache AGE + pgvector** | **3 days** | **Critical** | |
 | P2 | Conflict Detection | Custom | 2 days | Medium | |
 | P2 | Focus Time Protection | Custom | 1 day | Medium | |
-| P3 | Relationship Tracking | Custom | 2 days | Medium | |
+| P3 | ~~Relationship Tracking~~ | ~~Custom~~ | - | - | → P1.7 |
 | P3 | Important Date Alerts | Custom | 1 day | Low | |
 
 ### Completed Phase 0 Implementation Notes

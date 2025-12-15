@@ -22,6 +22,7 @@ import { ConfigService } from '@nestjs/config';
 import { Mistral } from '@mistralai/mistralai';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
+import { EXCLUDE_JUNK_FOLDERS, excludeJunkFolders } from '../../../email/email.helpers';
 
 // =============================================================================
 // Types
@@ -376,7 +377,7 @@ Please:
       where: {
         tenantId,
         receivedAt: { gte: startDate },
-        folder: { notIn: ['SPAM', 'TRASH'] },
+        folder: EXCLUDE_JUNK_FOLDERS,
       },
       select: {
         id: true,
@@ -428,15 +429,14 @@ Please:
 
     // Fetch summary stats (emails are tenant-scoped, not user-scoped)
     // Exclude SPAM and TRASH from all counts - they're junk
-    const excludeJunk = { notIn: ['SPAM', 'TRASH'] };
     const [totalEmails, unreadEmails, sentToday, receivedToday] = await Promise.all([
-      this.prisma.email.count({ where: { tenantId, folder: excludeJunk } }),
-      this.prisma.email.count({ where: { tenantId, isRead: false, folder: excludeJunk } }),
+      this.prisma.email.count({ where: { tenantId, folder: EXCLUDE_JUNK_FOLDERS } }),
+      this.prisma.email.count({ where: { tenantId, isRead: false, folder: EXCLUDE_JUNK_FOLDERS } }),
       this.prisma.email.count({
         where: { tenantId, folder: 'SENT', receivedAt: { gte: todayStart } },
       }),
       this.prisma.email.count({
-        where: { tenantId, folder: { notIn: ['SENT', 'SPAM', 'TRASH'] }, receivedAt: { gte: todayStart } },
+        where: { tenantId, folder: excludeJunkFolders('SENT'), receivedAt: { gte: todayStart } },
       }),
     ]);
 

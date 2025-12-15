@@ -14,6 +14,7 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { EmailSendService } from '../../../email/services/email-send.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
+import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
 
 /**
  * Email metadata for caching
@@ -396,15 +397,17 @@ export function createEmailTools(
     // ========== GET UNREAD ==========
     createTool({
       name: 'get_unread_emails',
-      description: 'Get a list of unread emails from the inbox.',
+      description: 'Get a list of unread emails from the inbox (excludes SPAM/TRASH).',
       parameters: z.object({
         limit: z.number().optional().describe('Maximum results (default 10)'),
       }),
       execute: async ({ limit }) => {
+        // Exclude SPAM and TRASH - they're junk
         const emails = await prisma.email.findMany({
           where: {
             tenantId,
             isRead: false,
+            folder: EXCLUDE_JUNK_FOLDERS,
           },
           take: limit ?? 10,
           orderBy: { receivedAt: 'desc' },

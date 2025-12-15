@@ -18,7 +18,10 @@
       "Bash(npx prisma generate:*)",
       "Bash(d:)",
       "Bash(npx prisma db execute:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Skill(superpowers:brainstorming)",
+      "SlashCommand(/superpowers:write-plan)",
+      "Skill(superpowers:writing-plans)"
     ],
     "deny": []
   }

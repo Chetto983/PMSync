@@ -16,6 +16,7 @@ import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import type { SupportedLocale } from '../locales';
+import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
 
 export interface HybridRetrieverOptions {
   tenantId: string;
@@ -211,10 +212,11 @@ export class HybridRetriever extends BaseRetriever {
 
     for (const query of queries) {
       try {
-        // Search in emails
+        // Search in emails (exclude SPAM/TRASH - they're junk)
         const emailResults = await this.prisma.email.findMany({
           where: {
             tenantId: this.tenantId,
+            folder: EXCLUDE_JUNK_FOLDERS,
             OR: [
               { subject: { contains: query, mode: 'insensitive' } },
               { snippet: { contains: query, mode: 'insensitive' } },

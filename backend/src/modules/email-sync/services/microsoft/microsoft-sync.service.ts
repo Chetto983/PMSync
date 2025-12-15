@@ -9,6 +9,7 @@ import { BaseEmailSyncService } from '../base-email-sync.service';
 import { EmailDriverFactory } from '../../drivers/driver.factory';
 import { MicrosoftDriver } from '../../drivers/microsoft/microsoft.driver';
 import { CanonicalMessage } from '../../drivers/interfaces/canonical.types';
+import { isJunkFolder } from '../../../email/email.helpers';
 
 /**
  * MicrosoftSyncService - Driver-based implementation
@@ -337,13 +338,15 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
         },
       });
 
-      // Queue for embeddings
-      await this.emailEmbeddingQueue.enqueue({
-        emailId: createdEmail.id,
-        tenantId,
-        subject: createdEmail.subject,
-        snippet: createdEmail.snippet || '',
-      });
+      // Queue for embeddings (skip SPAM/TRASH - they're junk)
+      if (!isJunkFolder(createdEmail.folder)) {
+        await this.emailEmbeddingQueue.enqueue({
+          emailId: createdEmail.id,
+          tenantId,
+          subject: createdEmail.subject,
+          snippet: createdEmail.snippet || '',
+        });
+      }
 
       // Emit realtime event
       this.realtimeEvents.emitEmailNew(tenantId, {

@@ -29,6 +29,7 @@ import { MistralService } from '../../services/mistral.service';
 import { FollowUpService } from './follow-up.service';
 import { DeadlineExtractorService, type CachedDeadline } from './deadline-extractor.service';
 import { ActionItemService } from './action-item.service';
+import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
 
 /** Cache namespace for daily briefings */
 const BRIEFING_NAMESPACE = 'briefing:daily' as CacheNamespace;
@@ -614,6 +615,7 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
       return { totalUnread: 0, newToday: 0, requiresResponse: 0 };
     }
 
+    // Exclude SPAM and TRASH - they're junk and shouldn't be in briefings
     const [totalUnread, newToday] = await Promise.all([
       this.prisma.email.count({
         where: {
@@ -621,6 +623,7 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
           providerId: { in: providerIds },
           isRead: false,
           isDeleted: false,
+          folder: EXCLUDE_JUNK_FOLDERS,
         },
       }),
       this.prisma.email.count({
@@ -629,6 +632,7 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
           providerId: { in: providerIds },
           receivedAt: { gte: todayStart },
           isDeleted: false,
+          folder: EXCLUDE_JUNK_FOLDERS,
         },
       }),
     ]);
@@ -641,6 +645,7 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
         providerId: { in: providerIds },
         isRead: false,
         isDeleted: false,
+        folder: EXCLUDE_JUNK_FOLDERS,
         OR: [
           { subject: { contains: '?' } },
           { snippet: { contains: '?' } },
@@ -667,12 +672,14 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
 
     if (providerIds.length === 0) return [];
 
+    // Exclude SPAM and TRASH - they're junk and shouldn't be summarized
     return this.prisma.email.findMany({
       where: {
         tenantId,
         providerId: { in: providerIds },
         isRead: false,
         isDeleted: false,
+        folder: EXCLUDE_JUNK_FOLDERS,
       },
       select: {
         subject: true,

@@ -13,6 +13,7 @@ import { getAgentTranslations, getToolTranslations, type SupportedLocale } from 
 import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
 import { HybridRetriever } from '../rag';
+import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
 
 export interface KnowledgeAgentOptions {
   model: LanguageModel;
@@ -41,10 +42,11 @@ function createKnowledgeTools(prisma: PrismaService, locale: SupportedLocale, te
         limit: z.number().optional().describe('Maximum results (default 10)'),
       }),
       execute: async ({ query, limit }) => {
-        // Search in emails for now (can be extended to notes, documents, etc.)
+        // Search in emails (exclude SPAM/TRASH - they're junk)
         const results = await prisma.email.findMany({
           where: {
             tenantId,
+            folder: EXCLUDE_JUNK_FOLDERS,
             OR: [
               { subject: { contains: query, mode: 'insensitive' as const } },
               { snippet: { contains: query, mode: 'insensitive' as const } },

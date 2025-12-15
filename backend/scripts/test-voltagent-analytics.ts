@@ -224,7 +224,7 @@ async function runAnalyticsTest() {
 
         // Show summary of result
         if (typeof result === 'object' && result !== null) {
-          const r = result as Record<string, unknown>;
+          const r = result as unknown as Record<string, unknown>;
           if ('success' in r) {
             console.log(`   Success: ${r.success}`);
           }
