@@ -532,53 +532,29 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async hasPendingJob(providerId: string, tenantId?: string): Promise<boolean> {
+  private async hasPendingJob(providerId: string, _tenantId?: string): Promise<boolean> {
+    // OPTIMIZED for 1000+ users: O(1) lookup using job ID instead of O(n) getJobs()
+    // Job IDs follow the pattern: {providerId}-{syncType}
+    // We check for the two common sync types: 'delta' and 'full'
     const queues = [this.highQueue, this.normalQueue, this.lowQueue];
-    const states: JobType[] = ['waiting', 'active', 'delayed', 'paused', 'waiting-children'];
+    const syncTypes = ['delta', 'full', 'incremental'];
 
-    // Soft guard: skip if any job for provider is in waiting/active/delayed
     for (const queue of queues) {
-      const jobs = await queue.getJobs(states, 0, -1);
-      if (
-        jobs.some(
-          (job) =>
-            job?.data?.providerId === providerId &&
-            (!tenantId || job?.data?.tenantId === tenantId),
-        )
-      ) {
-        return true;
+      for (const syncType of syncTypes) {
+        const jobId = `${providerId}-${syncType}`;
+        const job = await queue.getJob(jobId);
+
+        if (job) {
+          const state = await job.getState();
+          // Only consider active states as "pending"
+          if (['waiting', 'active', 'delayed', 'paused', 'waiting-children'].includes(state)) {
+            return true;
+          }
+        }
       }
     }
 
-    // Hard guard: check in Redis keys for any job referencing providerId
-    // Use SCAN instead of KEYS to prevent blocking Redis in production
-    const keyPattern = `bull:*:jobs:*`;
-    let cursor = '0';
-    const matchedKeys: string[] = [];
-
-    do {
-      const result = await this.redisConnection.scan(
-        cursor,
-        'MATCH',
-        keyPattern,
-        'COUNT',
-        100,
-      );
-      cursor = result[0];
-      matchedKeys.push(...result[1]);
-
-      // Early exit if we find a matching key
-      const hasMatch = result[1].some(
-        (k) => k.includes(providerId) && (!tenantId || k.includes(tenantId)),
-      );
-      if (hasMatch) {
-        return true;
-      }
-    } while (cursor !== '0');
-
-    return matchedKeys.some(
-      (k) => k.includes(providerId) && (!tenantId || k.includes(tenantId)),
-    );
+    return false;
   }
 
   private async getQueueLagMs(): Promise<Record<string, number>> {

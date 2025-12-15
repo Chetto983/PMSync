@@ -27,11 +27,13 @@ export class MicrosoftOAuthService {
     private readonly cryptoService: CryptoService,
   ) {
     const { clientId, clientSecret } = this.config.oauth.microsoft;
+    // Use MICROSOFT_TENANT_ID from env (default: 'common' for multi-tenant)
+    const tenantId = process.env.MICROSOFT_TENANT_ID || 'common';
 
     const msalConfig: Configuration = {
       auth: {
         clientId,
-        authority: 'https://login.microsoftonline.com/common',
+        authority: `https://login.microsoftonline.com/${tenantId}`,
         clientSecret,
       },
     };

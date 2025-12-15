@@ -41,7 +41,7 @@ export class EnvironmentVariables {
   @IsNumber()
   @Min(1024)
   @Max(65535)
-  API_PORT: number = 3001;
+  API_PORT: number = 3000;
 
   // Database - supports both DATABASE_URL or individual DB_* vars
   // configuration.ts builds URL from DB_* vars, so DATABASE_URL is optional

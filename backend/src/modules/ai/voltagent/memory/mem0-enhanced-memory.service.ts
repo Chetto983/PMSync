@@ -104,7 +104,8 @@ export class Mem0EnhancedMemoryService implements OnModuleInit {
     try {
       // Use existing AI config variables (no duplication)
       const embeddingModel = this.configService.get<string>('AI_EMBEDDING_MODEL', 'mistral-embed');
-      const llmModel = this.configService.get<string>('AI_MODEL_SIMPLE',
+      // Use AI_MODEL_MEDIUM for fact extraction (better JSON output than small models)
+      const llmModel = this.configService.get<string>('AI_MODEL_MEDIUM',
         this.configService.get<string>('MISTRAL_MODEL', 'mistral-small-latest'));
       // Mistral-embed is always 1024 dimensions (AI_MAX_EMBEDDING_DIM is the max limit, not actual)
       const embeddingDimension = embeddingModel === 'mistral-embed' ? 1024 : 1536;
@@ -121,7 +122,10 @@ export class Mem0EnhancedMemoryService implements OnModuleInit {
 
       // Initialize Mem0 with Mistral as LLM and Langchain for embeddings
       // NOTE: NO SQLite - we use PostgreSQL for all storage (multi-tenant, >1000 users)
-      const config: Partial<MemoryConfig> = {
+      // NOTE: Due to mem0ai v2.x + @mistralai/mistralai v1.10+ incompatibility with JSON mode,
+      // we use infer=false by default and extract facts manually before storing.
+      // The mem0ai library uses snake_case (response_format) but newer Mistral SDK expects camelCase (responseFormat)
+      const config = {
         version: 'v1.1',
         // Use Langchain with Mistral for embeddings
         embedder: {
@@ -149,7 +153,7 @@ export class Mem0EnhancedMemoryService implements OnModuleInit {
         },
         // NO historyDbPath - we use PostgreSQL via Prisma for history tracking
         // History is stored in AiMemoryHistory table (to be created)
-      };
+      } as Partial<MemoryConfig>;
 
       this.memory = new Memory(config);
       this.enabled = true;

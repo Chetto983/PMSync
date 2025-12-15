@@ -25,6 +25,18 @@ export default registerAs('ai', () => ({
   },
 
   // ===========================================
+  // Model Tiers (cost optimization)
+  // ===========================================
+  models: {
+    /** Simple tasks: classification, labeling */
+    simple: process.env.AI_MODEL_SIMPLE || 'mistral-small-latest',
+    /** Medium tasks: extraction, smart replies, summaries */
+    medium: process.env.AI_MODEL_MEDIUM || 'mistral-small-latest',
+    /** Complex tasks: composition, complex reasoning */
+    complex: process.env.AI_MODEL_COMPLEX || 'mistral-medium-latest',
+  },
+
+  // ===========================================
   // Memory Configuration
   // ===========================================
   memory: {

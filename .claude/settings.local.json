@@ -107,7 +107,11 @@
       "Bash(npm search:*)",
       "Bash(MEM0_ENABLED=true npx ts-node:*)",
       "Bash(set:*)",
-      "Bash(del \"d:\\MailAgent\\backend\\src\\modules\\ai\\voltagent\\services\\deadline-locales.ts\")"
+      "Bash(del \"d:\\MailAgent\\backend\\src\\modules\\ai\\voltagent\\services\\deadline-locales.ts\")",
+      "Bash(del \"d:\\MailAgent\\backend\\scripts\\test-mistral-json.ts\")",
+      "Bash(npm view:*)",
+      "Bash(npx claude-flow:*)",
+      "Bash(npm cache clean:*)"
     ],
     "deny": [],
     "ask": []
