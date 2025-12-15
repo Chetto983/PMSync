@@ -1,4 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createElement, type ReactNode } from 'react';
 import { useEmailActions } from './use-email-actions';
 import { useEmailStore } from '@/stores/email-store';
 import { emailApi } from '@/lib/api/email';
@@ -10,9 +12,31 @@ jest.mock('@/lib/api/email', () => ({
     bulkDelete: jest.fn(),
     bulkMarkRead: jest.fn(),
     bulkMoveToFolder: jest.fn(),
+    bulkStar: jest.fn(),
+    bulkFlag: jest.fn(),
     updateEmail: jest.fn(),
   },
 }));
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  });
+
+  function TestQueryWrapper({ children }: { children: ReactNode }) {
+    return createElement(QueryClientProvider, { client: queryClient }, children);
+  }
+
+  return TestQueryWrapper;
+}
 
 // Mock next/router is already in jest.setup.ts
 
@@ -60,7 +84,9 @@ describe('useEmailActions', () => {
       (emailApi.deleteEmail as jest.Mock).mockResolvedValueOnce({});
 
       const onSuccess = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onSuccess }));
+      const { result } = renderHook(() => useEmailActions({ onSuccess }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.handleDelete('email-1');
@@ -81,7 +107,9 @@ describe('useEmailActions', () => {
       (emailApi.deleteEmail as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
 
       const onError = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onError }));
+      const { result } = renderHook(() => useEmailActions({ onError }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.handleDelete('email-1');
@@ -102,7 +130,9 @@ describe('useEmailActions', () => {
       (emailApi.bulkDelete as jest.Mock).mockResolvedValueOnce({});
 
       const onSuccess = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onSuccess }));
+      const { result } = renderHook(() => useEmailActions({ onSuccess }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.handleBulkDelete(['email-1', 'email-2']);
@@ -122,7 +152,9 @@ describe('useEmailActions', () => {
       (emailApi.bulkDelete as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
 
       const onError = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onError }));
+      const { result } = renderHook(() => useEmailActions({ onError }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.handleBulkDelete(['email-1', 'email-2']);
@@ -142,7 +174,9 @@ describe('useEmailActions', () => {
       (emailApi.bulkMarkRead as jest.Mock).mockResolvedValueOnce({});
 
       const onSuccess = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onSuccess }));
+      const { result } = renderHook(() => useEmailActions({ onSuccess }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.handleMarkAsRead(['email-1'], true);
@@ -161,7 +195,9 @@ describe('useEmailActions', () => {
       (emailApi.bulkMarkRead as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
 
       const onError = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onError }));
+      const { result } = renderHook(() => useEmailActions({ onError }), {
+        wrapper: createWrapper(),
+      });
 
       // Email-1 starts as unread
       expect(useEmailStore.getState().emails.find(e => e.id === 'email-1')?.isRead).toBe(false);
@@ -184,7 +220,9 @@ describe('useEmailActions', () => {
       (emailApi.bulkMoveToFolder as jest.Mock).mockResolvedValueOnce({});
 
       const onSuccess = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onSuccess }));
+      const { result } = renderHook(() => useEmailActions({ onSuccess }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.handleArchive(['email-1']);
@@ -203,7 +241,9 @@ describe('useEmailActions', () => {
       (emailApi.bulkMoveToFolder as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
 
       const onError = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onError }));
+      const { result } = renderHook(() => useEmailActions({ onError }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.handleArchive(['email-1']);
@@ -223,7 +263,9 @@ describe('useEmailActions', () => {
       (emailApi.bulkMoveToFolder as jest.Mock).mockResolvedValueOnce({});
 
       const onSuccess = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onSuccess }));
+      const { result } = renderHook(() => useEmailActions({ onSuccess }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.handleMoveToFolder(['email-1', 'email-2'], 'TRASH');
@@ -241,7 +283,9 @@ describe('useEmailActions', () => {
       (emailApi.bulkMoveToFolder as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
 
       const onError = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onError }));
+      const { result } = renderHook(() => useEmailActions({ onError }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.handleMoveToFolder(['email-1', 'email-2'], 'TRASH');
@@ -262,7 +306,9 @@ describe('useEmailActions', () => {
       (emailApi.updateEmail as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
 
       const onError = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onError }));
+      const { result } = renderHook(() => useEmailActions({ onError }), {
+        wrapper: createWrapper(),
+      });
 
       // Email-1 starts as unread (false)
       expect(useEmailStore.getState().emails.find(e => e.id === 'email-1')?.isRead).toBe(false);
@@ -282,10 +328,12 @@ describe('useEmailActions', () => {
 
   describe('handleToggleStar', () => {
     it('should toggle star status with rollback on failure', async () => {
-      (emailApi.updateEmail as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
+      (emailApi.bulkStar as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
 
       const onError = jest.fn();
-      const { result } = renderHook(() => useEmailActions({ onError }));
+      const { result } = renderHook(() => useEmailActions({ onError }), {
+        wrapper: createWrapper(),
+      });
 
       await act(async () => {
         await result.current.handleToggleStar('email-1', false);

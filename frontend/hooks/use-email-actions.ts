@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEmailStore, type Email } from '@/stores/email-store';
-import { emailApi } from '@/lib/api/email';
+import { emailKeys } from '@/hooks/queries';
+import {
+  useBulkDelete,
+  useBulkFlag,
+  useBulkMarkRead,
+  useBulkMoveToFolder,
+  useBulkStar,
+  useDeleteEmail,
+  useUpdateEmail,
+} from '@/hooks/mutations';
 import { useRouter } from 'next/router';
 import { logger } from '@/lib/logger';
 
@@ -26,6 +36,7 @@ export interface EmailActionsCallbacks {
  */
 export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const {
     updateEmail,
     deleteEmail,
@@ -36,12 +47,42 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
     setSelectedEmail,
   } = useEmailStore();
 
+  const deleteEmailMutation = useDeleteEmail();
+  const bulkDeleteMutation = useBulkDelete();
+  const bulkMarkReadMutation = useBulkMarkRead();
+  const bulkStarMutation = useBulkStar();
+  const bulkFlagMutation = useBulkFlag();
+  const bulkMoveToFolderMutation = useBulkMoveToFolder();
+  const updateEmailMutation = useUpdateEmail();
+
   // CRITICAL FIX: Use refs for callbacks to prevent stale closures
   // This prevents all handlers from recreating on every render
   const callbacksRef = useRef<EmailActionsCallbacks | undefined>(callbacks);
   useEffect(() => {
     callbacksRef.current = callbacks;
   }, [callbacks]);
+
+  const invalidateEmailCaches = useCallback(
+    (emailIds: string[]) => {
+      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+
+      const { emails } = useEmailStore.getState();
+      const threadKeys = new Set<string>();
+
+      for (const emailId of emailIds) {
+        queryClient.invalidateQueries({ queryKey: emailKeys.detail(emailId) });
+        const email = emails.find((e) => e.id === emailId);
+        threadKeys.add(email?.threadId || emailId);
+      }
+
+      for (const threadKey of threadKeys) {
+        queryClient.invalidateQueries({ queryKey: emailKeys.thread(threadKey) });
+      }
+    },
+    [queryClient],
+  );
 
   /**
    * Delete a single email
@@ -57,7 +98,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         deleteEmail(emailId);
 
         // API call
-        await emailApi.deleteEmail(emailId);
+        await deleteEmailMutation.mutateAsync(emailId);
+        invalidateEmailCaches([emailId]);
 
         callbacksRef.current?.onSuccess?.('Email deleted successfully ✓');
       } catch (error) {
@@ -69,7 +111,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacksRef.current?.onError?.('Failed to delete email. Please try again.');
       }
     },
-    [deleteEmail]
+    [deleteEmail, deleteEmailMutation, invalidateEmailCaches]
   );
 
   /**
@@ -86,7 +128,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         bulkDelete(emailIds);
 
         // Use bulk API endpoint (more efficient than Promise.all)
-        await emailApi.bulkDelete(emailIds);
+        await bulkDeleteMutation.mutateAsync(emailIds);
+        invalidateEmailCaches(emailIds);
 
         callbacksRef.current?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} deleted successfully ✓`);
       } catch (error) {
@@ -99,7 +142,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacksRef.current?.onError?.('Failed to delete emails. Please try again.');
       }
     },
-    [bulkDelete]
+    [bulkDelete, bulkDeleteMutation, invalidateEmailCaches]
   );
 
   /**
@@ -128,7 +171,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         }
 
         // Use bulk API endpoint (more efficient than Promise.all)
-        await emailApi.bulkMarkRead(emailIds, isRead);
+        await bulkMarkReadMutation.mutateAsync({ emailIds, isRead });
+        invalidateEmailCaches(emailIds);
 
         const action = isRead ? 'read' : 'unread';
         callbacksRef.current?.onSuccess?.(`Marked as ${action} ✓`);
@@ -142,7 +186,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacksRef.current?.onError?.('Failed to update email status. Please try again.');
       }
     },
-    [markAsRead]
+    [bulkMarkReadMutation, invalidateEmailCaches, markAsRead]
   );
 
   /**
@@ -157,7 +201,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         updateEmail(emailId, { isRead: newRead });
 
         // API call
-        await emailApi.updateEmail(emailId, { isRead: newRead });
+        await updateEmailMutation.mutateAsync({ emailId, data: { isRead: newRead } });
+        invalidateEmailCaches([emailId]);
 
         callbacksRef.current?.onSuccess?.(newRead ? 'Marked as read ✓' : 'Marked as unread ✓');
       } catch (error) {
@@ -167,7 +212,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacksRef.current?.onError?.('Failed to update read status. Please try again.');
       }
     },
-    [updateEmail]
+    [invalidateEmailCaches, updateEmail, updateEmailMutation]
   );
 
   /**
@@ -183,7 +228,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         markAsStarred([emailId], newStarred);
 
         // PERFORMANCE FIX: Use bulk API endpoint (more efficient)
-        await emailApi.bulkStar([emailId], newStarred);
+        await bulkStarMutation.mutateAsync({ emailIds: [emailId], isStarred: newStarred });
+        invalidateEmailCaches([emailId]);
 
         callbacksRef.current?.onSuccess?.(newStarred ? 'Email starred ✓' : 'Email unstarred ✓');
       } catch (error) {
@@ -193,7 +239,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacksRef.current?.onError?.('Failed to update star status. Please try again.');
       }
     },
-    [markAsStarred]
+    [bulkStarMutation, invalidateEmailCaches, markAsStarred]
   );
 
   /**
@@ -209,7 +255,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         useEmailStore.getState().markAsImportant([emailId], newImportant);
 
         // PERFORMANCE FIX: Use bulk API endpoint (more efficient)
-        await emailApi.bulkFlag([emailId], newImportant);
+        await bulkFlagMutation.mutateAsync({ emailIds: [emailId], isFlagged: newImportant });
+        invalidateEmailCaches([emailId]);
 
         callbacksRef.current?.onSuccess?.(newImportant ? 'Marked as important ✓' : 'Unmarked as important ✓');
       } catch (error) {
@@ -219,7 +266,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacksRef.current?.onError?.('Failed to update important status. Please try again.');
       }
     },
-    []
+    [bulkFlagMutation, invalidateEmailCaches]
   );
 
   /**
@@ -238,7 +285,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         moveToFolder(emailIds, 'ARCHIVE');
 
         // Use bulk API endpoint (more efficient than Promise.all)
-        await emailApi.bulkMoveToFolder(emailIds, 'ARCHIVE');
+        await bulkMoveToFolderMutation.mutateAsync({ emailIds, folder: 'ARCHIVE' });
+        invalidateEmailCaches(emailIds);
 
         callbacksRef.current?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} archived ✓`);
       } catch (error) {
@@ -251,7 +299,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacksRef.current?.onError?.('Failed to archive emails. Please try again.');
       }
     },
-    [moveToFolder]
+    [bulkMoveToFolderMutation, invalidateEmailCaches, moveToFolder]
   );
 
   /**
@@ -270,7 +318,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         moveToFolder(emailIds, folderId);
 
         // Use bulk API endpoint (more efficient than Promise.all)
-        await emailApi.bulkMoveToFolder(emailIds, folderId);
+        await bulkMoveToFolderMutation.mutateAsync({ emailIds, folder: folderId });
+        invalidateEmailCaches(emailIds);
 
         callbacksRef.current?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} moved ✓`);
       } catch (error) {
@@ -283,7 +332,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         callbacksRef.current?.onError?.('Failed to move emails. Please try again.');
       }
     },
-    [moveToFolder]
+    [bulkMoveToFolderMutation, invalidateEmailCaches, moveToFolder]
   );
 
   /**
@@ -335,7 +384,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         try {
           // Optimistic update
           updateEmail(email.id, { isRead: true });
-          await emailApi.updateEmail(email.id, { isRead: true });
+          await updateEmailMutation.mutateAsync({ emailId: email.id, data: { isRead: true } });
+          invalidateEmailCaches([email.id]);
         } catch (error) {
           logger.error('[EmailActions] Failed to mark email as read on click', { emailId: email.id, error });
           // CRITICAL FIX: Rollback on failure
@@ -344,7 +394,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         }
       }
     },
-    [setSelectedEmail, updateEmail]
+    [invalidateEmailCaches, setSelectedEmail, updateEmail, updateEmailMutation]
   );
 
   return {

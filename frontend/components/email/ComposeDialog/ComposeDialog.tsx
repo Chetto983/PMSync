@@ -17,9 +17,6 @@ import {
   Autocomplete,
   createFilterOptions,
   MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
   Menu,
   ListItemIcon,
   ListItemText,
@@ -31,18 +28,19 @@ import { EditorContent } from '@tiptap/react';
 import { marked } from 'marked';
 import type { SendEmailPayload, EmailAttachmentUpload } from '@/lib/api/email';
 import { isAxiosError } from 'axios';
-import { emailApi } from '@/lib/api/email';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { contactsApi, type Contact } from '@/lib/api/contacts';
 import { aiApi } from '@/lib/api/ai';
 import { useDraftAutosave } from '@/hooks/use-draft-autosave';
 import { useComposeEditor } from '@/hooks/use-compose-editor';
+import { useDeleteDraft, useSendEmail } from '@/hooks/mutations';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import type { AppTranslations } from '@/locales';
 import { EditorToolbar } from './EditorToolbar';
 import { SmartReplySuggestions } from '@/components/email/ai/SmartReplySuggestions';
 import { AiChatPanel } from './AiChatPanel';
+import { AiComposeDialog } from './AiComposeDialog';
 import { logger } from '@/lib/logger';
+import { htmlToPlainText } from './compose-utils';
 
 /**
  * File upload constants
@@ -197,6 +195,10 @@ export function ComposeDialog({
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
   const [sending, setSending] = useState(false);
+
+  const sendEmailMutation = useSendEmail();
+  const deleteDraftMutation = useDeleteDraft();
+
   const [attachments, setAttachments] = useState<EmailAttachmentUpload[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -240,7 +242,15 @@ export function ComposeDialog({
 
   // Initialize form with prefill data
   useEffect(() => {
-    if (open && prefillData) {
+    if (!open) return;
+
+    // Reset transient state every time the dialog opens/changes mode
+    setAttachments([]);
+    setScheduledAt(null);
+    setScheduleMenuAnchor(null);
+    setShowSchedulePicker(false);
+
+    if (prefillData) {
       setTo(prefillData.to || []);
       setCc(prefillData.cc || []);
       setBcc(prefillData.bcc || []);
@@ -248,7 +258,7 @@ export function ComposeDialog({
       setBody(prefillData.body || '');
       setShowCc(!!prefillData.cc?.length);
       setShowBcc(!!prefillData.bcc?.length);
-    } else if (open && !prefillData) {
+    } else {
       // Reset form for new compose
       setTo([]);
       setCc([]);
@@ -257,12 +267,10 @@ export function ComposeDialog({
       setBody('');
       setShowCc(false);
       setShowBcc(false);
-      setAttachments([]);
     }
+
     // Reset smart replies when dialog opens
-    if (open) {
-      setSmartRepliesDismissed(false);
-    }
+    setSmartRepliesDismissed(false);
   }, [open, prefillData]);
 
   // Sync editor content when body changes externally
@@ -586,21 +594,24 @@ export function ComposeDialog({
   const draftData = useMemo(() => {
     if (!selectedProvider) return null;
 
+    const bodyText = body ? htmlToPlainText(body) : '';
+
     return {
       providerId: selectedProvider,
       to: to.length > 0 ? cleanEmailArray(to) : undefined,
       cc: cc.length > 0 ? cleanEmailArray(cc) : undefined,
       bcc: bcc.length > 0 ? cleanEmailArray(bcc) : undefined,
       subject: subject || undefined,
-      bodyText: body || undefined,
-      bodyHtml: body ? `<p>${body.replace(/\n/g, '<br>')}</p>` : undefined,
+      bodyHtml: body || undefined,
+      bodyText: bodyText || undefined,
     };
   }, [selectedProvider, to, cc, bcc, subject, body, cleanEmailArray]);
 
   // Autosave draft
   const { isSaving: isDraftSaving, lastSaved } = useDraftAutosave({
     draftData: draftData || { providerId: selectedProvider || '' },
-    enabled: open && !!selectedProvider && mode === 'compose', // Only autosave for new compose
+    initialDraftId: prefillData?.draftId,
+    enabled: open && !!selectedProvider && mode === 'compose',
     interval: 30000, // 30 seconds
   });
 
@@ -618,71 +629,82 @@ export function ComposeDialog({
     return t.email.composer.savedHoursAgo.replace('{hours}', String(hours));
   }, [t]);
 
-  // Handle send
-  const handleSend = useCallback(async () => {
-    // Validation
-    if (!selectedProvider) {
-      onError?.(t.email.composer.noProvider);
-      return;
-    }
+  const resetForm = useCallback(() => {
+    setTo([]);
+    setCc([]);
+    setBcc([]);
+    setSubject('');
+    setBody('');
+    setShowCc(false);
+    setShowBcc(false);
+    setAttachments([]);
+    setScheduledAt(null);
+  }, []);
 
-    const toEmails = cleanEmailArray(to);
-    if (toEmails.length === 0) {
-      onError?.(t.email.composer.validationTo);
-      return;
-    }
+  const buildSendPayload = useCallback(
+    (scheduledAtOverride?: string | null): SendEmailPayload | null => {
+      if (!selectedProvider) {
+        onError?.(t.email.composer.noProvider);
+        return null;
+      }
 
-    if (!subject.trim()) {
-      onError?.(t.email.composer.validationSubject);
-      return;
-    }
+      const toEmails = cleanEmailArray(to);
+      if (toEmails.length === 0) {
+        onError?.(t.email.composer.validationTo);
+        return null;
+      }
 
-    try {
-      setSending(true);
+      if (!subject.trim()) {
+        onError?.(t.email.composer.validationSubject);
+        return null;
+      }
 
-      const payload: SendEmailPayload = {
+      const bodyHtml = body.trim() ? body : '<p></p>';
+      const bodyText = htmlToPlainText(bodyHtml);
+
+      return {
         providerId: selectedProvider,
         to: toEmails,
         cc: cc.length > 0 ? cleanEmailArray(cc) : undefined,
         bcc: bcc.length > 0 ? cleanEmailArray(bcc) : undefined,
         subject: subject.trim(),
-        bodyHtml: `<p>${body.replace(/\n/g, '<br>')}</p>`,
-        bodyText: body,
+        bodyHtml,
+        bodyText,
         inReplyTo: prefillData?.inReplyTo,
         references: prefillData?.references,
         attachments: attachments.length > 0 ? attachments : undefined,
+        ...(scheduledAtOverride ? { scheduledAt: scheduledAtOverride } : undefined),
       };
+    },
+    [attachments, bcc, body, cc, cleanEmailArray, onError, prefillData, selectedProvider, subject, t, to],
+  );
 
-      await emailApi.sendEmail(payload);
+  const handleSend = useCallback(async () => {
+    const payload = buildSendPayload();
+    if (!payload) return;
 
-      // If editing a draft, delete it after successful send
+    try {
+      setSending(true);
+      await sendEmailMutation.mutateAsync(payload);
+
       if (prefillData?.draftId) {
         try {
-          await emailApi.deleteDraft(prefillData.draftId);
+          await deleteDraftMutation.mutateAsync(prefillData.draftId);
         } catch (draftErr) {
           logger.warn('Failed to delete draft after send', { error: draftErr });
-          // Don't fail the whole operation if draft deletion fails
         }
       }
 
-      // Success
       onSent?.();
       onClose();
-
-      // Reset form
-      setTo([]);
-      setCc([]);
-      setBcc([]);
-      setSubject('');
-      setBody('');
-      setAttachments([]);
+      resetForm();
     } catch (error) {
       logger.error('Failed to send email', { error });
       onError?.(t.email.composer.sendError);
     } finally {
       setSending(false);
     }
-  }, [selectedProvider, to, cc, bcc, subject, body, prefillData, cleanEmailArray, onClose, onSent, onError, attachments, t]);
+  }, [buildSendPayload, deleteDraftMutation, onClose, onError, onSent, prefillData, resetForm, sendEmailMutation, t]);
 
   // Generate AI preview (does not insert into editor)
   const handleAiGenerate = useCallback(async () => {
@@ -737,7 +759,8 @@ export function ComposeDialog({
 
   // Check if form has unsaved changes
   const hasChanges = useCallback(() => {
-    return !!(to.length > 0 || cc.length > 0 || bcc.length > 0 || subject || body);
+    const bodyText = htmlToPlainText(body);
+    return !!(to.length > 0 || cc.length > 0 || bcc.length > 0 || subject.trim() || bodyText.trim());
   }, [to, cc, bcc, subject, body]);
 
   // Handle close with confirmation
@@ -775,62 +798,32 @@ export function ComposeDialog({
 
   const handleScheduleSend = useCallback(async () => {
     if (!scheduledAt) return;
-
-    // Validation (same as handleSend)
-    if (!selectedProvider) {
-      onError?.(t.email.composer.noProvider);
-      return;
-    }
-
-    const toEmails = cleanEmailArray(to);
-    if (toEmails.length === 0) {
-      onError?.(t.email.composer.validationTo);
-      return;
-    }
-
-    if (!subject.trim()) {
-      onError?.(t.email.composer.validationSubject);
-      return;
-    }
+    const payload = buildSendPayload(scheduledAt);
+    if (!payload) return;
 
     try {
       setSending(true);
+      await sendEmailMutation.mutateAsync(payload);
 
-      const payload: SendEmailPayload = {
-        providerId: selectedProvider,
-        to: toEmails,
-        cc: cc.length > 0 ? cleanEmailArray(cc) : undefined,
-        bcc: bcc.length > 0 ? cleanEmailArray(bcc) : undefined,
-        subject: subject.trim(),
-        bodyHtml: `<p>${body.replace(/\n/g, '<br>')}</p>`,
-        bodyText: body,
-        inReplyTo: prefillData?.inReplyTo,
-        references: prefillData?.references,
-        attachments: attachments.length > 0 ? attachments : undefined,
-        scheduledAt,
-      };
-
-      await emailApi.sendEmail(payload);
+      if (prefillData?.draftId) {
+        try {
+          await deleteDraftMutation.mutateAsync(prefillData.draftId);
+        } catch (draftErr) {
+          logger.warn('Failed to delete draft after send', { error: draftErr });
+        }
+      }
 
       // Success - show scheduled confirmation
       onSent?.();
       onClose();
-
-      // Reset form
-      setTo([]);
-      setCc([]);
-      setBcc([]);
-      setSubject('');
-      setBody('');
-      setAttachments([]);
-      setScheduledAt(null);
+      resetForm();
     } catch (error) {
       logger.error('Failed to schedule email', { error });
       onError?.(t.email.composer.sendError);
     } finally {
       setSending(false);
     }
-  }, [scheduledAt, selectedProvider, to, cc, bcc, subject, body, prefillData, cleanEmailArray, onClose, onSent, onError, attachments, t]);
+  }, [buildSendPayload, deleteDraftMutation, onClose, onError, onSent, prefillData, resetForm, scheduledAt, sendEmailMutation, t]);
 
   const formatScheduledTime = useCallback((isoString: string) => {
     const date = new Date(isoString);
@@ -1451,209 +1444,5 @@ export function ComposeDialog({
         t={t}
       />
     </>
-  );
-}
-
-/**
- * AI Compose Dialog used inside ComposeDialog
- * Enhanced with example prompts, preview, and two-step flow
- */
-function AiComposeDialog({
-  open,
-  onClose,
-  onSubmit,
-  onGenerate,
-  prompt,
-  setPrompt,
-  tone,
-  setTone,
-  variant,
-  setVariant,
-  loading,
-  mode,
-  preview,
-  t,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: () => void;
-  onGenerate: () => void;
-  prompt: string;
-  setPrompt: (v: string) => void;
-  tone: string;
-  setTone: (v: 'formal' | 'casual' | 'technical' | '') => void;
-  variant: 'A' | 'B';
-  setVariant: (v: 'A' | 'B') => void;
-  loading: boolean;
-  mode: 'compose' | 'reply' | 'forward';
-  preview: string | null;
-  t: AppTranslations;
-}) {
-  // Example prompts based on mode
-  const examplePrompts = useMemo(() => {
-    const composer = t.email?.composer;
-    if (mode === 'reply') {
-      return [
-        composer?.aiComposeExampleReplyConfirm ?? 'Confirm receipt and schedule call',
-        composer?.aiComposeExampleReplyDecline ?? 'Politely decline with alternative',
-        composer?.aiComposeExampleReplyInfo ?? 'Request more information',
-      ];
-    }
-    return [
-      composer?.aiComposeExampleFollowUp ?? 'Write a follow-up about our meeting',
-      composer?.aiComposeExampleThankYou ?? 'Thank you note for their help',
-      composer?.aiComposeExampleRequest ?? 'Request information about...',
-    ];
-  }, [mode, t]);
-
-  return (
-    <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{t.email?.composer?.aiComposeTitle ?? 'Draft with AI'}</DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          {t.email?.composer?.aiComposeHelp ??
-            'Provide a short prompt. AI will draft the email body and suggest a subject.'}
-        </Typography>
-
-        {/* Example prompts - only show when no preview yet */}
-        {!preview && (
-          <Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-              {t.email?.composer?.aiComposeExamples ?? 'Try these:'}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-              {examplePrompts.map((example, i) => (
-                <Chip
-                  key={i}
-                  label={example}
-                  size="small"
-                  variant="outlined"
-                  onClick={() => setPrompt(example)}
-                  disabled={loading}
-                  sx={{
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: 'action.hover' },
-                  }}
-                />
-              ))}
-            </Box>
-          </Box>
-        )}
-
-        <TextField
-          label={t.email?.composer?.aiComposePrompt ?? 'Prompt'}
-          multiline
-          minRows={3}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          fullWidth
-          disabled={loading}
-          placeholder={
-            mode === 'reply'
-              ? 'e.g., Reply confirming the meeting and suggest Tuesday at 3pm'
-              : 'e.g., Introduce our new product features to the marketing team'
-          }
-        />
-        <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-          <FormControl fullWidth size="small">
-            <InputLabel id="ai-tone-label">
-              {t.email?.composer?.aiComposeToneLabel ?? 'Tone'}
-            </InputLabel>
-            <Select
-              labelId="ai-tone-label"
-              label={t.email?.composer?.aiComposeToneLabel ?? 'Tone'}
-              value={tone || ''}
-              onChange={(e) => setTone(e.target.value as 'formal' | 'casual' | 'technical' | '')}
-              disabled={loading}
-            >
-              <MenuItem value="">
-                <em>Auto</em>
-              </MenuItem>
-              <MenuItem value="formal">Formal</MenuItem>
-              <MenuItem value="casual">Casual</MenuItem>
-              <MenuItem value="technical">Technical</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small">
-            <InputLabel id="ai-variant-label">
-              {t.email?.composer?.aiComposeVariantLabel ?? 'Variant'}
-            </InputLabel>
-            <Select
-              labelId="ai-variant-label"
-              label={t.email?.composer?.aiComposeVariantLabel ?? 'Variant'}
-              value={variant}
-              onChange={(e) => setVariant(e.target.value as 'A' | 'B')}
-              disabled={loading}
-            >
-              <MenuItem value="A">A</MenuItem>
-              <MenuItem value="B">B</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-
-        {/* Preview section */}
-        {preview && (
-          <Box
-            sx={{
-              mt: 1,
-              p: 2,
-              bgcolor: 'action.hover',
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ mb: 1, display: 'block', fontWeight: 500 }}
-            >
-              {t.email?.composer?.aiComposePreview ?? 'Preview'}:
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                whiteSpace: 'pre-wrap',
-                maxHeight: 200,
-                overflow: 'auto',
-              }}
-            >
-              {preview}
-            </Typography>
-          </Box>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={loading}>
-          {t.email?.composer?.aiComposeCancel ?? 'Cancel'}
-        </Button>
-        {!preview ? (
-          <Button
-            variant="outlined"
-            onClick={onGenerate}
-            disabled={loading || !prompt.trim()}
-            startIcon={loading ? <CircularProgress size={16} /> : undefined}
-          >
-            {loading
-              ? t.email?.composer?.sending ?? 'Generating...'
-              : t.email?.composer?.aiComposeGenerate ?? 'Generate'}
-          </Button>
-        ) : (
-          <>
-            <Button
-              variant="outlined"
-              onClick={onGenerate}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={16} /> : undefined}
-            >
-              {t.email?.composer?.aiComposeRegenerate ?? 'Regenerate'}
-            </Button>
-            <Button variant="contained" onClick={onSubmit} disabled={loading}>
-              {t.email?.composer?.aiComposeConfirm ?? 'Insert draft'}
-            </Button>
-          </>
-        )}
-      </DialogActions>
-    </Dialog>
   );
 }

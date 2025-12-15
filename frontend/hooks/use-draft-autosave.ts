@@ -42,6 +42,11 @@ export interface UseDraftAutosaveOptions {
   draftData: DraftData;
 
   /**
+   * Optional existing draft ID (when editing a saved draft)
+   */
+  initialDraftId?: string | null;
+
+  /**
    * Whether autosave is enabled
    */
   enabled: boolean;
@@ -97,6 +102,7 @@ export interface UseDraftAutosaveOptions {
  */
 export function useDraftAutosave({
   draftData,
+  initialDraftId,
   enabled,
   interval = 30000, // 30 seconds
   onSaved,
@@ -106,11 +112,30 @@ export function useDraftAutosave({
 }: UseDraftAutosaveOptions) {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(initialDraftId ?? null);
   const [hasConflict, setHasConflict] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastDataRef = useRef<string>('');
   const serverVersionRef = useRef<string | null>(null); // Track server version/etag
+
+  useEffect(() => {
+    if (!enabled) {
+      setDraftId(initialDraftId ?? null);
+      setLastSaved(null);
+      setHasConflict(false);
+      lastDataRef.current = '';
+      serverVersionRef.current = null;
+      return;
+    }
+
+    if (typeof initialDraftId === 'string') {
+      setDraftId(initialDraftId);
+      setLastSaved(null);
+      setHasConflict(false);
+      lastDataRef.current = '';
+      serverVersionRef.current = null;
+    }
+  }, [enabled, initialDraftId]);
 
   // Check if draft is empty
   const isDraftEmpty = useCallback((data: DraftData): boolean => {
