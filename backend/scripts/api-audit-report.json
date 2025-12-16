@@ -1,10 +1,10 @@
 {
-  "timestamp": "2025-12-16T10:59:27.130Z",
+  "timestamp": "2025-12-16T13:06:17.332Z",
   "summary": {
     "total": 42,
     "passed": 42,
     "failed": 0,
-    "duration": 9095,
+    "duration": 3248,
     "successRate": "100.0%"
   },
   "categories": [
@@ -95,7 +95,7 @@
       "endpoint": "/voltagent/chat",
       "status": 200,
       "success": true,
-      "duration": 1081,
+      "duration": 1295,
       "responseSchema": "{text, requiresApproval, model, fromCache, contextTruncated}"
     },
     {
@@ -105,7 +105,7 @@
       "endpoint": "/voltagent/actions/pending",
       "status": 200,
       "success": true,
-      "duration": 13,
+      "duration": 11,
       "responseSchema": "{actions, total}"
     },
     {
@@ -115,7 +115,7 @@
       "endpoint": "/voltagent/stats/action-counts",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 8,
       "responseSchema": "{success, counts}"
     },
     {
@@ -125,7 +125,7 @@
       "endpoint": "/voltagent/stats/learning",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 10,
       "responseSchema": "{success, stats}"
     },
     {
@@ -135,7 +135,7 @@
       "endpoint": "/voltagent/stats/aggregate",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 8,
       "responseSchema": "{success, stats}"
     },
     {
@@ -145,7 +145,7 @@
       "endpoint": "/voltagent/stats/performance",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 8,
       "responseSchema": "{success, stats}"
     },
     {
@@ -155,7 +155,7 @@
       "endpoint": "/voltagent/stats/metrics",
       "status": 200,
       "success": true,
-      "duration": 8,
+      "duration": 7,
       "responseSchema": "{success, metrics, count}"
     },
     {
@@ -165,7 +165,7 @@
       "endpoint": "/voltagent/stats/optimizations",
       "status": 200,
       "success": true,
-      "duration": 12,
+      "duration": 13,
       "responseSchema": "{success, optimizations}"
     },
     {
@@ -175,7 +175,7 @@
       "endpoint": "/voltagent/cache/analytics",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 8,
       "responseSchema": "{success, analytics, config, recommendations}"
     },
     {
@@ -185,7 +185,7 @@
       "endpoint": "/voltagent/briefing",
       "status": 200,
       "success": true,
-      "duration": 6371,
+      "duration": 6,
       "responseSchema": "{success, briefing}"
     },
     {
@@ -195,7 +195,7 @@
       "endpoint": "/voltagent/briefing/status",
       "status": 200,
       "success": true,
-      "duration": 7,
+      "duration": 5,
       "responseSchema": "{success, enabled, scheduleHour, batchSize, queueStats}"
     },
     {
@@ -215,7 +215,7 @@
       "endpoint": "/voltagent/memory/search?query=test",
       "status": 200,
       "success": true,
-      "duration": 262,
+      "duration": 354,
       "responseSchema": "{success, count, memories}"
     },
     {
@@ -225,7 +225,7 @@
       "endpoint": "/voltagent/memory/stats",
       "status": 200,
       "success": true,
-      "duration": 7,
+      "duration": 6,
       "responseSchema": "{success, enabled, totalMemories, byCategory, avgImportance}"
     },
     {
@@ -235,7 +235,7 @@
       "endpoint": "/voltagent/deadlines",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 9,
       "responseSchema": "{success, enabled, count, deadlines}"
     },
     {
@@ -245,7 +245,7 @@
       "endpoint": "/voltagent/deadlines/stats",
       "status": 200,
       "success": true,
-      "duration": 8,
+      "duration": 22,
       "responseSchema": "{success, enabled, upcoming, dueSoon, overdue, completed}"
     },
     {
@@ -265,7 +265,7 @@
       "endpoint": "/voltagent/deadlines/extract",
       "status": 200,
       "success": true,
-      "duration": 39,
+      "duration": 38,
       "responseSchema": "{success, count, deadlines}"
     },
     {
@@ -275,7 +275,7 @@
       "endpoint": "/voltagent/follow-ups",
       "status": 200,
       "success": true,
-      "duration": 10,
+      "duration": 8,
       "responseSchema": "{success, count, followUps}"
     },
     {
@@ -295,7 +295,7 @@
       "endpoint": "/voltagent/follow-ups/overdue",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 7,
       "responseSchema": "{success, count, followUps}"
     },
     {
@@ -315,7 +315,7 @@
       "endpoint": "/voltagent/follow-ups/analyze",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 8,
       "responseSchema": "{success, needsFollowUp, reason}"
     },
     {
@@ -335,7 +335,7 @@
       "endpoint": "/voltagent/action-items/pending",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 11,
       "responseSchema": "{success, items, count}"
     },
     {
@@ -345,7 +345,7 @@
       "endpoint": "/voltagent/action-items/overdue",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 8,
       "responseSchema": "{success, items, count}"
     },
     {
@@ -355,7 +355,7 @@
       "endpoint": "/voltagent/action-items/stats",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 22,
       "responseSchema": "{success, stats}"
     },
     {
@@ -365,7 +365,7 @@
       "endpoint": "/voltagent/action-items/analyze",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 8,
       "responseSchema": "{success, needsExtraction, detected, count}"
     },
     {
@@ -375,7 +375,7 @@
       "endpoint": "/voltagent/analytics/dashboard",
       "status": 200,
       "success": true,
-      "duration": 14,
+      "duration": 20,
       "responseSchema": "{success, analytics}"
     },
     {
@@ -385,7 +385,7 @@
       "endpoint": "/voltagent/analytics/email?period=week",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 13,
       "responseSchema": "{success, analytics}"
     },
     {
@@ -395,7 +395,7 @@
       "endpoint": "/voltagent/analytics/status",
       "status": 200,
       "success": true,
-      "duration": 4,
+      "duration": 7,
       "responseSchema": "{success, enabled}"
     },
     {
@@ -405,7 +405,7 @@
       "endpoint": "/voltagent/knowledge/stats",
       "status": 200,
       "success": true,
-      "duration": 12,
+      "duration": 23,
       "responseSchema": "{success, memoryCount, deadlineCount, followupCount, actionCount}"
     },
     {
@@ -415,7 +415,7 @@
       "endpoint": "/voltagent/knowledge/search",
       "status": 200,
       "success": true,
-      "duration": 1010,
+      "duration": 1153,
       "responseSchema": "{success, context, sources, itemCount}"
     },
     {
@@ -425,7 +425,7 @@
       "endpoint": "/voltagent/crm/stale-contacts?days=60&limit=10",
       "status": 200,
       "success": true,
-      "duration": 12,
+      "duration": 18,
       "responseSchema": "{success, count, contacts}"
     },
     {
@@ -435,7 +435,7 @@
       "endpoint": "/voltagent/crm/reconnect?days=60&limit=10",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 10,
       "responseSchema": "{success, count, contacts}"
     },
     {
@@ -445,7 +445,7 @@
       "endpoint": "/voltagent/crm/top-contacts?limit=10",
       "status": 200,
       "success": true,
-      "duration": 7,
+      "duration": 9,
       "responseSchema": "{success, count, contacts}"
     },
     {
@@ -455,47 +455,47 @@
       "endpoint": "/voltagent/crm/recalculate-all",
       "status": 200,
       "success": true,
-      "duration": 15,
+      "duration": 19,
       "responseSchema": "{success, updated, errors}"
     },
     {
       "category": "CRM",
       "name": "Contact Stats",
       "method": "GET",
-      "endpoint": "/voltagent/crm/contacts/cmiz39jsb0013aoyhguce8wk3",
+      "endpoint": "/voltagent/crm/contacts/cmiz39jsb0015aoyhzr4exiap",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 8,
       "responseSchema": "{success, stats}"
     },
     {
       "category": "CRM",
       "name": "Interactions",
       "method": "GET",
-      "endpoint": "/voltagent/crm/contacts/cmiz39jsb0013aoyhguce8wk3/interactions?limit=5",
+      "endpoint": "/voltagent/crm/contacts/cmiz39jsb0015aoyhzr4exiap/interactions?limit=5",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 8,
       "responseSchema": "{success, count, interactions}"
     },
     {
       "category": "CRM",
       "name": "Relationship Graph",
       "method": "GET",
-      "endpoint": "/voltagent/crm/contacts/cmiz39jsb0013aoyhguce8wk3/graph?depth=2",
+      "endpoint": "/voltagent/crm/contacts/cmiz39jsb0015aoyhzr4exiap/graph?depth=2",
       "status": 200,
       "success": true,
-      "duration": 7,
+      "duration": 6,
       "responseSchema": "{success, count, nodes}"
     },
     {
       "category": "CRM",
       "name": "Recalculate Score",
       "method": "POST",
-      "endpoint": "/voltagent/crm/contacts/cmiz39jsb0013aoyhguce8wk3/recalculate",
+      "endpoint": "/voltagent/crm/contacts/cmiz39jsb0015aoyhzr4exiap/recalculate",
       "status": 200,
       "success": true,
-      "duration": 12,
+      "duration": 14,
       "responseSchema": "{success, score}"
     },
     {
