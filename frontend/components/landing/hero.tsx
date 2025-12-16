@@ -57,9 +57,8 @@ export function Hero() {
       sx={{
         position: 'relative',
         overflow: 'hidden',
-        pt: { xs: 6, md: 10 },
-        pb: { xs: 10, md: 16 },
-        minHeight: { md: '90vh' },
+        pt: { xs: 4, md: 6 },
+        pb: { xs: 6, md: 8 },
         display: 'flex',
         alignItems: 'center',
       }}
@@ -126,21 +125,21 @@ export function Hero() {
       />
 
       <Container maxWidth="lg" sx={{ position: 'relative' }}>
-        <Stack spacing={5} alignItems="center" textAlign="center">
+        <Stack spacing={3} alignItems="center" textAlign="center">
           {/* Logo + Eyebrow badge */}
-          <Stack spacing={3} alignItems="center">
+          <Stack spacing={2} alignItems="center">
             <Box
               sx={{
                 position: 'relative',
                 animation: `${pulse} 4s ease-in-out infinite`,
-                width: { xs: 'min(260px, 70vw)', sm: 'min(320px, 70vw)', md: 400 },
+                width: { xs: 'min(160px, 45vw)', sm: 'min(200px, 45vw)', md: 240 },
               }}
             >
              <Image
                 src="/Logo PMSync.svg"
                 alt="PMSync logo"
-                width={400}
-                height={400}
+                width={240}
+                height={240}
                 style={{
                   width: '100%',
                   height: 'auto',
@@ -199,10 +198,10 @@ export function Hero() {
           <Typography
             variant="h1"
             sx={{
-              fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4.25rem', lg: '5rem' },
+              fontSize: { xs: '2rem', sm: '2.75rem', md: '3.25rem', lg: '3.75rem' },
               fontWeight: 800,
-              lineHeight: 1.08,
-              maxWidth: 1000,
+              lineHeight: 1.1,
+              maxWidth: 900,
               letterSpacing: '-0.02em',
             }}
           >
@@ -225,13 +224,13 @@ export function Hero() {
 
           {/* Subtitle */}
           <Typography
-            variant="h5"
+            variant="h6"
             color="text.secondary"
             sx={{
-              maxWidth: 680,
+              maxWidth: 600,
               fontWeight: 400,
-              lineHeight: 1.7,
-              fontSize: { xs: '1rem', sm: '1.125rem', md: '1.25rem' },
+              lineHeight: 1.6,
+              fontSize: { xs: '0.95rem', sm: '1rem', md: '1.1rem' },
             }}
           >
             {t.landing.hero.subtitle}
@@ -311,10 +310,10 @@ export function Hero() {
             direction={{ xs: 'column', sm: 'row' }}
             spacing={{ xs: 2, sm: 0 }}
             sx={{
-              pt: 4,
-              px: { xs: 2, sm: 4 },
-              py: 3,
-              borderRadius: 4,
+              pt: 2,
+              px: { xs: 2, sm: 3 },
+              py: 2,
+              borderRadius: 3,
               background: isDark
                 ? alpha('#ffffff', 0.03)
                 : alpha('#ffffff', 0.7),
@@ -329,10 +328,11 @@ export function Hero() {
               <Box
                 sx={{
                   display: { xs: 'none', sm: 'block' },
-                  width: 1,
-                  height: 50,
-                  bgcolor: 'divider',
-                  mx: 4,
+                  width: 2,
+                  height: 40,
+                  background: 'linear-gradient(180deg, transparent 0%, rgba(85, 202, 229, 0.3) 50%, transparent 100%)',
+                  mx: 3,
+                  borderRadius: 1,
                 }}
               />
             }
@@ -381,18 +381,18 @@ export function Hero() {
             sx={{
               display: 'grid',
               gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
-              gap: 3,
-              pt: 6,
+              gap: 2,
+              pt: 3,
               width: '100%',
-              maxWidth: 900,
+              maxWidth: 800,
             }}
           >
             {productCards.map((item, index) => (
               <Box
                 key={item.label}
                 sx={{
-                  p: 3,
-                  borderRadius: 4,
+                  p: 2,
+                  borderRadius: 3,
                   border: '1px solid',
                   borderColor: isDark ? alpha(item.color, 0.25) : alpha(item.color, 0.15),
                   background: isDark
@@ -443,9 +443,9 @@ export function Hero() {
           {/* Trust indicators */}
           <Stack
             direction="row"
-            spacing={4}
+            spacing={3}
             alignItems="center"
-            sx={{ pt: 4, opacity: 0.7 }}
+            sx={{ pt: 2, opacity: 0.7 }}
           >
             {[
               { icon: Shield, label: t.landing.trustIndicators.soc2 },

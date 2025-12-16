@@ -39,7 +39,7 @@ export function Modules() {
     <Box
       id="automation"
       sx={{
-        py: { xs: 10, md: 16 },
+        py: { xs: 6, md: 8 },
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -89,7 +89,7 @@ export function Modules() {
 
       <Container maxWidth="lg" sx={{ position: 'relative' }}>
         {/* Section header */}
-        <Stack spacing={3} alignItems="center" textAlign="center" sx={{ mb: { xs: 8, md: 10 } }}>
+        <Stack spacing={2} alignItems="center" textAlign="center" sx={{ mb: { xs: 4, md: 6 } }}>
           <Box
             sx={{
               display: 'inline-flex',
@@ -118,9 +118,9 @@ export function Modules() {
           <Typography
             variant="h2"
             sx={{
-              fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
+              fontSize: { xs: '1.75rem', sm: '2rem', md: '2.5rem' },
               fontWeight: 800,
-              maxWidth: 700,
+              maxWidth: 650,
               lineHeight: 1.15,
               letterSpacing: '-0.02em',
             }}

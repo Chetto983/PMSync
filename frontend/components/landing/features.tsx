@@ -34,7 +34,7 @@ export function Features() {
     <Box
       id="features"
       sx={{
-        py: { xs: 10, md: 16 },
+        py: { xs: 6, md: 8 },
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -69,7 +69,7 @@ export function Features() {
 
       <Container maxWidth="lg" sx={{ position: 'relative' }}>
         {/* Section header */}
-        <Stack spacing={3} alignItems="center" textAlign="center" sx={{ mb: { xs: 8, md: 10 } }}>
+        <Stack spacing={2} alignItems="center" textAlign="center" sx={{ mb: { xs: 4, md: 6 } }}>
           <Box
             sx={{
               display: 'inline-flex',
@@ -98,9 +98,9 @@ export function Features() {
           <Typography
             variant="h2"
             sx={{
-              fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
+              fontSize: { xs: '1.75rem', sm: '2rem', md: '2.5rem' },
               fontWeight: 800,
-              maxWidth: 700,
+              maxWidth: 650,
               lineHeight: 1.15,
               letterSpacing: '-0.02em',
             }}
@@ -280,9 +280,9 @@ export function Features() {
         {/* Bottom feature highlights */}
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
-          spacing={3}
+          spacing={2}
           justifyContent="center"
-          sx={{ mt: { xs: 6, md: 10 } }}
+          sx={{ mt: { xs: 4, md: 6 } }}
         >
           {[
             { icon: Bot, label: t.landing.featuresSection.bottomFeatures.aiPowered.label, desc: t.landing.featuresSection.bottomFeatures.aiPowered.desc },

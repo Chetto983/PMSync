@@ -37,7 +37,7 @@ export function Cta() {
   return (
     <Box
       sx={{
-        py: { xs: 8, md: 12 },
+        py: { xs: 5, md: 6 },
         position: 'relative',
       }}
     >
@@ -45,8 +45,8 @@ export function Cta() {
         <Box
           sx={{
             position: 'relative',
-            p: { xs: 4, md: 8 },
-            borderRadius: 5,
+            p: { xs: 3, md: 5 },
+            borderRadius: 4,
             overflow: 'hidden',
             background: isDark
               ? `linear-gradient(135deg, ${alpha(pmSyncColors.brand.purple, 0.7)} 0%, ${alpha(pmSyncColors.brand.magenta, 0.7)} 100%)`
