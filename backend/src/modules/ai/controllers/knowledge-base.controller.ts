@@ -12,7 +12,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
@@ -25,6 +25,7 @@ import {
 } from '../dto/knowledge-base.dto';
 
 @ApiTags('AI Knowledge Base')
+@ApiBearerAuth()
 @Controller('ai/knowledge-base')
 @UseGuards(JwtAuthGuard, TenantGuard)
 @UsePipes(

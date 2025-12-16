@@ -1,76 +1,34 @@
 {
-  "timestamp": "2025-12-16T16:30:23.205Z",
+  "timestamp": "2025-12-16T16:44:40.227Z",
   "summary": {
     "totalFiles": 25,
     "totalChecks": 339,
-    "passed": 243,
-    "failed": 96,
-    "criticalIssues": 19,
+    "passed": 270,
+    "failed": 69,
+    "criticalIssues": 7,
     "highIssues": 14,
-    "mediumIssues": 50,
-    "lowIssues": 13,
-    "overallScore": 71
+    "mediumIssues": 43,
+    "lowIssues": 5,
+    "overallScore": 88
   },
   "byModule": [
     {
       "module": "auth",
       "files": 2,
-      "score": 43,
-      "issues": 5
-    },
-    {
-      "module": "voltagent",
-      "files": 1,
-      "score": 55,
+      "score": 68,
       "issues": 3
     },
     {
       "module": "email-sync",
       "files": 1,
-      "score": 55,
-      "issues": 4
+      "score": 75,
+      "issues": 1
     },
     {
-      "module": "labels",
+      "module": "voltagent",
       "files": 1,
-      "score": 60,
+      "score": 80,
       "issues": 2
-    },
-    {
-      "module": "email",
-      "files": 3,
-      "score": 65,
-      "issues": 7
-    },
-    {
-      "module": "ai",
-      "files": 5,
-      "score": 68,
-      "issues": 10
-    },
-    {
-      "module": "compliance",
-      "files": 1,
-      "score": 70,
-      "issues": 2
-    },
-    {
-      "module": "tenants",
-      "files": 1,
-      "score": 70,
-      "issues": 2
-    },
-    {
-      "module": "calendar",
-      "files": 2,
-      "score": 78,
-      "issues": 4
-    },
-    {
-      "module": "contacts",
-      "files": 2,
-      "score": 78,
-      "issues": 4
     },
     {
       "module": "providers",
@@ -79,14 +37,56 @@
       "issues": 2
     },
     {
+      "module": "labels",
+      "files": 1,
+      "score": 85,
+      "issues": 1
+    },
+    {
       "module": "users",
       "files": 1,
       "score": 85,
       "issues": 1
     },
     {
+      "module": "ai",
+      "files": 5,
+      "score": 87,
+      "issues": 5
+    },
+    {
+      "module": "calendar",
+      "files": 2,
+      "score": 88,
+      "issues": 1
+    },
+    {
+      "module": "contacts",
+      "files": 2,
+      "score": 88,
+      "issues": 1
+    },
+    {
+      "module": "compliance",
+      "files": 1,
+      "score": 95,
+      "issues": 1
+    },
+    {
+      "module": "tenants",
+      "files": 1,
+      "score": 95,
+      "issues": 1
+    },
+    {
       "module": "analytics",
       "files": 1,
+      "score": 100,
+      "issues": 0
+    },
+    {
+      "module": "email",
+      "files": 3,
       "score": 100,
       "issues": 0
     },
@@ -117,18 +117,6 @@
       "severity": "medium"
     },
     {
-      "check": "TenantGuard",
-      "passed": 14,
-      "failed": 11,
-      "severity": "critical"
-    },
-    {
-      "check": "ApiResponse",
-      "passed": 16,
-      "failed": 9,
-      "severity": "low"
-    },
-    {
       "check": "ValidationPipe",
       "passed": 18,
       "failed": 7,
@@ -147,28 +135,40 @@
       "severity": "high"
     },
     {
+      "check": "ApiResponse",
+      "passed": 20,
+      "failed": 5,
+      "severity": "low"
+    },
+    {
+      "check": "JwtAuthGuard",
+      "passed": 25,
+      "failed": 0,
+      "severity": "critical"
+    },
+    {
+      "check": "TenantGuard",
+      "passed": 25,
+      "failed": 0,
+      "severity": "critical"
+    },
+    {
       "check": "ApiTags",
-      "passed": 21,
-      "failed": 4,
+      "passed": 25,
+      "failed": 0,
+      "severity": "medium"
+    },
+    {
+      "check": "ApiBearerAuth",
+      "passed": 25,
+      "failed": 0,
       "severity": "medium"
     },
     {
       "check": "ApiOperation",
-      "passed": 21,
-      "failed": 4,
+      "passed": 25,
+      "failed": 0,
       "severity": "low"
-    },
-    {
-      "check": "ApiBearerAuth",
-      "passed": 22,
-      "failed": 3,
-      "severity": "medium"
-    },
-    {
-      "check": "JwtAuthGuard",
-      "passed": 24,
-      "failed": 1,
-      "severity": "critical"
     },
     {
       "check": "NoHardcodedSecrets",
@@ -196,15 +196,15 @@
       "checks": [
         {
           "check": "JwtAuthGuard",
-          "passed": false,
+          "passed": true,
           "severity": "critical",
-          "details": "JWT authentication guard must be applied"
+          "details": "Skipped (public endpoint)"
         },
         {
           "check": "TenantGuard",
-          "passed": false,
+          "passed": true,
           "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "details": "Skipped (public endpoint)"
         },
         {
           "check": "ApiTags",
@@ -213,9 +213,9 @@
         },
         {
           "check": "ApiBearerAuth",
-          "passed": false,
+          "passed": true,
           "severity": "medium",
-          "details": "Swagger bearer auth documentation"
+          "details": "Skipped (public endpoint)"
         },
         {
           "check": "ApiOperation",
@@ -267,11 +267,8 @@
           "severity": "high"
         }
       ],
-      "score": 15,
+      "score": 75,
       "issues": [
-        "Missing JwtAuthGuard: JWT authentication guard must be applied",
-        "Missing TenantGuard: Tenant isolation guard must be applied",
-        "Missing ApiBearerAuth: Swagger bearer auth documentation",
         "Missing TenantIdUsage: Tenant ID used for data isolation"
       ]
     },
@@ -371,9 +368,8 @@
         },
         {
           "check": "ApiBearerAuth",
-          "passed": false,
-          "severity": "medium",
-          "details": "Swagger bearer auth documentation"
+          "passed": true,
+          "severity": "medium"
         },
         {
           "check": "ApiOperation",
@@ -430,9 +426,8 @@
           "details": "Missing ownership verification"
         }
       ],
-      "score": 70,
+      "score": 80,
       "issues": [
-        "Missing ApiBearerAuth: Swagger bearer auth documentation",
         "Missing ApiResponse: Swagger response documentation",
         "Potential IDOR risk - database operations without tenant verification"
       ]
@@ -531,9 +526,8 @@
         },
         {
           "check": "TenantGuard",
-          "passed": false,
-          "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "passed": true,
+          "severity": "critical"
         },
         {
           "check": "ApiTags",
@@ -600,9 +594,8 @@
           "details": "Missing ownership verification"
         }
       ],
-      "score": 55,
+      "score": 80,
       "issues": [
-        "Missing TenantGuard: Tenant isolation guard must be applied",
         "Missing ApiResponse: Swagger response documentation",
         "Potential IDOR risk - database operations without tenant verification"
       ]
@@ -618,9 +611,8 @@
         },
         {
           "check": "TenantGuard",
-          "passed": false,
-          "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "passed": true,
+          "severity": "critical"
         },
         {
           "check": "ApiTags",
@@ -686,9 +678,8 @@
           "severity": "high"
         }
       ],
-      "score": 70,
+      "score": 95,
       "issues": [
-        "Missing TenantGuard: Tenant isolation guard must be applied",
         "Missing ApiResponse: Swagger response documentation"
       ]
     },
@@ -775,13 +766,14 @@
         {
           "check": "JwtAuthGuard",
           "passed": true,
-          "severity": "critical"
+          "severity": "critical",
+          "details": "Skipped (public endpoint)"
         },
         {
           "check": "TenantGuard",
-          "passed": false,
+          "passed": true,
           "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "details": "Skipped (public endpoint)"
         },
         {
           "check": "ApiTags",
@@ -791,7 +783,8 @@
         {
           "check": "ApiBearerAuth",
           "passed": true,
-          "severity": "medium"
+          "severity": "medium",
+          "details": "Skipped (public endpoint)"
         },
         {
           "check": "ApiOperation",
@@ -841,9 +834,8 @@
           "severity": "high"
         }
       ],
-      "score": 50,
+      "score": 75,
       "issues": [
-        "Missing TenantGuard: Tenant isolation guard must be applied",
         "Missing TenantIdUsage: Tenant ID used for data isolation"
       ]
     },
@@ -858,9 +850,8 @@
         },
         {
           "check": "TenantGuard",
-          "passed": false,
-          "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "passed": true,
+          "severity": "critical"
         },
         {
           "check": "ApiTags",
@@ -926,9 +917,8 @@
           "details": "Missing ownership verification"
         }
       ],
-      "score": 35,
+      "score": 60,
       "issues": [
-        "Missing TenantGuard: Tenant isolation guard must be applied",
         "Missing TenantIdUsage: Tenant ID used for data isolation",
         "Potential IDOR risk - database operations without tenant verification"
       ]
@@ -951,9 +941,8 @@
         },
         {
           "check": "ApiTags",
-          "passed": false,
-          "severity": "medium",
-          "details": "Swagger API tags for documentation"
+          "passed": true,
+          "severity": "medium"
         },
         {
           "check": "ApiBearerAuth",
@@ -963,15 +952,13 @@
         },
         {
           "check": "ApiOperation",
-          "passed": false,
-          "severity": "low",
-          "details": "Swagger operation documentation"
+          "passed": true,
+          "severity": "low"
         },
         {
           "check": "ApiResponse",
-          "passed": false,
-          "severity": "low",
-          "details": "Swagger response documentation"
+          "passed": true,
+          "severity": "low"
         },
         {
           "check": "ValidationPipe",
@@ -1012,11 +999,8 @@
           "severity": "high"
         }
       ],
-      "score": 55,
+      "score": 75,
       "issues": [
-        "Missing ApiTags: Swagger API tags for documentation",
-        "Missing ApiOperation: Swagger operation documentation",
-        "Missing ApiResponse: Swagger response documentation",
         "Missing TenantIdUsage: Tenant ID used for data isolation"
       ]
     },
@@ -1110,9 +1094,8 @@
         },
         {
           "check": "TenantGuard",
-          "passed": false,
-          "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "passed": true,
+          "severity": "critical"
         },
         {
           "check": "ApiTags",
@@ -1174,9 +1157,8 @@
           "severity": "high"
         }
       ],
-      "score": 70,
+      "score": 95,
       "issues": [
-        "Missing TenantGuard: Tenant isolation guard must be applied",
         "Missing ApiResponse: Swagger response documentation"
       ]
     },
@@ -1198,9 +1180,8 @@
         },
         {
           "check": "ApiTags",
-          "passed": false,
-          "severity": "medium",
-          "details": "Swagger API tags for documentation"
+          "passed": true,
+          "severity": "medium"
         },
         {
           "check": "ApiBearerAuth",
@@ -1210,15 +1191,13 @@
         },
         {
           "check": "ApiOperation",
-          "passed": false,
-          "severity": "low",
-          "details": "Swagger operation documentation"
+          "passed": true,
+          "severity": "low"
         },
         {
           "check": "ApiResponse",
-          "passed": false,
-          "severity": "low",
-          "details": "Swagger response documentation"
+          "passed": true,
+          "severity": "low"
         },
         {
           "check": "ValidationPipe",
@@ -1259,11 +1238,8 @@
           "severity": "high"
         }
       ],
-      "score": 55,
+      "score": 75,
       "issues": [
-        "Missing ApiTags: Swagger API tags for documentation",
-        "Missing ApiOperation: Swagger operation documentation",
-        "Missing ApiResponse: Swagger response documentation",
         "Missing TenantIdUsage: Tenant ID used for data isolation"
       ]
     },
@@ -1356,33 +1332,28 @@
         },
         {
           "check": "TenantGuard",
-          "passed": false,
-          "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "passed": true,
+          "severity": "critical"
         },
         {
           "check": "ApiTags",
-          "passed": false,
-          "severity": "medium",
-          "details": "Swagger API tags for documentation"
+          "passed": true,
+          "severity": "medium"
         },
         {
           "check": "ApiBearerAuth",
-          "passed": false,
-          "severity": "medium",
-          "details": "Swagger bearer auth documentation"
+          "passed": true,
+          "severity": "medium"
         },
         {
           "check": "ApiOperation",
-          "passed": false,
-          "severity": "low",
-          "details": "Swagger operation documentation"
+          "passed": true,
+          "severity": "low"
         },
         {
           "check": "ApiResponse",
-          "passed": false,
-          "severity": "low",
-          "details": "Swagger response documentation"
+          "passed": true,
+          "severity": "low"
         },
         {
           "check": "ValidationPipe",
@@ -1423,14 +1394,8 @@
           "severity": "high"
         }
       ],
-      "score": 45,
-      "issues": [
-        "Missing TenantGuard: Tenant isolation guard must be applied",
-        "Missing ApiTags: Swagger API tags for documentation",
-        "Missing ApiBearerAuth: Swagger bearer auth documentation",
-        "Missing ApiOperation: Swagger operation documentation",
-        "Missing ApiResponse: Swagger response documentation"
-      ]
+      "score": 100,
+      "issues": []
     },
     {
       "file": "D:\\MailAgent\\backend\\src\\modules\\email\\controllers\\emails.controller.ts",
@@ -1443,9 +1408,8 @@
         },
         {
           "check": "TenantGuard",
-          "passed": false,
-          "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "passed": true,
+          "severity": "critical"
         },
         {
           "check": "ApiTags",
@@ -1509,10 +1473,8 @@
           "severity": "high"
         }
       ],
-      "score": 75,
-      "issues": [
-        "Missing TenantGuard: Tenant isolation guard must be applied"
-      ]
+      "score": 100,
+      "issues": []
     },
     {
       "file": "D:\\MailAgent\\backend\\src\\modules\\email\\controllers\\folders.controller.ts",
@@ -1525,9 +1487,8 @@
         },
         {
           "check": "TenantGuard",
-          "passed": false,
-          "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "passed": true,
+          "severity": "critical"
         },
         {
           "check": "ApiTags",
@@ -1592,10 +1553,8 @@
           "severity": "high"
         }
       ],
-      "score": 75,
-      "issues": [
-        "Missing TenantGuard: Tenant isolation guard must be applied"
-      ]
+      "score": 100,
+      "issues": []
     },
     {
       "file": "D:\\MailAgent\\backend\\src\\modules\\email-sync\\controllers\\webhook.controller.ts",
@@ -1615,9 +1574,8 @@
         },
         {
           "check": "ApiTags",
-          "passed": false,
-          "severity": "medium",
-          "details": "Swagger API tags for documentation"
+          "passed": true,
+          "severity": "medium"
         },
         {
           "check": "ApiBearerAuth",
@@ -1627,15 +1585,13 @@
         },
         {
           "check": "ApiOperation",
-          "passed": false,
-          "severity": "low",
-          "details": "Swagger operation documentation"
+          "passed": true,
+          "severity": "low"
         },
         {
           "check": "ApiResponse",
-          "passed": false,
-          "severity": "low",
-          "details": "Swagger response documentation"
+          "passed": true,
+          "severity": "low"
         },
         {
           "check": "ValidationPipe",
@@ -1676,11 +1632,8 @@
           "severity": "high"
         }
       ],
-      "score": 55,
+      "score": 75,
       "issues": [
-        "Missing ApiTags: Swagger API tags for documentation",
-        "Missing ApiOperation: Swagger operation documentation",
-        "Missing ApiResponse: Swagger response documentation",
         "Missing TenantIdUsage: Tenant ID used for data isolation"
       ]
     },
@@ -1856,9 +1809,8 @@
         },
         {
           "check": "TenantGuard",
-          "passed": false,
-          "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "passed": true,
+          "severity": "critical"
         },
         {
           "check": "ApiTags",
@@ -1924,9 +1876,8 @@
           "details": "Missing ownership verification"
         }
       ],
-      "score": 60,
+      "score": 85,
       "issues": [
-        "Missing TenantGuard: Tenant isolation guard must be applied",
         "Potential IDOR risk - database operations without tenant verification"
       ]
     },
@@ -2105,9 +2056,8 @@
         },
         {
           "check": "TenantGuard",
-          "passed": false,
-          "severity": "critical",
-          "details": "Tenant isolation guard must be applied"
+          "passed": true,
+          "severity": "critical"
         },
         {
           "check": "ApiTags",
@@ -2173,9 +2123,8 @@
           "severity": "high"
         }
       ],
-      "score": 70,
+      "score": 95,
       "issues": [
-        "Missing TenantGuard: Tenant isolation guard must be applied",
         "Missing ApiResponse: Swagger response documentation"
       ]
     },
@@ -2265,9 +2214,6 @@
   ],
   "recommendations": [
     "🚨 CRITICAL: Fix all critical security issues immediately",
-    "Add JwtAuthGuard to all protected controllers",
-    "Add TenantGuard to ensure tenant isolation",
-    "Add @ApiTags() decorator to all controllers for Swagger docs",
     "Add tenant ownership verification to all database operations"
   ]
 }

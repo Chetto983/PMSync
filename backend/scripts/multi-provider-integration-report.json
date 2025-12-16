@@ -1,0 +1,1265 @@
+{
+  "timestamp": "2025-12-16T16:53:25.706Z",
+  "config": {
+    "apiBase": "http://localhost:3000",
+    "userId": "cmiz37cr80001aoyhfhoymodz",
+    "tenantId": "cmiz37cl10000aoyh9yn0s4a1",
+    "providers": [
+      {
+        "id": "cmiz39hqi0003aoyhyaihfukt",
+        "email": "dvdmarchetto@gmail.com",
+        "type": "google",
+        "capabilities": {
+          "email": true,
+          "calendar": true,
+          "contacts": true
+        }
+      },
+      {
+        "id": "cmiz3a4a6086daoyhy6mx69pq",
+        "email": "chetto983@hotmail.it",
+        "type": "microsoft",
+        "capabilities": {
+          "email": true,
+          "calendar": true,
+          "contacts": true
+        }
+      },
+      {
+        "id": "cmj1oxsw5000ylwyhmpi82abe",
+        "email": "testopta@libero.it",
+        "type": "imap",
+        "capabilities": {
+          "email": true,
+          "calendar": false,
+          "contacts": false
+        }
+      }
+    ]
+  },
+  "summary": {
+    "total": 104,
+    "passed": 101,
+    "failed": 3,
+    "successRate": "97.1%",
+    "duration": 3292
+  },
+  "byCategory": [
+    {
+      "name": "Health",
+      "total": 5,
+      "passed": 5,
+      "failed": 0
+    },
+    {
+      "name": "Providers",
+      "total": 4,
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "name": "Email",
+      "total": 32,
+      "passed": 32,
+      "failed": 0
+    },
+    {
+      "name": "Folders",
+      "total": 4,
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "name": "Calendar",
+      "total": 4,
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "name": "Contacts",
+      "total": 5,
+      "passed": 4,
+      "failed": 1
+    },
+    {
+      "name": "Labels",
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "name": "EmailSync",
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "name": "VoltAgent",
+      "total": 34,
+      "passed": 34,
+      "failed": 0
+    },
+    {
+      "name": "CRM",
+      "total": 8,
+      "passed": 8,
+      "failed": 0
+    },
+    {
+      "name": "DocumentLibrary",
+      "total": 2,
+      "passed": 0,
+      "failed": 2
+    },
+    {
+      "name": "Analytics",
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "name": "AI",
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    }
+  ],
+  "byProvider": [
+    {
+      "type": "google",
+      "total": 13,
+      "passed": 13,
+      "failed": 0
+    },
+    {
+      "type": "microsoft",
+      "total": 13,
+      "passed": 13,
+      "failed": 0
+    },
+    {
+      "type": "imap",
+      "total": 12,
+      "passed": 12,
+      "failed": 0
+    }
+  ],
+  "endpoints": [
+    {
+      "category": "Health",
+      "name": "System Health",
+      "endpoint": "/health",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 215,
+      "responseSchema": "{status, timestamp, services}"
+    },
+    {
+      "category": "Health",
+      "name": "Ready Probe",
+      "endpoint": "/health/ready",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 4,
+      "responseSchema": "{status}"
+    },
+    {
+      "category": "Health",
+      "name": "Live Probe",
+      "endpoint": "/health/live",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 2,
+      "responseSchema": "{status}"
+    },
+    {
+      "category": "Health",
+      "name": "Queue Metrics",
+      "endpoint": "/health/queues",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 1,
+      "responseSchema": "array[{queue, completed, failed, lastCompletedAt, averageDurationMs, lastDurationMs}]"
+    },
+    {
+      "category": "Health",
+      "name": "All Queues Health",
+      "endpoint": "/health/queues/all",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 17,
+      "responseSchema": "{status, redis, queues, summary, timestamp}"
+    },
+    {
+      "category": "Providers",
+      "name": "List All Providers",
+      "endpoint": "/providers",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 11,
+      "responseSchema": "array[{id, tenantId, userId, providerType, email, displayName, scope, supportsEmail}]"
+    },
+    {
+      "category": "Providers",
+      "name": "Get Provider (google)",
+      "endpoint": "/providers/cmiz39hqi0003aoyhyaihfukt",
+      "method": "GET",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 7,
+      "responseSchema": "{id, tenantId, userId, providerType, email, displayName, scope, supportsEmail}"
+    },
+    {
+      "category": "Providers",
+      "name": "Get Provider (microsoft)",
+      "endpoint": "/providers/cmiz3a4a6086daoyhy6mx69pq",
+      "method": "GET",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 9,
+      "responseSchema": "{id, tenantId, userId, providerType, email, displayName, scope, supportsEmail}"
+    },
+    {
+      "category": "Providers",
+      "name": "Get Provider (imap)",
+      "endpoint": "/providers/cmj1oxsw5000ylwyhmpi82abe",
+      "method": "GET",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 7,
+      "responseSchema": "{id, tenantId, userId, providerType, email, displayName, scope, supportsEmail}"
+    },
+    {
+      "category": "Email",
+      "name": "Email Stats Global",
+      "endpoint": "/emails/stats",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 34,
+      "responseSchema": "{total, unread, starred, important, today, thisWeek, attachments, byFolder}"
+    },
+    {
+      "category": "Email",
+      "name": "Retention Stats",
+      "endpoint": "/emails/retention/stats",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 9,
+      "responseSchema": "{tenantId, totalEmails, archivedEmails, recentEmails, oldUnarchived, retentionDays, estimatedSpaceSavedMB}"
+    },
+    {
+      "category": "Email",
+      "name": "List Emails",
+      "endpoint": "/emails?providerId=cmiz39hqi0003aoyhyaihfukt&limit=10",
+      "method": "GET",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 14,
+      "responseSchema": "{emails, pagination}"
+    },
+    {
+      "category": "Email",
+      "name": "List Emails by Folder",
+      "endpoint": "/emails?providerId=cmiz39hqi0003aoyhyaihfukt&specialUse=INBOX&limit=5",
+      "method": "GET",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 15,
+      "responseSchema": "{emails, pagination}"
+    },
+    {
+      "category": "Email",
+      "name": "Email Stats",
+      "endpoint": "/emails/stats?providerId=cmiz39hqi0003aoyhyaihfukt",
+      "method": "GET",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 14,
+      "responseSchema": "{total, unread, starred, important, today, thisWeek, attachments, byFolder}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Mark Read",
+      "endpoint": "/emails/bulk/read",
+      "method": "PATCH",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 25,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Mark Unread",
+      "endpoint": "/emails/bulk/read",
+      "method": "PATCH",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 21,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Star",
+      "endpoint": "/emails/bulk/star",
+      "method": "PATCH",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 19,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Unstar",
+      "endpoint": "/emails/bulk/star",
+      "method": "PATCH",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 21,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Flag",
+      "endpoint": "/emails/bulk/flag",
+      "method": "PATCH",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 17,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Unflag",
+      "endpoint": "/emails/bulk/flag",
+      "method": "PATCH",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 18,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Get Single Email",
+      "endpoint": "/emails/cmj4h4zmg001yv8yh4uoxoh74",
+      "method": "GET",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 11,
+      "responseSchema": "{id, tenantId, providerId, externalId, threadId, messageId, inReplyTo, references}"
+    },
+    {
+      "category": "Email",
+      "name": "List Emails",
+      "endpoint": "/emails?providerId=cmiz3a4a6086daoyhy6mx69pq&limit=10",
+      "method": "GET",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 12,
+      "responseSchema": "{emails, pagination}"
+    },
+    {
+      "category": "Email",
+      "name": "List Emails by Folder",
+      "endpoint": "/emails?providerId=cmiz3a4a6086daoyhy6mx69pq&specialUse=INBOX&limit=5",
+      "method": "GET",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 12,
+      "responseSchema": "{emails, pagination}"
+    },
+    {
+      "category": "Email",
+      "name": "Email Stats",
+      "endpoint": "/emails/stats?providerId=cmiz3a4a6086daoyhy6mx69pq",
+      "method": "GET",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 8,
+      "responseSchema": "{total, unread, starred, important, today, thisWeek, attachments, byFolder}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Mark Read",
+      "endpoint": "/emails/bulk/read",
+      "method": "PATCH",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 15,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Mark Unread",
+      "endpoint": "/emails/bulk/read",
+      "method": "PATCH",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 15,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Star",
+      "endpoint": "/emails/bulk/star",
+      "method": "PATCH",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 18,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Unstar",
+      "endpoint": "/emails/bulk/star",
+      "method": "PATCH",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 13,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Flag",
+      "endpoint": "/emails/bulk/flag",
+      "method": "PATCH",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 22,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Unflag",
+      "endpoint": "/emails/bulk/flag",
+      "method": "PATCH",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 24,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Get Single Email",
+      "endpoint": "/emails/cmj4h81nz002zv8yhfoop5k4k",
+      "method": "GET",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 10,
+      "responseSchema": "{id, tenantId, providerId, externalId, threadId, messageId, inReplyTo, references}"
+    },
+    {
+      "category": "Email",
+      "name": "List Emails",
+      "endpoint": "/emails?providerId=cmj1oxsw5000ylwyhmpi82abe&limit=10",
+      "method": "GET",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 10,
+      "responseSchema": "{emails, pagination}"
+    },
+    {
+      "category": "Email",
+      "name": "List Emails by Folder",
+      "endpoint": "/emails?providerId=cmj1oxsw5000ylwyhmpi82abe&specialUse=INBOX&limit=5",
+      "method": "GET",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 11,
+      "responseSchema": "{emails, pagination}"
+    },
+    {
+      "category": "Email",
+      "name": "Email Stats",
+      "endpoint": "/emails/stats?providerId=cmj1oxsw5000ylwyhmpi82abe",
+      "method": "GET",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 10,
+      "responseSchema": "{total, unread, starred, important, today, thisWeek, attachments, byFolder}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Mark Read",
+      "endpoint": "/emails/bulk/read",
+      "method": "PATCH",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 21,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Mark Unread",
+      "endpoint": "/emails/bulk/read",
+      "method": "PATCH",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 18,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Star",
+      "endpoint": "/emails/bulk/star",
+      "method": "PATCH",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 15,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Unstar",
+      "endpoint": "/emails/bulk/star",
+      "method": "PATCH",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 18,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Flag",
+      "endpoint": "/emails/bulk/flag",
+      "method": "PATCH",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 18,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Bulk Unflag",
+      "endpoint": "/emails/bulk/flag",
+      "method": "PATCH",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 15,
+      "responseSchema": "{updated, emails}"
+    },
+    {
+      "category": "Email",
+      "name": "Get Single Email",
+      "endpoint": "/emails/cmj8sq8pu0013w4yhqplqxcw1",
+      "method": "GET",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 27,
+      "responseSchema": "{id, tenantId, providerId, externalId, threadId, messageId, inReplyTo, references}"
+    },
+    {
+      "category": "Folders",
+      "name": "List All Folders",
+      "endpoint": "/folders",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 241,
+      "responseSchema": "{providers, foldersByProvider}"
+    },
+    {
+      "category": "Folders",
+      "name": "Folder Audit (google)",
+      "endpoint": "/folders/audit/cmiz39hqi0003aoyhyaihfukt",
+      "method": "GET",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 11,
+      "responseSchema": "{success, providerId, providerEmail, dbFolderCount, serverFolderCount, inSync, onlyInDb, onlyOnServer}"
+    },
+    {
+      "category": "Folders",
+      "name": "Folder Audit (microsoft)",
+      "endpoint": "/folders/audit/cmiz3a4a6086daoyhy6mx69pq",
+      "method": "GET",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 8,
+      "responseSchema": "{success, providerId, providerEmail, dbFolderCount, serverFolderCount, inSync, onlyInDb, onlyOnServer}"
+    },
+    {
+      "category": "Folders",
+      "name": "Folder Audit (imap)",
+      "endpoint": "/folders/audit/cmj1oxsw5000ylwyhmpi82abe",
+      "method": "GET",
+      "providerId": "cmj1oxsw5000ylwyhmpi82abe",
+      "providerType": "imap",
+      "status": 200,
+      "success": true,
+      "duration": 322,
+      "responseSchema": "{success, providerId, providerEmail, dbFolderCount, serverFolderCount, inSync, onlyInDb, onlyOnServer}"
+    },
+    {
+      "category": "Calendar",
+      "name": "List All Calendars",
+      "endpoint": "/calendar/calendars",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 10,
+      "responseSchema": "{calendars, total}"
+    },
+    {
+      "category": "Calendar",
+      "name": "List Events",
+      "endpoint": "/calendar/events?providerId=cmiz39hqi0003aoyhyaihfukt&startTime=2025-12-16T16:53:23.803Z&endTime=2026-01-16T16:53:23.803Z",
+      "method": "GET",
+      "providerId": "cmiz39hqi0003aoyhyaihfukt",
+      "providerType": "google",
+      "status": 200,
+      "success": true,
+      "duration": 10,
+      "responseSchema": "{events, total}"
+    },
+    {
+      "category": "Calendar",
+      "name": "List Events",
+      "endpoint": "/calendar/events?providerId=cmiz3a4a6086daoyhy6mx69pq&startTime=2025-12-16T16:53:23.803Z&endTime=2026-01-16T16:53:23.803Z",
+      "method": "GET",
+      "providerId": "cmiz3a4a6086daoyhy6mx69pq",
+      "providerType": "microsoft",
+      "status": 200,
+      "success": true,
+      "duration": 11,
+      "responseSchema": "{events, total}"
+    },
+    {
+      "category": "Calendar",
+      "name": "Webhook Health",
+      "endpoint": "/webhooks/calendar/health",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 7,
+      "responseSchema": "{status, timestamp, google, microsoft}"
+    },
+    {
+      "category": "Contacts",
+      "name": "List Contacts",
+      "endpoint": "/contacts?limit=20",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 12,
+      "responseSchema": "{contacts, total}"
+    },
+    {
+      "category": "Contacts",
+      "name": "Contact Counts",
+      "endpoint": "/contacts/counts",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{total, withEmail, withPhone, withCompany, byProvider}"
+    },
+    {
+      "category": "Contacts",
+      "name": "Search Contacts",
+      "endpoint": "/contacts?search=test&limit=10",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 16,
+      "responseSchema": "{contacts, total}"
+    },
+    {
+      "category": "Contacts",
+      "name": "Get Single Contact",
+      "endpoint": "/contacts/cmiz39jsb0018aoyh9o9thybi",
+      "method": "GET",
+      "status": 400,
+      "success": false,
+      "duration": 10,
+      "error": "{\"statusCode\":400,\"message\":\"Validation failed (uuid is expected)\",\"timestamp\":\"2025-12-16T16:53:23.875Z\"}"
+    },
+    {
+      "category": "Contacts",
+      "name": "Webhook Health",
+      "endpoint": "/webhooks/contacts/health",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{status, timestamp, google, microsoft}"
+    },
+    {
+      "category": "Labels",
+      "name": "List Labels",
+      "endpoint": "/labels",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{labels}"
+    },
+    {
+      "category": "EmailSync",
+      "name": "Sync Status",
+      "endpoint": "/email-sync/status",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 16,
+      "responseSchema": "{queues, providers, scheduler, smartSync}"
+    },
+    {
+      "category": "EmailSync",
+      "name": "Sync Health",
+      "endpoint": "/email-sync/health",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 17,
+      "responseSchema": "{queues, webhooks}"
+    },
+    {
+      "category": "EmailSync",
+      "name": "Webhook Health",
+      "endpoint": "/email-sync/webhooks/health",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 17,
+      "responseSchema": "{webhooks, queues, syncSummary}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Chat",
+      "endpoint": "/api/v1/voltagent/chat",
+      "method": "POST",
+      "status": 200,
+      "success": true,
+      "duration": 53,
+      "responseSchema": "{text, fromCache, cacheSimilarity}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Pending Actions",
+      "endpoint": "/api/v1/voltagent/actions/pending",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 7,
+      "responseSchema": "{actions, total}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Action Counts",
+      "endpoint": "/api/v1/voltagent/stats/action-counts",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, counts}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Learning Stats",
+      "endpoint": "/api/v1/voltagent/stats/learning",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, stats}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Aggregate Stats",
+      "endpoint": "/api/v1/voltagent/stats/aggregate",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, stats}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Performance Stats",
+      "endpoint": "/api/v1/voltagent/stats/performance",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, stats}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Recent Metrics",
+      "endpoint": "/api/v1/voltagent/stats/metrics",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 7,
+      "responseSchema": "{success, metrics, count}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Optimization Stats",
+      "endpoint": "/api/v1/voltagent/stats/optimizations",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 8,
+      "responseSchema": "{success, optimizations}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Cache Analytics",
+      "endpoint": "/api/v1/voltagent/cache/analytics",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, analytics, config, recommendations}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Get Briefing",
+      "endpoint": "/api/v1/voltagent/briefing",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, briefing}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Briefing Status",
+      "endpoint": "/api/v1/voltagent/briefing/status",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 4,
+      "responseSchema": "{success, enabled, scheduleHour, batchSize, queueStats}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Get Memories",
+      "endpoint": "/api/v1/voltagent/memory",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, count, memories}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Search Memories",
+      "endpoint": "/api/v1/voltagent/memory/search?query=test",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 342,
+      "responseSchema": "{success, count, memories}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Memory Stats",
+      "endpoint": "/api/v1/voltagent/memory/stats",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 10,
+      "responseSchema": "{success, enabled, totalMemories, byCategory, avgImportance}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Get Deadlines",
+      "endpoint": "/api/v1/voltagent/deadlines",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, enabled, count, deadlines}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Deadline Stats",
+      "endpoint": "/api/v1/voltagent/deadlines/stats",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, enabled, upcoming, dueSoon, overdue, completed}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Deadline Queue",
+      "endpoint": "/api/v1/voltagent/deadlines/queue",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, waiting, active, completed, failed}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Extract Deadline",
+      "endpoint": "/api/v1/voltagent/deadlines/extract",
+      "method": "POST",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, count, deadlines}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "List Follow-Ups",
+      "endpoint": "/api/v1/voltagent/follow-ups",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, count, followUps}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Pending Follow-Ups",
+      "endpoint": "/api/v1/voltagent/follow-ups/pending",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, count, followUps}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Overdue Follow-Ups",
+      "endpoint": "/api/v1/voltagent/follow-ups/overdue",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 7,
+      "responseSchema": "{success, count, followUps}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Follow-Up Stats",
+      "endpoint": "/api/v1/voltagent/follow-ups/stats",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 7,
+      "responseSchema": "{success, total, pending, reminded, resolved, expired, dueToday, overdue}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Analyze Follow-Up",
+      "endpoint": "/api/v1/voltagent/follow-ups/analyze",
+      "method": "POST",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, needsFollowUp, reason}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "List Action Items",
+      "endpoint": "/api/v1/voltagent/action-items",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, items, count}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Pending Action Items",
+      "endpoint": "/api/v1/voltagent/action-items/pending",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, items, count}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Overdue Action Items",
+      "endpoint": "/api/v1/voltagent/action-items/overdue",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, items, count}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Action Item Stats",
+      "endpoint": "/api/v1/voltagent/action-items/stats",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 17,
+      "responseSchema": "{success, stats}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Analyze Action Items",
+      "endpoint": "/api/v1/voltagent/action-items/analyze",
+      "method": "POST",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, needsExtraction, detected, count}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Analytics Dashboard",
+      "endpoint": "/api/v1/voltagent/analytics/dashboard",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, analytics}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Email Analytics",
+      "endpoint": "/api/v1/voltagent/analytics/email?period=week",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, analytics}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Analytics Status",
+      "endpoint": "/api/v1/voltagent/analytics/status",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 4,
+      "responseSchema": "{success, enabled}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Knowledge Stats",
+      "endpoint": "/api/v1/voltagent/knowledge/stats",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 20,
+      "responseSchema": "{success, memoryCount, deadlineCount, followupCount, actionCount}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Knowledge Search",
+      "endpoint": "/api/v1/voltagent/knowledge/search",
+      "method": "POST",
+      "status": 200,
+      "success": true,
+      "duration": 1081,
+      "responseSchema": "{success, context, sources, itemCount}"
+    },
+    {
+      "category": "VoltAgent",
+      "name": "Feedback History",
+      "endpoint": "/api/v1/voltagent/feedback",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 8,
+      "responseSchema": "{success, feedback, total, limit, offset}"
+    },
+    {
+      "category": "CRM",
+      "name": "Stale Contacts",
+      "endpoint": "/api/v1/voltagent/crm/stale-contacts?days=60&limit=10",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 8,
+      "responseSchema": "{success, count, contacts}"
+    },
+    {
+      "category": "CRM",
+      "name": "Reconnect Candidates",
+      "endpoint": "/api/v1/voltagent/crm/reconnect?days=60&limit=10",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 9,
+      "responseSchema": "{success, count, contacts}"
+    },
+    {
+      "category": "CRM",
+      "name": "Top Contacts",
+      "endpoint": "/api/v1/voltagent/crm/top-contacts?limit=10",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, count, contacts}"
+    },
+    {
+      "category": "CRM",
+      "name": "Recalculate All Scores",
+      "endpoint": "/api/v1/voltagent/crm/recalculate-all",
+      "method": "POST",
+      "status": 200,
+      "success": true,
+      "duration": 16,
+      "responseSchema": "{success, updated, errors}"
+    },
+    {
+      "category": "CRM",
+      "name": "Contact Stats",
+      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb0018aoyh9o9thybi",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, stats}"
+    },
+    {
+      "category": "CRM",
+      "name": "Contact Interactions",
+      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb0018aoyh9o9thybi/interactions?limit=5",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 7,
+      "responseSchema": "{success, count, interactions}"
+    },
+    {
+      "category": "CRM",
+      "name": "Relationship Graph",
+      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb0018aoyh9o9thybi/graph?depth=2",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 5,
+      "responseSchema": "{success, count, nodes}"
+    },
+    {
+      "category": "CRM",
+      "name": "Recalculate Score",
+      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb0018aoyh9o9thybi/recalculate",
+      "method": "POST",
+      "status": 200,
+      "success": true,
+      "duration": 11,
+      "responseSchema": "{success, score}"
+    },
+    {
+      "category": "DocumentLibrary",
+      "name": "List Libraries",
+      "endpoint": "/voltagent/documents/libraries",
+      "method": "GET",
+      "status": 404,
+      "success": false,
+      "duration": 1,
+      "error": "{\"statusCode\":404,\"message\":\"Cannot GET /voltagent/documents/libraries\",\"timestamp\":\"2025-12-16T16:53:25.694Z\"}"
+    },
+    {
+      "category": "DocumentLibrary",
+      "name": "List Documents",
+      "endpoint": "/voltagent/documents",
+      "method": "GET",
+      "status": 404,
+      "success": false,
+      "duration": 1,
+      "error": "{\"statusCode\":404,\"message\":\"Cannot GET /voltagent/documents\",\"timestamp\":\"2025-12-16T16:53:25.695Z\"}"
+    },
+    {
+      "category": "Analytics",
+      "name": "Email Analytics",
+      "endpoint": "/analytics/emails",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 9,
+      "responseSchema": "array[{name, emails, sent, received}]"
+    },
+    {
+      "category": "AI",
+      "name": "Health Status",
+      "endpoint": "/ai/health",
+      "method": "GET",
+      "status": 200,
+      "success": true,
+      "duration": 1,
+      "responseSchema": "{status, timestamp, services}"
+    }
+  ]
+}

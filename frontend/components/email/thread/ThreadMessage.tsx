@@ -233,17 +233,32 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
                 ) : (
                   <>
                     <Tooltip title={t.email.view.reply}>
-                      <IconButton size="small" onClick={() => onReply?.(email)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onReply?.(email)}
+                        aria-label={t.email.view.reply}
+                        data-testid="thread-reply-button"
+                      >
                         <Reply size={16} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={t.email.view.replyAll}>
-                      <IconButton size="small" onClick={() => onReplyAll?.(email)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onReplyAll?.(email)}
+                        aria-label={t.email.view.replyAll}
+                        data-testid="thread-reply-all-button"
+                      >
                         <ReplyAll size={16} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={t.email.view.forward}>
-                      <IconButton size="small" onClick={() => onForward?.(email)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onForward?.(email)}
+                        aria-label={t.email.view.forward}
+                        data-testid="thread-forward-button"
+                      >
                         <Forward size={16} />
                       </IconButton>
                     </Tooltip>

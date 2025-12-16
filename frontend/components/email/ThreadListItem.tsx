@@ -217,6 +217,9 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
         <ListItemButton
           selected={selected}
           onClick={handleClick}
+          data-testid="thread-list-item"
+          data-thread-id={threadId}
+          data-email-id={emailId}
           sx={{
             py: { xs: 1.75, sm: 1.5 },
             px: { xs: 1.5, sm: 2 },

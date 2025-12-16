@@ -8,6 +8,9 @@ const config = {
     '<rootDir>/**/*.spec.ts',
     '<rootDir>/**/*.spec.tsx',
   ],
+  testPathIgnorePatterns: [
+    '<rootDir>/e2e/',
+  ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },

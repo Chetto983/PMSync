@@ -298,7 +298,10 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   const hasBody = Boolean(email.bodyHtml || email.bodyText);
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <Box
+      data-testid="thread-display"
+      sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+    >
       <Paper
         elevation={0}
         sx={{

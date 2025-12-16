@@ -10,6 +10,7 @@ import {
   Headers,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiHeader, ApiBody } from '@nestjs/swagger';
 import { GoogleContactsWebhookService } from '../services/google-contacts-webhook.service';
 import {
   MicrosoftContactsWebhookService,
@@ -18,6 +19,7 @@ import {
 import { SyncAuthService } from '../../email-sync/services/sync-auth.service';
 import { GoogleContactsSyncDto } from '../dto/contact.dto';
 
+@ApiTags('Webhooks - Contacts')
 @Controller('webhooks/contacts')
 export class ContactsWebhookController {
   private readonly logger = new Logger(ContactsWebhookController.name);
@@ -35,6 +37,11 @@ export class ContactsWebhookController {
    */
   @Post('google/sync')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Trigger Google Contacts sync', description: 'Manually triggers contacts sync for a provider' })
+  @ApiHeader({ name: 'x-webhook-token', description: 'Webhook authentication token', required: false })
+  @ApiBody({ type: 'GoogleContactsSyncDto' })
+  @ApiResponse({ status: 200, description: 'Sync triggered successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - invalid or missing token' })
   async triggerGoogleContactsSync(
     @Body() body: GoogleContactsSyncDto,
     @Headers('x-webhook-token') webhookToken?: string,
@@ -80,6 +87,9 @@ export class ContactsWebhookController {
    */
   @Post('microsoft/notifications')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Microsoft Contacts webhook', description: 'Receives notifications from Microsoft Graph API' })
+  @ApiQuery({ name: 'validationToken', description: 'Microsoft subscription validation token', required: false })
+  @ApiResponse({ status: 200, description: 'Notification processed or validation token returned' })
   async handleMicrosoftContactsNotification(
     @Body() payload: { value?: MicrosoftContactsNotification[] },
     @Query('validationToken') validationToken?: string,

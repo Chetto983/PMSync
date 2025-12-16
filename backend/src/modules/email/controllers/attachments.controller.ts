@@ -8,6 +8,13 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { Readable } from 'stream';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -22,8 +29,10 @@ import { AttachmentOnDemandService } from '../services/attachment-on-demand.serv
  * - Attachment metadata queries
  *
  * Authorization: All endpoints require JWT authentication
- * Tenant isolation: Enforced via req.user.tenantId
+ * Tenant isolation: Enforced via req.user.tenantId and TenantGuard
  */
+@ApiTags('Email Attachments')
+@ApiBearerAuth()
 @Controller('email/attachments')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class AttachmentsController {
@@ -55,6 +64,10 @@ export class AttachmentsController {
    * → Streams file content with proper Content-Disposition header
    */
   @Get(':id/download')
+  @ApiOperation({ summary: 'Download attachment', description: 'Stream download of an email attachment by ID' })
+  @ApiParam({ name: 'id', description: 'Attachment ID' })
+  @ApiResponse({ status: 200, description: 'Attachment file stream' })
+  @ApiResponse({ status: 404, description: 'Attachment not found' })
   async downloadAttachment(
     @Param('id') id: string,
     @Req() req: any,
@@ -172,6 +185,10 @@ export class AttachmentsController {
    * → { filename: "report.pdf", mimeType: "application/pdf", size: 1048576, isInS3: false }
    */
   @Get(':id/metadata')
+  @ApiOperation({ summary: 'Get attachment metadata', description: 'Get attachment info without downloading' })
+  @ApiParam({ name: 'id', description: 'Attachment ID' })
+  @ApiResponse({ status: 200, description: 'Attachment metadata' })
+  @ApiResponse({ status: 404, description: 'Attachment not found' })
   async getAttachmentMetadata(
     @Param('id') id: string,
     @Req() req: any,

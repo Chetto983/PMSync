@@ -434,6 +434,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
             size="large"
             startIcon={<Mail size={20} />}
             onClick={handleCompose}
+            data-testid="email-compose-button"
             sx={{
               minHeight: 48,
               height: 48,

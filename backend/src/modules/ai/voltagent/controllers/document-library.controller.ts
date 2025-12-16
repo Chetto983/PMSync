@@ -83,7 +83,7 @@ class QueryDocumentsDto {
 @ApiTags('Document Library')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, TenantGuard)
-@Controller('voltagent/documents')
+@Controller('api/v1/voltagent/documents')
 export class DocumentLibraryController {
   private readonly logger = new Logger(DocumentLibraryController.name);
 

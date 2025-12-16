@@ -10,10 +10,12 @@ import {
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiHeader } from '@nestjs/swagger';
 import { GoogleCalendarWebhookService } from '../services/google-calendar-webhook.service';
 import { MicrosoftCalendarWebhookService, MicrosoftCalendarNotification } from '../services/microsoft-calendar-webhook.service';
 import { SyncAuthService } from '../../email-sync/services/sync-auth.service';
 
+@ApiTags('Webhooks - Calendar')
 @Controller('webhooks/calendar')
 export class CalendarWebhookController {
   private readonly logger = new Logger(CalendarWebhookController.name);
@@ -30,6 +32,13 @@ export class CalendarWebhookController {
    */
   @Post('google/push')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Google Calendar webhook', description: 'Receives push notifications from Google Calendar API' })
+  @ApiHeader({ name: 'x-webhook-token', description: 'Webhook authentication token', required: false })
+  @ApiHeader({ name: 'x-goog-channel-id', description: 'Google channel ID', required: true })
+  @ApiHeader({ name: 'x-goog-resource-id', description: 'Google resource ID', required: true })
+  @ApiQuery({ name: 'token', description: 'Alternative webhook token in query', required: false })
+  @ApiResponse({ status: 200, description: 'Notification processed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized - invalid token or missing headers' })
   async handleGoogleCalendarPush(
     @Headers() headers: Record<string, string>,
     @Headers('x-webhook-token') webhookToken?: string,
@@ -85,6 +94,9 @@ export class CalendarWebhookController {
    */
   @Post('microsoft/notifications')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Microsoft Calendar webhook', description: 'Receives notifications from Microsoft Graph API' })
+  @ApiQuery({ name: 'validationToken', description: 'Microsoft subscription validation token', required: false })
+  @ApiResponse({ status: 200, description: 'Notification processed or validation token returned' })
   async handleMicrosoftCalendarNotification(
     @Body() payload: { value?: MicrosoftCalendarNotification[] },
     @Query('validationToken') validationToken?: string,

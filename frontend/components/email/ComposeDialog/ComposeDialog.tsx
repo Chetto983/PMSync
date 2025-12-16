@@ -790,6 +790,7 @@ export function ComposeDialog({
         maxWidth={isFullscreen ? false : 'md'}
         fullWidth={!isFullscreen}
         fullScreen={isMobile || isFullscreen}
+        data-testid="compose-dialog"
         PaperProps={{
           sx: {
             height: isMobile || isFullscreen ? '100%' : '80vh',
@@ -952,6 +953,10 @@ export function ComposeDialog({
                   renderInput={(params) => (
                     <TextField
                       {...params}
+                      inputProps={{
+                        ...params.inputProps,
+                        'data-testid': 'compose-to-input',
+                      }}
                       placeholder={t.email.composer.toPlaceholder}
                       sx={{
                         '& .MuiOutlinedInput-root': {
@@ -1074,6 +1079,9 @@ export function ComposeDialog({
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   disabled={sending}
+                  inputProps={{
+                    'data-testid': 'compose-subject-input',
+                  }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       '& fieldset': { border: 'none' },
@@ -1233,6 +1241,7 @@ export function ComposeDialog({
               startIcon={sending ? <CircularProgress size={16} /> : <Send size={16} />}
               onClick={handleSend}
               disabled={sending || to.length === 0}
+              data-testid="compose-send-button"
             >
               {sending ? t.email.composer.sending : t.email.composer.send}
             </Button>

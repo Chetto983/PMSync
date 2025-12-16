@@ -10,6 +10,7 @@ import {
   BadRequestException,
   Headers,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiHeader, ApiBody } from '@nestjs/swagger';
 import { GmailWebhookService } from '../services/gmail-webhook.service';
 import { MicrosoftWebhookService } from '../services/microsoft-webhook.service';
 import {
@@ -18,6 +19,7 @@ import {
 } from '../interfaces/webhook.interface';
 import { SyncAuthService } from '../services/sync-auth.service';
 
+@ApiTags('Webhooks - Email Sync')
 @Controller('webhooks')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
@@ -34,6 +36,10 @@ export class WebhookController {
    */
   @Post('gmail/push')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Gmail Pub/Sub webhook', description: 'Receives push notifications from Google Cloud Pub/Sub' })
+  @ApiHeader({ name: 'x-webhook-token', description: 'Webhook authentication token', required: false })
+  @ApiQuery({ name: 'token', description: 'Alternative webhook token in query', required: false })
+  @ApiResponse({ status: 200, description: 'Notification processed' })
   async handleGmailPush(
     @Body() payload: GmailPubSubMessage,
     @Query('token') queryToken?: string,
@@ -72,6 +78,9 @@ export class WebhookController {
    */
   @Post('microsoft/notifications')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Microsoft Graph webhook', description: 'Receives notifications from Microsoft Graph API' })
+  @ApiQuery({ name: 'validationToken', description: 'Microsoft subscription validation token', required: false })
+  @ApiResponse({ status: 200, description: 'Notification processed or validation token returned' })
   async handleMicrosoftNotification(
     @Body() payload: MicrosoftGraphWebhookPayload,
     @Query('validationToken') validationToken?: string,

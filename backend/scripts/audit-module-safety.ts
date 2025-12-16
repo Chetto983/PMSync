@@ -91,11 +91,11 @@ const SECURITY_CHECKS: SecurityCheck[] = [
   },
   {
     name: 'TenantGuard',
-    // TenantGuard OR (JwtAuthGuard + tenantId usage) is acceptable for tenant isolation
+    // TenantGuard is REQUIRED for strict GDPR compliance and tenant isolation
     pattern: /@UseGuards\([^)]*TenantGuard/,
-    required: false, // Changed to false - we'll do a combined check instead
-    severity: 'high',
-    description: 'Tenant isolation guard (or JWT + tenantId pattern)',
+    required: true, // STRICT: TenantGuard must be present on all protected controllers
+    severity: 'critical',
+    description: 'Tenant isolation guard - REQUIRED for GDPR compliance',
   },
   // Swagger Documentation
   {
@@ -160,12 +160,19 @@ const SECURITY_CHECKS: SecurityCheck[] = [
 ];
 
 // Controllers that don't need authentication (public endpoints)
+// These are intentionally public for:
+// - Health checks: Load balancer/Kubernetes probes
+// - Auth: Pre-authentication endpoints (login, register)
+// - OAuth callbacks: External OAuth flow
+// - Webhooks: External services (use signature verification)
 const PUBLIC_CONTROLLERS = [
-  'health.controller.ts',
-  'oauth-callback.controller.ts',
-  'webhook.controller.ts',
-  'calendar-webhook.controller.ts',
-  'contacts-webhook.controller.ts',
+  'health.controller.ts',       // Public health checks for monitoring
+  'ai-health.controller.ts',    // AI health checks for monitoring
+  'auth.controller.ts',         // Login/register/password reset (pre-auth)
+  'oauth-callback.controller.ts', // OAuth provider callbacks
+  'webhook.controller.ts',      // External email webhooks (signature verified)
+  'calendar-webhook.controller.ts', // Google calendar webhooks (Google verified)
+  'contacts-webhook.controller.ts', // Google contacts webhooks (Google verified)
 ];
 
 // ============================================================================

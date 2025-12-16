@@ -14,7 +14,6 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
-  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -85,10 +84,10 @@ export class ContactsController {
   @Get(':id')
   @SkipThrottle()
   @ApiOperation({ summary: 'Get contact by ID', description: 'Returns a single contact' })
-  @ApiParam({ name: 'id', description: 'Contact ID (UUID)' })
+  @ApiParam({ name: 'id', description: 'Contact ID' })
   @ApiResponse({ status: 200, description: 'Contact returned successfully' })
   @ApiResponse({ status: 404, description: 'Contact not found' })
-  async getContact(@Req() req: any, @Param('id', ParseUUIDPipe) contactId: string) {
+  async getContact(@Req() req: any, @Param('id') contactId: string) {
     const tenantId = req.user.tenantId;
     return this.contactsService.getContact(tenantId, contactId);
   }
@@ -113,12 +112,12 @@ export class ContactsController {
    */
   @Patch(':id')
   @ApiOperation({ summary: 'Update contact', description: 'Updates an existing contact' })
-  @ApiParam({ name: 'id', description: 'Contact ID (UUID)' })
+  @ApiParam({ name: 'id', description: 'Contact ID' })
   @ApiBody({ type: UpdateContactDto })
   @ApiResponse({ status: 200, description: 'Contact updated successfully' })
   async updateContact(
     @Req() req: any,
-    @Param('id', ParseUUIDPipe) contactId: string,
+    @Param('id') contactId: string,
     @Body() data: UpdateContactDto,
   ) {
     const tenantId = req.user.tenantId;
@@ -132,9 +131,9 @@ export class ContactsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete contact', description: 'Deletes a contact' })
-  @ApiParam({ name: 'id', description: 'Contact ID (UUID)' })
+  @ApiParam({ name: 'id', description: 'Contact ID' })
   @ApiResponse({ status: 204, description: 'Contact deleted successfully' })
-  async deleteContact(@Req() req: any, @Param('id', ParseUUIDPipe) contactId: string) {
+  async deleteContact(@Req() req: any, @Param('id') contactId: string) {
     const tenantId = req.user.tenantId;
     await this.contactsService.deleteContact(tenantId, contactId);
   }
@@ -221,10 +220,10 @@ export class ContactsController {
    */
   @Post('sync/:providerId')
   @ApiOperation({ summary: 'Sync provider contacts', description: 'Triggers manual sync for a provider' })
-  @ApiParam({ name: 'providerId', description: 'Provider ID (UUID)' })
+  @ApiParam({ name: 'providerId', description: 'Provider ID' })
   @ApiResponse({ status: 200, description: 'Sync started successfully' })
   @ApiResponse({ status: 403, description: 'Access denied' })
-  async syncProvider(@Req() req: any, @Param('providerId', ParseUUIDPipe) providerId: string) {
+  async syncProvider(@Req() req: any, @Param('providerId') providerId: string) {
     const tenantId = req.user.tenantId;
 
     // ✅ SECURITY: Verify provider ownership before syncing
