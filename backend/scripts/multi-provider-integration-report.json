@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-12-16T16:53:25.706Z",
+  "timestamp": "2025-12-16T17:04:26.142Z",
   "config": {
     "apiBase": "http://localhost:3000",
     "userId": "cmiz37cr80001aoyhfhoymodz",
@@ -39,10 +39,10 @@
   },
   "summary": {
     "total": 104,
-    "passed": 101,
-    "failed": 3,
-    "successRate": "97.1%",
-    "duration": 3292
+    "passed": 104,
+    "failed": 0,
+    "successRate": "100.0%",
+    "duration": 3650
   },
   "byCategory": [
     {
@@ -78,8 +78,8 @@
     {
       "name": "Contacts",
       "total": 5,
-      "passed": 4,
-      "failed": 1
+      "passed": 5,
+      "failed": 0
     },
     {
       "name": "Labels",
@@ -108,8 +108,8 @@
     {
       "name": "DocumentLibrary",
       "total": 2,
-      "passed": 0,
-      "failed": 2
+      "passed": 2,
+      "failed": 0
     },
     {
       "name": "Analytics",
@@ -152,7 +152,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 215,
+      "duration": 206,
       "responseSchema": "{status, timestamp, services}"
     },
     {
@@ -182,7 +182,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 1,
+      "duration": 2,
       "responseSchema": "array[{queue, completed, failed, lastCompletedAt, averageDurationMs, lastDurationMs}]"
     },
     {
@@ -192,7 +192,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 17,
+      "duration": 16,
       "responseSchema": "{status, redis, queues, summary, timestamp}"
     },
     {
@@ -202,7 +202,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 11,
+      "duration": 10,
       "responseSchema": "array[{id, tenantId, userId, providerType, email, displayName, scope, supportsEmail}]"
     },
     {
@@ -214,7 +214,7 @@
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 7,
+      "duration": 8,
       "responseSchema": "{id, tenantId, userId, providerType, email, displayName, scope, supportsEmail}"
     },
     {
@@ -226,7 +226,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 8,
       "responseSchema": "{id, tenantId, userId, providerType, email, displayName, scope, supportsEmail}"
     },
     {
@@ -248,7 +248,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 34,
+      "duration": 30,
       "responseSchema": "{total, unread, starred, important, today, thisWeek, attachments, byFolder}"
     },
     {
@@ -282,7 +282,7 @@
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 15,
+      "duration": 13,
       "responseSchema": "{emails, pagination}"
     },
     {
@@ -294,7 +294,7 @@
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 14,
+      "duration": 12,
       "responseSchema": "{total, unread, starred, important, today, thisWeek, attachments, byFolder}"
     },
     {
@@ -306,7 +306,7 @@
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 25,
+      "duration": 19,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -318,7 +318,7 @@
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 21,
+      "duration": 19,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -330,7 +330,7 @@
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 19,
+      "duration": 16,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -342,7 +342,7 @@
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 21,
+      "duration": 17,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -354,7 +354,7 @@
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 17,
+      "duration": 18,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -366,7 +366,7 @@
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 18,
+      "duration": 16,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -390,7 +390,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 12,
+      "duration": 14,
       "responseSchema": "{emails, pagination}"
     },
     {
@@ -402,7 +402,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 12,
+      "duration": 10,
       "responseSchema": "{emails, pagination}"
     },
     {
@@ -414,7 +414,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 8,
+      "duration": 9,
       "responseSchema": "{total, unread, starred, important, today, thisWeek, attachments, byFolder}"
     },
     {
@@ -426,7 +426,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 15,
+      "duration": 16,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -438,7 +438,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 15,
+      "duration": 18,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -450,7 +450,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 18,
+      "duration": 16,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -462,7 +462,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 13,
+      "duration": 20,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -474,7 +474,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 22,
+      "duration": 23,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -486,7 +486,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 24,
+      "duration": 19,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -498,7 +498,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 10,
+      "duration": 13,
       "responseSchema": "{id, tenantId, providerId, externalId, threadId, messageId, inReplyTo, references}"
     },
     {
@@ -510,7 +510,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 10,
+      "duration": 11,
       "responseSchema": "{emails, pagination}"
     },
     {
@@ -522,7 +522,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 11,
+      "duration": 15,
       "responseSchema": "{emails, pagination}"
     },
     {
@@ -534,7 +534,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 10,
+      "duration": 12,
       "responseSchema": "{total, unread, starred, important, today, thisWeek, attachments, byFolder}"
     },
     {
@@ -546,7 +546,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 21,
+      "duration": 16,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -558,7 +558,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 18,
+      "duration": 14,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -570,7 +570,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 15,
+      "duration": 18,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -582,7 +582,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 18,
+      "duration": 17,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -594,7 +594,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 18,
+      "duration": 15,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -606,7 +606,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 15,
+      "duration": 21,
       "responseSchema": "{updated, emails}"
     },
     {
@@ -618,7 +618,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 27,
+      "duration": 16,
       "responseSchema": "{id, tenantId, providerId, externalId, threadId, messageId, inReplyTo, references}"
     },
     {
@@ -628,7 +628,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 241,
+      "duration": 194,
       "responseSchema": "{providers, foldersByProvider}"
     },
     {
@@ -640,7 +640,7 @@
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 11,
+      "duration": 12,
       "responseSchema": "{success, providerId, providerEmail, dbFolderCount, serverFolderCount, inSync, onlyInDb, onlyOnServer}"
     },
     {
@@ -652,7 +652,7 @@
       "providerType": "microsoft",
       "status": 200,
       "success": true,
-      "duration": 8,
+      "duration": 9,
       "responseSchema": "{success, providerId, providerEmail, dbFolderCount, serverFolderCount, inSync, onlyInDb, onlyOnServer}"
     },
     {
@@ -664,7 +664,7 @@
       "providerType": "imap",
       "status": 200,
       "success": true,
-      "duration": 322,
+      "duration": 336,
       "responseSchema": "{success, providerId, providerEmail, dbFolderCount, serverFolderCount, inSync, onlyInDb, onlyOnServer}"
     },
     {
@@ -674,25 +674,25 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 10,
+      "duration": 16,
       "responseSchema": "{calendars, total}"
     },
     {
       "category": "Calendar",
       "name": "List Events",
-      "endpoint": "/calendar/events?providerId=cmiz39hqi0003aoyhyaihfukt&startTime=2025-12-16T16:53:23.803Z&endTime=2026-01-16T16:53:23.803Z",
+      "endpoint": "/calendar/events?providerId=cmiz39hqi0003aoyhyaihfukt&startTime=2025-12-16T17:04:23.824Z&endTime=2026-01-16T17:04:23.824Z",
       "method": "GET",
       "providerId": "cmiz39hqi0003aoyhyaihfukt",
       "providerType": "google",
       "status": 200,
       "success": true,
-      "duration": 10,
+      "duration": 12,
       "responseSchema": "{events, total}"
     },
     {
       "category": "Calendar",
       "name": "List Events",
-      "endpoint": "/calendar/events?providerId=cmiz3a4a6086daoyhy6mx69pq&startTime=2025-12-16T16:53:23.803Z&endTime=2026-01-16T16:53:23.803Z",
+      "endpoint": "/calendar/events?providerId=cmiz3a4a6086daoyhy6mx69pq&startTime=2025-12-16T17:04:23.824Z&endTime=2026-01-16T17:04:23.824Z",
       "method": "GET",
       "providerId": "cmiz3a4a6086daoyhy6mx69pq",
       "providerType": "microsoft",
@@ -708,7 +708,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 7,
+      "duration": 8,
       "responseSchema": "{status, timestamp, google, microsoft}"
     },
     {
@@ -718,7 +718,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 12,
+      "duration": 13,
       "responseSchema": "{contacts, total}"
     },
     {
@@ -728,7 +728,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 7,
       "responseSchema": "{total, withEmail, withPhone, withCompany, byProvider}"
     },
     {
@@ -738,18 +738,18 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 16,
+      "duration": 17,
       "responseSchema": "{contacts, total}"
     },
     {
       "category": "Contacts",
       "name": "Get Single Contact",
-      "endpoint": "/contacts/cmiz39jsb0018aoyh9o9thybi",
+      "endpoint": "/contacts/cmiz39jsb001baoyh6q3n3kyg",
       "method": "GET",
-      "status": 400,
-      "success": false,
+      "status": 200,
+      "success": true,
       "duration": 10,
-      "error": "{\"statusCode\":400,\"message\":\"Validation failed (uuid is expected)\",\"timestamp\":\"2025-12-16T16:53:23.875Z\"}"
+      "responseSchema": "{id, tenantId, displayName, firstName, lastName, middleName, nickname, prefix}"
     },
     {
       "category": "Contacts",
@@ -758,7 +758,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 7,
       "responseSchema": "{status, timestamp, google, microsoft}"
     },
     {
@@ -768,7 +768,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 9,
       "responseSchema": "{labels}"
     },
     {
@@ -778,7 +778,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 16,
+      "duration": 17,
       "responseSchema": "{queues, providers, scheduler, smartSync}"
     },
     {
@@ -798,7 +798,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 17,
+      "duration": 23,
       "responseSchema": "{webhooks, queues, syncSummary}"
     },
     {
@@ -808,7 +808,7 @@
       "method": "POST",
       "status": 200,
       "success": true,
-      "duration": 53,
+      "duration": 57,
       "responseSchema": "{text, fromCache, cacheSimilarity}"
     },
     {
@@ -818,7 +818,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 7,
+      "duration": 12,
       "responseSchema": "{actions, total}"
     },
     {
@@ -828,7 +828,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 6,
       "responseSchema": "{success, counts}"
     },
     {
@@ -838,7 +838,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 8,
       "responseSchema": "{success, stats}"
     },
     {
@@ -848,7 +848,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 7,
       "responseSchema": "{success, stats}"
     },
     {
@@ -858,7 +858,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 7,
       "responseSchema": "{success, stats}"
     },
     {
@@ -878,7 +878,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 8,
+      "duration": 10,
       "responseSchema": "{success, optimizations}"
     },
     {
@@ -888,7 +888,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 7,
       "responseSchema": "{success, analytics, config, recommendations}"
     },
     {
@@ -898,7 +898,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 6,
       "responseSchema": "{success, briefing}"
     },
     {
@@ -908,7 +908,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 4,
+      "duration": 7,
       "responseSchema": "{success, enabled, scheduleHour, batchSize, queueStats}"
     },
     {
@@ -918,7 +918,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 6,
       "responseSchema": "{success, count, memories}"
     },
     {
@@ -928,7 +928,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 342,
+      "duration": 355,
       "responseSchema": "{success, count, memories}"
     },
     {
@@ -938,7 +938,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 10,
+      "duration": 7,
       "responseSchema": "{success, enabled, totalMemories, byCategory, avgImportance}"
     },
     {
@@ -958,7 +958,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 8,
       "responseSchema": "{success, enabled, upcoming, dueSoon, overdue, completed}"
     },
     {
@@ -978,7 +978,7 @@
       "method": "POST",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 133,
       "responseSchema": "{success, count, deadlines}"
     },
     {
@@ -988,7 +988,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 9,
       "responseSchema": "{success, count, followUps}"
     },
     {
@@ -998,7 +998,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 7,
       "responseSchema": "{success, count, followUps}"
     },
     {
@@ -1018,7 +1018,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 7,
+      "duration": 9,
       "responseSchema": "{success, total, pending, reminded, resolved, expired, dueToday, overdue}"
     },
     {
@@ -1028,7 +1028,7 @@
       "method": "POST",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 6,
       "responseSchema": "{success, needsFollowUp, reason}"
     },
     {
@@ -1038,7 +1038,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 7,
       "responseSchema": "{success, items, count}"
     },
     {
@@ -1048,7 +1048,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 7,
       "responseSchema": "{success, items, count}"
     },
     {
@@ -1058,7 +1058,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 8,
       "responseSchema": "{success, items, count}"
     },
     {
@@ -1068,7 +1068,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 17,
+      "duration": 19,
       "responseSchema": "{success, stats}"
     },
     {
@@ -1078,7 +1078,7 @@
       "method": "POST",
       "status": 200,
       "success": true,
-      "duration": 6,
+      "duration": 7,
       "responseSchema": "{success, needsExtraction, detected, count}"
     },
     {
@@ -1088,7 +1088,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 9,
       "responseSchema": "{success, analytics}"
     },
     {
@@ -1098,7 +1098,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 6,
       "responseSchema": "{success, analytics}"
     },
     {
@@ -1108,7 +1108,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 4,
+      "duration": 6,
       "responseSchema": "{success, enabled}"
     },
     {
@@ -1118,7 +1118,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 20,
+      "duration": 23,
       "responseSchema": "{success, memoryCount, deadlineCount, followupCount, actionCount}"
     },
     {
@@ -1128,7 +1128,7 @@
       "method": "POST",
       "status": 200,
       "success": true,
-      "duration": 1081,
+      "duration": 1275,
       "responseSchema": "{success, context, sources, itemCount}"
     },
     {
@@ -1138,7 +1138,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 8,
+      "duration": 9,
       "responseSchema": "{success, feedback, total, limit, offset}"
     },
     {
@@ -1148,7 +1148,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 8,
+      "duration": 9,
       "responseSchema": "{success, count, contacts}"
     },
     {
@@ -1168,7 +1168,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 7,
       "responseSchema": "{success, count, contacts}"
     },
     {
@@ -1178,13 +1178,13 @@
       "method": "POST",
       "status": 200,
       "success": true,
-      "duration": 16,
+      "duration": 13,
       "responseSchema": "{success, updated, errors}"
     },
     {
       "category": "CRM",
       "name": "Contact Stats",
-      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb0018aoyh9o9thybi",
+      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb001baoyh6q3n3kyg",
       "method": "GET",
       "status": 200,
       "success": true,
@@ -1194,52 +1194,52 @@
     {
       "category": "CRM",
       "name": "Contact Interactions",
-      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb0018aoyh9o9thybi/interactions?limit=5",
+      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb001baoyh6q3n3kyg/interactions?limit=5",
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 7,
+      "duration": 6,
       "responseSchema": "{success, count, interactions}"
     },
     {
       "category": "CRM",
       "name": "Relationship Graph",
-      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb0018aoyh9o9thybi/graph?depth=2",
+      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb001baoyh6q3n3kyg/graph?depth=2",
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 5,
+      "duration": 8,
       "responseSchema": "{success, count, nodes}"
     },
     {
       "category": "CRM",
       "name": "Recalculate Score",
-      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb0018aoyh9o9thybi/recalculate",
+      "endpoint": "/api/v1/voltagent/crm/contacts/cmiz39jsb001baoyh6q3n3kyg/recalculate",
       "method": "POST",
       "status": 200,
       "success": true,
-      "duration": 11,
+      "duration": 13,
       "responseSchema": "{success, score}"
     },
     {
       "category": "DocumentLibrary",
       "name": "List Libraries",
-      "endpoint": "/voltagent/documents/libraries",
+      "endpoint": "/api/v1/voltagent/documents/libraries",
       "method": "GET",
-      "status": 404,
-      "success": false,
-      "duration": 1,
-      "error": "{\"statusCode\":404,\"message\":\"Cannot GET /voltagent/documents/libraries\",\"timestamp\":\"2025-12-16T16:53:25.694Z\"}"
+      "status": 200,
+      "success": true,
+      "duration": 6,
+      "responseSchema": "{success, libraries, count}"
     },
     {
       "category": "DocumentLibrary",
-      "name": "List Documents",
-      "endpoint": "/voltagent/documents",
+      "name": "Service Status",
+      "endpoint": "/api/v1/voltagent/documents/status",
       "method": "GET",
-      "status": 404,
-      "success": false,
-      "duration": 1,
-      "error": "{\"statusCode\":404,\"message\":\"Cannot GET /voltagent/documents\",\"timestamp\":\"2025-12-16T16:53:25.695Z\"}"
+      "status": 200,
+      "success": true,
+      "duration": 7,
+      "responseSchema": "{success, enabled, features}"
     },
     {
       "category": "Analytics",
@@ -1248,7 +1248,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 9,
+      "duration": 7,
       "responseSchema": "array[{name, emails, sent, received}]"
     },
     {
@@ -1258,7 +1258,7 @@
       "method": "GET",
       "status": 200,
       "success": true,
-      "duration": 1,
+      "duration": 2,
       "responseSchema": "{status, timestamp, services}"
     }
   ]

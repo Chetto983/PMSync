@@ -509,7 +509,7 @@ async function main(): Promise<void> {
     console.log('───────────────────────────────────────────────────────────────────────────────────');
 
     await testEndpoint('DocumentLibrary', 'List Libraries', '/api/v1/voltagent/documents/libraries', token);
-    await testEndpoint('DocumentLibrary', 'List Documents', '/api/v1/voltagent/documents', token);
+    await testEndpoint('DocumentLibrary', 'Service Status', '/api/v1/voltagent/documents/status', token);
 
     // ========================================================================
     // 12. ANALYTICS MODULE APIs

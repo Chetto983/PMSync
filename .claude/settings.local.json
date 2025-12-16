@@ -31,7 +31,8 @@
       "Bash(npm run lint:win:*)",
       "Bash(timeout 120 npx ts-node:*)",
       "Bash(timeout 180 npx ts-node:*)",
-      "Bash(timeout 300 npx ts-node:*)"
+      "Bash(timeout 300 npx ts-node:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": []
   }
