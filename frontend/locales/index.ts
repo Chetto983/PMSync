@@ -421,6 +421,72 @@ export interface AppTranslations {
         noRecentContacts: string;
       };
     };
+    widgets: {
+      briefing: {
+        title: string;
+        dismiss: string;
+        showDetails: string;
+        refresh: string;
+        noItems: string;
+        urgentEmails: string;
+        urgentEmailsPlural: string;
+        deadlines: string;
+        deadlinesPlural: string;
+        followUps: string;
+        followUpsPlural: string;
+        staleContacts: string;
+        staleContactsPlural: string;
+        today: string;
+        todaysHighlights: string;
+      };
+      deadlines: {
+        title: string;
+        subtitle: string;
+        noDeadlines: string;
+        noUpcoming: string;
+        overdue: string;
+        dueToday: string;
+        dueTomorrow: string;
+        dueIn: string;
+        dueSoon: string;
+        hoursLeft: string;
+        viewAll: string;
+        priority: {
+          high: string;
+          medium: string;
+          low: string;
+        };
+      };
+      followUps: {
+        title: string;
+        subtitle: string;
+        subtitleWithOverdue: string;
+        noPending: string;
+        overdue: string;
+        today: string;
+        yesterday: string;
+        daysAgo: string;
+        weeksAgo: string;
+        viewAll: string;
+        noResponse: string;
+      };
+      crm: {
+        title: string;
+        subtitle: string;
+        subtitlePlural: string;
+        avgScore: string;
+        allActive: string;
+        greatJob: string;
+        reconnect: string;
+        viewAll: string;
+        lastContact: string;
+        monthAgo: string;
+        monthsAgo: string;
+        yearAgo: string;
+        yearsAgo: string;
+        daysAgo: string;
+      };
+    };
   };
   email: {
     title: string;

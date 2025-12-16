@@ -54,18 +54,36 @@ export class CrmBackfillProcessor implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    const redisUrl = this.configService.get<string>('REDIS_URL');
-    if (!redisUrl) {
-      this.logger.warn('REDIS_URL not configured, CRM backfill jobs disabled');
-      return;
-    }
+    // Build Redis connection options from individual config vars
+    const host = this.configService.get<string>('REDIS_HOST', 'localhost');
+    const port = this.configService.get<number>('REDIS_PORT', 6379);
+    const password = this.configService.get<string>('REDIS_PASSWORD');
+    const db = this.configService.get<number>('REDIS_DB', 0);
+
+    const redisOptions = {
+      host,
+      port,
+      password: password || undefined,
+      db,
+      maxRetriesPerRequest: null, // Required for BullMQ
+      enableReadyCheck: false, // Faster startup
+    };
 
     try {
-      this.redis = new Redis(redisUrl);
+      const redis = new Redis(redisOptions);
+      this.redis = redis;
 
-      // Create queue
+      // Wait for Redis to be ready before creating queue/worker
+      await new Promise<void>((resolve, reject) => {
+        redis.once('ready', resolve);
+        redis.once('error', reject);
+        // Timeout after 5 seconds
+        setTimeout(() => reject(new Error('Redis connection timeout')), 5000);
+      });
+
+      // Create queue with separate connection
       this.queue = new Queue(QUEUE_NAME, {
-        connection: this.redis.duplicate(),
+        connection: new Redis(redisOptions),
         defaultJobOptions: {
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
@@ -74,12 +92,12 @@ export class CrmBackfillProcessor implements OnModuleInit, OnModuleDestroy {
         },
       });
 
-      // Create worker
+      // Create worker with separate connection
       this.worker = new Worker(
         QUEUE_NAME,
         async (job) => this.processBackfillJob(job),
         {
-          connection: this.redis.duplicate(),
+          connection: new Redis(redisOptions),
           concurrency: 1, // Sequential to avoid database overload
           limiter: {
             max: 1,

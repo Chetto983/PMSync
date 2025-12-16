@@ -4,6 +4,7 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { Layout } from '@/components/layout/Layout';
 import { Dashboard } from '@/components/dashboard/Dashboard';
+import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 
 /**
  * Dashboard Index - Main Dashboard Page
@@ -50,7 +51,9 @@ export default function DashboardIndex() {
 
   return (
     <Layout>
-      <Dashboard />
+      <PageErrorBoundary pageName="Dashboard">
+        <Dashboard />
+      </PageErrorBoundary>
     </Layout>
   );
 }

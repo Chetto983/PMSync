@@ -78,7 +78,7 @@ This project uses SPARC (Specification, Pseudocode, Architecture, Refinement, Co
 
 ## Code Style & Best Practices
 
-- **Modular Design**: Files under 500 lines
+- **Modular Design**: Files under 500 lines - **NEVER CREATE A FILE >500 LINES!!!!**
 - **Environment Safety**: Never hardcode secrets
 - **Test-First**: Write tests before implementation
 - **Clean Architecture**: Separate concerns
@@ -333,6 +333,201 @@ Message 4: Write "file.js"
 5. Train patterns from success
 6. Enable hooks automation
 7. Use GitHub tools first
+
+## 🎨 FRONTEND DEVELOPMENT PROCEDURE (PMSync/MailAgent)
+
+### ⚠️ MANDATORY CHECKLIST FOR EVERY FRONTEND COMPONENT
+
+**BEFORE writing any React component:**
+
+1. **Translations First** (i18n)
+   - Add all strings to `frontend/locales/en.ts`
+   - Add all strings to `frontend/locales/it.ts`
+   - Add TypeScript types to `frontend/locales/index.ts`
+   - NEVER hardcode strings in components
+
+2. **TanStack Query for Data** (NOT raw apiClient)
+   - Create query keys in `frontend/hooks/queries/*-keys.ts`
+   - Create query options in `frontend/hooks/queries/use-*.ts`
+   - Export from `frontend/hooks/queries/index.ts`
+   - Use `useQuery()` hooks, NOT direct `apiClient.get()`
+
+3. **TypeScript Types**
+   - Define interfaces before implementation
+   - Export types from hooks files
+
+### 📝 COMPONENT CREATION TEMPLATE
+
+```typescript
+// 1. Imports
+import { useTranslations } from '@/lib/hooks/use-translations';
+import { useSomeData } from '@/hooks/queries';
+
+// 2. Component with proper patterns
+export function MyComponent() {
+  const t = useTranslations();
+  const { data, isLoading, error } = useSomeData();
+
+  // 3. Use translations for ALL user-facing strings
+  return (
+    <Box>
+      <Typography>{t.dashboard.widgets.myWidget.title}</Typography>
+      {isLoading && <Skeleton />}
+      {error && <Alert>{t.errors.genericError}</Alert>}
+      {data && /* render data */}
+    </Box>
+  );
+}
+```
+
+### 🔄 STEP-BY-STEP PROCEDURE
+
+```text
+Step 1: Translations
+├── locales/en.ts     → Add English strings
+├── locales/it.ts     → Add Italian strings
+└── locales/index.ts  → Add TypeScript types
+
+Step 2: Query Hooks
+├── hooks/queries/*-keys.ts  → Query key factory
+├── hooks/queries/use-*.ts   → Query options + hooks
+└── hooks/queries/index.ts   → Export new hooks
+
+Step 3: Component
+├── Create component using hooks + translations
+├── Handle loading/error/empty states
+└── Follow existing patterns in codebase
+
+Step 4: Integration
+├── Import in parent component
+├── Pass necessary props
+└── Test with `npm run type-check` and `npm run lint`
+
+Step 5: Validation
+├── Run type-check: `npm run type-check`
+├── Run lint: `npm run lint`
+└── Visual test with screenshot
+```
+
+### 🚫 ANTI-PATTERNS TO AVOID
+
+```typescript
+// ❌ WRONG: Hardcoded strings
+<Typography>Daily Briefing</Typography>
+
+// ✅ CORRECT: Use translations
+<Typography>{t.dashboard.widgets.briefing.title}</Typography>
+
+// ❌ WRONG: Direct API calls
+const [data, setData] = useState();
+useEffect(() => {
+  apiClient.get('/endpoint').then(res => setData(res.data));
+}, []);
+
+// ✅ CORRECT: TanStack Query hooks
+const { data, isLoading } = useMyDataQuery();
+
+// ❌ WRONG: No loading state
+return <List>{data.map(...)}</List>
+
+// ✅ CORRECT: Handle all states
+if (isLoading) return <Skeleton />;
+if (error) return <Alert>{t.errors.genericError}</Alert>;
+if (!data?.length) return <EmptyState />;
+return <List>{data.map(...)}</List>
+```
+
+### ⚡ SPEED OPTIMIZATION (SUPER FAST UX)
+
+**User expects INSTANT page load!**
+
+#### Code Splitting with React.lazy
+
+```typescript
+// Critical widgets - load immediately
+import { StatsGrid } from './widgets/StatsGrid';
+import { DailyBriefing } from '../ai/DailyBriefing';
+
+// Non-critical widgets - lazy loaded for speed
+const EventsWidget = lazy(() => import('./widgets/EventsWidget'));
+const PriorityInbox = lazy(() => import('./widgets/PriorityInbox'));
+
+// Wrap with Suspense + skeleton fallback
+<Suspense fallback={<WidgetSkeleton height={280} />}>
+  <EventsWidget />
+</Suspense>
+```
+
+#### TanStack Query Caching
+
+```typescript
+export function myQueryOptions() {
+  return queryOptions({
+    queryKey: ['myData'],
+    queryFn: fetchMyData,
+    staleTime: 5 * 60 * 1000,  // 5 min - data stays fresh
+    gcTime: 30 * 60 * 1000,    // 30 min - keep in cache
+    retry: 1,                   // Fast failure
+  });
+}
+```
+
+#### Skeleton Loading
+
+```typescript
+function WidgetSkeleton({ height = 200 }: { height?: number }) {
+  return (
+    <Box sx={{ borderRadius: 3, border: 1, p: 2, height }}>
+      <Skeleton variant="text" width="40%" height={28} />
+      <Skeleton variant="rectangular" height={height - 80} />
+    </Box>
+  );
+}
+```
+
+#### Priority Loading Order
+
+| Priority | Widgets | Strategy |
+|----------|---------|----------|
+| Critical | Header, Stats, Briefing | Load immediately |
+| Important | Events, Priority Inbox | Lazy load |
+| Secondary | Contacts, CRM Alerts | Lazy load |
+
+#### Performance Targets
+
+| Metric | Target |
+|--------|--------|
+| First Contentful Paint | < 1 second |
+| Time to Interactive | < 2 seconds |
+| Skeleton → Content | < 500ms |
+
+### 📁 Frontend File Organization
+
+```text
+frontend/
+├── components/
+│   ├── ai/           → AI-related components
+│   ├── crm/          → CRM components
+│   ├── dashboard/    → Dashboard components
+│   ├── email/        → Email components
+│   ├── layout/       → Layout components
+│   ├── productivity/ → Productivity widgets
+│   └── common/       → Shared components
+├── hooks/
+│   ├── queries/      → TanStack Query hooks
+│   └── use-*.ts      → Other hooks
+├── lib/
+│   ├── api/          → API client modules
+│   ├── hooks/        → Core hooks
+│   └── context/      → React contexts
+├── locales/
+│   ├── en.ts         → English translations
+│   ├── it.ts         → Italian translations
+│   └── index.ts      → Types + exports
+├── pages/            → Next.js pages
+├── stores/           → Zustand stores
+└── styles/           → Global styles
+```
 
 ## Support
 

@@ -35,7 +35,11 @@
       "Bash(taskkill:*)",
       "Bash(E2E_NO_WEB_SERVER=1 E2E_BASE_URL=http://localhost:3001 npx playwright test:*)",
       "Bash(npx playwright test --list)",
-      "Bash(npx:*)"
+      "Bash(npx:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(npm install:*)",
+      "Bash(git clone:*)"
     ],
     "deny": []
   }

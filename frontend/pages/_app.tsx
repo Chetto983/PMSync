@@ -14,6 +14,7 @@ import { QueryProvider } from '@/lib/query-client';
 import { AuthProvider } from '@/lib/context/auth-context';
 import { lightTheme, darkTheme } from '@/lib/theme/material-theme';
 import { useAuth } from '@/lib/hooks/use-auth';
+// CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
 import '@/styles/globals.css';
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
@@ -116,13 +117,44 @@ function useHasMounted(): boolean {
   return hasMounted;
 }
 
+/**
+ * App Loading Skeleton
+ * Shown during hydration to prevent flash of empty content
+ */
+function AppSkeleton() {
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        bgcolor: 'background.default',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Box sx={{ textAlign: 'center' }}>
+        <CircularProgress size={40} sx={{ mb: 2 }} />
+        <Typography variant="body2" color="text.secondary">
+          Loading...
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
 export default function App({ Component, pageProps }: AppProps & { Component: React.ComponentType & { skipAuthGuard?: boolean } }) {
   // Skip RouteGuard for error pages and pages with skipAuthGuard flag
   const skipAuth = Component.skipAuthGuard || false;
   const mounted = useHasMounted();
 
+  // Show skeleton during hydration instead of null (prevents flash)
   if (!mounted) {
-    return null;
+    return (
+      <MuiThemeProvider theme={lightTheme}>
+        <CssBaseline />
+        <AppSkeleton />
+      </MuiThemeProvider>
+    );
   }
 
   return (

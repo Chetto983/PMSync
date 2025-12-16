@@ -1,6 +1,7 @@
 import React from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Calendar } from '@/components/dashboard/Calendar';
+import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 
 /**
  * Calendar Page
@@ -10,7 +11,9 @@ import { Calendar } from '@/components/dashboard/Calendar';
 export default function CalendarPage() {
   return (
     <Layout>
-      <Calendar />
+      <PageErrorBoundary pageName="Calendar">
+        <Calendar />
+      </PageErrorBoundary>
     </Layout>
   );
 }

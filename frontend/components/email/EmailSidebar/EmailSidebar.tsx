@@ -15,7 +15,6 @@ import {
   Skeleton,
   Stack,
   Divider,
-  IconButton,
   Tooltip,
 } from '@mui/material';
 import {
@@ -764,23 +763,43 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                   </Typography>
                   <Box sx={{ flex: 1 }} />
                   <Tooltip title={t.folders.createFolder}>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
+                    <Box
+                      component="span"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
                         handleCreateFolderForProvider(group.providerId, group.providerEmail);
+                      }}
+                      onKeyDown={(e: React.KeyboardEvent) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleCreateFolderForProvider(group.providerId, group.providerEmail);
+                        }
                       }}
                       sx={{
                         width: 24,
                         height: 24,
                         mr: 0.5,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
                         '&:hover': {
                           bgcolor: 'action.hover',
                         },
+                        '&:focus-visible': {
+                          outline: '2px solid',
+                          outlineColor: 'primary.main',
+                          outlineOffset: 2,
+                        },
                       }}
+                      aria-label={t.folders.createFolder}
                     >
                       <FolderPlus size={14} />
-                    </IconButton>
+                    </Box>
                   </Tooltip>
                 </Stack>
               </AccordionSummary>

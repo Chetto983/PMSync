@@ -5,3 +5,5 @@
 
 export * from './email-keys';
 export * from './use-emails';
+export * from './dashboard-keys';
+export * from './use-dashboard';

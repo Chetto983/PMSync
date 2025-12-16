@@ -114,7 +114,7 @@ test.describe('Authenticated User Flow', () => {
       // Should stay on dashboard (not redirect to login)
       await expect(page).toHaveURL(/\/dashboard/);
       await expect(page.getByTestId('dashboard-layout').or(page.getByTestId('sidebar'))).toBeVisible({ timeout: 30_000 });
-    } catch (error) {
+    } catch {
       // Skip if no test user available
       test.skip(true, 'No test user available for authentication test');
     }
@@ -146,7 +146,7 @@ test.describe('Authenticated User Flow', () => {
 
       // Should redirect to login
       await expect(page).toHaveURL(/\/auth\/login|\/$/);
-    } catch (error) {
+    } catch {
       test.skip(true, 'No test user available for logout test');
     }
   });

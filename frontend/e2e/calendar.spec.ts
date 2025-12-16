@@ -124,12 +124,8 @@ test.describe('Calendar Module', () => {
     if (await dayCell.isVisible()) {
       await dayCell.click();
 
-      // Event creation dialog might appear
-      const dialog = page.getByTestId('create-event-dialog')
-        .or(page.getByRole('dialog'))
-        .or(page.getByTestId('event-form'));
-
-      // Either dialog appears or nothing happens (depending on calendar config)
+      // Event creation dialog might appear (depending on calendar config)
+      // We just wait briefly to allow any dialog to render
       await page.waitForTimeout(500);
     }
   });
