@@ -2,8 +2,8 @@
 
 This document provides a comprehensive audit of the custom-built `VoltAgent` framework found in `backend/src/modules/ai/voltagent`. The audit focuses on the architecture, security, and correctness of the agent-based features.
 
-* **Last Updated**: 2025-12-09
-* **Status**: Complete - All Critical Issues Resolved
+* **Last Updated**: 2025-12-16
+* **Status**: Complete - Security Hardened with OWASP LLM Top 10 2025 Compliance
 
 ## 1. Architecture Overview
 
@@ -73,6 +73,8 @@ private async executeMarkEmail(...) {
 | SEC-03 | Circuit Breaker | **Added** - Mistral API protected from cascading failures |
 | SEC-04 | Idempotency | **Added** - Duplicate actions prevented via Redis cache |
 | SEC-05 | Input Validation | **Added** - Prompt length limits enforced |
+| SEC-06 | Prompt Injection Defense | **Added** - `PromptGuardService` (OWASP LLM01:2025) |
+| SEC-07 | PII Detection/Redaction | **Added** - `PiiDetectionService` (GDPR/CCPA) |
 
 ## 3. Current Architecture Strengths
 
@@ -103,23 +105,70 @@ try {
 * `mistral.service.spec.ts`: 228 tests (14 circuit breaker tests)
 * `voltagent.integration.spec.ts`: E2E workflow tests
 
-## 4. Recommendations for Future Work
+## 4. Agent Architecture (December 2025)
 
-### 4.1 Minor Improvements (P3)
+### 4.1 Connected Agents (Supervisor Pattern)
+
+| Agent | Connected | Condition | Tools |
+| --- | --- | --- | --- |
+| EmailAgent | Yes | Always | 11 tools |
+| CalendarAgent | Yes | Always | 5 tools |
+| ContactsAgent | Yes | Always | 5 tools |
+| KnowledgeAgent | Yes | Always | 2 tools |
+| GeneralAgent | Yes | Always | - |
+| WebSearchAgent | Yes | When `configService` provided | Mistral Agents API |
+| DocumentLibraryAgent | Yes | When `documentLibraryService` provided | Mistral Libraries API |
+| AnalyticsAgent | Yes | When `configService` provided | Mistral code_interpreter |
+| UnifiedKnowledgeAgent | Exported only | Requires additional services | Memory-First RAG |
+
+### 4.2 Security Guards Integration
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    User Message                              │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  PromptGuardService.validateInput()                         │
+│  - Direct injection detection (30+ patterns)                │
+│  - Indirect injection detection                             │
+│  - Fuzzy matching (typoglycemia)                            │
+│  - Encoding detection (Base64, hex, Unicode)                │
+│  - Risk scoring (block if > 80)                             │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  PiiDetectionService.detect()                               │
+│  - EMAIL, PHONE, SSN, CREDIT_CARD, IP_ADDRESS, IBAN         │
+│  - Redaction styles: MASK, TYPE_LABEL, HASH                 │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 SupervisorAgent + SubAgents                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 5. Recommendations for Future Work
+
+### 5.1 Minor Improvements (P3)
 
 | Item | Description | Priority |
 | --- | --- | --- |
 | Env variable for idempotency TTL | `IDEMPOTENCY_TTL_SECONDS = 3600` is hardcoded | Low |
 | Circuit breaker for sync-back | `syncOperationToProvider()` not timeout-protected | Medium |
 | Delegate to EmailsService | Consider routing through domain service instead of direct Prisma | Low |
+| UnifiedKnowledgeAgent integration | Inject required services to connect to Supervisor | Medium |
 
-### 4.2 Documentation Needs
+### 5.2 Documentation Needs
 
-* [ ] Add runbook for circuit breaker incidents
-* [ ] Document "How to add a new VoltAgent tool"
+* [x] Add runbook for circuit breaker incidents
+* [x] Document "How to add a new VoltAgent tool"
 * [ ] Add architectural decision record for VoltAgent choice
 
-## 5. Conclusion
+## 6. Conclusion
 
 The VoltAgent framework is **production-ready**:
 

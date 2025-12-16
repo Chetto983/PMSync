@@ -35,20 +35,13 @@ export type Memory = {
   id: string;
   tenantId: string;
   userId: string;
-  type: 'PREFERENCE' | 'FACT' | 'INTERACTION' | 'FEEDBACK';
+  type: 'PREFERENCE' | 'FACT' | 'PATTERN' | 'INTERACTION' | 'CONTACT_NOTE';
   content: string;
   metadata?: Record<string, unknown>;
   embedding?: number[];
   createdAt: string;
   updatedAt: string;
   expiresAt?: string;
-};
-
-export type JobRoleTemplate = {
-  role: JobRole;
-  name: string;
-  description: string;
-  defaults: Partial<UserProfile>;
 };
 
 // API
@@ -68,18 +61,28 @@ export const personalizationApi = {
     );
   },
 
-  // Get available job role templates
-  getJobRoleTemplates() {
-    return apiClient.get<{ success: boolean; templates: JobRoleTemplate[] }>(
-      '/ai/personalization/templates'
+  // Get personalization context for AI interactions
+  getContext(body?: { query?: string }) {
+    return apiClient.post<{ success: boolean; context: unknown }>(
+      '/ai/personalization/context',
+      body ?? {},
     );
   },
 
-  // Get memories
-  getMemories(params?: { type?: string; limit?: number }) {
+  // Get memories by type
+  getMemories(params: { type: Memory['type']; limit?: number }) {
+    const { type, ...query } = params;
     return apiClient.get<{ success: boolean; memories: Memory[] }>(
-      '/ai/personalization/memories',
-      { params }
+      `/ai/personalization/memories/${encodeURIComponent(type)}`,
+      { params: query },
+    );
+  },
+
+  // Search memories using semantic similarity
+  searchMemories(payload: { query: string; limit?: number }) {
+    return apiClient.post<{ success: boolean; memories: Memory[] }>(
+      '/ai/personalization/memories/search',
+      payload,
     );
   },
 
@@ -89,7 +92,7 @@ export const personalizationApi = {
     content: string;
     metadata?: Record<string, unknown>;
   }) {
-    return apiClient.post<{ success: boolean; memory: Memory }>(
+    return apiClient.post<{ success: boolean; memoryId: string }>(
       '/ai/personalization/memories',
       memory
     );
@@ -104,7 +107,7 @@ export const personalizationApi = {
 
   // Clear all memories
   clearAllMemories() {
-    return apiClient.delete<{ success: boolean; deleted: number }>(
+    return apiClient.delete<{ success: boolean; deletedCount: number }>(
       '/ai/personalization/memories'
     );
   },

@@ -13,6 +13,7 @@ import {
   HttpStatus,
   ForbiddenException,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { CalendarService, ListEventsFilters } from '../services/calendar.service';
 import {
@@ -26,6 +27,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
 
+@ApiTags('Calendar')
+@ApiBearerAuth()
 @Controller('calendar')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class CalendarController {
@@ -40,6 +43,8 @@ export class CalendarController {
    */
   @Get('calendars')
   @SkipThrottle()
+  @ApiOperation({ summary: 'List all calendars', description: 'Returns all calendars from all providers' })
+  @ApiResponse({ status: 200, description: 'Calendars returned successfully' })
   async listCalendars(@Req() req: any) {
     const tenantId = req.user.tenantId;
     return this.calendarService.listCalendars(tenantId);
@@ -51,6 +56,9 @@ export class CalendarController {
    */
   @Post('calendars')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create calendar', description: 'Creates a new calendar' })
+  @ApiBody({ type: CreateCalendarDto })
+  @ApiResponse({ status: 201, description: 'Calendar created successfully' })
   async createCalendar(@Req() req: any, @Body() data: CreateCalendarDto) {
     const tenantId = req.user.tenantId;
     return this.calendarService.createCalendar(tenantId, data);
@@ -61,6 +69,11 @@ export class CalendarController {
    * PATCH /api/calendar/calendars/:providerId/:calendarId
    */
   @Patch('calendars/:providerId/:calendarId')
+  @ApiOperation({ summary: 'Update calendar preferences', description: 'Updates calendar name or color' })
+  @ApiParam({ name: 'providerId', description: 'Provider ID' })
+  @ApiParam({ name: 'calendarId', description: 'Calendar ID' })
+  @ApiBody({ type: UpdateCalendarPreferencesDto })
+  @ApiResponse({ status: 200, description: 'Calendar updated successfully' })
   async updateCalendarPreferences(
     @Req() req: any,
     @Param('providerId') providerId: string,
@@ -77,6 +90,8 @@ export class CalendarController {
    */
   @Get('events')
   @SkipThrottle()
+  @ApiOperation({ summary: 'List calendar events', description: 'Returns calendar events with filters' })
+  @ApiResponse({ status: 200, description: 'Events returned successfully' })
   async listEvents(@Req() req: any, @Query() query: ListEventsQueryDto) {
     const tenantId = req.user.tenantId;
 
@@ -98,6 +113,10 @@ export class CalendarController {
    */
   @Get('events/:id')
   @SkipThrottle()
+  @ApiOperation({ summary: 'Get event by ID', description: 'Returns a single calendar event' })
+  @ApiParam({ name: 'id', description: 'Event ID' })
+  @ApiResponse({ status: 200, description: 'Event returned successfully' })
+  @ApiResponse({ status: 404, description: 'Event not found' })
   async getEvent(@Req() req: any, @Param('id') eventId: string) {
     const tenantId = req.user.tenantId;
     return this.calendarService.getEvent(tenantId, eventId);
@@ -109,6 +128,9 @@ export class CalendarController {
    */
   @Post('events')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create event', description: 'Creates a new calendar event' })
+  @ApiBody({ type: CreateEventDto })
+  @ApiResponse({ status: 201, description: 'Event created successfully' })
   async createEvent(@Req() req: any, @Body() data: CreateEventDto) {
     const tenantId = req.user.tenantId;
     return this.calendarService.createEvent(tenantId, data);
@@ -119,6 +141,10 @@ export class CalendarController {
    * PATCH /api/calendar/events/:id
    */
   @Patch('events/:id')
+  @ApiOperation({ summary: 'Update event', description: 'Updates a calendar event' })
+  @ApiParam({ name: 'id', description: 'Event ID' })
+  @ApiBody({ type: UpdateEventDto })
+  @ApiResponse({ status: 200, description: 'Event updated successfully' })
   async updateEvent(
     @Req() req: any,
     @Param('id') eventId: string,
@@ -134,6 +160,9 @@ export class CalendarController {
    */
   @Delete('events/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete event', description: 'Deletes a calendar event' })
+  @ApiParam({ name: 'id', description: 'Event ID' })
+  @ApiResponse({ status: 204, description: 'Event deleted successfully' })
   async deleteEvent(@Req() req: any, @Param('id') eventId: string) {
     const tenantId = req.user.tenantId;
     await this.calendarService.deleteEvent(tenantId, eventId);
@@ -144,6 +173,10 @@ export class CalendarController {
    * POST /api/calendar/sync/:providerId
    */
   @Post('sync/:providerId')
+  @ApiOperation({ summary: 'Sync provider calendars', description: 'Triggers manual sync for a provider' })
+  @ApiParam({ name: 'providerId', description: 'Provider ID' })
+  @ApiResponse({ status: 200, description: 'Sync started successfully' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
   async syncProvider(@Req() req: any, @Param('providerId') providerId: string) {
     const tenantId = req.user.tenantId;
 
@@ -170,6 +203,9 @@ export class CalendarController {
    */
   @Get('events/:eventId/attachments')
   @SkipThrottle()
+  @ApiOperation({ summary: 'List event attachments', description: 'Returns attachments for an event' })
+  @ApiParam({ name: 'eventId', description: 'Event ID' })
+  @ApiResponse({ status: 200, description: 'Attachments returned successfully' })
   async listEventAttachments(@Req() req: any, @Param('eventId') eventId: string) {
     const tenantId = req.user.tenantId;
     return this.calendarService.listEventAttachments(tenantId, eventId);
@@ -182,6 +218,10 @@ export class CalendarController {
    */
   @Get('events/:eventId/attachments/:attachmentId')
   @SkipThrottle()
+  @ApiOperation({ summary: 'Get event attachment', description: 'Returns attachment metadata and download URL' })
+  @ApiParam({ name: 'eventId', description: 'Event ID' })
+  @ApiParam({ name: 'attachmentId', description: 'Attachment ID' })
+  @ApiResponse({ status: 200, description: 'Attachment returned successfully' })
   async getEventAttachment(
     @Req() req: any,
     @Param('eventId') eventId: string,

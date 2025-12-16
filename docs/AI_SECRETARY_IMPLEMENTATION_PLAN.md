@@ -1,7 +1,7 @@
 # AI Secretary Implementation Plan
 
-**Date:** December 14, 2025
-**Version:** 2.0 (Updated with 2025 Best Practices Research)
+**Date:** December 16, 2025
+**Version:** 2.1 (Updated with Security & Document Library Implementation)
 **Purpose:** Detailed implementation plan with recommended libraries, patterns, and best practices for each AI Secretary feature
 
 ---
@@ -2963,15 +2963,31 @@ export class MemoryRateLimiter {
 
 #### Security Checklist
 
-- [ ] All memory operations use `{tenantId}:{userId}` format
-- [ ] Vector store queries filter by tenant
-- [ ] PII is redacted before storage (configurable)
+- [x] All memory operations use `{tenantId}:{userId}` format
+- [x] Vector store queries filter by tenant
+- [x] PII is redacted before storage - **PiiDetectionService** (December 2025)
 - [ ] Memory encryption at rest enabled
 - [ ] GDPR delete endpoint implemented
 - [ ] GDPR export endpoint implemented
-- [ ] Rate limiting per tenant
-- [ ] Audit logging for memory access
+- [x] Rate limiting per tenant - **RateLimiterService**
+- [x] Audit logging for memory access - **LlmTelemetryService**
 - [ ] Memory TTL configured (auto-expire old memories)
+
+#### LLM Security Guards (OWASP LLM01:2025) - IMPLEMENTED
+
+| Guard | Status | Location |
+|-------|--------|----------|
+| **PromptGuardService** | Done | `backend/src/modules/ai/guards/prompt-guard.service.ts` |
+| **PiiDetectionService** | Done | `backend/src/modules/ai/guards/pii-detection.service.ts` |
+
+**Defense Layers:**
+
+- Direct injection detection (30+ regex patterns)
+- Indirect injection detection (document-based attacks)
+- Fuzzy matching (typoglycemia attacks like "1gn0re" for "ignore")
+- Encoding detection (Base64, hex, Unicode smuggling)
+- Risk scoring with configurable thresholds (50=review, 80=block)
+- PII redaction (EMAIL, PHONE, SSN, CREDIT_CARD, IP_ADDRESS, IBAN)
 
 ---
 

@@ -33,6 +33,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { IsString, IsOptional, IsArray, MaxLength, MinLength } from 'class-validator';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../../auth/guards/tenant.guard';
 import { DocumentLibraryService, type DocumentLibrary, type LibraryDocument, type DocumentQueryResult } from '../services/document-library.service';
 
 interface AuthenticatedRequest {
@@ -81,7 +82,7 @@ class QueryDocumentsDto {
 
 @ApiTags('Document Library')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('voltagent/documents')
 export class DocumentLibraryController {
   private readonly logger = new Logger(DocumentLibraryController.name);

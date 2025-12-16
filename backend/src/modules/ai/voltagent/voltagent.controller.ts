@@ -22,6 +22,7 @@ import { Response, Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiParam } from '@nestjs/swagger';
 import { IsString, IsOptional, IsBoolean, IsNumber, IsIn, IsObject } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { VoltAgentService, type ChatOptions } from './voltagent.service';
 import { FeedbackService } from './services/feedback.service';
 import { HitlService } from './services/hitl.service';
@@ -107,7 +108,7 @@ class SubmitActionDto {
 
 @ApiTags('VoltAgent')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('api/v1/voltagent')
 export class VoltAgentController {
   private readonly logger = new Logger(VoltAgentController.name);

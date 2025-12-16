@@ -16,6 +16,7 @@ import {
   BadRequestException,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ContactsService } from '../services/contacts.service';
@@ -33,6 +34,8 @@ import {
   VCardImportBodyDto,
 } from '../dto/contact.dto';
 
+@ApiTags('Contacts')
+@ApiBearerAuth()
 @Controller('contacts')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class ContactsController {
@@ -48,6 +51,8 @@ export class ContactsController {
    */
   @Get()
   @SkipThrottle()
+  @ApiOperation({ summary: 'List contacts', description: 'Returns contacts with pagination and filters' })
+  @ApiResponse({ status: 200, description: 'Contacts returned successfully' })
   async listContacts(@Req() req: any, @Query() query: ListContactsQueryDto) {
     const tenantId = req.user.tenantId;
 
@@ -66,6 +71,8 @@ export class ContactsController {
    */
   @Get('counts')
   @SkipThrottle()
+  @ApiOperation({ summary: 'Get contact counts', description: 'Returns contact counts for sidebar' })
+  @ApiResponse({ status: 200, description: 'Counts returned successfully' })
   async getContactCounts(@Req() req: any) {
     const tenantId = req.user.tenantId;
     return this.contactsService.getContactCounts(tenantId);
@@ -77,6 +84,10 @@ export class ContactsController {
    */
   @Get(':id')
   @SkipThrottle()
+  @ApiOperation({ summary: 'Get contact by ID', description: 'Returns a single contact' })
+  @ApiParam({ name: 'id', description: 'Contact ID (UUID)' })
+  @ApiResponse({ status: 200, description: 'Contact returned successfully' })
+  @ApiResponse({ status: 404, description: 'Contact not found' })
   async getContact(@Req() req: any, @Param('id', ParseUUIDPipe) contactId: string) {
     const tenantId = req.user.tenantId;
     return this.contactsService.getContact(tenantId, contactId);
@@ -88,6 +99,9 @@ export class ContactsController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create contact', description: 'Creates a new contact' })
+  @ApiBody({ type: CreateContactDto })
+  @ApiResponse({ status: 201, description: 'Contact created successfully' })
   async createContact(@Req() req: any, @Body() data: CreateContactDto) {
     const tenantId = req.user.tenantId;
     return this.contactsService.createContact(tenantId, data);
@@ -98,6 +112,10 @@ export class ContactsController {
    * PATCH /api/contacts/:id
    */
   @Patch(':id')
+  @ApiOperation({ summary: 'Update contact', description: 'Updates an existing contact' })
+  @ApiParam({ name: 'id', description: 'Contact ID (UUID)' })
+  @ApiBody({ type: UpdateContactDto })
+  @ApiResponse({ status: 200, description: 'Contact updated successfully' })
   async updateContact(
     @Req() req: any,
     @Param('id', ParseUUIDPipe) contactId: string,
@@ -113,6 +131,9 @@ export class ContactsController {
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete contact', description: 'Deletes a contact' })
+  @ApiParam({ name: 'id', description: 'Contact ID (UUID)' })
+  @ApiResponse({ status: 204, description: 'Contact deleted successfully' })
   async deleteContact(@Req() req: any, @Param('id', ParseUUIDPipe) contactId: string) {
     const tenantId = req.user.tenantId;
     await this.contactsService.deleteContact(tenantId, contactId);
@@ -124,6 +145,9 @@ export class ContactsController {
    */
   @Post('local')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create local contact', description: 'Creates a local-only contact (no provider sync)' })
+  @ApiBody({ type: CreateLocalContactDto })
+  @ApiResponse({ status: 201, description: 'Local contact created successfully' })
   async createLocalContact(@Req() req: any, @Body() data: CreateLocalContactDto) {
     const tenantId = req.user.tenantId;
     return this.contactsService.createLocalContact(tenantId, data);
@@ -135,6 +159,9 @@ export class ContactsController {
    * Works for any provider, especially useful for generic IMAP
    */
   @Post('extract-from-emails')
+  @ApiOperation({ summary: 'Extract contacts from emails', description: 'Extracts contacts from email headers' })
+  @ApiBody({ type: ExtractContactsDto })
+  @ApiResponse({ status: 200, description: 'Contacts extracted successfully' })
   async extractContactsFromEmails(@Req() req: any, @Body() body: ExtractContactsDto) {
     const tenantId = req.user.tenantId;
     const result = await this.contactsService.extractContactsFromEmails(
@@ -155,6 +182,10 @@ export class ContactsController {
    */
   @Post('import/vcard')
   @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Import contacts from vCard', description: 'Imports contacts from .vcf file' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 200, description: 'Contacts imported successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid vCard format' })
   async importFromVCard(
     @Req() req: any,
     @UploadedFile() file: Express.Multer.File,
@@ -189,6 +220,10 @@ export class ContactsController {
    * POST /api/contacts/sync/:providerId
    */
   @Post('sync/:providerId')
+  @ApiOperation({ summary: 'Sync provider contacts', description: 'Triggers manual sync for a provider' })
+  @ApiParam({ name: 'providerId', description: 'Provider ID (UUID)' })
+  @ApiResponse({ status: 200, description: 'Sync started successfully' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
   async syncProvider(@Req() req: any, @Param('providerId', ParseUUIDPipe) providerId: string) {
     const tenantId = req.user.tenantId;
 
@@ -220,6 +255,8 @@ export class ContactsController {
    * ✅ TENANT ISOLATED: Only queues jobs for the authenticated user's providers
    */
   @Post('sync-all')
+  @ApiOperation({ summary: 'Sync all providers', description: 'Queues sync jobs for all contact-enabled providers' })
+  @ApiResponse({ status: 200, description: 'Sync jobs queued successfully' })
   async syncAllProviders(@Req() req: any) {
     const tenantId = req.user.tenantId;
 

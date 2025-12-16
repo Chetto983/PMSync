@@ -22,6 +22,7 @@ import { createGeneralAgent } from './general.agent';
 import { createKnowledgeAgent } from './knowledge.agent';
 import { createWebSearchAgent } from './websearch.agent';
 import { createDocumentLibraryAgent } from './document-library.agent';
+import { createAnalyticsAgent } from './analytics.agent';
 
 export interface SupervisorAgentOptions {
   model: LanguageModel;
@@ -343,6 +344,20 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
       hooks,
     });
     subAgents.push(documentLibraryAgent);
+  }
+
+  // Analytics agent - only create if configService is provided (uses Mistral Agents API)
+  if (configService) {
+    const analyticsAgent = createAnalyticsAgent({
+      model,
+      configService,
+      locale,
+      tenantId,
+      userId,
+      hooks,
+      cacheService,
+    });
+    subAgents.push(analyticsAgent);
   }
 
   // Create the supervisor agent with all sub-agents

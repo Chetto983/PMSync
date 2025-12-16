@@ -26,6 +26,7 @@ import {
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { EmailsService, EmailListFilters } from '../services/emails.service';
 import { EmailRetentionService } from '../services/email-retention.service';
 import { EmailFetchService } from '../services/email-fetch.service';
@@ -64,7 +65,7 @@ const decodeAttachments = (attachments?: EmailAttachmentDto[]) =>
 @ApiTags('Emails')
 @ApiBearerAuth()
 @Controller('emails')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class EmailsController {
   private readonly maxEmailListLimit: number;
 

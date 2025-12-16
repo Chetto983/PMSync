@@ -3,6 +3,7 @@ import { ApiOkResponse, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swa
 import { GdprService } from '../services/gdpr.service';
 import { GdprStatusDto } from '../dto/gdpr-status.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
@@ -10,7 +11,7 @@ import { AuthenticatedRequest } from '../../../common/types/request.types';
 @ApiTags('Compliance')
 @ApiBearerAuth()
 @Controller('compliance/gdpr')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class GdprController {
   constructor(private readonly gdprService: GdprService) {}
 

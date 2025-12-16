@@ -33,6 +33,7 @@ import { createSupervisorAgent, type UserContext, type ConnectedProvider } from 
 import { getLocale, type SupportedLocale } from './locales';
 import { VoltAgentMemoryService, LongTermMemoryService } from './memory';
 import { DocumentLibraryService } from './services/document-library.service';
+import { PromptGuardService, PiiDetectionService } from '../guards';
 import { createObservabilityHooks, type AgentMetrics } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import {
@@ -156,6 +157,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly voltAgentMemoryService?: VoltAgentMemoryService,
     @Optional() private readonly longTermMemoryService?: LongTermMemoryService,
     @Optional() private readonly documentLibraryService?: DocumentLibraryService,
+    @Optional() private readonly promptGuardService?: PromptGuardService,
+    @Optional() private readonly piiDetectionService?: PiiDetectionService,
   ) {}
 
   async onModuleInit() {
@@ -484,9 +487,42 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const correlationId = CorrelationContext.getCorrelationId();
     const logPrefix = `[${correlationId}] [tenant:${options.tenantId}]`;
 
-    // 0. Check rate limits (1000+ user scalability)
+    // 0a. Security: Validate input for prompt injection (OWASP LLM01:2025)
+    if (this.promptGuardService) {
+      const validationResult = this.promptGuardService.validateInput(message);
+
+      if (!validationResult.isValid) {
+        this.logger.warn(
+          `${logPrefix} Prompt injection blocked: score=${validationResult.riskScore}, patterns=${validationResult.detectedPatterns.join(', ')}`,
+        );
+        return {
+          text: 'I cannot process this request. Please rephrase your message.',
+          fromCache: false,
+        };
+      }
+
+      if (validationResult.requiresHumanReview) {
+        this.logger.warn(
+          `${logPrefix} High-risk prompt flagged for review: score=${validationResult.riskScore}`,
+        );
+      }
+    }
+
+    // 0b. Security: Detect and redact PII before sending to LLM
+    let processedMessage = message;
+    if (this.piiDetectionService) {
+      const piiResult = this.piiDetectionService.detect(message);
+      if (piiResult.hasPii) {
+        this.logger.log(
+          `${logPrefix} PII detected and redacted: types=${piiResult.detectedTypes.join(', ')}`,
+        );
+        processedMessage = piiResult.redactedText;
+      }
+    }
+
+    // 0c. Check rate limits (1000+ user scalability)
     if (this.rateLimiterService) {
-      const estimatedTokens = this.modelRouterService?.routeMessage(message).estimatedTokens ?? 500;
+      const estimatedTokens = this.modelRouterService?.routeMessage(processedMessage).estimatedTokens ?? 500;
       const rateLimit = await this.rateLimiterService.checkLimit(options.tenantId, estimatedTokens);
 
       if (!rateLimit.allowed) {

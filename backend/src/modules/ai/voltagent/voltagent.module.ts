@@ -87,6 +87,8 @@ import { DocumentLibraryService } from './services/document-library.service';
 import { DocumentLibraryController } from './controllers/document-library.controller';
 // Observability (OpenTelemetry-aligned)
 import { LlmTelemetryService } from './observability/telemetry';
+// Security guards (OWASP LLM Top 10 2025)
+import { PromptGuardService, PiiDetectionService } from '../guards';
 
 @Module({
   imports: [
@@ -148,6 +150,9 @@ import { LlmTelemetryService } from './observability/telemetry';
     DocumentLibraryService,
     // Observability
     LlmTelemetryService,
+    // Security guards (OWASP LLM Top 10 2025)
+    PromptGuardService,
+    PiiDetectionService,
   ],
   exports: [
     VoltAgentService,
@@ -192,6 +197,9 @@ import { LlmTelemetryService } from './observability/telemetry';
     DocumentLibraryService,
     // Observability
     LlmTelemetryService,
+    // Security guards (OWASP LLM Top 10 2025)
+    PromptGuardService,
+    PiiDetectionService,
   ],
 })
 export class VoltAgentModule {}

@@ -16,14 +16,8 @@ import {
   useMediaQuery,
   Autocomplete,
   createFilterOptions,
-  MenuItem,
-  Menu,
-  ListItemIcon,
-  ListItemText,
-  Popover,
-  Stack,
 } from '@mui/material';
-import { X, Send, Paperclip, Check, FileText, Trash2, Maximize2, Minimize2, Upload, Clock, ChevronDown } from 'lucide-react';
+import { X, Send, Paperclip, Check, FileText, Trash2, Maximize2, Minimize2, Upload } from 'lucide-react';
 import { EditorContent } from '@tiptap/react';
 import { marked } from 'marked';
 import type { SendEmailPayload, EmailAttachmentUpload } from '@/lib/api/email';
@@ -229,11 +223,6 @@ export function ComposeDialog({
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
 
-  // Schedule send state
-  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
-  const [scheduleMenuAnchor, setScheduleMenuAnchor] = useState<null | HTMLElement>(null);
-  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
-
   // TipTap editor
   const editor = useComposeEditor({
     initialContent: body,
@@ -249,9 +238,6 @@ export function ComposeDialog({
 
     // Reset transient state every time the dialog opens/changes mode
     setAttachments([]);
-    setScheduledAt(null);
-    setScheduleMenuAnchor(null);
-    setShowSchedulePicker(false);
 
     if (prefillData) {
       setTo(prefillData.to || []);
@@ -628,11 +614,10 @@ export function ComposeDialog({
     setShowCc(false);
     setShowBcc(false);
     setAttachments([]);
-    setScheduledAt(null);
   }, []);
 
   const buildSendPayload = useCallback(
-    (scheduledAtOverride?: string | null): SendEmailPayload | null => {
+    (): SendEmailPayload | null => {
       if (!selectedProvider) {
         onError?.(t.email.composer.noProvider);
         return null;
@@ -663,7 +648,6 @@ export function ComposeDialog({
         inReplyTo: prefillData?.inReplyTo,
         references: prefillData?.references,
         attachments: attachments.length > 0 ? attachments : undefined,
-        ...(scheduledAtOverride ? { scheduledAt: scheduledAtOverride } : undefined),
       };
     },
     [attachments, bcc, body, cc, cleanEmailArray, onError, prefillData, selectedProvider, subject, t, to],
@@ -676,9 +660,17 @@ export function ComposeDialog({
     try {
       setSending(true);
       if (mode === 'reply' && prefillData?.originalEmailId) {
-        await replyEmailMutation.mutateAsync({ emailId: prefillData.originalEmailId, payload });
+        const { providerId: _providerId, ...replyPayload } = payload;
+        await replyEmailMutation.mutateAsync({
+          emailId: prefillData.originalEmailId,
+          payload: replyPayload,
+        });
       } else if (mode === 'forward' && prefillData?.originalEmailId) {
-        await forwardEmailMutation.mutateAsync({ emailId: prefillData.originalEmailId, payload });
+        const { providerId: _providerId, ...forwardPayload } = payload;
+        await forwardEmailMutation.mutateAsync({
+          emailId: prefillData.originalEmailId,
+          payload: forwardPayload,
+        });
       } else {
         await sendEmailMutation.mutateAsync(payload);
       }
@@ -780,90 +772,6 @@ export function ComposeDialog({
     }
     onClose();
   }, [hasChanges, sending, onClose, t]);
-
-  // Schedule send helpers
-  const getSchedulePresets = useCallback(() => {
-    const now = new Date();
-    const tomorrow9am = new Date(now);
-    tomorrow9am.setDate(tomorrow9am.getDate() + 1);
-    tomorrow9am.setHours(9, 0, 0, 0);
-
-    const nextMonday9am = new Date(now);
-    const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
-    nextMonday9am.setDate(nextMonday9am.getDate() + daysUntilMonday);
-    nextMonday9am.setHours(9, 0, 0, 0);
-
-    return [
-      { label: t.email.composer.tomorrowMorning, value: tomorrow9am.toISOString() },
-      { label: t.email.composer.nextMonday, value: nextMonday9am.toISOString() },
-    ];
-  }, [t]);
-
-  const handleScheduleSelect = useCallback((dateTime: string) => {
-    setScheduledAt(dateTime);
-    setScheduleMenuAnchor(null);
-    setShowSchedulePicker(false);
-  }, []);
-
-  const handleScheduleSend = useCallback(async () => {
-    if (!scheduledAt) return;
-    const payload = buildSendPayload(scheduledAt);
-    if (!payload) return;
-
-    try {
-      setSending(true);
-      if (mode === 'reply' && prefillData?.originalEmailId) {
-        await replyEmailMutation.mutateAsync({ emailId: prefillData.originalEmailId, payload });
-      } else if (mode === 'forward' && prefillData?.originalEmailId) {
-        await forwardEmailMutation.mutateAsync({ emailId: prefillData.originalEmailId, payload });
-      } else {
-        await sendEmailMutation.mutateAsync(payload);
-      }
-
-      if (prefillData?.draftId) {
-        try {
-          await deleteDraftMutation.mutateAsync(prefillData.draftId);
-        } catch (draftErr) {
-          logger.warn('Failed to delete draft after send', { error: draftErr });
-        }
-      }
-
-      // Success - show scheduled confirmation
-      onSent?.();
-      onClose();
-      resetForm();
-    } catch (error) {
-      logger.error('Failed to schedule email', { error });
-      onError?.(t.email.composer.sendError);
-    } finally {
-      setSending(false);
-    }
-  }, [
-    buildSendPayload,
-    deleteDraftMutation,
-    forwardEmailMutation,
-    mode,
-    onClose,
-    onError,
-    onSent,
-    prefillData,
-    replyEmailMutation,
-    resetForm,
-    scheduledAt,
-    sendEmailMutation,
-    t,
-  ]);
-
-  const formatScheduledTime = useCallback((isoString: string) => {
-    const date = new Date(isoString);
-    return date.toLocaleString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  }, []);
 
   // Handle smart reply selection
   const handleSmartReplySelect = useCallback((reply: string) => {
@@ -1316,138 +1224,18 @@ export function ComposeDialog({
             </IconButton>
             <Box sx={{ flex: 1, display: { xs: 'none', sm: 'block' } }} />
 
-            {/* Scheduled indicator */}
-            {scheduledAt && (
-              <Chip
-                icon={<Clock size={14} />}
-                label={formatScheduledTime(scheduledAt)}
-                onDelete={() => setScheduledAt(null)}
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
-            )}
-
             <Button onClick={handleClose} disabled={sending}>
               {t.email.composer.discard}
             </Button>
 
-            {/* Send button with schedule dropdown */}
-            <Box sx={{ display: 'flex' }}>
-              <Button
-                variant="contained"
-                startIcon={sending ? <CircularProgress size={16} /> : <Send size={16} />}
-                onClick={scheduledAt ? handleScheduleSend : handleSend}
-                disabled={sending || to.length === 0}
-                sx={{
-                  borderTopRightRadius: 0,
-                  borderBottomRightRadius: 0,
-                }}
-              >
-                {sending
-                  ? t.email.composer.sending
-                  : scheduledAt
-                    ? t.email.composer.scheduleSend
-                    : t.email.composer.send}
-              </Button>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={(e) => setScheduleMenuAnchor(e.currentTarget)}
-                disabled={sending || to.length === 0}
-                sx={{
-                  minWidth: 32,
-                  px: 0.5,
-                  borderTopLeftRadius: 0,
-                  borderBottomLeftRadius: 0,
-                  borderLeft: '1px solid rgba(255,255,255,0.3)',
-                }}
-                aria-label={t.email.composer.scheduleSend}
-              >
-                <ChevronDown size={16} />
-              </Button>
-            </Box>
-
-            {/* Schedule menu */}
-            <Menu
-              anchorEl={scheduleMenuAnchor}
-              open={Boolean(scheduleMenuAnchor)}
-              onClose={() => setScheduleMenuAnchor(null)}
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            <Button
+              variant="contained"
+              startIcon={sending ? <CircularProgress size={16} /> : <Send size={16} />}
+              onClick={handleSend}
+              disabled={sending || to.length === 0}
             >
-              <MenuItem
-                onClick={() => {
-                  setScheduledAt(null);
-                  setScheduleMenuAnchor(null);
-                }}
-              >
-                <ListItemIcon>
-                  <Send size={16} />
-                </ListItemIcon>
-                <ListItemText>{t.email.composer.sendNow}</ListItemText>
-              </MenuItem>
-              {getSchedulePresets().map((preset) => (
-                <MenuItem
-                  key={preset.value}
-                  onClick={() => handleScheduleSelect(preset.value)}
-                >
-                  <ListItemIcon>
-                    <Clock size={16} />
-                  </ListItemIcon>
-                  <ListItemText>{preset.label}</ListItemText>
-                </MenuItem>
-              ))}
-              <MenuItem onClick={() => setShowSchedulePicker(true)}>
-                <ListItemIcon>
-                  <Clock size={16} />
-                </ListItemIcon>
-                <ListItemText>{t.email.composer.pickDateTime}</ListItemText>
-              </MenuItem>
-            </Menu>
-
-            {/* Custom date/time picker popover */}
-            <Popover
-              open={showSchedulePicker}
-              anchorEl={scheduleMenuAnchor}
-              onClose={() => {
-                setShowSchedulePicker(false);
-                setScheduleMenuAnchor(null);
-              }}
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-              <Box sx={{ p: 2, minWidth: 280 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  {t.email.composer.scheduleSend}
-                </Typography>
-                <Stack spacing={2}>
-                  <TextField
-                    type="datetime-local"
-                    fullWidth
-                    size="small"
-                    inputProps={{
-                      min: new Date().toISOString().slice(0, 16),
-                    }}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleScheduleSelect(new Date(e.target.value).toISOString());
-                      }
-                    }}
-                  />
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      setShowSchedulePicker(false);
-                      setScheduleMenuAnchor(null);
-                    }}
-                  >
-                    {t.common.cancel}
-                  </Button>
-                </Stack>
-              </Box>
-            </Popover>
+              {sending ? t.email.composer.sending : t.email.composer.send}
+            </Button>
           </Box>
         </DialogActions>
       </Dialog>

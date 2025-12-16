@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { IsString, IsOptional, MinLength, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { FolderSyncService } from '../../email-sync/services/folder-sync.service';
 import { FolderOperationsQueueService } from '../../email-sync/services/folder-operations-queue.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -56,7 +57,7 @@ export class FolderResponseDto {
 
 @ApiTags('Folders')
 @Controller('folders')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @ApiBearerAuth()
 export class FoldersController {
   constructor(
