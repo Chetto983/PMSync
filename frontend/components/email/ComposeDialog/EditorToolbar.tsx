@@ -77,7 +77,7 @@ export function EditorToolbar({ editor, onAiCompose, aiComposing, compact = fals
     >
       {/* AI Compose - Always show, important for mobile */}
       {onAiCompose && (
-        <Tooltip title={t.email?.composer?.aiCompose ?? 'AI compose'}>
+        <Tooltip title={t.email.composer.aiCompose}>
           <span>
             <IconButton
               size="small"

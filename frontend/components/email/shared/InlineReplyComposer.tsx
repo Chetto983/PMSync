@@ -153,10 +153,9 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
 
   // Generate subject
   const getSubject = useCallback(() => {
-    return replyTo.subject.startsWith('Re:')
-      ? replyTo.subject
-      : `Re: ${replyTo.subject}`;
-  }, [replyTo.subject]);
+    const prefix = t.email.composer.replyPrefix;
+    return replyTo.subject.startsWith(prefix) ? replyTo.subject : `${prefix} ${replyTo.subject}`;
+  }, [replyTo.subject, t.email.composer.replyPrefix]);
 
   // Build prefill data for full compose dialog
   const buildPrefillData = useCallback(() => {
@@ -216,11 +215,11 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
       setBody('');
       setIsExpanded(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send reply');
+      setError(err instanceof Error ? err.message : t.email.composer.sendError);
     } finally {
       setIsSending(false);
     }
-  }, [body, onSend, getRecipients, getSubject, replyTo.messageId]);
+  }, [body, onSend, getRecipients, getSubject, replyTo.messageId, t.email.composer.sendError]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -245,11 +244,9 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
   const avatarColors = ['#55cae5', '#7650ce', '#b43db6', '#4CAF50', '#FF9800', '#E91E63'];
   const colorIndex = user?.email ? user.email.charCodeAt(0) % avatarColors.length : 0;
   const avatarColor = avatarColors[colorIndex];
+  const userFallbackInitial = t.common.user.trim().charAt(0).toUpperCase();
 
-  const collapsedText = placeholder ||
-    (isReplyAll
-      ? (t.email.view?.replyAll || 'Reply all') + '...'
-      : (t.email.view?.reply || 'Click to reply') + '...');
+  const collapsedText = placeholder ?? `${isReplyAll ? t.email.view.replyAll : t.email.view.reply}...`;
 
   return (
     <Paper
@@ -292,7 +289,7 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
               fontSize: '0.75rem',
             }}
           >
-            {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+            {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || userFallbackInitial}
           </Avatar>
           <Typography
             variant="body2"
@@ -318,12 +315,12 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
                 fontSize: '0.7rem',
               }}
             >
-              {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+              {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || userFallbackInitial}
             </Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap">
                 <Typography variant="caption" color="text.secondary">
-                  To:
+                  {t.email.composer.toLabel}
                 </Typography>
                 <Chip
                   label={senderInfo.name || senderInfo.email}
@@ -340,7 +337,7 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
               </Stack>
             </Box>
             <Stack direction="row" spacing={0.5}>
-              <Tooltip title="Open full editor">
+              <Tooltip title={t.email.view.openFullEditor}>
                 <IconButton size="small" onClick={handleExpandToDialog}>
                   <Maximize2 size={14} />
                 </IconButton>
@@ -363,7 +360,7 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
             minRows={3}
             maxRows={8}
             fullWidth
-            placeholder={t.email.view?.replyPlaceholder || 'Write your reply...'}
+            placeholder={t.email.view.replyPlaceholder}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -393,7 +390,7 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
             sx={{ mt: 1.5 }}
           >
             <Typography variant="caption" color="text.secondary">
-              {onSend ? 'Ctrl+Enter to send' : 'Ctrl+Enter to open full editor'}
+              {onSend ? t.email.view.shortcutSend : t.email.view.shortcutOpenFullEditor}
             </Typography>
 
             <Stack direction="row" spacing={1} alignItems="center">
@@ -408,7 +405,7 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
                   }
                   sx={{ minWidth: 80 }}
                 >
-                  {isSending ? 'Sending...' : t.email?.composer?.send || 'Send'}
+                  {isSending ? t.email.composer.sending : t.email.composer.send}
                 </Button>
               ) : (
                 <Button
@@ -418,7 +415,7 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
                   startIcon={<Maximize2 size={14} />}
                   sx={{ minWidth: 100 }}
                 >
-                  {'Compose'}
+                  {t.common.compose}
                 </Button>
               )}
             </Stack>

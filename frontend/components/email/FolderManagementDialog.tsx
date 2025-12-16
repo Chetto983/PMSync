@@ -68,7 +68,7 @@ export function FolderManagementDialog({
 
   const handleSubmit = async () => {
     if (mode !== 'delete' && !name.trim()) {
-      setError(t.folders?.folderName || 'Folder name is required');
+      setError(t.folders.nameRequired);
       return;
     }
 
@@ -78,7 +78,7 @@ export function FolderManagementDialog({
     try {
       if (mode === 'create') {
         if (!providerId) {
-          setError(t.folders?.genericError || 'Provider ID is required');
+          setError(t.folders.genericError);
           setLoading(false);
           return;
         }
@@ -89,7 +89,7 @@ export function FolderManagementDialog({
         });
       } else if (mode === 'rename') {
         if (!folder) {
-          setError(t.folders?.genericError || 'Folder is required for rename');
+          setError(t.folders.genericError);
           setLoading(false);
           return;
         }
@@ -98,7 +98,7 @@ export function FolderManagementDialog({
         });
       } else if (mode === 'delete') {
         if (!folder) {
-          setError(t.folders?.genericError || 'Folder is required for delete');
+          setError(t.folders.genericError);
           setLoading(false);
           return;
         }
@@ -112,9 +112,9 @@ export function FolderManagementDialog({
       const status = axiosError?.response?.status;
       const apiMessage = axiosError?.response?.data?.message;
       if (status === 409) {
-        setError(t.folders?.duplicateError || 'Folder already exists');
+        setError(t.folders.duplicateError);
       } else {
-        setError(apiMessage || t.folders?.genericError || 'Operation failed');
+        setError(apiMessage || t.folders.genericError);
       }
     } finally {
       setLoading(false);
@@ -124,11 +124,11 @@ export function FolderManagementDialog({
   const getTitle = () => {
     switch (mode) {
       case 'create':
-        return t.folders?.createFolder || 'Create Folder';
+        return t.folders.createFolder;
       case 'rename':
-        return t.folders?.renameFolder || 'Rename Folder';
+        return t.folders.renameFolder;
       case 'delete':
-        return t.folders?.deleteFolder || 'Delete Folder';
+        return t.folders.deleteFolder;
     }
   };
 
@@ -147,11 +147,11 @@ export function FolderManagementDialog({
   const getActionButtonText = () => {
     switch (mode) {
       case 'create':
-        return t.common?.create || 'Create';
+        return t.common.create;
       case 'rename':
-        return t.common?.rename || 'Rename';
+        return t.common.rename;
       case 'delete':
-        return t.common?.delete || 'Delete';
+        return t.common.delete;
     }
   };
 
@@ -212,11 +212,10 @@ export function FolderManagementDialog({
                 },
               }}
             >
-              {t.folders?.deleteWarning ||
-                'This action cannot be undone. All emails in this folder will be permanently deleted.'}
+              {t.folders.deleteWarning}
             </Alert>
             <Typography variant="body1" color="text.primary">
-              {t.folders?.deleteConfirm || 'Are you sure you want to delete the folder'}{' '}
+              {t.folders.deleteConfirm}{' '}
               <Box component="span" sx={{ fontWeight: 600, color: 'error.main' }}>
                 &quot;{folder?.name}&quot;
               </Box>
@@ -235,7 +234,7 @@ export function FolderManagementDialog({
                   borderRadius: 1,
                 }}
               >
-                {t.common?.path || 'Path'}: {folder.path}
+                {t.common.path}: {folder.path}
               </Typography>
             )}
           </Box>
@@ -244,7 +243,7 @@ export function FolderManagementDialog({
             {providerEmail && (
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
                 <Box component="span" sx={{ fontWeight: 600 }}>
-                  {t.common?.provider || 'Provider'}:
+                  {t.common.provider}:
                 </Box>{' '}
                 {providerEmail}
               </Typography>
@@ -252,7 +251,7 @@ export function FolderManagementDialog({
             {parentPath && (
               <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
                 <Box component="span" sx={{ fontWeight: 600 }}>
-                  {t.common?.parent || 'Parent'}:
+                  {t.common.parent}:
                 </Box>{' '}
                 {parentPath}
               </Typography>
@@ -260,8 +259,8 @@ export function FolderManagementDialog({
             <TextField
               autoFocus
               fullWidth
-              label={t.folders?.folderName || 'Folder Name'}
-              placeholder={t.folders?.enterNewName || 'Enter folder name'}
+              label={t.folders.folderName}
+              placeholder={t.folders.enterNewName}
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={loading}
@@ -279,7 +278,7 @@ export function FolderManagementDialog({
 
       <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}>
         <Button onClick={onClose} disabled={loading}>
-          {t.common?.cancel || 'Cancel'}
+          {t.common.cancel}
         </Button>
         <Button
           variant="contained"
@@ -288,7 +287,7 @@ export function FolderManagementDialog({
           disabled={loading || (mode !== 'delete' && !name.trim())}
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
         >
-          {loading ? (t.common?.processing || 'Processing...') : getActionButtonText()}
+          {loading ? t.common.processing : getActionButtonText()}
         </Button>
       </DialogActions>
     </Dialog>

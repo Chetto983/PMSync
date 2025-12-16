@@ -53,13 +53,13 @@ const URGENCY_COLORS: Record<string, { bg: string; text: string; border: string;
   low: { bg: '#E8F5E9', text: '#2E7D32', border: '#81C784', progress: '#4CAF50' },
 };
 
-// Recommendation to icon and default label mapping
-const RECOMMENDATION_CONFIG: Record<string, { icon: React.ReactNode; defaultLabel: string }> = {
-  handle_now: { icon: <Zap size={14} />, defaultLabel: 'Handle Now' },
-  handle_today: { icon: <Timer size={14} />, defaultLabel: 'Handle Today' },
-  handle_this_week: { icon: <CalendarClock size={14} />, defaultLabel: 'This Week' },
-  can_wait: { icon: <Calendar size={14} />, defaultLabel: 'Can Wait' },
-  archive: { icon: <Archive size={14} />, defaultLabel: 'Archive' },
+// Recommendation to icon mapping
+const RECOMMENDATION_CONFIG: Record<string, { icon: React.ReactNode }> = {
+  handle_now: { icon: <Zap size={14} /> },
+  handle_today: { icon: <Timer size={14} /> },
+  handle_this_week: { icon: <CalendarClock size={14} /> },
+  can_wait: { icon: <Calendar size={14} /> },
+  archive: { icon: <Archive size={14} /> },
 };
 
 // Urgency icons
@@ -69,39 +69,6 @@ const URGENCY_ICONS: Record<string, React.ReactNode> = {
   low: <CheckCircle size={16} />,
 };
 
-// Helper type for AI translations
-type AiTranslations = {
-  handleNow?: string;
-  handleToday?: string;
-  handleThisWeek?: string;
-  canWait?: string;
-  archive?: string;
-  calculatingPriority?: string;
-  priorityError?: string;
-  priority?: string;
-  urgency?: string;
-  recommendation?: string;
-  factors?: string;
-  contributingFactors?: string;
-  [key: string]: unknown;
-};
-
-// Helper to get recommendation label
-function getRecommendationLabel(
-  recommendation: string,
-  t: AiTranslations | undefined,
-): string {
-  const config = RECOMMENDATION_CONFIG[recommendation] || RECOMMENDATION_CONFIG.handle_this_week;
-  const keyMap: Record<string, string | undefined> = {
-    handle_now: t?.handleNow,
-    handle_today: t?.handleToday,
-    handle_this_week: t?.handleThisWeek,
-    can_wait: t?.canWait,
-    archive: t?.archive,
-  };
-  return keyMap[recommendation] ?? config.defaultLabel;
-}
-
 export function EmailPriorityIndicator({
   priority,
   isLoading = false,
@@ -110,7 +77,7 @@ export function EmailPriorityIndicator({
   error,
 }: EmailPriorityIndicatorProps) {
   const translations = useTranslations();
-  const t = translations.ai;
+  const t = translations.ai.learning;
   const [expanded, setExpanded] = useState(false);
 
   if (isLoading) {
@@ -118,7 +85,7 @@ export function EmailPriorityIndicator({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <CircularProgress size={16} />
         <Typography variant="caption" color="text.secondary">
-          {t?.calculatingPriority ?? 'Calculating priority...'}
+          {t.calculatingPriority}
         </Typography>
       </Box>
     );
@@ -129,7 +96,7 @@ export function EmailPriorityIndicator({
       <Chip
         size="small"
         icon={<AlertTriangle size={14} />}
-        label={t?.priorityError ?? 'Priority calculation failed'}
+        label={t.priorityError}
         color="error"
         variant="outlined"
       />
@@ -143,7 +110,18 @@ export function EmailPriorityIndicator({
   const colors = URGENCY_COLORS[priority.urgency] || URGENCY_COLORS.medium;
   const icon = URGENCY_ICONS[priority.urgency] || URGENCY_ICONS.medium;
   const recommendation = RECOMMENDATION_CONFIG[priority.recommendation] || RECOMMENDATION_CONFIG.handle_this_week;
-  const recommendationLabel = getRecommendationLabel(priority.recommendation, t as AiTranslations);
+  const recommendationLabel =
+    priority.recommendation === 'handle_now'
+      ? t.handleNow
+      : priority.recommendation === 'handle_today'
+        ? t.handleToday
+        : priority.recommendation === 'handle_this_week'
+          ? t.handleThisWeek
+          : priority.recommendation === 'can_wait'
+            ? t.canWait
+            : priority.recommendation === 'archive'
+              ? t.archive
+              : t.handleThisWeek;
 
   // Compact chip-only view
   if (compact) {
@@ -152,17 +130,17 @@ export function EmailPriorityIndicator({
         title={
           <Box>
             <Typography variant="caption" display="block">
-              <strong>{t?.priority ?? 'Priority'}:</strong> {priority.score}/10
+              <strong>{t.priority}:</strong> {priority.score}/10
             </Typography>
             <Typography variant="caption" display="block">
-              <strong>{t?.urgency ?? 'Urgency'}:</strong> {priority.urgency}
+              <strong>{t.urgency}:</strong> {priority.urgency}
             </Typography>
             <Typography variant="caption" display="block">
-              <strong>{t?.recommendation ?? 'Action'}:</strong> {recommendationLabel}
+              <strong>{t.recommendation}:</strong> {recommendationLabel}
             </Typography>
             {priority.factors.length > 0 && (
               <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
-                <strong>{t?.factors ?? 'Factors'}:</strong> {priority.factors.slice(0, 3).join(', ')}
+                <strong>{t.factors}:</strong> {priority.factors.slice(0, 3).join(', ')}
               </Typography>
             )}
           </Box>
@@ -172,7 +150,7 @@ export function EmailPriorityIndicator({
         <Chip
           size="small"
           icon={<Box sx={{ display: 'flex', color: colors.text }}>{icon}</Box>}
-          label={`P${priority.score}`}
+          label={String(priority.score)}
           sx={{
             bgcolor: colors.bg,
             color: colors.text,
@@ -201,7 +179,7 @@ export function EmailPriorityIndicator({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box sx={{ color: colors.text, display: 'flex' }}>{icon}</Box>
           <Typography variant="body2" fontWeight={600} sx={{ color: colors.text }}>
-            {t?.priority ?? 'Priority'}: {priority.score}/10
+            {t.priority}: {priority.score}/10
           </Typography>
 
           {/* Urgency badge */}
@@ -253,12 +231,12 @@ export function EmailPriorityIndicator({
       </Box>
 
       {/* Factors breakdown */}
-      {showFactors && priority.factors.length > 0 && (
-        <Collapse in={expanded}>
-          <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px dashed ${colors.border}` }}>
-            <Typography variant="caption" fontWeight={600} sx={{ display: 'block', mb: 1 }}>
-              {t?.contributingFactors ?? 'Contributing Factors'}
-            </Typography>
+        {showFactors && priority.factors.length > 0 && (
+          <Collapse in={expanded}>
+            <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px dashed ${colors.border}` }}>
+              <Typography variant="caption" fontWeight={600} sx={{ display: 'block', mb: 1 }}>
+                {t.contributingFactors}
+              </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {priority.factors.map((factor, index) => (
                 <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

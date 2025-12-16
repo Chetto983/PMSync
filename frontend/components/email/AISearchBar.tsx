@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+﻿import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   TextField,
   InputAdornment,
@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { Sparkles, X } from 'lucide-react';
 import { aiApi, type MemorySearchItem } from '@/lib/api/ai';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 /**
  * Props for AISearchBar
@@ -56,9 +57,11 @@ interface AISearchBarProps {
  */
 export const AISearchBar: React.FC<AISearchBarProps> = ({
   onResultClick,
-  placeholder = 'Ask AI about your emails...',
+  placeholder,
   size = 'small',
 }) => {
+  const t = useTranslations();
+  const resolvedPlaceholder = placeholder ?? t.email.list.aiSearchPlaceholder;
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MemorySearchItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -88,15 +91,14 @@ export const AISearchBar: React.FC<AISearchBarProps> = ({
         setResults(response.data.items);
         setOpen(true);
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to search emails';
+        const errorMessage = err instanceof Error && err.message ? err.message : t.email.view.memoryError;
         setError(errorMessage);
         setResults([]);
       } finally {
         setLoading(false);
       }
     },
-    [],
+    [t.email.view.memoryError],
   );
 
   // Debounced search on query change
@@ -154,7 +156,7 @@ export const AISearchBar: React.FC<AISearchBarProps> = ({
           size={size}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -231,7 +233,7 @@ export const AISearchBar: React.FC<AISearchBarProps> = ({
                               flex: 1,
                             }}
                           >
-                            {item.subject || 'No Subject'}
+                            {item.subject || t.common.noSubject}
                           </Typography>
                           {item.score !== null && (
                             <Chip
@@ -256,7 +258,7 @@ export const AISearchBar: React.FC<AISearchBarProps> = ({
                               mb: 0.5,
                             }}
                           >
-                            {item.from || 'Unknown sender'}
+                            {item.from || t.email.view.memoryUnknownSender}
                             {item.receivedAt &&
                               ` • ${new Date(item.receivedAt).toLocaleDateString()}`}
                           </Typography>
@@ -283,7 +285,7 @@ export const AISearchBar: React.FC<AISearchBarProps> = ({
             {!error && results.length === 0 && query && !loading && (
               <Box sx={{ p: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                  No results found. Try a different query.
+                  {t.email.empty.searchTitle}. {t.email.empty.searchSubtitle}
                 </Typography>
               </Box>
             )}

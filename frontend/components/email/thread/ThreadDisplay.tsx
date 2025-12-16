@@ -286,15 +286,13 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           {t.email.selectEmail}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, opacity: 0.7 }}>
-          Select an email to read
+          {t.email.view.selectEmail}
         </Typography>
       </Box>
     );
   }
 
-  const attachmentTooltip =
-    (t as { dashboard?: { email?: { attachments?: { tooltip?: string } } } }).dashboard?.email?.attachments?.tooltip ??
-    'Click to open. Ctrl/Cmd+click to download.';
+  const attachmentTooltip = t.email.view.attachmentsTooltip;
 
   const isDraft = email.folder === 'DRAFTS' || email.isDraft || email.externalId?.startsWith('draft-');
   const hasBody = Boolean(email.bodyHtml || email.bodyText);
@@ -316,7 +314,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         }}
       >
         {onClose && (
-          <IconButton size="small" onClick={onClose} sx={{ mr: 0.5 }} aria-label={t.common.close || 'Close'}>
+          <IconButton size="small" onClick={onClose} sx={{ mr: 0.5 }} aria-label={t.common.close}>
             <ChevronLeft size={20} />
           </IconButton>
         )}
@@ -324,7 +322,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
         {isDraft && onEditDraft && (
-          <Tooltip title={t.common?.edit || 'Edit Draft'}>
+          <Tooltip title={t.common.edit}>
             <Button
               size="small"
               variant="contained"
@@ -333,7 +331,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
               onClick={() => onEditDraft(email)}
               sx={{ mr: 1 }}
             >
-              {t.common?.edit || 'Edit'}
+              {t.common.edit}
             </Button>
           </Tooltip>
         )}
@@ -401,25 +399,39 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
               wordBreak: 'break-word',
             }}
           >
-            {email.subject || '(No subject)'}
+            {email.subject || t.common.noSubject}
           </Typography>
 
           <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
             {isThreadConversation && (
               <>
-                <Chip icon={<Mail size={14} />} label={`${threadEmails.length} messages`} size="small" sx={{ fontWeight: 500 }} />
+                <Chip
+                  icon={<Mail size={14} />}
+                  label={`${threadEmails.length} ${
+                    threadEmails.length === 1 ? t.email.view.message : t.email.view.messages
+                  }`}
+                  size="small"
+                  sx={{ fontWeight: 500 }}
+                />
                 {unreadCount > 0 && (
-                  <Chip label={`${unreadCount} unread`} size="small" color="primary" sx={{ fontWeight: 600 }} />
+                  <Chip
+                    label={`${unreadCount} ${
+                      unreadCount === 1 ? t.email.view.unreadSingle : t.email.view.unreadPlural
+                    }`}
+                    size="small"
+                    color="primary"
+                    sx={{ fontWeight: 600 }}
+                  />
                 )}
                 <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 20, alignSelf: 'center' }} />
                 <Button size="small" variant="text" onClick={expandAll} sx={{ minWidth: 'auto', px: 1, fontSize: '0.75rem' }}>
-                  Expand all
+                  {t.email.view.expandAll}
                 </Button>
                 <Button size="small" variant="text" onClick={collapseRead} sx={{ minWidth: 'auto', px: 1, fontSize: '0.75rem' }}>
-                  Collapse read
+                  {t.email.view.collapseRead}
                 </Button>
                 <Button size="small" variant="text" onClick={collapseAll} sx={{ minWidth: 'auto', px: 1, fontSize: '0.75rem' }}>
-                  Collapse all
+                  {t.email.view.collapseAll}
                 </Button>
               </>
             )}
@@ -442,8 +454,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
 
           {!hasBody && (
             <Button variant="outlined" size="small" onClick={handleFetchArchived} sx={{ mb: 2 }}>
-              {(t as { dashboard?: { emailView?: { fetchArchived?: string } } }).dashboard?.emailView?.fetchArchived ||
-                'Load archived content'}
+              {t.email.view.fetchArchived}
             </Button>
           )}
         </Box>

@@ -77,7 +77,7 @@ export function EmailCategoryBadges({
   size = 'small',
 }: EmailCategoryBadgesProps) {
   const translations = useTranslations();
-  const t = translations.ai;
+  const t = translations.ai.learning;
 
   if (isLoading) {
     return (
@@ -95,7 +95,7 @@ export function EmailCategoryBadges({
         <Chip
           size="small"
           icon={<AlertTriangle size={12} />}
-          label={t?.categorizationFailed ?? 'Failed'}
+          label={t.categorizationFailed}
           color="error"
           variant="outlined"
           sx={{ height: size === 'small' ? 20 : 24 }}
@@ -115,7 +115,7 @@ export function EmailCategoryBadges({
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
       {/* AI indicator */}
       {showAiIndicator && (
-        <Tooltip title={t?.suggestedByAi ?? 'Suggested by AI'}>
+        <Tooltip title={t.suggestedByAi}>
           <Box
             sx={{
               display: 'flex',

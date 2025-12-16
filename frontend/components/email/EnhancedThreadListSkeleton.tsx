@@ -147,8 +147,7 @@ export const EnhancedThreadListSkeleton: React.FC<EnhancedThreadListSkeletonProp
   animation = 'wave',
 }) => {
   const t = useTranslations();
-  const loadingText = (t.email as Record<string, unknown>)?.skeleton as Record<string, string> | undefined;
-  const screenReaderText = loadingText?.loadingEmails ?? 'Loading emails, please wait...';
+  const screenReaderText = t.email.skeleton.loadingEmails;
 
   return (
     <Box

@@ -111,7 +111,7 @@ export function FolderContextMenu({
         <ListItemIcon>
           <FolderPlus size={18} />
         </ListItemIcon>
-        <ListItemText>{t.folders?.createSubfolder || 'Create Subfolder'}</ListItemText>
+        <ListItemText>{t.folders.createSubfolder}</ListItemText>
       </MenuItem>
 
       {/* Move emails to folder */}
@@ -120,7 +120,7 @@ export function FolderContextMenu({
           <ListItemIcon>
             <FolderInput size={18} />
           </ListItemIcon>
-          <ListItemText>{t.folders?.moveEmailsHere || 'Move Emails Here'}</ListItemText>
+          <ListItemText>{t.folders.moveEmailsHere}</ListItemText>
         </MenuItem>
       )}
 
@@ -130,7 +130,7 @@ export function FolderContextMenu({
           <ListItemIcon>
             <RefreshCw size={18} />
           </ListItemIcon>
-          <ListItemText>{t.folders?.refresh || 'Refresh'}</ListItemText>
+          <ListItemText>{t.folders.refresh}</ListItemText>
         </MenuItem>
       )}
 
@@ -142,10 +142,10 @@ export function FolderContextMenu({
           <Edit3 size={18} />
         </ListItemIcon>
         <ListItemText>
-          {t.common?.rename || 'Rename'}
+          {t.common.rename}
           {isSystemFolder && (
             <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: 8 }}>
-              ({t.folders?.systemFolder || 'System folder'})
+              ({t.folders.systemFolder})
             </span>
           )}
         </ListItemText>
@@ -166,10 +166,10 @@ export function FolderContextMenu({
           <Trash2 size={18} />
         </ListItemIcon>
         <ListItemText>
-          {t.common?.delete || 'Delete'}
+          {t.common.delete}
           {isSystemFolder && (
             <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: 8 }}>
-              ({t.folders?.systemFolder || 'System folder'})
+              ({t.folders.systemFolder})
             </span>
           )}
         </ListItemText>

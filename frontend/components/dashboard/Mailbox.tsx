@@ -171,26 +171,24 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const queryClient = useQueryClient();
   const localText = useMemo(() => {
-    const rt = t.email.realtime;
-    const empty = t.email.empty;
     return {
       connection: {
-        connecting: rt.connecting ?? t.common.loading ?? 'Connecting...',
-        live: rt.live ?? 'Live',
-        reconnecting: rt.reconnecting ?? 'Reconnecting...',
-        warning: rt.disconnectedNotice ?? 'Realtime disconnected. Data may be stale until connection is restored.',
+        connecting: t.email.realtime.connecting,
+        live: t.email.realtime.live,
+        reconnecting: t.email.realtime.reconnecting,
+        warning: t.email.realtime.disconnectedNotice,
       },
       empty: {
-        defaultTitle: empty.defaultTitle ?? 'No emails',
-        defaultSubtitle: empty.defaultSubtitle ?? t.common.allCaughtUp ?? 'All caught up',
-        trashTitle: empty.trashTitle ?? 'Trash is empty',
-        trashSubtitle: empty.trashSubtitle ?? 'No deleted messages here.',
-        sentTitle: empty.sentTitle ?? 'No sent emails',
-        sentSubtitle: empty.sentSubtitle ?? 'Send your first message to see it here.',
-        unreadTitle: empty.unreadTitle ?? 'No unread emails',
-        unreadSubtitle: empty.unreadSubtitle ?? 'You are all caught up.',
-        labelTitle: empty.labelTitle ?? 'No emails with this label',
-        labelSubtitle: empty.labelSubtitle ?? 'Try another label or clear filters.',
+        defaultTitle: t.email.empty.defaultTitle,
+        defaultSubtitle: t.email.empty.defaultSubtitle,
+        trashTitle: t.email.empty.trashTitle,
+        trashSubtitle: t.email.empty.trashSubtitle,
+        sentTitle: t.email.empty.sentTitle,
+        sentSubtitle: t.email.empty.sentSubtitle,
+        unreadTitle: t.email.empty.unreadTitle,
+        unreadSubtitle: t.email.empty.unreadSubtitle,
+        labelTitle: t.email.empty.labelTitle,
+        labelSubtitle: t.email.empty.labelSubtitle,
       },
     };
   }, [t]);
@@ -287,9 +285,14 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         }
 
         const quotedBody = originalEmail?.bodyHtml || originalEmail?.bodyText || '';
+        const quotedDate = originalEmail?.receivedAt ? new Date(originalEmail.receivedAt).toLocaleString() : '';
+        const quotedFrom = originalEmail?.from || '';
+        const quoteHeader = t.email.composer.replyQuotedHeader
+          .replace('{date}', quotedDate)
+          .replace('{from}', quotedFrom);
         const formattedQuote = quotedBody
           ? `<br/><br/><blockquote style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 0; color: #666;">
-              <p>On ${originalEmail?.receivedAt ? new Date(originalEmail.receivedAt).toLocaleString() : ''}, ${originalEmail?.from || ''} wrote:</p>
+              <p>${quoteHeader}</p>
               ${quotedBody}
             </blockquote>`
           : '';
@@ -318,12 +321,18 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         }
 
         const forwardBody = originalEmail?.bodyHtml || originalEmail?.bodyText || '';
+        const forwardedDate = originalEmail?.receivedAt ? new Date(originalEmail.receivedAt).toLocaleString() : '';
+        const forwardedHeader = t.email.composer.forwardedMessageHeader;
+        const forwardFromLabel = t.email.composer.from;
+        const forwardDateLabel = t.email.view.date;
+        const forwardSubjectLabel = t.email.composer.subject;
+        const forwardToLabel = t.email.view.to;
         const formattedForward = forwardBody
-          ? `<br/><br/>---------- Forwarded message ----------<br/>
-              From: ${originalEmail?.from || ''}<br/>
-              Date: ${originalEmail?.receivedAt ? new Date(originalEmail.receivedAt).toLocaleString() : ''}<br/>
-              Subject: ${originalEmail?.subject || ''}<br/>
-              To: ${originalEmail?.to?.join(', ') || ''}<br/><br/>
+          ? `<br/><br/>${forwardedHeader}<br/>
+              ${forwardFromLabel}: ${originalEmail?.from || ''}<br/>
+              ${forwardDateLabel}: ${forwardedDate}<br/>
+              ${forwardSubjectLabel}: ${originalEmail?.subject || ''}<br/>
+              ${forwardToLabel}: ${originalEmail?.to?.join(', ') || ''}<br/><br/>
               ${forwardBody}`
           : '';
 
@@ -344,7 +353,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     };
 
     void openFromQuery();
-  }, [router, router.query]);
+  }, [router, router.query, t]);
 
   const getEmptyState = useCallback(() => {
     if (!selectedFolderId) {
@@ -386,13 +395,13 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     setSyncLoading(true);
     try {
       await Promise.all(providers.map((p) => emailApi.syncProvider(p.id)));
-      setSyncStatusMessage(t.email.messages.syncTriggered ?? 'Sync triggered for all providers');
+      setSyncStatusMessage(t.email.messages.syncTriggered);
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       queryClient.invalidateQueries({ queryKey: emailKeys.syncStatus() });
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
       queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
     } catch {
-      setSyncStatusMessage(t.email.messages.syncFailed ?? 'Sync failed');
+      setSyncStatusMessage(t.email.messages.syncFailed);
     } finally {
       setSyncLoading(false);
     }
@@ -452,7 +461,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
         logger.error('Failed to open conversation email', { error });
         setSnackbar({
           open: true,
-          message: t.email.messages.failedToOpenEmail ?? 'Failed to open email',
+          message: t.email.messages.failedToOpenEmail,
           severity: 'error',
         });
       }
@@ -474,12 +483,11 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       logger.error('Failed to open email from AI search', { error });
       setSnackbar({
         open: true,
-        message: t.email.messages.failedToOpenEmail ?? 'Failed to open email',
+        message: t.email.messages.failedToOpenEmail,
         severity: 'error',
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- t.email.messages is stable
-  }, [setSelectedEmail]);
+  }, [setSelectedEmail, t.email.messages.failedToOpenEmail]);
 
   // Smart Filters for quick access
   // Note: Counts come from database API (emailStats) - no need to load all emails
@@ -647,7 +655,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     if (aggregatorFolders.length) {
       groups.push({
         providerId: 'all',
-        providerEmail: t.email.allAccountsLabel || 'All accounts',
+        providerEmail: t.email.allAccountsLabel,
         folders: aggregatorFolders,
       });
     }
@@ -884,7 +892,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     setSnackbar({
       open: true,
-      message: t.common.save || 'Labels updated',
+      message: t.email.messages.labelsUpdated,
       severity: 'success',
     });
   }, [queryClient, setSelectedEmail, storeSelectedEmail, t]);
@@ -1264,6 +1272,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const handleReplyLocal = useCallback((email: Email) => {
     setComposeMode('reply');
     setComposePrefill({
+      originalEmailId: email.id,
       to: [email.from],
       subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
       body: `<br/><br/>On ${new Date(email.receivedAt).toLocaleString()}, ${email.from} wrote:<br/><blockquote>${email.bodyHtml || email.bodyText}</blockquote>`,
@@ -1280,6 +1289,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
     setComposeMode('reply');
     setComposePrefill({
+      originalEmailId: email.id,
       to: uniqueRecipients,
       subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
       body: `<br/><br/>On ${new Date(email.receivedAt).toLocaleString()}, ${email.from} wrote:<br/><blockquote>${email.bodyHtml || email.bodyText}</blockquote>`,
@@ -1293,6 +1303,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const handleForwardLocal = useCallback((email: Email) => {
     setComposeMode('forward');
     setComposePrefill({
+      originalEmailId: email.id,
       subject: email.subject.startsWith('Fwd:') ? email.subject : `Fwd: ${email.subject}`,
       body: `<br/><br/>---------- Forwarded message ---------<br/>From: ${email.from}<br/>Date: ${new Date(email.receivedAt).toLocaleString()}<br/>Subject: ${email.subject}<br/>To: ${email.to?.join(', ') || ''}<br/><br/>${email.bodyHtml || email.bodyText}`,
     });

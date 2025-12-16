@@ -83,15 +83,15 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
         setReplies(response.data.suggestions);
         setHasLoaded(true);
       } else {
-        setError('Failed to generate replies');
+        setError(t.ai.chat.error);
       }
     } catch (err) {
       logger.error('Failed to generate smart replies', { error: err });
-      setError('Failed to generate replies. Please try again.');
+      setError(t.ai.chat.error);
     } finally {
       setIsLoading(false);
     }
-  }, [emailId, locale, selectedTone]);
+  }, [emailId, locale, selectedTone, t.ai.chat.error]);
 
   // Load replies when expanded for the first time
   const handleToggleExpand = () => {
@@ -126,38 +126,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
     loadReplies();
   };
 
-  // Type helper for translations
-  type SmartRepliesTranslations = {
-    dashboard?: {
-      emailAi?: {
-        smartReplies?: {
-          title?: string;
-          generateMore?: string;
-          tone?: string;
-          formal?: string;
-          casual?: string;
-          technical?: string;
-          noReplies?: string;
-          clickToInsert?: string;
-        };
-      };
-    };
-    common?: { retry?: string };
-    ai?: { generatingSuggestions?: string; dismiss?: string };
-  };
-  const translations = t as SmartRepliesTranslations;
-
-  // Translations with fallbacks
-  const labels = {
-    title: translations?.dashboard?.emailAi?.smartReplies?.title || 'Smart Replies',
-    generateMore: translations?.dashboard?.emailAi?.smartReplies?.generateMore || 'Generate More',
-    tone: translations?.dashboard?.emailAi?.smartReplies?.tone || 'Tone',
-    formal: translations?.dashboard?.emailAi?.smartReplies?.formal || 'Formal',
-    casual: translations?.dashboard?.emailAi?.smartReplies?.casual || 'Casual',
-    technical: translations?.dashboard?.emailAi?.smartReplies?.technical || 'Technical',
-    noReplies: translations?.dashboard?.emailAi?.smartReplies?.noReplies || 'No suggestions available',
-    clickToInsert: translations?.dashboard?.emailAi?.smartReplies?.clickToInsert || 'Click to insert',
-  };
+  const labels = t.ai.emailAi.smartReplies;
 
   return (
     <Box
@@ -200,7 +169,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
         {isLoading && <CircularProgress size={16} sx={{ color: isDark ? '#55cae5' : '#7650ce' }} />}
 
         {onDismiss && (
-          <Tooltip title={translations?.ai?.dismiss ?? 'Dismiss'}>
+          <Tooltip title={t.ai.dismiss}>
             <IconButton
               size="small"
               onClick={(e) => {
@@ -230,7 +199,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
               </Typography>
               <Chip
                 icon={<RefreshCw size={14} />}
-                label={translations?.common?.retry ?? 'Retry'}
+                label={t.common.retry}
                 onClick={handleRegenerate}
                 size="small"
                 variant="outlined"
@@ -243,7 +212,7 @@ export const SmartReplySuggestions: React.FC<SmartReplySuggestionsProps> = ({
             <Box sx={{ textAlign: 'center', py: 3 }}>
               <CircularProgress size={24} sx={{ color: isDark ? '#55cae5' : '#7650ce' }} />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {translations?.ai?.generatingSuggestions ?? 'Generating suggestions...'}
+                {labels.generating}
               </Typography>
             </Box>
           )}

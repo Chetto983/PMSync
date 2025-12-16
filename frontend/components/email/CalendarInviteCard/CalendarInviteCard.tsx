@@ -20,28 +20,6 @@ export interface CalendarInviteCardProps {
   onRespond?: (response: CalendarResponse) => Promise<void>;
 }
 
-const defaultLabels = {
-  title: 'Meeting Invitation',
-  when: 'When',
-  where: 'Where',
-  organizer: 'Organizer',
-  attendees: 'Attendees',
-  description: 'Description',
-  actions: {
-    accept: 'Accept',
-    decline: 'Decline',
-    tentative: 'Maybe',
-  },
-  status: {
-    pending: 'Pending',
-    accepted: 'Accepted',
-    declined: 'Declined',
-    tentative: 'Tentative',
-    cancelled: 'Cancelled',
-    updated: 'Updated',
-  },
-};
-
 function formatDateRange(invite: ParsedCalendarInvite) {
   const start = new Date(invite.startTime);
   const end = new Date(invite.endTime);
@@ -77,28 +55,23 @@ export const CalendarInviteCard: React.FC<CalendarInviteCardProps> = ({
   const [currentStatus, setCurrentStatus] = useState(status);
   const [loading, setLoading] = useState<CalendarResponse | null>(null);
 
-  const labels = useMemo(() => {
-    return (
-      t.calendar.invitation ||
-      defaultLabels
-    );
-  }, [t]);
+  const labels = useMemo(() => t.calendar.invitation, [t.calendar.invitation]);
 
   const isCancelled = invite.method === 'CANCEL' || invite.status === 'CANCELLED';
   const isUpdated = !isCancelled && typeof invite.sequence === 'number' && invite.sequence > 0;
   const statusLabel =
-    (isCancelled && (labels.status?.cancelled || 'Cancelled')) ||
-    (isUpdated && (labels.status?.updated || 'Updated')) ||
-    labels.status?.[currentStatus] ||
+    (isCancelled && labels.status.cancelled) ||
+    (isUpdated && labels.status.updated) ||
+    labels.status[currentStatus as keyof typeof labels.status] ||
     currentStatus;
 
   const attendeeStatusLabel = (status?: string) => {
     if (!status) return undefined;
     const upper = status.toUpperCase();
-    if (upper === 'ACCEPTED') return labels.status?.accepted || 'Accepted';
-    if (upper === 'DECLINED') return labels.status?.declined || 'Declined';
-    if (upper === 'TENTATIVE') return labels.status?.tentative || 'Tentative';
-    if (upper === 'NEEDS-ACTION') return labels.status?.needsAction || 'Needs Response';
+    if (upper === 'ACCEPTED') return labels.status.accepted;
+    if (upper === 'DECLINED') return labels.status.declined;
+    if (upper === 'TENTATIVE') return labels.status.tentative;
+    if (upper === 'NEEDS-ACTION') return labels.status.needsAction;
     return status;
   };
 
@@ -237,7 +210,7 @@ export const CalendarInviteCard: React.FC<CalendarInviteCardProps> = ({
           onClick={() => handleRespond('accept')}
           disabled={loading !== null || isCancelled}
         >
-          {labels.actions?.accept ?? 'Accept'}
+          {labels.actions.accept}
         </Button>
         <Button
           variant="outlined"
@@ -245,7 +218,7 @@ export const CalendarInviteCard: React.FC<CalendarInviteCardProps> = ({
           onClick={() => handleRespond('tentative')}
           disabled={loading !== null || isCancelled}
         >
-          {labels.actions?.tentative ?? 'Maybe'}
+          {labels.actions.tentative}
         </Button>
         <Button
           variant="text"
@@ -254,13 +227,13 @@ export const CalendarInviteCard: React.FC<CalendarInviteCardProps> = ({
           onClick={() => handleRespond('decline')}
           disabled={loading !== null || isCancelled}
         >
-          {labels.actions?.decline ?? 'Decline'}
+          {labels.actions.decline}
         </Button>
       </Stack>
 
       {isCancelled && (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          {labels.messages?.inviteCancelled ?? 'This meeting has been cancelled.'}
+          {labels.messages.inviteCancelled}
         </Typography>
       )}
     </Box>

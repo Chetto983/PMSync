@@ -21,7 +21,12 @@
       "Bash(node:*)",
       "Skill(superpowers:brainstorming)",
       "SlashCommand(/superpowers:write-plan)",
-      "Skill(superpowers:writing-plans)"
+      "Skill(superpowers:writing-plans)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(curl:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

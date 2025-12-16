@@ -53,34 +53,33 @@ export function AiComposeDialog({
   t: AppTranslations;
 }) {
   const examplePrompts = useMemo(() => {
-    const composer = t.email?.composer;
+    const composer = t.email.composer;
     if (mode === 'reply') {
       return [
-        composer?.aiComposeExampleReplyConfirm ?? 'Confirm receipt and schedule call',
-        composer?.aiComposeExampleReplyDecline ?? 'Politely decline with alternative',
-        composer?.aiComposeExampleReplyInfo ?? 'Request more information',
+        composer.aiComposeExampleReplyConfirm,
+        composer.aiComposeExampleReplyDecline,
+        composer.aiComposeExampleReplyInfo,
       ];
     }
     return [
-      composer?.aiComposeExampleFollowUp ?? 'Write a follow-up about our meeting',
-      composer?.aiComposeExampleThankYou ?? 'Thank you note for their help',
-      composer?.aiComposeExampleRequest ?? 'Request information about...',
+      composer.aiComposeExampleFollowUp,
+      composer.aiComposeExampleThankYou,
+      composer.aiComposeExampleRequest,
     ];
   }, [mode, t]);
 
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{t.email?.composer?.aiComposeTitle ?? 'Draft with AI'}</DialogTitle>
+      <DialogTitle>{t.email.composer.aiComposeTitle}</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
         <Typography variant="body2" color="text.secondary">
-          {t.email?.composer?.aiComposeHelp ??
-            'Provide a short prompt. AI will draft the email body and suggest a subject.'}
+          {t.email.composer.aiComposeHelp}
         </Typography>
 
         {!preview && (
           <Box>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-              {t.email?.composer?.aiComposeExamples ?? 'Try these:'}
+              {t.email.composer.aiComposeExamples}
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
               {examplePrompts.map((example, i) => (
@@ -102,7 +101,7 @@ export function AiComposeDialog({
         )}
 
         <TextField
-          label={t.email?.composer?.aiComposePrompt ?? 'Prompt'}
+          label={t.email.composer.aiComposePrompt}
           multiline
           minRows={3}
           value={prompt}
@@ -111,35 +110,35 @@ export function AiComposeDialog({
           disabled={loading}
           placeholder={
             mode === 'reply'
-              ? 'e.g., Reply confirming the meeting and suggest Tuesday at 3pm'
-              : 'e.g., Introduce our new product features to the marketing team'
+              ? t.email.composer.aiComposePlaceholderReply
+              : t.email.composer.aiComposePlaceholderCompose
           }
         />
         <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
           <FormControl fullWidth size="small">
-            <InputLabel id="ai-tone-label">{t.email?.composer?.aiComposeToneLabel ?? 'Tone'}</InputLabel>
+            <InputLabel id="ai-tone-label">{t.email.composer.aiComposeToneLabel}</InputLabel>
             <Select
               labelId="ai-tone-label"
-              label={t.email?.composer?.aiComposeToneLabel ?? 'Tone'}
+              label={t.email.composer.aiComposeToneLabel}
               value={tone || ''}
               onChange={(e) => setTone(e.target.value as 'formal' | 'casual' | 'technical' | '')}
               disabled={loading}
             >
               <MenuItem value="">
-                <em>Auto</em>
+                <em>{t.email.composer.aiComposeToneAuto}</em>
               </MenuItem>
-              <MenuItem value="formal">Formal</MenuItem>
-              <MenuItem value="casual">Casual</MenuItem>
-              <MenuItem value="technical">Technical</MenuItem>
+              <MenuItem value="formal">{t.ai.emailAi.smartReplies.formal}</MenuItem>
+              <MenuItem value="casual">{t.ai.emailAi.smartReplies.casual}</MenuItem>
+              <MenuItem value="technical">{t.ai.emailAi.smartReplies.technical}</MenuItem>
             </Select>
           </FormControl>
           <FormControl fullWidth size="small">
             <InputLabel id="ai-variant-label">
-              {t.email?.composer?.aiComposeVariantLabel ?? 'Variant'}
+              {t.email.composer.aiComposeVariantLabel}
             </InputLabel>
             <Select
               labelId="ai-variant-label"
-              label={t.email?.composer?.aiComposeVariantLabel ?? 'Variant'}
+              label={t.email.composer.aiComposeVariantLabel}
               value={variant}
               onChange={(e) => setVariant(e.target.value as 'A' | 'B')}
               disabled={loading}
@@ -162,7 +161,7 @@ export function AiComposeDialog({
             }}
           >
             <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block', fontWeight: 500 }}>
-              {t.email?.composer?.aiComposePreview ?? 'Preview'}:
+              {t.email.composer.aiComposePreview}:
             </Typography>
             <Typography
               variant="body2"
@@ -179,7 +178,7 @@ export function AiComposeDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={loading}>
-          {t.email?.composer?.aiComposeCancel ?? 'Cancel'}
+          {t.email.composer.aiComposeCancel}
         </Button>
         {!preview ? (
           <Button
@@ -188,7 +187,7 @@ export function AiComposeDialog({
             disabled={loading || !prompt.trim()}
             startIcon={loading ? <CircularProgress size={16} /> : undefined}
           >
-            {loading ? t.email?.composer?.sending ?? 'Generating...' : t.email?.composer?.aiComposeGenerate ?? 'Generate'}
+            {loading ? t.common.processing : t.email.composer.aiComposeGenerate}
           </Button>
         ) : (
           <>
@@ -198,10 +197,10 @@ export function AiComposeDialog({
               disabled={loading}
               startIcon={loading ? <CircularProgress size={16} /> : undefined}
             >
-              {t.email?.composer?.aiComposeRegenerate ?? 'Regenerate'}
+              {t.email.composer.aiComposeRegenerate}
             </Button>
             <Button variant="contained" onClick={onSubmit} disabled={loading}>
-              {t.email?.composer?.aiComposeConfirm ?? 'Insert draft'}
+              {t.email.composer.aiComposeConfirm}
             </Button>
           </>
         )}
@@ -209,4 +208,3 @@ export function AiComposeDialog({
     </Dialog>
   );
 }
-

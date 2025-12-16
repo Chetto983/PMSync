@@ -32,6 +32,10 @@ import { FollowUpService } from './services/follow-up.service';
 import { ActionItemService } from './services/action-item.service';
 import { AnalyticsService } from './services/analytics.service';
 import { UnifiedKnowledgeService } from './services/unified-knowledge.service';
+import { RelationshipIntelligenceService } from './services/relationship-intelligence.service';
+import { CalendarConflictService } from './services/calendar-conflict.service';
+import { FocusTimeService } from './services/focus-time.service';
+import { MeetingPrepService } from './services/meeting-prep.service';
 import { LongTermMemoryService, type MemoryCategory } from './memory';
 import type { AnalyticsResult, EmailAnalytics, DashboardAnalytics } from './services/analytics.service';
 import type { ApprovalResumeData } from './workflows';
@@ -120,6 +124,10 @@ export class VoltAgentController {
     private readonly analyticsService: AnalyticsService,
     private readonly longTermMemoryService: LongTermMemoryService,
     private readonly unifiedKnowledgeService: UnifiedKnowledgeService,
+    private readonly relationshipIntelligenceService: RelationshipIntelligenceService,
+    private readonly calendarConflictService: CalendarConflictService,
+    private readonly focusTimeService: FocusTimeService,
+    private readonly meetingPrepService: MeetingPrepService,
   ) {}
 
   /**
@@ -1828,6 +1836,680 @@ export class VoltAgentController {
     return {
       success: true,
       ...stats,
+    };
+  }
+
+  // ===========================================================================
+  // CRM INTELLIGENCE ENDPOINTS (P1.7 - Relationship Tracking)
+  // ===========================================================================
+
+  /**
+   * Get stale contacts (no interaction in X days).
+   * Important contacts you may have lost touch with.
+   */
+  @Get('crm/stale-contacts')
+  @ApiOperation({
+    summary: 'Get stale contacts',
+    description: `Returns contacts with no interaction in the specified number of days.
+    Default threshold is 60 days. Results are sorted by relationship score (most important first).`,
+  })
+  async getStaleContacts(
+    @Req() req: AuthenticatedRequest,
+    @Query('days') days?: string,
+    @Query('limit') limit?: string,
+    @Query('minInteractions') minInteractions?: string,
+  ) {
+    const { tenantId } = req.user;
+
+    const contacts = await this.relationshipIntelligenceService.getStaleContacts(tenantId, {
+      staleDays: days ? parseInt(days, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      minInteractions: minInteractions ? parseInt(minInteractions, 10) : undefined,
+    });
+
+    return {
+      success: true,
+      count: contacts.length,
+      contacts,
+    };
+  }
+
+  /**
+   * Get contacts needing reconnection (for scheduled reminders).
+   */
+  @Get('crm/reconnect')
+  @ApiOperation({
+    summary: 'Get contacts needing reconnection',
+    description: `Returns stale contacts that haven't had a reconnect reminder sent recently.
+    Used by the reconnect reminder scheduler job.`,
+  })
+  async getContactsNeedingReconnect(
+    @Req() req: AuthenticatedRequest,
+    @Query('days') days?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const { tenantId } = req.user;
+
+    const contacts = await this.relationshipIntelligenceService.getContactsNeedingReconnect(tenantId, {
+      staleDays: days ? parseInt(days, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+
+    return {
+      success: true,
+      count: contacts.length,
+      contacts,
+    };
+  }
+
+  /**
+   * Get top contacts by relationship score.
+   */
+  @Get('crm/top-contacts')
+  @ApiOperation({
+    summary: 'Get top contacts by relationship score',
+    description: `Returns your most important contacts ranked by relationship score.
+    Score is calculated based on: recency (40%), frequency (30%), reciprocity (20%), trend (10%).`,
+  })
+  async getTopContacts(
+    @Req() req: AuthenticatedRequest,
+    @Query('limit') limit?: string,
+    @Query('minScore') minScore?: string,
+  ) {
+    const { tenantId } = req.user;
+
+    const contacts = await this.relationshipIntelligenceService.getTopContacts(tenantId, {
+      limit: limit ? parseInt(limit, 10) : undefined,
+      minScore: minScore ? parseFloat(minScore) : undefined,
+    });
+
+    return {
+      success: true,
+      count: contacts.length,
+      contacts,
+    };
+  }
+
+  /**
+   * Get relationship stats for a specific contact.
+   */
+  @Get('crm/contacts/:contactId')
+  @ApiOperation({
+    summary: 'Get contact relationship stats',
+    description: `Returns detailed relationship statistics for a specific contact:
+    - Last interaction date
+    - Total interactions (sent + received)
+    - Reciprocity ratio (balance of sent vs received)
+    - Relationship score
+    - Stale status`,
+  })
+  @ApiParam({ name: 'contactId', description: 'Contact ID' })
+  async getContactRelationshipStats(
+    @Req() req: AuthenticatedRequest,
+    @Param('contactId') contactId: string,
+  ) {
+    const { tenantId } = req.user;
+
+    const stats = await this.relationshipIntelligenceService.getContactRelationshipStats(
+      tenantId,
+      contactId,
+    );
+
+    if (!stats) {
+      throw new NotFoundException('Contact not found');
+    }
+
+    return {
+      success: true,
+      stats,
+    };
+  }
+
+  /**
+   * Get interaction history for a contact.
+   */
+  @Get('crm/contacts/:contactId/interactions')
+  @ApiOperation({
+    summary: 'Get contact interaction history',
+    description: `Returns the interaction history for a specific contact.
+    Includes emails sent/received, meetings, calls, and notes.`,
+  })
+  @ApiParam({ name: 'contactId', description: 'Contact ID' })
+  async getContactInteractionHistory(
+    @Req() req: AuthenticatedRequest,
+    @Param('contactId') contactId: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const { tenantId } = req.user;
+
+    const interactions = await this.relationshipIntelligenceService.getContactInteractionHistory(
+      tenantId,
+      contactId,
+      {
+        limit: limit ? parseInt(limit, 10) : undefined,
+        offset: offset ? parseInt(offset, 10) : undefined,
+      },
+    );
+
+    return {
+      success: true,
+      count: interactions.length,
+      interactions,
+    };
+  }
+
+  /**
+   * Record a manual interaction with a contact (call, meeting, note).
+   */
+  @Post('crm/contacts/:contactId/interactions')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Record manual interaction',
+    description: `Record a manual interaction with a contact (call, meeting, or note).
+    Email interactions are recorded automatically during sync.`,
+  })
+  @ApiParam({ name: 'contactId', description: 'Contact ID' })
+  async recordManualInteraction(
+    @Req() req: AuthenticatedRequest,
+    @Param('contactId') contactId: string,
+    @Body() body: {
+      type: 'MEETING' | 'CALL' | 'NOTE';
+      date?: string;
+      summary?: string;
+    },
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const interactionId = await this.relationshipIntelligenceService.recordManualInteraction(
+      tenantId,
+      userId,
+      contactId,
+      body.type,
+      body.date ? new Date(body.date) : new Date(),
+      body.summary,
+    );
+
+    return {
+      success: true,
+      interactionId,
+    };
+  }
+
+  /**
+   * Recalculate relationship score for a contact.
+   */
+  @Post('crm/contacts/:contactId/recalculate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Recalculate relationship score',
+    description: `Triggers recalculation of the relationship score for a specific contact.
+    Returns the score components and total score.`,
+  })
+  @ApiParam({ name: 'contactId', description: 'Contact ID' })
+  async recalculateRelationshipScore(
+    @Req() req: AuthenticatedRequest,
+    @Param('contactId') contactId: string,
+  ) {
+    const { tenantId } = req.user;
+
+    const scoreComponents = await this.relationshipIntelligenceService.calculateRelationshipScore(
+      tenantId,
+      contactId,
+    );
+
+    return {
+      success: true,
+      score: scoreComponents,
+    };
+  }
+
+  /**
+   * Get relationship graph for a contact (connected contacts).
+   */
+  @Get('crm/contacts/:contactId/graph')
+  @ApiOperation({
+    summary: 'Get relationship graph',
+    description: `Returns contacts connected to the specified contact through shared
+    email threads or meetings. Uses recursive CTE for graph traversal.`,
+  })
+  @ApiParam({ name: 'contactId', description: 'Contact ID' })
+  async getRelationshipGraph(
+    @Req() req: AuthenticatedRequest,
+    @Param('contactId') contactId: string,
+    @Query('depth') depth?: string,
+  ) {
+    const { tenantId } = req.user;
+
+    const graph = await this.relationshipIntelligenceService.getRelationshipGraph(
+      tenantId,
+      contactId,
+      depth ? parseInt(depth, 10) : undefined,
+    );
+
+    return {
+      success: true,
+      count: graph.length,
+      nodes: graph,
+    };
+  }
+
+  /**
+   * Mark a contact as reminded (to prevent reminder spam).
+   */
+  @Post('crm/contacts/:contactId/reminded')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Mark contact as reminded',
+    description: `Records that a reconnect reminder was sent for this contact.
+    Prevents sending multiple reminders in a short time period.`,
+  })
+  @ApiParam({ name: 'contactId', description: 'Contact ID' })
+  async markContactReminded(
+    @Req() _req: AuthenticatedRequest,
+    @Param('contactId') contactId: string,
+  ) {
+    await this.relationshipIntelligenceService.markContactReminded(contactId);
+
+    return {
+      success: true,
+    };
+  }
+
+  /**
+   * Batch recalculate all relationship scores (admin/backfill).
+   */
+  @Post('crm/recalculate-all')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Recalculate all relationship scores',
+    description: `Triggers batch recalculation of relationship scores for all contacts.
+    Use this after importing historical data or for periodic refresh.`,
+  })
+  async recalculateAllScores(@Req() req: AuthenticatedRequest) {
+    const { tenantId } = req.user;
+
+    const result = await this.relationshipIntelligenceService.recalculateAllScores(tenantId);
+
+    return {
+      success: true,
+      ...result,
+    };
+  }
+
+  // ==========================================================================
+  // P2 SMART SCHEDULING ENDPOINTS
+  // ==========================================================================
+
+  /**
+   * Detect calendar conflicts for a proposed event.
+   */
+  @Post('scheduling/conflicts')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Detect calendar conflicts',
+    description: `Checks if a proposed event conflicts with existing calendar events.
+    Returns conflict details and alternative time slot suggestions.`,
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['title', 'startTime', 'endTime'],
+      properties: {
+        title: { type: 'string', description: 'Event title' },
+        startTime: { type: 'string', format: 'date-time', description: 'Event start time' },
+        endTime: { type: 'string', format: 'date-time', description: 'Event end time' },
+        duration: { type: 'number', description: 'Duration in minutes' },
+        isFlexible: { type: 'boolean', description: 'Can be rescheduled if conflicts' },
+        includeSuggestions: { type: 'boolean', description: 'Include alternative slots' },
+        numSuggestions: { type: 'number', description: 'Number of suggestions to return' },
+      },
+    },
+  })
+  async detectConflicts(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: {
+      title: string;
+      startTime: string;
+      endTime: string;
+      duration?: number;
+      isFlexible?: boolean;
+      includeSuggestions?: boolean;
+      numSuggestions?: number;
+    },
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const proposedEvent = {
+      title: body.title,
+      startTime: new Date(body.startTime),
+      endTime: new Date(body.endTime),
+      duration:
+        body.duration ||
+        Math.round(
+          (new Date(body.endTime).getTime() - new Date(body.startTime).getTime()) /
+            (1000 * 60),
+        ),
+      isFlexible: body.isFlexible ?? true,
+    };
+
+    const result = await this.calendarConflictService.detectConflicts(
+      tenantId,
+      userId,
+      proposedEvent,
+      {
+        includeSuggestions: body.includeSuggestions,
+        numSuggestions: body.numSuggestions,
+      },
+    );
+
+    return {
+      success: true,
+      ...result,
+    };
+  }
+
+  /**
+   * Find available time slots for a meeting.
+   */
+  @Get('scheduling/available-slots')
+  @ApiOperation({
+    summary: 'Find available time slots',
+    description: `Returns available time slots for scheduling a meeting
+    within the user's working hours over the next N days.`,
+  })
+  async findAvailableSlots(
+    @Req() req: AuthenticatedRequest,
+    @Query('duration') duration?: string,
+    @Query('days') days?: string,
+    @Query('numSlots') numSlots?: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const durationMinutes = duration ? parseInt(duration, 10) : 30;
+    const lookAheadDays = days ? parseInt(days, 10) : 7;
+    const slots = numSlots ? parseInt(numSlots, 10) : 5;
+
+    const availableSlots = await this.calendarConflictService.findAlternativeSlots(
+      tenantId,
+      userId,
+      {
+        title: 'New Meeting',
+        startTime: new Date(),
+        endTime: new Date(Date.now() + durationMinutes * 60 * 1000),
+        duration: durationMinutes,
+        isFlexible: true,
+      },
+      slots,
+      lookAheadDays,
+    );
+
+    return {
+      success: true,
+      count: availableSlots.length,
+      slots: availableSlots,
+    };
+  }
+
+  /**
+   * Get user's scheduling preferences.
+   */
+  @Get('scheduling/preferences')
+  @ApiOperation({
+    summary: 'Get scheduling preferences',
+    description: 'Returns user scheduling preferences including working hours and days.',
+  })
+  async getSchedulingPreferences(@Req() req: AuthenticatedRequest) {
+    const { userId } = req.user;
+
+    const preferences = await this.calendarConflictService.getUserSchedulingPreferences(userId);
+
+    return {
+      success: true,
+      preferences,
+    };
+  }
+
+  /**
+   * Get day's calendar busy percentage.
+   */
+  @Get('scheduling/day-load')
+  @ApiOperation({
+    summary: 'Get calendar load for a day',
+    description: 'Returns how busy a specific day is as a percentage of working hours.',
+  })
+  async getDayLoad(
+    @Req() req: AuthenticatedRequest,
+    @Query('date') date?: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const targetDate = date ? new Date(date) : new Date();
+    const busyPercentage = await this.calendarConflictService.getDayBusyPercentage(
+      tenantId,
+      targetDate,
+      userId,
+    );
+
+    return {
+      success: true,
+      date: targetDate.toISOString().split('T')[0],
+      busyPercentage,
+      freePercentage: 100 - busyPercentage,
+    };
+  }
+
+  // ==========================================================================
+  // FOCUS TIME ENDPOINTS
+  // ==========================================================================
+
+  /**
+   * Find optimal focus time slots.
+   */
+  @Get('scheduling/focus-time/optimal')
+  @ApiOperation({
+    summary: 'Find optimal focus time slots',
+    description: `Analyzes calendar patterns to find optimal times for focused work.
+    Returns slots with minimal meeting conflicts.`,
+  })
+  async findOptimalFocusSlots(
+    @Req() req: AuthenticatedRequest,
+    @Query('duration') duration?: string,
+    @Query('preferredTime') preferredTime?: string,
+    @Query('numSlots') numSlots?: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const preferences = {
+      duration: duration ? parseInt(duration, 10) : 120,
+      frequency: 'daily' as const,
+      preferredTime: (preferredTime as 'morning' | 'afternoon' | 'flexible') || 'flexible',
+      minBlockSize: 60,
+      protectFromMeetings: true,
+      autoDeclineMeetings: false,
+    };
+
+    const slots = await this.focusTimeService.findOptimalFocusSlots(
+      tenantId,
+      userId,
+      preferences,
+      numSlots ? parseInt(numSlots, 10) : 5,
+    );
+
+    return {
+      success: true,
+      count: slots.length,
+      slots,
+    };
+  }
+
+  /**
+   * Get focus time statistics.
+   */
+  @Get('scheduling/focus-time/stats')
+  @ApiOperation({
+    summary: 'Get focus time statistics',
+    description: 'Returns statistics about calendar patterns and focus time availability.',
+  })
+  async getFocusTimeStats(
+    @Req() req: AuthenticatedRequest,
+    @Query('days') days?: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const stats = await this.focusTimeService.getFocusTimeStats(
+      tenantId,
+      userId,
+      days ? parseInt(days, 10) : 30,
+    );
+
+    return {
+      success: true,
+      stats,
+    };
+  }
+
+  /**
+   * Create focus time blocks based on preferences.
+   */
+  @Post('scheduling/focus-time/create')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Create focus time blocks',
+    description: 'Creates protected focus time blocks based on user preferences.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        duration: { type: 'number', description: 'Duration in minutes (default: 120)' },
+        frequency: {
+          type: 'string',
+          enum: ['daily', 'weekly', 'twice_weekly'],
+          description: 'How often to schedule focus time',
+        },
+        preferredTime: {
+          type: 'string',
+          enum: ['morning', 'afternoon', 'flexible'],
+          description: 'Preferred time of day',
+        },
+        protectFromMeetings: { type: 'boolean', description: 'Block meeting requests' },
+      },
+    },
+  })
+  async createFocusBlocks(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: {
+      duration?: number;
+      frequency?: 'daily' | 'weekly' | 'twice_weekly';
+      preferredTime?: 'morning' | 'afternoon' | 'flexible';
+      protectFromMeetings?: boolean;
+    },
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const preferences = {
+      duration: body.duration || 120,
+      frequency: body.frequency || 'daily',
+      preferredTime: body.preferredTime || 'flexible',
+      minBlockSize: 60,
+      protectFromMeetings: body.protectFromMeetings ?? true,
+      autoDeclineMeetings: false,
+    };
+
+    const blocks = await this.focusTimeService.createFocusBlocks(
+      tenantId,
+      userId,
+      preferences,
+    );
+
+    return {
+      success: true,
+      count: blocks.length,
+      blocks,
+    };
+  }
+
+  /**
+   * Check if current time is during a focus block.
+   */
+  @Get('scheduling/focus-time/status')
+  @ApiOperation({
+    summary: 'Check focus time status',
+    description: 'Returns whether the current time is during a focus block.',
+  })
+  async getFocusTimeStatus(@Req() req: AuthenticatedRequest) {
+    const { tenantId, userId } = req.user;
+
+    const status = await this.focusTimeService.isInFocusBlock(tenantId, userId, new Date());
+
+    return {
+      success: true,
+      ...status,
+    };
+  }
+
+  // ==========================================================================
+  // MEETING PREP ENDPOINTS
+  // ==========================================================================
+
+  /**
+   * Get meeting preparation brief.
+   */
+  @Get('scheduling/meeting-prep/:eventId')
+  @ApiOperation({
+    summary: 'Get meeting preparation brief',
+    description: `Generates a comprehensive meeting brief including attendee info,
+    related emails, previous meetings, and suggested agenda.`,
+  })
+  @ApiParam({ name: 'eventId', description: 'Calendar event ID' })
+  async getMeetingBrief(
+    @Req() req: AuthenticatedRequest,
+    @Param('eventId') eventId: string,
+    @Query('includeEmails') includeEmails?: string,
+    @Query('includePreviousMeetings') includePreviousMeetings?: string,
+    @Query('includeActionItems') includeActionItems?: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const brief = await this.meetingPrepService.prepareBrief(tenantId, userId, eventId, {
+      includeEmails: includeEmails !== 'false',
+      includePreviousMeetings: includePreviousMeetings !== 'false',
+      includeActionItems: includeActionItems !== 'false',
+    });
+
+    return {
+      success: true,
+      brief,
+    };
+  }
+
+  /**
+   * Get upcoming meetings needing preparation.
+   */
+  @Get('scheduling/meeting-prep')
+  @ApiOperation({
+    summary: 'Get meetings needing prep',
+    description: 'Returns upcoming meetings that may need preparation briefs.',
+  })
+  async getUpcomingMeetingsNeedingPrep(
+    @Req() req: AuthenticatedRequest,
+    @Query('hoursAhead') hoursAhead?: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const meetings = await this.meetingPrepService.getUpcomingMeetingsNeedingPrep(
+      tenantId,
+      userId,
+      hoursAhead ? parseInt(hoursAhead, 10) : 24,
+    );
+
+    return {
+      success: true,
+      count: meetings.length,
+      meetings,
     };
   }
 }

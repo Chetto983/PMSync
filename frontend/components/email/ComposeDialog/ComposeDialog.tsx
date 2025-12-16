@@ -33,7 +33,7 @@ import { contactsApi, type Contact } from '@/lib/api/contacts';
 import { aiApi } from '@/lib/api/ai';
 import { useDraftAutosave } from '@/hooks/use-draft-autosave';
 import { useComposeEditor } from '@/hooks/use-compose-editor';
-import { useDeleteDraft, useSendEmail } from '@/hooks/mutations';
+import { useDeleteDraft, useForwardEmail, useReplyEmail, useSendEmail } from '@/hooks/mutations';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { EditorToolbar } from './EditorToolbar';
 import { SmartReplySuggestions } from '@/components/email/ai/SmartReplySuggestions';
@@ -41,6 +41,7 @@ import { AiChatPanel } from './AiChatPanel';
 import { AiComposeDialog } from './AiComposeDialog';
 import { logger } from '@/lib/logger';
 import { htmlToPlainText } from './compose-utils';
+import { formatFileSize } from '@/lib/utils/format-file-size';
 
 /**
  * File upload constants
@@ -197,6 +198,8 @@ export function ComposeDialog({
   const [sending, setSending] = useState(false);
 
   const sendEmailMutation = useSendEmail();
+  const replyEmailMutation = useReplyEmail();
+  const forwardEmailMutation = useForwardEmail();
   const deleteDraftMutation = useDeleteDraft();
 
   const [attachments, setAttachments] = useState<EmailAttachmentUpload[]>([]);
@@ -577,12 +580,7 @@ export function ComposeDialog({
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  // Format file size
-  const formatFileSize = useCallback((bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }, []);
+  const formatFileSizeLabel = useCallback((bytes: number): string => formatFileSize(bytes, t.locale), [t.locale]);
 
   // Calculate attachment size from base64
   const getBase64Size = useCallback((base64: string): number => {
@@ -685,7 +683,13 @@ export function ComposeDialog({
 
     try {
       setSending(true);
-      await sendEmailMutation.mutateAsync(payload);
+      if (mode === 'reply' && prefillData?.originalEmailId) {
+        await replyEmailMutation.mutateAsync({ emailId: prefillData.originalEmailId, payload });
+      } else if (mode === 'forward' && prefillData?.originalEmailId) {
+        await forwardEmailMutation.mutateAsync({ emailId: prefillData.originalEmailId, payload });
+      } else {
+        await sendEmailMutation.mutateAsync(payload);
+      }
 
       if (prefillData?.draftId) {
         try {
@@ -704,7 +708,20 @@ export function ComposeDialog({
     } finally {
       setSending(false);
     }
-  }, [buildSendPayload, deleteDraftMutation, onClose, onError, onSent, prefillData, resetForm, sendEmailMutation, t]);
+  }, [
+    buildSendPayload,
+    deleteDraftMutation,
+    forwardEmailMutation,
+    mode,
+    onClose,
+    onError,
+    onSent,
+    prefillData,
+    replyEmailMutation,
+    resetForm,
+    sendEmailMutation,
+    t,
+  ]);
 
   // Generate AI preview (does not insert into editor)
   const handleAiGenerate = useCallback(async () => {
@@ -730,7 +747,7 @@ export function ComposeDialog({
       }
     } catch (error) {
       logger.error('AI compose failed', { error });
-      let message = t.email?.composer?.aiComposeError || 'Unable to compose email';
+      let message = t.email.composer.aiComposeError;
       if (isAxiosError(error)) {
         message = error.response?.data?.message || message;
       }
@@ -803,7 +820,13 @@ export function ComposeDialog({
 
     try {
       setSending(true);
-      await sendEmailMutation.mutateAsync(payload);
+      if (mode === 'reply' && prefillData?.originalEmailId) {
+        await replyEmailMutation.mutateAsync({ emailId: prefillData.originalEmailId, payload });
+      } else if (mode === 'forward' && prefillData?.originalEmailId) {
+        await forwardEmailMutation.mutateAsync({ emailId: prefillData.originalEmailId, payload });
+      } else {
+        await sendEmailMutation.mutateAsync(payload);
+      }
 
       if (prefillData?.draftId) {
         try {
@@ -823,7 +846,21 @@ export function ComposeDialog({
     } finally {
       setSending(false);
     }
-  }, [buildSendPayload, deleteDraftMutation, onClose, onError, onSent, prefillData, resetForm, scheduledAt, sendEmailMutation, t]);
+  }, [
+    buildSendPayload,
+    deleteDraftMutation,
+    forwardEmailMutation,
+    mode,
+    onClose,
+    onError,
+    onSent,
+    prefillData,
+    replyEmailMutation,
+    resetForm,
+    scheduledAt,
+    sendEmailMutation,
+    t,
+  ]);
 
   const formatScheduledTime = useCallback((isoString: string) => {
     const date = new Date(isoString);
@@ -1170,7 +1207,7 @@ export function ComposeDialog({
                     <Chip
                       key={index}
                       icon={<FileText size={14} />}
-                      label={`${attachment.filename} (${formatFileSize(getBase64Size(attachment.contentBase64))})`}
+                      label={`${attachment.filename} (${formatFileSizeLabel(getBase64Size(attachment.contentBase64))})`}
                       onDelete={() => handleRemoveAttachment(index)}
                       deleteIcon={<Trash2 size={14} />}
                       size="small"
@@ -1318,7 +1355,7 @@ export function ComposeDialog({
                 {sending
                   ? t.email.composer.sending
                   : scheduledAt
-                    ? 'Schedule'
+                    ? t.email.composer.scheduleSend
                     : t.email.composer.send}
               </Button>
               <Button
@@ -1333,7 +1370,7 @@ export function ComposeDialog({
                   borderBottomLeftRadius: 0,
                   borderLeft: '1px solid rgba(255,255,255,0.3)',
                 }}
-                aria-label="Schedule send options"
+                aria-label={t.email.composer.scheduleSend}
               >
                 <ChevronDown size={16} />
               </Button>
@@ -1414,7 +1451,7 @@ export function ComposeDialog({
                       setScheduleMenuAnchor(null);
                     }}
                   >
-                    Cancel
+                    {t.common.cancel}
                   </Button>
                 </Stack>
               </Box>

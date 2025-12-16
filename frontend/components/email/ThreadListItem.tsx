@@ -313,7 +313,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
               }}
             >
               <SearchHighlight
-                text={subject || '(No subject)'}
+                text={subject || t.common.noSubject}
                 query={searchQuery}
                 maxLength={100}
               />
@@ -354,7 +354,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
                 <Chip
                   size="small"
                   icon={<CalendarIcon size={12} />}
-                  label="Invite"
+                  label={t.email.view.invite}
                   sx={{ height: 18, fontSize: '0.65rem' }}
                   color="primary"
                 />

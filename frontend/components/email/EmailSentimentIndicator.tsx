@@ -90,7 +90,7 @@ export function EmailSentimentIndicator({
   error,
 }: EmailSentimentIndicatorProps) {
   const translations = useTranslations();
-  const t = translations.ai;
+  const t = translations.ai.learning;
   const [expanded, setExpanded] = useState(false);
 
   if (isLoading) {
@@ -98,7 +98,7 @@ export function EmailSentimentIndicator({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <CircularProgress size={16} />
         <Typography variant="caption" color="text.secondary">
-          {t?.analyzingSentiment ?? 'Analyzing sentiment...'}
+          {t.analyzingSentiment}
         </Typography>
       </Box>
     );
@@ -109,7 +109,7 @@ export function EmailSentimentIndicator({
       <Chip
         size="small"
         icon={<AlertTriangle size={14} />}
-        label={t?.sentimentError ?? 'Analysis failed'}
+        label={t.sentimentError}
         color="error"
         variant="outlined"
       />
@@ -131,18 +131,18 @@ export function EmailSentimentIndicator({
         title={
           <Box>
             <Typography variant="caption" display="block">
-              <strong>{t?.sentiment ?? 'Sentiment'}:</strong> {sentiment.sentiment}
+              <strong>{t.sentiment}:</strong> {sentiment.sentiment}
             </Typography>
             <Typography variant="caption" display="block">
-              <strong>{t?.emotion ?? 'Emotion'}:</strong> {sentiment.emotion}
+              <strong>{t.emotion}:</strong> {sentiment.emotion}
             </Typography>
             <Typography variant="caption" display="block">
-              <strong>{t?.tone ?? 'Tone'}:</strong> {sentiment.tone}
+              <strong>{t.tone}:</strong> {sentiment.tone}
             </Typography>
             {sentiment.churnRisk && (
               <Typography variant="caption" display="block" color="error">
                 <AlertTriangle size={12} style={{ marginRight: 4 }} />
-                {t?.churnRisk ?? 'Escalation risk detected'}
+                {t.churnRisk}
               </Typography>
             )}
           </Box>
@@ -197,7 +197,7 @@ export function EmailSentimentIndicator({
             <Chip
               size="small"
               icon={<AlertTriangle size={12} />}
-              label={t?.escalation ?? 'Escalation'}
+              label={t.escalation}
               color="error"
               sx={{ height: 20, fontSize: '0.7rem' }}
             />
@@ -220,11 +220,11 @@ export function EmailSentimentIndicator({
       {/* Tone and intensity */}
       <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
         <Typography variant="caption" color="text.secondary">
-          <strong>{t?.tone ?? 'Tone'}:</strong> {sentiment.tone}
+          <strong>{t.tone}:</strong> {sentiment.tone}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          <strong>{t?.intensity ?? 'Intensity'}:</strong>{' '}
-          {sentiment.emotionalIntensity > 0.7 ? 'High' : sentiment.emotionalIntensity > 0.4 ? 'Medium' : 'Low'}
+          <strong>{t.intensity}:</strong>{' '}
+          {sentiment.emotionalIntensity > 0.7 ? t.levelHigh : sentiment.emotionalIntensity > 0.4 ? t.levelMedium : t.levelLow}
         </Typography>
       </Box>
 
@@ -240,7 +240,7 @@ export function EmailSentimentIndicator({
         <Collapse in={expanded}>
           <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px dashed ${colors.border}` }}>
             <Typography variant="caption" fontWeight={600} sx={{ display: 'block', mb: 1 }}>
-              {t?.aspectBreakdown ?? 'Aspect Breakdown'}
+              {t.aspectBreakdown}
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               {Object.entries(sentiment.aspects).map(([aspect, value]) => {

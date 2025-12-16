@@ -669,6 +669,14 @@ model Contact {
   isStarred  Boolean @default(false)
   isFavorite Boolean @default(false)
 
+  // === P1.7 CRM Intelligence Fields ===
+  lastInteractedAt    DateTime? // Last email sent/received with this contact
+  totalInteractions   Int       @default(0) // Total email count
+  sentCount           Int       @default(0) // Emails sent to contact
+  receivedCount       Int       @default(0) // Emails received from contact
+  relationshipScore   Float?    // 0-100 computed score
+  reconnectRemindedAt DateTime? // Last reconnect reminder sent
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -677,14 +685,18 @@ model Contact {
   metadata Json?
 
   // Relations
-  providerContacts ProviderContact[] // Links to provider sources
-  tenant           Tenant            @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  providerContacts    ProviderContact[]    // Links to provider sources
+  contactInteractions ContactInteraction[] // P1.7: Interaction history
+  tenant              Tenant               @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, displayName])
   @@index([tenantId, lastName, firstName])
   @@index([tenantId, company])
   // Composite index for OR search across multiple fields (perf optimization)
   @@index([tenantId, displayName, firstName, lastName, company])
+  // P1.7 CRM Intelligence indexes
+  @@index([tenantId, lastInteractedAt])
+  @@index([tenantId, relationshipScore])
   @@map("unified_contacts")
 }
 
@@ -1318,11 +1330,12 @@ enum FollowUpStatus {
   EXPIRED
 }
 
-/// Tracks contact interaction history for relationship intelligence
+/// Tracks contact interaction history for relationship intelligence (P1.7)
 model ContactInteraction {
   id          String   @id @default(cuid())
   tenantId    String
   contactId   String   // Reference to unified_contacts.id
+  userId      String   // User who had the interaction
 
   // Interaction details
   type        ContactInteractionType
@@ -1333,11 +1346,22 @@ model ContactInteraction {
   // Source tracking
   sourceType  String?  // EMAIL, CALENDAR, MANUAL
   sourceId    String?  // Reference to source record
+  emailId     String?  @unique // Direct link to email (prevents duplicates)
+
+  // Denormalized for faster queries
+  contactEmail String? // Email address used in interaction
+  contactName  String? // Display name at time of interaction
 
   createdAt   DateTime @default(now())
 
+  // Relations
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
   @@index([tenantId, contactId])
   @@index([tenantId, contactId, date])
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, date])
+  @@index([emailId])
   @@map("contact_interactions")
 }
 

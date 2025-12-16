@@ -74,30 +74,6 @@ interface AiChatPanelProps {
   locale?: string;
 }
 
-const SUGGESTION_PROMPTS = {
-  en: [
-    { label: 'Improve clarity', prompt: 'Make this email clearer and more concise' },
-    { label: 'More formal', prompt: 'Rewrite in a more formal tone' },
-    { label: 'More friendly', prompt: 'Make this more friendly and warm' },
-    { label: 'Fix grammar', prompt: 'Check and fix any grammar issues' },
-    { label: 'Shorten', prompt: 'Make this email shorter while keeping the key points' },
-    { label: 'Add CTA', prompt: 'Add a clear call to action at the end' },
-  ],
-  it: [
-    { label: 'Migliora chiarezza', prompt: 'Rendi questa email piu chiara e concisa' },
-    { label: 'Piu formale', prompt: 'Riscrivi in un tono piu formale' },
-    { label: 'Piu amichevole', prompt: 'Rendi questa email piu amichevole e calorosa' },
-    { label: 'Correggi grammatica', prompt: 'Controlla e correggi eventuali errori grammaticali' },
-    { label: 'Accorcia', prompt: 'Rendi questa email piu breve mantenendo i punti chiave' },
-    { label: 'Aggiungi CTA', prompt: 'Aggiungi una chiara call to action alla fine' },
-  ],
-};
-
-const TONE_LABELS = {
-  en: { formal: 'Formal', casual: 'Casual', technical: 'Technical' },
-  it: { formal: 'Formale', casual: 'Informale', technical: 'Tecnico' },
-};
-
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
@@ -126,9 +102,32 @@ export function AiChatPanel({
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamingContentRef = useRef('');
 
-  const localeKey = locale.startsWith('it') ? 'it' : 'en';
-  const suggestions = SUGGESTION_PROMPTS[localeKey];
-  const toneLabels = TONE_LABELS[localeKey];
+  const suggestions = [
+    {
+      label: t.email.composer.aiChatPresetImproveClarityLabel,
+      prompt: t.email.composer.aiChatPresetImproveClarityPrompt,
+    },
+    {
+      label: t.email.composer.aiChatPresetMoreFormalLabel,
+      prompt: t.email.composer.aiChatPresetMoreFormalPrompt,
+    },
+    {
+      label: t.email.composer.aiChatPresetMoreFriendlyLabel,
+      prompt: t.email.composer.aiChatPresetMoreFriendlyPrompt,
+    },
+    {
+      label: t.email.composer.aiChatPresetFixGrammarLabel,
+      prompt: t.email.composer.aiChatPresetFixGrammarPrompt,
+    },
+    {
+      label: t.email.composer.aiChatPresetShortenLabel,
+      prompt: t.email.composer.aiChatPresetShortenPrompt,
+    },
+    {
+      label: t.email.composer.aiChatPresetAddCtaLabel,
+      prompt: t.email.composer.aiChatPresetAddCtaPrompt,
+    },
+  ];
 
   // Cleanup on unmount
   useEffect(() => {
@@ -292,7 +291,7 @@ export function AiChatPanel({
         // onError
         (errorMessage) => {
           logger.error('AI stream error', { errorMessage });
-          const errorContent = t.email?.composer?.aiChatError ?? 'An error occurred. Please try again.';
+          const errorContent = t.email.composer.aiChatError;
 
           setMessages((prev) => {
             const lastMessage = prev[prev.length - 1];
@@ -397,8 +396,8 @@ export function AiChatPanel({
     setMessages([]);
   }, [handleStop]);
 
-  const panelTitle = t.email?.composer?.aiChatTitle ?? 'AI Assistant';
-  const inputPlaceholder = t.email?.composer?.aiChatPlaceholder ?? 'Ask AI to help...';
+  const panelTitle = t.email.composer.aiChatTitle;
+  const inputPlaceholder = t.email.composer.aiChatPlaceholder;
 
   return (
     <Box
@@ -430,7 +429,7 @@ export function AiChatPanel({
           {isStreaming && (
             <Chip
               size="small"
-              label={t.email?.composer?.aiChatGenerating ?? 'Generating...'}
+              label={t.email.composer.aiChatGenerating}
               color="primary"
               sx={{ height: 18, fontSize: '0.7rem' }}
             />
@@ -452,9 +451,9 @@ export function AiChatPanel({
         <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: 2 }}>
           {/* Tone selector */}
           <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-              {t.email?.composer?.aiChatTone ?? 'Tone:'}
-            </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                {t.email.composer.aiChatTone}
+              </Typography>
             <ToggleButtonGroup
               value={tone}
               exclusive
@@ -470,9 +469,9 @@ export function AiChatPanel({
                 },
               }}
             >
-              <ToggleButton value="formal">{toneLabels.formal}</ToggleButton>
-              <ToggleButton value="casual">{toneLabels.casual}</ToggleButton>
-              <ToggleButton value="technical">{toneLabels.technical}</ToggleButton>
+              <ToggleButton value="formal">{t.ai.emailAi.smartReplies.formal}</ToggleButton>
+              <ToggleButton value="casual">{t.ai.emailAi.smartReplies.casual}</ToggleButton>
+              <ToggleButton value="technical">{t.ai.emailAi.smartReplies.technical}</ToggleButton>
             </ToggleButtonGroup>
           </Box>
 
@@ -488,8 +487,8 @@ export function AiChatPanel({
                 sx={{ fontSize: '0.75rem' }}
               >
                 {generatingSubject
-                  ? (t.email?.composer?.aiChatGeneratingSubject ?? 'Generating subject...')
-                  : (t.email?.composer?.aiChatGenerateSubject ?? 'Generate subject')}
+                  ? t.email.composer.aiChatGeneratingSubject
+                  : t.email.composer.aiChatGenerateSubject}
               </Button>
             </Box>
           )}
@@ -498,7 +497,7 @@ export function AiChatPanel({
           {messages.length === 0 && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                {t.email?.composer?.aiChatSuggestions ?? 'Quick actions:'}
+                {t.email.composer.aiChatSuggestions}
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 {suggestions.map((item, idx) => (
@@ -602,12 +601,12 @@ export function AiChatPanel({
                       {/* Actions for completed assistant messages */}
                       {message.role === 'assistant' && !message.isStreaming && message.suggestion && (
                         <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
-                          <Tooltip title={t.email?.composer?.aiChatCopy ?? 'Copy'}>
+                          <Tooltip title={t.email.composer.aiChatCopy}>
                             <IconButton size="small" onClick={() => handleCopySuggestion(message)}>
                               {copiedId === message.id ? <Check size={14} /> : <Copy size={14} />}
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title={t.email?.composer?.aiChatInsert ?? 'Insert'}>
+                          <Tooltip title={t.email.composer.aiChatInsert}>
                             <IconButton
                               size="small"
                               onClick={() => handleInsert(message)}
@@ -649,7 +648,7 @@ export function AiChatPanel({
             />
 
             {isStreaming ? (
-              <Tooltip title={t.ai?.chat?.stop ?? 'Stop'}>
+              <Tooltip title={t.ai.chat.stop}>
                 <IconButton
                   onClick={handleStop}
                   sx={{
@@ -678,7 +677,7 @@ export function AiChatPanel({
             )}
 
             {messages.length > 0 && (
-              <Tooltip title={t.email?.composer?.aiChatClear ?? 'Clear'}>
+              <Tooltip title={t.email.composer.aiChatClear}>
                 <IconButton size="small" onClick={clearChat} disabled={isStreaming}>
                   <RefreshCw size={16} />
                 </IconButton>

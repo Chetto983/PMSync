@@ -144,12 +144,10 @@ export const SwipeableThreadListItem: React.FC<SwipeableThreadListItemProps> = (
   const t = useTranslations();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Get translated swipe labels
-  const swipeTexts = (t.email as Record<string, unknown>)?.swipe as Record<string, string> | undefined;
   const swipeLabels: SwipeLabels = {
-    delete: swipeTexts?.delete ?? 'Delete',
-    markRead: swipeTexts?.markRead ?? 'Mark Read',
-    markUnread: swipeTexts?.markUnread ?? 'Mark Unread',
+    delete: t.email.swipe.delete,
+    markRead: t.email.swipe.markRead,
+    markUnread: t.email.swipe.markUnread,
   };
 
   // Extract email ID and read status

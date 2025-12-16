@@ -151,15 +151,15 @@ export const EmailSummaryPanel: React.FC<EmailSummaryPanelProps> = ({
         setSummary(response.data.summary);
         setHasLoaded(true);
       } else {
-        setError('Failed to generate summary');
+        setError(t.ai.chat.error);
       }
     } catch (err) {
       logger.error('Failed to generate summary:', { error: err });
-      setError('Failed to generate summary. Please try again.');
+      setError(t.ai.chat.error);
     } finally {
       setIsLoading(false);
     }
-  }, [emailId, locale]);
+  }, [emailId, locale, t.ai.chat.error]);
 
   // Handle expand toggle
   const handleToggleExpand = () => {
@@ -206,18 +206,17 @@ export const EmailSummaryPanel: React.FC<EmailSummaryPanelProps> = ({
     }
   };
 
-  // Translations with fallbacks
   const labels = {
-    title: t.email.ai?.summary?.title || 'AI Summary',
-    regenerate: t.email.ai?.summary?.regenerate || 'Regenerate',
-    copy: t.email.ai?.summary?.copy || 'Copy',
-    copied: t.email.ai?.summary?.copied || 'Copied!',
-    keyPoints: t.email.ai?.summary?.keyPoints || 'Key Points',
-    extractedItems: t.email.ai?.summary?.extractedItems || 'Action Items',
-    addToCalendar: t.email.ai?.summary?.addToCalendar || 'Add to Calendar',
-    addTask: t.email.ai?.summary?.addTask || 'Add as Task',
-    noSummary: t.email.ai?.summary?.noSummary || 'No summary available',
-    generating: t.email.ai?.summary?.generating || 'Generating summary...',
+    title: t.ai.emailAi.summary.title,
+    regenerate: t.ai.emailAi.summary.regenerate,
+    copy: t.ai.emailAi.summary.copy,
+    copied: t.ai.emailAi.summary.copied,
+    keyPoints: t.ai.emailAi.summary.keyPoints,
+    extractedItems: t.ai.emailAi.summary.extractedItems,
+    addToCalendar: t.ai.emailAi.summary.addToCalendar,
+    addTask: t.ai.emailAi.summary.addTask,
+    noSummary: t.ai.emailAi.summary.noSummary,
+    generating: t.ai.emailAi.summary.generating,
   };
 
   // Get the main summary text (everything before bullet points)
@@ -295,7 +294,7 @@ export const EmailSummaryPanel: React.FC<EmailSummaryPanelProps> = ({
               </Typography>
               <Chip
                 icon={<RefreshCw size={14} />}
-                label={t.common.retry || 'Retry'}
+                label={t.common.retry}
                 onClick={handleRegenerate}
                 size="small"
                 variant="outlined"
@@ -479,7 +478,7 @@ export const EmailSummaryPanel: React.FC<EmailSummaryPanelProps> = ({
                   },
                 }}
               >
-                {t.email.view?.summaryGenerate ?? 'Generate Summary'}
+                {t.email.view.summaryGenerate}
               </Button>
             </Box>
           )}

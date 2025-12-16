@@ -31,9 +31,9 @@ This plan incorporates extensive research into 2025 best practices for:
 2. [Phase 0: Long-Term Memory (Mem0)](#phase-0-long-term-memory-mem0) ⭐ **CRITICAL** ✅
 3. [Phase 1: Proactive Intelligence](#phase-1-proactive-intelligence) ✅
 4. [Phase 1.5: Analytics & Visualization](#phase-15-analytics--visualization) ✅
-5. [Phase 1.6: Unified Knowledge Agent](#phase-16-unified-knowledge-agent-2025-best-practices) 🧠 **NEW**
-6. [Phase 1.7: Graph RAG + CRM Intelligence](#phase-17-graph-rag--crm-intelligence-2025-advanced) 🔗 **NEW**
-7. [Phase 2: Smart Scheduling](#phase-2-smart-scheduling)
+5. [Phase 1.6: Unified Knowledge Agent](#phase-16-unified-knowledge-agent-2025-best-practices) ✅ **DONE**
+6. [Phase 1.7: CRM Intelligence](#phase-17-crm-intelligence-2025) ✅ **DONE**
+7. [Phase 2: Smart Scheduling](#phase-2-smart-scheduling--next) 📋 **NEXT**
 8. [Phase 3: Relationship Intelligence](#phase-3-relationship-intelligence) → Merged into P1.7
 9. [Recommended Libraries](#recommended-libraries)
 10. [Architecture Patterns](#architecture-patterns)
@@ -1128,7 +1128,7 @@ AI_MAX_VISUALIZATION_SIZE_KB=500
 
 ## Phase 1.6: Unified Knowledge Agent (2025 Best Practices)
 
-> 🧠 **NEW FEATURE** - Transform the Knowledge Agent into a unified search hub with memory-first RAG, multi-source retrieval, and 2025 advanced techniques.
+> ✅ **IMPLEMENTED** - Unified search hub with memory-first RAG, multi-source retrieval across memories, deadlines, follow-ups, and action items.
 
 ### 2025 RAG Research & Best Practices
 
@@ -1563,9 +1563,83 @@ UNIFIED_KNOWLEDGE_SELF_REFLECT=true     # Enable self-reflection for source sele
 
 ---
 
-## Phase 1.7: Graph RAG + CRM Intelligence (2025 Advanced)
+## Phase 1.7: CRM Intelligence (2025) ✅ IMPLEMENTED
 
-> 🔗 **BREAKTHROUGH FEATURE** - Transform the knowledge base into a full CRM with Graph RAG on PostgreSQL. Embed contacts, calendar events, and build relationship intelligence using Apache AGE.
+> ✅ **COMPLETED December 16, 2025** - Relationship Intelligence for automatic contact tracking, interaction history, and reconnect reminders.
+
+### Implementation Decision: Prisma + Recursive CTEs
+
+**Why NOT Apache AGE?** After research, we found Apache AGE is NOT available on managed PostgreSQL services (Railway, Hetzner, Supabase). We chose **Prisma + PostgreSQL Recursive CTEs** instead for production compatibility.
+
+| Platform | pgvector | Apache AGE | Status |
+|----------|----------|------------|--------|
+| Railway | ✅ Supported | ❌ Not available | Managed PostgreSQL |
+| Hetzner | ✅ Supported | ❌ Not listed | Limited extensions |
+| Self-hosted | ✅ Supported | ⚠️ Requires setup | Ops overhead |
+
+**Our Solution:** PostgreSQL recursive CTEs provide graph-like traversal (2-3 hops) sufficient for CRM relationship queries.
+
+### What Was Implemented
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **Stale Contact Alerts** | ✅ | Contacts with no interaction in 60+ days |
+| **Last Contacted Tracking** | ✅ | `lastInteractedAt` field on Contact model |
+| **Relationship Health Score** | ✅ | 0-100 score based on recency, frequency, reciprocity |
+| **Auto-captured Interactions** | ✅ | Email interactions recorded via BullMQ jobs |
+| **Reconnect Reminders** | ✅ | Daily scheduled job at 8 AM UTC |
+| **Interaction History** | ✅ | Full history per contact with pagination |
+| **Relationship Graph** | ✅ | Recursive CTE for connected contacts |
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `services/relationship-intelligence.service.ts` | Core CRM service (~500 lines) |
+| `jobs/crm-backfill.processor.ts` | BullMQ processor for historical email backfill |
+| `jobs/reconnect-reminder.processor.ts` | Daily scheduled reminder job |
+| `scripts/test-crm-intelligence.ts` | Comprehensive test suite (8 tests) |
+
+### API Endpoints Added
+
+```text
+GET  /voltagent/crm/stale-contacts          - Get contacts needing reconnection
+GET  /voltagent/crm/reconnect               - Get contacts due for reminder
+GET  /voltagent/crm/top-contacts            - Get highest-scored relationships
+GET  /voltagent/crm/contacts/:id            - Get contact relationship stats
+GET  /voltagent/crm/contacts/:id/interactions - Get interaction history
+GET  /voltagent/crm/contacts/:id/graph      - Get connected contacts (recursive CTE)
+POST /voltagent/crm/contacts/:id/interactions - Record manual interaction
+POST /voltagent/crm/contacts/:id/recalculate - Recalculate relationship score
+POST /voltagent/crm/contacts/:id/reminded   - Mark as reminded
+POST /voltagent/crm/recalculate-all         - Batch recalculate all scores
+```
+
+### Test Results (All Passed)
+
+```text
+✅ Schema P1.7 Fields Exist (2ms)
+✅ ContactInteraction P1.7 Fields (40ms)
+✅ emailId Unique Constraint (54ms)
+✅ Tenant Isolation (81ms) - tested with 5,448 real contacts
+✅ Relationship Score Calculation (11ms)
+✅ Stale Contact Query (19ms)
+✅ Cascade Delete (18ms)
+✅ Index Performance (5ms)
+
+Total: 8 passed, 0 failed (230ms)
+```
+
+### Relationship Score Algorithm
+
+Score (0-100) calculated from:
+
+- **Recency (40%):** Days since last interaction
+- **Frequency (30%):** Interactions per month
+- **Reciprocity (20%):** Balance of sent vs received
+- **Trend (10%):** Recent activity vs historical
+
+### Original Design (Preserved for Reference)
 
 ### Why Graph RAG for CRM?
 
@@ -2004,8 +2078,8 @@ const vipContacts = await graphRag.executeCypher(`
 
 | Priority | Feature | Library/Tool | Effort | Impact | Status |
 |----------|---------|--------------|--------|--------|--------|
-| **P1.6** | **Unified Knowledge Agent** | **Memory + RAG** | **2 days** | **High** | |
-| **P1.7** | **Graph RAG + CRM** | **Apache AGE + pgvector** | **3 days** | **Critical** | |
+| **P1.6** | **Unified Knowledge Agent** | **Memory + RAG** | **2 days** | **High** | ✅ |
+| **P1.7** | **CRM Intelligence** | **Prisma + Recursive CTEs** | **1 day** | **Critical** | ✅ DONE |
 
 ### P1.7 Environment Variables
 
@@ -2238,7 +2312,9 @@ describe('GraphRagService', () => {
 
 ---
 
-## Phase 2: Smart Scheduling
+## Phase 2: Smart Scheduling 📋 **NEXT**
+
+> 📋 **NEXT PHASE** - Calendar conflict detection, focus time protection, and meeting prep assistant.
 
 ### Key Insights from Research
 
@@ -2550,8 +2626,8 @@ npm install date-fns rrule natural sentiment
 | P0 | `chrono-node` | ✅ Installed |
 | P1 | `compromise`, `compromise-dates` | ✅ Installed |
 | P1.5 | None (uses Mistral API) | ✅ Ready |
-| **P1.6** | **None (uses existing)** | 🆕 Ready |
-| **P1.7** | **`apache-age-client`** | 🆕 To install |
+| **P1.6** | **None (uses existing)** | ✅ Ready |
+| **P1.7** | **None (uses Prisma CTEs)** | ✅ DONE |
 | P2 | `date-fns`, `rrule` | ⏳ When needed |
 
 ---
@@ -2684,8 +2760,8 @@ interface EnhancedDailyBriefing {
 | P1 | Action Item Extraction | Mistral + patterns | 2 days | High | ✅ DONE |
 | P1 | Enhanced Daily Briefing | Aggregate services | 1 day | High | ✅ DONE |
 | P1.5 | Analytics & Visualization | Mistral Code Interpreter | 1 day | High | ✅ DONE |
-| **P1.6** | **Unified Knowledge Agent** | **Memory + RAG + Multi-source** | **2 days** | **High** | |
-| **P1.7** | **Graph RAG + CRM Intelligence** | **Apache AGE + pgvector** | **3 days** | **Critical** | |
+| **P1.6** | **Unified Knowledge Agent** | **Memory + RAG + Multi-source** | **2 days** | **High** | ✅ DONE |
+| **P1.7** | **CRM Intelligence** | **Prisma + Recursive CTEs** | **1 day** | **Critical** | ✅ DONE |
 | P2 | Conflict Detection | Custom | 2 days | Medium | |
 | P2 | Focus Time Protection | Custom | 1 day | Medium | |
 | P3 | ~~Relationship Tracking~~ | ~~Custom~~ | - | - | → P1.7 |

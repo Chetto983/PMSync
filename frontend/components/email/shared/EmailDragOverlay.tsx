@@ -4,6 +4,7 @@ import { Box, Paper, Typography, Avatar, Chip, Stack } from '@mui/material';
 import { Mail, GripVertical } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 /**
  * Props for EmailDragOverlay component
@@ -33,6 +34,8 @@ export const EmailDragOverlay: React.FC<EmailDragOverlayProps> = ({
   activeEmail,
   dragCount = 1,
 }) => {
+  const t = useTranslations();
+
   if (!activeEmail) {
     return <DragOverlay dropAnimation={null} />;
   }
@@ -44,7 +47,7 @@ export const EmailDragOverlay: React.FC<EmailDragOverlayProps> = ({
     const match = from.match(/^([^<]+)</);
     if (match) return match[1].trim();
     // Or just use the email part before @
-    return from.split('@')[0] || 'Unknown';
+    return from.split('@')[0] || t.email.view.memoryUnknownSender;
   })();
 
   const getInitials = (name: string) => {
@@ -130,7 +133,7 @@ export const EmailDragOverlay: React.FC<EmailDragOverlayProps> = ({
               display: 'block',
             }}
           >
-            {activeEmail.subject || '(No subject)'}
+            {activeEmail.subject || t.common.noSubject}
           </Typography>
         </Box>
 
@@ -159,6 +162,8 @@ export const EmailDragOverlayCompact: React.FC<EmailDragOverlayProps> = ({
   activeEmail,
   dragCount = 1,
 }) => {
+  const t = useTranslations();
+
   if (!activeEmail) {
     return <DragOverlay dropAnimation={null} />;
   }
@@ -187,8 +192,8 @@ export const EmailDragOverlayCompact: React.FC<EmailDragOverlayProps> = ({
         <Mail size={16} />
         <Typography variant="body2" fontWeight={600}>
           {dragCount === 1
-            ? 'Move email'
-            : `Move ${dragCount} emails`}
+            ? t.email.view.dragMoveSingle
+            : t.email.view.dragMoveMultiple.replace('{count}', String(dragCount))}
         </Typography>
       </Stack>
     </DragOverlay>

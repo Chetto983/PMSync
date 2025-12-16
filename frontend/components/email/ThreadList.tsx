@@ -420,10 +420,10 @@ export const ThreadList: React.FC<ThreadListProps> = ({
         }}
       >
         <Typography variant="h6" color="text.secondary" gutterBottom>
-          {emptyTitle ?? 'No emails'}
+          {emptyTitle ?? t.email.empty.defaultTitle}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {emptySubtitle ?? t.common.allCaughtUp}
+          {emptySubtitle ?? t.email.empty.defaultSubtitle}
         </Typography>
       </Box>
     );

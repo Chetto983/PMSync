@@ -75,6 +75,13 @@ import { ActionItemService } from './services/action-item.service';
 import { AnalyticsService } from './services/analytics.service';
 // Unified Knowledge (P1.6 - Memory-First RAG)
 import { UnifiedKnowledgeService } from './services/unified-knowledge.service';
+// CRM Intelligence (P1.7 - Relationship Tracking)
+import { RelationshipIntelligenceService } from './services/relationship-intelligence.service';
+import { CrmBackfillProcessor, ReconnectReminderProcessor } from './jobs';
+// Smart Scheduling (P2 - Calendar Conflict, Focus Time, Meeting Prep)
+import { CalendarConflictService } from './services/calendar-conflict.service';
+import { FocusTimeService } from './services/focus-time.service';
+import { MeetingPrepService } from './services/meeting-prep.service';
 // Observability (OpenTelemetry-aligned)
 import { LlmTelemetryService } from './observability/telemetry';
 
@@ -126,6 +133,10 @@ import { LlmTelemetryService } from './observability/telemetry';
     AnalyticsService,
     // Unified Knowledge (P1.6 - Memory-First RAG)
     UnifiedKnowledgeService,
+    // CRM Intelligence (P1.7 - Relationship Tracking)
+    RelationshipIntelligenceService,
+    CrmBackfillProcessor,
+    ReconnectReminderProcessor,
     // Observability
     LlmTelemetryService,
   ],
@@ -160,6 +171,10 @@ import { LlmTelemetryService } from './observability/telemetry';
     AnalyticsService,
     // Unified Knowledge (P1.6)
     UnifiedKnowledgeService,
+    // CRM Intelligence (P1.7)
+    RelationshipIntelligenceService,
+    CrmBackfillProcessor,
+    ReconnectReminderProcessor,
     // Observability
     LlmTelemetryService,
   ],

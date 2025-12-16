@@ -28,6 +28,7 @@ import type { Email } from '@/stores/email-store';
 import type { ParsedCalendarInvite } from '@/types/entities';
 import { CalendarInviteCard } from '../CalendarInviteCard';
 import { getFileIcon, formatRelativeTime } from './thread-utils';
+import { formatFileSize } from '@/lib/utils/format-file-size';
 import type { useTranslations } from '@/lib/hooks/use-translations';
 
 interface ThreadMessageProps {
@@ -65,6 +66,10 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
     const nonInlineAttachments = email.attachments?.filter((a) => !a.isInline) ?? [];
     const hasAttachments = nonInlineAttachments.length > 0;
     const isUnread = !email.isRead;
+    const unknownSenderLabel = t.email.view.memoryUnknownSender;
+    const senderLabel = emailFromData.name || emailFromData.email || unknownSenderLabel;
+    const senderInitial =
+      senderLabel.trim().charAt(0).toUpperCase() || unknownSenderLabel.trim().charAt(0).toUpperCase();
 
     const avatarColors = ['#55cae5', '#7650ce', '#b43db6', '#4CAF50', '#FF9800', '#E91E63'];
     const colorIndex = emailFromData.email?.charCodeAt(0) % avatarColors.length || 0;
@@ -114,7 +119,7 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
               fontWeight: 600,
             }}
           >
-            {emailFromData.name?.[0]?.toUpperCase() || 'U'}
+            {senderInitial}
           </Avatar>
 
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -129,7 +134,7 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
                   textOverflow: 'ellipsis',
                 }}
               >
-                {emailFromData.name || emailFromData.email}
+                {senderLabel}
               </Typography>
               {isUnread && (
                 <Box
@@ -157,14 +162,14 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
                   fontWeight: isUnread ? 500 : 400,
                 }}
               >
-                {email.snippet || '(No preview)'}
+                {email.snippet || t.email.view.noPreview}
               </Typography>
             )}
           </Box>
 
           <Stack direction="row" alignItems="center" spacing={1} sx={{ flexShrink: 0 }}>
             {hasAttachments && (
-              <Tooltip title={`${nonInlineAttachments.length} attachment${nonInlineAttachments.length > 1 ? 's' : ''}`}>
+              <Tooltip title={t.email.view.attachmentsWithCount.replace('{count}', String(nonInlineAttachments.length))}>
                 <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'text.secondary' }}>
                   <Paperclip size={14} />
                   <Typography variant="caption">{nonInlineAttachments.length}</Typography>
@@ -193,12 +198,12 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
                   </Typography>
                   {email.to && email.to.length > 0 && (
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                      <strong>To:</strong> {email.to.join(', ')}
+                      <strong>{t.email.composer.toLabel}</strong> {email.to.join(', ')}
                     </Typography>
                   )}
                   {email.cc && email.cc.length > 0 && (
                     <Typography variant="caption" color="text.secondary" display="block">
-                      <strong>Cc:</strong> {email.cc.join(', ')}
+                      <strong>{t.email.composer.ccLabel}</strong> {email.cc.join(', ')}
                     </Typography>
                   )}
                 </Box>
@@ -223,21 +228,21 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
                     }}
                     sx={{ textTransform: 'none' }}
                   >
-                    Edit
+                    {t.common.edit}
                   </Button>
                 ) : (
                   <>
-                    <Tooltip title={t.email.view?.reply || 'Reply'}>
+                    <Tooltip title={t.email.view.reply}>
                       <IconButton size="small" onClick={() => onReply?.(email)}>
                         <Reply size={16} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title={t.email.view?.replyAll || 'Reply All'}>
+                    <Tooltip title={t.email.view.replyAll}>
                       <IconButton size="small" onClick={() => onReplyAll?.(email)}>
                         <ReplyAll size={16} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title={t.email.view?.forward || 'Forward'}>
+                    <Tooltip title={t.email.view.forward}>
                       <IconButton size="small" onClick={() => onForward?.(email)}>
                         <Forward size={16} />
                       </IconButton>
@@ -282,13 +287,12 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                   <Paperclip size={14} />
                   <Typography variant="caption" fontWeight={600}>
-                    {nonInlineAttachments.length} Attachment{nonInlineAttachments.length > 1 ? 's' : ''}
+                    {t.email.view.attachmentsWithCount.replace('{count}', String(nonInlineAttachments.length))}
                   </Typography>
                 </Stack>
                 <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 0.5 }}>
                   {nonInlineAttachments.map((attachment) => {
-                    const sizeKB = Math.round(attachment.size / 1024);
-                    const sizeLabel = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
+                    const sizeLabel = formatFileSize(attachment.size, t.locale);
                     return (
                       <Tooltip key={attachment.id} title={attachmentTooltip} enterDelay={300}>
                         <Chip

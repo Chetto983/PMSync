@@ -32,6 +32,7 @@ import {
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { emailApi } from '@/lib/api/email';
 import { logger } from '@/lib/logger';
+import { formatFileSize } from '@/lib/utils/format-file-size';
 
 /**
  * Attachment interface
@@ -70,17 +71,6 @@ export interface AttachmentPreviewProps {
    * Maximum height for the panel
    */
   maxHeight?: number | string;
-}
-
-/**
- * Format file size in human-readable format
- */
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
 /**
@@ -201,20 +191,20 @@ const AttachmentItem: React.FC<AttachmentItemProps & { t: ReturnType<typeof useT
           {attachment.filename}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          {formatFileSize(attachment.size)}
+          {formatFileSize(attachment.size, t.locale)}
         </Typography>
       </Box>
 
       {/* Actions */}
       <Stack direction="row" spacing={0.5}>
         {isPreviewable && (
-          <Tooltip title={t.email.view?.preview || 'Preview'}>
+          <Tooltip title={t.email.view.preview}>
             <IconButton size="small" onClick={(e) => { e.stopPropagation(); onPreview(); }}>
               <ExternalLink size={16} />
             </IconButton>
           </Tooltip>
         )}
-        <Tooltip title={t.email.view?.download || 'Download'}>
+        <Tooltip title={t.email.view.download}>
           <IconButton
             size="small"
             onClick={(e) => {
@@ -283,18 +273,18 @@ const ImagePreviewDialog: React.FC<ImagePreviewDialogProps> = ({
         </Typography>
 
         {/* Zoom controls */}
-        <Tooltip title={t.email.view?.zoomOut || 'Zoom out'}>
+        <Tooltip title={t.email.view.zoomOut}>
           <IconButton size="small" onClick={handleZoomOut} disabled={zoom <= 0.5}>
             <ZoomOut size={18} />
           </IconButton>
         </Tooltip>
         <Chip label={`${Math.round(zoom * 100)}%`} size="small" sx={{ minWidth: 60 }} />
-        <Tooltip title={t.email.view?.zoomIn || 'Zoom in'}>
+        <Tooltip title={t.email.view.zoomIn}>
           <IconButton size="small" onClick={handleZoomIn} disabled={zoom >= 3}>
             <ZoomIn size={18} />
           </IconButton>
         </Tooltip>
-        <Tooltip title={t.email.view?.rotate || 'Rotate'}>
+        <Tooltip title={t.email.view.rotate}>
           <IconButton size="small" onClick={handleRotate}>
             <RotateCw size={18} />
           </IconButton>
@@ -321,7 +311,7 @@ const ImagePreviewDialog: React.FC<ImagePreviewDialogProps> = ({
           <Box
             component="img"
             src={imageUrl}
-            alt={attachment?.filename || 'Preview'}
+            alt={attachment?.filename || t.email.view.preview}
             sx={{
               maxWidth: '100%',
               maxHeight: '70vh',
@@ -331,7 +321,7 @@ const ImagePreviewDialog: React.FC<ImagePreviewDialogProps> = ({
             }}
           />
         ) : (
-          <Typography color="text.secondary">{t.email.view?.failedToLoadPreview || 'Failed to load preview'}</Typography>
+          <Typography color="text.secondary">{t.email.view.failedToLoadPreview}</Typography>
         )}
       </DialogContent>
     </Dialog>
@@ -444,7 +434,7 @@ export const AttachmentPreview: React.FC<AttachmentPreviewProps> = ({
           >
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                {t.email?.attachment || 'Attachments'}
+                {t.email.view.attachments}
               </Typography>
               <Chip
                 label={displayAttachments.length}

@@ -762,7 +762,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
                     {group.providerEmail}
                   </Typography>
                   <Box sx={{ flex: 1 }} />
-                  <Tooltip title={t.folders?.createFolder || 'Create Folder'}>
+                  <Tooltip title={t.folders.createFolder}>
                     <IconButton
                       size="small"
                       onClick={(e) => {
