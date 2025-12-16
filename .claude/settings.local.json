@@ -26,7 +26,8 @@
       "Bash(npx prisma db push:*)",
       "Bash(npx ts-node:*)",
       "Bash(curl:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npx prisma format:*)"
     ],
     "deny": []
   }

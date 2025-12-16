@@ -960,9 +960,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
     const { emailIds, threadCount } = await resolveSelectedEmailIds();
     if (emailIds.length === 0) return;
 
-    const confirmMessage =
-      t.email.messages.deleteConfirm?.replace('{count}', threadCount.toString()) ??
-      `Delete ${threadCount} item${threadCount === 1 ? '' : 's'}?`;
+    const confirmMessage = t.email.messages.deleteConfirm.replace('{count}', threadCount.toString());
 
     if (!window.confirm(confirmMessage)) return;
 
@@ -1042,7 +1040,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       setSnackbar({
         open: true,
-        message: (t.email.messages.markedImportant ?? 'Marked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
+        message: t.email.messages.markedImportant.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
@@ -1051,7 +1049,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       useEmailStore.getState().markAsImportant(emailIds, false);
       setSnackbar({
         open: true,
-        message: t.email.messages.markedImportantFailed ?? 'Failed to mark as important. Please try again.',
+        message: t.email.messages.markedImportantFailed,
         severity: 'error',
       });
     }
@@ -1071,7 +1069,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
       setSnackbar({
         open: true,
-        message: (t.email.messages.unmarkedImportant ?? 'Unmarked {count} email(s) as important').replace('{count}', emailIds.length.toString()),
+        message: t.email.messages.unmarkedImportant.replace('{count}', emailIds.length.toString()),
         severity: 'success',
       });
     } catch (error) {
@@ -1080,7 +1078,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       useEmailStore.getState().markAsImportant(emailIds, true);
       setSnackbar({
         open: true,
-        message: t.email.messages.unmarkedImportantFailed ?? 'Failed to unmark as important. Please try again.',
+        message: t.email.messages.unmarkedImportantFailed,
         severity: 'error',
       });
     }
@@ -1270,45 +1268,105 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
 
   // Handle Reply - open ComposeDialog instead of redirect
   const handleReplyLocal = useCallback((email: Email) => {
+    const replyPrefix = t.email.composer.replyPrefix;
+    const subject = email.subject?.trim() || '';
+    const replySubject = subject.toLowerCase().startsWith(replyPrefix.toLowerCase())
+      ? subject
+      : `${replyPrefix} ${subject}`.trim();
+
+    const quotedBody = email.bodyHtml || email.bodyText || '';
+    const quotedDate = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : '';
+    const quotedFrom = email.from || '';
+    const quoteHeader = t.email.composer.replyQuotedHeader
+      .replace('{date}', quotedDate)
+      .replace('{from}', quotedFrom);
+    const formattedQuote = quotedBody
+      ? `<br/><br/><blockquote style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 0; color: #666;">
+          <p>${quoteHeader}</p>
+          ${quotedBody}
+        </blockquote>`
+      : '';
+
     setComposeMode('reply');
     setComposePrefill({
       originalEmailId: email.id,
       to: [email.from],
-      subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
-      body: `<br/><br/>On ${new Date(email.receivedAt).toLocaleString()}, ${email.from} wrote:<br/><blockquote>${email.bodyHtml || email.bodyText}</blockquote>`,
+      subject: replySubject,
+      body: formattedQuote,
       inReplyTo: email.externalId,
       references: email.references || email.externalId,
     });
     setComposeOpen(true);
-  }, []);
+  }, [t.email.composer.replyPrefix, t.email.composer.replyQuotedHeader]);
 
   // Handle Reply All - open ComposeDialog
   const handleReplyAllLocal = useCallback((email: Email) => {
     const allRecipients = [email.from, ...(!email.to ? [] : email.to), ...(!email.cc ? [] : email.cc)];
     const uniqueRecipients = Array.from(new Set(allRecipients));
 
+    const replyPrefix = t.email.composer.replyPrefix;
+    const subject = email.subject?.trim() || '';
+    const replySubject = subject.toLowerCase().startsWith(replyPrefix.toLowerCase())
+      ? subject
+      : `${replyPrefix} ${subject}`.trim();
+
+    const quotedBody = email.bodyHtml || email.bodyText || '';
+    const quotedDate = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : '';
+    const quotedFrom = email.from || '';
+    const quoteHeader = t.email.composer.replyQuotedHeader
+      .replace('{date}', quotedDate)
+      .replace('{from}', quotedFrom);
+    const formattedQuote = quotedBody
+      ? `<br/><br/><blockquote style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 0; color: #666;">
+          <p>${quoteHeader}</p>
+          ${quotedBody}
+        </blockquote>`
+      : '';
+
     setComposeMode('reply');
     setComposePrefill({
       originalEmailId: email.id,
       to: uniqueRecipients,
-      subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
-      body: `<br/><br/>On ${new Date(email.receivedAt).toLocaleString()}, ${email.from} wrote:<br/><blockquote>${email.bodyHtml || email.bodyText}</blockquote>`,
+      subject: replySubject,
+      body: formattedQuote,
       inReplyTo: email.externalId,
       references: email.references || email.externalId,
     });
     setComposeOpen(true);
-  }, []);
+  }, [t.email.composer.replyPrefix, t.email.composer.replyQuotedHeader]);
 
   // Handle Forward - open ComposeDialog
   const handleForwardLocal = useCallback((email: Email) => {
+    const forwardPrefix = t.email.composer.forwardPrefix;
+    const subject = email.subject?.trim() || '';
+    const forwardSubject = subject.toLowerCase().startsWith(forwardPrefix.toLowerCase())
+      ? subject
+      : `${forwardPrefix} ${subject}`.trim();
+
+    const forwardBody = email.bodyHtml || email.bodyText || '';
+    const forwardedDate = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : '';
+    const forwardedHeader = t.email.composer.forwardedMessageHeader;
+    const forwardFromLabel = t.email.composer.from;
+    const forwardDateLabel = t.email.view.date;
+    const forwardSubjectLabel = t.email.composer.subject;
+    const forwardToLabel = t.email.view.to;
+    const formattedForward = forwardBody
+      ? `<br/><br/>${forwardedHeader}<br/>
+          ${forwardFromLabel}: ${email.from || ''}<br/>
+          ${forwardDateLabel}: ${forwardedDate}<br/>
+          ${forwardSubjectLabel}: ${email.subject || ''}<br/>
+          ${forwardToLabel}: ${email.to?.join(', ') || ''}<br/><br/>
+          ${forwardBody}`
+      : '';
+
     setComposeMode('forward');
     setComposePrefill({
       originalEmailId: email.id,
-      subject: email.subject.startsWith('Fwd:') ? email.subject : `Fwd: ${email.subject}`,
-      body: `<br/><br/>---------- Forwarded message ---------<br/>From: ${email.from}<br/>Date: ${new Date(email.receivedAt).toLocaleString()}<br/>Subject: ${email.subject}<br/>To: ${email.to?.join(', ') || ''}<br/><br/>${email.bodyHtml || email.bodyText}`,
+      subject: forwardSubject,
+      body: formattedForward,
     });
     setComposeOpen(true);
-  }, []);
+  }, [t.email.composer.forwardPrefix, t.email.composer.forwardedMessageHeader, t.email.composer.from, t.email.composer.subject, t.email.view.date, t.email.view.to]);
 
   // Handle Edit Draft - open ComposeDialog with draft content
   const handleEditDraft = useCallback((email: Email) => {
@@ -1331,7 +1389,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
   const emptyBase = getEmptyState();
   const emptyState = {
     ...emptyBase,
-    subtitle: `${emptyBase.subtitle} ${t.email.messages.trySyncOrFilter ?? 'Try syncing now or adjust filters.'}`.trim(),
+    subtitle: `${emptyBase.subtitle} ${t.email.messages.trySyncOrFilter}`.trim(),
   };
 
 
@@ -1461,7 +1519,7 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
                     startIcon={!syncLoading ? <RefreshCcw size={16} /> : undefined}
                     sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
                   >
-                    {syncLoading ? <CircularProgress size={14} /> : (t.email.actions?.syncNow || 'Sync')}
+                    {syncLoading ? <CircularProgress size={14} /> : t.email.actions.syncNow}
                   </Button>
                 </Stack>
                 {!isConnected && (

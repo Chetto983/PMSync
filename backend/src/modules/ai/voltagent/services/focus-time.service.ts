@@ -156,7 +156,7 @@ export class FocusTimeService {
       }
     }
 
-    await this.cacheService.set(cacheKey, patterns, this.CACHE_TTL);
+    await this.cacheService.set(cacheKey, patterns, { ttl: this.CACHE_TTL });
     return patterns;
   }
 
@@ -174,15 +174,15 @@ export class FocusTimeService {
     const userPrefs = await this.getUserPreferences(userId);
     const busySlots = await this.getBusySlots(tenantId, lookAheadDays);
 
-    const [startHour, startMinute] = (userPrefs.workingHoursStart ?? '09:00')
+    const [startHour, startMinute] = (userPrefs?.workingHoursStart ?? '09:00')
       .split(':')
       .map(Number);
-    const [endHour, endMinute] = (userPrefs.workingHoursEnd ?? '18:00')
+    const [endHour, endMinute] = (userPrefs?.workingHoursEnd ?? '18:00')
       .split(':')
       .map(Number);
 
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const workingDays = userPrefs.workingDays ?? ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+    const workingDays = userPrefs?.workingDays ?? ['MON', 'TUE', 'WED', 'THU', 'FRI'];
     const dayMap: Record<string, number> = {
       SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6,
     };

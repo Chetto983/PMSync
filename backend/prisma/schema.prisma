@@ -192,8 +192,8 @@ model WebAuthnCredential {
   counter             Int    @default(0) // Signature counter for replay attack protection
 
   // Device type
-  credentialDeviceType  String  @default("singleDevice") // "singleDevice" | "multiDevice" (synced passkey)
-  credentialBackedUp    Boolean @default(false) // True if passkey is synced across devices
+  credentialDeviceType String  @default("singleDevice") // "singleDevice" | "multiDevice" (synced passkey)
+  credentialBackedUp   Boolean @default(false) // True if passkey is synced across devices
 
   // Transports for optimizing re-authentication
   transports String[] @default([]) // "usb" | "nfc" | "ble" | "internal" | "hybrid"
@@ -244,7 +244,7 @@ model ProviderConfig {
   providerType             String
   email                    String
   displayName              String?
-  scope                    String?               // Purpose/category: WORK, PERSONAL, LEGAL, INFO, etc.
+  scope                    String? // Purpose/category: WORK, PERSONAL, LEGAL, INFO, etc.
   supportsEmail            Boolean               @default(true)
   supportsCalendar         Boolean               @default(false)
   supportsContacts         Boolean               @default(false)
@@ -347,8 +347,8 @@ model Email {
   provider             ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([providerId, externalId, folder])  // UIDs are unique per-folder, not globally
-  @@unique([tenantId, messageId, folder])  // Allow same messageId in different folders
+  @@unique([providerId, externalId, folder]) // UIDs are unique per-folder, not globally
+  @@unique([tenantId, messageId, folder]) // Allow same messageId in different folders
   @@index([tenantId, folder, receivedAt])
   @@index([tenantId, isRead])
   @@index([tenantId, threadId])
@@ -356,9 +356,9 @@ model Email {
   @@index([crossProviderLinkId])
   @@index([tenantId, hasCalendarInvite])
   // P2 Optimization: Additional composite indexes for common query patterns
-  @@index([tenantId, providerId, folder, receivedAt])  // Provider-specific folder listing
-  @@index([tenantId, isStarred, receivedAt])  // Starred emails listing
-  @@index([tenantId, providerId, isDeleted])  // Provider deletion queries
+  @@index([tenantId, providerId, folder, receivedAt]) // Provider-specific folder listing
+  @@index([tenantId, isStarred, receivedAt]) // Starred emails listing
+  @@index([tenantId, providerId, isDeleted]) // Provider deletion queries
   @@map("emails")
 }
 
@@ -595,29 +595,29 @@ model CalendarEventAttachment {
 /// Stores Google syncToken and Microsoft deltaLink for efficient calendar syncing
 /// Reduces API calls by ~95% after initial full sync
 model CalendarSyncState {
-  id           String   @id @default(cuid())
+  id           String  @id @default(cuid())
   providerId   String
-  calendarId   String   // External calendar ID (Google/Microsoft)
-  calendarName String?  // Human-readable name for debugging
+  calendarId   String // External calendar ID (Google/Microsoft)
+  calendarName String? // Human-readable name for debugging
 
   // Sync tokens (provider-specific)
-  syncToken    String?  // Google Calendar syncToken
-  deltaLink    String?  // Microsoft Graph deltaLink (full URL)
+  syncToken String? // Google Calendar syncToken
+  deltaLink String? // Microsoft Graph deltaLink (full URL)
 
   // Sync metadata
-  lastFullSyncAt    DateTime?  // When we last did a full sync
-  lastIncrementalAt DateTime?  // When we last did an incremental sync
-  fullSyncRequired  Boolean    @default(true)  // Force full sync on next run
+  lastFullSyncAt    DateTime? // When we last did a full sync
+  lastIncrementalAt DateTime? // When we last did an incremental sync
+  fullSyncRequired  Boolean   @default(true) // Force full sync on next run
 
   // Error tracking for resilience
   consecutiveErrors Int       @default(0)
   lastError         String?
   lastErrorAt       DateTime?
 
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  provider     ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, calendarId])
   @@index([providerId])
@@ -674,7 +674,7 @@ model Contact {
   totalInteractions   Int       @default(0) // Total email count
   sentCount           Int       @default(0) // Emails sent to contact
   receivedCount       Int       @default(0) // Emails received from contact
-  relationshipScore   Float?    // 0-100 computed score
+  relationshipScore   Float? // 0-100 computed score
   reconnectRemindedAt DateTime? // Last reconnect reminder sent
 
   // Timestamps
@@ -685,7 +685,7 @@ model Contact {
   metadata Json?
 
   // Relations
-  providerContacts    ProviderContact[]    // Links to provider sources
+  providerContacts    ProviderContact[] // Links to provider sources
   contactInteractions ContactInteraction[] // P1.7: Interaction history
   tenant              Tenant               @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -1226,21 +1226,21 @@ model ConversationSummary {
 
 /// Tracks action items extracted from emails, meetings, and conversations
 model AiTask {
-  id          String   @id @default(cuid())
-  tenantId    String
-  userId      String
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
 
   // Task content
   title       String
-  description String?  @db.Text
+  description String? @db.Text
 
   // Source tracking
-  sourceType  AiTaskSource // EMAIL, CALENDAR, CONVERSATION, MANUAL
-  sourceId    String?      // Reference to email.id, calendarEvent.id, etc.
+  sourceType AiTaskSource // EMAIL, CALENDAR, CONVERSATION, MANUAL
+  sourceId   String? // Reference to email.id, calendarEvent.id, etc.
 
   // Status and priority
-  status      AiTaskStatus @default(TODO)
-  priority    Int          @default(5) // 1 (highest) to 10 (lowest)
+  status   AiTaskStatus @default(TODO)
+  priority Int          @default(5) // 1 (highest) to 10 (lowest)
 
   // Timing
   dueDate     DateTime?
@@ -1248,15 +1248,15 @@ model AiTask {
   completedAt DateTime?
 
   // AI metadata
-  confidence  Float?       // AI confidence in extraction (0-1)
-  aiExtracted Boolean      @default(false) // Was this auto-extracted by AI?
+  confidence  Float? // AI confidence in extraction (0-1)
+  aiExtracted Boolean @default(false) // Was this auto-extracted by AI?
 
   // Timestamps
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  reminders   AiTaskReminder[]
+  reminders AiTaskReminder[]
 
   @@index([tenantId, userId])
   @@index([tenantId, userId, status])
@@ -1282,12 +1282,12 @@ enum AiTaskStatus {
 
 /// Tracks reminders sent for tasks
 model AiTaskReminder {
-  id        String   @id @default(cuid())
-  taskId    String
-  sentAt    DateTime @default(now())
-  channel   String   // EMAIL, PUSH, IN_APP
+  id      String   @id @default(cuid())
+  taskId  String
+  sentAt  DateTime @default(now())
+  channel String // EMAIL, PUSH, IN_APP
 
-  task      AiTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task AiTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
   @@map("ai_task_reminders")
@@ -1295,27 +1295,27 @@ model AiTaskReminder {
 
 /// Tracks emails that need follow-up
 model EmailFollowUp {
-  id          String           @id @default(cuid())
-  tenantId    String
-  userId      String
-  emailId     String           @unique // Reference to email.id
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+  emailId  String @unique // Reference to email.id
 
   // Follow-up details
-  status      FollowUpStatus   @default(PENDING)
-  reason      String?          // Why follow-up is needed
-  dueDate     DateTime         // When to remind
+  status  FollowUpStatus @default(PENDING)
+  reason  String? // Why follow-up is needed
+  dueDate DateTime // When to remind
 
   // Reminder tracking
-  remindCount Int              @default(0)
+  remindCount    Int       @default(0)
   lastRemindedAt DateTime?
 
   // Resolution
-  resolvedAt  DateTime?
-  resolvedBy  String?          // "REPLY_RECEIVED", "MANUAL", "AUTO_EXPIRED"
+  resolvedAt DateTime?
+  resolvedBy String? // "REPLY_RECEIVED", "MANUAL", "AUTO_EXPIRED"
 
   // Timestamps
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId, userId])
   @@index([tenantId, userId, status])
@@ -1332,30 +1332,30 @@ enum FollowUpStatus {
 
 /// Tracks contact interaction history for relationship intelligence (P1.7)
 model ContactInteraction {
-  id          String   @id @default(cuid())
-  tenantId    String
-  contactId   String   // Reference to unified_contacts.id
-  userId      String   // User who had the interaction
+  id        String @id @default(cuid())
+  tenantId  String
+  contactId String // Reference to unified_contacts.id
+  userId    String // User who had the interaction
 
   // Interaction details
-  type        ContactInteractionType
-  date        DateTime
-  summary     String?  @db.Text
-  sentiment   String?  // POSITIVE, NEUTRAL, NEGATIVE
+  type      ContactInteractionType
+  date      DateTime
+  summary   String?                @db.Text
+  sentiment String? // POSITIVE, NEUTRAL, NEGATIVE
 
   // Source tracking
-  sourceType  String?  // EMAIL, CALENDAR, MANUAL
-  sourceId    String?  // Reference to source record
-  emailId     String?  @unique // Direct link to email (prevents duplicates)
+  sourceType String? // EMAIL, CALENDAR, MANUAL
+  sourceId   String? // Reference to source record
+  emailId    String? @unique // Direct link to email (prevents duplicates)
 
   // Denormalized for faster queries
   contactEmail String? // Email address used in interaction
   contactName  String? // Display name at time of interaction
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   // Relations
-  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, contactId])
   @@index([tenantId, contactId, date])
@@ -1375,29 +1375,29 @@ enum ContactInteractionType {
 
 /// Stores long-term AI memories (Mem0-compatible schema for future migration)
 model AiMemory {
-  id          String   @id @default(cuid())
-  tenantId    String
-  userId      String
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
 
   // Memory content
-  content     String   @db.Text  // The actual memory fact
-  category    String?            // PREFERENCE, CONTACT, SCHEDULE, HABIT, etc.
+  content  String  @db.Text // The actual memory fact
+  category String? // PREFERENCE, CONTACT, SCHEDULE, HABIT, etc.
 
   // Semantic search
-  vector      Unsupported("vector")? // Embedding for similarity search
+  vector Unsupported("vector")? // Embedding for similarity search
 
   // Metadata
-  metadata    Json?              // Additional structured data
-  importance  Float    @default(0.5) // 0-1 importance score
+  metadata   Json? // Additional structured data
+  importance Float @default(0.5) // 0-1 importance score
 
   // Source tracking
-  sourceType  String?            // CONVERSATION, EMAIL, CALENDAR
-  sourceId    String?
+  sourceType String? // CONVERSATION, EMAIL, CALENDAR
+  sourceId   String?
 
   // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  lastAccessedAt DateTime?       // For LRU-style management
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastAccessedAt DateTime? // For LRU-style management
 
   @@index([tenantId, userId])
   @@index([tenantId, userId, category])
@@ -1406,9 +1406,9 @@ model AiMemory {
 
 /// Tracks deadlines extracted from emails and calendar
 model AiDeadline {
-  id          String   @id @default(cuid())
-  tenantId    String
-  userId      String
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
 
   // Deadline details
   title       String
@@ -1416,22 +1416,22 @@ model AiDeadline {
   deadline    DateTime
 
   // Source tracking
-  sourceType  String   // EMAIL, CALENDAR
-  sourceId    String?
+  sourceType String // EMAIL, CALENDAR
+  sourceId   String?
 
   // Status
-  status      DeadlineStatus @default(UPCOMING)
+  status         DeadlineStatus @default(UPCOMING)
   acknowledgedAt DateTime?
 
   // Reminder tracking
-  remindBefore Int[]    @default([1440, 60]) // Minutes before deadline (default: 1 day, 1 hour)
+  remindBefore   Int[]     @default([1440, 60]) // Minutes before deadline (default: 1 day, 1 hour)
   lastRemindedAt DateTime?
 
   // AI metadata
-  confidence  Float?   // AI confidence in extraction
+  confidence Float? // AI confidence in extraction
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId, userId])
   @@index([tenantId, userId, status])

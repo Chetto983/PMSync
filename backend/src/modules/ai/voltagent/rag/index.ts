@@ -8,11 +8,10 @@
  * - Multi-source: Emails, documents, notes
  *
  * Available Retrievers:
- * - KnowledgeBaseRetriever: Simple vector-only retrieval
  * - HybridRetriever: Advanced hybrid search with re-ranking (recommended)
+ * - UnifiedRetriever: Memory-first RAG with multiple sources
  *
  * @see https://www.microsoft.com/en-us/microsoft-cloud/blog/2025/02/04/common-retrieval-augmented-generation-rag-techniques-explained/
  */
-export * from './knowledge-base.retriever';
 export * from './hybrid-retriever';
 export * from './unified-retriever';

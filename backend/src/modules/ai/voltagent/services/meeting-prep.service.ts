@@ -200,7 +200,7 @@ export class MeetingPrepService {
     };
 
     // Cache the brief
-    await this.cacheService.set(cacheKey, brief, this.CACHE_TTL);
+    await this.cacheService.set(cacheKey, brief, { ttl: this.CACHE_TTL });
 
     this.logger.log(`Generated meeting brief for event ${eventId}`);
     return brief;
@@ -231,10 +231,8 @@ export class MeetingPrepService {
         isDeleted: false,
         isCancelled: false,
         startTime: { gte: now, lte: cutoff },
-        // Only meetings with attendees
-        NOT: {
-          attendees: { equals: null },
-        },
+        // Only meetings with attendees (non-null)
+        attendees: { not: { equals: null } },
       },
       select: {
         id: true,
@@ -283,29 +281,34 @@ export class MeetingPrepService {
   ): Promise<MeetingAttendee[]> {
     if (emails.length === 0) return [];
 
+    // Contact model uses 'emails' (Json array) not 'primaryEmail'
+    // We need to find contacts by matching any of their emails
     const contacts = await this.prisma.contact.findMany({
       where: {
         tenantId,
         isDeleted: false,
-        OR: [
-          { primaryEmail: { in: emails } },
-          { emails: { hasSome: emails } },
-        ],
       },
       select: {
         id: true,
         displayName: true,
-        primaryEmail: true,
+        emails: true,
         company: true,
         jobTitle: true,
         relationshipScore: true,
-        lastContactedAt: true,
+        lastInteractedAt: true,
       },
     });
 
-    const contactMap = new Map(
-      contacts.map((c) => [c.primaryEmail?.toLowerCase(), c]),
-    );
+    // Filter contacts that have matching emails and build lookup map
+    const contactMap = new Map<string, typeof contacts[0]>();
+    for (const contact of contacts) {
+      const contactEmails = this.parseContactEmails(contact.emails);
+      for (const email of contactEmails) {
+        if (emails.some((e) => e.toLowerCase() === email.toLowerCase())) {
+          contactMap.set(email.toLowerCase(), contact);
+        }
+      }
+    }
 
     return emails.map((email) => {
       const contact = contactMap.get(email.toLowerCase());
@@ -314,7 +317,7 @@ export class MeetingPrepService {
         name: contact?.displayName ?? undefined,
         contactId: contact?.id,
         relationshipScore: contact?.relationshipScore ?? undefined,
-        lastInteraction: contact?.lastContactedAt ?? undefined,
+        lastInteraction: contact?.lastInteractedAt ?? undefined,
         company: contact?.company ?? undefined,
         role: contact?.jobTitle ?? undefined,
       };
@@ -334,11 +337,12 @@ export class MeetingPrepService {
     const cutoffDate = subDays(new Date(), lookbackDays);
 
     // Search for emails with attendees or matching subject
+    // Note: Email model uses 'sentAt' not 'date'
     const emails = await this.prisma.email.findMany({
       where: {
         tenantId,
         isDeleted: false,
-        date: { gte: cutoffDate },
+        sentAt: { gte: cutoffDate },
         OR: [
           // From/to attendees
           { from: { in: attendeeEmails } },
@@ -355,10 +359,10 @@ export class MeetingPrepService {
         id: true,
         subject: true,
         from: true,
-        date: true,
+        sentAt: true,
         snippet: true,
       },
-      orderBy: { date: 'desc' },
+      orderBy: { sentAt: 'desc' },
       take: maxEmails * 2, // Get more to filter
     });
 
@@ -368,7 +372,7 @@ export class MeetingPrepService {
         id: email.id,
         subject: email.subject ?? '',
         from: email.from ?? '',
-        date: email.date,
+        date: email.sentAt,
         snippet: email.snippet ?? '',
         relevanceScore: this.calculateEmailRelevance(
           email,
@@ -430,38 +434,17 @@ export class MeetingPrepService {
 
   /**
    * Get pending action items related to meeting attendees
+   * Note: ActionItem model doesn't exist yet - returns empty array
+   * TODO: Implement when ActionItem model is added to schema
    */
   private async getPendingActionItems(
-    tenantId: string,
-    userId: string,
-    attendeeEmails: string[],
+    _tenantId: string,
+    _userId: string,
+    _attendeeEmails: string[],
   ): Promise<ActionItemReminder[]> {
-    const actionItems = await this.prisma.actionItem.findMany({
-      where: {
-        tenantId,
-        userId,
-        status: { in: ['PENDING', 'IN_PROGRESS'] },
-      },
-      select: {
-        id: true,
-        title: true,
-        dueDate: true,
-        assignee: true,
-        status: true,
-        sourceType: true,
-      },
-      orderBy: { dueDate: 'asc' },
-      take: 10,
-    });
-
-    return actionItems.map((item) => ({
-      id: item.id,
-      title: item.title,
-      dueDate: item.dueDate ?? undefined,
-      assignee: item.assignee ?? undefined,
-      status: item.status,
-      relatedTo: item.sourceType ?? undefined,
-    }));
+    // ActionItem model not yet in schema - return empty for now
+    // This will be populated when action item tracking is implemented
+    return [];
   }
 
   /**
@@ -474,21 +457,21 @@ export class MeetingPrepService {
     attendeeEmails: string[],
   ): Promise<{ userMemories: string[]; importantNotes: string[] }> {
     try {
-      // Search memories related to meeting
-      const memories = await this.memoryService.search(
+      // Search memories related to meeting using searchMemories method
+      const memories = await this.memoryService.searchMemories(
         tenantId,
         userId,
         `${meetingTitle} ${attendeeEmails.join(' ')}`,
-        5,
+        { limit: 5 },
       );
 
       const userMemories = memories
-        .filter((m) => m.category === 'CONTACT_NOTE')
-        .map((m) => m.content);
+        .filter((m) => m.category === 'CONTACT')
+        .map((m) => m.memory);
 
       const importantNotes = memories
-        .filter((m) => m.category !== 'CONTACT_NOTE')
-        .map((m) => m.content);
+        .filter((m) => m.category !== 'CONTACT')
+        .map((m) => m.memory);
 
       return { userMemories, importantNotes };
     } catch (error) {
@@ -579,5 +562,29 @@ export class MeetingPrepService {
     }
 
     return Math.min(100, score);
+  }
+
+  /**
+   * Parse emails from Contact's emails JSON field
+   */
+  private parseContactEmails(emails: unknown): string[] {
+    if (!emails) return [];
+
+    if (Array.isArray(emails)) {
+      return emails
+        .map((e: unknown) => {
+          if (typeof e === 'string') return e;
+          if (typeof e === 'object' && e !== null && 'email' in e) {
+            return (e as { email: string }).email;
+          }
+          if (typeof e === 'object' && e !== null && 'value' in e) {
+            return (e as { value: string }).value;
+          }
+          return null;
+        })
+        .filter((e): e is string => typeof e === 'string' && e.length > 0);
+    }
+
+    return [];
   }
 }
