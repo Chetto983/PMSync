@@ -22,3 +22,7 @@ export {
   type UserContext,
   type ConnectedProvider,
 } from './supervisor.agent';
+export {
+  createDocumentLibraryAgent,
+  type DocumentLibraryAgentOptions,
+} from './document-library.agent';

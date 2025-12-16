@@ -89,6 +89,7 @@ export function AiChatPanel({
   t,
   locale = 'en',
 }: AiChatPanelProps) {
+  const localeKey = locale.toLowerCase().startsWith('it') ? 'it' : 'en';
   const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');

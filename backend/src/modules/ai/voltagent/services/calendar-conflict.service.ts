@@ -14,7 +14,7 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { addDays, addMinutes, startOfDay, endOfDay, isWithinInterval, format } from 'date-fns';
+import { addDays, addMinutes, startOfDay, endOfDay } from 'date-fns';
 
 // ============================================================================
 // Types and Interfaces
@@ -354,7 +354,7 @@ export class CalendarConflictService {
   private scoreSlot(
     slot: { start: Date; end: Date },
     prefs: UserSchedulingPreferences,
-    event: ProposedEvent,
+    _event: ProposedEvent,
   ): number {
     let score = 50; // Base score
 
@@ -410,7 +410,7 @@ export class CalendarConflictService {
    */
   private getSlotReason(
     slot: { start: Date; end: Date; score: number },
-    prefs: UserSchedulingPreferences,
+    _prefs: UserSchedulingPreferences,
   ): string {
     const slotHour = slot.start.getHours();
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

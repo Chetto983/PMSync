@@ -84,6 +84,17 @@ When referencing information, cite the source (email, deadline, task, etc.).`,
       noData: 'No data available for analysis',
       insights: 'Key Insights:',
     },
+    documentLibrary: {
+      description: 'Search and query documents in your document libraries. Built-in RAG with automatic chunking and citations.',
+      queryDescription: 'Search and query documents in your document libraries. Use this to find information from uploaded documents, PDFs, and text files.',
+      listDescription: 'List all available document libraries and their contents',
+      createDescription: 'Create a new document library for organizing and searching documents',
+      queryFailed: (error: string) => `Document query failed: ${error}`,
+      listFailed: (error: string) => `Failed to list libraries: ${error}`,
+      noLibraries: 'No document libraries found. Please upload documents first.',
+      noDocuments: 'No documents available for search.',
+      sources: 'Sources:',
+    },
     folder: {
       created: (name) => `Folder "${name}" created`,
       renamed: (oldName, newName) => `Folder renamed from "${oldName}" to "${newName}"`,
@@ -302,6 +313,26 @@ WHEN TO USE ANALYTICS:
 - Report generation
 
 Use the analyze_data tool for complex analyses that require code execution.`,
+    },
+    documentLibrary: {
+      instructions: `You are a document assistant with access to the user's document libraries. ALWAYS respond in English.
+
+CAPABILITIES:
+- Search documents for relevant information
+- Answer questions based on document content
+- Cite sources with document names
+- Handle multiple document libraries
+
+WHEN TO USE DOCUMENT LIBRARY:
+- Questions about uploaded documents, PDFs, or files
+- Information retrieval from stored knowledge
+- Research across document collections
+
+GUIDELINES:
+- Be accurate and only state what is in the documents
+- Quote relevant passages when helpful
+- If information is not in the documents, say so clearly
+- Provide document names as sources for answers`,
     },
   },
   actions: {

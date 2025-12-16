@@ -20,7 +20,37 @@ import {
   type ReplyForwardEmailPayload,
   type EmailListResponse,
 } from '@/lib/api/email';
+import { useTranslations } from '@/lib/hooks/use-translations';
+import type { AppTranslations } from '@/locales';
 import { emailKeys } from '../queries/email-keys';
+
+const replaceCount = (template: string, count: number) => template.replace('{count}', String(count));
+
+const resolveFolderLabel = (folders: AppTranslations['folders'], folderId: string) => {
+  const normalized = folderId.toUpperCase();
+  switch (normalized) {
+    case 'INBOX':
+      return folders.inbox;
+    case 'SENT':
+      return folders.sent;
+    case 'DRAFTS':
+      return folders.drafts;
+    case 'TRASH':
+      return folders.trash;
+    case 'SPAM':
+      return folders.spam;
+    case 'ARCHIVE':
+      return folders.archive;
+    case 'OUTBOX':
+      return folders.outbox;
+    case 'STARRED':
+      return folders.starred;
+    case 'ALL':
+      return folders.all;
+    default:
+      return folderId;
+  }
+};
 
 // ============================================================================
 // Types
@@ -50,6 +80,7 @@ interface MutationCallbacks {
  */
 export function useUpdateEmail(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async ({ emailId, data }: { emailId: string; data: EmailUpdateData }) => {
@@ -88,24 +119,58 @@ export function useUpdateEmail(callbacks?: MutationCallbacks) {
 
       return { previousEmail };
     },
-    onError: (_error, { emailId }, context) => {
+    onError: (_error, { emailId, data }, context) => {
       // Rollback on error
       if (context?.previousEmail) {
         queryClient.setQueryData(emailKeys.detail(emailId), context.previousEmail);
       }
       // Invalidate lists to refetch correct state
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      callbacks?.onError?.('Failed to update email. Please try again.');
+
+      const message =
+        data.isRead !== undefined
+          ? data.isRead
+            ? t.email.messages.markReadFailed
+            : t.email.messages.markUnreadFailed
+          : data.isStarred !== undefined
+            ? data.isStarred
+              ? t.email.messages.starFailed
+              : t.email.messages.unstarFailed
+            : data.isFlagged !== undefined
+              ? data.isFlagged
+                ? t.email.messages.markedImportantFailed
+                : t.email.messages.unmarkedImportantFailed
+              : data.folder !== undefined
+                ? t.email.messages.moveFailed
+                : data.isDeleted !== undefined && data.isDeleted
+                  ? t.email.messages.deleteFailed
+                  : t.errors.processingError;
+
+      callbacks?.onError?.(message);
     },
     onSuccess: (_, { data }) => {
-      const action = data.isRead !== undefined
-        ? (data.isRead ? 'marked as read' : 'marked as unread')
-        : data.isStarred !== undefined
-        ? (data.isStarred ? 'starred' : 'unstarred')
-        : data.isFlagged !== undefined
-        ? (data.isFlagged ? 'flagged' : 'unflagged')
-        : 'updated';
-      callbacks?.onSuccess?.(`Email ${action}`);
+      const message =
+        data.isRead !== undefined
+          ? replaceCount(data.isRead ? t.email.messages.markRead : t.email.messages.markUnread, 1)
+          : data.isStarred !== undefined
+            ? replaceCount(data.isStarred ? t.email.messages.starred : t.email.messages.unstarred, 1)
+            : data.isFlagged !== undefined
+              ? replaceCount(
+                  data.isFlagged ? t.email.messages.markedImportant : t.email.messages.unmarkedImportant,
+                  1,
+                )
+              : data.folder !== undefined
+                ? replaceCount(t.email.messages.moved, 1).replace(
+                    '{folder}',
+                    resolveFolderLabel(t.folders, data.folder),
+                  )
+                : data.isDeleted !== undefined && data.isDeleted
+                  ? replaceCount(t.email.messages.deleted, 1)
+                  : undefined;
+
+      if (message) {
+        callbacks?.onSuccess?.(message);
+      }
     },
     onSettled: (_, __, { emailId }) => {
       // Always refetch to ensure consistency
@@ -120,6 +185,7 @@ export function useUpdateEmail(callbacks?: MutationCallbacks) {
  */
 export function useDeleteEmail(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async (emailId: string) => {
@@ -149,10 +215,10 @@ export function useDeleteEmail(callbacks?: MutationCallbacks) {
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      callbacks?.onError?.('Failed to delete email. Please try again.');
+      callbacks?.onError?.(t.email.messages.deleteFailed);
     },
     onSuccess: () => {
-      callbacks?.onSuccess?.('Email deleted');
+      callbacks?.onSuccess?.(replaceCount(t.email.messages.deleted, 1));
     },
     onSettled: (emailId) => {
       // Remove from detail cache
@@ -174,6 +240,7 @@ export function useDeleteEmail(callbacks?: MutationCallbacks) {
  */
 export function useBulkMarkRead(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async ({ emailIds, isRead }: { emailIds: string[]; isRead: boolean }) => {
@@ -198,13 +265,14 @@ export function useBulkMarkRead(callbacks?: MutationCallbacks) {
 
       return {};
     },
-    onError: () => {
+    onError: (_error, { isRead }) => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      callbacks?.onError?.('Failed to update emails. Please try again.');
+      callbacks?.onError?.(isRead ? t.email.messages.markReadFailed : t.email.messages.markUnreadFailed);
     },
     onSuccess: (_, { emailIds, isRead }) => {
-      const action = isRead ? 'marked as read' : 'marked as unread';
-      callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} ${action}`);
+      callbacks?.onSuccess?.(
+        replaceCount(isRead ? t.email.messages.markRead : t.email.messages.markUnread, emailIds.length)
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
@@ -218,6 +286,7 @@ export function useBulkMarkRead(callbacks?: MutationCallbacks) {
  */
 export function useBulkStar(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async ({ emailIds, isStarred }: { emailIds: string[]; isStarred: boolean }) => {
@@ -242,13 +311,14 @@ export function useBulkStar(callbacks?: MutationCallbacks) {
 
       return {};
     },
-    onError: () => {
+    onError: (_error, { isStarred }) => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      callbacks?.onError?.('Failed to update emails. Please try again.');
+      callbacks?.onError?.(isStarred ? t.email.messages.starFailed : t.email.messages.unstarFailed);
     },
     onSuccess: (_, { emailIds, isStarred }) => {
-      const action = isStarred ? 'starred' : 'unstarred';
-      callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} ${action}`);
+      callbacks?.onSuccess?.(
+        replaceCount(isStarred ? t.email.messages.starred : t.email.messages.unstarred, emailIds.length)
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
@@ -262,6 +332,7 @@ export function useBulkStar(callbacks?: MutationCallbacks) {
  */
 export function useBulkFlag(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async ({ emailIds, isFlagged }: { emailIds: string[]; isFlagged: boolean }) => {
@@ -286,13 +357,17 @@ export function useBulkFlag(callbacks?: MutationCallbacks) {
 
       return {};
     },
-    onError: () => {
+    onError: (_error, { isFlagged }) => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      callbacks?.onError?.('Failed to update emails. Please try again.');
+      callbacks?.onError?.(isFlagged ? t.email.messages.markedImportantFailed : t.email.messages.unmarkedImportantFailed);
     },
     onSuccess: (_, { emailIds, isFlagged }) => {
-      const action = isFlagged ? 'marked as important' : 'unmarked as important';
-      callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} ${action}`);
+      callbacks?.onSuccess?.(
+        replaceCount(
+          isFlagged ? t.email.messages.markedImportant : t.email.messages.unmarkedImportant,
+          emailIds.length,
+        )
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
@@ -305,6 +380,7 @@ export function useBulkFlag(callbacks?: MutationCallbacks) {
  */
 export function useBulkMoveToFolder(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async ({ emailIds, folder }: { emailIds: string[]; folder: string }) => {
@@ -331,10 +407,12 @@ export function useBulkMoveToFolder(callbacks?: MutationCallbacks) {
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      callbacks?.onError?.('Failed to move emails. Please try again.');
+      callbacks?.onError?.(t.email.messages.moveFailed);
     },
-    onSuccess: (_, { emailIds }) => {
-      callbacks?.onSuccess?.(`${emailIds.length} email${emailIds.length > 1 ? 's' : ''} moved`);
+    onSuccess: (_, { emailIds, folder }) => {
+      callbacks?.onSuccess?.(
+        replaceCount(t.email.messages.moved, emailIds.length).replace('{folder}', resolveFolderLabel(t.folders, folder))
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
@@ -348,6 +426,7 @@ export function useBulkMoveToFolder(callbacks?: MutationCallbacks) {
  */
 export function useBulkDelete(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async (emailIds: string[]) => {
@@ -376,10 +455,10 @@ export function useBulkDelete(callbacks?: MutationCallbacks) {
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      callbacks?.onError?.('Failed to delete emails. Please try again.');
+      callbacks?.onError?.(t.email.messages.deleteFailed);
     },
     onSuccess: (result) => {
-      callbacks?.onSuccess?.(`${result.emailIds.length} email${result.emailIds.length > 1 ? 's' : ''} deleted`);
+      callbacks?.onSuccess?.(replaceCount(t.email.messages.deleted, result.emailIds.length));
     },
     onSettled: (result) => {
       // Remove from detail caches
@@ -397,6 +476,7 @@ export function useBulkDelete(callbacks?: MutationCallbacks) {
  */
 export function useBulkAddLabels(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async ({ emailIds, labelIds }: { emailIds: string[]; labelIds: string[] }) => {
@@ -405,10 +485,10 @@ export function useBulkAddLabels(callbacks?: MutationCallbacks) {
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      callbacks?.onError?.('Failed to add labels. Please try again.');
+      callbacks?.onError?.(t.email.messages.labelsFailed);
     },
     onSuccess: (_, { emailIds }) => {
-      callbacks?.onSuccess?.(`Labels added to ${emailIds.length} email${emailIds.length > 1 ? 's' : ''}`);
+      callbacks?.onSuccess?.(replaceCount(t.email.messages.labelsAdded, emailIds.length));
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
@@ -421,6 +501,7 @@ export function useBulkAddLabels(callbacks?: MutationCallbacks) {
  */
 export function useBulkRemoveLabels(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async ({ emailIds, labelIds }: { emailIds: string[]; labelIds: string[] }) => {
@@ -429,10 +510,10 @@ export function useBulkRemoveLabels(callbacks?: MutationCallbacks) {
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      callbacks?.onError?.('Failed to remove labels. Please try again.');
+      callbacks?.onError?.(t.email.messages.labelsFailed);
     },
-    onSuccess: (_, { emailIds }) => {
-      callbacks?.onSuccess?.(`Labels removed from ${emailIds.length} email${emailIds.length > 1 ? 's' : ''}`);
+    onSuccess: () => {
+      callbacks?.onSuccess?.(t.email.messages.labelsUpdated);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
@@ -449,6 +530,7 @@ export function useBulkRemoveLabels(callbacks?: MutationCallbacks) {
  */
 export function useSendEmail(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async (payload: SendEmailPayload) => {
@@ -456,10 +538,10 @@ export function useSendEmail(callbacks?: MutationCallbacks) {
       return response.data;
     },
     onError: () => {
-      callbacks?.onError?.('Failed to send email. Please try again.');
+      callbacks?.onError?.(t.email.composer.sendError);
     },
     onSuccess: () => {
-      callbacks?.onSuccess?.('Email sent successfully');
+      callbacks?.onSuccess?.(t.email.messages.emailSent);
     },
     onSettled: () => {
       // Invalidate sent folder
@@ -475,6 +557,7 @@ export function useSendEmail(callbacks?: MutationCallbacks) {
  */
 export function useReplyEmail(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async ({ emailId, payload }: { emailId: string; payload: ReplyForwardEmailPayload }) => {
@@ -482,10 +565,10 @@ export function useReplyEmail(callbacks?: MutationCallbacks) {
       return response.data;
     },
     onError: () => {
-      callbacks?.onError?.('Failed to send reply. Please try again.');
+      callbacks?.onError?.(t.email.composer.sendError);
     },
     onSuccess: () => {
-      callbacks?.onSuccess?.('Reply sent successfully');
+      callbacks?.onSuccess?.(t.email.messages.emailSent);
     },
     onSettled: (_, __, { emailId }) => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
@@ -501,6 +584,7 @@ export function useReplyEmail(callbacks?: MutationCallbacks) {
  */
 export function useForwardEmail(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async ({ emailId, payload }: { emailId: string; payload: ReplyForwardEmailPayload }) => {
@@ -508,10 +592,10 @@ export function useForwardEmail(callbacks?: MutationCallbacks) {
       return response.data;
     },
     onError: () => {
-      callbacks?.onError?.('Failed to forward email. Please try again.');
+      callbacks?.onError?.(t.email.composer.sendError);
     },
     onSuccess: () => {
-      callbacks?.onSuccess?.('Email forwarded successfully');
+      callbacks?.onSuccess?.(t.email.messages.emailSent);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
@@ -529,6 +613,7 @@ export function useForwardEmail(callbacks?: MutationCallbacks) {
  */
 export function useSaveDraft(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async (payload: {
@@ -545,10 +630,10 @@ export function useSaveDraft(callbacks?: MutationCallbacks) {
       return response.data;
     },
     onSuccess: () => {
-      callbacks?.onSuccess?.('Draft saved');
+      callbacks?.onSuccess?.(t.email.composer.draftSaved);
     },
     onError: () => {
-      callbacks?.onError?.('Failed to save draft');
+      callbacks?.onError?.(t.email.composer.draftSaveFailed);
     },
     onSettled: (data) => {
       queryClient.invalidateQueries({ queryKey: emailKeys.drafts() });
@@ -564,6 +649,7 @@ export function useSaveDraft(callbacks?: MutationCallbacks) {
  */
 export function useDeleteDraft(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async (draftId: string) => {
@@ -571,10 +657,10 @@ export function useDeleteDraft(callbacks?: MutationCallbacks) {
       return draftId;
     },
     onSuccess: () => {
-      callbacks?.onSuccess?.('Draft deleted');
+      callbacks?.onSuccess?.(t.email.composer.draftDeleted);
     },
     onError: () => {
-      callbacks?.onError?.('Failed to delete draft');
+      callbacks?.onError?.(t.email.composer.draftDeleteFailed);
     },
     onSettled: (draftId) => {
       if (draftId) {
@@ -595,6 +681,7 @@ export function useDeleteDraft(callbacks?: MutationCallbacks) {
  */
 export function useSyncProvider(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async (providerId: string) => {
@@ -602,10 +689,10 @@ export function useSyncProvider(callbacks?: MutationCallbacks) {
       return response.data;
     },
     onSuccess: () => {
-      callbacks?.onSuccess?.('Sync started');
+      callbacks?.onSuccess?.(t.email.messages.syncTriggered);
     },
     onError: () => {
-      callbacks?.onError?.('Failed to start sync');
+      callbacks?.onError?.(t.email.messages.syncFailed);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: emailKeys.syncStatus() });
@@ -618,6 +705,7 @@ export function useSyncProvider(callbacks?: MutationCallbacks) {
  */
 export function useFetchArchivedEmail(callbacks?: MutationCallbacks) {
   const queryClient = useQueryClient();
+  const t = useTranslations();
 
   return useMutation({
     mutationFn: async (emailId: string) => {
@@ -625,12 +713,11 @@ export function useFetchArchivedEmail(callbacks?: MutationCallbacks) {
       return response.data;
     },
     onSuccess: (data) => {
-      callbacks?.onSuccess?.('Archived email restored');
       // Update the cache with the restored email
       queryClient.setQueryData(emailKeys.detail(data.id), data);
     },
     onError: () => {
-      callbacks?.onError?.('Failed to fetch archived email');
+      callbacks?.onError?.(t.errors.processingError);
     },
     onSettled: (data) => {
       if (data?.id) {

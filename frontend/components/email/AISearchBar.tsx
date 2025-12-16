@@ -17,6 +17,7 @@ import {
 import { Sparkles, X } from 'lucide-react';
 import { aiApi, type MemorySearchItem } from '@/lib/api/ai';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { getErrorMessage } from '@/lib/error-utils';
 
 /**
  * Props for AISearchBar
@@ -91,14 +92,13 @@ export const AISearchBar: React.FC<AISearchBarProps> = ({
         setResults(response.data.items);
         setOpen(true);
       } catch (err) {
-        const errorMessage = err instanceof Error && err.message ? err.message : t.email.view.memoryError;
-        setError(errorMessage);
+        setError(getErrorMessage(err, t));
         setResults([]);
       } finally {
         setLoading(false);
       }
     },
-    [t.email.view.memoryError],
+    [t],
   );
 
   // Debounced search on query change
@@ -259,8 +259,12 @@ export const AISearchBar: React.FC<AISearchBarProps> = ({
                             }}
                           >
                             {item.from || t.email.view.memoryUnknownSender}
-                            {item.receivedAt &&
-                              ` • ${new Date(item.receivedAt).toLocaleDateString()}`}
+                            {item.receivedAt ? (
+                              <>
+                                {t.common.separatorDot}
+                                {new Date(item.receivedAt).toLocaleDateString(t.locale)}
+                              </>
+                            ) : null}
                           </Typography>
                           <Typography
                             variant="body2"

@@ -268,7 +268,11 @@ const ImagePreviewDialog: React.FC<ImagePreviewDialogProps> = ({
       }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="h6" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <Typography
+          variant="h6"
+          component="span"
+          sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
           {attachment?.filename}
         </Typography>
 

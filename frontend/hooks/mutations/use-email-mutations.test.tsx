@@ -23,6 +23,9 @@ import {
   useSyncProvider,
 } from './use-email-mutations';
 import { emailApi } from '@/lib/api/email';
+import { getTranslations } from '@/locales';
+
+const t = getTranslations('en');
 
 // Mock the email API
 jest.mock('@/lib/api/email', () => ({
@@ -86,7 +89,7 @@ describe('useUpdateEmail', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.updateEmail).toHaveBeenCalledWith('email-1', { isRead: true });
-    expect(onSuccess).toHaveBeenCalledWith('Email marked as read');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.markRead.replace('{count}', '1'));
   });
 
   it('should handle unread update', async () => {
@@ -102,7 +105,7 @@ describe('useUpdateEmail', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(onSuccess).toHaveBeenCalledWith('Email marked as unread');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.markUnread.replace('{count}', '1'));
   });
 
   it('should handle star update', async () => {
@@ -118,7 +121,7 @@ describe('useUpdateEmail', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(onSuccess).toHaveBeenCalledWith('Email starred');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.starred.replace('{count}', '1'));
   });
 
   it('should handle error', async () => {
@@ -134,7 +137,7 @@ describe('useUpdateEmail', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(onError).toHaveBeenCalledWith('Failed to update email. Please try again.');
+    expect(onError).toHaveBeenCalledWith(t.email.messages.markReadFailed);
   });
 });
 
@@ -158,7 +161,7 @@ describe('useDeleteEmail', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.deleteEmail).toHaveBeenCalledWith('email-1');
-    expect(onSuccess).toHaveBeenCalledWith('Email deleted');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.deleted.replace('{count}', '1'));
   });
 
   it('should handle delete error', async () => {
@@ -174,7 +177,7 @@ describe('useDeleteEmail', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(onError).toHaveBeenCalledWith('Failed to delete email. Please try again.');
+    expect(onError).toHaveBeenCalledWith(t.email.messages.deleteFailed);
   });
 });
 
@@ -198,7 +201,7 @@ describe('useBulkMarkRead', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.bulkMarkRead).toHaveBeenCalledWith(['1', '2', '3'], true);
-    expect(onSuccess).toHaveBeenCalledWith('3 emails marked as read');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.markRead.replace('{count}', '3'));
   });
 
   it('should mark single email as unread', async () => {
@@ -214,7 +217,7 @@ describe('useBulkMarkRead', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(onSuccess).toHaveBeenCalledWith('1 email marked as unread');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.markUnread.replace('{count}', '1'));
   });
 });
 
@@ -238,7 +241,7 @@ describe('useBulkStar', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.bulkStar).toHaveBeenCalledWith(['1', '2'], true);
-    expect(onSuccess).toHaveBeenCalledWith('2 emails starred');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.starred.replace('{count}', '2'));
   });
 });
 
@@ -260,7 +263,7 @@ describe('useBulkFlag', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(onSuccess).toHaveBeenCalledWith('2 emails marked as important');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.markedImportant.replace('{count}', '2'));
   });
 });
 
@@ -284,7 +287,9 @@ describe('useBulkMoveToFolder', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.bulkMoveToFolder).toHaveBeenCalledWith(['1', '2', '3'], 'ARCHIVE');
-    expect(onSuccess).toHaveBeenCalledWith('3 emails moved');
+    expect(onSuccess).toHaveBeenCalledWith(
+      t.email.messages.moved.replace('{count}', '3').replace('{folder}', t.folders.archive)
+    );
   });
 });
 
@@ -308,7 +313,7 @@ describe('useBulkDelete', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.bulkDelete).toHaveBeenCalledWith(['1', '2']);
-    expect(onSuccess).toHaveBeenCalledWith('2 emails deleted');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.deleted.replace('{count}', '2'));
   });
 });
 
@@ -332,7 +337,7 @@ describe('useBulkAddLabels', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.bulkAddLabels).toHaveBeenCalledWith(['1', '2'], ['label-1']);
-    expect(onSuccess).toHaveBeenCalledWith('Labels added to 2 emails');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.labelsAdded.replace('{count}', '2'));
   });
 });
 
@@ -356,7 +361,7 @@ describe('useBulkRemoveLabels', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.bulkRemoveLabels).toHaveBeenCalledWith(['1', '2'], ['label-1']);
-    expect(onSuccess).toHaveBeenCalledWith('Labels removed from 2 emails');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.labelsUpdated);
   });
 });
 
@@ -386,7 +391,7 @@ describe('useSendEmail', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(onSuccess).toHaveBeenCalledWith('Email sent successfully');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.emailSent);
   });
 
   it('should handle send error', async () => {
@@ -408,7 +413,7 @@ describe('useSendEmail', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(onError).toHaveBeenCalledWith('Failed to send email. Please try again.');
+    expect(onError).toHaveBeenCalledWith(t.email.composer.sendError);
   });
 });
 
@@ -442,7 +447,7 @@ describe('useReplyEmail', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.replyToEmail).toHaveBeenCalledWith('email-1', expect.any(Object));
-    expect(onSuccess).toHaveBeenCalledWith('Reply sent successfully');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.emailSent);
   });
 });
 
@@ -476,7 +481,7 @@ describe('useForwardEmail', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.forwardEmail).toHaveBeenCalledWith('email-1', expect.any(Object));
-    expect(onSuccess).toHaveBeenCalledWith('Email forwarded successfully');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.emailSent);
   });
 });
 
@@ -503,7 +508,7 @@ describe('useSaveDraft', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(onSuccess).toHaveBeenCalledWith('Draft saved');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.composer.draftSaved);
   });
 });
 
@@ -527,7 +532,7 @@ describe('useDeleteDraft', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.deleteDraft).toHaveBeenCalledWith('draft-123');
-    expect(onSuccess).toHaveBeenCalledWith('Draft deleted');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.composer.draftDeleted);
   });
 });
 
@@ -553,6 +558,6 @@ describe('useSyncProvider', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(emailApi.syncProvider).toHaveBeenCalledWith('provider-1');
-    expect(onSuccess).toHaveBeenCalledWith('Sync started');
+    expect(onSuccess).toHaveBeenCalledWith(t.email.messages.syncTriggered);
   });
 });

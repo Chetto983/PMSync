@@ -23,6 +23,9 @@ jest.mock('@/lib/hooks/use-translations', () => ({
       view: {
         download: 'Download',
         preview: 'Preview',
+        zoomIn: 'Zoom in',
+        zoomOut: 'Zoom out',
+        rotate: 'Rotate',
         attachments: 'Attachments',
         failedToLoadPreview: 'Failed to load preview',
       },
@@ -124,8 +127,8 @@ describe('AttachmentPreview', () => {
       render(<AttachmentPreview attachments={mockAttachments} variant="panel" />);
 
       expect(screen.getByText('1 MB')).toBeInTheDocument();
-      expect(screen.getByText('512 KB')).toBeInTheDocument();
-      expect(screen.getByText('256 KB')).toBeInTheDocument();
+      expect(screen.getByText('512 kB')).toBeInTheDocument();
+      expect(screen.getByText('256 kB')).toBeInTheDocument();
     });
   });
 

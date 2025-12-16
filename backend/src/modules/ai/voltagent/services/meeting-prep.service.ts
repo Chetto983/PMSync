@@ -17,7 +17,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
 import { LongTermMemoryService } from '../memory';
-import { subDays, format } from 'date-fns';
+import { subDays } from 'date-fns';
 
 // ============================================================================
 // Types and Interfaces

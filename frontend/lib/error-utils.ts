@@ -15,7 +15,7 @@
  * ```
  */
 import { AxiosError } from 'axios';
-import type { AppTranslations } from '@/locales';
+import { getTranslations, type AppTranslations } from '@/locales';
 import { logger } from './logger';
 
 /**
@@ -35,7 +35,7 @@ export const ERROR_CODES = {
   // Network errors
   NETWORK_ERROR: 'networkError',
   TIMEOUT: 'timeoutError',
-  SERVER_ERROR: 'serverError',
+  SERVER_ERROR: 'serverErrorMessage',
 
   // Auth errors
   UNAUTHORIZED: 'unauthorized',
@@ -43,7 +43,7 @@ export const ERROR_CODES = {
   SESSION_EXPIRED: 'sessionExpired',
 
   // Resource errors
-  NOT_FOUND: 'notFound',
+  NOT_FOUND: 'notFoundMessage',
   CONFLICT: 'conflict',
   VALIDATION_ERROR: 'validationError',
 
@@ -56,22 +56,7 @@ export const ERROR_CODES = {
 
 export type ErrorCode = keyof typeof ERROR_CODES;
 
-/**
- * Default error messages (fallback when no translations available)
- */
-const DEFAULT_ERROR_MESSAGES: Record<string, string> = {
-  networkError: 'Unable to connect to server. Please check your internet connection.',
-  timeoutError: 'Request timed out. Please try again.',
-  serverError: 'Server error. Please try again later.',
-  unauthorized: 'Your session has expired. Please log in again.',
-  forbidden: 'You do not have permission to perform this action.',
-  sessionExpired: 'Your session has expired. Please log in again.',
-  notFound: 'The requested resource was not found.',
-  conflict: 'This action conflicts with another operation. Please refresh and try again.',
-  validationError: 'Please check your input and try again.',
-  tooManyRequests: 'Too many requests. Please wait a moment and try again.',
-  unknownError: 'An unexpected error occurred. Please try again.',
-};
+const fallbackTranslations = getTranslations('en');
 
 /**
  * Map HTTP status codes to error codes
@@ -135,6 +120,16 @@ export function getErrorCode(error: unknown): ErrorCode {
   if (isNetworkError(error)) return 'NETWORK_ERROR';
   if (isTimeoutError(error)) return 'TIMEOUT';
 
+  if (error instanceof Error && error.message) {
+    const message = error.message.toLowerCase();
+    if (message.includes('network error') || message.includes('econnrefused')) {
+      return 'NETWORK_ERROR';
+    }
+    if (message.includes('etimedout') || message.includes('timeout')) {
+      return 'TIMEOUT';
+    }
+  }
+
   if (isAxiosError(error) && error.response) {
     return getErrorCodeFromStatus(error.response.status);
   }
@@ -150,17 +145,7 @@ export function getErrorCode(error: unknown): ErrorCode {
  * @returns User-friendly error message
  */
 export function getErrorMessage(error: unknown, t?: AppTranslations): string {
-  const errorCode = getErrorCode(error);
-  const i18nKey = ERROR_CODES[errorCode];
-
-  // Try to get translated message
-  if (t?.errors && typeof t.errors === 'object' && i18nKey in t.errors) {
-    const errorValue = (t.errors as Record<string, unknown>)[i18nKey];
-    // Only use string values, skip nested objects like notFound: { title, subtitle, ... }
-    if (typeof errorValue === 'string') {
-      return errorValue;
-    }
-  }
+  const translations = t ?? fallbackTranslations;
 
   // If it's an Axios error, try to use backend message
   if (isAxiosError(error) && error.response?.data) {
@@ -175,20 +160,24 @@ export function getErrorMessage(error: unknown, t?: AppTranslations): string {
     }
   }
 
-  // If it's a regular Error object
-  if (error instanceof Error && error.message) {
-    // Don't expose technical error messages to users
-    if (
-      error.message.includes('Network Error') ||
-      error.message.includes('ECONNREFUSED') ||
-      error.message.includes('ETIMEDOUT')
-    ) {
-      return DEFAULT_ERROR_MESSAGES.networkError;
+  const errorCode = getErrorCode(error);
+  const i18nKey = ERROR_CODES[errorCode];
+
+  // Try to get translated message
+  if (translations.errors && typeof translations.errors === 'object' && i18nKey in translations.errors) {
+    const errorValue = (translations.errors as Record<string, unknown>)[i18nKey];
+    // Only use string values, skip nested objects like notFound: { title, subtitle, ... }
+    if (typeof errorValue === 'string') {
+      return errorValue;
     }
   }
 
-  // Fallback to default message
-  return DEFAULT_ERROR_MESSAGES[i18nKey] || DEFAULT_ERROR_MESSAGES.unknownError;
+  // Fallback to default locale strings
+  const fallback = (fallbackTranslations.errors as Record<string, unknown>)[i18nKey];
+  if (typeof fallback === 'string') {
+    return fallback;
+  }
+  return fallbackTranslations.errors.unknownError;
 }
 
 /**
@@ -243,7 +232,13 @@ export class AppError extends Error {
     public code: ErrorCode,
     message?: string
   ) {
-    super(message || DEFAULT_ERROR_MESSAGES[ERROR_CODES[code]]);
+    const defaultMessage = (() => {
+      const key = ERROR_CODES[code];
+      const value = (fallbackTranslations.errors as Record<string, unknown>)[key];
+      return typeof value === 'string' ? value : fallbackTranslations.errors.unknownError;
+    })();
+
+    super(message || defaultMessage);
     this.name = 'AppError';
   }
 }

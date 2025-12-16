@@ -32,6 +32,7 @@ import { ActionSeverity } from './interfaces/agent-action.interface';
 import { createSupervisorAgent, type UserContext, type ConnectedProvider } from './agents';
 import { getLocale, type SupportedLocale } from './locales';
 import { VoltAgentMemoryService, LongTermMemoryService } from './memory';
+import { DocumentLibraryService } from './services/document-library.service';
 import { createObservabilityHooks, type AgentMetrics } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import {
@@ -154,6 +155,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly mistralBatchService?: MistralBatchService,
     @Optional() private readonly voltAgentMemoryService?: VoltAgentMemoryService,
     @Optional() private readonly longTermMemoryService?: LongTermMemoryService,
+    @Optional() private readonly documentLibraryService?: DocumentLibraryService,
   ) {}
 
   async onModuleInit() {
@@ -457,6 +459,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       // Web search agent requires ConfigService + CacheService for Redis caching
       configService: this.configService,
       cacheService: this.cacheService,
+      // Document Library agent for document RAG
+      documentLibraryService: this.documentLibraryService,
     });
 
     // Cache with timestamp for TTL

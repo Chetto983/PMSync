@@ -23,6 +23,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import type { AppTranslations } from '@/locales';
 
 interface EmailEmptyStateProps {
   /** Type of empty state to display */
@@ -60,27 +61,29 @@ const EMPTY_STATE_CONFIG = {
 // Get translated text for empty state type
 function getEmptyStateText(
   type: keyof typeof EMPTY_STATE_CONFIG,
-  empty: Record<string, string | undefined> | undefined,
+  empty: AppTranslations['email']['empty'],
 ): { title: string; subtitle: string } {
-  const fallbacks = {
-    inbox: { title: 'Your inbox is empty', subtitle: 'All caught up! New emails will appear here.' },
-    sent: { title: 'No sent emails', subtitle: 'Compose your first message to get started.' },
-    trash: { title: 'Trash is empty', subtitle: 'Deleted emails will appear here for 30 days.' },
-    starred: { title: 'No starred emails', subtitle: 'Star important emails to find them quickly.' },
-    archive: { title: 'Archive is empty', subtitle: 'Archived emails will appear here.' },
-    search: { title: 'No results found', subtitle: 'Try different keywords or clear filters.' },
-    label: { title: 'No emails with this label', subtitle: 'Apply this label to emails to see them here.' },
-    unread: { title: 'All caught up!', subtitle: 'You have no unread emails.' },
-    default: { title: 'No emails', subtitle: 'Emails will appear here.' },
-  };
-
-  const titleKey = `${type}Title` as keyof typeof empty;
-  const subtitleKey = `${type}Subtitle` as keyof typeof empty;
-
-  return {
-    title: empty?.[titleKey] ?? fallbacks[type].title,
-    subtitle: empty?.[subtitleKey] ?? fallbacks[type].subtitle,
-  };
+  switch (type) {
+    case 'inbox':
+      return { title: empty.inboxTitle, subtitle: empty.inboxSubtitle };
+    case 'sent':
+      return { title: empty.sentTitle, subtitle: empty.sentSubtitle };
+    case 'trash':
+      return { title: empty.trashTitle, subtitle: empty.trashSubtitle };
+    case 'starred':
+      return { title: empty.starredTitle, subtitle: empty.starredSubtitle };
+    case 'archive':
+      return { title: empty.archiveTitle, subtitle: empty.archiveSubtitle };
+    case 'search':
+      return { title: empty.searchTitle, subtitle: empty.searchSubtitle };
+    case 'label':
+      return { title: empty.labelTitle, subtitle: empty.labelSubtitle };
+    case 'unread':
+      return { title: empty.unreadTitle, subtitle: empty.unreadSubtitle };
+    case 'default':
+    default:
+      return { title: empty.defaultTitle, subtitle: empty.defaultSubtitle };
+  }
 }
 
 export const EmailEmptyState: React.FC<EmailEmptyStateProps> = ({
@@ -95,7 +98,7 @@ export const EmailEmptyState: React.FC<EmailEmptyStateProps> = ({
   const isDark = theme.palette.mode === 'dark';
   const config = EMPTY_STATE_CONFIG[type];
   const IconComponent = config.icon;
-  const texts = getEmptyStateText(type, (t.email as Record<string, unknown>)?.empty as Record<string, string | undefined> | undefined);
+  const texts = getEmptyStateText(type, t.email.empty);
 
   return (
     <Box

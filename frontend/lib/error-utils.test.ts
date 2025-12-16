@@ -212,14 +212,14 @@ describe('error-utils', () => {
       const error = createAxiosErrorWithStatus(404);
       const translations = {
         errors: {
-          notFound: {
+          notFoundMessage: {
             title: '404',
             subtitle: 'Not Found',
           },
         },
       };
       const message = getErrorMessage(error, translations as any);
-      // Should fall back to default since notFound is an object, not a string
+      // Should fall back to default since notFoundMessage is an object, not a string
       expect(message).toBe('The requested resource was not found.');
     });
 
@@ -300,11 +300,11 @@ describe('error-utils', () => {
     it('should have all expected error codes', () => {
       expect(ERROR_CODES.NETWORK_ERROR).toBe('networkError');
       expect(ERROR_CODES.TIMEOUT).toBe('timeoutError');
-      expect(ERROR_CODES.SERVER_ERROR).toBe('serverError');
+      expect(ERROR_CODES.SERVER_ERROR).toBe('serverErrorMessage');
       expect(ERROR_CODES.UNAUTHORIZED).toBe('unauthorized');
       expect(ERROR_CODES.FORBIDDEN).toBe('forbidden');
       expect(ERROR_CODES.SESSION_EXPIRED).toBe('sessionExpired');
-      expect(ERROR_CODES.NOT_FOUND).toBe('notFound');
+      expect(ERROR_CODES.NOT_FOUND).toBe('notFoundMessage');
       expect(ERROR_CODES.CONFLICT).toBe('conflict');
       expect(ERROR_CODES.VALIDATION_ERROR).toBe('validationError');
       expect(ERROR_CODES.TOO_MANY_REQUESTS).toBe('tooManyRequests');

@@ -13,6 +13,7 @@ import { EmailSendService } from '../../../email/services/email-send.service';
 import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
 import { CacheService } from '../../../../common/services/cache.service';
+import { DocumentLibraryService } from '../services/document-library.service';
 import { getAgentTranslations, type SupportedLocale } from '../locales';
 import { createCalendarAgent } from './calendar.agent';
 import { createContactsAgent } from './contacts.agent';
@@ -20,6 +21,7 @@ import { createEmailAgent } from './email.agent';
 import { createGeneralAgent } from './general.agent';
 import { createKnowledgeAgent } from './knowledge.agent';
 import { createWebSearchAgent } from './websearch.agent';
+import { createDocumentLibraryAgent } from './document-library.agent';
 
 export interface SupervisorAgentOptions {
   model: LanguageModel;
@@ -42,6 +44,8 @@ export interface SupervisorAgentOptions {
   userId?: string;
   /** Optional: CacheService for Redis-based caching (multi-instance support) */
   cacheService?: CacheService;
+  /** Optional: DocumentLibraryService for document RAG */
+  documentLibraryService?: DocumentLibraryService;
 }
 
 /**
@@ -254,6 +258,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     configService,
     userId,
     cacheService,
+    documentLibraryService,
   } = options;
   const t = getAgentTranslations(locale);
 
@@ -324,6 +329,20 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
       cacheService,
     });
     subAgents.push(webSearchAgent);
+
+  }
+
+  // Document Library agent - only create if documentLibraryService is provided
+  if (documentLibraryService) {
+    const documentLibraryAgent = createDocumentLibraryAgent({
+      model,
+      documentLibraryService,
+      locale,
+      tenantId,
+      userId,
+      hooks,
+    });
+    subAgents.push(documentLibraryAgent);
   }
 
   // Create the supervisor agent with all sub-agents

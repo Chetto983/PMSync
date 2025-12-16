@@ -82,6 +82,9 @@ import { CrmBackfillProcessor, ReconnectReminderProcessor } from './jobs';
 import { CalendarConflictService } from './services/calendar-conflict.service';
 import { FocusTimeService } from './services/focus-time.service';
 import { MeetingPrepService } from './services/meeting-prep.service';
+// Document Library (P2.5 - Mistral document_library RAG)
+import { DocumentLibraryService } from './services/document-library.service';
+import { DocumentLibraryController } from './controllers/document-library.controller';
 // Observability (OpenTelemetry-aligned)
 import { LlmTelemetryService } from './observability/telemetry';
 
@@ -95,7 +98,7 @@ import { LlmTelemetryService } from './observability/telemetry';
     forwardRef(() => CalendarModule),
     forwardRef(() => EmailSyncModule), // For folder operations
   ],
-  controllers: [VoltAgentController],
+  controllers: [VoltAgentController, DocumentLibraryController],
   providers: [
     VoltAgentService,
     HitlService,
@@ -137,6 +140,12 @@ import { LlmTelemetryService } from './observability/telemetry';
     RelationshipIntelligenceService,
     CrmBackfillProcessor,
     ReconnectReminderProcessor,
+    // Smart Scheduling (P2)
+    CalendarConflictService,
+    FocusTimeService,
+    MeetingPrepService,
+    // Document Library (P2.5 - Mistral document_library RAG)
+    DocumentLibraryService,
     // Observability
     LlmTelemetryService,
   ],
@@ -175,6 +184,12 @@ import { LlmTelemetryService } from './observability/telemetry';
     RelationshipIntelligenceService,
     CrmBackfillProcessor,
     ReconnectReminderProcessor,
+    // Smart Scheduling (P2)
+    CalendarConflictService,
+    FocusTimeService,
+    MeetingPrepService,
+    // Document Library (P2.5)
+    DocumentLibraryService,
     // Observability
     LlmTelemetryService,
   ],

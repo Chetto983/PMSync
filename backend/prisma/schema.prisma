@@ -1446,3 +1446,69 @@ enum DeadlineStatus {
   COMPLETED
   DISMISSED
 }
+
+// ============================================
+// Document Library - Mistral RAG Integration
+// ============================================
+
+/// User document libraries for RAG queries
+model DocumentLibrary {
+  id       String @id @default(cuid())
+  tenantId String
+
+  // Mistral Libraries API reference
+  mistralLibraryId String? // Mistral library ID after creation
+
+  // Library info
+  name        String
+  description String?
+
+  // Stats
+  documentCount Int @default(0)
+  totalSize     Int @default(0) // bytes
+
+  // Soft delete
+  isDeleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  documents LibraryDocument[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isDeleted])
+  @@index([mistralLibraryId])
+  @@map("document_libraries")
+}
+
+/// Documents within a library (stored in Mistral Libraries API)
+model LibraryDocument {
+  id        String @id @default(cuid())
+  libraryId String
+
+  // Mistral Libraries API reference
+  mistralDocumentId String? // Mistral document ID after upload
+
+  // Document info
+  filename String
+  mimeType String?
+  size     Int // bytes
+
+  // Processing status
+  status String @default("processing") // processing, ready, failed
+
+  // Soft delete
+  isDeleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  library DocumentLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+
+  @@index([libraryId, isDeleted])
+  @@index([status])
+  @@index([mistralDocumentId])
+  @@map("library_documents")
+}

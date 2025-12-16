@@ -5,30 +5,30 @@ import { InlineReplyComposer, type InlineReplyComposerProps } from './InlineRepl
 // Mock useTranslations
 jest.mock('@/lib/hooks/use-translations', () => ({
   useTranslations: () => ({
-    dashboard: {
-      emailView: {
-        reply: 'Click to reply',
-        replyAll: 'Reply all',
-        replyPlaceholder: 'Write your reply...',
-      },
-      email: {
-        composer: {
-          send: 'Send',
-        },
-      },
-    },
     email: {
       view: {
-        reply: 'Click to reply',
+        reply: 'Reply',
         replyAll: 'Reply all',
         replyPlaceholder: 'Write your reply...',
         openFullEditor: 'Open full editor',
+        shortcutSend: 'Ctrl/Cmd + Enter to send',
+        shortcutOpenFullEditor: 'Ctrl/Cmd + Enter to open editor',
       },
-      compose: {
+      composer: {
+        replyPrefix: 'Re:',
+        toLabel: 'To:',
         send: 'Send',
-        cancel: 'Cancel',
-        discard: 'Discard',
+        sending: 'Sending...',
+        sendError: 'Failed to send email. Please try again.',
       },
+    },
+    common: {
+      user: 'User',
+      compose: 'Compose',
+    },
+    errors: {
+      networkError: 'Unable to connect to server. Please check your internet connection.',
+      unknownError: 'An unexpected error occurred. Please try again.',
     },
   }),
 }));
@@ -69,7 +69,7 @@ describe('InlineReplyComposer', () => {
     it('should render collapsed by default', () => {
       render(<InlineReplyComposer {...defaultProps} />);
 
-      expect(screen.getByText(/Click to reply/i)).toBeInTheDocument();
+      expect(screen.getByText('Reply...')).toBeInTheDocument();
     });
 
     it('should show reply all text when isReplyAll is true', () => {
@@ -81,7 +81,7 @@ describe('InlineReplyComposer', () => {
     it('should expand when clicked', () => {
       render(<InlineReplyComposer {...defaultProps} />);
 
-      fireEvent.click(screen.getByText(/Click to reply/i));
+      fireEvent.click(screen.getByText('Reply...'));
 
       expect(screen.getByPlaceholderText('Write your reply...')).toBeInTheDocument();
     });
@@ -95,7 +95,7 @@ describe('InlineReplyComposer', () => {
     it('should call onExpand directly when showQuickReply is false', () => {
       render(<InlineReplyComposer {...defaultProps} showQuickReply={false} />);
 
-      fireEvent.click(screen.getByText(/Click to reply/i));
+      fireEvent.click(screen.getByText('Reply...'));
 
       expect(mockOnExpand).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -260,7 +260,7 @@ describe('InlineReplyComposer', () => {
 
       // Should collapse after send - verify collapsed state shows
       await waitFor(() => {
-        expect(screen.getByText(/Click to reply/i)).toBeInTheDocument();
+        expect(screen.getByText('Reply...')).toBeInTheDocument();
       });
     });
 
@@ -280,7 +280,9 @@ describe('InlineReplyComposer', () => {
       fireEvent.click(screen.getByRole('button', { name: /send/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('Network error')).toBeInTheDocument();
+        expect(
+          screen.getByText('Unable to connect to server. Please check your internet connection.')
+        ).toBeInTheDocument();
       });
     });
   });
@@ -295,7 +297,7 @@ describe('InlineReplyComposer', () => {
         />
       );
 
-      fireEvent.click(screen.getByText(/Click to reply/i));
+      fireEvent.click(screen.getByText('Reply...'));
 
       expect(mockOnExpand).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -352,7 +354,7 @@ describe('InlineReplyComposer', () => {
 
       // Should collapse - verify collapsed state shows again
       await waitFor(() => {
-        expect(screen.getByText(/Click to reply/i)).toBeInTheDocument();
+        expect(screen.getByText('Reply...')).toBeInTheDocument();
       });
     });
   });
@@ -399,7 +401,7 @@ describe('InlineReplyComposer', () => {
 
       // Should collapse after expand - verify collapsed state shows
       await waitFor(() => {
-        expect(screen.getByText(/Click to reply/i)).toBeInTheDocument();
+        expect(screen.getByText('Reply...')).toBeInTheDocument();
       });
     });
   });
@@ -422,7 +424,7 @@ describe('InlineReplyComposer', () => {
       render(<InlineReplyComposer {...defaultProps} />);
 
       const button = screen.getByRole('button');
-      expect(button).toHaveAttribute('aria-label', 'Click to reply...');
+      expect(button).toHaveAttribute('aria-label', 'Reply...');
     });
 
     it('should be keyboard navigable when collapsed', () => {

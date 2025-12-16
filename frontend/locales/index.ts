@@ -342,6 +342,7 @@ export interface AppTranslations {
     retry: string;
     user: string;
     version: string;
+    separatorDot: string;
     allCaughtUp: string;
     noSubject: string;
     unnamedContact: string;
@@ -506,6 +507,8 @@ export interface AppTranslations {
       bodyLabel: string;
       bodyPlaceholder: string;
       attachFiles: string;
+      dropFilesHere: string;
+      releaseToAttachFiles: string;
       removeAttachment: string;
       attachments: string;
       formatting: string;
@@ -540,6 +543,9 @@ export interface AppTranslations {
       fileTypeNotAllowed: string;
       totalSizeExceeded: string;
       draftSaved: string;
+      draftSaveFailed: string;
+      draftDeleted: string;
+      draftDeleteFailed: string;
       discardConfirm: string;
       aiCompose: string;
       aiComposePrompt: string;
@@ -629,6 +635,10 @@ export interface AppTranslations {
       aiSearchPlaceholder: string;
       aiSearchHelperText: string;
       aiExamples: string;
+      aiExampleInvoicePayments: string;
+      aiExamplePresentation: string;
+      aiExampleDeadlines: string;
+      aiExampleContracts: string;
       enableAiSearch: string;
     };
     attachment: string;
@@ -1755,6 +1765,8 @@ export interface AppTranslations {
       description: string;
       action: string;
     };
+    notFoundMessage: string;
+    serverErrorMessage: string;
     networkError: string;
     timeoutError: string;
     unauthorized: string;

@@ -392,14 +392,22 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                 }}
               >
                 <Typography variant="caption" fontWeight={600} gutterBottom display="block">
-                  💡 {t.email.advancedSearch.aiExamples}
+                  {t.email.advancedSearch.aiExamples}
                 </Typography>
-                <Typography variant="caption" component="div" color="text.secondary" sx={{ pl: 2 }}>
-                  • &ldquo;Emails about invoice payments from this month&rdquo;<br />
-                  • &ldquo;Show conversations with John about the presentation&rdquo;<br />
-                  • &ldquo;Find emails mentioning deadlines or urgent tasks&rdquo;<br />
-                  • &ldquo;Emails discussing contract negotiations&rdquo;
-                </Typography>
+                <Box component="ul" sx={{ pl: 4, my: 0, color: 'text.secondary' }}>
+                  <Typography variant="caption" component="li">
+                    {t.email.advancedSearch.aiExampleInvoicePayments}
+                  </Typography>
+                  <Typography variant="caption" component="li">
+                    {t.email.advancedSearch.aiExamplePresentation}
+                  </Typography>
+                  <Typography variant="caption" component="li">
+                    {t.email.advancedSearch.aiExampleDeadlines}
+                  </Typography>
+                  <Typography variant="caption" component="li">
+                    {t.email.advancedSearch.aiExampleContracts}
+                  </Typography>
+                </Box>
               </Box>
 
               <FormControlLabel

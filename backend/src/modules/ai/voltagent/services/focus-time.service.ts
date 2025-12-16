@@ -18,9 +18,6 @@ import { CacheService } from '../../../../common/services/cache.service';
 import {
   addDays,
   addMinutes,
-  startOfWeek,
-  endOfWeek,
-  format,
   getDay,
   setHours,
   setMinutes,
@@ -174,10 +171,10 @@ export class FocusTimeService {
     const userPrefs = await this.getUserPreferences(userId);
     const busySlots = await this.getBusySlots(tenantId, lookAheadDays);
 
-    const [startHour, startMinute] = (userPrefs?.workingHoursStart ?? '09:00')
+    const [startHour] = (userPrefs?.workingHoursStart ?? '09:00')
       .split(':')
       .map(Number);
-    const [endHour, endMinute] = (userPrefs?.workingHoursEnd ?? '18:00')
+    const [endHour] = (userPrefs?.workingHoursEnd ?? '18:00')
       .split(':')
       .map(Number);
 

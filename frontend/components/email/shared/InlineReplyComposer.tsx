@@ -22,6 +22,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { getErrorMessage } from '@/lib/error-utils';
 import { useAuthStore } from '@/stores/auth-store';
 
 /**
@@ -215,11 +216,11 @@ export const InlineReplyComposer: React.FC<InlineReplyComposerProps> = ({
       setBody('');
       setIsExpanded(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t.email.composer.sendError);
+      setError(getErrorMessage(err, t));
     } finally {
       setIsSending(false);
     }
-  }, [body, onSend, getRecipients, getSubject, replyTo.messageId, t.email.composer.sendError]);
+  }, [body, onSend, getRecipients, getSubject, replyTo.messageId, t]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

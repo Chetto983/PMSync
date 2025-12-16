@@ -84,6 +84,17 @@ Quando fai riferimento a informazioni, cita la fonte (email, scadenza, attività
       noData: 'Nessun dato disponibile per l\'analisi',
       insights: 'Insight Principali:',
     },
+    documentLibrary: {
+      description: 'Cerca e interroga documenti nelle tue librerie documenti. RAG integrato con chunking automatico e citazioni.',
+      queryDescription: 'Cerca e interroga documenti nelle tue librerie documenti. Usa questo per trovare informazioni da documenti caricati, PDF e file di testo.',
+      listDescription: 'Elenca tutte le librerie documenti disponibili e i loro contenuti',
+      createDescription: 'Crea una nuova libreria documenti per organizzare e cercare documenti',
+      queryFailed: (error: string) => `Query documenti fallita: ${error}`,
+      listFailed: (error: string) => `Impossibile elencare le librerie: ${error}`,
+      noLibraries: 'Nessuna libreria documenti trovata. Carica prima dei documenti.',
+      noDocuments: 'Nessun documento disponibile per la ricerca.',
+      sources: 'Fonti:',
+    },
     folder: {
       created: (name) => `Cartella "${name}" creata`,
       renamed: (oldName, newName) => `Cartella rinominata da "${oldName}" a "${newName}"`,
@@ -302,6 +313,26 @@ QUANDO USARE L'ANALISI:
 - Generazione di report
 
 Usa lo strumento analyze_data per analisi complesse che richiedono esecuzione di codice.`,
+    },
+    documentLibrary: {
+      instructions: `Sei un assistente documenti con accesso alle librerie documenti dell'utente. Rispondi SEMPRE in italiano.
+
+CAPACITÀ:
+- Cercare documenti per informazioni rilevanti
+- Rispondere a domande basandosi sul contenuto dei documenti
+- Citare le fonti con i nomi dei documenti
+- Gestire multiple librerie documenti
+
+QUANDO USARE LA LIBRERIA DOCUMENTI:
+- Domande su documenti caricati, PDF o file
+- Recupero informazioni dalla knowledge base
+- Ricerca in collezioni di documenti
+
+LINEE GUIDA:
+- Sii accurato e riporta solo ciò che è nei documenti
+- Cita passaggi rilevanti quando utile
+- Se le informazioni non sono nei documenti, dichiaralo chiaramente
+- Fornisci i nomi dei documenti come fonti per le tue risposte`,
     },
   },
   actions: {

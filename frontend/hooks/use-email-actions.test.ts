@@ -4,6 +4,7 @@ import { createElement, type ReactNode } from 'react';
 import { useEmailActions } from './use-email-actions';
 import { useEmailStore } from '@/stores/email-store';
 import { emailApi } from '@/lib/api/email';
+import { getTranslations } from '@/locales';
 
 // Mock the email API
 jest.mock('@/lib/api/email', () => ({
@@ -41,6 +42,7 @@ function createWrapper() {
 // Mock next/router is already in jest.setup.ts
 
 describe('useEmailActions', () => {
+  const t = getTranslations('en');
   const mockEmail = {
     id: 'email-1',
     providerId: 'provider-1',
@@ -100,7 +102,7 @@ describe('useEmailActions', () => {
       expect(emailApi.deleteEmail).toHaveBeenCalledWith('email-1');
 
       // Check success callback
-      expect(onSuccess).toHaveBeenCalledWith('Email deleted successfully ✓');
+      expect(onSuccess).toHaveBeenCalledWith(t.email.messages.deleted.replace('{count}', '1'));
     });
 
     it('should rollback on API failure', async () => {
@@ -121,7 +123,7 @@ describe('useEmailActions', () => {
       });
 
       // Check error callback
-      expect(onError).toHaveBeenCalledWith('Failed to delete email. Please try again.');
+      expect(onError).toHaveBeenCalledWith(t.email.messages.deleteFailed);
     });
   });
 
@@ -145,7 +147,7 @@ describe('useEmailActions', () => {
       expect(emailApi.bulkDelete).toHaveBeenCalledWith(['email-1', 'email-2']);
 
       // Check success callback
-      expect(onSuccess).toHaveBeenCalledWith('2 emails deleted successfully ✓');
+      expect(onSuccess).toHaveBeenCalledWith(t.email.messages.deleted.replace('{count}', '2'));
     });
 
     it('should rollback all emails on API failure', async () => {
@@ -165,7 +167,7 @@ describe('useEmailActions', () => {
         expect(useEmailStore.getState().emails).toHaveLength(2);
       });
 
-      expect(onError).toHaveBeenCalledWith('Failed to delete emails. Please try again.');
+      expect(onError).toHaveBeenCalledWith(t.email.messages.deleteFailed);
     });
   });
 
@@ -188,7 +190,7 @@ describe('useEmailActions', () => {
       // Check API was called
       expect(emailApi.bulkMarkRead).toHaveBeenCalledWith(['email-1'], true);
 
-      expect(onSuccess).toHaveBeenCalledWith('Marked as read ✓');
+      expect(onSuccess).toHaveBeenCalledWith(t.email.messages.markRead.replace('{count}', '1'));
     });
 
     it('should rollback read status on API failure', async () => {
@@ -211,7 +213,7 @@ describe('useEmailActions', () => {
         expect(useEmailStore.getState().emails.find(e => e.id === 'email-1')?.isRead).toBe(false);
       });
 
-      expect(onError).toHaveBeenCalledWith('Failed to update email status. Please try again.');
+      expect(onError).toHaveBeenCalledWith(t.email.messages.markReadFailed);
     });
   });
 
@@ -234,7 +236,9 @@ describe('useEmailActions', () => {
       // Check API was called
       expect(emailApi.bulkMoveToFolder).toHaveBeenCalledWith(['email-1'], 'ARCHIVE');
 
-      expect(onSuccess).toHaveBeenCalledWith('1 email archived ✓');
+      expect(onSuccess).toHaveBeenCalledWith(
+        t.email.messages.moved.replace('{count}', '1').replace('{folder}', t.folders.archive)
+      );
     });
 
     it('should rollback folder on API failure', async () => {
@@ -254,7 +258,7 @@ describe('useEmailActions', () => {
         expect(useEmailStore.getState().emails.find(e => e.id === 'email-1')?.folder).toBe('INBOX');
       });
 
-      expect(onError).toHaveBeenCalledWith('Failed to archive emails. Please try again.');
+      expect(onError).toHaveBeenCalledWith(t.email.messages.moveFailed);
     });
   });
 
@@ -276,7 +280,9 @@ describe('useEmailActions', () => {
       expect(useEmailStore.getState().emails.find(e => e.id === 'email-2')?.folder).toBe('TRASH');
 
       expect(emailApi.bulkMoveToFolder).toHaveBeenCalledWith(['email-1', 'email-2'], 'TRASH');
-      expect(onSuccess).toHaveBeenCalledWith('2 emails moved ✓');
+      expect(onSuccess).toHaveBeenCalledWith(
+        t.email.messages.moved.replace('{count}', '2').replace('{folder}', t.folders.trash)
+      );
     });
 
     it('should rollback all folders on API failure', async () => {
@@ -297,7 +303,7 @@ describe('useEmailActions', () => {
         expect(useEmailStore.getState().emails.find(e => e.id === 'email-2')?.folder).toBe('INBOX');
       });
 
-      expect(onError).toHaveBeenCalledWith('Failed to move emails. Please try again.');
+      expect(onError).toHaveBeenCalledWith(t.email.messages.moveFailed);
     });
   });
 
@@ -322,7 +328,7 @@ describe('useEmailActions', () => {
         expect(useEmailStore.getState().emails.find(e => e.id === 'email-1')?.isRead).toBe(false);
       });
 
-      expect(onError).toHaveBeenCalledWith('Failed to update read status. Please try again.');
+      expect(onError).toHaveBeenCalledWith(t.email.messages.markReadFailed);
     });
   });
 
@@ -344,7 +350,7 @@ describe('useEmailActions', () => {
         expect(useEmailStore.getState().emails.find(e => e.id === 'email-1')?.isStarred).toBeFalsy();
       });
 
-      expect(onError).toHaveBeenCalledWith('Failed to update star status. Please try again.');
+      expect(onError).toHaveBeenCalledWith(t.email.messages.starFailed);
     });
   });
 });

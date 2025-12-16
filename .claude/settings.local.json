@@ -27,7 +27,11 @@
       "Bash(npx ts-node:*)",
       "Bash(curl:*)",
       "Bash(cat:*)",
-      "Bash(npx prisma format:*)"
+      "Bash(npx prisma format:*)",
+      "Bash(npm run lint:win:*)",
+      "Bash(timeout 120 npx ts-node:*)",
+      "Bash(timeout 180 npx ts-node:*)",
+      "Bash(timeout 300 npx ts-node:*)"
     ],
     "deny": []
   }

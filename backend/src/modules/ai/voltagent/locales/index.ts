@@ -90,6 +90,17 @@ export interface ToolTranslations {
     noData: string;
     insights: string;
   };
+  documentLibrary: {
+    description: string;
+    queryDescription: string;
+    listDescription: string;
+    createDescription: string;
+    queryFailed: (error: string) => string;
+    listFailed: (error: string) => string;
+    noLibraries: string;
+    noDocuments: string;
+    sources: string;
+  };
   folder: {
     created: (name: string) => string;
     renamed: (oldName: string, newName: string) => string;
@@ -213,6 +224,9 @@ export interface AgentTranslations {
     instructions: string;
   };
   analytics: {
+    instructions: string;
+  };
+  documentLibrary: {
     instructions: string;
   };
 }

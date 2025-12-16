@@ -403,13 +403,12 @@ export function ComposeDialog({
       let runningTotal = currentTotalSize;
 
       for (const file of Array.from(files)) {
-        if (!isFileTypeAllowed(file)) {
-          onError?.(
-            t.email.composer.fileTypeNotAllowed?.replace('{filename}', file.name) ||
-            `File type not allowed: ${file.name}`
-          );
-          continue;
-        }
+          if (!isFileTypeAllowed(file)) {
+            onError?.(
+            t.email.composer.fileTypeNotAllowed.replace('{filename}', file.name)
+            );
+            continue;
+          }
 
         if (file.size > MAX_FILE_SIZE) {
           onError?.(t.email.composer.fileTooLarge.replace('{filename}', file.name));
@@ -417,10 +416,7 @@ export function ComposeDialog({
         }
 
         if (runningTotal + file.size > MAX_TOTAL_SIZE) {
-          onError?.(
-            t.email.composer.totalSizeExceeded ||
-            'Total attachment size exceeds 25MB limit'
-          );
+          onError?.(t.email.composer.totalSizeExceeded);
           break;
         }
 
@@ -519,8 +515,7 @@ export function ComposeDialog({
         // Check file type (security whitelist)
         if (!isFileTypeAllowed(file)) {
           onError?.(
-            t.email.composer.fileTypeNotAllowed?.replace('{filename}', file.name) ||
-            `File type not allowed: ${file.name}`
+            t.email.composer.fileTypeNotAllowed.replace('{filename}', file.name)
           );
           continue;
         }
@@ -533,10 +528,7 @@ export function ComposeDialog({
 
         // Check total size limit
         if (runningTotal + file.size > MAX_TOTAL_SIZE) {
-          onError?.(
-            t.email.composer.totalSizeExceeded ||
-            'Total attachment size exceeds 25MB limit'
-          );
+          onError?.(t.email.composer.totalSizeExceeded);
           break; // Stop processing more files
         }
 
@@ -980,10 +972,10 @@ export function ComposeDialog({
             >
               <Upload size={48} color="#1976d2" />
               <Typography variant="h6" color="primary">
-                Drop files here
+                {t.email.composer.dropFilesHere}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Release to attach files
+                {t.email.composer.releaseToAttachFiles}
               </Typography>
             </Box>
           )}
