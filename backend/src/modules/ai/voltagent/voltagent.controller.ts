@@ -37,7 +37,7 @@ import { RelationshipIntelligenceService } from './services/relationship-intelli
 import { CalendarConflictService } from './services/calendar-conflict.service';
 import { FocusTimeService } from './services/focus-time.service';
 import { MeetingPrepService } from './services/meeting-prep.service';
-import { LongTermMemoryService, type MemoryCategory } from './memory';
+import { LongTermMemoryService, VoltAgentMemoryService, type MemoryCategory } from './memory';
 import type { AnalyticsResult, EmailAnalytics, DashboardAnalytics } from './services/analytics.service';
 import type { ApprovalResumeData } from './workflows';
 
@@ -129,6 +129,7 @@ export class VoltAgentController {
     private readonly calendarConflictService: CalendarConflictService,
     private readonly focusTimeService: FocusTimeService,
     private readonly meetingPrepService: MeetingPrepService,
+    private readonly voltAgentMemoryService: VoltAgentMemoryService,
   ) {}
 
   /**
@@ -2511,6 +2512,185 @@ export class VoltAgentController {
       success: true,
       count: meetings.length,
       meetings,
+    };
+  }
+
+  // ==========================================================================
+  // CONVERSATION MANAGEMENT ENDPOINTS
+  // ==========================================================================
+
+  /**
+   * List conversations for the current user.
+   */
+  @Get('conversations')
+  @ApiOperation({
+    summary: 'List conversations',
+    description: 'Returns a list of conversations for the current user, ordered by last activity.',
+  })
+  async listConversations(
+    @Req() req: AuthenticatedRequest,
+    @Query('limit') limit?: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const conversations = await this.voltAgentMemoryService.listConversations(
+      tenantId,
+      userId,
+      limit ? parseInt(limit, 10) : 20,
+    );
+
+    return {
+      success: true,
+      conversations,
+      count: conversations.length,
+    };
+  }
+
+  /**
+   * Get a single conversation with messages.
+   */
+  @Get('conversations/:conversationId')
+  @ApiOperation({
+    summary: 'Get conversation',
+    description: 'Returns a single conversation with its messages.',
+  })
+  @ApiParam({ name: 'conversationId', description: 'Conversation ID' })
+  async getConversation(
+    @Req() req: AuthenticatedRequest,
+    @Param('conversationId') conversationId: string,
+    @Query('messageLimit') messageLimit?: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const conversation = await this.voltAgentMemoryService.getConversation(
+      tenantId,
+      userId,
+      conversationId,
+      messageLimit ? parseInt(messageLimit, 10) : 50,
+    );
+
+    if (!conversation) {
+      throw new NotFoundException(`Conversation not found: ${conversationId}`);
+    }
+
+    return {
+      success: true,
+      conversation,
+    };
+  }
+
+  /**
+   * Update a conversation (rename, archive).
+   */
+  @Post('conversations/:conversationId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update conversation',
+    description: 'Update conversation title or archive status.',
+  })
+  @ApiParam({ name: 'conversationId', description: 'Conversation ID' })
+  async updateConversation(
+    @Req() req: AuthenticatedRequest,
+    @Param('conversationId') conversationId: string,
+    @Body() body: { title?: string; isArchived?: boolean },
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const updated = await this.voltAgentMemoryService.updateConversation(
+      tenantId,
+      userId,
+      conversationId,
+      body,
+    );
+
+    if (!updated) {
+      throw new NotFoundException(`Conversation not found: ${conversationId}`);
+    }
+
+    return {
+      success: true,
+      message: 'Conversation updated',
+    };
+  }
+
+  /**
+   * Delete a conversation (soft delete).
+   */
+  @Post('conversations/:conversationId/delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete conversation',
+    description: 'Soft delete a conversation.',
+  })
+  @ApiParam({ name: 'conversationId', description: 'Conversation ID' })
+  async deleteConversation(
+    @Req() req: AuthenticatedRequest,
+    @Param('conversationId') conversationId: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    const deleted = await this.voltAgentMemoryService.deleteConversation(
+      tenantId,
+      userId,
+      conversationId,
+    );
+
+    if (!deleted) {
+      throw new NotFoundException(`Conversation not found: ${conversationId}`);
+    }
+
+    return {
+      success: true,
+      message: 'Conversation deleted',
+    };
+  }
+
+  /**
+   * Generate a title for a conversation using AI.
+   */
+  @Post('conversations/:conversationId/generate-title')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Generate conversation title',
+    description: 'Uses AI to generate a descriptive title based on conversation content.',
+  })
+  @ApiParam({ name: 'conversationId', description: 'Conversation ID' })
+  async generateConversationTitle(
+    @Req() req: AuthenticatedRequest,
+    @Param('conversationId') conversationId: string,
+    @Query('locale') locale?: string,
+  ) {
+    const { tenantId, userId } = req.user;
+
+    // Verify conversation exists and belongs to user
+    const conversation = await this.voltAgentMemoryService.getConversation(
+      tenantId,
+      userId,
+      conversationId,
+      1,
+    );
+
+    if (!conversation) {
+      throw new NotFoundException(`Conversation not found: ${conversationId}`);
+    }
+
+    // Generate title
+    const title = await this.voltAgentMemoryService.generateTitle(
+      conversationId,
+      locale,
+    );
+
+    // Update the conversation with the new title
+    await this.voltAgentMemoryService.updateConversation(
+      tenantId,
+      userId,
+      conversationId,
+      { title },
+    );
+
+    return {
+      success: true,
+      title,
     };
   }
 }

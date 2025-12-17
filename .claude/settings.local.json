@@ -41,7 +41,8 @@
       "Bash(npm install:*)",
       "Bash(git clone:*)",
       "Bash(npm search:*)",
-      "Bash(npm view:*)"
+      "Bash(npm view:*)",
+      "Bash(cd:*)"
     ],
     "deny": []
   }

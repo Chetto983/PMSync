@@ -97,6 +97,8 @@ export class EmailsController {
   @ApiQuery({ name: 'specialUse', required: false, type: String, description: 'RFC 6154 folder type: INBOX, SENT, DRAFTS, TRASH, SPAM, ARCHIVE' })
   @ApiQuery({ name: 'isRead', required: false, type: Boolean, description: 'Filter by read status' })
   @ApiQuery({ name: 'isStarred', required: false, type: Boolean, description: 'Filter by starred status' })
+  @ApiQuery({ name: 'isFlagged', required: false, type: Boolean, description: 'Filter by flagged/important status' })
+  @ApiQuery({ name: 'isImportant', required: false, type: Boolean, description: 'Filter emails that are starred OR flagged (important)' })
   @ApiQuery({ name: 'hasAttachments', required: false, type: Boolean, description: 'Filter emails with attachments' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in subject, from, body' })
   @ApiQuery({ name: 'labelIds', required: false, type: String, description: 'Comma-separated label IDs' })
@@ -113,6 +115,8 @@ export class EmailsController {
     @Query('specialUse') specialUse?: string, // RFC 6154: aggregate by folder type
     @Query('isRead') isRead?: string,
     @Query('isStarred') isStarred?: string,
+    @Query('isFlagged') isFlagged?: string,
+    @Query('isImportant') isImportant?: string,
     @Query('hasAttachments') hasAttachments?: string,
     @Query('search') search?: string,
     @Query('from') from?: string,
@@ -148,6 +152,8 @@ export class EmailsController {
     if (specialUse) filters.specialUse = specialUse; // RFC 6154: aggregate by folder type
     if (isRead !== undefined) filters.isRead = isRead === 'true';
     if (isStarred !== undefined) filters.isStarred = isStarred === 'true';
+    if (isFlagged !== undefined) filters.isFlagged = isFlagged === 'true';
+    if (isImportant !== undefined) filters.isImportant = isImportant === 'true';
     if (hasAttachments !== undefined) filters.hasAttachments = hasAttachments === 'true';
     if (search) filters.search = search;
     if (from) filters.from = from;

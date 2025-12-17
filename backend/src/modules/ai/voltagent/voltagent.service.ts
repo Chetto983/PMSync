@@ -69,6 +69,8 @@ export interface ChatResult {
   cacheSimilarity?: number;
   /** Whether conversation context was truncated due to token budget */
   contextTruncated?: boolean;
+  /** Conversation ID for session persistence */
+  conversationId?: string;
 }
 
 export interface PendingAction {
@@ -639,6 +641,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     });
 
     // 4. Persist messages to Prisma-based memory (conversation history)
+    let persistedConversationId: string | undefined;
     if (this.voltAgentMemoryService) {
       const memoryContext = {
         tenantId: options.tenantId,
@@ -647,8 +650,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         locale: options.locale,
       };
 
-      // Save user message
-      await this.voltAgentMemoryService.addMessage(memoryContext, {
+      // Save user message (returns the conversationId)
+      persistedConversationId = await this.voltAgentMemoryService.addMessage(memoryContext, {
         role: 'user',
         content: message,
       });
@@ -659,7 +662,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         content: result.text,
       });
 
-      this.logger.debug(`${logPrefix} Messages persisted to memory`);
+      this.logger.debug(`${logPrefix} Messages persisted to conversation ${persistedConversationId}`);
     }
 
     // 5. Store to long-term memory (async, non-blocking)
@@ -750,6 +753,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       model: selectedModel,
       fromCache: false,
       contextTruncated,
+      conversationId: persistedConversationId,
     };
   }
 

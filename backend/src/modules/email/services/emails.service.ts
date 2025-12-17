@@ -12,6 +12,10 @@ export interface EmailListFilters {
   specialUse?: string;
   isRead?: boolean;
   isStarred?: boolean;
+  /** Filter by flagged/important status */
+  isFlagged?: boolean;
+  /** Filter emails that are starred OR flagged (combines both) */
+  isImportant?: boolean;
   hasAttachments?: boolean;
   search?: string;
   from?: string;
@@ -238,6 +242,11 @@ export class EmailsService {
       ...(!isTrashView ? { isDeleted: false } : {}),
       ...(filters.isRead !== undefined && { isRead: filters.isRead }),
       ...(filters.isStarred !== undefined && { isStarred: filters.isStarred }),
+      ...(filters.isFlagged !== undefined && { isFlagged: filters.isFlagged }),
+      // isImportant = starred OR flagged (provider-agnostic "important" concept)
+      ...(filters.isImportant !== undefined && {
+        OR: [{ isStarred: filters.isImportant }, { isFlagged: filters.isImportant }],
+      }),
       ...(filters.hasAttachments
         ? { attachments: { some: {} } }
         : undefined),
@@ -652,12 +661,28 @@ export class EmailsService {
   /**
    * Get email statistics
    * Returns counts for smart filters (unread, starred, today, thisWeek, attachments, important)
+   * IMPORTANT: Unread count excludes TRASH and SPAM folders (RFC 6154 specialUse)
    */
   async getStats(tenantId: string, providerId?: string) {
+    // Get TRASH and SPAM folder paths to exclude from unread count
+    const excludedFolderPaths = await this.getFolderPathsBySpecialUse(
+      tenantId,
+      ['TRASH', 'SPAM', 'JUNK'],
+      providerId,
+    );
+
     const where: Prisma.EmailWhereInput = {
       tenantId,
       isDeleted: false,
       ...(providerId && { providerId }),
+    };
+
+    // Where clause excluding TRASH/SPAM for unread count
+    const whereExcludingTrashSpam: Prisma.EmailWhereInput = {
+      ...where,
+      ...(excludedFolderPaths.length > 0 && {
+        folder: { notIn: excludedFolderPaths, mode: 'insensitive' },
+      }),
     };
 
     // Calculate date ranges for smart filters
@@ -675,7 +700,8 @@ export class EmailsService {
 
     const [total, unread, starred, important, today, thisWeek, attachments, byFolder] = await Promise.all([
       this.prisma.email.count({ where }),
-      this.prisma.email.count({ where: { ...where, isRead: false } }),
+      // CRITICAL: Exclude TRASH and SPAM from unread count
+      this.prisma.email.count({ where: { ...whereExcludingTrashSpam, isRead: false } }),
       this.prisma.email.count({ where: { ...where, isStarred: true } }),
       this.prisma.email.count({ where: { ...where, OR: [{ isStarred: true }, { isFlagged: true }] } }),
       this.prisma.email.count({

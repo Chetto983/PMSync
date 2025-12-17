@@ -175,13 +175,13 @@ export function StatsGrid() {
       value: stats?.todayEvents ?? 0,
       label: t.dashboard.home.stats.todayEvents,
       icon: <Calendar size={24} />,
-      gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+      gradient: `linear-gradient(135deg, ${theme.palette.success.main} 0%, ${theme.palette.success.dark} 100%)`,
     },
     {
       value: stats?.pendingTasks ?? 0,
       label: t.dashboard.home.stats.pendingTasks,
       icon: <CheckSquare size={24} />,
-      gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+      gradient: `linear-gradient(135deg, ${theme.palette.warning.main} 0%, ${theme.palette.warning.dark} 100%)`,
     },
   ];
 

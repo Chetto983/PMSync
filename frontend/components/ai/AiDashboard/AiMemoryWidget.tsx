@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Typography, Paper, Chip, Button, Skeleton, TextField, IconButton, alpha, useTheme } from '@mui/material';
+import { Box, Typography, Chip, Button, Skeleton, TextField, IconButton, alpha, useTheme } from '@mui/material';
 import { Brain, Plus, Trash2, Search, Lightbulb, Heart, Briefcase, Users } from 'lucide-react';
 import { useQuery, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { voltAgentApi, type LongTermMemoryItem } from '@/lib/api/ai';
+import { CollapsibleWidget } from './CollapsibleWidget';
 
 function memoriesOptions() {
   return queryOptions({
@@ -66,82 +67,54 @@ export function AiMemoryWidget() {
 
   if (isLoading) {
     return (
-      <Paper
-        elevation={0}
+      <Box
         sx={{
           borderRadius: 4,
           border: '1px solid',
           borderColor: alpha(theme.palette.divider, 0.08),
-          p: 2.5,
+          p: 2,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-          <Skeleton variant="rounded" width={40} height={40} sx={{ borderRadius: 2 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 2 }} />
           <Box sx={{ flex: 1 }}>
-            <Skeleton width="50%" height={20} />
-            <Skeleton width="70%" height={14} sx={{ mt: 0.5 }} />
+            <Skeleton width="50%" height={18} />
+            <Skeleton width="70%" height={12} sx={{ mt: 0.5 }} />
           </Box>
         </Box>
-        <Skeleton variant="rounded" height={100} sx={{ borderRadius: 2 }} />
-      </Paper>
+      </Box>
     );
   }
 
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        borderRadius: 4,
-        border: '1px solid',
-        borderColor: alpha(theme.palette.divider, 0.08),
-        bgcolor: 'background.paper',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Header */}
-      <Box
-        sx={{
-          p: 2,
-          borderBottom: '1px solid',
-          borderColor: alpha(theme.palette.divider, 0.08),
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-        }}
-      >
-        <Box
-          sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 2,
-            background: `linear-gradient(135deg, ${theme.palette.secondary.main} 0%, #7c3aed 100%)`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-          }}
-        >
-          <Brain size={20} />
-        </Box>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            {t.ai?.memory?.title || 'AI Memory'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {t.ai?.memory?.subtitle || 'What the AI remembers about you'}
-          </Typography>
-        </Box>
-        <Button
-          size="small"
-          startIcon={<Plus size={14} />}
-          onClick={() => setShowInput(!showInput)}
-          sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-        >
-          {t.ai?.memory?.add || 'Add'}
-        </Button>
-      </Box>
+  // Collapsed summary - show memory count
+  const collapsedSummary = (
+    <Typography variant="caption" color="text.secondary">
+      {memories.length} {memories.length === 1 ? 'memory' : 'memories'}
+    </Typography>
+  );
 
-      {/* Content */}
+  // Header action - Add button
+  const headerAction = (
+    <Button
+      size="small"
+      startIcon={<Plus size={14} />}
+      onClick={() => setShowInput(!showInput)}
+      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+    >
+      {t.ai?.memory?.add || 'Add'}
+    </Button>
+  );
+
+  return (
+    <CollapsibleWidget
+      title={t.ai?.memory?.title || 'AI Memory'}
+      subtitle={t.ai?.memory?.subtitle || 'What AI remembers'}
+      icon={<Brain size={18} />}
+      iconBgColor={`linear-gradient(135deg, ${theme.palette.secondary.main} 0%, ${theme.palette.primary.main} 100%)`}
+      defaultExpanded={false}
+      collapsedSummary={collapsedSummary}
+      headerAction={headerAction}
+    >
       <Box sx={{ p: 2 }}>
         {/* Add new fact input */}
         {showInput && (
@@ -178,32 +151,29 @@ export function AiMemoryWidget() {
         )}
 
         {memories.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 3 }}>
+          <Box sx={{ textAlign: 'center', py: 2 }}>
             <Box
               sx={{
-                width: 48,
-                height: 48,
+                width: 40,
+                height: 40,
                 borderRadius: 2,
                 bgcolor: alpha(theme.palette.secondary.main, 0.1),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 mx: 'auto',
-                mb: 1.5,
+                mb: 1,
               }}
             >
-              <Search size={24} style={{ opacity: 0.5 }} />
+              <Search size={20} style={{ opacity: 0.5 }} />
             </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            <Typography variant="body2" color="text.secondary">
               {t.ai?.memory?.noMemories || 'No memories saved'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {t.ai?.memory?.noMemoriesHint || 'The AI learns from your interactions and preferences'}
             </Typography>
           </Box>
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {memories.slice(0, 5).map((memory: LongTermMemoryItem) => {
+            {memories.slice(0, 4).map((memory: LongTermMemoryItem) => {
               const category = memory.category?.toUpperCase() || 'GENERAL';
               const color = categoryColors[category] || categoryColors.GENERAL;
               const icon = categoryIcons[category] || categoryIcons.GENERAL;
@@ -212,7 +182,7 @@ export function AiMemoryWidget() {
                 <Box
                   key={memory.id}
                   sx={{
-                    p: 1.5,
+                    p: 1,
                     borderRadius: 2,
                     bgcolor: alpha(theme.palette.background.default, 0.5),
                     border: '1px solid',
@@ -227,7 +197,7 @@ export function AiMemoryWidget() {
                     label={category.toLowerCase()}
                     size="small"
                     sx={{
-                      height: 20,
+                      height: 18,
                       fontSize: '0.6rem',
                       bgcolor: alpha(color, 0.1),
                       color: color,
@@ -250,15 +220,15 @@ export function AiMemoryWidget() {
               );
             })}
 
-            {memories.length > 5 && (
-              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', mt: 1 }}>
-                {(t.ai?.memory?.moreMemories || '+{count} more memories').replace('{count}', String(memories.length - 5))}
+            {memories.length > 4 && (
+              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                {(t.ai?.memory?.moreMemories || '+{count} more').replace('{count}', String(memories.length - 4))}
               </Typography>
             )}
           </Box>
         )}
       </Box>
-    </Paper>
+    </CollapsibleWidget>
   );
 }
 

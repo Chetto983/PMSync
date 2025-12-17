@@ -11,20 +11,25 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { Inbox, ArrowRight, Mail, Clock, Star } from 'lucide-react';
+import { ArrowRight, Mail, Clock, Star } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useRecentUnreadEmails, type Email } from '@/hooks/queries';
+import { useImportantEmails, type Email } from '@/hooks/queries';
 
 interface PriorityInboxProps {
   limit?: number;
 }
 
+/**
+ * PriorityInbox - Shows IMPORTANT emails (starred OR flagged)
+ * Provider-agnostic "important" concept that works across Gmail, Outlook, IMAP
+ */
 export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
   const router = useRouter();
   const t = useTranslations();
   const theme = useTheme();
-  const { data, isLoading } = useRecentUnreadEmails({ limit });
+  // Use important emails (starred OR flagged) - provider-agnostic
+  const { data, isLoading } = useImportantEmails({ limit });
 
   const emails = data?.emails || [];
 
@@ -77,21 +82,21 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
             width: 40,
             height: 40,
             borderRadius: 2.5,
-            bgcolor: alpha(theme.palette.primary.main, 0.1),
+            bgcolor: alpha(theme.palette.warning.main, 0.1),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'primary.main',
+            color: 'warning.main',
           }}
         >
-          <Inbox size={20} />
+          <Star size={20} />
         </Box>
         <Box sx={{ flex: 1 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
-            {t.email.quickFilters.unread}
+            {t.email.quickFilters.important}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {t.dashboard.home.stats.unreadEmails}
+            {t.dashboard.home.sections.priorityEmails}
           </Typography>
         </Box>
         {emails.length > 0 && (
@@ -99,8 +104,8 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
             label={emails.length}
             size="small"
             sx={{
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-              color: 'primary.main',
+              bgcolor: alpha(theme.palette.warning.main, 0.1),
+              color: 'warning.main',
               fontWeight: 600,
               fontSize: '0.75rem',
             }}
@@ -130,7 +135,7 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
                 width: 64,
                 height: 64,
                 borderRadius: 3,
-                bgcolor: alpha(theme.palette.success.main, 0.08),
+                bgcolor: alpha(theme.palette.warning.main, 0.08),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -138,10 +143,10 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
                 mb: 2,
               }}
             >
-              <Inbox size={28} style={{ opacity: 0.5, color: theme.palette.success.main }} />
+              <Star size={28} style={{ opacity: 0.5, color: theme.palette.warning.main }} />
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {t.common.allCaughtUp}
+              {t.dashboard.home.sections.noStarredEmails || 'No starred emails'}
             </Typography>
             <Button
               variant="contained"
@@ -152,8 +157,8 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 600,
-                bgcolor: 'primary.main',
-                '&:hover': { bgcolor: 'primary.dark' },
+                bgcolor: 'warning.main',
+                '&:hover': { bgcolor: 'warning.dark' },
               }}
             >
               {t.dashboard.home.sections.viewAllEmails}
@@ -213,7 +218,7 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
                         {email.from.name}
                       </Typography>
                       {email.isStarred && (
-                        <Star size={14} fill="#FFB300" color="#FFB300" style={{ flexShrink: 0 }} />
+                        <Star size={14} fill={theme.palette.warning.main} color={theme.palette.warning.main} style={{ flexShrink: 0 }} />
                       )}
                     </Box>
                     <Typography
@@ -272,19 +277,19 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
             fullWidth
             size="small"
             endIcon={<ArrowRight size={16} />}
-            onClick={() => router.push('/dashboard/email')}
+            onClick={() => router.push('/dashboard/email?filter=starred')}
             sx={{
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 500,
-              color: 'primary.main',
-              bgcolor: alpha(theme.palette.primary.main, 0.06),
+              color: 'warning.main',
+              bgcolor: alpha(theme.palette.warning.main, 0.06),
               '&:hover': {
-                bgcolor: alpha(theme.palette.primary.main, 0.12),
+                bgcolor: alpha(theme.palette.warning.main, 0.12),
               },
             }}
           >
-            {t.dashboard.home.sections.viewAllEmails}
+            {t.dashboard.home.sections.viewStarredEmails}
           </Button>
         </Box>
       )}

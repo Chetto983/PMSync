@@ -1,11 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Box, Typography, Paper, Chip, Button, Skeleton, alpha, useTheme } from '@mui/material';
+import { Box, Typography, Chip, Button, Skeleton, alpha, useTheme } from '@mui/material';
 import { Zap, Check, X, ArrowRight } from 'lucide-react';
 import { useQuery, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { multiAgentApi } from '@/lib/api/ai';
+import { CollapsibleWidget } from './CollapsibleWidget';
 
 function pendingActionsOptions() {
   return queryOptions({
@@ -42,87 +43,53 @@ export function PendingActionsWidget() {
 
   if (isLoading) {
     return (
-      <Paper
-        elevation={0}
+      <Box
         sx={{
           borderRadius: 4,
           border: '1px solid',
           borderColor: alpha(theme.palette.divider, 0.08),
-          p: 2.5,
+          p: 2,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-          <Skeleton variant="rounded" width={40} height={40} sx={{ borderRadius: 2 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Skeleton variant="rounded" width={36} height={36} sx={{ borderRadius: 2 }} />
           <Box sx={{ flex: 1 }}>
-            <Skeleton width="50%" height={20} />
-            <Skeleton width="70%" height={14} sx={{ mt: 0.5 }} />
+            <Skeleton width="50%" height={18} />
+            <Skeleton width="70%" height={12} sx={{ mt: 0.5 }} />
           </Box>
         </Box>
-        <Skeleton variant="rounded" height={100} sx={{ borderRadius: 2 }} />
-      </Paper>
+      </Box>
     );
   }
 
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        borderRadius: 4,
-        border: '1px solid',
-        borderColor: alpha(theme.palette.divider, 0.08),
-        bgcolor: 'background.paper',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Header */}
-      <Box
-        sx={{
-          p: 2,
-          borderBottom: '1px solid',
-          borderColor: alpha(theme.palette.divider, 0.08),
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-        }}
-      >
-        <Box
-          sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 2,
-            bgcolor: alpha(theme.palette.warning.main, 0.1),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'warning.main',
-          }}
-        >
-          <Zap size={20} />
-        </Box>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            {t.ai?.pendingActions || 'Azioni in sospeso'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {t.ai?.pendingActionsHint || 'Richiede la tua approvazione'}
-          </Typography>
-        </Box>
-        {actions.length > 0 && (
-          <Chip
-            label={actions.length}
-            size="small"
-            color="warning"
-            sx={{ fontWeight: 700 }}
-          />
-        )}
-      </Box>
+  // Collapsed summary - show count badge
+  const collapsedSummary = actions.length > 0 ? (
+    <Chip
+      label={actions.length}
+      size="small"
+      color="warning"
+      sx={{ fontWeight: 700, height: 22 }}
+    />
+  ) : (
+    <Typography variant="caption" color="text.secondary">
+      {t.ai?.noPendingActions || 'None'}
+    </Typography>
+  );
 
-      {/* Content */}
+  return (
+    <CollapsibleWidget
+      title={t.ai?.pendingActions || 'Pending Actions'}
+      subtitle={t.ai?.pendingActionsHint || 'Requires your approval'}
+      icon={<Zap size={18} />}
+      iconBgColor={alpha(theme.palette.warning.main, 0.9)}
+      defaultExpanded={actions.length > 0}
+      collapsedSummary={collapsedSummary}
+    >
       <Box sx={{ p: 2 }}>
         {actions.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 3 }}>
+          <Box sx={{ textAlign: 'center', py: 2 }}>
             <Typography variant="body2" color="text.secondary">
-              {t.ai?.noPendingActions || 'Nessuna azione in sospeso'}
+              {t.ai?.noPendingActions || 'No pending actions'}
             </Typography>
           </Box>
         ) : (
@@ -138,13 +105,13 @@ export function PendingActionsWidget() {
                   borderColor: alpha(theme.palette.divider, 0.08),
                 }}
               >
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
                   {action.actionType === 'SEND_EMAIL' && (t.ai?.actions?.sendEmail || 'Send email')}
                   {action.actionType === 'CREATE_EVENT' && (t.ai?.actions?.createEvent || 'Create event')}
                   {action.actionType === 'UPDATE_CONTACT' && (t.ai?.actions?.updateContact || 'Update contact')}
                   {!['SEND_EMAIL', 'CREATE_EVENT', 'UPDATE_CONTACT'].includes(action.actionType) && action.actionType.replace(/_/g, ' ')}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                   {action.summary || ''}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -155,7 +122,7 @@ export function PendingActionsWidget() {
                     startIcon={<Check size={14} />}
                     onClick={() => approveMutation.mutate(action.id)}
                     disabled={approveMutation.isPending}
-                    sx={{ flex: 1, textTransform: 'none', fontSize: '0.75rem' }}
+                    sx={{ flex: 1, textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}
                   >
                     {t.ai?.approve || 'Approve'}
                   </Button>
@@ -166,7 +133,7 @@ export function PendingActionsWidget() {
                     startIcon={<X size={14} />}
                     onClick={() => rejectMutation.mutate(action.id)}
                     disabled={rejectMutation.isPending}
-                    sx={{ flex: 1, textTransform: 'none', fontSize: '0.75rem' }}
+                    sx={{ flex: 1, textTransform: 'none', fontSize: '0.75rem', py: 0.5 }}
                   >
                     {t.ai?.reject || 'Reject'}
                   </Button>
@@ -180,13 +147,13 @@ export function PendingActionsWidget() {
                 endIcon={<ArrowRight size={14} />}
                 sx={{ textTransform: 'none', alignSelf: 'center' }}
               >
-                {t.common.viewAll || 'Vedi tutti'} ({actions.length})
+                {t.common.viewAll || 'View all'} ({actions.length})
               </Button>
             )}
           </Box>
         )}
       </Box>
-    </Paper>
+    </CollapsibleWidget>
   );
 }
 

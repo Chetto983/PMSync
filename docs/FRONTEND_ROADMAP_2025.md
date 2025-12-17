@@ -1,7 +1,7 @@
 # PMSync Frontend Refactoring Roadmap 2025
 
-**Version:** 2.0
-**Updated:** December 16, 2025
+**Version:** 2.1
+**Updated:** December 17, 2025
 **Status:** Active Development
 
 ---
@@ -184,13 +184,32 @@ Based on [Dashboard UI Design Principles 2025](https://www.designstudiouiux.com/
 
 #### 4.2 New Dashboard Components
 
-| Component | API Endpoint | Priority |
-|-----------|-------------|----------|
-| `DailyBriefing.tsx` | `GET /api/v1/voltagent/briefing` | P0 |
-| `DeadlineWidget.tsx` | `GET /api/v1/voltagent/deadlines` | P0 |
-| `FollowUpWidget.tsx` | `GET /api/v1/voltagent/followups` | P0 |
-| `CrmAlertsWidget.tsx` | `GET /api/v1/crm/stale-contacts` | P0 |
-| `SplitInbox.tsx` | `GET /api/v1/emails` + AI sorting | P1 |
+| Component | API Endpoint | Priority | Status |
+|-----------|-------------|----------|--------|
+| `DailyBriefing.tsx` | `GET /api/v1/voltagent/briefing` | P0 | ✅ Done |
+| `DeadlineWidget.tsx` | `GET /api/v1/voltagent/deadlines` | P0 | ✅ Done |
+| `FollowUpWidget.tsx` | `GET /api/v1/voltagent/followups` | P0 | ✅ Done |
+| `CrmAlertsWidget.tsx` | `GET /api/v1/crm/stale-contacts` | P0 | ✅ Done |
+| `PriorityInbox.tsx` | `GET /api/v1/emails?isImportant=true` | P0 | ✅ Done (Dec 17) |
+| `SplitInbox.tsx` | `GET /api/v1/emails` + AI sorting | P1 | Pending |
+
+#### 4.3 Dashboard Technical Improvements (December 17, 2025)
+
+**Responsive Design:**
+- All widgets use MUI Grid v2 with responsive breakpoints (`xs`, `sm`, `md`, `lg`)
+- CSS Grid with `minmax()` for fluid layouts
+- Theme-aware colors via `theme.palette.*` instead of hardcoded hex values
+
+**PriorityInbox Refactor:**
+- Changed from "last 5 unread emails" to "important emails" concept
+- Uses provider-agnostic `isImportant` filter (backend combines `isStarred OR isFlagged`)
+- Works across Gmail (starred), Outlook (flagged), and IMAP (flagged)
+- TanStack Query with `useImportantEmails()` hook
+
+**Unread Count Accuracy:**
+- `getStats()` now excludes TRASH and SPAM folders from unread count
+- Uses RFC 6154 `specialUse` folder types for proper filtering
+- `recentUnreadEmails` query uses `specialUse: 'INBOX'` filter
 
 ---
 
@@ -695,4 +714,19 @@ npm install tailadmin-nextjs
 
 ---
 
-*Last Updated: December 16, 2025*
+*Last Updated: December 17, 2025*
+
+---
+
+## Changelog
+
+### v2.1 (December 17, 2025)
+
+**Dashboard Improvements:**
+- ✅ **Responsive Dashboard** - All dashboard components now use MUI Grid responsive breakpoints
+- ✅ **Theme Colors** - Replaced all hardcoded colors (#7c3aed, #10b981, etc.) with `theme.palette.*` references
+- ✅ **PriorityInbox Enhancement** - Changed from "useless 5 unread emails" to provider-agnostic "Important emails" (starred OR flagged)
+- ✅ **Unread Count Fix** - Excluded TRASH/SPAM folders from unread count using RFC 6154 `specialUse`
+- ✅ **Provider-Agnostic Important Concept** - Backend `isImportant` filter combines `isStarred OR isFlagged`
+- ✅ **TanStack Query Pattern** - All dashboard queries use `queryOptions` pattern with proper caching
+- ✅ **Translations** - Added new translation keys for important emails widget

@@ -81,7 +81,7 @@ export function AiHubWidget() {
       <Box
         sx={{
           background: (theme) =>
-            `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 50%, #7c3aed 100%)`,
+            `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 50%, ${theme.palette.secondary.main} 100%)`,
           p: 2.5,
           color: 'white',
           position: 'relative',
@@ -236,7 +236,7 @@ export function AiHubWidget() {
                   '& .MuiLinearProgress-bar': {
                     borderRadius: 3,
                     background: (theme) =>
-                      `linear-gradient(90deg, ${theme.palette.primary.main} 0%, #7c3aed 100%)`,
+                      `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
                   },
                 }}
               />
@@ -287,10 +287,10 @@ export function AiHubWidget() {
                 textTransform: 'none',
                 fontWeight: 600,
                 background: (theme) =>
-                  `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #7c3aed 100%)`,
+                  `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
                 '&:hover': {
                   background: (theme) =>
-                    `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, #6d28d9 100%)`,
+                    `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.secondary.dark} 100%)`,
                 },
               }}
             >

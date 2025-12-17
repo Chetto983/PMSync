@@ -27,6 +27,7 @@ export type ChatResult = {
   text: string;
   requiresApproval?: boolean;
   pendingActions?: PendingActionSummary[];
+  conversationId?: string;
 };
 
 export type PendingActionSummary = {
@@ -141,6 +142,32 @@ export type ChatSession = {
   updatedAt: string;
 };
 
+// Conversation types (VoltAgent session management)
+export type ConversationSummary = {
+  id: string;
+  title: string | null;
+  lastActiveAt: string;
+  messageCount: number;
+};
+
+export type ConversationMessage = {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  toolCalls?: Array<{ tool: string; args: Record<string, unknown> }>;
+  toolResults?: Array<{ tool: string; result: unknown }>;
+  tokenCount?: number;
+  metadata?: Record<string, unknown>;
+};
+
+export type ConversationDetail = {
+  id: string;
+  title: string | null;
+  lastActiveAt: string;
+  messageCount: number;
+  createdAt: string;
+  messages: ConversationMessage[];
+};
+
 export type IntentResult = {
   intent: string;
   confidence: number;
@@ -151,6 +178,7 @@ export type IntentResult = {
 // MultiAgentResponse with extended fields for backwards compatibility
 export type MultiAgentResponse = ChatResult & {
   sessionId?: string;
+  conversationId?: string; // Alias for sessionId (PostgreSQL conversations)
   messages?: string[];
   pendingActionIds?: string[];
   executedActionIds?: string[];
@@ -625,6 +653,44 @@ export const voltAgentApi = {
     );
   },
 
+  // ============ Conversations (Chat Sessions) ============
+
+  listConversations(params?: { limit?: number }) {
+    return apiClient.get<{
+      success: boolean;
+      conversations: ConversationSummary[];
+      count: number;
+    }>('/api/v1/voltagent/conversations', { params });
+  },
+
+  getConversation(conversationId: string, params?: { messageLimit?: number }) {
+    return apiClient.get<{
+      success: boolean;
+      conversation: ConversationDetail;
+    }>(`/api/v1/voltagent/conversations/${encodeURIComponent(conversationId)}`, { params });
+  },
+
+  updateConversation(conversationId: string, payload: { title?: string; isArchived?: boolean }) {
+    return apiClient.post<{ success: boolean; message: string }>(
+      `/api/v1/voltagent/conversations/${encodeURIComponent(conversationId)}`,
+      payload,
+    );
+  },
+
+  deleteConversation(conversationId: string) {
+    return apiClient.post<{ success: boolean; message: string }>(
+      `/api/v1/voltagent/conversations/${encodeURIComponent(conversationId)}/delete`,
+    );
+  },
+
+  generateConversationTitle(conversationId: string, locale?: string) {
+    return apiClient.post<{ success: boolean; title: string }>(
+      `/api/v1/voltagent/conversations/${encodeURIComponent(conversationId)}/generate-title`,
+      undefined,
+      { params: locale ? { locale } : undefined },
+    );
+  },
+
   // ============ Deadlines ============
 
   getUpcomingDeadlines(params?: { days?: number }) {
@@ -925,19 +991,26 @@ export const multiAgentApi = {
   processMessage: async (payload: {
     message: string;
     sessionId?: string;
+    conversationId?: string; // Alias for sessionId
     forceAgent?: string;
     autoApproveThreshold?: number;
     locale?: string;
   }): Promise<MultiAgentResponse> => {
+    // Support both sessionId and conversationId (conversationId takes precedence)
+    const convId = payload.conversationId || payload.sessionId;
     const response = await voltAgentApi.chat({
       message: payload.message,
-      conversationId: payload.sessionId,
+      conversationId: convId,
       locale: payload.locale,
     });
     const result = response.data;
     // Map ChatResult to MultiAgentResponse format
+    // Return the conversationId from response or the one we sent
+    const responseConvId = (result as { conversationId?: string }).conversationId || convId;
     return {
       ...result,
+      sessionId: responseConvId,
+      conversationId: responseConvId,
       messages: result.text ? [result.text] : [],
       pendingActionIds: result.pendingActions?.map((a: PendingActionSummary) => a.id) ?? [],
       executedActionIds: [],

@@ -234,7 +234,7 @@ export class VoltAgentMemoryService implements OnModuleInit {
   async addMessage(
     ctx: ConversationContext,
     message: MemoryMessage,
-  ): Promise<void> {
+  ): Promise<string> {
     const { id: conversationId } = await this.getOrCreateConversation(ctx);
 
     // Get current message count
@@ -274,6 +274,9 @@ export class VoltAgentMemoryService implements OnModuleInit {
     if (messageIndex + 1 >= SUMMARIZATION_CONFIG.messageThreshold) {
       await this.maybeSummarize(conversationId, ctx);
     }
+
+    // Return the conversationId for session tracking
+    return conversationId;
   }
 
   /**
@@ -830,6 +833,92 @@ Reply in JSON format: {"summary": "...", "topics": ["..."], "keyFacts": [{"fact"
         messageCount: true,
       },
     });
+  }
+
+  /**
+   * Get a single conversation with its messages.
+   */
+  async getConversation(
+    tenantId: string,
+    userId: string,
+    conversationId: string,
+    messageLimit = 50,
+  ): Promise<{
+    id: string;
+    title: string | null;
+    lastActiveAt: Date;
+    messageCount: number;
+    createdAt: Date;
+    messages: MemoryMessage[];
+  } | null> {
+    const conversation = await this.prisma.voltAgentConversation.findFirst({
+      where: {
+        id: conversationId,
+        tenantId,
+        userId,
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+        title: true,
+        lastActiveAt: true,
+        messageCount: true,
+        createdAt: true,
+        messages: {
+          orderBy: { messageIndex: 'asc' },
+          take: messageLimit,
+          select: {
+            role: true,
+            content: true,
+            toolCalls: true,
+            toolResults: true,
+            tokenCount: true,
+            metadata: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!conversation) return null;
+
+    return {
+      id: conversation.id,
+      title: conversation.title,
+      lastActiveAt: conversation.lastActiveAt,
+      messageCount: conversation.messageCount,
+      createdAt: conversation.createdAt,
+      messages: conversation.messages.map((m) => ({
+        role: m.role as MessageRole,
+        content: m.content,
+        toolCalls: m.toolCalls as MemoryMessage['toolCalls'],
+        toolResults: m.toolResults as MemoryMessage['toolResults'],
+        tokenCount: m.tokenCount ?? undefined,
+        metadata: m.metadata as MemoryMessage['metadata'],
+      })),
+    };
+  }
+
+  /**
+   * Update conversation (rename, archive).
+   */
+  async updateConversation(
+    tenantId: string,
+    userId: string,
+    conversationId: string,
+    updates: { title?: string; isArchived?: boolean },
+  ): Promise<boolean> {
+    const result = await this.prisma.voltAgentConversation.updateMany({
+      where: {
+        id: conversationId,
+        tenantId,
+        userId,
+        isDeleted: false,
+      },
+      data: updates,
+    });
+
+    return result.count > 0;
   }
 
   /**

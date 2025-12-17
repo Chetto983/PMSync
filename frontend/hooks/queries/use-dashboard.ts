@@ -356,16 +356,18 @@ export interface Email {
 }
 
 /**
- * Query options for starred emails (priority inbox)
+ * Query options for important emails (starred OR flagged)
+ * Uses the backend isImportant filter for provider-agnostic "important" concept
  */
-export function starredEmailsOptions(params?: { limit?: number }) {
+export function importantEmailsOptions(params?: { limit?: number }) {
   return queryOptions({
-    queryKey: [...dashboardKeys.all, 'starredEmails', params] as const,
+    queryKey: [...dashboardKeys.all, 'importantEmails', params] as const,
     queryFn: async (): Promise<{ emails: Email[]; total: number }> => {
       const limit = params?.limit || 5;
       try {
         const response = await apiClient.get('/emails', {
-          params: { limit, isStarred: true },
+          // isImportant = starred OR flagged (provider-agnostic)
+          params: { limit, isImportant: true },
         });
         return {
           emails: response.data?.emails || [],
@@ -382,7 +384,13 @@ export function starredEmailsOptions(params?: { limit?: number }) {
 }
 
 /**
+ * @deprecated Use importantEmailsOptions instead
+ */
+export const starredEmailsOptions = importantEmailsOptions;
+
+/**
  * Query options for recent unread emails (for briefing highlights)
+ * IMPORTANT: Uses specialUse=INBOX to exclude TRASH and SPAM folders
  */
 export function recentUnreadEmailsOptions(params?: { limit?: number }) {
   return queryOptions({
@@ -391,7 +399,8 @@ export function recentUnreadEmailsOptions(params?: { limit?: number }) {
       const limit = params?.limit || 5;
       try {
         const response = await apiClient.get('/emails', {
-          params: { limit, isRead: false },
+          // Use specialUse: INBOX to exclude TRASH/SPAM from recent unread
+          params: { limit, isRead: false, specialUse: 'INBOX' },
         });
         return {
           emails: response.data?.emails || [],
@@ -533,11 +542,16 @@ export function useDashboardStats() {
 }
 
 /**
- * Hook for starred emails
+ * Hook for important emails (starred OR flagged)
  */
-export function useStarredEmails(params?: { limit?: number }) {
-  return useQuery(starredEmailsOptions(params));
+export function useImportantEmails(params?: { limit?: number }) {
+  return useQuery(importantEmailsOptions(params));
 }
+
+/**
+ * @deprecated Use useImportantEmails instead
+ */
+export const useStarredEmails = useImportantEmails;
 
 /**
  * Hook for today's events
