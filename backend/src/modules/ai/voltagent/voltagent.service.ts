@@ -656,6 +656,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         content: message,
       });
 
+      // Update context with the persisted conversationId for subsequent calls
+      memoryContext.conversationId = persistedConversationId;
+
       // Save assistant response
       await this.voltAgentMemoryService.addMessage(memoryContext, {
         role: 'assistant',
@@ -865,11 +868,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         locale: options.locale,
       };
 
-      // Save user message
-      await this.voltAgentMemoryService.addMessage(memoryContext, {
+      // Save user message (returns the conversationId)
+      const convId = await this.voltAgentMemoryService.addMessage(memoryContext, {
         role: 'user',
         content: message,
       });
+
+      // Update context with the persisted conversationId for subsequent calls
+      memoryContext.conversationId = convId;
 
       // Save assistant response
       await this.voltAgentMemoryService.addMessage(memoryContext, {

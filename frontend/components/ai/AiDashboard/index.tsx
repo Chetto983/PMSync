@@ -261,15 +261,25 @@ export function AiDashboard() {
           }}
         >
           {/* Chat Messages */}
-          <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 3 } }}>
+          <Box
+            sx={{
+              flex: 1,
+              overflow: 'auto',
+              p: { xs: 2, md: 3 },
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             {messages.length === 0 ? (
               <Suspense fallback={<WidgetSkeleton height={300} />}>
                 <QuickActions onSelectQuery={handleSendMessage} userName={userName} />
               </Suspense>
             ) : (
-              <Suspense fallback={<WidgetSkeleton height={300} />}>
-                <ChatMessages messages={messages} sending={sending} />
-              </Suspense>
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Suspense fallback={<WidgetSkeleton height={300} />}>
+                  <ChatMessages messages={messages} sending={sending} />
+                </Suspense>
+              </Box>
             )}
           </Box>
 

@@ -719,9 +719,7 @@ export function ChatSessionList({
             color="error"
             size="small"
             onClick={() => {
-              const idsToDelete = [...selectedIds];
-              console.log('[BulkDelete] Button clicked, selectedIds:', idsToDelete);
-              bulkDeleteMutation.mutate(idsToDelete);
+              bulkDeleteMutation.mutate([...selectedIds]);
             }}
             disabled={bulkDeleteMutation.isPending}
           >

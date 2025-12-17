@@ -121,7 +121,15 @@ export function ChatMessages({ messages, sending }: ChatMessagesProps) {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        minHeight: '100%',
+        justifyContent: messages.length <= 4 ? 'flex-end' : 'flex-start',
+      }}
+    >
       {messages.map((message, index) => (
         <Box
           key={index}
