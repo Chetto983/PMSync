@@ -151,6 +151,10 @@ interface MailboxProps {
    * Initial search query from URL or external source
    */
   initialSearchQuery?: string;
+  /**
+   * Initial email ID to open when component mounts
+   */
+  initialEmailId?: string;
 }
 
 /**
@@ -164,7 +168,7 @@ interface MailboxProps {
  * - email-store for global state
  * - Custom hooks for actions and keyboard navigation
  */
-export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
+export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {}) {
   const router = useRouter();
   const t = useTranslations();
   const theme = useTheme();
@@ -1233,6 +1237,21 @@ export function Mailbox({ initialSearchQuery }: MailboxProps = {}) {
       setSelectedFolderId(combinedFolders[0].id);
     }
   }, [combinedFolders, selectedFolderId]);
+
+  // Load initial email from URL parameter (e.g., ?id=xxx from dashboard widgets)
+  useEffect(() => {
+    if (initialEmailId && !storeSelectedEmail) {
+      emailApi.getEmail(initialEmailId)
+        .then((response) => {
+          if (response.data) {
+            setSelectedEmail(response.data);
+          }
+        })
+        .catch((error) => {
+          logger.error('Failed to load initial email', { error, emailId: initialEmailId });
+        });
+    }
+  }, [initialEmailId, setSelectedEmail, storeSelectedEmail]);
 
   // Close detail + selection on context changes (folder/filter/search)
   useEffect(() => {

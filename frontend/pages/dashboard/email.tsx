@@ -19,8 +19,9 @@ import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 export default function EmailPage() {
   const router = useRouter();
 
-  // Read search query parameter from URL
+  // Read query parameters from URL
   const searchQuery = typeof router.query.search === 'string' ? router.query.search : undefined;
+  const emailId = typeof router.query.id === 'string' ? router.query.id : undefined;
 
   return (
     <Layout>
@@ -35,7 +36,7 @@ export default function EmailPage() {
             minWidth: 0, // Critical: allows flex item to shrink below content size
           }}
         >
-          <Mailbox initialSearchQuery={searchQuery} />
+          <Mailbox initialSearchQuery={searchQuery} initialEmailId={emailId} />
         </Box>
       </PageErrorBoundary>
     </Layout>

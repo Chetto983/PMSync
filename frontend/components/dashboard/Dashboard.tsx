@@ -1,19 +1,12 @@
 'use client';
 
 /**
- * Dashboard - Main dashboard with clean 2-column layout
- *
- * Layout:
- * - Header + Greeting
- * - Daily Briefing (full width)
- * - Stats Grid (full width, 4 cards)
- * - Two columns: Main (left) + Sidebar (right)
- *
- * @module components/dashboard/Dashboard
+ * Dashboard - Modern 2025 Design
+ * Premium look with gradients, animations, and visual hierarchy
  */
 
 import React, { Suspense, lazy } from 'react';
-import { Box, Typography, Skeleton, Paper } from '@mui/material';
+import { Box, Typography, Skeleton, Paper, alpha, useTheme } from '@mui/material';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -25,27 +18,35 @@ import { DailyBriefing } from '../ai/DailyBriefing';
 const EventsWidget = lazy(() => import('./widgets/EventsWidget'));
 const PriorityInbox = lazy(() => import('./widgets/PriorityInbox'));
 const AiHubWidget = lazy(() => import('./widgets/AiHubWidget'));
-const RecentContactsWidget = lazy(() => import('./widgets/RecentContacts'));
+// RecentContactsWidget removed - user feedback: not useful
 const DeadlineWidget = lazy(() => import('../productivity/DeadlineWidget'));
 const FollowUpWidget = lazy(() => import('../productivity/FollowUpWidget'));
 const CrmAlertsWidget = lazy(() => import('../crm/CrmAlertsWidget'));
 
-// Skeleton for lazy widgets
+// Premium skeleton for lazy widgets
 function WidgetSkeleton() {
+  const theme = useTheme();
   return (
     <Paper
       elevation={0}
       sx={{
-        borderRadius: 2,
+        borderRadius: 4,
         border: '1px solid',
-        borderColor: 'divider',
-        p: 2,
+        borderColor: alpha(theme.palette.divider, 0.08),
+        background: alpha(theme.palette.background.paper, 0.8),
+        backdropFilter: 'blur(20px)',
+        p: 2.5,
         minHeight: 200,
       }}
     >
-      <Skeleton variant="text" width="50%" height={32} sx={{ mb: 1 }} />
-      <Skeleton variant="text" width="30%" height={20} sx={{ mb: 2 }} />
-      <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 1 }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+        <Skeleton variant="rounded" width={42} height={42} sx={{ borderRadius: 2.5 }} />
+        <Box sx={{ flex: 1 }}>
+          <Skeleton width="45%" height={22} sx={{ borderRadius: 1 }} />
+          <Skeleton width="65%" height={16} sx={{ mt: 0.5, borderRadius: 1 }} />
+        </Box>
+      </Box>
+      <Skeleton variant="rounded" height={120} sx={{ borderRadius: 2 }} />
     </Paper>
   );
 }
@@ -53,6 +54,7 @@ function WidgetSkeleton() {
 export function Dashboard() {
   const { user } = useAuth();
   const t = useTranslations();
+  const theme = useTheme();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -64,78 +66,112 @@ export function Dashboard() {
   const userName = user?.firstName || user?.email?.split('@')[0] || 'User';
 
   return (
-    <Box sx={{ maxWidth: 1400, mx: 'auto', px: { xs: 2, md: 3 } }}>
-      {/* Header */}
-      <Box sx={{ mb: 3, pt: 1 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+    <Box
+      sx={{
+        maxWidth: 1800,
+        mx: 'auto',
+        px: { xs: 2, sm: 3, md: 4 },
+        pb: 4,
+        minHeight: '100vh',
+      }}
+    >
+      {/* Hero Header */}
+      <Box
+        sx={{
+          pt: { xs: 2, md: 3 },
+          pb: { xs: 3, md: 4 },
+          position: 'relative',
+        }}
+      >
+        <Typography
+          variant="h3"
+          sx={{
+            fontWeight: 800,
+            fontSize: { xs: '1.75rem', sm: '2rem', md: '2.5rem' },
+            background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${alpha(theme.palette.text.primary, 0.7)} 100%)`,
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            letterSpacing: '-0.02em',
+          }}
+        >
           {getGreeting()}, {userName}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Typography
+          variant="body1"
+          sx={{
+            mt: 0.5,
+            color: 'text.secondary',
+            fontSize: { xs: '0.9rem', md: '1rem' },
+          }}
+        >
           {t.greetings.subtitle}
         </Typography>
       </Box>
 
-      {/* Daily Briefing */}
-      <Box sx={{ mb: 3 }}>
+      {/* Daily Briefing - Hero Card */}
+      <Box sx={{ mb: 4 }}>
         <DailyBriefing userName={userName} />
       </Box>
 
-      {/* Stats Grid */}
-      <Box sx={{ mb: 3 }}>
+      {/* Stats Grid - Key Metrics */}
+      <Box sx={{ mb: 4 }}>
         <StatsGrid />
       </Box>
 
-      {/* Main Layout: 2 Columns */}
+      {/* Main Content Grid */}
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', lg: 'row' },
-          gap: 3,
+          display: 'grid',
+          gap: { xs: 2, md: 3 },
+          gridTemplateColumns: {
+            xs: '1fr',
+            md: 'repeat(2, 1fr)',
+            lg: 'repeat(3, 1fr)',
+          },
+          gridAutoRows: 'min-content',
         }}
       >
-        {/* Left Column - Main Content (wider) */}
-        <Box sx={{ flex: { lg: 2 }, minWidth: 0 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {/* AI Hub at top */}
-            <Suspense fallback={<WidgetSkeleton />}>
-              <AiHubWidget />
-            </Suspense>
-
-            {/* Events */}
-            <Suspense fallback={<WidgetSkeleton />}>
-              <EventsWidget />
-            </Suspense>
-
-            {/* Priority Inbox */}
-            <Suspense fallback={<WidgetSkeleton />}>
-              <PriorityInbox limit={5} />
-            </Suspense>
-          </Box>
+        {/* AI Hub - Featured */}
+        <Box sx={{ gridColumn: { xs: '1', lg: '1' } }}>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <AiHubWidget />
+          </Suspense>
         </Box>
 
-        {/* Right Column - Sidebar (narrower) */}
-        <Box sx={{ flex: { lg: 1 }, minWidth: 0 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {/* Deadlines */}
-            <Suspense fallback={<WidgetSkeleton />}>
-              <DeadlineWidget limit={5} />
-            </Suspense>
+        {/* Priority Inbox */}
+        <Box>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <PriorityInbox limit={5} />
+          </Suspense>
+        </Box>
 
-            {/* Follow-ups */}
-            <Suspense fallback={<WidgetSkeleton />}>
-              <FollowUpWidget limit={5} />
-            </Suspense>
+        {/* Deadlines */}
+        <Box>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <DeadlineWidget limit={5} />
+          </Suspense>
+        </Box>
 
-            {/* CRM Alerts */}
-            <Suspense fallback={<WidgetSkeleton />}>
-              <CrmAlertsWidget limit={5} />
-            </Suspense>
+        {/* Events */}
+        <Box>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <EventsWidget />
+          </Suspense>
+        </Box>
 
-            {/* Recent Contacts */}
-            <Suspense fallback={<WidgetSkeleton />}>
-              <RecentContactsWidget limit={5} />
-            </Suspense>
-          </Box>
+        {/* Follow-ups */}
+        <Box>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <FollowUpWidget limit={5} />
+          </Suspense>
+        </Box>
+
+        {/* CRM Alerts */}
+        <Box>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <CrmAlertsWidget limit={4} />
+          </Suspense>
         </Box>
       </Box>
     </Box>

@@ -60,7 +60,6 @@ export function AiHubWidget() {
   const unreadCount = stats?.unreadEmails ?? 0;
   const pendingActions = aiStats?.pendingActions ?? 0;
   const learningProgress = aiStats?.learningProgress ?? 0;
-  const totalInteractions = aiStats?.totalInteractions ?? 0;
 
   const getLearningMessage = () => {
     if (learningProgress < 20) return t.ai?.writingStyleLearningLow || 'Getting started - send more emails';
@@ -151,8 +150,10 @@ export function AiHubWidget() {
 
         <Typography variant="body2" sx={{ opacity: 0.95, position: 'relative' }}>
           {unreadCount > 0
-            ? `Ready to help with ${unreadCount} unread email${unreadCount > 1 ? 's' : ''}`
-            : t.common.allCaughtUp || 'All caught up! No unread emails.'}
+            ? (unreadCount > 1
+                ? (t.dashboard.home.sections.aiAssistMessage || 'Hai {count} email non lette').replace('{count}', unreadCount.toString())
+                : (t.dashboard.home.sections.aiAssistMessageSingular || 'Hai {count} email non letta').replace('{count}', unreadCount.toString()))
+            : t.common.allCaughtUp}
         </Typography>
       </Box>
 
@@ -213,42 +214,6 @@ export function AiHubWidget() {
                 <ArrowRight size={16} />
               </Box>
             )}
-
-            {/* AI Stats Grid */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1.5, mb: 2 }}>
-              <Box
-                sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
-                  textAlign: 'center',
-                }}
-              >
-                <Mail size={18} style={{ marginBottom: 4 }} />
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                  {unreadCount}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {t.ai?.unread || 'Unread'}
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: (theme) => alpha(theme.palette.success.main, 0.08),
-                  textAlign: 'center',
-                }}
-              >
-                <Brain size={18} style={{ marginBottom: 4 }} />
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                  {totalInteractions}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {t.ai?.learned || 'Learned'}
-                </Typography>
-              </Box>
-            </Box>
 
             {/* Learning Progress */}
             <Box sx={{ mb: 2 }}>

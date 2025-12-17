@@ -2,15 +2,19 @@
  * TanStack Query hooks for dashboard widgets
  *
  * Best practices implemented:
+ * - Uses existing API modules (voltAgentApi, crmApi, contactsApi, calendarApi)
  * - queryOptions for type-safe, reusable query configurations
  * - Proper staleTime and gcTime for optimal caching
- * - Error handling with retry configuration
- * - Graceful fallbacks when APIs don't exist
+ * - Graceful fallbacks when APIs fail
  */
 
 import { useQuery, queryOptions } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
 import { dashboardKeys } from './dashboard-keys';
+import { voltAgentApi, type CachedDeadline } from '@/lib/api/ai';
+import { crmApi, type ContactRelationshipStats } from '@/lib/api/crm';
+import { contactsApi } from '@/lib/api/contacts';
+import { calendarApi } from '@/lib/api/calendar';
+import { apiClient } from '@/lib/api-client';
 
 // ============================================================================
 // Types
@@ -62,35 +66,32 @@ export interface StaleContact {
 
 /**
  * Query options for daily briefing
+ * Uses voltAgentApi.getBriefing()
  */
 export function briefingOptions() {
   return queryOptions({
     queryKey: dashboardKeys.briefing(),
     queryFn: async (): Promise<BriefingData> => {
       try {
-        // Try AI briefing endpoint first
-        const response = await apiClient.get('/api/v1/voltagent/briefing');
-        return response.data;
+        const response = await voltAgentApi.getBriefing();
+        const briefing = response.data?.briefing || {};
+        return {
+          summary: (briefing as Record<string, unknown>).summary as string || '',
+          urgentEmails: (briefing as Record<string, unknown>).urgentEmails as number || 0,
+          deadlinesToday: (briefing as Record<string, unknown>).deadlinesToday as number || 0,
+          pendingFollowUps: (briefing as Record<string, unknown>).pendingFollowUps as number || 0,
+          staleContacts: (briefing as Record<string, unknown>).staleContacts as number || 0,
+          highlights: ((briefing as Record<string, unknown>).highlights as string[]) || [],
+          generatedAt: (briefing as Record<string, unknown>).generatedAt as string || new Date().toISOString(),
+        };
       } catch {
-        // Fallback: aggregate stats manually
-        const [emailStats, deadlines, followUps, contacts] = await Promise.allSettled([
-          apiClient.get('/emails/stats'),
-          apiClient.get('/api/v1/voltagent/deadlines', { params: { limit: 5, dueWithin: '24h' } }),
-          apiClient.get('/api/v1/voltagent/followups', { params: { status: 'pending', limit: 5 } }),
-          apiClient.get('/contacts', { params: { filter: 'stale', limit: 5 } }),
-        ]);
-
-        const urgentEmails = emailStats.status === 'fulfilled' ? emailStats.value.data?.unread || 0 : 0;
-        const deadlinesToday = deadlines.status === 'fulfilled' ? deadlines.value.data?.total || 0 : 0;
-        const pendingFollowUps = followUps.status === 'fulfilled' ? followUps.value.data?.total || 0 : 0;
-        const staleContacts = contacts.status === 'fulfilled' ? contacts.value.data?.total || 0 : 0;
-
+        // Return empty briefing on failure
         return {
           summary: '',
-          urgentEmails,
-          deadlinesToday,
-          pendingFollowUps,
-          staleContacts,
+          urgentEmails: 0,
+          deadlinesToday: 0,
+          pendingFollowUps: 0,
+          staleContacts: 0,
           highlights: [],
           generatedAt: new Date().toISOString(),
         };
@@ -104,6 +105,7 @@ export function briefingOptions() {
 
 /**
  * Query options for deadlines
+ * Uses voltAgentApi.getUpcomingDeadlines()
  */
 export function deadlinesOptions(params?: { limit?: number; dueWithin?: string }) {
   return queryOptions({
@@ -112,60 +114,64 @@ export function deadlinesOptions(params?: { limit?: number; dueWithin?: string }
       const limit = params?.limit || 5;
 
       try {
-        // Try VoltAgent deadlines endpoint
-        const response = await apiClient.get('/api/v1/voltagent/deadlines', {
-          params: { limit, includeOverdue: true, dueWithin: params?.dueWithin },
-        });
+        const response = await voltAgentApi.getUpcomingDeadlines({ days: 7 });
+        const items = response.data?.deadlines || [];
 
-        if (response.data?.deadlines) {
-          const items = response.data.deadlines;
-          const todayEnd = new Date();
-          todayEnd.setHours(23, 59, 59, 999);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+        const weekEnd = new Date();
+        weekEnd.setDate(weekEnd.getDate() + 7);
+
+        const deadlines: Deadline[] = items.slice(0, limit).map((d: CachedDeadline) => ({
+          id: d.id,
+          title: d.title,
+          dueDate: d.deadline,
+          source: d.sourceType as 'email' | 'calendar' | 'task',
+          sourceId: d.sourceId,
+          priority: 'medium' as const,
+        }));
+
+        return {
+          deadlines,
+          total: response.data?.count || items.length,
+          todayCount: deadlines.filter((d) => new Date(d.dueDate) <= todayEnd).length,
+          weekCount: deadlines.filter((d) => new Date(d.dueDate) <= weekEnd).length,
+        };
+      } catch {
+        // Fallback to calendar events
+        try {
           const weekEnd = new Date();
           weekEnd.setDate(weekEnd.getDate() + 7);
 
+          const response = await calendarApi.listEvents({
+            startTime: new Date().toISOString(),
+            endTime: weekEnd.toISOString(),
+            limit,
+          });
+
+          const events = response.data?.events || [];
+          const deadlines: Deadline[] = events.map((e) => ({
+            id: e.id,
+            title: e.title,
+            dueDate: e.startTime,
+            source: 'calendar' as const,
+            sourceId: e.id,
+            priority: 'medium' as const,
+          }));
+
+          const todayEnd = new Date();
+          todayEnd.setHours(23, 59, 59, 999);
+
           return {
-            deadlines: items,
-            total: response.data.total || items.length,
-            todayCount: items.filter((d: Deadline) => new Date(d.dueDate) <= todayEnd).length,
-            weekCount: items.filter((d: Deadline) => new Date(d.dueDate) <= weekEnd).length,
+            deadlines,
+            total: events.length,
+            todayCount: deadlines.filter((d) => new Date(d.dueDate) <= todayEnd).length,
+            weekCount: deadlines.length,
           };
+        } catch {
+          return { deadlines: [], total: 0, todayCount: 0, weekCount: 0 };
         }
-      } catch {
-        // Fallback to calendar events
       }
-
-      // Fallback: calendar events
-      const weekEnd = new Date();
-      weekEnd.setDate(weekEnd.getDate() + 7);
-
-      const response = await apiClient.get('/calendar/events', {
-        params: {
-          startTime: new Date().toISOString(),
-          endTime: weekEnd.toISOString(),
-          limit,
-        },
-      });
-
-      const events = response.data?.events || [];
-      const items: Deadline[] = events.map((e: Record<string, unknown>) => ({
-        id: e.id as string,
-        title: (e.title || e.summary) as string,
-        dueDate: (e.startTime || e.start) as string,
-        source: 'calendar' as const,
-        sourceId: e.id as string,
-        priority: 'medium' as const,
-      }));
-
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
-
-      return {
-        deadlines: items.slice(0, limit),
-        total: items.length,
-        todayCount: items.filter((d) => new Date(d.dueDate) <= todayEnd).length,
-        weekCount: items.length,
-      };
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     gcTime: 10 * 60 * 1000,
@@ -175,59 +181,45 @@ export function deadlinesOptions(params?: { limit?: number; dueWithin?: string }
 
 /**
  * Query options for follow-ups
+ * Uses voltAgentApi.getPendingFollowUps() - backend calculates overdue from dueDate
  */
 export function followUpsOptions(params?: { status?: string; limit?: number }) {
   return queryOptions({
     queryKey: dashboardKeys.followUps(params),
     queryFn: async (): Promise<{ followUps: FollowUp[]; total: number; pendingCount: number; overdueCount: number }> => {
       const limit = params?.limit || 5;
-      const status = params?.status || 'pending,overdue';
 
       try {
-        // Try VoltAgent follow-ups endpoint
-        const response = await apiClient.get('/api/v1/voltagent/followups', {
-          params: { status, limit },
+        // Use dedicated pending endpoint - it returns items ordered by dueDate
+        const response = await voltAgentApi.getPendingFollowUps({ limit });
+        const items = response.data?.followUps || [];
+        const now = new Date();
+
+        const followUps: FollowUp[] = items.map((f: Record<string, unknown>) => {
+          const dueDate = f.dueDate as string || '';
+          const isOverdue = dueDate && new Date(dueDate) < now;
+
+          return {
+            id: f.id as string,
+            emailId: f.emailId as string || '',
+            subject: f.subject as string || '(No subject)',
+            contactName: f.contactName as string || f.contactEmail as string || 'Unknown',
+            contactEmail: f.contactEmail as string || '',
+            dueDate,
+            status: isOverdue ? 'overdue' : 'pending',
+            reason: f.reason as string,
+          };
         });
 
-        if (response.data?.followUps) {
-          const items = response.data.followUps;
-          return {
-            followUps: items,
-            total: response.data.total || items.length,
-            pendingCount: items.filter((f: FollowUp) => f.status === 'pending').length,
-            overdueCount: items.filter((f: FollowUp) => f.status === 'overdue').length,
-          };
-        }
-      } catch {
-        // Fallback to emails needing follow-up
-      }
-
-      // Fallback: emails marked as needing follow-up
-      const response = await apiClient.get('/emails', {
-        params: { limit, needsFollowUp: true },
-      });
-
-      const emails = response.data?.emails || [];
-      const items: FollowUp[] = emails.map((e: Record<string, unknown>) => {
-        const from = e.from as { name?: string; email?: string } | string;
         return {
-          id: `followup-${e.id}`,
-          emailId: e.id as string,
-          subject: (e.subject as string) || '(No subject)',
-          contactName: typeof from === 'object' ? from.name || from.email || 'Unknown' : from,
-          contactEmail: typeof from === 'object' ? from.email || '' : from,
-          dueDate: e.date as string,
-          status: 'pending' as const,
-          reason: 'No response yet',
+          followUps,
+          total: response.data?.count || items.length,
+          pendingCount: followUps.filter((f) => f.status === 'pending').length,
+          overdueCount: followUps.filter((f) => f.status === 'overdue').length,
         };
-      });
-
-      return {
-        followUps: items,
-        total: items.length,
-        pendingCount: items.length,
-        overdueCount: 0,
-      };
+      } catch {
+        return { followUps: [], total: 0, pendingCount: 0, overdueCount: 0 };
+      }
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -237,6 +229,7 @@ export function followUpsOptions(params?: { status?: string; limit?: number }) {
 
 /**
  * Query options for stale contacts
+ * Uses crmApi.getStaleContacts()
  */
 export function staleContactsOptions(params?: { limit?: number }) {
   return queryOptions({
@@ -245,74 +238,66 @@ export function staleContactsOptions(params?: { limit?: number }) {
       const limit = params?.limit || 5;
 
       try {
-        // Try CRM stale contacts endpoint
-        const response = await apiClient.get('/api/v1/crm/stale-contacts', {
-          params: { limit },
-        });
+        const response = await crmApi.getStaleContacts({ limit });
+        const items = response.data?.staleContacts || [];
 
-        if (response.data?.contacts) {
-          const items = response.data.contacts;
-          const avgScore = items.length > 0
-            ? Math.round(items.reduce((sum: number, c: StaleContact) => sum + c.relationshipScore, 0) / items.length)
+        const contacts: StaleContact[] = items.map((c: ContactRelationshipStats) => ({
+          id: c.contactId,
+          name: c.displayName || c.email,
+          email: c.email,
+          company: undefined,
+          lastInteraction: c.lastInteraction || '',
+          relationshipScore: c.relationshipScore || 0,
+          daysSinceContact: c.daysSinceLastContact || 0,
+        }));
+
+        const avgScore = contacts.length > 0
+          ? Math.round(contacts.reduce((sum, c) => sum + c.relationshipScore, 0) / contacts.length)
+          : 0;
+
+        return {
+          contacts,
+          total: response.data?.count || contacts.length,
+          averageScore: avgScore,
+        };
+      } catch {
+        // Fallback: Get contacts and calculate manually
+        try {
+          const response = await contactsApi.listContacts({ limit: limit * 2 });
+          const allContacts = response?.contacts || [];
+          const now = new Date();
+
+          const contacts: StaleContact[] = allContacts
+            .map((c) => {
+              const createdAt = c.createdAt ? new Date(c.createdAt) : now;
+              const daysSinceContact = Math.floor((now.getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000));
+
+              return {
+                id: c.id,
+                name: c.displayName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.emails?.[0]?.value || 'Unknown',
+                email: c.emails?.[0]?.value || '',
+                company: c.company || undefined,
+                lastInteraction: c.createdAt || '',
+                relationshipScore: Math.max(0, 100 - daysSinceContact * 2),
+                daysSinceContact,
+              };
+            })
+            .filter((c) => c.daysSinceContact > 30)
+            .slice(0, limit);
+
+          const avgScore = contacts.length > 0
+            ? Math.round(contacts.reduce((sum, c) => sum + c.relationshipScore, 0) / contacts.length)
             : 0;
 
-          return {
-            contacts: items,
-            total: response.data.total || items.length,
-            averageScore: avgScore,
-          };
+          return { contacts, total: contacts.length, averageScore: avgScore };
+        } catch {
+          return { contacts: [], total: 0, averageScore: 0 };
         }
-      } catch {
-        // Fallback to contacts sorted by last interaction
       }
-
-      // Fallback: Get contacts and calculate staleness
-      const response = await apiClient.get('/contacts', {
-        params: {
-          limit: limit * 2,
-          sortBy: 'lastInteraction',
-          sortOrder: 'asc',
-        },
-      });
-
-      const allContacts = response.data?.contacts || [];
-      const now = new Date();
-
-      const items: StaleContact[] = allContacts
-        .map((c: Record<string, unknown>) => {
-          const lastInteraction = c.lastInteraction
-            ? new Date(c.lastInteraction as string)
-            : new Date(c.createdAt as string || now);
-          const daysSinceContact = Math.floor((now.getTime() - lastInteraction.getTime()) / (24 * 60 * 60 * 1000));
-
-          return {
-            id: c.id as string,
-            name: (c.firstName && c.lastName)
-              ? `${c.firstName} ${c.lastName}`
-              : (c.name as string) || (c.email as string),
-            email: c.email as string,
-            company: c.company as string | undefined,
-            lastInteraction: lastInteraction.toISOString(),
-            relationshipScore: Math.max(0, 100 - daysSinceContact * 2),
-            daysSinceContact,
-          };
-        })
-        .filter((c: StaleContact) => c.daysSinceContact > 30)
-        .slice(0, limit);
-
-      const avgScore = items.length > 0
-        ? Math.round(items.reduce((sum, c) => sum + c.relationshipScore, 0) / items.length)
-        : 0;
-
-      return {
-        contacts: items,
-        total: items.length,
-        averageScore: avgScore,
-      };
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes - contacts don't change often
+    staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    retry: 1,
+    retry: 0,
   });
 }
 
@@ -334,16 +319,14 @@ export function dashboardStatsOptions() {
     }> => {
       const [emailStats, contacts, events] = await Promise.allSettled([
         apiClient.get('/emails/stats'),
-        apiClient.get('/contacts', { params: { limit: 1 } }),
+        contactsApi.getContactCounts(),
         (() => {
           const today = new Date();
           const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
           const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-          return apiClient.get('/calendar/events', {
-            params: {
-              startTime: startOfDay.toISOString(),
-              endTime: endOfDay.toISOString(),
-            },
+          return calendarApi.listEvents({
+            startTime: startOfDay.toISOString(),
+            endTime: endOfDay.toISOString(),
           });
         })(),
       ]);
@@ -352,7 +335,7 @@ export function dashboardStatsOptions() {
         unreadEmails: emailStats.status === 'fulfilled' ? emailStats.value.data?.unread || 0 : 0,
         todayEvents: events.status === 'fulfilled' ? events.value.data?.events?.length || 0 : 0,
         pendingTasks: 0, // Phase 5
-        totalContacts: contacts.status === 'fulfilled' ? contacts.value.data?.total || 0 : 0,
+        totalContacts: contacts.status === 'fulfilled' ? contacts.value?.total || 0 : 0,
       };
     },
     staleTime: 60 * 1000, // 1 minute
@@ -380,13 +363,43 @@ export function starredEmailsOptions(params?: { limit?: number }) {
     queryKey: [...dashboardKeys.all, 'starredEmails', params] as const,
     queryFn: async (): Promise<{ emails: Email[]; total: number }> => {
       const limit = params?.limit || 5;
-      const response = await apiClient.get('/emails', {
-        params: { limit, isStarred: true },
-      });
-      return {
-        emails: response.data?.emails || [],
-        total: response.data?.total || 0,
-      };
+      try {
+        const response = await apiClient.get('/emails', {
+          params: { limit, isStarred: true },
+        });
+        return {
+          emails: response.data?.emails || [],
+          total: response.data?.total || 0,
+        };
+      } catch {
+        return { emails: [], total: 0 };
+      }
+    },
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+/**
+ * Query options for recent unread emails (for briefing highlights)
+ */
+export function recentUnreadEmailsOptions(params?: { limit?: number }) {
+  return queryOptions({
+    queryKey: [...dashboardKeys.all, 'recentUnreadEmails', params] as const,
+    queryFn: async (): Promise<{ emails: Email[]; total: number }> => {
+      const limit = params?.limit || 5;
+      try {
+        const response = await apiClient.get('/emails', {
+          params: { limit, isRead: false },
+        });
+        return {
+          emails: response.data?.emails || [],
+          total: response.data?.total || 0,
+        };
+      } catch {
+        return { emails: [], total: 0 };
+      }
     },
     staleTime: 60 * 1000,
     gcTime: 5 * 60 * 1000,
@@ -405,32 +418,35 @@ export interface CalendarEvent {
 
 /**
  * Query options for today's events
+ * Uses calendarApi.listEvents()
  */
 export function todayEventsOptions() {
   return queryOptions({
     queryKey: [...dashboardKeys.all, 'todayEvents'] as const,
     queryFn: async (): Promise<{ events: CalendarEvent[]; total: number }> => {
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      try {
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
-      const response = await apiClient.get('/calendar/events', {
-        params: {
+        const response = await calendarApi.listEvents({
           startTime: startOfDay.toISOString(),
           endTime: endOfDay.toISOString(),
-        },
-      });
+        });
 
-      const events: CalendarEvent[] = (response.data?.events || []).map((e: Record<string, unknown>) => ({
-        id: e.id as string,
-        title: (e.title || e.summary) as string,
-        startTime: (e.startTime || e.start) as string,
-        endTime: (e.endTime || e.end) as string | undefined,
-        location: e.location as string | undefined,
-        type: (e.type as 'meeting' | 'event') || 'event',
-      }));
+        const events: CalendarEvent[] = (response.data?.events || []).map((e) => ({
+          id: e.id,
+          title: e.title,
+          startTime: e.startTime,
+          endTime: e.endTime,
+          location: e.location,
+          type: 'event' as const,
+        }));
 
-      return { events, total: events.length };
+        return { events, total: events.length };
+      } catch {
+        return { events: [], total: 0 };
+      }
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -448,31 +464,32 @@ export interface RecentContact {
 
 /**
  * Query options for recent contacts
+ * Uses contactsApi.listContacts()
  */
 export function recentContactsOptions(params?: { limit?: number }) {
   return queryOptions({
     queryKey: [...dashboardKeys.all, 'recentContacts', params] as const,
     queryFn: async (): Promise<{ contacts: RecentContact[]; total: number }> => {
       const limit = params?.limit || 5;
-      const response = await apiClient.get('/contacts', {
-        params: { limit, sortBy: 'lastInteraction', sortOrder: 'desc' },
-      });
+      try {
+        const response = await contactsApi.listContacts({ limit });
 
-      const contacts: RecentContact[] = (response.data?.contacts || []).map((c: Record<string, unknown>) => ({
-        id: c.id as string,
-        name: (c.firstName && c.lastName)
-          ? `${c.firstName} ${c.lastName}`
-          : (c.name as string) || (c.email as string),
-        email: c.email as string,
-        company: c.company as string | undefined,
-        lastInteraction: c.lastInteraction as string | undefined,
-      }));
+        const contacts: RecentContact[] = (response?.contacts || []).map((c) => ({
+          id: c.id,
+          name: c.displayName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.emails?.[0]?.value || 'Unknown',
+          email: c.emails?.[0]?.value || '',
+          company: c.company || undefined,
+          lastInteraction: c.updatedAt,
+        }));
 
-      return { contacts, total: response.data?.total || contacts.length };
+        return { contacts, total: response?.total || contacts.length };
+      } catch {
+        return { contacts: [], total: 0 };
+      }
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
-    retry: 1,
+    retry: 0,
   });
 }
 
@@ -534,4 +551,11 @@ export function useTodayEvents() {
  */
 export function useRecentContacts(params?: { limit?: number }) {
   return useQuery(recentContactsOptions(params));
+}
+
+/**
+ * Hook for recent unread emails (for briefing highlights)
+ */
+export function useRecentUnreadEmails(params?: { limit?: number }) {
+  return useQuery(recentUnreadEmailsOptions(params));
 }

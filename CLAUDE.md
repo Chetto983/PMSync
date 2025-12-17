@@ -501,6 +501,79 @@ function WidgetSkeleton({ height = 200 }: { height?: number }) {
 | Time to Interactive | < 2 seconds |
 | Skeleton → Content | < 500ms |
 
+### 🔌 BACKEND API - USE API MODULES + TANSTACK QUERY
+
+**⚠️ CRITICAL RULES:**
+
+1. **USE EXISTING API MODULES** in `frontend/lib/api/*.ts`
+2. **USE TANSTACK QUERY** for ALL data fetching in components
+3. **NEVER use raw `apiClient.get()` directly in components**
+
+#### Existing API Modules
+
+| Module | File | What it handles |
+|--------|------|-----------------|
+| `voltAgentApi` | `lib/api/ai.ts` | Briefing, deadlines, follow-ups, actions, memory |
+| `crmApi` | `lib/api/crm.ts` | Stale contacts, relationship scores |
+| `contactsApi` | `lib/api/contacts.ts` | Contact CRUD, sync, counts |
+| `calendarApi` | `lib/api/calendar.ts` | Events, calendars, sync |
+| `aiApi` | `lib/api/ai.ts` | Email AI (summarize, smart-reply) |
+
+#### TanStack Query Pattern
+
+```typescript
+// 1. Create query hook in hooks/queries/use-*.ts
+import { useQuery, queryOptions } from '@tanstack/react-query';
+import { voltAgentApi } from '@/lib/api/ai';
+
+export function briefingOptions() {
+  return queryOptions({
+    queryKey: ['dashboard', 'briefing'],
+    queryFn: async () => {
+      const response = await voltAgentApi.getBriefing();
+      return response.data;
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+}
+
+export function useBriefing() {
+  return useQuery(briefingOptions());
+}
+
+// 2. Use in component
+import { useBriefing } from '@/hooks/queries';
+
+function MyComponent() {
+  const { data, isLoading, error } = useBriefing();
+  // ...
+}
+```
+
+#### ❌ WRONG vs ✅ CORRECT
+
+```typescript
+// ❌ WRONG: Raw apiClient in component
+const [data, setData] = useState();
+useEffect(() => {
+  apiClient.get('/api/v1/voltagent/briefing').then(res => setData(res.data));
+}, []);
+
+// ✅ CORRECT: TanStack Query hook
+const { data, isLoading } = useBriefing();
+
+// ❌ WRONG: Invented endpoint
+apiClient.get('/api/v1/voltagent/followups');
+
+// ✅ CORRECT: Use API module
+voltAgentApi.listFollowUps({ status: 'pending', limit: 5 });
+```
+
+#### Check Swagger ONLY for NEW endpoints
+
+Only check `http://localhost:3000/api/docs-json` when adding endpoints not in API modules.
+
 ### 📁 Frontend File Organization
 
 ```text
@@ -540,6 +613,7 @@ frontend/
 Remember: **Claude Flow coordinates, Claude Code creates!**
 
 # important-instruction-reminders
+
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.

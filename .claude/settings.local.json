@@ -39,7 +39,9 @@
       "Bash(npm run type-check:*)",
       "Bash(claude mcp add:*)",
       "Bash(npm install:*)",
-      "Bash(git clone:*)"
+      "Bash(git clone:*)",
+      "Bash(npm search:*)",
+      "Bash(npm view:*)"
     ],
     "deny": []
   }
