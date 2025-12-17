@@ -36,6 +36,7 @@ import {
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { voltAgentApi, type ConversationSummary } from '@/lib/api/ai';
+import logger from '@/lib/logger';
 
 // Query options for conversations
 function conversationsOptions() {
@@ -152,14 +153,40 @@ export function ChatSessionList({
     },
   });
 
-  // Bulk delete mutation
+  // Bulk delete mutation - uses allSettled for partial success handling
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      // Delete all selected conversations in parallel
-      await Promise.all(ids.map((id) => voltAgentApi.deleteConversation(id)));
-      return ids;
+
+      // Use allSettled to handle partial failures gracefully
+      const results = await Promise.allSettled(
+        ids.map((id) => {
+          return voltAgentApi.deleteConversation(id);
+        })
+      );
+
+
+      // Collect successful deletions
+      const deletedIds: string[] = [];
+      const failedIds: string[] = [];
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          deletedIds.push(ids[index]);
+        } else {
+          failedIds.push(ids[index]);
+          logger.error(`Failed to delete conversation ${ids[index]}:`, result.reason);
+        }
+      });
+
+
+
+      if (failedIds.length > 0 && deletedIds.length === 0) {
+        throw new Error(`Failed to delete conversations: ${failedIds.length} errors`);
+      }
+
+      return { deletedIds, failedIds };
     },
-    onSuccess: (deletedIds) => {
+    onSuccess: ({ deletedIds, failedIds }) => {
       queryClient.invalidateQueries({ queryKey: ['ai', 'conversations'] });
       if (activeConversationId && deletedIds.includes(activeConversationId)) {
         onSelectConversation(null);
@@ -167,6 +194,15 @@ export function ChatSessionList({
       setSelectedIds(new Set());
       setIsSelectMode(false);
       setBulkDeleteDialog(false);
+
+      // Log partial success if some failed
+      if (failedIds.length > 0) {
+        logger.warn(`Partial delete: ${deletedIds.length} succeeded, ${failedIds.length} failed`);
+      }
+    },
+    onError: () => {
+      // Refresh anyway to show current state
+      queryClient.invalidateQueries({ queryKey: ['ai', 'conversations'] });
     },
   });
 
@@ -683,7 +719,9 @@ export function ChatSessionList({
             color="error"
             size="small"
             onClick={() => {
-              bulkDeleteMutation.mutate([...selectedIds]);
+              const idsToDelete = [...selectedIds];
+              console.log('[BulkDelete] Button clicked, selectedIds:', idsToDelete);
+              bulkDeleteMutation.mutate(idsToDelete);
             }}
             disabled={bulkDeleteMutation.isPending}
           >
