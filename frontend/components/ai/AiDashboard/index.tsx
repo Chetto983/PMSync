@@ -19,8 +19,12 @@ import {
   Skeleton,
   alpha,
   useTheme,
+  SwipeableDrawer,
+  IconButton,
+  Badge,
+  useMediaQuery,
 } from '@mui/material';
-import { Sparkles, Send, Zap } from 'lucide-react';
+import { Sparkles, Send, Zap, PanelRightOpen, X, MessageSquare } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -81,6 +85,10 @@ export function AiDashboard() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const userName = user?.firstName || user?.email?.split('@')[0] || 'User';
+
+  // Mobile detection and drawer state
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const [widgetsDrawerOpen, setWidgetsDrawerOpen] = useState(false);
 
   // Start a new chat session
   const handleNewChat = useCallback(() => {
@@ -186,8 +194,10 @@ export function AiDashboard() {
         maxWidth: 1800,
         mx: 'auto',
         px: { xs: 2, sm: 3, md: 4 },
-        pb: 4,
-        minHeight: '100vh',
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden', // Prevent page scroll
       }}
     >
       {/* Header */}
@@ -195,17 +205,18 @@ export function AiDashboard() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box
             sx={{
-              width: 56,
-              height: 56,
+              width: { xs: 48, md: 56 },
+              height: { xs: 48, md: 56 },
               borderRadius: 3,
               background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               boxShadow: `0 8px 32px ${alpha(theme.palette.primary.main, 0.35)}`,
+              flexShrink: 0,
             }}
           >
-            <Sparkles size={28} color="white" />
+            <Sparkles size={24} color="white" />
           </Box>
           <Box>
             <Typography
@@ -225,17 +236,41 @@ export function AiDashboard() {
               {t.ai?.subtitle || 'Email • Calendario • Contatti'}
             </Typography>
           </Box>
-          <Chip
-            icon={<Zap size={14} />}
-            label={t.ai?.online || 'Online'}
-            size="small"
-            color="success"
-            sx={{ ml: 'auto', fontWeight: 600 }}
-          />
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Chip
+              icon={<Zap size={14} />}
+              label={t.ai?.online || 'Online'}
+              size="small"
+              color="success"
+              sx={{ fontWeight: 600 }}
+            />
+            {/* Mobile widgets drawer toggle */}
+            {isMobile && (
+              <IconButton
+                onClick={() => setWidgetsDrawerOpen(true)}
+                sx={{
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  borderRadius: 2,
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.primary.main, 0.2),
+                  },
+                }}
+              >
+                <Badge
+                  badgeContent={messages.length > 0 ? undefined : 0}
+                  color="primary"
+                  variant="dot"
+                  invisible={messages.length === 0}
+                >
+                  <PanelRightOpen size={20} />
+                </Badge>
+              </IconButton>
+            )}
+          </Box>
         </Box>
       </Box>
 
-      {/* Main Grid - Responsive layout */}
+      {/* Main Grid - Responsive layout with fixed height */}
       <Box
         sx={{
           display: 'grid',
@@ -245,9 +280,12 @@ export function AiDashboard() {
             md: '1fr',
             lg: '1fr minmax(300px, 380px)',
           },
+          flex: 1,
+          minHeight: 0, // Critical for flexbox overflow
+          pb: 2,
         }}
       >
-        {/* Chat Area */}
+        {/* Chat Area - Fixed height with internal scroll */}
         <Paper
           elevation={0}
           sx={{
@@ -257,17 +295,34 @@ export function AiDashboard() {
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            minHeight: { xs: 500, md: 600 },
+            height: '100%', // Fill grid cell
+            minHeight: 0, // Allow flex to shrink
           }}
         >
-          {/* Chat Messages */}
+          {/* Chat Messages - Scrollable container */}
           <Box
             sx={{
               flex: 1,
+              minHeight: 0, // Critical: allows flex child to shrink and enable overflow
               overflow: 'auto',
               p: { xs: 2, md: 3 },
               display: 'flex',
               flexDirection: 'column',
+              // Smooth scroll behavior
+              scrollBehavior: 'smooth',
+              '&::-webkit-scrollbar': {
+                width: 8,
+              },
+              '&::-webkit-scrollbar-track': {
+                bgcolor: 'transparent',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                bgcolor: alpha(theme.palette.text.secondary, 0.15),
+                borderRadius: 4,
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.text.secondary, 0.25),
+                },
+              },
             }}
           >
             {messages.length === 0 ? (
@@ -405,8 +460,26 @@ export function AiDashboard() {
           </Box>
         </Paper>
 
-        {/* Sidebar Widgets - Collapsible for reduced scrolling */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Sidebar Widgets - Hidden on mobile, visible on desktop */}
+        <Box
+          sx={{
+            display: { xs: 'none', lg: 'flex' },
+            flexDirection: 'column',
+            gap: 2,
+            overflow: 'auto',
+            minHeight: 0, // Critical for flex overflow
+            '&::-webkit-scrollbar': {
+              width: 6,
+            },
+            '&::-webkit-scrollbar-track': {
+              bgcolor: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              bgcolor: alpha(theme.palette.text.secondary, 0.1),
+              borderRadius: 3,
+            },
+          }}
+        >
           {/* Chat Sessions - Primary widget, always visible */}
           <Suspense fallback={<WidgetSkeleton height={200} />}>
             <ChatSessionList
@@ -430,6 +503,115 @@ export function AiDashboard() {
           </Suspense>
         </Box>
       </Box>
+
+      {/* Mobile Widgets Drawer */}
+      <SwipeableDrawer
+        anchor="right"
+        open={widgetsDrawerOpen}
+        onClose={() => setWidgetsDrawerOpen(false)}
+        onOpen={() => setWidgetsDrawerOpen(true)}
+        disableSwipeToOpen={false}
+        swipeAreaWidth={20}
+        ModalProps={{
+          keepMounted: true, // Better mobile performance
+        }}
+        PaperProps={{
+          sx: {
+            width: { xs: '85vw', sm: 380 },
+            maxWidth: 400,
+            bgcolor: 'background.default',
+            borderTopLeftRadius: 24,
+            borderBottomLeftRadius: 24,
+          },
+        }}
+      >
+        {/* Drawer Header */}
+        <Box
+          sx={{
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid',
+            borderColor: alpha(theme.palette.divider, 0.1),
+            position: 'sticky',
+            top: 0,
+            bgcolor: 'background.default',
+            zIndex: 1,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: 2,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+              }}
+            >
+              <MessageSquare size={20} />
+            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {t.ai?.widgets?.title || 'AI Tools'}
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={() => setWidgetsDrawerOpen(false)}
+            sx={{
+              bgcolor: alpha(theme.palette.action.active, 0.08),
+              borderRadius: 2,
+            }}
+          >
+            <X size={20} />
+          </IconButton>
+        </Box>
+
+        {/* Drawer Content */}
+        <Box
+          sx={{
+            p: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            overflow: 'auto',
+            flex: 1,
+          }}
+        >
+          {/* Chat Sessions */}
+          <Suspense fallback={<WidgetSkeleton height={200} />}>
+            <ChatSessionList
+              activeConversationId={conversationId}
+              onSelectConversation={(id) => {
+                handleSelectConversation(id);
+                setWidgetsDrawerOpen(false);
+              }}
+              onNewChat={() => {
+                handleNewChat();
+                setWidgetsDrawerOpen(false);
+              }}
+            />
+          </Suspense>
+
+          {/* Pending Actions */}
+          <Suspense fallback={<WidgetSkeleton height={60} />}>
+            <PendingActionsWidget />
+          </Suspense>
+
+          {/* Learning Widget */}
+          <Suspense fallback={<WidgetSkeleton height={60} />}>
+            <LearningWidget />
+          </Suspense>
+
+          {/* AI Memory */}
+          <Suspense fallback={<WidgetSkeleton height={60} />}>
+            <AiMemoryWidget />
+          </Suspense>
+        </Box>
+      </SwipeableDrawer>
     </Box>
   );
 }

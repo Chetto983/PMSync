@@ -17,6 +17,7 @@ export {
   createProductionHooks,
   type ObservabilityOptions,
   type AgentMetrics,
+  type HitlPendingAction,
 } from './hooks';
 
 // HITL (Human-in-the-Loop) observability

@@ -23,12 +23,14 @@ import { EmailSendService } from '../../email/services/email-send.service';
 import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
 import { HitlService, PendingActionStatus } from './services/hitl.service';
+import { ActionExecutorService, ActionExecutionResult } from './services/action-executor.service';
 import { SemanticCacheService } from './services/semantic-cache.service';
 import { ModelRouterService } from './services/model-router.service';
 import { AiQueueService, type AiJobData } from './services/ai-queue.service';
 import { RateLimiterService } from './services/rate-limiter.service';
 import { MistralBatchService } from './services/mistral-batch.service';
-import { ActionSeverity } from './interfaces/agent-action.interface';
+import { AgentAction, AgentActionType, ActionSeverity } from './interfaces/agent-action.interface';
+import { AgentContext } from './interfaces/agent-context.interface';
 import { createSupervisorAgent, type UserContext, type ConnectedProvider } from './agents';
 import { getLocale, type SupportedLocale } from './locales';
 import { VoltAgentMemoryService, LongTermMemoryService } from './memory';
@@ -149,6 +151,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     private readonly configService: ConfigService,
     @Optional() private readonly cacheService?: CacheService,
     @Optional() private readonly hitlService?: HitlService,
+    @Optional() private readonly actionExecutorService?: ActionExecutorService,
     @Optional() private readonly mistralService?: MistralService,
     @Optional() private readonly embeddingsService?: EmbeddingsService,
     @Optional() private readonly semanticCacheService?: SemanticCacheService,
@@ -177,6 +180,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // });
 
     // Initialize observability hooks with NestJS logger adapter
+    // CRITICAL: onPendingAction captures HITL actions from sub-agent tools
+    // that would otherwise be lost during delegate_task execution
     this.observabilityHooks = createObservabilityHooks({
       logger: {
         info: (msg, ctx) => this.logger.log(msg, ctx),
@@ -187,6 +192,32 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       logToolCalls: process.env.NODE_ENV !== 'production',
       trackUsage: true,
       onMetrics: (metrics) => this.collectMetrics(metrics),
+      // Capture HITL pending actions from tool results (including sub-agents)
+      onPendingAction: async (action) => {
+        if (!this.hitlService) {
+          this.logger.warn('HITL pending action captured but hitlService not available', {
+            actionType: action.actionType,
+            agentName: action.agentName,
+          });
+          return;
+        }
+
+        await this.hitlService.createPendingAction({
+          tenantId: action.tenantId,
+          userId: action.userId || 'unknown',
+          sessionId: action.sessionId,
+          agentName: action.agentName,
+          action: {
+            type: action.actionType as import('./interfaces/agent-action.interface').AgentActionType,
+            payload: action.payload,
+            confidence: action.confidence ?? 0.8,
+            severity: action.severity as ActionSeverity,
+            reasoningSteps: action.summary,
+          },
+        });
+
+        this.logger.log(`HITL pending action created via hook: ${action.actionType} from ${action.agentName}`);
+      },
     });
 
     // Initialize approval workflow
@@ -999,13 +1030,37 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Try to get workflow from Redis - need to find by pattern if tenantId not provided
     let suspended: SerializableSuspendedWorkflow | null = null;
 
-    if (this.cacheService) {
-      if (tenantId) {
-        const cacheKey = `${this.SUSPENDED_WORKFLOW_PREFIX}${tenantId}:${executionId}`;
-        suspended = await this.cacheService.get<SerializableSuspendedWorkflow>(cacheKey);
-      } else {
-        // Fallback: try to find from HitlService if no tenantId provided
-        this.logger.debug('No tenantId provided, looking up from HitlService');
+    if (this.cacheService && tenantId) {
+      const cacheKey = `${this.SUSPENDED_WORKFLOW_PREFIX}${tenantId}:${executionId}`;
+      suspended = await this.cacheService.get<SerializableSuspendedWorkflow>(cacheKey);
+    }
+
+    // Fallback to HitlService database if not in Redis
+    // This handles pending actions created via hooks (sub-agent tool results)
+    if (!suspended && this.hitlService && tenantId) {
+      this.logger.debug(`Suspended workflow not in Redis, checking HitlService: ${executionId}`);
+      try {
+        const action = await this.hitlService.getPendingAction(tenantId, executionId);
+        suspended = {
+          executionId: action.id,
+          tenantId: action.tenantId,
+          userId: action.userId,
+          action: {
+            tenantId: action.tenantId,
+            userId: action.userId,
+            agentName: action.agentName,
+            actionType: action.actionType,
+            payload: action.payload as Record<string, unknown>,
+            summary: action.reasoningSteps || '',
+            severity: action.severity as 'LOW' | 'MEDIUM' | 'HIGH',
+            confidence: action.confidence ?? undefined,
+          },
+          suspendReason: 'Approval required',
+          suspendedAt: action.createdAt.toISOString(),
+        };
+      } catch {
+        // Action not found in database either
+        this.logger.debug(`Pending action not found in HitlService: ${executionId}`);
       }
     }
 
@@ -1043,6 +1098,65 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       `[${resumeCorrId}] [tenant:${suspended.tenantId}] Workflow resumed: ${executionId}, approved: ${decision.approved}`,
     );
 
+    // Execute approved actions via ActionExecutorService
+    let executionResult: ActionExecutionResult | undefined;
+    if (decision.approved && this.actionExecutorService) {
+      try {
+        // Build AgentAction from suspended workflow data
+        const agentAction: AgentAction = {
+          type: suspended.action.actionType as AgentActionType,
+          payload: suspended.action.payload,
+          confidence: suspended.action.confidence ?? 0.8,
+          severity: (suspended.action.severity as ActionSeverity) ?? ActionSeverity.MEDIUM,
+          reasoningSteps: suspended.action.summary,
+        };
+
+        // Build minimal AgentContext for execution
+        const agentContext: AgentContext = {
+          tenantId: suspended.tenantId,
+          userId: suspended.userId,
+          sessionId: executionId,
+          correlationId: resumeCorrId,
+          userMessage: '', // Not needed for execution
+        };
+
+        this.logger.log(
+          `[${resumeCorrId}] [tenant:${suspended.tenantId}] Executing approved action: ${agentAction.type}`,
+        );
+
+        executionResult = await this.actionExecutorService.execute(agentAction, agentContext);
+
+        // Mark action execution status in database
+        if (this.hitlService) {
+          await this.hitlService.markExecuted(
+            suspended.tenantId,
+            executionId,
+            executionResult.success,
+            executionResult.error,
+          );
+        }
+
+        if (executionResult.success) {
+          this.logger.log(
+            `[${resumeCorrId}] [tenant:${suspended.tenantId}] Action executed successfully: ${agentAction.type}`,
+          );
+        } else {
+          this.logger.error(
+            `[${resumeCorrId}] [tenant:${suspended.tenantId}] Action execution failed: ${executionResult.error}`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `[${resumeCorrId}] [tenant:${suspended.tenantId}] Action execution error: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        executionResult = {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          executionTimeMs: 0,
+        };
+      }
+    }
+
     // Return result based on decision
     return {
       approved: decision.approved,
@@ -1050,6 +1164,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       approvedBy: decision.approvedBy,
       approvedAt: new Date(),
       rejectionReason: decision.rejectionReason,
+      executionResult, // Include execution result in response
     } as ApprovalResult;
   }
 

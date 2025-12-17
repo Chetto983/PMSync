@@ -12,6 +12,22 @@
  */
 import { createHooks, type AgentHooks } from '@voltagent/core';
 
+/**
+ * HITL pending action data captured from tool results
+ */
+export interface HitlPendingAction {
+  agentName: string;
+  toolName: string;
+  tenantId: string;
+  userId?: string;
+  sessionId?: string;
+  actionType: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  payload: Record<string, unknown>;
+  summary: string;
+  confidence?: number;
+}
+
 export interface ObservabilityOptions {
   /** Logger instance for observability events */
   logger?: {
@@ -26,6 +42,12 @@ export interface ObservabilityOptions {
   trackUsage?: boolean;
   /** Custom metrics callback for external integrations */
   onMetrics?: (metrics: AgentMetrics) => void;
+  /**
+   * Callback for HITL pending actions from tool results.
+   * Called when any tool returns { requiresApproval: true, ... }
+   * This captures sub-agent tool results that would otherwise be lost during delegation.
+   */
+  onPendingAction?: (action: HitlPendingAction) => Promise<void>;
 }
 
 export interface AgentMetrics {
@@ -81,7 +103,7 @@ interface OperationTracking {
 }
 
 export function createObservabilityHooks(options: ObservabilityOptions = {}): AgentHooks {
-  const { logger, logToolCalls = true, trackUsage = true, onMetrics } = options;
+  const { logger, logToolCalls = true, trackUsage = true, onMetrics, onPendingAction } = options;
 
   // Track operations with TTL cleanup for >1000 tenants
   const operations = new Map<string, OperationTracking>();
@@ -235,25 +257,69 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Ag
 
     /**
      * Called after tool execution or error.
-     * Use for result logging and error handling.
+     * Use for result logging, error handling, and HITL pending action capture.
+     *
+     * CRITICAL: This hook captures requiresApproval tool results from sub-agents
+     * that would otherwise be lost during delegate_task execution.
      */
     onToolEnd: async ({ agent, tool, output, error, context }) => {
-      if (!logToolCalls) return;
-
       if (error) {
-        logger?.warn('Tool execution failed', {
+        if (logToolCalls) {
+          logger?.warn('Tool execution failed', {
+            agentName: agent.name,
+            toolName: tool.name,
+            operationId: context.operationId,
+            error: error.message,
+          });
+        }
+        return;
+      }
+
+      // Check if tool returned a pending action that needs HITL approval
+      const result = output as Record<string, unknown> | undefined;
+      if (result?.requiresApproval && onPendingAction) {
+        const tenantId = extractTenantId(context.userId);
+        const userId = extractUserId(context.userId);
+
+        logger?.info('HITL pending action captured from tool', {
           agentName: agent.name,
           toolName: tool.name,
           operationId: context.operationId,
-          error: error.message,
+          actionType: result.actionType,
+          severity: result.severity,
+          tenantId,
         });
-      } else {
+
+        // Call the pending action callback to persist to database
+        try {
+          await onPendingAction({
+            agentName: agent.name,
+            toolName: tool.name,
+            tenantId,
+            userId,
+            sessionId: context.conversationId,
+            actionType: result.actionType as string,
+            severity: result.severity as 'LOW' | 'MEDIUM' | 'HIGH',
+            payload: result.payload as Record<string, unknown>,
+            summary: result.summary as string,
+            confidence: result.confidence as number | undefined,
+          });
+        } catch (err) {
+          logger?.error('Failed to create HITL pending action', {
+            agentName: agent.name,
+            toolName: tool.name,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      if (logToolCalls) {
         logger?.debug('Tool execution completed', {
           agentName: agent.name,
           toolName: tool.name,
           operationId: context.operationId,
-          // Only log success indicator, not full output
           hasOutput: output !== undefined,
+          requiresApproval: !!result?.requiresApproval,
         });
       }
     },

@@ -56,8 +56,7 @@ export function createEmailAgent(options: EmailAgentOptions): Agent {
 
   return new Agent({
     name: 'EmailAgent',
-    purpose:
-      'Handle email operations including sending, searching, organizing, summarizing, analyzing sentiment, and generating smart replies',
+    purpose: 'Send, search, organize, reply, forward emails. Has send_email tool for sending.',
     model,
     instructions: t.email.instructions,
     tools: [...emailTools, ...folderTools, ...insightTools],

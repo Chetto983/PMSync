@@ -42,7 +42,14 @@
       "Bash(git clone:*)",
       "Bash(npm search:*)",
       "Bash(npm view:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(wc:*)",
+      "Bash(npm run lint:*)",
+      "Bash(netstat:*)",
+      "Bash(pushd:*)",
+      "Bash(popd)",
+      "Bash(npm run:*)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   }

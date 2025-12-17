@@ -210,6 +210,7 @@ export class VoltAgentController {
 
     return {
       actions: suspended.map((s) => ({
+        id: s.executionId, // Frontend compatibility alias
         executionId: s.executionId,
         actionType: s.action.actionType,
         severity: s.action.severity,
@@ -248,6 +249,7 @@ export class VoltAgentController {
     }
 
     return {
+      id: suspended.executionId, // Frontend compatibility alias
       executionId: suspended.executionId,
       actionType: suspended.action.actionType,
       severity: suspended.action.severity,

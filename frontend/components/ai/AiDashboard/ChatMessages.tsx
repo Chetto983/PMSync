@@ -5,6 +5,7 @@ import { Box, Typography, Paper, Chip, alpha, useTheme, Link } from '@mui/materi
 import { Bot, User, Sparkles, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Message } from './index';
+import { AgentProgressIndicator } from './AgentProgressIndicator';
 
 interface ChatMessagesProps {
   messages: Message[];
@@ -156,7 +157,7 @@ export function ChatMessages({ messages, sending }: ChatMessagesProps) {
                     color: 'primary.main',
                   }
                 : {
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #7c3aed 100%)`,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
                     color: 'white',
                   }),
             }}
@@ -165,11 +166,11 @@ export function ChatMessages({ messages, sending }: ChatMessagesProps) {
           </Box>
 
           {/* Message Content */}
-          <Box sx={{ flex: 1, maxWidth: '80%' }}>
+          <Box sx={{ flex: 1, maxWidth: { xs: '85%', sm: '80%' } }}>
             <Paper
               elevation={0}
               sx={{
-                p: 2,
+                p: { xs: 1.5, md: 2 },
                 borderRadius: 3,
                 ...(message.role === 'user'
                   ? {
@@ -249,56 +250,8 @@ export function ChatMessages({ messages, sending }: ChatMessagesProps) {
         </Box>
       ))}
 
-      {/* Typing Indicator */}
-      {sending && (
-        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-          <Box
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: 2,
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #7c3aed 100%)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-            }}
-          >
-            <Bot size={18} />
-          </Box>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 2,
-              borderRadius: 3,
-              bgcolor: alpha(theme.palette.background.default, 0.8),
-              border: '1px solid',
-              borderColor: alpha(theme.palette.divider, 0.08),
-              borderBottomLeftRadius: 0.5,
-            }}
-          >
-            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-              {[0, 1, 2].map((i) => (
-                <Box
-                  key={i}
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: 'primary.main',
-                    animation: 'pulse 1.4s infinite ease-in-out',
-                    animationDelay: `${i * 0.2}s`,
-                    '@keyframes pulse': {
-                      '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.5 },
-                      '40%': { transform: 'scale(1)', opacity: 1 },
-                    },
-                  }}
-                />
-              ))}
-            </Box>
-          </Paper>
-        </Box>
-      )}
+      {/* Agent Progress Indicator - Shows live agent chain */}
+      <AgentProgressIndicator isActive={sending} />
     </Box>
   );
 }

@@ -99,6 +99,9 @@ export function createContactsTools(
         limit: z.number().optional().describe('Maximum results (default 10)'),
       }),
       execute: async ({ query, limit }) => {
+        // Normalize query for case-insensitive email search
+        const lowerQuery = query.toLowerCase();
+
         const contacts = await prisma.contact.findMany({
           where: {
             tenantId,
@@ -107,6 +110,8 @@ export function createContactsTools(
               { firstName: { contains: query, mode: 'insensitive' as const } },
               { lastName: { contains: query, mode: 'insensitive' as const } },
               { company: { contains: query, mode: 'insensitive' as const } },
+              // CRITICAL: Also search by email address (stored as JSON array)
+              { emails: { string_contains: lowerQuery } },
             ],
           },
           take: limit ?? 10,

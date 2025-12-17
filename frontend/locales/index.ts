@@ -1675,6 +1675,10 @@ export interface AppTranslations {
       placeholder: string;
       moreMemories: string;
     };
+    widgets: {
+      title: string;
+      subtitle: string;
+    };
     capabilities: string;
     learningStats: string;
     feedback: string;
@@ -1705,6 +1709,26 @@ export interface AppTranslations {
       placeholder: string;
       howCanIHelp: string;
       scrollToBottom: string;
+      progress: {
+        understanding: string;
+        analyzing: string;
+        searching: string;
+        generating: string;
+        finalizing: string;
+        working: string;
+      };
+      agents: {
+        intent: string;
+        email: string;
+        calendar: string;
+        contacts: string;
+        response: string;
+        supervisor: string;
+        emailDraft: string;
+        emailSearch: string;
+        calendarSchedule: string;
+        unknown: string;
+      };
     };
     sessions: {
       title: string;

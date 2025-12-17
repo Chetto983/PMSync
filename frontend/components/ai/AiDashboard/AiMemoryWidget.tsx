@@ -93,13 +93,22 @@ export function AiMemoryWidget() {
     </Typography>
   );
 
-  // Header action - Add button
+  // Header action - Add button (use component="div" to avoid nested button hydration error)
   const headerAction = (
     <Button
+      component="div"
+      role="button"
+      tabIndex={0}
       size="small"
       startIcon={<Plus size={14} />}
       onClick={() => setShowInput(!showInput)}
-      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+      onKeyDown={(e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setShowInput(!showInput);
+        }
+      }}
+      sx={{ textTransform: 'none', fontSize: '0.75rem', cursor: 'pointer' }}
     >
       {t.ai?.memory?.add || 'Add'}
     </Button>

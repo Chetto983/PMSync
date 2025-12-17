@@ -35,9 +35,17 @@ const ApprovalInputSchema = z.object({
 const ApprovalResultSchema = z.object({
   approved: z.boolean(),
   approvedBy: z.string().optional(),
+  approvedAt: z.date().optional(),
   rejectionReason: z.string().optional(),
   executedAt: z.string().optional(),
   action: ActionSchema,
+  executionResult: z.object({
+    success: z.boolean(),
+    data: z.record(z.string(), z.unknown()).optional(),
+    summary: z.union([z.string(), z.array(z.string())]).optional(),
+    error: z.string().optional(),
+    executionTimeMs: z.number(),
+  }).optional(),
 });
 
 /**
