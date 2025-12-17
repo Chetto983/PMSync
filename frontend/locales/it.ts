@@ -1536,6 +1536,29 @@ export const it: AppTranslations = {
       importantEmails: 'Email importanti',
       todaySchedule: 'Programma di oggi',
       searchContacts: 'Cerca contatti',
+      pendingFollowUps: 'Follow-up in sospeso',
+      writeEmail: 'Scrivi una email',
+      analyzeContacts: 'Analizza contatti',
+      aiSuggestions: 'Suggerimenti AI',
+    },
+    dashboard: {
+      greeting: 'Ciao {userName}!',
+      greetingQuestion: 'Come posso aiutarti oggi?',
+    },
+    actions: {
+      sendEmail: 'Invia email',
+      createEvent: 'Crea evento',
+      updateContact: 'Aggiorna contatto',
+      requiresApproval: 'Richiede approvazione',
+    },
+    memory: {
+      title: 'Memoria AI',
+      subtitle: 'Cosa ricorda di te',
+      noMemories: 'Nessun ricordo salvato',
+      noMemoriesHint: "L'AI impara dalle tue interazioni e preferenze",
+      add: 'Aggiungi',
+      placeholder: 'Es: Preferisco email brevi e concise',
+      moreMemories: '+{count} altri ricordi',
     },
     capabilities: 'Capacità',
     learningStats: 'Statistiche apprendimento',
@@ -1578,7 +1601,9 @@ export const it: AppTranslations = {
     learning: {
       title: 'Progresso apprendimento AI',
       actionsProcessed: 'azioni elaborate',
-
+      overallProgress: 'Progresso complessivo',
+      interactions: 'Interazioni',
+      successRate: 'Successo',
 
       activity: {
         title: 'Attività agente',

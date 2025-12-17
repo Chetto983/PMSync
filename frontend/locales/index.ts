@@ -1649,6 +1649,29 @@ export interface AppTranslations {
       importantEmails: string;
       todaySchedule: string;
       searchContacts: string;
+      pendingFollowUps: string;
+      writeEmail: string;
+      analyzeContacts: string;
+      aiSuggestions: string;
+    };
+    dashboard: {
+      greeting: string;
+      greetingQuestion: string;
+    };
+    actions: {
+      sendEmail: string;
+      createEvent: string;
+      updateContact: string;
+      requiresApproval: string;
+    };
+    memory: {
+      title: string;
+      subtitle: string;
+      noMemories: string;
+      noMemoriesHint: string;
+      add: string;
+      placeholder: string;
+      moreMemories: string;
     };
     capabilities: string;
     learningStats: string;
@@ -1691,6 +1714,8 @@ export interface AppTranslations {
     learning: {
       title: string;
       actionsProcessed: string;
+      overallProgress: string;
+      interactions: string;
       activity: {
         title: string;
         totalActions: string;
