@@ -1701,6 +1701,57 @@ export const it: AppTranslations = {
 
     },
     dismiss: 'Ignora',
+    // Traduzioni per la card azione HITL inline
+    inlineAction: {
+      actionTypes: {
+        SEND_EMAIL: 'Invia Email',
+        CREATE_EVENT: 'Crea Evento',
+        UPDATE_CONTACT: 'Aggiorna Contatto',
+        DELETE_EMAIL: 'Elimina Email',
+        MOVE_EMAIL: 'Sposta Email',
+        ARCHIVE_EMAIL: 'Archivia Email',
+        REPLY_EMAIL: 'Rispondi Email',
+        FORWARD_EMAIL: 'Inoltra Email',
+      },
+      severity: {
+        LOW: 'Bassa',
+        MEDIUM: 'Media',
+        HIGH: 'Alta',
+      },
+      fields: {
+        to: 'A',
+        cc: 'Cc',
+        bcc: 'Ccn',
+        subject: 'Oggetto',
+        body: 'Corpo',
+        title: 'Titolo',
+        location: 'Luogo',
+        attendees: 'Partecipanti',
+        startTime: 'Ora inizio',
+        endTime: 'Ora fine',
+        description: 'Descrizione',
+      },
+      // Etichette stato
+      approved: 'Approvato',
+      rejected: 'Rifiutato',
+      executed: 'Eseguito',
+      failed: 'Fallito',
+      expired: 'Scaduto',
+      pending: 'In attesa di approvazione',
+      // Etichette azioni
+      reasoning: 'Ragionamento AI',
+      actionDetails: 'Dettagli Azione',
+      editPayload: 'Modifica',
+      hideDetails: 'Fine modifica',
+      approving: 'Approvazione...',
+      rejecting: 'Rifiuto...',
+      // Etichette UI aggiuntive
+      expand: 'Mostra dettagli',
+      collapse: 'Nascondi dettagli',
+      requiresApproval: 'Questa azione richiede la tua approvazione',
+      autoApproved: 'Auto-approvato',
+      confidence: 'Affidabilità',
+    },
     emailAi: {
       smartReplies: {
         title: 'Risposte intelligenti',

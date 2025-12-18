@@ -11,6 +11,7 @@ import {
   Tooltip,
   Collapse,
   Badge,
+  TextField,
   alpha,
   useTheme,
   useMediaQuery,
@@ -28,6 +29,7 @@ import {
   Users,
   Bot,
   AlertTriangle,
+  Edit3,
 } from 'lucide-react';
 import type { PendingAction, AgentInfo } from '@/lib/api/ai';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -41,7 +43,7 @@ export interface PendingActionsPanelProps {
   /** Loading state */
   loading?: boolean;
   /** Callback to approve action - should return Promise for proper error handling */
-  onApprove?: (actionId: string) => void | Promise<void>;
+  onApprove?: (actionId: string, payload?: Record<string, any>) => void | Promise<void>;
   /** Callback to reject action - should return Promise for proper error handling */
   onReject?: (actionId: string) => void | Promise<void>;
   /** Callback to refresh */
@@ -71,6 +73,31 @@ export function PendingActionsPanel({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isExpanded, setIsExpanded] = React.useState(defaultExpanded);
   const [processingIds, setProcessingIds] = React.useState<Set<string>>(new Set());
+  const [editModeIds, setEditModeIds] = React.useState<Set<string>>(new Set());
+  const [editedPayloads, setEditedPayloads] = React.useState<Record<string, Record<string, any>>>({});
+
+  const toggleEditMode = (id: string, initialPayload: Record<string, any>) => {
+    const next = new Set(editModeIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+      if (!editedPayloads[id]) {
+        setEditedPayloads(prev => ({ ...prev, [id]: { ...initialPayload } }));
+      }
+    }
+    setEditModeIds(next);
+  };
+
+  const handlePayloadChange = (id: string, key: string, value: any) => {
+    setEditedPayloads(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        [key]: value
+      }
+    }));
+  };
 
   const getAgentIcon = (agentName: string) => {
     switch (agentName) {
@@ -96,7 +123,8 @@ export function PendingActionsPanel({
   const handleApprove = async (actionId: string) => {
     setProcessingIds((prev) => new Set(prev).add(actionId));
     try {
-      await onApprove?.(actionId);
+      const payload = editedPayloads[actionId];
+      await onApprove?.(actionId, payload);
     } catch (error) {
       logger.error(`Failed to approve action ${actionId}`, { error });
       onError?.(error instanceof Error ? error : new Error(String(error)), actionId, 'approve');
@@ -279,26 +307,67 @@ export function PendingActionsPanel({
                       </Box>
                     </Tooltip>
 
+                    {/* Reasoning Section */}
+                    {(action.reasoningSteps || action.suspendReason) && (
+                      <Box sx={{ mb: 1.5, p: 1, bgcolor: alpha(theme.palette.info.main, 0.04), borderRadius: 1, borderLeft: '3px solid', borderColor: 'info.main' }}>
+                        <Typography variant="caption" sx={{ color: 'info.main', fontWeight: 600, display: 'block', mb: 0.25 }}>
+                          AI Reasoning
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', display: 'block' }}>
+                          {action.reasoningSteps || action.suspendReason}
+                        </Typography>
+                      </Box>
+                    )}
+
                     {/* Payload Preview */}
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{
-                        display: 'block',
-                        mb: 1.5,
-                        p: 1,
-                        bgcolor: 'action.hover',
-                        borderRadius: 0.5,
-                        fontFamily: 'monospace',
-                        fontSize: '0.65rem',
-                        maxHeight: 50,
-                        overflow: 'auto',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-all',
-                      }}
-                    >
-                      {JSON.stringify(action.payload, null, 2).slice(0, 120)}...
-                    </Typography>
+                    <Box sx={{ mb: 1.5, p: 1, bgcolor: 'action.hover', borderRadius: 0.5 }}>
+                      {Object.entries(editedPayloads[action.id] || action.payload)
+                        .filter(([key]) => ['to', 'subject', 'body', 'title', 'location', 'attendees'].includes(key))
+                        .map(([key, value]) => {
+                          const isEditing = editModeIds.has(action.id);
+                          const isMultiline = key === 'body';
+
+                          return (
+                            <Box key={key} sx={{ mb: 1 }}>
+                              <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mb: 0.25, textTransform: 'capitalize' }}>
+                                {key}:
+                              </Typography>
+                              {isEditing ? (
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  multiline={isMultiline}
+                                  rows={isMultiline ? 3 : 1}
+                                  value={Array.isArray(value) ? value.join(', ') : (value as string || '')}
+                                  onChange={(e) => {
+                                    const val = ['to', 'attendees'].includes(key)
+                                      ? e.target.value.split(',').map(s => s.trim())
+                                      : e.target.value;
+                                    handlePayloadChange(action.id, key, val);
+                                  }}
+                                  sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.75rem', bgcolor: 'background.paper' } }}
+                                />
+                              ) : (
+                                <Typography variant="caption" color="text.primary" sx={{ display: 'block', whiteSpace: isMultiline ? 'pre-wrap' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {Array.isArray(value) ? value.join(', ') : String(value)}
+                                </Typography>
+                              )}
+                            </Box>
+                          );
+                        })}
+
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                        <Button
+                          size="small"
+                          variant="text"
+                          startIcon={<Edit3 size={14} />}
+                          onClick={() => toggleEditMode(action.id, action.payload)}
+                          sx={{ fontSize: '0.65rem', textTransform: 'none', py: 0 }}
+                        >
+                          {editModeIds.has(action.id) ? 'Done Editing' : 'Edit Details'}
+                        </Button>
+                      </Box>
+                    </Box>
 
                     {/* Action Buttons */}
                     <Stack direction="row" spacing={1}>

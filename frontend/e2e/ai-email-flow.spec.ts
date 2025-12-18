@@ -13,7 +13,7 @@
  * - Tenant: cmiz37cl10000aoyh9yn0s4a1
  * - Contact: *LELE* LEANDRO GUASTINI DI BONITO (lelegdb@gmail.com)
  */
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { getE2eAuthContext } from './utils/dev-auth';
 
 // Test configuration - Using REAL data from database

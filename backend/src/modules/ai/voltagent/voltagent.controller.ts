@@ -130,7 +130,7 @@ export class VoltAgentController {
     private readonly focusTimeService: FocusTimeService,
     private readonly meetingPrepService: MeetingPrepService,
     private readonly voltAgentMemoryService: VoltAgentMemoryService,
-  ) {}
+  ) { }
 
   /**
    * Send a chat message to the VoltAgent supervisor.
@@ -216,7 +216,9 @@ export class VoltAgentController {
         severity: s.action.severity,
         summary: s.action.summary,
         payload: s.action.payload,
+        status: 'PENDING',
         suspendReason: s.suspendReason,
+        reasoningSteps: s.action.reasoningSteps, // Added for frontend display
         suspendedAt: s.suspendedAt,
         userId: s.userId,
         agentName: s.action.agentName,
@@ -258,7 +260,9 @@ export class VoltAgentController {
       severity: suspended.action.severity,
       summary: suspended.action.summary,
       payload: suspended.action.payload,
+      status: 'PENDING',
       suspendReason: suspended.suspendReason,
+      reasoningSteps: suspended.action.reasoningSteps, // Added for frontend display
       suspendedAt: suspended.suspendedAt,
       userId: suspended.userId,
     };
@@ -274,6 +278,7 @@ export class VoltAgentController {
   async approveAction(
     @Req() req: AuthenticatedRequest,
     @Param('executionId') executionId: string,
+    @Body() body: { payload?: Record<string, unknown> },
   ) {
     const suspended = await this.voltAgentService.getSuspendedWorkflow(
       executionId,
@@ -292,6 +297,7 @@ export class VoltAgentController {
     const decision: ApprovalResumeData = {
       approved: true,
       approvedBy: req.user.userId,
+      payload: body.payload,
     };
 
     const result = await this.voltAgentService.resumeApproval(
@@ -2196,7 +2202,7 @@ export class VoltAgentController {
         body.duration ||
         Math.round(
           (new Date(body.endTime).getTime() - new Date(body.startTime).getTime()) /
-            (1000 * 60),
+          (1000 * 60),
         ),
       isFlexible: body.isFlexible ?? true,
     };

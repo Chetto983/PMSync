@@ -39,6 +39,7 @@ import {
   FolderInput,
   AlertTriangle,
   Edit3,
+  Bot,
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -100,7 +101,8 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
   // Approve mutation
   const approveMutation = useMutation({
     mutationFn: async () => {
-      await multiAgentApi.approveAction(action.id);
+      // Send the edited payload instead of the original one
+      await multiAgentApi.approveAction(action.id, editedPayload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
@@ -233,17 +235,24 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
     >
       {/* Header */}
       <Box
+        onClick={() => setExpanded(!expanded)}
         sx={{
           px: 2,
           py: 1.5,
           display: 'flex',
           alignItems: 'center',
           gap: 1.5,
+          cursor: 'pointer',
           bgcolor: isPending
             ? alpha(theme.palette.warning.main, 0.06)
             : 'transparent',
           borderBottom: expanded ? '1px solid' : 'none',
           borderColor: alpha(theme.palette.divider, 0.1),
+          '&:hover': {
+            bgcolor: isPending
+              ? alpha(theme.palette.warning.main, 0.08)
+              : alpha(theme.palette.action.hover, 0.04),
+          },
         }}
       >
         {/* Icon */}
@@ -288,7 +297,6 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
         {/* Expand/Collapse */}
         <IconButton
           size="small"
-          onClick={() => setExpanded(!expanded)}
           sx={{ color: 'text.secondary' }}
         >
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -298,7 +306,28 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
       {/* Expandable Details */}
       <Collapse in={expanded}>
         <Box sx={{ px: 2, py: 2 }}>
+          {/* AI Reasoning Section */}
+          {(action.reasoningSteps || action.suspendReason) && (
+            <Box sx={{ mb: 2, p: 1.5, bgcolor: alpha(theme.palette.info.main, 0.04), borderRadius: 2, border: '1px solid', borderColor: alpha(theme.palette.info.main, 0.1) }}>
+              <Typography
+                variant="caption"
+                sx={{ color: 'info.main', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
+              >
+                <Bot size={12} /> {(inlineT?.reasoning as string) || 'AI Reasoning'}
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'text.secondary' }}>
+                {action.reasoningSteps || action.suspendReason}
+              </Typography>
+            </Box>
+          )}
+
           {/* Payload Fields */}
+          <Typography
+            variant="caption"
+            sx={{ mb: 1.5, display: 'block', color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.65rem' }}
+          >
+            {(inlineT?.actionDetails as string) || 'Action Details'}
+          </Typography>
           {renderPayloadFields()}
 
           {/* Edit toggle */}

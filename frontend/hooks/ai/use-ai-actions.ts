@@ -62,7 +62,7 @@ interface UseAiActionsReturn {
   fetchAction: (id: string) => Promise<PendingAction | undefined>;
 
   // Action Mutations
-  approveAction: (id: string) => Promise<void>;
+  approveAction: (id: string, payload?: Record<string, unknown>) => Promise<void>;
   rejectAction: (id: string, reason?: string) => Promise<void>;
   isApproving: boolean;
   isRejecting: boolean;
@@ -149,8 +149,8 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
 
   // Approve Mutation
   const approveMutation = useMutation({
-    mutationFn: async (executionId: string) => {
-      await voltAgentApi.approveAction(executionId);
+    mutationFn: async ({ executionId, payload }: { executionId: string; payload?: Record<string, unknown> }) => {
+      await voltAgentApi.approveAction(executionId, payload);
       return executionId;
     },
     onSuccess: (executionId) => {
@@ -237,8 +237,8 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
   );
 
   const approveAction = useCallback(
-    async (id: string): Promise<void> => {
-      await approveMutation.mutateAsync(id);
+    async (id: string, payload?: Record<string, unknown>): Promise<void> => {
+      await approveMutation.mutateAsync({ executionId: id, payload });
     },
     [approveMutation],
   );

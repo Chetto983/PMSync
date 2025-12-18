@@ -19,6 +19,7 @@ const ActionSchema = z.object({
   tenantId: z.string(),
   userId: z.string(),
   agentName: z.string().default('SupervisorAgent'),
+  reasoningSteps: z.string().optional(),
 });
 
 /**
@@ -55,6 +56,7 @@ const ResumeSchema = z.object({
   approved: z.boolean(),
   approvedBy: z.string(),
   rejectionReason: z.string().optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 });
 
 /**
@@ -95,7 +97,10 @@ export const createApprovalWorkflow = () => {
         // If resuming from suspension, process the human decision
         if (resumeData) {
           return {
-            action,
+            action: {
+              ...action,
+              payload: resumeData.payload || action.payload,
+            },
             approved: resumeData.approved,
             approvedBy: resumeData.approvedBy,
             rejectionReason: resumeData.rejectionReason,

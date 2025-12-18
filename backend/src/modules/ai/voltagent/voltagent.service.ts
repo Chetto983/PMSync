@@ -780,12 +780,15 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
             const summary = resultValue.summary as string;
 
             // Persist pending action to database via HitlService
+            // CRITICAL: Use persistedConversationId for new conversations (when options.conversationId is undefined)
+            const effectiveSessionId = persistedConversationId || options.conversationId;
             let actionId: string;
+            this.logger.debug(`[HITL] Creating pending action with sessionId=${effectiveSessionId} for action=${actionType}`);
             if (this.hitlService) {
               actionId = await this.hitlService.createPendingAction({
                 tenantId: options.tenantId,
                 userId: options.userId,
-                sessionId: options.conversationId,
+                sessionId: effectiveSessionId,
                 agentName: 'SupervisorAgent',
                 action: {
                   type: actionType as unknown as import('./interfaces/agent-action.interface').AgentActionType,

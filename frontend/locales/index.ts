@@ -1818,6 +1818,54 @@ export interface AppTranslations {
       categorizationFailed: string;
     };
     dismiss: string;
+    // Inline HITL Action Card
+    inlineAction?: {
+      actionTypes: {
+        SEND_EMAIL: string;
+        CREATE_EVENT: string;
+        UPDATE_CONTACT: string;
+        DELETE_EMAIL: string;
+        MOVE_EMAIL: string;
+        ARCHIVE_EMAIL: string;
+        REPLY_EMAIL: string;
+        FORWARD_EMAIL: string;
+      };
+      severity: {
+        LOW: string;
+        MEDIUM: string;
+        HIGH: string;
+      };
+      fields: {
+        to: string;
+        cc: string;
+        bcc: string;
+        subject: string;
+        body: string;
+        title: string;
+        location: string;
+        attendees: string;
+        startTime: string;
+        endTime: string;
+        description: string;
+      };
+      approved: string;
+      rejected: string;
+      executed: string;
+      failed: string;
+      expired: string;
+      pending: string;
+      reasoning: string;
+      actionDetails: string;
+      editPayload: string;
+      hideDetails: string;
+      approving: string;
+      rejecting: string;
+      expand: string;
+      collapse: string;
+      requiresApproval: string;
+      autoApproved: string;
+      confidence: string;
+    };
     emailAi: {
       smartReplies: {
         title: string;

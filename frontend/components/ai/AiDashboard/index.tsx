@@ -117,15 +117,12 @@ export function AiDashboard() {
         const conv = conversationRes.data.conversation;
         setConversationId(conv.id);
 
-        // Debug: Log pending actions and conversation ID for matching
-        console.log('[HITL Debug] Conversation ID:', conv.id);
-        console.log('[HITL Debug] All pending actions:', JSON.stringify(pendingActionsRes.data?.actions?.map(a => ({ id: a.id, sessionId: a.sessionId, actionType: a.actionType })), null, 2));
-
         // Filter pending actions for this conversation (by sessionId)
-        const conversationActions = pendingActionsRes.data?.actions?.filter(
-          (a) => a.sessionId === conv.id
-        ) || [];
-        console.log('[HITL Debug] Matched actions for conversation:', conversationActions);
+        // Include actions with matching sessionId, or actions with undefined sessionId (legacy compat)
+        const allPendingActions = pendingActionsRes.data?.actions || [];
+        const conversationActions = allPendingActions.filter(
+          (a) => a.sessionId === conv.id || (!a.sessionId && allPendingActions.length === 1)
+        );
 
         // Map messages
         const filteredMessages = conv.messages

@@ -68,7 +68,7 @@ export class HitlService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
-  ) {}
+  ) { }
 
   /**
    * Compute idempotency hash for an action.
@@ -287,6 +287,7 @@ export class HitlService {
     actionId: string,
     approvedBy: string,
     actingUser?: ActingUser,
+    payload?: Record<string, unknown>,
   ): Promise<ApprovalResult> {
     this.logger.debug(
       `Approving action ${actionId} for tenant ${tenantId} by ${approvedBy}`,
@@ -312,14 +313,27 @@ export class HitlService {
       throw new ForbiddenException(`Action ${actionId} has expired`);
     }
 
-    // Update status to approved
+    // Update status to approved (and payload if provided)
+    const updateData: Prisma.AgentPendingActionUpdateInput = {
+      status: PendingActionStatus.APPROVED,
+      approvedAt: new Date(),
+      approvedBy,
+    };
+
+    if (payload) {
+      updateData.payload = payload as Prisma.JsonObject;
+      // Re-compute hash if payload changed to maintain idempotency integrity
+      updateData.actionHash = this.computeActionHash(
+        tenantId,
+        action.sessionId || undefined,
+        action.actionType,
+        payload,
+      );
+    }
+
     await this.prisma.agentPendingAction.update({
       where: { id: actionId },
-      data: {
-        status: PendingActionStatus.APPROVED,
-        approvedAt: new Date(),
-        approvedBy,
-      },
+      data: updateData,
     });
 
     this.logger.log(`Action ${actionId} approved by ${approvedBy}`);
@@ -545,8 +559,8 @@ export class HitlService {
    * Delete all agent data for a specific user within a tenant.
    */
   async deleteUserData(tenantId: string, userId: string): Promise<void> {
-      this.logger.warn(
-        `Deleting agent data for user ${userId} in tenant ${tenantId}`,
+    this.logger.warn(
+      `Deleting agent data for user ${userId} in tenant ${tenantId}`,
     );
 
     await this.prisma.$transaction([

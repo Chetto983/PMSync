@@ -99,6 +99,7 @@ const HitlResumeSchema = z.object({
   approved: z.boolean(),
   approvedBy: z.string(),
   rejectionReason: z.string().optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 });
 
 /**
@@ -232,7 +233,10 @@ export const createHitlWorkflow = () => {
         if (resumeData) {
           return {
             actionId,
-            action,
+            action: {
+              ...action,
+              payload: resumeData.payload || action.payload,
+            },
             approved: resumeData.approved,
             autoApproved: false,
             approvedBy: resumeData.approvedBy,

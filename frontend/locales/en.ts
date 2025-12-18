@@ -1723,6 +1723,57 @@ export const en: AppTranslations = {
 
     },
     dismiss: 'Dismiss',
+    // Inline HITL Action Card translations
+    inlineAction: {
+      actionTypes: {
+        SEND_EMAIL: 'Send Email',
+        CREATE_EVENT: 'Create Event',
+        UPDATE_CONTACT: 'Update Contact',
+        DELETE_EMAIL: 'Delete Email',
+        MOVE_EMAIL: 'Move Email',
+        ARCHIVE_EMAIL: 'Archive Email',
+        REPLY_EMAIL: 'Reply to Email',
+        FORWARD_EMAIL: 'Forward Email',
+      },
+      severity: {
+        LOW: 'Low',
+        MEDIUM: 'Medium',
+        HIGH: 'High',
+      },
+      fields: {
+        to: 'To',
+        cc: 'Cc',
+        bcc: 'Bcc',
+        subject: 'Subject',
+        body: 'Body',
+        title: 'Title',
+        location: 'Location',
+        attendees: 'Attendees',
+        startTime: 'Start Time',
+        endTime: 'End Time',
+        description: 'Description',
+      },
+      // Status labels
+      approved: 'Approved',
+      rejected: 'Rejected',
+      executed: 'Executed',
+      failed: 'Failed',
+      expired: 'Expired',
+      pending: 'Pending Approval',
+      // Action labels
+      reasoning: 'AI Reasoning',
+      actionDetails: 'Action Details',
+      editPayload: 'Edit',
+      hideDetails: 'Done editing',
+      approving: 'Approving...',
+      rejecting: 'Rejecting...',
+      // Additional UI labels
+      expand: 'Show details',
+      collapse: 'Hide details',
+      requiresApproval: 'This action requires your approval',
+      autoApproved: 'Auto-approved',
+      confidence: 'Confidence',
+    },
     emailAi: {
       smartReplies: {
         title: 'Smart Replies',

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { Box, Typography, Chip, Button, Skeleton, alpha, useTheme } from '@mui/material';
+import { Box, Typography, Chip, Button, Skeleton, Tooltip, alpha, useTheme } from '@mui/material';
 import { Zap, Check, X, ArrowRight } from 'lucide-react';
 import { useQuery, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -134,9 +134,11 @@ export function PendingActionsWidget() {
                   {action.actionType === 'UPDATE_CONTACT' && (t.ai?.actions?.updateContact || 'Update contact')}
                   {!['SEND_EMAIL', 'CREATE_EVENT', 'UPDATE_CONTACT'].includes(action.actionType) && action.actionType.replace(/_/g, ' ')}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                  {action.summary || ''}
-                </Typography>
+                <Tooltip title={action.reasoningSteps || action.suspendReason || ''}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, cursor: 'help' }}>
+                    {action.summary || ''}
+                  </Typography>
+                </Tooltip>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
                     size="small"

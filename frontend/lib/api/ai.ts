@@ -76,6 +76,8 @@ export type PendingAction = {
   status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'FAILED';
   /** ConversationId for linking to inline chat actions */
   sessionId?: string;
+  /** AI reasoning for proposing this action */
+  reasoningSteps?: string;
 };
 
 export type ActionCounts = {
@@ -455,8 +457,10 @@ export const voltAgentApi = {
     return apiClient.get<PendingAction>(`/api/v1/voltagent/actions/${executionId}`);
   },
 
-  approveAction(executionId: string) {
-    return apiClient.post<{ status: 'approved' }>(`/api/v1/voltagent/actions/${executionId}/approve`);
+  approveAction(executionId: string, payload?: Record<string, unknown>) {
+    return apiClient.post<{ status: 'approved' }>(`/api/v1/voltagent/actions/${executionId}/approve`, {
+      payload,
+    });
   },
 
   rejectAction(executionId: string, rejectionReason?: string) {
