@@ -52,7 +52,7 @@ export function createAnalyticsAgent(options: AnalyticsAgentOptions): Agent {
 
   return new Agent({
     name: 'AnalyticsAgent',
-    purpose: 'Analyze data and generate visualizations',
+    purpose: 'Analyze data, generate charts/visualizations, compute statistics. Use for: trends, graphs, data summaries, numerical analysis.',
     model,
     instructions: t.analytics.instructions,
     tools: [analyticsTool],

@@ -29,7 +29,7 @@ export function createContactsAgent(options: ContactsAgentOptions): Agent {
 
   return new Agent({
     name: 'ContactsAgent',
-    purpose: 'Handle contact operations including search, create, update, and delete',
+    purpose: 'VERIFY recipient emails exist before sending. Search, create, update, delete contacts. ALWAYS check here first when sending email or creating calendar events with attendees.',
     model,
     instructions: t.contacts.instructions,
     tools: createContactsTools(prisma, locale, tenantId, cacheService),

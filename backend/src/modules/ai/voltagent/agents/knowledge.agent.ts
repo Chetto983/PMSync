@@ -119,7 +119,7 @@ export function createKnowledgeAgent(options: KnowledgeAgentOptions): Agent {
 
   return new Agent({
     name: 'KnowledgeAgent',
-    purpose: 'Search and retrieve information from the knowledge base',
+    purpose: 'Search saved emails and documents in knowledge base. Use for: finding past emails, searching archived content.',
     model,
     instructions: t.knowledge.instructions,
     tools: createKnowledgeTools(prisma, locale, tenantId),

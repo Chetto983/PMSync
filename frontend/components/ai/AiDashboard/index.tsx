@@ -165,6 +165,10 @@ export function AiDashboard() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+      // Refresh pending actions if new actions were created
+      if (response.pendingActionIds?.length) {
+        queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
+      }
 
       // Auto-generate title after first exchange (2 messages: user + assistant)
       const newConvId = response.conversationId || conversationId;

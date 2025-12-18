@@ -23,6 +23,7 @@ import { z } from 'zod';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { MistralService } from '../../services/mistral.service';
+import { EmbeddingsService } from '../../services/embeddings.service';
 import { WritingStyleService } from '../services/writing-style.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 
@@ -69,6 +70,8 @@ interface EmailRecord {
 export interface InsightsToolOptions {
   prisma: PrismaService;
   mistral: MistralService;
+  /** EmbeddingsService for semantic email search (optional) */
+  embeddingsService?: EmbeddingsService;
   writingStyle?: WritingStyleService;
   cacheService?: CacheService;
   locale: SupportedLocale;
@@ -1017,10 +1020,108 @@ export function createCalculatePriorityTool(options: InsightsToolOptions) {
 }
 
 /**
+ * Creates semantic email search tool using vector embeddings.
+ * Finds semantically similar emails based on meaning, not just keywords.
+ */
+function createSemanticSearchEmailsTool(options: InsightsToolOptions) {
+  const { prisma, mistral, embeddingsService, tenantId } = options;
+
+  return createTool({
+    name: 'semantic_search_emails',
+    description:
+      'Search emails by semantic meaning using AI embeddings. Use this for finding emails about specific topics, values, or concepts that may not match exact keywords. Better than keyword search for: finding specific amounts (e.g., "224.000€"), topics mentioned in email body, or related discussions.',
+    parameters: z.object({
+      query: z.string().describe('Natural language search query (e.g., "mortgage value", "project deadline", "invoice amount")'),
+      limit: z.number().optional().describe('Maximum results (default 10)'),
+    }),
+    execute: async ({ query, limit }) => {
+      // Check if embeddings service is available
+      if (!embeddingsService) {
+        return {
+          success: false,
+          error: 'Semantic search not available. Use search_emails for keyword search instead.',
+        };
+      }
+
+      try {
+        // Generate embedding for query
+        const queryEmbedding = await mistral.generateEmbedding(query);
+        if (!queryEmbedding || queryEmbedding.length === 0) {
+          return { success: false, error: 'Failed to generate query embedding' };
+        }
+
+        // Find similar embeddings (these are email chunks)
+        const similarResults = await embeddingsService.findSimilarContent<{
+          id: string;
+          content: string;
+          documentName: string | null;
+          metadata: { emailId?: string; subject?: string; from?: string };
+          distance?: number;
+        }>(tenantId, queryEmbedding, limit ?? 10);
+
+        if (similarResults.length === 0) {
+          return {
+            success: true,
+            data: [],
+            summary: `No semantically similar emails found for: "${query}"`,
+          };
+        }
+
+        // Get unique email IDs from results
+        const emailIds = [...new Set(
+          similarResults
+            .filter((r) => r.metadata?.emailId)
+            .map((r) => r.metadata.emailId as string)
+        )];
+
+        // Fetch full email details
+        const emails = await prisma.email.findMany({
+          where: {
+            tenantId,
+            id: { in: emailIds },
+          },
+          select: {
+            id: true,
+            subject: true,
+            from: true,
+            snippet: true,
+            receivedAt: true,
+            isRead: true,
+          },
+          orderBy: { receivedAt: 'desc' },
+        });
+
+        // Add relevance scores from embeddings
+        const emailsWithScores = emails.map((email) => {
+          const embedding = similarResults.find((r) => r.metadata?.emailId === email.id);
+          const relevanceScore = embedding?.distance !== undefined
+            ? Math.round((1 - embedding.distance / 2) * 100)
+            : 50;
+          return { ...email, relevanceScore };
+        });
+
+        // Sort by relevance
+        emailsWithScores.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+        return {
+          success: true,
+          data: emailsWithScores,
+          summary: `Found ${emailsWithScores.length} semantically related emails for: "${query}"`,
+        };
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        return { success: false, error: `Semantic search failed: ${errMsg}` };
+      }
+    },
+  });
+}
+
+/**
  * Creates all email insight tools
  */
 export function createInsightTools(options: InsightsToolOptions) {
-  return [
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tools: any[] = [
     createSummarizeEmailTool(options),
     createAnalyzeSentimentTool(options),
     createComposeReplyTool(options),
@@ -1032,4 +1133,11 @@ export function createInsightTools(options: InsightsToolOptions) {
     createDetectIntentTool(options),
     createCalculatePriorityTool(options),
   ];
+
+  // Add semantic search only if embeddingsService is available
+  if (options.embeddingsService) {
+    tools.push(createSemanticSearchEmailsTool(options));
+  }
+
+  return tools;
 }

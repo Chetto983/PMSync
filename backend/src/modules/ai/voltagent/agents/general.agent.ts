@@ -23,7 +23,7 @@ export function createGeneralAgent(options: GeneralAgentOptions): Agent {
 
   return new Agent({
     name: 'GeneralAgent',
-    purpose: 'Handle general questions and conversation',
+    purpose: 'Handle general questions, greetings, small talk, and non-specialized conversation ONLY when no other agent applies. Fallback agent.',
     model,
     instructions: t.general.instructions,
     tools: [],

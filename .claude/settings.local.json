@@ -49,7 +49,11 @@
       "Bash(pushd:*)",
       "Bash(popd)",
       "Bash(npm run:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(tasklist:*)",
+      "Bash(cmd /c \"tasklist /fi \"\"imagename eq node.exe\"\" /fo csv\")",
+      "Bash(powershell -Command \"(Get-Item ''d:\\MailAgent\\backend\\src\\modules\\ai\\voltagent\\agents\\email.agent.ts'').LastWriteTime = Get-Date\")",
+      "Bash(powershell -Command \"(Get-Item ''d:\\MailAgent\\backend\\src\\modules\\ai\\voltagent\\voltagent.service.ts'').LastWriteTime = Get-Date\")"
     ],
     "deny": []
   }

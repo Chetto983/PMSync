@@ -240,7 +240,7 @@ export function createUnifiedKnowledgeAgent(options: UnifiedKnowledgeAgentOption
 
   return new Agent({
     name: 'UnifiedKnowledgeAgent',
-    purpose: 'Search and retrieve information from all knowledge sources with memory context',
+    purpose: 'Memory-first comprehensive search: emails, memories, deadlines, follow-ups, action items. Use for: complex queries needing multiple sources.',
     model,
     instructions: t.knowledge.instructions,
     tools: createUnifiedKnowledgeTools(options),

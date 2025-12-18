@@ -43,6 +43,10 @@ export function getMistralLarge() {
   return getMistralProvider()(MISTRAL_MODEL_LARGE);
 }
 
+// NOTE: parallelToolCalls and structuredOutputs are now passed via
+// providerOptions in voltagent.service.ts generateText/streamText calls.
+// @see https://ai-sdk.dev/providers/ai-sdk-providers/mistral
+
 // Legacy exports for backward compatibility
 export const mistralProvider = {
   get small() {

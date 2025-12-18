@@ -982,3 +982,8 @@ frontend/playwright-report/index.html
 frontend/screenshots/*
 backend/scripts/api-audit-report.json
 frontend/src/api/swagger-schema.json
+backend/scripts/check-borello-contact.ts
+backend/scripts/check-contact.js
+backend/scripts/check-contact.ts
+backend/scripts/check-hitl-status.ts
+backend/scripts/test-voltagent-delegation-fix.ts

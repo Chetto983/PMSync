@@ -48,7 +48,7 @@ export function createWebSearchAgent(options: WebSearchAgentOptions): Agent {
 
   return new Agent({
     name: 'WebSearchAgent',
-    purpose: 'Search current information from the web',
+    purpose: 'Search CURRENT/REAL-TIME information from the web. Use ONLY for: news, weather, live data, public facts. NEVER use for people names (Borello, Mario, etc.) - those are email correspondents, use EmailAgent instead!',
     model,
     instructions: t.webSearch.instructions,
     tools: [webSearchTool],

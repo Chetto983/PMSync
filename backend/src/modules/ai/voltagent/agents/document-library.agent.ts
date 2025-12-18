@@ -50,7 +50,7 @@ export function createDocumentLibraryAgent(options: DocumentLibraryAgentOptions)
 
   return new Agent({
     name: 'DocumentLibraryAgent',
-    purpose: 'Search documents and answer questions with citations',
+    purpose: 'Search uploaded PDFs/documents and answer questions with citations. Use for: document Q&A, file search, uploaded content.',
     model,
     instructions: t.documentLibrary?.instructions || `You are a document assistant with access to the user's document libraries.
 

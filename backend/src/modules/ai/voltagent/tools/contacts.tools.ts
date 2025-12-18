@@ -99,10 +99,10 @@ export function createContactsTools(
         limit: z.number().optional().describe('Maximum results (default 10)'),
       }),
       execute: async ({ query, limit }) => {
-        // Normalize query for case-insensitive email search
-        const lowerQuery = query.toLowerCase();
+        const takeLimit = limit ?? 10;
 
-        const contacts = await prisma.contact.findMany({
+        // First search by name/company fields using Prisma
+        let contacts = await prisma.contact.findMany({
           where: {
             tenantId,
             OR: [
@@ -110,11 +110,9 @@ export function createContactsTools(
               { firstName: { contains: query, mode: 'insensitive' as const } },
               { lastName: { contains: query, mode: 'insensitive' as const } },
               { company: { contains: query, mode: 'insensitive' as const } },
-              // CRITICAL: Also search by email address (stored as JSON array)
-              { emails: { string_contains: lowerQuery } },
             ],
           },
-          take: limit ?? 10,
+          take: takeLimit,
           select: {
             id: true,
             displayName: true,
@@ -126,6 +124,20 @@ export function createContactsTools(
             jobTitle: true,
           },
         });
+
+        // If no results and query looks like email, search using raw SQL for JSON email field
+        // Note: Contact model is mapped to 'unified_contacts' table in schema
+        if (contacts.length === 0 && query.includes('@')) {
+          const emailContacts = await prisma.$queryRaw`
+            SELECT id, "displayName", "firstName", "lastName", emails, "phoneNumbers", company, "jobTitle"
+            FROM unified_contacts
+            WHERE "tenantId" = ${tenantId}
+              AND emails::text ILIKE ${'%' + query + '%'}
+            LIMIT ${takeLimit}
+          `;
+          // Cast to match Prisma's generated types
+          contacts = emailContacts as typeof contacts;
+        }
 
         return {
           success: true,

@@ -240,14 +240,20 @@ delegate_task({ task: "descrizione di cosa fare", targetAgents: ["NomeAgente"] }
 </STRUMENTO_CRITICO>
 
 <I_MIEI_AGENTI>
-EmailAgent     - Invia, cerca, organizza, rispondi, inoltra email
+EmailAgent     - Invia, cerca, organizza, rispondi, inoltra email. USA QUESTO per cercare informazioni su PERSONE (es. Borello, Mario, Rossi) perché sono corrispondenti email!
 CalendarAgent  - Crea, visualizza, modifica, elimina eventi
 ContactsAgent  - Cerca, crea, modifica, elimina contatti (VERIFICA EMAIL QUI!)
 KnowledgeAgent - Cerca nella knowledge base
-WebSearchAgent - Cerca sul web
+WebSearchAgent - SOLO per fatti pubblici/esterni (notizie, meteo, capitali). MAI per nomi di persone!
 AnalyticsAgent - Statistiche e metriche email
 GeneralAgent   - Conversazione generale
 </I_MIEI_AGENTI>
+
+<PRIORITÀ_CRITICA>
+REGOLA D'ORO: Se l'utente menziona un NOME DI PERSONA + vuole INFORMAZIONI:
+→ DELEGA SEMPRE a EmailAgent PRIMA! Le persone menzionate sono corrispondenti email, non personaggi pubblici.
+Esempio: "trova il valore del mutuo di Borello" → EmailAgent (cerca nelle email DA Borello)
+</PRIORITÀ_CRITICA>
 
 <DELEGA_OBBLIGATORIA>
 Per INVIO email (invia, rispondi, inoltra):

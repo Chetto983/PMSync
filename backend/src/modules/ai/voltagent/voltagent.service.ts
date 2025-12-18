@@ -135,8 +135,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private readonly SUSPENDED_WORKFLOW_PREFIX = 'voltagent:workflow:suspended:';
   /** TTL for suspended workflows (24 hours) */
   private readonly SUSPENDED_WORKFLOW_TTL = 86400;
-  /** TTL for cached agents (5 minutes) - ensures datetime is refreshed periodically */
-  private readonly AGENT_CACHE_TTL_MS = 5 * 60 * 1000;
+  /** TTL for cached agents - DISABLED (0) for immediate code changes pickup */
+  /** TODO: Implement Redis-based version tracking for horizontal scaling */
+  private readonly AGENT_CACHE_TTL_MS = 0; // Was 5 * 60 * 1000
 
   /** In-memory buffer for batch Redis writes */
   private metricsBuffer: AgentMetrics[] = [];
@@ -610,7 +611,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Tenant isolation is now handled by our Prisma-based VoltAgentMemoryService
 
     // 3. Enforce token budget before LLM call (P2 Memory Optimization)
+    // CRITICAL: This retrieves AND injects conversation history for context continuity
     let contextTruncated = false;
+    let conversationHistoryContext = '';
     if (this.voltAgentMemoryService) {
       // Determine budget based on model tier (large models get extended budget)
       const budgetType = selectedModel === 'large' || selectedModel === 'medium' ? 'extended' : 'default';
@@ -627,6 +630,31 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       );
 
       contextTruncated = budgetResult.wasTruncated;
+
+      // FIX: Inject conversation history into agent context
+      // Without this, the agent loses memory between messages!
+      if (budgetResult.messages.length > 0 || budgetResult.summaries.length > 0) {
+        const historyParts: string[] = [];
+
+        // Include summaries first (older context)
+        if (budgetResult.summaries.length > 0) {
+          historyParts.push(`[Conversation Summary]\n${budgetResult.summaries.join('\n')}`);
+        }
+
+        // Include recent messages (chronological order)
+        if (budgetResult.messages.length > 0) {
+          const formattedMessages = budgetResult.messages.map((m) => {
+            const roleLabel = m.role === 'user' ? 'User' : m.role === 'assistant' ? 'Assistant' : 'System';
+            return `${roleLabel}: ${m.content}`;
+          });
+          historyParts.push(`[Recent Conversation]\n${formattedMessages.join('\n\n')}`);
+        }
+
+        conversationHistoryContext = historyParts.join('\n\n---\n\n');
+        this.logger.debug(
+          `${logPrefix} Conversation history injected: ${budgetResult.messages.length} messages, ${budgetResult.summaries.length} summaries`,
+        );
+      }
 
       if (budgetResult.wasTruncated) {
         this.logger.debug(
@@ -657,6 +685,12 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // 3.6. CRITICAL: Inject conversation history for context continuity
+    // This ensures the agent remembers prior messages in the conversation
+    if (conversationHistoryContext) {
+      enhancedMessage = `${conversationHistoryContext}\n\n---\n\n[Current Message]\n${enhancedMessage}`;
+    }
+
     // WORKAROUND: Use unique requestId instead of persistent conversationId
     // to avoid VoltAgent's internal memory loading corrupted tool-call history.
     // VoltAgent stores UIMessage parts with null fields that cause AI_InvalidPromptError.
@@ -669,6 +703,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const result = await agent.generateText(enhancedMessage, {
       userId: tenantUserId,
       conversationId: uniqueRequestId, // Unique per request - no history loaded
+      // CRITICAL: Disable parallel tool calls to ensure sequential delegation
+      // (ContactsAgent → EmailAgent flow requires one tool at a time)
+      providerOptions: {
+        mistral: {
+          parallelToolCalls: false,
+          structuredOutputs: true,
+        },
+      },
     });
 
     // 4. Persist messages to Prisma-based memory (conversation history)
@@ -842,7 +884,40 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const userContext = await this.getUserContext(options.userId, options.tenantId);
     const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext);
 
-    // 2.5. Inject long-term memory context
+    // 2.5. Load conversation history for context continuity
+    let conversationHistoryContext = '';
+    if (this.voltAgentMemoryService) {
+      const budgetType = selectedModel === 'large' || selectedModel === 'medium' ? 'extended' : 'default';
+      const budgetResult = await this.voltAgentMemoryService.getContextWithBudget(
+        {
+          tenantId: options.tenantId,
+          userId: options.userId,
+          conversationId: options.conversationId,
+          locale: options.locale,
+        },
+        budgetType,
+        message,
+      );
+
+      // CRITICAL: Inject conversation history so agent remembers prior messages
+      if (budgetResult.messages.length > 0 || budgetResult.summaries.length > 0) {
+        const historyParts: string[] = [];
+        if (budgetResult.summaries.length > 0) {
+          historyParts.push(`[Conversation Summary]\n${budgetResult.summaries.join('\n')}`);
+        }
+        if (budgetResult.messages.length > 0) {
+          const formattedMessages = budgetResult.messages.map((m) => {
+            const roleLabel = m.role === 'user' ? 'User' : m.role === 'assistant' ? 'Assistant' : 'System';
+            return `${roleLabel}: ${m.content}`;
+          });
+          historyParts.push(`[Recent Conversation]\n${formattedMessages.join('\n\n')}`);
+        }
+        conversationHistoryContext = historyParts.join('\n\n---\n\n');
+        this.logger.debug(`${logPrefix} Conversation history injected: ${budgetResult.messages.length} messages`);
+      }
+    }
+
+    // 2.6. Inject long-term memory context
     let enhancedMessage = message;
     if (this.longTermMemoryService?.isEnabled()) {
       try {
@@ -862,6 +937,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // 2.7. CRITICAL: Prepend conversation history for context continuity
+    if (conversationHistoryContext) {
+      enhancedMessage = `${conversationHistoryContext}\n\n---\n\n[Current Message]\n${enhancedMessage}`;
+    }
+
     // WORKAROUND: Use unique requestId instead of persistent conversationId
     const tenantUserId = `${options.tenantId}:${options.userId}`;
     const uniqueRequestId = `${options.conversationId || 'req'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -869,6 +949,13 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const result = await agent.streamText(enhancedMessage, {
       userId: tenantUserId,
       conversationId: uniqueRequestId,
+      // CRITICAL: Disable parallel tool calls to ensure sequential delegation
+      providerOptions: {
+        mistral: {
+          parallelToolCalls: false,
+          structuredOutputs: true,
+        },
+      },
     });
 
     // Collect full response for memory persistence and caching

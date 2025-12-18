@@ -273,6 +273,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     prisma,
     emailSendService,
     mistral: mistralService,
+    embeddingsService,  // Enable semantic email search via RAG
     cacheService,
     locale,
     tenantId,

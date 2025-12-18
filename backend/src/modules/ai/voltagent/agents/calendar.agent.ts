@@ -31,7 +31,7 @@ export function createCalendarAgent(options: CalendarAgentOptions): Agent {
 
   return new Agent({
     name: 'CalendarAgent',
-    purpose: 'Handle calendar operations including events, scheduling, and availability',
+    purpose: 'Handle calendar operations including events, scheduling, and availability. NOTE: For events WITH ATTENDEES, verify via ContactsAgent FIRST.',
     model,
     instructions: t.calendar.instructions,
     tools: createCalendarTools(prisma, calendarService, locale, tenantId, cacheService),
