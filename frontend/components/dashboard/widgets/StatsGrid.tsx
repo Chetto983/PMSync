@@ -191,7 +191,7 @@ export function StatsGrid() {
         display: 'grid',
         gap: { xs: 2, md: 3 },
         gridTemplateColumns: {
-          xs: 'repeat(2, 1fr)',
+          xs: '1fr',
           sm: 'repeat(3, 1fr)',
         },
       }}

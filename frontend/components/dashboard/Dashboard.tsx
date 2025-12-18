@@ -70,9 +70,11 @@ export function Dashboard() {
       sx={{
         maxWidth: 1800,
         mx: 'auto',
-        px: { xs: 2, sm: 3, md: 4 },
+        px: { xs: 1.5, sm: 2, md: 4 },
         pb: 4,
         minHeight: '100vh',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* Hero Header */}
@@ -87,7 +89,7 @@ export function Dashboard() {
           variant="h3"
           sx={{
             fontWeight: 800,
-            fontSize: { xs: '1.75rem', sm: '2rem', md: '2.5rem' },
+            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' },
             background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${alpha(theme.palette.text.primary, 0.7)} 100%)`,
             backgroundClip: 'text',
             WebkitBackgroundClip: 'text',
@@ -102,7 +104,7 @@ export function Dashboard() {
           sx={{
             mt: 0.5,
             color: 'text.secondary',
-            fontSize: { xs: '0.9rem', md: '1rem' },
+            fontSize: { xs: '0.85rem', md: '1rem' },
           }}
         >
           {t.greetings.subtitle}
@@ -110,12 +112,12 @@ export function Dashboard() {
       </Box>
 
       {/* Daily Briefing - Hero Card */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: 4, width: '100%' }}>
         <DailyBriefing userName={userName} />
       </Box>
 
       {/* Stats Grid - Key Metrics */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: 4, width: '100%' }}>
         <StatsGrid />
       </Box>
 
@@ -130,6 +132,7 @@ export function Dashboard() {
             lg: 'repeat(3, 1fr)',
           },
           gridAutoRows: 'min-content',
+          width: '100%',
         }}
       >
         {/* AI Hub - Featured */}

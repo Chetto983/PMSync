@@ -11,6 +11,7 @@ import {
   alpha,
   Chip,
   useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Sun,
@@ -46,6 +47,7 @@ function getInitialDismissed(): boolean {
 export function DailyBriefing({ userName, onDismiss }: DailyBriefingProps) {
   const t = useTranslations();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
   const { data: briefing, isLoading, refetch, isRefetching } = useBriefing();
   const { data: unreadData } = useRecentUnreadEmails({ limit: 5 });
@@ -149,21 +151,31 @@ export function DailyBriefing({ userName, onDismiss }: DailyBriefingProps) {
           {getTimeIcon()}
         </Box>
 
-        <Box sx={{ flex: 1 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           {isLoading ? (
             <>
-              <Skeleton width={200} height={24} />
-              <Skeleton width={150} height={16} />
+              <Skeleton width={120} height={24} />
+              <Skeleton width={100} height={16} />
             </>
           ) : (
             <>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.95rem' }}>
+              <Typography variant="subtitle1" noWrap sx={{
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                fontSize: { xs: '0.875rem', sm: '0.95rem' },
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
                 <Sparkles size={16} />
                 {wt.title}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {getGreeting()}
-              </Typography>
+              {!isMobile && (
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                  {getGreeting()}
+                </Typography>
+              )}
             </>
           )}
         </Box>
@@ -260,18 +272,18 @@ export function DailyBriefing({ userName, onDismiss }: DailyBriefingProps) {
                   briefing.urgentEmails === 0 &&
                   briefing.deadlinesToday === 0 &&
                   briefing.pendingFollowUps === 0 && (
-                  <Chip
-                    icon={<AlertTriangle size={14} />}
-                    label={wt.noItems}
-                    size="small"
-                    sx={{
-                      bgcolor: alpha(theme.palette.success.main, 0.1),
-                      color: 'success.main',
-                      fontWeight: 600,
-                      '& .MuiChip-icon': { color: 'inherit' },
-                    }}
-                  />
-                )}
+                    <Chip
+                      icon={<AlertTriangle size={14} />}
+                      label={wt.noItems}
+                      size="small"
+                      sx={{
+                        bgcolor: alpha(theme.palette.success.main, 0.1),
+                        color: 'success.main',
+                        fontWeight: 600,
+                        '& .MuiChip-icon': { color: 'inherit' },
+                      }}
+                    />
+                  )}
               </Box>
 
               {/* Today's Highlights - Clickable Email Items */}
@@ -352,15 +364,23 @@ export function DailyBriefing({ userName, onDismiss }: DailyBriefingProps) {
               )}
 
               {/* Actions */}
-              <Box sx={{ display: 'flex', gap: 1, mt: 2.5, justifyContent: 'flex-end' }}>
+              <Box sx={{
+                display: 'flex',
+                gap: 1,
+                mt: 2.5,
+                flexDirection: { xs: 'column', sm: 'row' },
+                justifyContent: 'flex-end'
+              }}>
                 <Button
                   size="small"
+                  fullWidth={isMobile}
                   onClick={handleDismiss}
                   sx={{
                     borderRadius: 2,
                     textTransform: 'none',
                     fontWeight: 500,
                     color: 'text.secondary',
+                    order: { xs: 2, sm: 1 }
                   }}
                 >
                   {wt.dismiss}
@@ -368,12 +388,14 @@ export function DailyBriefing({ userName, onDismiss }: DailyBriefingProps) {
                 <Button
                   size="small"
                   variant="contained"
+                  fullWidth={isMobile}
                   onClick={() => router.push('/dashboard/email')}
                   sx={{
                     borderRadius: 2,
                     textTransform: 'none',
                     fontWeight: 600,
                     background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #7c3aed 100%)`,
+                    order: { xs: 1, sm: 2 }
                   }}
                 >
                   {wt.showDetails}

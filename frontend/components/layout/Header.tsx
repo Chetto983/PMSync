@@ -253,8 +253,8 @@ export function Header({
             flexGrow: 1,
             display: 'flex',
             justifyContent: 'center',
-            maxWidth: isMobile ? '100%' : 500,
-            mx: 'auto',
+            maxWidth: isMobile ? 'calc(100% - 40px)' : 500,
+            mx: isMobile ? 1 : 'auto',
             position: 'relative',
           }}
         >
@@ -384,7 +384,7 @@ export function Header({
           </Tooltip>
 
           {/* Language Selector */}
-          {!isTablet && (
+          {!isTablet && !isMobile && (
             <Tooltip title={t.nav.language}>
               <IconButton onClick={handleLanguageOpen} color="inherit" size="small">
                 <Chip
