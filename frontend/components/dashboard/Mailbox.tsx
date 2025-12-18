@@ -12,7 +12,7 @@ import {
   Filter,
   Menu,
 } from 'lucide-react';
-import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Chip, Alert, Stack, Typography, Button, CircularProgress, Paper, IconButton } from '@mui/material';
+import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Alert, Stack, Typography, Button, CircularProgress, Paper, IconButton } from '@mui/material';
 import {
   DndContext,
   DragStartEvent,
@@ -35,7 +35,7 @@ import { useEmailActions } from '@/hooks/use-email-actions';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { getFolderIcon as getIconForFolderUtil } from '@/lib/utils/folder-normalization';
-import { emailKeys, useEmailStats, useInfiniteConversations, useInfiniteEmails, useRetentionStats } from '@/hooks/queries';
+import { emailKeys, useEmailStats, useInfiniteConversations, useInfiniteEmails } from '@/hooks/queries';
 
 // Components
 import { ResizableEmailLayout } from '@/components/email/ResizableEmailLayout';
@@ -209,7 +209,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
   const clearSelection = useEmailStore((state) => state.clearSelection);
 
   // WebSocket for real-time updates (email events, folder counts, etc.)
-  const { isConnected, connectionStatus } = useWebSocket(token, true);
+  const { isConnected, connectionStatus: _connectionStatus } = useWebSocket(token, true);
 
   // Debug: Track selected email changes
   useEffect(() => {
@@ -244,13 +244,12 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     message: '',
     severity: 'info',
   });
-  const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
+  const [_syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
 
   const emailStatsQuery = useEmailStats();
-  const retentionStatsQuery = useRetentionStats();
+  // Retention stats available via useRetentionStats() if needed
   const emailStats = emailStatsQuery.data ?? null;
-  const retentionStats = retentionStatsQuery.data ?? null;
 
   // Drag-and-drop state for email-to-folder
   const [draggedEmail, setDraggedEmail] = useState<Email | Conversation | null>(null);
@@ -1451,102 +1450,84 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
               elevation={0}
               sx={{
                 px: { xs: 1, sm: 2 },
-                py: 1.5,
+                py: 1,
                 borderBottom: 1,
                 borderColor: 'divider',
                 flexShrink: 0,
                 overflow: 'hidden',
               }}
             >
-              <Stack spacing={1.25}>
-                <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" rowGap={0.5}>
-                  {/* Hamburger Menu - Mobile Only */}
-                  {isMobile && (
-                    <IconButton
-                      size="small"
-                      onClick={() => setMobileSidebarOpen(true)}
-                      sx={{ mr: 0.5 }}
-                      aria-label="Open folders menu"
-                    >
-                      <Menu size={20} />
-                    </IconButton>
-                  )}
-                  <Box
-                    component="span"
-                    sx={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: '50%',
-                      bgcolor: isConnected ? 'success.main' : 'warning.main',
-                      boxShadow: isConnected ? '0 0 0 4px rgba(76,175,80,0.15)' : '0 0 0 4px rgba(255,152,0,0.15)',
-                    }}
-                    aria-label={isConnected ? localText.connection.live : localText.connection.reconnecting}
-                  />
-                  <Chip
+              {/* Compact header: Row 1 - Status + Stats + Actions */}
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                {/* Hamburger Menu - Mobile Only */}
+                {isMobile && (
+                  <IconButton
                     size="small"
-                    label={
-                      connectionStatus === 'connecting'
-                        ? localText.connection.connecting
-                        : isConnected
-                          ? localText.connection.live
-                          : localText.connection.reconnecting
-                    }
-                    color={isConnected ? 'success' : 'warning'}
-                    variant={isConnected ? 'filled' : 'outlined'}
-                  />
-                  {emailStats && (
-                    <Typography variant="caption" color="text.secondary">
-                      Total: {emailStats.total} | Unread: {emailStats.unread} | Starred: {emailStats.starred}
-                    </Typography>
-                  )}
-                </Stack>
-                <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" rowGap={0.5}>
-                  {retentionStats && (
-                    <Typography variant="caption" color="text.secondary">
-                      Archived: {retentionStats.archivedEmails} | Saved: {Math.round(retentionStats.estimatedSpaceSavedMB)} MB
-                    </Typography>
-                  )}
-                  {syncStatusMessage && (
-                    <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
-                      {syncStatusMessage}
-                    </Typography>
-                  )}
-                </Stack>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" rowGap={1} sx={{ minWidth: 0 }}>
-                  {/* AI Search Bar */}
-                  <Box sx={{ flex: '1 1 200px', minWidth: 150, maxWidth: { xs: '100%', sm: 350 } }}>
-                    <AISearchBar
-                      onResultClick={handleAISearchResultClick}
-                      placeholder={t.email.list.aiSearchPlaceholder}
-                      size="small"
-                    />
-                  </Box>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => setAdvancedSearchOpen(true)}
-                    startIcon={<Filter size={16} />}
-                    sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                    onClick={() => setMobileSidebarOpen(true)}
+                    aria-label="Open folders menu"
                   >
-                    {t.email.advancedSearch.title}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={handleSyncProviders}
-                    disabled={syncLoading}
-                    startIcon={!syncLoading ? <RefreshCcw size={16} /> : undefined}
-                    sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-                  >
-                    {syncLoading ? <CircularProgress size={14} /> : t.email.actions.syncNow}
-                  </Button>
-                </Stack>
-                {!isConnected && (
-                  <Alert severity="warning" variant="outlined">
-                    {localText.connection.warning}
-                  </Alert>
+                    <Menu size={18} />
+                  </IconButton>
                 )}
+                {/* Connection Status - Compact */}
+                <Box
+                  component="span"
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: isConnected ? 'success.main' : 'warning.main',
+                    flexShrink: 0,
+                  }}
+                  aria-label={isConnected ? localText.connection.live : localText.connection.reconnecting}
+                />
+                {/* Stats - Desktop only, compact */}
+                {!isMobile && emailStats && (
+                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                    {emailStats.unread > 0 ? `${emailStats.unread} unread` : `${emailStats.total} emails`}
+                  </Typography>
+                )}
+                {/* AI Search Bar - Flexible width */}
+                <Box sx={{ flex: 1, minWidth: 120, maxWidth: { xs: '100%', md: 300 } }}>
+                  <AISearchBar
+                    onResultClick={handleAISearchResultClick}
+                    placeholder={isMobile ? t.email.list.aiSearchPlaceholder.split(' ').slice(0, 3).join(' ') + '...' : t.email.list.aiSearchPlaceholder}
+                    size="small"
+                  />
+                </Box>
+                {/* Action buttons - icons only on mobile */}
+                <IconButton
+                  size="small"
+                  onClick={() => setAdvancedSearchOpen(true)}
+                  sx={{ display: { xs: 'flex', sm: 'none' } }}
+                  aria-label={t.email.advancedSearch.title}
+                >
+                  <Filter size={18} />
+                </IconButton>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => setAdvancedSearchOpen(true)}
+                  startIcon={<Filter size={14} />}
+                  sx={{ display: { xs: 'none', sm: 'flex' }, flexShrink: 0, px: 1 }}
+                >
+                  {t.email.advancedSearch.title}
+                </Button>
+                <IconButton
+                  size="small"
+                  onClick={handleSyncProviders}
+                  disabled={syncLoading}
+                  aria-label={t.email.actions.syncNow}
+                >
+                  {syncLoading ? <CircularProgress size={16} /> : <RefreshCcw size={18} />}
+                </IconButton>
               </Stack>
+              {/* Connection warning - only when disconnected */}
+              {!isConnected && (
+                <Alert severity="warning" variant="outlined" sx={{ mt: 1, py: 0.5 }}>
+                  {localText.connection.warning}
+                </Alert>
+              )}
             </Paper>
             {/* Bulk Action Bar */}
             <BulkActionBar

@@ -720,6 +720,22 @@ npm install tailadmin-nextjs
 
 ## Changelog
 
+### v2.2 (December 18, 2025)
+
+**Email List Redesign (Superhuman/shadcn-ui Inspired):**
+- ✅ **Clean 2-Line Layout** - Sender+date on line 1, subject on line 2 (no snippet)
+- ✅ **Hidden Checkbox** - Checkbox only appears on hover (Superhuman style)
+- ✅ **Compact Avatar** - Reduced to 28px for cleaner list density
+- ✅ **Subtle Hover Effects** - Smooth 150ms transitions on hover
+- ✅ **Floating Action Bar** - Actions appear on hover, positioned on right
+- ✅ **Inline Indicators** - Star, attachment, thread count as small icons
+- ✅ **Unread Styling** - Subtle blue tint for unread items
+
+**References:**
+- [shadcn/ui](https://ui.shadcn.com/) - Clean, minimal components
+- [Inbox Zero](https://github.com/elie222/inbox-zero) - AI email management UI
+- [Superhuman](https://superhuman.com/) - Premium email UX inspiration
+
 ### v2.1 (December 17, 2025)
 
 **Dashboard Improvements:**

@@ -604,6 +604,127 @@ frontend/
 └── styles/           → Global styles
 ```
 
+## 🖥️ UI/UX DEBUGGING WITH PLAYWRIGHT MCP
+
+### Visual UI Audit Workflow
+
+Use Playwright MCP tools to visually audit and debug UI layouts:
+
+```javascript
+// 1. Navigate to the page
+mcp__playwright__browser_navigate({ url: "http://localhost:3001/dashboard/email" })
+
+// 2. Take screenshots at different breakpoints
+// Desktop (1440px)
+mcp__playwright__browser_resize({ width: 1440, height: 900 })
+mcp__playwright__browser_take_screenshot({ filename: "desktop-1440.png" })
+
+// Tablet (768px)
+mcp__playwright__browser_resize({ width: 768, height: 1024 })
+mcp__playwright__browser_take_screenshot({ filename: "tablet-768.png" })
+
+// Mobile (375px)
+mcp__playwright__browser_resize({ width: 375, height: 812 })
+mcp__playwright__browser_take_screenshot({ filename: "mobile-375.png" })
+
+// 3. Compare with reference designs (e.g., TailAdmin)
+mcp__playwright__browser_navigate({ url: "https://react-demo.tailadmin.com/chat" })
+mcp__playwright__browser_take_screenshot({ filename: "reference-design.png" })
+
+// 4. Close browser
+mcp__playwright__browser_close()
+```
+
+### Responsive Breakpoints
+
+| Breakpoint | Width | Use Case |
+|------------|-------|----------|
+| Mobile | 375px | iPhone X/11/12 |
+| Tablet | 768px | iPad portrait |
+| Small Desktop | 1024px | Laptop |
+| Desktop | 1440px | Standard monitor |
+
+### TailAdmin Reference
+
+TailAdmin components available at: `D:\MailAgent\free-nextjs-admin-dashboard-main`
+- GitHub: https://github.com/TailAdmin
+- Use for responsive design patterns and component inspiration
+
+## 🎨 MODERN UI DESIGN PATTERNS (2025)
+
+### Email List Design (Superhuman/shadcn-ui Inspired)
+
+**Design Principles:**
+- Clean 2-line layout: sender+date on line 1, subject on line 2
+- No snippet preview (minimal clutter)
+- Checkbox hidden until hover (clean look)
+- Small avatar (28px)
+- Subtle hover effects
+- Floating action bar on hover
+
+**Reference Libraries:**
+- [shadcn/ui](https://ui.shadcn.com/) - Clean, minimal components
+- [Inbox Zero](https://github.com/elie222/inbox-zero) - AI email management UI
+- [React Email](https://react.email) - Modern email components
+- Superhuman - Premium email UX inspiration
+
+**List Item Pattern:**
+```tsx
+// Clean 2-line layout
+<Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', minHeight: 56 }}>
+  {/* Checkbox - hidden until hover */}
+  <Fade in={isHovered || selected}>
+    <Checkbox checked={selected} />
+  </Fade>
+
+  {/* Small avatar */}
+  <Avatar sx={{ width: 28, height: 28 }} />
+
+  {/* Content */}
+  <Box sx={{ flex: 1 }}>
+    {/* Line 1: Sender + indicators + date */}
+    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <Typography sx={{ fontWeight: unread ? 600 : 400 }}>{sender}</Typography>
+      <Box sx={{ display: 'flex', gap: 0.5 }}>
+        {starred && <Star size={14} fill="#FFB300" />}
+        {hasAttachments && <Paperclip size={14} />}
+        {threadCount > 1 && <Chip label={threadCount} />}
+      </Box>
+      <Typography variant="caption">{date}</Typography>
+    </Box>
+
+    {/* Line 2: Subject only */}
+    <Typography color="text.secondary" sx={{ fontWeight: unread ? 500 : 400 }}>
+      {subject}
+    </Typography>
+  </Box>
+</Box>
+```
+
+**Key CSS Properties:**
+```css
+/* Subtle hover effect */
+transition: all 0.15s ease;
+&:hover { background-color: action.hover; }
+
+/* Unread indicator */
+bgcolor: unread ? 'rgba(25, 118, 210, 0.04)' : 'transparent';
+
+/* Clean typography */
+font-size: 0.875rem; /* 14px sender */
+font-size: 0.8125rem; /* 13px subject */
+```
+
+### Responsive Design Rules
+
+| Element | Desktop | Mobile |
+|---------|---------|--------|
+| Avatar | 28px | 28px |
+| Item height | 56px | 56px |
+| Padding | 12px | 8px |
+| Checkbox | Show on hover | Always show |
+| Action bar | Floating on hover | Bottom sheet |
+
 ## Support
 
 - Documentation: https://github.com/ruvnet/claude-flow

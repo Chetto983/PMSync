@@ -29,8 +29,8 @@ export function emailListOptions(params?: EmailListParams) {
       const response = await emailApi.listEmails(params);
       return response.data;
     },
-    staleTime: 60 * 1000, // 1 minute - emails change frequently
-    gcTime: 5 * 60 * 1000, // 5 minutes garbage collection
+    staleTime: 3 * 60 * 1000, // 3 minutes - balanced freshness vs performance
+    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
   });
 }
 
@@ -44,8 +44,8 @@ export function emailDetailOptions(id: string) {
       const response = await emailApi.getEmail(id);
       return response.data;
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes - single emails are more stable
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - single emails rarely change
+    gcTime: 15 * 60 * 1000, // 15 minutes - keep in cache longer
     enabled: !!id,
   });
 }
@@ -191,8 +191,8 @@ export function useConversations(params?: { page?: number; limit?: number; provi
       const response = await emailApi.getConversations(params);
       return response.data;
     },
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 10 * 60 * 1000,
   });
 }
 
@@ -222,8 +222,8 @@ export function useInfiniteConversations(
       const { page, totalPages } = lastPage.pagination;
       return page < totalPages ? page + 1 : undefined;
     },
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 10 * 60 * 1000,
     enabled: options?.enabled ?? true,
   });
 }
@@ -263,8 +263,8 @@ export function useInfiniteEmails(
       const { page } = firstPage.pagination;
       return page > 1 ? page - 1 : undefined;
     },
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 10 * 60 * 1000,
     enabled: options?.enabled ?? true,
   });
 }

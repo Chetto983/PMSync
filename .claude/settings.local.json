@@ -58,7 +58,8 @@
       "Bash(powershell -Command \"cd ''d:\\\\MailAgent\\\\frontend''; npm run type-check 2>&1 | Select-Object -First 50\")",
       "Bash(PGPASSWORD=mailpass psql:*)",
       "Bash(del \"d:\\\\MailAgent\\\\frontend\\\\components\\\\email\\\\EmailSidebar\\\\EmailSidebar.tsx\")",
-      "Bash(del \"d:\\\\MailAgent\\\\frontend\\\\components\\\\email\\\\EmailSidebar\\\\index.ts\")"
+      "Bash(del \"d:\\\\MailAgent\\\\frontend\\\\components\\\\email\\\\EmailSidebar\\\\index.ts\")",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

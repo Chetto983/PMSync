@@ -43,7 +43,7 @@ export interface PendingActionsPanelProps {
   /** Loading state */
   loading?: boolean;
   /** Callback to approve action - should return Promise for proper error handling */
-  onApprove?: (actionId: string, payload?: Record<string, any>) => void | Promise<void>;
+  onApprove?: (actionId: string, payload?: Record<string, unknown>) => void | Promise<void>;
   /** Callback to reject action - should return Promise for proper error handling */
   onReject?: (actionId: string) => void | Promise<void>;
   /** Callback to refresh */
@@ -74,9 +74,9 @@ export function PendingActionsPanel({
   const [isExpanded, setIsExpanded] = React.useState(defaultExpanded);
   const [processingIds, setProcessingIds] = React.useState<Set<string>>(new Set());
   const [editModeIds, setEditModeIds] = React.useState<Set<string>>(new Set());
-  const [editedPayloads, setEditedPayloads] = React.useState<Record<string, Record<string, any>>>({});
+  const [editedPayloads, setEditedPayloads] = React.useState<Record<string, Record<string, unknown>>>({});
 
-  const toggleEditMode = (id: string, initialPayload: Record<string, any>) => {
+  const toggleEditMode = (id: string, initialPayload: Record<string, unknown>) => {
     const next = new Set(editModeIds);
     if (next.has(id)) {
       next.delete(id);
@@ -89,7 +89,7 @@ export function PendingActionsPanel({
     setEditModeIds(next);
   };
 
-  const handlePayloadChange = (id: string, key: string, value: any) => {
+  const handlePayloadChange = (id: string, key: string, value: unknown) => {
     setEditedPayloads(prev => ({
       ...prev,
       [id]: {

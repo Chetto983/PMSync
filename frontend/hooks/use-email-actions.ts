@@ -1,3 +1,19 @@
+/**
+ * Email Actions Hook
+ *
+ * Centralized hook for email operations with optimistic updates and error handling.
+ * Uses TanStack Query mutations with fire-and-forget pattern for better UX.
+ *
+ * Best practices implemented:
+ * - Fire-and-forget mutations (mutate vs mutateAsync)
+ * - TanStack Query handles cache rollback and error notification
+ * - Zustand store for immediate UI feedback
+ * - Proper error extraction using getApiErrorMessage
+ *
+ * @see https://tanstack.com/query/v5/docs/framework/react/guides/mutations
+ * @see https://dev.to/emann/beautiful-error-handling-with-tanstack-query-and-axios-the-best-combo-1ai5
+ */
+
 import { useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEmailStore, type Email } from '@/stores/email-store';
@@ -13,17 +29,34 @@ import {
 } from '@/hooks/mutations';
 import { useRouter } from 'next/router';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/api-client';
 import { useTranslations } from '@/lib/hooks/use-translations';
+
+// ============================================================================
+// Types
+// ============================================================================
 
 export interface EmailActionsCallbacks {
   onSuccess?: (message: string) => void;
   onError?: (message: string) => void;
 }
 
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
 /**
- * Email actions hook
- *
- * Provides centralized email actions with optimistic updates and error handling.
+ * Replace count placeholder in translation string
+ */
+const replaceCount = (template: string, count: number) =>
+  template.replace('{count}', String(count));
+
+// ============================================================================
+// Main Hook
+// ============================================================================
+
+/**
+ * Email actions hook providing centralized operations with optimistic updates.
  *
  * @example
  * ```tsx
@@ -39,6 +72,8 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   const t = useTranslations();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  // Zustand store actions
   const {
     updateEmail,
     deleteEmail,
@@ -49,6 +84,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
     setSelectedEmail,
   } = useEmailStore();
 
+  // TanStack Query mutations
   const deleteEmailMutation = useDeleteEmail();
   const bulkDeleteMutation = useBulkDelete();
   const bulkMarkReadMutation = useBulkMarkRead();
@@ -57,375 +93,417 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   const bulkMoveToFolderMutation = useBulkMoveToFolder();
   const updateEmailMutation = useUpdateEmail();
 
-  // CRITICAL FIX: Use refs for callbacks to prevent stale closures
-  // This prevents all handlers from recreating on every render
-  const callbacksRef = useRef<EmailActionsCallbacks | undefined>(callbacks);
+  // Use refs for callbacks to prevent stale closures
+  const callbacksRef = useRef(callbacks);
   useEffect(() => {
     callbacksRef.current = callbacks;
   }, [callbacks]);
 
+  // ============================================================================
+  // Helper Functions
+  // ============================================================================
+
+  /**
+   * Get localized folder label
+   */
   const getFolderLabel = useCallback(
-    (folderId: string) => {
+    (folderId: string): string => {
       const normalized = folderId.toUpperCase();
-      switch (normalized) {
-        case 'INBOX':
-          return t.folders.inbox;
-        case 'SENT':
-          return t.folders.sent;
-        case 'DRAFTS':
-          return t.folders.drafts;
-        case 'TRASH':
-          return t.folders.trash;
-        case 'SPAM':
-          return t.folders.spam;
-        case 'ARCHIVE':
-          return t.folders.archive;
-        case 'OUTBOX':
-          return t.folders.outbox;
-        case 'STARRED':
-          return t.folders.starred;
-        case 'ALL':
-          return t.folders.all;
-        default:
-          return folderId;
-      }
+      const folderMap: Record<string, string> = {
+        INBOX: t.folders.inbox,
+        SENT: t.folders.sent,
+        DRAFTS: t.folders.drafts,
+        TRASH: t.folders.trash,
+        SPAM: t.folders.spam,
+        ARCHIVE: t.folders.archive,
+        OUTBOX: t.folders.outbox,
+        STARRED: t.folders.starred,
+        ALL: t.folders.all,
+      };
+      return folderMap[normalized] ?? folderId;
     },
-    [
-      t.folders.all,
-      t.folders.archive,
-      t.folders.drafts,
-      t.folders.inbox,
-      t.folders.outbox,
-      t.folders.sent,
-      t.folders.spam,
-      t.folders.starred,
-      t.folders.trash,
-    ]
+    [t.folders]
   );
 
+  /**
+   * Invalidate email caches for the given email IDs
+   */
   const invalidateEmailCaches = useCallback(
     (emailIds: string[]) => {
+      // Invalidate list and stat queries
       queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
       queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
 
+      // Invalidate individual email and thread queries
       const { emails } = useEmailStore.getState();
       const threadKeys = new Set<string>();
 
       for (const emailId of emailIds) {
         queryClient.invalidateQueries({ queryKey: emailKeys.detail(emailId) });
         const email = emails.find((e) => e.id === emailId);
-        threadKeys.add(email?.threadId || emailId);
+        if (email?.threadId) {
+          threadKeys.add(email.threadId);
+        }
       }
 
       for (const threadKey of threadKeys) {
         queryClient.invalidateQueries({ queryKey: emailKeys.thread(threadKey) });
       }
     },
-    [queryClient],
+    [queryClient]
   );
+
+  // ============================================================================
+  // Single Email Actions
+  // ============================================================================
 
   /**
    * Delete a single email
    */
   const handleDelete = useCallback(
-    async (emailId: string) => {
-      // Save email for potential rollback
+    (emailId: string) => {
       const { emails } = useEmailStore.getState();
       const emailToDelete = emails.find((e) => e.id === emailId);
 
-      try {
-        // Optimistic update
-        deleteEmail(emailId);
+      // Optimistic update
+      deleteEmail(emailId);
 
-        // API call
-        await deleteEmailMutation.mutateAsync(emailId);
-        invalidateEmailCaches([emailId]);
-
-        callbacksRef.current?.onSuccess?.(t.email.messages.deleted.replace('{count}', '1'));
-      } catch (error) {
-        logger.error('[EmailActions] Failed to delete email', { emailId, error });
-        // Rollback: restore the deleted email
-        if (emailToDelete) {
-          useEmailStore.getState().addEmail(emailToDelete);
-        }
-        callbacksRef.current?.onError?.(t.email.messages.deleteFailed);
-      }
-    },
-    [deleteEmail, deleteEmailMutation, invalidateEmailCaches, t.email.messages.deleteFailed, t.email.messages.deleted]
-  );
-
-  /**
-   * Delete multiple emails
-   */
-  const handleBulkDelete = useCallback(
-    async (emailIds: string[]) => {
-      // Save emails for potential rollback
-      const { emails } = useEmailStore.getState();
-      const emailsToDelete = emails.filter((e) => emailIds.includes(e.id));
-
-      try {
-        // Optimistic update
-        bulkDelete(emailIds);
-
-        // Use bulk API endpoint (more efficient than Promise.all)
-        await bulkDeleteMutation.mutateAsync(emailIds);
-        invalidateEmailCaches(emailIds);
-
-        callbacksRef.current?.onSuccess?.(t.email.messages.deleted.replace('{count}', emailIds.length.toString()));
-      } catch (error) {
-        logger.error('[EmailActions] Failed to bulk delete emails', { count: emailIds.length, error });
-        // Rollback: restore deleted emails
-        if (emailsToDelete.length > 0) {
-          const store = useEmailStore.getState();
-          emailsToDelete.forEach((email) => store.addEmail(email));
-        }
-        callbacksRef.current?.onError?.(t.email.messages.deleteFailed);
-      }
-    },
-    [bulkDelete, bulkDeleteMutation, invalidateEmailCaches, t.email.messages.deleteFailed, t.email.messages.deleted]
-  );
-
-  /**
-   * Mark email(s) as read/unread
-   * CRITICAL FIX: Actually respects the isRead parameter (store's markAsRead was always setting true)
-   */
-  const handleMarkAsRead = useCallback(
-    async (emailIds: string[], isRead: boolean = true) => {
-      // Save previous read states for potential rollback
-      const { emails } = useEmailStore.getState();
-      const previousStates = emails
-        .filter((e) => emailIds.includes(e.id))
-        .map((e) => ({ id: e.id, isRead: e.isRead }));
-
-      try {
-        // Optimistic update - use updateEmail to support both read and unread
-        // The store's markAsRead only sets to true, so we need to handle unread case
-        if (isRead) {
-          markAsRead(emailIds);
-        } else {
-          // For marking as unread, use updateEmail for each
-          const store = useEmailStore.getState();
-          emailIds.forEach((id) => {
-            store.updateEmail(id, { isRead: false });
+      // Fire mutation
+      deleteEmailMutation.mutate(emailId, {
+        onSuccess: () => {
+          invalidateEmailCaches([emailId]);
+          callbacksRef.current?.onSuccess?.(replaceCount(t.email.messages.deleted, 1));
+        },
+        onError: (error) => {
+          // Rollback Zustand store
+          if (emailToDelete) {
+            useEmailStore.getState().addEmail(emailToDelete);
+          }
+          logger.error('[EmailActions] Failed to delete email', {
+            emailId,
+            errorMessage: getApiErrorMessage(error),
           });
-        }
-
-        // Use bulk API endpoint (more efficient than Promise.all)
-        await bulkMarkReadMutation.mutateAsync({ emailIds, isRead });
-        invalidateEmailCaches(emailIds);
-
-        callbacksRef.current?.onSuccess?.(
-          (isRead ? t.email.messages.markRead : t.email.messages.markUnread).replace('{count}', emailIds.length.toString())
-        );
-      } catch (error) {
-        logger.error('[EmailActions] Failed to mark emails as read', { count: emailIds.length, isRead, error });
-        // Rollback: restore previous read states
-        const store = useEmailStore.getState();
-        previousStates.forEach(({ id, isRead: wasRead }) => {
-          store.updateEmail(id, { isRead: wasRead });
-        });
-        callbacksRef.current?.onError?.(isRead ? t.email.messages.markReadFailed : t.email.messages.markUnreadFailed);
-      }
+          callbacksRef.current?.onError?.(t.email.messages.deleteFailed);
+        },
+      });
     },
-    [
-      bulkMarkReadMutation,
-      invalidateEmailCaches,
-      markAsRead,
-      t.email.messages.markRead,
-      t.email.messages.markReadFailed,
-      t.email.messages.markUnread,
-      t.email.messages.markUnreadFailed,
-    ]
+    [deleteEmail, deleteEmailMutation, invalidateEmailCaches, t.email.messages]
   );
 
   /**
    * Toggle read status on email
    */
   const handleToggleRead = useCallback(
-    async (emailId: string, currentRead: boolean) => {
+    (emailId: string, currentRead: boolean) => {
       const newRead = !currentRead;
 
-      try {
-        // Optimistic update
-        updateEmail(emailId, { isRead: newRead });
+      // Optimistic update
+      updateEmail(emailId, { isRead: newRead });
 
-        // API call
-        await updateEmailMutation.mutateAsync({ emailId, data: { isRead: newRead } });
-        invalidateEmailCaches([emailId]);
-
-        callbacksRef.current?.onSuccess?.(
-          (newRead ? t.email.messages.markRead : t.email.messages.markUnread).replace('{count}', '1')
-        );
-      } catch (error) {
-        logger.error('[EmailActions] Failed to toggle read status', { emailId, error });
-        // Revert on error
-        updateEmail(emailId, { isRead: currentRead });
-        callbacksRef.current?.onError?.(newRead ? t.email.messages.markReadFailed : t.email.messages.markUnreadFailed);
-      }
+      // Fire mutation
+      updateEmailMutation.mutate(
+        { emailId, data: { isRead: newRead } },
+        {
+          onSuccess: () => {
+            invalidateEmailCaches([emailId]);
+            callbacksRef.current?.onSuccess?.(
+              replaceCount(newRead ? t.email.messages.markRead : t.email.messages.markUnread, 1)
+            );
+          },
+          onError: (error) => {
+            // Rollback
+            updateEmail(emailId, { isRead: currentRead });
+            logger.error('[EmailActions] Failed to toggle read status', {
+              emailId,
+              errorMessage: getApiErrorMessage(error),
+            });
+            callbacksRef.current?.onError?.(
+              newRead ? t.email.messages.markReadFailed : t.email.messages.markUnreadFailed
+            );
+          },
+        }
+      );
     },
-    [
-      invalidateEmailCaches,
-      t.email.messages.markRead,
-      t.email.messages.markReadFailed,
-      t.email.messages.markUnread,
-      t.email.messages.markUnreadFailed,
-      updateEmail,
-      updateEmailMutation,
-    ]
+    [invalidateEmailCaches, t.email.messages, updateEmail, updateEmailMutation]
   );
 
   /**
    * Toggle star on email
-   * PERFORMANCE FIX: Use bulk API endpoint instead of single-email endpoint
    */
   const handleToggleStar = useCallback(
-    async (emailId: string, currentStarred: boolean) => {
+    (emailId: string, currentStarred: boolean) => {
       const newStarred = !currentStarred;
 
-      try {
-        // Optimistic update
-        markAsStarred([emailId], newStarred);
+      // Optimistic update
+      markAsStarred([emailId], newStarred);
 
-        // PERFORMANCE FIX: Use bulk API endpoint (more efficient)
-        await bulkStarMutation.mutateAsync({ emailIds: [emailId], isStarred: newStarred });
-        invalidateEmailCaches([emailId]);
-
-        callbacksRef.current?.onSuccess?.(
-          (newStarred ? t.email.messages.starred : t.email.messages.unstarred).replace('{count}', '1')
-        );
-      } catch (error) {
-        logger.error('[EmailActions] Failed to toggle star', { emailId, error });
-        // Revert on error
-        markAsStarred([emailId], currentStarred);
-        callbacksRef.current?.onError?.(newStarred ? t.email.messages.starFailed : t.email.messages.unstarFailed);
-      }
+      // Fire mutation (use bulk endpoint - more efficient)
+      bulkStarMutation.mutate(
+        { emailIds: [emailId], isStarred: newStarred },
+        {
+          onSuccess: () => {
+            invalidateEmailCaches([emailId]);
+            callbacksRef.current?.onSuccess?.(
+              replaceCount(newStarred ? t.email.messages.starred : t.email.messages.unstarred, 1)
+            );
+          },
+          onError: (error) => {
+            // Rollback
+            markAsStarred([emailId], currentStarred);
+            logger.error('[EmailActions] Failed to toggle star', {
+              emailId,
+              errorMessage: getApiErrorMessage(error),
+            });
+            callbacksRef.current?.onError?.(
+              newStarred ? t.email.messages.starFailed : t.email.messages.unstarFailed
+            );
+          },
+        }
+      );
     },
-    [
-      bulkStarMutation,
-      invalidateEmailCaches,
-      markAsStarred,
-      t.email.messages.starFailed,
-      t.email.messages.starred,
-      t.email.messages.unstarFailed,
-      t.email.messages.unstarred,
-    ]
+    [bulkStarMutation, invalidateEmailCaches, markAsStarred, t.email.messages]
   );
 
   /**
    * Toggle important status on email
-   * PERFORMANCE FIX: Use bulk API endpoint and markAsImportant store method
    */
   const handleToggleImportant = useCallback(
-    async (emailId: string, currentImportant: boolean) => {
+    (emailId: string, currentImportant: boolean) => {
       const newImportant = !currentImportant;
 
-      try {
-        // Optimistic update - use the dedicated store method
-        useEmailStore.getState().markAsImportant([emailId], newImportant);
+      // Optimistic update
+      useEmailStore.getState().markAsImportant([emailId], newImportant);
 
-        // PERFORMANCE FIX: Use bulk API endpoint (more efficient)
-        await bulkFlagMutation.mutateAsync({ emailIds: [emailId], isFlagged: newImportant });
-        invalidateEmailCaches([emailId]);
-
-        callbacksRef.current?.onSuccess?.(
-          (newImportant ? t.email.messages.markedImportant : t.email.messages.unmarkedImportant).replace('{count}', '1')
-        );
-      } catch (error) {
-        logger.error('[EmailActions] Failed to toggle important', { emailId, error });
-        // Revert on error
-        useEmailStore.getState().markAsImportant([emailId], currentImportant);
-        callbacksRef.current?.onError?.(
-          newImportant ? t.email.messages.markedImportantFailed : t.email.messages.unmarkedImportantFailed
-        );
-      }
+      // Fire mutation (use bulk endpoint - more efficient)
+      bulkFlagMutation.mutate(
+        { emailIds: [emailId], isFlagged: newImportant },
+        {
+          onSuccess: () => {
+            invalidateEmailCaches([emailId]);
+            callbacksRef.current?.onSuccess?.(
+              replaceCount(
+                newImportant ? t.email.messages.markedImportant : t.email.messages.unmarkedImportant,
+                1
+              )
+            );
+          },
+          onError: (error) => {
+            // Rollback
+            useEmailStore.getState().markAsImportant([emailId], currentImportant);
+            logger.error('[EmailActions] Failed to toggle important', {
+              emailId,
+              errorMessage: getApiErrorMessage(error),
+            });
+            callbacksRef.current?.onError?.(
+              newImportant ? t.email.messages.markedImportantFailed : t.email.messages.unmarkedImportantFailed
+            );
+          },
+        }
+      );
     },
-    [
-      bulkFlagMutation,
-      invalidateEmailCaches,
-      t.email.messages.markedImportant,
-      t.email.messages.markedImportantFailed,
-      t.email.messages.unmarkedImportant,
-      t.email.messages.unmarkedImportantFailed,
-    ]
+    [bulkFlagMutation, invalidateEmailCaches, t.email.messages]
   );
 
   /**
-   * Archive email (move to Archive folder)
+   * Open email in detail view and mark as read
+   */
+  const handleEmailClick = useCallback(
+    (email: Email) => {
+      setSelectedEmail(email);
+
+      // Mark as read if unread (fire-and-forget)
+      if (!email.isRead) {
+        updateEmail(email.id, { isRead: true });
+
+        updateEmailMutation.mutate(
+          { emailId: email.id, data: { isRead: true } },
+          {
+            onSuccess: () => invalidateEmailCaches([email.id]),
+            onError: (error) => {
+              updateEmail(email.id, { isRead: false });
+              logger.error('[EmailActions] Failed to mark email as read', {
+                emailId: email.id,
+                errorMessage: getApiErrorMessage(error),
+              });
+            },
+          }
+        );
+      }
+    },
+    [invalidateEmailCaches, setSelectedEmail, updateEmail, updateEmailMutation]
+  );
+
+  // ============================================================================
+  // Bulk Email Actions
+  // ============================================================================
+
+  /**
+   * Delete multiple emails
+   */
+  const handleBulkDelete = useCallback(
+    (emailIds: string[]) => {
+      const { emails } = useEmailStore.getState();
+      const emailsToDelete = emails.filter((e) => emailIds.includes(e.id));
+
+      // Optimistic update
+      bulkDelete(emailIds);
+
+      // Fire mutation
+      bulkDeleteMutation.mutate(emailIds, {
+        onSuccess: () => {
+          invalidateEmailCaches(emailIds);
+          callbacksRef.current?.onSuccess?.(replaceCount(t.email.messages.deleted, emailIds.length));
+        },
+        onError: (error) => {
+          // Rollback
+          const store = useEmailStore.getState();
+          emailsToDelete.forEach((email) => store.addEmail(email));
+          logger.error('[EmailActions] Failed to bulk delete emails', {
+            count: emailIds.length,
+            errorMessage: getApiErrorMessage(error),
+          });
+          callbacksRef.current?.onError?.(t.email.messages.deleteFailed);
+        },
+      });
+    },
+    [bulkDelete, bulkDeleteMutation, invalidateEmailCaches, t.email.messages]
+  );
+
+  /**
+   * Mark email(s) as read/unread
+   */
+  const handleMarkAsRead = useCallback(
+    (emailIds: string[], isRead: boolean = true) => {
+      const { emails } = useEmailStore.getState();
+      const previousStates = emails
+        .filter((e) => emailIds.includes(e.id))
+        .map((e) => ({ id: e.id, isRead: e.isRead }));
+
+      // Optimistic update
+      if (isRead) {
+        markAsRead(emailIds);
+      } else {
+        const store = useEmailStore.getState();
+        emailIds.forEach((id) => store.updateEmail(id, { isRead: false }));
+      }
+
+      // Fire mutation
+      bulkMarkReadMutation.mutate(
+        { emailIds, isRead },
+        {
+          onSuccess: () => {
+            invalidateEmailCaches(emailIds);
+            callbacksRef.current?.onSuccess?.(
+              replaceCount(isRead ? t.email.messages.markRead : t.email.messages.markUnread, emailIds.length)
+            );
+          },
+          onError: (error) => {
+            // Rollback
+            const store = useEmailStore.getState();
+            previousStates.forEach(({ id, isRead: wasRead }) => {
+              store.updateEmail(id, { isRead: wasRead });
+            });
+            logger.error('[EmailActions] Failed to mark emails as read', {
+              count: emailIds.length,
+              isRead,
+              errorMessage: getApiErrorMessage(error),
+            });
+            callbacksRef.current?.onError?.(
+              isRead ? t.email.messages.markReadFailed : t.email.messages.markUnreadFailed
+            );
+          },
+        }
+      );
+    },
+    [bulkMarkReadMutation, invalidateEmailCaches, markAsRead, t.email.messages]
+  );
+
+  /**
+   * Archive email(s) - move to Archive folder
    */
   const handleArchive = useCallback(
-    async (emailIds: string[]) => {
-      // Save previous folders for potential rollback
+    (emailIds: string[]) => {
       const { emails } = useEmailStore.getState();
       const previousFolders = emails
         .filter((e) => emailIds.includes(e.id))
         .map((e) => ({ id: e.id, folder: e.folder }));
 
-      try {
-        // Optimistic update
-        moveToFolder(emailIds, 'ARCHIVE');
+      // Optimistic update
+      moveToFolder(emailIds, 'ARCHIVE');
 
-        // Use bulk API endpoint (more efficient than Promise.all)
-        await bulkMoveToFolderMutation.mutateAsync({ emailIds, folder: 'ARCHIVE' });
-        invalidateEmailCaches(emailIds);
-
-        callbacksRef.current?.onSuccess?.(
-          t.email.messages.moved
-            .replace('{count}', emailIds.length.toString())
-            .replace('{folder}', t.folders.archive)
-        );
-      } catch (error) {
-        logger.error('[EmailActions] Failed to archive emails', { count: emailIds.length, error });
-        // Rollback: restore previous folders
-        const store = useEmailStore.getState();
-        previousFolders.forEach(({ id, folder }) => {
-          store.updateEmail(id, { folder });
-        });
-        callbacksRef.current?.onError?.(t.email.messages.moveFailed);
-      }
+      // Fire mutation
+      bulkMoveToFolderMutation.mutate(
+        { emailIds, folder: 'ARCHIVE' },
+        {
+          onSuccess: () => {
+            invalidateEmailCaches(emailIds);
+            callbacksRef.current?.onSuccess?.(
+              replaceCount(t.email.messages.moved, emailIds.length).replace('{folder}', t.folders.archive)
+            );
+          },
+          onError: (error) => {
+            // Rollback
+            const store = useEmailStore.getState();
+            previousFolders.forEach(({ id, folder }) => store.updateEmail(id, { folder }));
+            logger.error('[EmailActions] Failed to archive emails', {
+              count: emailIds.length,
+              errorMessage: getApiErrorMessage(error),
+            });
+            callbacksRef.current?.onError?.(t.email.messages.moveFailed);
+          },
+        }
+      );
     },
-    [bulkMoveToFolderMutation, invalidateEmailCaches, moveToFolder, t.email.messages.moveFailed, t.email.messages.moved, t.folders.archive]
+    [bulkMoveToFolderMutation, invalidateEmailCaches, moveToFolder, t.email.messages, t.folders.archive]
   );
 
   /**
    * Move email(s) to folder
    */
   const handleMoveToFolder = useCallback(
-    async (emailIds: string[], folderId: string) => {
-      // Save previous folders for potential rollback
+    (emailIds: string[], folderId: string) => {
       const { emails } = useEmailStore.getState();
       const previousFolders = emails
         .filter((e) => emailIds.includes(e.id))
         .map((e) => ({ id: e.id, folder: e.folder }));
 
-      try {
-        // Optimistic update
-        moveToFolder(emailIds, folderId);
+      // Optimistic update
+      moveToFolder(emailIds, folderId);
 
-        // Use bulk API endpoint (more efficient than Promise.all)
-        await bulkMoveToFolderMutation.mutateAsync({ emailIds, folder: folderId });
-        invalidateEmailCaches(emailIds);
-
-        callbacksRef.current?.onSuccess?.(
-          t.email.messages.moved
-            .replace('{count}', emailIds.length.toString())
-            .replace('{folder}', getFolderLabel(folderId))
-        );
-      } catch (error) {
-        logger.error('[EmailActions] Failed to move emails to folder', { count: emailIds.length, folderId, error });
-        // Rollback: restore previous folders
-        const store = useEmailStore.getState();
-        previousFolders.forEach(({ id, folder }) => {
-          store.updateEmail(id, { folder });
-        });
-        callbacksRef.current?.onError?.(t.email.messages.moveFailed);
-      }
+      // Fire mutation
+      bulkMoveToFolderMutation.mutate(
+        { emailIds, folder: folderId },
+        {
+          onSuccess: () => {
+            invalidateEmailCaches(emailIds);
+            callbacksRef.current?.onSuccess?.(
+              replaceCount(t.email.messages.moved, emailIds.length).replace('{folder}', getFolderLabel(folderId))
+            );
+          },
+          onError: (error) => {
+            // Rollback
+            const store = useEmailStore.getState();
+            previousFolders.forEach(({ id, folder }) => store.updateEmail(id, { folder }));
+            logger.error('[EmailActions] Failed to move emails', {
+              count: emailIds.length,
+              folderId,
+              errorMessage: getApiErrorMessage(error),
+            });
+            callbacksRef.current?.onError?.(t.email.messages.moveFailed);
+          },
+        }
+      );
     },
-    [bulkMoveToFolderMutation, getFolderLabel, invalidateEmailCaches, moveToFolder, t.email.messages.moveFailed, t.email.messages.moved]
+    [bulkMoveToFolderMutation, getFolderLabel, invalidateEmailCaches, moveToFolder, t.email.messages]
   );
 
+  // ============================================================================
+  // Navigation Actions
+  // ============================================================================
+
   /**
-   * Reply to email - uses query params to trigger compose dialog
+   * Reply to email - navigates with compose params
    */
   const handleReply = useCallback(
     (email: Email) => {
@@ -449,7 +527,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   );
 
   /**
-   * Forward email - uses query params to trigger compose dialog
+   * Forward email - navigates with compose params
    */
   const handleForward = useCallback(
     (email: Email) => {
@@ -471,44 +549,24 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
     [router, t.email.composer.forwardPrefix]
   );
 
-  /**
-   * Open email in detail view
-   * CRITICAL FIX: Added rollback on API failure
-   */
-  const handleEmailClick = useCallback(
-    async (email: Email) => {
-      // Set as selected
-      setSelectedEmail(email);
-
-      // Mark as read if unread
-      if (!email.isRead) {
-        try {
-          // Optimistic update
-          updateEmail(email.id, { isRead: true });
-          await updateEmailMutation.mutateAsync({ emailId: email.id, data: { isRead: true } });
-          invalidateEmailCaches([email.id]);
-        } catch (error) {
-          logger.error('[EmailActions] Failed to mark email as read on click', { emailId: email.id, error });
-          // CRITICAL FIX: Rollback on failure
-          updateEmail(email.id, { isRead: false });
-          callbacksRef.current?.onError?.(t.email.messages.markReadFailed);
-        }
-      }
-    },
-    [invalidateEmailCaches, setSelectedEmail, t.email.messages.markReadFailed, updateEmail, updateEmailMutation]
-  );
+  // ============================================================================
+  // Return API
+  // ============================================================================
 
   return {
+    // Single email actions
     handleDelete,
-    handleBulkDelete,
-    handleMarkAsRead,
     handleToggleRead,
     handleToggleStar,
     handleToggleImportant,
+    handleEmailClick,
+    // Bulk actions
+    handleBulkDelete,
+    handleMarkAsRead,
     handleArchive,
     handleMoveToFolder,
+    // Navigation
     handleReply,
     handleForward,
-    handleEmailClick,
   };
 }

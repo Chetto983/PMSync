@@ -1,3 +1,4 @@
+/* eslint-disable no-console -- Console statements are useful for E2E test debugging */
 /**
  * AI Email Flow E2E Test
  *

@@ -10,6 +10,34 @@ Inspired by Superhuman's inline compose, ChatGPT Canvas, and 2025 AI assistant b
 
 ---
 
+## ✅ COMPLETED: Email List UI Redesign (December 18, 2025)
+
+**ThreadListItem.tsx completely redesigned with modern Superhuman/shadcn-ui patterns:**
+
+| Feature | Before | After |
+|---------|--------|-------|
+| Layout | 3-line (sender, subject, snippet) | 2-line (sender+date, subject) |
+| Checkbox | Always visible | Hidden until hover |
+| Avatar | 32-40px | 28px |
+| Snippet | Always shown | Removed |
+| Action bar | CSS-based hover | React state hover |
+| Item height | ~100px | ~56px |
+
+**Key Design Patterns Implemented:**
+- Clean 2-line layout with sender+date on line 1, subject on line 2
+- Checkbox hidden by default, fades in on hover or selection
+- Small 28px avatar with letter initial
+- Inline indicators (star, attachment, thread count) as subtle icons
+- Subtle blue tint for unread items (`rgba(25, 118, 210, 0.04)`)
+- Smooth 150ms hover transitions
+- Floating action bar appears on right side on hover
+
+**Files Modified:**
+- `frontend/components/email/ThreadListItem.tsx` - Complete rewrite
+- `CLAUDE.md` - Added modern UI design patterns section
+
+---
+
 ## Market Research Insights (December 2025)
 
 ### Superhuman AI Features (Industry Leader)

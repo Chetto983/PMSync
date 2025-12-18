@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect -- Dialog initialization requires state reset on open */
 import { useState, useCallback, useRef, useLayoutEffect } from 'react';
 import type { EmailAttachmentUpload } from '@/lib/api/email';
 import type { ComposePrefillData, ComposeFormState, ComposeFormActions } from '../types';

@@ -107,7 +107,7 @@ export function useUpdateEmail(callbacks?: MutationCallbacks) {
       queryClient.setQueriesData<EmailListResponse>(
         { queryKey: emailKeys.lists() },
         (old) => {
-          if (!old) return old;
+          if (!old?.emails) return old;
           return {
             ...old,
             emails: old.emails.map((email) =>
@@ -199,7 +199,7 @@ export function useDeleteEmail(callbacks?: MutationCallbacks) {
       queryClient.setQueriesData<EmailListResponse>(
         { queryKey: emailKeys.lists() },
         (old) => {
-          if (!old) return old;
+          if (!old?.emails || !old?.pagination) return old;
           return {
             ...old,
             emails: old.emails.filter((email) => email.id !== emailId),
@@ -253,7 +253,7 @@ export function useBulkMarkRead(callbacks?: MutationCallbacks) {
       queryClient.setQueriesData<EmailListResponse>(
         { queryKey: emailKeys.lists() },
         (old) => {
-          if (!old) return old;
+          if (!old?.emails) return old;
           return {
             ...old,
             emails: old.emails.map((email) =>
@@ -299,7 +299,7 @@ export function useBulkStar(callbacks?: MutationCallbacks) {
       queryClient.setQueriesData<EmailListResponse>(
         { queryKey: emailKeys.lists() },
         (old) => {
-          if (!old) return old;
+          if (!old?.emails) return old;
           return {
             ...old,
             emails: old.emails.map((email) =>
@@ -345,7 +345,7 @@ export function useBulkFlag(callbacks?: MutationCallbacks) {
       queryClient.setQueriesData<EmailListResponse>(
         { queryKey: emailKeys.lists() },
         (old) => {
-          if (!old) return old;
+          if (!old?.emails) return old;
           return {
             ...old,
             emails: old.emails.map((email) =>
@@ -393,7 +393,7 @@ export function useBulkMoveToFolder(callbacks?: MutationCallbacks) {
       queryClient.setQueriesData<EmailListResponse>(
         { queryKey: emailKeys.lists() },
         (old) => {
-          if (!old) return old;
+          if (!old?.emails) return old;
           return {
             ...old,
             emails: old.emails.map((email) =>
@@ -439,7 +439,7 @@ export function useBulkDelete(callbacks?: MutationCallbacks) {
       queryClient.setQueriesData<EmailListResponse>(
         { queryKey: emailKeys.lists() },
         (old) => {
-          if (!old) return old;
+          if (!old?.emails || !old?.pagination) return old;
           return {
             ...old,
             emails: old.emails.filter((email) => !emailIds.includes(email.id)),
