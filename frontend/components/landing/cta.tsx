@@ -254,11 +254,12 @@ export function Cta() {
                   fontSize: '1rem',
                   fontWeight: 600,
                   borderColor: alpha('#ffffff', 0.3),
-                  color: 'white',
+                  color: isDark ? 'white' : '#7650ce',
                   '&:hover': {
                     borderColor: '#55cae5',
                     bgcolor: alpha('#55cae5', 0.1),
                     transform: 'translateY(-2px)',
+                    color: isDark ? '#55cae5' : '#7650ce',
                   },
                   transition: 'all 0.3s ease',
                 }}

@@ -19,11 +19,6 @@ const float = keyframes`
   50% { transform: translateY(-20px) rotate(2deg); }
 `;
 
-const floatReverse = keyframes`
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(20px) rotate(-2deg); }
-`;
-
 const pulse = keyframes`
   0%, 100% { transform: scale(1); opacity: 0.5; }
   50% { transform: scale(1.05); opacity: 0.8; }
@@ -63,66 +58,8 @@ export function Hero() {
         alignItems: 'center',
       }}
     >
-      {/* Animated mesh gradient background */}
-      <Box
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          background: isDark
-            ? `radial-gradient(ellipse 100% 100% at 50% -20%, ${alpha('#55cae5', 0.15)} 0%, transparent 50%),
-               radial-gradient(ellipse 80% 80% at 80% 50%, ${alpha('#7650ce', 0.1)} 0%, transparent 50%),
-               radial-gradient(ellipse 60% 60% at 20% 80%, ${alpha('#b43db6', 0.08)} 0%, transparent 50%)`
-            : `radial-gradient(ellipse 100% 100% at 50% -20%, ${alpha('#55cae5', 0.2)} 0%, transparent 50%),
-               radial-gradient(ellipse 80% 80% at 80% 50%, ${alpha('#7650ce', 0.12)} 0%, transparent 50%),
-               radial-gradient(ellipse 60% 60% at 20% 80%, ${alpha('#b43db6', 0.1)} 0%, transparent 50%)`,
-          pointerEvents: 'none',
-        }}
-      />
 
-      {/* Floating orbs */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: '10%',
-          right: '5%',
-          width: { xs: 200, md: 400 },
-          height: { xs: 200, md: 400 },
-          borderRadius: '50%',
-          background: `linear-gradient(135deg, ${alpha('#55cae5', 0.2)} 0%, ${alpha('#7650ce', 0.1)} 100%)`,
-          filter: 'blur(80px)',
-          animation: `${float} 8s ease-in-out infinite`,
-          pointerEvents: 'none',
-        }}
-      />
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: '20%',
-          left: '-5%',
-          width: { xs: 150, md: 300 },
-          height: { xs: 150, md: 300 },
-          borderRadius: '50%',
-          background: `linear-gradient(135deg, ${alpha('#b43db6', 0.15)} 0%, ${alpha('#55cae5', 0.1)} 100%)`,
-          filter: 'blur(60px)',
-          animation: `${floatReverse} 10s ease-in-out infinite`,
-          pointerEvents: 'none',
-        }}
-      />
 
-      {/* Grid pattern overlay */}
-      <Box
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: isDark
-            ? `linear-gradient(${alpha('#fff', 0.02)} 1px, transparent 1px),
-               linear-gradient(90deg, ${alpha('#fff', 0.02)} 1px, transparent 1px)`
-            : `linear-gradient(${alpha('#000', 0.02)} 1px, transparent 1px),
-               linear-gradient(90deg, ${alpha('#000', 0.02)} 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
-          pointerEvents: 'none',
-        }}
-      />
 
       <Container maxWidth="lg" sx={{ position: 'relative' }}>
         <Stack spacing={3} alignItems="center" textAlign="center">
@@ -135,7 +72,7 @@ export function Hero() {
                 width: { xs: 'min(160px, 45vw)', sm: 'min(200px, 45vw)', md: 240 },
               }}
             >
-             <Image
+              <Image
                 src="/Logo PMSync.svg"
                 alt="PMSync logo"
                 width={240}
@@ -256,6 +193,7 @@ export function Hero() {
                 boxShadow: '0 8px 32px rgba(85, 202, 229, 0.35)',
                 position: 'relative',
                 overflow: 'hidden',
+                color: 'white',
                 '&::before': {
                   content: '""',
                   position: 'absolute',
@@ -268,6 +206,7 @@ export function Hero() {
                   transform: 'translateY(-3px)',
                   boxShadow: '0 12px 40px rgba(85, 202, 229, 0.45)',
                   '&::before': { opacity: 1 },
+                  color: 'white',
                 },
                 '& > *': { position: 'relative' },
                 transition: 'all 0.3s ease',
@@ -357,8 +296,8 @@ export function Hero() {
                     background: index === 0
                       ? 'linear-gradient(135deg, #55cae5 0%, #36e3ed 100%)'
                       : index === 1
-                      ? 'linear-gradient(135deg, #7650ce 0%, #b43db6 100%)'
-                      : 'linear-gradient(135deg, #b43db6 0%, #bc4fc2 100%)',
+                        ? 'linear-gradient(135deg, #7650ce 0%, #b43db6 100%)'
+                        : 'linear-gradient(135deg, #b43db6 0%, #bc4fc2 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                   }}

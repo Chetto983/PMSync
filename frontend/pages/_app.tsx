@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { AppProps } from 'next/app';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ThemeProvider as NextThemeProvider, useTheme } from 'next-themes';
 import { SpeedInsights } from '@vercel/speed-insights/next';
@@ -159,6 +160,10 @@ export default function App({ Component, pageProps }: AppProps & { Component: Re
 
   return (
     <QueryProvider>
+      <Head>
+        <title>PMSync</title>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
+      </Head>
       <NextThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <MaterialThemeWrapper>
           <AuthProvider>

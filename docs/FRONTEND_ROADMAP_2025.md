@@ -723,6 +723,7 @@ npm install tailadmin-nextjs
 ### v2.2 (December 18, 2025)
 
 **Email List Redesign (Superhuman/shadcn-ui Inspired):**
+
 - ✅ **Clean 2-Line Layout** - Sender+date on line 1, subject on line 2 (no snippet)
 - ✅ **Hidden Checkbox** - Checkbox only appears on hover (Superhuman style)
 - ✅ **Compact Avatar** - Reduced to 28px for cleaner list density
