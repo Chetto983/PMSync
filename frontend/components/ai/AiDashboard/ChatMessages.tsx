@@ -4,12 +4,44 @@ import React from 'react';
 import { Box, Typography, Paper, Chip, alpha, useTheme, Link } from '@mui/material';
 import { Bot, User, Sparkles, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { useQuery } from '@tanstack/react-query';
 import type { Message } from './index';
 import { AgentProgressIndicator } from './AgentProgressIndicator';
+import { InlineActionCard, type PendingAction } from './InlineActionCard';
+import { multiAgentApi } from '@/lib/api/ai';
 
 interface ChatMessagesProps {
   messages: Message[];
   sending: boolean;
+}
+
+// Hook to fetch pending actions for a message
+function usePendingActionsForMessage(actionIds: string[] | undefined) {
+  return useQuery({
+    queryKey: ["ai", "pendingActions", "inline", actionIds?.join(",") || ""],
+    queryFn: async () => {
+      if (!actionIds || actionIds.length === 0) return [];
+      const response = await multiAgentApi.getPendingActions({ limit: 50 });
+      const allActions = response.data?.actions || [];
+      return allActions.filter((a: PendingAction) => actionIds.includes(a.id));
+    },
+    enabled: !!actionIds && actionIds.length > 0,
+    staleTime: 10 * 1000,
+    refetchInterval: 5 * 1000,
+  });
+}
+
+// Component to render inline actions for a message
+function MessageInlineActions({ actionIds }: { actionIds: string[] }) {
+  const { data: actions = [] } = usePendingActionsForMessage(actionIds);
+  if (!actions.length) return null;
+  return (
+    <Box sx={{ mt: 1 }}>
+      {actions.map((action: PendingAction) => (
+        <InlineActionCard key={action.id} action={action} />
+      ))}
+    </Box>
+  );
 }
 
 // Markdown components for styled rendering
@@ -204,6 +236,11 @@ export function ChatMessages({ messages, sending }: ChatMessagesProps) {
                 </Box>
               )}
             </Paper>
+
+            {/* Inline Action Cards - Show below assistant messages with pending actions */}
+            {message.role === 'assistant' && message.pendingActionIds && message.pendingActionIds.length > 0 && (
+              <MessageInlineActions actionIds={message.pendingActionIds} />
+            )}
 
             {/* Metadata */}
             <Box

@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Box, Typography, Chip, Button, Skeleton, alpha, useTheme } from '@mui/material';
 import { Zap, Check, X, ArrowRight } from 'lucide-react';
 import { useQuery, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { multiAgentApi } from '@/lib/api/ai';
+import { websocketClient } from '@/lib/websocket-client';
 import { CollapsibleWidget } from './CollapsibleWidget';
 
 function pendingActionsOptions() {
@@ -15,8 +16,9 @@ function pendingActionsOptions() {
       const response = await multiAgentApi.getPendingActions({ status: 'PENDING', limit: 5 });
       return response.data?.actions || [];
     },
-    staleTime: 30 * 1000,
+    staleTime: 10 * 1000, // Reduced for faster updates
     gcTime: 5 * 60 * 1000,
+    refetchInterval: 15 * 1000, // Poll every 15s for real-time updates
     retry: 1,
   });
 }
@@ -40,6 +42,27 @@ export function PendingActionsWidget() {
       queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
     },
   });
+
+  // WebSocket subscription for real-time updates
+  useEffect(() => {
+    if (!websocketClient.isConnected()) return;
+
+    const invalidate = () => {
+      queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
+    };
+
+    const unsubCreated = websocketClient.onAiActionCreated(invalidate);
+    const unsubApproved = websocketClient.onAiActionApproved(invalidate);
+    const unsubRejected = websocketClient.onAiActionRejected(invalidate);
+    const unsubExecuted = websocketClient.onAiActionExecuted(invalidate);
+
+    return () => {
+      unsubCreated();
+      unsubApproved();
+      unsubRejected();
+      unsubExecuted();
+    };
+  }, [queryClient]);
 
   if (isLoading) {
     return (

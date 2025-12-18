@@ -105,19 +105,81 @@ export function AiDashboard() {
     }
 
     try {
-      const { voltAgentApi } = await import('@/lib/api/ai');
-      const response = await voltAgentApi.getConversation(id);
-      if (response.data?.conversation) {
-        const conv = response.data.conversation;
+      const { voltAgentApi, multiAgentApi } = await import('@/lib/api/ai');
+
+      // Fetch conversation and pending actions in parallel
+      const [conversationRes, pendingActionsRes] = await Promise.all([
+        voltAgentApi.getConversation(id),
+        multiAgentApi.getPendingActions({ limit: 50 }),
+      ]);
+
+      if (conversationRes.data?.conversation) {
+        const conv = conversationRes.data.conversation;
         setConversationId(conv.id);
+
+        // Debug: Log pending actions and conversation ID for matching
+        console.log('[HITL Debug] Conversation ID:', conv.id);
+        console.log('[HITL Debug] All pending actions:', JSON.stringify(pendingActionsRes.data?.actions?.map(a => ({ id: a.id, sessionId: a.sessionId, actionType: a.actionType })), null, 2));
+
+        // Filter pending actions for this conversation (by sessionId)
+        const conversationActions = pendingActionsRes.data?.actions?.filter(
+          (a) => a.sessionId === conv.id
+        ) || [];
+        console.log('[HITL Debug] Matched actions for conversation:', conversationActions);
+
+        // Map messages
+        const filteredMessages = conv.messages
+          .filter((m) => m.role === 'user' || m.role === 'assistant');
+
+        // Match pending actions to assistant messages by timestamp
+        // For each action, find the assistant message with the closest timestamp (before the action)
+        const messageActionMap = new Map<number, string[]>();
+
+        for (const action of conversationActions) {
+          const actionTime = new Date(action.suspendedAt).getTime();
+          let bestMatchIndex = -1;
+          let bestTimeDiff = Infinity;
+
+          // Find the assistant message closest to (and before) the action creation time
+          for (let i = 0; i < filteredMessages.length; i++) {
+            const msg = filteredMessages[i];
+            if (msg.role !== 'assistant') continue;
+
+            const msgTime = new Date(msg.createdAt || 0).getTime();
+            const timeDiff = actionTime - msgTime;
+
+            // Message must be before or very close to the action (within 30 seconds)
+            if (timeDiff >= -30000 && timeDiff < bestTimeDiff) {
+              bestTimeDiff = timeDiff;
+              bestMatchIndex = i;
+            }
+          }
+
+          // Attach action to the best matching message (or last assistant if no match)
+          if (bestMatchIndex >= 0) {
+            const existing = messageActionMap.get(bestMatchIndex) || [];
+            existing.push(action.id);
+            messageActionMap.set(bestMatchIndex, existing);
+          }
+        }
+
+        // If we have unmatched actions, attach them to the last assistant message
+        if (conversationActions.length > 0 && messageActionMap.size === 0) {
+          for (let i = filteredMessages.length - 1; i >= 0; i--) {
+            if (filteredMessages[i].role === 'assistant') {
+              messageActionMap.set(i, conversationActions.map(a => a.id));
+              break;
+            }
+          }
+        }
+
         setMessages(
-          conv.messages
-            .filter((m) => m.role === 'user' || m.role === 'assistant')
-            .map((m) => ({
-              role: m.role as 'user' | 'assistant',
-              content: m.content,
-              timestamp: new Date(),
-            }))
+          filteredMessages.map((m, index) => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            timestamp: new Date(m.createdAt || Date.now()),
+            pendingActionIds: messageActionMap.get(index),
+          }))
         );
       }
     } catch {

@@ -219,6 +219,9 @@ export class VoltAgentController {
         suspendReason: s.suspendReason,
         suspendedAt: s.suspendedAt,
         userId: s.userId,
+        agentName: s.action.agentName,
+        confidence: s.action.confidence,
+        sessionId: s.sessionId, // ConversationId for linking to inline chat actions
       })),
       total: suspended.length,
     };

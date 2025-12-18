@@ -74,6 +74,8 @@ export type PendingAction = {
   confidence?: number;
   adjustedConfidence?: number;
   status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'FAILED';
+  /** ConversationId for linking to inline chat actions */
+  sessionId?: string;
 };
 
 export type ActionCounts = {
@@ -157,6 +159,7 @@ export type ConversationMessage = {
   toolResults?: Array<{ tool: string; result: unknown }>;
   tokenCount?: number;
   metadata?: Record<string, unknown>;
+  createdAt?: string;
 };
 
 export type ConversationDetail = {

@@ -42,21 +42,13 @@ import {
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { multiAgentApi } from '@/lib/api/ai';
+import { multiAgentApi, type PendingAction } from '@/lib/api/ai';
 
-export interface PendingActionData {
-  id: string;
-  actionType: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'FAILED' | 'EXPIRED';
-  severity: 'LOW' | 'MEDIUM' | 'HIGH';
-  payload: Record<string, unknown>;
-  summary?: string;
-  confidence?: number;
-  agentName?: string;
-}
+// Re-export for ChatMessages
+export type { PendingAction };
 
 interface InlineActionCardProps {
-  action: PendingActionData;
+  action: PendingAction;
   onStatusChange?: (newStatus: string) => void;
 }
 
@@ -102,7 +94,8 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
 
   const Icon = ACTION_ICONS[action.actionType] || Mail;
   const severityColor = SEVERITY_COLORS[action.severity];
-  const isPending = action.status === 'PENDING';
+  // Default to PENDING if status is undefined
+  const isPending = !action.status || action.status === 'PENDING';
 
   // Approve mutation
   const approveMutation = useMutation({

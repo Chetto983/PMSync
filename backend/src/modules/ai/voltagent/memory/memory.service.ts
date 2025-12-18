@@ -38,6 +38,7 @@ export interface MemoryMessage {
   toolResults?: Array<{ tool: string; result: unknown }>;
   tokenCount?: number;
   metadata?: Record<string, unknown>;
+  createdAt?: Date;
 }
 
 /**
@@ -895,6 +896,7 @@ Reply in JSON format: {"summary": "...", "topics": ["..."], "keyFacts": [{"fact"
         toolResults: m.toolResults as MemoryMessage['toolResults'],
         tokenCount: m.tokenCount ?? undefined,
         metadata: m.metadata as MemoryMessage['metadata'],
+        createdAt: m.createdAt,
       })),
     };
   }

@@ -97,6 +97,8 @@ export interface SuspendedWorkflow {
   executionId: string;
   tenantId: string;
   userId: string;
+  /** Conversation/session ID for linking to chat messages */
+  sessionId?: string;
   action: ApprovalInput['action'];
   suspendReason: string;
   suspendedAt: Date;
@@ -1275,6 +1277,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       executionId: action.id,
       tenantId: action.tenantId,
       userId: action.userId,
+      sessionId: action.sessionId ?? undefined, // ConversationId for linking to chat messages
       action: {
         tenantId: action.tenantId,
         userId: action.userId,
