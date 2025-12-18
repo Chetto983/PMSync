@@ -256,11 +256,13 @@ export function AiDashboard() {
       sx={{
         maxWidth: 1800,
         mx: 'auto',
-        px: { xs: 2, sm: 3, md: 4 },
+        px: { xs: 1.5, sm: 2, md: 4 },
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden', // Prevent page scroll
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* Header */}
@@ -268,9 +270,9 @@ export function AiDashboard() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box
             sx={{
-              width: { xs: 48, md: 56 },
-              height: { xs: 48, md: 56 },
-              borderRadius: 3,
+              width: { xs: 40, md: 56 },
+              height: { xs: 40, md: 56 },
+              borderRadius: 2.5,
               background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
               display: 'flex',
               alignItems: 'center',
@@ -279,23 +281,26 @@ export function AiDashboard() {
               flexShrink: 0,
             }}
           >
-            <Sparkles size={24} color="white" />
+            <Sparkles size={isMobile ? 20 : 24} color="white" />
           </Box>
-          <Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography
               variant="h4"
+              noWrap
               sx={{
                 fontWeight: 800,
-                fontSize: { xs: '1.5rem', md: '2rem' },
+                fontSize: { xs: '1.25rem', md: '2rem' },
                 background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${alpha(theme.palette.text.primary, 0.7)} 100%)`,
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
               }}
             >
               {t.ai?.title || 'Assistente AI'}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" noWrap sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}>
               {t.ai?.subtitle || 'Email • Calendario • Contatti'}
             </Typography>
           </Box>
@@ -407,10 +412,10 @@ export function AiDashboard() {
               p: 2,
               borderTop: '1px solid',
               borderColor: alpha(theme.palette.divider, 0.06),
-              // Glassmorphism background
-              background: alpha(theme.palette.background.paper, 0.7),
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
+              // Glassmorphism background - reduced blur on mobile to minimize "fog"
+              background: alpha(theme.palette.background.paper, 0.85),
+              backdropFilter: isMobile ? 'blur(10px)' : 'blur(20px)',
+              WebkitBackdropFilter: isMobile ? 'blur(10px)' : 'blur(20px)',
             }}
           >
             {messages.length > 0 && !sending && (

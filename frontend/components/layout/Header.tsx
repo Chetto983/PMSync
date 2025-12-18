@@ -253,8 +253,8 @@ export function Header({
             flexGrow: 1,
             display: 'flex',
             justifyContent: 'center',
-            maxWidth: isMobile ? 'calc(100% - 40px)' : 500,
-            mx: isMobile ? 1 : 'auto',
+            maxWidth: isMobile ? 'calc(100% - 130px)' : 500,
+            mx: isMobile ? 0.5 : 'auto',
             position: 'relative',
           }}
         >
