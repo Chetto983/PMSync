@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useRef, useLayoutEffect } from 'react';
 import type { EmailAttachmentUpload } from '@/lib/api/email';
 import type { ComposePrefillData, ComposeFormState, ComposeFormActions } from '../types';
 
@@ -23,30 +23,44 @@ export function useComposeState({ open, prefillData }: UseComposeStateOptions): 
   const [showBcc, setShowBcc] = useState(false);
   const [attachments, setAttachments] = useState<EmailAttachmentUpload[]>([]);
 
-  // Initialize form with prefill data when dialog opens
-  useEffect(() => {
-    if (!open) return;
+  // Track previous open state to detect when dialog opens
+  const prevOpenRef = useRef(open);
+  const isInitializedRef = useRef(false);
 
-    // Reset transient state every time the dialog opens/changes mode
-    setAttachments([]);
+  // Initialize form synchronously on open change (useLayoutEffect for synchronous updates)
+  useLayoutEffect(() => {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
 
-    if (prefillData) {
-      setTo(prefillData.to || []);
-      setCc(prefillData.cc || []);
-      setBcc(prefillData.bcc || []);
-      setSubject(prefillData.subject || '');
-      setBody(prefillData.body || '');
-      setShowCc(!!prefillData.cc?.length);
-      setShowBcc(!!prefillData.bcc?.length);
-    } else {
-      // Reset form for new compose
-      setTo([]);
-      setCc([]);
-      setBcc([]);
-      setSubject('');
-      setBody('');
-      setShowCc(false);
-      setShowBcc(false);
+    // Only initialize when dialog opens (transitions from closed to open)
+    // or on first render when open
+    if (open && (!wasOpen || !isInitializedRef.current)) {
+      isInitializedRef.current = true;
+
+      // Reset all state synchronously
+      if (prefillData) {
+        setTo(prefillData.to || []);
+        setCc(prefillData.cc || []);
+        setBcc(prefillData.bcc || []);
+        setSubject(prefillData.subject || '');
+        setBody(prefillData.body || '');
+        setShowCc(!!prefillData.cc?.length);
+        setShowBcc(!!prefillData.bcc?.length);
+      } else {
+        setTo([]);
+        setCc([]);
+        setBcc([]);
+        setSubject('');
+        setBody('');
+        setShowCc(false);
+        setShowBcc(false);
+      }
+      setAttachments([]);
+    }
+
+    // Reset initialization flag when dialog closes
+    if (!open && wasOpen) {
+      isInitializedRef.current = false;
     }
   }, [open, prefillData]);
 

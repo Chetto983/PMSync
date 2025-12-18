@@ -66,7 +66,8 @@ export { ThreadLabels, type ThreadLabelsProps, type Label } from './shared/Threa
 /**
  * Email sidebar with folders and navigation
  */
-export { EmailSidebar } from './EmailSidebar/EmailSidebar';
+export { EmailSidebar } from './EmailSidebar';
+export type { FolderItem, FolderGroup, SmartFilter, EmailSidebarProps } from './EmailSidebar';
 
 // ============================================================================
 // DIALOGS & MODALS
@@ -75,7 +76,7 @@ export { EmailSidebar } from './EmailSidebar/EmailSidebar';
 /**
  * Compose email dialog
  */
-export { ComposeDialog } from './ComposeDialog/ComposeDialog';
+export { ComposeDialog } from './ComposeDialog';
 
 /**
  * Advanced search dialog

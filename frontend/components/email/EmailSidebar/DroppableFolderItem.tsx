@@ -3,7 +3,7 @@ import { Box, Chip, ListItemButton, ListItemIcon, ListItemText } from '@mui/mate
 import { useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { FolderItem } from './EmailSidebar';
+import type { FolderItem } from './types';
 
 interface DroppableFolderItemProps {
   folder: FolderItem;

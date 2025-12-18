@@ -39,10 +39,10 @@ import { emailKeys, useEmailStats, useInfiniteConversations, useInfiniteEmails, 
 
 // Components
 import { ResizableEmailLayout } from '@/components/email/ResizableEmailLayout';
-import { EmailSidebar, type FolderGroup, type SmartFilter } from '@/components/email/EmailSidebar/EmailSidebar';
+import { EmailSidebar, type FolderGroup, type SmartFilter } from '@/components/email';
 import { ThreadList } from '@/components/email/ThreadList';
 import { ThreadDisplay } from '@/components/email/ThreadDisplay';
-import { ComposeDialog } from '@/components/email/ComposeDialog/ComposeDialog';
+import { ComposeDialog } from '@/components/email/ComposeDialog';
 import { AdvancedSearchDialog, type AdvancedSearchFilters } from '@/components/email/AdvancedSearchDialog';
 import { AISearchBar } from '@/components/email/AISearchBar';
 import { LabelManager } from '@/components/labels';
@@ -1429,7 +1429,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
           <EmailSidebar
             folderGroups={folderGroups}
             selectedFolderId={selectedFolderId}
-            onFolderSelect={(folderId) => {
+            onFolderSelect={(folderId: string) => {
               setSelectedFolderId(folderId);
               if (isMobile) {
                 setMobileSidebarOpen(false);

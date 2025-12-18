@@ -32,7 +32,7 @@ import {
   ContactBulkActionBar,
   type ProviderFilter,
 } from '@/components/contacts';
-import { ComposeDialog } from '@/components/email/ComposeDialog/ComposeDialog';
+import { ComposeDialog } from '@/components/email/ComposeDialog';
 
 type ContactFormState = {
   firstName: string;
