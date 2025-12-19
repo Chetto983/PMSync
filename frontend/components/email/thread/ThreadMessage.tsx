@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   IconButton,
-  Button,
   Avatar,
   Chip,
   Paper,
@@ -21,6 +20,9 @@ import {
   Paperclip,
   Clock,
   Edit,
+  Archive,
+  Trash2,
+  Star,
 } from 'lucide-react';
 import { EmailBody } from '../shared/EmailBody';
 import { formatEmailHeaderDate, parseEmailFrom } from '../shared/utils';
@@ -39,6 +41,9 @@ interface ThreadMessageProps {
   onReplyAll?: (email: Email) => void;
   onForward?: (email: Email) => void;
   onEditDraft?: (email: Email) => void;
+  onArchive?: (email: Email) => void;
+  onDelete?: (email: Email) => void;
+  onToggleStar?: (email: Email) => void;
   onAttachmentOpen: (attachment: NonNullable<Email['attachments']>[number], e: React.MouseEvent) => void;
   attachmentTooltip: string;
   isDark: boolean;
@@ -55,6 +60,9 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
     onReplyAll,
     onForward,
     onEditDraft,
+    onArchive,
+    onDelete,
+    onToggleStar,
     onAttachmentOpen,
     attachmentTooltip,
     isDark,
@@ -215,51 +223,54 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
                 </Stack>
               </Stack>
 
-              <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
-                {(email.folder === 'DRAFTS' || email.isDraft || email.externalId?.startsWith('draft-')) && onEditDraft ? (
-                  <Button
+              {/* Message Action Toolbar - Icon only */}
+              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ ml: 'auto' }}>
+                <Tooltip title={email.isStarred ? t.email.bulkBar.removeStar : t.email.bulkBar.addStar}>
+                  <IconButton
                     size="small"
-                    variant="contained"
-                    color="primary"
-                    startIcon={<Edit size={14} />}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onEditDraft(email);
+                      onToggleStar?.(email);
                     }}
-                    sx={{ textTransform: 'none' }}
                   >
-                    {t.common.edit}
-                  </Button>
+                    <Star
+                      size={16}
+                      fill={email.isStarred ? '#FFB300' : 'none'}
+                      color={email.isStarred ? '#FFB300' : 'currentColor'}
+                    />
+                  </IconButton>
+                </Tooltip>
+                {email.folder === 'DRAFTS' || email.isDraft || email.externalId?.startsWith('draft-') ? (
+                  <Tooltip title={t.common.edit}>
+                    <IconButton size="small" color="primary" onClick={() => onEditDraft?.(email)}>
+                      <Edit size={16} />
+                    </IconButton>
+                  </Tooltip>
                 ) : (
                   <>
                     <Tooltip title={t.email.view.reply}>
-                      <IconButton
-                        size="small"
-                        onClick={() => onReply?.(email)}
-                        aria-label={t.email.view.reply}
-                        data-testid="thread-reply-button"
-                      >
+                      <IconButton size="small" onClick={() => onReply?.(email)}>
                         <Reply size={16} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={t.email.view.replyAll}>
-                      <IconButton
-                        size="small"
-                        onClick={() => onReplyAll?.(email)}
-                        aria-label={t.email.view.replyAll}
-                        data-testid="thread-reply-all-button"
-                      >
+                      <IconButton size="small" onClick={() => onReplyAll?.(email)}>
                         <ReplyAll size={16} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={t.email.view.forward}>
-                      <IconButton
-                        size="small"
-                        onClick={() => onForward?.(email)}
-                        aria-label={t.email.view.forward}
-                        data-testid="thread-forward-button"
-                      >
+                      <IconButton size="small" onClick={() => onForward?.(email)}>
                         <Forward size={16} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t.email.bulkBar.archive}>
+                      <IconButton size="small" onClick={() => onArchive?.(email)}>
+                        <Archive size={16} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t.email.bulkBar.delete}>
+                      <IconButton size="small" onClick={() => onDelete?.(email)}>
+                        <Trash2 size={16} />
                       </IconButton>
                     </Tooltip>
                   </>

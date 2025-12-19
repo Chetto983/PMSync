@@ -21,28 +21,34 @@ export function parseEmailFrom(from: string): ParsedEmailFrom {
 
 /**
  * Format a compact date for list rows (time today, weekday this week, month/day otherwise).
+ * Uses locale from browser/system settings for proper localization.
  */
-export function formatListDate(date: string | Date): string {
+export function formatListDate(date: string | Date, locale?: string): string {
   const d = new Date(date);
   const now = new Date();
   const diff = now.getTime() - d.getTime();
   const hours = diff / (1000 * 60 * 60);
+  // Use provided locale or undefined to use browser's default
+  const userLocale = locale || undefined;
 
   if (hours < 24) {
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return d.toLocaleTimeString(userLocale, { hour: 'numeric', minute: '2-digit', hour12: true });
   }
   if (hours < 24 * 7) {
-    return d.toLocaleDateString('en-US', { weekday: 'short' });
+    return d.toLocaleDateString(userLocale, { weekday: 'short' });
   }
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(userLocale, { month: 'short', day: 'numeric' });
 }
 
 /**
  * Format a full date for the email header area.
+ * Uses locale from browser/system settings for proper localization.
  */
-export function formatEmailHeaderDate(date: string | Date): string {
+export function formatEmailHeaderDate(date: string | Date, locale?: string): string {
   const d = new Date(date);
-  return d.toLocaleString('en-US', {
+  // Use provided locale or undefined to use browser's default
+  const userLocale = locale || undefined;
+  return d.toLocaleString(userLocale, {
     weekday: 'short',
     year: 'numeric',
     month: 'short',

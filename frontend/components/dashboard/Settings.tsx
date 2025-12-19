@@ -7,54 +7,23 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Divider,
-  Card,
-  CardContent,
-  Switch,
+  FormControl,
   Select,
   MenuItem,
-  FormControl,
-  InputLabel,
-  Button,
-  ToggleButtonGroup,
-  ToggleButton,
-  TextField,
-  Stack,
   CircularProgress,
-  Alert,
-  Slider,
   Avatar,
-  Chip,
-  IconButton,
-  Tooltip,
   alpha,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
   User,
   Bell,
   Mail,
-  Moon,
-  Sun,
-  Monitor,
   Sparkles,
-  RefreshCw,
-  Trash2,
-  RotateCcw,
-  ExternalLink,
   ChevronRight,
-  MessageSquare,
-  FileText,
-  Calendar,
   Shield,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
-import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
 import { usersApi } from '@/lib/api/users';
 import {
@@ -66,112 +35,31 @@ import {
 } from '@/lib/api/personalization';
 import { multiAgentApi } from '@/lib/api/ai';
 import { useAuth } from '@/lib/hooks/use-auth';
+import {
+  useAiProfile,
+  useProviders,
+  useUpdatePreferences,
+  useUpdateAiProfile,
+  useSyncAllProviders,
+} from '@/hooks/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { logger } from '@/lib/logger';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { GoogleProviderCard } from '@/components/providers/GoogleProviderCard';
-import { MicrosoftProviderCard } from '@/components/providers/MicrosoftProviderCard';
-import { GenericProviderCard } from '@/components/providers/GenericProviderCard';
-import { ProvidersList } from '@/components/providers/ProvidersList';
 import { MfaSettings } from '@/components/mfa';
 import {
   DEFAULT_USER_SETTINGS,
   getStoredUserSettings,
   persistUserSettings,
 } from '@/lib/utils/user-settings';
+import {
+  GeneralSettings,
+  AiSettings,
+  AccountsSettings,
+  AccountSettings,
+  NotificationsSettings,
+} from '@/components/settings';
 
 type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'account' | 'notifications';
-
-// Setting row component for consistent styling
-function SettingRow({
-  icon,
-  title,
-  description,
-  children,
-  noBorder,
-}: {
-  icon?: React.ReactNode;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  noBorder?: boolean;
-}) {
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        py: 2,
-        px: 0,
-        borderBottom: noBorder ? 0 : 1,
-        borderColor: 'divider',
-        gap: 2,
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
-        {icon && (
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 2,
-              bgcolor: 'action.hover',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {icon}
-          </Box>
-        )}
-        <Box>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            {title}
-          </Typography>
-          {description && (
-            <Typography variant="caption" color="text.secondary">
-              {description}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-      <Box sx={{ flexShrink: 0 }}>{children}</Box>
-    </Box>
-  );
-}
-
-// Section card component
-function SectionCard({
-  title,
-  description,
-  children,
-  action,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
-  return (
-    <Card variant="outlined" sx={{ mb: 3 }}>
-      <CardContent sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: description ? 1 : 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            {title}
-          </Typography>
-          {action}
-        </Box>
-        {description && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            {description}
-          </Typography>
-        )}
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
 
 export function Settings() {
   const router = useRouter();
@@ -184,20 +72,26 @@ export function Settings() {
   const [language, setLanguage] = useState(DEFAULT_USER_SETTINGS.language);
   const [timezone, setTimezone] = useState(DEFAULT_USER_SETTINGS.timezone);
   const [emailNotifications, setEmailNotifications] = useState(DEFAULT_USER_SETTINGS.emailNotifications);
-  const [providers, setProviders] = useState<ProviderConfig[]>([]);
-  const [providersLoading, setProvidersLoading] = useState(false);
+
+  // TanStack Query hooks
+  const { data: providers = [], isLoading: providersLoading, refetch: refetchProviders } = useProviders();
+  const { data: aiProfileData, isLoading: aiProfileLoading } = useAiProfile();
+  const updateAiProfileMutation = useUpdateAiProfile();
+  const updatePreferencesMutation = useUpdatePreferences();
+  const syncAllMutation = useSyncAllProviders();
+  const aiSaveLoading = updateAiProfileMutation.isPending || updatePreferencesMutation.isPending;
+
+  // UI state
   const [providerError, setProviderError] = useState('');
   const [providerSuccess, setProviderSuccess] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
-  const [syncAllLoading, setSyncAllLoading] = useState(false);
   const [generalSuccess, setGeneralSuccess] = useState('');
   const [generalError, setGeneralError] = useState('');
-
-  // AI Personalization state
-  const [aiProfileLoading, setAiProfileLoading] = useState(false);
-  const [aiSaveLoading, setAiSaveLoading] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiSuccess, setAiSuccess] = useState('');
+  const [aiDataLoading, setAiDataLoading] = useState(false);
+
+  // AI state
   const [jobRole, setJobRole] = useState<JobRole>('IC');
   const [communicationStyle, setCommunicationStyle] = useState<CommunicationStyle>('CASUAL');
   const [responseLength, setResponseLength] = useState<ResponseLength>('MODERATE');
@@ -207,11 +101,21 @@ export function Settings() {
   const [summarizationEnabled, setSummarizationEnabled] = useState(true);
   const [schedulingEnabled, setSchedulingEnabled] = useState(true);
 
+  // Notification state
+  const [newEmailNotif, setNewEmailNotif] = useState(true);
+  const [calendarNotif, setCalendarNotif] = useState(true);
+  const [aiActionsNotif, setAiActionsNotif] = useState(true);
+  const [notifSaveLoading, setNotifSaveLoading] = useState(false);
+  const [notifSuccess, setNotifSuccess] = useState('');
+  const [notifError, setNotifError] = useState('');
+
   // Delete account state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  const logout = useAuthStore((state) => state.logout);
 
   const sections = useMemo(
     () => [
@@ -225,202 +129,26 @@ export function Settings() {
     [settingsCopy.sections],
   );
 
-  const copy = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- settingsCopy has dynamic nested structure
-    const sc = settingsCopy as any;
-    return {
-      pageTitle: sc.pageTitle || 'Settings',
-      general: {
-        saveSuccess: sc.generalPanel?.saveSuccess || 'Settings saved',
-        saveError: sc.generalPanel?.saveError || 'Failed to save',
-      },
-      ai: {
-        autoApproveLabel: sc.aiPanel?.autoApproveLabel || 'Auto-Approve Threshold',
-        autoApproveHint:
-          sc.aiPanel?.autoApproveHint || 'Actions with confidence above this threshold will be auto-approved',
-        saving: sc.aiPanel?.saving || 'Saving...',
-        savePreferences: sc.aiPanel?.savePreferences || 'Save Preferences',
-        openAssistant: sc.aiPanel?.openAssistant || 'Open AI Assistant',
-        dataManagementTitle: sc.aiPanel?.dataManagementTitle || 'Data Management',
-        dataManagementDescription:
-          sc.aiPanel?.dataManagementDescription || 'Manage your AI data and learning history',
-        clearMemory: sc.aiPanel?.clearMemory || 'Clear Memory',
-        resetLearning: sc.aiPanel?.resetLearning || 'Reset Learning',
-        featuresTitle: sc.aiPanel?.featuresTitle,
-        featuresDescription: sc.aiPanel?.featuresDescription,
-        smartRepliesTitle: sc.aiPanel?.smartRepliesTitle,
-        smartRepliesDescription: sc.aiPanel?.smartRepliesDescription,
-        summarizationTitle: sc.aiPanel?.summarizationTitle,
-        summarizationDescription: sc.aiPanel?.summarizationDescription,
-        schedulingTitle: sc.aiPanel?.schedulingTitle,
-        schedulingDescription: sc.aiPanel?.schedulingDescription,
-        personalizationTitle: sc.aiPanel?.personalizationTitle,
-        personalizationDescription: sc.aiPanel?.personalizationDescription,
-        roleLabel: sc.aiPanel?.roleLabel,
-        communicationLabel: sc.aiPanel?.communicationLabel,
-        responseLengthLabel: sc.aiPanel?.responseLengthLabel,
-        proactivityLabel: sc.aiPanel?.proactivityLabel,
-      },
-      accounts: {
-        description: sc.mailAccountsPanel?.description || 'Connect and manage your email accounts.',
-        connectedTitle: sc.mailAccountsPanel?.connectedTitle || 'Connected Accounts',
-        refreshTooltip: sc.mailAccountsPanel?.refreshTooltip || 'Refresh',
-        syncAll: sc.mailAccountsPanel?.syncAll || 'Sync All',
-        syncing: sc.mailAccountsPanel?.syncing || 'Syncing...',
-        syncConfirm:
-          sc.mailAccountsPanel?.syncConfirm || 'This will re-sync all emails from providers. Continue?',
-        syncStarted: sc.mailAccountsPanel?.syncStarted || 'Sync started successfully',
-        syncFailed: sc.mailAccountsPanel?.syncFailed || 'Failed to start sync',
-        addTitle: sc.mailAccountsPanel?.addTitle || 'Add Account',
-        addDescription: sc.mailAccountsPanel?.addDescription || 'Connect a new email account',
-      },
-      account: {
-        description: sc.accountPanel?.description || 'Manage your account information.',
-        contactAdmin:
-          sc.accountPanel?.contactAdmin || 'Contact your administrator to update account information.',
-        dangerZoneTitle: sc.accountPanel?.dangerZoneTitle || 'Danger Zone',
-        dangerZoneDescription:
-          sc.accountPanel?.dangerZoneDescription || 'Permanently delete your account and all associated data.',
-        deleteAccount: sc.accountPanel?.deleteAccount || 'Delete Account',
-        fullName: sc.accountPanel?.fullName || 'Full Name',
-        email: sc.accountPanel?.email || 'Email',
-        role: sc.accountPanel?.role || 'Role',
-        profileTitle: sc.accountPanel?.profileTitle,
-        deleteDialogTitle: sc.accountPanel?.deleteDialogTitle || 'Delete Account',
-        deleteDialogDescription: sc.accountPanel?.deleteDialogDescription || 'This action is permanent and cannot be undone. All your data will be permanently deleted.',
-        deleteDialogConfirmLabel: sc.accountPanel?.deleteDialogConfirmLabel || 'Type DELETE to confirm',
-        deleteDialogCancel: sc.accountPanel?.deleteDialogCancel || 'Cancel',
-        deleteDialogConfirm: sc.accountPanel?.deleteDialogConfirm || 'Delete My Account',
-        deleteDialogDeleting: sc.accountPanel?.deleteDialogDeleting || 'Deleting...',
-        deleteDialogError: sc.accountPanel?.deleteDialogError || 'Failed to delete account. Please try again.',
-      },
-      notifications: {
-        description: sc.notificationsPanel?.description || 'Configure how and when you receive notifications.',
-        newEmailsTitle: sc.notificationsPanel?.newEmailsTitle || 'New Emails',
-        newEmailsDesc: sc.notificationsPanel?.newEmailsDesc || 'Get notified when you receive new emails',
-        calendarTitle: sc.notificationsPanel?.calendarTitle || 'Calendar Reminders',
-        calendarDesc: sc.notificationsPanel?.calendarDesc || 'Reminders for upcoming events',
-        aiActionsTitle: sc.notificationsPanel?.aiActionsTitle || 'AI Actions',
-        aiActionsDesc: sc.notificationsPanel?.aiActionsDesc || 'Notifications for AI-suggested actions',
-        save: sc.notificationsPanel?.save || 'Save Changes',
-        emailTitle: sc.notificationsPanel?.emailTitle,
-      },
-      security: {
-        title: sc.sections?.security || 'Security',
-      },
-      layout: {
-        mobileNavLabel: sc.layout?.mobileNavLabel || 'Sections',
-      },
-      generalPanel: sc.generalPanel,
-    };
-  }, [settingsCopy]);
-
-  const loadProviders = useCallback(async () => {
-    try {
-      setProvidersLoading(true);
-      setProviderError('');
-      const response = await providersApi.getProviders();
-      setProviders(response || []);
-    } catch (error) {
-      logger.error('Failed to load providers', { error });
-      setProviderError(t.settings.mailAccountsPanel.loadError);
-    } finally {
-      setProvidersLoading(false);
+  // Sync AI profile data
+  useEffect(() => {
+    if (aiProfileData) {
+      setJobRole(aiProfileData.jobRole);
+      setCommunicationStyle(aiProfileData.communicationStyle);
+      setResponseLength(aiProfileData.responseLength);
+      setProactivityLevel(aiProfileData.proactivityLevel);
     }
-  }, [t]);
+  }, [aiProfileData]);
 
-  const handleSyncAll = useCallback(async () => {
-    if (!confirm(copy.accounts.syncConfirm)) return;
-    try {
-      setSyncAllLoading(true);
-      const result = await providersApi.syncAll();
-      if (result.success) {
-        setProviderSuccess(copy.accounts.syncStarted);
-        await loadProviders();
-      }
-    } catch {
-      setProviderError(copy.accounts.syncFailed);
-    } finally {
-      setSyncAllLoading(false);
-    }
-  }, [copy.accounts, loadProviders]);
-
-  const loadAiProfile = useCallback(async () => {
-    try {
-      setAiProfileLoading(true);
-      const response = await personalizationApi.getProfile();
-      if (response.data?.profile) {
-        const profile = response.data.profile;
-        setJobRole(profile.jobRole || 'IC');
-        setCommunicationStyle(profile.communicationStyle || 'CASUAL');
-        setResponseLength(profile.responseLength || 'MODERATE');
-        setProactivityLevel(profile.proactivityLevel || 'MEDIUM');
-      }
-    } catch {
-      // Profile may not exist yet
-    } finally {
-      setAiProfileLoading(false);
-    }
+  // Load settings from localStorage
+  useEffect(() => {
+    const saved = getStoredUserSettings();
+    setLanguage(saved.language);
+    setTimezone(saved.timezone);
+    setEmailNotifications(saved.emailNotifications);
+    setHydrated(true);
   }, []);
 
-  const handleSaveAiProfile = useCallback(async () => {
-    try {
-      setAiSaveLoading(true);
-      setAiError('');
-      setAiSuccess('');
-      await personalizationApi.updateProfile({
-        jobRole,
-        communicationStyle,
-        responseLength,
-        proactivityLevel,
-      });
-      setAiSuccess(copy.ai.savePreferences);
-    } catch {
-      setAiError(copy.general.saveError);
-    } finally {
-      setAiSaveLoading(false);
-    }
-  }, [copy.ai.savePreferences, copy.general.saveError, jobRole, communicationStyle, responseLength, proactivityLevel]);
-
-  const handleClearAiMemory = useCallback(async () => {
-    if (!confirm(copy.ai.clearMemory)) return;
-    try {
-      setAiSaveLoading(true);
-      await personalizationApi.clearAllMemories();
-      setAiSuccess(copy.ai.clearMemory);
-    } catch {
-      setAiError(copy.general.saveError);
-    } finally {
-      setAiSaveLoading(false);
-    }
-  }, [copy.ai.clearMemory, copy.general.saveError]);
-
-  const handleResetAiLearning = useCallback(async () => {
-    if (!confirm(copy.ai.resetLearning)) return;
-    try {
-      setAiSaveLoading(true);
-      await multiAgentApi.resetLearning();
-      setAiSuccess(copy.ai.resetLearning);
-    } catch {
-      setAiError(copy.general.saveError);
-    } finally {
-      setAiSaveLoading(false);
-    }
-  }, [copy.ai.resetLearning, copy.general.saveError]);
-
-  // Only load data for the active section to improve performance
-  useEffect(() => {
-    if (selectedSection === 'accounts') {
-      loadProviders();
-    }
-  }, [selectedSection, loadProviders]);
-
-  useEffect(() => {
-    if (selectedSection === 'ai') {
-      loadAiProfile();
-    }
-  }, [selectedSection, loadAiProfile]);
-
+  // Handle URL section param
   useEffect(() => {
     if (!router.isReady) return;
     const sectionParam = router.query.section;
@@ -428,6 +156,23 @@ export function Settings() {
       setSelectedSection(sectionParam as SettingsSection);
     }
   }, [router.isReady, router.query.section, sections]);
+
+  // Handle OAuth callback
+  useEffect(() => {
+    if (!router.isReady) return;
+    const { success, error } = router.query;
+    if (success) {
+      setSelectedSection('accounts');
+      setProviderSuccess('Account connected successfully');
+      refetchProviders();
+      router.replace({ pathname: router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
+    }
+    if (error && typeof error === 'string') {
+      setSelectedSection('accounts');
+      setProviderError(error);
+      router.replace({ pathname: router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
+    }
+  }, [router, refetchProviders]);
 
   const handleSectionSelect = useCallback(
     (sectionId: SettingsSection) => {
@@ -438,112 +183,206 @@ export function Settings() {
     [router],
   );
 
-  const handleProviderInitiated = useCallback(() => {
-    setProviderSuccess('Redirecting to provider...');
-  }, []);
-
-  const handleProviderConnected = useCallback(() => {
-    setProviderSuccess('Account connected');
-    loadProviders();
-  }, [loadProviders]);
-
-  const handleProviderDeleted = useCallback(() => {
-    setProviderSuccess('Account disconnected');
-    loadProviders();
-  }, [loadProviders]);
-
-  // Get logout function from auth store
-  const logout = useAuthStore((state) => state.logout);
-
-  // Delete account handler
-  const handleDeleteAccount = useCallback(async () => {
-    // Determine the confirmation word based on locale
-    const confirmWord = language === 'it' ? 'ELIMINA' : 'DELETE';
-    if (deleteConfirmText !== confirmWord) {
-      return;
-    }
-
-    try {
-      setDeleteLoading(true);
-      setDeleteError('');
-      await usersApi.deleteAccount();
-      // Clear auth state and redirect to login
-      logout();
-      router.push('/login');
-    } catch (error) {
-      logger.error('Failed to delete account', { error });
-      setDeleteError(copy.account.deleteDialogError);
-    } finally {
-      setDeleteLoading(false);
-    }
-  }, [deleteConfirmText, language, router, copy.account.deleteDialogError, logout]);
-
-  const handleCloseDeleteDialog = useCallback(() => {
-    setDeleteDialogOpen(false);
-    setDeleteConfirmText('');
-    setDeleteError('');
-  }, []);
-
-  useEffect(() => {
-    if (!router.isReady) return;
-    const { success, error } = router.query;
-    if (success) {
-      setSelectedSection('accounts');
-      setProviderSuccess('Account connected successfully');
-      loadProviders();
-      router.replace({ pathname: router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
-    }
-    if (error && typeof error === 'string') {
-      setSelectedSection('accounts');
-      setProviderError(error);
-      router.replace({ pathname: router.pathname, query: { section: 'accounts' } }, undefined, { shallow: true });
-    }
-  }, [router, loadProviders]);
-
+  // Handlers
   const handleSaveSettings = async () => {
     try {
       setSaveLoading(true);
       setGeneralError('');
       setGeneralSuccess('');
-      // Save language to database (theme is saved automatically via useThemePersistence)
       await usersApi.updatePreferences({ language });
-      // Keep localStorage in sync for offline access
       persistUserSettings({ language, timezone, emailNotifications });
-      setGeneralSuccess(copy.general.saveSuccess);
+      setGeneralSuccess(settingsCopy.generalPanel?.saveSuccess || 'Settings saved');
     } catch {
-      setGeneralError(copy.general.saveError);
+      setGeneralError(settingsCopy.generalPanel?.saveError || 'Failed to save');
     } finally {
       setSaveLoading(false);
     }
   };
 
-  useEffect(() => {
-    const saved = getStoredUserSettings();
-    setLanguage(saved.language);
-    setTimezone(saved.timezone);
-    setEmailNotifications(saved.emailNotifications);
-    setHydrated(true);
-  }, []);
+  const handleSyncAll = useCallback(async () => {
+    if (!confirm(settingsCopy.mailAccountsPanel?.syncConfirm || 'Sync all accounts?')) return;
+    try {
+      const result = await syncAllMutation.mutateAsync();
+      if (result.success) {
+        setProviderSuccess(settingsCopy.mailAccountsPanel?.syncStarted || 'Sync started');
+      }
+    } catch {
+      setProviderError(settingsCopy.mailAccountsPanel?.syncFailed || 'Sync failed');
+    }
+  }, [syncAllMutation, settingsCopy.mailAccountsPanel]);
+
+  const handleSaveAiProfile = useCallback(async () => {
+    try {
+      setAiError('');
+      setAiSuccess('');
+      await updateAiProfileMutation.mutateAsync({ jobRole, communicationStyle, responseLength, proactivityLevel });
+      await updatePreferencesMutation.mutateAsync({
+        aiSmartRepliesEnabled: smartRepliesEnabled,
+        aiSummarizationEnabled: summarizationEnabled,
+        aiSchedulingEnabled: schedulingEnabled,
+        aiAutoApproveThreshold: autoApproveThreshold / 100,
+      });
+      setAiSuccess(settingsCopy.aiPanel?.savePreferences || 'Saved');
+    } catch {
+      setAiError(settingsCopy.generalPanel?.saveError || 'Failed to save');
+    }
+  }, [jobRole, communicationStyle, responseLength, proactivityLevel, smartRepliesEnabled, summarizationEnabled, schedulingEnabled, autoApproveThreshold, updateAiProfileMutation, updatePreferencesMutation, settingsCopy]);
+
+  const handleClearAiMemory = useCallback(async () => {
+    if (!confirm(settingsCopy.aiPanel?.clearMemory || 'Clear AI memory?')) return;
+    try {
+      setAiDataLoading(true);
+      await personalizationApi.clearAllMemories();
+      setAiSuccess(settingsCopy.aiPanel?.clearMemory || 'Memory cleared');
+    } catch {
+      setAiError(settingsCopy.generalPanel?.saveError || 'Failed');
+    } finally {
+      setAiDataLoading(false);
+    }
+  }, [settingsCopy]);
+
+  const handleResetAiLearning = useCallback(async () => {
+    if (!confirm(settingsCopy.aiPanel?.resetLearning || 'Reset AI learning?')) return;
+    try {
+      setAiDataLoading(true);
+      await multiAgentApi.resetLearning();
+      setAiSuccess(settingsCopy.aiPanel?.resetLearning || 'Learning reset');
+    } catch {
+      setAiError(settingsCopy.generalPanel?.saveError || 'Failed');
+    } finally {
+      setAiDataLoading(false);
+    }
+  }, [settingsCopy]);
+
+  const handleSaveNotifications = useCallback(async () => {
+    try {
+      setNotifSaveLoading(true);
+      setNotifError('');
+      setNotifSuccess('');
+      setNotifSuccess(settingsCopy.notificationsPanel?.save || 'Saved');
+    } catch {
+      setNotifError(settingsCopy.generalPanel?.saveError || 'Failed');
+    } finally {
+      setNotifSaveLoading(false);
+    }
+  }, [settingsCopy]);
+
+  const handleDeleteAccount = useCallback(async () => {
+    const confirmWord = language === 'it' ? 'ELIMINA' : 'DELETE';
+    if (deleteConfirmText !== confirmWord) return;
+    try {
+      setDeleteLoading(true);
+      setDeleteError('');
+      await usersApi.deleteAccount();
+      logout();
+      router.push('/login');
+    } catch (error) {
+      logger.error('Failed to delete account', { error });
+      setDeleteError(settingsCopy.accountPanel?.deleteDialogError || 'Failed to delete');
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [deleteConfirmText, language, router, logout, settingsCopy]);
+
+  const handleProviderInitiated = useCallback(() => setProviderSuccess('Redirecting...'), []);
+  const handleProviderConnected = useCallback(() => { setProviderSuccess('Connected'); refetchProviders(); }, [refetchProviders]);
+  const handleProviderDeleted = useCallback(() => { setProviderSuccess('Disconnected'); refetchProviders(); }, [refetchProviders]);
+  const handleCloseDeleteDialog = useCallback(() => { setDeleteDialogOpen(false); setDeleteConfirmText(''); setDeleteError(''); }, []);
 
   const accountName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
-  const generalCopy = settingsCopy.generalPanel;
-  const aiCopy = settingsCopy.aiPanel;
-  const mailAccountsCopy = settingsCopy.mailAccountsPanel;
-  const accountCopy = settingsCopy.accountPanel;
-  const notificationsCopy = settingsCopy.notificationsPanel;
+
+  // Build copy objects for child components
+  const generalCopy = useMemo(() => ({
+    title: settingsCopy.generalPanel?.title || 'General',
+    description: settingsCopy.generalPanel?.description || '',
+    appearanceTitle: settingsCopy.generalPanel?.appearanceTitle || 'Appearance',
+    themeLabel: settingsCopy.generalPanel?.themeLabel || 'Theme',
+    themeOptions: settingsCopy.generalPanel?.themeOptions || { light: 'Light', dark: 'Dark', system: 'System' },
+    languageTitle: settingsCopy.generalPanel?.languageTitle || 'Language',
+    languageLabel: settingsCopy.generalPanel?.languageLabel || 'Language',
+    timezoneLabel: settingsCopy.generalPanel?.timezoneLabel || 'Timezone',
+    saveSuccess: settingsCopy.generalPanel?.saveSuccess || 'Saved',
+    saveError: settingsCopy.generalPanel?.saveError || 'Failed',
+    saving: settingsCopy.aiPanel?.saving || 'Saving...',
+    save: settingsCopy.notificationsPanel?.save || 'Save',
+  }), [settingsCopy]);
+
+  const aiCopy = useMemo(() => ({
+    title: settingsCopy.aiPanel?.title || 'AI',
+    description: settingsCopy.aiPanel?.description || '',
+    featuresTitle: settingsCopy.aiPanel?.featuresTitle || 'Features',
+    featuresDescription: settingsCopy.aiPanel?.featuresDescription || '',
+    smartRepliesTitle: settingsCopy.aiPanel?.smartRepliesTitle || 'Smart Replies',
+    smartRepliesDescription: settingsCopy.aiPanel?.smartRepliesDescription || '',
+    summarizationTitle: settingsCopy.aiPanel?.summarizationTitle || 'Summarization',
+    summarizationDescription: settingsCopy.aiPanel?.summarizationDescription || '',
+    schedulingTitle: settingsCopy.aiPanel?.schedulingTitle || 'Scheduling',
+    schedulingDescription: settingsCopy.aiPanel?.schedulingDescription || '',
+    personalizationTitle: settingsCopy.aiPanel?.personalizationTitle || 'Personalization',
+    personalizationDescription: settingsCopy.aiPanel?.personalizationDescription || '',
+    roleLabel: settingsCopy.aiPanel?.roleLabel || 'Role',
+    communicationLabel: settingsCopy.aiPanel?.communicationLabel || 'Communication',
+    responseLengthLabel: settingsCopy.aiPanel?.responseLengthLabel || 'Length',
+    proactivityLabel: settingsCopy.aiPanel?.proactivityLabel || 'Proactivity',
+    autoApproveLabel: settingsCopy.aiPanel?.autoApproveLabel || 'Auto-Approve',
+    autoApproveHint: settingsCopy.aiPanel?.autoApproveHint || '',
+    savePreferences: settingsCopy.aiPanel?.savePreferences || 'Save',
+    saving: settingsCopy.aiPanel?.saving || 'Saving...',
+    openAssistant: settingsCopy.aiPanel?.openAssistant || 'Open AI',
+    dataManagementTitle: settingsCopy.aiPanel?.dataManagementTitle || 'Data',
+    dataManagementDescription: settingsCopy.aiPanel?.dataManagementDescription || '',
+    clearMemory: settingsCopy.aiPanel?.clearMemory || 'Clear',
+    resetLearning: settingsCopy.aiPanel?.resetLearning || 'Reset',
+  }), [settingsCopy]);
+
+  const accountsCopy = useMemo(() => ({
+    title: settingsCopy.mailAccountsPanel?.title || 'Accounts',
+    description: settingsCopy.mailAccountsPanel?.description || '',
+    connectedTitle: settingsCopy.mailAccountsPanel?.connectedTitle || 'Connected',
+    refreshTooltip: settingsCopy.mailAccountsPanel?.refreshTooltip || 'Refresh',
+    syncAll: settingsCopy.mailAccountsPanel?.syncAll || 'Sync All',
+    syncing: settingsCopy.mailAccountsPanel?.syncing || 'Syncing...',
+    addTitle: settingsCopy.mailAccountsPanel?.addTitle || 'Add',
+    addDescription: settingsCopy.mailAccountsPanel?.addDescription || '',
+  }), [settingsCopy]);
+
+  const accountCopy = useMemo(() => ({
+    title: settingsCopy.accountPanel?.title || 'Account',
+    description: settingsCopy.accountPanel?.description || '',
+    profileTitle: settingsCopy.accountPanel?.profileTitle || 'Profile',
+    fullName: settingsCopy.accountPanel?.fullName || 'Name',
+    email: settingsCopy.accountPanel?.email || 'Email',
+    role: settingsCopy.accountPanel?.role || 'Role',
+    contactAdmin: settingsCopy.accountPanel?.contactAdmin || '',
+    dangerZoneTitle: settingsCopy.accountPanel?.dangerZoneTitle || 'Danger',
+    dangerZoneDescription: settingsCopy.accountPanel?.dangerZoneDescription || '',
+    deleteAccount: settingsCopy.accountPanel?.deleteAccount || 'Delete',
+    deleteDialogTitle: settingsCopy.accountPanel?.deleteDialogTitle || 'Delete',
+    deleteDialogDescription: settingsCopy.accountPanel?.deleteDialogDescription || '',
+    deleteDialogConfirmLabel: settingsCopy.accountPanel?.deleteDialogConfirmLabel || 'Type DELETE',
+    deleteDialogCancel: settingsCopy.accountPanel?.deleteDialogCancel || 'Cancel',
+    deleteDialogConfirm: settingsCopy.accountPanel?.deleteDialogConfirm || 'Delete',
+    deleteDialogDeleting: settingsCopy.accountPanel?.deleteDialogDeleting || 'Deleting...',
+    deleteDialogError: settingsCopy.accountPanel?.deleteDialogError || 'Error',
+  }), [settingsCopy]);
+
+  const notifCopy = useMemo(() => ({
+    title: settingsCopy.notificationsPanel?.title || 'Notifications',
+    description: settingsCopy.notificationsPanel?.description || '',
+    emailTitle: settingsCopy.notificationsPanel?.emailTitle || 'Email',
+    newEmailsTitle: settingsCopy.notificationsPanel?.newEmailsTitle || 'New Emails',
+    newEmailsDesc: settingsCopy.notificationsPanel?.newEmailsDesc || '',
+    calendarTitle: settingsCopy.notificationsPanel?.calendarTitle || 'Calendar',
+    calendarDesc: settingsCopy.notificationsPanel?.calendarDesc || '',
+    aiActionsTitle: settingsCopy.notificationsPanel?.aiActionsTitle || 'AI Actions',
+    aiActionsDesc: settingsCopy.notificationsPanel?.aiActionsDesc || '',
+    save: settingsCopy.notificationsPanel?.save || 'Save',
+    saving: settingsCopy.aiPanel?.saving || 'Saving...',
+  }), [settingsCopy]);
 
   if (!hydrated) {
     return (
-      <Box
-        sx={{
-          minHeight: 'calc(100vh - 64px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: 'background.default',
-          p: 3,
-        }}
-      >
+      <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default', p: 3 }}>
         <CircularProgress size={28} />
       </Box>
     );
@@ -551,121 +390,39 @@ export function Settings() {
 
   return (
     <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'row', bgcolor: 'background.default' }}>
-      {/* Sidebar - Desktop only */}
-      <Paper
-        elevation={0}
-        sx={{
-          width: 260,
-          flexShrink: 0,
-          borderRight: 1,
-          borderColor: 'divider',
-          display: { xs: 'none', md: 'flex' },
-          flexDirection: 'column',
-          bgcolor: 'background.paper',
-          position: 'sticky',
-          top: 64,
-          height: 'calc(100vh - 64px)',
-          overflowY: 'auto',
-        }}
-      >
+      {/* Sidebar */}
+      <Paper elevation={0} sx={{ width: 260, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: { xs: 'none', md: 'flex' }, flexDirection: 'column', bgcolor: 'background.paper', position: 'sticky', top: 64, height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
         <Box sx={{ p: 3, pb: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {copy.pageTitle}
-          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>{settingsCopy.pageTitle || 'Settings'}</Typography>
         </Box>
-
         <List sx={{ flex: 1, px: 1.5 }}>
           {sections.map((section) => (
-            <ListItemButton
-              key={section.id}
-              selected={selectedSection === section.id}
-              onClick={() => handleSectionSelect(section.id as SettingsSection)}
-              sx={{
-                borderRadius: 2,
-                mb: 0.5,
-                '&.Mui-selected': {
-                  bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
-                  '&:hover': {
-                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12),
-                  },
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: selectedSection === section.id ? 'primary.main' : 'text.secondary' }}>
-                {section.icon}
-              </ListItemIcon>
-              <ListItemText
-                primary={section.label}
-                primaryTypographyProps={{
-                  fontSize: '0.875rem',
-                  fontWeight: selectedSection === section.id ? 600 : 400,
-                }}
-              />
+            <ListItemButton key={section.id} selected={selectedSection === section.id} onClick={() => handleSectionSelect(section.id as SettingsSection)} sx={{ borderRadius: 2, mb: 0.5, '&.Mui-selected': { bgcolor: (th) => alpha(th.palette.primary.main, 0.08), '&:hover': { bgcolor: (th) => alpha(th.palette.primary.main, 0.12) } } }}>
+              <ListItemIcon sx={{ minWidth: 36, color: selectedSection === section.id ? 'primary.main' : 'text.secondary' }}>{section.icon}</ListItemIcon>
+              <ListItemText primary={section.label} primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: selectedSection === section.id ? 600 : 400 }} />
               {selectedSection === section.id && <ChevronRight size={16} />}
             </ListItemButton>
           ))}
         </List>
-
-        {/* User info at bottom */}
         <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.main', fontSize: '0.875rem' }}>
-              {accountName.charAt(0).toUpperCase()}
-            </Avatar>
+            <Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.main', fontSize: '0.875rem' }}>{accountName.charAt(0).toUpperCase()}</Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>
-                {accountName}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>
-                {user?.email}
-              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{accountName}</Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>{user?.email}</Typography>
             </Box>
           </Box>
         </Box>
       </Paper>
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-        {/* Mobile navigation - Dropdown Select */}
-        <Box
-          sx={{
-            display: { xs: 'flex', md: 'none' },
-            px: 2,
-            py: 2,
-            position: 'sticky',
-            top: 0,
-            zIndex: 2,
-            bgcolor: 'background.paper',
-            borderBottom: 1,
-            borderColor: 'divider',
-            alignItems: 'center',
-            gap: 2,
-          }}
-        >
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, flexShrink: 0 }}>
-            {copy.pageTitle}
-          </Typography>
+        {/* Mobile nav */}
+        <Box sx={{ display: { xs: 'flex', md: 'none' }, px: 2, py: 2, position: 'sticky', top: 0, zIndex: 2, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', alignItems: 'center', gap: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, flexShrink: 0 }}>{settingsCopy.pageTitle || 'Settings'}</Typography>
           <FormControl size="small" sx={{ flex: 1, minWidth: 120 }}>
-            <Select
-              value={selectedSection}
-              onChange={(e) => handleSectionSelect(e.target.value as SettingsSection)}
-              displayEmpty
-              sx={{
-                '& .MuiSelect-select': {
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                },
-              }}
-            >
-              {sections.map((section) => (
-                <MenuItem key={section.id} value={section.id}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {section.icon}
-                    {section.label}
-                  </Box>
-                </MenuItem>
-              ))}
+            <Select value={selectedSection} onChange={(e) => handleSectionSelect(e.target.value as SettingsSection)}>
+              {sections.map((s) => <MenuItem key={s.id} value={s.id}><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>{s.icon}{s.label}</Box></MenuItem>)}
             </Select>
           </FormControl>
         </Box>
@@ -673,452 +430,21 @@ export function Settings() {
         {/* Content */}
         <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 4 }, bgcolor: 'background.default' }}>
           <Box sx={{ maxWidth: { xs: '100%', md: 800 }, mx: 'auto' }}>
-            {/* General Settings */}
             {selectedSection === 'general' && (
-              <Box>
-                <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                  {generalCopy.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                  {generalCopy.description}
-                </Typography>
-                {(generalSuccess || generalError) && (
-                  <Box sx={{ mb: 2 }}>
-                    {generalSuccess && <Alert severity="success" onClose={() => setGeneralSuccess('')}>{generalSuccess}</Alert>}
-                    {generalError && <Alert severity="error" onClose={() => setGeneralError('')}>{generalError}</Alert>}
-                  </Box>
-                )}
-
-                <SectionCard title={generalCopy.appearanceTitle || 'Appearance'}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500, mb: 1.5 }}>
-                      {generalCopy.themeLabel || 'Theme'}
-                    </Typography>
-                    <ToggleButtonGroup
-                      value={theme}
-                      exclusive
-                      onChange={(_, v) => v && setTheme(v)}
-                      size="small"
-                    >
-                      <ToggleButton value="light" sx={{ px: 3 }}>
-                        <Sun size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.light || 'Light'}
-                      </ToggleButton>
-                      <ToggleButton value="dark" sx={{ px: 3 }}>
-                        <Moon size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.dark || 'Dark'}
-                      </ToggleButton>
-                      <ToggleButton value="system" sx={{ px: 3 }}>
-                        <Monitor size={16} style={{ marginRight: 8 }} /> {generalCopy.themeOptions?.system || 'System'}
-                      </ToggleButton>
-                    </ToggleButtonGroup>
-                  </Box>
-                </SectionCard>
-
-                <SectionCard title={generalCopy.languageTitle || 'Language & Region'}>
-                  <Stack spacing={2}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>{generalCopy.languageLabel || 'Language'}</InputLabel>
-                      <Select value={language} onChange={(e) => setLanguage(e.target.value)} label={generalCopy.languageLabel || 'Language'}>
-                        <MenuItem value="en">English</MenuItem>
-                        <MenuItem value="it">Italiano</MenuItem>
-                      </Select>
-                    </FormControl>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>{generalCopy.timezoneLabel || 'Timezone'}</InputLabel>
-                      <Select value={timezone} onChange={(e) => setTimezone(e.target.value)} label={generalCopy.timezoneLabel || 'Timezone'}>
-                        <MenuItem value="GMT-08:00">(GMT-08:00) Pacific Time</MenuItem>
-                        <MenuItem value="GMT-05:00">(GMT-05:00) Eastern Time</MenuItem>
-                        <MenuItem value="GMT+00:00">(GMT+00:00) London</MenuItem>
-                        <MenuItem value="GMT+01:00">(GMT+01:00) Rome</MenuItem>
-                        <MenuItem value="GMT+09:00">(GMT+09:00) Tokyo</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Stack>
-                </SectionCard>
-
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Button variant="contained" onClick={handleSaveSettings} disabled={saveLoading}>
-                    {saveLoading ? copy.ai.saving : copy.notifications.save}
-                  </Button>
-                </Box>
-              </Box>
+              <GeneralSettings theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} timezone={timezone} setTimezone={setTimezone} saveLoading={saveLoading} onSave={handleSaveSettings} success={generalSuccess} error={generalError} onClearSuccess={() => setGeneralSuccess('')} onClearError={() => setGeneralError('')} copy={generalCopy} />
             )}
-
-            {/* Security Settings */}
-            {selectedSection === 'security' && (
-              <Box>
-                <MfaSettings />
-              </Box>
-            )}
-
-            {/* AI Settings */}
+            {selectedSection === 'security' && <MfaSettings />}
             {selectedSection === 'ai' && (
-              <Box>
-                <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                  {aiCopy.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                  {aiCopy.description || 'Customize how AI assists you with emails, calendar, and more.'}
-                </Typography>
-
-                {(aiError || aiSuccess) && (
-                  <Box sx={{ mb: 3 }}>
-                    {aiError && <Alert severity="error" onClose={() => setAiError('')}>{aiError}</Alert>}
-                    {aiSuccess && <Alert severity="success" onClose={() => setAiSuccess('')}>{aiSuccess}</Alert>}
-                  </Box>
-                )}
-
-                {aiProfileLoading ? (
-                  <Box sx={{ py: 8, display: 'flex', justifyContent: 'center' }}>
-                    <CircularProgress />
-                  </Box>
-                ) : (
-                  <>
-                    <SectionCard
-                      title={aiCopy.featuresTitle || 'AI Features'}
-                      description={aiCopy.featuresDescription || 'Enable or disable AI capabilities'}
-                    >
-                      <SettingRow
-                        icon={<MessageSquare size={18} />}
-                        title={aiCopy.smartRepliesTitle || 'Smart Replies'}
-                        description={aiCopy.smartRepliesDescription || 'AI-generated response suggestions'}
-                      >
-                        <Switch checked={smartRepliesEnabled} onChange={(e) => setSmartRepliesEnabled(e.target.checked)} />
-                      </SettingRow>
-                      <SettingRow
-                        icon={<FileText size={18} />}
-                        title={aiCopy.summarizationTitle || 'Email Summarization'}
-                        description={aiCopy.summarizationDescription || 'Automatic summaries for long emails'}
-                      >
-                        <Switch checked={summarizationEnabled} onChange={(e) => setSummarizationEnabled(e.target.checked)} />
-                      </SettingRow>
-                      <SettingRow
-                        icon={<Calendar size={18} />}
-                        title={aiCopy.schedulingTitle || 'Smart Scheduling'}
-                        description={aiCopy.schedulingDescription || 'AI-assisted meeting scheduling'}
-                        noBorder
-                      >
-                        <Switch checked={schedulingEnabled} onChange={(e) => setSchedulingEnabled(e.target.checked)} />
-                      </SettingRow>
-                    </SectionCard>
-
-                    <SectionCard
-                      title={aiCopy.personalizationTitle || 'Personalization'}
-                      description={aiCopy.personalizationDescription || 'Customize AI behavior to match your work style'}
-                    >
-                      <Stack spacing={3}>
-                        <FormControl fullWidth size="small">
-                          <InputLabel>{aiCopy.roleLabel || 'Your Role'}</InputLabel>
-                          <Select value={jobRole} onChange={(e) => setJobRole(e.target.value as JobRole)} label={aiCopy.roleLabel || 'Your Role'}>
-                            <MenuItem value="EXECUTIVE">Executive</MenuItem>
-                            <MenuItem value="MANAGER">Manager</MenuItem>
-                            <MenuItem value="IC">Individual Contributor</MenuItem>
-                            <MenuItem value="FREELANCER">Freelancer</MenuItem>
-                            <MenuItem value="STUDENT">Student</MenuItem>
-                            <MenuItem value="SUPPORT">Support</MenuItem>
-                            <MenuItem value="SALES">Sales</MenuItem>
-                            <MenuItem value="TECHNICAL">Technical</MenuItem>
-                          </Select>
-                        </FormControl>
-
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                            {aiCopy.communicationLabel || 'Communication Style'}
-                          </Typography>
-                          <ToggleButtonGroup
-                            value={communicationStyle}
-                            exclusive
-                            onChange={(_, v) => v && setCommunicationStyle(v)}
-                            fullWidth
-                            size="small"
-                          >
-                            <ToggleButton value="FORMAL">Formal</ToggleButton>
-                            <ToggleButton value="CASUAL">Casual</ToggleButton>
-                            <ToggleButton value="TECHNICAL">Technical</ToggleButton>
-                          </ToggleButtonGroup>
-                        </Box>
-
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                            {aiCopy.responseLengthLabel || 'Response Length'}
-                          </Typography>
-                          <ToggleButtonGroup
-                            value={responseLength}
-                            exclusive
-                            onChange={(_, v) => v && setResponseLength(v)}
-                            fullWidth
-                            size="small"
-                          >
-                            <ToggleButton value="CONCISE">Concise</ToggleButton>
-                            <ToggleButton value="MODERATE">Moderate</ToggleButton>
-                            <ToggleButton value="DETAILED">Detailed</ToggleButton>
-                          </ToggleButtonGroup>
-                        </Box>
-
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                            {aiCopy.proactivityLabel || 'Proactivity'}
-                          </Typography>
-                          <ToggleButtonGroup
-                            value={proactivityLevel}
-                            exclusive
-                            onChange={(_, v) => v && setProactivityLevel(v)}
-                            fullWidth
-                            size="small"
-                          >
-                            <ToggleButton value="LOW">Low</ToggleButton>
-                            <ToggleButton value="MEDIUM">Medium</ToggleButton>
-                            <ToggleButton value="HIGH">High</ToggleButton>
-                          </ToggleButtonGroup>
-                        </Box>
-
-                        <Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {copy.ai.autoApproveLabel}
-                            </Typography>
-                            <Chip label={`${autoApproveThreshold}%`} size="small" />
-                          </Box>
-                          <Slider
-                            value={autoApproveThreshold}
-                            onChange={(_, v) => setAutoApproveThreshold(v as number)}
-                            min={50}
-                            max={100}
-                            step={5}
-                          />
-                          <Typography variant="caption" color="text.secondary">
-                            {copy.ai.autoApproveHint}
-                          </Typography>
-                        </Box>
-                      </Stack>
-
-                      <Divider sx={{ my: 3 }} />
-
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Button variant="contained" onClick={handleSaveAiProfile} disabled={aiSaveLoading}>
-                          {aiSaveLoading ? copy.ai.saving : copy.ai.savePreferences}
-                        </Button>
-                        <Button variant="text" endIcon={<ExternalLink size={14} />} onClick={() => router.push('/dashboard/ai')}>
-                          {copy.ai.openAssistant}
-                        </Button>
-                      </Box>
-                    </SectionCard>
-
-                    <SectionCard
-                      title={copy.ai.dataManagementTitle}
-                      description={copy.ai.dataManagementDescription}
-                    >
-                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                        <Button
-                          variant="outlined"
-                          color="warning"
-                          startIcon={<Trash2 size={16} />}
-                          onClick={handleClearAiMemory}
-                          disabled={aiSaveLoading}
-                        >
-                          {copy.ai.clearMemory}
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          startIcon={<RotateCcw size={16} />}
-                          onClick={handleResetAiLearning}
-                          disabled={aiSaveLoading}
-                        >
-                          {copy.ai.resetLearning}
-                        </Button>
-                      </Stack>
-                    </SectionCard>
-                  </>
-                )}
-              </Box>
+              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onResetLearning={handleResetAiLearning} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
             )}
-
-            {/* Mail Accounts */}
             {selectedSection === 'accounts' && (
-              <Box>
-                <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                  {mailAccountsCopy.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                  {copy.accounts.description}
-                </Typography>
-
-                {(providerError || providerSuccess) && (
-                  <Box sx={{ mb: 3 }}>
-                    {providerError && <Alert severity="error" onClose={() => setProviderError('')}>{providerError}</Alert>}
-                    {providerSuccess && <Alert severity="success" onClose={() => setProviderSuccess('')}>{providerSuccess}</Alert>}
-                  </Box>
-                )}
-
-                <SectionCard
-                  title={copy.accounts.connectedTitle}
-                  action={
-                    <Stack direction="row" spacing={1}>
-                      <Tooltip title={copy.accounts.refreshTooltip}>
-                        <IconButton size="small" onClick={loadProviders} disabled={providersLoading}>
-                          <RefreshCw size={16} className={providersLoading ? 'animate-spin' : ''} />
-                        </IconButton>
-                      </Tooltip>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={handleSyncAll}
-                        disabled={syncAllLoading || providers.length === 0}
-                      >
-                        {syncAllLoading ? copy.accounts.syncing : copy.accounts.syncAll}
-                      </Button>
-                    </Stack>
-                  }
-                >
-                  {providersLoading ? (
-                    <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
-                      <CircularProgress size={24} />
-                    </Box>
-                  ) : (
-                    <ProvidersList providers={providers} onDelete={handleProviderDeleted} />
-                  )}
-                </SectionCard>
-
-                <SectionCard title={copy.accounts.addTitle} description={copy.accounts.addDescription}>
-                  <Stack spacing={2} direction={{ xs: 'column', md: 'row' }}>
-                    <Box sx={{ flex: 1 }}>
-                      <GoogleProviderCard onSuccess={handleProviderInitiated} />
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <MicrosoftProviderCard onSuccess={handleProviderInitiated} />
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <GenericProviderCard onSuccess={handleProviderConnected} />
-                    </Box>
-                  </Stack>
-                </SectionCard>
-              </Box>
+              <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={handleProviderInitiated} onProviderConnected={handleProviderConnected} onProviderDeleted={handleProviderDeleted} copy={accountsCopy} />
             )}
-
-            {/* Account Settings */}
             {selectedSection === 'account' && (
-              <Box>
-                <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                  {accountCopy.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                  {copy.account.description}
-                </Typography>
-
-                <SectionCard title={accountCopy.profileTitle || 'Profile'}>
-                  <Stack spacing={2}>
-                    <TextField label={copy.account.fullName} value={accountName} fullWidth size="small" disabled />
-                    <TextField label={copy.account.email} value={user?.email || ''} fullWidth size="small" disabled />
-                    <TextField label={copy.account.role} value={user?.role || ''} fullWidth size="small" disabled />
-                  </Stack>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-                    {copy.account.contactAdmin}
-                  </Typography>
-                </SectionCard>
-
-                <Card variant="outlined" sx={{ borderColor: 'error.main' }}>
-                  <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'error.main', mb: 1 }}>
-                      {copy.account.dangerZoneTitle}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      {copy.account.dangerZoneDescription}
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      startIcon={<Trash2 size={16} />}
-                      onClick={() => setDeleteDialogOpen(true)}
-                    >
-                      {copy.account.deleteAccount}
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* Delete Account Confirmation Dialog */}
-                <Dialog
-                  open={deleteDialogOpen}
-                  onClose={handleCloseDeleteDialog}
-                  maxWidth="sm"
-                  fullWidth
-                >
-                  <DialogTitle sx={{ color: 'error.main' }}>
-                    {copy.account.deleteDialogTitle}
-                  </DialogTitle>
-                  <DialogContent>
-                    <DialogContentText sx={{ mb: 2 }}>
-                      {copy.account.deleteDialogDescription}
-                    </DialogContentText>
-                    {deleteError && (
-                      <Alert severity="error" sx={{ mb: 2 }}>
-                        {deleteError}
-                      </Alert>
-                    )}
-                    <TextField
-                      autoFocus
-                      fullWidth
-                      label={copy.account.deleteDialogConfirmLabel}
-                      value={deleteConfirmText}
-                      onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
-                      placeholder={language === 'it' ? 'ELIMINA' : 'DELETE'}
-                      error={deleteConfirmText.length > 0 && deleteConfirmText !== (language === 'it' ? 'ELIMINA' : 'DELETE')}
-                    />
-                  </DialogContent>
-                  <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={handleCloseDeleteDialog} disabled={deleteLoading}>
-                      {copy.account.deleteDialogCancel}
-                    </Button>
-                    <Button
-                      onClick={handleDeleteAccount}
-                      color="error"
-                      variant="contained"
-                      disabled={deleteLoading || deleteConfirmText !== (language === 'it' ? 'ELIMINA' : 'DELETE')}
-                      startIcon={deleteLoading ? <CircularProgress size={16} color="inherit" /> : <Trash2 size={16} />}
-                    >
-                      {deleteLoading ? copy.account.deleteDialogDeleting : copy.account.deleteDialogConfirm}
-                    </Button>
-                  </DialogActions>
-                </Dialog>
-              </Box>
+              <AccountSettings accountName={accountName} email={user?.email || ''} role={user?.role || ''} language={language} deleteDialogOpen={deleteDialogOpen} deleteConfirmText={deleteConfirmText} deleteLoading={deleteLoading} deleteError={deleteError} onOpenDeleteDialog={() => setDeleteDialogOpen(true)} onCloseDeleteDialog={handleCloseDeleteDialog} onDeleteConfirmTextChange={setDeleteConfirmText} onDeleteAccount={handleDeleteAccount} copy={accountCopy} />
             )}
-
-            {/* Notifications */}
             {selectedSection === 'notifications' && (
-              <Box>
-                <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                  {notificationsCopy.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-                  {copy.notifications.description}
-                </Typography>
-
-                <SectionCard title={notificationsCopy.emailTitle || copy.notifications.newEmailsTitle}>
-                  <SettingRow
-                    icon={<Mail size={18} />}
-                    title={copy.notifications.newEmailsTitle}
-                    description={copy.notifications.newEmailsDesc}
-                  >
-                    <Switch defaultChecked />
-                  </SettingRow>
-                  <SettingRow
-                    icon={<Calendar size={18} />}
-                    title={copy.notifications.calendarTitle}
-                    description={copy.notifications.calendarDesc}
-                  >
-                    <Switch defaultChecked />
-                  </SettingRow>
-                  <SettingRow
-                    icon={<Bell size={18} />}
-                    title={copy.notifications.aiActionsTitle}
-                    description={copy.notifications.aiActionsDesc}
-                    noBorder
-                  >
-                    <Switch defaultChecked />
-                  </SettingRow>
-                </SectionCard>
-
-                <Button variant="contained">{copy.notifications.save}</Button>
-              </Box>
+              <NotificationsSettings newEmailNotif={newEmailNotif} setNewEmailNotif={setNewEmailNotif} calendarNotif={calendarNotif} setCalendarNotif={setCalendarNotif} aiActionsNotif={aiActionsNotif} setAiActionsNotif={setAiActionsNotif} saveLoading={notifSaveLoading} onSave={handleSaveNotifications} success={notifSuccess} error={notifError} onClearSuccess={() => setNotifSuccess('')} onClearError={() => setNotifError('')} copy={notifCopy} />
             )}
           </Box>
         </Box>

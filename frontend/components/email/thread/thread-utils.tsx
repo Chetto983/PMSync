@@ -24,7 +24,22 @@ export function getFileIcon(filename: string, size = 14): React.ReactElement {
   return <File size={size} />;
 }
 
-export function formatRelativeTime(dateStr: string): string {
+/**
+ * Format relative time with locale-aware output.
+ * @param dateStr - The date string to format
+ * @param locale - Optional locale (defaults to browser locale)
+ * @param relativeLabels - Optional localized labels for relative times
+ */
+export function formatRelativeTime(
+  dateStr: string,
+  locale?: string,
+  relativeLabels?: {
+    justNow?: string;
+    minutesAgo?: string;
+    hoursAgo?: string;
+    daysAgo?: string;
+  }
+): string {
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -32,10 +47,17 @@ export function formatRelativeTime(dateStr: string): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const labels = {
+    justNow: relativeLabels?.justNow ?? 'Just now',
+    minutesAgo: relativeLabels?.minutesAgo ?? '{n}m ago',
+    hoursAgo: relativeLabels?.hoursAgo ?? '{n}h ago',
+    daysAgo: relativeLabels?.daysAgo ?? '{n}d ago',
+  };
+
+  if (diffMins < 1) return labels.justNow;
+  if (diffMins < 60) return labels.minutesAgo.replace('{n}', String(diffMins));
+  if (diffHours < 24) return labels.hoursAgo.replace('{n}', String(diffHours));
+  if (diffDays < 7) return labels.daysAgo.replace('{n}', String(diffDays));
+  return date.toLocaleDateString(locale || undefined, { month: 'short', day: 'numeric' });
 }
 

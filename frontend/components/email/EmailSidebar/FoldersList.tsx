@@ -202,7 +202,7 @@ export function FoldersList({
               <Typography
                 variant="caption"
                 color="text.secondary"
-                sx={{ fontWeight: 600, textTransform: 'uppercase' }}
+                sx={{ fontWeight: 600, fontSize: '0.7rem' }}
               >
                 {group.providerEmail}
               </Typography>

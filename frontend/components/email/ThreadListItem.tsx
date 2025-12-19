@@ -130,6 +130,9 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
           transition: 'all 0.15s ease',
           overflow: 'hidden',
           maxWidth: '100%',
+          // Unread indicator - left border
+          borderLeft: isRead ? 'none' : '3px solid',
+          borderLeftColor: isRead ? 'transparent' : 'primary.main',
           '&:hover': {
             bgcolor: isMobile ? 'transparent' : 'action.hover',
           },
@@ -147,7 +150,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             display: 'flex',
             gap: isMobile ? 1 : 1.5,
             alignItems: 'center',
-            bgcolor: isRead ? 'transparent' : 'rgba(25, 118, 210, 0.04)',
+            bgcolor: isRead ? 'transparent' : 'rgba(25, 118, 210, 0.08)',
             cursor: 'pointer',
             minHeight: isMobile ? 48 : 56,
             maxWidth: '100%',
@@ -276,7 +279,8 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 fontSize: isMobile ? '0.75rem' : '0.8125rem',
-                color: 'text.secondary',
+                color: subject ? 'text.secondary' : 'text.disabled',
+                fontStyle: subject ? 'normal' : 'italic',
                 lineHeight: 1.3,
               }}
             >

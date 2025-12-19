@@ -1333,6 +1333,9 @@ export const en: AppTranslations = {
       },
       reset: 'Reset',
       save: 'Save changes',
+      saving: 'Saving...',
+      saveSuccess: 'Settings saved successfully',
+      saveError: 'Failed to save settings',
     },
     mailAccountsPanel: {
       title: 'Mail Accounts',

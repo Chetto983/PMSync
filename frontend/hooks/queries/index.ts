@@ -8,3 +8,5 @@ export * from './use-emails';
 export * from './use-folders';
 export * from './dashboard-keys';
 export * from './use-dashboard';
+export * from './settings-keys';
+export * from './use-settings';

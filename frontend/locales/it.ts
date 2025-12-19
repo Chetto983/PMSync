@@ -1319,6 +1319,9 @@ export const it: AppTranslations = {
       },
       reset: 'Ripristina',
       save: 'Salva modifiche',
+      saving: 'Salvataggio...',
+      saveSuccess: 'Impostazioni salvate con successo',
+      saveError: 'Salvataggio impostazioni fallito',
     },
     mailAccountsPanel: {
       title: 'Account email',

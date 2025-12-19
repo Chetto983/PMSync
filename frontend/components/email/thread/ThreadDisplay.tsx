@@ -88,7 +88,8 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
     const items = Array.from(merged.values());
     if (items.length === 0) return [email];
 
-    return items.sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
+    // Sort by most recent first (descending order)
+    return items.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
   }, [email, restoredEmail, threadId, threadQuery.data]);
 
   const isThreadConversation = threadEmails.length > 1;
@@ -479,6 +480,9 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
               onReplyAll={onReplyAll}
               onForward={onForward}
               onEditDraft={onEditDraft}
+              onArchive={onArchive ? (e) => onArchive(e.id) : undefined}
+              onDelete={onDelete ? (e) => onDelete(e.id) : undefined}
+              onToggleStar={onToggleStar ? (e) => onToggleStar(e.id, e.isStarred || false) : undefined}
               onAttachmentOpen={handleAttachmentOpen}
               attachmentTooltip={attachmentTooltip}
               isDark={isDark}

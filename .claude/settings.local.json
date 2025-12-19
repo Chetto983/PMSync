@@ -59,7 +59,8 @@
       "Bash(PGPASSWORD=mailpass psql:*)",
       "Bash(del \"d:\\\\MailAgent\\\\frontend\\\\components\\\\email\\\\EmailSidebar\\\\EmailSidebar.tsx\")",
       "Bash(del \"d:\\\\MailAgent\\\\frontend\\\\components\\\\email\\\\EmailSidebar\\\\index.ts\")",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(PGPASSWORD=mailagent psql:*)"
     ],
     "deny": []
   }

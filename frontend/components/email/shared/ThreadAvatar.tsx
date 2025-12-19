@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Avatar } from '@mui/material';
 
 /**
@@ -16,7 +16,7 @@ export interface ThreadAvatarProps {
   name: string;
 
   /**
-   * Optional provider icon to display instead of initials
+   * Optional provider icon (ignored - we always show initials for better differentiation)
    */
   providerIcon?: React.ReactNode;
 
@@ -57,6 +57,39 @@ function getInitials(name: string): string {
 }
 
 /**
+ * Generate a consistent color based on string input
+ * Uses a hash function to produce pleasing, readable colors
+ */
+const AVATAR_COLORS = [
+  { bg: '#1976d2', text: '#fff' }, // Blue
+  { bg: '#388e3c', text: '#fff' }, // Green
+  { bg: '#d32f2f', text: '#fff' }, // Red
+  { bg: '#7b1fa2', text: '#fff' }, // Purple
+  { bg: '#f57c00', text: '#fff' }, // Orange
+  { bg: '#0097a7', text: '#fff' }, // Cyan
+  { bg: '#5d4037', text: '#fff' }, // Brown
+  { bg: '#455a64', text: '#fff' }, // Blue Grey
+  { bg: '#c2185b', text: '#fff' }, // Pink
+  { bg: '#00796b', text: '#fff' }, // Teal
+  { bg: '#512da8', text: '#fff' }, // Deep Purple
+  { bg: '#303f9f', text: '#fff' }, // Indigo
+];
+
+function getColorFromString(str: string): { bg: string; text: string } {
+  if (!str) return AVATAR_COLORS[0];
+
+  // Simple hash function
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    hash = hash & hash; // Convert to 32bit integer
+  }
+
+  const index = Math.abs(hash) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[index];
+}
+
+/**
  * ThreadAvatar - Enhanced avatar component with BIMI support
  *
  * Features:
@@ -78,12 +111,16 @@ function getInitials(name: string): string {
 export const ThreadAvatar: React.FC<ThreadAvatarProps> = ({
   email,
   name,
-  providerIcon,
+  // providerIcon is intentionally ignored - we always show initials for better differentiation
   isUnread = false,
   size = 40,
   className,
 }) => {
   const initials = getInitials(name || email);
+
+  // Generate consistent color based on email or name
+  const colorKey = email || name || '';
+  const colors = useMemo(() => getColorFromString(colorKey), [colorKey]);
 
   return (
     <Avatar
@@ -92,14 +129,16 @@ export const ThreadAvatar: React.FC<ThreadAvatarProps> = ({
         height: size,
         fontSize: size * 0.4,
         fontWeight: isUnread ? 700 : 500,
-        bgcolor: isUnread ? 'primary.main' : 'grey.400',
+        bgcolor: colors.bg,
+        color: colors.text,
         border: isUnread ? 2 : 0,
-        borderColor: 'primary.main',
+        borderColor: isUnread ? 'primary.main' : 'transparent',
         transition: 'all 0.2s ease',
+        boxShadow: isUnread ? '0 0 0 2px rgba(25, 118, 210, 0.2)' : 'none',
       }}
       className={className}
     >
-      {providerIcon || initials}
+      {initials}
     </Avatar>
   );
 };

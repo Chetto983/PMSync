@@ -21,6 +21,23 @@ export interface UpdatePreferencesData {
   theme?: string;
   language?: string;
   emailDensity?: string;
+  // AI Personalization
+  jobTitle?: string;
+  jobRole?: string;
+  department?: string;
+  industry?: string;
+  companySize?: string;
+  communicationStyle?: string;
+  responseLength?: string;
+  proactivityLevel?: string;
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  workingDays?: string[];
+  notificationFrequency?: 'IMMEDIATE' | 'DIGEST' | 'MINIMAL';
+  aiAutoApproveThreshold?: number;
+  aiSmartRepliesEnabled?: boolean;
+  aiSummarizationEnabled?: boolean;
+  aiSchedulingEnabled?: boolean;
 }
 
 export const usersApi = {

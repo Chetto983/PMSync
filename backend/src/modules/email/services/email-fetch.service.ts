@@ -23,15 +23,15 @@ export class EmailFetchService {
   ) {}
 
   /**
-   * Fetch an archived email from the server and restore its content
+   * Fetch email content from the provider when body is missing or archived.
+   * The database is a cache - this fetches the full email from Gmail/Microsoft/IMAP.
    */
   async fetchArchivedEmail(emailId: string, tenantId: string) {
-    // Get the archived email
+    // Get the email (archived or with missing body content)
     const email = await this.prisma.email.findFirst({
       where: {
         id: emailId,
         tenantId,
-        isArchived: true,
       },
       include: {
         provider: true,
@@ -39,10 +39,16 @@ export class EmailFetchService {
     });
 
     if (!email) {
-      throw new NotFoundException('Archived email not found');
+      throw new NotFoundException('Email not found');
     }
 
-    this.logger.log(`Fetching archived email ${emailId} from ${email.provider.providerType} server`);
+    // Check if body content is already present
+    if (email.bodyHtml && email.bodyText && !email.isArchived) {
+      this.logger.log(`Email ${emailId} already has body content, returning existing data`);
+      return email;
+    }
+
+    this.logger.log(`Fetching email ${emailId} content from ${email.provider.providerType} provider`);
 
     try {
       let fetchedContent: { bodyText?: string; bodyHtml?: string; headers?: Record<string, string> } = {};

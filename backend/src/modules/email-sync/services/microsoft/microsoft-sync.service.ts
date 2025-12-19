@@ -8,8 +8,9 @@ import { ProviderTokenService } from '../provider-token.service';
 import { BaseEmailSyncService } from '../base-email-sync.service';
 import { EmailDriverFactory } from '../../drivers/driver.factory';
 import { MicrosoftDriver } from '../../drivers/microsoft/microsoft.driver';
-import { CanonicalMessage } from '../../drivers/interfaces/canonical.types';
+import { CanonicalMessage, AttachmentMeta } from '../../drivers/interfaces/canonical.types';
 import { isJunkFolder } from '../../../email/email.helpers';
+import { AttachmentStorageService } from '../../../email/services/attachment.storage';
 
 /**
  * MicrosoftSyncService - Driver-based implementation
@@ -35,6 +36,7 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
     private emailEmbeddingQueue: EmailEmbeddingQueueService,
     private providerTokenService: ProviderTokenService,
     private driverFactory: EmailDriverFactory,
+    private attachmentStorage: AttachmentStorageService,
   ) {
     super(prisma, realtimeEvents, config);
   }
@@ -168,7 +170,7 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
 
       // Process messages in this page
       for (const message of result.messages) {
-        const upsertResult = await this.upsertMessageFromDriver(message, providerId, tenantId);
+        const upsertResult = await this.upsertMessageFromDriver(driver, message, providerId, tenantId);
         messagesProcessed++;
         if (upsertResult.wasNew) {
           newMessages++;
@@ -248,7 +250,7 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
           // Fetch and upsert the message
           const message = await driver.getMessage(change.messageId);
           if (message) {
-            const upsertResult = await this.upsertMessageFromDriver(message, providerId, tenantId);
+            const upsertResult = await this.upsertMessageFromDriver(driver, message, providerId, tenantId);
             messagesProcessed++;
             if (upsertResult.wasNew) {
               newMessages++;
@@ -278,6 +280,7 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
    * Upsert a message from driver canonical format into database
    */
   private async upsertMessageFromDriver(
+    driver: MicrosoftDriver,
     canonicalMsg: CanonicalMessage,
     providerId: string,
     tenantId: string,
@@ -310,6 +313,18 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
         },
       });
 
+      // Process attachments for existing email (update metadata if needed)
+      if (canonicalMsg.hasAttachments && canonicalMsg.attachments.length > 0) {
+        await this.processAttachments(
+          driver,
+          existing.id,
+          tenantId,
+          providerId,
+          canonicalMsg.id,
+          canonicalMsg.attachments,
+        );
+      }
+
       return { wasNew: false };
     } else {
       // Create new message
@@ -338,6 +353,18 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
         },
       });
 
+      // Process attachments (download for embeddings or metadata-only)
+      if (canonicalMsg.hasAttachments && canonicalMsg.attachments.length > 0) {
+        await this.processAttachments(
+          driver,
+          createdEmail.id,
+          tenantId,
+          providerId,
+          canonicalMsg.id,
+          canonicalMsg.attachments,
+        );
+      }
+
       // Queue for embeddings (skip SPAM/TRASH - they're junk)
       if (!isJunkFolder(createdEmail.folder)) {
         await this.emailEmbeddingQueue.enqueue({
@@ -357,6 +384,137 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
       });
 
       return { wasNew: true };
+    }
+  }
+
+  /**
+   * Process attachments: download for embeddings or store metadata for on-demand
+   * Uses strategy from AttachmentStorageService to determine handling
+   */
+  private async processAttachments(
+    driver: MicrosoftDriver,
+    emailId: string,
+    tenantId: string,
+    providerId: string,
+    externalMessageId: string,
+    attachments: AttachmentMeta[],
+  ): Promise<void> {
+    try {
+      const attachmentRecords: Array<{
+        emailId: string;
+        filename: string;
+        mimeType: string;
+        size: number;
+        contentId: string | null;
+        storageType: string;
+        storagePath: string | null;
+        contentHash: string | null;
+        isInline: boolean;
+      }> = [];
+
+      for (const att of attachments) {
+        const metadata = {
+          filename: att.filename,
+          mimeType: att.mimeType,
+          size: att.size,
+          isInline: att.isInline,
+          contentId: att.contentId,
+          externalId: att.id,
+          externalMessageId,
+        };
+
+        // Determine processing strategy
+        const strategy = this.attachmentStorage.getProcessingStrategy(metadata);
+
+        if (strategy === 'skip') {
+          // Skip inline images (they're in the HTML body)
+          this.logger.debug(`Skipping inline attachment ${att.filename}`);
+          continue;
+        }
+
+        if (strategy === 'embeddings') {
+          // Download and store for text extraction + embeddings
+          try {
+            const attachmentData = await driver.getAttachment(externalMessageId, att.id);
+            const content = Buffer.from(attachmentData.content, 'base64');
+
+            const uploaded = await this.attachmentStorage.uploadAttachment(
+              tenantId,
+              providerId,
+              {
+                filename: att.filename,
+                content,
+                contentType: att.mimeType,
+              },
+              emailId,
+            );
+
+            attachmentRecords.push({
+              emailId,
+              filename: uploaded.filename,
+              mimeType: uploaded.mimeType,
+              size: uploaded.size,
+              contentId: att.contentId || null,
+              storageType: uploaded.storageType,
+              storagePath: uploaded.storagePath,
+              contentHash: uploaded.contentHash,
+              isInline: uploaded.isInline,
+            });
+
+            this.logger.debug(
+              `Downloaded and stored ${att.filename} for embeddings (${(att.size / 1024).toFixed(1)}KB)`,
+            );
+          } catch (downloadError) {
+            // Fall back to metadata-only if download fails
+            this.logger.warn(
+              `Failed to download ${att.filename}, storing metadata only: ${downloadError instanceof Error ? downloadError.message : String(downloadError)}`,
+            );
+            const stored = this.attachmentStorage.storeAttachmentMetadata(providerId, metadata);
+            attachmentRecords.push({
+              emailId,
+              filename: stored.filename,
+              mimeType: stored.mimeType,
+              size: stored.size,
+              contentId: stored.contentId || null,
+              storageType: stored.storageType,
+              storagePath: stored.storagePath || null,
+              contentHash: null,
+              isInline: stored.isInline,
+            });
+          }
+        } else {
+          // metadata-only: store reference for on-demand download
+          const stored = this.attachmentStorage.storeAttachmentMetadata(providerId, metadata);
+          attachmentRecords.push({
+            emailId,
+            filename: stored.filename,
+            mimeType: stored.mimeType,
+            size: stored.size,
+            contentId: stored.contentId || null,
+            storageType: stored.storageType,
+            storagePath: stored.storagePath || null,
+            contentHash: null,
+            isInline: stored.isInline,
+          });
+        }
+      }
+
+      // Persist attachment records atomically
+      if (attachmentRecords.length > 0) {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.emailAttachment.deleteMany({ where: { emailId } });
+          await tx.emailAttachment.createMany({ data: attachmentRecords });
+        });
+
+        this.logger.debug(
+          `Persisted ${attachmentRecords.length} attachment records for email ${emailId}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to process attachments for email ${emailId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // Don't fail the sync for attachment errors
     }
   }
 

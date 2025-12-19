@@ -1403,6 +1403,9 @@ export interface AppTranslations {
       };
       reset: string;
       save: string;
+      saving: string;
+      saveSuccess: string;
+      saveError: string;
     };
     mailAccountsPanel: {
       title: string;
