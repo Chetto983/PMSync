@@ -103,6 +103,14 @@ export function Settings() {
   const [workingHoursStart, setWorkingHoursStart] = useState<string>('09:00');
   const [workingHoursEnd, setWorkingHoursEnd] = useState<string>('18:00');
   const [workingDays, setWorkingDays] = useState<string[]>(['MON', 'TUE', 'WED', 'THU', 'FRI']);
+  // Job details state
+  const [jobTitle, setJobTitle] = useState<string>('');
+  const [department, setDepartment] = useState<string>('');
+  const [industry, setIndustry] = useState<string>('');
+  const [companySize, setCompanySize] = useState<string>('');
+  // Notification & Display state
+  const [notificationFrequency, setNotificationFrequency] = useState<string>('DIGEST');
+  const [emailDensity, setEmailDensity] = useState<string>('comfortable');
 
   // Notification state
   const [newEmailNotif, setNewEmailNotif] = useState(true);
@@ -155,6 +163,14 @@ export function Settings() {
       setWorkingHoursStart(userPrefsData.workingHoursStart ?? '09:00');
       setWorkingHoursEnd(userPrefsData.workingHoursEnd ?? '18:00');
       setWorkingDays(userPrefsData.workingDays ?? ['MON', 'TUE', 'WED', 'THU', 'FRI']);
+      // Load job details
+      setJobTitle(userPrefsData.jobTitle ?? '');
+      setDepartment(userPrefsData.department ?? '');
+      setIndustry(userPrefsData.industry ?? '');
+      setCompanySize(userPrefsData.companySize ?? '');
+      // Load notification & display
+      setNotificationFrequency(userPrefsData.notificationFrequency ?? 'DIGEST');
+      setEmailDensity(userPrefsData.emailDensity ?? 'comfortable');
     }
   }, [userPrefsData]);
 
@@ -243,12 +259,20 @@ export function Settings() {
         workingHoursStart,
         workingHoursEnd,
         workingDays,
+        // Job details
+        jobTitle,
+        department,
+        industry,
+        companySize,
+        // Notification & display
+        notificationFrequency: notificationFrequency as 'IMMEDIATE' | 'DIGEST' | 'MINIMAL',
+        emailDensity,
       });
       setAiSuccess(settingsCopy.aiPanel?.savePreferences || 'Saved');
     } catch {
       setAiError(settingsCopy.generalPanel?.saveError || 'Failed to save');
     }
-  }, [jobRole, communicationStyle, responseLength, proactivityLevel, smartRepliesEnabled, summarizationEnabled, schedulingEnabled, autoApproveThreshold, workingHoursStart, workingHoursEnd, workingDays, updateAiProfileMutation, updatePreferencesMutation, settingsCopy]);
+  }, [jobRole, communicationStyle, responseLength, proactivityLevel, smartRepliesEnabled, summarizationEnabled, schedulingEnabled, autoApproveThreshold, workingHoursStart, workingHoursEnd, workingDays, jobTitle, department, industry, companySize, notificationFrequency, emailDensity, updateAiProfileMutation, updatePreferencesMutation, settingsCopy]);
 
   const handleClearAiMemory = useCallback(async () => {
     if (!confirm(settingsCopy.aiPanel?.clearMemory || 'Clear AI memory?')) return;
@@ -366,6 +390,25 @@ export function Settings() {
     styles: settingsCopy.aiPanel?.personalization?.styles || { FORMAL: 'Formal', CASUAL: 'Casual', TECHNICAL: 'Technical', CREATIVE: 'Creative' },
     lengths: settingsCopy.aiPanel?.personalization?.lengths || { BRIEF: 'Brief', MODERATE: 'Moderate', DETAILED: 'Detailed' },
     proactivityLevels: settingsCopy.aiPanel?.personalization?.proactivityLevels || { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' },
+    // Job Details
+    jobDetailsTitle: settingsCopy.aiPanel?.jobDetailsTitle || 'Work Context',
+    jobDetailsDescription: settingsCopy.aiPanel?.jobDetailsDescription || 'Help AI understand your professional context',
+    jobTitleLabel: settingsCopy.aiPanel?.jobTitleLabel || 'Job Title',
+    jobTitlePlaceholder: settingsCopy.aiPanel?.jobTitlePlaceholder || 'e.g., Software Engineer, Product Manager',
+    departmentLabel: settingsCopy.aiPanel?.departmentLabel || 'Department',
+    departmentPlaceholder: settingsCopy.aiPanel?.departmentPlaceholder || 'e.g., Engineering, Marketing',
+    industryLabel: settingsCopy.aiPanel?.industryLabel || 'Industry',
+    industryPlaceholder: settingsCopy.aiPanel?.industryPlaceholder || 'e.g., Technology, Healthcare',
+    companySizeLabel: settingsCopy.aiPanel?.companySizeLabel || 'Company Size',
+    companySizes: settingsCopy.aiPanel?.companySizes || { SOLO: 'Solo', STARTUP: 'Startup', SMB: 'SMB', ENTERPRISE: 'Enterprise' },
+    // Notification Frequency
+    notificationFrequencyLabel: settingsCopy.aiPanel?.notificationFrequencyLabel || 'AI Notification Frequency',
+    notificationFrequencyDescription: settingsCopy.aiPanel?.notificationFrequencyDescription || 'How often should AI notify you about insights?',
+    notificationFrequencies: settingsCopy.aiPanel?.notificationFrequencies || { IMMEDIATE: 'Immediate', DIGEST: 'Daily Digest', MINIMAL: 'Minimal' },
+    // Email Density
+    emailDensityLabel: settingsCopy.aiPanel?.emailDensityLabel || 'Email List Density',
+    emailDensityDescription: settingsCopy.aiPanel?.emailDensityDescription || 'Adjust spacing in email lists',
+    emailDensities: settingsCopy.aiPanel?.emailDensities || { comfortable: 'Comfortable', compact: 'Compact', spacious: 'Spacious' },
   }), [settingsCopy]);
 
   const accountsCopy = useMemo(() => ({
@@ -465,7 +508,7 @@ export function Settings() {
             )}
             {selectedSection === 'security' && <MfaSettings />}
             {selectedSection === 'ai' && (
-              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} workingHoursStart={workingHoursStart} setWorkingHoursStart={setWorkingHoursStart} workingHoursEnd={workingHoursEnd} setWorkingHoursEnd={setWorkingHoursEnd} workingDays={workingDays} setWorkingDays={setWorkingDays} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onResetLearning={handleResetAiLearning} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
+              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} workingHoursStart={workingHoursStart} setWorkingHoursStart={setWorkingHoursStart} workingHoursEnd={workingHoursEnd} setWorkingHoursEnd={setWorkingHoursEnd} workingDays={workingDays} setWorkingDays={setWorkingDays} jobTitle={jobTitle} setJobTitle={setJobTitle} department={department} setDepartment={setDepartment} industry={industry} setIndustry={setIndustry} companySize={companySize} setCompanySize={setCompanySize} notificationFrequency={notificationFrequency} setNotificationFrequency={setNotificationFrequency} emailDensity={emailDensity} setEmailDensity={setEmailDensity} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onResetLearning={handleResetAiLearning} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
             )}
             {selectedSection === 'accounts' && (
               <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={handleProviderInitiated} onProviderConnected={handleProviderConnected} onProviderDeleted={handleProviderDeleted} copy={accountsCopy} />

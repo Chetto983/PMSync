@@ -354,6 +354,108 @@ export function AiSettings({
                 </Box>
               </Box>
 
+              <Divider />
+
+              {/* Work Context Section */}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                  {copy.jobDetailsTitle || 'Work Context'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                  {copy.jobDetailsDescription || 'Help AI understand your professional context'}
+                </Typography>
+
+                <Stack spacing={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={copy.jobTitleLabel || 'Job Title'}
+                    value={jobTitle}
+                    onChange={(e) => setJobTitle(e.target.value)}
+                    placeholder={copy.jobTitlePlaceholder || 'e.g., Software Engineer, Product Manager'}
+                  />
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label={copy.departmentLabel || 'Department'}
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      placeholder={copy.departmentPlaceholder || 'e.g., Engineering, Marketing'}
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label={copy.industryLabel || 'Industry'}
+                      value={industry}
+                      onChange={(e) => setIndustry(e.target.value)}
+                      placeholder={copy.industryPlaceholder || 'e.g., Technology, Healthcare'}
+                    />
+                  </Stack>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                      {copy.companySizeLabel || 'Company Size'}
+                    </Typography>
+                    <ToggleButtonGroup
+                      value={companySize}
+                      exclusive
+                      onChange={(_, v) => v && setCompanySize(v)}
+                      fullWidth
+                      size="small"
+                    >
+                      <ToggleButton value="SOLO">{copy.companySizes?.SOLO || 'Solo'}</ToggleButton>
+                      <ToggleButton value="STARTUP">{copy.companySizes?.STARTUP || 'Startup'}</ToggleButton>
+                      <ToggleButton value="SMB">{copy.companySizes?.SMB || 'SMB'}</ToggleButton>
+                      <ToggleButton value="ENTERPRISE">{copy.companySizes?.ENTERPRISE || 'Enterprise'}</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
+                </Stack>
+              </Box>
+
+              <Divider />
+
+              {/* Notification & Display Section */}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                  {copy.notificationFrequencyLabel || 'AI Notification Frequency'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  {copy.notificationFrequencyDescription || 'How often should AI notify you about insights?'}
+                </Typography>
+                <ToggleButtonGroup
+                  value={notificationFrequency}
+                  exclusive
+                  onChange={(_, v) => v && setNotificationFrequency(v)}
+                  fullWidth
+                  size="small"
+                  sx={{ mb: 3 }}
+                >
+                  <ToggleButton value="IMMEDIATE">{copy.notificationFrequencies?.IMMEDIATE || 'Immediate'}</ToggleButton>
+                  <ToggleButton value="DIGEST">{copy.notificationFrequencies?.DIGEST || 'Daily Digest'}</ToggleButton>
+                  <ToggleButton value="MINIMAL">{copy.notificationFrequencies?.MINIMAL || 'Minimal'}</ToggleButton>
+                </ToggleButtonGroup>
+
+                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                  {copy.emailDensityLabel || 'Email List Density'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  {copy.emailDensityDescription || 'Adjust spacing in email lists'}
+                </Typography>
+                <ToggleButtonGroup
+                  value={emailDensity}
+                  exclusive
+                  onChange={(_, v) => v && setEmailDensity(v)}
+                  fullWidth
+                  size="small"
+                >
+                  <ToggleButton value="comfortable">{copy.emailDensities?.comfortable || 'Comfortable'}</ToggleButton>
+                  <ToggleButton value="compact">{copy.emailDensities?.compact || 'Compact'}</ToggleButton>
+                  <ToggleButton value="spacious">{copy.emailDensities?.spacious || 'Spacious'}</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+
+              <Divider />
+
               <Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
