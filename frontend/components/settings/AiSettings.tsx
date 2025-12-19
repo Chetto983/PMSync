@@ -4,10 +4,7 @@ import {
   Typography,
   Switch,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  TextField,
   ToggleButtonGroup,
   ToggleButton,
   Stack,
@@ -20,7 +17,7 @@ import {
 import { MessageSquare, FileText, Calendar, Trash2, RotateCcw, ExternalLink } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import { SettingRow } from './SettingRow';
-import type { JobRole, CommunicationStyle, ResponseLength, ProactivityLevel } from '@/lib/api/personalization';
+import type { CommunicationStyle, ResponseLength, ProactivityLevel } from '@/lib/api/personalization';
 
 export interface AiSettingsProps {
   loading: boolean;
@@ -38,8 +35,8 @@ export interface AiSettingsProps {
   schedulingEnabled: boolean;
   setSchedulingEnabled: (v: boolean) => void;
   // Personalization
-  jobRole: JobRole;
-  setJobRole: (v: JobRole) => void;
+  jobRole: string;
+  setJobRole: (v: string) => void;
   communicationStyle: CommunicationStyle;
   setCommunicationStyle: (v: CommunicationStyle) => void;
   responseLength: ResponseLength;
@@ -48,6 +45,27 @@ export interface AiSettingsProps {
   setProactivityLevel: (v: ProactivityLevel) => void;
   autoApproveThreshold: number;
   setAutoApproveThreshold: (v: number) => void;
+  // Working Hours
+  workingHoursStart: string;
+  setWorkingHoursStart: (v: string) => void;
+  workingHoursEnd: string;
+  setWorkingHoursEnd: (v: string) => void;
+  workingDays: string[];
+  setWorkingDays: (v: string[]) => void;
+  // Job Details
+  jobTitle: string;
+  setJobTitle: (v: string) => void;
+  department: string;
+  setDepartment: (v: string) => void;
+  industry: string;
+  setIndustry: (v: string) => void;
+  companySize: string;
+  setCompanySize: (v: string) => void;
+  // Notification & Display
+  notificationFrequency: string;
+  setNotificationFrequency: (v: string) => void;
+  emailDensity: string;
+  setEmailDensity: (v: string) => void;
   // Actions
   onSave: () => void;
   onClearMemory: () => void;
@@ -80,8 +98,41 @@ export interface AiSettingsProps {
     dataManagementDescription: string;
     clearMemory: string;
     resetLearning: string;
+    // Working hours labels
+    workingHoursLabel?: string;
+    workingHoursDescription?: string;
+    startTimeLabel?: string;
+    endTimeLabel?: string;
+    workingDaysLabel?: string;
+    // Day abbreviations
+    days?: { MON: string; TUE: string; WED: string; THU: string; FRI: string; SAT: string; SUN: string };
+    // Toggle button labels (must match backend enums)
+    styles?: { FORMAL: string; CASUAL: string; TECHNICAL: string; CREATIVE: string };
+    lengths?: { BRIEF: string; MODERATE: string; DETAILED: string };
+    proactivityLevels?: { LOW: string; MEDIUM: string; HIGH: string };
+    // Job Details
+    jobDetailsTitle?: string;
+    jobDetailsDescription?: string;
+    jobTitleLabel?: string;
+    jobTitlePlaceholder?: string;
+    departmentLabel?: string;
+    departmentPlaceholder?: string;
+    industryLabel?: string;
+    industryPlaceholder?: string;
+    companySizeLabel?: string;
+    companySizes?: { SOLO: string; STARTUP: string; SMB: string; ENTERPRISE: string };
+    // Notification Frequency
+    notificationFrequencyLabel?: string;
+    notificationFrequencyDescription?: string;
+    notificationFrequencies?: { IMMEDIATE: string; DIGEST: string; MINIMAL: string };
+    // Email Density
+    emailDensityLabel?: string;
+    emailDensityDescription?: string;
+    emailDensities?: { comfortable: string; compact: string; spacious: string };
   };
 }
+
+const ALL_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
 
 export function AiSettings({
   loading,
@@ -107,12 +158,37 @@ export function AiSettings({
   setProactivityLevel,
   autoApproveThreshold,
   setAutoApproveThreshold,
+  workingHoursStart,
+  setWorkingHoursStart,
+  workingHoursEnd,
+  setWorkingHoursEnd,
+  workingDays,
+  setWorkingDays,
+  jobTitle,
+  setJobTitle,
+  department,
+  setDepartment,
+  industry,
+  setIndustry,
+  companySize,
+  setCompanySize,
+  notificationFrequency,
+  setNotificationFrequency,
+  emailDensity,
+  setEmailDensity,
   onSave,
   onClearMemory,
   onResetLearning,
   onOpenAssistant,
   copy,
 }: AiSettingsProps) {
+  const handleDayToggle = (day: string) => {
+    if (workingDays.includes(day)) {
+      setWorkingDays(workingDays.filter((d) => d !== day));
+    } else {
+      setWorkingDays([...workingDays, day]);
+    }
+  };
   return (
     <Box>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -168,19 +244,14 @@ export function AiSettings({
             description={copy.personalizationDescription || 'Customize AI behavior to match your work style'}
           >
             <Stack spacing={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>{copy.roleLabel || 'Your Role'}</InputLabel>
-                <Select value={jobRole} onChange={(e) => setJobRole(e.target.value as JobRole)} label={copy.roleLabel || 'Your Role'}>
-                  <MenuItem value="EXECUTIVE">Executive</MenuItem>
-                  <MenuItem value="MANAGER">Manager</MenuItem>
-                  <MenuItem value="IC">Individual Contributor</MenuItem>
-                  <MenuItem value="FREELANCER">Freelancer</MenuItem>
-                  <MenuItem value="STUDENT">Student</MenuItem>
-                  <MenuItem value="SUPPORT">Support</MenuItem>
-                  <MenuItem value="SALES">Sales</MenuItem>
-                  <MenuItem value="TECHNICAL">Technical</MenuItem>
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                size="small"
+                label={copy.roleLabel || 'Your Role'}
+                value={jobRole}
+                onChange={(e) => setJobRole(e.target.value)}
+                placeholder="e.g., Developer, Manager, Designer..."
+              />
 
               <Box>
                 <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
@@ -193,9 +264,10 @@ export function AiSettings({
                   fullWidth
                   size="small"
                 >
-                  <ToggleButton value="FORMAL">Formal</ToggleButton>
-                  <ToggleButton value="CASUAL">Casual</ToggleButton>
-                  <ToggleButton value="TECHNICAL">Technical</ToggleButton>
+                  <ToggleButton value="FORMAL">{copy.styles?.FORMAL || 'Formal'}</ToggleButton>
+                  <ToggleButton value="CASUAL">{copy.styles?.CASUAL || 'Casual'}</ToggleButton>
+                  <ToggleButton value="TECHNICAL">{copy.styles?.TECHNICAL || 'Technical'}</ToggleButton>
+                  <ToggleButton value="CREATIVE">{copy.styles?.CREATIVE || 'Creative'}</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
 
@@ -210,9 +282,9 @@ export function AiSettings({
                   fullWidth
                   size="small"
                 >
-                  <ToggleButton value="CONCISE">Concise</ToggleButton>
-                  <ToggleButton value="MODERATE">Moderate</ToggleButton>
-                  <ToggleButton value="DETAILED">Detailed</ToggleButton>
+                  <ToggleButton value="BRIEF">{copy.lengths?.BRIEF || 'Brief'}</ToggleButton>
+                  <ToggleButton value="MODERATE">{copy.lengths?.MODERATE || 'Moderate'}</ToggleButton>
+                  <ToggleButton value="DETAILED">{copy.lengths?.DETAILED || 'Detailed'}</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
 
@@ -227,10 +299,59 @@ export function AiSettings({
                   fullWidth
                   size="small"
                 >
-                  <ToggleButton value="LOW">Low</ToggleButton>
-                  <ToggleButton value="MEDIUM">Medium</ToggleButton>
-                  <ToggleButton value="HIGH">High</ToggleButton>
+                  <ToggleButton value="LOW">{copy.proactivityLevels?.LOW || 'Low'}</ToggleButton>
+                  <ToggleButton value="MEDIUM">{copy.proactivityLevels?.MEDIUM || 'Medium'}</ToggleButton>
+                  <ToggleButton value="HIGH">{copy.proactivityLevels?.HIGH || 'High'}</ToggleButton>
                 </ToggleButtonGroup>
+              </Box>
+
+              <Divider />
+
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                  {copy.workingHoursLabel || 'Working Hours'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                  {copy.workingHoursDescription || 'AI will adjust behavior based on your schedule'}
+                </Typography>
+
+                <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                  <TextField
+                    size="small"
+                    type="time"
+                    label={copy.startTimeLabel || 'Start'}
+                    value={workingHoursStart}
+                    onChange={(e) => setWorkingHoursStart(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ flex: 1 }}
+                  />
+                  <TextField
+                    size="small"
+                    type="time"
+                    label={copy.endTimeLabel || 'End'}
+                    value={workingHoursEnd}
+                    onChange={(e) => setWorkingHoursEnd(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ flex: 1 }}
+                  />
+                </Stack>
+
+                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                  {copy.workingDaysLabel || 'Working Days'}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                  {ALL_DAYS.map((day) => (
+                    <Chip
+                      key={day}
+                      label={copy.days?.[day] || day}
+                      size="small"
+                      variant={workingDays.includes(day) ? 'filled' : 'outlined'}
+                      color={workingDays.includes(day) ? 'primary' : 'default'}
+                      onClick={() => handleDayToggle(day)}
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  ))}
+                </Box>
               </Box>
 
               <Box>

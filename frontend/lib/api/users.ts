@@ -9,7 +9,26 @@ export interface UserPreferences {
   sidebarLabelsExpanded?: boolean;
   theme?: string;
   language?: string;
+  timezone?: string;
   emailDensity?: string;
+  // AI Feature Toggles
+  aiSmartRepliesEnabled?: boolean;
+  aiSummarizationEnabled?: boolean;
+  aiSchedulingEnabled?: boolean;
+  aiAutoApproveThreshold?: number;
+  // AI Personalization
+  jobTitle?: string;
+  jobRole?: string;
+  department?: string;
+  industry?: string;
+  companySize?: string;
+  communicationStyle?: string;
+  responseLength?: string;
+  proactivityLevel?: string;
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  workingDays?: string[];
+  notificationFrequency?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -15,4 +15,10 @@ export const settingsKeys = {
   // Email providers
   providers: () => [...settingsKeys.all, 'providers'] as const,
   provider: (id: string) => [...settingsKeys.providers(), id] as const,
+
+  // Working hours
+  workingHours: () => [...settingsKeys.all, 'workingHours'] as const,
+
+  // Memories by type
+  memories: (type: string) => [...settingsKeys.all, 'memories', type] as const,
 };

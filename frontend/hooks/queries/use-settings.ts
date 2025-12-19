@@ -18,6 +18,10 @@ import {
   type CommunicationStyle,
   type ResponseLength,
   type ProactivityLevel,
+  type MemoryType,
+  type Memory,
+  type LearnInteractionPayload,
+  type WorkingHoursResponse,
 } from '@/lib/api/personalization';
 
 // ============================================================================
@@ -26,9 +30,18 @@ import {
 
 export interface AiProfile {
   jobRole: JobRole;
+  jobTitle?: string;
+  department?: string;
+  industry?: string;
+  companySize?: string;
   communicationStyle: CommunicationStyle;
   responseLength: ResponseLength;
   proactivityLevel: ProactivityLevel;
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  workingDays?: string[];
+  timezone?: string;
+  language?: string;
 }
 
 export interface UpdateAiProfileData {
@@ -236,6 +249,65 @@ export function useDeleteProvider() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: settingsKeys.providers() });
+    },
+  });
+}
+
+// ============================================================================
+// Personalization Memory Hooks
+// ============================================================================
+
+/**
+ * Query options for working hours status
+ */
+export function workingHoursOptions() {
+  return queryOptions({
+    queryKey: settingsKeys.workingHours(),
+    queryFn: async (): Promise<WorkingHoursResponse> => {
+      const response = await personalizationApi.getWorkingHours();
+      return response.data;
+    },
+    staleTime: 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook for working hours status
+ */
+export function useWorkingHours() {
+  return useQuery(workingHoursOptions());
+}
+
+/**
+ * Query options for memories by type
+ */
+export function memoriesOptions(type: MemoryType, limit?: number) {
+  return queryOptions({
+    queryKey: settingsKeys.memories(type),
+    queryFn: async (): Promise<Memory[]> => {
+      const response = await personalizationApi.getMemories({ type, limit });
+      return response.data?.memories || [];
+    },
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook for memories by type
+ */
+export function useMemories(type: MemoryType, limit?: number) {
+  return useQuery(memoriesOptions(type, limit));
+}
+
+/**
+ * Mutation hook for learning from interaction
+ */
+export function useLearnFromInteraction() {
+  return useMutation({
+    mutationFn: async (payload: LearnInteractionPayload): Promise<void> => {
+      await personalizationApi.learnFromInteraction(payload);
     },
   });
 }

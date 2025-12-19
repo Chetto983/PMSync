@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box,
-  Paper,
   Typography,
   List,
   ListItemButton,
@@ -20,7 +19,6 @@ import {
   Bell,
   Mail,
   Sparkles,
-  ChevronRight,
   Shield,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
@@ -28,7 +26,6 @@ import { useThemePersistence } from '@/hooks/use-theme-persistence';
 import { usersApi } from '@/lib/api/users';
 import {
   personalizationApi,
-  type JobRole,
   type CommunicationStyle,
   type ResponseLength,
   type ProactivityLevel,
@@ -38,6 +35,7 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import {
   useAiProfile,
   useProviders,
+  useUserPreferences,
   useUpdatePreferences,
   useUpdateAiProfile,
   useSyncAllProviders,
@@ -76,6 +74,7 @@ export function Settings() {
   // TanStack Query hooks
   const { data: providers = [], isLoading: providersLoading, refetch: refetchProviders } = useProviders();
   const { data: aiProfileData, isLoading: aiProfileLoading } = useAiProfile();
+  const { data: userPrefsData } = useUserPreferences();
   const updateAiProfileMutation = useUpdateAiProfile();
   const updatePreferencesMutation = useUpdatePreferences();
   const syncAllMutation = useSyncAllProviders();
@@ -92,7 +91,7 @@ export function Settings() {
   const [aiDataLoading, setAiDataLoading] = useState(false);
 
   // AI state
-  const [jobRole, setJobRole] = useState<JobRole>('IC');
+  const [jobRole, setJobRole] = useState<string>('');
   const [communicationStyle, setCommunicationStyle] = useState<CommunicationStyle>('CASUAL');
   const [responseLength, setResponseLength] = useState<ResponseLength>('MODERATE');
   const [proactivityLevel, setProactivityLevel] = useState<ProactivityLevel>('MEDIUM');
@@ -100,6 +99,10 @@ export function Settings() {
   const [smartRepliesEnabled, setSmartRepliesEnabled] = useState(true);
   const [summarizationEnabled, setSummarizationEnabled] = useState(true);
   const [schedulingEnabled, setSchedulingEnabled] = useState(true);
+  // Working hours state
+  const [workingHoursStart, setWorkingHoursStart] = useState<string>('09:00');
+  const [workingHoursEnd, setWorkingHoursEnd] = useState<string>('18:00');
+  const [workingDays, setWorkingDays] = useState<string[]>(['MON', 'TUE', 'WED', 'THU', 'FRI']);
 
   // Notification state
   const [newEmailNotif, setNewEmailNotif] = useState(true);
@@ -138,6 +141,22 @@ export function Settings() {
       setProactivityLevel(aiProfileData.proactivityLevel);
     }
   }, [aiProfileData]);
+
+  // Sync AI feature toggles and working hours from user preferences
+  useEffect(() => {
+    if (userPrefsData) {
+      // Load AI feature toggles from backend (with fallback to defaults)
+      setSmartRepliesEnabled(userPrefsData.aiSmartRepliesEnabled ?? true);
+      setSummarizationEnabled(userPrefsData.aiSummarizationEnabled ?? true);
+      setSchedulingEnabled(userPrefsData.aiSchedulingEnabled ?? true);
+      // Convert threshold from 0-1 to 0-100 for slider
+      setAutoApproveThreshold((userPrefsData.aiAutoApproveThreshold ?? 0.85) * 100);
+      // Load working hours
+      setWorkingHoursStart(userPrefsData.workingHoursStart ?? '09:00');
+      setWorkingHoursEnd(userPrefsData.workingHoursEnd ?? '18:00');
+      setWorkingDays(userPrefsData.workingDays ?? ['MON', 'TUE', 'WED', 'THU', 'FRI']);
+    }
+  }, [userPrefsData]);
 
   // Load settings from localStorage
   useEffect(() => {
@@ -221,12 +240,15 @@ export function Settings() {
         aiSummarizationEnabled: summarizationEnabled,
         aiSchedulingEnabled: schedulingEnabled,
         aiAutoApproveThreshold: autoApproveThreshold / 100,
+        workingHoursStart,
+        workingHoursEnd,
+        workingDays,
       });
       setAiSuccess(settingsCopy.aiPanel?.savePreferences || 'Saved');
     } catch {
       setAiError(settingsCopy.generalPanel?.saveError || 'Failed to save');
     }
-  }, [jobRole, communicationStyle, responseLength, proactivityLevel, smartRepliesEnabled, summarizationEnabled, schedulingEnabled, autoApproveThreshold, updateAiProfileMutation, updatePreferencesMutation, settingsCopy]);
+  }, [jobRole, communicationStyle, responseLength, proactivityLevel, smartRepliesEnabled, summarizationEnabled, schedulingEnabled, autoApproveThreshold, workingHoursStart, workingHoursEnd, workingDays, updateAiProfileMutation, updatePreferencesMutation, settingsCopy]);
 
   const handleClearAiMemory = useCallback(async () => {
     if (!confirm(settingsCopy.aiPanel?.clearMemory || 'Clear AI memory?')) return;
@@ -333,6 +355,17 @@ export function Settings() {
     dataManagementDescription: settingsCopy.aiPanel?.dataManagementDescription || '',
     clearMemory: settingsCopy.aiPanel?.clearMemory || 'Clear',
     resetLearning: settingsCopy.aiPanel?.resetLearning || 'Reset',
+    // Working hours labels
+    workingHoursLabel: settingsCopy.aiPanel?.workingHoursLabel || 'Working Hours',
+    workingHoursDescription: settingsCopy.aiPanel?.workingHoursDescription || 'AI will adjust behavior based on your schedule',
+    startTimeLabel: settingsCopy.aiPanel?.startTimeLabel || 'Start',
+    endTimeLabel: settingsCopy.aiPanel?.endTimeLabel || 'End',
+    workingDaysLabel: settingsCopy.aiPanel?.workingDaysLabel || 'Working Days',
+    days: settingsCopy.aiPanel?.days || { MON: 'Mon', TUE: 'Tue', WED: 'Wed', THU: 'Thu', FRI: 'Fri', SAT: 'Sat', SUN: 'Sun' },
+    // Toggle button labels (must match backend enums)
+    styles: settingsCopy.aiPanel?.personalization?.styles || { FORMAL: 'Formal', CASUAL: 'Casual', TECHNICAL: 'Technical', CREATIVE: 'Creative' },
+    lengths: settingsCopy.aiPanel?.personalization?.lengths || { BRIEF: 'Brief', MODERATE: 'Moderate', DETAILED: 'Detailed' },
+    proactivityLevels: settingsCopy.aiPanel?.personalization?.proactivityLevels || { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' },
   }), [settingsCopy]);
 
   const accountsCopy = useMemo(() => ({
@@ -389,22 +422,20 @@ export function Settings() {
   }
 
   return (
-    <Box sx={{ minHeight: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'row', bgcolor: 'background.default' }}>
-      {/* Sidebar */}
-      <Paper elevation={0} sx={{ width: 260, flexShrink: 0, borderRight: 1, borderColor: 'divider', display: { xs: 'none', md: 'flex' }, flexDirection: 'column', bgcolor: 'background.paper', position: 'sticky', top: 64, height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
-        <Box sx={{ p: 3, pb: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>{settingsCopy.pageTitle || 'Settings'}</Typography>
+    <Box sx={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* Sidebar - matches email page pattern */}
+      <Box sx={{ width: 280, flexShrink: 0, display: { xs: 'none', md: 'flex' }, flexDirection: 'column', borderRight: 1, borderColor: 'divider', bgcolor: 'background.paper', overflow: 'auto' }}>
+        <Box sx={{ p: 2 }}>
+          <List disablePadding>
+            {sections.map((section) => (
+              <ListItemButton key={section.id} selected={selectedSection === section.id} onClick={() => handleSectionSelect(section.id as SettingsSection)} sx={{ borderRadius: 2, mb: 0.5, py: 1, '&.Mui-selected': { bgcolor: (th) => alpha(th.palette.primary.main, 0.08), '&:hover': { bgcolor: (th) => alpha(th.palette.primary.main, 0.12) } } }}>
+                <ListItemIcon sx={{ minWidth: 36, color: selectedSection === section.id ? 'primary.main' : 'text.secondary' }}>{section.icon}</ListItemIcon>
+                <ListItemText primary={section.label} primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: selectedSection === section.id ? 600 : 400 }} />
+              </ListItemButton>
+            ))}
+          </List>
         </Box>
-        <List sx={{ flex: 1, px: 1.5 }}>
-          {sections.map((section) => (
-            <ListItemButton key={section.id} selected={selectedSection === section.id} onClick={() => handleSectionSelect(section.id as SettingsSection)} sx={{ borderRadius: 2, mb: 0.5, '&.Mui-selected': { bgcolor: (th) => alpha(th.palette.primary.main, 0.08), '&:hover': { bgcolor: (th) => alpha(th.palette.primary.main, 0.12) } } }}>
-              <ListItemIcon sx={{ minWidth: 36, color: selectedSection === section.id ? 'primary.main' : 'text.secondary' }}>{section.icon}</ListItemIcon>
-              <ListItemText primary={section.label} primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: selectedSection === section.id ? 600 : 400 }} />
-              {selectedSection === section.id && <ChevronRight size={16} />}
-            </ListItemButton>
-          ))}
-        </List>
-        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Box sx={{ mt: 'auto', p: 2, borderTop: 1, borderColor: 'divider' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Avatar sx={{ width: 36, height: 36, bgcolor: 'primary.main', fontSize: '0.875rem' }}>{accountName.charAt(0).toUpperCase()}</Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -413,14 +444,13 @@ export function Settings() {
             </Box>
           </Box>
         </Box>
-      </Paper>
+      </Box>
 
       {/* Main Content */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         {/* Mobile nav */}
-        <Box sx={{ display: { xs: 'flex', md: 'none' }, px: 2, py: 2, position: 'sticky', top: 0, zIndex: 2, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', alignItems: 'center', gap: 2 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, flexShrink: 0 }}>{settingsCopy.pageTitle || 'Settings'}</Typography>
-          <FormControl size="small" sx={{ flex: 1, minWidth: 120 }}>
+        <Box sx={{ display: { xs: 'flex', md: 'none' }, px: 2, py: 1.5, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', alignItems: 'center', gap: 2 }}>
+          <FormControl size="small" fullWidth>
             <Select value={selectedSection} onChange={(e) => handleSectionSelect(e.target.value as SettingsSection)}>
               {sections.map((s) => <MenuItem key={s.id} value={s.id}><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>{s.icon}{s.label}</Box></MenuItem>)}
             </Select>
@@ -428,14 +458,14 @@ export function Settings() {
         </Box>
 
         {/* Content */}
-        <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 4 }, bgcolor: 'background.default' }}>
-          <Box sx={{ maxWidth: { xs: '100%', md: 800 }, mx: 'auto' }}>
+        <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 3 } }}>
+          <Box sx={{ maxWidth: 1200 }}>
             {selectedSection === 'general' && (
               <GeneralSettings theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} timezone={timezone} setTimezone={setTimezone} saveLoading={saveLoading} onSave={handleSaveSettings} success={generalSuccess} error={generalError} onClearSuccess={() => setGeneralSuccess('')} onClearError={() => setGeneralError('')} copy={generalCopy} />
             )}
             {selectedSection === 'security' && <MfaSettings />}
             {selectedSection === 'ai' && (
-              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onResetLearning={handleResetAiLearning} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
+              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} workingHoursStart={workingHoursStart} setWorkingHoursStart={setWorkingHoursStart} workingHoursEnd={workingHoursEnd} setWorkingHoursEnd={setWorkingHoursEnd} workingDays={workingDays} setWorkingDays={setWorkingDays} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onResetLearning={handleResetAiLearning} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
             )}
             {selectedSection === 'accounts' && (
               <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={handleProviderInitiated} onProviderConnected={handleProviderConnected} onProviderDeleted={handleProviderDeleted} copy={accountsCopy} />

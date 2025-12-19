@@ -428,27 +428,33 @@ export class VoltAgentController {
     @Req() req: AuthenticatedRequest,
     @Body() body: { agentName?: string; actionType?: string },
   ) {
-    if (!body.agentName) {
-      // Reset all learning for the user
+    try {
+      if (!body.agentName) {
+        // Reset all learning for the user
+        await this.feedbackService.resetLearningProfile(
+          req.user.tenantId,
+          req.user.userId,
+          'SupervisorAgent', // Default agent
+        );
+        return { success: true, message: 'All learning profiles reset' };
+      }
+
       await this.feedbackService.resetLearningProfile(
         req.user.tenantId,
         req.user.userId,
-        'SupervisorAgent', // Default agent
+        body.agentName,
+        body.actionType,
       );
-      return { success: true, message: 'All learning profiles reset' };
+
+      return {
+        success: true,
+        message: `Learning profile reset for ${body.agentName}${body.actionType ? `:${body.actionType}` : ''}`,
+      };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to reset learning profile: ${err.message}`, err.stack);
+      throw error;
     }
-
-    await this.feedbackService.resetLearningProfile(
-      req.user.tenantId,
-      req.user.userId,
-      body.agentName,
-      body.actionType,
-    );
-
-    return {
-      success: true,
-      message: `Learning profile reset for ${body.agentName}${body.actionType ? `:${body.actionType}` : ''}`,
-    };
   }
 
   // ============ Performance Telemetry Endpoints ============

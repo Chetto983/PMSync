@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -11,10 +11,13 @@ import {
   ToggleButton,
   Stack,
   Alert,
+  Autocomplete,
+  TextField,
 } from '@mui/material';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import type { ThemeMode } from '@/hooks/use-theme-persistence';
+import { useTimezoneSelect, allTimezones } from 'react-timezone-select';
 
 export interface GeneralSettingsProps {
   theme: ThemeMode;
@@ -60,6 +63,17 @@ export function GeneralSettings({
   onClearError,
   copy,
 }: GeneralSettingsProps) {
+  // Get all timezones with proper formatting
+  const { options } = useTimezoneSelect({
+    labelStyle: 'original',
+    timezones: allTimezones,
+  });
+
+  // Find the current timezone option
+  const selectedTimezone = useMemo(() => {
+    return options.find((opt) => opt.value === timezone) || null;
+  }, [options, timezone]);
+
   return (
     <Box>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -109,16 +123,22 @@ export function GeneralSettings({
               <MenuItem value="it">Italiano</MenuItem>
             </Select>
           </FormControl>
-          <FormControl fullWidth size="small">
-            <InputLabel>{copy.timezoneLabel || 'Timezone'}</InputLabel>
-            <Select value={timezone} onChange={(e) => setTimezone(e.target.value)} label={copy.timezoneLabel || 'Timezone'}>
-              <MenuItem value="GMT-08:00">(GMT-08:00) Pacific Time</MenuItem>
-              <MenuItem value="GMT-05:00">(GMT-05:00) Eastern Time</MenuItem>
-              <MenuItem value="GMT+00:00">(GMT+00:00) London</MenuItem>
-              <MenuItem value="GMT+01:00">(GMT+01:00) Rome</MenuItem>
-              <MenuItem value="GMT+09:00">(GMT+09:00) Tokyo</MenuItem>
-            </Select>
-          </FormControl>
+          <Autocomplete
+            size="small"
+            options={options}
+            value={selectedTimezone}
+            onChange={(_, newValue) => {
+              if (newValue) {
+                setTimezone(newValue.value);
+              }
+            }}
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(option, value) => option.value === value.value}
+            renderInput={(params) => (
+              <TextField {...params} label={copy.timezoneLabel || 'Timezone'} />
+            )}
+            ListboxProps={{ style: { maxHeight: 300 } }}
+          />
         </Stack>
       </SectionCard>
 

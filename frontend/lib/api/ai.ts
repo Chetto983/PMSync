@@ -502,7 +502,7 @@ export const voltAgentApi = {
   resetLearning(payload?: { agentName?: string; actionType?: string }) {
     return apiClient.post<{ success: boolean; message: string }>(
       '/api/v1/voltagent/learning/reset',
-      payload,
+      payload || {},
     );
   },
 

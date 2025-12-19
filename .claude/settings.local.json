@@ -60,7 +60,9 @@
       "Bash(del \"d:\\\\MailAgent\\\\frontend\\\\components\\\\email\\\\EmailSidebar\\\\EmailSidebar.tsx\")",
       "Bash(del \"d:\\\\MailAgent\\\\frontend\\\\components\\\\email\\\\EmailSidebar\\\\index.ts\")",
       "Bash(grep:*)",
-      "Bash(PGPASSWORD=mailagent psql:*)"
+      "Bash(PGPASSWORD=mailagent psql:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx prisma db push --skip-generate)"
     ],
     "deny": []
   }

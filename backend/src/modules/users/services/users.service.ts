@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
 import { QueueService } from '../../email-sync/services/queue.service';
+import { UpdatePreferencesDto } from '../dtos/update-preferences.dto';
 
 @Injectable()
 export class UsersService {
@@ -147,15 +148,9 @@ export class UsersService {
 
   /**
    * Update user preferences
+   * Accepts all fields from UpdatePreferencesDto including AI settings
    */
-  async updateUserPreferences(userId: string, data: {
-    folderOrders?: Record<string, string[]>;
-    sidebarSmartFiltersExpanded?: boolean;
-    sidebarLabelsExpanded?: boolean;
-    theme?: string;
-    language?: string;
-    emailDensity?: string;
-  }) {
+  async updateUserPreferences(userId: string, data: UpdatePreferencesDto) {
     // Check if preferences exist
     const existing = await this.prisma.userPreferences.findUnique({
       where: { userId },

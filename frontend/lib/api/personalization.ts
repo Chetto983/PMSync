@@ -1,18 +1,10 @@
 import { apiClient } from '../api-client';
 
-// Types
-export type JobRole =
-  | 'EXECUTIVE'
-  | 'MANAGER'
-  | 'IC'
-  | 'FREELANCER'
-  | 'STUDENT'
-  | 'SUPPORT'
-  | 'SALES'
-  | 'TECHNICAL';
+// Types - JobRole is now a free-form string to allow any job title
+export type JobRole = string;
 
-export type CommunicationStyle = 'FORMAL' | 'CASUAL' | 'TECHNICAL';
-export type ResponseLength = 'CONCISE' | 'MODERATE' | 'DETAILED';
+export type CommunicationStyle = 'FORMAL' | 'CASUAL' | 'TECHNICAL' | 'CREATIVE';
+export type ResponseLength = 'BRIEF' | 'MODERATE' | 'DETAILED';
 export type ProactivityLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export type UserProfile = {
@@ -31,17 +23,46 @@ export type UserProfile = {
   language: string;
 };
 
+export type MemoryType = 'PREFERENCE' | 'FACT' | 'PATTERN' | 'INTERACTION' | 'CONTACT_NOTE';
+export type MemorySource = 'EXPLICIT' | 'INFERRED' | 'BEHAVIOR';
+
 export type Memory = {
   id: string;
   tenantId: string;
   userId: string;
-  type: 'PREFERENCE' | 'FACT' | 'PATTERN' | 'INTERACTION' | 'CONTACT_NOTE';
+  type: MemoryType;
   content: string;
   metadata?: Record<string, unknown>;
   embedding?: number[];
   createdAt: string;
   updatedAt: string;
   expiresAt?: string;
+};
+
+export type StoreMemoryPayload = {
+  type: MemoryType;
+  content: string;
+  category?: string;
+  source?: MemorySource;
+  confidence?: number;
+  metadata?: Record<string, unknown>;
+};
+
+export type LearnInteractionPayload = {
+  action: string;
+  context: string;
+  outcome: 'positive' | 'negative' | 'neutral';
+};
+
+export type WorkingHoursResponse = {
+  success: boolean;
+  withinWorkingHours: boolean;
+  reason?: string;
+  workingHours?: {
+    start?: string;
+    end?: string;
+    days?: string[];
+  };
 };
 
 // API
@@ -70,7 +91,7 @@ export const personalizationApi = {
   },
 
   // Get memories by type
-  getMemories(params: { type: Memory['type']; limit?: number }) {
+  getMemories(params: { type: MemoryType; limit?: number }) {
     const { type, ...query } = params;
     return apiClient.get<{ success: boolean; memories: Memory[] }>(
       `/ai/personalization/memories/${encodeURIComponent(type)}`,
@@ -86,12 +107,8 @@ export const personalizationApi = {
     );
   },
 
-  // Store a memory
-  storeMemory(memory: {
-    type: Memory['type'];
-    content: string;
-    metadata?: Record<string, unknown>;
-  }) {
+  // Store a memory (with full backend DTO support)
+  storeMemory(memory: StoreMemoryPayload) {
     return apiClient.post<{ success: boolean; memoryId: string }>(
       '/ai/personalization/memories',
       memory
@@ -109,6 +126,21 @@ export const personalizationApi = {
   clearAllMemories() {
     return apiClient.delete<{ success: boolean; deletedCount: number }>(
       '/ai/personalization/memories'
+    );
+  },
+
+  // Learn from user interaction
+  learnFromInteraction(payload: LearnInteractionPayload) {
+    return apiClient.post<{ success: boolean }>(
+      '/ai/personalization/learn',
+      payload
+    );
+  },
+
+  // Check if user is within working hours
+  getWorkingHours() {
+    return apiClient.get<WorkingHoursResponse>(
+      '/ai/personalization/working-hours'
     );
   },
 };

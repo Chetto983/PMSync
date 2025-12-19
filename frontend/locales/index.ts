@@ -1503,11 +1503,12 @@ export interface AppTranslations {
           FORMAL: string;
           CASUAL: string;
           TECHNICAL: string;
+          CREATIVE: string;
         };
         responseLength: string;
         responseLengthDescription: string;
         lengths: {
-          CONCISE: string;
+          BRIEF: string;
           MODERATE: string;
           DETAILED: string;
         };
@@ -1523,6 +1524,21 @@ export interface AppTranslations {
         language: string;
         languageDescription: string;
       };
+      // Working Hours
+      workingHoursLabel: string;
+      workingHoursDescription: string;
+      startTimeLabel: string;
+      endTimeLabel: string;
+      workingDaysLabel: string;
+      days: {
+        MON: string;
+        TUE: string;
+        WED: string;
+        THU: string;
+        FRI: string;
+        SAT: string;
+        SUN: string;
+      };
       actions: {
         title: string;
         description: string;
@@ -1531,6 +1547,38 @@ export interface AppTranslations {
         clearMemoryConfirm: string;
         resetLearning: string;
         resetLearningConfirm: string;
+      };
+      // Job Details
+      jobDetailsTitle: string;
+      jobDetailsDescription: string;
+      jobTitleLabel: string;
+      jobTitlePlaceholder: string;
+      departmentLabel: string;
+      departmentPlaceholder: string;
+      industryLabel: string;
+      industryPlaceholder: string;
+      companySizeLabel: string;
+      companySizes: {
+        SOLO: string;
+        STARTUP: string;
+        SMB: string;
+        ENTERPRISE: string;
+      };
+      // Notification Frequency
+      notificationFrequencyLabel: string;
+      notificationFrequencyDescription: string;
+      notificationFrequencies: {
+        IMMEDIATE: string;
+        DIGEST: string;
+        MINIMAL: string;
+      };
+      // Email Density
+      emailDensityLabel: string;
+      emailDensityDescription: string;
+      emailDensities: {
+        comfortable: string;
+        compact: string;
+        spacious: string;
       };
     };
     accountPanel: {

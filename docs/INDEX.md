@@ -1,6 +1,6 @@
 # MailAgent Documentation Hub
 
-**Last Updated**: 2025-12-16
+**Last Updated**: 2025-12-19
 **Status**: Active
 
 Welcome to the MailAgent documentation. This index provides a structured overview of all project documentation.
@@ -11,6 +11,7 @@ Welcome to the MailAgent documentation. This index provides a structured overvie
 
 | Category | Primary Document | Status |
 |----------|-----------------|--------|
+| **MASTER ROADMAP** | [COMPREHENSIVE_ROADMAP.md](./COMPREHENSIVE_ROADMAP.md) | **Current** |
 | **MVP Roadmap** | [MVP_COMPLETION_ROADMAP.md](./MVP_COMPLETION_ROADMAP.md) | Complete |
 | **AI/Multi-Agent** | [AI_COMPREHENSIVE_ROADMAP.md](./AI_COMPREHENSIVE_ROADMAP.md) | Current |
 | **AI Secretary** | [AI_SECRETARY_AUDIT.md](./AI_SECRETARY_AUDIT.md) | Complete |
@@ -28,6 +29,7 @@ Welcome to the MailAgent documentation. This index provides a structured overvie
 ```text
 docs/
 ├── INDEX.md                              # This file - Documentation hub
+├── COMPREHENSIVE_ROADMAP.md              # MASTER - Unified roadmap (Start Here!)
 │
 ├── ROADMAPS (Current)
 │   ├── MVP_COMPLETION_ROADMAP.md         # Master MVP checklist (Complete)
