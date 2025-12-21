@@ -499,6 +499,8 @@ export const ThreadList: React.FC<ThreadListProps> = ({
         sx={{
           width: '100%',
           height: '100%',
+          minHeight: 0,
+          minWidth: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
           contain: 'strict',
@@ -510,6 +512,8 @@ export const ThreadList: React.FC<ThreadListProps> = ({
             p: 0,
             position: 'relative',
             height: virtualizer.getTotalSize(),
+            minHeight: 0,
+            minWidth: 0,
           }}
         >
           {virtualItems.map((virtualItem) => {
@@ -559,6 +563,8 @@ export const ThreadList: React.FC<ThreadListProps> = ({
         width: '100%',
         height: '100%',
         p: 0,
+        minHeight: 0,
+        minWidth: 0,
         overflowY: 'auto',
         overflowX: 'hidden',
       }}

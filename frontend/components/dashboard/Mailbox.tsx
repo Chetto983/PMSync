@@ -1445,7 +1445,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
           />
         }
         list={
-          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
             <Paper
               elevation={0}
               sx={{
@@ -1547,7 +1547,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
             />
 
             {/* Render appropriate view based on mode */}
-            <Box sx={{ flex: 1, overflow: 'hidden' }}>
+            <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
               <ThreadList
                 threads={threads}
                 selectedId={selectedListId}

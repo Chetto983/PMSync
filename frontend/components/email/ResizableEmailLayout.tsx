@@ -16,6 +16,8 @@ const DEFAULT_SIZES = {
 
 const STORAGE_KEY = 'mailagent-email-panel-sizes';
 
+const clampSize = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
 /**
  * Props for ResizableEmailLayout component
  */
@@ -175,8 +177,8 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
       if (stored) {
         const parsed = JSON.parse(stored);
         return {
-          sidebar: parsed.sidebar ?? DEFAULT_SIZES.sidebar,
-          list: parsed.list ?? DEFAULT_SIZES.list,
+          sidebar: clampSize(parsed.sidebar ?? DEFAULT_SIZES.sidebar, 10, 25),
+          list: clampSize(parsed.list ?? DEFAULT_SIZES.list, 20, 50),
         };
       }
     } catch {
@@ -222,6 +224,8 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
           overflow: 'hidden',
           position: 'relative',
           width: '100%',
+          minHeight: 0,
+          minWidth: 0,
         }}
       >
         {/* Mobile Sidebar - Drawer */}
@@ -251,6 +255,8 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
             display: showDetail ? 'none' : 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
+            minHeight: 0,
+            minWidth: 0,
             bgcolor: 'background.default',
           }}
         >
@@ -295,12 +301,15 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
         overflow: 'hidden',
         position: 'relative',
         width: '100%',
+        minHeight: 0,
+        minWidth: 0,
       }}
     >
       <PanelGroup
         direction="horizontal"
         onLayout={handlePanelResize}
         autoSaveId={persistSizes ? 'email-layout' : undefined}
+        style={{ height: '100%', width: '100%', minHeight: 0 }}
       >
         {/* Sidebar Panel */}
         <Panel
@@ -313,6 +322,8 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
+            minHeight: 0,
+            minWidth: 0,
           }}
         >
           <Box
@@ -323,6 +334,8 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
+              minHeight: 0,
+              minWidth: 0,
               bgcolor: 'background.paper',
             }}
           >
@@ -343,6 +356,8 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
+            minHeight: 0,
+            minWidth: 0,
           }}
         >
           <Box
@@ -353,6 +368,8 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
+              minHeight: 0,
+              minWidth: 0,
               bgcolor: 'background.default',
             }}
           >
@@ -372,6 +389,8 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
+                minHeight: 0,
+                minWidth: 0,
               }}
             >
               <Box
@@ -380,6 +399,8 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
                   display: 'flex',
                   flexDirection: 'column',
                   overflow: 'hidden',
+                  minHeight: 0,
+                  minWidth: 0,
                   bgcolor: 'background.paper',
                 }}
               >

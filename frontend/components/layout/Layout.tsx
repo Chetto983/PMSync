@@ -39,7 +39,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex', minHeight: '100vh', maxWidth: '100vw', overflow: 'hidden' }}>
+      <Box sx={{ display: 'flex', height: '100vh', minHeight: '100vh', maxWidth: '100vw', overflow: 'hidden' }}>
         {/* Sidebar */}
         <Sidebar
           collapsed={collapsed}
@@ -76,6 +76,7 @@ export function Layout({ children }: LayoutProps) {
               flexDirection: 'column',
               backgroundColor: 'background.default',
               overflow: 'hidden', // Changed from auto to hidden to prevent horizontal scroll
+              minHeight: 0, // Allow nested panels to size within viewport
               minWidth: 0, // Critical for nested flex items
             }}
           >

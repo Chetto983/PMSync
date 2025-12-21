@@ -301,7 +301,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   return (
     <Box
       data-testid="thread-display"
-      sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0, minWidth: 0 }}
     >
       <Paper
         elevation={0}
@@ -391,7 +391,7 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         </Tooltip>
       </Paper>
 
-      <Box sx={{ flex: 1, overflow: 'auto', ...scrollContainerSx }}>
+      <Box sx={{ flex: 1, overflow: 'auto', minHeight: 0, minWidth: 0, ...scrollContainerSx }}>
         <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 3 }, pb: 2 }}>
           <Typography
             variant="h5"
