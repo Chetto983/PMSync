@@ -70,7 +70,9 @@
       "Bash(npx @anthropic-ai/mcp-playwright@latest screenshot:*)",
       "Bash(npx playwright test:*)",
       "Bash(claude mcp tools playwright:*)",
-      "Bash(npx @playwright/mcp@latest navigate:*)"
+      "Bash(npx @playwright/mcp@latest navigate:*)",
+      "Bash(npx @anthropic-ai/playwright-mcp@latest --help)",
+      "Bash(npx @playwright/mcp@latest --help)"
     ],
     "deny": []
   }

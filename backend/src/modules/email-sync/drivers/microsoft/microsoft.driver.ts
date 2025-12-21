@@ -169,7 +169,8 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     const params: any = {
       $top: options.pageSize || 50,
-      $select: 'id,conversationId,subject,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId',
+      // Include 'body' to get full HTML/text content (uses Prefer: outlook.body-content-type="html" header)
+      $select: 'id,conversationId,subject,body,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId',
       $orderby: 'receivedDateTime desc',
     };
 
