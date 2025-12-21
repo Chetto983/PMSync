@@ -224,9 +224,9 @@ export class RelationshipIntelligenceService {
   /**
    * Mark contact as reminded (to prevent spam)
    */
-  async markContactReminded(contactId: string): Promise<void> {
-    await this.prisma.contact.update({
-      where: { id: contactId },
+  async markContactReminded(tenantId: string, contactId: string): Promise<void> {
+    await this.prisma.contact.updateMany({
+      where: { id: contactId, tenantId },
       data: { reconnectRemindedAt: new Date() },
     });
   }
@@ -389,8 +389,8 @@ export class RelationshipIntelligenceService {
 
     // Skip if already recorded (emailId unique constraint)
     if (emailId) {
-      const existing = await this.prisma.contactInteraction.findUnique({
-        where: { emailId },
+      const existing = await this.prisma.contactInteraction.findFirst({
+        where: { emailId, tenantId },
         select: { id: true },
       });
       if (existing) {
@@ -417,7 +417,7 @@ export class RelationshipIntelligenceService {
     });
 
     // Update contact aggregates
-    const updateData: Prisma.ContactUpdateInput = {
+    const updateData: Prisma.ContactUpdateManyMutationInput = {
       totalInteractions: { increment: 1 },
       lastInteractedAt: date,
     };
@@ -428,8 +428,8 @@ export class RelationshipIntelligenceService {
       updateData.receivedCount = { increment: 1 };
     }
 
-    await this.prisma.contact.update({
-      where: { id: contactId },
+    await this.prisma.contact.updateMany({
+      where: { id: contactId, tenantId },
       data: updateData,
     });
 
@@ -467,8 +467,8 @@ export class RelationshipIntelligenceService {
     });
 
     // Update contact lastInteractedAt (manual interactions don't increment sent/received)
-    await this.prisma.contact.update({
-      where: { id: contactId },
+    await this.prisma.contact.updateMany({
+      where: { id: contactId, tenantId },
       data: {
         totalInteractions: { increment: 1 },
         lastInteractedAt: date,
@@ -521,8 +521,8 @@ export class RelationshipIntelligenceService {
     const totalScore = Math.round(recencyScore + frequencyScore + reciprocityScore + trendScore);
 
     // Update contact with new score
-    await this.prisma.contact.update({
-      where: { id: contactId },
+    await this.prisma.contact.updateMany({
+      where: { id: contactId, tenantId },
       data: { relationshipScore: totalScore },
     });
 

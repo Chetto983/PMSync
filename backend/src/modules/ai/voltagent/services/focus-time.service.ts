@@ -168,7 +168,7 @@ export class FocusTimeService {
     lookAheadDays: number = 7,
   ): Promise<OptimalFocusSlot[]> {
     const patterns = await this.analyzeCalendarPatterns(tenantId, userId);
-    const userPrefs = await this.getUserPreferences(userId);
+    const userPrefs = await this.getUserPreferences(tenantId, userId);
     const busySlots = await this.getBusySlots(tenantId, lookAheadDays);
 
     const [startHour] = (userPrefs?.workingHoursStart ?? '09:00')
@@ -382,9 +382,9 @@ export class FocusTimeService {
   /**
    * Get user preferences from database
    */
-  private async getUserPreferences(userId: string) {
-    return this.prisma.userPreferences.findUnique({
-      where: { userId },
+  private async getUserPreferences(tenantId: string, userId: string) {
+    return this.prisma.userPreferences.findFirst({
+      where: { userId, user: { tenantId } },
       select: {
         workingHoursStart: true,
         workingHoursEnd: true,

@@ -381,8 +381,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     try {
       // Fetch user with preferences and connected providers in parallel
       const [user, providers] = await Promise.all([
-        this.prisma.user.findUnique({
-          where: { id: userId },
+        this.prisma.user.findFirst({
+          where: { id: userId, tenantId },
           include: {
             userPreferences: true,
           },

@@ -1319,11 +1319,14 @@ export class ActionExecutorService {
     const currentLabels = Array.isArray(email.labels) ? (email.labels as unknown as string[]) : [];
     const newLabels = [...new Set([...currentLabels, ...labelsToApply])];
 
-    // Update email with new labels
-    await this.prisma.email.update({
-      where: { id: emailId },
+    // Update email with new labels (tenant-scoped)
+    const updated = await this.prisma.email.updateMany({
+      where: { id: emailId, tenantId: context.tenantId },
       data: { labels: newLabels },
     });
+    if (updated.count === 0) {
+      throw new Error('Email not found');
+    }
 
     this.logger.log(`Categorized email ${emailId} with: ${labelsToApply.join(', ')}`);
 

@@ -856,8 +856,8 @@ If no action items found, return: []`;
     emailId: string,
   ): Promise<ActionItemJobResult> {
     try {
-      const email = await this.prisma.email.findUnique({
-        where: { id: emailId },
+      const email = await this.prisma.email.findFirst({
+        where: { id: emailId, tenantId },
         select: { subject: true, bodyText: true, from: true },
       });
 

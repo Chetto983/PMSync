@@ -188,7 +188,7 @@ export class ReconnectReminderProcessor implements OnModuleInit, OnModuleDestroy
       await this.createReconnectReminder(tenantId, userId, contact);
 
       // Mark contact as reminded to prevent spam
-      await this.relationshipService.markContactReminded(contact.contactId);
+      await this.relationshipService.markContactReminded(tenantId, contact.contactId);
 
       remindersCreated++;
     }

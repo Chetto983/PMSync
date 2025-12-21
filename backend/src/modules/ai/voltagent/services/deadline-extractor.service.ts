@@ -598,8 +598,8 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
     userId: string,
   ): Promise<DeadlineJobResult> {
     try {
-      const deadline = await this.prisma.aiDeadline.findUnique({
-        where: { id: deadlineId },
+      const deadline = await this.prisma.aiDeadline.findFirst({
+        where: { id: deadlineId, tenantId, userId },
       });
 
       if (!deadline || deadline.status !== 'UPCOMING') {
@@ -609,8 +609,8 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
       // Update status to DUE_SOON if within 2 hours
       const hoursUntil = (deadline.deadline.getTime() - Date.now()) / (1000 * 60 * 60);
       if (hoursUntil <= 2 && deadline.status === 'UPCOMING') {
-        await this.prisma.aiDeadline.update({
-          where: { id: deadlineId },
+        await this.prisma.aiDeadline.updateMany({
+          where: { id: deadlineId, tenantId, userId },
           data: {
             status: 'DUE_SOON',
             lastRemindedAt: new Date(),
@@ -652,8 +652,8 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
 
       // Update to OVERDUE status
       for (const deadline of overdueDeadlines) {
-        await this.prisma.aiDeadline.update({
-          where: { id: deadline.id },
+        await this.prisma.aiDeadline.updateMany({
+          where: { id: deadline.id, tenantId: deadline.tenantId, userId: deadline.userId },
           data: { status: 'OVERDUE' },
         });
 
@@ -687,8 +687,8 @@ export class DeadlineExtractorService implements OnModuleInit, OnModuleDestroy {
 
     for (const emailId of emailIds) {
       try {
-        const email = await this.prisma.email.findUnique({
-          where: { id: emailId },
+        const email = await this.prisma.email.findFirst({
+          where: { id: emailId, tenantId },
           select: { subject: true, bodyText: true },
         });
 

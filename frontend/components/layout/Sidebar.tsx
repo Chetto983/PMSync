@@ -22,6 +22,8 @@ import {
   Users,
   Settings,
   Sparkles,
+  Brain,
+  Bell,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -79,6 +81,16 @@ export function Sidebar({
       label: t.nav.contacts,
       icon: <Users size={20} />,
       href: '/dashboard/contacts',
+    },
+    {
+      label: t.ai.memoryBrowser?.title || 'AI Memory',
+      icon: <Brain size={20} />,
+      href: '/dashboard/ai/memories',
+    },
+    {
+      label: t.ai.followUpTracker?.title || 'Follow-ups',
+      icon: <Bell size={20} />,
+      href: '/dashboard/ai/follow-ups',
     },
   ];
 

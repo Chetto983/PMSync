@@ -157,7 +157,10 @@ export class PersonalizationController {
   async getProfile(
     @Request() req: AuthenticatedRequest,
   ): Promise<{ success: boolean; profile: UserPersonalizationProfile | null }> {
-    const profile = await this.personalizationService.getUserProfile(req.user.userId);
+    const profile = await this.personalizationService.getUserProfile(
+      req.user.tenantId,
+      req.user.userId,
+    );
     return { success: true, profile };
   }
 
@@ -173,6 +176,7 @@ export class PersonalizationController {
     @Body() dto: UpdateProfileDto,
   ): Promise<{ success: boolean; profile: UserPersonalizationProfile }> {
     const profile = await this.personalizationService.updateUserProfile(
+      req.user.tenantId,
       req.user.userId,
       dto as Partial<UserPersonalizationProfile>,
     );
@@ -328,7 +332,10 @@ export class PersonalizationController {
   @ApiOperation({ summary: 'Check if user is within working hours' })
   @ApiResponse({ status: 200, description: 'Returns working hours status' })
   async checkWorkingHours(@Request() req: AuthenticatedRequest) {
-    const profile = await this.personalizationService.getUserProfile(req.user.userId);
+    const profile = await this.personalizationService.getUserProfile(
+      req.user.tenantId,
+      req.user.userId,
+    );
 
     if (!profile) {
       return { success: true, withinWorkingHours: true, reason: 'No profile set' };

@@ -191,7 +191,7 @@ export class CalendarConflictService {
     numSuggestions: number = 3,
     lookAheadDays: number = 7,
   ): Promise<TimeSlot[]> {
-    const userPrefs = await this.getUserSchedulingPreferences(userId);
+    const userPrefs = await this.getUserSchedulingPreferences(tenantId, userId);
     const busySlots = await this.getBusySlots(tenantId, lookAheadDays);
 
     // Generate all possible slots within working hours
@@ -226,9 +226,12 @@ export class CalendarConflictService {
   /**
    * Get user scheduling preferences
    */
-  async getUserSchedulingPreferences(userId: string): Promise<UserSchedulingPreferences> {
-    const prefs = await this.prisma.userPreferences.findUnique({
-      where: { userId },
+  async getUserSchedulingPreferences(
+    tenantId: string,
+    userId: string,
+  ): Promise<UserSchedulingPreferences> {
+    const prefs = await this.prisma.userPreferences.findFirst({
+      where: { userId, user: { tenantId } },
       select: {
         workingHoursStart: true,
         workingHoursEnd: true,
@@ -490,7 +493,7 @@ export class CalendarConflictService {
    * Get busy percentage for a day
    */
   async getDayBusyPercentage(tenantId: string, date: Date, userId: string): Promise<number> {
-    const prefs = await this.getUserSchedulingPreferences(userId);
+    const prefs = await this.getUserSchedulingPreferences(tenantId, userId);
     const events = await this.getDayEvents(tenantId, date);
 
     const [startHour] = prefs.workingHoursStart.split(':').map(Number);

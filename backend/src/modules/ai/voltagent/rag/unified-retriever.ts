@@ -408,7 +408,7 @@ export class UnifiedRetriever extends BaseRetriever {
       const emailIds = followups.map((f: { emailId: string }) => f.emailId);
       const emails: Array<{ id: string; subject: string | null; from: string | null }> = emailIds.length > 0
         ? await (this.prisma as any).email.findMany({
-            where: { id: { in: emailIds } },
+            where: { id: { in: emailIds }, tenantId: this.tenantId },
             select: { id: true, subject: true, from: true },
           })
         : [];

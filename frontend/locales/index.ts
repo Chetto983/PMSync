@@ -1981,6 +1981,99 @@ export interface AppTranslations {
         attendees: string;
       };
     };
+    memoryBrowser: {
+      title: string;
+      subtitle: string;
+      searchPlaceholder: string;
+      addMemory: string;
+      addMemoryPlaceholder: string;
+      clearAll: string;
+      clearAllConfirm: string;
+      noMemories: string;
+      noMemoriesDescription: string;
+      noSearchResults: string;
+      categories: {
+        all: string;
+        PREFERENCE: string;
+        FACT: string;
+        PATTERN: string;
+        INTERACTION: string;
+        CONTACT_NOTE: string;
+      };
+      categoryDescriptions: {
+        PREFERENCE: string;
+        FACT: string;
+        PATTERN: string;
+        INTERACTION: string;
+        CONTACT_NOTE: string;
+      };
+      stats: {
+        total: string;
+        lastUpdated: string;
+      };
+      actions: {
+        delete: string;
+        deleteConfirm: string;
+        copied: string;
+        copy: string;
+      };
+      loading: string;
+      error: string;
+      retry: string;
+      memoryAdded: string;
+      memoryDeleted: string;
+      memoriesCleared: string;
+    };
+    followUpTracker: {
+      title: string;
+      subtitle: string;
+      searchPlaceholder: string;
+      noFollowUps: string;
+      noFollowUpsDescription: string;
+      noSearchResults: string;
+      tabs: {
+        all: string;
+        pending: string;
+        overdue: string;
+        resolved: string;
+      };
+      status: {
+        PENDING: string;
+        REMINDED: string;
+        RESOLVED: string;
+        EXPIRED: string;
+      };
+      stats: {
+        total: string;
+        pending: string;
+        overdue: string;
+        dueToday: string;
+        resolved: string;
+      };
+      actions: {
+        resolve: string;
+        snooze: string;
+        view: string;
+        delete: string;
+      };
+      snooze: {
+        title: string;
+        tomorrow: string;
+        nextWeek: string;
+        custom: string;
+      };
+      dueDate: string;
+      reason: string;
+      noReason: string;
+      reminderCount: string;
+      overdueWarning: string;
+      dueTodayWarning: string;
+      loading: string;
+      error: string;
+      retry: string;
+      resolved: string;
+      snoozed: string;
+    };
   };
   commandPalette: {
     searchPlaceholder: string;

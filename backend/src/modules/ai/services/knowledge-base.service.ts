@@ -495,8 +495,8 @@ export class KnowledgeBaseService {
       throw new Error('Embedding not found for this tenant');
     }
 
-    await this.prisma.embedding.delete({
-      where: { id: embeddingId },
+    await this.prisma.embedding.deleteMany({
+      where: { id: embeddingId, tenantId },
     });
   }
 
@@ -880,6 +880,7 @@ export class KnowledgeBaseService {
         where: {
           emailId: email.id,
           isInline: false, // Skip inline images (not searchable text)
+          email: { tenantId },
         },
         select: {
           id: true,

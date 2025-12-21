@@ -320,9 +320,13 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get a specific follow-up
    */
-  async getFollowUp(id: string): Promise<EmailFollowUp | null> {
-    return this.prisma.emailFollowUp.findUnique({
-      where: { id },
+  async getFollowUp(
+    tenantId: string,
+    userId: string,
+    id: string,
+  ): Promise<EmailFollowUp | null> {
+    return this.prisma.emailFollowUp.findFirst({
+      where: { id, tenantId, userId },
     });
   }
 
@@ -449,14 +453,25 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
    * Resolve a follow-up (manually or when reply received)
    */
   async resolveFollowUp(
+    tenantId: string,
+    userId: string,
     id: string,
     resolvedBy: 'REPLY_RECEIVED' | 'MANUAL' | 'AUTO_EXPIRED' = 'MANUAL',
   ): Promise<EmailFollowUp> {
-    const followUp = await this.prisma.emailFollowUp.update({
-      where: { id },
+    const followUp = await this.prisma.emailFollowUp.findFirst({
+      where: { id, tenantId, userId },
+    });
+
+    if (!followUp) {
+      throw new Error('Follow-up not found');
+    }
+
+    const resolvedAt = new Date();
+    await this.prisma.emailFollowUp.updateMany({
+      where: { id, tenantId, userId },
       data: {
         status: 'RESOLVED',
-        resolvedAt: new Date(),
+        resolvedAt,
         resolvedBy,
       },
     });
@@ -465,11 +480,19 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     await this.removeScheduledReminder(id);
 
     // Invalidate cache
-    await this.invalidateCache(followUp.tenantId, followUp.userId);
+    await this.invalidateCache(tenantId, userId);
 
     this.logger.log(`Resolved follow-up ${id} by ${resolvedBy}`);
 
-    return followUp;
+    const updated = await this.prisma.emailFollowUp.findFirst({
+      where: { id, tenantId, userId },
+    });
+
+    if (!updated) {
+      throw new Error('Follow-up not found');
+    }
+
+    return updated;
   }
 
   /**
@@ -488,7 +511,7 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     });
 
     if (followUp) {
-      await this.resolveFollowUp(followUp.id, 'REPLY_RECEIVED');
+      await this.resolveFollowUp(tenantId, userId, followUp.id, 'REPLY_RECEIVED');
       return true;
     }
 
@@ -498,9 +521,22 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
   /**
    * Snooze a follow-up (extend due date)
    */
-  async snoozeFollowUp(id: string, newDueDate: Date): Promise<EmailFollowUp> {
-    const followUp = await this.prisma.emailFollowUp.update({
-      where: { id },
+  async snoozeFollowUp(
+    tenantId: string,
+    userId: string,
+    id: string,
+    newDueDate: Date,
+  ): Promise<EmailFollowUp> {
+    const followUp = await this.prisma.emailFollowUp.findFirst({
+      where: { id, tenantId, userId },
+    });
+
+    if (!followUp) {
+      throw new Error('Follow-up not found');
+    }
+
+    await this.prisma.emailFollowUp.updateMany({
+      where: { id, tenantId, userId },
       data: {
         dueDate: newDueDate,
         status: 'PENDING', // Reset to pending
@@ -510,26 +546,46 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
 
     // Reschedule reminder
     await this.removeScheduledReminder(id);
-    await this.scheduleReminder(id, newDueDate, followUp.tenantId, followUp.userId);
+    await this.scheduleReminder(id, newDueDate, tenantId, userId);
 
     // Invalidate cache
-    await this.invalidateCache(followUp.tenantId, followUp.userId);
+    await this.invalidateCache(tenantId, userId);
 
     this.logger.log(`Snoozed follow-up ${id} to ${newDueDate.toISOString()}`);
 
-    return followUp;
+    const updated = await this.prisma.emailFollowUp.findFirst({
+      where: { id, tenantId, userId },
+    });
+
+    if (!updated) {
+      throw new Error('Follow-up not found');
+    }
+
+    return updated;
   }
 
   /**
    * Delete a follow-up
    */
-  async deleteFollowUp(id: string): Promise<void> {
-    const followUp = await this.prisma.emailFollowUp.delete({
-      where: { id },
+  async deleteFollowUp(
+    tenantId: string,
+    userId: string,
+    id: string,
+  ): Promise<void> {
+    const followUp = await this.prisma.emailFollowUp.findFirst({
+      where: { id, tenantId, userId },
+    });
+
+    if (!followUp) {
+      throw new Error('Follow-up not found');
+    }
+
+    await this.prisma.emailFollowUp.deleteMany({
+      where: { id, tenantId, userId },
     });
 
     await this.removeScheduledReminder(id);
-    await this.invalidateCache(followUp.tenantId, followUp.userId);
+    await this.invalidateCache(tenantId, userId);
 
     this.logger.log(`Deleted follow-up ${id}`);
   }
@@ -586,8 +642,8 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     const { followUpId, tenantId, userId } = job.data;
 
     // Get follow-up
-    const followUp = await this.prisma.emailFollowUp.findUnique({
-      where: { id: followUpId },
+    const followUp = await this.prisma.emailFollowUp.findFirst({
+      where: { id: followUpId, tenantId, userId },
     });
 
     if (!followUp || followUp.status === 'RESOLVED' || followUp.status === 'EXPIRED') {
@@ -596,8 +652,8 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
 
     // Check if max reminders reached
     if (followUp.remindCount >= this.maxReminders) {
-      await this.prisma.emailFollowUp.update({
-        where: { id: followUpId },
+      await this.prisma.emailFollowUp.updateMany({
+        where: { id: followUpId, tenantId, userId },
         data: { status: 'EXPIRED', resolvedBy: 'AUTO_EXPIRED', resolvedAt: new Date() },
       });
       await this.invalidateCache(tenantId, userId);
@@ -605,8 +661,8 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Update reminder count and status
-    await this.prisma.emailFollowUp.update({
-      where: { id: followUpId },
+    await this.prisma.emailFollowUp.updateMany({
+      where: { id: followUpId, tenantId, userId },
       data: {
         status: 'REMINDED',
         remindCount: { increment: 1 },

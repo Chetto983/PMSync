@@ -150,9 +150,12 @@ export class PersonalizationService {
   /**
    * Get the complete personalization profile for a user
    */
-  async getUserProfile(userId: string): Promise<UserPersonalizationProfile | null> {
-    const preferences = await this.prisma.userPreferences.findUnique({
-      where: { userId },
+  async getUserProfile(
+    tenantId: string,
+    userId: string,
+  ): Promise<UserPersonalizationProfile | null> {
+    const preferences = await this.prisma.userPreferences.findFirst({
+      where: { userId, user: { tenantId } },
     });
 
     if (!preferences) {
@@ -180,6 +183,7 @@ export class PersonalizationService {
    * Update user personalization profile
    */
   async updateUserProfile(
+    tenantId: string,
     userId: string,
     updates: Partial<UserPersonalizationProfile>,
   ): Promise<UserPersonalizationProfile> {
@@ -199,13 +203,22 @@ export class PersonalizationService {
     if (updates.timezone !== undefined) data.timezone = updates.timezone;
     if (updates.language !== undefined) data.language = updates.language;
 
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, tenantId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
     await this.prisma.userPreferences.upsert({
       where: { userId },
       create: { userId, ...data },
       update: data,
     });
 
-    const profile = await this.getUserProfile(userId);
+    const profile = await this.getUserProfile(tenantId, userId);
     return profile!;
   }
 
@@ -217,7 +230,7 @@ export class PersonalizationService {
     userId: string,
     query?: string,
   ): Promise<PersonalizationContext> {
-    const profile = await this.getUserProfile(userId);
+    const profile = await this.getUserProfile(tenantId, userId);
 
     if (!profile) {
       // Return default context

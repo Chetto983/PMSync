@@ -1227,10 +1227,14 @@ export class VoltAgentController {
   @ApiOperation({ summary: 'Get a follow-up by ID' })
   @ApiParam({ name: 'id', description: 'Follow-up ID' })
   async getFollowUp(
-    @Req() _req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
   ) {
-    const followUp = await this.followUpService.getFollowUp(id);
+    const followUp = await this.followUpService.getFollowUp(
+      req.user.tenantId,
+      req.user.userId,
+      id,
+    );
 
     if (!followUp) {
       throw new NotFoundException('Follow-up not found');
@@ -1250,10 +1254,15 @@ export class VoltAgentController {
   @ApiOperation({ summary: 'Resolve a follow-up' })
   @ApiParam({ name: 'id', description: 'Follow-up ID' })
   async resolveFollowUp(
-    @Req() _req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
   ) {
-    const followUp = await this.followUpService.resolveFollowUp(id, 'MANUAL');
+    const followUp = await this.followUpService.resolveFollowUp(
+      req.user.tenantId,
+      req.user.userId,
+      id,
+      'MANUAL',
+    );
 
     return {
       success: true,
@@ -1269,11 +1278,13 @@ export class VoltAgentController {
   @ApiOperation({ summary: 'Snooze a follow-up' })
   @ApiParam({ name: 'id', description: 'Follow-up ID' })
   async snoozeFollowUp(
-    @Req() _req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() body: { dueDate: string },
   ) {
     const followUp = await this.followUpService.snoozeFollowUp(
+      req.user.tenantId,
+      req.user.userId,
       id,
       new Date(body.dueDate),
     );
@@ -2125,10 +2136,10 @@ export class VoltAgentController {
   })
   @ApiParam({ name: 'contactId', description: 'Contact ID' })
   async markContactReminded(
-    @Req() _req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Param('contactId') contactId: string,
   ) {
-    await this.relationshipIntelligenceService.markContactReminded(contactId);
+    await this.relationshipIntelligenceService.markContactReminded(req.user.tenantId, contactId);
 
     return {
       success: true,
@@ -2280,9 +2291,12 @@ export class VoltAgentController {
     description: 'Returns user scheduling preferences including working hours and days.',
   })
   async getSchedulingPreferences(@Req() req: AuthenticatedRequest) {
-    const { userId } = req.user;
+    const { tenantId, userId } = req.user;
 
-    const preferences = await this.calendarConflictService.getUserSchedulingPreferences(userId);
+    const preferences = await this.calendarConflictService.getUserSchedulingPreferences(
+      tenantId,
+      userId,
+    );
 
     return {
       success: true,

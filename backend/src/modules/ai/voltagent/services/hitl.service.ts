@@ -306,15 +306,15 @@ export class HitlService {
 
     // Check if expired
     if (action.expiresAt && new Date() > action.expiresAt) {
-      await this.prisma.agentPendingAction.update({
-        where: { id: actionId },
+      await this.prisma.agentPendingAction.updateMany({
+        where: { id: actionId, tenantId },
         data: { status: PendingActionStatus.EXPIRED },
       });
       throw new ForbiddenException(`Action ${actionId} has expired`);
     }
 
     // Update status to approved (and payload if provided)
-    const updateData: Prisma.AgentPendingActionUpdateInput = {
+    const updateData: Prisma.AgentPendingActionUpdateManyMutationInput = {
       status: PendingActionStatus.APPROVED,
       approvedAt: new Date(),
       approvedBy,
@@ -331,8 +331,8 @@ export class HitlService {
       );
     }
 
-    await this.prisma.agentPendingAction.update({
-      where: { id: actionId },
+    await this.prisma.agentPendingAction.updateMany({
+      where: { id: actionId, tenantId },
       data: updateData,
     });
 
@@ -383,8 +383,8 @@ export class HitlService {
     }
 
     // Update status to rejected
-    await this.prisma.agentPendingAction.update({
-      where: { id: actionId },
+    await this.prisma.agentPendingAction.updateMany({
+      where: { id: actionId, tenantId },
       data: {
         status: PendingActionStatus.REJECTED,
         rejectedAt: new Date(),
@@ -430,8 +430,8 @@ export class HitlService {
       ? PendingActionStatus.EXECUTED
       : PendingActionStatus.FAILED;
 
-    await this.prisma.agentPendingAction.update({
-      where: { id: actionId },
+    await this.prisma.agentPendingAction.updateMany({
+      where: { id: actionId, tenantId },
       data: {
         status,
         executedAt: new Date(),

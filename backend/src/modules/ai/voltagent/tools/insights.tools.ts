@@ -1120,7 +1120,7 @@ function createSemanticSearchEmailsTool(options: InsightsToolOptions) {
  * Creates all email insight tools
  */
 export function createInsightTools(options: InsightsToolOptions) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const tools: any[] = [
     createSummarizeEmailTool(options),
     createAnalyzeSentimentTool(options),

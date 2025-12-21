@@ -369,7 +369,7 @@ export class DocumentLibraryService {
 
     // Also delete associated documents
     await this.prisma.libraryDocument.updateMany({
-      where: { libraryId },
+      where: { libraryId, library: { tenantId } },
       data: { isDeleted: true },
     });
 
@@ -431,8 +431,8 @@ export class DocumentLibraryService {
     });
 
     // Update library stats
-    await this.prisma.documentLibrary.update({
-      where: { id: dto.libraryId },
+    await this.prisma.documentLibrary.updateMany({
+      where: { id: dto.libraryId, tenantId },
       data: {
         documentCount: { increment: 1 },
         totalSize: { increment: size },
@@ -508,7 +508,7 @@ export class DocumentLibraryService {
     }
 
     const document = await this.prisma.libraryDocument.findFirst({
-      where: { id: documentId, libraryId, isDeleted: false },
+      where: { id: documentId, libraryId, isDeleted: false, library: { tenantId } },
     });
 
     if (!document) {
@@ -530,14 +530,14 @@ export class DocumentLibraryService {
     }
 
     // Soft delete in database
-    await this.prisma.libraryDocument.update({
-      where: { id: documentId },
+    await this.prisma.libraryDocument.updateMany({
+      where: { id: documentId, libraryId, library: { tenantId } },
       data: { isDeleted: true },
     });
 
     // Update library stats
-    await this.prisma.documentLibrary.update({
-      where: { id: libraryId },
+    await this.prisma.documentLibrary.updateMany({
+      where: { id: libraryId, tenantId },
       data: {
         documentCount: { decrement: 1 },
         totalSize: { decrement: document.size },
