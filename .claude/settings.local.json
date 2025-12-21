@@ -65,7 +65,12 @@
       "Bash(npx prisma db push --skip-generate)",
       "Skill(verification-quality)",
       "Skill(verification-quality:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npx playwright install chromium)",
+      "Bash(npx @anthropic-ai/mcp-playwright@latest screenshot:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(claude mcp tools playwright:*)",
+      "Bash(npx @playwright/mcp@latest navigate:*)"
     ],
     "deny": []
   }

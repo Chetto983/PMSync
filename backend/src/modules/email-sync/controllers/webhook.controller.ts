@@ -10,7 +10,7 @@ import {
   BadRequestException,
   Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiHeader, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiHeader } from '@nestjs/swagger';
 import { GmailWebhookService } from '../services/gmail-webhook.service';
 import { MicrosoftWebhookService } from '../services/microsoft-webhook.service';
 import {
@@ -38,12 +38,14 @@ export class WebhookController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Gmail Pub/Sub webhook', description: 'Receives push notifications from Google Cloud Pub/Sub' })
   @ApiHeader({ name: 'x-webhook-token', description: 'Webhook authentication token', required: false })
+  @ApiHeader({ name: 'authorization', description: 'Google Pub/Sub OIDC JWT token', required: false })
   @ApiQuery({ name: 'token', description: 'Alternative webhook token in query', required: false })
   @ApiResponse({ status: 200, description: 'Notification processed' })
   async handleGmailPush(
     @Body() payload: GmailPubSubMessage,
     @Query('token') queryToken?: string,
     @Headers('x-webhook-token') webhookToken?: string,
+    @Headers('authorization') authorizationHeader?: string,
   ) {
     // Security fix (Issue #4): Auth validation OUTSIDE try-catch
     // UnauthorizedException will propagate and return 401 (not 200)
@@ -52,12 +54,30 @@ export class WebhookController {
     this.logger.log('[WEBHOOK] Token validated, received Gmail Pub/Sub notification');
 
     try {
+      // Security fix (Issue #1): Verify Google Pub/Sub JWT token
+      if (authorizationHeader) {
+        const jwtToken = authorizationHeader.replace(/^Bearer\s+/i, '');
+        await this.gmailWebhook.verifyPubSubToken(jwtToken);
+        this.logger.debug('[WEBHOOK] Pub/Sub JWT token verified');
+      }
+
+      // Security fix (Issue #2): Check for replay attacks using messageId
+      const messageId = payload?.message?.messageId;
+      if (messageId && this.gmailWebhook.isReplayedMessage(messageId)) {
+        this.logger.warn(`[WEBHOOK] Duplicate message detected: ${messageId}`);
+        return { success: true, skipped: true, reason: 'duplicate' };
+      }
 
       // SECURITY: Only log structure, not content (payload may contain sensitive email metadata)
       this.logger.debug('[WEBHOOK] Payload received with keys:', Object.keys(payload || {}).join(', '));
 
       // Decode and process the message
       await this.gmailWebhook.handleNotification(payload);
+
+      // Mark message as processed
+      if (messageId) {
+        this.gmailWebhook.markMessageProcessed(messageId);
+      }
 
       this.logger.log('[WEBHOOK] Gmail notification processed successfully');
       return { success: true };

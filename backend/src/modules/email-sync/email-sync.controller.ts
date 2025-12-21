@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Param, UseGuards, Request, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../auth/guards/tenant.guard';
@@ -6,6 +6,7 @@ import { QueueService } from './services/queue.service';
 import { SyncSchedulerService } from './services/sync-scheduler.service';
 import { WebhookLifecycleService } from './services/webhook-lifecycle.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageService } from '../email/services/storage.service';
 import { AuthenticatedRequest } from '../../common/types/request.types';
 
 @ApiTags('Email Sync')
@@ -13,11 +14,14 @@ import { AuthenticatedRequest } from '../../common/types/request.types';
 @UseGuards(JwtAuthGuard, TenantGuard)
 @ApiBearerAuth()
 export class EmailSyncController {
+  private readonly logger = new Logger(EmailSyncController.name);
+
   constructor(
     private queueService: QueueService,
     private schedulerService: SyncSchedulerService,
     private webhookLifecycle: WebhookLifecycleService,
     private prisma: PrismaService,
+    private storageService: StorageService,
   ) {}
 
   @Get('status')
@@ -62,10 +66,11 @@ export class EmailSyncController {
   }
 
   @Post('sync-all')
-  @ApiOperation({ summary: 'Purge all emails and re-sync all providers (DANGEROUS)' })
-  @ApiResponse({ status: 200, description: 'All emails purged and sync jobs queued' })
+  @ApiOperation({ summary: 'Purge all emails, attachments, embeddings and re-sync all providers (DANGEROUS)' })
+  @ApiResponse({ status: 200, description: 'All data purged, webhooks renewed, and sync jobs queued' })
   async syncAll(@Request() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    this.logger.log(`[SYNC-ALL] Starting full sync reset for tenant ${tenantId}`);
 
     // Get all active providers for this tenant
     const providers = await this.prisma.providerConfig.findMany({
@@ -82,39 +87,106 @@ export class EmailSyncController {
       };
     }
 
-    // Purge all emails for this tenant
+    // Step 1: Get all attachment storage paths BEFORE deleting emails (cascade will delete attachment records)
+    this.logger.log('[SYNC-ALL] Step 1: Collecting attachment storage paths...');
+    const attachments = await this.prisma.emailAttachment.findMany({
+      where: {
+        email: { tenantId },
+        storagePath: { not: null },
+      },
+      select: { storagePath: true },
+    });
+    const storagePaths = attachments
+      .map((a) => a.storagePath)
+      .filter((p): p is string => p !== null);
+    this.logger.log(`[SYNC-ALL] Found ${storagePaths.length} attachments to delete from storage`);
+
+    // Step 2: Delete attachments from Minio/S3
+    let storageDeleted = 0;
+    let storageFailed = 0;
+    if (storagePaths.length > 0) {
+      this.logger.log('[SYNC-ALL] Step 2: Deleting attachments from storage...');
+      const result = await this.storageService.deleteObjects(storagePaths);
+      storageDeleted = result.deleted;
+      storageFailed = result.failed;
+      this.logger.log(`[SYNC-ALL] Storage cleanup: ${storageDeleted} deleted, ${storageFailed} failed`);
+    }
+
+    // Step 3: Delete all emails for this tenant (cascades to attachments, threads)
+    this.logger.log('[SYNC-ALL] Step 3: Deleting all emails...');
     const deletedCount = await this.prisma.email.deleteMany({
       where: { tenantId },
     });
+    this.logger.log(`[SYNC-ALL] Deleted ${deletedCount.count} emails`);
 
-    // Also delete email embeddings for this tenant
-    await this.prisma.embedding.deleteMany({
+    // Step 4: Delete email embeddings for this tenant
+    this.logger.log('[SYNC-ALL] Step 4: Deleting embeddings...');
+    const embeddingsDeleted = await this.prisma.embedding.deleteMany({
       where: { tenantId },
     });
+    this.logger.log(`[SYNC-ALL] Deleted ${embeddingsDeleted.count} embeddings`);
 
-    // Reset lastSyncedAt to force FULL sync (not incremental)
-    await this.prisma.providerConfig.updateMany({
-      where: {
-        tenantId,
-        id: { in: providers.map((p) => p.id) },
-      },
-      data: {
-        lastSyncedAt: null,
-      },
-    });
+    // Step 5: Reset provider metadata completely (lastSyncedAt, historyId, lastSyncToken, etc.)
+    this.logger.log('[SYNC-ALL] Step 5: Resetting provider metadata...');
+    for (const provider of providers) {
+      await this.prisma.providerConfig.update({
+        where: { id: provider.id },
+        data: {
+          lastSyncedAt: null,
+          metadata: {}, // Clear all metadata including historyId, lastSyncToken
+        },
+      });
+    }
+    this.logger.log(`[SYNC-ALL] Reset metadata for ${providers.length} providers`);
 
-    // Queue sync jobs for all providers
+    // Step 6: Renew webhook subscriptions (Pub/Sub for Gmail, Graph for Microsoft)
+    this.logger.log('[SYNC-ALL] Step 6: Renewing webhook subscriptions...');
+    let webhooksRenewed = 0;
+    let webhooksFailed = 0;
+    try {
+      // First deactivate existing subscriptions
+      await this.prisma.webhookSubscription.updateMany({
+        where: {
+          tenantId,
+          providerId: { in: providers.map((p) => p.id) },
+        },
+        data: { isActive: false },
+      });
+
+      // Create fresh webhook subscriptions
+      const webhookResult = await this.webhookLifecycle.createAllWebhooks();
+      webhooksRenewed = webhookResult.created;
+      webhooksFailed = webhookResult.failed;
+      this.logger.log(`[SYNC-ALL] Webhooks: ${webhooksRenewed} created, ${webhooksFailed} failed`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`[SYNC-ALL] Webhook renewal failed: ${msg}`);
+    }
+
+    // Step 7: Queue full sync jobs for all providers
+    this.logger.log('[SYNC-ALL] Step 7: Queueing full sync jobs...');
     const syncPromises = providers.map((provider) =>
       this.schedulerService.syncProviderNow(provider.id, 'high'),
     );
-
     await Promise.all(syncPromises);
+    this.logger.log(`[SYNC-ALL] Queued sync for ${providers.length} providers`);
+
+    this.logger.log('[SYNC-ALL] Full sync reset completed successfully');
 
     return {
       success: true,
       deletedEmails: deletedCount.count,
+      deletedEmbeddings: embeddingsDeleted.count,
+      storageCleanup: {
+        deleted: storageDeleted,
+        failed: storageFailed,
+      },
+      webhooks: {
+        renewed: webhooksRenewed,
+        failed: webhooksFailed,
+      },
       providersQueued: providers.length,
-      message: `Purged ${deletedCount.count} emails and queued sync for ${providers.length} providers`,
+      message: `Full reset: ${deletedCount.count} emails, ${embeddingsDeleted.count} embeddings, ${storageDeleted} attachments deleted. ${webhooksRenewed} webhooks renewed. Sync queued for ${providers.length} providers.`,
     };
   }
 

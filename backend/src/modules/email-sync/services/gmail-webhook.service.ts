@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { QueueService } from './queue.service';
@@ -11,9 +11,16 @@ import {
 } from '../interfaces/webhook.interface';
 import { SyncJobData } from '../interfaces/sync-job.interface';
 import { google, gmail_v1 } from 'googleapis';
+import { OAuth2Client } from 'google-auth-library';
 import { ProviderTokenService } from './provider-token.service';
 
 export const GMAIL_WEBHOOK_RESOURCE = 'gmail/mailbox';
+
+// Security: Replay attack prevention cache
+interface ProcessedMessage {
+  messageId: string;
+  processedAt: number;
+}
 
 @Injectable()
 export class GmailWebhookService {
@@ -22,12 +29,119 @@ export class GmailWebhookService {
   // Gmail watch() expires after 7 days max
   private readonly DEFAULT_EXPIRATION_DAYS = 7;
 
+  // Security fix (Issue #2): Replay attack prevention
+  // In-memory cache of processed message IDs with TTL
+  private readonly processedMessages: Map<string, number> = new Map();
+  private readonly MESSAGE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+  private readonly MAX_CACHE_SIZE = 10000;
+
+  // Google OAuth2 client for JWT verification
+  private readonly oauth2Client: OAuth2Client;
+
   constructor(
     private prisma: PrismaService,
     private queueService: QueueService,
     private configService: ConfigService,
     private providerTokenService: ProviderTokenService,
-  ) {}
+  ) {
+    // Initialize OAuth2 client for JWT verification
+    this.oauth2Client = new OAuth2Client();
+
+    // Start cache cleanup interval
+    setInterval(() => this.cleanupProcessedMessages(), this.MESSAGE_CACHE_TTL_MS);
+  }
+
+  /**
+   * Security fix (Issue #1): Verify Google Pub/Sub OIDC JWT token
+   * Google Pub/Sub sends a signed JWT in the Authorization header
+   * @see https://cloud.google.com/pubsub/docs/authenticate-push-subscriptions
+   */
+  async verifyPubSubToken(token: string): Promise<void> {
+    const expectedAudience = this.configService.get<string>('GOOGLE_PUBSUB_AUDIENCE');
+    const expectedServiceAccount = this.configService.get<string>('GOOGLE_PUBSUB_SERVICE_ACCOUNT');
+
+    // If no audience configured, skip verification (allows opt-in security)
+    if (!expectedAudience) {
+      this.logger.debug('[JWT] No GOOGLE_PUBSUB_AUDIENCE configured, skipping JWT verification');
+      return;
+    }
+
+    try {
+      const ticket = await this.oauth2Client.verifyIdToken({
+        idToken: token,
+        audience: expectedAudience,
+      });
+
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new UnauthorizedException('Invalid Pub/Sub JWT: no payload');
+      }
+
+      // Verify service account if configured
+      if (expectedServiceAccount && payload.email !== expectedServiceAccount) {
+        this.logger.error(`[JWT] Service account mismatch: ${payload.email} !== ${expectedServiceAccount}`);
+        throw new UnauthorizedException('Invalid Pub/Sub JWT: service account mismatch');
+      }
+
+      // Verify token is not expired (verifyIdToken already checks this, but be explicit)
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < now) {
+        throw new UnauthorizedException('Invalid Pub/Sub JWT: token expired');
+      }
+
+      this.logger.debug(`[JWT] Verified Pub/Sub token from ${payload.email}`);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`[JWT] Failed to verify Pub/Sub token: ${message}`);
+      throw new UnauthorizedException(`Invalid Pub/Sub JWT: ${message}`);
+    }
+  }
+
+  /**
+   * Security fix (Issue #2): Check if message was already processed (replay attack prevention)
+   */
+  isReplayedMessage(messageId: string): boolean {
+    return this.processedMessages.has(messageId);
+  }
+
+  /**
+   * Security fix (Issue #2): Mark message as processed
+   */
+  markMessageProcessed(messageId: string): void {
+    // Enforce max cache size to prevent memory exhaustion
+    if (this.processedMessages.size >= this.MAX_CACHE_SIZE) {
+      this.cleanupProcessedMessages();
+      // If still at max, remove oldest entries
+      if (this.processedMessages.size >= this.MAX_CACHE_SIZE) {
+        const entriesToRemove = Math.floor(this.MAX_CACHE_SIZE * 0.1); // Remove 10%
+        const entries = Array.from(this.processedMessages.entries())
+          .sort((a, b) => a[1] - b[1])
+          .slice(0, entriesToRemove);
+        entries.forEach(([id]) => this.processedMessages.delete(id));
+      }
+    }
+    this.processedMessages.set(messageId, Date.now());
+  }
+
+  /**
+   * Clean up expired message IDs from cache
+   */
+  private cleanupProcessedMessages(): void {
+    const now = Date.now();
+    let removed = 0;
+    for (const [messageId, timestamp] of this.processedMessages.entries()) {
+      if (now - timestamp > this.MESSAGE_CACHE_TTL_MS) {
+        this.processedMessages.delete(messageId);
+        removed++;
+      }
+    }
+    if (removed > 0) {
+      this.logger.debug(`[CACHE] Cleaned up ${removed} expired message IDs`);
+    }
+  }
 
   /**
    * Handle incoming Gmail Pub/Sub notification

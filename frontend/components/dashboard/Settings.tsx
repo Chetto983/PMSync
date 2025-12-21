@@ -235,13 +235,18 @@ export function Settings() {
   };
 
   const handleSyncAll = useCallback(async () => {
-    if (!confirm(settingsCopy.mailAccountsPanel?.syncConfirm || 'Sync all accounts?')) return;
+    if (!confirm(settingsCopy.mailAccountsPanel?.syncConfirm || 'Sync all accounts?')) {
+      return;
+    }
     try {
       const result = await syncAllMutation.mutateAsync();
       if (result.success) {
-        setProviderSuccess(settingsCopy.mailAccountsPanel?.syncStarted || 'Sync started');
+        setProviderSuccess(result.message || settingsCopy.mailAccountsPanel?.syncStarted || 'Sync started');
+      } else {
+        setProviderError(result.message || 'Sync returned unsuccessful');
       }
-    } catch {
+    } catch (_error) {
+     
       setProviderError(settingsCopy.mailAccountsPanel?.syncFailed || 'Sync failed');
     }
   }, [syncAllMutation, settingsCopy.mailAccountsPanel]);

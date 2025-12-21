@@ -163,6 +163,15 @@ export const providersApi = {
   async syncAll(): Promise<{
     success: boolean;
     deletedEmails: number;
+    deletedEmbeddings: number;
+    storageCleanup: {
+      deleted: number;
+      failed: number;
+    };
+    webhooks: {
+      renewed: number;
+      failed: number;
+    };
     providersQueued: number;
     message: string;
   }> {

@@ -16,6 +16,12 @@ import type { ProviderConfig } from '@prisma/client';
 
 export const MICROSOFT_MAIL_RESOURCE = '/me/mailFolders/inbox/messages';
 
+// Security fix (Issue #3): Rate limiting structure
+interface RateLimitEntry {
+  count: number;
+  windowStart: number;
+}
+
 @Injectable()
 export class MicrosoftWebhookService {
   private readonly logger = new Logger(MicrosoftWebhookService.name);
@@ -27,12 +33,69 @@ export class MicrosoftWebhookService {
   private readonly RENEWAL_DRIFT_MINUTES =
     Number(process.env.MICROSOFT_RENEWAL_DRIFT_MINUTES) || 1440;
 
+  // Security fix (Issue #3): Rate limiting configuration
+  private readonly rateLimitMap: Map<string, RateLimitEntry> = new Map();
+  private readonly RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
+  private readonly RATE_LIMIT_MAX_REQUESTS = 100; // Max 100 notifications per minute per subscription
+  private readonly RATE_LIMIT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // Cleanup every 5 minutes
+
   constructor(
     private prisma: PrismaService,
     private queueService: QueueService,
     private configService: ConfigService,
     private providerTokenService: ProviderTokenService,
-  ) {}
+  ) {
+    // Start rate limit cleanup interval
+    setInterval(() => this.cleanupRateLimitEntries(), this.RATE_LIMIT_CLEANUP_INTERVAL_MS);
+  }
+
+  /**
+   * Security fix (Issue #3): Check and update rate limit for a subscription
+   * @returns true if request is allowed, false if rate limited
+   */
+  private checkRateLimit(subscriptionId: string): boolean {
+    const now = Date.now();
+    const entry = this.rateLimitMap.get(subscriptionId);
+
+    if (!entry) {
+      // First request for this subscription
+      this.rateLimitMap.set(subscriptionId, { count: 1, windowStart: now });
+      return true;
+    }
+
+    // Check if we're in a new window
+    if (now - entry.windowStart > this.RATE_LIMIT_WINDOW_MS) {
+      // Reset window
+      this.rateLimitMap.set(subscriptionId, { count: 1, windowStart: now });
+      return true;
+    }
+
+    // Check if limit exceeded
+    if (entry.count >= this.RATE_LIMIT_MAX_REQUESTS) {
+      return false;
+    }
+
+    // Increment count
+    entry.count++;
+    return true;
+  }
+
+  /**
+   * Cleanup expired rate limit entries to prevent memory leak
+   */
+  private cleanupRateLimitEntries(): void {
+    const now = Date.now();
+    let removed = 0;
+    for (const [subscriptionId, entry] of this.rateLimitMap.entries()) {
+      if (now - entry.windowStart > this.RATE_LIMIT_WINDOW_MS * 2) {
+        this.rateLimitMap.delete(subscriptionId);
+        removed++;
+      }
+    }
+    if (removed > 0) {
+      this.logger.debug(`[RATE-LIMIT] Cleaned up ${removed} expired rate limit entries`);
+    }
+  }
 
   /**
    * Security fix: Timing-safe string comparison (CWE-208)
@@ -75,6 +138,14 @@ export class MicrosoftWebhookService {
     this.logger.log(
       `Microsoft notification: ${notification.changeType} for subscription ${notification.subscriptionId}`,
     );
+
+    // Security fix (Issue #3): Apply rate limiting per subscription
+    if (!this.checkRateLimit(notification.subscriptionId)) {
+      this.logger.warn(
+        `[RATE-LIMIT] Rate limit exceeded for subscription ${notification.subscriptionId}, dropping notification`,
+      );
+      return;
+    }
 
     // Find subscription in database
     const subscription = await this.prisma.webhookSubscription.findFirst({
