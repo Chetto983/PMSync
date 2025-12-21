@@ -61,6 +61,7 @@ export class EmailFetchService {
         case 'microsoft':
           fetchedContent = await this.fetchFromMicrosoft(email, email.provider);
           break;
+        case 'imap':
         case 'generic':
           fetchedContent = await this.fetchFromIMAP(email, email.provider);
           break;
@@ -161,7 +162,10 @@ export class EmailFetchService {
       },
     });
 
-    const message = await graphClient.api(`/me/messages/${email.externalId}`).get();
+    const message = await graphClient
+      .api(`/me/messages/${email.externalId}`)
+      .header('Prefer', 'outlook.body-content-type="html"')
+      .get();
 
     const bodyText = message.body?.contentType === 'text' ? message.body.content : '';
     const bodyHtml = message.body?.contentType === 'html' ? message.body.content : '';
@@ -204,9 +208,15 @@ export class EmailFetchService {
 
     await client.connect();
 
-    const lock = await client.getMailboxLock(email.folder || 'INBOX');
+    const { folderPath, uid } = this.parseImapExternalId(email.externalId, email.folder);
+    const uidNumber = parseInt(uid, 10);
+    if (!Number.isFinite(uidNumber)) {
+      throw new Error(`Invalid IMAP UID: ${email.externalId}`);
+    }
+
+    const lock = await client.getMailboxLock(folderPath);
     try {
-      const messageStream = await client.download(email.externalId, undefined, { uid: true });
+      const messageStream = await client.download(uidNumber.toString(), undefined, { uid: true });
       const parsed = await simpleParser(messageStream.content);
 
       const headers: Record<string, string> = {};
@@ -223,5 +233,19 @@ export class EmailFetchService {
       lock.release();
       await client.logout();
     }
+  }
+
+  private parseImapExternalId(
+    externalId: string,
+    fallbackFolder?: string | null,
+  ): { folderPath: string; uid: string } {
+    const lastColon = externalId.lastIndexOf(':');
+    if (lastColon > 0) {
+      return {
+        folderPath: externalId.substring(0, lastColon),
+        uid: externalId.substring(lastColon + 1),
+      };
+    }
+    return { folderPath: fallbackFolder || 'INBOX', uid: externalId };
   }
 }

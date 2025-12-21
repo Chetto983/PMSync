@@ -335,13 +335,14 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
               </Box>
             )}
 
-            <EmailBody
-              html={emailHtml}
-              isDark={isDark}
-              lazyLoadImages={true}
-              lazyLoadMargin="200px"
-              sx={{ p: 2 }}
-            />
+              <EmailBody
+                html={emailHtml}
+                isDark={isDark}
+                lazyLoadImages={true}
+                lazyLoadMargin="200px"
+                attachments={email.attachments}
+                sx={{ p: 2 }}
+              />
           </Box>
         </Collapse>
       </Paper>

@@ -95,7 +95,7 @@ interface ApiEmail {
   isDraft?: boolean;
   emailLabels?: { label: { id: string; name: string; color?: { backgroundColor: string; textColor: string } | null } }[];
   folder?: string;
-  attachments?: { id: string; filename: string; size: number; mimeType: string; isInline: boolean }[];
+  attachments?: { id: string; filename: string; size: number; mimeType: string; isInline: boolean; contentId?: string }[];
   inReplyTo?: string;
   references?: string;
   hasCalendarInvite?: boolean;

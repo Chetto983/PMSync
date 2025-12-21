@@ -733,7 +733,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
       return 'ARCHIVE';
     }
 
-    return displayName.toUpperCase();
+    return displayName;
   }
 
   private parseMessagesResponse(data: any): ListMessagesResult {

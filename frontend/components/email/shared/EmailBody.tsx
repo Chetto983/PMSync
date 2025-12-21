@@ -1,6 +1,7 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { Box, SxProps, Theme } from '@mui/material';
 import DOMPurify from 'dompurify';
+import { apiClient } from '@/lib/api-client';
 
 /**
  * Props for EmailBody component
@@ -37,6 +38,15 @@ interface EmailBodyProps {
    * Callback when all images have loaded
    */
   onImagesLoaded?: () => void;
+
+  /**
+   * Attachment metadata for resolving inline cid images
+   */
+  attachments?: Array<{
+    id: string;
+    contentId?: string;
+    isInline?: boolean;
+  }>;
 }
 
 /**
@@ -81,6 +91,10 @@ function sanitizeEmailBody(content: string): string {
   return sanitized;
 }
 
+function normalizeContentId(value: string): string {
+  return value.replace(/^cid:/i, '').replace(/[<>]/g, '').trim().toLowerCase();
+}
+
 /**
  * EmailBody - Renders email HTML content with lazy-loaded images
  *
@@ -115,10 +129,55 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
   isDark = false,
   sx,
   onImagesLoaded,
+  attachments,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [imagesProcessed, setImagesProcessed] = useState(false);
   const [sanitizedHtml, setSanitizedHtml] = useState('');
+  const inlineUrlCacheRef = useRef<Map<string, string>>(new Map());
+  const inlineUrlPromisesRef = useRef<Map<string, Promise<string>>>(new Map());
+
+  const inlineAttachmentMap = useMemo(() => {
+    const map = new Map<string, { id: string }>();
+    (attachments || []).forEach((attachment) => {
+      if (!attachment.contentId) return;
+      const normalized = normalizeContentId(attachment.contentId);
+      if (normalized) {
+        map.set(normalized, { id: attachment.id });
+      }
+    });
+    return map;
+  }, [attachments]);
+
+  const resolveInlineAttachmentUrl = useCallback(async (attachmentId: string): Promise<string> => {
+    const cached = inlineUrlCacheRef.current.get(attachmentId);
+    if (cached) {
+      return cached;
+    }
+
+    const pending = inlineUrlPromisesRef.current.get(attachmentId);
+    if (pending) {
+      return pending;
+    }
+
+    const request = apiClient
+      .get<Blob>(`/email/attachments/${attachmentId}/download`, {
+        responseType: 'blob',
+      })
+      .then((response) => {
+        const url = URL.createObjectURL(response.data);
+        inlineUrlCacheRef.current.set(attachmentId, url);
+        inlineUrlPromisesRef.current.delete(attachmentId);
+        return url;
+      })
+      .catch((error) => {
+        inlineUrlPromisesRef.current.delete(attachmentId);
+        throw error;
+      });
+
+    inlineUrlPromisesRef.current.set(attachmentId, request);
+    return request;
+  }, []);
 
   // Avoid rendering untrusted HTML during SSR: sanitize after hydration on the client
   useEffect(() => {
@@ -128,7 +187,7 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
   // Process images for lazy loading after initial render
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !lazyLoadImages || imagesProcessed || !sanitizedHtml) return;
+    if (!container || imagesProcessed || !sanitizedHtml) return;
 
     // Find all images in the rendered content
     const images = container.querySelectorAll('img');
@@ -142,17 +201,25 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
     const totalImages = images.length;
 
     // Check if IntersectionObserver is available
-    const hasIO = 'IntersectionObserver' in window;
+    const hasIO = lazyLoadImages && 'IntersectionObserver' in window;
 
     images.forEach((img) => {
       // Skip if already has loading attribute set
       if (img.hasAttribute('data-lazy-processed')) return;
 
       // Store original src
-      const originalSrc = img.src;
+      const originalSrc = img.getAttribute('src') || img.src;
       if (!originalSrc || originalSrc.startsWith('data:')) {
         loadedCount++;
         return;
+      }
+
+      const isCid = originalSrc.toLowerCase().startsWith('cid:');
+      const normalizedCid = isCid ? normalizeContentId(originalSrc) : '';
+      const inlineAttachment = isCid ? inlineAttachmentMap.get(normalizedCid) : undefined;
+      if (isCid) {
+        img.setAttribute('data-inline-cid', normalizedCid);
+        img.removeAttribute('src');
       }
 
       // Mark as processed
@@ -239,16 +306,32 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
       img.addEventListener('load', handleLoad, { once: true });
       img.addEventListener('error', handleError, { once: true });
 
+      const loadImage = () => {
+        if (isCid) {
+          if (!inlineAttachment) {
+            handleError();
+            return;
+          }
+          resolveInlineAttachmentUrl(inlineAttachment.id)
+            .then((url) => {
+              img.src = url;
+            })
+            .catch(() => handleError());
+          return;
+        }
+
+        if (!img.src) {
+          img.src = originalSrc;
+        }
+      };
+
       // Use Intersection Observer for more precise lazy loading
       if (hasIO) {
         const observer = new IntersectionObserver(
           (entries) => {
             entries.forEach((entry) => {
               if (entry.isIntersecting) {
-                // Image is in viewport, ensure it's loading
-                if (!img.src) {
-                  img.src = originalSrc;
-                }
+                loadImage();
                 observer.unobserve(entry.target);
               }
             });
@@ -259,6 +342,8 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
           }
         );
         observer.observe(wrapper);
+      } else {
+        loadImage();
       }
     });
 
@@ -276,7 +361,26 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
     }
 
     setImagesProcessed(true);
-  }, [sanitizedHtml, lazyLoadImages, lazyLoadMargin, isDark, imagesProcessed, onImagesLoaded]);
+  }, [
+    sanitizedHtml,
+    lazyLoadImages,
+    lazyLoadMargin,
+    isDark,
+    imagesProcessed,
+    onImagesLoaded,
+    inlineAttachmentMap,
+    resolveInlineAttachmentUrl,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      inlineUrlPromisesRef.current.clear();
+      for (const url of inlineUrlCacheRef.current.values()) {
+        URL.revokeObjectURL(url);
+      }
+      inlineUrlCacheRef.current.clear();
+    };
+  }, [sanitizedHtml]);
 
   // Reset processed state when html changes
   useEffect(() => {

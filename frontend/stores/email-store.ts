@@ -7,6 +7,7 @@ export interface EmailAttachment {
   size: number;
   mimeType: string;
   isInline: boolean;
+  contentId?: string;
 }
 
 export interface EmailLabelData {

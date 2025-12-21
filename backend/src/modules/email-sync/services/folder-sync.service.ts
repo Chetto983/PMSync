@@ -647,14 +647,15 @@ export class FolderSyncService {
           path: folderPath,
         },
       },
-      select: {
-        id: true,
-        name: true,
-        tenantId: true,
-        totalCount: true,
-        unreadCount: true,
-        specialUse: true,
-      },
+        select: {
+          id: true,
+          name: true,
+          path: true,
+          tenantId: true,
+          totalCount: true,
+          unreadCount: true,
+          specialUse: true,
+        },
     });
 
     if (!folder) {
@@ -748,12 +749,19 @@ export class FolderSyncService {
    */
   private getFolderKeys(folder: {
     name: string;
+    path?: string | null;
     specialUse?: string | null;
   }): string[] {
     const keys = new Set<string>();
 
     // Always include the original folder name (emails are stored with display name)
     keys.add(folder.name);
+    keys.add(folder.name.toUpperCase());
+
+    if (folder.path) {
+      keys.add(folder.path);
+      keys.add(folder.path.toUpperCase());
+    }
 
     // Also include the normalized specialUse if present
     if (folder.specialUse) {

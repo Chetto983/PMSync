@@ -313,9 +313,9 @@ export class AttachmentStorageService {
   getProcessingStrategy(
     metadata: AttachmentMetadata,
   ): 'embeddings' | 'metadata-only' | 'skip' {
-    // Inline images: skip (already in email body)
+    // Inline images: keep metadata for on-demand fetching (cid rendering)
     if (metadata.isInline && this.isImageMimeType(metadata.mimeType)) {
-      return 'skip';
+      return 'metadata-only';
     }
 
     // Small PDFs: download for embeddings

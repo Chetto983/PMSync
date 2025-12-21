@@ -32,7 +32,8 @@ export default function EmailPage() {
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            height: 'calc(100vh - 64px)', // Full height minus header
+            height: '100%',
+            minHeight: 0,
             minWidth: 0, // Critical: allows flex item to shrink below content size
           }}
         >

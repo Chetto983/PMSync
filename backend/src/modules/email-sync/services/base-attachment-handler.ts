@@ -86,7 +86,7 @@ export abstract class BaseAttachmentHandler {
 
   /**
    * Process and store attachments for an email using intelligent strategy:
-   * - Inline images: skip (already in HTML)
+   * - Inline images: metadata-only (cid rendering)
    * - Small documents (<5MB): download + store + queue for embeddings
    * - Everything else: metadata-only (on-demand download)
    *

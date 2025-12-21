@@ -334,16 +334,11 @@ export class AttachmentOnDemandService {
       await client.connect();
       this.logger.debug(`Connected to IMAP server for attachment download: ${provider.email}`);
 
-      // Select INBOX (default mailbox)
-      await client.mailboxOpen('INBOX');
+      const { folderPath, uid: rawUid } = this.parseImapExternalMessageId(externalMessageId);
 
-      // Parse UID from externalMessageId
-      // IMAP externalId format is "folder:uid" (e.g., "INBOX:271")
-      // Extract just the numeric UID part
-      let rawUid = externalMessageId;
-      if (rawUid.includes(':')) {
-        rawUid = rawUid.split(':').pop() || rawUid;
-      }
+      // Select the actual mailbox that contains the message
+      await client.mailboxOpen(folderPath);
+
       const uid = parseInt(rawUid, 10);
       if (isNaN(uid)) {
         throw new Error(`Invalid IMAP UID: ${externalMessageId} (parsed: ${rawUid})`);
@@ -422,6 +417,19 @@ export class AttachmentOnDemandService {
         }
       }
     }
+  }
+
+  private parseImapExternalMessageId(
+    externalMessageId: string,
+  ): { folderPath: string; uid: string } {
+    const lastColon = externalMessageId.lastIndexOf(':');
+    if (lastColon > 0) {
+      return {
+        folderPath: externalMessageId.substring(0, lastColon),
+        uid: externalMessageId.substring(lastColon + 1),
+      };
+    }
+    return { folderPath: 'INBOX', uid: externalMessageId };
   }
 
   /**

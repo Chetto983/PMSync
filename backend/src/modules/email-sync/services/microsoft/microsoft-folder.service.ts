@@ -201,8 +201,8 @@ export class MicrosoftFolderService {
       return 'OUTBOX';
     }
 
-    // Return original name in uppercase for custom folders
-    return displayName.toUpperCase();
+    // Return original name for custom folders
+    return displayName;
   }
 
   /**

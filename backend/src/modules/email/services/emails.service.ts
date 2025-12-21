@@ -310,6 +310,7 @@ export class EmailsService {
               size: true,
               mimeType: true,
               isInline: true,
+              contentId: true,
             },
           },
           emailLabels: {
@@ -410,6 +411,7 @@ export class EmailsService {
             size: true,
             mimeType: true,
             isInline: true,
+            contentId: true,
           },
         },
         emailLabels: {
