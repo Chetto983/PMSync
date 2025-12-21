@@ -49,6 +49,8 @@ export class MicrosoftDriver extends BaseEmailDriver {
       headers: {
         Authorization: `Bearer ${credentials.accessToken}`,
         'Content-Type': 'application/json',
+        // Request HTML body content instead of text (Microsoft Graph API default is text)
+        'Prefer': 'outlook.body-content-type="html"',
       },
     });
 
@@ -759,8 +761,10 @@ export class MicrosoftDriver extends BaseEmailDriver {
       bcc: (message.bccRecipients || []).map((r: any) => this.graphAddressToCanonical(r.emailAddress)),
       subject: message.subject || '(No Subject)',
       messageId: message.internetMessageId,
+      // With Prefer: outlook.body-content-type="html" header, body is returned as HTML when available
+      // Don't use text content as fallback for bodyHtml - keep them separate
       bodyText: message.body?.contentType === 'text' ? message.body.content : '',
-      bodyHtml: message.body?.contentType === 'html' ? message.body.content : message.body?.content || '',
+      bodyHtml: message.body?.contentType === 'html' ? message.body.content : '',
       snippet: message.bodyPreview || '',
       receivedAt: new Date(message.receivedDateTime),
       sentAt: message.sentDateTime ? new Date(message.sentDateTime) : undefined,

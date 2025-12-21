@@ -35,6 +35,9 @@ export class EmailSyncBackService {
     private microsoftOAuth: MicrosoftOAuthService,
   ) {}
 
+  // Bug #13 fix: Default timeout for API operations (30 seconds)
+  private readonly OPERATION_TIMEOUT_MS = 30000;
+
   private async executeWithRetry<T>(
     action: () => Promise<T>,
     description: string,
@@ -46,7 +49,8 @@ export class EmailSyncBackService {
 
     while (attempt < maxAttempts) {
       try {
-        return await action();
+        // Bug #13 fix: Add timeout protection to prevent hanging operations
+        return await this.withTimeout(action(), this.OPERATION_TIMEOUT_MS, description);
       } catch (error: any) {
         lastError = error;
         const status = error?.code || error?.status || error?.response?.status;
@@ -76,6 +80,25 @@ export class EmailSyncBackService {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  /**
+   * Bug #13 fix: Wrap a promise with a timeout to prevent hanging operations
+   */
+  private async withTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    description: string,
+  ): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Operation timeout after ${timeoutMs}ms: ${description}`)),
+          timeoutMs,
+        ),
+      ),
+    ]);
+  }
+
   private chunk<T>(arr: T[], size: number): T[][] {
     const res: T[][] = [];
     for (let i = 0; i < arr.length; i += size) {
@@ -89,13 +112,22 @@ export class EmailSyncBackService {
    */
   async syncOperationToProvider(operation: EmailSyncOperation): Promise<void> {
     try {
+      // Bug #9 fix: Validate operation fields before API calls
+      if (!operation.externalId || operation.externalId.trim() === '') {
+        throw new Error(`Invalid externalId for email ${operation.emailId}: externalId is empty or missing`);
+      }
+      if (!operation.providerId) {
+        throw new Error(`Missing providerId for email ${operation.emailId}`);
+      }
+
       // Get provider config
       const provider = await this.prisma.providerConfig.findUnique({
         where: { id: operation.providerId },
       });
 
+      // Bug #6 fix: Clear error when provider not found
       if (!provider) {
-        throw new Error('Provider not found');
+        throw new Error(`Provider not found: ${operation.providerId} for email ${operation.emailId}`);
       }
 
       // Sync based on provider type (case-insensitive)
@@ -146,36 +178,61 @@ export class EmailSyncBackService {
 
       const providerType = provider.providerType?.toUpperCase();
 
-      if (providerType === 'GOOGLE') {
-        const refreshed = await this.googleOAuth.refreshAccessToken(refreshToken);
+      // Bug #5 fix: Add try/catch for token refresh failures with clear error messages
+      try {
+        if (providerType === 'GOOGLE') {
+          const refreshed = await this.googleOAuth.refreshAccessToken(refreshToken);
 
-        // Update token in database
-        const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
+          // Update token in database
+          const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
+          await this.prisma.providerConfig.update({
+            where: { id: provider.id },
+            data: {
+              accessToken: encryptedAccess.encrypted,
+              tokenEncryptionIv: encryptedAccess.iv,
+              tokenExpiresAt: refreshed.expiresAt,
+            },
+          });
+
+          return refreshed.accessToken;
+        } else if (providerType === 'MICROSOFT') {
+          const refreshed = await this.microsoftOAuth.refreshAccessToken(refreshToken);
+
+          // Update token in database
+          const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
+          await this.prisma.providerConfig.update({
+            where: { id: provider.id },
+            data: {
+              accessToken: encryptedAccess.encrypted,
+              tokenEncryptionIv: encryptedAccess.iv,
+              tokenExpiresAt: refreshed.expiresAt,
+            },
+          });
+
+          return refreshed.accessToken;
+        }
+      } catch (refreshError) {
+        const errMsg = refreshError instanceof Error ? refreshError.message : String(refreshError);
+        this.logger.error(`Failed to refresh ${providerType} token for provider ${provider.id}: ${errMsg}`);
+
+        // Mark provider as needing re-authentication via metadata
         await this.prisma.providerConfig.update({
           where: { id: provider.id },
           data: {
-            accessToken: encryptedAccess.encrypted,
-            tokenEncryptionIv: encryptedAccess.iv,
-            tokenExpiresAt: refreshed.expiresAt,
+            isActive: false, // Deactivate until user re-authenticates
+            metadata: {
+              ...(provider.metadata as Record<string, any> || {}),
+              lastTokenError: errMsg,
+              lastTokenErrorAt: new Date().toISOString(),
+            },
           },
+        }).catch((dbErr) => {
+          this.logger.warn(`Failed to update provider error status: ${dbErr}`);
         });
 
-        return refreshed.accessToken;
-      } else if (providerType === 'MICROSOFT') {
-        const refreshed = await this.microsoftOAuth.refreshAccessToken(refreshToken);
-
-        // Update token in database
-        const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
-        await this.prisma.providerConfig.update({
-          where: { id: provider.id },
-          data: {
-            accessToken: encryptedAccess.encrypted,
-            tokenEncryptionIv: encryptedAccess.iv,
-            tokenExpiresAt: refreshed.expiresAt,
-          },
-        });
-
-        return refreshed.accessToken;
+        throw new Error(
+          `Authentication failed for ${providerType}. Please reconnect your email account.`,
+        );
       }
     }
 
@@ -193,9 +250,61 @@ export class EmailSyncBackService {
 
     switch (operation.operation) {
       case 'delete':
+        // Bug #2 fix: Separate delete from moveToFolder - always move to TRASH
+        // Get current labels to remove folder labels (proper Gmail move semantic)
+        const deleteMsg = await this.executeWithRetry(
+          () =>
+            gmail.users.messages.get({
+              userId: 'me',
+              id: operation.externalId,
+              format: 'minimal',
+            }),
+          `gmail get ${operation.externalId}`,
+        );
+        const deleteCurrentLabels = deleteMsg.data.labelIds || [];
+        // These labels should NOT be removed during moves (state labels, not folder labels)
+        const deleteImmutableLabels = ['UNREAD', 'STARRED', 'IMPORTANT'];
+        // Remove all folder labels except immutable ones and TRASH
+        const deleteLabelsToRemove = deleteCurrentLabels.filter(
+          (l) => !deleteImmutableLabels.includes(l) && l !== 'TRASH',
+        );
+        await this.executeWithRetry(
+          () =>
+            gmail.users.messages.modify({
+              userId: 'me',
+              id: operation.externalId,
+              requestBody: {
+                addLabelIds: ['TRASH'],
+                removeLabelIds: deleteLabelsToRemove,
+              },
+            }),
+          `gmail delete ${operation.externalId}`,
+        );
+        break;
+
       case 'moveToFolder':
-        // Move to TRASH or specified folder
-        const labelToAdd = operation.folder === 'TRASH' ? 'TRASH' : (operation.folder || 'INBOX');
+        // Bug #1 fix: Gmail uses labels, so "move" means add new label AND remove old labels
+        if (!operation.folder) {
+          throw new Error('Target folder not specified for move operation');
+        }
+        const labelToAdd = operation.folder;
+        // Get current labels to properly remove folder labels
+        const moveMsg = await this.executeWithRetry(
+          () =>
+            gmail.users.messages.get({
+              userId: 'me',
+              id: operation.externalId,
+              format: 'minimal',
+            }),
+          `gmail get ${operation.externalId}`,
+        );
+        const currentLabels = moveMsg.data.labelIds || [];
+        // These labels should NOT be removed during moves (state labels, not folder labels)
+        const immutableLabels = ['UNREAD', 'STARRED', 'IMPORTANT'];
+        // Remove all folder labels except immutable ones and the target label
+        const labelsToRemove = currentLabels.filter(
+          (l) => !immutableLabels.includes(l) && l !== labelToAdd,
+        );
         await this.executeWithRetry(
           () =>
             gmail.users.messages.modify({
@@ -203,9 +312,10 @@ export class EmailSyncBackService {
               id: operation.externalId,
               requestBody: {
                 addLabelIds: [labelToAdd],
+                removeLabelIds: labelsToRemove,
               },
             }),
-          `gmail modify ${operation.operation} ${operation.externalId}`,
+          `gmail moveToFolder ${operation.externalId}`,
         );
         break;
 
@@ -318,11 +428,13 @@ export class EmailSyncBackService {
 
     switch (operation.operation) {
       case 'delete':
-        // Move to deleted items
+        // Bug #3 fix: Use getMicrosoftFolderId for proper localization support
+        // (e.g., Italian uses "Posta eliminata" not "deleteditems")
+        const trashFolderId = await this.getMicrosoftFolderId(operation.providerId, 'TRASH');
         await client
           .api(`/me/messages/${operation.externalId}/move`)
           .post({
-            destinationId: 'deleteditems',
+            destinationId: trashFolderId,
           });
         break;
 
@@ -440,9 +552,15 @@ export class EmailSyncBackService {
       this.logger.log(`📧 Connected to IMAP server: ${provider.imapHost}`);
 
       // Parse external message ID (UID)
-      const uid = parseInt(operation.externalId, 10);
+      // IMAP externalId format is "folder:uid" (e.g., "INBOX:271")
+      // Extract just the numeric UID part
+      let rawUid = operation.externalId;
+      if (rawUid.includes(':')) {
+        rawUid = rawUid.split(':').pop() || rawUid;
+      }
+      const uid = parseInt(rawUid, 10);
       if (isNaN(uid)) {
-        throw new Error(`Invalid IMAP UID: ${operation.externalId}`);
+        throw new Error(`Invalid IMAP UID: ${operation.externalId} (parsed: ${rawUid})`);
       }
 
       // Use sourceFolder from operation if provided (critical for IMAP sync-back
@@ -583,15 +701,25 @@ export class EmailSyncBackService {
     const otherOps: EmailSyncOperation[] = [];
 
     for (const op of operations) {
+      // Bug #9 fix: Validate externalId in batch operations too
+      if (!op.externalId || op.externalId.trim() === '') {
+        this.logger.error(`Skipping operation with invalid externalId for email ${op.emailId}`);
+        continue;
+      }
       if (!op.providerId) {
-        otherOps.push(op);
+        this.logger.error(`Skipping operation with missing providerId for email ${op.emailId}`);
         continue;
       }
       const provider = await this.prisma.providerConfig.findUnique({
         where: { id: op.providerId },
         select: { id: true, providerType: true },
       });
-      const type = provider?.providerType?.toUpperCase();
+      // Bug #6 fix: Log error when provider not found instead of silently failing
+      if (!provider) {
+        this.logger.error(`Provider ${op.providerId} not found for operation ${op.operation} on email ${op.emailId}`);
+        continue;
+      }
+      const type = provider.providerType?.toUpperCase();
       if (type === 'GOOGLE') {
         const list = gmailByProvider.get(op.providerId) ?? [];
         list.push(op);
@@ -609,8 +737,9 @@ export class EmailSyncBackService {
       const provider = await this.prisma.providerConfig.findUnique({
         where: { id: providerId },
       });
+      // Bug #6 fix: Log and skip when provider not found
       if (!provider) {
-        otherOps.push(...ops);
+        this.logger.error(`Gmail provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
         continue;
       }
       await this.syncGmailBatch(provider, ops);
@@ -620,8 +749,9 @@ export class EmailSyncBackService {
       const provider = await this.prisma.providerConfig.findUnique({
         where: { id: providerId },
       });
+      // Bug #6 fix: Log and skip when provider not found
       if (!provider) {
-        otherOps.push(...ops);
+        this.logger.error(`Microsoft provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
         continue;
       }
       await this.syncMicrosoftBatch(provider, ops);
@@ -694,7 +824,8 @@ export class EmailSyncBackService {
       }
     }
 
-    // batchDelete supports up to 1000 ids
+    // Bug #12 fix: Gmail batch operations support up to 1000 IDs per request
+    // Using 900 as safety margin to account for API variations
     for (const ids of this.chunk(hardDeleteIds, 900)) {
       await this.executeWithRetry(
         () =>
@@ -835,10 +966,14 @@ export class EmailSyncBackService {
       });
     };
 
+    // Bug #3 fix: Resolve trash folder ID once for batch (avoid hardcoded 'deleteditems')
+    const msTrashFolderId = await this.getMicrosoftFolderId(provider.id, 'TRASH');
+
     for (const op of ops) {
       switch (op.operation) {
         case 'delete':
-          enqueue('POST', `/me/messages/${op.externalId}/move`, { destinationId: 'deleteditems' });
+          // Bug #3 fix: Use resolved trash folder ID for localization
+          enqueue('POST', `/me/messages/${op.externalId}/move`, { destinationId: msTrashFolderId });
           break;
         case 'hardDelete':
           enqueue('DELETE', `/me/messages/${op.externalId}`);
@@ -862,7 +997,7 @@ export class EmailSyncBackService {
           enqueue('PATCH', `/me/messages/${op.externalId}`, { flag: { flagStatus: 'notFlagged' } });
           break;
         case 'moveToFolder': {
-          // Look up folder ID by path or specialUse
+          // Bug #7 fix: Batch ALL moveToFolder operations, not just TRASH
           const destId = await this.getMicrosoftFolderId(op.providerId, op.folder || 'INBOX');
           enqueue('POST', `/me/messages/${op.externalId}/move`, { destinationId: destId });
           break;
@@ -876,10 +1011,21 @@ export class EmailSyncBackService {
 
     const batches = this.chunk(requests, 20);
     for (const batch of batches) {
-      await this.executeWithRetry(
+      const response = await this.executeWithRetry(
         () => client.api('/$batch').post({ requests: batch }),
         `ms batch (${batch.length})`,
       );
+
+      // Bug #11 fix: Validate individual responses in batch
+      const responses = response?.responses || [];
+      for (const res of responses) {
+        if (res.status >= 400) {
+          const errorMsg = res.body?.error?.message || 'Unknown error';
+          this.logger.error(
+            `Microsoft batch operation failed: HTTP ${res.status} - ${errorMsg} (request ${res.id})`,
+          );
+        }
+      }
     }
   }
 

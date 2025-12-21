@@ -338,9 +338,15 @@ export class AttachmentOnDemandService {
       await client.mailboxOpen('INBOX');
 
       // Parse UID from externalMessageId
-      const uid = parseInt(externalMessageId, 10);
+      // IMAP externalId format is "folder:uid" (e.g., "INBOX:271")
+      // Extract just the numeric UID part
+      let rawUid = externalMessageId;
+      if (rawUid.includes(':')) {
+        rawUid = rawUid.split(':').pop() || rawUid;
+      }
+      const uid = parseInt(rawUid, 10);
       if (isNaN(uid)) {
-        throw new Error(`Invalid IMAP UID: ${externalMessageId}`);
+        throw new Error(`Invalid IMAP UID: ${externalMessageId} (parsed: ${rawUid})`);
       }
 
       // Download the entire message

@@ -427,5 +427,256 @@ export function createEmailTools(
         };
       },
     }),
+
+    // ========== BULK DELETE EMAILS ==========
+    createTool({
+      name: 'bulk_delete_emails',
+      description:
+        'Delete multiple emails from a folder at once. Use for: "delete all junk", "empty spam folder", "delete old emails".',
+      parameters: z.object({
+        folder: z.string().optional().describe('Folder to delete from: JUNK, SPAM, TRASH, INBOX, SENT, etc.'),
+        emailIds: z.array(z.string()).optional().describe('Specific email IDs to delete (alternative to folder)'),
+        olderThanDays: z.number().optional().describe('Only delete emails older than X days'),
+        permanent: z.boolean().optional().describe('Permanently delete instead of moving to trash'),
+      }),
+      execute: async ({ folder, emailIds, olderThanDays, permanent }) => {
+        // Build query to count emails
+        const whereClause: Record<string, unknown> = { tenantId };
+
+        if (emailIds && emailIds.length > 0) {
+          whereClause.id = { in: emailIds };
+        } else if (folder) {
+          // Normalize folder specialUse type
+          // Handle JUNK/SPAM synonyms - folder-sync stores 'JUNK', but user may say 'SPAM'
+          const upperFolder = folder.toUpperCase();
+          const specialUseVariants = upperFolder === 'JUNK' || upperFolder === 'SPAM'
+            ? ['JUNK', 'SPAM']
+            : [upperFolder];
+
+          // Look up actual folder names by specialUse (handles localized folder names)
+          const matchingFolders = await prisma.folder.findMany({
+            where: { tenantId, specialUse: { in: specialUseVariants } },
+            select: { name: true, path: true },
+          });
+
+          if (matchingFolders.length > 0) {
+            // Match by folder name or path (providers may use either)
+            const folderNames = matchingFolders.flatMap((f) => [f.name, f.path]);
+            whereClause.folder = { in: folderNames };
+          } else {
+            // Fallback: try direct folder name match (case-insensitive)
+            whereClause.folder = { contains: folder, mode: 'insensitive' };
+          }
+        } else {
+          return { success: false, error: 'Either folder or emailIds must be provided' };
+        }
+
+        if (olderThanDays) {
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+          whereClause.receivedAt = { lt: cutoffDate };
+        }
+
+        // Count emails to be deleted
+        const count = await prisma.email.count({ where: whereClause as any });
+
+        if (count === 0) {
+          return { success: true, data: { count: 0 }, summary: 'No emails found to delete' };
+        }
+
+        // Get IDs for the bulk operation
+        const emailsToDelete = await prisma.email.findMany({
+          where: whereClause as any,
+          select: { id: true },
+          take: 1000, // Limit to prevent memory issues
+        });
+
+        const folderName = folder ? folder.toUpperCase() : 'selected';
+        return {
+          success: true,
+          requiresApproval: true,
+          actionType: 'BULK_DELETE_EMAILS',
+          severity: 'HIGH',
+          payload: {
+            emailIds: emailsToDelete.map((e) => e.id),
+            folder: folder?.toUpperCase(),
+            permanent: permanent ?? false,
+            count,
+          },
+          summary: `Delete ${count} email${count === 1 ? '' : 's'} from ${folderName} folder`,
+        };
+      },
+    }),
+
+    // ========== EMPTY FOLDER ==========
+    createTool({
+      name: 'empty_folder',
+      description:
+        'Empty a folder completely (JUNK, SPAM, TRASH). Use for: "empty trash", "clear spam", "empty junk folder".',
+      parameters: z.object({
+        folder: z
+          .enum(['JUNK', 'SPAM', 'TRASH'])
+          .describe('Folder to empty: JUNK, SPAM, or TRASH'),
+        permanent: z.boolean().optional().describe('Permanently delete instead of moving to trash (only for non-TRASH folders)'),
+      }),
+      execute: async ({ folder, permanent }) => {
+        // Normalize folder specialUse type
+        // Handle JUNK/SPAM synonyms - folder-sync stores 'JUNK', but user may say 'SPAM'
+        const upperFolder = folder.toUpperCase();
+        const specialUseVariants = upperFolder === 'JUNK' || upperFolder === 'SPAM'
+          ? ['JUNK', 'SPAM']
+          : [upperFolder];
+
+        // Look up actual folder names by specialUse (handles localized folder names)
+        const matchingFolders = await prisma.folder.findMany({
+          where: { tenantId, specialUse: { in: specialUseVariants } },
+          select: { name: true, path: true },
+        });
+
+        // Build where clause with actual folder names
+        const folderWhereClause: Record<string, unknown> = { tenantId };
+        if (matchingFolders.length > 0) {
+          const folderNames = matchingFolders.flatMap((f) => [f.name, f.path]);
+          folderWhereClause.folder = { in: folderNames };
+        } else {
+          // Fallback: try direct folder name match
+          folderWhereClause.folder = { contains: folder, mode: 'insensitive' };
+        }
+
+        // Count emails in folder
+        const count = await prisma.email.count({
+          where: folderWhereClause as any,
+        });
+
+        if (count === 0) {
+          return { success: true, data: { count: 0 }, summary: `${folder} folder is already empty` };
+        }
+
+        // Get IDs for the bulk operation
+        const emailsToDelete = await prisma.email.findMany({
+          where: folderWhereClause as any,
+          select: { id: true },
+          take: 5000, // Higher limit for empty operations
+        });
+
+        return {
+          success: true,
+          requiresApproval: true,
+          actionType: 'EMPTY_FOLDER',
+          severity: 'HIGH',
+          payload: {
+            folder: upperFolder,
+            emailIds: emailsToDelete.map((e) => e.id),
+            permanent: permanent ?? (upperFolder === 'TRASH'),
+            count,
+          },
+          summary: `Empty ${folder} folder (${count} email${count === 1 ? '' : 's'})`,
+        };
+      },
+    }),
+
+    // ========== BULK ARCHIVE EMAILS ==========
+    createTool({
+      name: 'bulk_archive_emails',
+      description:
+        'Archive multiple emails at once. Use for: "archive all read emails", "archive old emails".',
+      parameters: z.object({
+        folder: z.string().optional().describe('Folder to archive from: INBOX, etc.'),
+        emailIds: z.array(z.string()).optional().describe('Specific email IDs to archive'),
+        onlyRead: z.boolean().optional().describe('Only archive read emails'),
+        olderThanDays: z.number().optional().describe('Only archive emails older than X days'),
+      }),
+      execute: async ({ folder, emailIds, onlyRead, olderThanDays }) => {
+        const whereClause: Record<string, unknown> = { tenantId };
+
+        if (emailIds && emailIds.length > 0) {
+          whereClause.id = { in: emailIds };
+        } else if (folder) {
+          whereClause.folder = folder.toUpperCase();
+        } else {
+          whereClause.folder = 'INBOX';
+        }
+
+        if (onlyRead) {
+          whereClause.isRead = true;
+        }
+
+        if (olderThanDays) {
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+          whereClause.receivedAt = { lt: cutoffDate };
+        }
+
+        const count = await prisma.email.count({ where: whereClause as any });
+
+        if (count === 0) {
+          return { success: true, data: { count: 0 }, summary: 'No emails found to archive' };
+        }
+
+        const emailsToArchive = await prisma.email.findMany({
+          where: whereClause as any,
+          select: { id: true },
+          take: 1000,
+        });
+
+        return {
+          success: true,
+          requiresApproval: true,
+          actionType: 'BULK_ARCHIVE_EMAILS',
+          severity: 'MEDIUM',
+          payload: {
+            emailIds: emailsToArchive.map((e) => e.id),
+            count,
+          },
+          summary: `Archive ${count} email${count === 1 ? '' : 's'}`,
+        };
+      },
+    }),
+
+    // ========== BULK MARK READ ==========
+    createTool({
+      name: 'bulk_mark_read',
+      description:
+        'Mark multiple emails as read. Use for: "mark all as read", "mark inbox as read".',
+      parameters: z.object({
+        folder: z.string().optional().describe('Folder to mark as read: INBOX, etc.'),
+        emailIds: z.array(z.string()).optional().describe('Specific email IDs to mark as read'),
+      }),
+      execute: async ({ folder, emailIds }) => {
+        const whereClause: Record<string, unknown> = { tenantId, isRead: false };
+
+        if (emailIds && emailIds.length > 0) {
+          whereClause.id = { in: emailIds };
+        } else if (folder) {
+          whereClause.folder = folder.toUpperCase();
+        } else {
+          whereClause.folder = { not: { in: ['SPAM', 'TRASH'] } };
+        }
+
+        const count = await prisma.email.count({ where: whereClause as any });
+
+        if (count === 0) {
+          return { success: true, data: { count: 0 }, summary: 'No unread emails found' };
+        }
+
+        const emailsToMark = await prisma.email.findMany({
+          where: whereClause as any,
+          select: { id: true },
+          take: 1000,
+        });
+
+        return {
+          success: true,
+          requiresApproval: true,
+          actionType: 'BULK_MARK_READ',
+          severity: 'LOW',
+          payload: {
+            emailIds: emailsToMark.map((e) => e.id),
+            count,
+          },
+          summary: `Mark ${count} email${count === 1 ? '' : 's'} as read`,
+        };
+      },
+    }),
   ];
 }

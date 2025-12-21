@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { QueueService } from './queue.service';
@@ -32,6 +33,20 @@ export class MicrosoftWebhookService {
     private configService: ConfigService,
     private providerTokenService: ProviderTokenService,
   ) {}
+
+  /**
+   * Security fix: Timing-safe string comparison (CWE-208)
+   * Prevents timing attacks on clientState validation
+   */
+  private safeCompare(provided: string, expected: string): boolean {
+    if (provided.length !== expected.length) {
+      const paddedProvided = Buffer.alloc(expected.length, provided);
+      const expectedBuf = Buffer.from(expected);
+      timingSafeEqual(paddedProvided, expectedBuf);
+      return false;
+    }
+    return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+  }
 
   /**
    * Handle incoming Microsoft Graph notifications
@@ -94,7 +109,7 @@ export class MicrosoftWebhookService {
     const expectedClientState =
       (subscription.metadata as any)?.clientState ??
       (subscription as any).clientState;
-    if (expectedClientState && notification.clientState !== expectedClientState) {
+    if (expectedClientState && !this.safeCompare(notification.clientState || '', expectedClientState)) {
       this.logger.warn(
         `ClientState mismatch for provider ${provider.id}: expected ${expectedClientState}, got ${notification.clientState}; dropping notification.`,
       );

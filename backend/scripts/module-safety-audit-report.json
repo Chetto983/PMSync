@@ -1,13 +1,13 @@
 {
-  "timestamp": "2025-12-16T16:44:40.227Z",
+  "timestamp": "2025-12-21T20:46:52.525Z",
   "summary": {
     "totalFiles": 25,
     "totalChecks": 339,
-    "passed": 270,
-    "failed": 69,
+    "passed": 269,
+    "failed": 70,
     "criticalIssues": 7,
     "highIssues": 14,
-    "mediumIssues": 43,
+    "mediumIssues": 44,
     "lowIssues": 5,
     "overallScore": 88
   },
@@ -106,8 +106,8 @@
   "byCheck": [
     {
       "check": "ParseUUIDPipe",
-      "passed": 1,
-      "failed": 24,
+      "passed": 0,
+      "failed": 25,
       "severity": "medium"
     },
     {
@@ -1284,8 +1284,9 @@
         },
         {
           "check": "ParseUUIDPipe",
-          "passed": true,
-          "severity": "medium"
+          "passed": false,
+          "severity": "medium",
+          "details": "Parameter type validation"
         },
         {
           "check": "Throttle",

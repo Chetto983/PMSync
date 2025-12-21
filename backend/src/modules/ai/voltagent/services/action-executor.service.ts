@@ -6,6 +6,7 @@ import { EmailSendService } from '../../../email/services/email-send.service';
 import { EmailSyncBackService } from '../../../email/services/email-sync-back.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
 import { FolderSyncService } from '../../../email-sync/services/folder-sync.service';
+import { BulkOperationsQueueService } from '../../../email-sync/services/bulk-operations-queue.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { CorrelationContext } from '../../../../common/services/correlation-context.service';
 import {
@@ -47,6 +48,7 @@ export class ActionExecutorService {
     @Optional() private readonly calendarService: CalendarService,
     @Optional() @Inject(forwardRef(() => FolderSyncService))
     private readonly folderSyncService: FolderSyncService,
+    @Optional() private readonly bulkOperationsQueue: BulkOperationsQueueService,
     @Optional() private readonly cacheService?: CacheService,
   ) {}
 
@@ -177,6 +179,21 @@ export class ActionExecutorService {
           break;
         case AgentActionType.DELETE_FOLDER:
           result = await this.executeDeleteFolder(action, context);
+          break;
+
+        // Bulk email actions
+        case AgentActionType.BULK_DELETE_EMAILS:
+        case AgentActionType.EMPTY_FOLDER:
+          result = await this.executeBulkDeleteEmails(action, context);
+          break;
+        case AgentActionType.BULK_ARCHIVE_EMAILS:
+          result = await this.executeBulkArchiveEmails(action, context);
+          break;
+        case AgentActionType.BULK_MARK_READ:
+          result = await this.executeBulkMarkRead(action, context);
+          break;
+        case AgentActionType.BULK_MOVE_EMAILS:
+          result = await this.executeBulkMoveEmails(action, context);
           break;
 
         default:
@@ -1554,6 +1571,258 @@ export class ActionExecutorService {
       data: { folderPath, deleted: true },
       summary: t.folderDeleted[lang](folderPath),
       executionTimeMs: 0, // Overwritten by execute()
+    };
+  }
+
+  // ===============================
+  // BULK EMAIL ACTION EXECUTORS
+  // ===============================
+
+  /**
+   * Get provider type for bulk operations
+   */
+  private async getProviderType(
+    tenantId: string,
+    providerId: string,
+  ): Promise<'google' | 'microsoft' | 'imap'> {
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: { id: providerId, tenantId },
+      select: { providerType: true },
+    });
+
+    if (!provider) {
+      throw new Error('Provider not found');
+    }
+
+    // Map provider type to bulk operation type
+    const typeMap: Record<string, 'google' | 'microsoft' | 'imap'> = {
+      GOOGLE: 'google',
+      MICROSOFT: 'microsoft',
+      IMAP: 'imap',
+    };
+
+    return typeMap[provider.providerType] || 'imap';
+  }
+
+  /**
+   * Bulk delete emails or empty a folder
+   */
+  private async executeBulkDeleteEmails(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { emailIds, folder, permanent, count } = action.payload;
+    const lang = getLocale(context.preferences?.language);
+
+    if (!this.bulkOperationsQueue) {
+      throw new Error('Bulk operations service not available');
+    }
+
+    if (!emailIds || emailIds.length === 0) {
+      throw new Error('No emails to delete');
+    }
+
+    // Get provider from first email
+    const firstEmail = await this.prisma.email.findFirst({
+      where: { id: emailIds[0], tenantId: context.tenantId },
+      select: { providerId: true },
+    });
+
+    if (!firstEmail) {
+      throw new Error('Emails not found');
+    }
+
+    const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
+
+    // Queue the bulk operation
+    const jobId = await this.bulkOperationsQueue.enqueueBulkOperation({
+      tenantId: context.tenantId,
+      providerId: firstEmail.providerId,
+      providerType,
+      operation: permanent ? 'delete' : 'delete',
+      emailIds,
+      requestedAt: new Date().toISOString(),
+      userId: context.userId,
+      syncToProvider: true,
+    });
+
+    const emailCount = count || emailIds.length;
+    const folderName = folder || 'selected';
+
+    return {
+      success: true,
+      data: { jobId, emailCount, folder: folderName, queued: true },
+      summary: t.bulkDeleteQueued?.[lang]
+        ? t.bulkDeleteQueued[lang](emailCount, folderName)
+        : `Queued deletion of ${emailCount} emails from ${folderName}. Job ID: ${jobId}`,
+      executionTimeMs: 0,
+    };
+  }
+
+  /**
+   * Bulk archive emails
+   */
+  private async executeBulkArchiveEmails(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { emailIds, count } = action.payload;
+    const lang = getLocale(context.preferences?.language);
+
+    if (!this.bulkOperationsQueue) {
+      throw new Error('Bulk operations service not available');
+    }
+
+    if (!emailIds || emailIds.length === 0) {
+      throw new Error('No emails to archive');
+    }
+
+    // Get provider from first email
+    const firstEmail = await this.prisma.email.findFirst({
+      where: { id: emailIds[0], tenantId: context.tenantId },
+      select: { providerId: true },
+    });
+
+    if (!firstEmail) {
+      throw new Error('Emails not found');
+    }
+
+    const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
+
+    // Queue the bulk operation
+    const jobId = await this.bulkOperationsQueue.enqueueBulkOperation({
+      tenantId: context.tenantId,
+      providerId: firstEmail.providerId,
+      providerType,
+      operation: 'archive',
+      emailIds,
+      requestedAt: new Date().toISOString(),
+      userId: context.userId,
+      syncToProvider: true,
+    });
+
+    const emailCount = count || emailIds.length;
+
+    return {
+      success: true,
+      data: { jobId, emailCount, queued: true },
+      summary: t.bulkArchiveQueued?.[lang]
+        ? t.bulkArchiveQueued[lang](emailCount)
+        : `Queued archiving of ${emailCount} emails. Job ID: ${jobId}`,
+      executionTimeMs: 0,
+    };
+  }
+
+  /**
+   * Bulk mark emails as read
+   */
+  private async executeBulkMarkRead(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { emailIds, count } = action.payload;
+    const lang = getLocale(context.preferences?.language);
+
+    if (!this.bulkOperationsQueue) {
+      throw new Error('Bulk operations service not available');
+    }
+
+    if (!emailIds || emailIds.length === 0) {
+      throw new Error('No emails to mark as read');
+    }
+
+    // Get provider from first email
+    const firstEmail = await this.prisma.email.findFirst({
+      where: { id: emailIds[0], tenantId: context.tenantId },
+      select: { providerId: true },
+    });
+
+    if (!firstEmail) {
+      throw new Error('Emails not found');
+    }
+
+    const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
+
+    // Queue the bulk operation
+    const jobId = await this.bulkOperationsQueue.enqueueBulkOperation({
+      tenantId: context.tenantId,
+      providerId: firstEmail.providerId,
+      providerType,
+      operation: 'mark-read',
+      emailIds,
+      requestedAt: new Date().toISOString(),
+      userId: context.userId,
+      syncToProvider: true,
+    });
+
+    const emailCount = count || emailIds.length;
+
+    return {
+      success: true,
+      data: { jobId, emailCount, queued: true },
+      summary: t.bulkMarkReadQueued?.[lang]
+        ? t.bulkMarkReadQueued[lang](emailCount)
+        : `Queued marking ${emailCount} emails as read. Job ID: ${jobId}`,
+      executionTimeMs: 0,
+    };
+  }
+
+  /**
+   * Bulk move emails to a folder
+   */
+  private async executeBulkMoveEmails(
+    action: AgentAction,
+    context: AgentContext,
+  ): Promise<ActionExecutionResult> {
+    const { emailIds, targetFolder, count } = action.payload;
+    const lang = getLocale(context.preferences?.language);
+
+    if (!this.bulkOperationsQueue) {
+      throw new Error('Bulk operations service not available');
+    }
+
+    if (!emailIds || emailIds.length === 0) {
+      throw new Error('No emails to move');
+    }
+
+    if (!targetFolder) {
+      throw new Error('Target folder is required');
+    }
+
+    // Get provider from first email
+    const firstEmail = await this.prisma.email.findFirst({
+      where: { id: emailIds[0], tenantId: context.tenantId },
+      select: { providerId: true },
+    });
+
+    if (!firstEmail) {
+      throw new Error('Emails not found');
+    }
+
+    const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
+
+    // Queue the bulk operation
+    const jobId = await this.bulkOperationsQueue.enqueueBulkOperation({
+      tenantId: context.tenantId,
+      providerId: firstEmail.providerId,
+      providerType,
+      operation: 'move',
+      emailIds,
+      targetFolderId: targetFolder,
+      requestedAt: new Date().toISOString(),
+      userId: context.userId,
+      syncToProvider: true,
+    });
+
+    const emailCount = count || emailIds.length;
+
+    return {
+      success: true,
+      data: { jobId, emailCount, targetFolder, queued: true },
+      summary: t.bulkMoveQueued?.[lang]
+        ? t.bulkMoveQueued[lang](emailCount, targetFolder)
+        : `Queued moving ${emailCount} emails to ${targetFolder}. Job ID: ${jobId}`,
+      executionTimeMs: 0,
     };
   }
 }

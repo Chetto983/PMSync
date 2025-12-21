@@ -17,6 +17,13 @@ export enum AgentActionType {
   UNSTAR_EMAIL = 'UNSTAR_EMAIL',
   GET_UNREAD = 'GET_UNREAD',
 
+  // Bulk email actions
+  BULK_DELETE_EMAILS = 'BULK_DELETE_EMAILS',
+  EMPTY_FOLDER = 'EMPTY_FOLDER',
+  BULK_ARCHIVE_EMAILS = 'BULK_ARCHIVE_EMAILS',
+  BULK_MARK_READ = 'BULK_MARK_READ',
+  BULK_MOVE_EMAILS = 'BULK_MOVE_EMAILS',
+
   // Folder actions
   CREATE_FOLDER = 'CREATE_FOLDER',
   RENAME_FOLDER = 'RENAME_FOLDER',
@@ -149,4 +156,37 @@ export interface RenameFolderPayload {
 export interface DeleteFolderPayload {
   providerId: string;
   folderPath: string;
+}
+
+/**
+ * Bulk email operation payloads
+ */
+export interface BulkDeleteEmailsPayload {
+  emailIds: string[];
+  folder?: string;
+  permanent: boolean;
+  count: number;
+}
+
+export interface EmptyFolderPayload {
+  folder: string;
+  emailIds: string[];
+  permanent: boolean;
+  count: number;
+}
+
+export interface BulkArchiveEmailsPayload {
+  emailIds: string[];
+  count: number;
+}
+
+export interface BulkMarkReadPayload {
+  emailIds: string[];
+  count: number;
+}
+
+export interface BulkMoveEmailsPayload {
+  emailIds: string[];
+  targetFolder: string;
+  count: number;
 }

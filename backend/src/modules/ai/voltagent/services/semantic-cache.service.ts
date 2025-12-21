@@ -119,8 +119,7 @@ const DEFAULT_CONFIG: SemanticCacheConfig = {
   categoryThresholds: true,
 };
 
-/** Default analytics state */
-const DEFAULT_ANALYTICS: CacheAnalytics = {
+const createDefaultAnalytics = (): CacheAnalytics => ({
   lookups: 0,
   hits: 0,
   misses: 0,
@@ -136,7 +135,7 @@ const DEFAULT_ANALYTICS: CacheAnalytics = {
     compose: { lookups: 0, hits: 0 },
     general: { lookups: 0, hits: 0 },
   },
-};
+});
 
 /** Query patterns for category classification */
 const CATEGORY_PATTERNS: Array<{ category: QueryCategory; patterns: RegExp[] }> = [
@@ -282,7 +281,7 @@ export class SemanticCacheService {
    */
   private getAnalytics(tenantId: string): CacheAnalytics {
     if (!this.analyticsCache.has(tenantId)) {
-      this.analyticsCache.set(tenantId, { ...DEFAULT_ANALYTICS });
+      this.analyticsCache.set(tenantId, createDefaultAnalytics());
     }
     return this.analyticsCache.get(tenantId)!;
   }

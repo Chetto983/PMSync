@@ -85,6 +85,12 @@ export const actionSummaries = {
   folderRenamed: { en: en.actions.folderRenamed, it: it.actions.folderRenamed },
   folderDeleted: { en: en.actions.folderDeleted, it: it.actions.folderDeleted },
 
+  // Bulk email actions
+  bulkDeleteQueued: { en: en.actions.bulkDeleteQueued, it: it.actions.bulkDeleteQueued },
+  bulkArchiveQueued: { en: en.actions.bulkArchiveQueued, it: it.actions.bulkArchiveQueued },
+  bulkMarkReadQueued: { en: en.actions.bulkMarkReadQueued, it: it.actions.bulkMarkReadQueued },
+  bulkMoveQueued: { en: en.actions.bulkMoveQueued, it: it.actions.bulkMoveQueued },
+
   // Fallback labels
   noSubject: { en: en.actions.noSubject, it: it.actions.noSubject },
   unknownSender: { en: en.actions.unknownSender, it: it.actions.unknownSender },

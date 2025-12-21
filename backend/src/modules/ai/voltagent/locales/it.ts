@@ -526,6 +526,15 @@ LINEE GUIDA:
     folderCreated: (name) => `Cartella "${name}" creata.`,
     folderRenamed: (name) => `Cartella rinominata in "${name}".`,
     folderDeleted: (path) => `Cartella "${path}" eliminata.`,
+    // Bulk email actions
+    bulkDeleteQueued: (count, folder) =>
+      `Eliminazione di ${count} email da ${folder} in coda. Elaborazione in background.`,
+    bulkArchiveQueued: (count) =>
+      `Archiviazione di ${count} email in coda. Elaborazione in background.`,
+    bulkMarkReadQueued: (count) =>
+      `${count} email contrassegnate come lette in coda. Elaborazione in background.`,
+    bulkMoveQueued: (count, folder) =>
+      `Spostamento di ${count} email in ${folder} in coda. Elaborazione in background.`,
     noSubject: 'Senza oggetto',
     unknownSender: 'Mittente sconosciuto',
     event: 'Evento',

@@ -62,7 +62,10 @@
       "Bash(grep:*)",
       "Bash(PGPASSWORD=mailagent psql:*)",
       "Bash(npx prisma migrate:*)",
-      "Bash(npx prisma db push --skip-generate)"
+      "Bash(npx prisma db push --skip-generate)",
+      "Skill(verification-quality)",
+      "Skill(verification-quality:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": []
   }

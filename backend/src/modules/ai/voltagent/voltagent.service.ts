@@ -470,7 +470,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Cache key includes userId if userContext is provided (personalized agents)
     // Fall back to locale+model for anonymous/system calls
     const userKey = userContext?.email ?? 'anonymous';
-    const cacheKey = `${userKey}:${locale}:${modelType}`;
+    const cacheKey = `${tenantId}:${userKey}:${locale}:${modelType}`;
     const now = Date.now();
 
     // Check if cached agent exists and is not expired
@@ -576,7 +576,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     if (!options.skipCache && this.semanticCacheService?.isEnabled()) {
       const cacheResult = await this.semanticCacheService.get(
         options.tenantId,
-        message,
+        processedMessage,
         options.model,
       );
 
@@ -593,7 +593,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // 2. Route to optimal model based on task complexity (40-60% cost savings)
     let selectedModel = options.model;
     if (!selectedModel && this.modelRouterService) {
-      const routing = this.modelRouterService.routeMessage(message, {
+      const routing = this.modelRouterService.routeMessage(processedMessage, {
         preferSpeed: options.preferSpeed,
         preferQuality: options.preferQuality,
       });
@@ -628,7 +628,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           locale: options.locale,
         },
         budgetType,
-        message,
+        processedMessage,
       );
 
       contextTruncated = budgetResult.wasTruncated;
@@ -653,6 +653,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         }
 
         conversationHistoryContext = historyParts.join('\n\n---\n\n');
+        if (this.piiDetectionService) {
+          conversationHistoryContext = this.piiDetectionService.redact(conversationHistoryContext);
+        }
         this.logger.debug(
           `${logPrefix} Conversation history injected: ${budgetResult.messages.length} messages, ${budgetResult.summaries.length} summaries`,
         );
@@ -667,18 +670,21 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     // 3.5. Inject long-term memory context (26% accuracy improvement)
-    let enhancedMessage = message;
+    let enhancedMessage = processedMessage;
     if (this.longTermMemoryService?.isEnabled()) {
       try {
         const memoryContext = await this.longTermMemoryService.getContextForPrompt(
           options.tenantId,
           options.userId,
-          message,
+          processedMessage,
           { limit: 5, minImportance: 0.3 },
         );
         if (memoryContext) {
+          const safeMemoryContext = this.piiDetectionService
+            ? this.piiDetectionService.redact(memoryContext)
+            : memoryContext;
           // Prepend memory context to the message for the agent
-          enhancedMessage = `${memoryContext}\n\n---\n\n${message}`;
+          enhancedMessage = `${safeMemoryContext}\n\n---\n\n${enhancedMessage}`;
           this.logger.debug(`${logPrefix} Long-term memory context injected`);
         }
       } catch (error) {
@@ -817,10 +823,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // 3. Cache the response for future similar queries
     if (!options.skipCache && this.semanticCacheService?.isEnabled() && pendingActions.length === 0) {
       // Only cache responses without pending actions (those are deterministic)
-      const estimatedTokens = this.modelRouterService?.routeMessage(message).estimatedTokens ?? 500;
+      const estimatedTokens =
+        this.modelRouterService?.routeMessage(processedMessage).estimatedTokens ?? 500;
       await this.semanticCacheService.set(
         options.tenantId,
-        message,
+        processedMessage,
         result.text,
         selectedModel || 'small',
         estimatedTokens,
@@ -844,11 +851,44 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    * Persists messages to Prisma-based memory after streaming completes.
    */
   async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string> {
-    const logPrefix = `[stream] [tenant:${options.tenantId}]`;
+    const correlationId = CorrelationContext.getCorrelationId();
+    const logPrefix = `[${correlationId}] [stream] [tenant:${options.tenantId}]`;
+
+    // 0a. Security: Validate input for prompt injection (OWASP LLM01:2025)
+    if (this.promptGuardService) {
+      const validationResult = this.promptGuardService.validateInput(message);
+
+      if (!validationResult.isValid) {
+        this.logger.warn(
+          `${logPrefix} Prompt injection blocked: score=${validationResult.riskScore}, patterns=${validationResult.detectedPatterns.join(', ')}`,
+        );
+        yield 'I cannot process this request. Please rephrase your message.';
+        return;
+      }
+
+      if (validationResult.requiresHumanReview) {
+        this.logger.warn(
+          `${logPrefix} High-risk prompt flagged for review: score=${validationResult.riskScore}`,
+        );
+      }
+    }
+
+    // 0b. Security: Detect and redact PII before sending to LLM
+    let processedMessage = message;
+    if (this.piiDetectionService) {
+      const piiResult = this.piiDetectionService.detect(message);
+      if (piiResult.hasPii) {
+        this.logger.log(
+          `${logPrefix} PII detected and redacted: types=${piiResult.detectedTypes.join(', ')}`,
+        );
+        processedMessage = piiResult.redactedText;
+      }
+    }
 
     // 0. Check rate limits (same as non-streaming)
     if (this.rateLimiterService) {
-      const estimatedTokens = this.modelRouterService?.routeMessage(message).estimatedTokens ?? 500;
+      const estimatedTokens =
+        this.modelRouterService?.routeMessage(processedMessage).estimatedTokens ?? 500;
       const rateLimit = await this.rateLimiterService.checkLimit(options.tenantId, estimatedTokens);
 
       if (!rateLimit.allowed) {
@@ -862,7 +902,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     if (!options.skipCache && this.semanticCacheService?.isEnabled()) {
       const cacheResult = await this.semanticCacheService.get(
         options.tenantId,
-        message,
+        processedMessage,
         options.model,
       );
 
@@ -876,7 +916,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // 2. Route to optimal model
     let selectedModel = options.model;
     if (!selectedModel && this.modelRouterService) {
-      const routing = this.modelRouterService.routeMessage(message, {
+      const routing = this.modelRouterService.routeMessage(processedMessage, {
         preferSpeed: options.preferSpeed,
         preferQuality: options.preferQuality,
       });
@@ -901,7 +941,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           locale: options.locale,
         },
         budgetType,
-        message,
+        processedMessage,
       );
 
       // CRITICAL: Inject conversation history so agent remembers prior messages
@@ -918,22 +958,28 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           historyParts.push(`[Recent Conversation]\n${formattedMessages.join('\n\n')}`);
         }
         conversationHistoryContext = historyParts.join('\n\n---\n\n');
+        if (this.piiDetectionService) {
+          conversationHistoryContext = this.piiDetectionService.redact(conversationHistoryContext);
+        }
         this.logger.debug(`${logPrefix} Conversation history injected: ${budgetResult.messages.length} messages`);
       }
     }
 
     // 2.6. Inject long-term memory context
-    let enhancedMessage = message;
+    let enhancedMessage = processedMessage;
     if (this.longTermMemoryService?.isEnabled()) {
       try {
         const memoryContext = await this.longTermMemoryService.getContextForPrompt(
           options.tenantId,
           options.userId,
-          message,
+          processedMessage,
           { limit: 5, minImportance: 0.3 },
         );
         if (memoryContext) {
-          enhancedMessage = `${memoryContext}\n\n---\n\n${message}`;
+          const safeMemoryContext = this.piiDetectionService
+            ? this.piiDetectionService.redact(memoryContext)
+            : memoryContext;
+          enhancedMessage = `${safeMemoryContext}\n\n---\n\n${enhancedMessage}`;
           this.logger.debug(`${logPrefix} Long-term memory context injected`);
         }
       } catch (error) {
@@ -972,10 +1018,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // 3. Cache response for future similar queries
     if (!options.skipCache && this.semanticCacheService?.isEnabled() && fullResponse.length > 0) {
-      const estimatedTokens = this.modelRouterService?.routeMessage(message).estimatedTokens ?? 500;
+      const estimatedTokens =
+        this.modelRouterService?.routeMessage(processedMessage).estimatedTokens ?? 500;
       await this.semanticCacheService.set(
         options.tenantId,
-        message,
+        processedMessage,
         fullResponse,
         selectedModel || 'small',
         estimatedTokens,

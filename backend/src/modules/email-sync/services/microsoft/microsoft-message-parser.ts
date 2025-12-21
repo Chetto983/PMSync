@@ -73,9 +73,10 @@ export class MicrosoftMessageParser {
       .filter(Boolean);
 
     const subject = message.subject || '(No Subject)';
+    // With Prefer: outlook.body-content-type="html" header, body is returned as HTML when available
+    // Don't use text content as fallback for bodyHtml - keep them separate
     const bodyText = message.body?.contentType === 'text' ? message.body.content : '';
-    const bodyHtml =
-      message.body?.contentType === 'html' ? message.body.content : message.body?.content || '';
+    const bodyHtml = message.body?.contentType === 'html' ? message.body.content : '';
     const snippet = message.bodyPreview || truncateText(bodyText, 200);
     const sentAt = message.sentDateTime ? new Date(message.sentDateTime) : new Date();
     const receivedAt = message.receivedDateTime ? new Date(message.receivedDateTime) : new Date();

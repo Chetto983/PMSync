@@ -529,6 +529,15 @@ GUIDELINES:
     folderCreated: (name) => `Folder "${name}" created.`,
     folderRenamed: (name) => `Folder renamed to "${name}".`,
     folderDeleted: (path) => `Folder "${path}" deleted.`,
+    // Bulk email actions
+    bulkDeleteQueued: (count, folder) =>
+      `Queued deletion of ${count} email${count === 1 ? '' : 's'} from ${folder}. Processing in background.`,
+    bulkArchiveQueued: (count) =>
+      `Queued archiving of ${count} email${count === 1 ? '' : 's'}. Processing in background.`,
+    bulkMarkReadQueued: (count) =>
+      `Queued marking ${count} email${count === 1 ? '' : 's'} as read. Processing in background.`,
+    bulkMoveQueued: (count, folder) =>
+      `Queued moving ${count} email${count === 1 ? '' : 's'} to ${folder}. Processing in background.`,
     noSubject: 'No subject',
     unknownSender: 'Unknown sender',
     event: 'Event',

@@ -259,9 +259,12 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
     const excludedSpecialUse = EmbeddingBackfillSchedulerService.EXCLUDED_SPECIAL_USE;
 
     // Build OR conditions for folder pattern exclusion
-    const patternConditions = excludedPatterns
-      .map(p => `LOWER(e."folder") LIKE '%${p}%'`)
-      .join(' OR ');
+    const patternConditions = Prisma.join(
+      excludedPatterns.map((pattern) =>
+        Prisma.sql`LOWER(COALESCE(e."folder", '')) LIKE ${`%${pattern.toLowerCase()}%`}`,
+      ),
+      ' OR ',
+    );
 
     const rows = await this.prisma.$queryRaw<Array<any>>(
       Prisma.sql`
@@ -286,7 +289,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
           -- Exclude by specialUse
           AND (f."specialUse" IS NULL OR f."specialUse" NOT IN (${Prisma.join(excludedSpecialUse)}))
           -- Exclude by folder name patterns (case insensitive)
-          AND NOT (${Prisma.raw(patternConditions)})
+          AND NOT (${patternConditions})
         ORDER BY e."receivedAt" DESC NULLS LAST
         LIMIT ${limit};
       `,
@@ -303,9 +306,12 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
     const excludedSpecialUse = EmbeddingBackfillSchedulerService.EXCLUDED_SPECIAL_USE;
 
     // Build OR conditions for folder pattern exclusion
-    const patternConditions = excludedPatterns
-      .map(p => `LOWER(e."folder") LIKE '%${p}%'`)
-      .join(' OR ');
+    const patternConditions = Prisma.join(
+      excludedPatterns.map((pattern) =>
+        Prisma.sql`LOWER(COALESCE(e."folder", '')) LIKE ${`%${pattern.toLowerCase()}%`}`,
+      ),
+      ' OR ',
+    );
 
     const result = await this.prisma.$queryRaw<Array<{ count: bigint }>>(
       Prisma.sql`
@@ -321,7 +327,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
           -- Exclude by specialUse
           AND (f."specialUse" IS NULL OR f."specialUse" NOT IN (${Prisma.join(excludedSpecialUse)}))
           -- Exclude by folder name patterns (case insensitive)
-          AND NOT (${Prisma.raw(patternConditions)});
+          AND NOT (${patternConditions});
       `,
     );
 

@@ -305,6 +305,11 @@ export interface ActionSummaryTranslations {
   folderCreated: (name: string) => string;
   folderRenamed: (name: string) => string;
   folderDeleted: (path: string) => string;
+  // Bulk email actions
+  bulkDeleteQueued: (count: number, folder: string) => string;
+  bulkArchiveQueued: (count: number) => string;
+  bulkMarkReadQueued: (count: number) => string;
+  bulkMoveQueued: (count: number, folder: string) => string;
   noSubject: string;
   unknownSender: string;
   event: string;

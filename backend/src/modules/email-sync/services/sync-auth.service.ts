@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit, UnauthorizedException } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -46,6 +47,21 @@ export class SyncAuthService implements OnModuleInit {
     this.logger.warn(message);
   }
 
+  /**
+   * Security fix: Timing-safe string comparison to prevent timing attacks (CWE-208)
+   * Uses crypto.timingSafeEqual which takes constant time regardless of where strings differ
+   */
+  private safeCompare(provided: string, expected: string): boolean {
+    if (provided.length !== expected.length) {
+      // Still compare to maintain constant time even on length mismatch
+      const paddedProvided = Buffer.alloc(expected.length, provided);
+      const expectedBuf = Buffer.from(expected);
+      timingSafeEqual(paddedProvided, expectedBuf);
+      return false;
+    }
+    return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+  }
+
   validateWebhookToken(tokenFromHeader?: string, tokenFromQuery?: string) {
     const expected = this.configService.get<string>('EMAIL_SYNC_WEBHOOK_TOKEN');
     if (!expected) {
@@ -53,7 +69,8 @@ export class SyncAuthService implements OnModuleInit {
     }
 
     const provided = tokenFromHeader || tokenFromQuery;
-    if (!provided || provided !== expected) {
+    // Security fix: Use timing-safe comparison instead of !== (CWE-208)
+    if (!provided || !this.safeCompare(provided, expected)) {
       throw new UnauthorizedException('Invalid webhook token');
     }
   }
@@ -64,7 +81,8 @@ export class SyncAuthService implements OnModuleInit {
       return;
     }
 
-    if (!tokenFromJob || tokenFromJob !== expected) {
+    // Security fix: Use timing-safe comparison instead of !== (CWE-208)
+    if (!tokenFromJob || !this.safeCompare(tokenFromJob, expected)) {
       throw new UnauthorizedException('Invalid worker job token');
     }
   }

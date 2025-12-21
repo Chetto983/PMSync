@@ -45,10 +45,13 @@ export class WebhookController {
     @Query('token') queryToken?: string,
     @Headers('x-webhook-token') webhookToken?: string,
   ) {
+    // Security fix (Issue #4): Auth validation OUTSIDE try-catch
+    // UnauthorizedException will propagate and return 401 (not 200)
+    this.logger.debug('[WEBHOOK] Gmail push received, validating token...');
+    this.syncAuth.validateWebhookToken(webhookToken, queryToken);
+    this.logger.log('[WEBHOOK] Token validated, received Gmail Pub/Sub notification');
+
     try {
-      this.logger.debug('[WEBHOOK] Gmail push received, validating token...');
-      this.syncAuth.validateWebhookToken(webhookToken, queryToken);
-      this.logger.log('[WEBHOOK] Token validated, received Gmail Pub/Sub notification');
 
       // SECURITY: Only log structure, not content (payload may contain sensitive email metadata)
       this.logger.debug('[WEBHOOK] Payload received with keys:', Object.keys(payload || {}).join(', '));
@@ -59,9 +62,9 @@ export class WebhookController {
       this.logger.log('[WEBHOOK] Gmail notification processed successfully');
       return { success: true };
     } catch (error) {
-      this.logger.error('[WEBHOOK] Error handling Gmail webhook:', error);
-      this.logger.error('[WEBHOOK] Error stack:', error instanceof Error ? error.stack : 'No stack');
-      // Return 200 anyway to prevent Pub/Sub retries
+      this.logger.error('[WEBHOOK] Error processing Gmail notification:', error);
+      // Processing errors return 200 to prevent Pub/Sub retries (intentional)
+      // Auth errors already thrown above will return 401
       return { success: false, error: 'Processing failed' };
     }
   }
@@ -86,7 +89,6 @@ export class WebhookController {
     @Query('validationToken') validationToken?: string,
   ) {
     try {
-      // Handle subscription validation (initial setup)
       // Microsoft sends validationToken as query param during subscription creation
       if (validationToken) {
         this.logger.log('Microsoft webhook validation requested');

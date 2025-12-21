@@ -7,8 +7,10 @@
 /**
  * Folders that contain junk/deleted emails and should be excluded
  * from analytics, insights, briefings, and AI features.
+ * Note: includes both 'SPAM' and 'JUNK' for compatibility with different providers
+ * (folder-sync uses 'JUNK' as specialUse, some providers use 'SPAM')
  */
-export const JUNK_FOLDERS: string[] = ['SPAM', 'TRASH'];
+export const JUNK_FOLDERS: string[] = ['SPAM', 'JUNK', 'TRASH'];
 
 /**
  * Prisma where clause to exclude junk folders (SPAM, TRASH)
