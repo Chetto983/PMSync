@@ -29,6 +29,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module';
 import { LabelsModule } from './modules/labels/labels.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 
+
 const config = getConfiguration();
 
 @Module({
@@ -82,6 +83,7 @@ const config = getConfiguration();
     // Log rotation service - gestione FIFO 2 giorni
     LogRotationService,
   ],
+  controllers: [],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

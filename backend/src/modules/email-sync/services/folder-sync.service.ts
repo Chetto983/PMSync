@@ -515,14 +515,10 @@ export class FolderSyncService {
   }
 
   private determineMicrosoftFolderType(folderName: string): string | undefined {
-    const lowerName = folderName.toLowerCase();
-    if (lowerName === 'inbox') return 'INBOX';
-    if (lowerName === 'sent items' || lowerName === 'sentitems') return 'SENT';
-    if (lowerName === 'drafts') return 'DRAFTS';
-    if (lowerName === 'deleted items' || lowerName === 'deleteditems' || lowerName === 'trash') return 'TRASH';
-    if (lowerName === 'junk email' || lowerName === 'junk' || lowerName === 'spam') return 'JUNK';
-    if (lowerName === 'archive') return 'ARCHIVE';
-    return undefined;
+    // metadata-based detection is handled by the driver, but here we deal with display names
+    // Use the centralized heuristic from canonical.types (Common with IMAP)
+    const { folderNameToCanonical } = require('../drivers/interfaces/canonical.types');
+    return folderNameToCanonical(folderName);
   }
 
   private async fetchMicrosoftFolders(

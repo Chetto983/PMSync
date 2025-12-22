@@ -144,7 +144,7 @@ export const IMAP_NAME_HEURISTICS: Record<string, CanonicalFolderType> = {
   'important': 'IMPORTANT',
   'starred': 'STARRED',
   'flagged': 'STARRED',
-  'outbox': 'OUTBOX',
+  'outbox': 'SENT', // Libero and others use 'outbox' for Sent items
 
   // Italian
   'posta in arrivo': 'INBOX',
