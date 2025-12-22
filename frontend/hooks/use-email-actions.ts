@@ -391,7 +391,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
       // Optimistic update - React Query (Infinite Lists & Flat Lists)
       queryClient.setQueriesData<any>(
         { queryKey: emailKeys.lists() },
-        (oldData) => {
+        (oldData: any) => {
           if (!oldData) return oldData;
 
           try {
