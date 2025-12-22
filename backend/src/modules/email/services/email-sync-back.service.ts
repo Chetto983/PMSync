@@ -33,7 +33,7 @@ export class EmailSyncBackService {
     private crypto: CryptoService,
     private googleOAuth: GoogleOAuthService,
     private microsoftOAuth: MicrosoftOAuthService,
-  ) {}
+  ) { }
 
   // Bug #13 fix: Default timeout for API operations (30 seconds)
   private readonly OPERATION_TIMEOUT_MS = 30000;
@@ -698,6 +698,7 @@ export class EmailSyncBackService {
 
     const gmailByProvider = new Map<string, EmailSyncOperation[]>();
     const microsoftByProvider = new Map<string, EmailSyncOperation[]>();
+    const imapByProvider = new Map<string, EmailSyncOperation[]>();
     const otherOps: EmailSyncOperation[] = [];
 
     for (const op of operations) {
@@ -728,16 +729,20 @@ export class EmailSyncBackService {
         const list = microsoftByProvider.get(op.providerId) ?? [];
         list.push(op);
         microsoftByProvider.set(op.providerId, list);
+      } else if (type === 'IMAP' || type === 'GENERIC') {
+        const list = imapByProvider.get(op.providerId) ?? [];
+        list.push(op);
+        imapByProvider.set(op.providerId, list);
       } else {
         otherOps.push(op);
       }
     }
 
+    // Process Gmail batches
     for (const [providerId, ops] of gmailByProvider) {
       const provider = await this.prisma.providerConfig.findUnique({
         where: { id: providerId },
       });
-      // Bug #6 fix: Log and skip when provider not found
       if (!provider) {
         this.logger.error(`Gmail provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
         continue;
@@ -745,11 +750,11 @@ export class EmailSyncBackService {
       await this.syncGmailBatch(provider, ops);
     }
 
+    // Process Microsoft batches
     for (const [providerId, ops] of microsoftByProvider) {
       const provider = await this.prisma.providerConfig.findUnique({
         where: { id: providerId },
       });
-      // Bug #6 fix: Log and skip when provider not found
       if (!provider) {
         this.logger.error(`Microsoft provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
         continue;
@@ -757,6 +762,19 @@ export class EmailSyncBackService {
       await this.syncMicrosoftBatch(provider, ops);
     }
 
+    // Process IMAP batches (Sequential over single connection)
+    for (const [providerId, ops] of imapByProvider) {
+      const provider = await this.prisma.providerConfig.findUnique({
+        where: { id: providerId },
+      });
+      if (!provider) {
+        this.logger.error(`IMAP provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
+        continue;
+      }
+      await this.syncImapBatch(provider, ops);
+    }
+
+    // Process any remaining operations individually (fallback)
     if (otherOps.length) {
       const promises = otherOps.map((op) => this.syncOperationToProvider(op));
       await Promise.allSettled(promises);
@@ -1025,6 +1043,161 @@ export class EmailSyncBackService {
             `Microsoft batch operation failed: HTTP ${res.status} - ${errorMsg} (request ${res.id})`,
           );
         }
+      }
+    }
+  }
+
+  /**
+   * IMAP batch handling: Reuses a single connection for multiple operations
+   * Solves "Too Many Connections" vulnerability
+   */
+  private async syncImapBatch(provider: any, ops: EmailSyncOperation[]) {
+    if (!ops.length) return;
+
+    this.logger.log(`[SYNC-BACK] Syncing ${ops.length} operations to IMAP provider ${provider.id} (Reusable Connection)`);
+
+    let client: ImapFlow | null = null;
+    try {
+      // 1. Initial connection setup (once per batch)
+      if (!provider.imapHost || !provider.imapUsername) {
+        throw new Error(`IMAP credentials not configured for provider ${provider.id}`);
+      }
+      if (!provider.imapPassword || !provider.imapEncryptionIv) {
+        throw new Error(`IMAP password not configured for provider ${provider.id}`);
+      }
+
+      const imapPassword = this.crypto.decrypt(
+        provider.imapPassword,
+        provider.imapEncryptionIv,
+      );
+
+      client = new ImapFlow({
+        host: provider.imapHost,
+        port: provider.imapPort || 993,
+        secure: provider.imapUseTls ?? true,
+        auth: {
+          user: provider.imapUsername,
+          pass: imapPassword,
+        },
+        logger: false,
+      });
+
+      await client.connect();
+      this.logger.log(`📧 Connected to IMAP server: ${provider.imapHost} (Batch Mode)`);
+
+      // 2. Group operations by source folder to minimize switching
+      // IMAP requires opening a mailbox to operate on messages within it
+      const opsByFolder = new Map<string, EmailSyncOperation[]>();
+
+      for (const op of ops) {
+        let folder = op.sourceFolder;
+        // Fallback if sourceFolder missing
+        if (!folder) {
+          const email = await this.prisma.email.findUnique({
+            where: { id: op.emailId },
+            select: { folder: true },
+          });
+          folder = email?.folder || 'INBOX';
+        }
+
+        if (!opsByFolder.has(folder)) {
+          opsByFolder.set(folder, []);
+        }
+        opsByFolder.get(folder)!.push(op);
+      }
+
+      // 3. Process each folder group
+      for (const [folderName, folderOps] of opsByFolder) {
+        const currentFolderPath = await this.getImapFolderPath(provider.id, folderName);
+        this.logger.debug(`IMAP Batch: Opening folder "${currentFolderPath}" for ${folderOps.length} operations`);
+
+        // Open the mailbox (lock it)
+        try {
+          await client.mailboxOpen(currentFolderPath);
+        } catch (openError) {
+          this.logger.error(`Failed to open folder ${currentFolderPath}: ${openError}`);
+          continue; // Skip operations for this folder if we can't open it
+        }
+
+        // 4. Process operations sequentially within the folder
+        for (const op of folderOps) {
+          try {
+            // Parse UID
+            let rawUid = op.externalId;
+            if (rawUid.includes(':')) {
+              rawUid = rawUid.split(':').pop() || rawUid;
+            }
+            const uidStr = String(parseInt(rawUid, 10));
+            if (isNaN(parseInt(uidStr, 10))) {
+              this.logger.error(`Invalid IMAP UID: ${op.externalId}`);
+              continue;
+            }
+
+            switch (op.operation) {
+              case 'markRead':
+                await client.messageFlagsAdd(uidStr, ['\\Seen'], { uid: true });
+                break;
+              case 'markUnread':
+                await client.messageFlagsRemove(uidStr, ['\\Seen'], { uid: true });
+                break;
+              case 'star':
+                await client.messageFlagsAdd(uidStr, ['\\Flagged'], { uid: true });
+                break;
+              case 'unstar':
+                await client.messageFlagsRemove(uidStr, ['\\Flagged'], { uid: true });
+                break;
+              case 'flag':
+                await client.messageFlagsAdd(uidStr, ['\\Flagged'], { uid: true });
+                break;
+              case 'unflag':
+                await client.messageFlagsRemove(uidStr, ['\\Flagged'], { uid: true });
+                break;
+              case 'delete': {
+                const trashFolder = await this.getImapFolderPath(provider.id, 'TRASH');
+                try {
+                  await client.messageMove(uidStr, trashFolder, { uid: true });
+                } catch (moveError) {
+                  // Fallback
+                  await client.messageCopy(uidStr, trashFolder, { uid: true });
+                  await client.messageDelete(uidStr, { uid: true });
+                }
+                break;
+              }
+              case 'moveToFolder': {
+                if (!op.folder) continue;
+                const targetFolder = await this.getImapFolderPath(provider.id, op.folder);
+                try {
+                  await client.messageMove(uidStr, targetFolder, { uid: true });
+                } catch (moveError) {
+                  await client.messageCopy(uidStr, targetFolder, { uid: true });
+                  await client.messageDelete(uidStr, { uid: true });
+                }
+                break;
+              }
+              case 'hardDelete':
+                await client.messageDelete(uidStr, { uid: true });
+                break;
+            }
+          } catch (opError) {
+            // Log individual op failure but continue batch
+            const err = opError instanceof Error ? opError.message : String(opError);
+            this.logger.warn(`IMAP op failed for ${op.externalId}: ${err}`);
+          }
+        }
+      }
+
+      this.logger.log(`[SYNC-BACK] ✅ IMAP batch sync completed for provider ${provider.id}`);
+
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`❌ IMAP batch connection failed: ${err.message}`, err.stack);
+      throw error;
+    } finally {
+      if (client) {
+        try {
+          await client.logout();
+          this.logger.log(`🔌 Disconnected from IMAP server (Batch Mode)`);
+        } catch (e) { /* ignore */ }
       }
     }
   }
