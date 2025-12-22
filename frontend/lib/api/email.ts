@@ -147,6 +147,8 @@ export type EmailListParams = {
   specialUse?: string;
   isRead?: boolean;
   isStarred?: boolean;
+  /** Provider-agnostic "important" = isStarred OR isFlagged */
+  isImportant?: boolean;
   hasAttachments?: boolean;
   search?: string;
   from?: string;
@@ -246,6 +248,7 @@ export const emailApi = {
     if (params?.specialUse) queryParams.append('specialUse', params.specialUse);
     if (params?.isRead !== undefined) queryParams.append('isRead', params.isRead.toString());
     if (params?.isStarred !== undefined) queryParams.append('isStarred', params.isStarred.toString());
+    if (params?.isImportant !== undefined) queryParams.append('isImportant', params.isImportant.toString());
     if (params?.hasAttachments !== undefined) {
       queryParams.append('hasAttachments', params.hasAttachments.toString());
     }

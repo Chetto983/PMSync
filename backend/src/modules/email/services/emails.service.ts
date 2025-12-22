@@ -65,9 +65,8 @@ export class EmailsService {
   }
 
   /**
-   * Get folder names by their RFC 6154 specialUse type
+   * Get folder paths/names by their RFC 6154 specialUse type.
    * This is used to filter emails by folder type regardless of localized folder names.
-   * Returns folder NAMES (not paths) because emails are stored with display name in `folder` field.
    */
   private async getFolderPathsBySpecialUse(
     tenantId: string,
@@ -80,9 +79,15 @@ export class EmailsService {
         ...(providerId && { providerId }),
         specialUse: { in: specialUseTypes, mode: 'insensitive' },
       },
-      select: { name: true },
+      select: { path: true, name: true, specialUse: true },
     });
-    return folders.map((f) => f.name);
+    const paths = new Set<string>();
+    folders.forEach((folder) => {
+      if (folder.path) paths.add(folder.path);
+      if (folder.name) paths.add(folder.name);
+      if (folder.specialUse) paths.add(folder.specialUse);
+    });
+    return Array.from(paths);
   }
 
   /**
@@ -220,12 +225,18 @@ export class EmailsService {
           ...(providerId && { providerId }),
           specialUse: { equals: filters.specialUse, mode: 'insensitive' },
         },
-        select: { path: true },
+        select: { path: true, name: true, specialUse: true },
       });
 
       if (foldersWithSpecialUse.length > 0) {
-        const folderPaths = foldersWithSpecialUse.map(f => f.path);
-        folderFilter = { folder: { in: folderPaths, mode: 'insensitive' } };
+        const folderPaths = new Set<string>();
+        foldersWithSpecialUse.forEach((f) => {
+          if (f.path) folderPaths.add(f.path);
+          if (f.name) folderPaths.add(f.name);
+          if (f.specialUse) folderPaths.add(f.specialUse);
+        });
+        folderPaths.add(filters.specialUse.toUpperCase());
+        folderFilter = { folder: { in: Array.from(folderPaths), mode: 'insensitive' } };
         isTrashView = filters.specialUse.toUpperCase() === 'TRASH';
       }
     } else if (filters.folder) {
@@ -252,9 +263,15 @@ export class EmailsService {
 
         if (foldersWithSpecialUse.length > 0) {
           // Match emails by their localized folder names (path or name)
-          const folderPaths = foldersWithSpecialUse.flatMap(f => [f.path, f.name].filter(Boolean));
-          folderFilter = { folder: { in: folderPaths, mode: 'insensitive' } };
-          this.logger.debug(`[listEmails] folderFilter paths: ${JSON.stringify(folderPaths)}`);
+          const folderPaths = new Set<string>();
+          foldersWithSpecialUse.forEach((f) => {
+            if (f.path) folderPaths.add(f.path);
+            if (f.name) folderPaths.add(f.name);
+          });
+          folderPaths.add(folderUpper);
+          const folderPathList = Array.from(folderPaths);
+          folderFilter = { folder: { in: folderPathList, mode: 'insensitive' } };
+          this.logger.debug(`[listEmails] folderFilter paths: ${JSON.stringify(folderPathList)}`);
         } else {
           // Fallback: direct match (for custom folders named like specialUse)
           folderFilter = { folder: { equals: filters.folder, mode: 'insensitive' } };
@@ -1153,9 +1170,11 @@ export class EmailsService {
           ...(providerId && { providerId }),
           specialUse: { in: ['TRASH', 'SPAM', 'JUNK'], mode: 'insensitive' },
         },
-        select: { path: true, name: true },
+        select: { path: true, name: true, specialUse: true },
       });
-      const excludePaths = excludeFolders.flatMap(f => [f.path, f.name].filter(Boolean));
+      const excludePaths = excludeFolders.flatMap((f) =>
+        [f.path, f.name, f.specialUse].filter((v): v is string => !!v),
+      );
       if (excludePaths.length > 0) {
         folderFilter = { folder: { notIn: excludePaths, mode: 'insensitive' } };
       }

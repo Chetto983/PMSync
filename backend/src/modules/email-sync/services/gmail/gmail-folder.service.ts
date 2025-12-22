@@ -21,6 +21,14 @@ export class GmailFolderService {
     private readonly crypto: CryptoService,
   ) {}
 
+  getFolderPathForLabel(labelId: string, labelName: string): string {
+    return this.labelIdToFolderPath(labelId, labelName);
+  }
+
+  getSpecialUseForLabel(labelId: string): string | undefined {
+    return this.determineFolderTypeFromLabelId(labelId);
+  }
+
   /**
    * Determine primary folder from Gmail label IDs
    * Gmail uses labels instead of folders, this maps labels to folder names

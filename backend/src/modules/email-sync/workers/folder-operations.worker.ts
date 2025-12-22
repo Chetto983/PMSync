@@ -11,13 +11,12 @@ import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { FolderJobData, FolderJobResult } from '../interfaces/folder-job.interface';
-import { ImapService } from '../../providers/services/imap.service';
+import { EmailDriverFactory } from '../drivers/driver.factory';
+import { DriverCredentials } from '../drivers/interfaces/email-driver.interface';
 import { ProviderTokenService } from '../services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { SyncAuthService } from '../services/sync-auth.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
-import { google } from 'googleapis';
-import axios from 'axios';
 import { ConflictException } from '@nestjs/common';
 
 /**
@@ -30,6 +29,7 @@ import { ConflictException } from '@nestjs/common';
  * - Microsoft 365
  *
  * Key features:
+ * - Unified execution via IEmailDriver
  * - Automatic retry with exponential backoff
  * - Realtime event emission on success
  * - Database sync after provider operations
@@ -41,8 +41,6 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
   private redisConnection: Redis;
   private worker: Worker<FolderJobData, FolderJobResult>;
 
-  private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
-
   // Worker configuration
   private readonly WORKER_CONFIG = {
     concurrency: 5, // Process 5 folder operations simultaneously
@@ -53,12 +51,12 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
-    private imapService: ImapService,
+    private driverFactory: EmailDriverFactory,
     private providerTokenService: ProviderTokenService,
     @Inject(forwardRef(() => RealtimeEventsService))
     private realtimeEvents: RealtimeEventsService,
     private syncAuth: SyncAuthService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     const workersEnabled =
@@ -129,18 +127,30 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
     try {
       let result: FolderJobResult;
 
-      switch (operation) {
-        case 'create':
-          result = await this.processCreateFolder(job.data);
-          break;
-        case 'rename':
-          result = await this.processRenameFolder(job.data);
-          break;
-        case 'delete':
-          result = await this.processDeleteFolder(job.data);
-          break;
-        default:
-          throw new Error(`Unknown operation: ${operation}`);
+      // Create connected driver using factory
+      const credentials = await this.getDriverCredentials(providerId, providerType);
+      const driver = await this.driverFactory.createConnectedDriver(
+        providerType === 'generic' ? 'imap' : providerType,
+        credentials
+      );
+
+      try {
+        switch (operation) {
+          case 'create':
+            result = await this.processCreateFolder(job.data, driver);
+            break;
+          case 'rename':
+            result = await this.processRenameFolder(job.data, driver);
+            break;
+          case 'delete':
+            result = await this.processDeleteFolder(job.data, driver);
+            break;
+          default:
+            throw new Error(`Unknown operation: ${operation}`);
+        }
+      } finally {
+        // Always disconnect driver after use
+        await driver.disconnect();
       }
 
       result.duration = Date.now() - startTime;
@@ -169,10 +179,47 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Get credentials for driver
+   */
+  private async getDriverCredentials(providerId: string, providerType: string): Promise<DriverCredentials> {
+    // Basic credential object
+    const creds: DriverCredentials = {
+      type: 'oauth2'
+    };
+
+    if (providerType === 'generic' || providerType === 'imap') {
+      const provider = await this.prisma.providerConfig.findUnique({
+        where: { id: providerId },
+      });
+      if (!provider) throw new Error(`Provider ${providerId} not found`);
+
+      const imapCreds = this.providerTokenService.getImapCredentials(provider);
+      return {
+        type: 'basic',
+        username: imapCreds.username,
+        password: imapCreds.password,
+        imapHost: imapCreds.host,
+        imapPort: imapCreds.port,
+        imapTls: imapCreds.useTls
+      };
+    }
+
+    // For OAuth (Google/Microsoft), get token
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+    return {
+      type: 'oauth2',
+      accessToken
+    };
+  }
+
+  /**
    * Process folder create operation
    */
-  private async processCreateFolder(data: FolderJobData): Promise<FolderJobResult> {
-    const { tenantId, providerId, providerType, email, folderName, parentPath } = data;
+  private async processCreateFolder(
+    data: FolderJobData,
+    driver: any // Using any here to access IEmailDriver methods easily, verified by interface
+  ): Promise<FolderJobResult> {
+    const { tenantId, providerId, email, folderName, parentPath } = data;
 
     if (!folderName) {
       throw new Error('Folder name is required for create operation');
@@ -180,47 +227,60 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`Creating folder "${folderName}" for provider ${providerId}`);
 
-    let externalResult: { externalId: string; path: string };
+    // Driver handles provider-specific logic
+    const createdFolder = await driver.createFolder(folderName, parentPath);
 
-    // Execute provider-specific create operation
-    switch (providerType) {
-      case 'generic':
-        externalResult = await this.createImapFolder(providerId, folderName, parentPath);
-        break;
-      case 'google':
-        externalResult = await this.createGmailLabel(providerId, folderName);
-        break;
-      case 'microsoft':
-        externalResult = await this.createMicrosoftFolder(providerId, folderName, parentPath);
-        break;
-      default:
-        throw new Error(`Unsupported provider type: ${providerType}`);
-    }
+    this.logger.log(`Driver created folder "${createdFolder.name}" with external ID ${createdFolder.id}`);
+
+    // If driver returns a full CanonicalFolder, we can use it directly
+    // But we need to save it to our DB.
+    // NOTE: Driver creation usually includes fetching the new folder to confirm existence.
 
     // Save to database
-    const folder = await this.prisma.folder.create({
-      data: {
-        tenantId,
+    // We try to find if it already exists to avoid unique constraint errors
+    const existing = await this.prisma.folder.findFirst({
+      where: {
         providerId,
-        externalId: externalResult.externalId,
-        path: externalResult.path,
-        name: folderName,
-        delimiter: '/',
-        isSelectable: true,
-        level: parentPath ? 1 : 0,
-      },
+        path: createdFolder.path
+      }
     });
 
-    this.logger.log(`Created folder "${folderName}" with id ${folder.id}`);
+    let dbFolder;
+    if (existing) {
+      dbFolder = await this.prisma.folder.update({
+        where: { id: existing.id },
+        data: {
+          externalId: createdFolder.id,
+          name: createdFolder.name,
+          level: (createdFolder.path.match(/\//g) || []).length
+        }
+      });
+    } else {
+      dbFolder = await this.prisma.folder.create({
+        data: {
+          tenantId,
+          providerId,
+          externalId: createdFolder.id,
+          path: createdFolder.path,
+          name: createdFolder.name,
+          delimiter: '/', // Driver ensures / delimiter
+          isSelectable: createdFolder.attributes?.selectable ?? true,
+          level: (createdFolder.path.match(/\//g) || []).length,
+          specialUse: createdFolder.type !== 'Custom' ? createdFolder.type : null
+        },
+      });
+    }
+
+    this.logger.log(`Saved folder "${dbFolder.name}" with id ${dbFolder.id}`);
 
     return {
       success: true,
       providerId,
       email,
       operation: 'create',
-      folderId: folder.id,
-      folderPath: externalResult.path,
-      folderName,
+      folderId: dbFolder.id,
+      folderPath: createdFolder.path,
+      folderName: createdFolder.name,
       duration: 0,
       shouldRefreshFolders: true,
     };
@@ -229,14 +289,17 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
   /**
    * Process folder rename operation
    */
-  private async processRenameFolder(data: FolderJobData): Promise<FolderJobResult> {
-    const { providerId, providerType, email, oldPath, newName } = data;
+  private async processRenameFolder(
+    data: FolderJobData,
+    driver: any
+  ): Promise<FolderJobResult> {
+    const { providerId, email, oldPath, newName } = data;
 
     if (!oldPath || !newName) {
       throw new Error('Old path and new name are required for rename operation');
     }
 
-    // Get folder from database
+    // Get folder from database to find external ID
     const folder = await this.prisma.folder.findUnique({
       where: { providerId_path: { providerId, path: oldPath } },
     });
@@ -247,24 +310,21 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`Renaming folder "${folder.name}" to "${newName}" for provider ${providerId}`);
 
-    let newPath: string;
+    // Driver rename takes (id, newName)
+    // IMAP driver uses path as ID usually, others use opaque ID.
+    // The driver interface expects `folderId`. 
+    // For IMAP, `folder.path` is the ID. For others, `folder.externalId`.
+    // The drivers should handle `externalId` or fallback to `path` if needed, 
+    // but typically `externalId` is safe if populated.
 
-    // Execute provider-specific rename operation
-    switch (providerType) {
-      case 'generic':
-        newPath = await this.renameImapFolder(providerId, oldPath, newName);
-        break;
-      case 'google':
-        await this.renameGmailLabel(providerId, folder.externalId || oldPath, newName);
-        newPath = folder.path; // Gmail label IDs don't change on rename
-        break;
-      case 'microsoft':
-        await this.renameMicrosoftFolder(providerId, folder.externalId || oldPath, newName);
-        newPath = folder.path; // Microsoft folder IDs don't change on rename
-        break;
-      default:
-        throw new Error(`Unsupported provider type: ${providerType}`);
-    }
+    const idToUse = folder.externalId || folder.path;
+    await driver.renameFolder(idToUse, newName);
+
+    // Calculate new path (best effort, or trigger full sync)
+    // Build new path
+    const parts = oldPath.split('/');
+    parts[parts.length - 1] = newName;
+    const newPath = parts.join('/');
 
     // Update database
     const updatedFolder = await this.prisma.folder.update({
@@ -293,8 +353,11 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
   /**
    * Process folder delete operation
    */
-  private async processDeleteFolder(data: FolderJobData): Promise<FolderJobResult> {
-    const { providerId, providerType, email, folderPath } = data;
+  private async processDeleteFolder(
+    data: FolderJobData,
+    driver: any
+  ): Promise<FolderJobResult> {
+    const { providerId, email, folderPath } = data;
 
     if (!folderPath) {
       throw new Error('Folder path is required for delete operation');
@@ -317,20 +380,8 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
 
     this.logger.log(`Deleting folder "${folder.name}" for provider ${providerId}`);
 
-    // Execute provider-specific delete operation
-    switch (providerType) {
-      case 'generic':
-        await this.deleteImapFolder(providerId, folderPath);
-        break;
-      case 'google':
-        await this.deleteGmailLabel(providerId, folder.externalId || folderPath);
-        break;
-      case 'microsoft':
-        await this.deleteMicrosoftFolder(providerId, folder.externalId || folderPath);
-        break;
-      default:
-        throw new Error(`Unsupported provider type: ${providerType}`);
-    }
+    const idToUse = folder.externalId || folder.path;
+    await driver.deleteFolder(idToUse);
 
     // Delete from database
     await this.prisma.folder.delete({ where: { id: folder.id } });
@@ -348,277 +399,6 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
       duration: 0,
       shouldRefreshFolders: true,
     };
-  }
-
-  // ========== IMAP OPERATIONS ==========
-
-  private async createImapFolder(
-    providerId: string,
-    name: string,
-    parentPath?: string,
-  ): Promise<{ externalId: string; path: string }> {
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
-    });
-
-    if (!provider) {
-      throw new Error(`Provider ${providerId} not found`);
-    }
-
-    const imapCreds = this.providerTokenService.getImapCredentials(provider);
-    const client = this.imapService.createClient({
-      host: imapCreds.host,
-      port: imapCreds.port,
-      username: imapCreds.username,
-      password: imapCreds.password,
-      useTls: imapCreds.useTls,
-    });
-
-    const fullPath = parentPath ? `${parentPath}/${name}` : name;
-
-    try {
-      await client.connect();
-      this.logger.log(`IMAP connected for create operation`);
-      this.logger.log(`IMAP mailboxCreate: "${fullPath}"`);
-      const result = await client.mailboxCreate(fullPath);
-      this.logger.log(`IMAP mailboxCreate result: ${JSON.stringify(result)}`);
-      return { externalId: result.path, path: result.path };
-    } catch (error: any) {
-      const message = String(error?.message || '').toLowerCase();
-      this.logger.error(`IMAP create failed for "${fullPath}": ${error?.message || error}`);
-      if (message.includes('exists') || message.includes('already')) {
-        throw new ConflictException('A folder with this name already exists on the mail server');
-      }
-      throw error;
-    } finally {
-      await client.logout();
-    }
-  }
-
-  private async renameImapFolder(
-    providerId: string,
-    oldPath: string,
-    newName: string,
-  ): Promise<string> {
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
-    });
-
-    if (!provider) {
-      throw new Error(`Provider ${providerId} not found`);
-    }
-
-    const imapCreds = this.providerTokenService.getImapCredentials(provider);
-    const client = this.imapService.createClient({
-      host: imapCreds.host,
-      port: imapCreds.port,
-      username: imapCreds.username,
-      password: imapCreds.password,
-      useTls: imapCreds.useTls,
-    });
-
-    try {
-      await client.connect();
-      this.logger.log(`IMAP connected for rename operation`);
-
-      // Build new path
-      const parts = oldPath.split('/');
-      parts[parts.length - 1] = newName;
-      const newPath = parts.join('/');
-
-      this.logger.log(`IMAP mailboxRename: "${oldPath}" -> "${newPath}"`);
-      const result = await client.mailboxRename(oldPath, newPath);
-      this.logger.log(`IMAP mailboxRename result: ${JSON.stringify(result)}`);
-      return result.newPath || newPath;
-    } catch (error: any) {
-      const message = String(error?.message || '').toLowerCase();
-      this.logger.error(`IMAP rename failed for "${oldPath}": ${error?.message || error}`);
-
-      if (message.includes('not exist') || message.includes('no such')) {
-        // Folder doesn't exist on server, create it with new name
-        this.logger.log(`Folder "${oldPath}" not found, creating "${newName}"`);
-        const parts = oldPath.split('/');
-        parts[parts.length - 1] = newName;
-        const newPath = parts.join('/');
-        await client.mailboxCreate(newPath);
-        return newPath;
-      }
-
-      if (message.includes('already exist')) {
-        throw new ConflictException('A folder with this name already exists');
-      }
-      throw error;
-    } finally {
-      await client.logout();
-    }
-  }
-
-  private async deleteImapFolder(providerId: string, path: string): Promise<void> {
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
-    });
-
-    if (!provider) {
-      throw new Error(`Provider ${providerId} not found`);
-    }
-
-    const imapCreds = this.providerTokenService.getImapCredentials(provider);
-    const client = this.imapService.createClient({
-      host: imapCreds.host,
-      port: imapCreds.port,
-      username: imapCreds.username,
-      password: imapCreds.password,
-      useTls: imapCreds.useTls,
-    });
-
-    try {
-      await client.connect();
-      this.logger.log(`IMAP connected for delete operation`);
-      this.logger.log(`IMAP mailboxDelete: "${path}"`);
-      await client.mailboxDelete(path);
-      this.logger.log(`IMAP mailboxDelete completed successfully for "${path}"`);
-    } catch (error: any) {
-      const message = String(error?.message || '').toLowerCase();
-      this.logger.warn(`IMAP delete error for "${path}": ${error?.message || error}`);
-
-      // If folder doesn't exist, allow DB deletion to proceed
-      if (message.includes('not exist') || message.includes('no such')) {
-        this.logger.log(`Folder "${path}" not found on server, proceeding with DB deletion`);
-        return;
-      }
-
-      if (message.includes('not empty') || message.includes('has children')) {
-        throw new Error('Folder is not empty. Please delete or move all emails first.');
-      }
-      throw error;
-    } finally {
-      await client.logout();
-    }
-  }
-
-  // ========== GMAIL OPERATIONS ==========
-
-  private async createGmailLabel(
-    providerId: string,
-    name: string,
-  ): Promise<{ externalId: string; path: string }> {
-    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
-
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: accessToken });
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
-    try {
-      const response = await gmail.users.labels.create({
-        userId: 'me',
-        requestBody: {
-          name,
-          labelListVisibility: 'labelShow',
-          messageListVisibility: 'show',
-        },
-      });
-
-      const labelId = response.data.id!;
-      this.logger.log(`Gmail label created: ${labelId}`);
-      return { externalId: labelId, path: labelId };
-    } catch (error: any) {
-      if (error?.code === 409 || error?.response?.status === 409) {
-        throw new ConflictException('A label with this name already exists on Gmail');
-      }
-      throw error;
-    }
-  }
-
-  private async renameGmailLabel(
-    providerId: string,
-    labelId: string,
-    newName: string,
-  ): Promise<void> {
-    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
-
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: accessToken });
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
-    await gmail.users.labels.update({
-      userId: 'me',
-      id: labelId,
-      requestBody: { name: newName },
-    });
-
-    this.logger.log(`Gmail label renamed to: ${newName}`);
-  }
-
-  private async deleteGmailLabel(providerId: string, labelId: string): Promise<void> {
-    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
-
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: accessToken });
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
-    await gmail.users.labels.delete({
-      userId: 'me',
-      id: labelId,
-    });
-
-    this.logger.log(`Gmail label deleted: ${labelId}`);
-  }
-
-  // ========== MICROSOFT OPERATIONS ==========
-
-  private async createMicrosoftFolder(
-    providerId: string,
-    name: string,
-    parentFolderId?: string,
-  ): Promise<{ externalId: string; path: string }> {
-    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
-
-    const url = parentFolderId
-      ? `${this.GRAPH_API_BASE}/me/mailFolders/${parentFolderId}/childFolders`
-      : `${this.GRAPH_API_BASE}/me/mailFolders`;
-
-    try {
-      const response = await axios.post(
-        url,
-        { displayName: name },
-        { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } },
-      );
-
-      const folderId = response.data.id;
-      this.logger.log(`Microsoft folder created: ${folderId}`);
-      return { externalId: folderId, path: folderId };
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 409) {
-        throw new ConflictException('A folder with this name already exists on Microsoft 365');
-      }
-      throw error;
-    }
-  }
-
-  private async renameMicrosoftFolder(
-    providerId: string,
-    folderId: string,
-    newName: string,
-  ): Promise<void> {
-    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
-
-    await axios.patch(
-      `${this.GRAPH_API_BASE}/me/mailFolders/${folderId}`,
-      { displayName: newName },
-      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } },
-    );
-
-    this.logger.log(`Microsoft folder renamed to: ${newName}`);
-  }
-
-  private async deleteMicrosoftFolder(providerId: string, folderId: string): Promise<void> {
-    const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
-
-    await axios.delete(`${this.GRAPH_API_BASE}/me/mailFolders/${folderId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    this.logger.log(`Microsoft folder deleted: ${folderId}`);
   }
 
   // ========== HELPERS ==========

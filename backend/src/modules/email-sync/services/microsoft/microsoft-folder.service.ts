@@ -247,9 +247,14 @@ export class MicrosoftFolderService {
       });
 
       const existingPaths = new Set(existingFolders.map((f: any) => f.path as string));
-      // Use displayName as path (matches email.folder and folder.path)
       const newPaths = new Set(
-        folders.filter((f: any) => f.displayName).map((f: any) => f.displayName as string),
+        folders
+          .filter((f: any) => f.displayName)
+          .map((f: any) => {
+            const displayName = f.displayName as string;
+            const specialUse = this.determineMicrosoftFolderType(displayName);
+            return specialUse || displayName;
+          }),
       );
 
       // Delete folders that no longer exist
@@ -266,25 +271,25 @@ export class MicrosoftFolderService {
       }
 
       // Sync each folder
-      // CRITICAL: folder.path MUST match what determineFolderFromParentId returns (displayName)
-      // This ensures email.folder can join with folder.path
+      // Use canonical path for known system folders; keep displayName for custom folders.
       for (const folder of folders) {
         if (!folder.id || !folder.displayName) continue;
 
         // Determine special use based on well-known folder names
         const specialUse = this.determineMicrosoftFolderType(folder.displayName);
+        const folderPath = specialUse || folder.displayName;
 
         await (this.prisma as any).folder.upsert({
           where: {
             providerId_path: {
               providerId,
-              path: folder.displayName, // Use displayName as path (matches email.folder)
+              path: folderPath,
             },
           },
           create: {
             tenantId,
             providerId,
-            path: folder.displayName, // Use displayName as path (matches email.folder)
+            path: folderPath,
             externalId: folder.id, // Keep folder ID for API operations
             name: folder.displayName,
             delimiter: '/',

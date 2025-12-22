@@ -356,6 +356,16 @@ export class IMAPDriver extends BaseEmailDriver {
     this.idleActive = false;
   }
 
+  private normalizeHtmlContent(value: unknown): string | undefined {
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (Buffer.isBuffer(value)) {
+      return value.toString('utf8');
+    }
+    return undefined;
+  }
+
   /**
    * Convert IMAP folder path to canonical folder type
    */
@@ -748,7 +758,7 @@ export class IMAPDriver extends BaseEmailDriver {
             try {
               const parsed = await simpleParser(msg.source);
               canonical.bodyText = parsed.text || undefined;
-              canonical.bodyHtml = typeof parsed.html === 'string' ? parsed.html : undefined;
+              canonical.bodyHtml = this.normalizeHtmlContent(parsed.html);
               const attachments = this.extractAttachmentMeta(parsed);
               if (attachments.length > 0) {
                 canonical.attachments = attachments;
@@ -822,7 +832,7 @@ export class IMAPDriver extends BaseEmailDriver {
           try {
             const parsed = await simpleParser(msg.source);
             bodyText = parsed.text || undefined;
-            bodyHtml = typeof parsed.html === 'string' ? parsed.html : undefined;
+            bodyHtml = this.normalizeHtmlContent(parsed.html);
             attachments = this.extractAttachmentMeta(parsed);
           } catch (parseError) {
             this.logger.warn(`Failed to parse message ${messageId}`, parseError);
@@ -1402,14 +1412,12 @@ export class IMAPDriver extends BaseEmailDriver {
     const envelope = msg.envelope || {};
     const flags = msg.flags || new Set<string>();
 
-    // Determine canonical folder type
-    const canonicalFolder = folderNameToCanonical(folder);
-
     return {
       id: `${folder}:${msg.uid}`,
       externalId: msg.uid.toString(),
       threadId: envelope.messageId || msg.uid.toString(),
-      folder: canonicalFolder,
+      // Use actual folder path for database storage to match folders table
+      folder: folder,
       folderDisplayName: folder,
 
       from: this.parseImapAddress(envelope.from?.[0]),

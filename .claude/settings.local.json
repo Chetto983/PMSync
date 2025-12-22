@@ -77,7 +77,14 @@
       "Bash(docker exec:*)",
       "Bash(wmic:*)",
       "Bash(docker logs:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(comm:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(while read hash)",
+      "Bash(do docker exec mailagent-minio rm -f \"/data/mailagent-attachments/attachments/$hash\")",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(xargs:*)"
     ],
     "deny": []
   }

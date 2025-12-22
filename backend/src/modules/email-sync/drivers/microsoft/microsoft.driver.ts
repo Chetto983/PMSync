@@ -19,6 +19,7 @@ import {
   CANONICAL_TO_MICROSOFT,
   CanonicalFolderType,
   EmailAddress,
+  folderNameToCanonical,
 } from '../interfaces/canonical.types';
 
 /**
@@ -38,6 +39,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
   private client: AxiosInstance | null = null;
   private userEmail: string | null = null;
   private folderIdCache: Map<string, string> = new Map(); // canonical -> folderId
+  private folderPathCache: Map<string, string> = new Map(); // folderId -> displayName (path)
 
   async connect(credentials: DriverCredentials): Promise<void> {
     if (!credentials.accessToken) {
@@ -111,6 +113,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
     });
 
     const folders = response.data.value || [];
+
     return folders.map((folder: any) => this.graphFolderToCanonical(folder));
   }
 
@@ -637,6 +640,10 @@ export class MicrosoftDriver extends BaseEmailDriver {
         if (folder.type) {
           this.folderIdCache.set(folder.type.toUpperCase(), folder.id);
         }
+        // Cache folderId -> path (displayName) for email folder mapping
+        if (folder.id && folder.path) {
+          this.folderPathCache.set(folder.id, folder.path);
+        }
       }
     } catch {
       this.logger.warn('Could not cache folder IDs');
@@ -701,39 +708,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
   }
 
   private displayNameToCanonical(displayName: string): CanonicalFolderType {
-    const lowerName = displayName.toLowerCase().trim();
-
-    // Inbox variations
-    if (lowerName === 'inbox' || lowerName === 'posta in arrivo' || lowerName === 'posteingang') {
-      return 'INBOX';
-    }
-
-    // Sent variations
-    if (['sent items', 'sentitems', 'sent', 'posta inviata', 'inviata', 'elementi inviati'].includes(lowerName)) {
-      return 'SENT';
-    }
-
-    // Trash variations
-    if (['deleted items', 'deleteditems', 'trash', 'posta eliminata', 'cestino', 'eliminata'].includes(lowerName)) {
-      return 'TRASH';
-    }
-
-    // Drafts variations
-    if (['drafts', 'bozze', 'draft'].includes(lowerName)) {
-      return 'DRAFTS';
-    }
-
-    // Spam/Junk variations
-    if (['junk email', 'junk', 'spam', 'posta indesiderata'].includes(lowerName)) {
-      return 'SPAM';
-    }
-
-    // Archive variations
-    if (['archive', 'archivia', 'archivio', 'all mail'].includes(lowerName)) {
-      return 'ARCHIVE';
-    }
-
-    return displayName;
+    return folderNameToCanonical(displayName);
   }
 
   private parseMessagesResponse(data: any): ListMessagesResult {
@@ -748,14 +723,16 @@ export class MicrosoftDriver extends BaseEmailDriver {
   }
 
   private graphMessageToCanonical(message: any): CanonicalMessage {
-    const folder = this.parentFolderIdToCanonical(message.parentFolderId);
+    const canonicalType = this.parentFolderIdToCanonical(message.parentFolderId);
+    // Use the actual folder path (displayName) for database storage, not the canonical type
+    const folderPath = this.parentFolderIdToPath(message.parentFolderId) || canonicalType;
 
     return {
       id: message.id,
       externalId: message.id,
       threadId: message.conversationId,
-      folder,
-      folderDisplayName: folder,
+      folder: folderPath,
+      folderDisplayName: folderPath,
       from: this.graphAddressToCanonical(message.from?.emailAddress),
       to: (message.toRecipients || []).map((r: any) => this.graphAddressToCanonical(r.emailAddress)),
       cc: (message.ccRecipients || []).map((r: any) => this.graphAddressToCanonical(r.emailAddress)),
@@ -773,7 +750,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
       isStarred: message.flag?.flagStatus === 'flagged',
       isFlagged: message.importance === 'high',
       isDraft: !!message.isDraft,
-      isDeleted: folder === 'TRASH',
+      isDeleted: canonicalType === 'TRASH',
       labels: message.categories || [],
       hasAttachments: !!message.hasAttachments,
       attachments: (message.attachments || []).map((att: any) => ({
@@ -801,6 +778,16 @@ export class MicrosoftDriver extends BaseEmailDriver {
     }
 
     return 'INBOX';
+  }
+
+  /**
+   * Convert Graph API parentFolderId to the actual folder path (displayName).
+   * This is used to store emails with the correct folder path that matches
+   * the folders table in the database.
+   */
+  private parentFolderIdToPath(parentFolderId?: string): string | undefined {
+    if (!parentFolderId) return undefined;
+    return this.folderPathCache.get(parentFolderId);
   }
 
   private graphAddressToCanonical(address?: { name?: string; address?: string }): EmailAddress {

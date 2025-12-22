@@ -600,7 +600,8 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
           queryOverrides = { hasAttachments: true };
           break;
         case 'smart:important':
-          queryOverrides = { isStarred: true };
+          // isImportant = isStarred OR isFlagged (provider-agnostic)
+          queryOverrides = { isImportant: true };
           break;
       }
 
@@ -630,9 +631,24 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
         // Use specialUse (which is canonical) for API queries
         // Fall back to path only for custom folders without specialUse
         const canonicalFolder = folder.specialUse?.toUpperCase() || folder.path || folder.name;
+
+        // Normalize label for standard folders
+        let label = folder.name;
+        if (folder.specialUse) {
+          const type = folder.specialUse.toUpperCase();
+          if (type === 'INBOX') label = t.folders.inbox;
+          else if (type === 'SENT') label = t.folders.sent;
+          else if (type === 'DRAFTS') label = t.folders.drafts;
+          else if (type === 'TRASH') label = t.folders.trash;
+          else if (type === 'SPAM' || type === 'JUNK') label = t.folders.spam;
+          else if (type === 'ARCHIVE') label = t.folders.archive;
+          else if (type === 'IMPORTANT') label = t.folders.starred;
+          else if (type === 'STARRED') label = t.folders.starred;
+        }
+
         items.push({
           id: folder.id,
-          label: folder.name,
+          label,
           icon: <IconComponent size={20} />,
           count: countOverride?.unreadCount ?? folder.unreadCount,
           providerId: folder.providerId,
@@ -759,21 +775,21 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
 
     const hasActiveFilters = Boolean(
       searchQuery ||
-        advancedFilters.searchQuery ||
-        advancedFilters.from ||
-        advancedFilters.to ||
-        advancedFilters.subject ||
-        (advancedFilters.labelIds?.length ?? 0) > 0 ||
-        advancedFilters.startDate ||
-        advancedFilters.endDate ||
-        advancedFilters.hasAttachments !== undefined ||
-        advancedFilters.isRead != null ||
-        advancedFilters.isStarred !== undefined ||
-        activeFolder.queryOverrides?.isRead !== undefined ||
-        activeFolder.queryOverrides?.isStarred !== undefined ||
-        activeFolder.queryOverrides?.hasAttachments !== undefined ||
-        activeFolder.queryOverrides?.startDate !== undefined ||
-        activeFolder.queryOverrides?.endDate !== undefined,
+      advancedFilters.searchQuery ||
+      advancedFilters.from ||
+      advancedFilters.to ||
+      advancedFilters.subject ||
+      (advancedFilters.labelIds?.length ?? 0) > 0 ||
+      advancedFilters.startDate ||
+      advancedFilters.endDate ||
+      advancedFilters.hasAttachments !== undefined ||
+      advancedFilters.isRead != null ||
+      advancedFilters.isStarred !== undefined ||
+      activeFolder.queryOverrides?.isRead !== undefined ||
+      activeFolder.queryOverrides?.isStarred !== undefined ||
+      activeFolder.queryOverrides?.hasAttachments !== undefined ||
+      activeFolder.queryOverrides?.startDate !== undefined ||
+      activeFolder.queryOverrides?.endDate !== undefined,
     );
 
     return hasActiveFilters;

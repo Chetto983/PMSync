@@ -6,6 +6,7 @@ import axios from 'axios';
 import { google } from 'googleapis';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { ProviderTokenService } from './provider-token.service';
+import { GmailFolderService } from './gmail/gmail-folder.service';
 
 export interface FolderInfo {
   path: string;
@@ -31,7 +32,8 @@ export class FolderSyncService {
     private readonly imapService: ImapService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly providerTokenService: ProviderTokenService,
-  ) {}
+    private readonly gmailFolderService: GmailFolderService,
+  ) { }
 
   /**
    * Sync folders for any provider type
@@ -216,54 +218,9 @@ export class FolderSyncService {
       }
     }
 
-    // Fallback: detect based on folder name (case-insensitive)
-    // Supports multiple locales: EN, IT, DE, FR, ES
-    const lowerPath = path.toLowerCase();
-    const lowerName = name.toLowerCase();
-
-    // INBOX
-    if (lowerPath === 'inbox' || lowerName === 'inbox' || lowerName === 'posta in arrivo') {
-      return 'INBOX';
-    }
-
-    // SENT - EN, IT, DE, FR, ES
-    if (['sent', 'sent items', 'sent mail', 'posta inviata', 'inviata', 'elementi inviati',
-         'gesendet', 'gesendete objekte', 'envoyés', 'enviados'].includes(lowerName)) {
-      return 'SENT';
-    }
-
-    // DRAFTS - EN, IT, DE, FR, ES
-    if (['drafts', 'draft', 'bozze', 'entwürfe', 'brouillons', 'borradores'].includes(lowerName)) {
-      return 'DRAFTS';
-    }
-
-    // TRASH - EN, IT, DE, FR, ES
-    if (['trash', 'deleted', 'deleted items', 'cestino', 'posta eliminata', 'eliminata',
-         'papierkorb', 'gelöscht', 'corbeille', 'papelera', 'eliminados'].includes(lowerName)) {
-      return 'TRASH';
-    }
-
-    // JUNK/SPAM - EN, IT, DE, FR, ES
-    if (['spam', 'junk', 'junk email', 'posta indesiderata', 'indesiderata',
-         'junk-e-mail', 'courrier indésirable', 'correo no deseado'].includes(lowerName)) {
-      return 'JUNK';
-    }
-
-    // ARCHIVE - EN, IT, DE, FR, ES
-    if (['archive', 'archivio', 'archivia', 'archiv', 'archives', 'archivo'].includes(lowerName)) {
-      return 'ARCHIVE';
-    }
-
-    // OUTBOX - EN, IT, DE, FR, ES
-    if (['outbox', 'posta in uscita', 'postausgang', 'boîte d\'envoi', 'bandeja de salida'].includes(lowerName)) {
-      return 'OUTBOX';
-    }
-
-    if (lowerName === 'starred' || lowerName === 'flagged') {
-      return 'FLAGGED';
-    }
-
-    return undefined;
+    // Fallback: Use centralized heuristic matching from canonical.types
+    const { folderNameToCanonical } = require('../drivers/interfaces/canonical.types');
+    return folderNameToCanonical(name);
   }
 
   /**
@@ -406,7 +363,11 @@ export class FolderSyncService {
       });
 
       const existingPaths = new Set<string>(existingFolders.map((f: any) => f.path as string));
-      const newPaths = new Set<string>(labels.map((l) => l.id).filter((id): id is string => !!id));
+      const newPaths = new Set<string>(
+        labels
+          .filter((l): l is { id: string; name: string } => !!l.id && !!l.name)
+          .map((label) => this.gmailFolderService.getFolderPathForLabel(label.id, label.name)),
+      );
 
       const deletedPaths: string[] = [];
       existingPaths.forEach((path) => {
@@ -425,22 +386,19 @@ export class FolderSyncService {
       for (const label of labels) {
         if (!label.id || !label.name) continue;
 
-        const specialUse = this.determineFolderTypeFromLabelId(label.id);
+        const folderPath = this.gmailFolderService.getFolderPathForLabel(label.id, label.name);
+        const folderName = folderPath;
+        const specialUse = this.gmailFolderService.getSpecialUseForLabel(label.id);
         const isSelectable = label.type !== 'system' || specialUse !== undefined;
 
-        // Strip CATEGORY_ prefix from Gmail category label names for better UX
-        const displayName = label.name.startsWith('CATEGORY_')
-          ? label.name.replace('CATEGORY_', '')
-          : label.name;
-
         await (this.prisma as any).folder.upsert({
-          where: { providerId_path: { providerId, path: label.id } },
+          where: { providerId_path: { providerId, path: folderPath } },
           create: {
             tenantId,
             providerId,
             externalId: label.id,
-            path: label.id,
-            name: displayName,
+            path: folderPath,
+            name: folderName,
             delimiter: '/',
             specialUse,
             isSelectable,
@@ -450,7 +408,7 @@ export class FolderSyncService {
             syncToken,
           },
           update: {
-            name: displayName,
+            name: folderName,
             specialUse,
             externalId: label.id,
             isSelectable,
@@ -488,8 +446,14 @@ export class FolderSyncService {
       });
 
       const existingPaths = new Set<string>(existingFolders.map((f: any) => f.path as string));
-      // Use displayName as path key (matches email.folder and determineFolderFromParentId)
-      const newPaths = new Set<string>(folders.map((f: any) => f.displayName as string).filter(Boolean));
+      const newPaths = new Set<string>(
+        folders
+          .filter((f: any) => f.displayName)
+          .map((f: any) => {
+            const specialUse = this.determineMicrosoftFolderType(f.displayName as string);
+            return specialUse || (f.displayName as string);
+          }),
+      );
 
       const deletedPaths: string[] = [];
       existingPaths.forEach((path) => {
@@ -508,20 +472,17 @@ export class FolderSyncService {
       for (const folder of folders) {
         if (!folder.id || !folder.displayName) continue;
 
-        const specialUse =
-          this.determineMicrosoftFolderType(folder.displayName) ||
-          this.normalizeFolderName(folder.displayName);
+        const specialUse = this.determineMicrosoftFolderType(folder.displayName);
+        const folderPath = specialUse || folder.displayName;
 
-        // CRITICAL: Use displayName as path to match email.folder field
-        // email.folder stores displayName (e.g., "Posta in arrivo")
-        // folder.path must match for joins to work correctly
+        // Use canonical path for known system folders; keep displayName for custom folders.
         await (this.prisma as any).folder.upsert({
-          where: { providerId_path: { providerId, path: folder.displayName } },
+          where: { providerId_path: { providerId, path: folderPath } },
           create: {
             tenantId,
             providerId,
             externalId: folder.id,
-            path: folder.displayName,  // Use displayName, not folder.id
+            path: folderPath,
             name: folder.displayName,
             delimiter: '/',
             specialUse,
@@ -551,19 +512,6 @@ export class FolderSyncService {
       this.logger.error(`Error syncing Microsoft folders for provider ${providerId}: ${errorMessage}`, errorStack);
       throw error;
     }
-  }
-
-  private determineFolderTypeFromLabelId(labelId: string): string | undefined {
-    const labelMap: Record<string, string | undefined> = {
-      'INBOX': 'INBOX',
-      'SENT': 'SENT',
-      'DRAFT': 'DRAFTS',
-      'TRASH': 'TRASH',
-      'SPAM': 'JUNK',
-      'STARRED': 'FLAGGED',
-      'IMPORTANT': 'IMPORTANT',
-    };
-    return labelMap[labelId];
   }
 
   private determineMicrosoftFolderType(folderName: string): string | undefined {
@@ -647,15 +595,15 @@ export class FolderSyncService {
           path: folderPath,
         },
       },
-        select: {
-          id: true,
-          name: true,
-          path: true,
-          tenantId: true,
-          totalCount: true,
-          unreadCount: true,
-          specialUse: true,
-        },
+      select: {
+        id: true,
+        name: true,
+        path: true,
+        tenantId: true,
+        totalCount: true,
+        unreadCount: true,
+        specialUse: true,
+      },
     });
 
     if (!folder) {
@@ -667,18 +615,20 @@ export class FolderSyncService {
 
     const folderKeys = this.getFolderKeys(folder);
 
+    const emailWhereBase = {
+      providerId,
+      folder: { in: folderKeys },
+      ...(tenantId && { tenantId }),
+    };
+
     const totalCount = await this.prisma.email.count({
-      where: {
-        providerId,
-        folder: { in: folderKeys },
-      },
+      where: emailWhereBase,
     });
 
     // Count unread emails in folder
     const unreadCount = await this.prisma.email.count({
       where: {
-        providerId,
-        folder: { in: folderKeys },
+        ...emailWhereBase,
         isRead: false,
       },
     });
@@ -861,10 +811,37 @@ export class FolderSyncService {
       });
       serverFolders = imapFolders.map((f) => ({ path: f.path, name: f.name }));
       serverPaths = new Set(serverFolders.map((f) => f.path));
+    } else if (provider.providerType === 'google') {
+      const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+      const oauth2Client = new google.auth.OAuth2();
+      oauth2Client.setCredentials({ access_token: accessToken });
+      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+      const labelsResponse = await gmail.users.labels.list({ userId: 'me' });
+      const labels = labelsResponse.data.labels || [];
+      serverFolders = labels
+        .filter((label): label is { id: string; name: string } => !!label.id && !!label.name)
+        .map((label) => ({
+          path: this.gmailFolderService.getFolderPathForLabel(label.id, label.name),
+          name: label.name,
+        }));
+      serverPaths = new Set(serverFolders.map((f) => f.path));
+    } else if (provider.providerType === 'microsoft') {
+      const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+      const { folders } = await this.fetchMicrosoftFolders(accessToken);
+      serverFolders = folders
+        .filter((folder: any) => !!folder.displayName)
+        .map((folder: any) => {
+          const displayName = folder.displayName as string;
+          const specialUse = this.determineMicrosoftFolderType(displayName);
+          return {
+            path: specialUse || displayName,
+            name: displayName,
+          };
+        });
+      serverPaths = new Set(serverFolders.map((f) => f.path));
     } else {
-      // For Gmail/Microsoft, paths are IDs so comparison is different
-      this.logger.warn(`Audit for ${provider.providerType} not fully implemented`);
-      serverPaths = dbPaths; // Skip for now
+      this.logger.warn(`Audit for ${provider.providerType} not implemented`);
+      serverPaths = dbPaths;
     }
 
     // Find discrepancies

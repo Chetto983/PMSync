@@ -119,13 +119,16 @@ export const IMAP_SPECIAL_USE_TO_CANONICAL: Record<string, CanonicalFolderType> 
  * Heuristic folder name matching for IMAP servers without RFC 6154 support
  */
 export const IMAP_NAME_HEURISTICS: Record<string, CanonicalFolderType> = {
+  // English
   'inbox': 'INBOX',
   'sent': 'SENT',
   'sent items': 'SENT',
+  'sent mail': 'SENT',
   'sent messages': 'SENT',
   'drafts': 'DRAFTS',
   'draft': 'DRAFTS',
   'trash': 'TRASH',
+  'deleted': 'TRASH',
   'deleted items': 'TRASH',
   'deleted messages': 'TRASH',
   'bin': 'TRASH',
@@ -135,38 +138,61 @@ export const IMAP_NAME_HEURISTICS: Record<string, CanonicalFolderType> = {
   'junk email': 'SPAM',
   'bulk mail': 'SPAM',
   'archive': 'ARCHIVE',
+  'archives': 'ARCHIVE',
   'all mail': 'ARCHIVE',
+  'all': 'ARCHIVE',
   'important': 'IMPORTANT',
   'starred': 'STARRED',
   'flagged': 'STARRED',
+  'outbox': 'OUTBOX',
+
   // Italian
   'posta in arrivo': 'INBOX',
   'posta inviata': 'SENT',
+  'inviata': 'SENT',
+  'elementi inviati': 'SENT',
   'bozze': 'DRAFTS',
   'cestino': 'TRASH',
   'posta eliminata': 'TRASH',
+  'eliminata': 'TRASH',
   'posta indesiderata': 'SPAM',
+  'indesiderata': 'SPAM',
   'archivio': 'ARCHIVE',
+  'archivia': 'ARCHIVE',
+  'posta in uscita': 'OUTBOX',
+
   // German
   'posteingang': 'INBOX',
   'gesendet': 'SENT',
   'gesendete objekte': 'SENT',
   'entwürfe': 'DRAFTS',
   'papierkorb': 'TRASH',
+  'gelöscht': 'TRASH',
   'gelöschte objekte': 'TRASH',
   'junk-e-mail': 'SPAM',
+  'archiv': 'ARCHIVE',
+  'postausgang': 'OUTBOX',
+
   // French
   'boîte de réception': 'INBOX',
   'éléments envoyés': 'SENT',
+  'envoyés': 'SENT',
   'brouillons': 'DRAFTS',
   'corbeille': 'TRASH',
   'courrier indésirable': 'SPAM',
+  // 'archives': 'ARCHIVE', // Duplicate removal
+  'boîte d\'envoi': 'OUTBOX',
+
   // Spanish
   'bandeja de entrada': 'INBOX',
   'elementos enviados': 'SENT',
+  'enviados': 'SENT',
   'borradores': 'DRAFTS',
   'papelera': 'TRASH',
+  'eliminados': 'TRASH',
   'correo no deseado': 'SPAM',
+  'archivo': 'ARCHIVE',
+  'bandeja de salida': 'OUTBOX',
 };
 
 /**

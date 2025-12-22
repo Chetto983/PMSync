@@ -107,7 +107,7 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processJob(job: Job<SyncJobData>): Promise<SyncJobResult> {
-    const { providerId, providerType, email, syncType } = job.data;
+    const { tenantId, providerId, providerType, email, syncType } = job.data;
 
     // Optional job token validation to align with webhook handshake pattern
     this.syncAuth.validateJobToken(job.data.authToken);
@@ -117,6 +117,15 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     const startTime = Date.now();
 
     try {
+      // Sync folder structure first (detects deleted folders on server)
+      try {
+        await this.folderSyncService.syncProviderFolders(tenantId, providerId);
+      } catch (folderError) {
+        this.logger.warn(
+          `Folder sync failed for ${email}, continuing with email sync: ${folderError instanceof Error ? folderError.message : String(folderError)}`,
+        );
+      }
+
       // Delegate to provider-specific sync services (they also persist emails to DB)
       const result = await this.runProviderSync(job.data);
 
