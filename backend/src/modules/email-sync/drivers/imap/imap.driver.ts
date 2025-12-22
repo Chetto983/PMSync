@@ -682,6 +682,7 @@ export class IMAPDriver extends BaseEmailDriver {
     return this.withConnection(async (client) => {
       // Resolve folder path from canonical type
       const folderPath = await this.resolveFolder(options.folder);
+      const includeBody = options.includeBody === true;
 
       const lock = await client.getMailboxLock(folderPath);
       try {
@@ -728,18 +729,36 @@ export class IMAPDriver extends BaseEmailDriver {
         const messages: CanonicalMessage[] = [];
         const uidSet = pageUids.join(',');
 
-        for await (const msg of client.fetch(
-          uidSet,
-          {
-            uid: true,
-            flags: true,
-            envelope: true,
-            bodyStructure: true,
-            size: true,
-          },
-          { uid: true },
-        )) {
+        const fetchOptions: any = {
+          uid: true,
+          flags: true,
+          envelope: true,
+          bodyStructure: true,
+          size: true,
+        };
+
+        if (includeBody) {
+          fetchOptions.source = true;
+        }
+
+        for await (const msg of client.fetch(uidSet, fetchOptions, { uid: true })) {
           const canonical = this.fetchMessageToCanonical(msg, folderPath);
+
+          if (includeBody && msg.source) {
+            try {
+              const parsed = await simpleParser(msg.source);
+              canonical.bodyText = parsed.text || undefined;
+              canonical.bodyHtml = typeof parsed.html === 'string' ? parsed.html : undefined;
+              const attachments = this.extractAttachmentMeta(parsed);
+              if (attachments.length > 0) {
+                canonical.attachments = attachments;
+              }
+              canonical.hasAttachments = canonical.hasAttachments || attachments.length > 0;
+            } catch (parseError) {
+              this.logger.warn(`Failed to parse message ${canonical.id} during list`, parseError);
+            }
+          }
+
           messages.push(canonical);
         }
 

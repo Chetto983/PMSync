@@ -53,6 +53,7 @@ export interface ListMessagesOptions {
   pageToken?: string;                 // Pagination token
   query?: string;                     // Search query
   includeDeleted?: boolean;           // Include soft-deleted messages
+  includeBody?: boolean;              // Include full body content when supported
   onlyUnread?: boolean;               // Filter to unread only
   since?: Date;                       // Messages received after this date
   before?: Date;                      // Messages received before this date

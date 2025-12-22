@@ -229,11 +229,13 @@ export class EmailsController {
 
   /**
    * GET /emails/thread/:threadId - Get all emails in a thread
+   * RFC 6154: Always includes deleted emails (for trash folder access)
    */
   @Get('thread/:threadId')
   async getThread(@Req() req: any, @Param('threadId') threadId: string) {
     const tenantId = req.user.tenantId;
-    return this.emailsService.getThread(threadId, tenantId);
+    // Always include deleted emails - if user has thread ID, they can access it (trash view)
+    return this.emailsService.getThread(threadId, tenantId, true);
   }
 
   /**
@@ -423,11 +425,13 @@ export class EmailsController {
 
   /**
    * GET /emails/:id - Get email by ID
+   * RFC 6154: Always includes deleted emails (for trash folder access)
    */
   @Get(':id')
   async getEmail(@Req() req: any, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
-    return this.emailsService.getEmailById(id, tenantId);
+    // Always include deleted emails - if user has ID, they can access it (trash view)
+    return this.emailsService.getEmailById(id, tenantId, true);
   }
 
   /**

@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { GmailWebhookService, GMAIL_WEBHOOK_RESOURCE } from './gmail-webhook.service';
 import { MicrosoftWebhookService, MICROSOFT_MAIL_RESOURCE } from './microsoft-webhook.service';
@@ -9,7 +9,7 @@ import {
 } from '../../../common/services/scheduled-jobs.queue';
 
 @Injectable()
-export class WebhookLifecycleService implements OnModuleInit {
+export class WebhookLifecycleService implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(WebhookLifecycleService.name);
   private isRenewalRunning = false;
   private isDeepCheckRunning = false;
@@ -56,6 +56,24 @@ export class WebhookLifecycleService implements OnModuleInit {
     );
 
     this.logger.log('WebhookLifecycleService registered with BullMQ scheduler');
+  }
+
+  async onApplicationBootstrap() {
+    if (!this.jobsEnabled) {
+      return;
+    }
+
+    try {
+      const jobId = await this.scheduledJobsQueue.triggerJobDeduped(
+        ScheduledJobType.WEBHOOK_RENEWAL,
+        'startup-webhook-renewal',
+        10 * 60 * 1000,
+      );
+      this.logger.log(`Enqueued startup webhook renewal job (${jobId})`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to enqueue startup webhook renewal: ${message}`);
+    }
   }
 
   /**

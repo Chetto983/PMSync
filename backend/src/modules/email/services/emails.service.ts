@@ -229,8 +229,57 @@ export class EmailsService {
         isTrashView = filters.specialUse.toUpperCase() === 'TRASH';
       }
     } else if (filters.folder) {
-      folderFilter = { folder: { equals: filters.folder, mode: 'insensitive' } };
-      isTrashView = filters.folder.toUpperCase() === 'TRASH';
+      // RFC 6154: Check if folder is a canonical specialUse value (INBOX, SENT, TRASH, etc.)
+      // Frontend sends specialUse values directly for folders that have them
+      const canonicalSpecialUse = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'JUNK', 'ARCHIVE', 'STARRED', 'IMPORTANT'];
+      const folderUpper = filters.folder.toUpperCase();
+      const isCanonicalFolder = canonicalSpecialUse.includes(folderUpper);
+
+      this.logger.debug(`[listEmails] folder filter: ${filters.folder}, isCanonical: ${isCanonicalFolder}, providerId: ${providerId}`);
+
+      if (isCanonicalFolder) {
+        // Query by specialUse to get all localized folder names for this type
+        const foldersWithSpecialUse = await this.prisma.folder.findMany({
+          where: {
+            tenantId,
+            ...(providerId && { providerId }),
+            specialUse: { equals: folderUpper, mode: 'insensitive' },
+          },
+          select: { path: true, name: true },
+        });
+
+        this.logger.debug(`[listEmails] foldersWithSpecialUse: ${JSON.stringify(foldersWithSpecialUse)}`);
+
+        if (foldersWithSpecialUse.length > 0) {
+          // Match emails by their localized folder names (path or name)
+          const folderPaths = foldersWithSpecialUse.flatMap(f => [f.path, f.name].filter(Boolean));
+          folderFilter = { folder: { in: folderPaths, mode: 'insensitive' } };
+          this.logger.debug(`[listEmails] folderFilter paths: ${JSON.stringify(folderPaths)}`);
+        } else {
+          // Fallback: direct match (for custom folders named like specialUse)
+          folderFilter = { folder: { equals: filters.folder, mode: 'insensitive' } };
+        }
+        isTrashView = folderUpper === 'TRASH';
+        this.logger.debug(`[listEmails] isTrashView: ${isTrashView}`);
+      } else {
+        // Non-canonical folder: match by path/name and check specialUse
+        folderFilter = { folder: { equals: filters.folder, mode: 'insensitive' } };
+
+        // Check folder's specialUse attribute to detect trash folders
+        // This handles localized folder names (e.g., "Posta eliminata", "Papierkorb")
+        const folderRecord = await this.prisma.folder.findFirst({
+          where: {
+            tenantId,
+            ...(providerId && { providerId }),
+            OR: [
+              { path: { equals: filters.folder, mode: 'insensitive' } },
+              { name: { equals: filters.folder, mode: 'insensitive' } },
+            ],
+          },
+          select: { specialUse: true },
+        });
+        isTrashView = folderRecord?.specialUse?.toUpperCase() === 'TRASH';
+      }
     }
 
     // Build where clause
@@ -348,14 +397,15 @@ export class EmailsService {
 
   /**
    * Get email by ID
-   * CRITICAL FIX: Now filters by isDeleted to be consistent with other methods
+   * RFC 6154: includeDeleted allows retrieving soft-deleted emails (for trash folder)
    */
-  async getEmailById(id: string, tenantId: string) {
+  async getEmailById(id: string, tenantId: string, includeDeleted = false) {
     const email = await this.prisma.email.findFirst({
       where: {
         id,
         tenantId,
-        isDeleted: false, // CRITICAL FIX: Exclude soft-deleted emails
+        // Only filter by isDeleted if not explicitly including deleted emails
+        ...(includeDeleted ? {} : { isDeleted: false }),
       },
       include: {
         provider: {
@@ -623,10 +673,15 @@ export class EmailsService {
       return { success: true };
     }
 
-    // Mark deleted for UI - provider moves to trash, sync updates folder
+    // Get trash folder path for this provider (locale-aware)
+    const trashFolder = await this.getTrashFolderPath(email.providerId);
+    const originalFolder = email.folder;
+
+    // Mark deleted and move to trash folder for UI
+    // Provider sync confirms the move on the remote side
     await this.prisma.email.update({
       where: { id },
-      data: { isDeleted: true },
+      data: { isDeleted: true, folder: trashFolder },
     });
 
     await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
@@ -645,15 +700,16 @@ export class EmailsService {
         this.logger.error(`Failed to sync delete: ${error.message}`);
       });
 
-    // Emit WebSocket event for soft delete (CRITICAL FIX: was missing, only bulkDelete had this)
+    // Emit WebSocket event for soft delete
     this.realtimeEvents.emitEmailDelete(tenantId, {
       emailId: email.id,
       providerId: email.providerId,
-      folder: email.folder,
+      folder: originalFolder, // Emit with original folder for UI removal
       reason: 'message-deleted',
     });
 
-    this.updateFolderCounts(tenantId, email.providerId, [email.folder]).catch((error) => {
+    // Update folder counts for both source and trash folders
+    this.updateFolderCounts(tenantId, email.providerId, [originalFolder, trashFolder]).catch((error) => {
       this.logger.error(`Failed to update folder counts: ${error.message}`);
     });
 
@@ -1049,12 +1105,61 @@ export class EmailsService {
     const { tenantId, providerId, folder, page = 1, limit = 50 } = params;
     const skip = (page - 1) * limit;
 
-    // CANONICAL FOLDER ARCHITECTURE:
-    // All emails now have canonical folder names (INBOX, SENT, TRASH, SPAM, etc.)
-    // This enables simple folder matching across all providers without complex JOINs.
+    // RFC 6154 FOLDER ARCHITECTURE:
+    // Emails have localized folder names (e.g., 'Posta eliminata' for Italian trash)
+    // We use specialUse attribute to map canonical names to localized folder paths
 
-    // Check if we're viewing the TRASH folder (need to show isDeleted emails)
-    const isTrashView = folder?.toUpperCase() === 'TRASH';
+    // RFC 6154: Check if folder is a canonical specialUse value
+    const canonicalSpecialUse = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'JUNK', 'SPAM', 'ARCHIVE', 'STARRED', 'IMPORTANT'];
+    const folderUpper = folder?.toUpperCase() || '';
+    const isCanonicalFolder = folder && canonicalSpecialUse.includes(folderUpper);
+    const isTrashView = folderUpper === 'TRASH';
+
+    // Build folder filter based on whether folder is canonical or localized
+    let folderFilter: Prisma.EmailWhereInput = {};
+
+    if (folder) {
+      if (isCanonicalFolder) {
+        // Query by specialUse to get all localized folder names for this type
+        const foldersWithSpecialUse = await this.prisma.folder.findMany({
+          where: {
+            tenantId,
+            ...(providerId && { providerId }),
+            specialUse: { equals: folderUpper, mode: 'insensitive' },
+          },
+          select: { path: true, name: true },
+        });
+
+        if (foldersWithSpecialUse.length > 0) {
+          // Match emails by their localized folder names (path or name)
+          // ALSO include the canonical folder name since some providers (e.g., Microsoft)
+          // store emails with the canonical name directly (e.g., 'INBOX' not 'Posta in arrivo')
+          const folderPaths = foldersWithSpecialUse.flatMap(f => [f.path, f.name].filter(Boolean));
+          folderPaths.push(folderUpper); // Add canonical name for providers that use it
+          folderFilter = { folder: { in: folderPaths, mode: 'insensitive' } };
+        } else {
+          // Fallback: direct match (for custom folders named like specialUse)
+          folderFilter = { folder: { equals: folderUpper, mode: 'insensitive' } };
+        }
+      } else {
+        // Non-canonical folder: match by path/name directly
+        folderFilter = { folder: { equals: folder, mode: 'insensitive' } };
+      }
+    } else {
+      // No folder specified: exclude TRASH and SPAM using specialUse lookup
+      const excludeFolders = await this.prisma.folder.findMany({
+        where: {
+          tenantId,
+          ...(providerId && { providerId }),
+          specialUse: { in: ['TRASH', 'SPAM', 'JUNK'], mode: 'insensitive' },
+        },
+        select: { path: true, name: true },
+      });
+      const excludePaths = excludeFolders.flatMap(f => [f.path, f.name].filter(Boolean));
+      if (excludePaths.length > 0) {
+        folderFilter = { folder: { notIn: excludePaths, mode: 'insensitive' } };
+      }
+    }
 
     // Build the WHERE clause
     const where: Prisma.EmailWhereInput = {
@@ -1062,11 +1167,7 @@ export class EmailsService {
       ...(providerId && { providerId }),
       // Only show deleted emails if we're viewing the TRASH folder
       ...(!isTrashView ? { isDeleted: false } : {}),
-      // Folder filter - simple canonical name matching works across all providers
-      ...(folder
-        ? { folder: { equals: folder.toUpperCase(), mode: 'insensitive' } }
-        : { folder: { notIn: ['TRASH', 'SPAM'], mode: 'insensitive' } }
-      ),
+      ...folderFilter,
     };
 
     // CRITICAL FIX: Check email count first to prevent memory bomb
@@ -1170,8 +1271,9 @@ export class EmailsService {
 
   /**
    * Get all emails in a thread/conversation
+   * RFC 6154: includeDeleted allows retrieving soft-deleted emails (for trash folder)
    */
-  async getThread(threadId: string, tenantId: string) {
+  async getThread(threadId: string, tenantId: string, includeDeleted = false) {
     const emails = await this.prisma.email.findMany({
       where: {
         tenantId,
@@ -1179,7 +1281,8 @@ export class EmailsService {
           { threadId },
           { id: threadId }, // In case threadId is actually an email ID
         ],
-        isDeleted: false,
+        // Only filter by isDeleted if not explicitly including deleted emails
+        ...(includeDeleted ? {} : { isDeleted: false }),
       },
       orderBy: { receivedAt: 'asc' },
       include: {
@@ -1255,8 +1358,7 @@ export class EmailsService {
   /**
    * Bulk delete emails
    * - Already deleted: permanent delete from DB
-   * - Not deleted: mark isDeleted, sync to provider (provider moves to trash)
-   * Provider is source of truth - next sync updates folder from provider
+   * - Not deleted: mark isDeleted and move to trash folder
    */
   async bulkDelete(emailIds: string[], tenantId: string) {
     this.validateBulkInput(emailIds, 'bulkDelete');
@@ -1274,18 +1376,30 @@ export class EmailsService {
 
     this.logger.debug(`[bulkDelete] Processing ${toSoftDelete.length} soft, ${toHardDelete.length} hard deletes`);
 
+    // Get trash folder paths for each provider (locale-aware)
+    const providerTrashFolders = new Map<string, string>();
+    const uniqueProviderIds = Array.from(new Set(toSoftDelete.map((e) => e.providerId)));
+    for (const providerId of uniqueProviderIds) {
+      const trashFolder = await this.getTrashFolderPath(providerId);
+      providerTrashFolders.set(providerId, trashFolder);
+    }
+
     // CRITICAL FIX: Wrap all database operations in transaction for atomicity
     const { softDeleteCount, hardDeleteCount } = await this.prisma.$transaction(async (tx) => {
       let softCount = 0;
       let hardCount = 0;
 
-      // Soft delete - just mark isDeleted, provider handles folder move
-      if (toSoftDelete.length > 0) {
-        const result = await tx.email.updateMany({
-          where: { id: { in: toSoftDelete.map((e) => e.id) }, tenantId },
-          data: { isDeleted: true },
-        });
-        softCount = result.count;
+      // Soft delete - mark isDeleted and move to trash folder
+      // Group by provider since each may have different trash folder name
+      for (const [providerId, trashFolder] of providerTrashFolders) {
+        const emailsForProvider = toSoftDelete.filter((e) => e.providerId === providerId);
+        if (emailsForProvider.length > 0) {
+          const result = await tx.email.updateMany({
+            where: { id: { in: emailsForProvider.map((e) => e.id) }, tenantId },
+            data: { isDeleted: true, folder: trashFolder },
+          });
+          softCount += result.count;
+        }
       }
 
       // Hard delete - remove from DB
@@ -1301,13 +1415,18 @@ export class EmailsService {
 
     const totalDeleted = softDeleteCount + hardDeleteCount;
 
-    // Track affected folders for count updates
+    // Track affected folders for count updates (both source and trash folders)
     const affectedFolders = new Map<string, Set<string>>();
     for (const email of emails) {
       if (!affectedFolders.has(email.providerId)) {
         affectedFolders.set(email.providerId, new Set());
       }
       affectedFolders.get(email.providerId)!.add(email.folder);
+      // Also add trash folder if this was a soft delete
+      const trashFolder = providerTrashFolders.get(email.providerId);
+      if (trashFolder && !email.isDeleted) {
+        affectedFolders.get(email.providerId)!.add(trashFolder);
+      }
     }
 
     for (const [providerId, folders] of affectedFolders.entries()) {
@@ -1732,5 +1851,20 @@ export class EmailsService {
       select: { path: true, name: true },
     });
     return folder?.path || folder?.name || 'DRAFTS';
+  }
+
+  /**
+   * Get the trash folder path for a provider
+   * Uses specialUse='TRASH' to find the correct localized folder name
+   */
+  private async getTrashFolderPath(providerId: string): Promise<string> {
+    const folder = await this.prisma.folder.findFirst({
+      where: {
+        providerId,
+        specialUse: { equals: 'TRASH', mode: 'insensitive' },
+      },
+      select: { path: true, name: true },
+    });
+    return folder?.path || folder?.name || 'TRASH';
   }
 }

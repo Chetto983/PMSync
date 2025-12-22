@@ -188,7 +188,7 @@ export class MicrosoftWebhookService {
     }
 
     // Trigger incremental sync based on change type
-    if (['created', 'updated'].includes(notification.changeType)) {
+    if (['created', 'updated', 'deleted'].includes(notification.changeType)) {
       const syncJob: SyncJobData = {
         tenantId: provider.tenantId,
         providerId: provider.id,
@@ -239,7 +239,7 @@ export class MicrosoftWebhookService {
 
       // Create subscription via Microsoft Graph API
       const subscriptionData = {
-        changeType: 'created,updated',
+        changeType: 'created,updated,deleted',
         notificationUrl: webhookUrl,
         resource: MICROSOFT_MAIL_RESOURCE, // Watch inbox messages
         expirationDateTime,

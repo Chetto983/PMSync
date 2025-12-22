@@ -56,14 +56,14 @@ export class GmailWebhookService {
    * Google Pub/Sub sends a signed JWT in the Authorization header
    * @see https://cloud.google.com/pubsub/docs/authenticate-push-subscriptions
    */
-  async verifyPubSubToken(token: string): Promise<void> {
+  async verifyPubSubToken(token: string): Promise<boolean> {
     const expectedAudience = this.configService.get<string>('GOOGLE_PUBSUB_AUDIENCE');
     const expectedServiceAccount = this.configService.get<string>('GOOGLE_PUBSUB_SERVICE_ACCOUNT');
 
     // If no audience configured, skip verification (allows opt-in security)
     if (!expectedAudience) {
       this.logger.debug('[JWT] No GOOGLE_PUBSUB_AUDIENCE configured, skipping JWT verification');
-      return;
+      return false;
     }
 
     try {
@@ -90,6 +90,7 @@ export class GmailWebhookService {
       }
 
       this.logger.debug(`[JWT] Verified Pub/Sub token from ${payload.email}`);
+      return true;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;

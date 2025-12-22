@@ -72,7 +72,12 @@
       "Bash(claude mcp tools playwright:*)",
       "Bash(npx @playwright/mcp@latest navigate:*)",
       "Bash(npx @anthropic-ai/playwright-mcp@latest --help)",
-      "Bash(npx @playwright/mcp@latest --help)"
+      "Bash(npx @playwright/mcp@latest --help)",
+      "Bash(docker ps:*)",
+      "Bash(docker exec:*)",
+      "Bash(wmic:*)",
+      "Bash(docker logs:*)",
+      "Bash(ping:*)"
     ],
     "deny": []
   }

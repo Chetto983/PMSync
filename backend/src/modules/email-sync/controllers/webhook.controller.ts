@@ -49,18 +49,24 @@ export class WebhookController {
   ) {
     // Security fix (Issue #4): Auth validation OUTSIDE try-catch
     // UnauthorizedException will propagate and return 401 (not 200)
-    this.logger.debug('[WEBHOOK] Gmail push received, validating token...');
-    this.syncAuth.validateWebhookToken(webhookToken, queryToken);
-    this.logger.log('[WEBHOOK] Token validated, received Gmail Pub/Sub notification');
+    const jwtToken = authorizationHeader?.replace(/^Bearer\s+/i, '').trim();
+    if (jwtToken) {
+      this.logger.debug('[WEBHOOK] Gmail push received with Pub/Sub JWT, verifying token...');
+      const verified = await this.gmailWebhook.verifyPubSubToken(jwtToken);
+      if (verified) {
+        this.logger.log('[WEBHOOK] Pub/Sub JWT validated, received Gmail Pub/Sub notification');
+      } else {
+        this.logger.debug('[WEBHOOK] Pub/Sub JWT verification skipped, validating webhook token...');
+        this.syncAuth.validateWebhookToken(webhookToken, queryToken);
+        this.logger.log('[WEBHOOK] Webhook token validated, received Gmail Pub/Sub notification');
+      }
+    } else {
+      this.logger.debug('[WEBHOOK] Gmail push received without Pub/Sub JWT, validating webhook token...');
+      this.syncAuth.validateWebhookToken(webhookToken, queryToken);
+      this.logger.log('[WEBHOOK] Webhook token validated, received Gmail Pub/Sub notification');
+    }
 
     try {
-      // Security fix (Issue #1): Verify Google Pub/Sub JWT token
-      if (authorizationHeader) {
-        const jwtToken = authorizationHeader.replace(/^Bearer\s+/i, '');
-        await this.gmailWebhook.verifyPubSubToken(jwtToken);
-        this.logger.debug('[WEBHOOK] Pub/Sub JWT token verified');
-      }
-
       // Security fix (Issue #2): Check for replay attacks using messageId
       const messageId = payload?.message?.messageId;
       if (messageId && this.gmailWebhook.isReplayedMessage(messageId)) {

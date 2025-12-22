@@ -413,11 +413,32 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
         '& pre, & code': {
           backgroundColor: isDark ? '#f5f5f5' : 'rgba(0, 0, 0, 0.05)',
           borderRadius: 1,
-          padding: '2px 4px',
+          padding: '4px 8px',
+          fontSize: '0.9375rem',
         },
-        // Typography defaults
-        fontSize: '0.9375rem',
-        lineHeight: 1.6,
+        // Typography defaults - 2025 Best Practices: 16px body, 1.5 line-height
+        fontSize: '1rem', // 16px - minimum readable size for email bodies
+        lineHeight: 1.5, // 24px line-height for 16px font (1.5x ratio)
+        letterSpacing: '0.01em', // Slight letter spacing for readability
+        // Paragraph spacing
+        '& p': {
+          marginBottom: '1em',
+          marginTop: 0,
+        },
+        // Heading styles for better hierarchy
+        '& h1, & h2, & h3, & h4, & h5, & h6': {
+          marginTop: '1.5em',
+          marginBottom: '0.5em',
+          lineHeight: 1.3,
+        },
+        // List spacing
+        '& ul, & ol': {
+          paddingLeft: '1.5em',
+          marginBottom: '1em',
+        },
+        '& li': {
+          marginBottom: '0.25em',
+        },
         // Word wrap for long URLs
         wordBreak: 'break-word',
         overflowWrap: 'break-word',

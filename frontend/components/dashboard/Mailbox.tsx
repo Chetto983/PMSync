@@ -30,10 +30,9 @@ import { getFolders, type Folder } from '@/lib/api/folders';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import { useFoldersStore } from '@/stores/folders-store';
-import { useAuthStore } from '@/stores/auth-store';
+import { websocketClient } from '@/lib/websocket-client';
 import { useEmailActions } from '@/hooks/use-email-actions';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
-import { useWebSocket } from '@/hooks/use-websocket';
 import { getFolderIcon as getIconForFolderUtil } from '@/lib/utils/folder-normalization';
 import { emailKeys, useEmailStats, useInfiniteConversations, useInfiniteEmails } from '@/hooks/queries';
 
@@ -197,9 +196,6 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     };
   }, [t]);
 
-  // Auth store - for WebSocket token
-  const { token } = useAuthStore();
-
   // Store state
   // Use explicit selectors for better re-render reliability
   const storeSelectedEmail = useEmailStore((state) => state.selectedEmail);
@@ -208,8 +204,18 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
   const toggleSelection = useEmailStore((state) => state.toggleSelection);
   const clearSelection = useEmailStore((state) => state.clearSelection);
 
-  // WebSocket for real-time updates (email events, folder counts, etc.)
-  const { isConnected, connectionStatus: _connectionStatus } = useWebSocket(token, true);
+  // WebSocket connection status (managed globally in Layout)
+  const [isConnected, setIsConnected] = useState(() => websocketClient.isConnected());
+
+  useEffect(() => {
+    setIsConnected(websocketClient.isConnected());
+    const unsubConnected = websocketClient.onConnected(() => setIsConnected(true));
+    const unsubClose = websocketClient.onClose(() => setIsConnected(false));
+    return () => {
+      unsubConnected();
+      unsubClose();
+    };
+  }, []);
 
   // Debug: Track selected email changes
   useEffect(() => {

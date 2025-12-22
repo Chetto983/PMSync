@@ -58,7 +58,10 @@ export class MicrosoftBatchProcessor {
         id: `${idx}`,
         method: 'GET',
         url: `/me/messages/${id}`,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Prefer: 'outlook.body-content-type="html"',
+        },
       }));
 
       try {
@@ -87,7 +90,10 @@ export class MicrosoftBatchProcessor {
           slice.map((id) =>
             axios
               .get(`${this.GRAPH_API_BASE}/me/messages/${id}`, {
-                headers: { Authorization: `Bearer ${accessToken}` },
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  Prefer: 'outlook.body-content-type="html"',
+                },
               })
               .then((res) => res.data)
               .catch(() => null),

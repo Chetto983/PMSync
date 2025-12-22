@@ -187,6 +187,9 @@ class WebSocketClient {
   // Track joined rooms for auto-rejoin after reconnect
   private joinedRooms = new Set<string>();
 
+  // Track event handlers so they can be attached after socket creation
+  private handlerRegistry = new Map<string, Set<(...args: unknown[]) => void>>();
+
   // Auth failure callback - called when auth fails after max retries
   private authFailureHandler: (() => void) | null = null;
 
@@ -213,6 +216,44 @@ class WebSocketClient {
     return () => {
       this.reconnectHandler = null;
     };
+  }
+
+  /**
+   * Register socket handler with delayed attachment if socket is not ready yet
+   */
+  private registerHandler(event: string, handler: (...args: unknown[]) => void): () => void {
+    const existing = this.handlerRegistry.get(event) ?? new Set();
+    existing.add(handler);
+    this.handlerRegistry.set(event, existing);
+
+    if (this.socket) {
+      this.socket.on(event, handler);
+    }
+
+    return () => {
+      if (this.socket) {
+        this.socket.off(event, handler);
+      }
+      const handlers = this.handlerRegistry.get(event);
+      if (handlers) {
+        handlers.delete(handler);
+        if (handlers.size === 0) {
+          this.handlerRegistry.delete(event);
+        }
+      }
+    };
+  }
+
+  /**
+   * Attach any handlers registered before socket creation
+   */
+  private attachRegisteredHandlers(): void {
+    if (!this.socket) return;
+    for (const [event, handlers] of this.handlerRegistry.entries()) {
+      for (const handler of handlers) {
+        this.socket.on(event, handler);
+      }
+    }
   }
 
   /**
@@ -247,6 +288,8 @@ class WebSocketClient {
         reconnectionDelayMax: 5000,
         reconnectionAttempts: this.maxReconnectAttempts,
       });
+
+      this.attachRegisteredHandlers();
 
       let settled = false;
       let isAuthFailure = false;
@@ -358,9 +401,7 @@ class WebSocketClient {
    * Registra handler per evento close/disconnect
    */
   onClose(handler: () => void): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('disconnect', handler);
-    return () => this.socket?.off('disconnect', handler);
+    return this.registerHandler('disconnect', handler);
   }
 
   /**
@@ -376,9 +417,7 @@ class WebSocketClient {
    * Registra handler per evento error
    */
   onError(handler: (error: Error) => void): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('connect_error', handler);
-    return () => this.socket?.off('connect_error', handler);
+    return this.registerHandler('connect_error', handler as (...args: unknown[]) => void);
   }
 
   /**
@@ -388,6 +427,15 @@ class WebSocketClient {
     if (this.socket) {
       this.socket.off('connect_error', handler);
     }
+  }
+
+  /**
+   * Register handler for successful connection acknowledgement
+   */
+  onConnected(
+    handler: (data: { userId?: string; tenantId?: string; email?: string; timestamp?: string }) => void,
+  ): () => void {
+    return this.registerHandler('connected', handler as (...args: unknown[]) => void);
   }
 
   /**
@@ -437,39 +485,27 @@ class WebSocketClient {
    */
 
   onEmailNew(handler: EventHandler<RealtimeEmailEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('email:new', handler);
-    return () => this.socket?.off('email:new', handler);
+    return this.registerHandler('email:new', handler as (...args: unknown[]) => void);
   }
 
   onEmailUpdate(handler: EventHandler<RealtimeEmailEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('email:update', handler);
-    return () => this.socket?.off('email:update', handler);
+    return this.registerHandler('email:update', handler as (...args: unknown[]) => void);
   }
 
   onEmailDelete(handler: EventHandler<RealtimeEmailEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('email:delete', handler);
-    return () => this.socket?.off('email:delete', handler);
+    return this.registerHandler('email:delete', handler as (...args: unknown[]) => void);
   }
 
   onUnreadCountUpdate(handler: EventHandler<{ folder: string; count: number; providerId: string; timestamp: string }>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('email:unread_count_update', handler);
-    return () => this.socket?.off('email:unread_count_update', handler);
+    return this.registerHandler('email:unread_count_update', handler as (...args: unknown[]) => void);
   }
 
   onFolderCountsUpdate(handler: EventHandler<RealtimeFolderCountsEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('email:folder_counts_update', handler);
-    return () => this.socket?.off('email:folder_counts_update', handler);
+    return this.registerHandler('email:folder_counts_update', handler as (...args: unknown[]) => void);
   }
 
   onThreadUpdate(handler: EventHandler<{ threadId: string; emailIds: string[]; timestamp: string }>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('email:thread_update', handler);
-    return () => this.socket?.off('email:thread_update', handler);
+    return this.registerHandler('email:thread_update', handler as (...args: unknown[]) => void);
   }
 
   onEmailBatchProcessed(handler: EventHandler<{
@@ -479,9 +515,7 @@ class WebSocketClient {
     syncType?: 'full' | 'incremental';
     timestamp: string;
   }>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('email:batch_processed', handler);
-    return () => this.socket?.off('email:batch_processed', handler);
+    return this.registerHandler('email:batch_processed', handler as (...args: unknown[]) => void);
   }
 
   /**
@@ -489,27 +523,19 @@ class WebSocketClient {
    */
 
   onCalendarEventNew(handler: EventHandler<RealtimeCalendarEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('calendar:event_new', handler);
-    return () => this.socket?.off('calendar:event_new', handler);
+    return this.registerHandler('calendar:event_new', handler as (...args: unknown[]) => void);
   }
 
   onCalendarEventUpdate(handler: EventHandler<RealtimeCalendarEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('calendar:event_update', handler);
-    return () => this.socket?.off('calendar:event_update', handler);
+    return this.registerHandler('calendar:event_update', handler as (...args: unknown[]) => void);
   }
 
   onCalendarEventDelete(handler: EventHandler<RealtimeCalendarEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('calendar:event_delete', handler);
-    return () => this.socket?.off('calendar:event_delete', handler);
+    return this.registerHandler('calendar:event_delete', handler as (...args: unknown[]) => void);
   }
 
   onCalendarListUpdate(handler: EventHandler<RealtimeCalendarListUpdateEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('calendar:list_update', handler);
-    return () => this.socket?.off('calendar:list_update', handler);
+    return this.registerHandler('calendar:list_update', handler as (...args: unknown[]) => void);
   }
 
   /**
@@ -517,27 +543,19 @@ class WebSocketClient {
    */
 
   onContactNew(handler: EventHandler<RealtimeContactEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('contact:new', handler);
-    return () => this.socket?.off('contact:new', handler);
+    return this.registerHandler('contact:new', handler as (...args: unknown[]) => void);
   }
 
   onContactUpdate(handler: EventHandler<RealtimeContactEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('contact:update', handler);
-    return () => this.socket?.off('contact:update', handler);
+    return this.registerHandler('contact:update', handler as (...args: unknown[]) => void);
   }
 
   onContactDelete(handler: EventHandler<RealtimeContactEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('contact:delete', handler);
-    return () => this.socket?.off('contact:delete', handler);
+    return this.registerHandler('contact:delete', handler as (...args: unknown[]) => void);
   }
 
   onContactCounts(handler: EventHandler<RealtimeContactCountsEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('contact:counts', handler);
-    return () => this.socket?.off('contact:counts', handler);
+    return this.registerHandler('contact:counts', handler as (...args: unknown[]) => void);
   }
 
   /**
@@ -545,21 +563,15 @@ class WebSocketClient {
    */
 
   onLabelNew(handler: EventHandler<RealtimeLabelEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('label:new', handler);
-    return () => this.socket?.off('label:new', handler);
+    return this.registerHandler('label:new', handler as (...args: unknown[]) => void);
   }
 
   onLabelUpdate(handler: EventHandler<RealtimeLabelEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('label:update', handler);
-    return () => this.socket?.off('label:update', handler);
+    return this.registerHandler('label:update', handler as (...args: unknown[]) => void);
   }
 
   onLabelDelete(handler: EventHandler<RealtimeLabelEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('label:delete', handler);
-    return () => this.socket?.off('label:delete', handler);
+    return this.registerHandler('label:delete', handler as (...args: unknown[]) => void);
   }
 
   /**
@@ -567,21 +579,15 @@ class WebSocketClient {
    */
 
   onFolderCreated(handler: EventHandler<RealtimeFolderEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('folder:created', handler);
-    return () => this.socket?.off('folder:created', handler);
+    return this.registerHandler('folder:created', handler as (...args: unknown[]) => void);
   }
 
   onFolderRenamed(handler: EventHandler<RealtimeFolderEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('folder:renamed', handler);
-    return () => this.socket?.off('folder:renamed', handler);
+    return this.registerHandler('folder:renamed', handler as (...args: unknown[]) => void);
   }
 
   onFolderDeleted(handler: EventHandler<RealtimeFolderEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('folder:deleted', handler);
-    return () => this.socket?.off('folder:deleted', handler);
+    return this.registerHandler('folder:deleted', handler as (...args: unknown[]) => void);
   }
 
   /**
@@ -589,9 +595,7 @@ class WebSocketClient {
    */
 
   onSyncStatus(handler: EventHandler<RealtimeSyncStatus>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('sync:status', handler);
-    return () => this.socket?.off('sync:status', handler);
+    return this.registerHandler('sync:status', handler as (...args: unknown[]) => void);
   }
 
   /**
@@ -599,39 +603,27 @@ class WebSocketClient {
    */
 
   onAiActionCreated(handler: EventHandler<RealtimeAiActionEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('ai:action:created', handler);
-    return () => this.socket?.off('ai:action:created', handler);
+    return this.registerHandler('ai:action:created', handler as (...args: unknown[]) => void);
   }
 
   onAiActionApproved(handler: EventHandler<RealtimeAiActionEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('ai:action:approved', handler);
-    return () => this.socket?.off('ai:action:approved', handler);
+    return this.registerHandler('ai:action:approved', handler as (...args: unknown[]) => void);
   }
 
   onAiActionRejected(handler: EventHandler<RealtimeAiActionEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('ai:action:rejected', handler);
-    return () => this.socket?.off('ai:action:rejected', handler);
+    return this.registerHandler('ai:action:rejected', handler as (...args: unknown[]) => void);
   }
 
   onAiActionExecuted(handler: EventHandler<RealtimeAiActionEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('ai:action:executed', handler);
-    return () => this.socket?.off('ai:action:executed', handler);
+    return this.registerHandler('ai:action:executed', handler as (...args: unknown[]) => void);
   }
 
   onAiActionFailed(handler: EventHandler<RealtimeAiActionEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('ai:action:failed', handler);
-    return () => this.socket?.off('ai:action:failed', handler);
+    return this.registerHandler('ai:action:failed', handler as (...args: unknown[]) => void);
   }
 
   onAiSessionUpdate(handler: EventHandler<RealtimeAiSessionEvent>): () => void {
-    if (!this.socket) return () => {};
-    this.socket.on('ai:session:update', handler);
-    return () => this.socket?.off('ai:session:update', handler);
+    return this.registerHandler('ai:session:update', handler as (...args: unknown[]) => void);
   }
 
 }

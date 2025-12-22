@@ -182,6 +182,7 @@ export class ImapSyncService extends BaseEmailSyncService {
         folder: 'INBOX',
         pageSize: Math.min(this.batchSize, this.fullSyncMaxMessages - fetchedCount),
         pageToken,
+        includeBody: true,
       });
 
       // Process messages in this page

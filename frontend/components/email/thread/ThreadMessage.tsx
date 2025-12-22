@@ -103,16 +103,18 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
           },
         }}
       >
+        {/* Collapsed/Header Row - 2025 Best Practices: 16px+ fonts, 40px avatar, generous padding */}
         <Box
           onClick={onToggle}
           sx={{
             display: 'flex',
             alignItems: 'center',
-            gap: 1.5,
-            p: 1.5,
+            gap: 2,
+            p: 2,
             cursor: 'pointer',
             bgcolor: isExpanded ? alpha(isDark ? '#55cae5' : '#7650ce', 0.04) : 'transparent',
             transition: 'background-color 0.2s ease',
+            minHeight: 72, // Ensure consistent row height
             '&:hover': {
               bgcolor: alpha(isDark ? '#55cae5' : '#7650ce', 0.08),
             },
@@ -120,10 +122,10 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
         >
           <Avatar
             sx={{
-              width: 36,
-              height: 36,
+              width: 44,
+              height: 44,
               bgcolor: avatarColor,
-              fontSize: '0.875rem',
+              fontSize: '1rem',
               fontWeight: 600,
             }}
           >
@@ -133,13 +135,15 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <Typography
-                variant="body2"
+                variant="body1"
                 sx={{
-                  fontWeight: isUnread ? 700 : 500,
+                  fontWeight: isUnread ? 600 : 500,
                   color: isUnread ? 'text.primary' : 'text.secondary',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
+                  fontSize: '1rem', // 16px - 2025 best practice minimum
+                  lineHeight: 1.5,
                 }}
               >
                 {senderLabel}
@@ -147,27 +151,29 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
               {isUnread && (
                 <Box
                   sx={{
-                    width: 8,
-                    height: 8,
+                    width: 10,
+                    height: 10,
                     borderRadius: '50%',
                     bgcolor: 'primary.main',
                     flexShrink: 0,
-                    boxShadow: '0 0 4px rgba(25, 118, 210, 0.5)',
+                    boxShadow: '0 0 6px rgba(25, 118, 210, 0.5)',
                   }}
                 />
               )}
             </Stack>
             {!isExpanded && (
               <Typography
-                variant="caption"
+                variant="body2"
                 sx={{
                   display: 'block',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  mt: 0.25,
+                  mt: 0.5,
                   color: isUnread ? 'text.secondary' : alpha(isDark ? '#fff' : '#000', 0.5),
                   fontWeight: isUnread ? 500 : 400,
+                  fontSize: '0.9375rem', // 15px for better readability
+                  lineHeight: 1.4,
                 }}
               >
                 {email.snippet || t.email.view.noPreview}
@@ -175,66 +181,68 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
             )}
           </Box>
 
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ flexShrink: 0 }}>
+          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ flexShrink: 0 }}>
             {hasAttachments && (
               <Tooltip title={t.email.view.attachmentsWithCount.replace('{count}', String(nonInlineAttachments.length))}>
                 <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: 'text.secondary' }}>
-                  <Paperclip size={14} />
-                  <Typography variant="caption">{nonInlineAttachments.length}</Typography>
+                  <Paperclip size={18} />
+                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>{nonInlineAttachments.length}</Typography>
                 </Stack>
               </Tooltip>
             )}
-            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 50, textAlign: 'right' }}>
-              {formatRelativeTime(email.receivedAt)}
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 60, textAlign: 'right', fontSize: '0.875rem' }}>
+              {formatRelativeTime(email.receivedAt, t.locale, t.timeAgo)}
             </Typography>
-            <IconButton size="small" sx={{ p: 0.5 }}>
-              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            <IconButton size="small" sx={{ p: 0.75 }}>
+              {isExpanded ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
             </IconButton>
           </Stack>
         </Box>
 
         <Collapse in={isExpanded} timeout={200}>
           <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-            <Box sx={{ px: 2, py: 1.5, bgcolor: isDark ? alpha('#fff', 0.02) : alpha('#000', 0.01) }}>
+            {/* Expanded Header - 2025 Best Practices: generous padding, readable fonts */}
+            <Box sx={{ px: 3, py: 2, bgcolor: isDark ? alpha('#fff', 0.02) : alpha('#000', 0.01) }}>
               <Stack direction="row" alignItems="flex-start" spacing={2}>
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '1rem', lineHeight: 1.5 }}>
                     {emailFromData.name}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem', mt: 0.25 }}>
                     {emailFromData.email}
                   </Typography>
                   {email.to && email.to.length > 0 && (
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                    <Typography variant="body2" color="text.secondary" display="block" sx={{ mt: 1, fontSize: '0.875rem' }}>
                       <strong>{t.email.composer.toLabel}</strong> {email.to.join(', ')}
                     </Typography>
                   )}
                   {email.cc && email.cc.length > 0 && (
-                    <Typography variant="caption" color="text.secondary" display="block">
+                    <Typography variant="body2" color="text.secondary" display="block" sx={{ fontSize: '0.875rem' }}>
                       <strong>{t.email.composer.ccLabel}</strong> {email.cc.join(', ')}
                     </Typography>
                   )}
                 </Box>
-                <Stack direction="row" alignItems="center" spacing={0.5}>
-                  <Clock size={12} color="gray" />
-                  <Typography variant="caption" color="text.secondary">
+                <Stack direction="row" alignItems="center" spacing={0.75}>
+                  <Clock size={16} color="gray" />
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
                     {formatEmailHeaderDate(email.receivedAt)}
                   </Typography>
                 </Stack>
               </Stack>
 
-              {/* Message Action Toolbar - Icon only */}
-              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ ml: 'auto' }}>
+              {/* Message Action Toolbar - 2025: 44px min touch target, 20px icons */}
+              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 1.5 }}>
                 <Tooltip title={email.isStarred ? t.email.bulkBar.removeStar : t.email.bulkBar.addStar}>
                   <IconButton
-                    size="small"
+                    size="medium"
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleStar?.(email);
                     }}
+                    sx={{ p: 1 }}
                   >
                     <Star
-                      size={16}
+                      size={20}
                       fill={email.isStarred ? '#FFB300' : 'none'}
                       color={email.isStarred ? '#FFB300' : 'currentColor'}
                     />
@@ -242,35 +250,35 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
                 </Tooltip>
                 {email.folder === 'DRAFTS' || email.isDraft || email.externalId?.startsWith('draft-') ? (
                   <Tooltip title={t.common.edit}>
-                    <IconButton size="small" color="primary" onClick={() => onEditDraft?.(email)}>
-                      <Edit size={16} />
+                    <IconButton size="medium" color="primary" onClick={() => onEditDraft?.(email)} sx={{ p: 1 }}>
+                      <Edit size={20} />
                     </IconButton>
                   </Tooltip>
                 ) : (
                   <>
                     <Tooltip title={t.email.view.reply}>
-                      <IconButton size="small" onClick={() => onReply?.(email)}>
-                        <Reply size={16} />
+                      <IconButton size="medium" onClick={() => onReply?.(email)} sx={{ p: 1 }}>
+                        <Reply size={20} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={t.email.view.replyAll}>
-                      <IconButton size="small" onClick={() => onReplyAll?.(email)}>
-                        <ReplyAll size={16} />
+                      <IconButton size="medium" onClick={() => onReplyAll?.(email)} sx={{ p: 1 }}>
+                        <ReplyAll size={20} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={t.email.view.forward}>
-                      <IconButton size="small" onClick={() => onForward?.(email)}>
-                        <Forward size={16} />
+                      <IconButton size="medium" onClick={() => onForward?.(email)} sx={{ p: 1 }}>
+                        <Forward size={20} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={t.email.bulkBar.archive}>
-                      <IconButton size="small" onClick={() => onArchive?.(email)}>
-                        <Archive size={16} />
+                      <IconButton size="medium" onClick={() => onArchive?.(email)} sx={{ p: 1 }}>
+                        <Archive size={20} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={t.email.bulkBar.delete}>
-                      <IconButton size="small" onClick={() => onDelete?.(email)}>
-                        <Trash2 size={16} />
+                      <IconButton size="medium" onClick={() => onDelete?.(email)} sx={{ p: 1 }}>
+                        <Trash2 size={20} />
                       </IconButton>
                     </Tooltip>
                   </>
@@ -281,8 +289,8 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
             {email.hasCalendarInvite && email.calendarInviteData && (
               <Box
                 sx={{
-                  px: 2,
-                  py: 1.5,
+                  px: 3,
+                  py: 2,
                   borderTop: '1px solid',
                   borderColor: 'divider',
                   bgcolor: isDark ? alpha('#fff', 0.02) : alpha('#000', 0.01),
@@ -303,30 +311,35 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
             {hasAttachments && (
               <Box
                 sx={{
-                  px: 2,
-                  py: 1.5,
+                  px: 3,
+                  py: 2,
                   bgcolor: isDark ? alpha('#fff', 0.02) : alpha('#000', 0.01),
                   borderTop: '1px solid',
                   borderColor: 'divider',
                 }}
               >
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                  <Paperclip size={14} />
-                  <Typography variant="caption" fontWeight={600}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+                  <Paperclip size={18} />
+                  <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.875rem' }}>
                     {t.email.view.attachmentsWithCount.replace('{count}', String(nonInlineAttachments.length))}
                   </Typography>
                 </Stack>
-                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 0.5 }}>
+                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
                   {nonInlineAttachments.map((attachment) => {
                     const sizeLabel = formatFileSize(attachment.size, t.locale);
                     return (
                       <Tooltip key={attachment.id} title={attachmentTooltip} enterDelay={300}>
                         <Chip
                           label={`${attachment.filename} (${sizeLabel})`}
-                          size="small"
-                          icon={getFileIcon(attachment.filename, 12)}
+                          size="medium"
+                          icon={getFileIcon(attachment.filename, 16)}
                           onClick={(e) => onAttachmentOpen(attachment, e)}
-                          sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                          sx={{
+                            cursor: 'pointer',
+                            height: 36,
+                            fontSize: '0.875rem',
+                            '&:hover': { bgcolor: 'action.hover' }
+                          }}
                         />
                       </Tooltip>
                     );
@@ -335,14 +348,15 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
               </Box>
             )}
 
-              <EmailBody
-                html={emailHtml}
-                isDark={isDark}
-                lazyLoadImages={true}
-                lazyLoadMargin="200px"
-                attachments={email.attachments}
-                sx={{ p: 2 }}
-              />
+            {/* Email Body - 2025 Best Practices: 16px font, 1.5 line-height, generous padding */}
+            <EmailBody
+              html={emailHtml}
+              isDark={isDark}
+              lazyLoadImages={true}
+              lazyLoadMargin="200px"
+              attachments={email.attachments}
+              sx={{ p: 3 }}
+            />
           </Box>
         </Collapse>
       </Paper>

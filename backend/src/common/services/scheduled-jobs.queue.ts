@@ -13,7 +13,7 @@
  * @see MVP_COMPLETION_ROADMAP.md Section 11.6
  */
 
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy, OnApplicationBootstrap } from '@nestjs/common';
 import { Queue, Worker, Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import {
@@ -75,7 +75,7 @@ export interface ScheduledJobData {
 export type ScheduledJobHandler = (job: Job<ScheduledJobData>) => Promise<void>;
 
 @Injectable()
-export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy {
+export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy, OnApplicationBootstrap {
   private readonly logger = new Logger(ScheduledJobsQueueService.name);
   private redisConnection: Redis;
   private queue: Queue<ScheduledJobData>;
@@ -122,6 +122,21 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy 
 
     this.isInitialized = true;
     this.logger.log('ScheduledJobsQueueService initialized');
+  }
+
+  async onApplicationBootstrap() {
+    const jobsEnabled = (process.env.JOBS_ENABLED || 'true').toLowerCase() !== 'false';
+    if (!jobsEnabled) {
+      this.logger.warn('Scheduled jobs disabled via JOBS_ENABLED=false');
+      return;
+    }
+
+    try {
+      await this.initializeRepeatableJobs();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to initialize repeatable jobs: ${message}`);
+    }
   }
 
   async onModuleDestroy() {
@@ -179,6 +194,22 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy 
 
       this.logger.log(`Registered repeatable job: ${jobType} (${pattern})`);
     }
+  }
+
+  /**
+   * Trigger a scheduled job with BullMQ deduplication
+   */
+  async triggerJobDeduped(
+    jobType: ScheduledJobType,
+    deduplicationId: string,
+    ttlMs: number,
+  ): Promise<string> {
+    const job = await this.queue.add(
+      jobType,
+      { jobType, triggeredAt: new Date().toISOString() },
+      { deduplication: { id: deduplicationId, ttl: ttlMs } },
+    );
+    return job.id || 'unknown';
   }
 
   /**
