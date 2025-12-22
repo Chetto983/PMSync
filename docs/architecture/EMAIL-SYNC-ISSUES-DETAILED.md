@@ -735,30 +735,39 @@ Logs provider email when refreshing token.
 
 ## Unused Code
 
-### UNUSED-1: burstLimit Configuration
+### UNUSED-1: burstLimit Configuration ✅ DEPRECATED
 
 **File:** `drivers/resilience/resilience.types.ts`
 **Line:** 27
+**Status:** **DEPRECATED** (December 22, 2025)
 
 **Description:** Defined but never used in implementation.
 
+**Fix Applied:** Marked as optional with `@deprecated` JSDoc annotation for backwards compatibility.
+
 ---
 
-### UNUSED-2: halfOpenRequests Configuration
+### UNUSED-2: halfOpenRequests Configuration ✅ DEPRECATED
 
 **File:** `drivers/resilience/resilience.types.ts`
 **Line:** 37
+**Status:** **DEPRECATED** (December 22, 2025)
 
 **Description:** Defined but never used.
 
+**Fix Applied:** Marked as optional with `@deprecated` JSDoc annotation for backwards compatibility.
+
 ---
 
-### UNUSED-3: connectTimeoutMs, batchTimeoutMs, idleTimeoutMs
+### UNUSED-3: connectTimeoutMs, batchTimeoutMs, idleTimeoutMs ✅ VERIFIED USED
 
 **File:** `drivers/resilience/resilience.types.ts`
 **Lines:** 44-49
+**Status:** **VERIFIED USED** (December 22, 2025)
 
 **Description:** Three timeout configs defined but only `requestTimeoutMs` is used.
+
+**Verification:** These timeout configs ARE used in `resilient-driver.wrapper.ts` for provider-specific timeout handling. Not unused.
 
 ---
 
@@ -820,23 +829,35 @@ Increased `BATCH_SIZE` from 10 to 50 in `batchGetMessages()`, per Gmail API docu
 
 ---
 
-### CFG-2: Hardcoded Pool Config
+### CFG-2: Hardcoded Pool Config ✅ FIXED
 
 **File:** `drivers/imap/imap.driver.ts`
 **Lines:** 40-46
 **Severity:** Medium
+**Status:** **FIXED** (December 22, 2025)
 
 **Description:** Pool configuration prevents runtime tuning.
 
+**Fix Applied:** Made pool config configurable via environment variables:
+
+- `IMAP_MAX_CONNECTIONS_PER_USER` (default: 3)
+- `IMAP_CONNECTION_IDLE_TIMEOUT_MS` (default: 60000)
+- `IMAP_CONNECTION_ACQUIRE_TIMEOUT_MS` (default: 10000)
+- `IMAP_MAX_MESSAGE_BODY_SIZE` (default: 10MB)
+- `IMAP_BODY_DOWNLOAD_TIMEOUT_MS` (default: 15000)
+
 ---
 
-### CFG-3: Hardcoded Stale Threshold
+### CFG-3: Hardcoded Stale Threshold ✅ FIXED
 
 **File:** `drivers/resilience/resilience.service.ts`
-**Line:** 480
+**Line:** 574
 **Severity:** Low
+**Status:** **FIXED** (December 22, 2025)
 
 **Description:** 24-hour stale threshold should be configurable.
+
+**Fix Applied:** Made configurable via `RESILIENCE_STALE_THRESHOLD_HOURS` environment variable (default: 24).
 
 ---
 
@@ -973,11 +994,13 @@ Replaced `Math.random().toString(36)` with `crypto.randomBytes(16).toString('hex
 | Performance      | 4     | 1     | 0           | 0        | 3         |
 | Code Dedup       | ~1500 | ~570  | -           | ~930     | 0         |
 | RFC Encoding     | 2     | 2     | 0           | 0        | 0         |
-| **Total**        | **52**| **29**| **4**       | **~931** | **14**    |
+| Unused Code      | 3     | 2     | 1           | 0        | 0         |
+| Configuration    | 3     | 2     | 0           | 1        | 0         |
+| **Total**        | **58**| **33**| **5**       | **~932** | **14**    |
 
-*Note: Some issues were verified as "not bugs" or "already correct" after investigation (LB-7, ML-3, ML-4, RC-6).*
+*Note: Some issues were verified as "not bugs" or "already correct" after investigation (LB-7, ML-3, ML-4, RC-6, UNUSED-3).*
 
-### Phase 1-4 Completion Status (December 22, 2025)
+### Phase 1-6 Completion Status (December 22, 2025)
 
 **Phase 1: Critical Fixes** ✅
 - **Race Conditions (RC-1, RC-2, RC-3, RC-4, RC-5, RC-7):** All critical race conditions fixed with Prisma upsert + mutex patterns
@@ -1000,6 +1023,19 @@ Replaced `Math.random().toString(36)` with `crypto.randomBytes(16).toString('hex
 - **BaseEmailSyncService:** ~570 lines removed from sync services
 - **Shared Methods:** `upsertMessageFromDriver`, `processMessagesBatch`, `handleMessageDeletion`
 - **All Providers:** Google, Microsoft, IMAP extend base class
+
+**Phase 5: API Compliance** ✅
+
+- **IMAP Capability Detection:** `detectServerCapabilities()` checks CONDSTORE/QRESYNC/IDLE/SPECIAL-USE
+- **Microsoft Delta Token:** Improved expiration detection via token change + empty results
+- **Gmail Error Handling:** Comprehensive 403/429/5xx handling (LB-14)
+
+**Phase 6: Cleanup** ✅
+
+- **Deprecated Unused Code:** `burstLimit`, `halfOpenRequests` marked optional with @deprecated
+- **IMAP Pool Config:** Made configurable via `IMAP_*` environment variables
+- **Stale Threshold:** Made configurable via `RESILIENCE_STALE_THRESHOLD_HOURS`
+- **IMAP Driver Export:** Added to `drivers/index.ts`
 
 ### Real Data Validation Results (December 22, 2025)
 

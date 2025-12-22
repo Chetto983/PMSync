@@ -389,10 +389,9 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
       bulkDelete(emailIds);
 
       // Optimistic update - React Query (Infinite Lists & Flat Lists)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       queryClient.setQueriesData<any>(
         { queryKey: emailKeys.lists() },
-        (oldData: any) => {
+        (oldData) => {
           if (!oldData) return oldData;
 
           try {
