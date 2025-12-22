@@ -79,14 +79,15 @@ export class CrossProviderDedupService {
         },
       });
 
-    // If link exists and this provider already has this email, it's a duplicate
-    const providerAlreadyLinked = crossProviderLink?.emails.some(
-      (email) => email.providerId === emailIdentity.providerId,
+    // LB-3 Fix: Check if this specific email ID is already linked (not just the provider)
+    // This prevents reprocessing the same email and ensures correct dedup behavior
+    const emailAlreadyLinked = crossProviderLink?.emails.some(
+      (email) => email.id === emailIdentity.id,
     );
 
-    if (crossProviderLink && providerAlreadyLinked) {
+    if (crossProviderLink && emailAlreadyLinked) {
       this.logger.debug(
-        `Email already linked for provider ${emailIdentity.providerId} (hash: ${contentHash})`,
+        `Email ${emailIdentity.id} already linked (hash: ${contentHash})`,
       );
 
       return {

@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEmailStore, type Email } from '@/stores/email-store';
+import { type EmailListResponse } from '@/lib/api/email';
 import { emailKeys } from '@/hooks/queries';
 import {
   useBulkDelete,
@@ -30,6 +31,7 @@ import {
 import { useRouter } from 'next/router';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/api-client';
+
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 // ============================================================================
@@ -166,8 +168,42 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
       const { emails } = useEmailStore.getState();
       const emailToDelete = emails.find((e) => e.id === emailId);
 
-      // Optimistic update
+      // Optimistic update - Zustand
       deleteEmail(emailId);
+
+      // Optimistic update - React Query (Infinite Lists & Flat Lists)
+      queryClient.setQueriesData<any>(
+        { queryKey: emailKeys.lists() },
+        (oldData: any) => {
+          if (!oldData) return oldData;
+
+          try {
+            // Handle Infinite Query
+            if (oldData.pages && Array.isArray(oldData.pages)) {
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page: EmailListResponse) => ({
+                  ...page,
+                  emails: page.emails ? page.emails.filter((email) => email.id !== emailId) : [],
+                })),
+              };
+            }
+
+            // Handle Flat Query
+            if (oldData.emails && Array.isArray(oldData.emails)) {
+              return {
+                ...oldData,
+                emails: oldData.emails.filter((email: Email) => email.id !== emailId),
+              };
+            }
+          } catch (error) {
+            console.error('[Optimistic Update Failed] Single Delete:', error);
+            return oldData;
+          }
+
+          return oldData;
+        }
+      );
 
       // Fire mutation
       deleteEmailMutation.mutate(emailId, {
@@ -176,10 +212,13 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
           callbacksRef.current?.onSuccess?.(replaceCount(t.email.messages.deleted, 1));
         },
         onError: (error) => {
-          // Rollback Zustand store
+          // Rollback Zustand
           if (emailToDelete) {
             useEmailStore.getState().addEmail(emailToDelete);
           }
+          // Rollback React Query
+          queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+
           logger.error('[EmailActions] Failed to delete email', {
             emailId,
             errorMessage: getApiErrorMessage(error),
@@ -188,7 +227,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         },
       });
     },
-    [deleteEmail, deleteEmailMutation, invalidateEmailCaches, t.email.messages]
+    [deleteEmail, deleteEmailMutation, invalidateEmailCaches, queryClient, t.email.messages]
   );
 
   /**
@@ -346,8 +385,43 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
       const { emails } = useEmailStore.getState();
       const emailsToDelete = emails.filter((e) => emailIds.includes(e.id));
 
-      // Optimistic update
+      // Optimistic update - Zustand
       bulkDelete(emailIds);
+
+      // Optimistic update - React Query (Infinite Lists & Flat Lists)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      queryClient.setQueriesData<any>(
+        { queryKey: emailKeys.lists() },
+        (oldData: any) => {
+          if (!oldData) return oldData;
+
+          try {
+            // Handle Infinite Query
+            if (oldData.pages && Array.isArray(oldData.pages)) {
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page: EmailListResponse) => ({
+                  ...page,
+                  emails: page.emails ? page.emails.filter((email) => !emailIds.includes(email.id)) : [],
+                })),
+              };
+            }
+
+            // Handle Flat Query
+            if (oldData.emails && Array.isArray(oldData.emails)) {
+              return {
+                ...oldData,
+                emails: oldData.emails.filter((email: Email) => !emailIds.includes(email.id)),
+              };
+            }
+          } catch (error) {
+            console.error('[Optimistic Update Failed] Bulk Delete:', error);
+            return oldData;
+          }
+
+          return oldData;
+        }
+      );
 
       // Fire mutation
       bulkDeleteMutation.mutate(emailIds, {
@@ -356,9 +430,13 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
           callbacksRef.current?.onSuccess?.(replaceCount(t.email.messages.deleted, emailIds.length));
         },
         onError: (error) => {
-          // Rollback
+          // Rollback Zustand
           const store = useEmailStore.getState();
           emailsToDelete.forEach((email) => store.addEmail(email));
+
+          // Rollback React Query (refetch)
+          queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+
           logger.error('[EmailActions] Failed to bulk delete emails', {
             count: emailIds.length,
             errorMessage: getApiErrorMessage(error),
@@ -367,7 +445,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
         },
       });
     },
-    [bulkDelete, bulkDeleteMutation, invalidateEmailCaches, t.email.messages]
+    [bulkDelete, bulkDeleteMutation, invalidateEmailCaches, queryClient, t.email.messages]
   );
 
   /**

@@ -24,7 +24,8 @@ export interface RetryConfig {
 export interface RateLimitConfig {
   requestsPerSecond: number;    // Max requests per second per account
   requestsPerMinute: number;    // Max requests per minute per account
-  burstLimit: number;           // Max burst requests allowed
+  /** @deprecated Not implemented - will be removed in future version */
+  burstLimit?: number;          // Max burst requests allowed (NOT IMPLEMENTED)
   cooldownMs: number;           // Cooldown after hitting limit (default: 60000)
 }
 
@@ -34,7 +35,8 @@ export interface RateLimitConfig {
 export interface CircuitBreakerConfig {
   failureThreshold: number;     // Failures before opening circuit (default: 5)
   resetTimeoutMs: number;       // Time before trying again (default: 60000)
-  halfOpenRequests: number;     // Requests to try in half-open state (default: 1)
+  /** @deprecated Not implemented - will be removed in future version */
+  halfOpenRequests?: number;    // Requests to try in half-open state (NOT IMPLEMENTED)
   successThreshold: number;     // Successes to close circuit (default: 2)
 }
 
@@ -110,10 +112,10 @@ export const PROVIDER_RATE_LIMITS: Record<string, RateLimitConfig> = {
     cooldownMs: 60000,
   },
   microsoft: {
-    requestsPerSecond: 8,       // Graph API: Allow burst for testing, production ~4 QPS
-    requestsPerMinute: 180,     // Allow more for testing burst scenarios
-    burstLimit: 30,             // Higher burst for testing
-    cooldownMs: 30000,          // Shorter cooldown
+    requestsPerSecond: 8,       // Graph API: ~8 QPS per user conservative estimate
+    requestsPerMinute: 180,     // Graph API allows higher but this is safe for production
+    burstLimit: 30,             // @deprecated - not implemented
+    cooldownMs: 30000,          // 30s cooldown on rate limit
   },
   imap: {
     requestsPerSecond: 5,       // IMAP is connection-based, not request-based

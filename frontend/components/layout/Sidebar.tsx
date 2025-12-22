@@ -14,6 +14,7 @@ import {
   Button,
   useMediaQuery,
   useTheme,
+  alpha,
 } from '@mui/material';
 import {
   Home,
@@ -106,7 +107,7 @@ export function Sidebar({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: 'background.paper',
+        backgroundColor: 'transparent', // Transparent to let glass effect show
       }}
     >
       {/* Logo and Brand */}
@@ -311,6 +312,10 @@ export function Sidebar({
         '& .MuiDrawer-paper': {
           width: drawerWidth,
           boxSizing: 'border-box',
+          backgroundColor: alpha(theme.palette.background.paper, 0.7),
+          backdropFilter: 'blur(12px)',
+          borderRight: '1px solid',
+          borderColor: alpha(theme.palette.divider, 0.1),
           transition: theme.transitions.create('width', {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,

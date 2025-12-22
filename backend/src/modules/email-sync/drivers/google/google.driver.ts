@@ -159,17 +159,14 @@ export class GoogleDriver extends BaseEmailDriver {
     });
 
     const messageRefs = response.data.messages || [];
-    const messages: CanonicalMessage[] = [];
 
-    // Fetch full message details for each
-    for (const ref of messageRefs) {
-      if (ref.id) {
-        const msg = await this.getMessage(ref.id, { includeBody: true });
-        if (msg) {
-          messages.push(msg);
-        }
-      }
-    }
+    // Use batch operation instead of sequential getMessage calls
+    // This reduces N API calls to ceil(N/50) batched calls
+    const messageIds = messageRefs
+      .filter((ref) => ref.id)
+      .map((ref) => ref.id!);
+
+    const messages = await this.batchGetMessages(messageIds);
 
     return {
       messages,
@@ -479,9 +476,9 @@ export class GoogleDriver extends BaseEmailDriver {
   async batchGetMessages(messageIds: string[]): Promise<CanonicalMessage[]> {
     const messages: CanonicalMessage[] = [];
 
-    // Gmail batch API requires special handling
-    // For now, fetch in parallel with concurrency limit
-    const BATCH_SIZE = 10;
+    // Gmail batch API: max 100 calls per batch, recommended 50 or less
+    // Source: https://developers.google.com/gmail/api/guides/batch
+    const BATCH_SIZE = 50;
     for (let i = 0; i < messageIds.length; i += BATCH_SIZE) {
       const batch = messageIds.slice(i, i + BATCH_SIZE);
       const results = await Promise.all(
@@ -683,8 +680,12 @@ export class GoogleDriver extends BaseEmailDriver {
         hasMore,
       };
     } catch (error: any) {
+      const errorCode = error?.code || error?.status;
+      const errorMessage = error?.message || String(error);
+
+      // LB-14 Fix: Comprehensive Gmail API error handling
       // Handle 404 errors (historyId expired) per Gmail API best practices
-      if (error?.code === 404 || error?.status === 404) {
+      if (errorCode === 404) {
         this.logger.warn(
           `Gmail history ID ${startHistoryId} is invalid or expired. Full sync required.`,
         );
@@ -695,6 +696,56 @@ export class GoogleDriver extends BaseEmailDriver {
           hasMore: false,
         };
       }
+
+      // Handle 403 (permission denied / quota exceeded)
+      if (errorCode === 403) {
+        const isQuotaExceeded = errorMessage.includes('quotaExceeded') ||
+          errorMessage.includes('userRateLimitExceeded') ||
+          errorMessage.includes('dailyLimitExceeded');
+
+        if (isQuotaExceeded) {
+          this.logger.error(
+            `Gmail API quota exceeded for history sync. Will retry later.`,
+          );
+          // Throw a retriable error for quota issues
+          const quotaError = new Error(`Gmail quota exceeded: ${errorMessage}`);
+          (quotaError as any).retriable = true;
+          (quotaError as any).retryAfter = 60000; // Suggest 1 minute retry
+          throw quotaError;
+        }
+
+        this.logger.error(
+          `Gmail API permission denied for history sync: ${errorMessage}`,
+        );
+        throw new Error(`Gmail permission denied: ${errorMessage}`);
+      }
+
+      // Handle 429 (rate limit exceeded)
+      if (errorCode === 429) {
+        const retryAfter = error?.response?.headers?.['retry-after'];
+        const retryMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 30000;
+
+        this.logger.warn(
+          `Gmail API rate limited. Retry after ${retryMs}ms.`,
+        );
+        const rateLimitError = new Error(`Gmail rate limited: ${errorMessage}`);
+        (rateLimitError as any).retriable = true;
+        (rateLimitError as any).retryAfter = retryMs;
+        throw rateLimitError;
+      }
+
+      // Handle 500/502/503/504 (server errors - retriable)
+      if (errorCode >= 500 && errorCode < 600) {
+        this.logger.warn(
+          `Gmail API server error (${errorCode}): ${errorMessage}. Will retry.`,
+        );
+        const serverError = new Error(`Gmail server error: ${errorMessage}`);
+        (serverError as any).retriable = true;
+        (serverError as any).retryAfter = 5000; // 5 second retry for server errors
+        throw serverError;
+      }
+
+      // Re-throw unhandled errors
       throw error;
     }
   }
@@ -884,6 +935,33 @@ export class GoogleDriver extends BaseEmailDriver {
     return parts.length > 0 ? parts.join(' ') : null;
   }
 
+  /**
+   * Encode a string using RFC 2047 if it contains non-ASCII characters.
+   * Used for display names in email headers (To, Cc, Bcc, From).
+   * Source: https://www.rfc-editor.org/rfc/rfc2047
+   */
+  private encodeRfc2047(text: string): string {
+    if (!/[^\x00-\x7F]/.test(text)) {
+      return text; // ASCII only, no encoding needed
+    }
+    return `=?UTF-8?B?${Buffer.from(text).toString('base64')}?=`;
+  }
+
+  /**
+   * Format an email address for MIME headers with RFC 2047 encoding for non-ASCII names.
+   */
+  private formatEmailAddress(addr: { name?: string; email: string }): string {
+    if (addr.name) {
+      const encodedName = this.encodeRfc2047(addr.name);
+      // If encoded, don't quote (RFC 2047 encoded-words replace 'word' in 'phrase')
+      if (encodedName.startsWith('=?')) {
+        return `${encodedName} <${addr.email}>`;
+      }
+      return `"${addr.name}" <${addr.email}>`;
+    }
+    return addr.email;
+  }
+
   private composeToRaw(message: ComposeMessage): string {
     const lines: string[] = [];
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`;
@@ -892,30 +970,24 @@ export class GoogleDriver extends BaseEmailDriver {
     // MIME-Version header (required for proper MIME parsing)
     lines.push('MIME-Version: 1.0');
 
-    // From header
+    // From header (with RFC 2047 encoding for non-ASCII names)
     if (message.fromEmail) {
       lines.push(`From: ${message.fromEmail}`);
     }
 
-    // To header
-    const toAddrs = message.to.map((addr) =>
-      addr.name ? `"${addr.name}" <${addr.email}>` : addr.email
-    );
+    // To header (with RFC 2047 encoding for non-ASCII names)
+    const toAddrs = message.to.map((addr) => this.formatEmailAddress(addr));
     lines.push(`To: ${toAddrs.join(', ')}`);
 
-    // CC header
+    // CC header (with RFC 2047 encoding for non-ASCII names)
     if (message.cc?.length) {
-      const ccAddrs = message.cc.map((addr) =>
-        addr.name ? `"${addr.name}" <${addr.email}>` : addr.email
-      );
+      const ccAddrs = message.cc.map((addr) => this.formatEmailAddress(addr));
       lines.push(`Cc: ${ccAddrs.join(', ')}`);
     }
 
-    // BCC header
+    // BCC header (with RFC 2047 encoding for non-ASCII names)
     if (message.bcc?.length) {
-      const bccAddrs = message.bcc.map((addr) =>
-        addr.name ? `"${addr.name}" <${addr.email}>` : addr.email
-      );
+      const bccAddrs = message.bcc.map((addr) => this.formatEmailAddress(addr));
       lines.push(`Bcc: ${bccAddrs.join(', ')}`);
     }
 

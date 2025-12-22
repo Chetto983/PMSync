@@ -73,8 +73,14 @@ export function CollapsibleWidget({
         borderColor: alpha(theme.palette.divider, 0.08),
         bgcolor: 'background.paper',
         overflow: 'hidden',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:before': { display: 'none' },
         '&.Mui-expanded': { margin: 0 },
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          borderColor: alpha(theme.palette.primary.main, 0.3),
+          boxShadow: (theme) => `0 10px 30px ${alpha(theme.palette.common.black, 0.08)}`,
+        },
       }}
     >
       <AccordionSummary

@@ -125,16 +125,32 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
         onMouseLeave={() => setIsHovered(false)}
         sx={{
           position: 'relative',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          transition: 'all 0.15s ease',
+          mb: 1, // Space between cards
+          mx: 1, // Side margins
+          borderRadius: 3, // Bento rounded corners
           overflow: 'hidden',
           maxWidth: '100%',
-          // Unread indicator - left border
-          borderLeft: isRead ? 'none' : '3px solid',
-          borderLeftColor: isRead ? 'transparent' : 'primary.main',
+          bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: isRead ? 'divider' : 'primary.light',
+          boxShadow: isHovered ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+          transition: 'all 0.2s ease',
+          // Unread indicator - left border effect inside card
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 4,
+            bgcolor: isRead ? 'transparent' : 'primary.main',
+            opacity: isRead ? 0 : 1,
+            transition: 'opacity 0.2s ease',
+          },
           '&:hover': {
-            bgcolor: isMobile ? 'transparent' : 'action.hover',
+            transform: 'translateY(-2px)',
+            boxShadow: '0 8px 16px rgba(0,0,0,0.08)',
+            borderColor: 'primary.main',
           },
         }}
       >
@@ -145,14 +161,14 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
           data-thread-id={threadId}
           data-email-id={emailId}
           sx={{
-            py: isMobile ? 0.75 : 1,
-            px: isMobile ? 1 : 1.5,
+            py: 1.5,
+            px: 2,
             display: 'flex',
-            gap: isMobile ? 1 : 1.5,
+            gap: 1.5,
             alignItems: 'center',
-            bgcolor: isRead ? 'transparent' : 'rgba(25, 118, 210, 0.08)',
+            bgcolor: 'transparent', // Let container bg show
             cursor: 'pointer',
-            minHeight: isMobile ? 48 : 56,
+            minHeight: 72, // Taller cards
             maxWidth: '100%',
             overflow: 'hidden',
             '&.Mui-selected': {

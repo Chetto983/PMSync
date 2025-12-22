@@ -42,10 +42,11 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
   private worker: Worker<FolderJobData, FolderJobResult>;
 
   // Worker configuration
+  // Performance fix: Increased lockDuration from 1min to 10min for operations on large folders
   private readonly WORKER_CONFIG = {
     concurrency: 5, // Process 5 folder operations simultaneously
-    lockDuration: 60000, // 1 minute lock
-    stalledInterval: 30000, // Check for stalled jobs every 30s
+    lockDuration: 600000, // 10 minute lock (increased from 1 min)
+    stalledInterval: 120000, // Check for stalled jobs every 2 min (increased from 30s)
   };
 
   constructor(

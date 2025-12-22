@@ -373,12 +373,15 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
   ]);
 
   useEffect(() => {
+    const promises = inlineUrlPromisesRef.current;
+    const cache = inlineUrlCacheRef.current;
+
     return () => {
-      inlineUrlPromisesRef.current.clear();
-      for (const url of inlineUrlCacheRef.current.values()) {
+      promises.clear();
+      for (const url of cache.values()) {
         URL.revokeObjectURL(url);
       }
-      inlineUrlCacheRef.current.clear();
+      cache.clear();
     };
   }, [sanitizedHtml]);
 

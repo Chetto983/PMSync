@@ -53,6 +53,7 @@ export function SmartFiltersSection({
         disableGutters
         elevation={0}
         sx={{
+          background: 'transparent',
           '&:before': { display: 'none' },
           '&.Mui-expanded': { margin: 0 },
         }}

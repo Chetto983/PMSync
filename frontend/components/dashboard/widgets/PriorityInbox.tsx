@@ -58,10 +58,11 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
         borderColor: alpha(theme.palette.divider, 0.08),
         bgcolor: 'background.paper',
         overflow: 'hidden',
-        transition: 'all 0.2s ease-in-out',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
-          borderColor: alpha(theme.palette.primary.main, 0.2),
-          boxShadow: `0 8px 24px ${alpha(theme.palette.common.black, 0.06)}`,
+          transform: 'translateY(-4px)',
+          borderColor: alpha(theme.palette.primary.main, 0.3),
+          boxShadow: `0 20px 40px ${alpha(theme.palette.common.black, 0.08)}`,
         },
       }}
     >
@@ -82,11 +83,11 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
             width: 40,
             height: 40,
             borderRadius: 2.5,
-            bgcolor: alpha(theme.palette.warning.main, 0.1),
+            bgcolor: alpha(theme.palette.primary.main, 0.1), // Using primary/cyan instead of warning for consistency
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'warning.main',
+            color: 'primary.main',
           }}
         >
           <Star size={20} />
@@ -104,8 +105,8 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
             label={emails.length}
             size="small"
             sx={{
-              bgcolor: alpha(theme.palette.warning.main, 0.1),
-              color: 'warning.main',
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              color: 'primary.main',
               fontWeight: 600,
               fontSize: '0.75rem',
             }}
@@ -135,7 +136,7 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
                 width: 64,
                 height: 64,
                 borderRadius: 3,
-                bgcolor: alpha(theme.palette.warning.main, 0.08),
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -143,7 +144,7 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
                 mb: 2,
               }}
             >
-              <Star size={28} style={{ opacity: 0.5, color: theme.palette.warning.main }} />
+              <Star size={28} style={{ opacity: 0.5, color: theme.palette.primary.main }} />
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t.dashboard.home.sections.noStarredEmails || 'No starred emails'}
@@ -157,8 +158,8 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 600,
-                bgcolor: 'warning.main',
-                '&:hover': { bgcolor: 'warning.dark' },
+                bgcolor: 'primary.main',
+                '&:hover': { bgcolor: 'primary.dark' },
               }}
             >
               {t.dashboard.home.sections.viewAllEmails}
@@ -218,7 +219,7 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
                         {email.from.name}
                       </Typography>
                       {email.isStarred && (
-                        <Star size={14} fill={theme.palette.warning.main} color={theme.palette.warning.main} style={{ flexShrink: 0 }} />
+                        <Star size={14} fill={theme.palette.primary.main} color={theme.palette.primary.main} style={{ flexShrink: 0 }} />
                       )}
                     </Box>
                     <Typography
@@ -282,10 +283,10 @@ export function PriorityInbox({ limit = 5 }: PriorityInboxProps) {
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 500,
-              color: 'warning.main',
-              bgcolor: alpha(theme.palette.warning.main, 0.06),
+              color: 'primary.main',
+              bgcolor: alpha(theme.palette.primary.main, 0.06),
               '&:hover': {
-                bgcolor: alpha(theme.palette.warning.main, 0.12),
+                bgcolor: alpha(theme.palette.primary.main, 0.12),
               },
             }}
           >

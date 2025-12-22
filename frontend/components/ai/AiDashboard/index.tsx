@@ -412,10 +412,10 @@ export function AiDashboard() {
               p: 2,
               borderTop: '1px solid',
               borderColor: alpha(theme.palette.divider, 0.06),
-              // Glassmorphism background - reduced blur on mobile to minimize "fog"
-              background: alpha(theme.palette.background.paper, 0.85),
-              backdropFilter: isMobile ? 'blur(10px)' : 'blur(20px)',
-              WebkitBackdropFilter: isMobile ? 'blur(10px)' : 'blur(20px)',
+              // Glassmorphism background - aligned with global standard
+              background: alpha(theme.palette.background.paper, 0.8),
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
             }}
           >
             {messages.length > 0 && !sending && (

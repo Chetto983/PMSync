@@ -78,7 +78,8 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
           duration: 60000, // per minute
         },
         // Long-running syncs need generous lock to avoid "missing lock" stalls
-        lockDuration: Number(this.configService.get('SYNC_WORKER_LOCK_MS')) || 300000,
+        // Performance fix: Increased from 5min to 15min for large mailboxes
+        lockDuration: Number(this.configService.get('SYNC_WORKER_LOCK_MS')) || 900000,
         stalledInterval: Math.max(
           1000,
           Number(this.configService.get('SYNC_WORKER_STALLED_INTERVAL_MS')) || 120000,

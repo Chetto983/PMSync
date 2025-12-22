@@ -5,6 +5,10 @@ import { decode } from 'he';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { SyncJobData, SyncJobResult } from '../interfaces/sync-job.interface';
+import { IEmailDriver } from '../drivers/interfaces/email-driver.interface';
+import { CanonicalMessage, AttachmentMeta } from '../drivers/interfaces/canonical.types';
+import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
+import { isJunkFolder } from '../../email/email.helpers';
 
 /**
  * Abstract base class for email sync services (Google, Microsoft, IMAP)
@@ -55,6 +59,293 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
    * Main sync entry point - must be implemented by each provider
    */
   abstract syncProvider(jobData: SyncJobData): Promise<SyncJobResult>;
+
+  /**
+   * Get the email embedding queue service - must be provided by child classes
+   * This allows the base class to queue new messages for embedding generation
+   */
+  protected abstract getEmbeddingQueue(): EmailEmbeddingQueueService;
+
+  /**
+   * Process attachments for a message - must be implemented by each provider
+   * This handles provider-specific attachment download and storage logic
+   *
+   * @param driver - The connected email driver
+   * @param emailId - Database email ID
+   * @param tenantId - Tenant ID for storage
+   * @param providerId - Provider ID for reference
+   * @param externalMessageId - Provider's message ID
+   * @param attachments - Attachment metadata from the message
+   */
+  protected abstract processAttachmentsForMessage(
+    driver: IEmailDriver,
+    emailId: string,
+    tenantId: string,
+    providerId: string,
+    externalMessageId: string,
+    attachments: AttachmentMeta[],
+  ): Promise<void>;
+
+  // ============================================
+  // Shared Message Processing Methods
+  // ============================================
+
+  /**
+   * Handle message deletion - mark as deleted in database and emit events
+   * This is identical across all providers and has been moved to base class
+   *
+   * Phase 4 Deduplication: Removes ~30 lines of duplicate code per provider
+   *
+   * @param messageId - External message ID from provider
+   * @param providerId - Provider ID
+   * @param tenantId - Tenant ID
+   */
+  protected async handleMessageDeletion(
+    messageId: string,
+    providerId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const existing = await this.prisma.email.findFirst({
+      where: { providerId, externalId: messageId },
+      select: { id: true, folder: true },
+    });
+
+    if (!existing) {
+      return; // Message not in our database
+    }
+
+    // Mark as deleted or move to trash
+    await this.prisma.email.update({
+      where: { id: existing.id },
+      data: {
+        isDeleted: true,
+        folder: 'TRASH',
+      },
+    });
+
+    // Emit realtime event
+    this.realtimeEvents.emitEmailDelete(tenantId, {
+      emailId: existing.id,
+      providerId,
+      folder: existing.folder,
+      reason: 'message-deleted',
+    });
+  }
+
+  /**
+   * Upsert a message from driver canonical format into database
+   * This is nearly identical across all providers - only attachment processing differs
+   *
+   * Phase 4 Deduplication: Removes ~90 lines of duplicate code per provider
+   *
+   * @param driver - The connected email driver
+   * @param canonicalMsg - Message in canonical format
+   * @param providerId - Provider ID
+   * @param tenantId - Tenant ID
+   * @returns Object indicating if the message was new
+   */
+  protected async upsertMessageFromDriver(
+    driver: IEmailDriver,
+    canonicalMsg: CanonicalMessage,
+    providerId: string,
+    tenantId: string,
+  ): Promise<{ wasNew: boolean }> {
+    // Common data for both create and update
+    const updateData = {
+      subject: canonicalMsg.subject || '(No Subject)',
+      from: canonicalMsg.from.email,
+      to: canonicalMsg.to?.map((r) => r.email) || [],
+      cc: canonicalMsg.cc?.map((r) => r.email) || [],
+      bcc: canonicalMsg.bcc?.map((r) => r.email) || [],
+      bodyText: canonicalMsg.bodyText || '',
+      bodyHtml: canonicalMsg.bodyHtml || '',
+      snippet: canonicalMsg.snippet || '',
+      receivedAt: canonicalMsg.receivedAt,
+      isRead: canonicalMsg.isRead ?? false,
+      isStarred: canonicalMsg.isStarred ?? false,
+      isFlagged: canonicalMsg.isFlagged ?? false,
+      labels: canonicalMsg.labels || [],
+    };
+
+    // Use atomic upsert to prevent race condition (RC-1/RC-2/RC-3 fix)
+    // Uses compound unique constraint: providerId_externalId_folder
+    const result = await this.prisma.email.upsert({
+      where: {
+        providerId_externalId_folder: {
+          providerId,
+          externalId: canonicalMsg.id,
+          folder: canonicalMsg.folder,
+        },
+      },
+      update: {
+        ...updateData,
+        folder: canonicalMsg.folder, // Allow folder changes (moves)
+      },
+      create: {
+        tenantId,
+        providerId,
+        externalId: canonicalMsg.id,
+        ...updateData,
+        sentAt: canonicalMsg.sentAt || canonicalMsg.receivedAt,
+        isDeleted: false,
+        folder: canonicalMsg.folder,
+        threadId: canonicalMsg.threadId || null,
+      },
+    });
+
+    // Determine if this was a new record by checking createdAt vs updatedAt
+    // If they're within 1 second, it was just created
+    const wasNew = Math.abs(result.createdAt.getTime() - result.updatedAt.getTime()) < 1000;
+
+    // Process attachments using provider-specific implementation
+    if (canonicalMsg.hasAttachments && canonicalMsg.attachments.length > 0) {
+      await this.processAttachmentsForMessage(
+        driver,
+        result.id,
+        tenantId,
+        providerId,
+        canonicalMsg.id,
+        canonicalMsg.attachments,
+      );
+    }
+
+    // Only queue embeddings and emit events for new messages
+    if (wasNew) {
+      // Queue for embeddings (skip SPAM/TRASH - they're junk)
+      if (!isJunkFolder(result.folder)) {
+        await this.getEmbeddingQueue().enqueue({
+          emailId: result.id,
+          tenantId,
+          subject: result.subject,
+          snippet: result.snippet || '',
+        });
+      }
+
+      // Emit realtime event
+      this.realtimeEvents.emitEmailNew(tenantId, {
+        emailId: result.id,
+        providerId,
+        folder: result.folder,
+        reason: 'message-processed',
+      });
+    }
+
+    return { wasNew };
+  }
+
+  /**
+   * Process a batch of messages using transaction for DB operations
+   * Performance fix (N1-4/N1-5): Reduces DB round-trips by batching upserts
+   *
+   * Phase 4 Deduplication: Removes ~90 lines of duplicate code per provider
+   *
+   * @param driver - The connected email driver
+   * @param messages - Array of messages in canonical format
+   * @param providerId - Provider ID
+   * @param tenantId - Tenant ID
+   * @returns Object with processed count and new message count
+   */
+  protected async processMessagesBatch(
+    driver: IEmailDriver,
+    messages: CanonicalMessage[],
+    providerId: string,
+    tenantId: string,
+  ): Promise<{ processed: number; newCount: number }> {
+    if (messages.length === 0) {
+      return { processed: 0, newCount: 0 };
+    }
+
+    // Prepare all upsert operations
+    const upsertOps = messages.map((msg) => {
+      const updateData = {
+        subject: msg.subject || '(No Subject)',
+        from: msg.from.email,
+        to: msg.to?.map((r) => r.email) || [],
+        cc: msg.cc?.map((r) => r.email) || [],
+        bcc: msg.bcc?.map((r) => r.email) || [],
+        bodyText: msg.bodyText || '',
+        bodyHtml: msg.bodyHtml || '',
+        snippet: msg.snippet || '',
+        receivedAt: msg.receivedAt,
+        isRead: msg.isRead ?? false,
+        isStarred: msg.isStarred ?? false,
+        isFlagged: msg.isFlagged ?? false,
+        labels: msg.labels || [],
+      };
+
+      return this.prisma.email.upsert({
+        where: {
+          providerId_externalId_folder: {
+            providerId,
+            externalId: msg.id,
+            folder: msg.folder,
+          },
+        },
+        update: { ...updateData, folder: msg.folder },
+        create: {
+          tenantId,
+          providerId,
+          externalId: msg.id,
+          ...updateData,
+          sentAt: msg.sentAt || msg.receivedAt,
+          isDeleted: false,
+          folder: msg.folder,
+          threadId: msg.threadId || null,
+        },
+      });
+    });
+
+    // Execute all upserts in a single transaction
+    const results = await this.prisma.$transaction(upsertOps);
+
+    // Track new messages and process post-upsert operations
+    let newCount = 0;
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const msg = messages[i];
+      const wasNew = Math.abs(result.createdAt.getTime() - result.updatedAt.getTime()) < 1000;
+
+      if (wasNew) {
+        newCount++;
+
+        // Queue for embeddings (skip SPAM/TRASH)
+        if (!isJunkFolder(result.folder)) {
+          await this.getEmbeddingQueue().enqueue({
+            emailId: result.id,
+            tenantId,
+            subject: result.subject,
+            snippet: result.snippet || '',
+          });
+        }
+
+        // Emit realtime event
+        this.realtimeEvents.emitEmailNew(tenantId, {
+          emailId: result.id,
+          providerId,
+          folder: result.folder,
+          reason: 'message-processed',
+        });
+      }
+
+      // Process attachments (must be sequential - involves external API calls)
+      if (msg.hasAttachments && msg.attachments.length > 0) {
+        await this.processAttachmentsForMessage(
+          driver,
+          result.id,
+          tenantId,
+          providerId,
+          msg.id,
+          msg.attachments,
+        );
+      }
+    }
+
+    return { processed: results.length, newCount };
+  }
+
+  // ============================================
+  // Folder Name Normalization
+  // ============================================
 
   /**
    * Normalize folder name to standard mailbox folders

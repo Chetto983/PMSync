@@ -70,11 +70,18 @@ export function AiHubWidget() {
   return (
     <Box
       sx={{
-        borderRadius: 3,
+        height: '100%',
+        borderRadius: 4,
         overflow: 'hidden',
-        border: 1,
-        borderColor: 'divider',
+        border: '1px solid',
+        borderColor: (theme) => alpha(theme.palette.divider, 0.1),
         bgcolor: 'background.paper',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          borderColor: (theme) => alpha(theme.palette.primary.main, 0.3),
+          boxShadow: (theme) => `0 20px 40px ${alpha(theme.palette.common.black, 0.08)}`,
+        },
       }}
     >
       {/* Gradient Header */}
@@ -151,8 +158,8 @@ export function AiHubWidget() {
         <Typography variant="body2" sx={{ opacity: 0.95, position: 'relative' }}>
           {unreadCount > 0
             ? (unreadCount > 1
-                ? (t.dashboard.home.sections.aiAssistMessage || 'Hai {count} email non lette').replace('{count}', unreadCount.toString())
-                : (t.dashboard.home.sections.aiAssistMessageSingular || 'Hai {count} email non letta').replace('{count}', unreadCount.toString()))
+              ? (t.dashboard.home.sections.aiAssistMessage || 'Hai {count} email non lette').replace('{count}', unreadCount.toString())
+              : (t.dashboard.home.sections.aiAssistMessageSingular || 'Hai {count} email non letta').replace('{count}', unreadCount.toString()))
             : t.common.allCaughtUp}
         </Typography>
       </Box>

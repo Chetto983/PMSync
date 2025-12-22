@@ -245,8 +245,8 @@ export function Settings() {
       } else {
         setProviderError(result.message || 'Sync returned unsuccessful');
       }
-    } catch (_error) {
-     
+    } catch {
+
       setProviderError(settingsCopy.mailAccountsPanel?.syncFailed || 'Sync failed');
     }
   }, [syncAllMutation, settingsCopy.mailAccountsPanel]);

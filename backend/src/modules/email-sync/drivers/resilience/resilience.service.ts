@@ -12,6 +12,35 @@ import {
 } from './resilience.types';
 
 /**
+ * Simple async mutex for per-account locking
+ * RC-4/RC-5 Fix: Prevents race conditions in rate limiting and circuit breaker
+ */
+class AsyncMutex {
+  private locked = false;
+  private queue: Array<() => void> = [];
+
+  async acquire(): Promise<void> {
+    if (!this.locked) {
+      this.locked = true;
+      return;
+    }
+
+    return new Promise<void>((resolve) => {
+      this.queue.push(resolve);
+    });
+  }
+
+  release(): void {
+    if (this.queue.length > 0) {
+      const next = this.queue.shift()!;
+      next();
+    } else {
+      this.locked = false;
+    }
+  }
+}
+
+/**
  * Resilience Service
  *
  * Provides retry, rate limiting, and circuit breaker functionality
@@ -23,6 +52,7 @@ import {
  * - Circuit breaker pattern
  * - Request timeouts
  * - Metrics tracking
+ * - Thread-safe operations via per-account mutex (RC-4/RC-5 fix)
  */
 @Injectable()
 export class ResilienceService {
@@ -33,6 +63,9 @@ export class ResilienceService {
 
   // Rate limit buckets per account
   private rateLimitBuckets = new Map<string, RateLimitStatus>();
+
+  // RC-4/RC-5 Fix: Per-account mutex for thread-safe operations
+  private accountMutexes = new Map<string, AsyncMutex>();
 
   // Metrics for monitoring
   private metrics = {
@@ -45,7 +78,20 @@ export class ResilienceService {
   };
 
   /**
+   * Get or create mutex for an account
+   */
+  private getAccountMutex(accountId: string): AsyncMutex {
+    let mutex = this.accountMutexes.get(accountId);
+    if (!mutex) {
+      mutex = new AsyncMutex();
+      this.accountMutexes.set(accountId, mutex);
+    }
+    return mutex;
+  }
+
+  /**
    * Execute an operation with full resilience (retry + rate limit + circuit breaker)
+   * RC-4/RC-5 Fix: Uses per-account mutex for atomic rate limit and circuit breaker checks
    */
   async executeWithResilience<T>(
     accountId: string,
@@ -59,13 +105,44 @@ export class ResilienceService {
 
     this.metrics.totalRequests++;
 
-    // Check circuit breaker first
-    const circuitStatus = this.getCircuitStatus(accountId);
-    if (circuitStatus.state === 'open') {
+    // RC-4/RC-5 Fix: Acquire mutex for atomic check-and-record operations
+    const mutex = this.getAccountMutex(accountId);
+    await mutex.acquire();
+
+    let circuitOpen = false;
+    let rateLimited = false;
+    let rateLimitRetryAfter: Date | undefined;
+    let circuitRetryAfter: Date | undefined;
+
+    try {
+      // Check circuit breaker first (under mutex protection)
+      const circuitStatus = this.getCircuitStatus(accountId);
+      if (circuitStatus.state === 'open') {
+        circuitOpen = true;
+        circuitRetryAfter = circuitStatus.nextRetry;
+      } else {
+        // Check rate limit (under mutex protection)
+        const rateLimitStatus = this.checkRateLimit(accountId, fullConfig.rateLimit);
+        if (rateLimitStatus.isLimited) {
+          rateLimited = true;
+          rateLimitRetryAfter = rateLimitStatus.retryAfter;
+        } else {
+          // ML-2 fix: Record request ONCE before retries, not on each attempt
+          // This is now atomic with the rate limit check (RC-4 fix)
+          this.recordRequest(accountId);
+        }
+      }
+    } finally {
+      // Release mutex after atomic check-and-record
+      mutex.release();
+    }
+
+    // Handle circuit open (outside mutex - no state modification needed)
+    if (circuitOpen) {
       this.metrics.failedRequests++;
       return {
         success: false,
-        error: new Error(`Circuit breaker open for account ${accountId}. Retry after ${circuitStatus.nextRetry?.toISOString()}`),
+        error: new Error(`Circuit breaker open for account ${accountId}. Retry after ${circuitRetryAfter?.toISOString()}`),
         retries: 0,
         duration: Date.now() - startTime,
         rateLimited: false,
@@ -73,13 +150,12 @@ export class ResilienceService {
       };
     }
 
-    // Check rate limit
-    const rateLimitStatus = this.checkRateLimit(accountId, fullConfig.rateLimit);
-    if (rateLimitStatus.isLimited) {
+    // Handle rate limited (outside mutex - no state modification needed)
+    if (rateLimited) {
       this.metrics.rateLimitedRequests++;
       return {
         success: false,
-        error: new Error(`Rate limited for account ${accountId}. Retry after ${rateLimitStatus.retryAfter?.toISOString()}`),
+        error: new Error(`Rate limited for account ${accountId}. Retry after ${rateLimitRetryAfter?.toISOString()}`),
         retries: 0,
         duration: Date.now() - startTime,
         rateLimited: true,
@@ -92,17 +168,19 @@ export class ResilienceService {
 
     while (retries <= fullConfig.retry.maxRetries) {
       try {
-        // Record the request for rate limiting
-        this.recordRequest(accountId);
-
         // Execute with timeout
         const data = await this.withTimeout(
           operation(),
           fullConfig.timeout.requestTimeoutMs,
         );
 
-        // Success - record and return
-        this.recordSuccess(accountId);
+        // Success - record with mutex protection (RC-5 fix)
+        await mutex.acquire();
+        try {
+          this.recordSuccess(accountId, fullConfig.circuitBreaker);
+        } finally {
+          mutex.release();
+        }
         this.metrics.successfulRequests++;
 
         return {
@@ -139,16 +217,31 @@ export class ResilienceService {
 
         await this.sleep(delay);
 
-        // Re-check rate limit before retry
-        const retryRateLimit = this.checkRateLimit(accountId, fullConfig.rateLimit);
-        if (retryRateLimit.isLimited) {
-          await this.sleep(retryRateLimit.retryAfter!.getTime() - Date.now());
+        // Re-check rate limit before retry (with mutex for RC-4 fix)
+        await mutex.acquire();
+        let retryRateLimitStatus: RateLimitStatus;
+        try {
+          retryRateLimitStatus = this.checkRateLimit(accountId, fullConfig.rateLimit);
+        } finally {
+          mutex.release();
+        }
+        if (retryRateLimitStatus.isLimited && retryRateLimitStatus.retryAfter) {
+          // Guard against negative sleep if retryAfter is in the past
+          const waitMs = retryRateLimitStatus.retryAfter.getTime() - Date.now();
+          if (waitMs > 0) {
+            await this.sleep(waitMs);
+          }
         }
       }
     }
 
-    // All retries exhausted - record failure
-    this.recordFailure(accountId, fullConfig.circuitBreaker);
+    // All retries exhausted - record failure with mutex protection (RC-5 fix)
+    await mutex.acquire();
+    try {
+      this.recordFailure(accountId, fullConfig.circuitBreaker);
+    } finally {
+      mutex.release();
+    }
     this.metrics.failedRequests++;
 
     return {
@@ -239,13 +332,14 @@ export class ResilienceService {
     return status;
   }
 
-  private recordSuccess(accountId: string): void {
+  private recordSuccess(accountId: string, config: CircuitBreakerConfig): void {
     const status = this.circuits.get(accountId);
     if (!status) return;
 
     if (status.state === 'half-open') {
       status.successCount++;
-      if (status.successCount >= DEFAULT_RESILIENCE_CONFIG.circuitBreaker.successThreshold) {
+      // Use passed config instead of hardcoded DEFAULT
+      if (status.successCount >= config.successThreshold) {
         status.state = 'closed';
         status.failures = 0;
         status.successCount = 0;
@@ -474,10 +568,12 @@ export class ResilienceService {
 
   /**
    * Cleanup stale entries (call periodically)
+   * Phase 6: Made stale threshold configurable via RESILIENCE_STALE_THRESHOLD_HOURS env var
    */
   cleanup(): void {
     const now = Date.now();
-    const staleThreshold = 24 * 60 * 60 * 1000; // 24 hours
+    const staleHours = parseInt(process.env.RESILIENCE_STALE_THRESHOLD_HOURS || '24', 10);
+    const staleThreshold = staleHours * 60 * 60 * 1000; // Default: 24 hours
 
     // Clean up old circuit breaker entries
     for (const [accountId, status] of this.circuits) {
@@ -490,6 +586,13 @@ export class ResilienceService {
     for (const [accountId, bucket] of this.rateLimitBuckets) {
       if (now - bucket.lastRequestAt.getTime() > staleThreshold) {
         this.rateLimitBuckets.delete(accountId);
+      }
+    }
+
+    // Clean up stale mutexes (for accounts with no active rate limit or circuit breaker)
+    for (const accountId of this.accountMutexes.keys()) {
+      if (!this.circuits.has(accountId) && !this.rateLimitBuckets.has(accountId)) {
+        this.accountMutexes.delete(accountId);
       }
     }
   }

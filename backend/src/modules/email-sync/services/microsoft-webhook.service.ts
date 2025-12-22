@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual, randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { QueueService } from './queue.service';
@@ -22,6 +22,11 @@ interface RateLimitEntry {
   windowStart: number;
 }
 
+// Security fix (SEC-1): Duplicate notification detection
+interface ProcessedNotification {
+  timestamp: number;
+}
+
 @Injectable()
 export class MicrosoftWebhookService {
   private readonly logger = new Logger(MicrosoftWebhookService.name);
@@ -38,6 +43,11 @@ export class MicrosoftWebhookService {
   private readonly RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
   private readonly RATE_LIMIT_MAX_REQUESTS = 100; // Max 100 notifications per minute per subscription
   private readonly RATE_LIMIT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // Cleanup every 5 minutes
+
+  // Security fix (SEC-1): Duplicate notification detection
+  // Microsoft can send duplicate notifications; track recently processed ones
+  private readonly processedNotifications: Map<string, ProcessedNotification> = new Map();
+  private readonly NOTIFICATION_DEDUP_WINDOW_MS = 5 * 60 * 1000; // 5 minute dedup window
 
   constructor(
     private prisma: PrismaService,
@@ -95,6 +105,41 @@ export class MicrosoftWebhookService {
     if (removed > 0) {
       this.logger.debug(`[RATE-LIMIT] Cleaned up ${removed} expired rate limit entries`);
     }
+
+    // Also cleanup old notification dedup entries
+    let dedupRemoved = 0;
+    for (const [notificationKey, entry] of this.processedNotifications.entries()) {
+      if (now - entry.timestamp > this.NOTIFICATION_DEDUP_WINDOW_MS) {
+        this.processedNotifications.delete(notificationKey);
+        dedupRemoved++;
+      }
+    }
+    if (dedupRemoved > 0) {
+      this.logger.debug(`[DEDUP] Cleaned up ${dedupRemoved} expired notification dedup entries`);
+    }
+  }
+
+  /**
+   * Security fix (SEC-1): Check if notification was already processed (idempotency)
+   * Creates a unique key from subscription + resource + change type to detect duplicates
+   * @returns true if this is a NEW notification, false if duplicate
+   */
+  private checkAndMarkProcessed(notification: MicrosoftGraphNotification): boolean {
+    // Create unique key: subscriptionId + resource + changeType + resourceData (if available)
+    const resourceId = notification.resourceData?.id || notification.resource || '';
+    const notificationKey = `${notification.subscriptionId}:${resourceId}:${notification.changeType}`;
+
+    const now = Date.now();
+    const existing = this.processedNotifications.get(notificationKey);
+
+    if (existing && (now - existing.timestamp) < this.NOTIFICATION_DEDUP_WINDOW_MS) {
+      // Duplicate notification within dedup window
+      return false;
+    }
+
+    // Mark as processed
+    this.processedNotifications.set(notificationKey, { timestamp: now });
+    return true;
   }
 
   /**
@@ -143,6 +188,14 @@ export class MicrosoftWebhookService {
     if (!this.checkRateLimit(notification.subscriptionId)) {
       this.logger.warn(
         `[RATE-LIMIT] Rate limit exceeded for subscription ${notification.subscriptionId}, dropping notification`,
+      );
+      return;
+    }
+
+    // Security fix (SEC-1): Check for duplicate notifications
+    if (!this.checkAndMarkProcessed(notification)) {
+      this.logger.debug(
+        `[DEDUP] Duplicate notification detected for subscription ${notification.subscriptionId}, skipping`,
       );
       return;
     }
@@ -599,10 +652,12 @@ export class MicrosoftWebhookService {
   }
 
   /**
-   * Generate a random client state for subscription validation
+   * Generate a cryptographically secure random client state for subscription validation
+   * Security fix (SEC-2): Use crypto.randomBytes() instead of Math.random()
    */
   private generateClientState(providerId: string): string {
-    const randomString = Math.random().toString(36).substring(2, 15);
+    // Generate 16 bytes of cryptographically secure random data
+    const randomString = randomBytes(16).toString('hex');
     return `${providerId}-${randomString}`;
   }
 

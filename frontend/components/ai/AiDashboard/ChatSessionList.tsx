@@ -320,6 +320,12 @@ export function ChatSessionList({
         borderColor: alpha(theme.palette.divider, 0.08),
         bgcolor: 'background.paper',
         overflow: 'hidden',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          borderColor: alpha(theme.palette.primary.main, 0.3),
+          boxShadow: (theme) => `0 10px 30px ${alpha(theme.palette.common.black, 0.08)}`,
+        },
       }}
     >
       {/* Header */}
@@ -338,7 +344,7 @@ export function ChatSessionList({
             width: 40,
             height: 40,
             borderRadius: 2,
-            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, #7c3aed 100%)`,
+            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -354,9 +360,9 @@ export function ChatSessionList({
           <Typography variant="caption" color="text.secondary">
             {isSelectMode && selectedIds.size > 0
               ? (t.ai?.sessions?.selectedCount || '{count} selected').replace(
-                  '{count}',
-                  selectedIds.size.toString()
-                )
+                '{count}',
+                selectedIds.size.toString()
+              )
               : `${conversations.length} ${conversations.length === 1 ? 'conversation' : 'conversations'}`}
           </Typography>
         </Box>

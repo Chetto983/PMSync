@@ -22,6 +22,21 @@ export interface FolderInfo {
   syncToken?: string;
 }
 
+/**
+ * Split an array into chunks of specified size for parallel processing
+ * Performance optimization for batch database operations
+ */
+function chunk<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
+// Default concurrency for parallel folder operations
+const PARALLEL_FOLDER_BATCH_SIZE = 10;
+
 @Injectable()
 export class FolderSyncService {
   private readonly logger = new Logger(FolderSyncService.name);
@@ -259,65 +274,79 @@ export class FolderSyncService {
     // Build a map of path to parent folder ID
     const pathToIdMap = new Map<string, string>();
 
-    // First pass: create/update all folders without parent relationships
-    for (const folderInfo of folderInfos) {
-      const level = folderInfo.path.split(folderInfo.delimiter).length - 1;
+    // Performance optimization: First pass with parallel folder upserts in batches
+    const folderChunks = chunk(folderInfos, PARALLEL_FOLDER_BATCH_SIZE);
 
-      const folder = await this.prisma.folder.upsert({
-        where: {
-          providerId_path: {
-            providerId,
-            path: folderInfo.path,
+    for (const folderChunk of folderChunks) {
+      const upsertPromises = folderChunk.map(async (folderInfo) => {
+        const level = folderInfo.path.split(folderInfo.delimiter).length - 1;
+
+        const folder = await this.prisma.folder.upsert({
+          where: {
+            providerId_path: {
+              providerId,
+              path: folderInfo.path,
+            },
           },
-        },
-        create: {
-          tenantId,
-          providerId,
-          externalId: folderInfo.externalId,
-          path: folderInfo.path,
-          name: folderInfo.name,
-          delimiter: folderInfo.delimiter,
-          attributes: folderInfo.attributes,
-          specialUse: folderInfo.specialUse,
-          level,
-          isSelectable: !folderInfo.attributes.some(
-            (attr) =>
-              attr === '\\Noselect' ||
-              attr === '\\NonExistent' ||
-              attr.toLowerCase() === '\\noselect',
-          ),
-          syncToken: folderInfo.syncToken,
-          uidNext: folderInfo.uidNext,
-          uidValidity: folderInfo.uidValidity,
-        },
-        update: {
-          name: folderInfo.name,
-          delimiter: folderInfo.delimiter,
-          attributes: folderInfo.attributes,
-          specialUse: folderInfo.specialUse,
-          externalId: folderInfo.externalId,
-          level,
-          isSelectable: !folderInfo.attributes.some(
-            (attr) =>
-              attr === '\\Noselect' ||
-              attr === '\\NonExistent' ||
-              attr.toLowerCase() === '\\noselect',
-          ),
-          syncToken: folderInfo.syncToken ?? undefined,
-          uidNext: folderInfo.uidNext ?? undefined,
-          uidValidity: folderInfo.uidValidity ?? undefined,
-          lastSyncedAt: new Date(),
-        },
+          create: {
+            tenantId,
+            providerId,
+            externalId: folderInfo.externalId,
+            path: folderInfo.path,
+            name: folderInfo.name,
+            delimiter: folderInfo.delimiter,
+            attributes: folderInfo.attributes,
+            specialUse: folderInfo.specialUse,
+            level,
+            isSelectable: !folderInfo.attributes.some(
+              (attr) =>
+                attr === '\\Noselect' ||
+                attr === '\\NonExistent' ||
+                attr.toLowerCase() === '\\noselect',
+            ),
+            syncToken: folderInfo.syncToken,
+            uidNext: folderInfo.uidNext,
+            uidValidity: folderInfo.uidValidity,
+          },
+          update: {
+            name: folderInfo.name,
+            delimiter: folderInfo.delimiter,
+            attributes: folderInfo.attributes,
+            specialUse: folderInfo.specialUse,
+            externalId: folderInfo.externalId,
+            level,
+            isSelectable: !folderInfo.attributes.some(
+              (attr) =>
+                attr === '\\Noselect' ||
+                attr === '\\NonExistent' ||
+                attr.toLowerCase() === '\\noselect',
+            ),
+            syncToken: folderInfo.syncToken ?? undefined,
+            uidNext: folderInfo.uidNext ?? undefined,
+            uidValidity: folderInfo.uidValidity ?? undefined,
+            lastSyncedAt: new Date(),
+          },
+        });
+
+        return { folderInfo, folder };
       });
 
-      pathToIdMap.set(folderInfo.path, folder.id);
-      syncedFolders.push(folder);
+      const results = await Promise.all(upsertPromises);
+      for (const { folderInfo, folder } of results) {
+        pathToIdMap.set(folderInfo.path, folder.id);
+        syncedFolders.push(folder);
+      }
     }
 
-    // Second pass: update parent relationships
-    for (const folderInfo of folderInfos) {
-      if (folderInfo.parent && pathToIdMap.has(folderInfo.parent)) {
-        const parentId = pathToIdMap.get(folderInfo.parent);
+    // Performance optimization: Second pass with parallel parent relationship updates
+    const foldersWithParents = folderInfos.filter(
+      (f) => f.parent && pathToIdMap.has(f.parent),
+    );
+    const parentUpdateChunks = chunk(foldersWithParents, PARALLEL_FOLDER_BATCH_SIZE);
+
+    for (const parentChunk of parentUpdateChunks) {
+      const updatePromises = parentChunk.map(async (folderInfo) => {
+        const parentId = pathToIdMap.get(folderInfo.parent!);
         const folderId = pathToIdMap.get(folderInfo.path);
 
         if (folderId && parentId) {
@@ -326,7 +355,9 @@ export class FolderSyncService {
             data: { parentId },
           });
         }
-      }
+      });
+
+      await Promise.all(updatePromises);
     }
 
     return syncedFolders;
@@ -469,43 +500,49 @@ export class FolderSyncService {
         });
       }
 
-      for (const folder of folders) {
-        if (!folder.id || !folder.displayName) continue;
+      // Performance optimization: Parallel folder upserts in batches
+      const validFolders = folders.filter((f) => f.id && f.displayName);
+      const folderChunks = chunk(validFolders, PARALLEL_FOLDER_BATCH_SIZE);
 
-        const specialUse = this.determineMicrosoftFolderType(folder.displayName);
-        const folderPath = specialUse || folder.displayName;
+      for (const folderChunk of folderChunks) {
+        const upsertPromises = folderChunk.map(async (folder) => {
+          const specialUse = this.determineMicrosoftFolderType(folder.displayName);
+          const folderPath = specialUse || folder.displayName;
 
-        // Use canonical path for known system folders; keep displayName for custom folders.
-        await (this.prisma as any).folder.upsert({
-          where: { providerId_path: { providerId, path: folderPath } },
-          create: {
-            tenantId,
-            providerId,
-            externalId: folder.id,
-            path: folderPath,
-            name: folder.displayName,
-            delimiter: '/',
-            specialUse,
-            isSelectable: true,
-            totalCount: folder.totalItemCount || 0,
-            unreadCount: folder.unreadItemCount || 0,
-            level: folder.parentFolderId ? 1 : 0,
-            syncToken: deltaLink,
-            lastSyncedAt: new Date(),
-          },
-          update: {
-            name: folder.displayName,
-            externalId: folder.id,
-            specialUse,
-            totalCount: folder.totalItemCount || 0,
-            unreadCount: folder.unreadItemCount || 0,
-            lastSyncedAt: new Date(),
-            syncToken: deltaLink ?? undefined,
-          },
+          // Use canonical path for known system folders; keep displayName for custom folders.
+          await (this.prisma as any).folder.upsert({
+            where: { providerId_path: { providerId, path: folderPath } },
+            create: {
+              tenantId,
+              providerId,
+              externalId: folder.id,
+              path: folderPath,
+              name: folder.displayName,
+              delimiter: '/',
+              specialUse,
+              isSelectable: true,
+              totalCount: folder.totalItemCount || 0,
+              unreadCount: folder.unreadItemCount || 0,
+              level: folder.parentFolderId ? 1 : 0,
+              syncToken: deltaLink,
+              lastSyncedAt: new Date(),
+            },
+            update: {
+              name: folder.displayName,
+              externalId: folder.id,
+              specialUse,
+              totalCount: folder.totalItemCount || 0,
+              unreadCount: folder.unreadItemCount || 0,
+              lastSyncedAt: new Date(),
+              syncToken: deltaLink ?? undefined,
+            },
+          });
         });
+
+        await Promise.all(upsertPromises);
       }
 
-      this.logger.log(`Synced ${folders.length} Microsoft folders for provider ${providerId}`);
+      this.logger.log(`Synced ${validFolders.length} Microsoft folders for provider ${providerId}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
@@ -653,6 +690,8 @@ export class FolderSyncService {
 
   /**
    * Update all folder counts for a provider
+   * Performance fix (N1-3): Uses groupBy to batch count queries instead of N+1 pattern
+   * Reduces from 4N+1 queries to ~5 queries regardless of folder count
    */
   async updateAllFolderCounts(providerId: string): Promise<void> {
     this.logger.log(`Updating folder counts for provider ${providerId}`);
@@ -662,29 +701,118 @@ export class FolderSyncService {
       select: { id: true, tenantId: true },
     });
 
+    if (!provider) {
+      this.logger.warn(`Provider ${providerId} not found, skipping folder count update`);
+      return;
+    }
+
+    // Fetch all folders in one query
     const folders = await this.prisma.folder.findMany({
       where: { providerId },
+      select: {
+        id: true,
+        name: true,
+        path: true,
+        tenantId: true,
+        totalCount: true,
+        unreadCount: true,
+        specialUse: true,
+      },
     });
 
-    let changed = 0;
-    for (const folder of folders) {
-      const result = await this.updateFolderCounts(providerId, folder.path, provider?.tenantId);
+    if (folders.length === 0) {
+      this.logger.debug(`No folders found for provider ${providerId}`);
+      return;
+    }
 
-      if (result && provider?.tenantId) {
-        changed += 1;
+    // Build a map of all folder keys to folder IDs for matching
+    const folderKeyMap = new Map<string, typeof folders[0]>();
+    for (const folder of folders) {
+      const keys = this.getFolderKeys(folder);
+      for (const key of keys) {
+        folderKeyMap.set(key.toUpperCase(), folder);
+      }
+    }
+
+    // Get all counts grouped by folder in 2 queries (total and unread)
+    // Note: Prisma groupBy requires exact match, so we group by folder field
+    const totalCounts = await this.prisma.email.groupBy({
+      by: ['folder'],
+      where: { providerId },
+      _count: { id: true },
+    });
+
+    const unreadCounts = await this.prisma.email.groupBy({
+      by: ['folder'],
+      where: { providerId, isRead: false },
+      _count: { id: true },
+    });
+
+    // Build count maps
+    const totalCountMap = new Map(
+      totalCounts.map((c) => [c.folder.toUpperCase(), c._count.id]),
+    );
+    const unreadCountMap = new Map(
+      unreadCounts.map((c) => [c.folder.toUpperCase(), c._count.id]),
+    );
+
+    // Aggregate counts per folder (handling multiple folder keys)
+    const folderCounts = new Map<string, { total: number; unread: number }>();
+    for (const folder of folders) {
+      const keys = this.getFolderKeys(folder);
+      let total = 0;
+      let unread = 0;
+      for (const key of keys) {
+        total += totalCountMap.get(key.toUpperCase()) || 0;
+        unread += unreadCountMap.get(key.toUpperCase()) || 0;
+      }
+      folderCounts.set(folder.id, { total, unread });
+    }
+
+    // Batch update all folders that changed
+    const updates: { id: string; totalCount: number; unreadCount: number }[] = [];
+    const changedFolders: typeof folders = [];
+
+    for (const folder of folders) {
+      const counts = folderCounts.get(folder.id) || { total: 0, unread: 0 };
+      if (folder.totalCount !== counts.total || folder.unreadCount !== counts.unread) {
+        updates.push({
+          id: folder.id,
+          totalCount: counts.total,
+          unreadCount: counts.unread,
+        });
+        changedFolders.push({ ...folder, totalCount: counts.total, unreadCount: counts.unread });
+      }
+    }
+
+    // Batch update in a transaction
+    if (updates.length > 0) {
+      await this.prisma.$transaction(
+        updates.map((u) =>
+          this.prisma.folder.update({
+            where: { id: u.id },
+            data: { totalCount: u.totalCount, unreadCount: u.unreadCount },
+          }),
+        ),
+      );
+    }
+
+    // Emit realtime events for changed folders
+    if (provider.tenantId) {
+      for (const folder of changedFolders) {
         this.realtimeEvents.emitFolderCountsUpdate(provider.tenantId, {
           providerId,
-          folderId: result.folderId,
-          folderName: result.folderName,
-          totalCount: result.totalCount,
-          unreadCount: result.unreadCount,
+          folderId: folder.id,
+          folderName: folder.name,
+          totalCount: folder.totalCount ?? 0,
+          unreadCount: folder.unreadCount ?? 0,
           timestamp: new Date().toISOString(),
         });
       }
     }
 
     this.logger.log(
-      `Updated counts for ${changed}/${folders.length} folders (provider: ${providerId})`,
+      `Updated counts for ${updates.length}/${folders.length} folders (provider: ${providerId})`,
     );
   }
 

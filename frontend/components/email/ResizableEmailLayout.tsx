@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { Box, Drawer, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Drawer, useMediaQuery, useTheme, alpha } from '@mui/material';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { GripVertical } from 'lucide-react';
 
@@ -75,21 +75,26 @@ function ResizeHandle({
   orientation?: 'vertical' | 'horizontal';
 }) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const theme = useTheme();
 
   return (
     <PanelResizeHandle
       id={id}
       onDragging={setIsDragging}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: orientation === 'vertical' ? 8 : '100%',
-        height: orientation === 'horizontal' ? 8 : '100%',
-        backgroundColor: isDragging ? 'rgba(0, 0, 0, 0.08)' : 'transparent',
-        transition: 'background-color 0.2s ease',
+        width: orientation === 'vertical' ? 12 : '100%',
+        height: orientation === 'horizontal' ? 12 : '100%',
+        backgroundColor: 'transparent',
         cursor: orientation === 'vertical' ? 'col-resize' : 'row-resize',
         flexShrink: 0,
+        zIndex: 10,
+        margin: '0 -6px', // Negative margin to overlay on padding
       }}
     >
       <Box
@@ -97,25 +102,23 @@ function ResizeHandle({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: orientation === 'vertical' ? 4 : '100%',
-          height: orientation === 'horizontal' ? 4 : 48,
+          width: orientation === 'vertical' ? 4 : 32,
+          height: orientation === 'horizontal' ? 4 : 32,
           borderRadius: 2,
           backgroundColor: isDragging
             ? 'primary.main'
-            : 'action.hover',
+            : alpha(theme.palette.divider, 0.0), // Invisible by default
           transition: 'all 0.2s ease',
-          opacity: isDragging ? 1 : 0.5,
           '&:hover': {
-            backgroundColor: 'primary.light',
-            opacity: 1,
+            backgroundColor: 'primary.main', // Visible on hover
           },
         }}
       >
         <GripVertical
-          size={12}
+          size={16}
           style={{
-            transform: orientation === 'horizontal' ? 'rotate(90deg)' : 'none',
-            opacity: 0.6,
+            opacity: isDragging || isHovered ? 1 : 0, // Only show icon on interaction
+            color: 'white',
           }}
         />
       </Box>
@@ -292,7 +295,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
     );
   }
 
-  // Desktop layout with resizable panels
+  // Desktop layout with resizable panels - GLASSMORPHISM UPDATE
   return (
     <Box
       sx={{
@@ -303,15 +306,18 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
         width: '100%',
         minHeight: 0,
         minWidth: 0,
+        bgcolor: 'background.default', // Ensure base background is visible through gaps
+        p: 2, // Outer padding for floating effect
+        gap: 2, // Gaps between glass panels
       }}
     >
       <PanelGroup
         direction="horizontal"
         onLayout={handlePanelResize}
         autoSaveId={persistSizes ? 'email-layout' : undefined}
-        style={{ height: '100%', width: '100%', minHeight: 0 }}
+        style={{ height: '100%', width: '100%', minHeight: 0, gap: '16px' }}
       >
-        {/* Sidebar Panel */}
+        {/* Sidebar Panel - GLASS LEFT */}
         <Panel
           id="sidebar"
           order={1}
@@ -329,14 +335,18 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
           <Box
             sx={{
               height: '100%',
-              borderRight: 1,
-              borderColor: 'divider',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
               minHeight: 0,
               minWidth: 0,
-              bgcolor: 'background.paper',
+              // Glassmorphism Container
+              backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.7),
+              backdropFilter: 'blur(12px)',
+              borderRadius: '16px',
+              border: '1px solid',
+              borderColor: (theme) => alpha(theme.palette.divider, 0.1),
+              boxShadow: (theme) => `0 4px 20px ${alpha(theme.palette.common.black, 0.05)}`,
             }}
           >
             {sidebar}
@@ -345,7 +355,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
 
         <ResizeHandle id="sidebar-list-handle" />
 
-        {/* List Panel */}
+        {/* List Panel - GLASS CENTER */}
         <Panel
           id="list"
           order={2}
@@ -358,26 +368,32 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
             overflow: 'hidden',
             minHeight: 0,
             minWidth: 0,
+            marginLeft: '16px',
+            marginRight: showDetail ? '16px' : 0,
           }}
         >
           <Box
             sx={{
               height: '100%',
-              borderRight: showDetail ? 1 : 0,
-              borderColor: 'divider',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
               minHeight: 0,
               minWidth: 0,
-              bgcolor: 'background.default',
+              // Glassmorphism Container
+              backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.6),
+              backdropFilter: 'blur(12px)',
+              borderRadius: '16px',
+              border: '1px solid',
+              borderColor: (theme) => alpha(theme.palette.divider, 0.1),
+              boxShadow: (theme) => `0 4px 20px ${alpha(theme.palette.common.black, 0.05)}`,
             }}
           >
             {list}
           </Box>
         </Panel>
 
-        {/* Detail Panel - only render when showing */}
+        {/* Detail Panel - GLASS RIGHT */}
         {showDetail && detail && (
           <>
             <ResizeHandle id="list-detail-handle" />
@@ -401,7 +417,12 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
                   overflow: 'hidden',
                   minHeight: 0,
                   minWidth: 0,
-                  bgcolor: 'background.paper',
+                  // Glassmorphism Container (Paper look)
+                  backgroundColor: 'background.paper',
+                  borderRadius: '16px',
+                  border: '1px solid',
+                  borderColor: (theme) => alpha(theme.palette.divider, 0.1),
+                  boxShadow: (theme) => `0 8px 30px ${alpha(theme.palette.common.black, 0.08)}`,
                 }}
               >
                 {detail}

@@ -50,10 +50,11 @@ export function EventsWidget() {
         borderColor: alpha(theme.palette.divider, 0.08),
         bgcolor: 'background.paper',
         overflow: 'hidden',
-        transition: 'all 0.2s ease-in-out',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
-          borderColor: alpha(theme.palette.success.main, 0.2),
-          boxShadow: `0 8px 24px ${alpha(theme.palette.common.black, 0.06)}`,
+          transform: 'translateY(-4px)',
+          borderColor: alpha(theme.palette.secondary.main, 0.3),
+          boxShadow: `0 20px 40px ${alpha(theme.palette.common.black, 0.08)}`,
         },
       }}
     >
@@ -74,11 +75,11 @@ export function EventsWidget() {
             width: 40,
             height: 40,
             borderRadius: 2.5,
-            bgcolor: alpha(theme.palette.success.main, 0.1),
+            bgcolor: alpha(theme.palette.secondary.main, 0.1),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'success.main',
+            color: 'secondary.main',
           }}
         >
           <CalendarDays size={20} />
@@ -96,8 +97,8 @@ export function EventsWidget() {
             label={events.length}
             size="small"
             sx={{
-              bgcolor: alpha(theme.palette.success.main, 0.1),
-              color: 'success.main',
+              bgcolor: alpha(theme.palette.secondary.main, 0.1),
+              color: 'secondary.main',
               fontWeight: 600,
               fontSize: '0.75rem',
             }}
@@ -126,7 +127,7 @@ export function EventsWidget() {
                 width: 64,
                 height: 64,
                 borderRadius: 3,
-                bgcolor: alpha(theme.palette.success.main, 0.08),
+                bgcolor: alpha(theme.palette.secondary.main, 0.08),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -148,8 +149,8 @@ export function EventsWidget() {
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 600,
-                bgcolor: 'success.main',
-                '&:hover': { bgcolor: 'success.dark' },
+                bgcolor: 'secondary.main',
+                '&:hover': { bgcolor: 'secondary.dark' },
               }}
             >
               {t.dashboard.home.sections.viewCalendar}
@@ -170,12 +171,12 @@ export function EventsWidget() {
                     p: 1.5,
                     borderRadius: 2.5,
                     cursor: 'pointer',
-                    bgcolor: nowActive ? alpha(theme.palette.success.main, 0.08) : 'transparent',
+                    bgcolor: nowActive ? alpha(theme.palette.secondary.main, 0.08) : 'transparent',
                     border: '1px solid',
-                    borderColor: nowActive ? alpha(theme.palette.success.main, 0.2) : 'transparent',
+                    borderColor: nowActive ? alpha(theme.palette.secondary.main, 0.2) : 'transparent',
                     transition: 'all 0.15s ease',
                     '&:hover': {
-                      bgcolor: alpha(theme.palette.success.main, 0.06),
+                      bgcolor: alpha(theme.palette.secondary.main, 0.06),
                     },
                   }}
                 >
@@ -185,12 +186,12 @@ export function EventsWidget() {
                       height: 40,
                       borderRadius: 2,
                       bgcolor: nowActive
-                        ? 'success.main'
-                        : alpha(theme.palette.success.main, 0.1),
+                        ? 'secondary.main'
+                        : alpha(theme.palette.secondary.main, 0.1),
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: nowActive ? 'white' : 'success.main',
+                      color: nowActive ? 'white' : 'secondary.main',
                       flexShrink: 0,
                     }}
                   >
@@ -237,7 +238,7 @@ export function EventsWidget() {
                       label="NOW"
                       size="small"
                       sx={{
-                        bgcolor: 'success.main',
+                        bgcolor: 'secondary.main',
                         color: 'white',
                         fontSize: '0.65rem',
                         fontWeight: 700,
@@ -264,10 +265,10 @@ export function EventsWidget() {
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 500,
-              color: 'success.main',
-              bgcolor: alpha(theme.palette.success.main, 0.06),
+              color: 'secondary.main',
+              bgcolor: alpha(theme.palette.secondary.main, 0.06),
               '&:hover': {
-                bgcolor: alpha(theme.palette.success.main, 0.12),
+                bgcolor: alpha(theme.palette.secondary.main, 0.12),
               },
             }}
           >

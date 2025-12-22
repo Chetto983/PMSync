@@ -185,6 +185,7 @@ export function FoldersList({
           disableGutters
           elevation={0}
           sx={{
+            background: 'transparent', // Glass compatible
             '&:before': { display: 'none' },
             '&.Mui-expanded': { margin: 0 },
           }}

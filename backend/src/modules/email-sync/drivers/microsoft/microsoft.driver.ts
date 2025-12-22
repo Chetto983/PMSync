@@ -351,8 +351,12 @@ export class MicrosoftDriver extends BaseEmailDriver {
   async addLabels(messageId: string, labels: string[]): Promise<void> {
     this.ensureConnected();
 
-    const message = await this.getMessage(messageId, { format: 'minimal' });
-    const currentCategories = message?.labels || [];
+    // Fetch only categories to minimize API response size
+    // Note: format: 'minimal' doesn't include categories, so we use a direct call
+    const response = await this.client!.get(`/me/messages/${messageId}`, {
+      params: { $select: 'categories' },
+    });
+    const currentCategories: string[] = response.data.categories || [];
     const newCategories = [...new Set([...currentCategories, ...labels])];
 
     await this.client!.patch(`/me/messages/${messageId}`, {
@@ -363,8 +367,12 @@ export class MicrosoftDriver extends BaseEmailDriver {
   async removeLabels(messageId: string, labels: string[]): Promise<void> {
     this.ensureConnected();
 
-    const message = await this.getMessage(messageId, { format: 'minimal' });
-    const currentCategories = message?.labels || [];
+    // Fetch only categories to minimize API response size
+    // Note: format: 'minimal' doesn't include categories, so we use a direct call
+    const response = await this.client!.get(`/me/messages/${messageId}`, {
+      params: { $select: 'categories' },
+    });
+    const currentCategories: string[] = response.data.categories || [];
     const newCategories = currentCategories.filter((c) => !labels.includes(c));
 
     await this.client!.patch(`/me/messages/${messageId}`, {
@@ -723,16 +731,17 @@ export class MicrosoftDriver extends BaseEmailDriver {
   }
 
   private graphMessageToCanonical(message: any): CanonicalMessage {
+    // Get canonical folder type (INBOX, SENT, DRAFTS, etc.) for consistent folder field
     const canonicalType = this.parentFolderIdToCanonical(message.parentFolderId);
-    // Use the actual folder path (displayName) for database storage, not the canonical type
-    const folderPath = this.parentFolderIdToPath(message.parentFolderId) || canonicalType;
+    // Get actual folder display name for reference (e.g., "Inbox", "Sent Items")
+    const folderPath = this.parentFolderIdToPath(message.parentFolderId);
 
     return {
       id: message.id,
       externalId: message.id,
       threadId: message.conversationId,
-      folder: folderPath,
-      folderDisplayName: folderPath,
+      folder: canonicalType,
+      folderDisplayName: folderPath || canonicalType,
       from: this.graphAddressToCanonical(message.from?.emailAddress),
       to: (message.toRecipients || []).map((r: any) => this.graphAddressToCanonical(r.emailAddress)),
       cc: (message.ccRecipients || []).map((r: any) => this.graphAddressToCanonical(r.emailAddress)),

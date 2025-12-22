@@ -37,12 +37,16 @@ interface PooledConnection {
   mailbox?: string;
 }
 
+/**
+ * IMAP Connection Pool Configuration
+ * Phase 6: Made configurable via environment variables
+ */
 const POOL_CONFIG = {
-  maxConnectionsPerUser: 3,        // Max concurrent connections per account
-  connectionIdleTimeout: 60000,    // Close idle connections after 60s
-  connectionAcquireTimeout: 10000, // Wait max 10s to acquire a connection
-  maxMessageBodySize: 10 * 1024 * 1024, // 10MB max body size
-  bodyDownloadTimeout: 15000,      // 15s timeout for body download
+  maxConnectionsPerUser: parseInt(process.env.IMAP_MAX_CONNECTIONS_PER_USER || '3', 10),
+  connectionIdleTimeout: parseInt(process.env.IMAP_CONNECTION_IDLE_TIMEOUT_MS || '60000', 10),
+  connectionAcquireTimeout: parseInt(process.env.IMAP_CONNECTION_ACQUIRE_TIMEOUT_MS || '10000', 10),
+  maxMessageBodySize: parseInt(process.env.IMAP_MAX_MESSAGE_BODY_SIZE || String(10 * 1024 * 1024), 10),
+  bodyDownloadTimeout: parseInt(process.env.IMAP_BODY_DOWNLOAD_TIMEOUT_MS || '15000', 10),
 };
 
 /**
@@ -96,6 +100,19 @@ export class IMAPDriver extends BaseEmailDriver {
   private idleCallback?: ChangeCallback;
   private idleFolder?: string;
   private idleActive = false;
+
+  // Server capabilities detected at connection time (Phase 5: API Compliance)
+  private serverCapabilities: {
+    condstore: boolean;
+    qresync: boolean;
+    idle: boolean;
+    specialUse: boolean;
+  } = {
+    condstore: false,
+    qresync: false,
+    idle: false,
+    specialUse: false,
+  };
 
   async connect(credentials: DriverCredentials): Promise<void> {
     if (credentials.type !== 'basic' && credentials.type !== 'app-password') {
@@ -399,8 +416,8 @@ export class IMAPDriver extends BaseEmailDriver {
       throw new Error('IMAP configuration not set. Call connect() first.');
     }
 
-    // Clean up idle connections first
-    this.cleanupIdleConnections();
+    // Clean up idle connections first (ML-1 fix: properly await async cleanup)
+    await this.cleanupIdleConnections();
 
     // Try to find an available connection
     const available = this.connectionPool.find((p) => !p.inUse);
@@ -421,6 +438,9 @@ export class IMAPDriver extends BaseEmailDriver {
       });
 
       await client.connect();
+
+      // Phase 5: Detect server capabilities after connection (API Compliance)
+      this.detectServerCapabilities(client);
 
       const pooled: PooledConnection = {
         client,
@@ -459,22 +479,34 @@ export class IMAPDriver extends BaseEmailDriver {
 
   /**
    * Clean up idle connections
+   * Memory leak fix (ML-1): Properly await logout to ensure connections are closed
    */
-  private cleanupIdleConnections(): void {
+  private async cleanupIdleConnections(): Promise<void> {
     const now = Date.now();
     const toRemove: number[] = [];
+    const logoutPromises: Promise<void>[] = [];
 
     this.connectionPool.forEach((pooled, index) => {
       if (
         !pooled.inUse &&
         now - pooled.lastUsed > POOL_CONFIG.connectionIdleTimeout
       ) {
-        try {
-          pooled.client.logout().catch(() => {});
-        } catch {}
+        // Collect logout promises to await them properly
+        if (pooled.client.usable) {
+          logoutPromises.push(
+            pooled.client.logout().catch((err) => {
+              this.logger.debug(`Error during cleanup logout: ${err.message}`);
+            }),
+          );
+        }
         toRemove.push(index);
       }
     });
+
+    // Wait for all logouts to complete before removing from pool
+    if (logoutPromises.length > 0) {
+      await Promise.all(logoutPromises);
+    }
 
     // Remove in reverse order to maintain indices
     for (let i = toRemove.length - 1; i >= 0; i--) {
@@ -494,6 +526,70 @@ export class IMAPDriver extends BaseEmailDriver {
     } finally {
       this.releaseConnection(client);
     }
+  }
+
+  // ============================================
+  // Capability Detection (Phase 5: API Compliance)
+  // ============================================
+
+  /**
+   * Detect server capabilities after connection
+   * RFC 7162: CONDSTORE/QRESYNC for efficient incremental sync
+   * RFC 2177: IDLE for real-time notifications
+   * RFC 6154: SPECIAL-USE for folder type detection
+   */
+  private detectServerCapabilities(client: ImapFlow): void {
+    try {
+      // ImapFlow exposes capabilities after connection via client.capabilities
+      // It's a Set<string> of capability names advertised by the server
+      const caps = client.capabilities;
+
+      if (caps && caps.size > 0) {
+        this.serverCapabilities = {
+          condstore: caps.has('CONDSTORE'),
+          qresync: caps.has('QRESYNC'),
+          idle: caps.has('IDLE'),
+          specialUse: caps.has('SPECIAL-USE'),
+        };
+
+        this.logger.log(
+          `IMAP capabilities detected: CONDSTORE=${this.serverCapabilities.condstore}, ` +
+          `QRESYNC=${this.serverCapabilities.qresync}, IDLE=${this.serverCapabilities.idle}, ` +
+          `SPECIAL-USE=${this.serverCapabilities.specialUse}`,
+        );
+      } else {
+        this.logger.warn('Unable to detect IMAP server capabilities');
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to detect server capabilities: ${error}`);
+    }
+  }
+
+  /**
+   * Get server capabilities (for external use by sync services)
+   * Allows sync services to choose optimal sync strategy based on server support
+   */
+  getCapabilities(): {
+    condstore: boolean;
+    qresync: boolean;
+    idle: boolean;
+    specialUse: boolean;
+  } {
+    return { ...this.serverCapabilities };
+  }
+
+  /**
+   * Check if server supports efficient delta sync (CONDSTORE)
+   */
+  supportsCondstore(): boolean {
+    return this.serverCapabilities.condstore;
+  }
+
+  /**
+   * Check if server supports QRESYNC (requires CONDSTORE)
+   */
+  supportsQresync(): boolean {
+    return this.serverCapabilities.qresync;
   }
 
   // ============================================
@@ -1412,12 +1508,16 @@ export class IMAPDriver extends BaseEmailDriver {
     const envelope = msg.envelope || {};
     const flags = msg.flags || new Set<string>();
 
+    // Convert IMAP folder path to canonical type for consistency with other drivers
+    const canonicalFolder = this.pathToCanonicalFolder(folder);
+
     return {
       id: `${folder}:${msg.uid}`,
       externalId: msg.uid.toString(),
       threadId: envelope.messageId || msg.uid.toString(),
-      // Use actual folder path for database storage to match folders table
-      folder: folder,
+      // Use canonical type for folder field (INBOX, SENT, etc.)
+      folder: canonicalFolder,
+      // Keep the original path as display name for reference
       folderDisplayName: folder,
 
       from: this.parseImapAddress(envelope.from?.[0]),
@@ -1561,10 +1661,29 @@ export class IMAPDriver extends BaseEmailDriver {
   }
 
   /**
-   * Format email address for SMTP
+   * Encode a string using RFC 2047 if it contains non-ASCII characters.
+   * Used for display names in email headers (To, Cc, Bcc, From, Subject).
+   * Source: https://www.rfc-editor.org/rfc/rfc2047
+   */
+  private encodeRfc2047(text: string): string {
+    // Check if text contains non-ASCII characters
+    if (!/[^\x00-\x7F]/.test(text)) {
+      return text; // ASCII only, no encoding needed
+    }
+    // Use Base64 encoding for non-ASCII text (more reliable than Q-encoding)
+    return `=?UTF-8?B?${Buffer.from(text).toString('base64')}?=`;
+  }
+
+  /**
+   * Format email address for SMTP with RFC 2047 encoding for non-ASCII names.
    */
   private formatEmailAddress(address: EmailAddress): string {
     if (address.name) {
+      const encodedName = this.encodeRfc2047(address.name);
+      // If encoded, don't quote (RFC 2047 encoded-words replace 'word' in 'phrase')
+      if (encodedName.startsWith('=?')) {
+        return `${encodedName} <${address.email}>`;
+      }
       return `"${address.name}" <${address.email}>`;
     }
     return address.email;
@@ -1588,6 +1707,7 @@ export class IMAPDriver extends BaseEmailDriver {
 
   /**
    * Build RFC 822 message from ComposeMessage
+   * Applies RFC 2047 encoding for non-ASCII characters in headers
    */
   private buildRfc822Message(message: ComposeMessage): string {
     const lines: string[] = [];
@@ -1603,7 +1723,8 @@ export class IMAPDriver extends BaseEmailDriver {
       lines.push(`Bcc: ${message.bcc.map((a) => this.formatEmailAddress(a)).join(', ')}`);
     }
 
-    lines.push(`Subject: ${message.subject}`);
+    // Subject needs RFC 2047 encoding for non-ASCII characters
+    lines.push(`Subject: ${this.encodeRfc2047(message.subject)}`);
     lines.push(`Date: ${new Date().toUTCString()}`);
     lines.push(`Message-ID: <${Date.now()}.${Math.random().toString(36)}@${this.userEmail?.split('@')[1] || 'local'}>`);
     lines.push('MIME-Version: 1.0');

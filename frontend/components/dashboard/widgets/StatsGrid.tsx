@@ -18,13 +18,19 @@ interface StatCardProps {
 function StatCard({ value, label, icon, gradient, trend, isLoading }: StatCardProps) {
   const theme = useTheme();
 
+  // Extract the main color from the gradient approach (simplified)
+  // We'll use the first color of the gradient logic typically, but here we can rely on passed props or infer.
+  // Actually, let's just use the gradients as accents or text gradients.
+
   return (
     <Box
       sx={{
         position: 'relative',
         borderRadius: 4,
         overflow: 'hidden',
-        background: gradient,
+        bgcolor: 'background.paper',
+        border: '1px solid',
+        borderColor: alpha(theme.palette.divider, 0.08),
         p: 2.5,
         minHeight: 140,
         display: 'flex',
@@ -34,17 +40,8 @@ function StatCard({ value, label, icon, gradient, trend, isLoading }: StatCardPr
         cursor: 'pointer',
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: `0 20px 40px ${alpha(theme.palette.common.black, 0.15)}`,
-        },
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '50%',
-          height: '100%',
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%)',
-          pointerEvents: 'none',
+          borderColor: alpha(theme.palette.primary.main, 0.2), // Default hover
+          boxShadow: `0 20px 40px ${alpha(theme.palette.common.black, 0.06)}`,
         },
       }}
     >
@@ -54,13 +51,13 @@ function StatCard({ value, label, icon, gradient, trend, isLoading }: StatCardPr
           width: 48,
           height: 48,
           borderRadius: 3,
-          bgcolor: 'rgba(255,255,255,0.2)',
-          backdropFilter: 'blur(10px)',
+          background: gradient, // Use gradient for icon background
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: 'white',
           mb: 2,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
         }}
       >
         {icon}
@@ -73,12 +70,12 @@ function StatCard({ value, label, icon, gradient, trend, isLoading }: StatCardPr
             <Skeleton
               width={60}
               height={36}
-              sx={{ bgcolor: 'rgba(255,255,255,0.3)', borderRadius: 1 }}
+              sx={{ borderRadius: 1 }}
             />
             <Skeleton
               width={80}
               height={18}
-              sx={{ bgcolor: 'rgba(255,255,255,0.2)', borderRadius: 1, mt: 0.5 }}
+              sx={{ borderRadius: 1, mt: 0.5 }}
             />
           </>
         ) : (
@@ -88,7 +85,7 @@ function StatCard({ value, label, icon, gradient, trend, isLoading }: StatCardPr
                 variant="h3"
                 sx={{
                   fontWeight: 800,
-                  color: 'white',
+                  color: 'text.primary',
                   fontSize: { xs: '2rem', md: '2.5rem' },
                   lineHeight: 1,
                   letterSpacing: '-0.02em',
@@ -105,11 +102,12 @@ function StatCard({ value, label, icon, gradient, trend, isLoading }: StatCardPr
                     px: 0.75,
                     py: 0.25,
                     borderRadius: 1,
-                    bgcolor: trend > 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,100,100,0.3)',
+                    bgcolor: trend > 0 ? alpha(theme.palette.success.main, 0.1) : alpha(theme.palette.error.main, 0.1),
+                    color: trend > 0 ? 'success.main' : 'error.main',
                   }}
                 >
                   {trend > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                  <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.65rem' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.65rem' }}>
                     {Math.abs(trend)}%
                   </Typography>
                 </Box>
@@ -118,7 +116,7 @@ function StatCard({ value, label, icon, gradient, trend, isLoading }: StatCardPr
             <Typography
               variant="body2"
               sx={{
-                color: 'rgba(255,255,255,0.85)',
+                color: 'text.secondary',
                 fontWeight: 500,
                 mt: 0.5,
                 fontSize: '0.85rem',
@@ -129,33 +127,11 @@ function StatCard({ value, label, icon, gradient, trend, isLoading }: StatCardPr
           </>
         )}
       </Box>
-
-      {/* Decorative circles */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: -30,
-          right: -30,
-          width: 100,
-          height: 100,
-          borderRadius: '50%',
-          bgcolor: 'rgba(255,255,255,0.08)',
-        }}
-      />
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: -20,
-          right: 40,
-          width: 60,
-          height: 60,
-          borderRadius: '50%',
-          bgcolor: 'rgba(255,255,255,0.05)',
-        }}
-      />
     </Box>
   );
 }
+
+import { brand } from '@/theme/tokens';
 
 export function StatsGrid() {
   const t = useTranslations();
@@ -168,6 +144,7 @@ export function StatsGrid() {
       value: stats?.unreadEmails ?? 0,
       label: t.dashboard.home.stats.unreadEmails,
       icon: <Mail size={24} />,
+      // Primary (Cyan)
       gradient: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
       trend: stats?.unreadEmails && stats.unreadEmails > 10 ? 12 : undefined,
     },
@@ -175,13 +152,15 @@ export function StatsGrid() {
       value: stats?.todayEvents ?? 0,
       label: t.dashboard.home.stats.todayEvents,
       icon: <Calendar size={24} />,
-      gradient: `linear-gradient(135deg, ${theme.palette.success.main} 0%, ${theme.palette.success.dark} 100%)`,
+      // Brand Purple for Events
+      gradient: `linear-gradient(135deg, ${brand.purple} 0%, ${brand.purpleDeep} 100%)`,
     },
     {
       value: stats?.pendingTasks ?? 0,
       label: t.dashboard.home.stats.pendingTasks,
       icon: <CheckSquare size={24} />,
-      gradient: `linear-gradient(135deg, ${theme.palette.warning.main} 0%, ${theme.palette.warning.dark} 100%)`,
+      // Brand Magenta for Tasks
+      gradient: `linear-gradient(135deg, ${brand.magenta} 0%, ${brand.magentaBright} 100%)`,
     },
   ];
 

@@ -22,6 +22,35 @@ interface ProcessedMessage {
   processedAt: number;
 }
 
+/**
+ * Simple async mutex for per-provider locking
+ * RC-7 Fix: Prevents race conditions in concurrent webhook processing
+ */
+class AsyncMutex {
+  private locked = false;
+  private queue: Array<() => void> = [];
+
+  async acquire(): Promise<void> {
+    if (!this.locked) {
+      this.locked = true;
+      return;
+    }
+
+    return new Promise<void>((resolve) => {
+      this.queue.push(resolve);
+    });
+  }
+
+  release(): void {
+    if (this.queue.length > 0) {
+      const next = this.queue.shift()!;
+      next();
+    } else {
+      this.locked = false;
+    }
+  }
+}
+
 @Injectable()
 export class GmailWebhookService {
   private readonly logger = new Logger(GmailWebhookService.name);
@@ -31,9 +60,13 @@ export class GmailWebhookService {
 
   // Security fix (Issue #2): Replay attack prevention
   // In-memory cache of processed message IDs with TTL
+  // SEC-3 fix: Reduced TTL from 10 minutes to 3 minutes for tighter replay protection
   private readonly processedMessages: Map<string, number> = new Map();
-  private readonly MESSAGE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+  private readonly MESSAGE_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes (reduced from 10)
   private readonly MAX_CACHE_SIZE = 10000;
+
+  // RC-7 Fix: Per-provider mutex to prevent concurrent webhook processing
+  private readonly providerMutexes: Map<string, AsyncMutex> = new Map();
 
   // Google OAuth2 client for JWT verification
   private readonly oauth2Client: OAuth2Client;
@@ -49,6 +82,19 @@ export class GmailWebhookService {
 
     // Start cache cleanup interval
     setInterval(() => this.cleanupProcessedMessages(), this.MESSAGE_CACHE_TTL_MS);
+  }
+
+  /**
+   * RC-7 Fix: Get or create mutex for a provider
+   * Ensures only one webhook is processed at a time per provider
+   */
+  private getProviderMutex(providerId: string): AsyncMutex {
+    let mutex = this.providerMutexes.get(providerId);
+    if (!mutex) {
+      mutex = new AsyncMutex();
+      this.providerMutexes.set(providerId, mutex);
+    }
+    return mutex;
   }
 
   /**
@@ -186,56 +232,73 @@ export class GmailWebhookService {
 
       this.logger.debug(`[GMAIL-WEBHOOK] Found provider: ${provider.id} for tenant: ${provider.tenantId}`);
 
-      const subscriptionExists = await this.ensureSubscriptionRow(provider.id);
+      // RC-7 Fix: Acquire per-provider mutex to prevent concurrent webhook processing
+      // This prevents race conditions on historyId tracking and duplicate sync jobs
+      const mutex = this.getProviderMutex(provider.id);
+      await mutex.acquire();
 
-      // Update webhook subscription stats
-      this.logger.debug(`[GMAIL-WEBHOOK] Updating subscription stats for provider ${provider.id}...`);
-      await this.updateSubscriptionStats(provider.id);
+      try {
+        const subscriptionExists = await this.ensureSubscriptionRow(provider.id);
 
-      const lastHistoryIdRaw = (provider.metadata as any)?.historyId;
-      const lastHistoryId = lastHistoryIdRaw ? Number(lastHistoryIdRaw) : undefined;
-      const incomingHistoryId = data.historyId ? Number(data.historyId) : undefined;
-      const hasGap =
-        incomingHistoryId !== undefined &&
-        lastHistoryId !== undefined &&
-        incomingHistoryId < lastHistoryId;
+        // Update webhook subscription stats
+        this.logger.debug(`[GMAIL-WEBHOOK] Updating subscription stats for provider ${provider.id}...`);
+        await this.updateSubscriptionStats(provider.id);
 
-      this.logger.debug(
-        `[GMAIL-WEBHOOK] History IDs - last: ${lastHistoryId}, incoming: ${incomingHistoryId}, hasGap: ${hasGap}`,
-      );
+        // Re-fetch provider to get latest metadata (in case another webhook updated it)
+        const freshProvider = await this.prisma.providerConfig.findUnique({
+          where: { id: provider.id },
+          select: { metadata: true, lastSyncedAt: true },
+        });
 
-      // Trigger incremental sync with high priority (fallback full if gap detected)
-      const syncJob: SyncJobData = {
-        tenantId: provider.tenantId,
-        providerId: provider.id,
-        providerType: 'google',
-        email: provider.email,
-        priority: 'high', // Webhook triggers are high priority
-        syncType: hasGap || !subscriptionExists ? 'full' : 'incremental',
-        lastSyncedAt: provider.lastSyncedAt ?? undefined,
-      };
+        const lastHistoryIdRaw = (freshProvider?.metadata as any)?.historyId;
+        const lastHistoryId = lastHistoryIdRaw ? Number(lastHistoryIdRaw) : undefined;
+        const incomingHistoryId = data.historyId ? Number(data.historyId) : undefined;
+        const hasGap =
+          incomingHistoryId !== undefined &&
+          lastHistoryId !== undefined &&
+          incomingHistoryId < lastHistoryId;
 
-      this.logger.log(`[GMAIL-WEBHOOK] Queueing ${syncJob.syncType} sync job for ${provider.email}...`);
-      await this.queueService.addSyncJob(syncJob);
-      this.logger.log(`[GMAIL-WEBHOOK] Sync job queued successfully`);
+        this.logger.debug(
+          `[GMAIL-WEBHOOK] History IDs - last: ${lastHistoryId}, incoming: ${incomingHistoryId}, hasGap: ${hasGap}`,
+        );
 
-      // Persist latest historyId for next delta
-      const newMetadata = {
-        ...(provider.metadata as Record<string, any>),
-        historyId: data.historyId,
-        gapDetected: hasGap || !subscriptionExists || undefined,
-        lastGapAt: hasGap ? new Date().toISOString() : (provider.metadata as any)?.lastGapAt,
-      };
-      this.logger.debug(`[GMAIL-WEBHOOK] Updating provider metadata with historyId: ${data.historyId}...`);
-      await this.prisma.providerConfig.update({
-        where: { id: provider.id },
-        data: { metadata: newMetadata },
-      });
-      this.logger.debug(`[GMAIL-WEBHOOK] Provider metadata updated successfully`);
+        // Trigger incremental sync with high priority (fallback full if gap detected)
+        const syncJob: SyncJobData = {
+          tenantId: provider.tenantId,
+          providerId: provider.id,
+          providerType: 'google',
+          email: provider.email,
+          priority: 'high', // Webhook triggers are high priority
+          syncType: hasGap || !subscriptionExists ? 'full' : 'incremental',
+          lastSyncedAt: freshProvider?.lastSyncedAt ?? undefined,
+        };
 
-      this.logger.log(
-        `[GMAIL-WEBHOOK] ✅ Triggered ${syncJob.syncType} sync for ${provider.email} via webhook`,
-      );
+        this.logger.log(`[GMAIL-WEBHOOK] Queueing ${syncJob.syncType} sync job for ${provider.email}...`);
+        await this.queueService.addSyncJob(syncJob);
+        this.logger.log(`[GMAIL-WEBHOOK] Sync job queued successfully`);
+
+        // Persist latest historyId for next delta
+        const existingMetadata = (freshProvider?.metadata as Record<string, any>) || {};
+        const newMetadata = {
+          ...existingMetadata,
+          historyId: data.historyId,
+          gapDetected: hasGap || !subscriptionExists || undefined,
+          lastGapAt: hasGap ? new Date().toISOString() : existingMetadata.lastGapAt,
+        };
+        this.logger.debug(`[GMAIL-WEBHOOK] Updating provider metadata with historyId: ${data.historyId}...`);
+        await this.prisma.providerConfig.update({
+          where: { id: provider.id },
+          data: { metadata: newMetadata },
+        });
+        this.logger.debug(`[GMAIL-WEBHOOK] Provider metadata updated successfully`);
+
+        this.logger.log(
+          `[GMAIL-WEBHOOK] ✅ Triggered ${syncJob.syncType} sync for ${provider.email} via webhook`,
+        );
+      } finally {
+        // RC-7 Fix: Always release mutex, even on error
+        mutex.release();
+      }
     } catch (error) {
       this.logger.error('Error processing Gmail notification:', error);
       throw error;

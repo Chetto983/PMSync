@@ -4,6 +4,7 @@ export * from './interfaces';
 // Drivers
 export * from './google';
 export * from './microsoft';
+export * from './imap';
 
 // Factory
 export * from './driver.factory';

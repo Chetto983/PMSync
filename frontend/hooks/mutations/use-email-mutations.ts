@@ -23,6 +23,7 @@ import {
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { AppTranslations } from '@/locales';
 import { emailKeys } from '../queries/email-keys';
+import { logger } from '@/lib/logger';
 
 const replaceCount = (template: string, count: number) => template.replace('{count}', String(count));
 
@@ -59,6 +60,71 @@ const resolveFolderLabel = (folders: AppTranslations['folders'], folderId: strin
 interface MutationCallbacks {
   onSuccess?: (message: string) => void;
   onError?: (message: string) => void;
+}
+
+/**
+ * Type for infinite query data structure (used by useInfiniteQuery)
+ */
+interface InfiniteEmailQueryData {
+  pages: EmailListResponse[];
+  pageParams: unknown[];
+}
+
+/**
+ * Union type for all query data types that can be returned by email list queries
+ */
+type EmailQueryData = EmailListResponse | InfiniteEmailQueryData | undefined;
+
+/**
+ * Type guard to check if data is an infinite query structure
+ */
+function isInfiniteQueryData(data: EmailQueryData): data is InfiniteEmailQueryData {
+  return !!data && 'pages' in data && Array.isArray(data.pages);
+}
+
+/**
+ * Type guard to check if data is a flat query structure
+ */
+function isFlatQueryData(data: EmailQueryData): data is EmailListResponse {
+  return !!data && 'emails' in data && Array.isArray(data.emails);
+}
+
+/**
+ * Helper to update email list cache for both infinite and flat query structures
+ * @param oldData - The current cache data
+ * @param updateFn - Function to update emails array
+ * @param onError - Error handler
+ * @returns Updated cache data
+ */
+function updateEmailListCache(
+  oldData: EmailQueryData,
+  updateFn: (emails: Email[]) => Email[],
+  onError?: (error: unknown) => void
+): EmailQueryData {
+  if (!oldData) return oldData;
+
+  try {
+    if (isInfiniteQueryData(oldData)) {
+      return {
+        ...oldData,
+        pages: oldData.pages.map((page) => ({
+          ...page,
+          emails: page.emails ? updateFn(page.emails) : [],
+        })),
+      };
+    }
+
+    if (isFlatQueryData(oldData)) {
+      return {
+        ...oldData,
+        emails: oldData.emails ? updateFn(oldData.emails) : [],
+      };
+    }
+  } catch (error) {
+    onError?.(error);
+  }
+
+  return oldData;
 }
 
 // ============================================================================
@@ -156,14 +222,14 @@ export function useUpdateEmail(callbacks?: MutationCallbacks) {
             ? replaceCount(data.isStarred ? t.email.messages.starred : t.email.messages.unstarred, 1)
             : data.isFlagged !== undefined
               ? replaceCount(
-                  data.isFlagged ? t.email.messages.markedImportant : t.email.messages.unmarkedImportant,
-                  1,
-                )
+                data.isFlagged ? t.email.messages.markedImportant : t.email.messages.unmarkedImportant,
+                1,
+              )
               : data.folder !== undefined
                 ? replaceCount(t.email.messages.moved, 1).replace(
-                    '{folder}',
-                    resolveFolderLabel(t.folders, data.folder),
-                  )
+                  '{folder}',
+                  resolveFolderLabel(t.folders, data.folder),
+                )
                 : data.isDeleted !== undefined && data.isDeleted
                   ? replaceCount(t.email.messages.deleted, 1)
                   : undefined;
@@ -196,19 +262,13 @@ export function useDeleteEmail(callbacks?: MutationCallbacks) {
       await queryClient.cancelQueries({ queryKey: emailKeys.lists() });
 
       // Remove from all list caches
-      queryClient.setQueriesData<EmailListResponse>(
+      queryClient.setQueriesData<EmailQueryData>(
         { queryKey: emailKeys.lists() },
-        (old) => {
-          if (!old?.emails || !old?.pagination) return old;
-          return {
-            ...old,
-            emails: old.emails.filter((email) => email.id !== emailId),
-            pagination: {
-              ...old.pagination,
-              total: old.pagination.total - 1,
-            },
-          };
-        }
+        (oldData) => updateEmailListCache(
+          oldData,
+          (emails) => emails.filter((email) => email.id !== emailId),
+          (error) => logger.error('[Optimistic Update Failed] Delete Email:', { error })
+        )
       );
 
       return {};
@@ -250,17 +310,15 @@ export function useBulkMarkRead(callbacks?: MutationCallbacks) {
     onMutate: async ({ emailIds, isRead }) => {
       await queryClient.cancelQueries({ queryKey: emailKeys.lists() });
 
-      queryClient.setQueriesData<EmailListResponse>(
+      queryClient.setQueriesData<EmailQueryData>(
         { queryKey: emailKeys.lists() },
-        (old) => {
-          if (!old?.emails) return old;
-          return {
-            ...old,
-            emails: old.emails.map((email) =>
-              emailIds.includes(email.id) ? { ...email, isRead } : email
-            ),
-          };
-        }
+        (oldData) => updateEmailListCache(
+          oldData,
+          (emails) => emails.map((email) =>
+            emailIds.includes(email.id) ? { ...email, isRead } : email
+          ),
+          (error) => logger.error('[Optimistic Update Failed] Bulk Mark Read:', { error })
+        )
       );
 
       return {};
@@ -296,17 +354,15 @@ export function useBulkStar(callbacks?: MutationCallbacks) {
     onMutate: async ({ emailIds, isStarred }) => {
       await queryClient.cancelQueries({ queryKey: emailKeys.lists() });
 
-      queryClient.setQueriesData<EmailListResponse>(
+      queryClient.setQueriesData<EmailQueryData>(
         { queryKey: emailKeys.lists() },
-        (old) => {
-          if (!old?.emails) return old;
-          return {
-            ...old,
-            emails: old.emails.map((email) =>
-              emailIds.includes(email.id) ? { ...email, isStarred } : email
-            ),
-          };
-        }
+        (oldData) => updateEmailListCache(
+          oldData,
+          (emails) => emails.map((email) =>
+            emailIds.includes(email.id) ? { ...email, isStarred } : email
+          ),
+          (error) => logger.error('[Optimistic Update Failed] Bulk Star:', { error })
+        )
       );
 
       return {};
@@ -342,17 +398,15 @@ export function useBulkFlag(callbacks?: MutationCallbacks) {
     onMutate: async ({ emailIds, isFlagged }) => {
       await queryClient.cancelQueries({ queryKey: emailKeys.lists() });
 
-      queryClient.setQueriesData<EmailListResponse>(
+      queryClient.setQueriesData<EmailQueryData>(
         { queryKey: emailKeys.lists() },
-        (old) => {
-          if (!old?.emails) return old;
-          return {
-            ...old,
-            emails: old.emails.map((email) =>
-              emailIds.includes(email.id) ? { ...email, isFlagged } : email
-            ),
-          };
-        }
+        (oldData) => updateEmailListCache(
+          oldData,
+          (emails) => emails.map((email) =>
+            emailIds.includes(email.id) ? { ...email, isFlagged } : email
+          ),
+          (error) => logger.error('[Optimistic Update Failed] Bulk Flag:', { error })
+        )
       );
 
       return {};
@@ -390,17 +444,15 @@ export function useBulkMoveToFolder(callbacks?: MutationCallbacks) {
     onMutate: async ({ emailIds, folder }) => {
       await queryClient.cancelQueries({ queryKey: emailKeys.lists() });
 
-      queryClient.setQueriesData<EmailListResponse>(
+      queryClient.setQueriesData<EmailQueryData>(
         { queryKey: emailKeys.lists() },
-        (old) => {
-          if (!old?.emails) return old;
-          return {
-            ...old,
-            emails: old.emails.map((email) =>
-              emailIds.includes(email.id) ? { ...email, folder } : email
-            ),
-          };
-        }
+        (oldData) => updateEmailListCache(
+          oldData,
+          (emails) => emails.map((email) =>
+            emailIds.includes(email.id) ? { ...email, folder } : email
+          ),
+          (error) => logger.error('[Optimistic Update Failed] Bulk Move:', { error })
+        )
       );
 
       return {};
@@ -436,19 +488,13 @@ export function useBulkDelete(callbacks?: MutationCallbacks) {
     onMutate: async (emailIds) => {
       await queryClient.cancelQueries({ queryKey: emailKeys.lists() });
 
-      queryClient.setQueriesData<EmailListResponse>(
+      queryClient.setQueriesData<EmailQueryData>(
         { queryKey: emailKeys.lists() },
-        (old) => {
-          if (!old?.emails || !old?.pagination) return old;
-          return {
-            ...old,
-            emails: old.emails.filter((email) => !emailIds.includes(email.id)),
-            pagination: {
-              ...old.pagination,
-              total: old.pagination.total - emailIds.length,
-            },
-          };
-        }
+        (oldData) => updateEmailListCache(
+          oldData,
+          (emails) => emails.filter((email) => !emailIds.includes(email.id)),
+          (error) => logger.error('[Optimistic Update Failed] Bulk Delete:', { error })
+        )
       );
 
       return {};

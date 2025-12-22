@@ -212,7 +212,7 @@ export function MaterialDashboardLayout({
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {/* App Bar */}
       <AppBar
         position="fixed"
@@ -405,7 +405,10 @@ export function MaterialDashboardLayout({
         sx={{
           flexGrow: 1,
           width: { md: `calc(100% - ${drawerWidth}px)` },
-          minHeight: '100vh',
+          height: '100vh',
+          minHeight: 0,
+          overflow: 'auto',
+          bgcolor: 'background.default',
           display: 'flex',
           flexDirection: 'column',
         }}

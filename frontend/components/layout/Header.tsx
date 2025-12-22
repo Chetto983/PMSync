@@ -225,10 +225,12 @@ export function Header({
       elevation={0}
       sx={{
         zIndex: (theme) => theme.zIndex.drawer + 1,
-        backgroundColor: 'background.paper',
+        // Glassmorphism effect
+        backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.7),
+        backdropFilter: 'blur(12px)',
         color: 'text.primary',
         borderBottom: 1,
-        borderColor: 'divider',
+        borderColor: (theme) => alpha(theme.palette.divider, 0.1),
       }}
     >
       <Toolbar sx={{ minHeight: '64px !important', gap: 1 }}>

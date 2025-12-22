@@ -8,8 +8,8 @@ import { ProviderTokenService } from '../provider-token.service';
 import { BaseEmailSyncService } from '../base-email-sync.service';
 import { EmailDriverFactory } from '../../drivers/driver.factory';
 import { MicrosoftDriver } from '../../drivers/microsoft/microsoft.driver';
-import { CanonicalMessage, AttachmentMeta } from '../../drivers/interfaces/canonical.types';
-import { isJunkFolder } from '../../../email/email.helpers';
+import { AttachmentMeta } from '../../drivers/interfaces/canonical.types';
+import { IEmailDriver } from '../../drivers/interfaces/email-driver.interface';
 import { AttachmentStorageService } from '../../../email/services/attachment.storage';
 
 /**
@@ -48,6 +48,38 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
     this.batchSize = this.config.get<number>('MS_BATCH_FETCH_SIZE', 20);
     this.fullSyncMaxMessages = this.config.get<number>('MS_FULL_MAX_MESSAGES', 200);
   }
+
+  // ============================================
+  // Abstract Method Implementations
+  // ============================================
+
+  /**
+   * Provide the embedding queue service to the base class
+   */
+  protected getEmbeddingQueue(): EmailEmbeddingQueueService {
+    return this.emailEmbeddingQueue;
+  }
+
+  /**
+   * Process attachments for Microsoft messages
+   * Implements the abstract method from BaseEmailSyncService
+   */
+  protected async processAttachmentsForMessage(
+    driver: IEmailDriver,
+    emailId: string,
+    tenantId: string,
+    providerId: string,
+    externalMessageId: string,
+    attachments: AttachmentMeta[],
+  ): Promise<void> {
+    // Cast to MicrosoftDriver for attachment fetching
+    const msDriver = driver as MicrosoftDriver;
+    await this.processAttachments(msDriver, emailId, tenantId, providerId, externalMessageId, attachments);
+  }
+
+  // ============================================
+  // Provider Sync Implementation
+  // ============================================
 
   async syncProvider(jobData: SyncJobData): Promise<SyncJobResult> {
     const { providerId, email, syncType, tenantId } = jobData;
@@ -168,14 +200,15 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
         pageToken,
       });
 
-      // Process messages in this page
-      for (const message of result.messages) {
-        const upsertResult = await this.upsertMessageFromDriver(driver, message, providerId, tenantId);
-        messagesProcessed++;
-        if (upsertResult.wasNew) {
-          newMessages++;
-        }
-      }
+      // Performance fix (N1-5): Process messages in batch using transaction
+      const batchResult = await this.processMessagesBatch(
+        driver,
+        result.messages,
+        providerId,
+        tenantId,
+      );
+      messagesProcessed += batchResult.processed;
+      newMessages += batchResult.newCount;
 
       fetchedCount += result.messages.length;
       pageToken = result.nextPageToken;
@@ -222,8 +255,22 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
     // Get changes since last sync (delta query)
     const changesResult = await driver.getChangesSince(lastSyncToken);
 
+    // Phase 5: Detect delta token expiration
+    // If sync token changed significantly but no changes returned, token may have expired
+    // The driver returns a new token on 410/400 errors, indicating expiration
+    const tokenChanged = changesResult.newSyncToken !== lastSyncToken;
+    const tokenChangedSignificantly = tokenChanged &&
+      !changesResult.newSyncToken.includes(lastSyncToken.substring(0, 20));
+
     if (changesResult.changes.length === 0) {
-      this.logger.debug('No changes detected');
+      if (tokenChangedSignificantly) {
+        this.logger.warn(
+          'Delta token appears to have expired (token changed but no changes returned). ' +
+          'Consider triggering a full sync on next scheduled interval.',
+        );
+      } else {
+        this.logger.debug('No changes detected');
+      }
       return {
         messagesProcessed: 0,
         newMessages: 0,
@@ -276,116 +323,9 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
     };
   }
 
-  /**
-   * Upsert a message from driver canonical format into database
-   */
-  private async upsertMessageFromDriver(
-    driver: MicrosoftDriver,
-    canonicalMsg: CanonicalMessage,
-    providerId: string,
-    tenantId: string,
-  ): Promise<{ wasNew: boolean }> {
-    // Check if message already exists
-    const existing = await this.prisma.email.findFirst({
-      where: { providerId, externalId: canonicalMsg.id },
-      select: { id: true },
-    });
-
-    if (existing) {
-      // Update existing message
-      await this.prisma.email.update({
-        where: { id: existing.id },
-        data: {
-          subject: canonicalMsg.subject || '(No Subject)',
-          from: canonicalMsg.from.email,
-          to: canonicalMsg.to?.map((r) => r.email) || [],
-          cc: canonicalMsg.cc?.map((r) => r.email) || [],
-          bcc: canonicalMsg.bcc?.map((r) => r.email) || [],
-          bodyText: canonicalMsg.bodyText || '',
-          bodyHtml: canonicalMsg.bodyHtml || '',
-          snippet: canonicalMsg.snippet || '',
-          receivedAt: canonicalMsg.receivedAt,
-          isRead: canonicalMsg.isRead ?? false,
-          isStarred: canonicalMsg.isStarred ?? false,
-          isFlagged: canonicalMsg.isFlagged ?? false,
-          folder: canonicalMsg.folder,
-          labels: canonicalMsg.labels || [],
-        },
-      });
-
-      // Process attachments for existing email (update metadata if needed)
-      if (canonicalMsg.hasAttachments && canonicalMsg.attachments.length > 0) {
-        await this.processAttachments(
-          driver,
-          existing.id,
-          tenantId,
-          providerId,
-          canonicalMsg.id,
-          canonicalMsg.attachments,
-        );
-      }
-
-      return { wasNew: false };
-    } else {
-      // Create new message
-      const createdEmail = await this.prisma.email.create({
-        data: {
-          tenantId,
-          providerId,
-          externalId: canonicalMsg.id,
-          subject: canonicalMsg.subject || '(No Subject)',
-          from: canonicalMsg.from.email,
-          to: canonicalMsg.to?.map((r) => r.email) || [],
-          cc: canonicalMsg.cc?.map((r) => r.email) || [],
-          bcc: canonicalMsg.bcc?.map((r) => r.email) || [],
-          bodyText: canonicalMsg.bodyText || '',
-          bodyHtml: canonicalMsg.bodyHtml || '',
-          snippet: canonicalMsg.snippet || '',
-          receivedAt: canonicalMsg.receivedAt,
-          sentAt: canonicalMsg.sentAt || canonicalMsg.receivedAt,
-          isRead: canonicalMsg.isRead ?? false,
-          isStarred: canonicalMsg.isStarred ?? false,
-          isFlagged: canonicalMsg.isFlagged ?? false,
-          isDeleted: false,
-          folder: canonicalMsg.folder,
-          labels: canonicalMsg.labels || [],
-          threadId: canonicalMsg.threadId || null,
-        },
-      });
-
-      // Process attachments (download for embeddings or metadata-only)
-      if (canonicalMsg.hasAttachments && canonicalMsg.attachments.length > 0) {
-        await this.processAttachments(
-          driver,
-          createdEmail.id,
-          tenantId,
-          providerId,
-          canonicalMsg.id,
-          canonicalMsg.attachments,
-        );
-      }
-
-      // Queue for embeddings (skip SPAM/TRASH - they're junk)
-      if (!isJunkFolder(createdEmail.folder)) {
-        await this.emailEmbeddingQueue.enqueue({
-          emailId: createdEmail.id,
-          tenantId,
-          subject: createdEmail.subject,
-          snippet: createdEmail.snippet || '',
-        });
-      }
-
-      // Emit realtime event
-      this.realtimeEvents.emitEmailNew(tenantId, {
-        emailId: createdEmail.id,
-        providerId,
-        folder: createdEmail.folder,
-        reason: 'message-processed',
-      });
-
-      return { wasNew: true };
-    }
-  }
+  // ============================================
+  // Provider-Specific Attachment Processing
+  // ============================================
 
   /**
    * Process attachments: download for embeddings or store metadata for on-demand
@@ -518,38 +458,5 @@ export class MicrosoftSyncService extends BaseEmailSyncService {
     }
   }
 
-  /**
-   * Handle message deletion
-   */
-  private async handleMessageDeletion(
-    messageId: string,
-    providerId: string,
-    tenantId: string,
-  ): Promise<void> {
-    const existing = await this.prisma.email.findFirst({
-      where: { providerId, externalId: messageId },
-      select: { id: true, folder: true },
-    });
-
-    if (!existing) {
-      return; // Message not in our database
-    }
-
-    // Mark as deleted or move to trash
-    await this.prisma.email.update({
-      where: { id: existing.id },
-      data: {
-        isDeleted: true,
-        folder: 'TRASH',
-      },
-    });
-
-    // Emit realtime event
-    this.realtimeEvents.emitEmailDelete(tenantId, {
-      emailId: existing.id,
-      providerId,
-      folder: existing.folder,
-      reason: 'message-deleted',
-    });
-  }
+  // handleMessageDeletion is now inherited from BaseEmailSyncService
 }

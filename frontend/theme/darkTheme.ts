@@ -157,7 +157,11 @@ export const createPmSyncDarkTheme = (): ThemeOptions => ({
           borderColor: darkColors.border.default,
           backgroundColor: darkColors.background.paper,
           transition: `all ${transitions.duration.DEFAULT}ms ${transitions.easing.DEFAULT}`,
-          '&:hover': { borderColor: darkColors.border.strong },
+          '&:hover': {
+            borderColor: darkColors.primary.main, // Brand Cyan border on hover
+            boxShadow: shadows.dark.lg,
+            transform: 'translateY(-4px)', // Bento hover effect
+          },
         },
       },
     },
@@ -287,7 +291,7 @@ export const createPmSyncDarkTheme = (): ThemeOptions => ({
       defaultProps: { elevation: 0 },
       styleOverrides: {
         root: {
-          backgroundColor: darkColors.background.paper,
+          backgroundColor: alpha(darkColors.background.paper, 0.7),
           backgroundImage: 'none',
           borderBottom: `1px solid ${darkColors.border.default}`,
           backdropFilter: glass.blur.DEFAULT,

@@ -97,14 +97,16 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
     <Paper
       elevation={3}
       sx={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-        borderRadius: 0,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
+        position: 'relative', // Not sticky, just part of flow
+        mx: 1, // Match ThreadList margins
+        mt: 1, // Add top spacing
+        mb: 1, // Add bottom spacing
+        borderRadius: 3, // Rounded corners (Bento)
+        // borderBottom: '1px solid', // Remove border
+        // borderColor: 'divider',
         bgcolor: 'primary.main',
         color: 'primary.contrastText',
+        overflow: 'hidden', // Contain children
       }}
     >
       <Box

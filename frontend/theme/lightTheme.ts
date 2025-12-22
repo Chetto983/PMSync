@@ -133,7 +133,11 @@ export const createPmSyncLightTheme = (): ThemeOptions => ({
           borderColor: lightColors.border.default,
           backgroundColor: lightColors.background.paper,
           boxShadow: shadows.light.sm,
-          '&:hover': { borderColor: lightColors.border.strong, boxShadow: shadows.light.md },
+          '&:hover': {
+            borderColor: lightColors.primary.main, // Brand Cyan border on hover
+            boxShadow: shadows.light.lg,
+            transform: 'translateY(-4px)', // Bento hover effect
+          },
         },
       },
     },

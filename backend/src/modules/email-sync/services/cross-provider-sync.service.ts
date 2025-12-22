@@ -92,9 +92,15 @@ export class CrossProviderSyncService {
       dedupResult.crossProviderLinkId,
     );
 
-    // Add current email state
+    // LB-4 Fix: Filter out current email from linkedEmails since we add it manually below
+    // This prevents double-adding the current email state after linkEmail() includes it
+    const otherEmailStates = linkedEmails.filter(
+      (state) => state.emailId !== options.emailId,
+    );
+
+    // Add current email state (with the most recent data from the incoming sync)
     const allStates: EmailState[] = [
-      ...linkedEmails,
+      ...otherEmailStates,
       {
         emailId: options.emailId,
         providerId: options.providerId,
@@ -237,11 +243,19 @@ export class CrossProviderSyncService {
       })),
     ];
 
-    // Resolve conflicts
+    // LB-5 Fix: Get conflict strategy from link instead of hardcoding LAST_WRITE_WINS
+    const link = await this.prisma.emailCrossProviderLink.findUnique({
+      where: { id: email.crossProviderLinkId },
+      select: { conflictStrategy: true },
+    });
+
+    const strategy = (link?.conflictStrategy as ConflictStrategy) || 'LAST_WRITE_WINS';
+
+    // Resolve conflicts using configured strategy
     const resolution = await this.conflict.resolveConflicts(
       email.crossProviderLinkId,
       allStates,
-      'LAST_WRITE_WINS', // Use last write wins for state changes
+      strategy,
     );
 
     // Apply resolved state to all linked emails

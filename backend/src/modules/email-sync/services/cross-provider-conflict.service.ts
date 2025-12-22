@@ -387,6 +387,8 @@ export class CrossProviderConflictService {
         link.lastConflictAt.getTime() > oneHourAgo,
     ).length;
 
+    // LB-8 Fix: Filter out negative resolution times that can occur due to race conditions
+    // (when lastSyncedAt is before lastConflictAt)
     const resolutionTimes = links
       .filter(
         (link) => link.lastConflictAt && link.lastSyncedAt,
@@ -394,7 +396,8 @@ export class CrossProviderConflictService {
       .map(
         (link) =>
           link.lastSyncedAt.getTime() - link.lastConflictAt!.getTime(),
-      );
+      )
+      .filter((time) => time >= 0); // Only include non-negative resolution times
 
     const avgResolutionTime =
       resolutionTimes.length > 0

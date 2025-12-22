@@ -665,7 +665,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
       });
     });
     return items;
-  }, [foldersByProvider, providersById, countsByFolderId]);
+  }, [foldersByProvider, providersById, countsByFolderId, t.folders]);
 
   // Combined folders
   const combinedFolders = useMemo(

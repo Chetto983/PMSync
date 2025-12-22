@@ -86,6 +86,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
         flexDirection: 'column',
         borderRadius: 0,
         p: 0,
+        backgroundColor: 'transparent', // Let parent glass shine through
       }}
     >
       {/* Compose Button */}
@@ -96,7 +97,7 @@ export const EmailSidebar: React.FC<EmailSidebarProps> = ({
             flexShrink: 0,
             minHeight: 60,
             display: 'flex',
-            bgcolor: 'background.paper',
+            // Transparent background for glass effect
             borderBottom: '1px solid',
             borderColor: 'divider',
           }}

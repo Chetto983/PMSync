@@ -68,8 +68,9 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
           max: 20, // Max 20 sync-back ops per minute
           duration: 60000,
         },
-        lockDuration: 180000, // 3 minutes for bulk operations
-        stalledInterval: 90000,
+        // Performance fix: Increased lockDuration from 3min to 10min for large bulk operations
+        lockDuration: 600000, // 10 minutes for bulk operations
+        stalledInterval: 180000, // 3 min stalled interval
       },
     );
 

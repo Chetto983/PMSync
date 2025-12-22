@@ -10,6 +10,7 @@ import {
   Tooltip,
   Collapse,
   alpha,
+  useTheme,
 } from '@mui/material';
 import {
   ChevronDown,
@@ -69,6 +70,7 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
     onInviteRespond,
     t,
   }) => {
+    const theme = useTheme();
     const emailFromData = parseEmailFrom(email.from);
     const emailHtml = email.bodyHtml || email.bodyText || email.snippet || '';
     const nonInlineAttachments = email.attachments?.filter((a) => !a.isInline) ?? [];
@@ -85,21 +87,21 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
 
     return (
       <Paper
-        elevation={isExpanded ? 2 : 0}
+        elevation={isExpanded ? 3 : 0}
         sx={{
-          mb: 1.5,
+          mb: 2, // More space between messages
           border: '1px solid',
-          borderColor: isExpanded ? 'primary.main' : isUnread ? 'primary.light' : 'divider',
-          borderRadius: 2,
+          borderColor: isExpanded ? 'primary.main' : 'divider',
+          borderRadius: 3, // 12px - Bento style
           overflow: 'hidden',
           transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          borderLeft: isUnread ? '3px solid' : '1px solid',
-          borderLeftColor: isUnread ? 'primary.main' : isExpanded ? 'primary.main' : 'divider',
-          bgcolor: isUnread && !isExpanded ? alpha(isDark ? '#55cae5' : '#7650ce', 0.03) : 'background.paper',
+          // Remove left border indicator, use dot instead for cleaner look
+          bgcolor: isExpanded ? 'background.paper' : alpha(theme.palette.background.paper, 0.6), // Glass-ish when collapsed
+          backdropFilter: 'blur(10px)',
           '&:hover': {
-            borderColor: isExpanded ? 'primary.main' : 'primary.light',
-            boxShadow: isExpanded ? 3 : 1,
-            transform: isExpanded ? 'none' : 'translateX(2px)',
+            borderColor: isExpanded ? 'primary.main' : 'text.disabled',
+            transform: isExpanded ? 'none' : 'translateY(-2px)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
           },
         }}
       >

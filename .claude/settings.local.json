@@ -84,7 +84,9 @@
       "Bash(do docker exec mailagent-minio rm -f \"/data/mailagent-attachments/attachments/$hash\")",
       "Bash(echo:*)",
       "Bash(done)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(mkdir:*)",
+      "Bash(npx prisma db pull:*)"
     ],
     "deny": []
   }

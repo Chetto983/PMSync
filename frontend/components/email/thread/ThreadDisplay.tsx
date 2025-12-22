@@ -5,12 +5,12 @@ import {
   IconButton,
   Button,
   Chip,
-  Paper,
   Stack,
   CircularProgress,
   Divider,
   Tooltip,
   useTheme,
+  alpha,
 } from '@mui/material';
 import {
   ChevronLeft,
@@ -303,18 +303,20 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
       data-testid="thread-display"
       sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0, minWidth: 0 }}
     >
-      <Paper
-        elevation={0}
+      <Box
         sx={{
           px: { xs: 1, sm: 2 },
           py: 1.5,
-          borderBottom: 1,
-          borderColor: 'divider',
+          borderBottom: '1px solid',
+          borderColor: (theme) => alpha(theme.palette.divider, 0.1),
           display: 'flex',
           alignItems: 'center',
           gap: 0.5,
           flexShrink: 0,
           flexWrap: 'wrap',
+          // Glass effect (subtle) for the header
+          bgcolor: (theme) => alpha(theme.palette.background.paper, 0.4),
+          backdropFilter: 'blur(8px)',
         }}
       >
         {onClose && (
@@ -389,18 +391,20 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
             <MoreVertical size={18} />
           </IconButton>
         </Tooltip>
-      </Paper>
+      </Box>
 
       <Box sx={{ flex: 1, overflow: 'auto', minHeight: 0, minWidth: 0, ...scrollContainerSx }}>
         <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 3 }, pb: 2 }}>
           <Typography
             variant="h5"
             sx={{
-              fontWeight: 600,
+              fontWeight: 700, // Bolder
               lineHeight: 1.3,
-              mb: 1,
-              fontSize: { xs: '1.25rem', sm: '1.5rem' },
+              mb: 1.5, // More space
+              fontSize: { xs: '1.25rem', sm: '1.75rem' }, // Larger on desktop
               wordBreak: 'break-word',
+              color: 'text.primary',
+              letterSpacing: '-0.01em', // Tighter tracking for headings
             }}
           >
             {email.subject || t.common.noSubject}
@@ -411,17 +415,15 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
               <>
                 <Chip
                   icon={<Mail size={14} />}
-                  label={`${threadEmails.length} ${
-                    threadEmails.length === 1 ? t.email.view.message : t.email.view.messages
-                  }`}
+                  label={`${threadEmails.length} ${threadEmails.length === 1 ? t.email.view.message : t.email.view.messages
+                    }`}
                   size="small"
                   sx={{ fontWeight: 500 }}
                 />
                 {unreadCount > 0 && (
                   <Chip
-                    label={`${unreadCount} ${
-                      unreadCount === 1 ? t.email.view.unreadSingle : t.email.view.unreadPlural
-                    }`}
+                    label={`${unreadCount} ${unreadCount === 1 ? t.email.view.unreadSingle : t.email.view.unreadPlural
+                      }`}
                     size="small"
                     color="primary"
                     sx={{ fontWeight: 600 }}

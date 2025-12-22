@@ -75,7 +75,8 @@ export function Layout({ children }: LayoutProps) {
               display: 'flex',
               flexDirection: 'column',
               backgroundColor: 'background.default',
-              overflow: 'hidden', // Changed from auto to hidden to prevent horizontal scroll
+              overflowX: 'hidden',
+              overflowY: 'auto',
               minHeight: 0, // Allow nested panels to size within viewport
               minWidth: 0, // Critical for nested flex items
             }}
