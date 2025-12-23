@@ -109,12 +109,15 @@ export class MicrosoftCalendarSyncService {
       let deletedEvents = 0;
       let syncType: 'full' | 'incremental' = 'incremental';
 
-      // Get list of calendars
-      const calendarsUrl = `${this.GRAPH_API_BASE}/me/calendars`;
+      // Get list of calendars with $select to fetch only required fields
+      const calendarsUrl = `${this.GRAPH_API_BASE}/me/calendars?$select=id,name`;
       const calendarsResponse = await axios.get<{ value: Array<{ id: string; name: string }> }>(
         calendarsUrl,
         {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'client-request-id': crypto.randomUUID(), // 2025 best practice: track requests
+          },
         },
       );
 
@@ -280,19 +283,33 @@ export class MicrosoftCalendarSyncService {
     const startDateTimeParam = encodeURIComponent(sixtyDaysAgo.toISOString());
     const endDateTimeParam = encodeURIComponent(sixtyDaysAhead.toISOString());
 
+    // $select: Fetch only required fields to reduce bandwidth (2025 best practice)
+    const selectFields = 'id,subject,start,end,location,organizer,attendees,isAllDay,isCancelled,recurrence,seriesMasterId,iCalUId,showAs,sensitivity,webLink,lastModifiedDateTime,body,bodyPreview';
     let deltaUrl: string | undefined =
-      `${this.GRAPH_API_BASE}/me/calendars/${calendarId}/calendarView/delta?startDateTime=${startDateTimeParam}&endDateTime=${endDateTimeParam}`;
+      `${this.GRAPH_API_BASE}/me/calendars/${calendarId}/calendarView/delta?startDateTime=${startDateTimeParam}&endDateTime=${endDateTimeParam}&$select=${selectFields}`;
 
     // Fetch ALL events using delta pagination
     const allEvents: MicrosoftEvent[] = [];
     let nextDeltaLink: string | undefined;
 
+    this.logger.debug(`Fetching initial sync from: ${deltaUrl}`);
+
     while (deltaUrl) {
       const response: AxiosResponse<MicrosoftEventsResponse> = await axios.get(deltaUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'client-request-id': crypto.randomUUID(),
+        },
       });
 
       const events = response.data.value || [];
+
+      // DEBUG: Log the first few events to inspect raw API response
+      if (allEvents.length === 0 && events.length > 0) {
+        this.logger.warn(`[MICROSOFT API DEBUG] First event raw data: ${JSON.stringify(events[0], null, 2)}`);
+        this.logger.warn(`[MICROSOFT API DEBUG] Found ${events.length} events in first page.`);
+      }
+
       allEvents.push(...events);
 
       // Check for more pages or final deltaLink
@@ -374,7 +391,10 @@ export class MicrosoftCalendarSyncService {
 
     while (deltaUrl) {
       const response: AxiosResponse<MicrosoftEventsResponse> = await axios.get(deltaUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'client-request-id': crypto.randomUUID(),
+        },
       });
 
       const events = response.data.value || [];
@@ -503,17 +523,19 @@ export class MicrosoftCalendarSyncService {
 
         // Update existing events
         if (eventsToUpdate.length > 0) {
-          const now = new Date();
-          const externalIds = eventsToUpdate.map((e) => e.externalId);
-
-          await tx.$executeRaw`
-            UPDATE "calendar_events"
-            SET "lastSyncedAt" = ${now},
-                "syncVersion" = "syncVersion" + 1
-            WHERE "providerId" = ${providerId}
-              AND "externalId" = ANY(${externalIds}::text[])
-          `;
-          updatedCount = eventsToUpdate.length;
+          // We can't use updateMany for different data, so we need to loop
+          // But we should do it inside the transaction
+          for (const update of eventsToUpdate) {
+            await tx.calendarEvent.update({
+              where: { id: update.id },
+              data: {
+                ...update.data,
+                syncVersion: { increment: 1 },
+                lastSyncedAt: new Date(),
+              },
+            });
+            updatedCount++;
+          }
         }
 
         // Mark deleted events (from incremental sync)
@@ -601,7 +623,68 @@ export class MicrosoftCalendarSyncService {
     tenantId: string,
     calendarName: string,
   ): any {
-    const title = event.subject || '(No Title)';
+    let title = event.subject;
+
+    // If no subject OR empty subject, try to extract from body or attendees (common for birthday events)
+    if ((!title || title.trim() === '') && !event.isCancelled && !event['@removed']) {
+      // DEBUG: Log birthday events to see what data is available
+      if (calendarName?.toLowerCase().includes('compleanno') || calendarName?.toLowerCase().includes('birthday')) {
+        this.logger.debug(
+          `Birthday event without subject - Calendar: ${calendarName}, ` +
+          `Body preview: "${event.bodyPreview?.substring(0, 100)}", ` +
+          `Attendees: ${event.attendees?.length || 0}`,
+        );
+      }
+
+      // Try to extract from body content (birthday events often have name in body)
+      const bodyContent = event.body?.content || event.bodyPreview || '';
+      if (bodyContent) {
+        // Look for patterns like "Birthday: Name" or just extract first line
+        const birthdayMatch = bodyContent.match(/(?:Birthday|Compleanno|Anniversaire):\s*(.+?)(?:\n|<|$)/i);
+        if (birthdayMatch && birthdayMatch[1]) {
+          title = birthdayMatch[1].trim();
+          this.logger.debug(`Extracted title from body pattern: "${title}"`);
+        } else {
+          // Extract first non-empty line from body
+          const firstLine = bodyContent
+            .replace(/<[^>]*>/g, '') // Remove HTML tags
+            .split('\n')
+            .map(l => l.trim())
+            .find(l => l.length > 0 && l.length < 100); // Reasonable title length
+          if (firstLine) {
+            title = firstLine;
+            this.logger.debug(`Extracted title from first line: "${title}"`);
+          }
+        }
+      }
+
+      // If still no title, try attendees (birthday events may have person as attendee)
+      if (!title && event.attendees && event.attendees.length > 0) {
+        const firstAttendee = event.attendees[0];
+        if (firstAttendee?.emailAddress?.name) {
+          title = `${firstAttendee.emailAddress.name}'s Birthday`;
+          this.logger.debug(`Extracted title from attendee: "${title}"`);
+        }
+      }
+
+      // If still no title, check calendar name for context
+      if (!title && calendarName) {
+        if (calendarName.toLowerCase().includes('birthday') ||
+          calendarName.toLowerCase().includes('compleanno')) {
+          title = 'Birthday Event';
+          this.logger.debug(`Using calendar context title: "${title}"`);
+        }
+      }
+
+      // Final fallback
+      if (!title) {
+        this.logger.warn(
+          `Event ${event.id} in calendar ${calendarId} (${calendarName}) is missing subject. ` +
+          `Body preview: ${event.bodyPreview?.substring(0, 100) || 'none'}`,
+        );
+        title = '(No Title)';
+      }
+    }
     const description = event.body?.content || event.bodyPreview || null;
     const location = event.location?.displayName || null;
     const organizer = event.organizer?.emailAddress?.address || null;

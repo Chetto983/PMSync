@@ -25,6 +25,7 @@ export class SyncSchedulerService implements OnModuleInit {
 
   // Webhook-First Configuration (configurable via ENV)
   private readonly WEBHOOK_STALE_THRESHOLD_MINUTES: number; // Consider webhook stale if no notification in N min
+  private readonly WEBHOOK_BACKUP_SYNC_HOURS: number; // Backup sync interval for providers with active webhooks
 
   // Smart Sync Configuration - Adaptive Polling Intervals
   private readonly SYNC_INTERVALS = {
@@ -65,8 +66,16 @@ export class SyncSchedulerService implements OnModuleInit {
       this.configService.get<string>('WEBHOOK_STALE_THRESHOLD_MINUTES', '10'),
       10,
     );
+
+    // Initialize webhook backup sync interval from ENV (default 6 hours)
+    // When webhooks are active, we only need cron as a backup safety net
+    this.WEBHOOK_BACKUP_SYNC_HOURS = parseInt(
+      this.configService.get<string>('WEBHOOK_BACKUP_SYNC_HOURS', '6'),
+      10,
+    );
+
     this.logger.log(
-      `Webhook-first optimization enabled: skip cron if webhook received within ${this.WEBHOOK_STALE_THRESHOLD_MINUTES} minutes`,
+      `Webhook-first optimization enabled: skip cron if webhook received within ${this.WEBHOOK_STALE_THRESHOLD_MINUTES} min, backup sync every ${this.WEBHOOK_BACKUP_SYNC_HOURS} hours`,
     );
   }
 
@@ -367,6 +376,11 @@ export class SyncSchedulerService implements OnModuleInit {
   /**
    * Update activity rate and sync priority for a provider
    * Called after each successful sync
+   *
+   * Webhook-First Optimization:
+   * - If provider has active webhook with recent notifications, set nextSyncAt to backup interval (6+ hours)
+   * - This prevents unnecessary cron sync for providers that have working webhooks
+   * - Cron only kicks in as a safety backup when webhooks are stale
    */
   async updateProviderActivity(providerId: string): Promise<void> {
     try {
@@ -381,10 +395,29 @@ export class SyncSchedulerService implements OnModuleInit {
         },
       });
 
-      // Get current provider data
+      // Get current provider data WITH webhook subscription status
       const provider = await this.prisma.providerConfig.findUnique({
         where: { id: providerId },
-        select: { avgActivityRate: true, syncPriority: true },
+        select: {
+          avgActivityRate: true,
+          syncPriority: true,
+          providerType: true,
+          email: true,
+          webhookSubscriptions: {
+            where: {
+              isActive: true,
+              OR: [
+                { resourcePath: { contains: 'gmail' } },
+                { resourcePath: { contains: 'mailFolders' } },
+              ],
+            },
+            select: {
+              lastNotificationAt: true,
+              isActive: true,
+            },
+            take: 1,
+          },
+        },
       });
 
       // Calculate new activity rate (emails per hour)
@@ -399,8 +432,29 @@ export class SyncSchedulerService implements OnModuleInit {
       // Calculate new priority based on activity
       const syncPriority = this.calculateSyncPriority(avgActivityRate);
 
+      // Check if provider has active webhook with recent notifications
+      const webhookStaleThreshold = new Date(
+        Date.now() - this.WEBHOOK_STALE_THRESHOLD_MINUTES * 60 * 1000,
+      );
+      const hasActiveWebhook =
+        provider?.webhookSubscriptions?.[0]?.isActive &&
+        provider?.webhookSubscriptions?.[0]?.lastNotificationAt &&
+        provider.webhookSubscriptions[0].lastNotificationAt > webhookStaleThreshold;
+
       // Calculate next sync time
-      const nextSyncAt = this.calculateNextSyncTime(syncPriority);
+      // If webhook is active, use the longer backup interval
+      // Otherwise, use activity-based interval
+      let nextSyncAt: Date;
+      if (hasActiveWebhook) {
+        // Webhook is active - only sync as a backup safety net
+        nextSyncAt = new Date(Date.now() + this.WEBHOOK_BACKUP_SYNC_HOURS * 60 * 60 * 1000);
+        this.logger.debug(
+          `Provider ${provider?.email} has active webhook, setting backup sync in ${this.WEBHOOK_BACKUP_SYNC_HOURS} hours`,
+        );
+      } else {
+        // No active webhook - use activity-based polling
+        nextSyncAt = this.calculateNextSyncTime(syncPriority);
+      }
 
       // Update provider
       await this.prisma.providerConfig.update({
@@ -416,7 +470,7 @@ export class SyncSchedulerService implements OnModuleInit {
       });
 
       this.logger.debug(
-        `Updated activity for ${providerId}: ${avgActivityRate.toFixed(2)} emails/hr, priority ${syncPriority}`,
+        `Updated activity for ${providerId}: ${avgActivityRate.toFixed(2)} emails/hr, priority ${syncPriority}, nextSync ${hasActiveWebhook ? 'webhook-backup' : 'activity-based'}`,
       );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

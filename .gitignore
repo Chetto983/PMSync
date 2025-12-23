@@ -140,5 +140,6 @@ frontend/screenshots/*
 frontend/scripts/screenshot-dashboard.mjs
 frontend/playwright-report/index.html
 frontend/screenshots/*
-backend/scripts/*
+
 free-nextjs-admin-dashboard-main/*
+backend/test/*

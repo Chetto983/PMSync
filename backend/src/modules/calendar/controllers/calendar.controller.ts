@@ -35,7 +35,7 @@ export class CalendarController {
   constructor(
     private readonly calendarService: CalendarService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   /**
    * List all calendars from all providers

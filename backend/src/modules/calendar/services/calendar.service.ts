@@ -72,7 +72,7 @@ export class CalendarService {
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly googleCalendarSync: GoogleCalendarSyncService,
     private readonly microsoftCalendarSync: MicrosoftCalendarSyncService,
-  ) {}
+  ) { }
 
   /**
    * List all calendars from all providers for a tenant
@@ -568,7 +568,7 @@ export class CalendarService {
     if (provider.providerType === 'google') {
       await this.deleteGoogleEvent(accessToken, event.externalId, event.calendarId!);
     } else if (provider.providerType === 'microsoft') {
-      await this.deleteMicrosoftEvent(accessToken, event.externalId);
+      await this.deleteMicrosoftEvent(accessToken, event.externalId, event.calendarId);
     }
 
     // Mark event as deleted in database (soft delete)
@@ -662,8 +662,7 @@ export class CalendarService {
       return accessToken;
     } catch (error) {
       this.logger.error(
-        `Failed to refresh calendar access token for provider ${provider.id}: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to refresh calendar access token for provider ${provider.id}: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return accessToken;
@@ -681,20 +680,20 @@ export class CalendarService {
     oauth2Client.setCredentials({ access_token: accessToken });
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-      const event: calendar_v3.Schema$Event = {
-        summary: data.title,
-        description: data.description,
-        location: data.location,
-        start: data.isAllDay
-          ? { date: new Date(data.startTime).toISOString().split('T')[0] }
-          : { dateTime: new Date(data.startTime).toISOString(), timeZone: data.timeZone || 'UTC' },
-        end: data.isAllDay
-          ? { date: new Date(data.endTime).toISOString().split('T')[0] }
-          : { dateTime: new Date(data.endTime).toISOString(), timeZone: data.timeZone || 'UTC' },
-        attendees: data.attendees?.map((a) => ({ email: a.email, displayName: a.name })),
-        reminders: data.reminders,
-        recurrence: data.recurrence,
-      };
+    const event: calendar_v3.Schema$Event = {
+      summary: data.title,
+      description: data.description,
+      location: data.location,
+      start: data.isAllDay
+        ? { date: new Date(data.startTime).toISOString().split('T')[0] }
+        : { dateTime: new Date(data.startTime).toISOString(), timeZone: data.timeZone || 'UTC' },
+      end: data.isAllDay
+        ? { date: new Date(data.endTime).toISOString().split('T')[0] }
+        : { dateTime: new Date(data.endTime).toISOString(), timeZone: data.timeZone || 'UTC' },
+      attendees: data.attendees?.map((a) => ({ email: a.email, displayName: a.name })),
+      reminders: data.reminders,
+      recurrence: data.recurrence,
+    };
 
     const response = await calendar.events.insert({
       calendarId: data.calendarId || 'primary',
@@ -803,6 +802,7 @@ export class CalendarService {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        'client-request-id': crypto.randomUUID(),
       },
     });
 
@@ -852,6 +852,7 @@ export class CalendarService {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        'client-request-id': crypto.randomUUID(),
       },
     });
   }
@@ -859,10 +860,20 @@ export class CalendarService {
   /**
    * Delete event from Microsoft Calendar
    */
-  private async deleteMicrosoftEvent(accessToken: string, eventId: string): Promise<void> {
-    await axios.delete(`${this.GRAPH_API_BASE}/me/events/${eventId}`, {
+  private async deleteMicrosoftEvent(
+    accessToken: string,
+    eventId: string,
+    calendarId?: string | null,
+  ): Promise<void> {
+    // Use calendar-specific endpoint if calendarId is provided, otherwise use /me/events
+    const endpoint = calendarId
+      ? `${this.GRAPH_API_BASE}/me/calendars/${calendarId}/events/${eventId}`
+      : `${this.GRAPH_API_BASE}/me/events/${eventId}`;
+
+    await axios.delete(endpoint, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        'client-request-id': crypto.randomUUID(),
       },
     });
   }
@@ -898,7 +909,12 @@ export class CalendarService {
         await axios.post(
           `${this.GRAPH_API_BASE}/me/events/${event.externalId}/cancel`,
           { comment: reason || `Cancelled: ${event.title}` },
-          { headers: { Authorization: `Bearer ${accessToken}` } },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'client-request-id': crypto.randomUUID(),
+            }
+          },
         );
       }
     } catch (error) {
