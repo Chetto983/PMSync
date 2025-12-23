@@ -90,7 +90,8 @@
       "Bash(tree:*)",
       "Bash(dir /s /b \"d:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email\")",
       "Bash(powershell -Command:*)",
-      "Bash(npx prisma generate)"
+      "Bash(npx prisma generate)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

@@ -2,6 +2,8 @@ import { Module, forwardRef } from '@nestjs/common';
 import { ContactsController } from './controllers/contacts.controller';
 import { ContactsWebhookController } from './controllers/contacts-webhook.controller';
 import { ContactsService } from './services/contacts.service';
+import { ContactsCacheService } from './services/contacts-cache.service';
+import { ContactsImportService } from './services/contacts-import.service';
 import { GoogleContactsSyncService } from './services/google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from './services/microsoft-contacts-sync.service';
 import { GoogleContactsWebhookService } from './services/google-contacts-webhook.service';
@@ -27,6 +29,8 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
   ],
   providers: [
     ContactsService,
+    ContactsCacheService, // Redis caching and distributed locking
+    ContactsImportService, // vCard and email extraction
     GoogleContactsSyncService,
     MicrosoftContactsSyncService,
     GoogleContactsWebhookService,
@@ -37,6 +41,8 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
   ],
   exports: [
     ContactsService,
+    ContactsCacheService,
+    ContactsImportService,
     GoogleContactsSyncService,
     MicrosoftContactsSyncService,
     GoogleContactsWebhookService,

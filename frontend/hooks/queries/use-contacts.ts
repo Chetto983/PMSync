@@ -18,6 +18,10 @@ import {
   type CreateContactDto,
   type UpdateContactDto,
   type Contact,
+  type CreateLocalContactDto,
+  type ExtractContactsParams,
+  type ExtractContactsResult,
+  type VCardImportResult,
 } from '@/lib/api/contacts';
 import { contactsKeys } from './contacts-keys';
 
@@ -402,6 +406,108 @@ export function useToggleContactFavorite() {
     onSettled: (_, __, { id }) => {
       queryClient.invalidateQueries({ queryKey: contactsKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
+    },
+  });
+}
+
+// ============================================================================
+// Local Contact & Import Mutation Hooks
+// ============================================================================
+
+/**
+ * Hook for creating local-only contacts (no provider sync)
+ *
+ * @example
+ * ```tsx
+ * const createLocal = useCreateLocalContact();
+ * await createLocal.mutateAsync({
+ *   firstName: 'John',
+ *   lastName: 'Doe',
+ *   emails: [{ value: 'john@example.com', primary: true }],
+ * });
+ * ```
+ */
+export function useCreateLocalContact() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateLocalContactDto) => {
+      return await contactsApi.createLocalContact(data);
+    },
+    onSuccess: () => {
+      // Invalidate contact queries to refresh lists
+      queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
+      queryClient.invalidateQueries({ queryKey: contactsKeys.counts() });
+    },
+  });
+}
+
+/**
+ * Hook for extracting contacts from email headers
+ * Useful for IMAP providers without native contacts API
+ *
+ * @example
+ * ```tsx
+ * const extractContacts = useExtractContactsFromEmails();
+ * const result = await extractContacts.mutateAsync({
+ *   providerId: 'provider-id',
+ *   excludePublicDomains: true, // Exclude gmail.com, yahoo.com, etc.
+ * });
+ * console.log(`Created ${result.created} contacts`);
+ * ```
+ */
+export function useExtractContactsFromEmails() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ExtractContactsResult, Error, ExtractContactsParams>({
+    mutationFn: async (params: ExtractContactsParams = {}) => {
+      return await contactsApi.extractContactsFromEmails(params);
+    },
+    onSuccess: () => {
+      // Invalidate all contact data after extraction
+      queryClient.invalidateQueries({ queryKey: contactsKeys.all });
+    },
+  });
+}
+
+/**
+ * Hook for importing contacts from vCard (.vcf) file
+ * Supports vCard 3.0 and 4.0 formats (Outlook, Apple, Google exports)
+ *
+ * @example
+ * ```tsx
+ * const importVCard = useImportFromVCard();
+ *
+ * // From file input
+ * const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+ *   const file = e.target.files?.[0];
+ *   if (file) {
+ *     const result = await importVCard.mutateAsync({ file });
+ *     console.log(`Imported ${result.imported} contacts`);
+ *   }
+ * };
+ *
+ * // From raw vCard content
+ * const result = await importVCard.mutateAsync({
+ *   content: 'BEGIN:VCARD\nVERSION:3.0\n...\nEND:VCARD',
+ * });
+ * ```
+ */
+export function useImportFromVCard() {
+  const queryClient = useQueryClient();
+
+  return useMutation<VCardImportResult, Error, { file?: File; content?: string }>({
+    mutationFn: async ({ file, content }) => {
+      if (file) {
+        return await contactsApi.importFromVCard(file);
+      } else if (content) {
+        return await contactsApi.importFromVCardContent(content);
+      }
+      throw new Error('Either file or content must be provided');
+    },
+    onSuccess: () => {
+      // Invalidate all contact data after import
+      queryClient.invalidateQueries({ queryKey: contactsKeys.all });
     },
   });
 }

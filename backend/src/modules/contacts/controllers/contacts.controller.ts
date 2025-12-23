@@ -180,7 +180,26 @@ export class ContactsController {
    * Supports vCard 3.0 and 4.0 formats (Outlook, Apple, Google exports)
    */
   @Post('import/vcard')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max
+      },
+      fileFilter: (_req, file, cb) => {
+        // Validate file type
+        const allowedMimes = ['text/vcard', 'text/x-vcard', 'text/directory', 'application/octet-stream'];
+        const allowedExtensions = ['.vcf', '.vcard'];
+        const hasValidExt = allowedExtensions.some(ext => file.originalname.toLowerCase().endsWith(ext));
+        const hasValidMime = allowedMimes.includes(file.mimetype);
+
+        if (hasValidExt || hasValidMime) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Only .vcf (vCard) files are allowed'), false);
+        }
+      },
+    }),
+  )
   @ApiOperation({ summary: 'Import contacts from vCard', description: 'Imports contacts from .vcf file' })
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 200, description: 'Contacts imported successfully' })

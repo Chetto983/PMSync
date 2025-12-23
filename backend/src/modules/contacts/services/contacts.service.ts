@@ -1,222 +1,73 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+/**
+ * Contacts Service
+ *
+ * Core contact management service handling:
+ * - CRUD operations (list, get, create, update, delete)
+ * - Contact counts with caching
+ * - Bidirectional sync with providers (Google, Microsoft)
+ * - Provider contact cleanup
+ *
+ * Refactored to use extracted services:
+ * - ContactsCacheService: Redis caching and distributed locking
+ * - ContactsImportService: vCard and email extraction
+ *
+ * @see contacts-cache.service.ts
+ * @see contacts-import.service.ts
+ */
+
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CryptoService } from '../../../common/services/crypto.service';
 import { Contact, Prisma } from '@prisma/client';
-import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
-import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
 import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service';
+import { ContactsCacheService } from './contacts-cache.service';
+import { ContactsImportService } from './contacts-import.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
-import { getRedisConnectionOptions } from '../../../common/config';
-import { Redis } from 'ioredis';
-import vCard from 'vcf';
+import { CONTACTS_DEFAULTS } from '../contacts.constants';
+import type {
+  ContactWithProviders,
+  ListContactsFilters,
+  ContactCounts,
+  VCardImportResult,
+  EmailExtractionResult,
+} from '../contacts.types';
+import type { CreateContactDto, UpdateContactDto } from '../dto/contact.dto';
 
-// Type-safe interfaces for JSON fields
-export interface EmailAddress {
-  value: string;
-  type?: string;
-  primary?: boolean;
-}
-
-export interface PhoneNumber {
-  value: string;
-  type?: string;
-  primary?: boolean;
-}
-
-export interface Address {
-  street?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
-  type?: string;
-}
-
-export interface SocialProfile {
-  url: string;
-  type?: string;
-}
-
-export interface ContactMetadata {
-  source?: string;
-  extractedAt?: string;
-  createdAt?: string;
-  importedAt?: string;
-  [key: string]: unknown;
-}
-
-// Unified contact with provider sources
-export interface ContactWithProviders extends Contact {
-  providerContacts?: Array<{
-    id: string;
-    providerId: string;
-    externalId: string;
-    provider: {
-      id: string;
-      email: string;
-      providerType: string;
-      displayName: string | null;
-    };
-  }>;
-}
-
-export interface CreateContactDto {
-  providerId: string;
-  firstName?: string;
-  lastName?: string;
-  displayName?: string;
-  emails?: Array<{ value: string; type?: string; primary?: boolean }>;
-  phoneNumbers?: Array<{ value: string; type?: string; primary?: boolean }>;
-  company?: string;
-  jobTitle?: string;
-  notes?: string;
-}
-
-export interface UpdateContactDto {
-  firstName?: string;
-  lastName?: string;
-  displayName?: string;
-  emails?: Array<{ value: string; type?: string; primary?: boolean }>;
-  phoneNumbers?: Array<{ value: string; type?: string; primary?: boolean }>;
-  company?: string;
-  jobTitle?: string;
-  notes?: string;
-  tags?: string[];
-}
-
-export interface ListContactsFilters {
-  providerId?: string;
-  search?: string; // Search by name, email, company
-  company?: string;
-  limit?: number;
-  offset?: number;
-}
+// Re-export types for backward compatibility
+export type {
+  EmailAddress,
+  PhoneNumber,
+  Address,
+  SocialProfile,
+  ContactMetadata,
+  ContactWithProviders,
+  ListContactsFilters,
+} from '../contacts.types';
 
 @Injectable()
-export class ContactsService implements OnModuleInit, OnModuleDestroy {
+export class ContactsService {
   private readonly logger = new Logger(ContactsService.name);
   private readonly maxContactsLimit: number;
-  private readonly contactCountsCacheTtl: number;
-  private readonly syncLockTtl: number;
-  private redis: Redis | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly crypto: CryptoService,
-    private readonly googleOAuth: GoogleOAuthService,
-    private readonly microsoftOAuth: MicrosoftOAuthService,
     private readonly googleContactsSync: GoogleContactsSyncService,
     private readonly microsoftContactsSync: MicrosoftContactsSyncService,
+    private readonly cacheService: ContactsCacheService,
+    private readonly importService: ContactsImportService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly configService: ConfigService,
   ) {
-    this.maxContactsLimit = this.configService.get<number>('CONTACTS_LIST_MAX_LIMIT', 500);
-    this.contactCountsCacheTtl = this.configService.get<number>('CONTACTS_COUNTS_CACHE_TTL', 300); // 5 minutes
-    this.syncLockTtl = this.configService.get<number>('CONTACTS_SYNC_LOCK_TTL', 300); // 5 minutes
+    this.maxContactsLimit = this.configService.get<number>(
+      'CONTACTS_LIST_MAX_LIMIT',
+      CONTACTS_DEFAULTS.MAX_CONTACTS_LIMIT,
+    );
   }
 
-  async onModuleInit(): Promise<void> {
-    try {
-      const redisOptions = getRedisConnectionOptions();
-      this.redis = new Redis(redisOptions);
-      this.logger.log('Redis connection established for ContactsService');
-    } catch (error) {
-      this.logger.warn(`Failed to connect to Redis, running without caching: ${error}`);
-      this.redis = null;
-    }
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    if (this.redis && this.redis.status !== 'end') {
-      await this.redis.quit();
-      this.logger.log('Redis connection closed for ContactsService');
-    }
-  }
-
-  /**
-   * Acquire distributed lock for contact sync
-   * Prevents multiple instances from syncing same provider simultaneously
-   */
-  private async acquireSyncLock(providerId: string): Promise<boolean> {
-    if (!this.redis) return true; // Allow sync if Redis not available
-
-    const lockKey = `contacts:sync:lock:${providerId}`;
-    const result = await this.redis.set(lockKey, process.pid.toString(), 'EX', this.syncLockTtl, 'NX');
-    return result === 'OK';
-  }
-
-  /**
-   * Release distributed lock for contact sync
-   */
-  private async releaseSyncLock(providerId: string): Promise<void> {
-    if (!this.redis) return;
-
-    const lockKey = `contacts:sync:lock:${providerId}`;
-    await this.redis.del(lockKey);
-  }
-
-  /**
-   * Get cached contact counts or fetch from database
-   */
-  private async getCachedContactCounts(tenantId: string): Promise<{
-    total: number;
-    byProvider: Record<string, number>;
-    withEmail: number;
-    withPhone: number;
-    starred: number;
-  } | null> {
-    if (!this.redis) return null;
-
-    try {
-      const cacheKey = `contacts:counts:${tenantId}`;
-      const cached = await this.redis.get(cacheKey);
-      if (cached) {
-        return JSON.parse(cached);
-      }
-    } catch (error) {
-      this.logger.warn(`Failed to get cached contact counts: ${error}`);
-    }
-    return null;
-  }
-
-  /**
-   * Cache contact counts
-   */
-  private async cacheContactCounts(
-    tenantId: string,
-    counts: {
-      total: number;
-      byProvider: Record<string, number>;
-      withEmail: number;
-      withPhone: number;
-      starred: number;
-    },
-  ): Promise<void> {
-    if (!this.redis) return;
-
-    try {
-      const cacheKey = `contacts:counts:${tenantId}`;
-      await this.redis.setex(cacheKey, this.contactCountsCacheTtl, JSON.stringify(counts));
-    } catch (error) {
-      this.logger.warn(`Failed to cache contact counts: ${error}`);
-    }
-  }
-
-  /**
-   * Invalidate contact counts cache
-   */
-  private async invalidateContactCountsCache(tenantId: string): Promise<void> {
-    if (!this.redis) return;
-
-    try {
-      const cacheKey = `contacts:counts:${tenantId}`;
-      await this.redis.del(cacheKey);
-    } catch (error) {
-      this.logger.warn(`Failed to invalidate contact counts cache: ${error}`);
-    }
-  }
+  // =============================================================================
+  // CRUD Operations
+  // =============================================================================
 
   /**
    * List unified contacts for a tenant
@@ -227,9 +78,10 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
     filters: ListContactsFilters = {},
   ): Promise<{ contacts: ContactWithProviders[]; total: number }> {
     // Allow larger batches for faster bulk loading (max from config)
-    const limit = filters.limit && filters.limit > 0 && filters.limit <= this.maxContactsLimit
-      ? filters.limit
-      : 100;
+    const limit =
+      filters.limit && filters.limit > 0 && filters.limit <= this.maxContactsLimit
+        ? filters.limit
+        : CONTACTS_DEFAULTS.DEFAULT_PAGE_SIZE;
     const offset = filters.offset && filters.offset >= 0 ? filters.offset : 0;
 
     const where: Prisma.ContactWhereInput = {
@@ -291,18 +143,48 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Get a single unified contact by ID with all provider sources
+   */
+  async getContact(tenantId: string, contactId: string): Promise<ContactWithProviders> {
+    const contact = await this.prisma.contact.findFirst({
+      where: {
+        id: contactId,
+        tenantId,
+        isDeleted: false,
+      },
+      include: {
+        providerContacts: {
+          select: {
+            id: true,
+            providerId: true,
+            externalId: true,
+            provider: {
+              select: {
+                id: true,
+                email: true,
+                providerType: true,
+                displayName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!contact) {
+      throw new NotFoundException(`Contact ${contactId} not found`);
+    }
+
+    return contact;
+  }
+
+  /**
    * Get contact counts for sidebar display
    * Efficiently queries counts from database with Redis caching
    */
-  async getContactCounts(tenantId: string): Promise<{
-    total: number;
-    withEmail: number;
-    withPhone: number;
-    withCompany: number;
-    byProvider: Array<{ providerId: string; count: number }>;
-  }> {
+  async getContactCounts(tenantId: string): Promise<ContactCounts> {
     // Try to get from cache first
-    const cached = await this.getCachedContactCounts(tenantId);
+    const cached = await this.cacheService.getCachedContactCounts(tenantId);
     if (cached) {
       // Convert cached format back to expected format
       return {
@@ -369,7 +251,7 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
     for (const { providerId, count } of byProvider) {
       byProviderRecord[providerId] = count;
     }
-    await this.cacheContactCounts(tenantId, {
+    await this.cacheService.cacheContactCounts(tenantId, {
       total,
       byProvider: byProviderRecord,
       withEmail,
@@ -398,41 +280,9 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Get a single unified contact by ID with all provider sources
-   */
-  async getContact(tenantId: string, contactId: string): Promise<ContactWithProviders> {
-    const contact = await this.prisma.contact.findFirst({
-      where: {
-        id: contactId,
-        tenantId,
-        isDeleted: false,
-      },
-      include: {
-        providerContacts: {
-          select: {
-            id: true,
-            providerId: true,
-            externalId: true,
-            provider: {
-              select: {
-                id: true,
-                email: true,
-                providerType: true,
-                displayName: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!contact) {
-      throw new NotFoundException(`Contact ${contactId} not found`);
-    }
-
-    return contact;
-  }
+  // =============================================================================
+  // Bidirectional Sync Operations (Create/Update/Delete)
+  // =============================================================================
 
   /**
    * Create a new contact (bidirectional sync)
@@ -473,7 +323,9 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
         lastName: data.lastName,
         displayName: data.displayName,
         emails: data.emails ? (data.emails as unknown as Prisma.InputJsonValue) : undefined,
-        phoneNumbers: data.phoneNumbers ? (data.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
+        phoneNumbers: data.phoneNumbers
+          ? (data.phoneNumbers as unknown as Prisma.InputJsonValue)
+          : undefined,
         company: data.company,
         jobTitle: data.jobTitle,
         notes: data.notes,
@@ -492,7 +344,9 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
         lastName: data.lastName,
         displayName: data.displayName,
         emails: data.emails ? (data.emails as unknown as Prisma.InputJsonValue) : undefined,
-        phoneNumbers: data.phoneNumbers ? (data.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
+        phoneNumbers: data.phoneNumbers
+          ? (data.phoneNumbers as unknown as Prisma.InputJsonValue)
+          : undefined,
         company: data.company,
         jobTitle: data.jobTitle,
         notes: data.notes,
@@ -549,7 +403,9 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
             }
           }
         } catch (error: any) {
-          this.logger.warn(`Failed to sync update to provider ${providerContact.providerId}: ${error.message}`);
+          this.logger.warn(
+            `Failed to sync update to provider ${providerContact.providerId}: ${error.message}`,
+          );
           // Continue with local update even if provider sync fails
         }
       }
@@ -567,7 +423,9 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
         notes: data.notes,
         tags: data.tags,
         emails: data.emails ? (data.emails as unknown as Prisma.InputJsonValue) : undefined,
-        phoneNumbers: data.phoneNumbers ? (data.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
+        phoneNumbers: data.phoneNumbers
+          ? (data.phoneNumbers as unknown as Prisma.InputJsonValue)
+          : undefined,
         updatedAt: new Date(),
       },
       include: {
@@ -617,10 +475,7 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
 
           if (provider?.isActive) {
             if (provider.providerType === 'google') {
-              await this.googleContactsSync.deleteContact(
-                provider.id,
-                providerContact.externalId,
-              );
+              await this.googleContactsSync.deleteContact(provider.id, providerContact.externalId);
               this.logger.log(`Deleted from Google: ${providerContact.externalId}`);
             } else if (provider.providerType === 'microsoft') {
               await this.microsoftContactsSync.deleteContact(
@@ -631,7 +486,9 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
             }
           }
         } catch (error: any) {
-          this.logger.warn(`Failed to delete from provider ${providerContact.providerId}: ${error.message}`);
+          this.logger.warn(
+            `Failed to delete from provider ${providerContact.providerId}: ${error.message}`,
+          );
           // Continue with local delete even if provider delete fails
         }
       }
@@ -667,6 +524,10 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
     void this.updateContactCounts(tenantId);
   }
 
+  // =============================================================================
+  // Provider Operations
+  // =============================================================================
+
   /**
    * Delete all contacts associated with a provider
    * Called when a provider is being deleted
@@ -698,7 +559,7 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const contactIds = [...new Set(providerContacts.map(pc => pc.contactId))];
+    const contactIds = [...new Set(providerContacts.map((pc) => pc.contactId))];
 
     // Execute deletion and orphan cleanup in a single transaction (fixes race condition)
     await this.prisma.$transaction(async (tx) => {
@@ -707,7 +568,9 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
         where: { providerId },
       });
 
-      this.logger.log(`Deleted ${providerContacts.length} provider contact links for provider ${providerId}`);
+      this.logger.log(
+        `Deleted ${providerContacts.length} provider contact links for provider ${providerId}`,
+      );
 
       // Find orphaned contacts using a single aggregated query (fixes N+1)
       // Count remaining links for all affected contacts in one query
@@ -720,10 +583,10 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
       });
 
       // Build set of contacts that still have links
-      const contactsWithRemainingLinks = new Set(contactsWithLinks.map(c => c.contactId));
+      const contactsWithRemainingLinks = new Set(contactsWithLinks.map((c) => c.contactId));
 
       // Find orphaned contacts (no remaining links)
-      const orphanedContactIds = contactIds.filter(id => !contactsWithRemainingLinks.has(id));
+      const orphanedContactIds = contactIds.filter((id) => !contactsWithRemainingLinks.has(id));
 
       // Delete orphaned contacts in bulk
       if (orphanedContactIds.length > 0) {
@@ -770,7 +633,7 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Acquire distributed lock to prevent concurrent syncs
-    const lockAcquired = await this.acquireSyncLock(providerId);
+    const lockAcquired = await this.cacheService.acquireSyncLock(providerId);
     if (!lockAcquired) {
       this.logger.warn(`Sync already in progress for provider ${providerId}, skipping`);
       return 0;
@@ -788,7 +651,7 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Synced ${syncedCount} contacts for provider ${providerId}`);
 
       // Invalidate contact counts cache after sync
-      await this.invalidateContactCountsCache(provider.tenantId);
+      await this.cacheService.invalidateContactCountsCache(provider.tenantId);
 
       // Emit updated counts after sync
       void this.updateContactCounts(provider.tenantId);
@@ -796,7 +659,7 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
       return syncedCount;
     } finally {
       // Always release lock
-      await this.releaseSyncLock(providerId);
+      await this.cacheService.releaseSyncLock(providerId);
     }
   }
 
@@ -843,490 +706,81 @@ export class ContactsService implements OnModuleInit, OnModuleDestroy {
         nickname: contactData.nickname,
         prefix: contactData.prefix,
         suffix: contactData.suffix,
-        emails: contactData.emails ? (contactData.emails as unknown as Prisma.InputJsonValue) : undefined,
-        phoneNumbers: contactData.phoneNumbers ? (contactData.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
-        addresses: contactData.addresses ? (contactData.addresses as unknown as Prisma.InputJsonValue) : undefined,
+        emails: contactData.emails
+          ? (contactData.emails as unknown as Prisma.InputJsonValue)
+          : undefined,
+        phoneNumbers: contactData.phoneNumbers
+          ? (contactData.phoneNumbers as unknown as Prisma.InputJsonValue)
+          : undefined,
+        addresses: contactData.addresses
+          ? (contactData.addresses as unknown as Prisma.InputJsonValue)
+          : undefined,
         company: contactData.company,
         jobTitle: contactData.jobTitle,
         department: contactData.department,
         birthday: contactData.birthday,
         anniversary: contactData.anniversary,
-        websites: contactData.websites ? (contactData.websites as unknown as Prisma.InputJsonValue) : undefined,
-        socialProfiles: contactData.socialProfiles ? (contactData.socialProfiles as unknown as Prisma.InputJsonValue) : undefined,
+        websites: contactData.websites
+          ? (contactData.websites as unknown as Prisma.InputJsonValue)
+          : undefined,
+        socialProfiles: contactData.socialProfiles
+          ? (contactData.socialProfiles as unknown as Prisma.InputJsonValue)
+          : undefined,
         notes: contactData.notes,
         photoUrl: contactData.photoUrl,
         photoEtag: contactData.photoEtag,
         isDeleted: contactData.isDeleted ?? false,
         isStarred: contactData.isStarred ?? false,
         isFavorite: contactData.isFavorite ?? false,
-        metadata: contactData.metadata ? (contactData.metadata as unknown as Prisma.InputJsonValue) : undefined,
+        metadata: contactData.metadata
+          ? (contactData.metadata as unknown as Prisma.InputJsonValue)
+          : undefined,
       },
     });
   }
 
-  /**
-   * Extract contacts from emails and create local contacts
-   * Works for any provider type, including generic IMAP that don't have contacts API
-   * @param tenantId - Tenant ID
-   * @param providerId - Optional provider ID to filter emails
-   * @param excludePublicDomains - Whether to exclude public domains like gmail.com
-   */
-  async extractContactsFromEmails(
-    tenantId: string,
-    providerId?: string,
-    excludePublicDomains = true,
-  ): Promise<{ created: number; skipped: number; total: number }> {
-    this.logger.log(`Extracting contacts from emails for tenant ${tenantId}`);
-
-    // Public domains to exclude
-    const publicDomains = new Set([
-      'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.it', 'hotmail.com',
-      'hotmail.it', 'outlook.com', 'outlook.it', 'live.com', 'live.it',
-      'icloud.com', 'me.com', 'mac.com', 'aol.com', 'msn.com',
-      'libero.it', 'virgilio.it', 'alice.it', 'tin.it', 'tiscali.it',
-      'fastwebnet.it', 'email.it', 'pec.it', 'aruba.it',
-    ]);
-
-    // Query all emails for this tenant
-    const emails = await this.prisma.email.findMany({
-      where: {
-        tenantId,
-        ...(providerId && { providerId }),
-      },
-      select: {
-        from: true,
-        to: true,
-        cc: true,
-        bcc: true,
-      },
-    });
-
-    // Extract unique email addresses with names
-    const addressMap = new Map<string, { email: string; name?: string }>();
-
-    // Helper to process address arrays
-    const processAddressArray = (addresses: unknown) => {
-      if (!addresses) return;
-      const addrArray = Array.isArray(addresses) ? addresses : [];
-      for (const addr of addrArray) {
-        if (typeof addr === 'string') {
-          const lower = addr.toLowerCase().trim();
-          if (!addressMap.has(lower)) {
-            addressMap.set(lower, { email: lower });
-          }
-        }
-      }
-    };
-
-    for (const email of emails) {
-      // From
-      if (email.from) {
-        const addr = email.from.toLowerCase().trim();
-        if (!addressMap.has(addr)) {
-          addressMap.set(addr, { email: addr });
-        }
-      }
-
-      // To, CC, BCC (JSON arrays) - CON-2.3: Now processing BCC
-      processAddressArray(email.to);
-      processAddressArray(email.cc);
-      processAddressArray(email.bcc);
-    }
-
-    // CON-2.4 FIX: Use database query to check existing emails instead of loading all contacts
-    // Get candidate emails to check (filter by domain first to reduce query size)
-    const candidateEmails = Array.from(addressMap.keys()).filter((emailAddr) => {
-      const domain = emailAddr.split('@')[1];
-      if (!domain) return false;
-      if (excludePublicDomains && publicDomains.has(domain.toLowerCase())) return false;
-      return true;
-    });
-
-    if (candidateEmails.length === 0) {
-      this.logger.log('No candidate emails after filtering');
-      return { created: 0, skipped: addressMap.size, total: addressMap.size };
-    }
-
-    // Check which emails already exist using PostgreSQL JSONB query (O(1) per batch, not O(n))
-    const existingEmailsResult = await this.prisma.$queryRaw<{ email: string }[]>`
-      SELECT DISTINCT LOWER(email_obj->>'value') as email
-      FROM "Contact",
-           jsonb_array_elements(emails) AS email_obj
-      WHERE tenant_id = ${tenantId}
-        AND is_deleted = false
-        AND LOWER(email_obj->>'value') = ANY(${candidateEmails}::text[])
-    `;
-    const existingEmails = new Set(existingEmailsResult.map(r => r.email));
-
-    // Prepare batch of contacts to create
-    const contactsToCreate: Array<{
-      tenantId: string;
-      firstName?: string;
-      lastName?: string;
-      displayName: string;
-      emails: Prisma.InputJsonValue;
-      company?: string;
-      metadata: Prisma.InputJsonValue;
-    }> = [];
-
-    let skipped = 0;
-
-    for (const [emailAddr, info] of addressMap) {
-      // Skip if already exists
-      if (existingEmails.has(emailAddr)) {
-        skipped++;
-        continue;
-      }
-
-      // Extract domain
-      const domain = emailAddr.split('@')[1];
-      if (!domain) {
-        skipped++;
-        continue;
-      }
-
-      // Skip public domains if enabled
-      if (excludePublicDomains && publicDomains.has(domain.toLowerCase())) {
-        skipped++;
-        continue;
-      }
-
-      // Parse name if available
-      let firstName: string | undefined;
-      let lastName: string | undefined;
-      if (info.name) {
-        const parts = info.name.trim().split(/\s+/);
-        firstName = parts[0];
-        lastName = parts.length > 1 ? parts.slice(1).join(' ') : undefined;
-      }
-
-      // Add to batch
-      contactsToCreate.push({
-        tenantId,
-        firstName,
-        lastName,
-        displayName: info.name || emailAddr,
-        emails: [{ value: emailAddr, type: 'work', primary: true }] as unknown as Prisma.InputJsonValue,
-        company: domain.split('.')[0],
-        metadata: { source: 'email_extraction', extractedAt: new Date().toISOString() } as Prisma.InputJsonValue,
-      });
-
-      // Prevent duplicates within this run
-      existingEmails.add(emailAddr);
-    }
-
-    // CON-1.3 FIX: Create all contacts in a single transaction
-    let created = 0;
-    if (contactsToCreate.length > 0) {
-      try {
-        const result = await this.prisma.contact.createMany({
-          data: contactsToCreate,
-          skipDuplicates: true,
-        });
-        created = result.count;
-      } catch (error: any) {
-        this.logger.error(`Failed to batch create contacts: ${error.message}`);
-        // Rollback is automatic with createMany
-        skipped += contactsToCreate.length;
-      }
-    }
-
-    this.logger.log(`Contact extraction complete: ${created} created, ${skipped} skipped, ${addressMap.size} total`);
-
-    // Emit updated counts
-    void this.updateContactCounts(tenantId);
-
-    return { created, skipped, total: addressMap.size };
-  }
+  // =============================================================================
+  // Delegated Import Operations
+  // =============================================================================
 
   /**
    * Create a local-only contact (no provider sync)
-   * Useful for generic IMAP providers that don't support contacts API
+   * Delegates to ContactsImportService
    */
   async createLocalContact(
     tenantId: string,
     data: Omit<CreateContactDto, 'providerId'>,
   ): Promise<Contact> {
-    this.logger.log(`Creating local contact for tenant ${tenantId}`);
-
-    const contact = await this.prisma.contact.create({
-      data: {
-        tenantId,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        displayName: data.displayName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || undefined,
-        emails: data.emails ? (data.emails as unknown as Prisma.InputJsonValue) : undefined,
-        phoneNumbers: data.phoneNumbers ? (data.phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
-        company: data.company,
-        jobTitle: data.jobTitle,
-        notes: data.notes,
-        metadata: { source: 'local', createdAt: new Date().toISOString() } as Prisma.InputJsonValue,
-      },
-    });
-
-    this.logger.log(`Local contact created: ${contact.id}`);
-
-    // Emit updated counts
+    const contact = await this.importService.createLocalContact(tenantId, data);
     void this.updateContactCounts(tenantId);
-
     return contact;
   }
 
   /**
-   * Import contacts from vCard (.vcf) file content
-   * Supports vCard 3.0 and 4.0 formats (Outlook, Apple, Google exports)
-   * @param tenantId - Tenant ID
-   * @param vcfContent - Raw vCard file content (can contain multiple contacts)
+   * Extract contacts from emails
+   * Delegates to ContactsImportService
    */
-  async importFromVCard(
+  async extractContactsFromEmails(
     tenantId: string,
-    vcfContent: string,
-  ): Promise<{ imported: number; skipped: number; errors: string[] }> {
-    this.logger.log(`Importing contacts from vCard for tenant ${tenantId}`);
-
-    const errors: string[] = [];
-    let imported = 0;
-    let skipped = 0;
-
-    // Batch validation: check content size and format before processing
-    const MAX_VCARD_SIZE = 10 * 1024 * 1024; // 10MB max
-    const MAX_CONTACTS_PER_IMPORT = 5000;
-
-    if (vcfContent.length > MAX_VCARD_SIZE) {
-      throw new BadRequestException(`vCard file too large. Maximum size: ${MAX_VCARD_SIZE / 1024 / 1024}MB`);
-    }
-
-    // Quick format validation - vCard must start with BEGIN:VCARD
-    if (!vcfContent.trim().toUpperCase().startsWith('BEGIN:VCARD')) {
-      throw new BadRequestException('Invalid vCard format: file must start with BEGIN:VCARD');
-    }
-
-    try {
-      // Parse vCard content - can contain multiple vCards
-      const parsed = vCard.parse(vcfContent);
-
-      // vCard.parse returns a single vCard or array, normalize to array
-      const cards = Array.isArray(parsed) ? parsed : [parsed];
-
-      // Validate contact count before processing
-      if (cards.length > MAX_CONTACTS_PER_IMPORT) {
-        throw new BadRequestException(
-          `Too many contacts (${cards.length}). Maximum per import: ${MAX_CONTACTS_PER_IMPORT}`,
-        );
-      }
-
-      this.logger.log(`Parsed ${cards.length} vCards for import`);
-
-      // Get existing emails for deduplication
-      const existingContacts = await this.prisma.contact.findMany({
-        where: { tenantId, isDeleted: false },
-        select: { emails: true },
-      });
-
-      const existingEmails = new Set<string>();
-      for (const contact of existingContacts) {
-        if (contact.emails && Array.isArray(contact.emails)) {
-          for (const emailObj of contact.emails as unknown as EmailAddress[]) {
-            if (emailObj?.value) {
-              existingEmails.add(emailObj.value.toLowerCase());
-            }
-          }
-        }
-      }
-
-      // Process each vCard
-      for (const card of cards) {
-        try {
-          // Extract name
-          const fnProp = card.get('fn');
-          const nProp = card.get('n');
-
-          let firstName: string | undefined;
-          let lastName: string | undefined;
-          let displayName: string | undefined;
-
-          // FN (Full Name)
-          if (fnProp) {
-            const fnValue = Array.isArray(fnProp) ? fnProp[0] : fnProp;
-            const fnResolved = fnValue?.valueOf?.() ?? fnValue?.value ?? fnValue;
-            displayName = typeof fnResolved === 'string' ? fnResolved : '';
-          }
-
-          // N (Structured Name: family;given;middle;prefix;suffix)
-          if (nProp) {
-            const nValue = Array.isArray(nProp) ? nProp[0] : nProp;
-            const nameStr = nValue?.valueOf?.() || nValue?.value || '';
-            if (typeof nameStr === 'string') {
-              const parts = nameStr.split(';');
-              lastName = parts[0]?.trim() || undefined;
-              firstName = parts[1]?.trim() || undefined;
-            }
-          }
-
-          // Parse first/last from display name if not in N field
-          if (displayName && !firstName && !lastName) {
-            const nameParts = displayName.trim().split(/\s+/);
-            firstName = nameParts[0];
-            lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined;
-          }
-
-          // Extract emails
-          const emailProp = card.get('email');
-          const emails: Array<{ value: string; type?: string; primary?: boolean }> = [];
-
-          if (emailProp) {
-            const emailArray = Array.isArray(emailProp) ? emailProp : [emailProp];
-            let hasPrimary = false;
-
-            for (const email of emailArray) {
-              const emailResolved = email?.valueOf?.() ?? email?.value ?? email;
-              const emailValue = typeof emailResolved === 'string' ? emailResolved : '';
-              if (emailValue && typeof emailValue === 'string') {
-                // Get type from parameters
-                const typeParam = email?.type || email?.params?.type;
-                const type = Array.isArray(typeParam) ? typeParam[0] : typeParam;
-                const isPref = email?.params?.pref === '1' || type?.toLowerCase()?.includes('pref');
-
-                emails.push({
-                  value: emailValue.toLowerCase().trim(),
-                  type: type?.toString()?.toLowerCase()?.replace('pref,', '') || 'other',
-                  primary: isPref && !hasPrimary,
-                });
-                if (isPref) hasPrimary = true;
-              }
-            }
-
-            // Mark first as primary if none specified
-            if (emails.length > 0 && !hasPrimary) {
-              emails[0].primary = true;
-            }
-          }
-
-          // Skip if no email
-          if (emails.length === 0) {
-            this.logger.debug(`Skipping vCard without email: ${displayName || 'Unknown'}`);
-            skipped++;
-            continue;
-          }
-
-          // Check for duplicates
-          const isDuplicate = emails.some(e => existingEmails.has(e.value));
-          if (isDuplicate) {
-            this.logger.debug(`Skipping duplicate contact: ${emails[0].value}`);
-            skipped++;
-            continue;
-          }
-
-          // Extract phone numbers
-          const telProp = card.get('tel');
-          const phoneNumbers: Array<{ value: string; type?: string; primary?: boolean }> = [];
-
-          if (telProp) {
-            const telArray = Array.isArray(telProp) ? telProp : [telProp];
-            for (const tel of telArray) {
-              const telResolved = tel?.valueOf?.() ?? tel?.value ?? tel;
-              const telValue = typeof telResolved === 'string' ? telResolved : '';
-              if (telValue && typeof telValue === 'string') {
-                const typeParam = tel?.type || tel?.params?.type;
-                const type = Array.isArray(typeParam) ? typeParam[0] : typeParam;
-                phoneNumbers.push({
-                  value: telValue.replace(/\s+/g, ''),
-                  type: type?.toString()?.toLowerCase() || 'other',
-                  primary: phoneNumbers.length === 0,
-                });
-              }
-            }
-          }
-
-          // Extract organization
-          const orgProp = card.get('org');
-          let company: string | undefined;
-          if (orgProp) {
-            const orgValue = Array.isArray(orgProp) ? orgProp[0] : orgProp;
-            const orgResolved = orgValue?.valueOf?.() ?? orgValue?.value ?? orgValue;
-            const orgStr = typeof orgResolved === 'string' ? orgResolved : '';
-            if (orgStr) {
-              company = orgStr.split(';')[0]?.trim() || undefined;
-            }
-          }
-
-          // Extract job title
-          const titleProp = card.get('title');
-          let jobTitle: string | undefined;
-          if (titleProp) {
-            const titleValue = Array.isArray(titleProp) ? titleProp[0] : titleProp;
-            const titleResolved = titleValue?.valueOf?.() ?? titleValue?.value ?? titleValue;
-            jobTitle = typeof titleResolved === 'string' ? titleResolved : undefined;
-          }
-
-          // Extract notes
-          const noteProp = card.get('note');
-          let notes: string | undefined;
-          if (noteProp) {
-            const noteValue = Array.isArray(noteProp) ? noteProp[0] : noteProp;
-            const noteResolved = noteValue?.valueOf?.() ?? noteValue?.value ?? noteValue;
-            notes = typeof noteResolved === 'string' ? noteResolved : undefined;
-          }
-
-          // Extract birthday
-          const bdayProp = card.get('bday');
-          let birthday: Date | undefined;
-          if (bdayProp) {
-            const bdayValue = Array.isArray(bdayProp) ? bdayProp[0] : bdayProp;
-            const bdayResolved = bdayValue?.valueOf?.() ?? bdayValue?.value ?? bdayValue;
-            const bdayStr = typeof bdayResolved === 'string' ? bdayResolved : '';
-            if (bdayStr) {
-              try {
-                birthday = new Date(bdayStr);
-                if (isNaN(birthday.getTime())) birthday = undefined;
-              } catch {
-                birthday = undefined;
-              }
-            }
-          }
-
-          // Create contact
-          await this.prisma.contact.create({
-            data: {
-              tenantId,
-              firstName,
-              lastName,
-              displayName: displayName || `${firstName || ''} ${lastName || ''}`.trim() || emails[0].value,
-              emails: emails as unknown as Prisma.InputJsonValue,
-              phoneNumbers: phoneNumbers.length > 0 ? (phoneNumbers as unknown as Prisma.InputJsonValue) : undefined,
-              company,
-              jobTitle,
-              notes,
-              birthday,
-              metadata: { source: 'vcard_import', importedAt: new Date().toISOString() } as Prisma.InputJsonValue,
-            },
-          });
-
-          // Add to existing set to prevent duplicates within this import
-          for (const email of emails) {
-            existingEmails.add(email.value);
-          }
-
-          imported++;
-          this.logger.debug(`Imported contact: ${displayName || emails[0].value}`);
-        } catch (cardError: any) {
-          const errMsg = `Failed to import contact: ${cardError.message}`;
-          this.logger.warn(errMsg);
-          errors.push(errMsg);
-          skipped++;
-        }
-      }
-    } catch (parseError: any) {
-      const errMsg = `Failed to parse vCard file: ${parseError.message}`;
-      this.logger.error(errMsg);
-      errors.push(errMsg);
-    }
-
-    this.logger.log(`vCard import complete: ${imported} imported, ${skipped} skipped, ${errors.length} errors`);
-
-    // Emit updated counts
+    providerId?: string,
+    excludePublicDomains = true,
+  ): Promise<EmailExtractionResult> {
+    const result = await this.importService.extractContactsFromEmails(
+      tenantId,
+      providerId,
+      excludePublicDomains,
+    );
     void this.updateContactCounts(tenantId);
+    return result;
+  }
 
-    return { imported, skipped, errors };
+  /**
+   * Import contacts from vCard file
+   * Delegates to ContactsImportService
+   */
+  async importFromVCard(tenantId: string, vcfContent: string): Promise<VCardImportResult> {
+    const result = await this.importService.importFromVCard(tenantId, vcfContent);
+    void this.updateContactCounts(tenantId);
+    return result;
   }
 }

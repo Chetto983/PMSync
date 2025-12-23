@@ -94,8 +94,48 @@ export interface CreateContactDto {
   notes?: string;
 }
 
-// Using type alias instead of empty interface to avoid ESLint no-empty-object-type error
-export type UpdateContactDto = Partial<CreateContactDto>;
+export interface UpdateContactDto {
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  emails?: ContactEmail[];
+  phoneNumbers?: ContactPhone[];
+  company?: string;
+  jobTitle?: string;
+  notes?: string;
+  tags?: string[];
+}
+
+export interface CreateLocalContactDto {
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+  emails?: ContactEmail[];
+  phoneNumbers?: ContactPhone[];
+  company?: string;
+  jobTitle?: string;
+  notes?: string;
+}
+
+export interface ExtractContactsParams {
+  providerId?: string;
+  excludePublicDomains?: boolean;
+}
+
+export interface ExtractContactsResult {
+  success: boolean;
+  created: number;
+  skipped: number;
+  total: number;
+}
+
+export interface VCardImportResult {
+  success: boolean;
+  message: string;
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
 
 export interface ContactCounts {
   total: number;
@@ -133,6 +173,46 @@ export const contactsApi = {
 
   async deleteContact(id: string): Promise<void> {
     await apiClient.delete(`/contacts/${id}`);
+  },
+
+  /**
+   * Create a local-only contact (no provider sync)
+   * Useful for IMAP providers that don't support contacts API
+   */
+  async createLocalContact(dto: CreateLocalContactDto): Promise<Contact> {
+    const response = await apiClient.post('/contacts/local', dto);
+    return response.data;
+  },
+
+  /**
+   * Extract contacts from email headers
+   * Creates local contacts from email addresses found in messages
+   */
+  async extractContactsFromEmails(params: ExtractContactsParams = {}): Promise<ExtractContactsResult> {
+    const response = await apiClient.post('/contacts/extract-from-emails', params);
+    return response.data;
+  },
+
+  /**
+   * Import contacts from vCard (.vcf) file
+   * @param file - The .vcf file to import
+   */
+  async importFromVCard(file: File): Promise<VCardImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/contacts/import/vcard', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  /**
+   * Import contacts from vCard content string
+   * @param content - Raw vCard content
+   */
+  async importFromVCardContent(content: string): Promise<VCardImportResult> {
+    const response = await apiClient.post('/contacts/import/vcard', { content });
+    return response.data;
   },
 
   async syncProvider(providerId: string): Promise<{ success: boolean; contactsSynced: number }> {
