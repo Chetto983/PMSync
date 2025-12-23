@@ -1,34 +1,66 @@
-# 🔴 Race Conditions Analysis: Email & Email-Sync Modules
+driver: IEmailDriver,
+canonicalMsg: CanonicalMessage,
+providerId: string,
+tenantId: string,
+): Promise<{ wasNew: boolean }> {
+// Leggi il record attuale per controllare updatedAt
+const current = await this.prisma.email.findFirst({
+where: {
+providerId,
+externalId: canonicalMsg.id,
+folder: canonicalMsg.folder,
+},
+select: { id: true, updatedAt: true },
+});
 
-**Status:** CRITICAL (5 race conditions)  
-**Date:** December 23, 2025  
-**Effort:** 12-14 hours total (3-4 hours critical path)  
-**Schema:** ✅ Robust (unique constraints, composite indexes OK)  
-**Code:** ❌ Missing pessimistic locks and atomic transactions
+if (current) {
+// Se user ha modificato negli ultimi 2 secondi, skip update
+const lastModifiedMs = Date.now() - current.updatedAt.getTime();
+if (lastModifiedMs < 2000) {
+this.logger.debug(
+Skipping sync for ${canonicalMsg.id}: user modified ${lastModifiedMs}ms ago,
+);
+return { wasNew: false };
+}
+}
+
+// Procedi con upsert
+const result = await this.prisma.email.upsert({
+// ...
+});
+
+return { wasNew: ... };
+}
+
+text
+
+### Tempo di Fix
+- **Con Versioning:** 3-4 ore (include migration + testing)
+- **Con Grace Period:** 1-2 ore
 
 ---
 
-## Executive Summary
+## 🔴 RC-3: METADATA UPDATES NON-ATOMIC - CRITICA
 
-### The Good News ✅
-- Schema Prisma è **enterprise-grade**: unique constraints, composite indexes, referential integrity perfetti
-- `@@unique([providerId, externalId, folder])` protegge bene a livello DB
-- Multi-tenant isolation funziona correttamente
-- Tutti i campi di sync tracking sono presenti
+**Severity:** 🔴 CRITICAL  
+**Probability:** MEDIUM (durante carichi alti)  
+**Data Corruption Risk:** HIGH (sync state stale)  
+**User Impact:** Next sync è rotto o duplica messaggi
 
-### The Bad News ❌
-- **5 critical race conditions** nel codice di sincronizzazione
-- Due worker BullMQ paralleli non coordinati per upsert
-- User mutations perse durante sync concorrente  
-- Metadata updates non-atomic dopo sync
-- Folder sync race tra incremental e full
-- Attachment processing senza lock
+### Localizzazione
+- File: `backend/src/modules/email-sync/workers/sync.worker.ts`
+- Metodo: `processJob()` linea ~195-210
 
----
+### Problema Tecnico
 
-## 🔴 RC-1: DUPLICATE EMAIL (Upsert Race)
+// ❌ BUGGY CODE - Tre transazioni separate!
+try {
+const result = await this.runProviderSync(job.data);
 
-**Severity:** CRITICAL | **Probability:** HIGH | **Fix Time:** 2-3h
+await this.applySyncState(providerId, metadataUpdates); // TX#1
+await this.syncScheduler.updateProviderActivity(providerId); // TX#2
+await this.folderSyncService.updateAllFolderCounts(providerId); // TX#3
 
-### Il Problema
-
+return { success: true, ... };
+} catch (error) {
+// Ora se crash tra TX#1 e TX#2, lo stato è inc
