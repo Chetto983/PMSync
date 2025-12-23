@@ -1,13 +1,17 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+/**
+ * Microsoft Calendar Webhook Service
+ *
+ * Extends AbstractCalendarWebhookService with Microsoft Graph API implementations.
+ * Uses subscription-based notifications for real-time calendar updates.
+ */
+
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { Queue, Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
-import { MicrosoftCalendarSyncService } from './microsoft-calendar-sync.service';
 import { CalendarSyncQueueService } from './calendar-sync-queue.service';
-import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import { AbstractCalendarWebhookService } from './abstract-calendar-webhook.service';
 import { nanoid } from 'nanoid';
 
 export const MICROSOFT_CALENDAR_RESOURCE = '/me/events';
@@ -27,27 +31,21 @@ export interface MicrosoftCalendarNotification {
 }
 
 @Injectable()
-export class MicrosoftCalendarWebhookService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(MicrosoftCalendarWebhookService.name);
+export class MicrosoftCalendarWebhookService extends AbstractCalendarWebhookService {
+  protected readonly logger = new Logger(MicrosoftCalendarWebhookService.name);
+
   private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
   private readonly WEBHOOK_URL: string;
   private readonly CLIENT_STATE: string;
-  private readonly jobsEnabled: boolean;
-  /** Webhook renewal check interval in hours (default: 6) */
-  private readonly webhookRenewalIntervalHours: number;
-
-  /** BullMQ queue for webhook maintenance */
-  private maintenanceQueue: Queue | null = null;
-  private maintenanceWorker: Worker | null = null;
-  private redisConnection: Redis | null = null;
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly crypto: CryptoService,
-    private readonly config: ConfigService,
-    private readonly calendarSync: MicrosoftCalendarSyncService,
-    private readonly calendarSyncQueue: CalendarSyncQueueService,
+    prisma: PrismaService,
+    crypto: CryptoService,
+    config: ConfigService,
+    calendarSyncQueue: CalendarSyncQueueService,
   ) {
+    super(prisma, crypto, config, calendarSyncQueue);
+
     // Derive webhook URL from API_PUBLIC_URL if not explicitly set
     const configuredWebhookUrl = this.config.get<string>('MICROSOFT_CALENDAR_WEBHOOK_URL');
     if (configuredWebhookUrl) {
@@ -57,98 +55,29 @@ export class MicrosoftCalendarWebhookService implements OnModuleInit, OnModuleDe
       this.WEBHOOK_URL = `${apiUrl}/webhooks/calendar/microsoft/notifications`;
     }
     this.CLIENT_STATE = this.config.get<string>('WEBHOOK_CLIENT_STATE', nanoid());
-    this.jobsEnabled =
-      (this.config.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';
-    this.webhookRenewalIntervalHours = this.config.get<number>('MICROSOFT_CALENDAR_WEBHOOK_RENEWAL_HOURS', 6);
-    if (!this.jobsEnabled) {
-      this.logger.warn('MicrosoftCalendarWebhookService disabled via JOBS_ENABLED=false');
-    }
+
+    // Log disabled state after logger is initialized
+    this.logDisabledStateIfNeeded();
   }
 
-  async onModuleInit() {
-    if (!this.jobsEnabled) {
-      return;
-    }
+  // ============================================================================
+  // ABSTRACT METHOD IMPLEMENTATIONS
+  // ============================================================================
 
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
-
-    // Create maintenance queue (shared with Google Calendar webhook service)
-    this.maintenanceQueue = new Queue(QUEUE_NAMES.WEBHOOK_MAINTENANCE, {
-      connection: this.redisConnection,
-      defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
-      },
-    });
-
-    // Create worker to process Microsoft renewal jobs
-    this.maintenanceWorker = new Worker(
-      QUEUE_NAMES.WEBHOOK_MAINTENANCE,
-      async (job: Job) => {
-        if (job.name === 'microsoft-calendar-webhook-renewal') {
-          await this.handleScheduledRenewal();
-        }
-      },
-      {
-        connection: this.redisConnection,
-        concurrency: 1,
-      },
-    );
-
-    this.maintenanceWorker.on('completed', (job) => {
-      this.logger.debug(`Microsoft webhook maintenance job ${job.id} completed`);
-    });
-
-    this.maintenanceWorker.on('failed', (job, error) => {
-      this.logger.error(`Microsoft webhook maintenance job ${job?.id} failed: ${error.message}`);
-    });
-
-    // Schedule repeatable job for webhook renewal (every N hours)
-    await this.maintenanceQueue.add(
-      'microsoft-calendar-webhook-renewal',
-      { type: 'microsoft-calendar' },
-      {
-        repeat: {
-          every: this.webhookRenewalIntervalHours * 60 * 60 * 1000,
-        },
-        jobId: 'microsoft-calendar-webhook-renewal-repeatable',
-      },
-    );
-
-    this.logger.log(
-      `Microsoft Calendar webhook renewal scheduled every ${this.webhookRenewalIntervalHours} hours via Redis`,
-    );
+  protected get providerType(): string {
+    return 'microsoft';
   }
 
-  async onModuleDestroy() {
-    if (this.maintenanceWorker) {
-      await this.maintenanceWorker.close();
-    }
-    if (this.maintenanceQueue) {
-      await this.maintenanceQueue.close();
-    }
-    if (this.redisConnection && this.redisConnection.status !== 'end') {
-      await this.redisConnection.quit();
-    }
-    this.logger.log('Microsoft Calendar webhook service shut down');
+  protected get resourcePathFilter(): { startsWith?: string; equals?: string } {
+    return { equals: MICROSOFT_CALENDAR_RESOURCE };
   }
 
-  /**
-   * Handle scheduled webhook renewal (called by BullMQ repeatable job)
-   */
-  private async handleScheduledRenewal(): Promise<void> {
-    if (!this.jobsEnabled) {
-      return;
-    }
-    try {
-      const renewed = await this.renewExpiringSoon();
-      if (renewed > 0) {
-        this.logger.log(`Renewed ${renewed} Microsoft Calendar webhook subscriptions via scheduled job`);
-      }
-    } catch (error) {
-      this.logger.error('Scheduled Microsoft Calendar webhook renewal failed:', error);
-    }
+  protected get renewalJobName(): string {
+    return 'microsoft-calendar-webhook-renewal';
+  }
+
+  protected getRenewalIntervalConfigKey(): string {
+    return 'MICROSOFT_CALENDAR_WEBHOOK_RENEWAL_HOURS';
   }
 
   /**
@@ -164,7 +93,7 @@ export class MicrosoftCalendarWebhookService implements OnModuleInit, OnModuleDe
         throw new Error('Provider not found or does not support calendar');
       }
 
-      const accessToken = this.crypto.decrypt(
+      const accessToken = this.decryptAccessToken(
         provider.accessToken,
         provider.tokenEncryptionIv!,
       );
@@ -243,6 +172,131 @@ export class MicrosoftCalendarWebhookService implements OnModuleInit, OnModuleDe
   }
 
   /**
+   * Delete a Microsoft Calendar subscription
+   */
+  async deleteSubscription(providerId: string): Promise<void> {
+    try {
+      const subscription = await this.prisma.webhookSubscription.findFirst({
+        where: {
+          providerId,
+          resourcePath: MICROSOFT_CALENDAR_RESOURCE,
+        },
+      });
+
+      if (!subscription || subscription.providerType !== 'microsoft') {
+        return;
+      }
+
+      const provider = await this.prisma.providerConfig.findUnique({
+        where: { id: providerId },
+      });
+
+      if (!provider || !provider.accessToken) {
+        return;
+      }
+
+      const accessToken = this.decryptAccessToken(
+        provider.accessToken,
+        provider.tokenEncryptionIv!,
+      );
+
+      // Delete subscription from Microsoft
+      await axios.delete(
+        `${this.GRAPH_API_BASE}/subscriptions/${subscription.subscriptionId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      // Mark subscription as inactive
+      await this.prisma.webhookSubscription.update({
+        where: {
+          providerId_resourcePath: {
+            providerId,
+            resourcePath: MICROSOFT_CALENDAR_RESOURCE,
+          },
+        },
+        data: { isActive: false },
+      });
+
+      this.logger.log(`Deleted Microsoft Calendar subscription for provider ${providerId}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to delete Microsoft Calendar subscription for ${providerId}:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Override renewal to use PATCH instead of recreating subscription
+   */
+  protected async renewSingleSubscription(providerId: string): Promise<boolean> {
+    const subscription = await this.prisma.webhookSubscription.findFirst({
+      where: {
+        providerId,
+        resourcePath: MICROSOFT_CALENDAR_RESOURCE,
+      },
+    });
+
+    if (!subscription || subscription.providerType !== 'microsoft') {
+      return false;
+    }
+
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+    });
+
+    if (!provider || !provider.accessToken) {
+      return false;
+    }
+
+    const accessToken = this.decryptAccessToken(
+      provider.accessToken,
+      provider.tokenEncryptionIv!,
+    );
+
+    // Calculate new expiration
+    const expirationDateTime = new Date();
+    expirationDateTime.setDate(expirationDateTime.getDate() + 3);
+
+    // Update subscription via PATCH
+    await axios.patch(
+      `${this.GRAPH_API_BASE}/subscriptions/${subscription.subscriptionId}`,
+      { expirationDateTime: expirationDateTime.toISOString() },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    // Update database
+    await this.prisma.webhookSubscription.update({
+      where: {
+        providerId_resourcePath: {
+          providerId,
+          resourcePath: MICROSOFT_CALENDAR_RESOURCE,
+        },
+      },
+      data: {
+        expiresAt: new Date(expirationDateTime),
+        lastRenewedAt: new Date(),
+      },
+    });
+
+    this.logger.log(`Renewed Microsoft Calendar subscription for provider ${providerId}`);
+    return true;
+  }
+
+  // ============================================================================
+  // MICROSOFT-SPECIFIC METHODS
+  // ============================================================================
+
+  /**
    * Handle Microsoft Calendar notifications
    */
   async handleNotifications(
@@ -296,271 +350,17 @@ export class MicrosoftCalendarWebhookService implements OnModuleInit, OnModuleDe
     }
 
     // Update subscription stats
-    await this.prisma.webhookSubscription.update({
-      where: { id: subscription.id },
-      data: {
-        lastNotificationAt: new Date(),
-        notificationCount: { increment: 1 },
-      },
-    });
+    await this.updateSubscriptionStats(subscription.id);
 
     this.logger.log(
       `Microsoft Calendar notification: subscription=${subscriptionId}, changeType=${notification.changeType}`,
     );
 
-    // Queue calendar sync for this provider (high priority for real-time webhooks)
-    // N+1 FIX: Use subscription.tenantId and subscription.provider.email (included in query above)
-    await this.calendarSyncQueue.addSyncJob({
-      tenantId: subscription.tenantId,
-      providerId: subscription.providerId,
-      providerType: 'microsoft',
-      email: subscription.provider.email,
-      priority: 'high', // High priority for real-time webhook triggers
-    });
-    this.logger.debug(`Queued calendar sync for provider ${subscription.providerId}`);
-  }
-
-  /**
-   * Renew subscriptions that are about to expire
-   */
-  async renewExpiringSoon(): Promise<number> {
-    const oneDayFromNow = new Date();
-    oneDayFromNow.setDate(oneDayFromNow.getDate() + 1);
-
-    const expiring = await this.prisma.webhookSubscription.findMany({
-      where: {
-        providerType: 'microsoft',
-        resourcePath: MICROSOFT_CALENDAR_RESOURCE,
-        isActive: true,
-        expiresAt: {
-          lte: oneDayFromNow,
-        },
-      },
-    });
-
-    // Also find failed subscriptions that should be retried
-    // (inactive due to previous failures, but provider still exists and is active)
-    const failedSubscriptions = await this.prisma.webhookSubscription.findMany({
-      where: {
-        providerType: 'microsoft',
-        resourcePath: MICROSOFT_CALENDAR_RESOURCE,
-        isActive: false,
-        errorCount: { lt: 10 }, // Don't retry if too many failures
-        provider: {
-          isActive: true,
-          supportsCalendar: true,
-        },
-      },
-      include: {
-        provider: {
-          select: { email: true },
-        },
-      },
-    });
-
-    let renewed = 0;
-
-    this.logger.log(
-      `Found ${expiring.length} Microsoft Calendar subscriptions to renew, ${failedSubscriptions.length} failed to retry`,
+    // Queue calendar sync for this provider
+    await this.queueCalendarSync(
+      subscription.tenantId,
+      subscription.providerId,
+      subscription.provider.email,
     );
-
-    for (const subscription of expiring) {
-      try {
-        const success = await this.renewSubscription(subscription.providerId);
-        if (success) {
-          renewed++;
-        }
-      } catch (error) {
-        this.logger.error(
-          `Failed to renew Microsoft Calendar subscription for ${subscription.providerId}:`,
-          error,
-        );
-      }
-    }
-
-    // Retry failed subscriptions
-    for (const subscription of failedSubscriptions) {
-      try {
-        this.logger.log(
-          `Retrying failed Microsoft Calendar subscription for ${subscription.provider?.email}...`,
-        );
-        await this.setupSubscription(subscription.providerId);
-        renewed++;
-        this.logger.log(
-          `Successfully recreated Microsoft Calendar subscription for ${subscription.provider?.email}`,
-        );
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        this.logger.error(
-          `Failed to retry calendar subscription for ${subscription.provider?.email}: ${errorMessage}`,
-        );
-        // Increment error count
-        await this.prisma.webhookSubscription.update({
-          where: { id: subscription.id },
-          data: {
-            errorCount: { increment: 1 },
-            lastError: errorMessage,
-          },
-        });
-      }
-    }
-
-    return renewed;
-  }
-
-  /**
-   * Renew a specific subscription
-   */
-  private async renewSubscription(providerId: string): Promise<boolean> {
-    const subscription = await this.prisma.webhookSubscription.findFirst({
-      where: {
-        providerId,
-        resourcePath: MICROSOFT_CALENDAR_RESOURCE,
-      },
-    });
-
-    if (!subscription || subscription.providerType !== 'microsoft') {
-      return false;
-    }
-
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
-    });
-
-    if (!provider || !provider.accessToken) {
-      return false;
-    }
-
-    const accessToken = this.crypto.decrypt(
-      provider.accessToken,
-      provider.tokenEncryptionIv!,
-    );
-
-    // Calculate new expiration
-    const expirationDateTime = new Date();
-    expirationDateTime.setDate(expirationDateTime.getDate() + 3);
-
-    // Update subscription
-    await axios.patch(
-      `${this.GRAPH_API_BASE}/subscriptions/${subscription.subscriptionId}`,
-      { expirationDateTime: expirationDateTime.toISOString() },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      },
-    );
-
-    // Update database
-    await this.prisma.webhookSubscription.update({
-      where: {
-        providerId_resourcePath: {
-          providerId,
-          resourcePath: MICROSOFT_CALENDAR_RESOURCE,
-        },
-      },
-      data: {
-        expiresAt: new Date(expirationDateTime),
-        lastRenewedAt: new Date(),
-      },
-    });
-
-    this.logger.log(`Renewed Microsoft Calendar subscription for provider ${providerId}`);
-    return true;
-  }
-
-  /**
-   * Delete a subscription
-   */
-  async deleteSubscription(providerId: string): Promise<void> {
-    try {
-      const subscription = await this.prisma.webhookSubscription.findFirst({
-        where: {
-          providerId,
-          resourcePath: MICROSOFT_CALENDAR_RESOURCE,
-        },
-      });
-
-      if (!subscription || subscription.providerType !== 'microsoft') {
-        return;
-      }
-
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
-      });
-
-      if (!provider || !provider.accessToken) {
-        return;
-      }
-
-      const accessToken = this.crypto.decrypt(
-        provider.accessToken,
-        provider.tokenEncryptionIv!,
-      );
-
-      // Delete subscription from Microsoft
-      await axios.delete(
-        `${this.GRAPH_API_BASE}/subscriptions/${subscription.subscriptionId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
-
-      // Mark subscription as inactive
-      await this.prisma.webhookSubscription.update({
-        where: {
-          providerId_resourcePath: {
-            providerId,
-            resourcePath: MICROSOFT_CALENDAR_RESOURCE,
-          },
-        },
-        data: { isActive: false },
-      });
-
-      this.logger.log(`Deleted Microsoft Calendar subscription for provider ${providerId}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to delete Microsoft Calendar subscription for ${providerId}:`,
-        error,
-      );
-    }
-  }
-
-  /**
-   * Get webhook statistics
-   */
-  async getStats(): Promise<any> {
-    const total = await this.prisma.webhookSubscription.count({
-      where: {
-        providerType: 'microsoft',
-        resourcePath: MICROSOFT_CALENDAR_RESOURCE,
-        isActive: true,
-      },
-    });
-
-    const recentNotifications = await this.prisma.webhookSubscription.findMany({
-      where: {
-        providerType: 'microsoft',
-        resourcePath: MICROSOFT_CALENDAR_RESOURCE,
-        isActive: true,
-        lastNotificationAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24h
-        },
-      },
-      select: {
-        providerId: true,
-        notificationCount: true,
-        lastNotificationAt: true,
-      },
-    });
-
-    return {
-      activeSubscriptions: total,
-      recentNotifications: recentNotifications.length,
-      lastNotifications: recentNotifications,
-    };
   }
 }

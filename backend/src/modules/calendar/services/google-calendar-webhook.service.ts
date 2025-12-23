@@ -1,13 +1,17 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+/**
+ * Google Calendar Webhook Service
+ *
+ * Extends AbstractCalendarWebhookService with Google Calendar API implementations.
+ * Uses channel-based push notifications for real-time calendar updates.
+ */
+
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { calendar_v3, google } from 'googleapis';
-import { Queue, Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
-import { GoogleCalendarSyncService } from './google-calendar-sync.service';
 import { CalendarSyncQueueService } from './calendar-sync-queue.service';
-import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import { AbstractCalendarWebhookService } from './abstract-calendar-webhook.service';
 import { nanoid } from 'nanoid';
 
 export interface GoogleCalendarPushNotification {
@@ -20,27 +24,21 @@ export interface GoogleCalendarPushNotification {
 }
 
 @Injectable()
-export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(GoogleCalendarWebhookService.name);
+export class GoogleCalendarWebhookService extends AbstractCalendarWebhookService {
+  protected readonly logger = new Logger(GoogleCalendarWebhookService.name);
+
   private readonly WEBHOOK_URL: string;
-  private readonly jobsEnabled: boolean;
   /** Webhook subscription expiration in days (default: 7) */
   private readonly webhookExpirationDays: number;
-  /** Webhook renewal check interval in hours (default: 6) */
-  private readonly webhookRenewalIntervalHours: number;
-
-  /** BullMQ queue for webhook maintenance */
-  private maintenanceQueue: Queue | null = null;
-  private maintenanceWorker: Worker | null = null;
-  private redisConnection: Redis | null = null;
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly crypto: CryptoService,
-    private readonly config: ConfigService,
-    private readonly calendarSync: GoogleCalendarSyncService,
-    private readonly calendarSyncQueue: CalendarSyncQueueService,
+    prisma: PrismaService,
+    crypto: CryptoService,
+    config: ConfigService,
+    calendarSyncQueue: CalendarSyncQueueService,
   ) {
+    super(prisma, crypto, config, calendarSyncQueue);
+
     const baseUrl =
       this.config.get<string>('api.url') ||
       this.config.get<string>('API_PUBLIC_URL') ||
@@ -51,89 +49,36 @@ export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestr
     const webhookToken = this.config.get<string>('EMAIL_SYNC_WEBHOOK_TOKEN');
     const tokenParam = webhookToken ? `?token=${webhookToken}` : '';
     this.WEBHOOK_URL = `${normalizedBase}/webhooks/calendar/google/push${tokenParam}`;
-    this.jobsEnabled =
-      (this.config.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';
     this.webhookExpirationDays = this.config.get<number>('GOOGLE_CALENDAR_WEBHOOK_EXPIRATION_DAYS', 7);
-    this.webhookRenewalIntervalHours = this.config.get<number>('GOOGLE_CALENDAR_WEBHOOK_RENEWAL_HOURS', 6);
-    if (!this.jobsEnabled) {
-      this.logger.warn('GoogleCalendarWebhookService disabled via JOBS_ENABLED=false');
-    }
+
+    // Log disabled state after logger is initialized
+    this.logDisabledStateIfNeeded();
   }
 
-  async onModuleInit() {
-    if (!this.jobsEnabled) {
-      return;
-    }
+  // ============================================================================
+  // ABSTRACT METHOD IMPLEMENTATIONS
+  // ============================================================================
 
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
-
-    // Create maintenance queue
-    this.maintenanceQueue = new Queue(QUEUE_NAMES.WEBHOOK_MAINTENANCE, {
-      connection: this.redisConnection,
-      defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 50,
-      },
-    });
-
-    // Create worker to process renewal jobs
-    this.maintenanceWorker = new Worker(
-      QUEUE_NAMES.WEBHOOK_MAINTENANCE,
-      async (job: Job) => {
-        if (job.name === 'google-calendar-webhook-renewal') {
-          await this.handleScheduledRenewal();
-        }
-      },
-      {
-        connection: this.redisConnection,
-        concurrency: 1, // Only one renewal at a time
-      },
-    );
-
-    this.maintenanceWorker.on('completed', (job) => {
-      this.logger.debug(`Webhook maintenance job ${job.id} completed`);
-    });
-
-    this.maintenanceWorker.on('failed', (job, error) => {
-      this.logger.error(`Webhook maintenance job ${job?.id} failed: ${error.message}`);
-    });
-
-    // Schedule repeatable job for webhook renewal (every N hours)
-    await this.maintenanceQueue.add(
-      'google-calendar-webhook-renewal',
-      { type: 'google-calendar' },
-      {
-        repeat: {
-          every: this.webhookRenewalIntervalHours * 60 * 60 * 1000, // Convert hours to ms
-        },
-        jobId: 'google-calendar-webhook-renewal-repeatable', // Ensures only one repeatable job
-      },
-    );
-
-    this.logger.log(
-      `Google Calendar webhook renewal scheduled every ${this.webhookRenewalIntervalHours} hours via Redis`,
-    );
+  protected get providerType(): string {
+    return 'google';
   }
 
-  async onModuleDestroy() {
-    if (this.maintenanceWorker) {
-      await this.maintenanceWorker.close();
-    }
-    if (this.maintenanceQueue) {
-      await this.maintenanceQueue.close();
-    }
-    if (this.redisConnection && this.redisConnection.status !== 'end') {
-      await this.redisConnection.quit();
-    }
-    this.logger.log('Google Calendar webhook service shut down');
+  protected get resourcePathFilter(): { startsWith?: string; equals?: string } {
+    return { startsWith: '/calendar/' };
+  }
+
+  protected get renewalJobName(): string {
+    return 'google-calendar-webhook-renewal';
+  }
+
+  protected getRenewalIntervalConfigKey(): string {
+    return 'GOOGLE_CALENDAR_WEBHOOK_RENEWAL_HOURS';
   }
 
   /**
    * Setup Google Calendar Push Notifications for a provider
-   * Similar to Gmail watch, but for Calendar API
    */
-  async setupWatch(providerId: string): Promise<void> {
+  async setupSubscription(providerId: string): Promise<void> {
     try {
       const provider = await this.prisma.providerConfig.findUnique({
         where: { id: providerId },
@@ -143,7 +88,7 @@ export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestr
         throw new Error('Provider not found or does not support calendar');
       }
 
-      const accessToken = this.crypto.decrypt(
+      const accessToken = this.decryptAccessToken(
         provider.accessToken,
         provider.tokenEncryptionIv!,
       );
@@ -227,22 +172,72 @@ export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestr
     }
   }
 
-  private isWatchableCalendar(cal: calendar_v3.Schema$CalendarListEntry): boolean {
-    if (!cal.id) {
-      return false;
-    }
+  /**
+   * Stop watching calendars for a provider
+   */
+  async deleteSubscription(providerId: string): Promise<void> {
+    try {
+      const subscriptions = await this.prisma.webhookSubscription.findMany({
+        where: {
+          providerId,
+          providerType: 'google',
+          resourcePath: {
+            startsWith: '/calendar/',
+          },
+          isActive: true,
+        },
+      });
 
-    if (cal.deleted) {
-      return false;
-    }
+      if (subscriptions.length === 0) {
+        return;
+      }
 
-    const accessRole = cal.accessRole?.toLowerCase();
-    if (accessRole) {
-      return ['owner', 'writer', 'editor'].includes(accessRole);
-    }
+      const provider = await this.prisma.providerConfig.findUnique({
+        where: { id: providerId },
+      });
 
-    return !!cal.primary;
+      if (!provider || !provider.accessToken) {
+        return;
+      }
+
+      const accessToken = this.decryptAccessToken(
+        provider.accessToken,
+        provider.tokenEncryptionIv!,
+      );
+
+      const oauth2Client = new google.auth.OAuth2();
+      oauth2Client.setCredentials({ access_token: accessToken });
+      const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+      for (const subscription of subscriptions) {
+        const metadata = subscription.metadata as any;
+        const channelId = subscription.subscriptionId;
+        const resourceId = metadata?.resourceId;
+
+        if (channelId && resourceId) {
+          await calendar.channels.stop({
+            requestBody: {
+              id: channelId,
+              resourceId,
+            },
+          });
+        }
+
+        await this.prisma.webhookSubscription.update({
+          where: { id: subscription.id },
+          data: { isActive: false },
+        });
+      }
+
+      this.logger.log(`Stopped ${subscriptions.length} Google Calendar watch channels for provider ${providerId}`);
+    } catch (error) {
+      this.logger.error(`Failed to stop Google Calendar watch for ${providerId}:`, error);
+    }
   }
+
+  // ============================================================================
+  // GOOGLE-SPECIFIC METHODS
+  // ============================================================================
 
   /**
    * Handle Google Calendar push notification
@@ -287,25 +282,15 @@ export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestr
       }
 
       // Update subscription stats
-      await this.prisma.webhookSubscription.update({
-        where: { id: subscription.id },
-        data: {
-          lastNotificationAt: new Date(),
-          notificationCount: { increment: 1 },
-        },
-      });
+      await this.updateSubscriptionStats(subscription.id);
 
       // Queue calendar sync for this provider (high priority for real-time webhooks)
-      // N+1 FIX: Use subscription.tenantId and subscription.provider.email (included in query above)
       if (resourceState === 'sync' || resourceState === 'exists') {
-        await this.calendarSyncQueue.addSyncJob({
-          tenantId: subscription.tenantId,
-          providerId: subscription.providerId,
-          providerType: 'google',
-          email: subscription.provider.email,
-          priority: 'high', // High priority for real-time webhook triggers
-        });
-        this.logger.debug(`Queued calendar sync for provider ${subscription.providerId}`);
+        await this.queueCalendarSync(
+          subscription.tenantId,
+          subscription.providerId,
+          subscription.provider.email,
+        );
       }
     } catch (error) {
       this.logger.error('Error handling Google Calendar notification:', error);
@@ -314,211 +299,37 @@ export class GoogleCalendarWebhookService implements OnModuleInit, OnModuleDestr
   }
 
   /**
-   * Renew watch subscriptions that are about to expire
+   * Alias for backward compatibility
    */
-  async renewExpiringSoon(): Promise<number> {
-    const oneDayFromNow = new Date();
-    oneDayFromNow.setDate(oneDayFromNow.getDate() + 1);
-
-    const expiring = await this.prisma.webhookSubscription.findMany({
-      where: {
-        providerType: 'google',
-        resourcePath: {
-          startsWith: '/calendar/',
-        },
-        isActive: true,
-        expiresAt: {
-          lte: oneDayFromNow,
-        },
-      },
-    });
-
-    // Also find failed subscriptions that should be retried
-    // (inactive due to previous failures, but provider still exists and is active)
-    const failedSubscriptions = await this.prisma.webhookSubscription.findMany({
-      where: {
-        providerType: 'google',
-        resourcePath: {
-          startsWith: '/calendar/',
-        },
-        isActive: false,
-        errorCount: { lt: 10 }, // Don't retry if too many failures
-        provider: {
-          isActive: true,
-          supportsCalendar: true,
-        },
-      },
-      include: {
-        provider: {
-          select: { email: true },
-        },
-      },
-    });
-
-    let renewed = 0;
-
-    this.logger.log(
-      `Found ${expiring.length} Google Calendar subscriptions to renew, ${failedSubscriptions.length} failed to retry`,
-    );
-
-    for (const subscription of expiring) {
-      try {
-        await this.setupWatch(subscription.providerId);
-        renewed++;
-      } catch (error) {
-        this.logger.error(
-          `Failed to renew Google Calendar watch for ${subscription.providerId}:`,
-          error,
-        );
-      }
-    }
-
-    // Retry failed subscriptions
-    for (const subscription of failedSubscriptions) {
-      try {
-        this.logger.log(
-          `Retrying failed Google Calendar subscription for ${subscription.provider?.email}...`,
-        );
-        await this.setupWatch(subscription.providerId);
-        renewed++;
-        this.logger.log(
-          `Successfully recreated Google Calendar subscription for ${subscription.provider?.email}`,
-        );
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        this.logger.error(
-          `Failed to retry calendar subscription for ${subscription.provider?.email}: ${errorMessage}`,
-        );
-        // Increment error count
-        await this.prisma.webhookSubscription.update({
-          where: { id: subscription.id },
-          data: {
-            errorCount: { increment: 1 },
-            lastError: errorMessage,
-          },
-        });
-      }
-    }
-
-    return renewed;
+  async setupWatch(providerId: string): Promise<void> {
+    return this.setupSubscription(providerId);
   }
 
   /**
-   * Handle scheduled webhook renewal (called by BullMQ repeatable job)
-   */
-  private async handleScheduledRenewal(): Promise<void> {
-    if (!this.jobsEnabled) {
-      return;
-    }
-    try {
-      const renewed = await this.renewExpiringSoon();
-      if (renewed > 0) {
-        this.logger.log(`Renewed ${renewed} Google Calendar webhook channels via scheduled job`);
-      }
-    } catch (error) {
-      this.logger.error('Scheduled Google Calendar webhook renewal failed:', error);
-    }
-  }
-
-  /**
-   * Stop watching a calendar
+   * Alias for backward compatibility
    */
   async stopWatch(providerId: string): Promise<void> {
-    try {
-      const subscriptions = await this.prisma.webhookSubscription.findMany({
-        where: {
-          providerId,
-          providerType: 'google',
-          resourcePath: {
-            startsWith: '/calendar/',
-          },
-          isActive: true,
-        },
-      });
-
-      if (subscriptions.length === 0) {
-        return;
-      }
-
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
-      });
-
-      if (!provider || !provider.accessToken) {
-        return;
-      }
-
-      const accessToken = this.crypto.decrypt(
-        provider.accessToken,
-        provider.tokenEncryptionIv!,
-      );
-
-      const oauth2Client = new google.auth.OAuth2();
-      oauth2Client.setCredentials({ access_token: accessToken });
-      const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-      for (const subscription of subscriptions) {
-        const metadata = subscription.metadata as any;
-        const channelId = subscription.subscriptionId;
-        const resourceId = metadata?.resourceId;
-
-        if (channelId && resourceId) {
-          await calendar.channels.stop({
-            requestBody: {
-              id: channelId,
-              resourceId,
-            },
-          });
-        }
-
-        await this.prisma.webhookSubscription.update({
-          where: { id: subscription.id },
-          data: { isActive: false },
-        });
-      }
-
-      this.logger.log(`Stopped ${subscriptions.length} Google Calendar watch channels for provider ${providerId}`);
-    } catch (error) {
-      this.logger.error(`Failed to stop Google Calendar watch for ${providerId}:`, error);
-    }
+    return this.deleteSubscription(providerId);
   }
 
-  /**
-   * Get webhook statistics
-   */
-  async getStats(): Promise<any> {
-    const total = await this.prisma.webhookSubscription.count({
-      where: {
-        providerType: 'google',
-        resourcePath: {
-          startsWith: '/calendar/',
-        },
-        isActive: true,
-      },
-    });
+  // ============================================================================
+  // PRIVATE HELPER METHODS
+  // ============================================================================
 
-    const recentNotifications = await this.prisma.webhookSubscription.findMany({
-      where: {
-        providerType: 'google',
-        resourcePath: {
-          startsWith: '/calendar/',
-        },
-        isActive: true,
-        lastNotificationAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24h
-        },
-      },
-      select: {
-        providerId: true,
-        notificationCount: true,
-        lastNotificationAt: true,
-      },
-    });
+  private isWatchableCalendar(cal: calendar_v3.Schema$CalendarListEntry): boolean {
+    if (!cal.id) {
+      return false;
+    }
 
-    return {
-      activeSubscriptions: total,
-      recentNotifications: recentNotifications.length,
-      lastNotifications: recentNotifications,
-    };
+    if (cal.deleted) {
+      return false;
+    }
+
+    const accessRole = cal.accessRole?.toLowerCase();
+    if (accessRole) {
+      return ['owner', 'writer', 'editor'].includes(accessRole);
+    }
+
+    return !!cal.primary;
   }
 }

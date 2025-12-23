@@ -1,0 +1,816 @@
+/**
+ * Calendar Events Service
+ *
+ * Handles all calendar event CRUD operations with bidirectional sync
+ * to Google Calendar and Microsoft Graph APIs.
+ */
+
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { calendar_v3, google } from 'googleapis';
+import axios from 'axios';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { CryptoService } from '../../../common/services/crypto.service';
+import { CalendarEvent, ProviderConfig, Prisma } from '@prisma/client';
+import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
+import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
+import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+
+// ============================================================================
+// INTERFACES
+// ============================================================================
+
+export interface ReminderOverride {
+  method: 'email' | 'popup' | 'sms';
+  minutes: number;
+}
+
+export interface Reminders {
+  useDefault?: boolean;
+  overrides?: ReminderOverride[];
+}
+
+export interface CreateEventDto {
+  providerId: string;
+  calendarId?: string;
+  calendarName?: string;
+  title: string;
+  description?: string;
+  location?: string;
+  startTime: Date | string;
+  endTime: Date | string;
+  isAllDay?: boolean;
+  timeZone?: string;
+  attendees?: Array<{ email: string; name?: string }>;
+  reminders?: Reminders;
+  recurrence?: string[];
+}
+
+export interface UpdateEventDto {
+  title?: string;
+  description?: string;
+  location?: string;
+  startTime?: Date | string;
+  endTime?: Date | string;
+  isAllDay?: boolean;
+  timeZone?: string;
+  attendees?: Array<{ email: string; name?: string }>;
+  reminders?: Reminders;
+  calendarName?: string;
+  recurrence?: string[];
+}
+
+export interface ListEventsFilters {
+  providerId?: string;
+  calendarId?: string;
+  startTime?: Date | string;
+  endTime?: Date | string;
+  limit?: number;
+  offset?: number;
+}
+
+// ============================================================================
+// SERVICE
+// ============================================================================
+
+@Injectable()
+export class CalendarEventsService {
+  private readonly logger = new Logger(CalendarEventsService.name);
+  private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly crypto: CryptoService,
+    private readonly googleOAuth: GoogleOAuthService,
+    private readonly microsoftOAuth: MicrosoftOAuthService,
+    private readonly realtimeEvents: RealtimeEventsService,
+  ) {}
+
+  // ============================================================================
+  // PUBLIC METHODS - EVENT CRUD
+  // ============================================================================
+
+  /**
+   * List calendar events for a tenant
+   */
+  async listEvents(
+    tenantId: string,
+    filters: ListEventsFilters = {},
+  ): Promise<{ events: CalendarEvent[]; total: number }> {
+    const limit = filters.limit && filters.limit > 0 && filters.limit <= 100 ? filters.limit : 50;
+    const offset = filters.offset && filters.offset >= 0 ? filters.offset : 0;
+
+    const where: Prisma.CalendarEventWhereInput = {
+      tenantId,
+      isDeleted: false,
+    };
+
+    if (filters.providerId) {
+      where.providerId = filters.providerId;
+    }
+
+    if (filters.calendarId) {
+      where.calendarId = filters.calendarId;
+    }
+
+    if (filters.startTime || filters.endTime) {
+      where.startTime = {};
+
+      if (filters.startTime) {
+        where.startTime.gte = new Date(filters.startTime);
+      }
+
+      if (filters.endTime) {
+        where.startTime.lte = new Date(filters.endTime);
+      }
+    }
+
+    const [events, total] = await Promise.all([
+      this.prisma.calendarEvent.findMany({
+        where,
+        orderBy: { startTime: 'asc' },
+        skip: offset,
+        take: limit,
+        include: {
+          provider: {
+            select: {
+              id: true,
+              email: true,
+              providerType: true,
+              displayName: true,
+            },
+          },
+        },
+      }),
+      this.prisma.calendarEvent.count({ where }),
+    ]);
+
+    return { events, total };
+  }
+
+  /**
+   * Get a single calendar event by ID
+   */
+  async getEvent(tenantId: string, eventId: string): Promise<CalendarEvent> {
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: {
+        id: eventId,
+        tenantId,
+        isDeleted: false,
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException(`Calendar event ${eventId} not found`);
+    }
+
+    return event;
+  }
+
+  /**
+   * Create a new calendar event (bidirectional sync)
+   * Creates the event locally AND in the provider's calendar
+   */
+  async createEvent(tenantId: string, data: CreateEventDto): Promise<CalendarEvent> {
+    this.logger.log(`Creating calendar event for tenant ${tenantId}`);
+
+    // Get provider config
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: {
+        id: data.providerId,
+        tenantId,
+        supportsCalendar: true,
+        isActive: true,
+      },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Provider not found or does not support calendar');
+    }
+
+    // Get access token
+    const accessToken = await this.getProviderAccessToken(provider);
+
+    // Create event in provider's calendar based on provider type
+    let externalId: string;
+    let iCalUID: string | null = null;
+
+    if (provider.providerType === 'google') {
+      const result = await this.createGoogleEvent(accessToken, data);
+      externalId = result.id;
+      iCalUID = result.iCalUID;
+    } else if (provider.providerType === 'microsoft') {
+      const result = await this.createMicrosoftEvent(accessToken, data);
+      externalId = result.id;
+      iCalUID = result.iCalUId;
+    } else {
+      throw new BadRequestException(`Provider type ${provider.providerType} not supported for calendar`);
+    }
+
+    // Save event to database
+    const event = await this.prisma.calendarEvent.create({
+      data: {
+        tenantId,
+        providerId: provider.id,
+        externalId,
+        calendarId: data.calendarId || 'primary',
+        calendarName: data.calendarName || data.calendarId || 'primary',
+        iCalUID,
+        title: data.title,
+        description: data.description || null,
+        location: data.location || null,
+        organizer: provider.email,
+        attendees: data.attendees ? (data.attendees as unknown as Prisma.InputJsonValue) : undefined,
+        startTime: new Date(data.startTime),
+        endTime: new Date(data.endTime),
+        isAllDay: data.isAllDay || false,
+        timeZone: data.timeZone || 'UTC',
+        recurrence: [],
+        status: 'confirmed',
+        visibility: 'default',
+        reminders: data.reminders ? (data.reminders as unknown as Prisma.InputJsonValue) : undefined,
+        lastSyncedAt: new Date(),
+      },
+    });
+
+    this.logger.log(`Created calendar event ${event.id} with external ID ${externalId}`);
+
+    // Emit WebSocket event
+    this.realtimeEvents.emitCalendarEventNew(tenantId, {
+      providerId: provider.id,
+      eventId: event.id,
+      externalId: event.externalId,
+      calendarId: event.calendarId || 'primary',
+      reason: 'event-created',
+    });
+
+    return event;
+  }
+
+  /**
+   * Update a calendar event (bidirectional sync)
+   * Updates the event locally AND in the provider's calendar
+   */
+  async updateEvent(
+    tenantId: string,
+    eventId: string,
+    data: UpdateEventDto,
+  ): Promise<CalendarEvent> {
+    this.logger.log(`Updating calendar event ${eventId}`);
+
+    // Get existing event
+    const event = await this.getEvent(tenantId, eventId);
+
+    // Get provider config
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: event.providerId },
+    });
+
+    if (!provider || !provider.supportsCalendar) {
+      throw new NotFoundException('Provider not found or does not support calendar');
+    }
+
+    // Get access token
+    const accessToken = await this.getProviderAccessToken(provider);
+
+    // Update event in provider's calendar
+    if (provider.providerType === 'google') {
+      await this.updateGoogleEvent(accessToken, event.externalId, event.calendarId!, data);
+    } else if (provider.providerType === 'microsoft') {
+      await this.updateMicrosoftEvent(accessToken, event.externalId, data);
+    }
+
+    // Update event in database
+    const updateData: Prisma.CalendarEventUpdateInput = {
+      lastSyncedAt: new Date(),
+      syncVersion: event.syncVersion + 1,
+    };
+
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.location !== undefined) updateData.location = data.location;
+    if (data.startTime !== undefined) updateData.startTime = new Date(data.startTime);
+    if (data.endTime !== undefined) updateData.endTime = new Date(data.endTime);
+    if (data.isAllDay !== undefined) updateData.isAllDay = data.isAllDay;
+    if (data.timeZone !== undefined) updateData.timeZone = data.timeZone;
+    if (data.attendees !== undefined) updateData.attendees = data.attendees as unknown as Prisma.InputJsonValue;
+    if (data.reminders !== undefined) updateData.reminders = data.reminders as unknown as Prisma.InputJsonValue;
+    if (data.calendarName !== undefined) {
+      updateData.calendarName = data.calendarName;
+    }
+
+    const updatedEvent = await this.prisma.calendarEvent.update({
+      where: { id: eventId },
+      data: updateData,
+    });
+
+    this.logger.log(`Updated calendar event ${eventId}`);
+
+    // Emit WebSocket event
+    this.realtimeEvents.emitCalendarEventUpdate(tenantId, {
+      providerId: provider.id,
+      eventId: updatedEvent.id,
+      externalId: updatedEvent.externalId,
+      calendarId: updatedEvent.calendarId || 'primary',
+      reason: 'event-updated',
+    });
+
+    return updatedEvent;
+  }
+
+  /**
+   * Delete a calendar event (bidirectional sync)
+   * Deletes the event locally AND in the provider's calendar
+   */
+  async deleteEvent(tenantId: string, eventId: string): Promise<void> {
+    this.logger.log(`Deleting calendar event ${eventId}`);
+
+    // Get existing event
+    const event = await this.getEvent(tenantId, eventId);
+
+    // Get provider config
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: event.providerId },
+    });
+
+    if (!provider || !provider.supportsCalendar) {
+      throw new NotFoundException('Provider not found or does not support calendar');
+    }
+
+    // Get access token
+    const accessToken = await this.getProviderAccessToken(provider);
+
+    // Try to delete event from provider's calendar (best effort for read-only calendars)
+    let providerDeleteSuccess = true;
+    let providerDeleteError: string | null = null;
+
+    try {
+      if (provider.providerType === 'google') {
+        await this.deleteGoogleEvent(accessToken, event.externalId, event.calendarId!);
+      } else if (provider.providerType === 'microsoft') {
+        this.logger.log(`Deleting Microsoft event: ${event.externalId} from calendar ${event.calendarName || event.calendarId}`);
+        await this.deleteMicrosoftEvent(accessToken, event.externalId, event.calendarId);
+      }
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const errMsg = axiosError.response?.data?.error?.message || axiosError.message || 'Unknown error';
+
+      // Check if this is a read-only calendar error (birthday calendars, etc.)
+      if (errMsg.includes('Read-only') || errMsg.includes('read-only') || errMsg.includes('cannot be modified')) {
+        this.logger.warn(`Cannot delete from read-only calendar, proceeding with local soft-delete: ${errMsg}`);
+        providerDeleteSuccess = false;
+        providerDeleteError = errMsg;
+      } else {
+        // For other errors, re-throw to fail the request
+        this.logger.error(`Failed to delete event from provider: ${errMsg}`);
+        throw error;
+      }
+    }
+
+    // Mark event as deleted in database (soft delete)
+    const deletedEvent = await this.prisma.calendarEvent.update({
+      where: { id: eventId },
+      data: {
+        isDeleted: true,
+        isCancelled: true,
+        status: 'cancelled',
+        lastSyncedAt: new Date(),
+        syncVersion: event.syncVersion + 1,
+        // Store metadata about why provider delete failed (only if it failed)
+        ...(providerDeleteSuccess
+          ? {}
+          : { metadata: { ...((event.metadata as Record<string, unknown>) || {}), localDeleteOnly: true, providerDeleteError } }),
+      },
+    });
+
+    this.logger.log(`Deleted calendar event ${eventId} ${providerDeleteSuccess ? '(synced to provider)' : '(local only - read-only calendar)'}`);
+
+    // Emit WebSocket event
+    this.realtimeEvents.emitCalendarEventDelete(event.tenantId, {
+      providerId: provider.id,
+      eventId: deletedEvent.id,
+      externalId: deletedEvent.externalId,
+      calendarId: deletedEvent.calendarId || 'primary',
+      reason: 'event-deleted',
+    });
+  }
+
+  /**
+   * Cancel an event in provider calendar (best effort)
+   */
+  async cancelEvent(tenantId: string, eventId: string, reason?: string): Promise<void> {
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: { id: eventId, tenantId, isDeleted: false },
+      include: { provider: true },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Calendar event not found');
+    }
+
+    const provider = event.provider;
+    const accessToken = await this.getProviderAccessToken(provider);
+
+    try {
+      if (provider.providerType === 'google') {
+        const oauth2Client = new google.auth.OAuth2();
+        oauth2Client.setCredentials({ access_token: accessToken });
+        const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+        await calendar.events.patch({
+          calendarId: event.calendarId || 'primary',
+          eventId: event.externalId,
+          sendUpdates: 'all',
+          requestBody: { status: 'cancelled', description: reason || event.description },
+        });
+      } else if (provider.providerType === 'microsoft') {
+        await axios.post(
+          `${this.GRAPH_API_BASE}/me/events/${event.externalId}/cancel`,
+          { comment: reason || `Cancelled: ${event.title}` },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'client-request-id': crypto.randomUUID(),
+            },
+          },
+        );
+      }
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.warn(`Failed to cancel provider event ${event.externalId}: ${err.message}`);
+    }
+
+    await this.prisma.calendarEvent.update({
+      where: { id: event.id },
+      data: { isCancelled: true, status: 'cancelled' },
+    });
+  }
+
+  /**
+   * List attachments for a calendar event
+   */
+  async listEventAttachments(tenantId: string, eventId: string) {
+    // Verify event belongs to tenant
+    const event = await this.prisma.calendarEvent.findUnique({
+      where: { id: eventId },
+      select: { tenantId: true },
+    });
+
+    if (!event || event.tenantId !== tenantId) {
+      throw new NotFoundException('Calendar event not found');
+    }
+
+    // Fetch attachments
+    const attachments = await this.prisma.calendarEventAttachment.findMany({
+      where: { eventId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return {
+      eventId,
+      total: attachments.length,
+      attachments,
+    };
+  }
+
+  /**
+   * Get a specific attachment for a calendar event
+   */
+  async getEventAttachment(tenantId: string, eventId: string, attachmentId: string) {
+    // Verify event belongs to tenant
+    const event = await this.prisma.calendarEvent.findUnique({
+      where: { id: eventId },
+      select: { tenantId: true },
+    });
+
+    if (!event || event.tenantId !== tenantId) {
+      throw new NotFoundException('Calendar event not found');
+    }
+
+    // Fetch attachment
+    const attachment = await this.prisma.calendarEventAttachment.findFirst({
+      where: {
+        id: attachmentId,
+        eventId,
+      },
+    });
+
+    if (!attachment) {
+      throw new NotFoundException('Attachment not found');
+    }
+
+    return attachment;
+  }
+
+  // ============================================================================
+  // PRIVATE METHODS - TOKEN MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Get provider access token (with auto-refresh)
+   */
+  async getProviderAccessToken(provider: ProviderConfig): Promise<string> {
+    if (!provider.accessToken || !provider.tokenEncryptionIv) {
+      throw new BadRequestException('Provider missing access token');
+    }
+
+    let accessToken = this.crypto.decrypt(provider.accessToken, provider.tokenEncryptionIv);
+
+    const expiresSoon =
+      !provider.tokenExpiresAt || provider.tokenExpiresAt.getTime() <= Date.now() + 60 * 1000;
+
+    if (!expiresSoon) {
+      return accessToken;
+    }
+
+    if (!provider.refreshToken || !provider.refreshTokenEncryptionIv) {
+      this.logger.warn(
+        `Access token expired for provider ${provider.id} but no refresh token is available`,
+      );
+      return accessToken;
+    }
+
+    const refreshToken = this.crypto.decrypt(
+      provider.refreshToken,
+      provider.refreshTokenEncryptionIv,
+    );
+
+    try {
+      let refreshed:
+        | Awaited<ReturnType<typeof this.googleOAuth.refreshAccessToken>>
+        | Awaited<ReturnType<typeof this.microsoftOAuth.refreshAccessToken>>;
+
+      if (provider.providerType === 'google') {
+        refreshed = await this.googleOAuth.refreshAccessToken(refreshToken);
+      } else if (provider.providerType === 'microsoft') {
+        refreshed = await this.microsoftOAuth.refreshAccessToken(refreshToken);
+      } else {
+        return accessToken;
+      }
+
+      accessToken = refreshed.accessToken;
+
+      const updateData: Record<string, unknown> = {
+        tokenExpiresAt: refreshed.expiresAt,
+      };
+
+      const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
+      updateData.accessToken = encryptedAccess.encrypted;
+      updateData.tokenEncryptionIv = encryptedAccess.iv;
+
+      const refreshedToken = 'refreshToken' in refreshed ? refreshed.refreshToken : undefined;
+      if (refreshedToken) {
+        const encryptedRefresh = this.crypto.encrypt(refreshedToken);
+        updateData.refreshToken = encryptedRefresh.encrypted;
+        updateData.refreshTokenEncryptionIv = encryptedRefresh.iv;
+      }
+
+      await this.prisma.providerConfig.update({
+        where: { id: provider.id },
+        data: updateData,
+      });
+
+      return accessToken;
+    } catch (error) {
+      this.logger.error(
+        `Failed to refresh calendar access token for provider ${provider.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return accessToken;
+    }
+  }
+
+  // ============================================================================
+  // PRIVATE METHODS - GOOGLE CALENDAR API
+  // ============================================================================
+
+  /**
+   * Create event in Google Calendar
+   */
+  private async createGoogleEvent(
+    accessToken: string,
+    data: CreateEventDto,
+  ): Promise<{ id: string; iCalUID: string | null }> {
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    const event: calendar_v3.Schema$Event = {
+      summary: data.title,
+      description: data.description,
+      location: data.location,
+      start: data.isAllDay
+        ? { date: new Date(data.startTime).toISOString().split('T')[0] }
+        : { dateTime: new Date(data.startTime).toISOString(), timeZone: data.timeZone || 'UTC' },
+      end: data.isAllDay
+        ? { date: new Date(data.endTime).toISOString().split('T')[0] }
+        : { dateTime: new Date(data.endTime).toISOString(), timeZone: data.timeZone || 'UTC' },
+      attendees: data.attendees?.map((a) => ({ email: a.email, displayName: a.name })),
+      reminders: data.reminders,
+      recurrence: data.recurrence,
+    };
+
+    const response = await calendar.events.insert({
+      calendarId: data.calendarId || 'primary',
+      requestBody: event,
+    });
+
+    return {
+      id: response.data.id!,
+      iCalUID: response.data.iCalUID || null,
+    };
+  }
+
+  /**
+   * Update event in Google Calendar
+   */
+  private async updateGoogleEvent(
+    accessToken: string,
+    eventId: string,
+    calendarId: string,
+    data: UpdateEventDto,
+  ): Promise<void> {
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    const event: calendar_v3.Schema$Event = {};
+
+    if (data.title !== undefined) event.summary = data.title;
+    if (data.description !== undefined) event.description = data.description;
+    if (data.location !== undefined) event.location = data.location;
+    if (data.startTime !== undefined) {
+      event.start = data.isAllDay
+        ? { date: new Date(data.startTime).toISOString().split('T')[0] }
+        : { dateTime: new Date(data.startTime).toISOString(), timeZone: data.timeZone || 'UTC' };
+    }
+    if (data.endTime !== undefined) {
+      event.end = data.isAllDay
+        ? { date: new Date(data.endTime).toISOString().split('T')[0] }
+        : { dateTime: new Date(data.endTime).toISOString(), timeZone: data.timeZone || 'UTC' };
+    }
+    if (data.attendees !== undefined) {
+      event.attendees = data.attendees.map((a) => ({ email: a.email, displayName: a.name }));
+    }
+    if (data.reminders !== undefined) {
+      event.reminders = data.reminders;
+    }
+    if (data.recurrence !== undefined) {
+      event.recurrence = data.recurrence;
+    }
+
+    await calendar.events.patch({
+      calendarId,
+      eventId,
+      requestBody: event,
+    });
+  }
+
+  /**
+   * Delete event from Google Calendar
+   */
+  private async deleteGoogleEvent(
+    accessToken: string,
+    eventId: string,
+    calendarId: string,
+  ): Promise<void> {
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken });
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    await calendar.events.delete({
+      calendarId,
+      eventId,
+    });
+  }
+
+  // ============================================================================
+  // PRIVATE METHODS - MICROSOFT GRAPH API
+  // ============================================================================
+
+  /**
+   * Create event in Microsoft Calendar
+   */
+  private async createMicrosoftEvent(
+    accessToken: string,
+    data: CreateEventDto,
+  ): Promise<{ id: string; iCalUId: string | null }> {
+    const event = {
+      subject: data.title,
+      body: {
+        contentType: 'HTML',
+        content: data.description || '',
+      },
+      location: data.location ? { displayName: data.location } : undefined,
+      start: {
+        dateTime: new Date(data.startTime).toISOString(),
+        timeZone: data.timeZone || 'UTC',
+      },
+      end: {
+        dateTime: new Date(data.endTime).toISOString(),
+        timeZone: data.timeZone || 'UTC',
+      },
+      isAllDay: data.isAllDay || false,
+      attendees: data.attendees?.map((a) => ({
+        emailAddress: { address: a.email, name: a.name || a.email },
+        type: 'required',
+      })),
+    };
+
+    const response = await axios.post(`${this.GRAPH_API_BASE}/me/events`, event, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'client-request-id': crypto.randomUUID(),
+      },
+    });
+
+    return {
+      id: response.data.id,
+      iCalUId: response.data.iCalUId || null,
+    };
+  }
+
+  /**
+   * Update event in Microsoft Calendar
+   */
+  private async updateMicrosoftEvent(
+    accessToken: string,
+    eventId: string,
+    data: UpdateEventDto,
+  ): Promise<void> {
+    const event: Record<string, unknown> = {};
+
+    if (data.title !== undefined) event.subject = data.title;
+    if (data.description !== undefined) {
+      event.body = { contentType: 'HTML', content: data.description };
+    }
+    if (data.location !== undefined) event.location = { displayName: data.location };
+    if (data.startTime !== undefined) {
+      event.start = {
+        dateTime: new Date(data.startTime).toISOString(),
+        timeZone: data.timeZone || 'UTC',
+      };
+    }
+    if (data.endTime !== undefined) {
+      event.end = {
+        dateTime: new Date(data.endTime).toISOString(),
+        timeZone: data.timeZone || 'UTC',
+      };
+    }
+    if (data.isAllDay !== undefined) event.isAllDay = data.isAllDay;
+    if (data.attendees !== undefined) {
+      event.attendees = data.attendees.map((a) => ({
+        emailAddress: { address: a.email, name: a.name || a.email },
+        type: 'required',
+      }));
+    }
+
+    await axios.patch(`${this.GRAPH_API_BASE}/me/events/${eventId}`, event, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'client-request-id': crypto.randomUUID(),
+      },
+    });
+  }
+
+  /**
+   * Delete event from Microsoft Calendar
+   */
+  private async deleteMicrosoftEvent(
+    accessToken: string,
+    eventId: string,
+    calendarId?: string | null,
+  ): Promise<void> {
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      'client-request-id': crypto.randomUUID(),
+    };
+
+    // Try /me/events/{id} first - this works for most events
+    try {
+      const endpoint = `${this.GRAPH_API_BASE}/me/events/${eventId}`;
+      this.logger.debug(`Attempting delete: ${endpoint}`);
+      await axios.delete(endpoint, { headers });
+      this.logger.log(`Successfully deleted Microsoft event ${eventId}`);
+      return;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      this.logger.warn(`Delete via /me/events failed: ${axiosError.response?.data?.error?.message || axiosError.message}`);
+
+      // If calendarId is provided, try the calendar-specific endpoint
+      if (calendarId) {
+        try {
+          const calendarEndpoint = `${this.GRAPH_API_BASE}/me/calendars/${calendarId}/events/${eventId}`;
+          this.logger.debug(`Retrying delete with calendar: ${calendarEndpoint}`);
+          await axios.delete(calendarEndpoint, { headers });
+          this.logger.log(`Successfully deleted Microsoft event ${eventId} from calendar ${calendarId}`);
+          return;
+        } catch (calError: unknown) {
+          const calAxiosError = calError as { response?: { data?: { error?: { message?: string } } }; message?: string };
+          this.logger.error(`Delete via calendar endpoint also failed: ${calAxiosError.response?.data?.error?.message || calAxiosError.message}`);
+          throw calError;
+        }
+      }
+      throw error;
+    }
+  }
+}

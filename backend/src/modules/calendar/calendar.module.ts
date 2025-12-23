@@ -2,6 +2,8 @@ import { Module, forwardRef } from '@nestjs/common';
 import { CalendarController } from './controllers/calendar.controller';
 import { CalendarWebhookController } from './controllers/calendar-webhook.controller';
 import { CalendarService } from './services/calendar.service';
+import { CalendarListService } from './services/calendar-list.service';
+import { CalendarEventsService } from './services/calendar-events.service';
 import { GoogleCalendarSyncService } from './services/google-calendar-sync.service';
 import { MicrosoftCalendarSyncService } from './services/microsoft-calendar-sync.service';
 import { GoogleCalendarWebhookService } from './services/google-calendar-webhook.service';
@@ -29,6 +31,8 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
   ],
   providers: [
     CalendarService,
+    CalendarListService,
+    CalendarEventsService,
     GoogleCalendarSyncService,
     MicrosoftCalendarSyncService,
     GoogleCalendarWebhookService,
@@ -41,6 +45,8 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
   ],
   exports: [
     CalendarService,
+    CalendarListService,
+    CalendarEventsService,
     GoogleCalendarSyncService,
     MicrosoftCalendarSyncService,
     GoogleCalendarWebhookService,

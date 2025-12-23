@@ -2,6 +2,7 @@
 
 import { Box, Typography, Paper, Chip, Tooltip } from '@mui/material';
 import { CheckCircle, AlertTriangle, Sparkles, Clock } from 'lucide-react';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 export interface TimeSlotInfo {
   id: string;
@@ -20,26 +21,15 @@ export interface TimeSlotPickerProps {
   slots: TimeSlotInfo[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  labels?: {
-    youAreFree?: string;
-    conflict?: string;
-    bestTime?: string;
-    available?: string;
-    unavailable?: string;
-  };
 }
 
 export function TimeSlotPicker({
   slots,
   selectedId,
   onSelect,
-  labels = {},
 }: TimeSlotPickerProps) {
-  const {
-    youAreFree = "You're free",
-    conflict = 'Conflicts with',
-    bestTime = 'Recommended',
-  } = labels;
+  const t = useTranslations();
+  const labels = t.ai.calendarAi.scheduling;
 
   // Format date/time for display
   const formatSlotTime = (isoString: string) => {
@@ -76,7 +66,7 @@ export function TimeSlotPicker({
     return (
       <Box sx={{ textAlign: 'center', py: 3, color: 'text.secondary' }}>
         <Clock size={32} style={{ opacity: 0.4, marginBottom: 8 }} />
-        <Typography variant="body2">No time slots available</Typography>
+        <Typography variant="body2">{labels.noSlots}</Typography>
       </Box>
     );
   }
@@ -124,17 +114,17 @@ export function TimeSlotPicker({
                 <Chip
                   size="small"
                   icon={<CheckCircle size={12} />}
-                  label={youAreFree}
+                  label={labels.youAreFree}
                   color="success"
                   variant="outlined"
                   sx={{ height: 24, '& .MuiChip-icon': { fontSize: 12 } }}
                 />
               ) : (
-                <Tooltip title={slot.conflicts?.join(', ') || 'Busy'}>
+                <Tooltip title={slot.conflicts?.join(', ') || t.ai.calendarAi.availability.busy}>
                   <Chip
                     size="small"
                     icon={<AlertTriangle size={12} />}
-                    label={`${conflict} "${slot.conflicts?.[0] || 'event'}"`}
+                    label={`${labels.conflict} "${slot.conflicts?.[0] || 'event'}"`}
                     color="warning"
                     variant="outlined"
                     sx={{ height: 24, '& .MuiChip-icon': { fontSize: 12 } }}
@@ -146,7 +136,7 @@ export function TimeSlotPicker({
                 <Chip
                   size="small"
                   icon={<Sparkles size={12} />}
-                  label={slot.recommendation || bestTime}
+                  label={slot.recommendation || labels.bestTime}
                   color="primary"
                   variant="outlined"
                   sx={{ height: 24, '& .MuiChip-icon': { fontSize: 12 } }}
@@ -158,7 +148,7 @@ export function TimeSlotPicker({
             {slot.attendeeAvailability && slot.attendeeAvailability.length > 0 && (
               <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                  Attendee availability:
+                  {t.ai.calendarAi.availability.attendees}:
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                   {slot.attendeeAvailability.map((attendee, idx) => (

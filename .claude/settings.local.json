@@ -88,7 +88,8 @@
       "Bash(mkdir:*)",
       "Bash(npx prisma db pull:*)",
       "Bash(tree:*)",
-      "Bash(dir /s /b \"d:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email\")"
+      "Bash(dir /s /b \"d:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email\")",
+      "Bash(powershell -Command:*)"
     ],
     "deny": []
   }

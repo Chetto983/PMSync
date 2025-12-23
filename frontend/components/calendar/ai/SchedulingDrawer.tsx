@@ -95,30 +95,8 @@ export function SchedulingDrawer({
     }
   }, [open, selectedProvider]);
 
-  // Translations - use calendarAi if available, fallback to hardcoded
-  const labels = t?.ai?.calendarAi?.scheduling ?? {
-    title: 'AI Scheduling Assistant',
-    promptPlaceholder: 'Schedule a 1-hour meeting with John next week...',
-    suggestedTimes: 'Suggested Times',
-    youAreFree: "You're free",
-    conflict: 'Conflicts with',
-    bestTime: 'Best time based on your pattern',
-    eventDetails: 'Event Details',
-    eventTitle: 'Title',
-    eventLocation: 'Location',
-    eventNotes: 'Notes',
-    cancel: 'Cancel',
-    createEvent: 'Create Event',
-    generating: 'Finding available times...',
-    noSlots: 'No available slots found. Try adjusting your request.',
-    selectSlot: 'Please select a time slot',
-    selectProvider: 'Please select a calendar provider',
-    errorGenerating: 'Failed to generate time slots. Please try again.',
-    errorCreating: 'Failed to create event. Please try again.',
-    locationPlaceholder: 'Video Call, Office, etc.',
-    notesPlaceholder: 'Add any notes or agenda items...',
-    emptyState: 'Enter a scheduling request to get started',
-  };
+  // Translations from locale files
+  const labels = t.ai.calendarAi.scheduling;
 
   // Helper: Generate suggested time slots based on business days
   const generateTimeSlots = useCallback((): TimeSlot[] => {
