@@ -1,55 +1,33 @@
+/**
+ * Calendar - Main calendar component with events and sidebar
+ *
+ * Refactored to use extracted components:
+ * - CalendarSidebar - sidebar with calendar list, quick event, AI insights
+ * - CalendarHeader - header with navigation and view toggle
+ * - CalendarEventDialog - create event dialog
+ * - CalendarEventDetail - event detail/edit dialog
+ *
+ * Features:
+ * - Full FullCalendar integration with multiple views
+ * - Real-time WebSocket updates
+ * - Calendar color preferences stored in database
+ * - Glassmorphism styling matching dashboard/email
+ * - Mobile-responsive with drawer
+ *
+ * @see https://fullcalendar.io/docs
+ */
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Box,
   Paper,
-  Typography,
-  Button,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Checkbox,
-  IconButton,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  ToggleButtonGroup,
-  ToggleButton,
   CircularProgress,
   Snackbar,
   Alert as MuiAlert,
-  Tooltip,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Drawer,
+  alpha,
+  useTheme,
 } from '@mui/material';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Sparkles,
-  RefreshCw,
-  ChevronDown,
-  Palette,
-  Menu,
-  Edit2,
-  Trash2,
-  MapPin,
-  Clock,
-  X,
-  Paperclip,
-  Download,
-  FileText,
-  Image as ImageIcon,
-  File,
-} from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -58,33 +36,33 @@ import interactionPlugin from '@fullcalendar/interaction';
 import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { useRouter } from 'next/router';
 import { logger } from '@/lib/logger';
-import { calendarApi, type CreateEventDto, type CalendarInfo, type CalendarEvent as ApiCalendarEvent, type UpdateEventDto, type CalendarEventAttachment } from '@/lib/api/calendar';
+import {
+  calendarApi,
+  type CreateEventDto,
+  type CalendarInfo,
+  type CalendarEvent as ApiCalendarEvent,
+  type UpdateEventDto,
+  type CalendarEventAttachment,
+} from '@/lib/api/calendar';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { allFullCalendarLocales, getFullCalendarLocale } from '@/locales';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { getStoredUserSettings } from '@/lib/utils/user-settings';
 import { useCalendarStore, type CalendarEvent } from '@/stores/calendar-store';
 import { websocketClient, type RealtimeCalendarEvent, type RealtimeSyncStatus } from '@/lib/websocket-client';
-import { CalendarColorPicker } from '@/components/calendar';
-
-interface CalendarPreference {
-  id: string; // providerId:calendarId
-  calendarId: string;
-  calendarName: string;
-  providerId: string;
-  providerEmail: string;
-  providerType: string;
-  color: string;
-  enabled: boolean;
-}
-
-interface ProviderGroup {
-  providerId: string;
-  providerEmail: string;
-  providerType: string;
-  calendars: CalendarPreference[];
-  expanded: boolean;
-}
+import {
+  CalendarSidebar,
+  CalendarHeader,
+  CalendarEventDialog,
+  CalendarEventDetail,
+  type CalendarPreference,
+  type ProviderGroup,
+  type CalendarViewType,
+  type NewEventData,
+  type EventFormErrors,
+  type EditedEventData,
+  type EditFormErrors,
+} from '@/components/calendar';
 
 // Color palette for calendars - defined outside component to avoid re-creation
 const CALENDAR_COLORS = [
@@ -97,21 +75,23 @@ const CALENDAR_PREFS_KEY = 'calendar-preferences';
 
 export function Calendar() {
   const router = useRouter();
+  const theme = useTheme();
   const translations = useTranslations();
   const calendarCopy = translations.calendar;
   const calendarRef = useRef<FullCalendar>(null);
   const [currentMonth, setCurrentMonth] = useState('');
   const [currentYear, setCurrentYear] = useState('');
-  const [viewType, setViewType] = useState<'day' | 'week' | 'month' | 'list'>('month');
+  const [viewType, setViewType] = useState<CalendarViewType>('month');
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [selectedProvider, _setSelectedProvider] = useState<string | undefined>();
 
   // Use calendar store for events and real-time updates
-  // WebSocket events (calendar:event_new, calendar:event_update, calendar:event_delete)
-  // automatically update the store via useWebSocket hook
   const {
     events: storeEvents,
     setEvents: setStoreEvents,
+    addEvent: addStoreEvent,
+    updateEvent: updateStoreEvent,
+    deleteEvent: deleteStoreEvent,
     isLoading: loading,
     setLoading,
     isSyncing,
@@ -124,35 +104,27 @@ export function Calendar() {
   const [colorPickerAnchor, setColorPickerAnchor] = useState<HTMLElement | null>(null);
   const [colorPickerCalendarId, setColorPickerCalendarId] = useState<string | null>(null);
 
-  // Get the FullCalendar locale based on user settings, router locale, or browser locale
-  // Supports English and Italian locales
+  // Get the FullCalendar locale based on user settings
   const calendarLocale = useMemo(() => {
-    // Priority: 1. User settings, 2. Router locale, 3. Browser locale
     const userSettings = getStoredUserSettings();
-    const userLanguage = userSettings.language; // e.g., 'en-US', 'it-IT'
+    const userLanguage = userSettings.language;
     const browserLocale = typeof navigator !== 'undefined' ? navigator.language : 'en';
     const appLocale = userLanguage || router.locale || browserLocale;
     return getFullCalendarLocale(appLocale);
   }, [router.locale]);
 
-  // All FullCalendar locales are available for the calendar
   const calendarLocales = useMemo(() => allFullCalendarLocales, []);
 
   const [quickEventText, setQuickEventText] = useState('');
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
-  const [newEvent, setNewEvent] = useState({
+  const [newEvent, setNewEvent] = useState<NewEventData>({
     title: '',
     start: '',
     end: '',
     calendar: 'work',
     description: '',
   });
-  const [formErrors, setFormErrors] = useState<{
-    title?: string;
-    start?: string;
-    end?: string;
-    calendar?: string;
-  }>({});
+  const [formErrors, setFormErrors] = useState<EventFormErrors>({});
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -170,7 +142,7 @@ export function Calendar() {
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<ApiCalendarEvent | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editedEvent, setEditedEvent] = useState({
+  const [editedEvent, setEditedEvent] = useState<EditedEventData>({
     title: '',
     description: '',
     location: '',
@@ -181,17 +153,12 @@ export function Calendar() {
   const [isSaving, setIsSaving] = useState(false);
   const [attachments, setAttachments] = useState<CalendarEventAttachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
-  const [editFormErrors, setEditFormErrors] = useState<{
-    title?: string;
-    start?: string;
-    end?: string;
-  }>({});
+  const [editFormErrors, setEditFormErrors] = useState<EditFormErrors>({});
 
   const updateCalendarHeader = useCallback(() => {
     if (calendarRef.current) {
       const calApi = calendarRef.current.getApi();
       const date = calApi.getDate();
-      // Use the proper locale for date formatting
       const locale = calendarLocale === 'it' ? 'it-IT' : 'en-US';
       setCurrentMonth(date.toLocaleDateString(locale, { month: 'long' }));
       setCurrentYear(date.getFullYear().toString());
@@ -224,7 +191,6 @@ export function Calendar() {
   );
 
   // Load UI-only preferences from localStorage (enabled state)
-  // Colors are stored in the database via the API
   const loadEnabledState = useCallback((): Record<string, boolean> => {
     if (typeof window === 'undefined') return {};
     try {
@@ -250,44 +216,45 @@ export function Calendar() {
   }, []);
 
   // Update calendar color via API
-  const updateCalendarColor = useCallback(async (calendarId: string, providerId: string, color: string) => {
-    try {
-      await calendarApi.updateCalendarPreferences(providerId, calendarId, { color });
-      // Update local state
-      setCalendarPrefs((prev) => {
-        const newPrefs = new Map(prev);
-        const key = `${providerId}:${calendarId}`;
-        const existing = newPrefs.get(key);
-        if (existing) {
-          newPrefs.set(key, { ...existing, color });
-        }
-        return newPrefs;
-      });
-      // Update provider groups
-      setProviderGroups((prev) =>
-        prev.map((group) => ({
-          ...group,
-          calendars: group.calendars.map((cal) =>
-            cal.calendarId === calendarId && cal.providerId === providerId
-              ? { ...cal, color }
-              : cal
-          ),
-        }))
-      );
-      setSnackbar({
-        open: true,
-        message: calendarCopy.colorUpdated || 'Color updated',
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to update calendar color', { error });
-      setSnackbar({
-        open: true,
-        message: calendarCopy.failedToUpdateColor || 'Failed to update color',
-        severity: 'error',
-      });
-    }
-  }, [calendarCopy]);
+  const updateCalendarColor = useCallback(
+    async (calendarId: string, providerId: string, color: string) => {
+      try {
+        await calendarApi.updateCalendarPreferences(providerId, calendarId, { color });
+        setCalendarPrefs((prev) => {
+          const newPrefs = new Map(prev);
+          const key = `${providerId}:${calendarId}`;
+          const existing = newPrefs.get(key);
+          if (existing) {
+            newPrefs.set(key, { ...existing, color });
+          }
+          return newPrefs;
+        });
+        setProviderGroups((prev) =>
+          prev.map((group) => ({
+            ...group,
+            calendars: group.calendars.map((cal) =>
+              cal.calendarId === calendarId && cal.providerId === providerId
+                ? { ...cal, color }
+                : cal
+            ),
+          }))
+        );
+        setSnackbar({
+          open: true,
+          message: calendarCopy.colorUpdated || 'Color updated',
+          severity: 'success',
+        });
+      } catch (error) {
+        logger.error('Failed to update calendar color', { error });
+        setSnackbar({
+          open: true,
+          message: calendarCopy.failedToUpdateColor || 'Failed to update color',
+          severity: 'error',
+        });
+      }
+    },
+    [calendarCopy]
+  );
 
   // Load calendars from API and merge with saved enabled state
   const loadCalendars = useCallback(async () => {
@@ -354,322 +321,384 @@ export function Calendar() {
   }, [loadCalendars]);
 
   // Load providers and events
-  // triggerSync: if true, sync from Google/Microsoft before loading from database
-  const loadData = useCallback(async (triggerSync = false) => {
-    try {
-      setLoading(true);
-
-      // Load providers (non-blocking - continue even if fails)
-      let loadedProviders: ProviderConfig[] = [];
+  const loadData = useCallback(
+    async (triggerSync = false) => {
       try {
-        const providersRes = await providersApi.getProviders();
-        loadedProviders = providersRes || [];
-        setProviders(loadedProviders);
-      } catch (providerError) {
-        logger.warn('Failed to load providers for calendar', { error: providerError });
-        setProviders([]);
+        setLoading(true);
+
+        // Load providers
+        let loadedProviders: ProviderConfig[] = [];
+        try {
+          const providersRes = await providersApi.getProviders();
+          loadedProviders = providersRes || [];
+          setProviders(loadedProviders);
+        } catch (providerError) {
+          logger.warn('Failed to load providers for calendar', { error: providerError });
+          setProviders([]);
+        }
+
+        // Trigger sync for all calendar providers if requested
+        if (triggerSync && loadedProviders.length > 0) {
+          const calendarProviders = loadedProviders.filter((p) => p.supportsCalendar);
+          logger.debug('[Calendar] Syncing providers', { count: calendarProviders.length });
+
+          const syncPromises = calendarProviders.map(async (provider) => {
+            try {
+              const result = await calendarApi.syncProvider(provider.id);
+              logger.info(`[Calendar] Synced ${provider.email}`, {
+                newEvents: result.data?.newEvents || 0,
+                updatedEvents: result.data?.updatedEvents || 0,
+              });
+              return result;
+            } catch (syncError) {
+              logger.warn(`[Calendar] Failed to sync ${provider.email}`, { error: syncError });
+              return null;
+            }
+          });
+
+          await Promise.all(syncPromises);
+        }
+
+        // Load calendars from API
+        await loadCalendars();
+
+        // Get date range from calendar (current view)
+        let startTime: Date;
+        let endTime: Date;
+
+        if (calendarRef.current) {
+          const calApi = calendarRef.current.getApi();
+          const view = calApi.view;
+          startTime = view.activeStart;
+          endTime = view.activeEnd;
+        } else {
+          // Default to current month
+          const now = new Date();
+          startTime = new Date(now.getFullYear(), now.getMonth(), 1);
+          endTime = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        }
+
+        // Load events from API
+        try {
+          const eventsRes = await calendarApi.listEvents({
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            providerId: selectedProvider,
+          });
+          const events = eventsRes.data.events || [];
+          setStoreEvents(events);
+          setLastSyncAt(new Date());
+        } catch (eventsError) {
+          logger.error('Failed to load calendar events', { error: eventsError });
+          setSnackbar({
+            open: true,
+            message: 'Failed to load events',
+            severity: 'error',
+          });
+        }
+      } finally {
+        setLoading(false);
       }
+    },
+    [loadCalendars, selectedProvider, setLoading, setStoreEvents, setLastSyncAt]
+  );
 
-      // Trigger sync for all calendar providers if requested
-      // This syncs events from Google/Microsoft to our database
-      if (triggerSync && loadedProviders.length > 0) {
-        const calendarProviders = loadedProviders.filter(p => p.supportsCalendar);
-        logger.debug('[Calendar] Syncing providers', { count: calendarProviders.length });
-
-        // Sync all providers in parallel (non-blocking)
-        const syncPromises = calendarProviders.map(async (provider) => {
-          try {
-            const result = await calendarApi.syncProvider(provider.id);
-            logger.info(`[Calendar] Synced ${provider.email}`, { newEvents: result.data?.newEvents || 0, updatedEvents: result.data?.updatedEvents || 0 });
-            return result;
-          } catch (syncError) {
-            logger.warn(`[Calendar] Failed to sync ${provider.email}`, { error: syncError });
-            return null;
-          }
-        });
-
-        await Promise.all(syncPromises);
-      }
-
-      // Load calendars from API
-      await loadCalendars();
-
-      // Get date range from calendar (current view)
-      let startTime: Date;
-      let endTime: Date;
-
-      if (calendarRef.current) {
-        const fcApi = calendarRef.current.getApi();
-        const view = fcApi.view;
-        startTime = view.activeStart;
-        endTime = view.activeEnd;
-      } else {
-        // Default to current month
-        const now = new Date();
-        startTime = new Date(now.getFullYear(), now.getMonth(), 1);
-        endTime = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      }
-
-      // Load events - if no provider selected, load from all providers
-      const eventsRes = await calendarApi.listEvents({
-        ...(selectedProvider && { providerId: selectedProvider }),
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-      });
-
-      // Update the store with events (real-time updates will also update the store)
-      setStoreEvents(eventsRes.data.events || []);
-      setLastSyncAt(new Date());
-    } catch (error) {
-      logger.error('Failed to load calendar data', { error });
-      setStoreEvents([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedProvider, setStoreEvents, setLoading, setLastSyncAt, loadCalendars]);
-
+  // Initial data load - intentionally run only once on mount
   useEffect(() => {
-    updateCalendarHeader();
-  }, [updateCalendarHeader, calendarLocale]);
-
-  useEffect(() => {
-    if (!calendarRef.current) return;
-    const calendarApi = calendarRef.current.getApi();
-    const viewName =
-      viewType === 'day'
-        ? 'timeGridDay'
-        : viewType === 'week'
-          ? 'timeGridWeek'
-          : viewType === 'list'
-            ? 'listWeek'
-            : 'dayGridMonth';
-    calendarApi.changeView(viewName);
-  }, [viewType]);
-
-  // Keep selected event in sync with realtime updates/removals
-  useEffect(() => {
-    if (selectedEvent) {
-      const updated = storeEvents.find((e) => e.id === selectedEvent.id);
-      if (!updated) {
-        setSelectedEvent(null);
-      } else if (updated !== selectedEvent) {
-        setSelectedEvent(updated);
-      }
-    }
-  }, [storeEvents, selectedEvent]);
-
-  // Load data when provider changes or on mount (do not auto-sync to avoid delay)
-  useEffect(() => {
-    loadData(false);
+    void loadData(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProvider]);
-
-  // WebSocket event handling for real-time calendar updates
-  useEffect(() => {
-    // Helper for retrying failed fetches
-    const fetchWithRetry = async <T,>(
-      fn: () => Promise<T>,
-      retries = 2,
-      delay = 1000
-    ): Promise<T | null> => {
-      for (let i = 0; i <= retries; i++) {
-        try {
-          return await fn();
-        } catch (error) {
-          if (i === retries) {
-            throw error;
-          }
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-      }
-      return null;
-    };
-
-    const handleCalendarEventNew = async (event: RealtimeCalendarEvent) => {
-      logger.debug('[Calendar] WebSocket: calendar:event_new', { event });
-      if (event.eventId) {
-        try {
-          const calEvent = await fetchWithRetry(() => calendarApi.getEvent(event.eventId!));
-          if (calEvent?.data) {
-            useCalendarStore.getState().addEvent(calEvent.data);
-          }
-        } catch (error) {
-          logger.error('Failed to fetch new calendar event after retries', { error });
-          setSnackbar({
-            open: true,
-            message: 'Failed to load new calendar event. Try refreshing.',
-            severity: 'warning',
-          });
-        }
-      }
-    };
-
-    const handleCalendarEventUpdate = async (event: RealtimeCalendarEvent) => {
-      logger.debug('[Calendar] WebSocket: calendar:event_update', { event });
-      if (event.eventId) {
-        try {
-          const calEvent = await fetchWithRetry(() => calendarApi.getEvent(event.eventId!));
-          if (calEvent?.data) {
-            useCalendarStore.getState().updateEvent(event.eventId, calEvent.data);
-          }
-        } catch (error) {
-          logger.error('Failed to fetch updated calendar event after retries', { error });
-          setSnackbar({
-            open: true,
-            message: 'Failed to sync calendar update. Try refreshing.',
-            severity: 'warning',
-          });
-        }
-      }
-    };
-
-    const handleCalendarEventDelete = (event: RealtimeCalendarEvent) => {
-      logger.debug('[Calendar] WebSocket: calendar:event_delete', { event });
-      if (event.eventId) {
-        useCalendarStore.getState().deleteEvent(event.eventId);
-      }
-    };
-
-    const handleSyncStatus = (event: RealtimeSyncStatus) => {
-      // Handle sync completion
-      if (event.status === 'completed') {
-        logger.info('[Calendar] WebSocket: sync completed', { providerId: event.providerId });
-        useCalendarStore.getState().setSyncing(false);
-        useCalendarStore.getState().setLastSyncAt(new Date());
-      } else if (event.status === 'failed') {
-        logger.error('[Calendar] WebSocket: sync failed', { providerId: event.providerId });
-        useCalendarStore.getState().setSyncing(false);
-        setSnackbar({
-          open: true,
-          message: event.error || 'Calendar sync failed',
-          severity: 'error',
-        });
-      }
-    };
-
-    // Subscribe to events
-    const unsubNew = websocketClient.onCalendarEventNew(handleCalendarEventNew);
-    const unsubUpdate = websocketClient.onCalendarEventUpdate(handleCalendarEventUpdate);
-    const unsubDelete = websocketClient.onCalendarEventDelete(handleCalendarEventDelete);
-    const unsubSync = websocketClient.onSyncStatus(handleSyncStatus);
-
-    return () => {
-      unsubNew();
-      unsubUpdate();
-      unsubDelete();
-      unsubSync();
-    };
   }, []);
 
-  const handlePrevMonth = () => {
+  // Update calendar header on mount and view change
+  useEffect(() => {
+    updateCalendarHeader();
+  }, [updateCalendarHeader]);
+
+  // WebSocket event handlers
+  useEffect(() => {
+    if (!websocketClient) return;
+
+    // Handler for new calendar events
+    const unsubscribeNew = websocketClient.onCalendarEventNew((event: RealtimeCalendarEvent) => {
+      logger.debug('[Calendar] WebSocket new event received', { reason: event.reason });
+      if (event.event) {
+        addStoreEvent(event.event as CalendarEvent);
+      }
+    });
+
+    // Handler for updated calendar events
+    const unsubscribeUpdate = websocketClient.onCalendarEventUpdate((event: RealtimeCalendarEvent) => {
+      logger.debug('[Calendar] WebSocket update event received', { reason: event.reason });
+      if (event.event && event.eventId) {
+        updateStoreEvent(event.eventId, event.event as CalendarEvent);
+      }
+    });
+
+    // Handler for deleted calendar events
+    const unsubscribeDelete = websocketClient.onCalendarEventDelete((event: RealtimeCalendarEvent) => {
+      logger.debug('[Calendar] WebSocket delete event received', { reason: event.reason });
+      if (event.eventId) {
+        deleteStoreEvent(event.eventId);
+      }
+    });
+
+    // Handler for sync status updates
+    const unsubscribeSyncStatus = websocketClient.onSyncStatus((status: RealtimeSyncStatus) => {
+      logger.debug('[Calendar] Sync status', { status: status.status, type: status.type });
+      if (status.status === 'completed' && status.type === 'calendar') {
+        void loadData(false);
+      }
+    });
+
+    return () => {
+      unsubscribeNew();
+      unsubscribeUpdate();
+      unsubscribeDelete();
+      unsubscribeSyncStatus();
+    };
+  }, [addStoreEvent, updateStoreEvent, deleteStoreEvent, loadData]);
+
+  // Handle view change
+  useEffect(() => {
+    if (calendarRef.current) {
+      const calApi = calendarRef.current.getApi();
+      const viewMap = {
+        day: 'timeGridDay',
+        week: 'timeGridWeek',
+        month: 'dayGridMonth',
+        list: 'listMonth',
+      };
+      calApi.changeView(viewMap[viewType]);
+      updateCalendarHeader();
+    }
+  }, [viewType, updateCalendarHeader]);
+
+  // Navigation handlers
+  const handlePrevMonth = useCallback(() => {
     if (calendarRef.current) {
       calendarRef.current.getApi().prev();
       updateCalendarHeader();
-      loadData(); // Reload events for new date range
     }
-  };
+  }, [updateCalendarHeader]);
 
-  const handleNextMonth = () => {
+  const handleNextMonth = useCallback(() => {
     if (calendarRef.current) {
       calendarRef.current.getApi().next();
       updateCalendarHeader();
-      loadData(); // Reload events for new date range
     }
-  };
+  }, [updateCalendarHeader]);
 
-  const handleToday = () => {
+  const handleToday = useCallback(() => {
     if (calendarRef.current) {
       calendarRef.current.getApi().today();
       updateCalendarHeader();
-      loadData(); // Reload events for new date range
     }
-  };
+  }, [updateCalendarHeader]);
 
-  const handleDateSelect = (selectInfo: DateSelectArg) => {
+  // Toggle calendar enabled/disabled
+  const handleToggleCalendar = useCallback(
+    (calendarId: string) => {
+      setCalendarPrefs((prev) => {
+        const newPrefs = new Map(prev);
+        const existing = newPrefs.get(calendarId);
+        if (existing) {
+          newPrefs.set(calendarId, { ...existing, enabled: !existing.enabled });
+        }
+        saveEnabledState(newPrefs);
+        return newPrefs;
+      });
+      setProviderGroups((prev) =>
+        prev.map((group) => ({
+          ...group,
+          calendars: group.calendars.map((cal) =>
+            cal.id === calendarId ? { ...cal, enabled: !cal.enabled } : cal
+          ),
+        }))
+      );
+    },
+    [saveEnabledState]
+  );
+
+  // Toggle provider group expanded/collapsed
+  const handleToggleProviderExpanded = useCallback((providerId: string) => {
+    setProviderGroups((prev) =>
+      prev.map((group) =>
+        group.providerId === providerId ? { ...group, expanded: !group.expanded } : group
+      )
+    );
+  }, []);
+
+  // Color picker handlers
+  const handleOpenColorPicker = useCallback((event: React.MouseEvent<HTMLElement>, calendarId: string) => {
+    event.stopPropagation();
+    setColorPickerAnchor(event.currentTarget);
+    setColorPickerCalendarId(calendarId);
+  }, []);
+
+  const handleCloseColorPicker = useCallback(() => {
+    setColorPickerAnchor(null);
+    setColorPickerCalendarId(null);
+  }, []);
+
+  const handleColorSelect = useCallback(
+    (calendarId: string, providerId: string, color: string) => {
+      updateCalendarColor(calendarId, providerId, color);
+    },
+    [updateCalendarColor]
+  );
+
+  // Quick event creation
+  const handleQuickEvent = useCallback(() => {
+    if (!quickEventText.trim()) return;
+
+    const now = new Date();
+    const start = new Date(now.getTime() + 60 * 60 * 1000); // +1 hour
+    const end = new Date(start.getTime() + 60 * 60 * 1000); // +1 hour
+
+    setNewEvent({
+      title: quickEventText,
+      start: start.toISOString().slice(0, 16),
+      end: end.toISOString().slice(0, 16),
+      calendar: 'primary',
+      description: '',
+    });
+    setQuickEventText('');
+    setEventDialogOpen(true);
+  }, [quickEventText]);
+
+  // Date selection handler
+  const handleDateSelect = useCallback((selectInfo: DateSelectArg) => {
+    const start = selectInfo.start;
+    const end = selectInfo.end || new Date(start.getTime() + 60 * 60 * 1000);
+
     setNewEvent({
       title: '',
-      start: selectInfo.startStr,
-      end: selectInfo.endStr,
-      calendar: 'work',
+      start: start.toISOString().slice(0, 16),
+      end: end.toISOString().slice(0, 16),
+      calendar: 'primary',
       description: '',
     });
     setEventDialogOpen(true);
-  };
+  }, []);
 
-  const handleEventClick = async (clickInfo: EventClickArg) => {
-    // Find the full event from store
-    const eventId = clickInfo.event.id;
-    const fullEvent = storeEvents.find(e => e.id === eventId);
+  // Event click handler
+  const handleEventClick = useCallback(
+    async (clickInfo: EventClickArg) => {
+      const eventId = clickInfo.event.id;
 
-    if (fullEvent) {
-      setSelectedEvent(fullEvent);
-      setEditedEvent({
-        title: fullEvent.title,
-        description: fullEvent.description || '',
-        location: fullEvent.location || '',
-        start: fullEvent.startTime.slice(0, 16), // Format for datetime-local input
-        end: fullEvent.endTime.slice(0, 16),
-      });
-      setIsEditMode(false);
-      setAttachments([]);
-      setEventDetailsOpen(true);
-
-      // Fetch attachments for this event
-      setLoadingAttachments(true);
       try {
-        const response = await calendarApi.listAttachments(fullEvent.id);
-        setAttachments(response.data?.attachments || []);
-      } catch (error) {
-        logger.error('Failed to fetch attachments', { error });
-        setAttachments([]);
-      } finally {
-        setLoadingAttachments(false);
-      }
-    }
-  };
+        const eventRes = await calendarApi.getEvent(eventId);
+        const event = eventRes.data;
+        setSelectedEvent(event);
+        setEditedEvent({
+          title: event.title,
+          description: event.description || '',
+          location: event.location || '',
+          start: new Date(event.startTime).toISOString().slice(0, 16),
+          end: new Date(event.endTime).toISOString().slice(0, 16),
+        });
+        setEventDetailsOpen(true);
 
-  const handleUpdateEvent = async () => {
+        // Load attachments
+        setLoadingAttachments(true);
+        try {
+          const attachmentsRes = await calendarApi.listAttachments(eventId);
+          setAttachments(attachmentsRes.data.attachments || []);
+        } catch {
+          setAttachments([]);
+        } finally {
+          setLoadingAttachments(false);
+        }
+      } catch (error) {
+        logger.error('Failed to load event details', { error });
+        setSnackbar({
+          open: true,
+          message: 'Failed to load event details',
+          severity: 'error',
+        });
+      }
+    },
+    []
+  );
+
+  // Create event handler
+  const handleCreateEvent = useCallback(async () => {
+    // Validation
+    const errors: EventFormErrors = {};
+    if (!newEvent.title.trim()) {
+      errors.title = calendarCopy.validation?.titleRequired || 'Title is required';
+    }
+    if (!newEvent.start) {
+      errors.start = calendarCopy.validation?.startRequired || 'Start time is required';
+    }
+    if (!newEvent.end) {
+      errors.end = calendarCopy.validation?.endRequired || 'End time is required';
+    }
+    if (newEvent.start && newEvent.end && new Date(newEvent.start) >= new Date(newEvent.end)) {
+      errors.end = calendarCopy.validation?.endAfterStart || 'End must be after start';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    try {
+      const firstProvider = providers.find((p) => p.supportsCalendar);
+      if (!firstProvider) {
+        setSnackbar({
+          open: true,
+          message: calendarCopy.noProviderAlert || 'No calendar provider found',
+          severity: 'error',
+        });
+        return;
+      }
+
+      const createDto: CreateEventDto = {
+        providerId: firstProvider.id,
+        title: newEvent.title,
+        startTime: new Date(newEvent.start).toISOString(),
+        endTime: new Date(newEvent.end).toISOString(),
+        description: newEvent.description,
+        calendarId: newEvent.calendar,
+      };
+
+      await calendarApi.createEvent(createDto);
+      setSnackbar({
+        open: true,
+        message: 'Event created successfully',
+        severity: 'success',
+      });
+      setEventDialogOpen(false);
+      setFormErrors({});
+      setNewEvent({ title: '', start: '', end: '', calendar: 'primary', description: '' });
+
+      // Reload events
+      void loadData(false);
+    } catch (error) {
+      logger.error('Failed to create event', { error });
+      setSnackbar({
+        open: true,
+        message: calendarCopy.failedToCreateEvent || 'Failed to create event',
+        severity: 'error',
+      });
+    }
+  }, [newEvent, providers, calendarCopy, loadData]);
+
+  // Update event handler
+  const handleUpdateEvent = useCallback(async () => {
     if (!selectedEvent) return;
 
-    // Validate edit form
-    const errors: typeof editFormErrors = {};
-
+    // Validation
+    const errors: EditFormErrors = {};
     if (!editedEvent.title.trim()) {
       errors.title = calendarCopy.validation?.titleRequired || 'Title is required';
     }
     if (!editedEvent.start) {
-      errors.start = calendarCopy.validation?.startRequired || 'Start date/time is required';
+      errors.start = calendarCopy.validation?.startRequired || 'Start time is required';
     }
     if (!editedEvent.end) {
-      errors.end = calendarCopy.validation?.endRequired || 'End date/time is required';
-    }
-    if (editedEvent.start && editedEvent.end && new Date(editedEvent.end) <= new Date(editedEvent.start)) {
-      errors.end = calendarCopy.validation?.endAfterStart || 'End time must be after start time';
-    }
-
-    // Check for duplicate events (excluding current event)
-    if (editedEvent.title.trim() && editedEvent.start && editedEvent.end) {
-      const eventStart = new Date(editedEvent.start).getTime();
-      const eventEnd = new Date(editedEvent.end).getTime();
-      const titleLower = editedEvent.title.trim().toLowerCase();
-
-      const duplicate = storeEvents.find(existingEvent => {
-        // Skip the current event being edited
-        if (existingEvent.id === selectedEvent.id) return false;
-
-        const existingStart = new Date(existingEvent.startTime).getTime();
-        const existingEnd = new Date(existingEvent.endTime).getTime();
-        const existingTitle = existingEvent.title.toLowerCase();
-
-        // Check if title matches and times overlap
-        return existingTitle === titleLower &&
-          eventStart < existingEnd &&
-          eventEnd > existingStart;
-      });
-
-      if (duplicate) {
-        errors.title = calendarCopy.validation?.duplicateEvent || 'An event with this title already exists at the same time';
-      }
+      errors.end = calendarCopy.validation?.endRequired || 'End time is required';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -679,7 +708,7 @@ export function Calendar() {
 
     setIsSaving(true);
     try {
-      const updateData: UpdateEventDto = {
+      const updateDto: UpdateEventDto = {
         title: editedEvent.title,
         description: editedEvent.description,
         location: editedEvent.location,
@@ -687,32 +716,20 @@ export function Calendar() {
         endTime: new Date(editedEvent.end).toISOString(),
       };
 
-      // Optimistic update - update store immediately
-      useCalendarStore.getState().updateEvent(selectedEvent.id, {
-        ...selectedEvent,
-        title: editedEvent.title,
-        description: editedEvent.description,
-        location: editedEvent.location,
-        startTime: new Date(editedEvent.start).toISOString(),
-        endTime: new Date(editedEvent.end).toISOString(),
-      });
-
-      // Then sync with server
-      await calendarApi.updateEvent(selectedEvent.id, updateData);
-
-      setEventDetailsOpen(false);
-      setSelectedEvent(null);
-      setIsEditMode(false);
-      setEditFormErrors({});
+      await calendarApi.updateEvent(selectedEvent.id, updateDto);
       setSnackbar({
         open: true,
-        message: calendarCopy.eventUpdated || 'Event updated successfully',
+        message: calendarCopy.eventUpdated || 'Event updated',
         severity: 'success',
       });
+      setEventDetailsOpen(false);
+      setIsEditMode(false);
+      setEditFormErrors({});
+
+      // Reload events
+      void loadData(false);
     } catch (error) {
       logger.error('Failed to update event', { error });
-      // Rollback on error - reload from server
-      await loadData();
       setSnackbar({
         open: true,
         message: calendarCopy.failedToUpdateEvent || 'Failed to update event',
@@ -721,32 +738,27 @@ export function Calendar() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [selectedEvent, editedEvent, calendarCopy, loadData]);
 
-  const handleDeleteEvent = async () => {
+  // Delete event handler
+  const handleDeleteEvent = useCallback(async () => {
     if (!selectedEvent) return;
 
-    const eventToDelete = selectedEvent;
     setIsDeleting(true);
     try {
-      // Optimistic delete - remove from store immediately
-      useCalendarStore.getState().deleteEvent(eventToDelete.id);
-
+      await calendarApi.deleteEvent(selectedEvent.id);
+      setSnackbar({
+        open: true,
+        message: calendarCopy.eventDeleted || 'Event deleted',
+        severity: 'success',
+      });
       setEventDetailsOpen(false);
       setSelectedEvent(null);
 
-      // Then sync with server
-      await calendarApi.deleteEvent(eventToDelete.id);
-
-      setSnackbar({
-        open: true,
-        message: calendarCopy.eventDeleted || 'Event deleted successfully',
-        severity: 'success',
-      });
+      // Reload events
+      void loadData(false);
     } catch (error) {
       logger.error('Failed to delete event', { error });
-      // Rollback on error - reload from server
-      await loadData();
       setSnackbar({
         open: true,
         message: calendarCopy.failedToDeleteEvent || 'Failed to delete event',
@@ -755,282 +767,29 @@ export function Calendar() {
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [selectedEvent, calendarCopy, loadData]);
 
-  const handleDownloadAttachment = async (attachment: CalendarEventAttachment) => {
-    if (!selectedEvent) return;
-
-    try {
-      // If there's a direct file URL (Google Drive, OneDrive), open it
-      if (attachment.fileUrl) {
-        window.open(attachment.fileUrl, '_blank');
-        return;
-      }
-
-      // Otherwise, get the download URL from the API
-      const response = await calendarApi.getAttachmentUrl(selectedEvent.id, attachment.id);
-      if (response.data?.url) {
-        window.open(response.data.url, '_blank');
-      }
-    } catch (error) {
-      logger.error('Failed to download attachment', { error });
-      setSnackbar({
-        open: true,
-        message: calendarCopy.failedToDownloadAttachment || 'Failed to download attachment',
-        severity: 'error',
-      });
-    }
-  };
-
-  const getAttachmentIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) {
-      return <ImageIcon size={16} aria-hidden="true" focusable="false" />;
-    } else if (mimeType.includes('pdf') || mimeType.includes('document') || mimeType.includes('text')) {
-      return <FileText size={16} />;
-    }
-    return <File size={16} />;
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const handleCloseEventDetails = () => {
+  // Close event details dialog
+  const handleCloseEventDetails = useCallback(() => {
     setEventDetailsOpen(false);
-    setSelectedEvent(null);
     setIsEditMode(false);
+    setSelectedEvent(null);
+    setAttachments([]);
     setEditFormErrors({});
-  };
-
-  const validateEventForm = (event: typeof newEvent, checkDuplicate = true): { isValid: boolean; errors: typeof formErrors } => {
-    const errors: typeof formErrors = {};
-
-    // Title is required
-    if (!event.title.trim()) {
-      errors.title = calendarCopy.validation?.titleRequired || 'Title is required';
-    }
-
-    // Start date/time is required
-    if (!event.start) {
-      errors.start = calendarCopy.validation?.startRequired || 'Start date/time is required';
-    }
-
-    // End date/time is required
-    if (!event.end) {
-      errors.end = calendarCopy.validation?.endRequired || 'End date/time is required';
-    }
-
-    // End time must be after start time
-    if (event.start && event.end && new Date(event.end) <= new Date(event.start)) {
-      errors.end = calendarCopy.validation?.endAfterStart || 'End time must be after start time';
-    }
-
-    // Check for duplicate events (same title and overlapping time)
-    if (checkDuplicate && event.title.trim() && event.start && event.end) {
-      const eventStart = new Date(event.start).getTime();
-      const eventEnd = new Date(event.end).getTime();
-      const titleLower = event.title.trim().toLowerCase();
-
-      const duplicate = storeEvents.find(existingEvent => {
-        const existingStart = new Date(existingEvent.startTime).getTime();
-        const existingEnd = new Date(existingEvent.endTime).getTime();
-        const existingTitle = existingEvent.title.toLowerCase();
-
-        // Check if title matches and times overlap
-        return existingTitle === titleLower &&
-          eventStart < existingEnd &&
-          eventEnd > existingStart;
-      });
-
-      if (duplicate) {
-        errors.title = calendarCopy.validation?.duplicateEvent || 'An event with this title already exists at the same time';
-      }
-    }
-
-    return {
-      isValid: Object.keys(errors).length === 0,
-      errors,
-    };
-  };
-
-  const handleCreateEvent = async () => {
-    // Validate form
-    const validation = validateEventForm(newEvent);
-    setFormErrors(validation.errors);
-
-    if (!validation.isValid) {
-      return;
-    }
-
-    // Get first calendar provider (or use selected provider)
-    const provider = selectedProvider
-      ? providers.find(p => p.id === selectedProvider)
-      : providers.find(p => p.supportsCalendar);
-
-    if (!provider) {
-      setSnackbar({
-        open: true,
-        message: calendarCopy.noProviderAlert,
-        severity: 'warning',
-      });
-      return;
-    }
-
-    try {
-      const eventData: CreateEventDto = {
-        providerId: provider.id,
-        title: newEvent.title,
-        description: newEvent.description,
-        startTime: newEvent.start,
-        endTime: newEvent.end || newEvent.start,
-        isAllDay: false,
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        calendarName: newEvent.calendar,
-      };
-
-      await calendarApi.createEvent(eventData);
-
-      // Reload events from backend
-      await loadData();
-
-      setEventDialogOpen(false);
-      setFormErrors({});
-      setNewEvent({
-        title: '',
-        start: '',
-        end: '',
-        calendar: 'work',
-        description: '',
-      });
-      setSnackbar({
-        open: true,
-        message: `${calendarCopy.saveEvent} ✓`,
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to create event', { error });
-      setSnackbar({
-        open: true,
-        message: calendarCopy.failedToCreateEvent,
-        severity: 'error',
-      });
-    }
-  };
-
-  const handleQuickEvent = async () => {
-    if (!quickEventText.trim()) return;
-
-    const provider = selectedProvider
-      ? providers.find((p) => p.id === selectedProvider)
-      : providers.find((p) => p.supportsCalendar);
-
-    if (!provider) {
-      setSnackbar({
-        open: true,
-        message: calendarCopy.noProviderAlert,
-        severity: 'warning',
-      });
-      return;
-    }
-
-    try {
-      const start = new Date();
-      const end = new Date(start.getTime() + 30 * 60 * 1000);
-
-      await calendarApi.createEvent({
-        providerId: provider.id,
-        title: quickEventText.trim(),
-        description: '',
-        startTime: start.toISOString(),
-        endTime: end.toISOString(),
-        isAllDay: false,
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      });
-
-      setQuickEventText('');
-      await loadData();
-      setSnackbar({
-        open: true,
-        message: `${calendarCopy.saveEvent} ✓`,
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to create quick event', { error });
-      setSnackbar({
-        open: true,
-        message: calendarCopy.failedToCreateQuickEvent,
-        severity: 'error',
-      });
-    }
-  };
-
-  // Toggle calendar visibility
-  const handleToggleCalendar = useCallback((calendarKey: string) => {
-    setCalendarPrefs((prev) => {
-      const newPrefs = new Map(prev);
-      const existing = newPrefs.get(calendarKey);
-      if (existing) {
-        newPrefs.set(calendarKey, { ...existing, enabled: !existing.enabled });
-      }
-      // Save enabled state to localStorage
-      saveEnabledState(newPrefs);
-      return newPrefs;
-    });
-    // Update provider groups
-    setProviderGroups((prev) =>
-      prev.map((group) => ({
-        ...group,
-        calendars: group.calendars.map((cal) =>
-          cal.id === calendarKey ? { ...cal, enabled: !cal.enabled } : cal
-        ),
-      }))
-    );
-  }, [saveEnabledState]);
-
-  // Toggle provider group expansion
-  const handleToggleProviderExpanded = useCallback((providerId: string) => {
-    setProviderGroups((prev) =>
-      prev.map((group) =>
-        group.providerId === providerId
-          ? { ...group, expanded: !group.expanded }
-          : group
-      )
-    );
   }, []);
 
-  // Open color picker
-  const handleOpenColorPicker = useCallback((event: React.MouseEvent<HTMLElement>, calendarId: string) => {
-    event.stopPropagation();
-    setColorPickerAnchor(event.currentTarget);
-    setColorPickerCalendarId(calendarId);
-  }, []);
-
-  // Close color picker
-  const handleCloseColorPicker = useCallback(() => {
-    setColorPickerAnchor(null);
-    setColorPickerCalendarId(null);
-  }, []);
-
-  // Handle color selection
-  const handleColorSelect = useCallback((color: string) => {
-    if (colorPickerCalendarId) {
-      const pref = calendarPrefs.get(colorPickerCalendarId);
-      if (pref) {
-        updateCalendarColor(pref.calendarId, pref.providerId, color);
-      }
+  // Download attachment handler
+  const handleDownloadAttachment = useCallback((attachment: CalendarEventAttachment) => {
+    if (attachment.fileUrl) {
+      window.open(attachment.fileUrl, '_blank');
     }
-    // Note: CalendarColorPicker handles closing itself
-  }, [colorPickerCalendarId, calendarPrefs, updateCalendarColor]);
+  }, []);
 
-  // Convert store events to FullCalendar format and filter by enabled calendars
+  // Filter events by enabled calendars
   const filteredEvents = useMemo(() => {
     return storeEvents
       .filter((event) => {
-        // Filter out deleted/cancelled events
         if (event.isDeleted || event.isCancelled) return false;
-        // Filter by enabled calendars
         const calendarKey = `${event.providerId}:${event.calendarId || 'primary'}`;
         const pref = calendarPrefs.get(calendarKey);
         return pref?.enabled !== false;
@@ -1038,178 +797,46 @@ export function Calendar() {
       .map(convertToFullCalendarEvent);
   }, [storeEvents, calendarPrefs, convertToFullCalendarEvent]);
 
-  // Sidebar content - reused for desktop and mobile drawer
-  const renderSidebarContent = () => (
-    <>
-      {/* Quick Event Input */}
-      <Box sx={{ mb: 3 }}>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder={calendarCopy.quickEventPlaceholder}
-          value={quickEventText}
-          onChange={(e) => setQuickEventText(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleQuickEvent()}
-          sx={{ mb: 1 }}
-        />
-        <Button
-          fullWidth
-          variant="contained"
-          startIcon={<Plus size={18} />}
-          onClick={() => {
-            setEventDialogOpen(true);
-            setMobileDrawerOpen(false);
-          }}
-        >
-          {calendarCopy.createEvent}
-        </Button>
-      </Box>
-
-      {/* Calendars - Grouped by Provider */}
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-        {calendarCopy.filterTitle || 'My Calendars'}
-      </Typography>
-      <Box sx={{ mb: 2, overflow: 'auto', flex: 1 }}>
-        {providerGroups.map((group) => (
-          <Accordion
-            key={group.providerId}
-            expanded={group.expanded}
-            onChange={() => handleToggleProviderExpanded(group.providerId)}
-            disableGutters
-            elevation={0}
-            sx={{
-              '&:before': { display: 'none' },
-              bgcolor: 'transparent',
-            }}
-          >
-            <AccordionSummary
-              expandIcon={<ChevronDown size={16} />}
-              sx={{
-                minHeight: 36,
-                px: 0,
-                '& .MuiAccordionSummary-content': { my: 0.5 },
-              }}
-            >
-              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                {group.providerEmail}
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 0 }}>
-              <List disablePadding>
-                {group.calendars.map((cal) => (
-                  <ListItem
-                    key={cal.id}
-                    disablePadding
-                    sx={{ mb: 0.25 }}
-                    secondaryAction={
-                      <Tooltip title="Change color">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleOpenColorPicker(e, cal.id)}
-                          sx={{ p: 0.5 }}
-                        >
-                          <Palette size={14} />
-                        </IconButton>
-                      </Tooltip>
-                    }
-                  >
-                    <ListItemIcon sx={{ minWidth: 32 }}>
-                      <Checkbox
-                        size="small"
-                        checked={cal.enabled}
-                        onChange={() => handleToggleCalendar(cal.id)}
-                        sx={{
-                          color: cal.color,
-                          '&.Mui-checked': { color: cal.color },
-                          p: 0.5,
-                        }}
-                      />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={cal.calendarName}
-                      primaryTypographyProps={{ fontSize: '0.8125rem', noWrap: true }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </AccordionDetails>
-          </Accordion>
-        ))}
-        {providerGroups.length === 0 && !loading && (
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', p: 1 }}>
-            {calendarCopy.noProviders || 'No calendars found. Add a provider in Settings.'}
-          </Typography>
-        )}
-      </Box>
-
-      {/* AI Assistant - Only show if there are events */}
-      {storeEvents.length > 5 && (
-        <Box
-          sx={{
-            mt: 'auto',
-            p: 2,
-            borderRadius: 2,
-            bgcolor: 'primary.main',
-            color: 'white',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Sparkles size={20} />
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              {calendarCopy.aiInsightsTitle}
-            </Typography>
-          </Box>
-          <Typography variant="body2" sx={{ fontSize: '0.75rem', mb: 1.5, opacity: 0.9 }}>
-            {calendarCopy.aiOptimizeMessage.replace('{count}', storeEvents.length.toString())}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              size="small"
-              variant="contained"
-              sx={{
-                bgcolor: 'white',
-                color: 'primary.main',
-                '&:hover': { bgcolor: 'grey.100' },
-              }}
-              onClick={() => router.push('/dashboard/ai')}
-            >
-              {calendarCopy.openAiAssistant}
-            </Button>
-          </Box>
-        </Box>
-      )}
-      {storeEvents.length === 0 && !loading && (
-        <Box
-          sx={{
-            mt: 'auto',
-            p: 2,
-            borderRadius: 2,
-            bgcolor: 'action.hover',
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-            {calendarCopy.noEventsMessage}
-          </Typography>
-        </Box>
-      )}
-    </>
-  );
-
   return (
-    <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', overflow: 'hidden' }}>
+    <Box
+      sx={{
+        height: 'calc(100vh - 64px)',
+        display: 'flex',
+        overflow: 'hidden',
+        bgcolor: alpha(theme.palette.background.default, 0.5),
+      }}
+    >
       {/* Desktop Sidebar */}
       <Paper
         sx={{
           width: 280,
           borderRadius: 0,
-          borderRight: 1,
-          borderColor: 'divider',
+          borderRight: '1px solid',
+          borderColor: alpha(theme.palette.divider, 0.08),
           display: { xs: 'none', md: 'flex' },
           flexDirection: 'column',
           p: 2,
+          bgcolor: alpha(theme.palette.background.paper, 0.7),
+          backdropFilter: 'blur(20px)',
         }}
       >
-        {renderSidebarContent()}
+        <CalendarSidebar
+          quickEventText={quickEventText}
+          onQuickEventTextChange={setQuickEventText}
+          onQuickEvent={handleQuickEvent}
+          onOpenEventDialog={() => setEventDialogOpen(true)}
+          providerGroups={providerGroups}
+          calendarPrefs={calendarPrefs}
+          onToggleCalendar={handleToggleCalendar}
+          onToggleProviderExpanded={handleToggleProviderExpanded}
+          onColorSelect={handleColorSelect}
+          colorPickerAnchor={colorPickerAnchor}
+          colorPickerCalendarId={colorPickerCalendarId}
+          onOpenColorPicker={handleOpenColorPicker}
+          onCloseColorPicker={handleCloseColorPicker}
+          eventCount={storeEvents.length}
+          isLoading={loading}
+        />
       </Paper>
 
       {/* Mobile Drawer */}
@@ -1218,88 +845,63 @@ export function Calendar() {
         open={mobileDrawerOpen}
         onClose={() => setMobileDrawerOpen(false)}
         sx={{ display: { xs: 'block', md: 'none' } }}
-        slotProps={{
-          paper: { sx: { width: 280, p: 2 } },
+        PaperProps={{
+          sx: {
+            width: 280,
+            p: 2,
+            bgcolor: alpha(theme.palette.background.paper, 0.95),
+            backdropFilter: 'blur(20px)',
+          },
         }}
       >
-        {renderSidebarContent()}
+        <CalendarSidebar
+          quickEventText={quickEventText}
+          onQuickEventTextChange={setQuickEventText}
+          onQuickEvent={handleQuickEvent}
+          onOpenEventDialog={() => setEventDialogOpen(true)}
+          providerGroups={providerGroups}
+          calendarPrefs={calendarPrefs}
+          onToggleCalendar={handleToggleCalendar}
+          onToggleProviderExpanded={handleToggleProviderExpanded}
+          onColorSelect={handleColorSelect}
+          colorPickerAnchor={colorPickerAnchor}
+          colorPickerCalendarId={colorPickerCalendarId}
+          onOpenColorPicker={handleOpenColorPicker}
+          onCloseColorPicker={handleCloseColorPicker}
+          eventCount={storeEvents.length}
+          isLoading={loading}
+          onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
+        />
       </Drawer>
-
-      {/* Calendar Color Picker */}
-      <CalendarColorPicker
-        selectedColor={colorPickerCalendarId ? calendarPrefs.get(colorPickerCalendarId)?.color || '#0B7EFF' : '#0B7EFF'}
-        onColorSelect={handleColorSelect}
-        onClose={handleCloseColorPicker}
-        anchorEl={colorPickerAnchor}
-      />
 
       {/* Calendar Main */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
-        <Box
-          sx={{
-            p: 2,
-            borderBottom: 1,
-            borderColor: 'divider',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-          }}
-        >
-          {/* Hamburger menu for mobile */}
-          <IconButton
-            size="small"
-            onClick={() => setMobileDrawerOpen(true)}
-            sx={{ display: { xs: 'flex', md: 'none' } }}
-          >
-            <Menu size={20} />
-          </IconButton>
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            {currentMonth} {currentYear}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <IconButton size="small" onClick={handlePrevMonth}>
-              <ChevronLeft size={20} />
-            </IconButton>
-            <IconButton size="small" onClick={handleNextMonth}>
-              <ChevronRight size={20} />
-            </IconButton>
-          </Box>
-          <Button variant="outlined" size="small" onClick={handleToday}>
-            {calendarCopy.today}
-          </Button>
-
-          <Tooltip title={calendarCopy.refreshTooltip}>
-            <IconButton
-              size="small"
-              onClick={() => loadData(true)}
-              disabled={loading || isSyncing}
-              sx={{ ml: 1 }}
-            >
-              <RefreshCw
-                size={18}
-                className={loading || isSyncing ? 'animate-spin' : ''}
-              />
-            </IconButton>
-          </Tooltip>
-
-          <Box sx={{ flex: 1 }} />
-
-          <ToggleButtonGroup
-            value={viewType}
-            exclusive
-            onChange={(_, newView) => newView && setViewType(newView)}
-            size="small"
-          >
-            <ToggleButton value="day">{calendarCopy.day}</ToggleButton>
-            <ToggleButton value="week">{calendarCopy.week}</ToggleButton>
-            <ToggleButton value="month">{calendarCopy.month}</ToggleButton>
-            <ToggleButton value="list">{calendarCopy.list}</ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+        <CalendarHeader
+          currentMonth={currentMonth}
+          currentYear={currentYear}
+          viewType={viewType}
+          onViewTypeChange={setViewType}
+          onPrev={handlePrevMonth}
+          onNext={handleNextMonth}
+          onToday={handleToday}
+          onRefresh={() => loadData(true)}
+          isLoading={loading}
+          isSyncing={isSyncing}
+          onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
+        />
 
         {/* Calendar Grid */}
-        <Box sx={{ flex: 1, overflow: 'auto', p: 3, position: 'relative' }}>
+        <Box
+          sx={{
+            flex: 1,
+            overflow: 'auto',
+            p: 3,
+            position: 'relative',
+            bgcolor: alpha(theme.palette.background.paper, 0.5),
+            backdropFilter: 'blur(10px)',
+          }}
+        >
           {loading && (
             <Box
               sx={{
@@ -1311,7 +913,8 @@ export function Calendar() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                bgcolor: 'rgba(0, 0, 0, 0.05)',
+                bgcolor: alpha(theme.palette.background.paper, 0.5),
+                backdropFilter: 'blur(4px)',
                 zIndex: 10,
               }}
             >
@@ -1332,7 +935,6 @@ export function Calendar() {
             eventClick={handleEventClick}
             height="100%"
             eventDisplay="block"
-            // Time formatting
             eventTimeFormat={{
               hour: '2-digit',
               minute: '2-digit',
@@ -1343,34 +945,27 @@ export function Calendar() {
               minute: '2-digit',
               meridiem: false,
             }}
-            // Locales - all 70+ FullCalendar locales available
             locales={calendarLocales}
             locale={calendarLocale}
-            // Navigation and display
             nowIndicator={true}
             navLinks={true}
             weekNumbers={true}
             weekNumberCalculation="ISO"
-            // Time grid settings
             slotMinTime="06:00:00"
             slotMaxTime="22:00:00"
             slotDuration="00:30:00"
-            // Business hours (can be customized)
             businessHours={{
-              daysOfWeek: [1, 2, 3, 4, 5], // Monday - Friday
+              daysOfWeek: [1, 2, 3, 4, 5],
               startTime: '09:00',
               endTime: '18:00',
             }}
-            // Drag and drop / resize
             eventResizableFromStart={true}
             eventDurationEditable={true}
             eventStartEditable={true}
-            // Date/time settings
-            firstDay={1} // Monday as first day of week
+            firstDay={1}
             weekends={true}
             fixedWeekCount={false}
             showNonCurrentDates={true}
-            // List view settings
             listDayFormat={{
               month: 'long',
               day: 'numeric',
@@ -1379,10 +974,8 @@ export function Calendar() {
             listDaySideFormat={{
               weekday: 'long',
             }}
-            // All-day settings
             allDaySlot={true}
             allDayText={calendarLocale === 'it' ? 'Tutto il giorno' : 'All day'}
-            // Multi-month/day settings
             dayMaxEventRows={3}
             moreLinkClick="popover"
           />
@@ -1390,279 +983,36 @@ export function Calendar() {
       </Box>
 
       {/* Create Event Dialog */}
-      <Dialog open={eventDialogOpen} onClose={() => { setEventDialogOpen(false); setFormErrors({}); }} maxWidth="sm" fullWidth>
-        <DialogTitle>{calendarCopy.createEventDialogTitle}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField
-              fullWidth
-              label={calendarCopy.eventTitleLabel}
-              value={newEvent.title}
-              onChange={(e) => {
-                setNewEvent({ ...newEvent, title: e.target.value });
-                if (formErrors.title) setFormErrors({ ...formErrors, title: undefined });
-              }}
-              error={!!formErrors.title}
-              helperText={formErrors.title}
-              required
-            />
-            <TextField
-              fullWidth
-              label={calendarCopy.startDateTime}
-              type="datetime-local"
-              value={newEvent.start}
-              onChange={(e) => {
-                setNewEvent({ ...newEvent, start: e.target.value });
-                if (formErrors.start) setFormErrors({ ...formErrors, start: undefined });
-              }}
-              InputLabelProps={{ shrink: true }}
-              error={!!formErrors.start}
-              helperText={formErrors.start}
-              required
-            />
-            <TextField
-              fullWidth
-              label={calendarCopy.endDateTime}
-              type="datetime-local"
-              value={newEvent.end}
-              onChange={(e) => {
-                setNewEvent({ ...newEvent, end: e.target.value });
-                if (formErrors.end) setFormErrors({ ...formErrors, end: undefined });
-              }}
-              InputLabelProps={{ shrink: true }}
-              error={!!formErrors.end}
-              helperText={formErrors.end}
-              required
-            />
-            <FormControl fullWidth>
-              <InputLabel>{calendarCopy.calendarLabel}</InputLabel>
-              <Select
-                value={newEvent.calendar}
-                onChange={(e) => setNewEvent({ ...newEvent, calendar: e.target.value })}
-                label={calendarCopy.calendarLabel}
-              >
-                {Array.from(calendarPrefs.values()).map((cal) => (
-                  <MenuItem key={cal.id} value={cal.calendarId}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box
-                        sx={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: '50%',
-                          bgcolor: cal.color,
-                        }}
-                      />
-                      {cal.calendarName}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              fullWidth
-              label={calendarCopy.eventDescription}
-              multiline
-              rows={3}
-              value={newEvent.description}
-              onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setEventDialogOpen(false); setFormErrors({}); }}>{calendarCopy.cancelEvent}</Button>
-          <Button variant="contained" onClick={handleCreateEvent}>
-            {calendarCopy.saveEvent}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <CalendarEventDialog
+        open={eventDialogOpen}
+        onClose={() => setEventDialogOpen(false)}
+        newEvent={newEvent}
+        onEventChange={setNewEvent}
+        formErrors={formErrors}
+        onFormErrorChange={setFormErrors}
+        onCreate={handleCreateEvent}
+        calendarPrefs={calendarPrefs}
+      />
 
       {/* Event Details/Edit Dialog */}
-      <Dialog
+      <CalendarEventDetail
         open={eventDetailsOpen}
         onClose={handleCloseEventDetails}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {isEditMode ? (calendarCopy.editEvent || 'Edit Event') : (calendarCopy.eventDetails || 'Event Details')}
-          <Box>
-            {!isEditMode && (
-              <>
-                <IconButton size="small" onClick={() => setIsEditMode(true)} sx={{ mr: 0.5 }}>
-                  <Edit2 size={18} />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={handleDeleteEvent}
-                  disabled={isDeleting}
-                >
-                  <Trash2 size={18} />
-                </IconButton>
-              </>
-            )}
-            <IconButton size="small" onClick={handleCloseEventDetails} sx={{ ml: 1 }}>
-              <X size={18} />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          {selectedEvent && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-              {isEditMode ? (
-                <>
-                  <TextField
-                    fullWidth
-                    label={calendarCopy.eventTitleLabel}
-                    value={editedEvent.title}
-                    onChange={(e) => {
-                      setEditedEvent({ ...editedEvent, title: e.target.value });
-                      if (editFormErrors.title) setEditFormErrors({ ...editFormErrors, title: undefined });
-                    }}
-                    required
-                    error={!!editFormErrors.title}
-                    helperText={editFormErrors.title}
-                  />
-                  <TextField
-                    fullWidth
-                    label={calendarCopy.startDateTime}
-                    type="datetime-local"
-                    value={editedEvent.start}
-                    onChange={(e) => {
-                      setEditedEvent({ ...editedEvent, start: e.target.value });
-                      if (editFormErrors.start) setEditFormErrors({ ...editFormErrors, start: undefined });
-                    }}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    required
-                    error={!!editFormErrors.start}
-                    helperText={editFormErrors.start}
-                  />
-                  <TextField
-                    fullWidth
-                    label={calendarCopy.endDateTime}
-                    type="datetime-local"
-                    value={editedEvent.end}
-                    onChange={(e) => {
-                      setEditedEvent({ ...editedEvent, end: e.target.value });
-                      if (editFormErrors.end) setEditFormErrors({ ...editFormErrors, end: undefined });
-                    }}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    required
-                    error={!!editFormErrors.end}
-                    helperText={editFormErrors.end}
-                  />
-                  <TextField
-                    fullWidth
-                    label={calendarCopy.location}
-                    value={editedEvent.location}
-                    onChange={(e) => setEditedEvent({ ...editedEvent, location: e.target.value })}
-                  />
-                  <TextField
-                    fullWidth
-                    label={calendarCopy.eventDescription}
-                    multiline
-                    rows={3}
-                    value={editedEvent.description}
-                    onChange={(e) => setEditedEvent({ ...editedEvent, description: e.target.value })}
-                  />
-                </>
-              ) : (
-                <>
-                  <Typography variant="h6">{selectedEvent.title}</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
-                    <Clock size={16} />
-                    <Typography variant="body2">
-                      {new Date(selectedEvent.startTime).toLocaleString()} - {new Date(selectedEvent.endTime).toLocaleString()}
-                    </Typography>
-                  </Box>
-                  {selectedEvent.location && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary' }}>
-                      <MapPin size={16} />
-                      <Typography variant="body2">{selectedEvent.location}</Typography>
-                    </Box>
-                  )}
-                  {selectedEvent.description && (
-                    <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
-                      {selectedEvent.description}
-                    </Typography>
-                  )}
-                  {selectedEvent.calendarName && (
-                    <Typography variant="caption" color="text.secondary">
-                      {calendarCopy.calendarLabel}: {selectedEvent.calendarName}
-                    </Typography>
-                  )}
-
-                  {/* Attachments section */}
-                  {(attachments.length > 0 || loadingAttachments) && (
-                    <Box sx={{ mt: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Paperclip size={16} />
-                        <Typography variant="subtitle2">
-                          {calendarCopy.attachments} ({attachments.length})
-                        </Typography>
-                      </Box>
-                      {loadingAttachments ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                          <CircularProgress size={20} />
-                        </Box>
-                      ) : (
-                        <List dense sx={{ py: 0 }}>
-                          {attachments.map((attachment) => (
-                            <ListItem
-                              key={attachment.id}
-                              sx={{
-                                px: 1,
-                                borderRadius: 1,
-                                '&:hover': { bgcolor: 'action.hover' },
-                              }}
-                              secondaryAction={
-                                <IconButton
-                                  edge="end"
-                                  size="small"
-                                  onClick={() => handleDownloadAttachment(attachment)}
-                                  title={calendarCopy.download}
-                                >
-                                  <Download size={16} />
-                                </IconButton>
-                              }
-                            >
-                              <ListItemIcon sx={{ minWidth: 32 }}>
-                                {getAttachmentIcon(attachment.mimeType)}
-                              </ListItemIcon>
-                              <ListItemText
-                                primary={attachment.filename}
-                                secondary={formatFileSize(attachment.size)}
-                                primaryTypographyProps={{ variant: 'body2', noWrap: true }}
-                                secondaryTypographyProps={{ variant: 'caption' }}
-                              />
-                            </ListItem>
-                          ))}
-                        </List>
-                      )}
-                    </Box>
-                  )}
-                </>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          {isEditMode ? (
-            <>
-              <Button onClick={() => { setIsEditMode(false); setEditFormErrors({}); }}>{calendarCopy.cancelEvent}</Button>
-              <Button
-                variant="contained"
-                onClick={handleUpdateEvent}
-                disabled={isSaving}
-              >
-                {isSaving ? <CircularProgress size={20} /> : (calendarCopy.saveEvent)}
-              </Button>
-            </>
-          ) : (
-            <Button onClick={handleCloseEventDetails}>{calendarCopy.close}</Button>
-          )}
-        </DialogActions>
-      </Dialog>
+        selectedEvent={selectedEvent}
+        isEditMode={isEditMode}
+        onEditModeChange={setIsEditMode}
+        editedEvent={editedEvent}
+        onEditedEventChange={setEditedEvent}
+        editFormErrors={editFormErrors}
+        onFormErrorChange={setEditFormErrors}
+        onUpdate={handleUpdateEvent}
+        onDelete={handleDeleteEvent}
+        isSaving={isSaving}
+        isDeleting={isDeleting}
+        attachments={attachments}
+        loadingAttachments={loadingAttachments}
+        onDownloadAttachment={handleDownloadAttachment}
+      />
 
       {/* Snackbar for notifications */}
       <Snackbar
@@ -1675,7 +1025,7 @@ export function Calendar() {
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: '100%' }}
+          sx={{ width: '100%', borderRadius: 2 }}
         >
           {snackbar.message}
         </MuiAlert>

@@ -8,6 +8,8 @@ import {
   Divider,
   IconButton,
   Tooltip,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import { Mail, Phone, Edit, Trash2, Building } from 'lucide-react';
 import type { Contact } from '@/lib/api/contacts';
@@ -125,6 +127,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
     onCall,
     onClick,
   }) => {
+    const theme = useTheme();
     const t = useTranslations();
     const displayName = useMemo(() => getDisplayName(contact), [contact]);
     const initials = useMemo(() => getInitials(contact), [contact]);
@@ -289,7 +292,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
             </Box>
           </ListItemButton>
 
-          {/* Floating Action Bar - Centered */}
+          {/* Floating Action Bar - Glassmorphism */}
           {(onEdit || onDelete || onEmail || onCall) && (
             <Box
               className="contact-action-bar"
@@ -304,9 +307,11 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                 zIndex: 10,
                 display: 'flex',
                 gap: 0.5,
-                bgcolor: 'background.paper',
-                borderRadius: 1,
-                boxShadow: 2,
+                bgcolor: alpha(theme.palette.background.paper, 0.85),
+                backdropFilter: 'blur(12px)',
+                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                borderRadius: 2,
+                boxShadow: `0 4px 20px ${alpha(theme.palette.common.black, 0.1)}`,
                 p: 0.5,
               }}
             >

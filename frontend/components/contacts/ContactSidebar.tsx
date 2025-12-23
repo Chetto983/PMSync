@@ -15,6 +15,8 @@ import {
   AccordionSummary,
   AccordionDetails,
   Stack,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import { Plus, RefreshCcw, Users, Building, Mail, Phone, ChevronDown, Filter } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -118,6 +120,7 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
   selectedFilter,
   onFilterSelect,
 }) => {
+  const theme = useTheme();
   const t = useTranslations();
 
   // Track which sections are expanded
@@ -133,6 +136,8 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
         flexDirection: 'column',
         borderRadius: 0,
         p: 0,
+        bgcolor: alpha(theme.palette.background.paper, 0.8),
+        backdropFilter: 'blur(20px)',
       }}
     >
       {/* Header with buttons */}
@@ -192,7 +197,7 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
           flex: 1,
           overflow: 'auto',
           scrollbarWidth: 'thin',
-          scrollbarColor: '#bdbdbd transparent',
+          scrollbarColor: `${theme.palette.action.hover} transparent`,
           '&::-webkit-scrollbar': {
             width: '8px',
           },
@@ -200,10 +205,10 @@ export const ContactSidebar: React.FC<ContactSidebarProps> = ({
             bgcolor: 'transparent',
           },
           '&::-webkit-scrollbar-thumb': {
-            bgcolor: '#bdbdbd',
+            bgcolor: theme.palette.action.hover,
             borderRadius: '4px',
             '&:hover': {
-              bgcolor: '#9e9e9e',
+              bgcolor: theme.palette.action.selected,
             },
           },
         }}

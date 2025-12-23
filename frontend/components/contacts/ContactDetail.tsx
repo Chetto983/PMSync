@@ -13,6 +13,8 @@ import {
   Stack,
   Link,
   Chip,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import {
   Mail,
@@ -182,10 +184,24 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   onEmail,
   isLoading = false,
 }) => {
+  const theme = useTheme();
   const t = useTranslations();
   const contactsCopy = t.contacts || {};
   const detailsCopy = contactsCopy.details || {};
   const [tabValue, setTabValue] = useState(0);
+
+  // Glassmorphism card styles
+  const glassCardSx = {
+    bgcolor: alpha(theme.palette.background.paper, 0.7),
+    backdropFilter: 'blur(20px)',
+    border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+    borderRadius: 2,
+    transition: 'all 0.2s ease-in-out',
+    '&:hover': {
+      bgcolor: alpha(theme.palette.background.paper, 0.85),
+      borderColor: alpha(theme.palette.primary.main, 0.2),
+    },
+  };
 
   const contactName = useMemo(() => getContactName(contact, t.common?.unnamedContact ?? 'Unnamed contact'), [contact, t.common?.unnamedContact]);
   const primaryEmail = useMemo(() => getPrimaryEmail(contact), [contact]);
@@ -302,10 +318,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
               </Typography>
               <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
                 {contact.emails.map((email, idx) => (
-                  <Card variant="outlined" key={idx}>
+                  <Card variant="outlined" key={idx} sx={glassCardSx}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Mail size={18} color="#0B7EFF" />
+                        <Mail size={18} color={theme.palette.info.main} />
                         <Typography variant="subtitle2" color="text.secondary">
                           {email.type || detailsCopy.emailType || 'Email'} {email.primary && `(${detailsCopy.primary ?? 'Primary'})`}
                         </Typography>
@@ -328,10 +344,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
               </Typography>
               <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
                 {contact.phoneNumbers.map((phone, idx) => (
-                  <Card variant="outlined" key={idx}>
+                  <Card variant="outlined" key={idx} sx={glassCardSx}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Phone size={18} color="#00C853" />
+                        <Phone size={18} color={theme.palette.success.main} />
                         <Typography variant="subtitle2" color="text.secondary">
                           {phone.type || detailsCopy.phoneType || 'Phone'} {phone.primary && `(${detailsCopy.primary ?? 'Primary'})`}
                         </Typography>
@@ -354,10 +370,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {contact.addresses.map((address, idx) => (
-                  <Card variant="outlined" key={idx}>
+                  <Card variant="outlined" key={idx} sx={glassCardSx}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <MapPin size={18} color="#9C27B0" />
+                        <MapPin size={18} color={theme.palette.secondary.main} />
                         <Typography variant="subtitle2" color="text.secondary">
                           {address.type || detailsCopy.addressType || 'Address'}
                         </Typography>
@@ -382,10 +398,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
               </Typography>
               <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
                 {contact.company && (
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={glassCardSx}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Building size={18} color="#FF9800" />
+                        <Building size={18} color={theme.palette.warning.main} />
                         <Typography variant="subtitle2" color="text.secondary">
                           {contactsCopy.details?.company || 'Company'}
                         </Typography>
@@ -395,10 +411,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                   </Card>
                 )}
                 {contact.jobTitle && (
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={glassCardSx}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Building size={18} color="#FF9800" />
+                        <Building size={18} color={theme.palette.warning.main} />
                         <Typography variant="subtitle2" color="text.secondary">
                           {contactsCopy.details?.jobTitle || 'Job Title'}
                         </Typography>
@@ -408,10 +424,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                   </Card>
                 )}
                 {contact.department && (
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={glassCardSx}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Building size={18} color="#FF9800" />
+                        <Building size={18} color={theme.palette.warning.main} />
                         <Typography variant="subtitle2" color="text.secondary">
                           {contactsCopy.details?.department || 'Department'}
                         </Typography>
@@ -432,10 +448,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
               </Typography>
               <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
                 {contact.birthday && (
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={glassCardSx}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Cake size={18} color="#E91E63" />
+                        <Cake size={18} color={theme.palette.error.main} />
                         <Typography variant="subtitle2" color="text.secondary">
                           {contactsCopy.details?.birthday || 'Birthday'}
                         </Typography>
@@ -447,10 +463,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                   </Card>
                 )}
                 {contact.anniversary && (
-                  <Card variant="outlined">
+                  <Card variant="outlined" sx={glassCardSx}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Calendar size={18} color="#E91E63" />
+                        <Calendar size={18} color={theme.palette.error.main} />
                         <Typography variant="subtitle2" color="text.secondary">
                           {contactsCopy.details?.anniversary || 'Anniversary'}
                         </Typography>
@@ -473,10 +489,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
               </Typography>
               <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
                 {contact.websites.map((website, idx) => (
-                  <Card variant="outlined" key={idx}>
+                  <Card variant="outlined" key={idx} sx={glassCardSx}>
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Globe size={18} color="#4CAF50" />
+                        <Globe size={18} color={theme.palette.success.main} />
                         <Typography variant="subtitle2" color="text.secondary">
                           {website.type || detailsCopy.websiteType || 'Website'}
                         </Typography>
@@ -497,7 +513,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 {contactsCopy.notes?.title || 'Notes'}
               </Typography>
-              <Card variant="outlined">
+              <Card variant="outlined" sx={glassCardSx}>
                 <CardContent>
                   <Typography variant="body2">{contact.notes}</Typography>
                 </CardContent>
@@ -507,10 +523,10 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
 
           {/* Last Interaction */}
           <Box>
-            <Card variant="outlined">
+            <Card variant="outlined" sx={glassCardSx}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Clock size={18} color="#757575" />
+                  <Clock size={18} color={theme.palette.text.secondary} />
                   <Typography variant="subtitle2" color="text.secondary">
                     {contactsCopy.details?.lastInteraction || 'Last Interaction'}
                   </Typography>

@@ -6,7 +6,7 @@
  * - Calendar list grouped by provider (accordion)
  * - Color picker for calendar customization
  * - AI insights panel
- * - Glassmorphism styling
+ * - Matches dashboard and email UI/UX patterns with glassmorphism
  *
  * @see https://fullcalendar.io/docs
  */
@@ -27,6 +27,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import { Plus, Sparkles, ChevronDown, Palette } from 'lucide-react';
 import { useRouter } from 'next/router';
@@ -92,33 +94,6 @@ interface CalendarSidebarProps {
 }
 
 // ============================================================================
-// GLASSMORPHISM STYLES
-// ============================================================================
-
-const glassStyles = {
-  container: {
-    background: 'rgba(255, 255, 255, 0.7)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    borderRight: '1px solid rgba(255, 255, 255, 0.3)',
-  },
-  card: {
-    background: 'rgba(255, 255, 255, 0.5)',
-    backdropFilter: 'blur(10px)',
-    WebkitBackdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
-    boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
-  },
-  aiPanel: {
-    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.9) 0%, rgba(139, 92, 246, 0.9) 100%)',
-    backdropFilter: 'blur(10px)',
-    WebkitBackdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    boxShadow: '0 8px 32px rgba(99, 102, 241, 0.3)',
-  },
-};
-
-// ============================================================================
 // COMPONENT
 // ============================================================================
 
@@ -141,6 +116,7 @@ export function CalendarSidebar({
   onCloseMobileDrawer,
 }: CalendarSidebarProps) {
   const router = useRouter();
+  const theme = useTheme();
   const t = useTranslations();
   const calendarCopy = t.calendar;
 
@@ -175,10 +151,18 @@ export function CalendarSidebar({
           onChange={(e) => onQuickEventTextChange(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && onQuickEvent()}
           sx={{
-            mb: 1,
+            mb: 1.5,
             '& .MuiOutlinedInput-root': {
-              ...glassStyles.card,
               borderRadius: 2,
+              bgcolor: alpha(theme.palette.background.paper, 0.8),
+              backdropFilter: 'blur(10px)',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                bgcolor: alpha(theme.palette.background.paper, 0.95),
+              },
+              '&.Mui-focused': {
+                bgcolor: theme.palette.background.paper,
+              },
             },
           }}
         />
@@ -188,10 +172,15 @@ export function CalendarSidebar({
           startIcon={<Plus size={18} />}
           onClick={handleOpenEventDialog}
           sx={{
+            minHeight: 48,
             borderRadius: 2,
             textTransform: 'none',
             fontWeight: 600,
-            boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)',
+            fontSize: '0.95rem',
+            boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.3)}`,
+            '&:hover': {
+              boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+            },
           }}
         >
           {calendarCopy.createEvent}
@@ -199,7 +188,7 @@ export function CalendarSidebar({
       </Box>
 
       {/* Calendars - Grouped by Provider */}
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>
         {calendarCopy.filterTitle}
       </Typography>
       <Box
@@ -207,9 +196,21 @@ export function CalendarSidebar({
           mb: 2,
           overflow: 'auto',
           flex: 1,
-          ...glassStyles.card,
-          borderRadius: 2,
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: alpha(theme.palette.divider, 0.08),
+          bgcolor: alpha(theme.palette.background.paper, 0.6),
+          backdropFilter: 'blur(10px)',
           p: 1,
+          scrollbarWidth: 'thin',
+          scrollbarColor: `${alpha(theme.palette.text.secondary, 0.3)} transparent`,
+          '&::-webkit-scrollbar': { width: '6px' },
+          '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
+          '&::-webkit-scrollbar-thumb': {
+            bgcolor: alpha(theme.palette.text.secondary, 0.3),
+            borderRadius: '3px',
+            '&:hover': { bgcolor: alpha(theme.palette.text.secondary, 0.5) },
+          },
         }}
       >
         {providerGroups.map((group) => (
@@ -227,16 +228,20 @@ export function CalendarSidebar({
             <AccordionSummary
               expandIcon={<ChevronDown size={16} />}
               sx={{
-                minHeight: 36,
+                minHeight: 40,
                 px: 1,
+                borderRadius: 2,
                 '& .MuiAccordionSummary-content': { my: 0.5 },
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.04),
+                },
               }}
             >
               <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
                 {group.providerEmail}
               </Typography>
             </AccordionSummary>
-            <AccordionDetails sx={{ p: 0, px: 1 }}>
+            <AccordionDetails sx={{ p: 0, px: 0.5 }}>
               <List disablePadding>
                 {group.calendars.map((cal) => (
                   <ListItem
@@ -244,10 +249,10 @@ export function CalendarSidebar({
                     disablePadding
                     sx={{
                       mb: 0.25,
-                      borderRadius: 1,
-                      transition: 'background-color 0.2s ease',
+                      borderRadius: 1.5,
+                      transition: 'all 0.2s ease',
                       '&:hover': {
-                        bgcolor: 'rgba(99, 102, 241, 0.08)',
+                        bgcolor: alpha(theme.palette.primary.main, 0.08),
                       },
                     }}
                     secondaryAction={
@@ -255,7 +260,14 @@ export function CalendarSidebar({
                         <IconButton
                           size="small"
                           onClick={(e) => onOpenColorPicker(e, cal.id)}
-                          sx={{ p: 0.5 }}
+                          sx={{
+                            p: 0.5,
+                            color: 'text.secondary',
+                            '&:hover': {
+                              bgcolor: alpha(theme.palette.primary.main, 0.1),
+                              color: 'primary.main',
+                            },
+                          }}
                         >
                           <Palette size={14} />
                         </IconButton>
@@ -276,7 +288,12 @@ export function CalendarSidebar({
                     </ListItemIcon>
                     <ListItemText
                       primary={cal.calendarName}
-                      primaryTypographyProps={{ fontSize: '0.8125rem', noWrap: true }}
+                      primaryTypographyProps={{
+                        fontSize: '0.8125rem',
+                        noWrap: true,
+                        fontWeight: cal.enabled ? 500 : 400,
+                        color: cal.enabled ? 'text.primary' : 'text.secondary',
+                      }}
                     />
                   </ListItem>
                 ))}
@@ -285,7 +302,7 @@ export function CalendarSidebar({
           </Accordion>
         ))}
         {providerGroups.length === 0 && !isLoading && (
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', p: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', p: 1.5, textAlign: 'center' }}>
             {calendarCopy.noProviders}
           </Typography>
         )}
@@ -296,9 +313,13 @@ export function CalendarSidebar({
         <Box
           sx={{
             mt: 'auto',
-            p: 2,
+            p: 2.5,
             borderRadius: 3,
-            ...glassStyles.aiPanel,
+            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.9)} 0%, ${alpha(theme.palette.secondary.main, 0.9)} 100%)`,
+            backdropFilter: 'blur(10px)',
+            border: '1px solid',
+            borderColor: alpha(theme.palette.common.white, 0.2),
+            boxShadow: `0 8px 32px ${alpha(theme.palette.primary.main, 0.3)}`,
             color: 'white',
           }}
         >
@@ -308,25 +329,28 @@ export function CalendarSidebar({
               {calendarCopy.aiInsightsTitle}
             </Typography>
           </Box>
-          <Typography variant="body2" sx={{ fontSize: '0.75rem', mb: 1.5, opacity: 0.9 }}>
+          <Typography variant="body2" sx={{ fontSize: '0.8rem', mb: 2, opacity: 0.9, lineHeight: 1.5 }}>
             {calendarCopy.aiOptimizeMessage.replace('{count}', eventCount.toString())}
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              size="small"
-              variant="contained"
-              sx={{
-                bgcolor: 'rgba(255, 255, 255, 0.9)',
-                color: 'primary.main',
-                fontWeight: 600,
-                textTransform: 'none',
-                '&:hover': { bgcolor: 'white' },
-              }}
-              onClick={() => router.push('/dashboard/ai')}
-            >
-              {calendarCopy.openAiAssistant}
-            </Button>
-          </Box>
+          <Button
+            size="small"
+            variant="contained"
+            sx={{
+              bgcolor: alpha(theme.palette.common.white, 0.95),
+              color: theme.palette.primary.main,
+              fontWeight: 600,
+              textTransform: 'none',
+              borderRadius: 2,
+              px: 2,
+              '&:hover': {
+                bgcolor: theme.palette.common.white,
+                boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.15)}`,
+              },
+            }}
+            onClick={() => router.push('/dashboard/ai')}
+          >
+            {calendarCopy.openAiAssistant}
+          </Button>
         </Box>
       )}
 
@@ -337,10 +361,13 @@ export function CalendarSidebar({
             mt: 'auto',
             p: 2,
             borderRadius: 3,
-            ...glassStyles.card,
+            bgcolor: alpha(theme.palette.background.paper, 0.6),
+            backdropFilter: 'blur(10px)',
+            border: '1px solid',
+            borderColor: alpha(theme.palette.divider, 0.08),
           }}
         >
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem', textAlign: 'center' }}>
             {calendarCopy.noEventsMessage}
           </Typography>
         </Box>
