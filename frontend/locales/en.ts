@@ -1037,6 +1037,14 @@ export const en: AppTranslations = {
       endAfterStart: 'End time must be after start time',
       duplicateEvent: 'An event with this title already exists at the same time',
     },
+    // Color picker
+    colorPicker: {
+      title: 'Choose Color',
+      presetColors: 'Preset Colors',
+      customColor: 'Custom Color',
+      hexInput: 'Hex',
+      apply: 'Apply',
+    },
     // UI labels
     changeColor: 'Change color',
     attachments: 'Attachments',

@@ -1025,6 +1025,15 @@ export const it: AppTranslations = {
       endAfterStart: 'L\'ora di fine deve essere successiva all\'ora di inizio',
       duplicateEvent: 'Un evento con questo titolo esiste già allo stesso orario',
     },
+    // Color picker
+    colorPicker: {
+      title: 'Scegli Colore',
+      presetColors: 'Colori Predefiniti',
+      customColor: 'Colore Personalizzato',
+      hexInput: 'Esadecimale',
+      apply: 'Applica',
+    },
+    // UI labels
     changeColor: 'Cambia colore',
     attachments: 'Allegati',
     download: 'Scarica',

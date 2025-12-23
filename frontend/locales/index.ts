@@ -964,6 +964,13 @@ export interface AppTranslations {
       endAfterStart: string;
       duplicateEvent: string;
     };
+    colorPicker: {
+      title: string;
+      presetColors: string;
+      customColor: string;
+      hexInput: string;
+      apply: string;
+    };
     changeColor: string;
     attachments: string;
     download: string;

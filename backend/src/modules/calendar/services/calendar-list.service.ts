@@ -37,6 +37,15 @@ export interface UpdateCalendarPreferencesDto {
   color?: string;
 }
 
+/** Internal preference type for calendar color/visibility */
+interface CalendarPref {
+  providerId: string;
+  calendarId: string;
+  color: string | null;
+  displayName: string | null;
+  isVisible: boolean;
+}
+
 // ============================================================================
 // SERVICE
 // ============================================================================
@@ -53,6 +62,7 @@ export class CalendarListService {
   /**
    * List all calendars from all providers for a tenant
    * Extracts unique calendars from existing calendar events
+   * Includes user preferences (color, visibility) from CalendarPreference table
    */
   async listCalendars(tenantId: string): Promise<{
     calendars: CalendarInfo[];
@@ -75,6 +85,19 @@ export class CalendarListService {
     // Create provider lookup map for O(1) access
     const providerMap = new Map(providers.map((p) => [p.id, p]));
     const providerIds = providers.map((p) => p.id);
+
+    // Fetch calendar preferences for all providers in this tenant
+    const preferences: CalendarPref[] = await (this.prisma as any).calendarPreference.findMany({
+      where: {
+        tenantId,
+        providerId: { in: providerIds },
+      },
+    });
+
+    // Create preference lookup map: "providerId:calendarId" -> preference
+    const prefMap = new Map<string, CalendarPref>(
+      preferences.map((p: CalendarPref) => [`${p.providerId}:${p.calendarId}`, p]),
+    );
 
     // Single aggregation query - fixes N+1 problem
     const calendarEvents = await this.prisma.calendarEvent.groupBy({
@@ -101,6 +124,7 @@ export class CalendarListService {
         providerType: string;
         eventCount: number;
         primary: boolean;
+        backgroundColor?: string;
       }
     >();
 
@@ -111,14 +135,17 @@ export class CalendarListService {
       if (!provider) continue;
 
       const key = `${cal.providerId}:${cal.calendarId}`;
+      const pref = prefMap.get(key);
+
       calendarsMap.set(key, {
         calendarId: cal.calendarId,
-        calendarName: cal.calendarName || cal.calendarId,
+        calendarName: pref?.displayName || cal.calendarName || cal.calendarId,
         providerId: cal.providerId,
         providerEmail: provider.email || '',
         providerType: provider.providerType,
         eventCount: cal._count.id,
         primary: cal.calendarId === 'primary',
+        backgroundColor: pref?.color || undefined,
       });
     }
 
@@ -126,14 +153,16 @@ export class CalendarListService {
     for (const provider of providers) {
       const key = `${provider.id}:primary`;
       if (!calendarsMap.has(key)) {
+        const pref = prefMap.get(key);
         calendarsMap.set(key, {
           calendarId: 'primary',
-          calendarName: 'Primary Calendar',
+          calendarName: pref?.displayName || 'Primary Calendar',
           providerId: provider.id,
           providerEmail: provider.email || '',
           providerType: provider.providerType,
           eventCount: 0,
           primary: true,
+          backgroundColor: pref?.color || undefined,
         });
       }
     }
@@ -255,7 +284,32 @@ export class CalendarListService {
       });
     }
 
-    this.logger.log(`Updated calendar preferences for ${calendarId} on provider ${providerId}`);
+    // Save color preference to CalendarPreference table (upsert)
+    await (this.prisma as any).calendarPreference.upsert({
+      where: {
+        tenantId_providerId_calendarId: {
+          tenantId,
+          providerId,
+          calendarId,
+        },
+      },
+      update: {
+        color: data.color || null,
+        displayName: data.name || undefined,
+      },
+      create: {
+        tenantId,
+        providerId,
+        calendarId,
+        color: data.color || null,
+        displayName: data.name || null,
+        isVisible: true,
+      },
+    });
+
+    this.logger.log(
+      `Updated calendar preferences for ${calendarId} on provider ${providerId} - color: ${data.color}`,
+    );
 
     // Emit real-time event
     this.realtimeEvents.emitCalendarListUpdate(tenantId, {

@@ -591,6 +591,28 @@ model CalendarEventAttachment {
   @@map("calendar_event_attachments")
 }
 
+/// CalendarPreference - User preferences for calendars (color, visibility)
+/// Stores UI preferences that persist across sessions
+model CalendarPreference {
+  id         String @id @default(cuid())
+  tenantId   String
+  providerId String
+  calendarId String // External calendar ID (Google/Microsoft/custom)
+
+  // Preferences
+  color       String? // Hex color code (e.g., "#FF5722")
+  isVisible   Boolean @default(true) // Show/hide in calendar view
+  displayName String? // Custom display name (overrides provider name)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, providerId, calendarId])
+  @@index([tenantId])
+  @@index([providerId])
+  @@map("calendar_preferences")
+}
+
 /// CalendarSyncState - Per-calendar sync tokens for incremental sync
 /// Stores Google syncToken and Microsoft deltaLink for efficient calendar syncing
 /// Reduces API calls by ~95% after initial full sync

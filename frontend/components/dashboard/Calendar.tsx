@@ -28,7 +28,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Popover,
   Drawer,
 } from '@mui/material';
 import {
@@ -66,6 +65,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { getStoredUserSettings } from '@/lib/utils/user-settings';
 import { useCalendarStore, type CalendarEvent } from '@/stores/calendar-store';
 import { websocketClient, type RealtimeCalendarEvent, type RealtimeSyncStatus } from '@/lib/websocket-client';
+import { CalendarColorPicker } from '@/components/calendar';
 
 interface CalendarPreference {
   id: string; // providerId:calendarId
@@ -1021,8 +1021,8 @@ export function Calendar() {
         updateCalendarColor(pref.calendarId, pref.providerId, color);
       }
     }
-    handleCloseColorPicker();
-  }, [colorPickerCalendarId, calendarPrefs, updateCalendarColor, handleCloseColorPicker]);
+    // Note: CalendarColorPicker handles closing itself
+  }, [colorPickerCalendarId, calendarPrefs, updateCalendarColor]);
 
   // Convert store events to FullCalendar format and filter by enabled calendars
   const filteredEvents = useMemo(() => {
@@ -1225,31 +1225,13 @@ export function Calendar() {
         {renderSidebarContent()}
       </Drawer>
 
-      {/* Color Picker Popover - must be outside sidebar to work with both desktop and mobile */}
-      <Popover
-        open={Boolean(colorPickerAnchor)}
-        anchorEl={colorPickerAnchor}
+      {/* Calendar Color Picker */}
+      <CalendarColorPicker
+        selectedColor={colorPickerCalendarId ? calendarPrefs.get(colorPickerCalendarId)?.color || '#0B7EFF' : '#0B7EFF'}
+        onColorSelect={handleColorSelect}
         onClose={handleCloseColorPicker}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      >
-        <Box sx={{ p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 160 }}>
-          {CALENDAR_COLORS.map((color) => (
-            <Box
-              key={color}
-              onClick={() => handleColorSelect(color)}
-              sx={{
-                width: 24,
-                height: 24,
-                borderRadius: '50%',
-                bgcolor: color,
-                cursor: 'pointer',
-                border: '2px solid transparent',
-                '&:hover': { border: '2px solid', borderColor: 'primary.main' },
-              }}
-            />
-          ))}
-        </Box>
-      </Popover>
+        anchorEl={colorPickerAnchor}
+      />
 
       {/* Calendar Main */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
