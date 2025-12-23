@@ -545,6 +545,8 @@ export class CalendarService {
   /**
    * Delete a calendar event (bidirectional sync)
    * Deletes the event locally AND in the provider's calendar
+   * Note: Some calendars (like birthday calendars) are read-only and can't be deleted on the provider side.
+   * In those cases, we still soft-delete locally for a clean UI.
    */
   async deleteEvent(tenantId: string, eventId: string): Promise<void> {
     this.logger.log(`Deleting calendar event ${eventId}`);
@@ -564,11 +566,30 @@ export class CalendarService {
     // Get access token
     const accessToken = await this.getProviderAccessToken(provider);
 
-    // Delete event from provider's calendar
-    if (provider.providerType === 'google') {
-      await this.deleteGoogleEvent(accessToken, event.externalId, event.calendarId!);
-    } else if (provider.providerType === 'microsoft') {
-      await this.deleteMicrosoftEvent(accessToken, event.externalId, event.calendarId);
+    // Try to delete event from provider's calendar (best effort for read-only calendars)
+    let providerDeleteSuccess = true;
+    let providerDeleteError: string | null = null;
+
+    try {
+      if (provider.providerType === 'google') {
+        await this.deleteGoogleEvent(accessToken, event.externalId, event.calendarId!);
+      } else if (provider.providerType === 'microsoft') {
+        this.logger.log(`Deleting Microsoft event: ${event.externalId} from calendar ${event.calendarName || event.calendarId}`);
+        await this.deleteMicrosoftEvent(accessToken, event.externalId, event.calendarId);
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.error?.message || error.message || 'Unknown error';
+
+      // Check if this is a read-only calendar error (birthday calendars, etc.)
+      if (errMsg.includes('Read-only') || errMsg.includes('read-only') || errMsg.includes('cannot be modified')) {
+        this.logger.warn(`Cannot delete from read-only calendar, proceeding with local soft-delete: ${errMsg}`);
+        providerDeleteSuccess = false;
+        providerDeleteError = errMsg;
+      } else {
+        // For other errors, re-throw to fail the request
+        this.logger.error(`Failed to delete event from provider: ${errMsg}`);
+        throw error;
+      }
     }
 
     // Mark event as deleted in database (soft delete)
@@ -580,10 +601,14 @@ export class CalendarService {
         status: 'cancelled',
         lastSyncedAt: new Date(),
         syncVersion: event.syncVersion + 1,
+        // Store metadata about why provider delete failed (only if it failed)
+        ...(providerDeleteSuccess
+          ? {}
+          : { metadata: { ...((event.metadata as Record<string, unknown>) || {}), localDeleteOnly: true, providerDeleteError } }),
       },
     });
 
-    this.logger.log(`Deleted calendar event ${eventId}`);
+    this.logger.log(`Deleted calendar event ${eventId} ${providerDeleteSuccess ? '(synced to provider)' : '(local only - read-only calendar)'}`);
 
     // Emit WebSocket event
     this.realtimeEvents.emitCalendarEventDelete(event.tenantId, {
@@ -865,17 +890,36 @@ export class CalendarService {
     eventId: string,
     calendarId?: string | null,
   ): Promise<void> {
-    // Use calendar-specific endpoint if calendarId is provided, otherwise use /me/events
-    const endpoint = calendarId
-      ? `${this.GRAPH_API_BASE}/me/calendars/${calendarId}/events/${eventId}`
-      : `${this.GRAPH_API_BASE}/me/events/${eventId}`;
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      'client-request-id': crypto.randomUUID(),
+    };
 
-    await axios.delete(endpoint, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'client-request-id': crypto.randomUUID(),
-      },
-    });
+    // Try /me/events/{id} first - this works for most events
+    try {
+      const endpoint = `${this.GRAPH_API_BASE}/me/events/${eventId}`;
+      this.logger.debug(`Attempting delete: ${endpoint}`);
+      await axios.delete(endpoint, { headers });
+      this.logger.log(`Successfully deleted Microsoft event ${eventId}`);
+      return;
+    } catch (error: any) {
+      this.logger.warn(`Delete via /me/events failed: ${error.response?.data?.error?.message || error.message}`);
+
+      // If calendarId is provided, try the calendar-specific endpoint
+      if (calendarId) {
+        try {
+          const calendarEndpoint = `${this.GRAPH_API_BASE}/me/calendars/${calendarId}/events/${eventId}`;
+          this.logger.debug(`Retrying delete with calendar: ${calendarEndpoint}`);
+          await axios.delete(calendarEndpoint, { headers });
+          this.logger.log(`Successfully deleted Microsoft event ${eventId} from calendar ${calendarId}`);
+          return;
+        } catch (calError: any) {
+          this.logger.error(`Delete via calendar endpoint also failed: ${calError.response?.data?.error?.message || calError.message}`);
+          throw calError;
+        }
+      }
+      throw error;
+    }
   }
 
   /**

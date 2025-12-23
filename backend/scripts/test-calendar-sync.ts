@@ -23,8 +23,8 @@ async function main() {
     console.error('\nAvailable providers with calendar support:');
 
     // Quick lookup without full app bootstrap
-    const { PrismaClient } = await import('@prisma/client');
-    const prisma = new PrismaClient();
+    const { createPrismaClient } = await import('../src/prisma/prisma-client.factory');
+    const prisma = createPrismaClient();
     const providers = await prisma.providerConfig.findMany({
       where: { isActive: true, supportsCalendar: true },
       select: { id: true, email: true, providerType: true },
