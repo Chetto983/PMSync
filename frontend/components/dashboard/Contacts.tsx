@@ -18,7 +18,17 @@ import {
   Typography,
 } from '@mui/material';
 import { Search } from 'lucide-react';
-import { contactsApi, type Contact, type ContactCounts } from '@/lib/api/contacts';
+import { useQueryClient } from '@tanstack/react-query';
+import { type Contact, type ContactCounts } from '@/lib/api/contacts';
+import {
+  useContactCounts,
+  useCreateContact,
+  useUpdateContact,
+  useDeleteContact,
+  useSyncAllContacts,
+  contactsListOptions,
+  contactDetailOptions,
+} from '@/hooks/queries/use-contacts';
 import { logger } from '@/lib/logger';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -73,6 +83,16 @@ export function Contacts() {
     setSelectedIds,
   } = useContactStore();
 
+  // TanStack Query client for imperative fetching
+  const queryClient = useQueryClient();
+
+  // TanStack Query hooks for data fetching and mutations
+  const { data: contactCountsData, refetch: refetchContactCounts } = useContactCounts();
+  const createContactMutation = useCreateContact();
+  const updateContactMutation = useUpdateContact();
+  const deleteContactMutation = useDeleteContact();
+  const syncAllMutation = useSyncAllContacts();
+
   // Local state
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -117,14 +137,14 @@ export function Contacts() {
     severity: 'info',
   });
 
-  // Contact counts from DB (fast, efficient)
-  const [contactCounts, setContactCounts] = useState<ContactCounts>({
+  // Contact counts from TanStack Query (with fallback for initial render)
+  const contactCounts: ContactCounts = contactCountsData ?? {
     total: 0,
     withEmail: 0,
     withPhone: 0,
     withCompany: 0,
     byProvider: [],
-  });
+  };
 
   // Compose dialog state
   const [composeOpen, setComposeOpen] = useState(false);
@@ -151,7 +171,7 @@ export function Contacts() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Load contacts - using larger batch size for faster bulk loading
+  // Load contacts using TanStack Query - larger batch size for faster bulk loading
   const loadContacts = useCallback(async (reset: boolean = true) => {
     try {
       if (reset) {
@@ -164,11 +184,13 @@ export function Contacts() {
       }
 
       const offset = reset ? 0 : paginationRef.current.offset;
-      const response = await contactsApi.listContacts({
-        search: debouncedSearchQuery || undefined,
-        limit: paginationRef.current.limit,
-        offset,
-      });
+      const response = await queryClient.fetchQuery(
+        contactsListOptions({
+          search: debouncedSearchQuery || undefined,
+          limit: paginationRef.current.limit,
+          offset,
+        })
+      );
       const contactsData = response.contacts || [];
 
       if (reset) {
@@ -205,7 +227,7 @@ export function Contacts() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [debouncedSearchQuery, setStoreContacts, setPagination]);
+  }, [debouncedSearchQuery, setStoreContacts, setPagination, queryClient]);
 
   // Keep selection in sync with store updates
   useEffect(() => {
@@ -230,27 +252,13 @@ export function Contacts() {
     loadContacts();
   }, [loadContacts]);
 
-  // Load contact counts from DB (efficient - runs once on mount)
-  const loadContactCounts = useCallback(async () => {
-    try {
-      const counts = await contactsApi.getContactCounts();
-      setContactCounts(counts);
-    } catch (error) {
-      logger.error('Failed to load contact counts', { error });
-    }
-  }, []);
-
-  useEffect(() => {
-    loadContactCounts();
-  }, [loadContactCounts]);
-
-  // WebSocket event handling
+  // WebSocket event handling using TanStack Query for data fetching
   useEffect(() => {
     const handleContactNew = async (event: RealtimeContactEvent) => {
       logger.debug('[Contacts] WebSocket: contact:new', { event });
       if (event.contactId) {
         try {
-          const contact = await contactsApi.getContact(event.contactId);
+          const contact = await queryClient.fetchQuery(contactDetailOptions(event.contactId));
           useContactStore.getState().addContact(contact);
         } catch (error) {
           logger.error('Failed to fetch new contact', { error });
@@ -262,7 +270,7 @@ export function Contacts() {
       logger.debug('[Contacts] WebSocket: contact:update', { event });
       if (event.contactId) {
         try {
-          const contact = await contactsApi.getContact(event.contactId);
+          const contact = await queryClient.fetchQuery(contactDetailOptions(event.contactId));
           useContactStore.getState().updateContact(event.contactId, contact);
         } catch (error) {
           logger.error('Failed to fetch updated contact', { error });
@@ -288,16 +296,10 @@ export function Contacts() {
       }
     };
 
-    // Real-time contact counts updates from DB
-    const handleContactCounts = (event: RealtimeContactCountsEvent) => {
-      logger.debug('[Contacts] WebSocket: contact:counts', { event });
-      setContactCounts({
-        total: event.total,
-        withEmail: event.withEmail,
-        withPhone: event.withPhone,
-        withCompany: event.withCompany,
-        byProvider: event.byProvider,
-      });
+    // Real-time contact counts updates - refetch via TanStack Query
+    const handleContactCounts = (_event: RealtimeContactCountsEvent) => {
+      logger.debug('[Contacts] WebSocket: contact:counts - refetching via TanStack Query');
+      void refetchContactCounts();
     };
 
     const unsubNew = websocketClient.onContactNew(handleContactNew);
@@ -313,7 +315,7 @@ export function Contacts() {
       unsubSync();
       unsubCounts();
     };
-  }, []);
+  }, [queryClient, refetchContactCounts]);
 
   // Load providers
   const loadProviders = useCallback(async () => {
@@ -428,7 +430,7 @@ export function Contacts() {
     try {
       setActionLoading(true);
       if (contactDialogMode === 'create') {
-        await contactsApi.createContact({
+        await createContactMutation.mutateAsync({
           providerId: contactForm.providerId,
           firstName: contactForm.firstName || undefined,
           lastName: contactForm.lastName || undefined,
@@ -447,22 +449,25 @@ export function Contacts() {
             : undefined,
         });
       } else if (selectedContact) {
-        await contactsApi.updateContact(selectedContact.id, {
-          firstName: contactForm.firstName || undefined,
-          lastName: contactForm.lastName || undefined,
-          displayName: contactForm.displayName ||
-            (contactForm.firstName || contactForm.lastName
-              ? `${contactForm.firstName} ${contactForm.lastName}`.trim()
-              : undefined),
-          company: contactForm.company || undefined,
-          jobTitle: contactForm.jobTitle || undefined,
-          notes: contactForm.notes || undefined,
-          emails: contactForm.email
-            ? [{ value: contactForm.email, primary: true }]
-            : undefined,
-          phoneNumbers: contactForm.phone
-            ? [{ value: contactForm.phone, primary: true }]
-            : undefined,
+        await updateContactMutation.mutateAsync({
+          id: selectedContact.id,
+          data: {
+            firstName: contactForm.firstName || undefined,
+            lastName: contactForm.lastName || undefined,
+            displayName: contactForm.displayName ||
+              (contactForm.firstName || contactForm.lastName
+                ? `${contactForm.firstName} ${contactForm.lastName}`.trim()
+                : undefined),
+            company: contactForm.company || undefined,
+            jobTitle: contactForm.jobTitle || undefined,
+            notes: contactForm.notes || undefined,
+            emails: contactForm.email
+              ? [{ value: contactForm.email, primary: true }]
+              : undefined,
+            phoneNumbers: contactForm.phone
+              ? [{ value: contactForm.phone, primary: true }]
+              : undefined,
+          },
         });
       }
 
@@ -497,7 +502,7 @@ export function Contacts() {
 
     try {
       setActionLoading(true);
-      await contactsApi.deleteContact(contactToDelete.id);
+      await deleteContactMutation.mutateAsync(contactToDelete.id);
       await loadContacts();
       setDeleteDialogOpen(false);
       setContactToDelete(null);
@@ -528,8 +533,8 @@ export function Contacts() {
 
     try {
       setActionLoading(true);
-      // Delete contacts one by one (could be optimized with bulk API)
-      await Promise.all(idsToDelete.map((id) => contactsApi.deleteContact(id)));
+      // Delete contacts one by one using TanStack Query mutation
+      await Promise.all(idsToDelete.map((id) => deleteContactMutation.mutateAsync(id)));
       clearSelection();
       await loadContacts();
       setSnackbar({
@@ -574,7 +579,7 @@ export function Contacts() {
 
       setSyncingProviders(new Set(contactProviders.map((p) => p.id)));
 
-      const result = await contactsApi.syncAll();
+      const result = await syncAllMutation.mutateAsync();
 
       if (result.success) {
         setSnackbar({

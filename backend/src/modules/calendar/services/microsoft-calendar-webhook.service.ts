@@ -320,12 +320,6 @@ export class MicrosoftCalendarWebhookService extends AbstractCalendarWebhookServ
   private async handleSingleNotification(
     notification: MicrosoftCalendarNotification,
   ): Promise<void> {
-    // Verify client state
-    if (notification.clientState !== this.CLIENT_STATE) {
-      this.logger.warn('Microsoft Calendar notification with invalid client state');
-      return;
-    }
-
     const subscriptionId = notification.subscriptionId;
 
     // Find provider by subscription ID (include provider to avoid N+1 query)
@@ -345,6 +339,16 @@ export class MicrosoftCalendarWebhookService extends AbstractCalendarWebhookServ
     if (!subscription) {
       this.logger.warn(
         `No active subscription found for Microsoft Calendar subscription ${subscriptionId}`,
+      );
+      return;
+    }
+
+    // Verify client state using the stored per-subscription clientState
+    // This ensures validation works across restarts (fixes clientState stability issue)
+    const storedClientState = (subscription.metadata as Record<string, unknown>)?.clientState;
+    if (notification.clientState && storedClientState && notification.clientState !== storedClientState) {
+      this.logger.warn(
+        `Microsoft Calendar notification with invalid client state for subscription ${subscriptionId}`,
       );
       return;
     }

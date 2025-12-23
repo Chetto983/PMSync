@@ -37,13 +37,24 @@ import type { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/cor
 import { useRouter } from 'next/router';
 import { logger } from '@/lib/logger';
 import {
-  calendarApi,
   type CreateEventDto,
+  type UpdateEventDto,
   type CalendarInfo,
   type CalendarEvent as ApiCalendarEvent,
-  type UpdateEventDto,
   type CalendarEventAttachment,
 } from '@/lib/api/calendar';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  useCalendars,
+  useCreateCalendarEvent,
+  useUpdateCalendarEvent,
+  useDeleteCalendarEvent,
+  useSyncCalendarProvider,
+  useUpdateCalendarPreferences,
+  calendarEventsOptions,
+  calendarEventDetailOptions,
+  calendarEventAttachmentsOptions,
+} from '@/hooks/queries/use-calendar';
 import { providersApi, type ProviderConfig } from '@/lib/api/providers';
 import { allFullCalendarLocales, getFullCalendarLocale } from '@/locales';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -97,6 +108,17 @@ export function Calendar() {
     isSyncing,
     setLastSyncAt,
   } = useCalendarStore();
+
+  // TanStack Query client for imperative fetching
+  const queryClient = useQueryClient();
+
+  // TanStack Query hooks for data fetching and mutations
+  const { data: calendarsData, refetch: refetchCalendars } = useCalendars();
+  const createEventMutation = useCreateCalendarEvent();
+  const updateEventMutation = useUpdateCalendarEvent();
+  const deleteEventMutation = useDeleteCalendarEvent();
+  const syncProviderMutation = useSyncCalendarProvider();
+  const updatePreferencesMutation = useUpdateCalendarPreferences();
 
   // Calendar preferences and provider groups
   const [calendarPrefs, setCalendarPrefs] = useState<Map<string, CalendarPreference>>(new Map());
@@ -215,11 +237,11 @@ export function Calendar() {
     }
   }, []);
 
-  // Update calendar color via API
+  // Update calendar color via API using TanStack Query mutation
   const updateCalendarColor = useCallback(
     async (calendarId: string, providerId: string, color: string) => {
       try {
-        await calendarApi.updateCalendarPreferences(providerId, calendarId, { color });
+        await updatePreferencesMutation.mutateAsync({ providerId, calendarId, data: { color } });
         setCalendarPrefs((prev) => {
           const newPrefs = new Map(prev);
           const key = `${providerId}:${calendarId}`;
@@ -253,72 +275,74 @@ export function Calendar() {
         });
       }
     },
-    [calendarCopy]
+    [calendarCopy, updatePreferencesMutation]
   );
 
-  // Load calendars from API and merge with saved enabled state
-  const loadCalendars = useCallback(async () => {
-    try {
-      const calendarsRes = await calendarApi.listCalendars();
-      const calendars = calendarsRes.data.calendars || [];
-      const savedEnabled = loadEnabledState();
+  // Process calendars data from TanStack Query
+  useEffect(() => {
+    if (!calendarsData?.calendars) return;
 
-      // Filter out deprecated "Primary Calendar" entries
-      const filteredCalendars = calendars.filter((cal: CalendarInfo) => {
-        const isPrimaryCalendar = cal.calendarName === 'Primary Calendar' || cal.calendarId === 'primary';
-        return !isPrimaryCalendar;
+    const calendars = calendarsData.calendars;
+    const savedEnabled = loadEnabledState();
+
+    // Filter out deprecated "Primary Calendar" entries
+    const filteredCalendars = calendars.filter((cal: CalendarInfo) => {
+      const isPrimaryCalendar = cal.calendarName === 'Primary Calendar' || cal.calendarId === 'primary';
+      return !isPrimaryCalendar;
+    });
+
+    // Create calendar preferences map
+    const newPrefs = new Map<string, CalendarPreference>();
+    filteredCalendars.forEach((cal: CalendarInfo, index: number) => {
+      const key = cal.id;
+      newPrefs.set(key, {
+        id: key,
+        calendarId: cal.calendarId,
+        calendarName: cal.calendarName,
+        providerId: cal.providerId,
+        providerEmail: cal.providerEmail,
+        providerType: cal.providerType,
+        color: cal.backgroundColor || CALENDAR_COLORS[index % CALENDAR_COLORS.length],
+        enabled: savedEnabled[key] ?? true,
       });
+    });
+    setCalendarPrefs(newPrefs);
 
-      // Create calendar preferences map
-      const newPrefs = new Map<string, CalendarPreference>();
-      filteredCalendars.forEach((cal: CalendarInfo, index: number) => {
-        const key = cal.id;
-        newPrefs.set(key, {
-          id: key,
-          calendarId: cal.calendarId,
-          calendarName: cal.calendarName,
-          providerId: cal.providerId,
-          providerEmail: cal.providerEmail,
-          providerType: cal.providerType,
-          color: cal.backgroundColor || CALENDAR_COLORS[index % CALENDAR_COLORS.length],
-          enabled: savedEnabled[key] ?? true,
+    // Group calendars by provider
+    const groupsMap = new Map<string, ProviderGroup>();
+    newPrefs.forEach((pref) => {
+      if (!groupsMap.has(pref.providerId)) {
+        groupsMap.set(pref.providerId, {
+          providerId: pref.providerId,
+          providerEmail: pref.providerEmail,
+          providerType: pref.providerType,
+          calendars: [],
+          expanded: true,
         });
-      });
-      setCalendarPrefs(newPrefs);
+      }
+      groupsMap.get(pref.providerId)!.calendars.push(pref);
+    });
+    setProviderGroups(Array.from(groupsMap.values()));
+  }, [calendarsData, loadEnabledState]);
 
-      // Group calendars by provider
-      const groupsMap = new Map<string, ProviderGroup>();
-      newPrefs.forEach((pref) => {
-        if (!groupsMap.has(pref.providerId)) {
-          groupsMap.set(pref.providerId, {
-            providerId: pref.providerId,
-            providerEmail: pref.providerEmail,
-            providerType: pref.providerType,
-            calendars: [],
-            expanded: true,
-          });
-        }
-        groupsMap.get(pref.providerId)!.calendars.push(pref);
-      });
-      setProviderGroups(Array.from(groupsMap.values()));
-    } catch (error) {
-      logger.warn('Failed to load calendars', { error });
-    }
-  }, [loadEnabledState]);
+  // Refresh calendars list using TanStack Query refetch
+  const loadCalendars = useCallback(async () => {
+    await refetchCalendars();
+  }, [refetchCalendars]);
 
   // Refresh calendars list when backend emits realtime calendar list updates
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const handleCalendarsRefresh = () => {
-      void loadCalendars();
+      void refetchCalendars();
     };
 
     window.addEventListener('calendars:refresh', handleCalendarsRefresh as EventListener);
     return () => {
       window.removeEventListener('calendars:refresh', handleCalendarsRefresh as EventListener);
     };
-  }, [loadCalendars]);
+  }, [refetchCalendars]);
 
   // Load providers and events
   const loadData = useCallback(
@@ -337,17 +361,17 @@ export function Calendar() {
           setProviders([]);
         }
 
-        // Trigger sync for all calendar providers if requested
+        // Trigger sync for all calendar providers if requested using TanStack Query mutation
         if (triggerSync && loadedProviders.length > 0) {
           const calendarProviders = loadedProviders.filter((p) => p.supportsCalendar);
           logger.debug('[Calendar] Syncing providers', { count: calendarProviders.length });
 
           const syncPromises = calendarProviders.map(async (provider) => {
             try {
-              const result = await calendarApi.syncProvider(provider.id);
+              const result = await syncProviderMutation.mutateAsync(provider.id);
               logger.info(`[Calendar] Synced ${provider.email}`, {
-                newEvents: result.data?.newEvents || 0,
-                updatedEvents: result.data?.updatedEvents || 0,
+                newEvents: result?.newEvents || 0,
+                updatedEvents: result?.updatedEvents || 0,
               });
               return result;
             } catch (syncError) {
@@ -378,14 +402,16 @@ export function Calendar() {
           endTime = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         }
 
-        // Load events from API
+        // Load events from API using TanStack Query
         try {
-          const eventsRes = await calendarApi.listEvents({
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString(),
-            providerId: selectedProvider,
-          });
-          const events = eventsRes.data.events || [];
+          const eventsRes = await queryClient.fetchQuery(
+            calendarEventsOptions({
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
+              providerId: selectedProvider,
+            })
+          );
+          const events = eventsRes.events || [];
           setStoreEvents(events);
           setLastSyncAt(new Date());
         } catch (eventsError) {
@@ -400,7 +426,7 @@ export function Calendar() {
         setLoading(false);
       }
     },
-    [loadCalendars, selectedProvider, setLoading, setStoreEvents, setLastSyncAt]
+    [loadCalendars, selectedProvider, setLoading, setStoreEvents, setLastSyncAt, syncProviderMutation, queryClient]
   );
 
   // Initial data load - intentionally run only once on mount
@@ -581,14 +607,13 @@ export function Calendar() {
     setEventDialogOpen(true);
   }, []);
 
-  // Event click handler
+  // Event click handler using TanStack Query for data fetching
   const handleEventClick = useCallback(
     async (clickInfo: EventClickArg) => {
       const eventId = clickInfo.event.id;
 
       try {
-        const eventRes = await calendarApi.getEvent(eventId);
-        const event = eventRes.data;
+        const event = await queryClient.fetchQuery(calendarEventDetailOptions(eventId));
         setSelectedEvent(event);
         setEditedEvent({
           title: event.title,
@@ -599,11 +624,11 @@ export function Calendar() {
         });
         setEventDetailsOpen(true);
 
-        // Load attachments
+        // Load attachments using TanStack Query
         setLoadingAttachments(true);
         try {
-          const attachmentsRes = await calendarApi.listAttachments(eventId);
-          setAttachments(attachmentsRes.data.attachments || []);
+          const attachmentsRes = await queryClient.fetchQuery(calendarEventAttachmentsOptions(eventId));
+          setAttachments(attachmentsRes.attachments || []);
         } catch {
           setAttachments([]);
         } finally {
@@ -618,7 +643,7 @@ export function Calendar() {
         });
       }
     },
-    []
+    [queryClient]
   );
 
   // Create event handler
@@ -663,7 +688,7 @@ export function Calendar() {
         calendarId: newEvent.calendar,
       };
 
-      await calendarApi.createEvent(createDto);
+      await createEventMutation.mutateAsync(createDto);
       setSnackbar({
         open: true,
         message: 'Event created successfully',
@@ -683,7 +708,7 @@ export function Calendar() {
         severity: 'error',
       });
     }
-  }, [newEvent, providers, calendarCopy, loadData]);
+  }, [newEvent, providers, calendarCopy, loadData, createEventMutation]);
 
   // Update event handler
   const handleUpdateEvent = useCallback(async () => {
@@ -716,7 +741,7 @@ export function Calendar() {
         endTime: new Date(editedEvent.end).toISOString(),
       };
 
-      await calendarApi.updateEvent(selectedEvent.id, updateDto);
+      await updateEventMutation.mutateAsync({ id: selectedEvent.id, data: updateDto });
       setSnackbar({
         open: true,
         message: calendarCopy.eventUpdated || 'Event updated',
@@ -738,7 +763,7 @@ export function Calendar() {
     } finally {
       setIsSaving(false);
     }
-  }, [selectedEvent, editedEvent, calendarCopy, loadData]);
+  }, [selectedEvent, editedEvent, calendarCopy, loadData, updateEventMutation]);
 
   // Delete event handler
   const handleDeleteEvent = useCallback(async () => {
@@ -746,7 +771,7 @@ export function Calendar() {
 
     setIsDeleting(true);
     try {
-      await calendarApi.deleteEvent(selectedEvent.id);
+      await deleteEventMutation.mutateAsync(selectedEvent.id);
       setSnackbar({
         open: true,
         message: calendarCopy.eventDeleted || 'Event deleted',
@@ -767,7 +792,7 @@ export function Calendar() {
     } finally {
       setIsDeleting(false);
     }
-  }, [selectedEvent, calendarCopy, loadData]);
+  }, [selectedEvent, calendarCopy, loadData, deleteEventMutation]);
 
   // Close event details dialog
   const handleCloseEventDetails = useCallback(() => {

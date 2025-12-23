@@ -124,6 +124,10 @@ export class IcsParserService {
       // Extract attendees
       const attendees = this.extractAttendees(event);
 
+      // Parse dates - endTime defaults to startTime if missing (not "now")
+      const parsedStartTime = this.parseDate(event.start) || new Date();
+      const parsedEndTime = this.parseDate(event.end) || parsedStartTime;
+
       // Build parsed invite
       const invite: ParsedCalendarInvite = {
         uid: event.uid || this.generateUid(),
@@ -133,8 +137,8 @@ export class IcsParserService {
         description: event.description,
         location: event.location,
         url: this.extractUrl(event),
-        startTime: this.parseDate(event.start),
-        endTime: this.parseDate(event.end) || this.parseDate(event.start),
+        startTime: parsedStartTime,
+        endTime: parsedEndTime,
         isAllDay: this.isAllDayEvent(event),
         timezone: this.extractTimezone(event),
         recurrence: this.extractRecurrence(event),
@@ -301,9 +305,10 @@ export class IcsParserService {
 
   /**
    * Parse date from various formats
+   * Returns null if date is undefined (so caller can provide fallback)
    */
-  private parseDate(date: ical.DateWithTimeZone | string | undefined): Date {
-    if (!date) return new Date();
+  private parseDate(date: ical.DateWithTimeZone | string | undefined): Date | null {
+    if (!date) return null;
 
     if (date instanceof Date) {
       return date;
@@ -339,6 +344,7 @@ export class IcsParserService {
     if (typeof start === 'object' && 'tz' in start) {
       // If timezone is undefined and time is midnight, likely all-day
       const dateObj = this.parseDate(start);
+      if (!dateObj) return false;
       return dateObj.getHours() === 0 && dateObj.getMinutes() === 0;
     }
 

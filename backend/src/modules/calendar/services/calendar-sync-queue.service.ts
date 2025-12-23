@@ -231,20 +231,25 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
   /**
    * Add a single sync job to the appropriate queue
    * Uses consistent jobId for deduplication - prevents duplicate jobs for same provider
+   * Checks ALL queues for existing jobs to prevent cross-priority duplicates
    */
   async addSyncJob(jobData: CalendarSyncJobData): Promise<void> {
     const queue = this.getQueue(jobData.priority);
     const jobId = `${jobData.providerId}-calendar`;
 
-    // Check if job already exists in any state (waiting, active, delayed)
-    const existingJob = await queue.getJob(jobId);
-    if (existingJob) {
-      const state = await existingJob.getState();
-      if (['waiting', 'active', 'delayed'].includes(state)) {
-        this.logger.debug(
-          `Skipping duplicate calendar sync job for ${jobData.email} (state: ${state})`,
-        );
-        return;
+    // Check if job already exists in ANY queue (waiting, active, delayed)
+    // This prevents the same provider from being queued in multiple priorities
+    const allQueues = [this.highQueue, this.normalQueue, this.lowQueue];
+    for (const q of allQueues) {
+      const existingJob = await q.getJob(jobId);
+      if (existingJob) {
+        const state = await existingJob.getState();
+        if (['waiting', 'active', 'delayed'].includes(state)) {
+          this.logger.debug(
+            `Skipping duplicate calendar sync job for ${jobData.email} (found in ${q.name}, state: ${state})`,
+          );
+          return;
+        }
       }
     }
 

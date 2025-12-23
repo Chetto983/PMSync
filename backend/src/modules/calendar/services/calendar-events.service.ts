@@ -206,14 +206,20 @@ export class CalendarEventsService {
       throw new BadRequestException(`Provider type ${provider.providerType} not supported for calendar`);
     }
 
+    // Determine calendarId - don't default to 'primary' for Microsoft (it doesn't exist)
+    // For Google, 'primary' is valid; for Microsoft, null means default calendar
+    const effectiveCalendarId =
+      data.calendarId ||
+      (provider.providerType === 'google' ? 'primary' : null);
+
     // Save event to database
     const event = await this.prisma.calendarEvent.create({
       data: {
         tenantId,
         providerId: provider.id,
         externalId,
-        calendarId: data.calendarId || 'primary',
-        calendarName: data.calendarName || data.calendarId || 'primary',
+        calendarId: effectiveCalendarId,
+        calendarName: data.calendarName || data.calendarId || (provider.providerType === 'google' ? 'Primary' : 'Calendar'),
         iCalUID,
         title: data.title,
         description: data.description || null,
@@ -224,7 +230,7 @@ export class CalendarEventsService {
         endTime: new Date(data.endTime),
         isAllDay: data.isAllDay || false,
         timeZone: data.timeZone || 'UTC',
-        recurrence: [],
+        recurrence: data.recurrence || [],
         status: 'confirmed',
         visibility: 'default',
         reminders: data.reminders ? (data.reminders as unknown as Prisma.InputJsonValue) : undefined,
@@ -239,7 +245,7 @@ export class CalendarEventsService {
       providerId: provider.id,
       eventId: event.id,
       externalId: event.externalId,
-      calendarId: event.calendarId || 'primary',
+      calendarId: event.calendarId || '',
       reason: 'event-created',
     });
 
@@ -294,6 +300,7 @@ export class CalendarEventsService {
     if (data.timeZone !== undefined) updateData.timeZone = data.timeZone;
     if (data.attendees !== undefined) updateData.attendees = data.attendees as unknown as Prisma.InputJsonValue;
     if (data.reminders !== undefined) updateData.reminders = data.reminders as unknown as Prisma.InputJsonValue;
+    if (data.recurrence !== undefined) updateData.recurrence = data.recurrence;
     if (data.calendarName !== undefined) {
       updateData.calendarName = data.calendarName;
     }
@@ -310,7 +317,7 @@ export class CalendarEventsService {
       providerId: provider.id,
       eventId: updatedEvent.id,
       externalId: updatedEvent.externalId,
-      calendarId: updatedEvent.calendarId || 'primary',
+      calendarId: updatedEvent.calendarId || '',
       reason: 'event-updated',
     });
 
@@ -389,7 +396,7 @@ export class CalendarEventsService {
       providerId: provider.id,
       eventId: deletedEvent.id,
       externalId: deletedEvent.externalId,
-      calendarId: deletedEvent.calendarId || 'primary',
+      calendarId: deletedEvent.calendarId || '',
       reason: 'event-deleted',
     });
   }
@@ -687,12 +694,14 @@ export class CalendarEventsService {
 
   /**
    * Create event in Microsoft Calendar
+   * Uses /me/calendars/{calendarId}/events when calendarId is provided,
+   * otherwise falls back to /me/events (default calendar)
    */
   private async createMicrosoftEvent(
     accessToken: string,
     data: CreateEventDto,
   ): Promise<{ id: string; iCalUId: string | null }> {
-    const event = {
+    const event: Record<string, unknown> = {
       subject: data.title,
       body: {
         contentType: 'HTML',
@@ -714,7 +723,22 @@ export class CalendarEventsService {
       })),
     };
 
-    const response = await axios.post(`${this.GRAPH_API_BASE}/me/events`, event, {
+    // Add recurrence if provided
+    if (data.recurrence && data.recurrence.length > 0) {
+      const msRecurrence = this.convertRecurrenceToMicrosoft(data.recurrence);
+      if (msRecurrence) {
+        event.recurrence = msRecurrence;
+      }
+    }
+
+    // Use calendar-specific endpoint when calendarId is provided (not 'primary')
+    // Microsoft doesn't use 'primary' - that's a Google concept
+    const endpoint =
+      data.calendarId && data.calendarId !== 'primary'
+        ? `${this.GRAPH_API_BASE}/me/calendars/${data.calendarId}/events`
+        : `${this.GRAPH_API_BASE}/me/events`;
+
+    const response = await axios.post(endpoint, event, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -726,6 +750,54 @@ export class CalendarEventsService {
       id: response.data.id,
       iCalUId: response.data.iCalUId || null,
     };
+  }
+
+  /**
+   * Convert RRULE strings to Microsoft Graph recurrence format
+   * Basic implementation - supports common patterns
+   */
+  private convertRecurrenceToMicrosoft(rrules: string[]): Record<string, unknown> | undefined {
+    if (!rrules || rrules.length === 0) return undefined;
+
+    // Parse first RRULE (most common case)
+    const rrule = rrules[0];
+    const parts: Record<string, string> = {};
+    rrule.split(';').forEach((part) => {
+      const [key, value] = part.split('=');
+      if (key && value) parts[key.toUpperCase()] = value;
+    });
+
+    const freq = parts.FREQ?.toUpperCase();
+    if (!freq) return undefined;
+
+    const pattern: Record<string, unknown> = {
+      type: freq.toLowerCase(),
+      interval: parseInt(parts.INTERVAL || '1', 10),
+    };
+
+    // Map BYDAY for weekly recurrence
+    if (freq === 'WEEKLY' && parts.BYDAY) {
+      const dayMap: Record<string, string> = {
+        SU: 'sunday', MO: 'monday', TU: 'tuesday', WE: 'wednesday',
+        TH: 'thursday', FR: 'friday', SA: 'saturday',
+      };
+      pattern.daysOfWeek = parts.BYDAY.split(',').map((d) => dayMap[d]).filter(Boolean);
+    }
+
+    const range: Record<string, unknown> = {
+      type: 'noEnd',
+      startDate: new Date().toISOString().split('T')[0],
+    };
+
+    if (parts.COUNT) {
+      range.type = 'numbered';
+      range.numberOfOccurrences = parseInt(parts.COUNT, 10);
+    } else if (parts.UNTIL) {
+      range.type = 'endDate';
+      range.endDate = parts.UNTIL.substring(0, 10);
+    }
+
+    return { pattern, range };
   }
 
   /**

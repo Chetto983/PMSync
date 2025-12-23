@@ -144,7 +144,7 @@ export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
   private async runProviderSync(
     jobData: CalendarSyncJobData,
   ): Promise<{ eventsProcessed: number; newEvents: number; updatedEvents: number; deletedEvents: number }> {
-    const { providerId, providerType } = jobData;
+    const { providerId } = jobData;
 
     // Get provider from database
     const provider = await this.prisma.providerConfig.findUnique({
@@ -153,6 +153,16 @@ export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
 
     if (!provider) {
       throw new Error(`Provider ${providerId} not found`);
+    }
+
+    // Use providerType from DB instead of jobData to prevent routing to wrong sync service
+    const providerType = provider.providerType;
+
+    // Warn if jobData.providerType differs from DB (indicates stale job data)
+    if (jobData.providerType && jobData.providerType !== providerType) {
+      this.logger.warn(
+        `Job providerType mismatch for ${providerId}: job=${jobData.providerType}, db=${providerType}. Using DB value.`,
+      );
     }
 
     let eventsProcessed = 0;

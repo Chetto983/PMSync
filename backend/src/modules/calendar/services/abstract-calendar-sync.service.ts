@@ -395,16 +395,31 @@ export abstract class AbstractCalendarSyncService {
     calendarName: string,
     isFullSync: boolean,
   ): Promise<ProcessEventsResult> {
-    if (events.length === 0) {
-      return { eventsProcessed: 0, newEvents: 0, updatedEvents: 0, deletedEvents: 0 };
-    }
-
     // Fetch ALL existing events for this calendar in ONE query
     const existingEvents = await this.prisma.calendarEvent.findMany({
-      where: { providerId, calendarId },
+      where: { providerId, calendarId, isDeleted: false },
       select: { id: true, externalId: true, syncVersion: true },
     });
     const existingByExternalId = new Map(existingEvents.map((e) => [e.externalId, e]));
+
+    // Handle full sync with zero events - delete all existing events
+    if (events.length === 0) {
+      if (isFullSync && existingEvents.length > 0) {
+        this.logger.debug(
+          `Full sync returned 0 events for calendar ${calendarId}, marking ${existingEvents.length} existing events as deleted`,
+        );
+        const result = await this.prisma.calendarEvent.updateMany({
+          where: {
+            providerId,
+            calendarId,
+            isDeleted: false,
+          },
+          data: { isDeleted: true },
+        });
+        return { eventsProcessed: 0, newEvents: 0, updatedEvents: 0, deletedEvents: result.count };
+      }
+      return { eventsProcessed: 0, newEvents: 0, updatedEvents: 0, deletedEvents: 0 };
+    }
 
     // Prepare bulk operations
     const newEventsToCreate: NormalizedCalendarEvent[] = [];

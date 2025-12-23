@@ -79,6 +79,7 @@ export type CreateEventDto = {
   isAllDay?: boolean;
   timeZone?: string;
   attendees?: Array<{ email: string; name?: string }>;
+  recurrence?: string[]; // RRULE strings for recurring events
   reminders?: {
     useDefault?: boolean;
     overrides?: Array<{
@@ -97,6 +98,7 @@ export type UpdateEventDto = {
   isAllDay?: boolean;
   timeZone?: string;
   attendees?: Array<{ email: string; name?: string }>;
+  recurrence?: string[]; // RRULE strings for recurring events
   reminders?: {
     useDefault?: boolean;
     overrides?: Array<{

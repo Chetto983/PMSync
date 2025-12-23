@@ -167,6 +167,27 @@ export class CalendarListService {
       }
     }
 
+    // Add calendars from CalendarPreference that have no events yet
+    // This ensures newly created calendars show up before any events are added
+    for (const pref of preferences) {
+      const key = `${pref.providerId}:${pref.calendarId}`;
+      if (!calendarsMap.has(key)) {
+        const provider = providerMap.get(pref.providerId);
+        if (provider) {
+          calendarsMap.set(key, {
+            calendarId: pref.calendarId,
+            calendarName: pref.displayName || pref.calendarId,
+            providerId: pref.providerId,
+            providerEmail: provider.email || '',
+            providerType: provider.providerType,
+            eventCount: 0,
+            primary: pref.calendarId === 'primary',
+            backgroundColor: pref.color || undefined,
+          });
+        }
+      }
+    }
+
     const calendars = Array.from(calendarsMap.values()).map((cal) => ({
       id: `${cal.providerId}:${cal.calendarId}`,
       ...cal,
@@ -226,6 +247,19 @@ export class CalendarListService {
     if (existing) {
       throw new BadRequestException('Calendar with this name already exists');
     }
+
+    // Persist calendar to CalendarPreference table so it shows up in listCalendars
+    // This ensures the calendar persists even before any events are added
+    await (this.prisma as any).calendarPreference.create({
+      data: {
+        tenantId,
+        providerId: data.providerId,
+        calendarId,
+        color: data.color || null,
+        displayName: data.name,
+        isVisible: true,
+      },
+    });
 
     this.logger.log(`Created calendar "${data.name}" (${calendarId}) for provider ${data.providerId}`);
 
