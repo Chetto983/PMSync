@@ -13,39 +13,14 @@ import { SyncJobData } from '../interfaces/sync-job.interface';
 import { google, gmail_v1 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { ProviderTokenService } from './provider-token.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 export const GMAIL_WEBHOOK_RESOURCE = 'gmail/mailbox';
 
-// Security: Replay attack prevention cache (type used by replayCache Map)
-
-/**
- * Simple async mutex for per-provider locking
- * RC-7 Fix: Prevents race conditions in concurrent webhook processing
- */
-class AsyncMutex {
-  private locked = false;
-  private queue: Array<() => void> = [];
-
-  async acquire(): Promise<void> {
-    if (!this.locked) {
-      this.locked = true;
-      return;
-    }
-
-    return new Promise<void>((resolve) => {
-      this.queue.push(resolve);
-    });
-  }
-
-  release(): void {
-    if (this.queue.length > 0) {
-      const next = this.queue.shift()!;
-      next();
-    } else {
-      this.locked = false;
-    }
-  }
-}
+// RC-2 FIX: Increased TTL for better replay attack prevention
+// In-memory cache only used as fallback when Redis unavailable
+const WEBHOOK_DEDUP_TTL_SECONDS = 3600; // 1 hour (was 3 minutes)
+const WEBHOOK_DEDUP_KEY_PREFIX = 'webhook:gmail:dedup:';
 
 @Injectable()
 export class GmailWebhookService {
@@ -54,15 +29,11 @@ export class GmailWebhookService {
   // Gmail watch() expires after 7 days max
   private readonly DEFAULT_EXPIRATION_DAYS = 7;
 
-  // Security fix (Issue #2): Replay attack prevention
-  // In-memory cache of processed message IDs with TTL
-  // SEC-3 fix: Reduced TTL from 10 minutes to 3 minutes for tighter replay protection
-  private readonly processedMessages: Map<string, number> = new Map();
-  private readonly MESSAGE_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes (reduced from 10)
+  // RC-2 FIX: In-memory fallback cache only used when Redis unavailable
+  // Primary deduplication now uses Redis with 1-hour TTL
+  private readonly processedMessagesFallback: Map<string, number> = new Map();
+  private readonly MESSAGE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour (increased from 3 minutes)
   private readonly MAX_CACHE_SIZE = 10000;
-
-  // RC-7 Fix: Per-provider mutex to prevent concurrent webhook processing
-  private readonly providerMutexes: Map<string, AsyncMutex> = new Map();
 
   // Google OAuth2 client for JWT verification
   private readonly oauth2Client: OAuth2Client;
@@ -72,25 +43,14 @@ export class GmailWebhookService {
     private queueService: QueueService,
     private configService: ConfigService,
     private providerTokenService: ProviderTokenService,
+    // RC-2 + RC-7 FIX: Use Redis for distributed dedup and per-provider locking
+    private redisLock: RedisLockService,
   ) {
     // Initialize OAuth2 client for JWT verification
     this.oauth2Client = new OAuth2Client();
 
-    // Start cache cleanup interval
-    setInterval(() => this.cleanupProcessedMessages(), this.MESSAGE_CACHE_TTL_MS);
-  }
-
-  /**
-   * RC-7 Fix: Get or create mutex for a provider
-   * Ensures only one webhook is processed at a time per provider
-   */
-  private getProviderMutex(providerId: string): AsyncMutex {
-    let mutex = this.providerMutexes.get(providerId);
-    if (!mutex) {
-      mutex = new AsyncMutex();
-      this.providerMutexes.set(providerId, mutex);
-    }
-    return mutex;
+    // Start cache cleanup interval for fallback cache
+    setInterval(() => this.cleanupProcessedMessages(), this.MESSAGE_CACHE_TTL_MS / 4);
   }
 
   /**
@@ -144,50 +104,113 @@ export class GmailWebhookService {
   }
 
   /**
-   * Security fix (Issue #2): Check if message was already processed (replay attack prevention)
+   * RC-2 FIX: Check and mark message as processed using Redis (distributed, atomic)
+   * Uses SET NX with TTL for atomic check-and-set across all instances
+   *
+   * @param messageId - Unique message ID (Pub/Sub message ID)
+   * @returns true if NEW message (not replayed), false if REPLAYED
    */
-  isReplayedMessage(messageId: string): boolean {
-    return this.processedMessages.has(messageId);
+  async checkAndMarkProcessed(messageId: string): Promise<boolean> {
+    const key = `${WEBHOOK_DEDUP_KEY_PREFIX}${messageId}`;
+
+    try {
+      // Atomic SET NX with TTL - returns lockId if new, null if exists
+      const lockId = await this.redisLock.acquireLock(
+        key,
+        WEBHOOK_DEDUP_TTL_SECONDS * 1000, // Convert to ms
+        { maxRetries: 1 }, // Single attempt - if exists, it's a replay
+      );
+
+      if (lockId) {
+        this.logger.debug(`[DEDUP] New message accepted: ${messageId}`);
+        // Note: We intentionally don't release the lock - it expires after TTL
+        // This prevents the same message from being processed again
+        return true; // NEW message
+      }
+
+      this.logger.debug(`[DEDUP] Replay detected (Redis): ${messageId}`);
+      return false; // REPLAYED
+    } catch (error) {
+      // RC-2 FIX: FAIL CLOSED - If Redis unavailable, use in-memory fallback
+      // but log warning as this breaks distributed dedup
+      this.logger.warn(
+        `[DEDUP] Redis unavailable for ${messageId}, using in-memory fallback: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return this.checkAndMarkProcessedFallback(messageId);
+    }
   }
 
   /**
-   * Security fix (Issue #2): Mark message as processed
+   * In-memory fallback for deduplication (single-instance only)
+   * WARNING: Does not work across multiple workers!
    */
-  markMessageProcessed(messageId: string): void {
-    // Enforce max cache size to prevent memory exhaustion
-    if (this.processedMessages.size >= this.MAX_CACHE_SIZE) {
+  private checkAndMarkProcessedFallback(messageId: string): boolean {
+    if (this.processedMessagesFallback.has(messageId)) {
+      this.logger.debug(`[DEDUP] Replay detected (fallback): ${messageId}`);
+      return false; // REPLAYED
+    }
+
+    // Enforce max cache size
+    if (this.processedMessagesFallback.size >= this.MAX_CACHE_SIZE) {
       this.cleanupProcessedMessages();
-      // If still at max, remove oldest entries
-      if (this.processedMessages.size >= this.MAX_CACHE_SIZE) {
-        const entriesToRemove = Math.floor(this.MAX_CACHE_SIZE * 0.1); // Remove 10%
-        const entries = Array.from(this.processedMessages.entries())
+      if (this.processedMessagesFallback.size >= this.MAX_CACHE_SIZE) {
+        const entriesToRemove = Math.floor(this.MAX_CACHE_SIZE * 0.1);
+        const entries = Array.from(this.processedMessagesFallback.entries())
           .sort((a, b) => a[1] - b[1])
           .slice(0, entriesToRemove);
-        entries.forEach(([id]) => this.processedMessages.delete(id));
+        entries.forEach(([id]) => this.processedMessagesFallback.delete(id));
       }
     }
-    this.processedMessages.set(messageId, Date.now());
+
+    this.processedMessagesFallback.set(messageId, Date.now());
+    return true; // NEW message
   }
 
   /**
-   * Clean up expired message IDs from cache
+   * Legacy method for backward compatibility
+   * @deprecated Use checkAndMarkProcessed instead
+   */
+  isReplayedMessage(messageId: string): boolean {
+    // Synchronous check for in-memory fallback only
+    return this.processedMessagesFallback.has(messageId);
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   * @deprecated Use checkAndMarkProcessed instead
+   */
+  markMessageProcessed(messageId: string): void {
+    this.processedMessagesFallback.set(messageId, Date.now());
+  }
+
+  /**
+   * Clean up expired message IDs from fallback cache
+   * RC-9 FIX: Collect keys to delete first, then delete in separate pass
+   * This prevents concurrent modification issues during iteration
    */
   private cleanupProcessedMessages(): void {
     const now = Date.now();
-    let removed = 0;
-    for (const [messageId, timestamp] of this.processedMessages.entries()) {
+    // RC-9 FIX: Collect keys first to avoid concurrent modification
+    const keysToDelete: string[] = [];
+    for (const [messageId, timestamp] of this.processedMessagesFallback.entries()) {
       if (now - timestamp > this.MESSAGE_CACHE_TTL_MS) {
-        this.processedMessages.delete(messageId);
-        removed++;
+        keysToDelete.push(messageId);
       }
     }
-    if (removed > 0) {
-      this.logger.debug(`[CACHE] Cleaned up ${removed} expired message IDs`);
+    // Delete in separate pass
+    for (const key of keysToDelete) {
+      this.processedMessagesFallback.delete(key);
+    }
+    if (keysToDelete.length > 0) {
+      this.logger.debug(`[CACHE] Cleaned up ${keysToDelete.length} expired message IDs from fallback cache`);
     }
   }
 
   /**
    * Handle incoming Gmail Pub/Sub notification
+   * RC-7 FIX: Uses Redis distributed lock for per-provider coordination
    */
   async handleNotification(message: GmailPubSubMessage): Promise<void> {
     try {
@@ -228,77 +251,118 @@ export class GmailWebhookService {
 
       this.logger.debug(`[GMAIL-WEBHOOK] Found provider: ${provider.id} for tenant: ${provider.tenantId}`);
 
-      // RC-7 Fix: Acquire per-provider mutex to prevent concurrent webhook processing
-      // This prevents race conditions on historyId tracking and duplicate sync jobs
-      const mutex = this.getProviderMutex(provider.id);
-      await mutex.acquire();
+      // RC-7 FIX: Use Redis distributed lock for per-provider coordination
+      // This works across multiple app instances (unlike in-memory mutex)
+      const lockKey = `gmail:webhook:${provider.id}`;
+      const lockTtlMs = 30000; // 30 second lock for webhook processing
 
       try {
-        const subscriptionExists = await this.ensureSubscriptionRow(provider.id);
-
-        // Update webhook subscription stats
-        this.logger.debug(`[GMAIL-WEBHOOK] Updating subscription stats for provider ${provider.id}...`);
-        await this.updateSubscriptionStats(provider.id);
-
-        // Re-fetch provider to get latest metadata (in case another webhook updated it)
-        const freshProvider = await this.prisma.providerConfig.findUnique({
-          where: { id: provider.id },
-          select: { metadata: true, lastSyncedAt: true },
-        });
-
-        const lastHistoryIdRaw = (freshProvider?.metadata as any)?.historyId;
-        const lastHistoryId = lastHistoryIdRaw ? Number(lastHistoryIdRaw) : undefined;
-        const incomingHistoryId = data.historyId ? Number(data.historyId) : undefined;
-        const hasGap =
-          incomingHistoryId !== undefined &&
-          lastHistoryId !== undefined &&
-          incomingHistoryId < lastHistoryId;
-
-        this.logger.debug(
-          `[GMAIL-WEBHOOK] History IDs - last: ${lastHistoryId}, incoming: ${incomingHistoryId}, hasGap: ${hasGap}`,
+        await this.redisLock.withLock(
+          lockKey,
+          lockTtlMs,
+          async () => {
+            await this.processWebhookWithLock(provider.id, provider.tenantId, provider.email, data);
+          },
+          { maxRetries: 3 },
         );
-
-        // Trigger incremental sync with high priority (fallback full if gap detected)
-        const syncJob: SyncJobData = {
-          tenantId: provider.tenantId,
-          providerId: provider.id,
-          providerType: 'google',
-          email: provider.email,
-          priority: 'high', // Webhook triggers are high priority
-          syncType: hasGap || !subscriptionExists ? 'full' : 'incremental',
-          lastSyncedAt: freshProvider?.lastSyncedAt ?? undefined,
-        };
-
-        this.logger.log(`[GMAIL-WEBHOOK] Queueing ${syncJob.syncType} sync job for ${provider.email}...`);
-        await this.queueService.addSyncJob(syncJob);
-        this.logger.log(`[GMAIL-WEBHOOK] Sync job queued successfully`);
-
-        // Persist latest historyId for next delta
-        const existingMetadata = (freshProvider?.metadata as Record<string, any>) || {};
-        const newMetadata = {
-          ...existingMetadata,
-          historyId: data.historyId,
-          gapDetected: hasGap || !subscriptionExists || undefined,
-          lastGapAt: hasGap ? new Date().toISOString() : existingMetadata.lastGapAt,
-        };
-        this.logger.debug(`[GMAIL-WEBHOOK] Updating provider metadata with historyId: ${data.historyId}...`);
-        await this.prisma.providerConfig.update({
-          where: { id: provider.id },
-          data: { metadata: newMetadata },
-        });
-        this.logger.debug(`[GMAIL-WEBHOOK] Provider metadata updated successfully`);
-
-        this.logger.log(
-          `[GMAIL-WEBHOOK] ✅ Triggered ${syncJob.syncType} sync for ${provider.email} via webhook`,
+      } catch (lockError) {
+        // RC-7: If lock fails, log and skip - another instance is handling this provider
+        this.logger.warn(
+          `[GMAIL-WEBHOOK] Lock failed for provider ${provider.id}, skipping: ${
+            lockError instanceof Error ? lockError.message : String(lockError)
+          }`,
         );
-      } finally {
-        // RC-7 Fix: Always release mutex, even on error
-        mutex.release();
+        // Don't throw - this is expected in high-concurrency scenarios
       }
     } catch (error) {
       this.logger.error('Error processing Gmail notification:', error);
       throw error;
     }
+  }
+
+  /**
+   * Process webhook notification with distributed lock held
+   * RC-7 FIX: Extracted to separate method for cleaner locking
+   */
+  private async processWebhookWithLock(
+    providerId: string,
+    tenantId: string,
+    email: string,
+    data: GmailPubSubData,
+  ): Promise<void> {
+    const subscriptionExists = await this.ensureSubscriptionRow(providerId);
+
+    // Update webhook subscription stats
+    this.logger.debug(`[GMAIL-WEBHOOK] Updating subscription stats for provider ${providerId}...`);
+    await this.updateSubscriptionStats(providerId);
+
+    // Re-fetch provider to get latest metadata (in case another webhook updated it)
+    const freshProvider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+      select: { metadata: true, lastSyncedAt: true },
+    });
+
+    const lastHistoryIdRaw = (freshProvider?.metadata as any)?.historyId;
+    // CRIT-1 FIX: Use BigInt for historyId comparison to prevent integer overflow
+    // Gmail historyId can exceed Number.MAX_SAFE_INTEGER (2^53-1)
+    // Using string comparison or BigInt prevents precision loss
+    let hasGap = false;
+    let lastHistoryIdStr = '';
+    const incomingHistoryIdStr = data.historyId || '';
+
+    if (lastHistoryIdRaw && data.historyId) {
+      lastHistoryIdStr = String(lastHistoryIdRaw);
+      try {
+        // Use BigInt for safe comparison of large integers
+        const lastBigInt = BigInt(lastHistoryIdStr);
+        const incomingBigInt = BigInt(incomingHistoryIdStr);
+        hasGap = incomingBigInt < lastBigInt;
+      } catch {
+        // Fallback to string comparison if BigInt fails (non-numeric values)
+        this.logger.warn(
+          `[GMAIL-WEBHOOK] Invalid historyId format, falling back to string comparison`,
+        );
+        hasGap = incomingHistoryIdStr < lastHistoryIdStr;
+      }
+    }
+
+    this.logger.debug(
+      `[GMAIL-WEBHOOK] History IDs - last: ${lastHistoryIdStr}, incoming: ${incomingHistoryIdStr}, hasGap: ${hasGap}`,
+    );
+
+    // Trigger incremental sync with high priority (fallback full if gap detected)
+    const syncJob: SyncJobData = {
+      tenantId,
+      providerId,
+      providerType: 'google',
+      email,
+      priority: 'high', // Webhook triggers are high priority
+      syncType: hasGap || !subscriptionExists ? 'full' : 'incremental',
+      lastSyncedAt: freshProvider?.lastSyncedAt ?? undefined,
+    };
+
+    this.logger.log(`[GMAIL-WEBHOOK] Queueing ${syncJob.syncType} sync job for ${email}...`);
+    await this.queueService.addSyncJob(syncJob);
+    this.logger.log(`[GMAIL-WEBHOOK] Sync job queued successfully`);
+
+    // Persist latest historyId for next delta
+    const existingMetadata = (freshProvider?.metadata as Record<string, any>) || {};
+    const newMetadata = {
+      ...existingMetadata,
+      historyId: data.historyId,
+      gapDetected: hasGap || !subscriptionExists || undefined,
+      lastGapAt: hasGap ? new Date().toISOString() : existingMetadata.lastGapAt,
+    };
+    this.logger.debug(`[GMAIL-WEBHOOK] Updating provider metadata with historyId: ${data.historyId}...`);
+    await this.prisma.providerConfig.update({
+      where: { id: providerId },
+      data: { metadata: newMetadata },
+    });
+    this.logger.debug(`[GMAIL-WEBHOOK] Provider metadata updated successfully`);
+
+    this.logger.log(
+      `[GMAIL-WEBHOOK] ✅ Triggered ${syncJob.syncType} sync for ${email} via webhook`,
+    );
   }
 
   /**

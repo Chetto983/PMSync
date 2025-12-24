@@ -17,6 +17,7 @@
  * @see docs/AI_SECRETARY_IMPLEMENTATION_PLAN.md P1.6
  */
 import { Agent, createTool, type AgentHooks } from '@voltagent/core';
+import { MemoryCategory } from '../memory';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import type { PrismaService } from '../../../../prisma/prisma.service';
@@ -204,7 +205,7 @@ function createUnifiedKnowledgeTools(options: UnifiedKnowledgeAgentOptions) {
         };
 
         await longTermMemory.addFact(tenantId, userId, content, {
-          category: (categoryMap[category ?? 'general'] ?? 'GENERAL') as any,
+          category: (categoryMap[category ?? 'general'] ?? 'GENERAL') as MemoryCategory,
         });
 
         return {

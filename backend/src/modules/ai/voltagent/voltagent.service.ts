@@ -28,6 +28,7 @@ import { SemanticCacheService } from './services/semantic-cache.service';
 import { ModelRouterService } from './services/model-router.service';
 import { AiQueueService, type AiJobData } from './services/ai-queue.service';
 import { RateLimiterService } from './services/rate-limiter.service';
+import { AiError, AiErrorCode } from '../errors';
 import { MistralBatchService } from './services/mistral-batch.service';
 import { AgentAction, AgentActionType, ActionSeverity } from './interfaces/agent-action.interface';
 import { AgentContext } from './interfaces/agent-context.interface';
@@ -167,7 +168,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly documentLibraryService?: DocumentLibraryService,
     @Optional() private readonly promptGuardService?: PromptGuardService,
     @Optional() private readonly piiDetectionService?: PiiDetectionService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     // DISABLED: VoltAgent native PostgreSQL memory causes AI_InvalidPromptError
@@ -688,7 +689,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           this.logger.debug(`${logPrefix} Long-term memory context injected`);
         }
       } catch (error) {
-        const errMsg = error instanceof Error ? error.message : String(error);
+        const errMsg = AiError.fromError(error).message;
         this.logger.warn(`${logPrefix} Failed to get long-term memory context: ${errMsg}`);
       }
     }
@@ -983,7 +984,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           this.logger.debug(`${logPrefix} Long-term memory context injected`);
         }
       } catch (error) {
-        const errMsg = error instanceof Error ? error.message : String(error);
+        const errMsg = AiError.fromError(error).message;
         this.logger.warn(`${logPrefix} Failed to get long-term memory context: ${errMsg}`);
       }
     }
@@ -1088,7 +1089,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     autoApproveThreshold = 0.9,
   ): Promise<ApprovalResult | SuspendedWorkflow> {
     if (!this.approvalWorkflow) {
-      throw new Error('Approval workflow not initialized');
+      throw new AiError('Approval workflow not initialized', AiErrorCode.INTERNAL_ERROR, {
+        retryable: false,
+      });
     }
 
     const result = await this.approvalWorkflow.run({
@@ -1204,7 +1207,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (!suspended) {
-      throw new Error(`Suspended workflow not found: ${executionId}`);
+      throw new AiError(`Suspended workflow not found: ${executionId}`, AiErrorCode.WORKFLOW_FAILED, {
+        retryable: false,
+      });
     }
 
     // Clean up Redis

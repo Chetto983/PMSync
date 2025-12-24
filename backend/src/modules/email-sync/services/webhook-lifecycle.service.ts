@@ -7,12 +7,13 @@ import {
   ScheduledJobsQueueService,
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 @Injectable()
 export class WebhookLifecycleService implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(WebhookLifecycleService.name);
-  private isRenewalRunning = false;
-  private isDeepCheckRunning = false;
+  // RC-8 FIX: Removed in-memory flags - now using Redis distributed locks
+  // In-memory flags don't work across multiple instances/workers
   private readonly jobsEnabled: boolean;
 
   constructor(
@@ -21,6 +22,8 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
     private microsoftWebhook: MicrosoftWebhookService,
     private configService: ConfigService,
     private scheduledJobsQueue: ScheduledJobsQueueService,
+    // RC-8 FIX: Inject RedisLockService for distributed coordination
+    private readonly redisLock: RedisLockService,
   ) {
     this.jobsEnabled =
       (this.configService.get<string>('JOBS_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -143,97 +146,112 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
 
   /**
    * Renew expiring webhooks - triggered by BullMQ daily at 2 AM
-   * BullMQ guarantees only one instance runs at a time
+   * RC-8 FIX: Uses Redis distributed lock to prevent concurrent renewals across instances
    */
   async renewExpiringWebhooks(): Promise<void> {
     if (!this.jobsEnabled) {
       return;
     }
 
-    if (this.isRenewalRunning) {
-      this.logger.warn('Webhook renewal already running, skipping...');
-      return;
-    }
-
-    this.isRenewalRunning = true;
+    // RC-8 FIX: Use distributed lock instead of in-memory flag
+    // This prevents concurrent renewal across multiple app instances
+    const lockKey = 'webhook:lifecycle:renewal';
+    const lockTtlMs = 5 * 60 * 1000; // 5 minutes for renewal process
 
     try {
-      this.logger.log('Starting webhook renewal process...');
+      await this.redisLock.withLock(
+        lockKey,
+        lockTtlMs,
+        async () => {
+          this.logger.log('Starting webhook renewal process...');
 
-      // Renew Gmail subscriptions
-      await this.gmailWebhook.renewExpiringSubscriptions();
+          // Renew Gmail subscriptions
+          await this.gmailWebhook.renewExpiringSubscriptions();
 
-      // Renew Microsoft subscriptions
-      await this.microsoftWebhook.renewExpiringSubscriptions();
+          // Renew Microsoft subscriptions
+          await this.microsoftWebhook.renewExpiringSubscriptions();
 
-      this.logger.log('Webhook renewal completed');
+          this.logger.log('Webhook renewal completed');
+        },
+        { maxRetries: 1 }, // Only try once - if another instance is running, skip
+      );
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Failed to acquire lock')) {
+        this.logger.warn('Webhook renewal already running on another instance, skipping...');
+        return;
+      }
       this.logger.error('Error in webhook renewal:', error);
-    } finally {
-      this.isRenewalRunning = false;
     }
   }
 
   /**
    * Deep check - full sync for all accounts once per day
    * Triggered by BullMQ at 3 AM UTC to catch any missed changes
+   * RC-8 FIX: Uses Redis distributed lock to prevent concurrent deep checks across instances
    */
   async performDeepCheck(): Promise<void> {
     if (!this.jobsEnabled) {
       return;
     }
-    if (this.isDeepCheckRunning) {
-      this.logger.warn('Deep check already running, skipping...');
-      return;
-    }
 
-    this.isDeepCheckRunning = true;
+    // RC-8 FIX: Use distributed lock instead of in-memory flag
+    const lockKey = 'webhook:lifecycle:deep-check';
+    const lockTtlMs = 10 * 60 * 1000; // 10 minutes for deep check process
 
     try {
-      this.logger.log('Starting daily deep check...');
+      await this.redisLock.withLock(
+        lockKey,
+        lockTtlMs,
+        async () => {
+          this.logger.log('Starting daily deep check...');
 
-      // Get all active providers
-      const providers = await this.prisma.providerConfig.findMany({
-        where: { isActive: true },
-        select: {
-          id: true,
-          email: true,
-          lastSyncedAt: true,
-        },
-      });
-
-      // Count providers that haven't been synced in 24h
-      const staleProviders = providers.filter((p) => {
-        if (!p.lastSyncedAt) return true;
-        const hoursSinceSync =
-          (Date.now() - p.lastSyncedAt.getTime()) / (1000 * 60 * 60);
-        return hoursSinceSync > 24;
-      });
-
-      if (staleProviders.length > 0) {
-        this.logger.warn(
-          `Deep check found ${staleProviders.length} providers not synced in 24h`,
-        );
-
-        // Force sync for stale providers
-        for (const provider of staleProviders) {
-          await this.prisma.providerConfig.update({
-            where: { id: provider.id },
-            data: {
-              nextSyncAt: new Date(), // Force immediate sync
-              syncPriority: 2, // Medium-high priority
+          // Get all active providers
+          const providers = await this.prisma.providerConfig.findMany({
+            where: { isActive: true },
+            select: {
+              id: true,
+              email: true,
+              lastSyncedAt: true,
             },
           });
-        }
-      }
 
-      this.logger.log(
-        `Deep check completed. Total providers: ${providers.length}, Stale: ${staleProviders.length}`,
+          // Count providers that haven't been synced in 24h
+          const staleProviders = providers.filter((p) => {
+            if (!p.lastSyncedAt) return true;
+            const hoursSinceSync =
+              (Date.now() - p.lastSyncedAt.getTime()) / (1000 * 60 * 60);
+            return hoursSinceSync > 24;
+          });
+
+          if (staleProviders.length > 0) {
+            this.logger.warn(
+              `Deep check found ${staleProviders.length} providers not synced in 24h`,
+            );
+
+            // Force sync for stale providers
+            for (const provider of staleProviders) {
+              await this.prisma.providerConfig.update({
+                where: { id: provider.id },
+                data: {
+                  nextSyncAt: new Date(), // Force immediate sync
+                  syncPriority: 2, // Medium-high priority
+                },
+              });
+            }
+          }
+
+          this.logger.log(
+            `Deep check completed. Total providers: ${providers.length}, Stale: ${staleProviders.length}`,
+          );
+        },
+        { maxRetries: 1 },
       );
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Failed to acquire lock')) {
+        this.logger.warn('Deep check already running on another instance, skipping...');
+        return;
+      }
       this.logger.error('Error in deep check:', error);
-    } finally {
-      this.isDeepCheckRunning = false;
     }
   }
 

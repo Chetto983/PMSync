@@ -123,7 +123,7 @@ export class MistralBatchService {
           fileName,
           content: fileBlob,
         },
-        purpose: 'batch' as any,
+        purpose: 'batch',
       });
 
       if (!uploadResult.id) {

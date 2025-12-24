@@ -22,6 +22,7 @@ import { RedisLockService } from '../../../common/services/redis-lock.service';
  * - Retry configuration
  * - Common error handling
  * - Sync statistics calculation
+ * - CRIT-3 FIX: Mid-sync token refresh for long-running operations
  */
 export abstract class BaseEmailSyncService implements OnModuleInit {
   protected abstract readonly logger: Logger;
@@ -35,6 +36,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
 
   // RACE CONDITION FIX: Redis lock service for distributed locking
   protected redisLock: RedisLockService | null = null;
+
+  // CRIT-3 FIX: Token refresh threshold (refresh if less than 2 min remaining)
+  protected readonly TOKEN_REFRESH_THRESHOLD_MS = 2 * 60 * 1000;
 
   constructor(
     protected readonly prisma: PrismaService,
@@ -81,7 +85,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       const { provider, credentials, driverType } = await this.getDriverCredentials(providerId);
 
       // Create connected driver
-      const driver = await this.createDriver(driverType, credentials);
+      let driver = await this.createDriver(driverType, credentials);
+      // CRIT-3 FIX: Track token expiry for mid-sync refresh
+      const tokenExpiresAt = provider.tokenExpiresAt;
 
       if (!driver.isConnected()) {
         throw new Error('Driver failed to connect');
@@ -101,25 +107,31 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
 
         if (syncType === 'incremental' && lastSyncToken) {
           // Incremental sync using driver
+          // CRIT-3 FIX: Pass token expiry for mid-sync refresh
           const result = await this.syncIncrementalWithDriver(
             driver,
             lastSyncToken,
             providerId,
             tenantId,
+            tokenExpiresAt,
           );
           messagesProcessed = result.messagesProcessed;
           newMessages = result.newMessages;
           newSyncToken = result.newSyncToken;
+          driver = result.driver; // Use potentially refreshed driver for disconnect
         } else {
           // Full sync using driver
+          // CRIT-3 FIX: Pass token expiry for mid-sync refresh
           const result = await this.syncFullWithDriver(
             driver,
             providerId,
             tenantId,
+            tokenExpiresAt,
           );
           messagesProcessed = result.messagesProcessed;
           newMessages = result.newMessages;
           newSyncToken = result.syncToken;
+          driver = result.driver; // Use potentially refreshed driver for disconnect
         }
 
         // Emit realtime events
@@ -184,6 +196,59 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
   }
 
   /**
+   * CRIT-3 FIX: Check if token is about to expire and needs refresh
+   * Compares current time against token expiry with threshold buffer
+   */
+  protected isTokenExpiringSoon(tokenExpiresAt: Date | null | undefined): boolean {
+    if (!tokenExpiresAt) {
+      return false; // Can't check without expiry time
+    }
+    const now = Date.now();
+    const expiresAt = new Date(tokenExpiresAt).getTime();
+    return now >= expiresAt - this.TOKEN_REFRESH_THRESHOLD_MS;
+  }
+
+  /**
+   * CRIT-3 FIX: Refresh driver with new credentials if token is expiring
+   * Returns new driver if refreshed, or existing driver if still valid
+   */
+  protected async refreshDriverIfNeeded(
+    currentDriver: IEmailDriver,
+    providerId: string,
+    tokenExpiresAt: Date | null | undefined,
+  ): Promise<{ driver: IEmailDriver; tokenExpiresAt: Date | null | undefined }> {
+    if (!this.isTokenExpiringSoon(tokenExpiresAt)) {
+      return { driver: currentDriver, tokenExpiresAt };
+    }
+
+    this.logger.log(`CRIT-3: Token expiring soon, refreshing driver for provider ${providerId}`);
+
+    try {
+      // Disconnect old driver
+      await currentDriver.disconnect();
+
+      // Get fresh credentials (will trigger token refresh via ProviderTokenService)
+      const { provider, credentials, driverType } = await this.getDriverCredentials(providerId);
+
+      // Create new driver with fresh token
+      const newDriver = await this.createDriver(driverType, credentials);
+
+      if (!newDriver.isConnected()) {
+        throw new Error('New driver failed to connect');
+      }
+
+      this.logger.log(`CRIT-3: Driver refreshed successfully for provider ${providerId}`);
+      return { driver: newDriver, tokenExpiresAt: provider.tokenExpiresAt };
+    } catch (error) {
+      this.logger.error(
+        `CRIT-3: Failed to refresh driver: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // Return existing driver - let it fail naturally if token is expired
+      return { driver: currentDriver, tokenExpiresAt };
+    }
+  }
+
+  /**
    * Get additional listMessages options for provider
    * Override to add provider-specific options (e.g., includeBody for IMAP)
    */
@@ -210,15 +275,18 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
   /**
    * Full sync using driver - shared implementation
    * DC-2 consolidation: Removes ~55 lines × 3 providers = ~165 lines
+   * CRIT-3 FIX: Accepts tokenExpiresAt and refreshes driver mid-sync if needed
    */
   protected async syncFullWithDriver(
-    driver: IEmailDriver,
+    initialDriver: IEmailDriver,
     providerId: string,
     tenantId: string,
+    initialTokenExpiresAt?: Date | null,
   ): Promise<{
     messagesProcessed: number;
     newMessages: number;
     syncToken: string;
+    driver: IEmailDriver;
   }> {
     this.logger.debug(`Full sync with driver - fetching latest ${this.fullSyncMaxMessages} messages`);
 
@@ -227,8 +295,17 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     let pageToken: string | undefined;
     let fetchedCount = 0;
 
+    // CRIT-3 FIX: Track mutable driver and token expiry for mid-sync refresh
+    let driver = initialDriver;
+    let tokenExpiresAt = initialTokenExpiresAt;
+
     // List messages from INBOX
     do {
+      // CRIT-3 FIX: Check if token needs refresh before each batch
+      const refreshResult = await this.refreshDriverIfNeeded(driver, providerId, tokenExpiresAt);
+      driver = refreshResult.driver;
+      tokenExpiresAt = refreshResult.tokenExpiresAt;
+
       const result = await driver.listMessages({
         folder: 'INBOX',
         pageSize: Math.min(this.batchSize, this.fullSyncMaxMessages - fetchedCount),
@@ -269,28 +346,36 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       messagesProcessed,
       newMessages,
       syncToken,
+      driver,
     };
   }
 
   /**
    * Incremental sync using driver - shared implementation
    * DC-3 consolidation: Removes ~70 lines × 3 providers = ~210 lines
+   * CRIT-3 FIX: Accepts tokenExpiresAt and refreshes driver mid-sync if needed
    */
   protected async syncIncrementalWithDriver(
-    driver: IEmailDriver,
+    initialDriver: IEmailDriver,
     lastSyncToken: string,
     providerId: string,
     tenantId: string,
+    initialTokenExpiresAt?: Date | null,
   ): Promise<{
     messagesProcessed: number;
     newMessages: number;
     newSyncToken: string;
+    driver: IEmailDriver;
   }> {
     this.logger.debug(`Incremental sync with driver from token: ${lastSyncToken.substring(0, 20)}...`);
 
     let messagesProcessed = 0;
     let newMessages = 0;
     const processedIds = new Set<string>();
+
+    // CRIT-3 FIX: Track mutable driver and token expiry for mid-sync refresh
+    let driver = initialDriver;
+    let tokenExpiresAt = initialTokenExpiresAt;
 
     // Get changes since last sync (method may not be available on all drivers)
     if (!driver.getChangesSince) {
@@ -308,10 +393,15 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         messagesProcessed: 0,
         newMessages: 0,
         newSyncToken: changesResult.newSyncToken,
+        driver,
       };
     }
 
     this.logger.debug(`Found ${changesResult.changes.length} changes`);
+
+    // CRIT-3 FIX: Batch counter for periodic token refresh check
+    let batchCounter = 0;
+    const TOKEN_CHECK_INTERVAL = 50; // Check every 50 changes
 
     // Process each change
     for (const change of changesResult.changes) {
@@ -320,6 +410,14 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         continue;
       }
       processedIds.add(change.messageId);
+
+      // CRIT-3 FIX: Periodically check if token needs refresh
+      batchCounter++;
+      if (batchCounter % TOKEN_CHECK_INTERVAL === 0) {
+        const refreshResult = await this.refreshDriverIfNeeded(driver, providerId, tokenExpiresAt);
+        driver = refreshResult.driver;
+        tokenExpiresAt = refreshResult.tokenExpiresAt;
+      }
 
       try {
         if (change.type === 'deleted') {
@@ -353,6 +451,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       messagesProcessed,
       newMessages,
       newSyncToken: changesResult.newSyncToken,
+      driver,
     };
   }
 
@@ -592,21 +691,76 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       let wasNew: boolean;
 
       if (existing) {
-        // Update existing record with version increment
-        result = await this.prisma.email.update({
-          where: { id: existing.id },
-          data: {
-            ...updateData,
-            version: { increment: 1 },
-          },
-        });
-        wasNew = false;
+        // RC-6 FIX: Use conditional update with userModifiedAt check
+        // This prevents overwriting user modifications that occurred after our read
+        // The WHERE clause ensures update only succeeds if userModifiedAt hasn't changed
+        const originalUserModifiedAt = existing.userModifiedAt;
 
         if (userModifiedRecently) {
+          // User modified recently - only update content fields (already handled in updateData)
+          result = await this.prisma.email.update({
+            where: { id: existing.id },
+            data: {
+              ...updateData,
+              version: { increment: 1 },
+            },
+          });
           this.logger.debug(
             `Preserved user modifications for email ${existing.id} (modified ${Math.round((Date.now() - existing.userModifiedAt!.getTime()) / 1000)}s ago)`,
           );
+        } else {
+          // No recent user modification at check time - use conditional update
+          // This ensures we don't overwrite changes made between check and update
+          const conditionalUpdate = await this.prisma.$executeRaw`
+            UPDATE "emails"
+            SET
+              "subject" = ${updateData.subject},
+              "from" = ${updateData.from},
+              "to" = ${updateData.to},
+              "cc" = ${updateData.cc},
+              "bcc" = ${updateData.bcc},
+              "bodyText" = ${updateData.bodyText},
+              "bodyHtml" = ${updateData.bodyHtml},
+              "snippet" = ${updateData.snippet},
+              "receivedAt" = ${updateData.receivedAt},
+              "isRead" = ${(updateData as any).isRead ?? existing.isRead},
+              "isStarred" = ${(updateData as any).isStarred ?? existing.isStarred},
+              "isFlagged" = ${(updateData as any).isFlagged ?? existing.isFlagged},
+              "labels" = ${(updateData as any).labels ?? existing.labels},
+              "folder" = ${(updateData as any).folder ?? existing.folder},
+              "version" = "version" + 1,
+              "updatedAt" = NOW()
+            WHERE "id" = ${existing.id}
+              AND (
+                "userModifiedAt" IS NULL
+                OR "userModifiedAt" = ${originalUserModifiedAt}
+              )
+          `;
+
+          if (conditionalUpdate === 0) {
+            // User modified email during sync - skip update to preserve their changes
+            this.logger.debug(
+              `RC-6: User modified email ${existing.id} during sync, preserving user state`,
+            );
+            // Re-fetch to return current state
+            result = await this.prisma.email.findUnique({
+              where: { id: existing.id },
+            });
+            if (!result) {
+              throw new Error(`Email ${existing.id} was deleted during sync`);
+            }
+            return { wasNew: false, conflictDetected: true };
+          }
+
+          // Update succeeded - fetch the updated record
+          result = await this.prisma.email.findUnique({
+            where: { id: existing.id },
+          });
+          if (!result) {
+            throw new Error(`Email ${existing.id} was deleted during sync`);
+          }
         }
+        wasNew = false;
       } else {
         // Create new record
         result = await this.prisma.email.create({

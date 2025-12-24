@@ -18,6 +18,7 @@ import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
+import { AiError, AiErrorCode } from '../../errors';
 
 const logger = new Logger('WebSearchTools');
 
@@ -121,7 +122,9 @@ async function setCachedSearch(
 function createMistralClient(configService: ConfigService): Mistral {
   const apiKey = configService.get<string>('MISTRAL_API_KEY');
   if (!apiKey) {
-    throw new Error('MISTRAL_API_KEY not configured');
+    throw new AiError('MISTRAL_API_KEY not configured', AiErrorCode.PROVIDER_ERROR, {
+      retryable: false,
+    });
   }
   return new Mistral({ apiKey });
 }
@@ -253,7 +256,7 @@ async function executeWebSearch(
       await clearAgentFromCache(locale, cacheService);
     }
 
-    throw error;
+    throw AiError.fromError(error);
   }
 }
 

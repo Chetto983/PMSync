@@ -13,9 +13,8 @@ import { CryptoService } from '../../../common/services/crypto.service';
 import { CalendarEvent, ProviderConfig, Prisma } from '@prisma/client';
 import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
+import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
-import { getErrorMessage } from '../../../common/utils';
-import { CalendarError, CalendarErrorCode, isCalendarError } from '../errors';
 import { withRetry, getCircuitBreaker } from '../utils';
 import { ConflictException } from '@nestjs/common';
 
@@ -87,6 +86,7 @@ export class CalendarEventsService {
     private readonly googleOAuth: GoogleOAuthService,
     private readonly microsoftOAuth: MicrosoftOAuthService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly providerTokenService: ProviderTokenService,
   ) { }
 
   // ============================================================================
@@ -575,73 +575,9 @@ export class CalendarEventsService {
    * Get provider access token (with auto-refresh)
    */
   async getProviderAccessToken(provider: ProviderConfig): Promise<string> {
-    if (!provider.accessToken || !provider.tokenEncryptionIv) {
-      throw new BadRequestException('Provider missing access token');
-    }
-
-    let accessToken = this.crypto.decrypt(provider.accessToken, provider.tokenEncryptionIv);
-
-    const expiresSoon =
-      !provider.tokenExpiresAt || provider.tokenExpiresAt.getTime() <= Date.now() + 60 * 1000;
-
-    if (!expiresSoon) {
-      return accessToken;
-    }
-
-    if (!provider.refreshToken || !provider.refreshTokenEncryptionIv) {
-      this.logger.warn(
-        `Access token expired for provider ${provider.id} but no refresh token is available`,
-      );
-      return accessToken;
-    }
-
-    const refreshToken = this.crypto.decrypt(
-      provider.refreshToken,
-      provider.refreshTokenEncryptionIv,
-    );
-
-    try {
-      let refreshed:
-        | Awaited<ReturnType<typeof this.googleOAuth.refreshAccessToken>>
-        | Awaited<ReturnType<typeof this.microsoftOAuth.refreshAccessToken>>;
-
-      if (provider.providerType === 'google') {
-        refreshed = await this.googleOAuth.refreshAccessToken(refreshToken);
-      } else if (provider.providerType === 'microsoft') {
-        refreshed = await this.microsoftOAuth.refreshAccessToken(refreshToken);
-      } else {
-        return accessToken;
-      }
-
-      accessToken = refreshed.accessToken;
-
-      const updateData: Record<string, unknown> = {
-        tokenExpiresAt: refreshed.expiresAt,
-      };
-
-      const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
-      updateData.accessToken = encryptedAccess.encrypted;
-      updateData.tokenEncryptionIv = encryptedAccess.iv;
-
-      const refreshedToken = 'refreshToken' in refreshed ? refreshed.refreshToken : undefined;
-      if (refreshedToken) {
-        const encryptedRefresh = this.crypto.encrypt(refreshedToken);
-        updateData.refreshToken = encryptedRefresh.encrypted;
-        updateData.refreshTokenEncryptionIv = encryptedRefresh.iv;
-      }
-
-      await this.prisma.providerConfig.update({
-        where: { id: provider.id },
-        data: updateData,
-      });
-
-      return accessToken;
-    } catch (error) {
-      this.logger.error(
-        `Failed to refresh calendar access token for provider ${provider.id}: ${getErrorMessage(error)}`,
-      );
-      return accessToken;
-    }
+    // Delegate to centralized token service which handles distributed locking and refresh
+    const { accessToken } = await this.providerTokenService.getProviderWithToken(provider.id);
+    return accessToken;
   }
 
   // ============================================================================

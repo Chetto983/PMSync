@@ -11,6 +11,32 @@ import { getContactsCircuitBreaker, withRetry } from '../utils';
 // Re-export types for backward compatibility
 export type { ContactRealtimeReason, ContactsSyncResult as MicrosoftContactsSyncResult } from './base-contacts-sync.service';
 
+// Helper Interface for Microsoft Graph API Contact
+interface MicrosoftContact {
+  id: string;
+  givenName?: string;
+  surname?: string;
+  displayName?: string;
+  middleName?: string;
+  nickName?: string;
+  title?: string;
+  emailAddresses?: Array<{
+    name?: string;
+    address: string;
+  }>;
+  mobilePhone?: string;
+  businessPhones?: string[];
+  homePhones?: string[];
+  homeAddress?: any;
+  businessAddress?: any;
+  companyName?: string;
+  jobTitle?: string;
+  department?: string;
+  birthday?: string;
+  personalNotes?: string;
+  [key: string]: any; // Allow other properties
+}
+
 @Injectable()
 export class MicrosoftContactsSyncService extends BaseContactsSyncService {
   protected readonly providerName = 'Microsoft';
@@ -28,8 +54,8 @@ export class MicrosoftContactsSyncService extends BaseContactsSyncService {
   /**
    * Fetch all contacts from Microsoft Graph API with pagination
    */
-  protected async fetchAllContacts(accessToken: string): Promise<any[]> {
-    const allContacts: any[] = [];
+  protected async fetchAllContacts(accessToken: string): Promise<MicrosoftContact[]> {
+    const allContacts: MicrosoftContact[] = [];
     // Select only required fields for efficiency (API-1 fix)
     const selectFields = [
       'id', 'givenName', 'surname', 'displayName', 'middleName', 'nickName', 'title',
@@ -41,9 +67,9 @@ export class MicrosoftContactsSyncService extends BaseContactsSyncService {
     let nextLink: string | null = `${this.GRAPH_API_BASE}/me/contacts?$top=500&$select=${selectFields}`;
 
     do {
-      const response: any = await axios.get(nextLink, {
+      const response = await withRetry(() => axios.get(nextLink!, {
         headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      }));
 
       const contacts = response.data.value || [];
       allContacts.push(...contacts);
@@ -56,14 +82,14 @@ export class MicrosoftContactsSyncService extends BaseContactsSyncService {
   /**
    * Get external ID from Microsoft contact object
    */
-  protected getExternalId(rawContact: any): string {
+  protected getExternalId(rawContact: MicrosoftContact): string {
     return rawContact.id;
   }
 
   /**
    * Extract contact data from Microsoft contact object
    */
-  protected extractContactData(contact: any): ExtractedContactData {
+  protected extractContactData(contact: MicrosoftContact): ExtractedContactData {
     // Extract email addresses
     const emails = contact.emailAddresses?.map((email: any) => ({
       value: email.address,

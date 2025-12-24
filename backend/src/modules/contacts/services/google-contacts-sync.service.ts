@@ -33,13 +33,13 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
     let pageToken: string | undefined;
 
     do {
-      const response = await peopleService.people.connections.list({
+      const response = await withRetry(() => peopleService.people.connections.list({
         resourceName: 'people/me',
         pageSize: 1000, // Max page size for efficiency
         pageToken,
         personFields:
           'names,emailAddresses,phoneNumbers,organizations,addresses,birthdays,photos,biographies,urls',
-      });
+      }));
 
       const connections = response.data.connections || [];
       allContacts.push(...connections);

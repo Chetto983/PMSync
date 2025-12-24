@@ -15,6 +15,7 @@ import {
   QUEUE_NAMES,
 } from '../../../common/config';
 import { getErrorMessage } from '../../../common/utils';
+import { ContactsError, ContactsErrorCode } from '../errors/contacts-error';
 
 @Injectable()
 export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
@@ -140,11 +141,11 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
     });
 
     if (!provider) {
-      throw new Error(`Provider ${providerId} not found`);
+      throw new ContactsError(`Provider ${providerId} not found`, ContactsErrorCode.PROVIDER_NOT_FOUND, { context: { providerId }, retryable: false });
     }
 
     if (!provider.supportsContacts) {
-      throw new Error(`Provider ${providerType} does not support contacts`);
+      throw new ContactsError(`Provider ${providerType} does not support contacts`, ContactsErrorCode.PROVIDER_NOT_SUPPORTED, { provider: providerType as any, retryable: false });
     }
 
     let contactsProcessed = 0;
@@ -166,7 +167,11 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
         break;
 
       default:
-        throw new Error(`Unsupported provider type: ${providerType}`);
+        throw new ContactsError(
+          `Unsupported provider type: ${providerType}`,
+          ContactsErrorCode.PROVIDER_NOT_SUPPORTED,
+          { provider: providerType as any, retryable: false }
+        );
     }
 
     // Get final provider contact count (for this specific provider)

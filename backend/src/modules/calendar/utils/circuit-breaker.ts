@@ -11,6 +11,7 @@
  */
 
 import { Logger } from '@nestjs/common';
+import { getErrorMessage } from '../../../common/utils';
 
 export enum CircuitState {
     CLOSED = 'CLOSED',
@@ -169,7 +170,7 @@ export class CircuitBreaker {
         this.failureTimestamps = this.failureTimestamps.filter((ts) => ts > windowStart);
 
         this.logger.warn(
-            `Circuit breaker ${this.config.name} failure (${this.failureTimestamps.length}/${this.config.failureThreshold}): ${error instanceof Error ? error.message : String(error)}`,
+            `Circuit breaker ${this.config.name} failure (${this.failureTimestamps.length}/${this.config.failureThreshold}): ${getErrorMessage(error)}`,
         );
 
         if (this.state === CircuitState.HALF_OPEN) {
@@ -250,7 +251,7 @@ export const circuitBreakerRegistry = new CircuitBreakerRegistry();
  * Get or create a circuit breaker for a provider
  */
 export function getCircuitBreaker(
-    provider: 'google' | 'microsoft',
+    provider: 'google' | 'microsoft' | 'mistral',
     operation: string = 'default',
 ): CircuitBreaker {
     const name = `${provider}-${operation}`;

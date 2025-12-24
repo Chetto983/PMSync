@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import type { ICalendarProvider, CalendarProviderConfig } from '../providers/interfaces/calendar-provider.interface';
+import { ProviderTokenService } from '../email-sync/services/provider-token.service';
 import { GoogleCalendarProvider } from './providers/google-calendar.provider';
 import { MicrosoftCalendarProvider } from './providers/microsoft-calendar.provider';
 
@@ -22,7 +23,7 @@ const CALENDAR_PROVIDER_CLASSES = {
 export class CalendarProviderFactory {
   private readonly logger = new Logger(CalendarProviderFactory.name);
 
-  constructor(private readonly moduleRef: ModuleRef) {}
+  constructor(private readonly moduleRef: ModuleRef) { }
 
   /**
    * Create a calendar provider instance
@@ -60,11 +61,12 @@ export class CalendarProviderFactory {
 
     try {
       // Get dependencies from module container
-      const [prisma, crypto, googleOAuth, googleCalendarSync] = await Promise.all([
+      const [prisma, crypto, googleOAuth, googleCalendarSync, providerTokenService] = await Promise.all([
         this.moduleRef.get('PrismaService'),
         this.moduleRef.get('CryptoService'),
         this.moduleRef.get('GoogleOAuthService'),
         this.moduleRef.get('GoogleCalendarSyncService'),
+        this.moduleRef.get(ProviderTokenService),
       ]);
 
       // Create and return provider instance
@@ -74,6 +76,7 @@ export class CalendarProviderFactory {
         crypto as any,
         googleOAuth as any,
         googleCalendarSync as any,
+        providerTokenService as any,
       );
 
       this.logger.log(`Google Calendar provider created for ${config.email}`);
@@ -92,11 +95,12 @@ export class CalendarProviderFactory {
 
     try {
       // Get dependencies from module container
-      const [prisma, crypto, microsoftOAuth, microsoftCalendarSync] = await Promise.all([
+      const [prisma, crypto, microsoftOAuth, microsoftCalendarSync, providerTokenService] = await Promise.all([
         this.moduleRef.get('PrismaService'),
         this.moduleRef.get('CryptoService'),
         this.moduleRef.get('MicrosoftOAuthService'),
         this.moduleRef.get('MicrosoftCalendarSyncService'),
+        this.moduleRef.get(ProviderTokenService),
       ]);
 
       // Create and return provider instance
@@ -106,6 +110,7 @@ export class CalendarProviderFactory {
         crypto as any,
         microsoftOAuth as any,
         microsoftCalendarSync as any,
+        providerTokenService as any,
       );
 
       this.logger.log(`Microsoft Calendar provider created for ${config.email}`);
@@ -120,14 +125,14 @@ export class CalendarProviderFactory {
    * Check if a calendar provider type is supported
    */
   static isSupported(providerType: string): boolean {
-    return ['google', 'microsoft'].includes(providerType);
+    return Object.keys(CALENDAR_PROVIDER_CLASSES).includes(providerType.toLowerCase());
   }
 
   /**
    * Get list of supported calendar provider types
    */
   static getSupportedProviders(): string[] {
-    return ['google', 'microsoft'];
+    return Object.keys(CALENDAR_PROVIDER_CLASSES);
   }
 
   /**

@@ -15,6 +15,7 @@ import {
   formatDateForLocale,
 } from '../locales/action-summaries';
 import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
+import { AiError, AiErrorCode } from '../../errors';
 
 /** Default TTL for idempotency keys (5 minutes) */
 const IDEMPOTENCY_TTL_SECONDS = 300;
@@ -50,7 +51,7 @@ export class ActionExecutorService {
     private readonly folderSyncService: FolderSyncService,
     @Optional() private readonly bulkOperationsQueue: BulkOperationsQueueService,
     @Optional() private readonly cacheService?: CacheService,
-  ) {}
+  ) { }
 
   /**
    * Execute an action and return the result.
@@ -301,7 +302,7 @@ export class ActionExecutorService {
 
     if (!this.emailSendService) {
       this.logger.error('EmailSendService not available');
-      throw new Error('Email service is not available. Please try again later.');
+      throw new AiError('Email service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     // Find provider if not specified
@@ -311,7 +312,7 @@ export class ActionExecutorService {
         where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
       });
       if (!provider) {
-        throw new Error('No email provider available');
+        throw new AiError('No email provider available', AiErrorCode.PROVIDER_UNAVAILABLE);
       }
       actualProviderId = provider.id;
     }
@@ -350,7 +351,7 @@ export class ActionExecutorService {
 
     if (!this.emailSendService) {
       this.logger.error('EmailSendService not available');
-      throw new Error('Email service is not available. Please try again later.');
+      throw new AiError('Email service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     // Get the original email to reply to
@@ -359,7 +360,7 @@ export class ActionExecutorService {
     });
 
     if (!originalEmail) {
-      throw new Error('Original email not found');
+      throw new AiError('Original email not found', AiErrorCode.INVALID_INPUT);
     }
 
     // Send reply
@@ -395,7 +396,7 @@ export class ActionExecutorService {
 
     if (!this.emailSendService) {
       this.logger.error('EmailSendService not available');
-      throw new Error('Email service is not available. Please try again later.');
+      throw new AiError('Email service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     // Get the original email to forward
@@ -404,7 +405,7 @@ export class ActionExecutorService {
     });
 
     if (!originalEmail) {
-      throw new Error('Original email not found');
+      throw new AiError('Original email not found', AiErrorCode.INVALID_INPUT);
     }
 
     // Build forwarded body with original email content
@@ -452,7 +453,7 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      throw new Error('Email not found');
+      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
     }
 
     // Update local database (soft delete)
@@ -504,7 +505,7 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      throw new Error('Email not found');
+      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
     }
 
     // Update local database - move to archive folder
@@ -558,7 +559,7 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      throw new Error('Email not found');
+      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
     }
 
     // Update local database
@@ -610,7 +611,7 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      throw new Error('Email not found');
+      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
     }
 
     // Update local database
@@ -704,7 +705,7 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      throw new Error('Email not found');
+      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
     }
 
     // Determine labels to add/remove (labels is a String[] array)
@@ -762,7 +763,7 @@ export class ActionExecutorService {
 
     if (!this.calendarService) {
       this.logger.error('CalendarService not available');
-      throw new Error('Calendar service is not available. Please try again later.');
+      throw new AiError('Calendar service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     // Find provider if not specified
@@ -772,7 +773,7 @@ export class ActionExecutorService {
         where: { tenantId: context.tenantId, supportsCalendar: true, isActive: true },
       });
       if (!provider) {
-        throw new Error('No calendar provider available');
+        throw new AiError('No calendar provider available', AiErrorCode.PROVIDER_UNAVAILABLE);
       }
       actualProviderId = provider.id;
     }
@@ -812,7 +813,7 @@ export class ActionExecutorService {
 
     if (!this.calendarService) {
       this.logger.error('CalendarService not available');
-      throw new Error('Calendar service is not available. Please try again later.');
+      throw new AiError('Calendar service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     // Update event via CalendarService
@@ -846,7 +847,7 @@ export class ActionExecutorService {
 
     if (!this.calendarService) {
       this.logger.error('CalendarService not available');
-      throw new Error('Calendar service is not available. Please try again later.');
+      throw new AiError('Calendar service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     // Get event info for summary before deleting
@@ -1083,7 +1084,7 @@ export class ActionExecutorService {
     const { contactIds, primaryId } = action.payload;
 
     if (!contactIds || contactIds.length < 2) {
-      throw new Error('Need at least 2 contacts to merge');
+      throw new AiError('Need at least 2 contacts to merge', AiErrorCode.INVALID_INPUT);
     }
 
     // Get all contacts to merge
@@ -1095,7 +1096,7 @@ export class ActionExecutorService {
     });
 
     if (contacts.length < 2) {
-      throw new Error('Could not find enough contacts to merge');
+      throw new AiError('Could not find enough contacts to merge', AiErrorCode.INVALID_INPUT);
     }
 
     // Determine primary contact (first one or specified)
@@ -1104,7 +1105,7 @@ export class ActionExecutorService {
     const secondaryContacts = contacts.filter((c) => c.id !== primaryContactId);
 
     if (!primaryContact) {
-      throw new Error('Primary contact not found');
+      throw new AiError('Primary contact not found', AiErrorCode.INVALID_INPUT);
     }
 
     // Merge data from secondary contacts into primary
@@ -1225,7 +1226,7 @@ export class ActionExecutorService {
     const lang = getLocale(context.preferences?.language);
 
     if (!contact) {
-      throw new Error(t.contactNotFound[lang]);
+      throw new AiError(t.contactNotFound[lang], AiErrorCode.INVALID_INPUT);
     }
 
     return {
@@ -1291,13 +1292,13 @@ export class ActionExecutorService {
     const summary = emails.length === 0
       ? t.unreadEmailsFound[lang](0)
       : emails
-          .slice(0, Math.min(5, emails.length))
-          .map((email) => {
-            const sender = email.from || t.unknownSender[lang];
-            const subject = email.subject || t.noSubject[lang];
-            return `${lang === 'it' ? 'Da' : 'From'}: ${sender} — ${subject}`;
-          })
-          .join('\n');
+        .slice(0, Math.min(5, emails.length))
+        .map((email) => {
+          const sender = email.from || t.unknownSender[lang];
+          const subject = email.subject || t.noSubject[lang];
+          return `${lang === 'it' ? 'Da' : 'From'}: ${sender} — ${subject}`;
+        })
+        .join('\n');
 
     return {
       success: true,
@@ -1322,14 +1323,14 @@ export class ActionExecutorService {
     });
 
     if (!email) {
-      throw new Error('Email not found');
+      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
     }
 
     // Determine labels to apply (support both array and single category)
     const labelsToApply: string[] = labels || categories || (category ? [category] : []);
 
     if (labelsToApply.length === 0) {
-      throw new Error('No categories or labels provided');
+      throw new AiError('No categories or labels provided', AiErrorCode.INVALID_INPUT);
     }
 
     // Get current labels and merge with new ones
@@ -1342,7 +1343,7 @@ export class ActionExecutorService {
       data: { labels: newLabels },
     });
     if (updated.count === 0) {
-      throw new Error('Email not found');
+      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
     }
 
     this.logger.log(`Categorized email ${emailId} with: ${labelsToApply.join(', ')}`);
@@ -1373,7 +1374,7 @@ export class ActionExecutorService {
 
     if (!this.calendarService) {
       this.logger.error('CalendarService not available');
-      throw new Error('Calendar service is not available. Please try again later.');
+      throw new AiError('Calendar service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     // Get the event to verify ownership and get provider info
@@ -1383,7 +1384,7 @@ export class ActionExecutorService {
     });
 
     if (!event) {
-      throw new Error('Event not found');
+      throw new AiError('Event not found', AiErrorCode.INVALID_INPUT);
     }
 
     // Calculate duration if only newStartTime is provided
@@ -1445,11 +1446,11 @@ export class ActionExecutorService {
 
     if (!this.folderSyncService) {
       this.logger.warn('FolderSyncService not available');
-      throw new Error('Folder service not available');
+      throw new AiError('Folder service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     if (!name) {
-      throw new Error('Folder name is required');
+      throw new AiError('Folder name is required', AiErrorCode.INVALID_INPUT);
     }
 
     // Find provider if not specified
@@ -1459,7 +1460,7 @@ export class ActionExecutorService {
         where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
       });
       if (!provider) {
-        throw new Error('No email provider available');
+        throw new AiError('No email provider available', AiErrorCode.PROVIDER_UNAVAILABLE);
       }
       actualProviderId = provider.id;
     }
@@ -1491,11 +1492,11 @@ export class ActionExecutorService {
 
     if (!this.folderSyncService) {
       this.logger.warn('FolderSyncService not available');
-      throw new Error('Folder service not available');
+      throw new AiError('Folder service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     if (!folderPath || !newName) {
-      throw new Error('Folder path and new name are required');
+      throw new AiError('Folder path and new name are required', AiErrorCode.INVALID_INPUT);
     }
 
     // Find provider if not specified
@@ -1505,7 +1506,7 @@ export class ActionExecutorService {
         where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
       });
       if (!provider) {
-        throw new Error('No email provider available');
+        throw new AiError('No email provider available', AiErrorCode.PROVIDER_UNAVAILABLE);
       }
       actualProviderId = provider.id;
     }
@@ -1537,11 +1538,11 @@ export class ActionExecutorService {
 
     if (!this.folderSyncService) {
       this.logger.warn('FolderSyncService not available');
-      throw new Error('Folder service not available');
+      throw new AiError('Folder service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     if (!folderPath) {
-      throw new Error('Folder path is required');
+      throw new AiError('Folder path is required', AiErrorCode.INVALID_INPUT);
     }
 
     // Find provider if not specified
@@ -1551,7 +1552,7 @@ export class ActionExecutorService {
         where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
       });
       if (!provider) {
-        throw new Error('No email provider available');
+        throw new AiError('No email provider available', AiErrorCode.PROVIDER_UNAVAILABLE);
       }
       actualProviderId = provider.id;
     }
@@ -1591,7 +1592,7 @@ export class ActionExecutorService {
     });
 
     if (!provider) {
-      throw new Error('Provider not found');
+      throw new AiError('Provider not found', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     // Map provider type to bulk operation type
@@ -1615,11 +1616,11 @@ export class ActionExecutorService {
     const lang = getLocale(context.preferences?.language);
 
     if (!this.bulkOperationsQueue) {
-      throw new Error('Bulk operations service not available');
+      throw new AiError('Bulk operations service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     if (!emailIds || emailIds.length === 0) {
-      throw new Error('No emails to delete');
+      throw new AiError('No emails to delete', AiErrorCode.INVALID_INPUT);
     }
 
     // Get provider from first email
@@ -1629,7 +1630,7 @@ export class ActionExecutorService {
     });
 
     if (!firstEmail) {
-      throw new Error('Emails not found');
+      throw new AiError('Emails not found', AiErrorCode.INVALID_INPUT);
     }
 
     const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
@@ -1670,11 +1671,11 @@ export class ActionExecutorService {
     const lang = getLocale(context.preferences?.language);
 
     if (!this.bulkOperationsQueue) {
-      throw new Error('Bulk operations service not available');
+      throw new AiError('Bulk operations service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     if (!emailIds || emailIds.length === 0) {
-      throw new Error('No emails to archive');
+      throw new AiError('No emails to archive', AiErrorCode.INVALID_INPUT);
     }
 
     // Get provider from first email
@@ -1684,7 +1685,7 @@ export class ActionExecutorService {
     });
 
     if (!firstEmail) {
-      throw new Error('Emails not found');
+      throw new AiError('Emails not found', AiErrorCode.INVALID_INPUT);
     }
 
     const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
@@ -1724,11 +1725,11 @@ export class ActionExecutorService {
     const lang = getLocale(context.preferences?.language);
 
     if (!this.bulkOperationsQueue) {
-      throw new Error('Bulk operations service not available');
+      throw new AiError('Bulk operations service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     if (!emailIds || emailIds.length === 0) {
-      throw new Error('No emails to mark as read');
+      throw new AiError('No emails to mark as read', AiErrorCode.INVALID_INPUT);
     }
 
     // Get provider from first email
@@ -1738,7 +1739,7 @@ export class ActionExecutorService {
     });
 
     if (!firstEmail) {
-      throw new Error('Emails not found');
+      throw new AiError('Emails not found', AiErrorCode.INVALID_INPUT);
     }
 
     const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
@@ -1778,15 +1779,15 @@ export class ActionExecutorService {
     const lang = getLocale(context.preferences?.language);
 
     if (!this.bulkOperationsQueue) {
-      throw new Error('Bulk operations service not available');
+      throw new AiError('Bulk operations service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
     }
 
     if (!emailIds || emailIds.length === 0) {
-      throw new Error('No emails to move');
+      throw new AiError('No emails to move', AiErrorCode.INVALID_INPUT);
     }
 
     if (!targetFolder) {
-      throw new Error('Target folder is required');
+      throw new AiError('Target folder is required', AiErrorCode.INVALID_INPUT);
     }
 
     // Get provider from first email
@@ -1796,7 +1797,7 @@ export class ActionExecutorService {
     });
 
     if (!firstEmail) {
-      throw new Error('Emails not found');
+      throw new AiError('Emails not found', AiErrorCode.INVALID_INPUT);
     }
 
     const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);

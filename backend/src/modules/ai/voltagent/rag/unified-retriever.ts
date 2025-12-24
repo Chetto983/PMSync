@@ -407,10 +407,10 @@ export class UnifiedRetriever extends BaseRetriever {
       // Fetch email details for each follow-up
       const emailIds = followups.map((f: { emailId: string }) => f.emailId);
       const emails: Array<{ id: string; subject: string | null; from: string | null }> = emailIds.length > 0
-        ? await (this.prisma as any).email.findMany({
-            where: { id: { in: emailIds }, tenantId: this.tenantId },
-            select: { id: true, subject: true, from: true },
-          })
+        ? await this.prisma.email.findMany({
+          where: { id: { in: emailIds }, tenantId: this.tenantId },
+          select: { id: true, subject: true, from: true },
+        })
         : [];
       const emailMap = new Map(emails.map((e) => [e.id, e]));
 

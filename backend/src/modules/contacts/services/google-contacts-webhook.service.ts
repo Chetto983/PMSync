@@ -4,6 +4,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { GoogleContactsSyncService } from './google-contacts-sync.service';
 import { ContactsSyncQueueService } from './contacts-sync-queue.service';
+import { ContactsError, ContactsErrorCode } from '../errors/contacts-error';
 
 export const GOOGLE_CONTACTS_RESOURCE = '/contacts';
 
@@ -57,7 +58,7 @@ export class GoogleContactsWebhookService {
       });
 
       if (!provider || !provider.supportsContacts) {
-        throw new Error('Provider not found or does not support contacts');
+        throw new ContactsError('Provider not found or does not support contacts', ContactsErrorCode.PROVIDER_NOT_SUPPORTED, { retryable: false });
       }
 
       // Create or update webhook subscription record

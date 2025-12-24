@@ -7,6 +7,7 @@
 
 export interface CalendarProviderConfig {
   userId: string;
+  tenantId: string;
   providerId: string;
   providerType: 'google' | 'microsoft';
   email: string;

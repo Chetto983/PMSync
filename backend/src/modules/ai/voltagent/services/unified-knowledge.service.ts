@@ -17,7 +17,8 @@ import { DeadlineExtractorService } from './deadline-extractor.service';
 import { FollowUpService } from './follow-up.service';
 import { ActionItemService } from './action-item.service';
 import { UnifiedRetriever, SearchSource } from '../rag/unified-retriever';
-import { getLocale} from '../locales';
+import { getLocale } from '../locales';
+import { MemoryCategory } from '../memory';
 
 export interface UnifiedSearchOptions {
   sources?: SearchSource[];
@@ -147,7 +148,7 @@ export class UnifiedKnowledgeService {
       };
 
       const memoryId = await this.longTermMemory.addFact(tenantId, userId, content, {
-        category: (categoryMap[options.category ?? 'general'] ?? 'GENERAL') as any,
+        category: (categoryMap[options.category ?? 'general'] ?? 'GENERAL') as MemoryCategory,
       });
 
       return { success: true, memoryId: memoryId ?? undefined };

@@ -22,7 +22,7 @@ export interface AiHealthResponse {
       status: string;
       circuitBreaker: string;
       failures: number;
-      lastSuccess: string;
+      lastSuccess: string | null;
     };
     cache: {
       status: string;
@@ -37,7 +37,7 @@ export class AiHealthController {
   constructor(
     private readonly mistralService: MistralService,
     private readonly cacheService: CacheService,
-  ) {}
+  ) { }
 
   /**
    * AI module health check
@@ -70,7 +70,7 @@ export class AiHealthController {
                 status: { type: 'string' },
                 circuitBreaker: { type: 'string' },
                 failures: { type: 'number' },
-                lastSuccess: { type: 'string', format: 'date-time' },
+                lastSuccess: { type: 'string', format: 'date-time', nullable: true },
               },
             },
             cache: {
@@ -112,7 +112,7 @@ export class AiHealthController {
           status: mistralHealthy ? 'healthy' : mistralDegraded ? 'degraded' : 'unhealthy',
           circuitBreaker: circuitBreaker.state,
           failures: circuitBreaker.failures,
-          lastSuccess: new Date(circuitBreaker.lastSuccess).toISOString(),
+          lastSuccess: circuitBreaker.lastSuccess ? new Date(circuitBreaker.lastSuccess).toISOString() : null,
         },
         cache: {
           status: cacheConnected ? 'healthy' : 'unhealthy',

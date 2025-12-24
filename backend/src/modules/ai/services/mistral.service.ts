@@ -16,25 +16,14 @@ import {
   type LlmCallContext,
 } from '../voltagent/observability/telemetry';
 
+import { PromptGuardService } from '../guards/prompt-guard.service';
+import { getAiCircuitBreaker, withRetry, embeddingRateLimiter } from '../utils';
+import { AiError, AiErrorCode } from '../errors';
+
 type ConversationMessage = {
   role: 'assistant' | 'user';
   content: string;
 };
-
-/**
- * Simple circuit breaker state for Mistral API protection.
- * Prevents cascading failures when API is unavailable.
- */
-interface CircuitBreakerState {
-  /** Current state: closed (normal), open (blocking), half-open (testing) */
-  state: 'closed' | 'open' | 'half-open';
-  /** Number of consecutive failures */
-  failures: number;
-  /** Timestamp when circuit was opened */
-  openedAt: number;
-  /** Last successful call timestamp */
-  lastSuccess: number;
-}
 
 @Injectable()
 export class MistralService {
@@ -44,139 +33,37 @@ export class MistralService {
 
   // Rate limiting for direct embedding calls (not through queue)
   private readonly maxConcurrentEmbeddings: number;
-  private readonly embeddingDelayMs: number;
-  private currentEmbeddingCalls = 0;
-  private lastEmbeddingTime = 0;
-
-  // Circuit breaker configuration
-  private readonly circuitBreaker: CircuitBreakerState = {
-    state: 'closed',
-    failures: 0,
-    openedAt: 0,
-    lastSuccess: Date.now(),
-  };
-  private readonly circuitBreakerThreshold: number; // Failures before opening
-  private readonly circuitBreakerResetMs: number; // Time before half-open
-  private readonly circuitBreakerHalfOpenMax: number; // Max test requests in half-open
 
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
     private embeddingsService: EmbeddingsService,
+    private promptGuard: PromptGuardService,
     @Optional() private telemetry?: LlmTelemetryService,
   ) {
-    // Configure rate limiting from env (defaults: 3 concurrent, 100ms delay)
+    // Configure rate limiting from env (defaults: 3 concurrent)
     this.maxConcurrentEmbeddings = parseInt(
       this.configService.get<string>('AI_CONCURRENT_LIMIT') || '3',
       10,
     );
-    this.embeddingDelayMs = parseInt(
-      this.configService.get<string>('AI_EMBEDDING_DELAY_MS') || '100',
-      10,
-    );
-
-    // Circuit breaker config (defaults: open after 5 failures, reset after 30s)
-    this.circuitBreakerThreshold = this.configService.get<number>('MISTRAL_CIRCUIT_BREAKER_THRESHOLD', 5);
-    this.circuitBreakerResetMs = this.configService.get<number>('MISTRAL_CIRCUIT_BREAKER_RESET_MS', 30000);
-    this.circuitBreakerHalfOpenMax = this.configService.get<number>('MISTRAL_CIRCUIT_BREAKER_HALF_OPEN_MAX', 1);
   }
 
-  /**
-   * Check if circuit breaker allows the request.
-   * Returns true if request should proceed, false if blocked.
-   */
-  private checkCircuitBreaker(): boolean {
-    const now = Date.now();
 
-    switch (this.circuitBreaker.state) {
-      case 'closed':
-        return true;
-
-      case 'open':
-        // Check if enough time has passed to try again
-        if (now - this.circuitBreaker.openedAt >= this.circuitBreakerResetMs) {
-          this.circuitBreaker.state = 'half-open';
-          this.logger.log('Circuit breaker: transitioning to half-open state');
-          return true;
-        }
-        return false;
-
-      case 'half-open':
-        // Allow limited requests in half-open state
-        return true;
-
-      default:
-        return true;
-    }
-  }
-
-  /**
-   * Record a successful API call. Resets circuit breaker.
-   */
-  private recordSuccess(): void {
-    if (this.circuitBreaker.state === 'half-open') {
-      this.circuitBreaker.state = 'closed';
-      this.logger.log('Circuit breaker: closed (API recovered)');
-    }
-    this.circuitBreaker.failures = 0;
-    this.circuitBreaker.lastSuccess = Date.now();
-  }
-
-  /**
-   * Record a failed API call. May open circuit breaker.
-   */
-  private recordFailure(): void {
-    this.circuitBreaker.failures++;
-
-    if (this.circuitBreaker.state === 'half-open') {
-      // Failed during test - reopen circuit
-      this.circuitBreaker.state = 'open';
-      this.circuitBreaker.openedAt = Date.now();
-      this.logger.warn('Circuit breaker: reopened (test request failed)');
-    } else if (this.circuitBreaker.failures >= this.circuitBreakerThreshold) {
-      // Too many failures - open circuit
-      this.circuitBreaker.state = 'open';
-      this.circuitBreaker.openedAt = Date.now();
-      this.logger.warn(`Circuit breaker: opened after ${this.circuitBreaker.failures} consecutive failures`);
-    }
-  }
-
-  /**
-   * Get current circuit breaker status for monitoring.
-   */
-  getCircuitBreakerStatus(): { state: string; failures: number; lastSuccess: number } {
-    return {
-      state: this.circuitBreaker.state,
-      failures: this.circuitBreaker.failures,
-      lastSuccess: this.circuitBreaker.lastSuccess,
-    };
-  }
 
   /**
    * Simple rate limiting for embedding calls.
    * Limits concurrent calls and adds delay between requests.
    */
+  /**
+   * Simple rate limiting for embedding calls.
+   * Limits concurrent calls and adds delay between requests.
+   */
   private async acquireEmbeddingSlot(): Promise<void> {
-    // Wait if too many concurrent calls
-    while (this.currentEmbeddingCalls >= this.maxConcurrentEmbeddings) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-
-    // Enforce minimum delay between calls
-    const now = Date.now();
-    const elapsed = now - this.lastEmbeddingTime;
-    if (elapsed < this.embeddingDelayMs) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, this.embeddingDelayMs - elapsed),
-      );
-    }
-
-    this.currentEmbeddingCalls++;
-    this.lastEmbeddingTime = Date.now();
+    await embeddingRateLimiter.acquire();
   }
 
   private releaseEmbeddingSlot(): void {
-    this.currentEmbeddingCalls = Math.max(0, this.currentEmbeddingCalls - 1);
+    // No-op: RateLimiter handles this internally via token bucket
   }
 
   private getApiKey(): string | undefined {
@@ -186,7 +73,9 @@ export class MistralService {
   private getRequiredApiKey(): string {
     const apiKey = this.getApiKey();
     if (!apiKey) {
-      throw new Error('Mistral API key is not configured');
+      throw new AiError('Mistral API key is not configured', AiErrorCode.PROVIDER_ERROR, {
+        retryable: false,
+      });
     }
     return apiKey;
   }
@@ -211,21 +100,38 @@ export class MistralService {
   /**
    * Validate prompt inputs before sending to LLM
    */
+  /**
+   * Validate prompt inputs before sending to LLM
+   */
   private validatePromptInputs(userPrompt: string, systemPrompt?: string): void {
+    // 1. Basic validation
     if (!userPrompt || typeof userPrompt !== 'string') {
-      throw new Error('userPrompt is required and must be a string');
+      throw new AiError('userPrompt is required and must be a string', AiErrorCode.INVALID_INPUT);
     }
 
     if (userPrompt.length > MistralService.MAX_USER_PROMPT_LENGTH) {
-      throw new Error(`userPrompt exceeds maximum length of ${MistralService.MAX_USER_PROMPT_LENGTH} characters`);
-    }
-
-    if (systemPrompt !== undefined && typeof systemPrompt !== 'string') {
-      throw new Error('systemPrompt must be a string if provided');
+      throw new AiError(
+        `userPrompt exceeds maximum length of ${MistralService.MAX_USER_PROMPT_LENGTH} characters`,
+        AiErrorCode.INVALID_INPUT
+      );
     }
 
     if (systemPrompt && systemPrompt.length > MistralService.MAX_SYSTEM_PROMPT_LENGTH) {
-      throw new Error(`systemPrompt exceeds maximum length of ${MistralService.MAX_SYSTEM_PROMPT_LENGTH} characters`);
+      throw new AiError(
+        `systemPrompt exceeds maximum length of ${MistralService.MAX_SYSTEM_PROMPT_LENGTH} characters`,
+        AiErrorCode.INVALID_INPUT
+      );
+    }
+
+    // 2. Security validation via PromptGuard
+    const validation = this.promptGuard.validateInput(userPrompt);
+    if (!validation.isValid) {
+      this.logger.warn(`Blocked malicious prompt: ${validation.blockReason} (Score: ${validation.riskScore})`);
+      throw new AiError(
+        `Prompt blocked by security guard: ${validation.blockReason}`,
+        AiErrorCode.PROMPT_BLOCKED,
+        { context: { riskScore: validation.riskScore, patterns: validation.detectedPatterns } }
+      );
     }
   }
 
@@ -246,78 +152,95 @@ export class MistralService {
     const fastModel = this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
     const model = modelTier === 'fast' ? fastModel : this.getModel();
 
-    // Validate inputs before processing
+    // Validate inputs before processing (includes security check)
     this.validatePromptInputs(userPrompt, systemPrompt);
 
-    // Check circuit breaker before making request
-    if (!this.checkCircuitBreaker()) {
-      throw new Error('Mistral API circuit breaker is open - service temporarily unavailable');
-    }
+    const cb = getAiCircuitBreaker('mistral', 'completion');
 
-    const executeCall = async () => {
-      const client = await this.createMistralClient();
-      const messages: MistralChatMessage[] = [];
+    return cb.execute(async () => {
+      try {
+        const executeCall = async () => {
+          const client = await this.createMistralClient();
+          const messages: MistralChatMessage[] = [];
 
-      if (systemPrompt) {
-        messages.push({ role: 'system', content: systemPrompt });
-      }
+          if (systemPrompt) {
+            // Append defensive guardrails if not already present
+            const defensivePrompt = this.promptGuard.getDefensiveSystemPrompt();
+            const fullSystemPrompt = systemPrompt.includes('SECURITY GUIDELINES')
+              ? systemPrompt
+              : `${systemPrompt}\n\n${defensivePrompt}`;
 
-      messages.push({ role: 'user', content: userPrompt });
+            messages.push({ role: 'system', content: fullSystemPrompt });
+          }
 
-      // Wrap API call with timeout
-      const completionPromise = client.chat.complete({
-        model,
-        messages,
-        temperature,
-        maxTokens,
-      });
+          messages.push({ role: 'user', content: userPrompt });
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error(`LLM request timed out after ${timeoutMs}ms`)), timeoutMs);
-      });
+          // Wrap API call with timeout
+          const completionPromise = client.chat.complete({
+            model,
+            messages,
+            temperature,
+            maxTokens,
+          });
 
-      const completion = await Promise.race([completionPromise, timeoutPromise]);
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new AiError(`LLM request timed out after ${timeoutMs}ms`, AiErrorCode.PROVIDER_TIMEOUT)), timeoutMs);
+          });
 
-      const text = this.extractAssistantContent(completion.choices?.[0]?.message).trim();
+          const completion = await Promise.race([completionPromise, timeoutPromise]);
 
-      if (!text) {
-        throw new Error('Empty response from AI service');
-      }
+          const text = this.extractAssistantContent(completion.choices?.[0]?.message).trim();
 
-      // Return both text and usage for telemetry
-      return { text, usage: completion.usage };
-    };
+          if (!text) {
+            throw new AiError('Empty response from AI service', AiErrorCode.EMPTY_RESPONSE);
+          }
 
-    try {
-      // Use telemetry tracking if available and context provided
-      if (this.telemetry && telemetryContext?.tenantId) {
-        const context: LlmCallContext = {
-          tenantId: telemetryContext.tenantId,
-          userId: telemetryContext.userId,
-          operation: 'completion',
-          promptName: telemetryContext.promptName,
-          model,
+          // Output validation (leakage check)
+          const outputValidation = this.promptGuard.validateOutput(text);
+          if (!outputValidation.isValid) {
+            this.logger.warn(`Blocked potential data leakage in output: ${outputValidation.blockReason}`);
+            throw new AiError('Output blocked by security guard: Potential data leakage', AiErrorCode.OUTPUT_BLOCKED);
+          }
+
+          // Return both text and usage for telemetry
+          return { text, usage: completion.usage };
         };
 
-        const { result } = await this.telemetry.trackCall(context, executeCall);
-        this.recordSuccess();
-        return result.text;
+        return withRetry(
+          async () => {
+            // Use telemetry tracking if available and context provided
+            if (this.telemetry && telemetryContext?.tenantId) {
+              const context: LlmCallContext = {
+                tenantId: telemetryContext.tenantId,
+                userId: telemetryContext.userId,
+                operation: 'completion',
+                promptName: telemetryContext.promptName,
+                model,
+              };
+
+              const { result } = await this.telemetry.trackCall(context, executeCall);
+              return result.text;
+            }
+
+            // Fallback: execute without telemetry
+            const result = await executeCall();
+            return result.text;
+          },
+          {
+            maxRetries: 3,
+            initialDelayMs: 500, // Longer delay for chat
+            isRetryable: (err: unknown) => AiError.fromError(err).retryable,
+          }
+        );
+      } catch (error) {
+        const corrId = CorrelationContext.getCorrelationId();
+        const aiError = AiError.fromError(error);
+        if (aiError.code !== AiErrorCode.PROMPT_BLOCKED) {
+          this.logger.error(`[${corrId}] Prompt completion failed: ${aiError.message}`);
+        }
+        throw aiError;
       }
-
-      // Fallback: execute without telemetry
-      const result = await executeCall();
-      this.recordSuccess();
-      return result.text;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
-      const corrId = CorrelationContext.getCorrelationId();
-      this.logger.error(`[${corrId}] Prompt completion failed: ${message}`, stack);
-
-      // Record failure - may trip circuit breaker
-      this.recordFailure();
-      throw error;
-    }
+    });
   }
 
   private createClient(apiKey: string): Mistral {
@@ -338,13 +261,13 @@ export class MistralService {
       .map((item) =>
         item.role === 'assistant'
           ? {
-              role: 'assistant' as const,
-              content: item.content,
-            }
+            role: 'assistant' as const,
+            content: item.content,
+          }
           : {
-              role: 'user' as const,
-              content: item.content,
-            },
+            role: 'user' as const,
+            content: item.content,
+          },
       );
 
     return result as MistralChatMessage[];
@@ -468,54 +391,58 @@ export class MistralService {
     client?: Mistral,
     telemetryContext?: { tenantId: string; userId?: string },
   ): Promise<number[]> {
-    // Check circuit breaker before making request
-    if (!this.checkCircuitBreaker()) {
-      throw new Error('Mistral API circuit breaker is open - service temporarily unavailable');
-    }
+    const cb = getAiCircuitBreaker('mistral', 'embedding');
 
-    await this.acquireEmbeddingSlot();
-    try {
-      const executeCall = async () => {
-        const mistralClient = client ?? (await this.createMistralClient());
-        const response = await mistralClient.embeddings.create({
-          model: this.embeddingModel,
-          inputs: text,
-        });
+    return cb.execute(async () => {
+      await this.acquireEmbeddingSlot();
+      try {
+        const executeCall = async () => {
+          const mistralClient = client ?? (await this.createMistralClient());
+          const response = await mistralClient.embeddings.create({
+            model: this.embeddingModel,
+            inputs: text,
+          });
 
-        const embedding = response.data?.[0]?.embedding;
-        if (!embedding || embedding.length === 0) {
-          throw new Error('Mistral embeddings response did not contain data');
-        }
+          const embedding = response.data?.[0]?.embedding;
+          if (!embedding || embedding.length === 0) {
+            throw new AiError('Mistral embeddings response did not contain data', AiErrorCode.EMPTY_RESPONSE);
+          }
 
-        return { embedding, usage: response.usage };
-      };
-
-      // Use telemetry tracking if available and context provided
-      if (this.telemetry && telemetryContext?.tenantId) {
-        const context: LlmCallContext = {
-          tenantId: telemetryContext.tenantId,
-          userId: telemetryContext.userId,
-          operation: 'embedding',
-          model: this.embeddingModel,
+          return { embedding, usage: response.usage };
         };
 
-        const { result } = await this.telemetry.trackCall(context, executeCall);
-        this.recordSuccess();
-        return result.embedding;
-      }
+        return withRetry(
+          async () => {
+            // Use telemetry tracking if available and context provided
+            if (this.telemetry && telemetryContext?.tenantId) {
+              const context: LlmCallContext = {
+                tenantId: telemetryContext.tenantId,
+                userId: telemetryContext.userId,
+                operation: 'embedding',
+                model: this.embeddingModel,
+              };
 
-      // Fallback: execute without telemetry
-      const result = await executeCall();
-      this.recordSuccess();
-      return result.embedding;
-    } catch (error) {
-      const corrId = CorrelationContext.getCorrelationId();
-      this.logger.error(`[${corrId}] Failed to generate embedding:`, error instanceof Error ? error.message : error);
-      this.recordFailure();
-      throw error;
-    } finally {
-      this.releaseEmbeddingSlot();
-    }
+              const { result } = await this.telemetry.trackCall(context, executeCall);
+              return result.embedding;
+            }
+
+            // Fallback: execute without telemetry
+            const result = await executeCall();
+            return result.embedding;
+          },
+          {
+            maxRetries: 3,
+            initialDelayMs: 200,
+            isRetryable: (err: unknown) => AiError.fromError(err).retryable,
+          }
+        );
+      } catch (error) {
+        const corrId = CorrelationContext.getCorrelationId();
+        const aiError = AiError.fromError(error);
+        this.logger.error(`[${corrId}] Failed to generate embedding: ${aiError.message}`);
+        throw aiError;
+      }
+    });
   }
 
   /**
@@ -535,73 +462,76 @@ export class MistralService {
       return [];
     }
 
-    // Check circuit breaker before making request
-    if (!this.checkCircuitBreaker()) {
-      throw new Error('Mistral API circuit breaker is open - service temporarily unavailable');
-    }
+    const cb = getAiCircuitBreaker('mistral', 'bulk_embedding');
 
-    await this.acquireEmbeddingSlot();
-    try {
-      const executeCall = async () => {
-        const mistralClient = client ?? (await this.createMistralClient());
-        const response = await mistralClient.embeddings.create({
-          model: this.embeddingModel,
-          inputs: texts,
-        });
+    return cb.execute(async () => {
+      await this.acquireEmbeddingSlot();
+      try {
+        const executeCall = async () => {
+          const mistralClient = client ?? (await this.createMistralClient());
+          const response = await mistralClient.embeddings.create({
+            model: this.embeddingModel,
+            inputs: texts,
+          });
 
-        if (!response.data || response.data.length === 0) {
-          throw new Error('Mistral bulk embeddings response did not contain data');
-        }
-
-        // Sort by index to ensure correct order
-        const sortedData = response.data.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-
-        const embeddings = sortedData.map((item, index) => {
-          if (!item.embedding || item.embedding.length === 0) {
-            throw new Error(`Embedding at index ${index} is empty or invalid`);
+          if (!response.data || response.data.length === 0) {
+            throw new AiError('Mistral bulk embeddings response did not contain data', AiErrorCode.EMPTY_RESPONSE);
           }
-          return item.embedding;
-        });
 
-        if (embeddings.length !== texts.length) {
-          throw new Error(
-            `Expected ${texts.length} embeddings but received ${embeddings.length}`,
-          );
-        }
+          // Sort by index to ensure correct order
+          const sortedData = response.data.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
 
-        this.logger.debug(`Generated ${embeddings.length} embeddings in bulk`);
-        return { embeddings, usage: response.usage };
-      };
+          const embeddings = sortedData.map((item, index) => {
+            if (!item.embedding || item.embedding.length === 0) {
+              throw new AiError(`Embedding at index ${index} is empty or invalid`, AiErrorCode.PROVIDER_ERROR);
+            }
+            return item.embedding;
+          });
 
-      // Use telemetry tracking if available and context provided
-      if (this.telemetry && telemetryContext?.tenantId) {
-        const context: LlmCallContext = {
-          tenantId: telemetryContext.tenantId,
-          userId: telemetryContext.userId,
-          operation: 'bulk_embedding',
-          model: this.embeddingModel,
+          if (embeddings.length !== texts.length) {
+            throw new AiError(
+              `Expected ${texts.length} embeddings but received ${embeddings.length}`,
+              AiErrorCode.PROVIDER_ERROR,
+            );
+          }
+
+          this.logger.debug(`Generated ${embeddings.length} embeddings in bulk`);
+          return { embeddings, usage: response.usage };
         };
 
-        const { result } = await this.telemetry.trackCall(context, executeCall);
-        this.recordSuccess();
-        return result.embeddings;
-      }
+        return withRetry(
+          async () => {
+            if (this.telemetry && telemetryContext?.tenantId) {
+              const context: LlmCallContext = {
+                tenantId: telemetryContext.tenantId,
+                userId: telemetryContext.userId,
+                operation: 'bulk_embedding',
+                model: this.embeddingModel,
+              };
 
-      // Fallback: execute without telemetry
-      const result = await executeCall();
-      this.recordSuccess();
-      return result.embeddings;
-    } catch (error) {
-      const corrId = CorrelationContext.getCorrelationId();
-      this.logger.error(
-        `[${corrId}] Failed to generate bulk embeddings:`,
-        error instanceof Error ? error.message : error,
-      );
-      this.recordFailure();
-      throw error;
-    } finally {
-      this.releaseEmbeddingSlot();
-    }
+              const { result } = await this.telemetry.trackCall(context, executeCall);
+              return result.embeddings;
+            }
+
+            // Fallback: execute without telemetry
+            const result = await executeCall();
+            return result.embeddings;
+          },
+          {
+            maxRetries: 3,
+            initialDelayMs: 200,
+            isRetryable: (err: unknown) => AiError.fromError(err).retryable,
+          }
+        );
+      } catch (error) {
+        const corrId = CorrelationContext.getCorrelationId();
+        const aiError = AiError.fromError(error);
+        this.logger.error(
+          `[${corrId}] Failed to generate bulk embeddings: ${aiError.message}`,
+        );
+        throw aiError;
+      }
+    });
   }
 
   /**
@@ -621,6 +551,7 @@ export class MistralService {
   /**
    * Call Mistral API with RAG context and timeout protection
    */
+
   async generateResponse(
     tenantId: string,
     userId: string,
@@ -634,137 +565,142 @@ export class MistralService {
     const t = getTranslations(supportedLocale);
     const timeoutMs = options?.timeoutMs ?? 60000; // Default 60s for RAG responses
 
-    // Check circuit breaker
-    if (!this.checkCircuitBreaker()) {
-      return t.mistral.errors.unavailable;
-    }
-
     if (!apiKey) {
       const fallbackResponse = t.mistral.errors.notConfigured;
       this.logger.warn('Mistral API key missing. Responded with fallback message.');
       return fallbackResponse;
     }
 
+    const cb = getAiCircuitBreaker('mistral', 'rag_completion');
+
     try {
-      const mistralClient = this.createClient(apiKey);
+      return await cb.execute(async () => {
+        const executeCall = async () => {
+          const mistralClient = this.createClient(apiKey);
+          let ragContext = '';
 
-      let ragContext = '';
-      try {
-        // Generate embedding for user prompt (with telemetry context)
-        const userEmbedding = await this.generateEmbedding(userPrompt, mistralClient, { tenantId, userId });
+          try {
+            // Generate embedding for user prompt (using our resilient method)
+            // Note: generateEmbedding handles its own rate limiting and circuit breaking
+            const userEmbedding = await this.generateEmbedding(userPrompt, mistralClient, { tenantId, userId });
 
-        await this.embeddingsService.saveEmbedding({
-          tenantId,
-          content: userPrompt,
-          embedding: userEmbedding,
-          model: this.embeddingModel,
-          metadata: {
-            source: 'user_prompt',
-            createdBy: userId,
-          },
-        });
+            await this.embeddingsService.saveEmbedding({
+              tenantId,
+              content: userPrompt,
+              embedding: userEmbedding,
+              model: this.embeddingModel,
+              metadata: {
+                source: 'user_prompt',
+                createdBy: userId,
+              },
+            });
 
-        // Search for similar content in knowledge base
-        const similarContent = await this.searchSimilarContent(tenantId, userEmbedding);
+            // Search for similar content in knowledge base
+            const similarContent = await this.searchSimilarContent(tenantId, userEmbedding);
 
-        if (similarContent.length > 0) {
-          const contextBlocks = similarContent
-            .map((contentItem, index) => {
-              const title = contentItem.documentName || t.mistral.rag.sourceLabel(index + 1);
-              return `### ${title}\n${contentItem.content}`;
-            })
-            .join('\n\n');
-          ragContext = `\n\n---\n${t.mistral.rag.contextIntro}\n\n${contextBlocks}\n\n---\n`;
-        }
-      } catch (ragError) {
-        const ragMessage = ragError instanceof Error ? ragError.message : String(ragError);
-        this.logger.warn(`Unable to build RAG context: ${ragMessage}`);
-      }
+            if (similarContent.length > 0) {
+              const contextBlocks = similarContent
+                .map((contentItem, index) => {
+                  const title = contentItem.documentName || t.mistral.rag.sourceLabel(index + 1);
+                  return `### ${title}\n${contentItem.content}`;
+                })
+                .join('\n\n');
+              ragContext = `\n\n---\n${t.mistral.rag.contextIntro}\n\n${contextBlocks}\n\n---\n`;
+            }
+          } catch (ragError) {
+            const ragMessage = ragError instanceof Error ? ragError.message : String(ragError);
+            this.logger.warn(`Unable to build RAG context: ${ragMessage}`);
+            // Proceed without RAG if it fails
+          }
 
-      // Prepare messages for Mistral
-      const historyMessages = this.normaliseConversation(conversationHistory);
-      const messages: MistralChatMessage[] = [
-        ...historyMessages,
-        {
-          role: 'user',
-          content: userPrompt + ragContext,
-        } as MistralChatMessage,
-      ];
+          // Prepare messages for Mistral
+          const historyMessages = this.normaliseConversation(conversationHistory);
+          const messages: MistralChatMessage[] = [
+            ...historyMessages,
+            {
+              role: 'user',
+              content: userPrompt + ragContext,
+            } as MistralChatMessage,
+          ];
 
-      // Define the chat completion call
-      const executeChatCall = async () => {
-        const completionPromise = mistralClient.chat.complete({
-          model,
-          messages,
-          temperature: 0.7,
-          maxTokens: 1024,
-        });
+          // Define the chat completion call
+          const completionPromise = mistralClient.chat.complete({
+            model,
+            messages,
+            temperature: 0.7,
+            maxTokens: 1024,
+          });
 
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error(`LLM request timed out after ${timeoutMs}ms`)), timeoutMs);
-        });
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new AiError(`LLM request timed out after ${timeoutMs}ms`, AiErrorCode.PROVIDER_TIMEOUT)), timeoutMs);
+          });
 
-        const completion = await Promise.race([completionPromise, timeoutPromise]);
+          const completion = await Promise.race([completionPromise, timeoutPromise]);
 
-        const assistantMessage = completion.choices?.[0]?.message;
-        const assistantResponse =
-          this.extractAssistantContent(assistantMessage) || t.mistral.errors.tryAgain;
+          const assistantMessage = completion.choices?.[0]?.message;
+          const assistantResponse =
+            this.extractAssistantContent(assistantMessage) || t.mistral.errors.tryAgain;
 
-        return { response: assistantResponse, usage: completion.usage };
-      };
-
-      // Get correlation ID for logging
-      const corrId = CorrelationContext.getCorrelationId();
-      const logPrefix = `[${corrId}] [tenant:${tenantId}]`;
-
-      // Use telemetry tracking if available
-      if (this.telemetry) {
-        const context: LlmCallContext = {
-          tenantId,
-          userId,
-          operation: 'chat',
-          model,
-          sessionId: options?.conversationId,
-          traceId: corrId,
+          return { response: assistantResponse, usage: completion.usage };
         };
 
-        const { result } = await this.telemetry.trackCall(context, executeChatCall);
-        this.recordSuccess();
-        this.logger.log(`${logPrefix} Generated response for user: ${userId}`);
-        return result.response;
-      }
-
-      // Fallback: execute without telemetry
-      const result = await executeChatCall();
-      this.recordSuccess();
-      this.logger.log(`${logPrefix} Generated response for user: ${userId}`);
-      return result.response;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      const corrId = CorrelationContext.getCorrelationId();
-      const logPrefix = `[${corrId}] [tenant:${tenantId}]`;
-      this.logger.error(`${logPrefix} Failed to generate response: ${errorMessage}`, errorStack);
-
-      this.recordFailure();
-
-      let fallbackResponse = t.mistral.errors.unavailable;
-
-      if (errorMessage.includes('timed out')) {
-        fallbackResponse = t.mistral.errors.serverError; // Timeout treated as server error
-      } else if (error && typeof error === 'object' && 'statusCode' in error) {
-        const statusCode = (error as { statusCode?: unknown }).statusCode;
-        if (typeof statusCode === 'number') {
-          this.logger.error(`${logPrefix} Mistral API returned status ${statusCode}`);
-          if (statusCode === 401 || statusCode === 403) {
-            fallbackResponse = t.mistral.errors.unauthorized;
-          } else if (statusCode >= 500) {
-            fallbackResponse = t.mistral.errors.serverError;
+        const result = await withRetry(async () => {
+          if (this.telemetry) {
+            const context: LlmCallContext = {
+              tenantId,
+              userId,
+              operation: 'chat',
+              model,
+              sessionId: options?.conversationId,
+            };
+            const { result } = await this.telemetry.trackCall(context, executeCall);
+            return result;
           }
-        }
+          return await executeCall();
+        }, {
+          maxRetries: 3,
+          isRetryable: (err: unknown) => AiError.fromError(err).retryable,
+          initialDelayMs: 500,
+        });
+
+        const corrId = CorrelationContext.getCorrelationId();
+        this.logger.log(`[${corrId}] [tenant:${tenantId}] Generated response for user: ${userId}`);
+        return result.response;
+      });
+    } catch (error) {
+      // Log error and return user-friendly fallback
+      const aiError = AiError.fromError(error);
+      const corrId = CorrelationContext.getCorrelationId();
+      this.logger.error(`[${corrId}] [tenant:${tenantId}] Failed to generate response: ${aiError.message}`);
+
+      if (aiError.code === AiErrorCode.PROVIDER_UNAVAILABLE || aiError.code === AiErrorCode.CIRCUIT_BREAKER_OPEN) {
+        return t.mistral.errors.unavailable;
+      }
+      if (aiError.code === AiErrorCode.PROVIDER_TIMEOUT) {
+        return t.mistral.errors.serverError;
+      }
+      if (aiError.code === AiErrorCode.AUTH_FAILED) {
+        return t.mistral.errors.unauthorized;
       }
 
-      return fallbackResponse;
+      return t.mistral.errors.serverError;
     }
   }
+
+  /**
+   * Get the circuit breaker status for health monitoring
+   * Returns aggregate status from the main completion circuit breaker
+   */
+  getCircuitBreakerStatus(): { state: 'open' | 'closed' | 'half-open'; failures: number; lastFailure?: Date; lastSuccess?: Date } {
+    const cb = getAiCircuitBreaker('mistral', 'completion');
+    const stats = cb.getStats();
+    return {
+      state: stats.state.toLowerCase() as 'open' | 'closed' | 'half-open',
+      failures: stats.failures,
+      lastFailure: stats.lastFailureAt,
+      lastSuccess: stats.lastSuccessAt,
+    };
+  }
+
+
 }

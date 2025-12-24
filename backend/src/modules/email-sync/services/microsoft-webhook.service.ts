@@ -95,30 +95,40 @@ export class MicrosoftWebhookService {
 
   /**
    * Cleanup expired rate limit entries to prevent memory leak
+   * RC-10 FIX: Collect keys to delete first, then delete in separate pass
+   * This prevents concurrent modification issues during iteration
    */
   private cleanupRateLimitEntries(): void {
     const now = Date.now();
-    let removed = 0;
+
+    // RC-10 FIX: Collect keys first to avoid concurrent modification
+    const rateLimitKeysToDelete: string[] = [];
     for (const [subscriptionId, entry] of this.rateLimitMap.entries()) {
       if (now - entry.windowStart > this.RATE_LIMIT_WINDOW_MS * 2) {
-        this.rateLimitMap.delete(subscriptionId);
-        removed++;
+        rateLimitKeysToDelete.push(subscriptionId);
       }
     }
-    if (removed > 0) {
-      this.logger.debug(`[RATE-LIMIT] Cleaned up ${removed} expired rate limit entries`);
+    // Delete in separate pass
+    for (const key of rateLimitKeysToDelete) {
+      this.rateLimitMap.delete(key);
+    }
+    if (rateLimitKeysToDelete.length > 0) {
+      this.logger.debug(`[RATE-LIMIT] Cleaned up ${rateLimitKeysToDelete.length} expired rate limit entries`);
     }
 
-    // Also cleanup old notification dedup entries
-    let dedupRemoved = 0;
+    // RC-10 FIX: Also cleanup old notification dedup entries with same pattern
+    const dedupKeysToDelete: string[] = [];
     for (const [notificationKey, entry] of this.processedNotifications.entries()) {
       if (now - entry.timestamp > this.NOTIFICATION_DEDUP_WINDOW_MS) {
-        this.processedNotifications.delete(notificationKey);
-        dedupRemoved++;
+        dedupKeysToDelete.push(notificationKey);
       }
     }
-    if (dedupRemoved > 0) {
-      this.logger.debug(`[DEDUP] Cleaned up ${dedupRemoved} expired notification dedup entries`);
+    // Delete in separate pass
+    for (const key of dedupKeysToDelete) {
+      this.processedNotifications.delete(key);
+    }
+    if (dedupKeysToDelete.length > 0) {
+      this.logger.debug(`[DEDUP] Cleaned up ${dedupKeysToDelete.length} expired notification dedup entries`);
     }
   }
 

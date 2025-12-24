@@ -12,6 +12,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getErrorMessage } from '../../../common/utils';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import {
@@ -460,7 +461,7 @@ export abstract class AbstractCalendarSyncService {
         // Create new events
         if (newEventsToCreate.length > 0) {
           await tx.calendarEvent.createMany({
-            data: newEventsToCreate as any[],
+            data: newEventsToCreate as Prisma.CalendarEventCreateManyInput[],
             skipDuplicates: true,
           });
           createdCount = newEventsToCreate.length;
@@ -472,7 +473,7 @@ export abstract class AbstractCalendarSyncService {
             await tx.calendarEvent.update({
               where: { id: update.id },
               data: {
-                ...(update.data as any),
+                ...(update.data as Prisma.CalendarEventUpdateInput),
                 syncVersion: { increment: 1 },
                 lastSyncedAt: new Date(),
               },

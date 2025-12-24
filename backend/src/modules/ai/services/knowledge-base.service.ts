@@ -8,6 +8,7 @@ import { EmailEmbeddingQueueService } from './email-embedding.queue';
 import { HtmlContentExtractor } from './html-content-extractor';
 import { QueryEmbeddingCacheService } from './query-embedding-cache.service';
 import { AttachmentContentExtractorService } from './attachment-content-extractor.service';
+import { AiError } from '../errors';
 
 interface BackfillResult {
   processed: number;
@@ -133,7 +134,7 @@ export class KnowledgeBaseService {
           enqueued += 1;
         } catch (error) {
           skipped += 1;
-          const message = error instanceof Error ? error.message : String(error);
+          const message = AiError.fromError(error).message;
           this.logger.error(`Failed to enqueue embedding job for email ${email.id}: ${message}`);
         }
       }
@@ -303,7 +304,7 @@ export class KnowledgeBaseService {
             const success = await this.createEmbeddingForEmail(options);
             results.push({ emailId: options.emailId, success });
           } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
+            const errorMsg = AiError.fromError(error).message;
             results.push({ emailId: options.emailId, success: false, error: errorMsg });
           }
         }
@@ -441,7 +442,7 @@ export class KnowledgeBaseService {
 
       return successfulChunks > 0;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = AiError.fromError(error).message;
       this.logger.warn(
         `Failed to create embedding for email ${options.emailId} (tenant ${options.tenantId}): ${message}`,
       );
@@ -921,7 +922,7 @@ export class KnowledgeBaseService {
       }
     } catch (error) {
       this.logger.warn(
-        `Failed to extract attachment content for email ${email.id}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to extract attachment content for email ${email.id}: ${AiError.fromError(error).message}`,
       );
       // Continue without attachment content (graceful degradation)
     }
@@ -1002,7 +1003,7 @@ export class KnowledgeBaseService {
     if (result.count > 0) {
       this.logger.log(
         `Cleaned up ${result.count} embeddings older than ${retentionDays} days` +
-          (tenantId ? ` for tenant ${tenantId}` : ' (all tenants)'),
+        (tenantId ? ` for tenant ${tenantId}` : ' (all tenants)'),
       );
     }
 

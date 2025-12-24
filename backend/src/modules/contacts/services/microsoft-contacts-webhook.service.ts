@@ -5,6 +5,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service';
 import { ContactsSyncQueueService } from './contacts-sync-queue.service';
+import { ContactsError, ContactsErrorCode } from '../errors/contacts-error';
 import { nanoid } from 'nanoid';
 
 export const MICROSOFT_CONTACTS_RESOURCE = '/me/contacts';
@@ -69,7 +70,7 @@ export class MicrosoftContactsWebhookService {
       });
 
       if (!provider || !provider.supportsContacts || !provider.accessToken) {
-        throw new Error('Provider not found or does not support contacts');
+        throw new ContactsError('Provider not found or does not support contacts', ContactsErrorCode.PROVIDER_NOT_SUPPORTED, { retryable: false });
       }
 
       const accessToken = this.crypto.decrypt(

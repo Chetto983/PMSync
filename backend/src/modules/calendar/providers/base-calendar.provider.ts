@@ -58,7 +58,7 @@ export abstract class BaseCalendarProvider implements ICalendarProvider {
       const provider = await this.prisma.providerConfig.findFirst({
         where: {
           id: this.config.providerId,
-          tenantId: this.config.userId,  // SEC-1 FIX: Validate tenant ownership
+          tenantId: this.config.tenantId,  // SEC-1 FIX: Validate tenant ownership
         },
       });
 

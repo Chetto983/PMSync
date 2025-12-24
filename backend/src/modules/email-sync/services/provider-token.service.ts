@@ -99,8 +99,10 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
     }
 
     const now = new Date();
+    // RC-15 FIX: Proactive refresh 5 minutes BEFORE expiration
+    const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
     const expiresSoon = provider.tokenExpiresAt
-      ? now.getTime() >= new Date(provider.tokenExpiresAt).getTime() - 60_000
+      ? now.getTime() >= new Date(provider.tokenExpiresAt).getTime() - REFRESH_BUFFER_MS
       : true;
 
     let accessToken = this.crypto.decrypt(provider.accessToken, provider.tokenEncryptionIv);
@@ -189,9 +191,12 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
     }
 
     const now = new Date();
-    // Proactive refresh: 60 seconds BEFORE expiration (like Microsoft)
+    // RC-15 FIX: Proactive refresh 5 minutes BEFORE expiration
+    // Increased from 60 seconds to provide larger window for token refresh
+    // This prevents token expiry during active API operations
+    const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
     const expiresSoon = provider.tokenExpiresAt
-      ? now.getTime() >= new Date(provider.tokenExpiresAt).getTime() - 60_000
+      ? now.getTime() >= new Date(provider.tokenExpiresAt).getTime() - REFRESH_BUFFER_MS
       : true;
 
     let accessToken = this.crypto.decrypt(provider.accessToken, provider.tokenEncryptionIv);

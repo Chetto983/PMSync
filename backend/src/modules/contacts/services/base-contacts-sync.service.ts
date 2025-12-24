@@ -5,6 +5,7 @@ import { ProviderTokenService } from '../../email-sync/services/provider-token.s
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { Contact, ProviderConfig } from '@prisma/client';
 import { getErrorMessage } from '../../../common/utils';
+import { ContactsError, ContactsErrorCode } from '../errors/contacts-error';
 
 export type ContactRealtimeReason =
   | 'contact-created'
@@ -137,7 +138,11 @@ export abstract class BaseContactsSyncService {
       const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
 
       if (!provider.supportsContacts) {
-        throw new Error('Provider does not support contacts');
+        throw new ContactsError(
+          'Provider does not support contacts',
+          ContactsErrorCode.PROVIDER_NOT_SUPPORTED,
+          { provider: provider.providerType as any, retryable: false }
+        );
       }
 
       // STEP 1: Fetch ALL contacts from provider API (collect all pages)

@@ -202,8 +202,8 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
     const attendees = event.attendees || null;
 
     const isAllDay = event.isAllDay || false;
-    const startTime = new Date(event.start!.dateTime!);
-    const endTime = new Date(event.end!.dateTime!);
+    const startTime = new Date(event.start!.dateTime! + (event.start!.dateTime!.endsWith('Z') ? '' : 'Z'));
+    const endTime = new Date(event.end!.dateTime! + (event.end!.dateTime!.endsWith('Z') ? '' : 'Z'));
     const timeZone = event.start?.timeZone || event.end?.timeZone || 'UTC';
 
     const recurrence = event.recurrence ? [JSON.stringify(event.recurrence)] : [];

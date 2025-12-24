@@ -229,7 +229,7 @@ export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
             await worker.close();
           } catch (error) {
             this.logger.debug(
-              `Worker close skipped: ${error instanceof Error ? error.message : error}`,
+              `Worker close skipped: ${getErrorMessage(error)}`,
             );
           }
         }),
@@ -245,14 +245,13 @@ export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
           await this.redisConnection.quit();
         } catch (error) {
           this.logger.debug(
-            `Redis quit skipped: ${error instanceof Error ? error.message : error}`,
+            `Redis quit skipped: ${getErrorMessage(error)}`,
           );
         }
       }
     } catch (outerError) {
       this.logger.warn(
-        `CalendarSyncWorker shutdown encountered an error (swallowed): ${outerError instanceof Error ? outerError.message : outerError
-        }`,
+        `CalendarSyncWorker shutdown encountered an error (swallowed): ${getErrorMessage(outerError)}`,
       );
     } finally {
       this.logger.log('Calendar sync workers stopped');

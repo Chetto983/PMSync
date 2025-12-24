@@ -25,7 +25,7 @@ export class ContactsImportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
-  ) {}
+  ) { }
 
   /**
    * Create a local-only contact (no provider sync)
@@ -318,7 +318,7 @@ export class ContactsImportService {
    * @private
    */
   private async processVCard(
-    card: any,
+    card: vCard,
     tenantId: string,
     existingEmails: Set<string>,
   ): Promise<{ imported: boolean; emails: string[] }> {
@@ -376,7 +376,7 @@ export class ContactsImportService {
    * Extract name fields from vCard
    * @private
    */
-  private extractNameFromVCard(card: any): {
+  private extractNameFromVCard(card: vCard): {
     firstName?: string;
     lastName?: string;
     displayName?: string;
@@ -419,7 +419,7 @@ export class ContactsImportService {
    * Extract email addresses from vCard
    * @private
    */
-  private extractEmailsFromVCard(card: any): Array<{ value: string; type?: string; primary?: boolean }> {
+  private extractEmailsFromVCard(card: vCard): Array<{ value: string; type?: string; primary?: boolean }> {
     const emailProp = card.get('email');
     const emails: Array<{ value: string; type?: string; primary?: boolean }> = [];
 
@@ -458,7 +458,7 @@ export class ContactsImportService {
    * Extract phone numbers from vCard
    * @private
    */
-  private extractPhonesFromVCard(card: any): Array<{ value: string; type?: string; primary?: boolean }> {
+  private extractPhonesFromVCard(card: vCard): Array<{ value: string; type?: string; primary?: boolean }> {
     const telProp = card.get('tel');
     const phoneNumbers: Array<{ value: string; type?: string; primary?: boolean }> = [];
 
@@ -486,7 +486,7 @@ export class ContactsImportService {
    * Extract organization from vCard
    * @private
    */
-  private extractOrgFromVCard(card: any): string | undefined {
+  private extractOrgFromVCard(card: vCard): string | undefined {
     const orgProp = card.get('org');
     if (orgProp) {
       const orgValue = Array.isArray(orgProp) ? orgProp[0] : orgProp;
@@ -503,7 +503,7 @@ export class ContactsImportService {
    * Extract simple text field from vCard
    * @private
    */
-  private extractFieldFromVCard(card: any, fieldName: string): string | undefined {
+  private extractFieldFromVCard(card: vCard, fieldName: string): string | undefined {
     const prop = card.get(fieldName);
     if (prop) {
       const value = Array.isArray(prop) ? prop[0] : prop;
@@ -517,7 +517,7 @@ export class ContactsImportService {
    * Extract birthday from vCard
    * @private
    */
-  private extractBirthdayFromVCard(card: any): Date | undefined {
+  private extractBirthdayFromVCard(card: vCard): Date | undefined {
     const bdayProp = card.get('bday');
     if (bdayProp) {
       const bdayValue = Array.isArray(bdayProp) ? bdayProp[0] : bdayProp;

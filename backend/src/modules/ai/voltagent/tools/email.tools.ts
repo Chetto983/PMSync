@@ -11,6 +11,7 @@
 import { createTool } from '@voltagent/core';
 import { z } from 'zod';
 import { PrismaService } from '../../../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { EmailSendService } from '../../../email/services/email-send.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
@@ -441,7 +442,7 @@ export function createEmailTools(
       }),
       execute: async ({ folder, emailIds, olderThanDays, permanent }) => {
         // Build query to count emails
-        const whereClause: Record<string, unknown> = { tenantId };
+        const whereClause: Prisma.EmailWhereInput = { tenantId };
 
         if (emailIds && emailIds.length > 0) {
           whereClause.id = { in: emailIds };
@@ -478,7 +479,7 @@ export function createEmailTools(
         }
 
         // Count emails to be deleted
-        const count = await prisma.email.count({ where: whereClause as any });
+        const count = await prisma.email.count({ where: whereClause });
 
         if (count === 0) {
           return { success: true, data: { count: 0 }, summary: 'No emails found to delete' };
@@ -486,7 +487,7 @@ export function createEmailTools(
 
         // Get IDs for the bulk operation
         const emailsToDelete = await prisma.email.findMany({
-          where: whereClause as any,
+          where: whereClause,
           select: { id: true },
           take: 1000, // Limit to prevent memory issues
         });
@@ -534,7 +535,7 @@ export function createEmailTools(
         });
 
         // Build where clause with actual folder names
-        const folderWhereClause: Record<string, unknown> = { tenantId };
+        const folderWhereClause: Prisma.EmailWhereInput = { tenantId };
         if (matchingFolders.length > 0) {
           const folderNames = matchingFolders.flatMap((f) => [f.name, f.path]);
           folderWhereClause.folder = { in: folderNames };
@@ -545,7 +546,7 @@ export function createEmailTools(
 
         // Count emails in folder
         const count = await prisma.email.count({
-          where: folderWhereClause as any,
+          where: folderWhereClause,
         });
 
         if (count === 0) {
@@ -554,7 +555,7 @@ export function createEmailTools(
 
         // Get IDs for the bulk operation
         const emailsToDelete = await prisma.email.findMany({
-          where: folderWhereClause as any,
+          where: folderWhereClause,
           select: { id: true },
           take: 5000, // Higher limit for empty operations
         });
@@ -587,7 +588,7 @@ export function createEmailTools(
         olderThanDays: z.number().optional().describe('Only archive emails older than X days'),
       }),
       execute: async ({ folder, emailIds, onlyRead, olderThanDays }) => {
-        const whereClause: Record<string, unknown> = { tenantId };
+        const whereClause: Prisma.EmailWhereInput = { tenantId };
 
         if (emailIds && emailIds.length > 0) {
           whereClause.id = { in: emailIds };
@@ -607,14 +608,14 @@ export function createEmailTools(
           whereClause.receivedAt = { lt: cutoffDate };
         }
 
-        const count = await prisma.email.count({ where: whereClause as any });
+        const count = await prisma.email.count({ where: whereClause });
 
         if (count === 0) {
           return { success: true, data: { count: 0 }, summary: 'No emails found to archive' };
         }
 
         const emailsToArchive = await prisma.email.findMany({
-          where: whereClause as any,
+          where: whereClause,
           select: { id: true },
           take: 1000,
         });
@@ -643,7 +644,7 @@ export function createEmailTools(
         emailIds: z.array(z.string()).optional().describe('Specific email IDs to mark as read'),
       }),
       execute: async ({ folder, emailIds }) => {
-        const whereClause: Record<string, unknown> = { tenantId, isRead: false };
+        const whereClause: Prisma.EmailWhereInput = { tenantId, isRead: false };
 
         if (emailIds && emailIds.length > 0) {
           whereClause.id = { in: emailIds };
@@ -653,14 +654,14 @@ export function createEmailTools(
           whereClause.folder = { not: { in: ['SPAM', 'TRASH'] } };
         }
 
-        const count = await prisma.email.count({ where: whereClause as any });
+        const count = await prisma.email.count({ where: whereClause });
 
         if (count === 0) {
           return { success: true, data: { count: 0 }, summary: 'No unread emails found' };
         }
 
         const emailsToMark = await prisma.email.findMany({
-          where: whereClause as any,
+          where: whereClause,
           select: { id: true },
           take: 1000,
         });

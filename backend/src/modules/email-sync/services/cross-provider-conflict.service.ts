@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 export type ConflictStrategy =
   | 'LAST_WRITE_WINS' // Most recent update wins
@@ -41,6 +42,8 @@ export class CrossProviderConflictService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    // RC-5 FIX: Redis lock for distributed conflict resolution
+    private readonly redisLock: RedisLockService,
   ) {
     // Priorità provider configurabile via env CROSS_PROVIDER_PRIORITY_JSON (es. {"google":1,"microsoft":2,"generic":3})
     const raw = this.config.get<string>('CROSS_PROVIDER_PRIORITY_JSON');
@@ -104,6 +107,7 @@ export class CrossProviderConflictService {
 
   /**
    * Resolve conflicts between email states from different providers
+   * RC-5 FIX: Uses distributed lock to prevent concurrent resolution races
    */
   async resolveConflicts(
     crossProviderLinkId: string,
@@ -126,68 +130,128 @@ export class CrossProviderConflictService {
       };
     }
 
-    // Detect conflicts
-    const readStates = new Set(states.map((s) => s.isRead));
-    const starredStates = new Set(states.map((s) => s.isStarred));
-    const folderStates = new Set(states.map((s) => s.folder));
+    // RC-5 FIX: Use distributed lock to prevent concurrent conflict resolution
+    // Without this, two workers could resolve the same conflict simultaneously → lost updates
+    const lockKey = `conflict:resolve:${crossProviderLinkId}`;
+    const lockTtlMs = 10000; // 10 seconds for conflict resolution
 
-    const hasReadConflict = readStates.size > 1;
-    const hasStarredConflict = starredStates.size > 1;
-    const hasFolderConflict = folderStates.size > 1;
-    const hasConflict =
-      hasReadConflict || hasStarredConflict || hasFolderConflict;
+    return await this.redisLock.withLock(
+      lockKey,
+      lockTtlMs,
+      async () => {
+        // Re-fetch fresh states inside lock to ensure we're working with latest data
+        const freshStates = await this.fetchFreshEmailStates(crossProviderLinkId, states);
 
-    let resolution: ConflictResolution;
+        // Detect conflicts
+        const readStates = new Set(freshStates.map((s) => s.isRead));
+        const starredStates = new Set(freshStates.map((s) => s.isStarred));
+        const folderStates = new Set(freshStates.map((s) => s.folder));
 
-    switch (strategy) {
-      case 'LAST_WRITE_WINS':
-        resolution = this.resolveLastWriteWins(states);
-        break;
-      case 'UNION':
-        resolution = this.resolveUnion(states);
-        break;
-      case 'INTERSECTION':
-        resolution = this.resolveIntersection(states);
-        break;
-      case 'PRIORITY_BASED':
-        resolution = this.resolvePriorityBased(states);
-        break;
-      default:
-        resolution = this.resolveLastWriteWins(states);
-    }
+        const hasReadConflict = readStates.size > 1;
+        const hasStarredConflict = starredStates.size > 1;
+        const hasFolderConflict = folderStates.size > 1;
+        const hasConflict =
+          hasReadConflict || hasStarredConflict || hasFolderConflict;
 
-    if (hasConflict) {
-      resolution.hasConflict = true;
-      resolution.conflictDetails = {
-        readConflict: hasReadConflict,
-        starredConflict: hasStarredConflict,
-        folderConflict: hasFolderConflict,
-        strategy,
-      };
+        let resolution: ConflictResolution;
 
-      // Log conflict
-      await this.logConflict(crossProviderLinkId, states, resolution);
+        switch (strategy) {
+          case 'LAST_WRITE_WINS':
+            resolution = this.resolveLastWriteWins(freshStates);
+            break;
+          case 'UNION':
+            resolution = this.resolveUnion(freshStates);
+            break;
+          case 'INTERSECTION':
+            resolution = this.resolveIntersection(freshStates);
+            break;
+          case 'PRIORITY_BASED':
+            resolution = this.resolvePriorityBased(freshStates);
+            break;
+          default:
+            resolution = this.resolveLastWriteWins(freshStates);
+        }
 
-      this.logger.debug(
-        `Resolved conflict for link ${crossProviderLinkId} using ${strategy}: ` +
-          `read=${resolution.resolvedIsRead}, starred=${resolution.resolvedIsStarred}, folder=${resolution.resolvedFolder}`,
-      );
-    }
+        if (hasConflict) {
+          resolution.hasConflict = true;
+          resolution.conflictDetails = {
+            readConflict: hasReadConflict,
+            starredConflict: hasStarredConflict,
+            folderConflict: hasFolderConflict,
+            strategy,
+          };
 
-    // Update cross-provider link with merged state
-    await this.prisma.emailCrossProviderLink.update({
-      where: { id: crossProviderLinkId },
-      data: {
-        mergedIsRead: resolution.resolvedIsRead,
-        mergedIsStarred: resolution.resolvedIsStarred,
-        mergedFolder: resolution.resolvedFolder,
-        mergedLabels: resolution.resolvedLabels,
-        lastSyncedAt: new Date(),
-        lastConflictAt: hasConflict ? new Date() : undefined,
+          // Log conflict
+          await this.logConflict(crossProviderLinkId, freshStates, resolution);
+
+          this.logger.debug(
+            `Resolved conflict for link ${crossProviderLinkId} using ${strategy}: ` +
+              `read=${resolution.resolvedIsRead}, starred=${resolution.resolvedIsStarred}, folder=${resolution.resolvedFolder}`,
+          );
+        }
+
+        // Update cross-provider link with merged state
+        await this.prisma.emailCrossProviderLink.update({
+          where: { id: crossProviderLinkId },
+          data: {
+            mergedIsRead: resolution.resolvedIsRead,
+            mergedIsStarred: resolution.resolvedIsStarred,
+            mergedFolder: resolution.resolvedFolder,
+            mergedLabels: resolution.resolvedLabels,
+            lastSyncedAt: new Date(),
+            lastConflictAt: hasConflict ? new Date() : undefined,
+          },
+        });
+
+        return resolution;
       },
-    });
+      { maxRetries: 3 },
+    );
+  }
 
-    return resolution;
+  /**
+   * RC-5 FIX: Fetch fresh email states from database
+   * Called inside lock to ensure we're working with latest data
+   */
+  private async fetchFreshEmailStates(
+    crossProviderLinkId: string,
+    fallbackStates: EmailState[],
+  ): Promise<EmailState[]> {
+    try {
+      const emails = await this.prisma.email.findMany({
+        where: { crossProviderLinkId },
+        select: {
+          id: true,
+          providerId: true,
+          isRead: true,
+          isStarred: true,
+          folder: true,
+          labels: true,
+          updatedAt: true,
+        },
+      });
+
+      if (emails.length === 0) {
+        return fallbackStates; // Use original states if no emails found
+      }
+
+      return emails.map((email) => ({
+        emailId: email.id,
+        providerId: email.providerId,
+        isRead: email.isRead,
+        isStarred: email.isStarred,
+        folder: email.folder,
+        labels: email.labels,
+        updatedAt: email.updatedAt,
+      }));
+    } catch (error) {
+      this.logger.warn(
+        `Failed to fetch fresh states for ${crossProviderLinkId}, using provided states: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return fallbackStates;
+    }
   }
 
   /**

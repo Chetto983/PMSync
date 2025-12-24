@@ -16,6 +16,7 @@ import type {
   CalendarSyncResult,
 } from '../../providers/interfaces/calendar-provider.interface';
 import { CalendarProviderError } from '../../providers/interfaces/calendar-provider.interface';
+import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { BaseCalendarProvider, CalendarProviderType } from './base-calendar.provider';
 
 @Injectable()
@@ -28,6 +29,7 @@ export class GoogleCalendarProvider extends BaseCalendarProvider {
     crypto: CryptoService,
     private readonly googleOAuth: GoogleOAuthService,
     private readonly googleCalendarSync: GoogleCalendarSyncService,
+    private readonly providerTokenService: ProviderTokenService,
   ) {
     super(config, prisma, crypto);
   }
@@ -36,34 +38,22 @@ export class GoogleCalendarProvider extends BaseCalendarProvider {
 
   async refreshToken(): Promise<{ accessToken: string; expiresAt: Date }> {
     return this.withErrorHandling('refreshToken', async () => {
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: this.config.providerId },
-      });
+      // Use centralized token service which handles distributed locking and refresh
+      const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(
+        this.config.providerId,
+      );
 
-      if (!provider || !provider.refreshToken || !provider.refreshTokenEncryptionIv) {
+      if (!provider.tokenExpiresAt) {
         throw new CalendarProviderError(
-          'No refresh token available',
-          'REFRESH_TOKEN_MISSING',
+          'Token does not have an expiration date',
+          'TOKEN_INVALID',
           'google',
         );
       }
 
-      const refreshToken = this.crypto.decrypt(provider.refreshToken, provider.refreshTokenEncryptionIv);
-      const refreshed = await this.googleOAuth.refreshAccessToken(refreshToken);
-
-      const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
-      await this.prisma.providerConfig.update({
-        where: { id: this.config.providerId },
-        data: {
-          accessToken: encryptedAccess.encrypted,
-          tokenEncryptionIv: encryptedAccess.iv,
-          tokenExpiresAt: refreshed.expiresAt,
-        },
-      });
-
       return {
-        accessToken: refreshed.accessToken,
-        expiresAt: refreshed.expiresAt,
+        accessToken,
+        expiresAt: provider.tokenExpiresAt,
       };
     });
   }

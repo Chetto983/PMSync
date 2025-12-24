@@ -32,6 +32,10 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     },
   };
 
+  // CRIT-2 FIX: Operation timeout configuration (prevents indefinite hangs)
+  private readonly SYNC_TIMEOUT_MS: number;
+  private readonly FOLDER_SYNC_TIMEOUT_MS = 60000; // 60 seconds for folder sync
+
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
@@ -44,7 +48,10 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     private readonly imapSyncService: ImapSyncService,
     // RACE CONDITION FIX RC-4: Redis lock for folder sync coordination
     private readonly redisLock: RedisLockService,
-  ) {}
+  ) {
+    // CRIT-2 FIX: Initialize sync timeout from config (default 10 minutes)
+    this.SYNC_TIMEOUT_MS = Number(configService.get('SYNC_OPERATION_TIMEOUT_MS')) || 10 * 60 * 1000;
+  }
 
   async onModuleInit() {
     const workersEnabled =
@@ -165,16 +172,33 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     try {
       // RACE CONDITION FIX RC-4: Sync folder structure with distributed lock
       // Prevents concurrent folder syncs from racing and producing inconsistent counts
+      // CRIT-2 FIX: Wrap with timeout to prevent indefinite hangs
+      // HIGH-1 FIX: Log at ERROR level and track folder sync failures
       try {
-        await this.syncFoldersWithLock(tenantId, providerId);
-      } catch (folderError) {
-        this.logger.warn(
-          `Folder sync failed for ${email}, continuing with email sync: ${folderError instanceof Error ? folderError.message : String(folderError)}`,
+        await this.withTimeout(
+          this.syncFoldersWithLock(tenantId, providerId),
+          this.FOLDER_SYNC_TIMEOUT_MS,
+          `folder sync for ${email}`,
         );
+      } catch (folderError) {
+        const errorMsg = folderError instanceof Error ? folderError.message : String(folderError);
+        // HIGH-1 FIX: Always log folder sync failures at ERROR level for visibility
+        this.logger.error(`HIGH-1: Folder sync failed for ${email}: ${errorMsg}`);
+
+        // HIGH-1 FIX: Record folder sync error in provider metadata for monitoring
+        await this.recordFolderSyncError(providerId, errorMsg).catch((recordErr: unknown) => {
+          this.logger.debug(`Failed to record folder sync error: ${recordErr instanceof Error ? recordErr.message : String(recordErr)}`);
+        });
+        // Continue with email sync - folder sync failure is non-blocking
       }
 
       // Delegate to provider-specific sync services (they also persist emails to DB)
-      const result = await this.runProviderSync(job.data);
+      // CRIT-2 FIX: Wrap with timeout to prevent indefinite hangs on provider API calls
+      const result = await this.withTimeout(
+        this.runProviderSync(job.data),
+        this.SYNC_TIMEOUT_MS,
+        `provider sync for ${email}`,
+      );
 
       // RACE CONDITION FIX RC-3: Apply ALL post-sync updates atomically
       // Prevents partial updates if crash occurs between individual operations
@@ -241,6 +265,26 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * CRIT-2 FIX: Wrap operation with timeout to prevent indefinite hangs
+   * Uses Promise.race to abort if operation exceeds timeout
+   */
+  private async withTimeout<T>(
+    operation: Promise<T>,
+    timeoutMs: number,
+    operationName: string,
+  ): Promise<T> {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`CRIT-2: ${operationName} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+      // Ensure timer doesn't keep process alive
+      timer.unref?.();
+    });
+
+    return Promise.race([operation, timeoutPromise]);
+  }
+
   private async getProviderMetadata(providerId: string): Promise<any> {
     const provider = await this.prisma.providerConfig.findUnique({
       where: { id: providerId },
@@ -271,13 +315,17 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
         { maxRetries: 3 },
       );
     } catch (lockError) {
-      // If lock acquisition fails, try without lock (graceful degradation)
-      this.logger.warn(
-        `Folder sync lock failed for ${providerId}, proceeding without lock: ${
+      // RC-3 FIX: FAIL CLOSED - Skip folder sync if lock unavailable
+      // Proceeding without lock in multi-instance deployments causes race conditions
+      // (inconsistent folder counts, duplicate sync operations)
+      // The folder sync will succeed on the next scheduled sync when lock is available
+      this.logger.error(
+        `RC-3: Folder sync SKIPPED for ${providerId} due to lock failure (fail-closed): ${
           lockError instanceof Error ? lockError.message : String(lockError)
         }`,
       );
-      await this.folderSyncService.syncProviderFolders(tenantId, providerId);
+      // Don't throw - allow email sync to continue, just skip folder sync this time
+      // Folders will be synced on next successful lock acquisition
     }
   }
 
@@ -371,6 +419,30 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.debug(`Failed to record auth error metadata for ${providerId}: ${message}`);
+    }
+  }
+
+  /**
+   * HIGH-1 FIX: Record folder sync error in provider metadata for monitoring
+   * This allows tracking of folder sync failures without blocking email sync
+   */
+  private async recordFolderSyncError(providerId: string, errorMessage: string): Promise<void> {
+    try {
+      const metadata = await this.getProviderMetadata(providerId);
+      const updatedMetadata = {
+        ...metadata,
+        lastFolderSyncErrorAt: new Date().toISOString(),
+        lastFolderSyncError: errorMessage,
+        folderSyncErrorCount: ((metadata.folderSyncErrorCount as number) || 0) + 1,
+      };
+
+      await this.prisma.providerConfig.update({
+        where: { id: providerId },
+        data: { metadata: updatedMetadata },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(`Failed to record folder sync error for ${providerId}: ${message}`);
     }
   }
 

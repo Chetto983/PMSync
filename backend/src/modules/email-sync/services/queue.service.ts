@@ -29,6 +29,37 @@ import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 type QueuePriority = 'high' | 'normal' | 'low';
 
+/**
+ * CRIT-5 FIX: Queue size limits for backpressure
+ * Prevents unbounded queue growth during webhook floods
+ */
+export interface QueueLimits {
+  maxWaiting: number;      // Max jobs in waiting state
+  maxDelayed: number;      // Max jobs in delayed state
+  maxPerProvider: number;  // Max jobs per provider (prevents single provider from flooding)
+}
+
+/**
+ * CRIT-5 FIX: Default queue limits per priority level
+ */
+const DEFAULT_QUEUE_LIMITS: Record<QueuePriority, QueueLimits> = {
+  high: {
+    maxWaiting: 1000,      // High priority can handle more
+    maxDelayed: 500,
+    maxPerProvider: 10,
+  },
+  normal: {
+    maxWaiting: 2000,
+    maxDelayed: 1000,
+    maxPerProvider: 5,
+  },
+  low: {
+    maxWaiting: 5000,
+    maxDelayed: 2000,
+    maxPerProvider: 3,
+  },
+};
+
 export interface QueueMetricsSummary {
   queue: QueuePriority;
   completed: number;
@@ -124,7 +155,50 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * CRIT-5 FIX: Get queue capacity status for monitoring
+   */
+  async getQueueCapacityStatus(): Promise<Record<QueuePriority, {
+    limits: QueueLimits;
+    current: { waiting: number; delayed: number };
+    utilizationPercent: { waiting: number; delayed: number };
+    hasCapacity: boolean;
+  }>> {
+    const result: Record<string, any> = {};
+
+    const queues: Array<{ name: QueuePriority; queue: Queue<SyncJobData> }> = [
+      { name: 'high', queue: this.highQueue },
+      { name: 'normal', queue: this.normalQueue },
+      { name: 'low', queue: this.lowQueue },
+    ];
+
+    for (const { name, queue } of queues) {
+      const limits = DEFAULT_QUEUE_LIMITS[name];
+      const counts = await queue.getJobCounts();
+      const waiting = counts.waiting || 0;
+      const delayed = counts.delayed || 0;
+
+      result[name] = {
+        limits,
+        current: { waiting, delayed },
+        utilizationPercent: {
+          waiting: Math.round((waiting / limits.maxWaiting) * 100),
+          delayed: Math.round((delayed / limits.maxDelayed) * 100),
+        },
+        hasCapacity: waiting < limits.maxWaiting && delayed < limits.maxDelayed,
+      };
+    }
+
+    return result as Record<QueuePriority, {
+      limits: QueueLimits;
+      current: { waiting: number; delayed: number };
+      utilizationPercent: { waiting: number; delayed: number };
+      hasCapacity: boolean;
+    }>;
+  }
+
+  /**
    * Lightweight health summary for queues + Redis connectivity.
+   * CRIT-5 FIX: Now includes capacity status for backpressure monitoring
    */
   async getHealthSummary(): Promise<{
     redisConnected: boolean;
@@ -132,11 +206,18 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     queues: SyncStatus[];
     metrics: QueueMetricsSummary[];
     lagMs?: Record<string, number>;
+    capacity?: Record<QueuePriority, {
+      limits: QueueLimits;
+      current: { waiting: number; delayed: number };
+      utilizationPercent: { waiting: number; delayed: number };
+      hasCapacity: boolean;
+    }>;
   }> {
     const redisStatus = this.redisConnection?.status ?? 'unknown';
     const redisConnected = await this.pingRedis();
     const queues = await this.getQueueStatus();
     const lagMs = await this.getQueueLagMs();
+    const capacity = await this.getQueueCapacityStatus();
 
     return {
       redisConnected,
@@ -144,6 +225,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       queues,
       metrics: this.getQueueMetricsSummary(),
       lagMs,
+      capacity,
     };
   }
 
@@ -166,11 +248,21 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
             `[${name}] Failed to record metrics for job ${jobId}: ${error instanceof Error ? error.message : String(error)}`,
           );
         });
+
+        // CRIT-5 FIX: Decrement provider job count on completion
+        this.decrementProviderCountForJob(queue, jobId, name as QueuePriority).catch((err) => {
+          this.logger.error(`Failed to decrement provider count (completed): ${err.message}`);
+        });
       });
 
       queueEvents.on('failed', ({ jobId, failedReason }) => {
         this.logger.error(`[${name}] Job ${jobId} failed: ${failedReason}`);
         this.recordFailure(name as QueuePriority, failedReason, jobId);
+
+        // CRIT-5 FIX: Decrement provider job count on failure
+        this.decrementProviderCountForJob(queue, jobId, name as QueuePriority).catch((err) => {
+          this.logger.error(`Failed to decrement provider count (failed): ${err.message}`);
+        });
       });
 
       this.queueEvents.push(queueEvents);
@@ -178,13 +270,127 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * CRIT-5 FIX: Helper to decrement provider count when job finishes
+   */
+  private async decrementProviderCountForJob(
+    queue: Queue<SyncJobData>,
+    jobId: string,
+    priority: QueuePriority,
+  ): Promise<void> {
+    try {
+      const job = await queue.getJob(jobId);
+      if (job?.data?.providerId) {
+        await this.decrementProviderJobCount(priority, job.data.providerId);
+      }
+    } catch (error) {
+      this.logger.debug(
+        `CRIT-5: Failed to decrement provider count for job ${jobId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * CRIT-5 FIX: Check if queue has capacity for new jobs (backpressure)
+   * Returns true if the queue can accept new jobs, false if at capacity
+   */
+  private async checkQueueCapacity(
+    queue: Queue<SyncJobData>,
+    priority: QueuePriority,
+    providerId: string,
+  ): Promise<{ hasCapacity: boolean; reason?: string }> {
+    const limits = DEFAULT_QUEUE_LIMITS[priority];
+
+    try {
+      const counts = await queue.getJobCounts();
+
+      // Check overall waiting limit
+      if ((counts.waiting || 0) >= limits.maxWaiting) {
+        return {
+          hasCapacity: false,
+          reason: `CRIT-5: Queue ${priority} at max waiting capacity (${counts.waiting}/${limits.maxWaiting})`,
+        };
+      }
+
+      // Check overall delayed limit
+      if ((counts.delayed || 0) >= limits.maxDelayed) {
+        return {
+          hasCapacity: false,
+          reason: `CRIT-5: Queue ${priority} at max delayed capacity (${counts.delayed}/${limits.maxDelayed})`,
+        };
+      }
+
+      // Check per-provider limit using Redis counter (faster than scanning jobs)
+      const providerCountKey = `queue:provider-count:${priority}:${providerId}`;
+      const providerCount = await this.redisConnection.get(providerCountKey);
+      const currentProviderJobs = providerCount ? parseInt(providerCount, 10) : 0;
+
+      if (currentProviderJobs >= limits.maxPerProvider) {
+        return {
+          hasCapacity: false,
+          reason: `CRIT-5: Provider ${providerId} at max capacity for ${priority} queue (${currentProviderJobs}/${limits.maxPerProvider})`,
+        };
+      }
+
+      return { hasCapacity: true };
+    } catch (error) {
+      // On error, allow the job (fail open)
+      this.logger.warn(
+        `CRIT-5: Queue capacity check failed, allowing job: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return { hasCapacity: true };
+    }
+  }
+
+  /**
+   * CRIT-5 FIX: Increment provider job counter
+   */
+  private async incrementProviderJobCount(priority: QueuePriority, providerId: string): Promise<void> {
+    const key = `queue:provider-count:${priority}:${providerId}`;
+    try {
+      await this.redisConnection.incr(key);
+      // Set TTL of 1 hour for automatic cleanup
+      await this.redisConnection.expire(key, 3600);
+    } catch (error) {
+      this.logger.debug(
+        `CRIT-5: Failed to increment provider count: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * CRIT-5 FIX: Decrement provider job counter (called when job completes/fails)
+   */
+  async decrementProviderJobCount(priority: QueuePriority, providerId: string): Promise<void> {
+    const key = `queue:provider-count:${priority}:${providerId}`;
+    try {
+      const result = await this.redisConnection.decr(key);
+      // Clean up if counter reaches 0 or goes negative
+      if (result <= 0) {
+        await this.redisConnection.del(key);
+      }
+    } catch (error) {
+      this.logger.debug(
+        `CRIT-5: Failed to decrement provider count: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
    * RC-8 FIX: Add sync job with distributed lock to prevent race conditions
+   * CRIT-5 FIX: Added backpressure checks to prevent unbounded queue growth
    * Uses Redis lock around the check+add operation to ensure atomicity
    */
   async addSyncJob(data: SyncJobData): Promise<void> {
     const queue = this.getQueueByPriority(data.priority);
     const jobData = this.withJobToken(data);
     const jobId = `${data.providerId}-${data.syncType || 'delta'}`;
+
+    // CRIT-5 FIX: Check queue capacity before attempting to add job
+    const capacityCheck = await this.checkQueueCapacity(queue, data.priority, data.providerId);
+    if (!capacityCheck.hasCapacity) {
+      this.logger.warn(capacityCheck.reason);
+      return; // Drop the job (backpressure applied)
+    }
 
     // RC-8 FIX: Use Redis lock to make check+add atomic across workers
     const lockKey = `sync-job-dedup:${jobId}`;
@@ -224,6 +430,9 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
               delay: jitterMs,
             },
           );
+
+          // CRIT-5 FIX: Track provider job count for backpressure
+          await this.incrementProviderJobCount(data.priority, data.providerId);
 
           this.logger.log(`Added ${data.priority} priority sync job for ${data.email} (${data.providerType}) [jobId=${jobId}]`);
         },

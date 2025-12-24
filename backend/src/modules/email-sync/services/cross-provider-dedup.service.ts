@@ -56,36 +56,49 @@ export class CrossProviderDedupService {
   /**
    * Check if an email already exists across providers (deduplication)
    * Returns the cross-provider link if found, or creates a new one
+   *
+   * RC-4 FIX: Uses database-level UPSERT for atomicity
+   * Prevents race condition where two workers create duplicate links
    */
   async dedupEmail(emailIdentity: EmailIdentity): Promise<DedupResult> {
     const contentHash = this.calculateContentHash(emailIdentity);
 
-    // Check if a cross-provider link already exists for this content
-    let crossProviderLink =
-      await this.prisma.emailCrossProviderLink.findUnique({
-        where: {
-          tenantId_contentHash: {
-            tenantId: emailIdentity.tenantId,
-            contentHash,
+    // RC-4 FIX: Use upsert for atomic check-and-create
+    // This prevents race condition where findUnique -> create can be interleaved
+    const crossProviderLink = await this.prisma.emailCrossProviderLink.upsert({
+      where: {
+        tenantId_contentHash: {
+          tenantId: emailIdentity.tenantId,
+          contentHash,
+        },
+      },
+      create: {
+        tenantId: emailIdentity.tenantId,
+        contentHash,
+        conflictStrategy: 'LAST_WRITE_WINS',
+        providerCount: 0,
+        mergedIsRead: false,
+        mergedIsStarred: false,
+        mergedFolder: 'INBOX',
+      },
+      update: {}, // No-op update if already exists (atomic existence check)
+      include: {
+        emails: {
+          select: {
+            id: true,
+            providerId: true,
           },
         },
-        include: {
-          emails: {
-            select: {
-              id: true,
-              providerId: true,
-            },
-          },
-        },
-      });
+      },
+    });
 
     // LB-3 Fix: Check if this specific email ID is already linked (not just the provider)
     // This prevents reprocessing the same email and ensures correct dedup behavior
-    const emailAlreadyLinked = crossProviderLink?.emails.some(
+    const emailAlreadyLinked = crossProviderLink.emails.some(
       (email) => email.id === emailIdentity.id,
     );
 
-    if (crossProviderLink && emailAlreadyLinked) {
+    if (emailAlreadyLinked) {
       this.logger.debug(
         `Email ${emailIdentity.id} already linked (hash: ${contentHash})`,
       );
@@ -97,27 +110,10 @@ export class CrossProviderDedupService {
       };
     }
 
-    // If link doesn't exist, create it
-    if (!crossProviderLink) {
-      crossProviderLink = await this.prisma.emailCrossProviderLink.create({
-        data: {
-          tenantId: emailIdentity.tenantId,
-          contentHash,
-          conflictStrategy: 'LAST_WRITE_WINS',
-          providerCount: 0,
-          mergedIsRead: false,
-          mergedIsStarred: false,
-          mergedFolder: 'INBOX',
-        },
-        include: {
-          emails: true,
-        },
-      });
-
-      this.logger.verbose(
-        `Created new cross-provider link ${crossProviderLink.id} for email ${emailIdentity.id}`,
-      );
-    }
+    // Link was created or already existed, but this email is not yet linked
+    this.logger.verbose(
+      `Cross-provider link ${crossProviderLink.id} ready for email ${emailIdentity.id} (${crossProviderLink.emails.length} existing)`,
+    );
 
     return {
       isNewEmail: true,

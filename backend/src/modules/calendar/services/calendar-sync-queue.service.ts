@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { getErrorMessage } from '../../../common/utils';
 import { Queue, QueueEvents } from 'bullmq';
 import { Redis } from 'ioredis';
 import {
@@ -96,7 +97,7 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
     },
   };
 
-  constructor() {}
+  constructor() { }
 
   async onModuleInit() {
     // Initialize Redis connection using centralized config
@@ -187,7 +188,7 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
           await queueEvents.close();
         } catch (error) {
           this.logger.debug(
-            `QueueEvents close skipped: ${error instanceof Error ? error.message : error}`,
+            `QueueEvents close skipped: ${getErrorMessage(error)}`,
           );
         }
       }
@@ -198,7 +199,7 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
           await queue.close();
         } catch (error) {
           this.logger.debug(
-            `Queue close skipped: ${error instanceof Error ? error.message : error}`,
+            `Queue close skipped: ${getErrorMessage(error)}`,
           );
         }
       }
@@ -219,8 +220,7 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (outerError) {
       this.logger.warn(
-        `CalendarSyncQueueService shutdown encountered an error (swallowed): ${
-          outerError instanceof Error ? outerError.message : outerError
+        `CalendarSyncQueueService shutdown encountered an error (swallowed): ${outerError instanceof Error ? outerError.message : outerError
         }`,
       );
     } finally {

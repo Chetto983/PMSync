@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ContactsSyncQueueService, ContactsSyncJobData } from './contacts-sync-queue.service';
+import { ContactsError, ContactsErrorCode } from '../errors/contacts-error';
+import { ProviderConfig } from '@prisma/client';
 
 @Injectable()
 export class ContactsSyncSchedulerService {
@@ -117,7 +119,7 @@ export class ContactsSyncSchedulerService {
   /**
    * Convert database providers to sync jobs with priority
    */
-  private createSyncJobs(providers: any[]): ContactsSyncJobData[] {
+  private createSyncJobs(providers: ProviderConfig[]): ContactsSyncJobData[] {
     const jobs: ContactsSyncJobData[] = [];
 
     for (const provider of providers) {
@@ -126,7 +128,7 @@ export class ContactsSyncSchedulerService {
       jobs.push({
         tenantId: provider.tenantId,
         providerId: provider.id,
-        providerType: provider.providerType,
+        providerType: provider.providerType as 'google' | 'microsoft',
         email: provider.email,
         priority,
         lastSyncedAt: provider.lastSyncedAt ?? undefined,
@@ -140,7 +142,7 @@ export class ContactsSyncSchedulerService {
    * Determine job priority
    * Contacts sync is generally lower priority than email sync
    */
-  private determinePriority(provider: any): 'high' | 'normal' | 'low' {
+  private determinePriority(provider: ProviderConfig): 'high' | 'normal' | 'low' {
     // If never synced, use normal priority
     if (!provider.lastSyncedAt) {
       return 'normal';
@@ -175,15 +177,15 @@ export class ContactsSyncSchedulerService {
     });
 
     if (!provider) {
-      throw new Error(`Provider ${providerId} not found`);
+      throw new ContactsError(`Provider ${providerId} not found`, ContactsErrorCode.PROVIDER_NOT_FOUND, { context: { providerId }, retryable: false });
     }
 
     if (!provider.isActive) {
-      throw new Error(`Provider ${providerId} is not active`);
+      throw new ContactsError(`Provider ${providerId} is not active`, ContactsErrorCode.PROVIDER_NOT_SUPPORTED, { context: { providerId }, retryable: false });
     }
 
     if (!provider.supportsContacts) {
-      throw new Error(`Provider ${providerId} does not support contacts`);
+      throw new ContactsError(`Provider ${providerId} does not support contacts`, ContactsErrorCode.PROVIDER_NOT_SUPPORTED, { context: { providerId }, retryable: false });
     }
 
     const syncJob: ContactsSyncJobData = {
