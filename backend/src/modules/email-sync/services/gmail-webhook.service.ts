@@ -134,8 +134,7 @@ export class GmailWebhookService {
       // RC-2 FIX: FAIL CLOSED - If Redis unavailable, use in-memory fallback
       // but log warning as this breaks distributed dedup
       this.logger.warn(
-        `[DEDUP] Redis unavailable for ${messageId}, using in-memory fallback: ${
-          error instanceof Error ? error.message : String(error)
+        `[DEDUP] Redis unavailable for ${messageId}, using in-memory fallback: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return this.checkAndMarkProcessedFallback(messageId);
@@ -268,8 +267,7 @@ export class GmailWebhookService {
       } catch (lockError) {
         // RC-7: If lock fails, log and skip - another instance is handling this provider
         this.logger.warn(
-          `[GMAIL-WEBHOOK] Lock failed for provider ${provider.id}, skipping: ${
-            lockError instanceof Error ? lockError.message : String(lockError)
+          `[GMAIL-WEBHOOK] Lock failed for provider ${provider.id}, skipping: ${lockError instanceof Error ? lockError.message : String(lockError)
           }`,
         );
         // Don't throw - this is expected in high-concurrency scenarios
@@ -643,26 +641,34 @@ export class GmailWebhookService {
    * Uses update with where clause - Prisma increment is already atomic at DB level
    */
   private async updateSubscriptionStats(providerId: string): Promise<void> {
+    // RC-11 FIX: Use distributed lock to prevent race conditions during stats update
+    const lockKey = `webhook:stats:google:${providerId}`;
     try {
-      // Try to update existing subscription
-      const result = await this.prisma.webhookSubscription.updateMany({
-        where: {
-          providerId,
-          resourcePath: GMAIL_WEBHOOK_RESOURCE,
-        },
-        data: {
-          lastNotificationAt: new Date(),
-          notificationCount: { increment: 1 },
-        },
-      });
+      await this.redisLock.withLock(lockKey, 2000, async () => {
+        const result = await this.prisma.webhookSubscription.updateMany({
+          where: {
+            providerId,
+            resourcePath: GMAIL_WEBHOOK_RESOURCE,
+          },
+          data: {
+            lastNotificationAt: new Date(),
+            notificationCount: { increment: 1 },
+            errorCount: 0,
+          },
+        });
 
-      if (result.count === 0) {
-        // RC-11 FIX: Log if no subscription exists but don't fail
-        this.logger.warn(
-          `RC-11: No Gmail subscription row found for stats update (providerId=${providerId}). Stats not recorded.`,
-        );
-      }
+        if (result.count === 0) {
+          // RC-11 FIX: Log if no subscription exists but don't fail
+          this.logger.warn(
+            `RC-11: No Gmail subscription row found for stats update (providerId=${providerId}). Stats not recorded.`,
+          );
+        }
+      });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Failed to acquire lock')) {
+        this.logger.debug(`Stats update already in progress for ${providerId}, skipping...`);
+        return;
+      }
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.debug(`Could not update stats for ${providerId}: ${errorMessage}`);
     }

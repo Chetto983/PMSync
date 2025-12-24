@@ -18,7 +18,6 @@ Welcome to the MailAgent documentation. This index provides a structured overvie
 | **Calendar Audit** | [calendar-module-audit-report.md](./calendar-module-audit-report.md) | Complete |
 | **Contacts Audit** | [contacts-module-audit-report.md](./contacts-module-audit-report.md) | Complete |
 | **AI Audit** | [ai-module-audit-report.md](./ai-module-audit-report.md) | Complete |
-| **AI Secretary** | [AI_SECRETARY_AUDIT.md](./AI_SECRETARY_AUDIT.md) | Complete |
 | **Queue Services** | [QUEUE_SERVICES_API.md](./QUEUE_SERVICES_API.md) | Current |
 | **Security** | [security/AUDIT-FINDINGS.md](./security/AUDIT-FINDINGS.md) | Current |
 | **API Reference** | [MAIL_API_REFERENCE.md](./MAIL_API_REFERENCE.md) | Current |
@@ -33,11 +32,8 @@ docs/
 ├── COMPREHENSIVE_ROADMAP.md              # MASTER - Unified roadmap (Start Here!)
 │
 ├── ROADMAPS (Current)
-│   ├── MVP_COMPLETION_ROADMAP.md         # Master MVP checklist (Complete)
 │   ├── AI_COMPREHENSIVE_ROADMAP.md       # Master AI roadmap
-│   ├── EMAIL_EMAILSYNC_AUDIT_ROADMAP.md  # Email/sync audit & roadmap
 │   ├── EMAIL_SYNC_REFACTOR_ROADMAP.md    # Email sync refactoring details
-│   ├── REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md  # Queue infrastructure (Complete)
 │   ├── AUTH_MODULE_ROADMAP.md            # Authentication roadmap
 │   ├── MFA_ENHANCEMENT_ROADMAP.md        # Multi-factor auth roadmap
 │   ├── OAUTH_AUDIT_ROADMAP.md            # OAuth security audit
@@ -46,7 +42,6 @@ docs/
 │   └── FRONTEND_REFACTOR_ROADMAP.md      # Frontend modernization
 │
 ├── AI SECRETARY
-│   ├── AI_SECRETARY_AUDIT.md             # Human vs AI capabilities (Complete)
 │   └── AI_SECRETARY_IMPLEMENTATION_PLAN.md # Implementation plan (Current)
 │
 ├── REFERENCES
@@ -113,7 +108,6 @@ docs/
 |----------|---------|--------|
 
 | [development/EMAIL_DRIVER_ROADMAP.md](./development/EMAIL_DRIVER_ROADMAP.md) | Email driver abstraction - unified provider architecture | **Complete** |
-| [EMAIL_EMAILSYNC_AUDIT_ROADMAP.md](./EMAIL_EMAILSYNC_AUDIT_ROADMAP.md) | Comprehensive email/sync audit with action items | Current |
 | [EMAIL_SYNC_REFACTOR_ROADMAP.md](./EMAIL_SYNC_REFACTOR_ROADMAP.md) | Refactoring plan details | Current |
 | [MAIL_API_REFERENCE.md](./MAIL_API_REFERENCE.md) | Email API endpoint reference | Current |
 | [MAIL_API_TEST_ROADMAP.md](./MAIL_API_TEST_ROADMAP.md) | API test status and results | Current |
@@ -126,7 +120,6 @@ docs/
 | Document | Purpose | Status |
 |----------|---------|--------|
 
-| [REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md](./REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md) | BullMQ queue standardization | **Complete** |
 | [QUEUE_SERVICES_API.md](./QUEUE_SERVICES_API.md) | Queue services API reference | Current |
 | [development/BULLMQ_ARCHITECTURE.md](./development/BULLMQ_ARCHITECTURE.md) | BullMQ architecture documentation | Current |
 | [REALTIME_MODULE_ROADMAP.md](./REALTIME_MODULE_ROADMAP.md) | WebSocket/realtime features | Current |
@@ -169,7 +162,6 @@ docs/
 
 | [FRONTEND_REFACTOR_ROADMAP.md](./FRONTEND_REFACTOR_ROADMAP.md) | Frontend modernization plan | Current |
 | [CALENDAR_INVITATION_ROADMAP.md](./CALENDAR_INVITATION_ROADMAP.md) | Calendar invitation features | Current |
-| [development/contacts-refactor-plan.md](./development/contacts-refactor-plan.md) | Contacts component refactoring | Planned |
 
 ---
 

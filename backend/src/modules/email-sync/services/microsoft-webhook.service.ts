@@ -680,25 +680,33 @@ export class MicrosoftWebhookService {
    * Uses updateMany for safer handling when record might not exist
    */
   private async updateSubscriptionStats(providerId: string): Promise<void> {
+    const lockKey = `webhook:stats:microsoft:${providerId}`;
     try {
-      const result = await this.prisma.webhookSubscription.updateMany({
-        where: {
-          providerId,
-          resourcePath: MICROSOFT_MAIL_RESOURCE,
-        },
-        data: {
-          lastNotificationAt: new Date(),
-          notificationCount: { increment: 1 },
-        },
-      });
+      await this.redisLock.withLock(lockKey, 2000, async () => {
+        const result = await this.prisma.webhookSubscription.updateMany({
+          where: {
+            providerId,
+            resourcePath: MICROSOFT_MAIL_RESOURCE,
+          },
+          data: {
+            lastNotificationAt: new Date(),
+            notificationCount: { increment: 1 },
+            errorCount: 0,
+          },
+        });
 
-      if (result.count === 0) {
-        // RC-11 FIX: Log if no subscription exists but don't fail
-        this.logger.warn(
-          `RC-11: No Microsoft subscription row found for stats update (providerId=${providerId}). Stats not recorded.`,
-        );
-      }
+        if (result.count === 0) {
+          // RC-11 FIX: Log if no subscription exists but don't fail
+          this.logger.warn(
+            `RC-11: No Microsoft subscription row found for stats update (providerId=${providerId}). Stats not recorded.`,
+          );
+        }
+      });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Failed to acquire lock')) {
+        this.logger.debug(`Stats update already in progress for ${providerId}, skipping...`);
+        return;
+      }
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.debug(`Could not update stats for ${providerId}: ${errorMessage}`);
     }
