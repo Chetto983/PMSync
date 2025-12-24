@@ -136,7 +136,11 @@ export class ScheduledEmailService implements OnModuleInit {
 
   /**
    * Process scheduled emails - triggered by BullMQ every minute
-   * BullMQ guarantees only one instance processes at a time
+   * RACE CONDITION FIX RC-1: Uses atomic claim to prevent duplicate sends
+   *
+   * The fix uses UPDATE ... WHERE status='pending' RETURNING pattern
+   * to atomically claim emails before processing. This prevents multiple
+   * instances from claiming the same email.
    */
   async processScheduledEmails(): Promise<void> {
     // Prevent concurrent processing within same instance
@@ -149,23 +153,46 @@ export class ScheduledEmailService implements OnModuleInit {
     try {
       const now = new Date();
 
-      // Find emails that should be sent now
-      const pendingEmails = await this.prisma.scheduledEmail.findMany({
-        where: {
-          status: 'pending',
-          scheduledAt: { lte: now },
-        },
-        take: 10, // Process 10 at a time
-        orderBy: { scheduledAt: 'asc' },
-      });
+      // RACE CONDITION FIX RC-1: Atomically claim pending emails
+      // This UPDATE returns only the rows that were successfully claimed by this instance
+      // Other concurrent instances will get different rows (or none if all claimed)
+      const claimedEmails = await this.prisma.$queryRaw<Array<{
+        id: string;
+        tenantId: string;
+        providerId: string;
+        to: string[];
+        cc: string[];
+        bcc: string[];
+        subject: string;
+        bodyHtml: string;
+        bodyText: string;
+        inReplyTo: string | null;
+        references: string | null;
+        attachments: unknown;
+        retryCount: number;
+      }>>`
+        UPDATE "scheduled_emails"
+        SET "status" = 'processing', "updatedAt" = NOW()
+        WHERE "id" IN (
+          SELECT "id" FROM "scheduled_emails"
+          WHERE "status" = 'pending'
+            AND "scheduledAt" <= ${now}
+          ORDER BY "scheduledAt" ASC
+          LIMIT 10
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING "id", "tenantId", "providerId", "to", "cc", "bcc",
+                  "subject", "bodyHtml", "bodyText", "inReplyTo",
+                  "references", "attachments", "retryCount"
+      `;
 
-      if (pendingEmails.length === 0) {
+      if (claimedEmails.length === 0) {
         return;
       }
 
-      this.logger.log(`Processing ${pendingEmails.length} scheduled emails`);
+      this.logger.log(`Processing ${claimedEmails.length} scheduled emails (atomically claimed)`);
 
-      for (const scheduled of pendingEmails) {
+      for (const scheduled of claimedEmails) {
         await this.processOneEmail(scheduled);
       }
     } catch (error) {

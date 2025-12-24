@@ -11,6 +11,7 @@ import { GoogleDriver } from '../../drivers/google/google.driver';
 import { AttachmentMeta } from '../../drivers/interfaces/canonical.types';
 import { IEmailDriver } from '../../drivers/interfaces/email-driver.interface';
 import { AttachmentStorageService } from '../../../email/services/attachment.storage';
+import { RedisLockService } from '../../../../common/services/redis-lock.service';
 
 /**
  * GoogleSyncService - Driver-based implementation
@@ -30,8 +31,12 @@ export class GoogleSyncService extends BaseEmailSyncService {
     private providerTokenService: ProviderTokenService,
     private driverFactory: EmailDriverFactory,
     private attachmentStorage: AttachmentStorageService,
+    // RACE CONDITION FIX RC-5: Redis lock for attachment processing
+    private redisLockService: RedisLockService,
   ) {
     super(prisma, realtimeEvents, config);
+    // Inject Redis lock service into base class
+    this.setRedisLockService(redisLockService);
   }
 
   onModuleInit() {
@@ -418,12 +423,63 @@ export class GoogleSyncService extends BaseEmailSyncService {
         }
       }
 
-      // Persist attachment records atomically
+      // RACE CONDITION FIX RC-5: Persist attachment records atomically with email existence check
+      // This prevents orphan attachments if email was deleted during processing
       if (attachmentRecords.length > 0) {
-        await this.prisma.$transaction(async (tx) => {
-          await tx.emailAttachment.deleteMany({ where: { emailId } });
-          await tx.emailAttachment.createMany({ data: attachmentRecords });
-        });
+        const lockKey = `attachment:${emailId}`;
+        const lockTtlMs = 10000; // 10 second TTL
+
+        try {
+          await this.redisLockService.withLock(
+            lockKey,
+            lockTtlMs,
+            async () => {
+              await this.prisma.$transaction(async (tx) => {
+                // RC-5 FIX: Verify email still exists before inserting attachments
+                const emailExists = await tx.email.findUnique({
+                  where: { id: emailId },
+                  select: { id: true },
+                });
+
+                if (!emailExists) {
+                  this.logger.warn(
+                    `Email ${emailId} was deleted during attachment processing, skipping attachment insert`,
+                  );
+                  return;
+                }
+
+                await tx.emailAttachment.deleteMany({ where: { emailId } });
+                await tx.emailAttachment.createMany({ data: attachmentRecords });
+              });
+            },
+            { maxRetries: 2 },
+          );
+        } catch (lockError) {
+          // If lock acquisition fails, proceed without lock (graceful degradation)
+          this.logger.warn(
+            `Attachment lock failed for ${emailId}, proceeding without lock: ${
+              lockError instanceof Error ? lockError.message : String(lockError)
+            }`,
+          );
+
+          // Still check email exists and insert attachments
+          await this.prisma.$transaction(async (tx) => {
+            const emailExists = await tx.email.findUnique({
+              where: { id: emailId },
+              select: { id: true },
+            });
+
+            if (!emailExists) {
+              this.logger.warn(
+                `Email ${emailId} was deleted during attachment processing, skipping attachment insert`,
+              );
+              return;
+            }
+
+            await tx.emailAttachment.deleteMany({ where: { emailId } });
+            await tx.emailAttachment.createMany({ data: attachmentRecords });
+          });
+        }
 
         this.logger.debug(
           `Persisted ${attachmentRecords.length} attachment records for email ${emailId}`,

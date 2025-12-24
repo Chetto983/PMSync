@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -861,11 +862,14 @@ export class EmailsService {
 
     const draftAttachments = dto.attachments ?? [];
     const draftsFolder = await this.getDraftsFolderPath(provider.id);
+    // RACE CONDITION FIX RC-6: Use UUID instead of Date.now() to prevent collisions
+    // Date.now() can produce same value for concurrent requests in same millisecond
+    const draftExternalId = dto.id ?? `draft-${randomUUID()}`;
     const data: Prisma.EmailUncheckedCreateInput = {
       id: dto.id ?? undefined,
       tenantId,
       providerId: provider.id,
-      externalId: dto.id ?? `draft-${Date.now()}`,
+      externalId: draftExternalId,
       threadId: dto.threadId ?? null,
       messageId: null,
       inReplyTo: dto.inReplyTo ?? null,

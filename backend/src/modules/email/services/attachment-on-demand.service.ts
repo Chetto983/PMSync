@@ -9,6 +9,7 @@ import { GmailAttachmentHandler } from '../../email-sync/services/gmail/gmail-at
 import { MicrosoftAttachmentHandler } from '../../email-sync/services/microsoft/microsoft-attachment-handler';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { CryptoService } from '../../../common/services/crypto.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { AttachmentMetricsService, AttachmentLogContext } from './attachment-metrics.service';
 
 /**
@@ -36,6 +37,8 @@ export class AttachmentOnDemandService {
     private readonly microsoftHandler: MicrosoftAttachmentHandler,
     private readonly providerTokenService: ProviderTokenService,
     private readonly crypto: CryptoService,
+    // RACE CONDITION FIX RC-3: Add Redis lock for attachment download coordination
+    private readonly redisLock: RedisLockService,
     @Optional() private readonly metrics?: AttachmentMetricsService,
   ) {}
 
@@ -160,74 +163,104 @@ export class AttachmentOnDemandService {
       }
     }
 
-    // CASE 3: Cache miss - fetch from provider and upload to S3
-    this.logger.log(
-      JSON.stringify({
-        event: 'attachment_download_start',
-        ...context,
-        providerType: attachment.email.provider.providerType,
-        message: `Downloading ${attachment.filename} from ${attachment.email.provider.providerType}`,
-      }),
-    );
+    // RACE CONDITION FIX RC-3: Use Redis lock to prevent concurrent downloads
+    // Multiple requests for the same attachment should not all download from provider
+    const lockKey = `attachment-download:${attachmentId}`;
+    const lockTtlMs = 120000; // 2 minute TTL for attachment download
 
-    // Download from provider
-    const buffer = await this.fetchFromProvider(
-      attachment.email.provider.providerType as 'google' | 'microsoft' | 'imap',
-      reference.externalMessageId,
-      reference.externalAttachmentId,
-      attachment.email.providerId,
-    );
+    return await this.redisLock.withLock(
+      lockKey,
+      lockTtlMs,
+      async () => {
+        // Re-check if attachment is now cached (another request may have downloaded it)
+        const freshAttachment = await this.prisma.emailAttachment.findUnique({
+          where: { id: attachmentId },
+          select: { storageType: true, storagePath: true },
+        });
 
-    // Upload to S3 with deduplication
-    const uploaded = await this.attachmentStorage.uploadAttachment(
-      tenantId,
-      attachment.email.providerId,
-      {
-        filename: attachment.filename,
-        content: buffer,
-        contentType: attachment.mimeType,
+        if (freshAttachment?.storageType === 's3' && freshAttachment?.storagePath) {
+          const url = await this.storage.getSignedDownloadUrl(freshAttachment.storagePath, 300);
+          const duration = Date.now() - startTime;
+          this.metrics?.recordDownload(context, duration, true);
+          this.logger.debug(`Attachment ${attachmentId} already downloaded by another request`);
+          return {
+            url,
+            filename: attachment.filename,
+            mimeType: attachment.mimeType,
+          };
+        }
+
+        // CASE 3: Cache miss - fetch from provider and upload to S3
+        this.logger.log(
+          JSON.stringify({
+            event: 'attachment_download_start',
+            ...context,
+            providerType: attachment.email.provider.providerType,
+            message: `Downloading ${attachment.filename} from ${attachment.email.provider.providerType}`,
+          }),
+        );
+
+        // Download from provider
+        const buffer = await this.fetchFromProvider(
+          attachment.email.provider.providerType as 'google' | 'microsoft' | 'imap',
+          reference.externalMessageId,
+          reference.externalAttachmentId,
+          attachment.email.providerId,
+        );
+
+        // Upload to S3 with deduplication
+        const uploaded = await this.attachmentStorage.uploadAttachment(
+          tenantId,
+          attachment.email.providerId,
+          {
+            filename: attachment.filename,
+            content: buffer,
+            contentType: attachment.mimeType,
+          },
+          attachment.emailId, // Pass emailId for full context
+        );
+
+        // Update attachment record with S3 path and hash
+        await this.prisma.emailAttachment.update({
+          where: { id: attachmentId },
+          data: {
+            storageType: 's3',
+            storagePath: uploaded.storagePath,
+            contentHash: uploaded.contentHash,
+          },
+        });
+
+        // Return signed URL
+        const url = await this.storage.getSignedDownloadUrl(uploaded.storagePath, 300);
+        const duration = Date.now() - startTime;
+
+        // Record cache miss (provider download)
+        this.metrics?.recordDownload(
+          { ...context, contentHash: uploaded.contentHash, size: buffer.byteLength },
+          duration,
+          false,
+        );
+
+        this.logger.log(
+          JSON.stringify({
+            event: 'attachment_download_complete',
+            ...context,
+            contentHash: uploaded.contentHash.substring(0, 16) + '...',
+            size: buffer.byteLength,
+            dedupHit: uploaded.dedupHit,
+            durationMs: duration,
+            message: `Downloaded and cached ${attachment.filename} (${this.formatBytes(buffer.byteLength)})`,
+          }),
+        );
+
+        return {
+          url,
+          filename: attachment.filename,
+          mimeType: attachment.mimeType,
+        };
       },
-      attachment.emailId, // Pass emailId for full context
+      { maxRetries: 3 },
     );
-
-    // Update attachment record with S3 path and hash
-    await this.prisma.emailAttachment.update({
-      where: { id: attachmentId },
-      data: {
-        storageType: 's3',
-        storagePath: uploaded.storagePath,
-        contentHash: uploaded.contentHash,
-      },
-    });
-
-    // Return signed URL
-    const url = await this.storage.getSignedDownloadUrl(uploaded.storagePath, 300);
-    const duration = Date.now() - startTime;
-
-    // Record cache miss (provider download)
-    this.metrics?.recordDownload(
-      { ...context, contentHash: uploaded.contentHash, size: buffer.byteLength },
-      duration,
-      false,
-    );
-
-    this.logger.log(
-      JSON.stringify({
-        event: 'attachment_download_complete',
-        ...context,
-        contentHash: uploaded.contentHash.substring(0, 16) + '...',
-        size: buffer.byteLength,
-        dedupHit: uploaded.dedupHit,
-        durationMs: duration,
-        message: `Downloaded and cached ${attachment.filename} (${this.formatBytes(buffer.byteLength)})`,
-      }),
-    );
-
-    return {
-      url,
-      filename: attachment.filename,
-      mimeType: attachment.mimeType,
-    };
   }
 
   /**

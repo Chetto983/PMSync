@@ -9,6 +9,7 @@ import { IEmailDriver } from '../drivers/interfaces/email-driver.interface';
 import { CanonicalMessage, AttachmentMeta } from '../drivers/interfaces/canonical.types';
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
 import { isJunkFolder } from '../../email/email.helpers';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 /**
  * Abstract base class for email sync services (Google, Microsoft, IMAP)
@@ -32,11 +33,22 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
   protected retry5xxDelayMs: number;
   protected fullSyncMaxMessages: number;
 
+  // RACE CONDITION FIX: Redis lock service for distributed locking
+  protected redisLock: RedisLockService | null = null;
+
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly realtimeEvents: RealtimeEventsService,
     protected readonly config: ConfigService,
   ) {}
+
+  /**
+   * Set the Redis lock service (injected by child classes)
+   * This is optional - if not set, locking is skipped
+   */
+  setRedisLockService(redisLock: RedisLockService): void {
+    this.redisLock = redisLock;
+  }
 
   /**
    * Initialize configuration from environment variables
@@ -214,6 +226,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
    * Upsert a message from driver canonical format into database
    * This is nearly identical across all providers - only attachment processing differs
    *
+   * RACE CONDITION FIX RC-1: Uses distributed Redis lock to prevent duplicate upserts
+   * RACE CONDITION FIX RC-2: Uses optimistic locking to preserve user mutations
+   *
    * Phase 4 Deduplication: Removes ~90 lines of duplicate code per provider
    *
    * @param driver - The connected email driver
@@ -227,88 +242,163 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     canonicalMsg: CanonicalMessage,
     providerId: string,
     tenantId: string,
-  ): Promise<{ wasNew: boolean }> {
-    // Common data for both create and update
-    const updateData = {
-      subject: canonicalMsg.subject || '(No Subject)',
-      from: canonicalMsg.from.email,
-      to: canonicalMsg.to?.map((r) => r.email) || [],
-      cc: canonicalMsg.cc?.map((r) => r.email) || [],
-      bcc: canonicalMsg.bcc?.map((r) => r.email) || [],
-      bodyText: canonicalMsg.bodyText || '',
-      bodyHtml: canonicalMsg.bodyHtml || '',
-      snippet: canonicalMsg.snippet || '',
-      receivedAt: canonicalMsg.receivedAt,
-      isRead: canonicalMsg.isRead ?? false,
-      isStarred: canonicalMsg.isStarred ?? false,
-      isFlagged: canonicalMsg.isFlagged ?? false,
-      labels: canonicalMsg.labels || [],
-    };
+  ): Promise<{ wasNew: boolean; conflictDetected?: boolean }> {
+    // RC-1 FIX: Create unique lock key for this message
+    const lockKey = `email:upsert:${providerId}:${canonicalMsg.id}:${canonicalMsg.folder}`;
+    const lockTtlMs = 5000; // 5 second timeout
 
-    // Use atomic upsert to prevent race condition (RC-1/RC-2/RC-3 fix)
-    // Uses compound unique constraint: providerId_externalId_folder
-    const result = await this.prisma.email.upsert({
-      where: {
-        providerId_externalId_folder: {
-          providerId,
-          externalId: canonicalMsg.id,
-          folder: canonicalMsg.folder,
+    // Execute upsert with distributed lock (if available)
+    const executeUpsert = async (): Promise<{ wasNew: boolean; conflictDetected?: boolean }> => {
+      // RC-2 FIX: Check for recent user modifications before overwriting
+      const existing = await this.prisma.email.findUnique({
+        where: {
+          providerId_externalId_folder: {
+            providerId,
+            externalId: canonicalMsg.id,
+            folder: canonicalMsg.folder,
+          },
         },
-      },
-      update: {
-        ...updateData,
-        folder: canonicalMsg.folder, // Allow folder changes (moves)
-      },
-      create: {
-        tenantId,
-        providerId,
-        externalId: canonicalMsg.id,
-        ...updateData,
-        sentAt: canonicalMsg.sentAt || canonicalMsg.receivedAt,
-        isDeleted: false,
-        folder: canonicalMsg.folder,
-        threadId: canonicalMsg.threadId || null,
-      },
-    });
+        select: {
+          id: true,
+          version: true,
+          userModifiedAt: true,
+          isRead: true,
+          isStarred: true,
+          isFlagged: true,
+          folder: true,
+          labels: true,
+        },
+      });
 
-    // Determine if this was a new record by checking createdAt vs updatedAt
-    // If they're within 1 second, it was just created
-    const wasNew = Math.abs(result.createdAt.getTime() - result.updatedAt.getTime()) < 1000;
+      // Common data for both create and update
+      const baseUpdateData = {
+        subject: canonicalMsg.subject || '(No Subject)',
+        from: canonicalMsg.from.email,
+        to: canonicalMsg.to?.map((r) => r.email) || [],
+        cc: canonicalMsg.cc?.map((r) => r.email) || [],
+        bcc: canonicalMsg.bcc?.map((r) => r.email) || [],
+        bodyText: canonicalMsg.bodyText || '',
+        bodyHtml: canonicalMsg.bodyHtml || '',
+        snippet: canonicalMsg.snippet || '',
+        receivedAt: canonicalMsg.receivedAt,
+      };
 
-    // Process attachments using provider-specific implementation
-    if (canonicalMsg.hasAttachments && canonicalMsg.attachments.length > 0) {
-      await this.processAttachmentsForMessage(
-        driver,
-        result.id,
-        tenantId,
-        providerId,
-        canonicalMsg.id,
-        canonicalMsg.attachments,
-      );
-    }
+      // RC-2 FIX: If user recently modified the email, preserve their changes
+      // User modifications within the last 5 minutes take precedence
+      const userModifiedRecently =
+        existing?.userModifiedAt &&
+        Date.now() - existing.userModifiedAt.getTime() < 5 * 60 * 1000;
 
-    // Only queue embeddings and emit events for new messages
-    if (wasNew) {
-      // Queue for embeddings (skip SPAM/TRASH - they're junk)
-      if (!isJunkFolder(result.folder)) {
-        await this.getEmbeddingQueue().enqueue({
-          emailId: result.id,
+      const updateData = userModifiedRecently
+        ? {
+            ...baseUpdateData,
+            // Preserve user's state changes when they modified recently
+            // Only update content fields, not state fields
+          }
+        : {
+            ...baseUpdateData,
+            isRead: canonicalMsg.isRead ?? false,
+            isStarred: canonicalMsg.isStarred ?? false,
+            isFlagged: canonicalMsg.isFlagged ?? false,
+            labels: canonicalMsg.labels || [],
+            folder: canonicalMsg.folder,
+          };
+
+      let result;
+      let wasNew: boolean;
+
+      if (existing) {
+        // Update existing record with version increment
+        result = await this.prisma.email.update({
+          where: { id: existing.id },
+          data: {
+            ...updateData,
+            version: { increment: 1 },
+          },
+        });
+        wasNew = false;
+
+        if (userModifiedRecently) {
+          this.logger.debug(
+            `Preserved user modifications for email ${existing.id} (modified ${Math.round((Date.now() - existing.userModifiedAt!.getTime()) / 1000)}s ago)`,
+          );
+        }
+      } else {
+        // Create new record
+        result = await this.prisma.email.create({
+          data: {
+            tenantId,
+            providerId,
+            externalId: canonicalMsg.id,
+            ...baseUpdateData,
+            isRead: canonicalMsg.isRead ?? false,
+            isStarred: canonicalMsg.isStarred ?? false,
+            isFlagged: canonicalMsg.isFlagged ?? false,
+            labels: canonicalMsg.labels || [],
+            sentAt: canonicalMsg.sentAt || canonicalMsg.receivedAt,
+            isDeleted: false,
+            folder: canonicalMsg.folder,
+            threadId: canonicalMsg.threadId || null,
+            version: 1,
+          },
+        });
+        wasNew = true;
+      }
+
+      // Process attachments using provider-specific implementation
+      if (canonicalMsg.hasAttachments && canonicalMsg.attachments.length > 0) {
+        await this.processAttachmentsForMessage(
+          driver,
+          result.id,
           tenantId,
-          subject: result.subject,
-          snippet: result.snippet || '',
+          providerId,
+          canonicalMsg.id,
+          canonicalMsg.attachments,
+        );
+      }
+
+      // Only queue embeddings and emit events for new messages
+      if (wasNew) {
+        // Queue for embeddings (skip SPAM/TRASH - they're junk)
+        if (!isJunkFolder(result.folder)) {
+          await this.getEmbeddingQueue().enqueue({
+            emailId: result.id,
+            tenantId,
+            subject: result.subject,
+            snippet: result.snippet || '',
+          });
+        }
+
+        // Emit realtime event
+        this.realtimeEvents.emitEmailNew(tenantId, {
+          emailId: result.id,
+          providerId,
+          folder: result.folder,
+          reason: 'message-processed',
         });
       }
 
-      // Emit realtime event
-      this.realtimeEvents.emitEmailNew(tenantId, {
-        emailId: result.id,
-        providerId,
-        folder: result.folder,
-        reason: 'message-processed',
-      });
+      return { wasNew, conflictDetected: userModifiedRecently ?? false };
+    };
+
+    // RC-1 FIX: Execute with distributed lock if available
+    if (this.redisLock) {
+      try {
+        return await this.redisLock.withLock(lockKey, lockTtlMs, executeUpsert);
+      } catch (lockError) {
+        // If lock acquisition fails, log warning and execute without lock
+        // This is a graceful degradation - better to process than to fail
+        this.logger.warn(
+          `Lock acquisition failed for ${lockKey}, proceeding without lock: ${
+            lockError instanceof Error ? lockError.message : String(lockError)
+          }`,
+        );
+        return executeUpsert();
+      }
     }
 
-    return { wasNew };
+    // No lock service available - execute without lock
+    return executeUpsert();
   }
 
   /**

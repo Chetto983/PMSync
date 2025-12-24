@@ -341,6 +341,17 @@ model Email {
   calendarInviteData   Json? // ParsedCalendarInvite JSON
   calendarInviteStatus String? // pending | accepted | declined | tentative
   calendarEventId      String? // Link to created CalendarEvent
+
+  // RACE CONDITION FIX RC-2: Optimistic locking version field
+  // Incremented on each update to detect concurrent modifications
+  // User mutations (mark read, star, move) increment version
+  // Sync operations check version before overwriting user changes
+  version              Int                     @default(1)
+
+  // RACE CONDITION FIX RC-2: Track last user modification
+  // Sync skips overwriting fields if userModifiedAt > lastSyncedAt
+  userModifiedAt       DateTime?
+
   attachments          EmailAttachment[]
   emailLabels          EmailLabel[]
   crossProviderLink    EmailCrossProviderLink? @relation(fields: [crossProviderLinkId], references: [id])

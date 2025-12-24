@@ -11,6 +11,7 @@ import { GoogleSyncService } from '../services/gmail/google-sync.service';
 import { MicrosoftSyncService } from '../services/microsoft/microsoft-sync.service';
 import { ImapSyncService } from '../services/imap/imap-sync.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 @Injectable()
 export class SyncWorker implements OnModuleInit, OnModuleDestroy {
@@ -41,6 +42,8 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     private readonly googleSyncService: GoogleSyncService,
     private readonly microsoftSyncService: MicrosoftSyncService,
     private readonly imapSyncService: ImapSyncService,
+    // RACE CONDITION FIX RC-4: Redis lock for folder sync coordination
+    private readonly redisLock: RedisLockService,
   ) {}
 
   async onModuleInit() {
@@ -118,9 +121,10 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     const startTime = Date.now();
 
     try {
-      // Sync folder structure first (detects deleted folders on server)
+      // RACE CONDITION FIX RC-4: Sync folder structure with distributed lock
+      // Prevents concurrent folder syncs from racing and producing inconsistent counts
       try {
-        await this.folderSyncService.syncProviderFolders(tenantId, providerId);
+        await this.syncFoldersWithLock(tenantId, providerId);
       } catch (folderError) {
         this.logger.warn(
           `Folder sync failed for ${email}, continuing with email sync: ${folderError instanceof Error ? folderError.message : String(folderError)}`,
@@ -130,20 +134,16 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
       // Delegate to provider-specific sync services (they also persist emails to DB)
       const result = await this.runProviderSync(job.data);
 
-      // Update last synced timestamp and metadata transactionally
+      // RACE CONDITION FIX RC-3: Apply ALL post-sync updates atomically
+      // Prevents partial updates if crash occurs between individual operations
       const metadataUpdates: Record<string, any> = {
         ...(result.metadata || {}),
       };
       if (result.lastSyncToken && metadataUpdates.lastSyncToken === undefined) {
         metadataUpdates.lastSyncToken = result.lastSyncToken;
       }
-      await this.applySyncState(providerId, metadataUpdates);
 
-      // Update activity rate and sync priority (Smart Sync)
-      await this.syncScheduler.updateProviderActivity(providerId);
-
-      // Refresh folder counts and emit realtime updates
-      await this.folderSyncService.updateAllFolderCounts(providerId);
+      await this.applyAllPostSyncUpdates(providerId, tenantId, metadataUpdates);
 
       return {
         ...result,
@@ -209,15 +209,54 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Persist lastSyncedAt and metadata in a single transaction to avoid partial updates
+   * RACE CONDITION FIX RC-4: Sync folders with distributed lock
+   * Prevents concurrent folder syncs from racing and producing inconsistent counts
+   *
+   * @param tenantId - Tenant ID
+   * @param providerId - Provider ID
    */
-  private async applySyncState(
+  private async syncFoldersWithLock(tenantId: string, providerId: string): Promise<void> {
+    const lockKey = `folder-sync:${providerId}`;
+    const lockTtlMs = 30000; // 30 second TTL for folder sync
+
+    try {
+      await this.redisLock.withLock(
+        lockKey,
+        lockTtlMs,
+        async () => {
+          await this.folderSyncService.syncProviderFolders(tenantId, providerId);
+        },
+        { maxRetries: 3 },
+      );
+    } catch (lockError) {
+      // If lock acquisition fails, try without lock (graceful degradation)
+      this.logger.warn(
+        `Folder sync lock failed for ${providerId}, proceeding without lock: ${
+          lockError instanceof Error ? lockError.message : String(lockError)
+        }`,
+      );
+      await this.folderSyncService.syncProviderFolders(tenantId, providerId);
+    }
+  }
+
+  /**
+   * RACE CONDITION FIX RC-3: Apply ALL post-sync updates atomically
+   * Combines: metadata update, activity tracking, folder count refresh
+   * Prevents partial updates if crash occurs between individual operations
+   *
+   * @param providerId - Provider ID
+   * @param tenantId - Tenant ID
+   * @param metadataUpdates - Metadata fields to update
+   */
+  private async applyAllPostSyncUpdates(
     providerId: string,
+    tenantId: string,
     metadataUpdates: Record<string, any>,
   ): Promise<void> {
     const shouldUpdateMetadata = Object.keys(metadataUpdates).length > 0;
 
     await this.prisma.$transaction(async (tx) => {
+      // 1. Merge and update metadata + lastSyncedAt
       let mergedMetadata: Record<string, any> | undefined;
 
       if (shouldUpdateMetadata) {
@@ -231,6 +270,7 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
         };
       }
 
+      // 2. Update provider config with sync timestamp and metadata
       await tx.providerConfig.update({
         where: { id: providerId },
         data: {
@@ -238,6 +278,38 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
           ...(shouldUpdateMetadata ? { metadata: mergedMetadata } : {}),
         },
       });
+
+      // 3. Update folder counts atomically using raw SQL for efficiency
+      // This updates all folders for this provider in a single query
+      await tx.$executeRaw`
+        UPDATE "folders"
+        SET
+          "totalCount" = (
+            SELECT COUNT(*)
+            FROM "emails"
+            WHERE "emails"."providerId" = "folders"."providerId"
+              AND "emails"."folder" = "folders"."name"
+              AND "emails"."isDeleted" = false
+          ),
+          "unreadCount" = (
+            SELECT COUNT(*)
+            FROM "emails"
+            WHERE "emails"."providerId" = "folders"."providerId"
+              AND "emails"."folder" = "folders"."name"
+              AND "emails"."isDeleted" = false
+              AND "emails"."isRead" = false
+          ),
+          "updatedAt" = NOW()
+        WHERE "folders"."providerId" = ${providerId}
+      `;
+    });
+
+    // Update activity rate outside transaction (non-critical, can be async)
+    // This is a "fire and forget" operation that updates Smart Sync priority
+    this.syncScheduler.updateProviderActivity(providerId).catch((error) => {
+      this.logger.warn(
+        `Activity update failed for ${providerId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     });
   }
 

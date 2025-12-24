@@ -122,16 +122,20 @@ export class EmailCleanupService implements OnModuleInit {
   /**
    * Run tenant maintenance with full metrics reporting
    *
+   * RACE CONDITION FIX RC-4: Run sequentially instead of parallel
+   * An email can be both a duplicate AND soft-deleted, causing double-delete
+   * race if both operations run concurrently
+   *
    * @param tenantId - Tenant to clean up
    * @returns Detailed cleanup statistics
    */
   async runTenantMaintenance(tenantId: string) {
     const startTime = Date.now();
 
-    const [duplicates, purged] = await Promise.all([
-      this.removeDuplicateEmails(tenantId),
-      this.purgeSoftDeletedEmails(tenantId, 0),
-    ]);
+    // RACE CONDITION FIX RC-4: Execute sequentially to prevent double-delete races
+    // First remove duplicates, then purge soft-deleted (avoiding overlap)
+    const duplicates = await this.removeDuplicateEmails(tenantId);
+    const purged = await this.purgeSoftDeletedEmails(tenantId, 0);
 
     const duration = Date.now() - startTime;
     const totalS3Failed = duplicates.s3Failed + purged.s3Failed;
@@ -399,6 +403,8 @@ export class EmailCleanupService implements OnModuleInit {
   /**
    * Permanently delete email with full cleanup and orphan tracking
    *
+   * RACE CONDITION FIX RC-4: Made idempotent - handles already-deleted emails
+   *
    * Deletion order:
    * 1. Get attachments (before email deletion)
    * 2. Delete embeddings from vector store
@@ -442,9 +448,15 @@ export class EmailCleanupService implements OnModuleInit {
     }
 
     // 3. Delete email from database (cascade deletes EmailAttachment records)
-    await this.prisma.email.delete({
+    // RACE CONDITION FIX RC-4: Use deleteMany for idempotent delete (no error if already deleted)
+    const deleteResult = await this.prisma.email.deleteMany({
       where: { id },
     });
+
+    // If email was already deleted by another operation, still clean up S3
+    if (deleteResult.count === 0) {
+      this.logger.debug(`Email ${id} already deleted by another operation, cleaning up S3 only`);
+    }
 
     // 4. Delete S3 files (after DB deletion to ensure cleanup even if S3 fails)
     const s3Attachments = attachments.filter((a) => a.storageType === 's3' && a.storagePath);

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
 import { google } from 'googleapis';
@@ -33,6 +34,8 @@ export class EmailSyncBackService {
     private crypto: CryptoService,
     private googleOAuth: GoogleOAuthService,
     private microsoftOAuth: MicrosoftOAuthService,
+    // RACE CONDITION FIX RC-2: Add Redis lock for token refresh coordination
+    private redisLock: RedisLockService,
   ) { }
 
   // Bug #13 fix: Default timeout for API operations (30 seconds)
@@ -109,131 +112,177 @@ export class EmailSyncBackService {
 
   /**
    * Sync an email operation back to the provider
+   * RACE CONDITION FIX RC-5: Uses per-email lock to serialize operations
    */
   async syncOperationToProvider(operation: EmailSyncOperation): Promise<void> {
-    try {
-      // Bug #9 fix: Validate operation fields before API calls
-      if (!operation.externalId || operation.externalId.trim() === '') {
-        throw new Error(`Invalid externalId for email ${operation.emailId}: externalId is empty or missing`);
-      }
-      if (!operation.providerId) {
-        throw new Error(`Missing providerId for email ${operation.emailId}`);
-      }
+    // RACE CONDITION FIX RC-5: Serialize sync-back operations per email
+    // This prevents race conditions when multiple operations for the same email
+    // are fired in rapid succession (e.g., mark read + star within milliseconds)
+    const lockKey = `sync-back:${operation.emailId}`;
+    const lockTtlMs = 60000; // 60 second TTL for sync-back operation
 
-      // Get provider config
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: operation.providerId },
-      });
+    await this.redisLock.withLock(
+      lockKey,
+      lockTtlMs,
+      async () => {
+        try {
+          // Bug #9 fix: Validate operation fields before API calls
+          if (!operation.externalId || operation.externalId.trim() === '') {
+            throw new Error(`Invalid externalId for email ${operation.emailId}: externalId is empty or missing`);
+          }
+          if (!operation.providerId) {
+            throw new Error(`Missing providerId for email ${operation.emailId}`);
+          }
 
-      // Bug #6 fix: Clear error when provider not found
-      if (!provider) {
-        throw new Error(`Provider not found: ${operation.providerId} for email ${operation.emailId}`);
-      }
+          // Get provider config
+          const provider = await this.prisma.providerConfig.findUnique({
+            where: { id: operation.providerId },
+          });
 
-      // Sync based on provider type (case-insensitive)
-      const providerType = provider.providerType?.toUpperCase();
+          // Bug #6 fix: Clear error when provider not found
+          if (!provider) {
+            throw new Error(`Provider not found: ${operation.providerId} for email ${operation.emailId}`);
+          }
 
-      switch (providerType) {
-        case 'GOOGLE': {
-          const accessToken = await this.getValidAccessToken(provider);
-          await this.syncToGmail(operation, accessToken);
-          break;
+          // Sync based on provider type (case-insensitive)
+          const providerType = provider.providerType?.toUpperCase();
+
+          switch (providerType) {
+            case 'GOOGLE': {
+              const accessToken = await this.getValidAccessToken(provider);
+              await this.syncToGmail(operation, accessToken);
+              break;
+            }
+            case 'MICROSOFT': {
+              const accessToken = await this.getValidAccessToken(provider);
+              await this.syncToMicrosoft(operation, accessToken);
+              break;
+            }
+            case 'IMAP':
+            case 'GENERIC':
+              // IMAP/generic providers use password auth, not OAuth tokens
+              await this.syncToImap(operation, provider);
+              break;
+            default:
+              this.logger.warn(`Unsupported provider type: ${provider.providerType}`);
+          }
+
+          this.logger.log(`✅ Synced ${operation.operation} for email ${operation.emailId} to ${provider.providerType}`);
+        } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          this.logger.error(`❌ Failed to sync operation to provider: ${err.message}`, err.stack);
+          throw error;
         }
-        case 'MICROSOFT': {
-          const accessToken = await this.getValidAccessToken(provider);
-          await this.syncToMicrosoft(operation, accessToken);
-          break;
-        }
-        case 'IMAP':
-        case 'GENERIC':
-          // IMAP/generic providers use password auth, not OAuth tokens
-          await this.syncToImap(operation, provider);
-          break;
-        default:
-          this.logger.warn(`Unsupported provider type: ${provider.providerType}`);
-      }
-
-      this.logger.log(`✅ Synced ${operation.operation} for email ${operation.emailId} to ${provider.providerType}`);
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`❌ Failed to sync operation to provider: ${err.message}`, err.stack);
-      throw error;
-    }
+      },
+      { maxRetries: 2 },
+    );
   }
 
   /**
    * Get a valid access token, refreshing if necessary
+   * RACE CONDITION FIX RC-2: Uses distributed lock to prevent concurrent token refresh
    */
   private async getValidAccessToken(provider: any): Promise<string> {
     const now = new Date();
     const isExpired = provider.tokenExpiresAt && now > new Date(provider.tokenExpiresAt);
 
     if (isExpired && provider.refreshToken && provider.refreshTokenEncryptionIv) {
-      this.logger.log(`🔄 Token expired, refreshing...`);
+      // RACE CONDITION FIX RC-2: Use Redis lock to coordinate token refresh
+      // This prevents multiple concurrent calls from refreshing the same token
+      const lockKey = `token-refresh:${provider.id}`;
+      const lockTtlMs = 30000; // 30 second TTL for token refresh
 
-      const refreshToken = this.crypto.decrypt(
-        provider.refreshToken,
-        provider.refreshTokenEncryptionIv,
+      return await this.redisLock.withLock(
+        lockKey,
+        lockTtlMs,
+        async () => {
+          // Re-check token after acquiring lock (another process may have refreshed it)
+          const freshProvider = await this.prisma.providerConfig.findUnique({
+            where: { id: provider.id },
+          });
+
+          if (!freshProvider) {
+            throw new Error(`Provider ${provider.id} not found during token refresh`);
+          }
+
+          // If token is no longer expired, use it (another process refreshed it)
+          const stillExpired = freshProvider.tokenExpiresAt && now > new Date(freshProvider.tokenExpiresAt);
+          if (!stillExpired) {
+            this.logger.debug(`Token already refreshed by another process for provider ${provider.id}`);
+            return this.crypto.decrypt(freshProvider.accessToken!, freshProvider.tokenEncryptionIv!);
+          }
+
+          this.logger.log(`🔄 Token expired, refreshing...`);
+
+          const refreshToken = this.crypto.decrypt(
+            freshProvider.refreshToken!,
+            freshProvider.refreshTokenEncryptionIv!,
+          );
+
+          const providerType = freshProvider.providerType?.toUpperCase();
+
+          // Bug #5 fix: Add try/catch for token refresh failures with clear error messages
+          try {
+            if (providerType === 'GOOGLE') {
+              const refreshed = await this.googleOAuth.refreshAccessToken(refreshToken);
+
+              // Update token in database
+              const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
+              await this.prisma.providerConfig.update({
+                where: { id: provider.id },
+                data: {
+                  accessToken: encryptedAccess.encrypted,
+                  tokenEncryptionIv: encryptedAccess.iv,
+                  tokenExpiresAt: refreshed.expiresAt,
+                },
+              });
+
+              return refreshed.accessToken;
+            } else if (providerType === 'MICROSOFT') {
+              const refreshed = await this.microsoftOAuth.refreshAccessToken(refreshToken);
+
+              // Update token in database
+              const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
+              await this.prisma.providerConfig.update({
+                where: { id: provider.id },
+                data: {
+                  accessToken: encryptedAccess.encrypted,
+                  tokenEncryptionIv: encryptedAccess.iv,
+                  tokenExpiresAt: refreshed.expiresAt,
+                },
+              });
+
+              return refreshed.accessToken;
+            }
+
+            // Fallback for unexpected provider type
+            throw new Error(`Cannot refresh token for provider type: ${providerType}`);
+          } catch (refreshError) {
+            const errMsg = refreshError instanceof Error ? refreshError.message : String(refreshError);
+            this.logger.error(`Failed to refresh ${providerType} token for provider ${provider.id}: ${errMsg}`);
+
+            // Mark provider as needing re-authentication via metadata
+            await this.prisma.providerConfig.update({
+              where: { id: provider.id },
+              data: {
+                isActive: false, // Deactivate until user re-authenticates
+                metadata: {
+                  ...((freshProvider.metadata as Record<string, any>) || {}),
+                  lastTokenError: errMsg,
+                  lastTokenErrorAt: new Date().toISOString(),
+                },
+              },
+            }).catch((dbErr) => {
+              this.logger.warn(`Failed to update provider error status: ${dbErr}`);
+            });
+
+            throw new Error(
+              `Authentication failed for ${providerType}. Please reconnect your email account.`,
+            );
+          }
+        },
+        { maxRetries: 3 },
       );
-
-      const providerType = provider.providerType?.toUpperCase();
-
-      // Bug #5 fix: Add try/catch for token refresh failures with clear error messages
-      try {
-        if (providerType === 'GOOGLE') {
-          const refreshed = await this.googleOAuth.refreshAccessToken(refreshToken);
-
-          // Update token in database
-          const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
-          await this.prisma.providerConfig.update({
-            where: { id: provider.id },
-            data: {
-              accessToken: encryptedAccess.encrypted,
-              tokenEncryptionIv: encryptedAccess.iv,
-              tokenExpiresAt: refreshed.expiresAt,
-            },
-          });
-
-          return refreshed.accessToken;
-        } else if (providerType === 'MICROSOFT') {
-          const refreshed = await this.microsoftOAuth.refreshAccessToken(refreshToken);
-
-          // Update token in database
-          const encryptedAccess = this.crypto.encrypt(refreshed.accessToken);
-          await this.prisma.providerConfig.update({
-            where: { id: provider.id },
-            data: {
-              accessToken: encryptedAccess.encrypted,
-              tokenEncryptionIv: encryptedAccess.iv,
-              tokenExpiresAt: refreshed.expiresAt,
-            },
-          });
-
-          return refreshed.accessToken;
-        }
-      } catch (refreshError) {
-        const errMsg = refreshError instanceof Error ? refreshError.message : String(refreshError);
-        this.logger.error(`Failed to refresh ${providerType} token for provider ${provider.id}: ${errMsg}`);
-
-        // Mark provider as needing re-authentication via metadata
-        await this.prisma.providerConfig.update({
-          where: { id: provider.id },
-          data: {
-            isActive: false, // Deactivate until user re-authenticates
-            metadata: {
-              ...(provider.metadata as Record<string, any> || {}),
-              lastTokenError: errMsg,
-              lastTokenErrorAt: new Date().toISOString(),
-            },
-          },
-        }).catch((dbErr) => {
-          this.logger.warn(`Failed to update provider error status: ${dbErr}`);
-        });
-
-        throw new Error(
-          `Authentication failed for ${providerType}. Please reconnect your email account.`,
-        );
-      }
     }
 
     // Token is still valid, decrypt and return
@@ -1156,8 +1205,8 @@ export class EmailSyncBackService {
                 const trashFolder = await this.getImapFolderPath(provider.id, 'TRASH');
                 try {
                   await client.messageMove(uidStr, trashFolder, { uid: true });
-                } catch (moveError) {
-                  // Fallback
+                } catch {
+                  // Fallback if MOVE not supported
                   await client.messageCopy(uidStr, trashFolder, { uid: true });
                   await client.messageDelete(uidStr, { uid: true });
                 }
@@ -1168,7 +1217,7 @@ export class EmailSyncBackService {
                 const targetFolder = await this.getImapFolderPath(provider.id, op.folder);
                 try {
                   await client.messageMove(uidStr, targetFolder, { uid: true });
-                } catch (moveError) {
+                } catch {
                   await client.messageCopy(uidStr, targetFolder, { uid: true });
                   await client.messageDelete(uidStr, { uid: true });
                 }
@@ -1197,7 +1246,7 @@ export class EmailSyncBackService {
         try {
           await client.logout();
           this.logger.log(`🔌 Disconnected from IMAP server (Batch Mode)`);
-        } catch (e) { /* ignore */ }
+        } catch  { /* ignore */ }
       }
     }
   }

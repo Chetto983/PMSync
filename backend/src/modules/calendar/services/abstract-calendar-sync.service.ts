@@ -224,7 +224,7 @@ export abstract class AbstractCalendarSyncService {
     });
 
     // Get the sync token (syncToken for Google, deltaLink for Microsoft)
-    const currentSyncToken = syncState?.[this.syncTokenField] as string | null | undefined;
+    const currentSyncToken = syncState?.[this.syncTokenField];
 
     // Determine if we need full sync
     const needsFullSync =
@@ -248,7 +248,7 @@ export abstract class AbstractCalendarSyncService {
         providerId,
         tenantId,
         calendarName,
-        currentSyncToken!,
+        currentSyncToken,
       );
     } catch (error: any) {
       // Handle sync token invalidation (410 Gone for Google, 404 for Microsoft)
