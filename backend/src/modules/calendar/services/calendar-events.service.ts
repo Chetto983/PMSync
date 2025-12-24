@@ -14,6 +14,10 @@ import { CalendarEvent, ProviderConfig, Prisma } from '@prisma/client';
 import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { getErrorMessage } from '../../../common/utils';
+import { CalendarError, CalendarErrorCode, isCalendarError } from '../errors';
+import { withRetry, getCircuitBreaker } from '../utils';
+import { ConflictException } from '@nestjs/common';
 
 // ============================================================================
 // INTERFACES
@@ -83,7 +87,7 @@ export class CalendarEventsService {
     private readonly googleOAuth: GoogleOAuthService,
     private readonly microsoftOAuth: MicrosoftOAuthService,
     private readonly realtimeEvents: RealtimeEventsService,
-  ) {}
+  ) { }
 
   // ============================================================================
   // PUBLIC METHODS - EVENT CRUD
@@ -255,6 +259,7 @@ export class CalendarEventsService {
   /**
    * Update a calendar event (bidirectional sync)
    * Updates the event locally AND in the provider's calendar
+   * Uses optimistic locking to prevent concurrent modification conflicts
    */
   async updateEvent(
     tenantId: string,
@@ -265,6 +270,7 @@ export class CalendarEventsService {
 
     // Get existing event
     const event = await this.getEvent(tenantId, eventId);
+    const expectedVersion = event.syncVersion;
 
     // Get provider config
     const provider = await this.prisma.providerConfig.findUnique({
@@ -278,39 +284,93 @@ export class CalendarEventsService {
     // Get access token
     const accessToken = await this.getProviderAccessToken(provider);
 
-    // Update event in provider's calendar
-    if (provider.providerType === 'google') {
-      await this.updateGoogleEvent(accessToken, event.externalId, event.calendarId!, data);
-    } else if (provider.providerType === 'microsoft') {
-      await this.updateMicrosoftEvent(accessToken, event.externalId, data);
-    }
+    // Update event in provider's calendar (with retry logic)
+    const circuitBreaker = getCircuitBreaker(
+      provider.providerType as 'google' | 'microsoft',
+      'updateEvent',
+    );
 
-    // Update event in database
-    const updateData: Prisma.CalendarEventUpdateInput = {
+    await withRetry(
+      async () => {
+        await circuitBreaker.execute(async () => {
+          if (provider.providerType === 'google') {
+            await this.updateGoogleEvent(accessToken, event.externalId, event.calendarId || 'primary', data);
+          } else if (provider.providerType === 'microsoft') {
+            await this.updateMicrosoftEvent(accessToken, event.externalId, data);
+          }
+        });
+      },
+      {
+        maxRetries: 2,
+        provider: provider.providerType as 'google' | 'microsoft',
+        operationName: 'updateEvent',
+        logger: this.logger,
+      },
+    );
+
+    // Prepare update data
+    const updateFields: Record<string, unknown> = {
       lastSyncedAt: new Date(),
-      syncVersion: event.syncVersion + 1,
     };
 
-    if (data.title !== undefined) updateData.title = data.title;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.location !== undefined) updateData.location = data.location;
-    if (data.startTime !== undefined) updateData.startTime = new Date(data.startTime);
-    if (data.endTime !== undefined) updateData.endTime = new Date(data.endTime);
-    if (data.isAllDay !== undefined) updateData.isAllDay = data.isAllDay;
-    if (data.timeZone !== undefined) updateData.timeZone = data.timeZone;
-    if (data.attendees !== undefined) updateData.attendees = data.attendees as unknown as Prisma.InputJsonValue;
-    if (data.reminders !== undefined) updateData.reminders = data.reminders as unknown as Prisma.InputJsonValue;
-    if (data.recurrence !== undefined) updateData.recurrence = data.recurrence;
-    if (data.calendarName !== undefined) {
-      updateData.calendarName = data.calendarName;
-    }
+    if (data.title !== undefined) updateFields.title = data.title;
+    if (data.description !== undefined) updateFields.description = data.description;
+    if (data.location !== undefined) updateFields.location = data.location;
+    if (data.startTime !== undefined) updateFields.startTime = new Date(data.startTime);
+    if (data.endTime !== undefined) updateFields.endTime = new Date(data.endTime);
+    if (data.isAllDay !== undefined) updateFields.isAllDay = data.isAllDay;
+    if (data.timeZone !== undefined) updateFields.timeZone = data.timeZone;
+    if (data.attendees !== undefined) updateFields.attendees = data.attendees;
+    if (data.reminders !== undefined) updateFields.reminders = data.reminders;
+    if (data.recurrence !== undefined) updateFields.recurrence = data.recurrence;
+    if (data.calendarName !== undefined) updateFields.calendarName = data.calendarName;
 
-    const updatedEvent = await this.prisma.calendarEvent.update({
-      where: { id: eventId },
-      data: updateData,
+    // OPTIMISTIC LOCKING: Update with version check
+    const updateResult = await this.prisma.calendarEvent.updateMany({
+      where: {
+        id: eventId,
+        syncVersion: expectedVersion,
+      },
+      data: {
+        ...updateFields,
+        syncVersion: { increment: 1 },
+      },
     });
 
-    this.logger.log(`Updated calendar event ${eventId}`);
+    // Check if update succeeded (version matched)
+    if (updateResult.count === 0) {
+      // Version mismatch - concurrent modification detected
+      const currentEvent = await this.prisma.calendarEvent.findUnique({
+        where: { id: eventId },
+        select: { syncVersion: true },
+      });
+
+      if (!currentEvent) {
+        throw new NotFoundException(`Event ${eventId} was deleted`);
+      }
+
+      this.logger.warn(
+        `Optimistic lock conflict for event ${eventId}: ` +
+        `expected version ${expectedVersion}, current ${currentEvent.syncVersion}`,
+      );
+
+      throw new ConflictException(
+        `Event was modified by another process. ` +
+        `Expected version ${expectedVersion}, current ${currentEvent.syncVersion}. ` +
+        `Please refresh and try again.`,
+      );
+    }
+
+    // Fetch updated event
+    const updatedEvent = await this.prisma.calendarEvent.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!updatedEvent) {
+      throw new NotFoundException(`Event ${eventId} not found after update`);
+    }
+
+    this.logger.log(`Updated calendar event ${eventId} (version ${expectedVersion} → ${updatedEvent.syncVersion})`);
 
     // Emit WebSocket event
     this.realtimeEvents.emitCalendarEventUpdate(tenantId, {
@@ -352,7 +412,7 @@ export class CalendarEventsService {
 
     try {
       if (provider.providerType === 'google') {
-        await this.deleteGoogleEvent(accessToken, event.externalId, event.calendarId!);
+        await this.deleteGoogleEvent(accessToken, event.externalId, event.calendarId || 'primary');
       } else if (provider.providerType === 'microsoft') {
         this.logger.log(`Deleting Microsoft event: ${event.externalId} from calendar ${event.calendarName || event.calendarId}`);
         await this.deleteMicrosoftEvent(accessToken, event.externalId, event.calendarId);
@@ -578,7 +638,7 @@ export class CalendarEventsService {
       return accessToken;
     } catch (error) {
       this.logger.error(
-        `Failed to refresh calendar access token for provider ${provider.id}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to refresh calendar access token for provider ${provider.id}: ${getErrorMessage(error)}`,
       );
       return accessToken;
     }

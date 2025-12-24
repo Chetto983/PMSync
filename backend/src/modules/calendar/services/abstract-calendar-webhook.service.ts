@@ -21,6 +21,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { CalendarSyncQueueService } from './calendar-sync-queue.service';
 import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import { getErrorMessage } from '../../../common/utils';
 
 /**
  * Webhook subscription statistics
@@ -278,7 +279,7 @@ export abstract class AbstractCalendarWebhookService implements OnModuleInit, On
           `Successfully recreated ${this.providerType} Calendar subscription for ${subscription.provider?.email}`,
         );
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         this.logger.error(
           `Failed to retry calendar subscription for ${subscription.provider?.email}: ${errorMessage}`,
         );

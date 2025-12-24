@@ -14,6 +14,7 @@ import {
   getWorkerOptions,
   QUEUE_NAMES,
 } from '../../../common/config';
+import { getErrorMessage } from '../../../common/utils';
 
 @Injectable()
 export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
@@ -26,7 +27,7 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
     private prisma: PrismaService,
     private readonly googleContactsSync: GoogleContactsSyncService,
     private readonly microsoftContactsSync: MicrosoftContactsSyncService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     const workersEnabled =
@@ -118,7 +119,7 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
         syncDuration,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error(`Contacts sync failed for ${email}: ${errorMessage}`);
 
       throw error; // Re-throw to let BullMQ handle retry logic
@@ -217,8 +218,7 @@ export class ContactsSyncWorker implements OnModuleInit, OnModuleDestroy {
       }
     } catch (outerError) {
       this.logger.warn(
-        `ContactsSyncWorker shutdown encountered an error (swallowed): ${
-          outerError instanceof Error ? outerError.message : outerError
+        `ContactsSyncWorker shutdown encountered an error (swallowed): ${outerError instanceof Error ? outerError.message : outerError
         }`,
       );
     } finally {

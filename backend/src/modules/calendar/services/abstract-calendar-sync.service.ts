@@ -10,6 +10,7 @@
 
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { getErrorMessage } from '../../../common/utils';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -539,7 +540,7 @@ export abstract class AbstractCalendarSyncService {
     calendarId: string,
     error: unknown,
   ): Promise<void> {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = getErrorMessage(error);
 
     await this.prisma.calendarSyncState.upsert({
       where: {
@@ -643,7 +644,7 @@ export abstract class AbstractCalendarSyncService {
       }
     } catch (error) {
       this.logger.error(
-        `Failed to process bulk attachments: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to process bulk attachments: ${getErrorMessage(error)}`,
       );
     }
   }

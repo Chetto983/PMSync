@@ -5,6 +5,8 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { BaseContactsSyncService, ExtractedContactData } from './base-contacts-sync.service';
+import { ContactsError, ContactsErrorCode } from '../errors';
+import { getContactsCircuitBreaker, withRetry } from '../utils';
 
 // Re-export types for backward compatibility
 export type { ContactRealtimeReason, ContactsSyncResult as MicrosoftContactsSyncResult } from './base-contacts-sync.service';
@@ -28,7 +30,15 @@ export class MicrosoftContactsSyncService extends BaseContactsSyncService {
    */
   protected async fetchAllContacts(accessToken: string): Promise<any[]> {
     const allContacts: any[] = [];
-    let nextLink: string | null = `${this.GRAPH_API_BASE}/me/contacts?$top=999`;
+    // Select only required fields for efficiency (API-1 fix)
+    const selectFields = [
+      'id', 'givenName', 'surname', 'displayName', 'middleName', 'nickName', 'title',
+      'emailAddresses', 'mobilePhone', 'businessPhones', 'homePhones',
+      'homeAddress', 'businessAddress', 'companyName', 'jobTitle', 'department',
+      'birthday', 'personalNotes'
+    ].join(',');
+
+    let nextLink: string | null = `${this.GRAPH_API_BASE}/me/contacts?$top=500&$select=${selectFields}`;
 
     do {
       const response: any = await axios.get(nextLink, {
@@ -164,12 +174,27 @@ export class MicrosoftContactsSyncService extends BaseContactsSyncService {
       personalNotes: data.notes,
     };
 
-    const response = await axios.post(`${this.GRAPH_API_BASE}/me/contacts`, contact, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const circuitBreaker = getContactsCircuitBreaker('microsoft', 'createContact');
+
+    const response = await withRetry(
+      async () => circuitBreaker.execute(() =>
+        axios.post(`${this.GRAPH_API_BASE}/me/contacts`, contact, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+      ),
+      { provider: 'microsoft', operationName: 'createContact', maxRetries: 2, logger: this.logger },
+    );
+
+    if (!response.data.id) {
+      throw new ContactsError(
+        'Microsoft API returned contact without id',
+        ContactsErrorCode.API_INVALID_RESPONSE,
+        { provider: 'microsoft', retryable: false },
+      );
+    }
 
     return { id: response.data.id };
   }
@@ -204,12 +229,19 @@ export class MicrosoftContactsSyncService extends BaseContactsSyncService {
     if (data.jobTitle) contact.jobTitle = data.jobTitle;
     if (data.notes) contact.personalNotes = data.notes;
 
-    await axios.patch(`${this.GRAPH_API_BASE}/me/contacts/${externalId}`, contact, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const circuitBreaker = getContactsCircuitBreaker('microsoft', 'updateContact');
+
+    await withRetry(
+      async () => circuitBreaker.execute(() =>
+        axios.patch(`${this.GRAPH_API_BASE}/me/contacts/${externalId}`, contact, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        })
+      ),
+      { provider: 'microsoft', operationName: 'updateContact', maxRetries: 2, logger: this.logger },
+    );
   }
 
   /**
@@ -218,8 +250,15 @@ export class MicrosoftContactsSyncService extends BaseContactsSyncService {
   async deleteContact(providerId: string, externalId: string): Promise<void> {
     const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
 
-    await axios.delete(`${this.GRAPH_API_BASE}/me/contacts/${externalId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const circuitBreaker = getContactsCircuitBreaker('microsoft', 'deleteContact');
+
+    await withRetry(
+      async () => circuitBreaker.execute(() =>
+        axios.delete(`${this.GRAPH_API_BASE}/me/contacts/${externalId}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+      ),
+      { provider: 'microsoft', operationName: 'deleteContact', maxRetries: 2, logger: this.logger },
+    );
   }
 }

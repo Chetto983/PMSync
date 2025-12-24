@@ -8,6 +8,15 @@ import { ContactsSyncQueueService } from './contacts-sync-queue.service';
 export const GOOGLE_CONTACTS_RESOURCE = '/contacts';
 
 /**
+ * Metadata stored in WebhookSubscription for Google Contacts polling
+ */
+interface GoogleContactsMetadata {
+  syncToken?: string | null;
+  lastPollAt?: string | Date;
+  pollInterval?: number;
+}
+
+/**
  * Google Contacts Webhook Service
  *
  * Note: Google People API doesn't support push notifications like Calendar API.
@@ -115,8 +124,8 @@ export class GoogleContactsWebhookService {
       }
 
       // Check if it's time to poll based on interval
-      const metadata = subscription.metadata as any;
-      const lastPollAt = metadata?.lastPollAt ? new Date(metadata.lastPollAt) : null;
+      const metadata = subscription.metadata as GoogleContactsMetadata | null;
+      const lastPollAt = metadata?.lastPollAt ? new Date(metadata.lastPollAt as string) : null;
       const pollInterval = metadata?.pollInterval || 300000; // 5 minutes default
 
       if (lastPollAt && Date.now() - lastPollAt.getTime() < pollInterval) {

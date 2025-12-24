@@ -14,6 +14,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiHeader } from '@nestjs
 import { GoogleCalendarWebhookService } from '../services/google-calendar-webhook.service';
 import { MicrosoftCalendarWebhookService, MicrosoftCalendarNotification } from '../services/microsoft-calendar-webhook.service';
 import { SyncAuthService } from '../../email-sync/services/sync-auth.service';
+import { getErrorDetails } from '../../../common/utils';
 
 @ApiTags('Webhooks - Calendar')
 @Controller('webhooks/calendar')
@@ -24,7 +25,7 @@ export class CalendarWebhookController {
     private readonly googleCalendarWebhook: GoogleCalendarWebhookService,
     private readonly microsoftCalendarWebhook: MicrosoftCalendarWebhookService,
     private readonly syncAuth: SyncAuthService,
-  ) {}
+  ) { }
 
   /**
    * Google Calendar Push Notifications endpoint
@@ -63,8 +64,7 @@ export class CalendarWebhookController {
 
       return { success: true };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
+      const { message: errorMessage, stack: errorStack } = getErrorDetails(error);
 
       this.logger.error('Error handling Google Calendar webhook', {
         error: errorMessage,
@@ -126,8 +126,7 @@ export class CalendarWebhookController {
 
       return { success: true };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
+      const { message: errorMessage, stack: errorStack } = getErrorDetails(error);
 
       this.logger.error('Error handling Microsoft Calendar webhook', {
         error: errorMessage,

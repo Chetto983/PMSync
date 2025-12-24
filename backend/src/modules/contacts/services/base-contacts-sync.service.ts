@@ -4,6 +4,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { Contact, ProviderConfig } from '@prisma/client';
+import { getErrorMessage } from '../../../common/utils';
 
 export type ContactRealtimeReason =
   | 'contact-created'
@@ -458,7 +459,7 @@ export abstract class BaseContactsSyncService {
         this.logger.debug(`Emitted ${payload.updated.length} contact-updated events for provider ${providerId}`);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       this.logger.debug(`Failed to emit bulk contact events for ${tenantId}: ${message}`);
     }
   }
@@ -503,7 +504,7 @@ export abstract class BaseContactsSyncService {
           break;
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
       this.logger.debug(`Failed to emit contact event for ${tenantId}: ${message}`);
     }
   }

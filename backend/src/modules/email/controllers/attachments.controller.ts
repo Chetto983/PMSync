@@ -20,6 +20,7 @@ import { Readable } from 'stream';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { AttachmentOnDemandService } from '../services/attachment-on-demand.service';
+import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 /**
  * HTTP API endpoints for email attachments
@@ -70,7 +71,7 @@ export class AttachmentsController {
   @ApiResponse({ status: 404, description: 'Attachment not found' })
   async downloadAttachment(
     @Param('id') id: string,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ): Promise<void> {
     try {
@@ -101,8 +102,16 @@ export class AttachmentsController {
 
       // Set response headers for file download
       res.setHeader('Content-Type', result.mimeType || 'application/octet-stream');
-      // Use RFC 5987 encoding to prevent header injection and support unicode filenames
-      const safeFilename = encodeURIComponent(result.filename).replace(/['()]/g, escape);
+
+      // SEC-7 FIX: Sanitize filename to prevent header injection attacks
+      // Remove dangerous characters (CR, LF, null bytes) and limit length before encoding
+      const sanitizedFilename = result.filename
+        .replace(/[\r\n\0]/g, '') // Remove CR, LF, null bytes (header injection prevention)
+        .replace(/[<>:"/\\|?*]/g, '_') // Replace filesystem-unsafe chars
+        .substring(0, 255); // Limit length to prevent buffer issues
+
+      // Use RFC 5987 encoding to support unicode filenames
+      const safeFilename = encodeURIComponent(sanitizedFilename).replace(/['()]/g, escape);
       res.setHeader(
         'Content-Disposition',
         `attachment; filename*=UTF-8''${safeFilename}`,
@@ -191,7 +200,7 @@ export class AttachmentsController {
   @ApiResponse({ status: 404, description: 'Attachment not found' })
   async getAttachmentMetadata(
     @Param('id') id: string,
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
   ): Promise<{
     filename: string;
     mimeType: string;

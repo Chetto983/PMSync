@@ -43,6 +43,7 @@ import { IcsGeneratorService, CalendarResponseType } from '../../calendar/servic
 import { ParsedCalendarInvite } from '../../calendar/services/ics-parser.service';
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { ProviderConfig } from '@prisma/client';
+import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 /** Typed metadata for calendar events - used to safely access JSON fields */
 interface CalendarEventMetadata {
@@ -107,7 +108,7 @@ export class EmailsController {
   @ApiResponse({ status: 200, description: 'Paginated list of emails' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async listEmails(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('providerId') providerId?: string,
@@ -187,7 +188,7 @@ export class EmailsController {
    */
   @Get('stats')
   @SkipThrottle()
-  async getStats(@Req() req: any, @Query('providerId') providerId?: string) {
+  async getStats(@Req() req: AuthenticatedRequest, @Query('providerId') providerId?: string) {
     const tenantId = req.user.tenantId;
     return this.emailsService.getStats(tenantId, providerId);
   }
@@ -199,7 +200,7 @@ export class EmailsController {
   @Get('search')
   @SkipThrottle()
   async searchEmails(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Query('q') query: string,
     @Query('providerId') providerId?: string,
     @Query('limit') limit?: string,
@@ -221,7 +222,7 @@ export class EmailsController {
    */
   @Get('conversations')
   async getConversations(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('providerId') providerId?: string,
@@ -242,7 +243,7 @@ export class EmailsController {
    * RFC 6154: Always includes deleted emails (for trash folder access)
    */
   @Get('thread/:threadId')
-  async getThread(@Req() req: any, @Param('threadId') threadId: string) {
+  async getThread(@Req() req: AuthenticatedRequest, @Param('threadId') threadId: string) {
     const tenantId = req.user.tenantId;
     // Always include deleted emails - if user has thread ID, they can access it (trash view)
     return this.emailsService.getThread(threadId, tenantId, true);
@@ -252,7 +253,7 @@ export class EmailsController {
    * GET /emails/:id/calendar-invite - Get parsed calendar invite data
    */
   @Get(':id/calendar-invite')
-  async getCalendarInvite(@Req() req: any, @Param('id') id: string) {
+  async getCalendarInvite(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
 
     const email = await this.prisma.email.findFirst({
@@ -272,7 +273,7 @@ export class EmailsController {
    */
   @Post(':id/calendar-invite/respond')
   async respondToCalendarInvite(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() body: { response: 'accept' | 'decline' | 'tentative' },
   ) {
@@ -438,7 +439,7 @@ export class EmailsController {
    * RFC 6154: Always includes deleted emails (for trash folder access)
    */
   @Get(':id')
-  async getEmail(@Req() req: any, @Param('id') id: string) {
+  async getEmail(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     // Always include deleted emails - if user has ID, they can access it (trash view)
     return this.emailsService.getEmailById(id, tenantId, true);
@@ -451,7 +452,7 @@ export class EmailsController {
   @Post('calendar-invite/send')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async sendCalendarInvite(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body()
     body: {
       providerId: string;
@@ -544,7 +545,7 @@ export class EmailsController {
    */
   @Post('calendar-invite/:eventId/cancel')
   async cancelCalendarInvite(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Param('eventId') eventId: string,
     @Body() body?: { reason?: string },
   ) {
@@ -640,7 +641,7 @@ export class EmailsController {
    */
   @Post('send')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
-  async sendEmail(@Req() req: any, @Body() body: SendEmailRequestDto) {
+  async sendEmail(@Req() req: AuthenticatedRequest, @Body() body: SendEmailRequestDto) {
     const tenantId = req.user.tenantId;
     const { providerId, attachments, ...rest } = body;
 
@@ -659,7 +660,7 @@ export class EmailsController {
   @Post(':id/reply')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async replyToEmail(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() body: ReplyForwardEmailRequestDto,
   ) {
@@ -678,7 +679,7 @@ export class EmailsController {
   @Post(':id/forward')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async forwardEmail(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() body: ReplyForwardEmailRequestDto,
   ) {
@@ -695,7 +696,7 @@ export class EmailsController {
    */
   @Patch(':id')
   async updateEmail(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() data: { isRead?: boolean; isStarred?: boolean; isFlagged?: boolean; folder?: string },
   ) {
@@ -709,7 +710,7 @@ export class EmailsController {
    */
   @Delete('bulk')
   async bulkDelete(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body() data: { emailIds: string[] },
   ) {
     const tenantId = req.user.tenantId;
@@ -721,7 +722,7 @@ export class EmailsController {
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteEmail(@Req() req: any, @Param('id') id: string) {
+  async deleteEmail(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     await this.emailsService.deleteEmail(id, tenantId);
   }
@@ -732,7 +733,7 @@ export class EmailsController {
    */
   @Post('drafts')
   async saveDraft(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body()
     dto: {
       id?: string;
@@ -760,7 +761,7 @@ export class EmailsController {
    * GET /emails/drafts/:id
    */
   @Get('drafts/:id')
-  async getDraft(@Req() req: any, @Param('id') id: string) {
+  async getDraft(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.emailsService.getDraft(id, tenantId);
   }
@@ -771,7 +772,7 @@ export class EmailsController {
    */
   @Delete('drafts/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteDraft(@Req() req: any, @Param('id') id: string) {
+  async deleteDraft(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     await this.emailsService.deleteDraft(id, tenantId);
   }
@@ -781,7 +782,7 @@ export class EmailsController {
    */
   @Patch('bulk/read')
   async bulkUpdateRead(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body() data: { emailIds: string[]; isRead: boolean },
   ) {
     const tenantId = req.user.tenantId;
@@ -796,7 +797,7 @@ export class EmailsController {
    */
   @Patch('bulk/star')
   async bulkUpdateStar(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body() data: { emailIds: string[]; isStarred: boolean },
   ) {
     const tenantId = req.user.tenantId;
@@ -812,7 +813,7 @@ export class EmailsController {
    */
   @Patch('bulk/flag')
   async bulkUpdateFlag(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body() data: { emailIds: string[]; isFlagged: boolean },
   ) {
     const tenantId = req.user.tenantId;
@@ -828,7 +829,7 @@ export class EmailsController {
    */
   @Patch('bulk/move')
   async bulkMoveToFolder(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body() data: { emailIds: string[]; folder: string },
   ) {
     const tenantId = req.user.tenantId;
@@ -844,7 +845,7 @@ export class EmailsController {
    */
   @Patch('bulk/labels/add')
   async bulkAddLabels(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body() data: { emailIds: string[]; labelIds: string[] },
   ) {
     const tenantId = req.user.tenantId;
@@ -860,7 +861,7 @@ export class EmailsController {
    */
   @Patch('bulk/labels/remove')
   async bulkRemoveLabels(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body() data: { emailIds: string[]; labelIds: string[] },
   ) {
     const tenantId = req.user.tenantId;
@@ -875,7 +876,7 @@ export class EmailsController {
    * POST /emails/:id/fetch-archived - Fetch archived email from server
    */
   @Post(':id/fetch-archived')
-  async fetchArchivedEmail(@Req() req: any, @Param('id') id: string) {
+  async fetchArchivedEmail(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.fetchService.fetchArchivedEmail(id, tenantId);
   }
@@ -913,7 +914,7 @@ export class EmailsController {
    * SECURITY: SUPER-ADMIN ONLY - Archives old emails for current tenant
    */
   @Post('retention/run')
-  async runRetentionPolicy(@Req() req: any, @Body() data?: { retentionDays?: number }) {
+  async runRetentionPolicy(@Req() req: AuthenticatedRequest, @Body() data?: { retentionDays?: number }) {
     const tenantId = req.user.tenantId;
 
     // CRITICAL: Only super-admin can trigger retention policy
@@ -931,7 +932,7 @@ export class EmailsController {
    */
   @Get(':emailId/attachments/:attachmentId/download')
   async downloadAttachment(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Res() res: any,
     @Param('emailId') emailId: string,
     @Param('attachmentId') attachmentId: string,

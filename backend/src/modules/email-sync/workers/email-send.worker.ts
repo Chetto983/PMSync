@@ -216,8 +216,10 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
     let password: string;
     try {
       password = this.cryptoService.decrypt(provider.smtpPassword, provider.smtpEncryptionIv);
-    } catch {
-      throw new Error('Failed to decrypt SMTP password for IMAP authentication');
+    } catch (decryptError) {
+      // Q-13 FIX: Include original error context for debugging
+      const errMsg = decryptError instanceof Error ? decryptError.message : String(decryptError);
+      throw new Error(`Failed to decrypt SMTP password for IMAP authentication: ${errMsg}`);
     }
 
     // BUG FIX B-7: Use smtpUsername if available, fallback to provider.email

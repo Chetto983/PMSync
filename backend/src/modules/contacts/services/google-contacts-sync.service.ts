@@ -5,6 +5,8 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { BaseContactsSyncService, ExtractedContactData } from './base-contacts-sync.service';
+import { ContactsError, ContactsErrorCode } from '../errors';
+import { getContactsCircuitBreaker, withRetry } from '../utils';
 
 // Re-export types for backward compatibility
 export type { ContactRealtimeReason, ContactsSyncResult as GoogleContactsSyncResult } from './base-contacts-sync.service';
@@ -51,7 +53,14 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
    * Get external ID from Google Person object
    */
   protected getExternalId(rawContact: people_v1.Schema$Person): string {
-    return rawContact.resourceName!;
+    if (!rawContact.resourceName) {
+      throw new ContactsError(
+        'Google contact missing resourceName',
+        ContactsErrorCode.CONTACT_MISSING_ID,
+        { provider: 'google', retryable: false },
+      );
+    }
+    return rawContact.resourceName;
   }
 
   /**
@@ -75,10 +84,10 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
     const photoUrl = person.photos?.[0]?.url;
     const birthday = person.birthdays?.[0]?.date
       ? new Date(
-          person.birthdays[0].date.year || 1900,
-          (person.birthdays[0].date.month || 1) - 1,
-          person.birthdays[0].date.day || 1,
-        )
+        person.birthdays[0].date.year || 1900,
+        (person.birthdays[0].date.month || 1) - 1,
+        person.birthdays[0].date.day || 1,
+      )
       : null;
 
     const primaryEmail = emails?.find((e) => e.primary)?.value || emails?.[0]?.value;
@@ -127,20 +136,35 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
       })),
       organizations: data.company
         ? [
-            {
-              name: data.company,
-              title: data.jobTitle,
-            },
-          ]
+          {
+            name: data.company,
+            title: data.jobTitle,
+          },
+        ]
         : undefined,
       biographies: data.notes ? [{ value: data.notes }] : undefined,
     };
 
-    const response = await peopleService.people.createContact({
-      requestBody: person,
-    });
+    const circuitBreaker = getContactsCircuitBreaker('google', 'createContact');
 
-    return { id: response.data.resourceName! };
+    const response = await withRetry(
+      async () => circuitBreaker.execute(() =>
+        peopleService.people.createContact({
+          requestBody: person,
+        })
+      ),
+      { provider: 'google', operationName: 'createContact', maxRetries: 2, logger: this.logger },
+    );
+
+    if (!response.data.resourceName) {
+      throw new ContactsError(
+        'Google API returned contact without resourceName',
+        ContactsErrorCode.API_INVALID_RESPONSE,
+        { provider: 'google', retryable: false },
+      );
+    }
+
+    return { id: response.data.resourceName };
   }
 
   /**
@@ -153,12 +177,12 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
     const person: people_v1.Schema$Person = {
       names: data.firstName || data.lastName
         ? [
-            {
-              givenName: data.firstName,
-              familyName: data.lastName,
-              displayName: data.displayName,
-            },
-          ]
+          {
+            givenName: data.firstName,
+            familyName: data.lastName,
+            displayName: data.displayName,
+          },
+        ]
         : undefined,
       emailAddresses: data.emails?.map((email: any) => ({
         value: email.value,
@@ -170,20 +194,27 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
       })),
       organizations: data.company
         ? [
-            {
-              name: data.company,
-              title: data.jobTitle,
-            },
-          ]
+          {
+            name: data.company,
+            title: data.jobTitle,
+          },
+        ]
         : undefined,
       biographies: data.notes ? [{ value: data.notes }] : undefined,
     };
 
-    await peopleService.people.updateContact({
-      resourceName: externalId,
-      updatePersonFields: 'names,emailAddresses,phoneNumbers,organizations,biographies',
-      requestBody: person,
-    });
+    const circuitBreaker = getContactsCircuitBreaker('google', 'updateContact');
+
+    await withRetry(
+      async () => circuitBreaker.execute(() =>
+        peopleService.people.updateContact({
+          resourceName: externalId,
+          updatePersonFields: 'names,emailAddresses,phoneNumbers,organizations,biographies',
+          requestBody: person,
+        })
+      ),
+      { provider: 'google', operationName: 'updateContact', maxRetries: 2, logger: this.logger },
+    );
   }
 
   /**
@@ -193,9 +224,16 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
     const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
     const peopleService = this.createPeopleClient(accessToken);
 
-    await peopleService.people.deleteContact({
-      resourceName: externalId,
-    });
+    const circuitBreaker = getContactsCircuitBreaker('google', 'deleteContact');
+
+    await withRetry(
+      async () => circuitBreaker.execute(() =>
+        peopleService.people.deleteContact({
+          resourceName: externalId,
+        })
+      ),
+      { provider: 'google', operationName: 'deleteContact', maxRetries: 2, logger: this.logger },
+    );
   }
 
   /**

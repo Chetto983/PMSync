@@ -18,6 +18,7 @@ import {
 } from '../services/microsoft-contacts-webhook.service';
 import { SyncAuthService } from '../../email-sync/services/sync-auth.service';
 import { GoogleContactsSyncDto } from '../dto/contact.dto';
+import { getErrorDetails } from '../../../common/utils';
 
 @ApiTags('Webhooks - Contacts')
 @Controller('webhooks/contacts')
@@ -28,7 +29,7 @@ export class ContactsWebhookController {
     private readonly googleContactsWebhook: GoogleContactsWebhookService,
     private readonly microsoftContactsWebhook: MicrosoftContactsWebhookService,
     private readonly syncAuth: SyncAuthService,
-  ) {}
+  ) { }
 
   /**
    * Google Contacts sync trigger endpoint
@@ -56,8 +57,7 @@ export class ContactsWebhookController {
 
       return { success: true };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
+      const { message: errorMessage, stack: errorStack } = getErrorDetails(error);
 
       this.logger.error('Error handling Google Contacts sync', {
         error: errorMessage,
@@ -119,8 +119,7 @@ export class ContactsWebhookController {
 
       return { success: true };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
+      const { message: errorMessage, stack: errorStack } = getErrorDetails(error);
 
       this.logger.error('Error handling Microsoft Contacts webhook', {
         error: errorMessage,

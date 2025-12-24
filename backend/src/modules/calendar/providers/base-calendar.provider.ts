@@ -15,6 +15,7 @@
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
+import { getErrorMessage } from '../../../common/utils';
 import type {
   CalendarProviderConfig,
   ICalendarProvider,
@@ -53,8 +54,12 @@ export abstract class BaseCalendarProvider implements ICalendarProvider {
 
   async listCalendars(): Promise<CalendarList[]> {
     return this.withErrorHandling('listCalendars', async () => {
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: this.config.providerId },
+      // Defensive tenant validation - ensures provider belongs to expected tenant
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: {
+          id: this.config.providerId,
+          tenantId: this.config.userId,  // SEC-1 FIX: Validate tenant ownership
+        },
       });
 
       if (!provider) {
@@ -73,8 +78,8 @@ export abstract class BaseCalendarProvider implements ICalendarProvider {
       return calendarEvents
         .filter((event) => event.calendarId !== null)
         .map((event) => ({
-          id: event.calendarId!,
-          name: event.calendarName || event.calendarId!,
+          id: event.calendarId ?? 'unknown',
+          name: event.calendarName || event.calendarId || 'Unknown Calendar',
           primary: this.providerType === 'google' ? event.calendarId === 'primary' : false,
           accessRole: 'owner' as const,
         }));
@@ -361,7 +366,7 @@ export abstract class BaseCalendarProvider implements ICalendarProvider {
       }
 
       throw new CalendarProviderError(
-        `${operation} failed: ${error instanceof Error ? error.message : String(error)}`,
+        `${operation} failed: ${getErrorMessage(error)}`,
         'OPERATION_FAILED',
         this.providerType,
         error,

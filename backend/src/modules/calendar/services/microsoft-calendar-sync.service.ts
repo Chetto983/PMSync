@@ -134,10 +134,9 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
         const response: MicrosoftDeltaResponse = await request.get();
         const events = response.value || [];
 
-        // DEBUG: Log the first few events to inspect raw API response
+        // Log event count for debugging (no sensitive data)
         if (allEvents.length === 0 && events.length > 0) {
-          this.logger.warn(`[MICROSOFT API DEBUG] First event raw data: ${JSON.stringify(events[0], null, 2)}`);
-          this.logger.warn(`[MICROSOFT API DEBUG] Found ${events.length} events in first page.`);
+          this.logger.debug(`Microsoft Calendar sync: fetched ${events.length} events in first page`);
         }
 
         allEvents.push(...events);

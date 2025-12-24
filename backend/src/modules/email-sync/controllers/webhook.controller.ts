@@ -9,7 +9,9 @@ import {
   Get,
   BadRequestException,
   Headers,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiHeader } from '@nestjs/swagger';
 import { GmailWebhookService } from '../services/gmail-webhook.service';
 import { MicrosoftWebhookService } from '../services/microsoft-webhook.service';
@@ -43,10 +45,15 @@ export class WebhookController {
   @ApiResponse({ status: 200, description: 'Notification processed' })
   async handleGmailPush(
     @Body() payload: GmailPubSubMessage,
+    @Req() req: Request,
     @Query('token') queryToken?: string,
     @Headers('x-webhook-token') webhookToken?: string,
     @Headers('authorization') authorizationHeader?: string,
   ) {
+    // SEC-8 FIX: Log client IP for security monitoring and audit trail
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    this.logger.debug(`[WEBHOOK] Gmail push from IP: ${clientIp}`);
+
     // Security fix (Issue #4): Auth validation OUTSIDE try-catch
     // UnauthorizedException will propagate and return 401 (not 200)
     const jwtToken = authorizationHeader?.replace(/^Bearer\s+/i, '').trim();
@@ -112,8 +119,13 @@ export class WebhookController {
   @ApiResponse({ status: 200, description: 'Notification processed or validation token returned' })
   async handleMicrosoftNotification(
     @Body() payload: MicrosoftGraphWebhookPayload,
+    @Req() req: Request,
     @Query('validationToken') validationToken?: string,
   ) {
+    // SEC-8 FIX: Log client IP for security monitoring and audit trail
+    const clientIp = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    this.logger.debug(`[WEBHOOK] Microsoft notification from IP: ${clientIp}`);
+
     try {
       // Microsoft sends validationToken as query param during subscription creation
       if (validationToken) {

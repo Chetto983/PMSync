@@ -27,6 +27,7 @@ import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { FolderSyncService } from '../../email-sync/services/folder-sync.service';
 import { FolderOperationsQueueService } from '../../email-sync/services/folder-operations-queue.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { AuthenticatedRequest } from '../../../common/types/request.types';
 
 // DTOs for folder operations
 export class CreateFolderDto {
@@ -70,7 +71,7 @@ export class FoldersController {
   @Get()
   @ApiOperation({ summary: 'Get all folders for current user' })
   @ApiResponse({ status: 200, description: 'Returns list of folders' })
-  async getFolders(@Request() req: any) {
+  async getFolders(@Request() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
 
     // Get all provider configs for this tenant - ONLY safe fields
@@ -119,7 +120,7 @@ export class FoldersController {
   @ApiOperation({ summary: 'Get folders for a specific provider' })
   @ApiResponse({ status: 200, description: 'Returns list of folders' })
   async getFoldersByProvider(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('providerId') providerId: string,
   ) {
     const tenantId = req.user.tenantId;
@@ -165,7 +166,7 @@ export class FoldersController {
   @ApiOperation({ summary: 'Sync folders for a specific provider' })
   @ApiResponse({ status: 200, description: 'Folders synced successfully' })
   async syncFolders(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('providerId') providerId: string,
   ) {
     const tenantId = req.user.tenantId;
@@ -200,7 +201,7 @@ export class FoldersController {
   @Post('sync-all')
   @ApiOperation({ summary: 'Sync folders for all providers' })
   @ApiResponse({ status: 200, description: 'Folders synced for all providers' })
-  async syncAllFolders(@Request() req: any) {
+  async syncAllFolders(@Request() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
 
     // Get all active providers for this tenant
@@ -253,7 +254,7 @@ export class FoldersController {
     description: 'Folder counts updated successfully',
   })
   async updateFolderCounts(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('providerId') providerId: string,
   ) {
     const tenantId = req.user.tenantId;
@@ -285,7 +286,7 @@ export class FoldersController {
   @ApiOperation({ summary: 'Audit folder sync status for a provider' })
   @ApiResponse({ status: 200, description: 'Returns sync audit results' })
   async auditFolderSync(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('providerId') providerId: string,
   ) {
     const tenantId = req.user.tenantId;
@@ -316,7 +317,7 @@ export class FoldersController {
   @ApiOperation({ summary: 'Clean up orphaned folders for a provider' })
   @ApiResponse({ status: 200, description: 'Orphaned folders cleaned up' })
   async cleanupOrphanedFolders(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('providerId') providerId: string,
   ) {
     const tenantId = req.user.tenantId;
@@ -357,7 +358,7 @@ export class FoldersController {
   @ApiResponse({ status: 202, description: 'Folder creation job queued' })
   @ApiResponse({ status: 400, description: 'Invalid input' })
   async createFolder(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body() dto: CreateFolderDto,
     @Query('wait') wait?: string,
   ): Promise<FolderResponseDto | { jobId: string; status: string }> {
@@ -428,7 +429,7 @@ export class FoldersController {
   @ApiResponse({ status: 202, description: 'Folder rename job queued' })
   @ApiResponse({ status: 404, description: 'Folder not found' })
   async renameFolder(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('folderId') folderId: string,
     @Body() dto: RenameFolderDto,
     @Query('wait') wait?: string,
@@ -503,7 +504,7 @@ export class FoldersController {
   @ApiResponse({ status: 404, description: 'Folder not found' })
   @ApiResponse({ status: 400, description: 'Cannot delete system folder' })
   async deleteFolder(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('folderId') folderId: string,
     @Query('wait') wait?: string,
   ): Promise<{ success: boolean; message: string } | { jobId: string; status: string }> {

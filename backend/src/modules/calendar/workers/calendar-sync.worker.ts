@@ -14,6 +14,7 @@ import {
   getWorkerOptions,
   QUEUE_NAMES,
 } from '../../../common/config';
+import { getErrorMessage } from '../../../common/utils';
 
 /**
  * CalendarSyncWorker
@@ -38,7 +39,7 @@ export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
     private prisma: PrismaService,
     private readonly googleCalendarSync: GoogleCalendarSyncService,
     private readonly microsoftCalendarSync: MicrosoftCalendarSyncService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     const workersEnabled =
@@ -131,7 +132,7 @@ export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
         syncDuration,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error(`Calendar sync failed for ${email}: ${errorMessage}`);
 
       throw error; // Re-throw to let BullMQ handle retry logic
@@ -250,8 +251,7 @@ export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
       }
     } catch (outerError) {
       this.logger.warn(
-        `CalendarSyncWorker shutdown encountered an error (swallowed): ${
-          outerError instanceof Error ? outerError.message : outerError
+        `CalendarSyncWorker shutdown encountered an error (swallowed): ${outerError instanceof Error ? outerError.message : outerError
         }`,
       );
     } finally {

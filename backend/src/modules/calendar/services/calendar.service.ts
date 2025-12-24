@@ -32,7 +32,7 @@ export class CalendarService {
     private readonly eventsService: CalendarEventsService,
     private readonly googleCalendarSync: GoogleCalendarSyncService,
     private readonly microsoftCalendarSync: MicrosoftCalendarSyncService,
-  ) {}
+  ) { }
 
   // ============================================================================
   // CALENDAR LISTING (delegated to CalendarListService)
@@ -173,7 +173,8 @@ export class CalendarService {
       case 'microsoft':
         return this.microsoftCalendarSync.syncCalendar(providerId);
       default:
-        throw new BadRequestException('Calendar sync is not supported for this provider type');
+        this.logger.warn(`Calendar sync not supported for provider type: ${provider.providerType}`);
+        throw new BadRequestException(`Calendar sync is not supported for provider type: ${provider.providerType}`);
     }
   }
 }

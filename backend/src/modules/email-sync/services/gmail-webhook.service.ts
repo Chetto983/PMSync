@@ -427,7 +427,10 @@ export class GmailWebhookService {
           lastError: errorMessage,
           errorCount: { increment: 1 },
         },
-      }).catch(() => { }); // Ignore if doesn't exist
+      }).catch((updateErr) => {
+        // Q-7 FIX: Log subscription update failures for debugging (record may not exist)
+        this.logger.debug(`Failed to update subscription status: ${updateErr instanceof Error ? updateErr.message : updateErr}`);
+      });
 
       throw error;
     }
