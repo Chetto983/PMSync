@@ -9,12 +9,14 @@
 ## Executive Summary
 
 **Total Issues Found**: 14
+
 - **CRITICAL**: 2
 - **HIGH**: 5
 - **MEDIUM**: 5
 - **LOW**: 2
 
 **Status Overview**:
+
 - **NEW Issues**: 12
 - **ALREADY_FIXED**: 2
 
@@ -23,6 +25,7 @@
 ## Critical Issues
 
 ### CRIT-1: Potential Null Pointer in Base Email Sync
+
 **File**: `base-email-sync.service.ts:720`
 **Severity**: CRITICAL
 **Type**: BUG
@@ -40,6 +43,7 @@ return { wasNew, conflictDetected: userModifiedRecently ?? false };
 **Impact**: The `conflictDetected` flag may always be `false` when it should reflect actual user modifications during sync.
 
 **Fix Required**: Replace with proper conflict detection logic:
+
 ```typescript
 return { wasNew, conflictDetected: conditionalUpdate === 0 };
 ```
@@ -47,6 +51,7 @@ return { wasNew, conflictDetected: conditionalUpdate === 0 };
 ---
 
 ### CRIT-2: Race Condition in Webhook Stats Update
+
 **File**: `gmail-webhook.service.ts:629-653`
 **Severity**: CRITICAL
 **Type**: RACE
@@ -72,6 +77,7 @@ if (result.count === 0) {
 **Issue**: Between the `updateMany` returning `count: 0` and the warning log, another thread could have created the subscription. The warning becomes misleading.
 
 **Impact**:
+
 - False-positive warnings in logs
 - Missed stats updates in high-concurrency scenarios
 - No coordination with `ensureSubscriptionRow()` at line 658
@@ -83,12 +89,14 @@ if (result.count === 0) {
 ## High Severity Issues
 
 ### HIGH-1: Dead Code in Gmail Webhook Legacy Methods
+
 **File**: `gmail-webhook.service.ts:175-187`
 **Severity**: HIGH
 **Type**: DEAD_CODE
 **Status**: NEW
 
 **Description**: Two deprecated methods exist but are never called in the codebase:
+
 - `isReplayedMessage()` (line 175)
 - `markMessageProcessed()` (line 184)
 
@@ -106,6 +114,7 @@ markMessageProcessed(messageId: string): void {
 ```
 
 **Impact**:
+
 - Code maintenance burden
 - Potential confusion for developers
 - Memory leak if called (no cleanup for fallback map)
@@ -115,6 +124,7 @@ markMessageProcessed(messageId: string): void {
 ---
 
 ### HIGH-2: Incorrect Conditional in Map Iteration Fix
+
 **File**: `gmail-webhook.service.ts:193-209`
 **Severity**: HIGH
 **Type**: BUG
@@ -146,6 +156,7 @@ private cleanupProcessedMessages(): void {
 ---
 
 ### HIGH-3: Potential Infinite Wait in Lock Release
+
 **File**: `provider-token.service.ts:338-359`
 **Severity**: HIGH
 **Type**: BUG
@@ -176,16 +187,19 @@ private async waitForLockRelease(key: string): Promise<void> {
 ```
 
 **Issues**:
+
 1. **No exponential backoff** - wastes resources with constant 100ms polling
 2. **Silent timeout** - just logs warning, doesn't throw (caller assumes success)
 3. **No lock owner tracking** - can't detect if lock holder crashed
 
 **Impact**:
+
 - CPU waste from busy-waiting
 - False successes when timeout occurs
 - Token refresh failures may go undetected
 
 **Fix Required**:
+
 - Add exponential backoff
 - Throw error on timeout
 - Consider Redis pub/sub for lock release notifications
@@ -193,6 +207,7 @@ private async waitForLockRelease(key: string): Promise<void> {
 ---
 
 ### HIGH-4: Missing Error Propagation in Sync Worker
+
 **File**: `sync.worker.ts:168-174`
 **Severity**: HIGH
 **Type**: BUG
@@ -212,11 +227,13 @@ try {
 ```
 
 **Issue**: If folder sync fails:
+
 - Job still reports `success: true`
 - Folder counts remain stale
 - No way for monitoring to detect folder sync issues
 
 **Impact**:
+
 - Silent data corruption (stale folder counts)
 - Difficult to diagnose folder sync problems
 - Job metrics misrepresent actual sync health
@@ -226,6 +243,7 @@ try {
 ---
 
 ### HIGH-5: Logic Bug in Provider Type Validation
+
 **File**: `sync.worker.ts:122-162`
 **Severity**: HIGH
 **Type**: BUG
@@ -255,6 +273,7 @@ if (jobProviderType && jobProviderType !== providerType) {
 ## Medium Severity Issues
 
 ### MED-1: Unused Import in Base Email Sync
+
 **File**: `base-email-sync.service.ts:11`
 **Severity**: MEDIUM
 **Type**: DEAD_CODE
@@ -277,6 +296,7 @@ if (!isJunkFolder(result.folder)) {
 ---
 
 ### MED-2: Potential Memory Leak in Microsoft Webhook
+
 **File**: `microsoft-webhook.service.ts:101-133`
 **Severity**: MEDIUM
 **Type**: BUG
@@ -309,6 +329,7 @@ private cleanupRateLimitEntries(): void {
 ---
 
 ### MED-3: Inconsistent Lock Retry Behavior
+
 **File**: `cross-provider-conflict.service.ts:136-209`
 **Severity**: MEDIUM
 **Type**: BUG
@@ -322,11 +343,13 @@ private cleanupRateLimitEntries(): void {
 ```
 
 **Comparison**:
+
 - `gmail-webhook.service.ts:266` - `maxRetries: 3`
 - `webhook-lifecycle.service.ts:176` - `maxRetries: 1`
 - `sync.worker.ts:271` - `maxRetries: 3`
 
 **Impact**:
+
 - Inconsistent failure behavior across services
 - No documented reasoning for retry counts
 - Potential for retry storms under load
@@ -336,6 +359,7 @@ private cleanupRateLimitEntries(): void {
 ---
 
 ### MED-4: Misleading Error Recovery in Provider Token Service
+
 **File**: `provider-token.service.ts:316-325`
 **Severity**: MEDIUM
 **Type**: BUG
@@ -358,10 +382,12 @@ private async acquireLock(key: string): Promise<boolean> {
 ```
 
 **Issue**: Caller can't distinguish between:
+
 - "Lock acquired successfully"
 - "Redis failed, proceed without lock"
 
 **Impact**:
+
 - Multiple instances may refresh token simultaneously
 - Monitoring can't detect Redis outages
 - Token refresh could fail silently
@@ -371,6 +397,7 @@ private async acquireLock(key: string): Promise<boolean> {
 ---
 
 ### MED-5: Dead Code in Conflict Resolution Fallback
+
 **File**: `cross-provider-conflict.service.ts:216-255`
 **Severity**: MEDIUM
 **Type**: BUG
@@ -401,6 +428,7 @@ private async fetchFreshEmailStates(
 ```
 
 **Issue**: The `emails.length === 0` branch is either:
+
 1. Dead code (if emails always exist)
 2. Missing business logic (should this trigger link deletion?)
 
@@ -413,6 +441,7 @@ private async fetchFreshEmailStates(
 ## Low Severity Issues
 
 ### LOW-1: Redundant Null Check in Cross-Provider Conflict
+
 **File**: `cross-provider-conflict.service.ts:454-464`
 **Severity**: LOW
 **Type**: DEAD_CODE
@@ -437,6 +466,7 @@ const resolutionTimes = links
 ---
 
 ### LOW-2: Unused Configuration in Webhook Lifecycle
+
 **File**: `webhook-lifecycle.service.ts:17-18`
 **Severity**: LOW
 **Type**: DEAD_CODE
@@ -551,20 +581,20 @@ this.jobsEnabled = (this.configService.get<string>('JOBS_ENABLED') || 'true').to
 
 ### Short-term Actions (HIGH)
 
-3. **Remove HIGH-1**: Delete deprecated webhook methods
-4. **Fix HIGH-3**: Improve lock wait mechanism with exponential backoff + error throwing
-5. **Fix HIGH-4**: Add warnings array to SyncJobResult for non-fatal errors
+1. **Remove HIGH-1**: Delete deprecated webhook methods
+2. **Fix HIGH-3**: Improve lock wait mechanism with exponential backoff + error throwing
+3. **Fix HIGH-4**: Add warnings array to SyncJobResult for non-fatal errors
 
 ### Medium-term Actions
 
-6. **Standardize MED-3**: Define consistent lock retry policies
-7. **Improve MED-4**: Return structured lock results instead of boolean
-8. **Clarify MED-5**: Document or remove empty email list fallback
+1. **Standardize MED-3**: Define consistent lock retry policies
+2. **Improve MED-4**: Return structured lock results instead of boolean
+3. **Clarify MED-5**: Document or remove empty email list fallback
 
 ### Code Quality
 
-9. **Document LOW-1**: Add comment explaining why negative resolution times are filtered
-10. **Refactor LOW-2**: Convert jobsEnabled to getter method
+1. **Document LOW-1**: Add comment explaining why negative resolution times are filtered
+2. **Refactor LOW-2**: Convert jobsEnabled to getter method
 
 ---
 
@@ -611,5 +641,3 @@ this.jobsEnabled = (this.configService.get<string>('JOBS_ENABLED') || 'true').to
 **Risk Level**: Medium (2 critical issues require immediate attention)
 
 ---
-
-**End of Report**

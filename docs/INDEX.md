@@ -10,14 +10,15 @@ Welcome to the MailAgent documentation. This index provides a structured overvie
 ## Quick Links
 
 | Category | Primary Document | Status |
-|----------|-----------------|--------|
+|----------|------------------|--------|
+
 | **MASTER ROADMAP** | [COMPREHENSIVE_ROADMAP.md](./COMPREHENSIVE_ROADMAP.md) | **Current** |
-| **MVP Roadmap** | [MVP_COMPLETION_ROADMAP.md](./MVP_COMPLETION_ROADMAP.md) | Complete |
-| **AI/Multi-Agent** | [AI_COMPREHENSIVE_ROADMAP.md](./AI_COMPREHENSIVE_ROADMAP.md) | Current |
+| **Audit Status** | [comprehensive_audit_report.md](./comprehensive_audit_report.md) | **Current** |
+| **Email Sync Audit** | [FRESH_EMAIL_SYNC_AUDIT_REPORT.md](./FRESH_EMAIL_SYNC_AUDIT_REPORT.md) | **Current** |
+| **Calendar Audit** | [calendar-module-audit-report.md](./calendar-module-audit-report.md) | Complete |
+| **Contacts Audit** | [contacts-module-audit-report.md](./contacts-module-audit-report.md) | Complete |
+| **AI Audit** | [ai-module-audit-report.md](./ai-module-audit-report.md) | Complete |
 | **AI Secretary** | [AI_SECRETARY_AUDIT.md](./AI_SECRETARY_AUDIT.md) | Complete |
-| **VoltAgent Audit** | [VOLTAGENT_AUDIT.md](./VOLTAGENT_AUDIT.md) | Complete |
-| **Email Driver** | [development/EMAIL_DRIVER_ROADMAP.md](./development/EMAIL_DRIVER_ROADMAP.md) | Complete |
-| **Redis/BullMQ** | [REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md](./REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md) | Complete |
 | **Queue Services** | [QUEUE_SERVICES_API.md](./QUEUE_SERVICES_API.md) | Current |
 | **Security** | [security/AUDIT-FINDINGS.md](./security/AUDIT-FINDINGS.md) | Current |
 | **API Reference** | [MAIL_API_REFERENCE.md](./MAIL_API_REFERENCE.md) | Current |
@@ -97,6 +98,7 @@ docs/
 
 | Document | Purpose | Status |
 |----------|---------|--------|
+
 | [AI_COMPREHENSIVE_ROADMAP.md](./AI_COMPREHENSIVE_ROADMAP.md) | Master AI roadmap - All AI features, architecture, phases | Current |
 | [AI_SECRETARY_AUDIT.md](./AI_SECRETARY_AUDIT.md) | Human vs AI capabilities comparison & gap analysis | **Complete** |
 | [AI_SECRETARY_IMPLEMENTATION_PLAN.md](./AI_SECRETARY_IMPLEMENTATION_PLAN.md) | Detailed implementation plan for AI Secretary features | Current |
@@ -109,6 +111,7 @@ docs/
 
 | Document | Purpose | Status |
 |----------|---------|--------|
+
 | [development/EMAIL_DRIVER_ROADMAP.md](./development/EMAIL_DRIVER_ROADMAP.md) | Email driver abstraction - unified provider architecture | **Complete** |
 | [EMAIL_EMAILSYNC_AUDIT_ROADMAP.md](./EMAIL_EMAILSYNC_AUDIT_ROADMAP.md) | Comprehensive email/sync audit with action items | Current |
 | [EMAIL_SYNC_REFACTOR_ROADMAP.md](./EMAIL_SYNC_REFACTOR_ROADMAP.md) | Refactoring plan details | Current |
@@ -122,6 +125,7 @@ docs/
 
 | Document | Purpose | Status |
 |----------|---------|--------|
+
 | [REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md](./REDIS_BULLMQ_STANDARDIZATION_ROADMAP.md) | BullMQ queue standardization | **Complete** |
 | [QUEUE_SERVICES_API.md](./QUEUE_SERVICES_API.md) | Queue services API reference | Current |
 | [development/BULLMQ_ARCHITECTURE.md](./development/BULLMQ_ARCHITECTURE.md) | BullMQ architecture documentation | Current |
@@ -135,6 +139,7 @@ docs/
 
 | Document | Purpose | Status |
 |----------|---------|--------|
+
 | [security/AUDIT-FINDINGS.md](./security/AUDIT-FINDINGS.md) | Security audit findings | Current |
 | [security/TENANT_ISOLATION_FINDINGS.md](./security/TENANT_ISOLATION_FINDINGS.md) | Multi-tenancy isolation audit | Current |
 | [security/INFRASTRUCTURE.md](./security/INFRASTRUCTURE.md) | Security infrastructure docs | Current |
@@ -149,6 +154,7 @@ docs/
 
 | Document | Purpose | Status |
 |----------|---------|--------|
+
 | [AUTH_MODULE_ROADMAP.md](./AUTH_MODULE_ROADMAP.md) | Authentication module roadmap | Current |
 | [MFA_ENHANCEMENT_ROADMAP.md](./MFA_ENHANCEMENT_ROADMAP.md) | Multi-factor auth enhancements | Current |
 | [setup/oauth-complete-guide.md](./setup/oauth-complete-guide.md) | OAuth setup guide | Current |
@@ -160,6 +166,7 @@ docs/
 
 | Document | Purpose | Status |
 |----------|---------|--------|
+
 | [FRONTEND_REFACTOR_ROADMAP.md](./FRONTEND_REFACTOR_ROADMAP.md) | Frontend modernization plan | Current |
 | [CALENDAR_INVITATION_ROADMAP.md](./CALENDAR_INVITATION_ROADMAP.md) | Calendar invitation features | Current |
 | [development/contacts-refactor-plan.md](./development/contacts-refactor-plan.md) | Contacts component refactoring | Planned |
@@ -193,48 +200,9 @@ docs/
 
 | Status | Meaning |
 |--------|---------|
+
 | **Current** | Actively maintained, authoritative |
 | **Complete** | Implementation finished, doc finalized |
 | **Planned** | Future work, not yet started |
 
 ---
-
-## Recent Cleanup (2025-12-12)
-
-The following obsolete migration documents were removed (work completed):
-
-**Deleted Files:**
-
-- `development/DRIVER_MIGRATION_PLAN.md` - Migration complete
-- `development/GOOGLE_SYNC_WRAPPER_IMPLEMENTATION.md` - Merged into EMAIL_DRIVER_ROADMAP
-- `development/REFACTORING_ROADMAP_SUMMARY.md` - Work complete
-- `development/PHASE5_DRIVER_ONLY_MIGRATION.md` - Phase complete
-- `development/PHASE7_EMAIL_SEND_MIGRATION.md` - Phase complete
-- `development/PHASE7_VALIDATION_COMPLETE.md` - Merged into EMAIL_DRIVER_ROADMAP
-- `development/PHASE7_2_CALENDAR_AUDIT.md` - Audit complete
-- `development/PHASE7_3_LEGACY_CLEANUP_PLAN.md` - Cleanup done
-- `development/MIGRATION_VALIDATION_READY.md` - Validation complete
-- `development/PROVIDER_ARCHITECTURE_ANALYSIS.md` - Analysis merged
-
-**Updated Files:**
-
-- `development/EMAIL_DRIVER_ROADMAP.md` - Now shows complete status with all phases done
-
----
-
-## Previous Cleanup (2025-12-09)
-
-The following obsolete documents were removed:
-
-- `CONSOLIDATED_TECHNICAL_ROADMAP.md` - Bloated duplicate content
-- `VOLTAGENT_MIGRATION_ROADMAP.md` - Migration complete
-- `CODE_REVIEW_ROADMAP.md` - Merged into MVP roadmap
-- `backend-audit-roadmap.md` - Merged into MVP roadmap
-- `development/AI_IMPROVEMENT_ROADMAP_2025.md` - Merged into AI_COMPREHENSIVE_ROADMAP
-- `development/AI_INTEGRATION_ROADMAP.md` - Merged into AI_COMPREHENSIVE_ROADMAP
-- `development/EMAIL_AI_COMPONENTS_SPEC.md` - Merged into AI_COMPREHENSIVE_ROADMAP
-- `development/BACKEND_ACTION_HANDLERS_SPEC.md` - Merged into AI_COMPREHENSIVE_ROADMAP
-- `security/COMPLETE-TEST-REPORT.md` - Superseded by TEST-COVERAGE-REPORT
-- `security/TEST-PROGRESS-SUMMARY.md` - Superseded by TEST-COVERAGE-REPORT
-- `security/tenant-isolation-audit-2025-11-19.md` - Superseded by TENANT_ISOLATION_FINDINGS
-- `security/xss-fix-dompurify.md` - Merged into FIXES-APPLIED
