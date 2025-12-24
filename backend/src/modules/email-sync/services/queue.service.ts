@@ -8,6 +8,7 @@ import {
   getDefaultJobOptions,
   QUEUE_NAMES,
 } from '../../../common/config';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 // Extended interface for sync job processing
 // interface ProcessableSyncJobData extends SyncJobData {
@@ -83,7 +84,11 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   };
   private workerToken?: string;
 
-  constructor(private configService: ConfigService) {}
+  // RC-8 FIX: Inject RedisLockService for distributed job deduplication
+  constructor(
+    private configService: ConfigService,
+    private readonly redisLock: RedisLockService,
+  ) { }
 
   async onModuleInit() {
     // Initialize Redis connection using centralized options
@@ -450,8 +455,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (outerError) {
       this.logger.warn(
-        `QueueService shutdown encountered an error (swallowed): ${
-          outerError instanceof Error ? outerError.message : outerError
+        `QueueService shutdown encountered an error (swallowed): ${outerError instanceof Error ? outerError.message : outerError
         }`,
       );
     } finally {

@@ -21,6 +21,7 @@ import {
   IcsParserService,
   ParsedCalendarInvite,
 } from '../../calendar/services/ics-parser.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 /**
  * Provider-agnostic attachment metadata
@@ -63,12 +64,24 @@ export abstract class BaseAttachmentHandler {
   protected readonly logger: Logger;
   protected abstract readonly providerType: AttachmentProviderType;
 
+  // RACE CONDITION FIX RC-5: Optional Redis lock service for distributed locking
+  protected redisLock: RedisLockService | null = null;
+
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly attachmentStorage: AttachmentStorageService,
     protected readonly icsParser: IcsParserService,
   ) {
     this.logger = new Logger(this.constructor.name);
+  }
+
+  /**
+   * Set the Redis lock service (injected by providers that need distributed locking)
+   * This is optional - if not set, persistence proceeds without distributed lock
+   * RC-5 FIX: Enables race condition protection for attachment processing
+   */
+  setRedisLockService(redisLock: RedisLockService): void {
+    this.redisLock = redisLock;
   }
 
   // ==================== Abstract Methods (Provider-Specific) ====================
@@ -426,28 +439,85 @@ export abstract class BaseAttachmentHandler {
 
   /**
    * Persist attachment records to database atomically
+   * RACE CONDITION FIX RC-5: Uses distributed Redis lock to prevent race conditions
+   * and verifies email still exists before inserting attachments (prevents orphans)
    */
   protected async persistAttachmentRecords(
     emailId: string,
     attachmentRecords: AttachmentRecord[],
   ): Promise<void> {
-    if (attachmentRecords.length > 0) {
-      await this.prisma.$transaction(async (tx) => {
-        // Delete existing attachments for this email (in case of re-sync)
-        await tx.emailAttachment.deleteMany({
-          where: { emailId },
+    // Core persistence logic - atomic transaction with email existence check
+    const executePersist = async (): Promise<void> => {
+      if (attachmentRecords.length > 0) {
+        await this.prisma.$transaction(async (tx) => {
+          // RC-5 FIX: Verify email still exists before inserting attachments
+          // This prevents orphan attachments if email was deleted during processing
+          const emailExists = await tx.email.findUnique({
+            where: { id: emailId },
+            select: { id: true },
+          });
+
+          if (!emailExists) {
+            this.logger.warn(
+              `Email ${emailId} was deleted during attachment processing, skipping attachment insert`,
+            );
+            return;
+          }
+
+          // Delete existing attachments for this email (in case of re-sync)
+          await tx.emailAttachment.deleteMany({
+            where: { emailId },
+          });
+
+          // Create all new attachment records
+          await tx.emailAttachment.createMany({
+            data: attachmentRecords,
+          });
         });
 
-        // Create all new attachment records
-        await tx.emailAttachment.createMany({
-          data: attachmentRecords,
+        this.logger.debug(
+          `Persisted ${attachmentRecords.length} attachment records for email ${emailId}`,
+        );
+      } else {
+        // No new attachments to create - check if we should delete existing ones
+        const emailExists = await this.prisma.email.findUnique({
+          where: { id: emailId },
+          select: { id: true },
         });
-      });
+
+        if (emailExists) {
+          await this.prisma.emailAttachment.deleteMany({
+            where: { emailId },
+          });
+        }
+      }
+    };
+
+    // RC-5 FIX: Execute with distributed lock if available
+    if (this.redisLock) {
+      const lockKey = `attachment:${emailId}`;
+      const lockTtlMs = 10000; // 10 second TTL
+
+      try {
+        await this.redisLock.withLock(
+          lockKey,
+          lockTtlMs,
+          executePersist,
+          { maxRetries: 2 },
+        );
+      } catch (lockError) {
+        // If lock acquisition fails, proceed without lock (graceful degradation)
+        // This is better than failing the entire attachment processing
+        this.logger.warn(
+          `Attachment lock failed for ${emailId}, proceeding without lock: ${
+            lockError instanceof Error ? lockError.message : String(lockError)
+          }`,
+        );
+        await executePersist();
+      }
     } else {
-      // No new attachments to create, just delete existing ones
-      await this.prisma.emailAttachment.deleteMany({
-        where: { emailId },
-      });
+      // No lock service available - execute without lock
+      await executePersist();
     }
   }
 

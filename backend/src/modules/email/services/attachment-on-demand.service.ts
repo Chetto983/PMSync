@@ -40,7 +40,7 @@ export class AttachmentOnDemandService {
     // RACE CONDITION FIX RC-3: Add Redis lock for attachment download coordination
     private readonly redisLock: RedisLockService,
     @Optional() private readonly metrics?: AttachmentMetricsService,
-  ) {}
+  ) { }
 
   /**
    * Download attachment on-demand with full observability
@@ -60,9 +60,13 @@ export class AttachmentOnDemandService {
   ): Promise<{ url: string; filename: string; mimeType: string }> {
     const startTime = Date.now();
 
-    // Fetch attachment with email and provider context
-    const attachment = await this.prisma.emailAttachment.findUnique({
-      where: { id: attachmentId },
+    // SEC-6 FIX: Fetch attachment with tenant filter in query to prevent timing attacks
+    // Previously used two-step check that could reveal attachment existence via timing
+    const attachment = await this.prisma.emailAttachment.findFirst({
+      where: {
+        id: attachmentId,
+        email: { tenantId }, // Tenant filter in query - prevents resource enumeration
+      },
       include: {
         email: {
           include: {
@@ -73,12 +77,8 @@ export class AttachmentOnDemandService {
     });
 
     if (!attachment) {
-      throw new NotFoundException(`Attachment ${attachmentId} not found`);
-    }
-
-    // Verify tenant access
-    if (attachment.email.tenantId !== tenantId) {
-      throw new NotFoundException(`Attachment ${attachmentId} not found`);
+      // Generic message - same for not-found and wrong-tenant cases
+      throw new NotFoundException('Attachment not found');
     }
 
     // Build metrics context for structured logging
@@ -435,7 +435,7 @@ export class AttachmentOnDemandService {
       );
       throw new Error(
         `Failed to download IMAP attachment: ${err.message}. ` +
-          `This may be due to invalid credentials, deleted message, or connection timeout.`,
+        `This may be due to invalid credentials, deleted message, or connection timeout.`,
       );
     } finally {
       // Always close IMAP connection
@@ -466,7 +466,8 @@ export class AttachmentOnDemandService {
   }
 
   /**
-   * Fetch attachment from Gmail using Gmail API
+   * Fetch attachment from Gmail using Gmail API directly
+   * NOTE: Calls Gmail API directly instead of handler to avoid driver dependency
    */
   private async fetchFromGmail(
     messageId: string,
@@ -482,24 +483,26 @@ export class AttachmentOnDemandService {
         throw new Error(`Provider ${providerId} is not a Gmail provider`);
       }
 
-      // Create OAuth2 client
+      // Create OAuth2 client and Gmail API client
       const oauth2Client = new google.auth.OAuth2();
       oauth2Client.setCredentials({ access_token: accessToken });
-
-      // Create Gmail API client
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-      // Download attachment using existing handler
-      const buffer = await this.gmailHandler.downloadAttachment(
-        { messageId, attachmentId },
-        gmail,
-      );
+      // Call Gmail API directly to get attachment
+      const response = await gmail.users.messages.attachments.get({
+        userId: 'me',
+        messageId,
+        id: attachmentId,
+      });
 
-      if (!buffer) {
+      if (!response.data.data) {
         throw new Error(
           `Failed to download Gmail attachment: ${attachmentId} from message ${messageId}`,
         );
       }
+
+      // Gmail API returns base64url-encoded content
+      const buffer = Buffer.from(response.data.data, 'base64');
 
       this.logger.debug(
         `Successfully downloaded Gmail attachment: ${buffer.byteLength} bytes`,
@@ -514,19 +517,23 @@ export class AttachmentOnDemandService {
       );
       throw new Error(
         `Failed to download Gmail attachment: ${err.message}. ` +
-          `This may be due to expired OAuth token or deleted message.`,
+        `This may be due to expired OAuth token or deleted message.`,
       );
     }
   }
 
   /**
-   * Fetch attachment from Microsoft using Graph API
+   * Fetch attachment from Microsoft using Graph API directly
+   * NOTE: Calls Graph API directly with retry logic to avoid driver dependency
    */
   private async fetchFromMicrosoft(
     messageId: string,
     attachmentId: string,
     providerId: string,
   ): Promise<Buffer> {
+    const GRAPH_API_URL = 'https://graph.microsoft.com/v1.0';
+    const MAX_RETRIES = 3;
+
     try {
       // Get fresh access token (auto-refresh if needed)
       const { provider, accessToken } =
@@ -536,48 +543,54 @@ export class AttachmentOnDemandService {
         throw new Error(`Provider ${providerId} is not a Microsoft provider`);
       }
 
-      // Create retry wrapper (Microsoft Graph can be flaky)
-      const msRequestWithRetry = async <T>(fn: () => Promise<T>): Promise<T> => {
-        const maxRetries = 3;
-        let lastError: Error | undefined;
+      // Retry logic for flaky Microsoft Graph API
+      let lastError: Error | undefined;
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          // Call Microsoft Graph API directly
+          const response = await fetch(
+            `${GRAPH_API_URL}/me/messages/${messageId}/attachments/${attachmentId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            },
+          );
 
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            return await fn();
-          } catch (error) {
-            lastError = error instanceof Error ? error : new Error(String(error));
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
 
-            if (attempt < maxRetries) {
-              const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
-              this.logger.debug(
-                `Microsoft Graph request failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`,
-              );
-              await new Promise((resolve) => setTimeout(resolve, delay));
-            }
+          const attachment = await response.json();
+
+          if (!attachment.contentBytes) {
+            throw new Error(
+              `Failed to download Microsoft attachment: ${attachmentId} from message ${messageId}`,
+            );
+          }
+
+          // Microsoft Graph API returns base64-encoded content in contentBytes
+          const buffer = Buffer.from(attachment.contentBytes, 'base64');
+
+          this.logger.debug(
+            `Successfully downloaded Microsoft attachment: ${buffer.byteLength} bytes`,
+          );
+
+          return buffer;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+
+          if (attempt < MAX_RETRIES) {
+            const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+            this.logger.debug(
+              `Microsoft Graph request failed (attempt ${attempt}/${MAX_RETRIES}), retrying in ${delay}ms...`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, delay));
           }
         }
-
-        throw lastError ?? new Error('Microsoft Graph download failed after retries');
-      };
-
-      // Download attachment using existing handler
-      const buffer = await this.microsoftHandler.downloadAttachment(
-        { messageId, attachmentId },
-        accessToken,
-        msRequestWithRetry,
-      );
-
-      if (!buffer) {
-        throw new Error(
-          `Failed to download Microsoft attachment: ${attachmentId} from message ${messageId}`,
-        );
       }
 
-      this.logger.debug(
-        `Successfully downloaded Microsoft attachment: ${buffer.byteLength} bytes`,
-      );
-
-      return buffer;
+      throw lastError ?? new Error('Microsoft Graph download failed after retries');
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
@@ -586,7 +599,7 @@ export class AttachmentOnDemandService {
       );
       throw new Error(
         `Failed to download Microsoft attachment: ${err.message}. ` +
-          `This may be due to expired OAuth token or deleted message.`,
+        `This may be due to expired OAuth token or deleted message.`,
       );
     }
   }
@@ -603,21 +616,22 @@ export class AttachmentOnDemandService {
     size: number;
     isInS3: boolean;
   }> {
-    const attachment = await this.prisma.emailAttachment.findUnique({
-      where: { id: attachmentId },
+    // SEC-6 FIX: Tenant filter in query to prevent timing attacks
+    const attachment = await this.prisma.emailAttachment.findFirst({
+      where: {
+        id: attachmentId,
+        email: { tenantId },
+      },
       select: {
         filename: true,
         mimeType: true,
         size: true,
         storageType: true,
-        email: {
-          select: { tenantId: true },
-        },
       },
     });
 
-    if (!attachment || attachment.email.tenantId !== tenantId) {
-      throw new NotFoundException(`Attachment ${attachmentId} not found`);
+    if (!attachment) {
+      throw new NotFoundException('Attachment not found');
     }
 
     return {

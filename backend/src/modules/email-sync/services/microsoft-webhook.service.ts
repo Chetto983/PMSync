@@ -12,6 +12,7 @@ import {
 import { SyncJobData } from '../interfaces/sync-job.interface';
 import axios from 'axios';
 import { ProviderTokenService } from './provider-token.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import type { ProviderConfig } from '@prisma/client';
 
 export const MICROSOFT_MAIL_RESOURCE = '/me/mailFolders/inbox/messages';
@@ -54,6 +55,8 @@ export class MicrosoftWebhookService {
     private queueService: QueueService,
     private configService: ConfigService,
     private providerTokenService: ProviderTokenService,
+    // RC-12 FIX: Inject RedisLockService for distributed deduplication
+    private readonly redisLock: RedisLockService,
   ) {
     // Start rate limit cleanup interval
     setInterval(() => this.cleanupRateLimitEntries(), this.RATE_LIMIT_CLEANUP_INTERVAL_MS);
@@ -120,12 +123,45 @@ export class MicrosoftWebhookService {
   }
 
   /**
-   * Security fix (SEC-1): Check if notification was already processed (idempotency)
-   * Creates a unique key from subscription + resource + change type to detect duplicates
+   * RC-12 FIX: Check if notification was already processed using Redis for distributed deduplication
+   * Uses Redis SET NX for atomic check-and-set across all workers
    * @returns true if this is a NEW notification, false if duplicate
    */
-  private checkAndMarkProcessed(notification: MicrosoftGraphNotification): boolean {
-    // Create unique key: subscriptionId + resource + changeType + resourceData (if available)
+  private async checkAndMarkProcessedDistributed(notification: MicrosoftGraphNotification): Promise<boolean> {
+    // Create unique key: subscriptionId + resource + changeType
+    const resourceId = notification.resourceData?.id || notification.resource || '';
+    const notificationKey = `ms-webhook-dedup:${notification.subscriptionId}:${resourceId}:${notification.changeType}`;
+
+    try {
+      // Use RedisLockService.acquireLock with SET NX - if lock acquired, it's a new notification
+      // The lock TTL acts as the deduplication window
+      const lockId = await this.redisLock.acquireLock(
+        notificationKey,
+        this.NOTIFICATION_DEDUP_WINDOW_MS,
+        { maxRetries: 1 }, // Only try once - if it fails, it's a duplicate
+      );
+
+      if (lockId) {
+        // We got the lock = this is a NEW notification (first worker to process it)
+        // Note: We don't release the lock - let it expire naturally to maintain the dedup window
+        return true;
+      }
+
+      // Lock already held by another worker = duplicate notification
+      return false;
+    } catch (error) {
+      // On Redis error, fall back to in-memory dedup (better than no dedup)
+      this.logger.warn(
+        `Redis dedup failed, falling back to in-memory: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return this.checkAndMarkProcessedInMemory(notification);
+    }
+  }
+
+  /**
+   * Fallback in-memory deduplication for when Redis is unavailable
+   */
+  private checkAndMarkProcessedInMemory(notification: MicrosoftGraphNotification): boolean {
     const resourceId = notification.resourceData?.id || notification.resource || '';
     const notificationKey = `${notification.subscriptionId}:${resourceId}:${notification.changeType}`;
 
@@ -133,11 +169,9 @@ export class MicrosoftWebhookService {
     const existing = this.processedNotifications.get(notificationKey);
 
     if (existing && (now - existing.timestamp) < this.NOTIFICATION_DEDUP_WINDOW_MS) {
-      // Duplicate notification within dedup window
       return false;
     }
 
-    // Mark as processed
     this.processedNotifications.set(notificationKey, { timestamp: now });
     return true;
   }
@@ -192,8 +226,8 @@ export class MicrosoftWebhookService {
       return;
     }
 
-    // Security fix (SEC-1): Check for duplicate notifications
-    if (!this.checkAndMarkProcessed(notification)) {
+    // RC-12 FIX: Check for duplicate notifications using distributed Redis dedup
+    if (!await this.checkAndMarkProcessedDistributed(notification)) {
       this.logger.debug(
         `[DEDUP] Duplicate notification detected for subscription ${notification.subscriptionId}, skipping`,
       );
@@ -372,7 +406,7 @@ export class MicrosoftWebhookService {
             errorCount: { increment: 1 },
           },
         })
-        .catch(() => {}); // Ignore if doesn't exist
+        .catch(() => { }); // Ignore if doesn't exist
 
       throw error;
     }

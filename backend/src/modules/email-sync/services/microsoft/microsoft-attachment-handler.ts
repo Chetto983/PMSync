@@ -2,16 +2,13 @@
  * Microsoft Attachment Handler
  *
  * Provider-specific implementation extending BaseAttachmentHandler.
- * Only contains Microsoft Graph API-specific logic.
+ * Uses MicrosoftDriver for attachment download operations.
  *
- * DUP-1 Refactoring:
- * Before: 426 lines (duplicated processing logic)
- * After: ~130 lines (only provider-specific code)
- * Savings: ~296 lines (-69%)
+ * DC-6 Refactoring: Updated to use driver pattern
+ * Shares processing logic with Gmail and IMAP handlers via BaseAttachmentHandler
  */
 
 import { Injectable } from '@nestjs/common';
-import axios from 'axios';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { AttachmentStorageService } from '../../../email/services/attachment.storage';
 import { IcsParserService } from '../../../calendar/services/ics-parser.service';
@@ -21,18 +18,7 @@ import {
   AttachmentProviderType,
   DownloadContext,
 } from '../base-attachment-handler';
-
-/**
- * Microsoft Graph API attachment metadata (for internal use)
- */
-export interface MicrosoftAttachmentMeta {
-  id: string;
-  name: string;
-  contentType: string;
-  size: number;
-  isInline: boolean;
-  contentId?: string;
-}
+import { MicrosoftDriver } from '../../drivers/microsoft/microsoft.driver';
 
 /**
  * Microsoft-specific attachment handler
@@ -41,7 +27,6 @@ export interface MicrosoftAttachmentMeta {
 @Injectable()
 export class MicrosoftAttachmentHandler extends BaseAttachmentHandler {
   protected readonly providerType: AttachmentProviderType = 'microsoft';
-  private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
 
   constructor(
     prisma: PrismaService,
@@ -51,77 +36,31 @@ export class MicrosoftAttachmentHandler extends BaseAttachmentHandler {
     super(prisma, attachmentStorage, icsParser);
   }
 
-  // ==================== Provider-Specific: Fetch Attachment List ====================
-
-  /**
-   * Fetch attachment metadata from Microsoft Graph API
-   *
-   * @param accessToken - Microsoft access token
-   * @param messageId - External message ID
-   * @param msRequestWithRetry - Retry wrapper function from MicrosoftSyncService
-   * @returns Array of attachment metadata
-   */
-  async fetchMicrosoftAttachments(
-    accessToken: string,
-    messageId: string,
-    msRequestWithRetry: <T>(fn: () => Promise<T>) => Promise<T>,
-  ): Promise<MicrosoftAttachmentMeta[]> {
-    try {
-      const response = await msRequestWithRetry(() =>
-        axios.get(
-          `${this.GRAPH_API_BASE}/me/messages/${messageId}/attachments`,
-          {
-            headers: { Authorization: `Bearer ${accessToken}` },
-            params: { $select: 'id,name,contentType,size,isInline,contentId' },
-          },
-        ),
-      );
-
-      const attachments = response.data?.value || [];
-      return attachments.map((att: any) => ({
-        id: att.id,
-        name: att.name || 'unnamed',
-        contentType: att.contentType || 'application/octet-stream',
-        size: att.size || 0,
-        isInline: !!att.isInline,
-        contentId: att.contentId,
-      }));
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(
-        `Failed to fetch attachments for message ${messageId}: ${err.message}`,
-      );
-      return [];
-    }
-  }
-
   // ==================== Provider-Specific: Download ====================
 
   /**
-   * Download attachment data from Microsoft Graph API
+   * Download attachment data from Microsoft Graph API via driver
    *
    * @param context - Download context with message and attachment IDs
-   * @param accessToken - Microsoft access token
-   * @param msRequestWithRetry - Retry wrapper function
+   * @param driver - Microsoft driver instance
    * @returns Buffer with attachment data or null if download fails
    */
   async downloadAttachment(
     context: DownloadContext,
-    accessToken: string,
-    msRequestWithRetry: <T>(fn: () => Promise<T>) => Promise<T>,
+    driver: MicrosoftDriver,
   ): Promise<Buffer | null> {
     try {
-      const response = await msRequestWithRetry(() =>
-        axios.get(
-          `${this.GRAPH_API_BASE}/me/messages/${context.messageId}/attachments/${context.attachmentId}/$value`,
-          {
-            headers: { Authorization: `Bearer ${accessToken}` },
-            responseType: 'arraybuffer',
-          },
-        ),
+      const attachmentData = await driver.getAttachment(
+        context.messageId,
+        context.attachmentId,
       );
 
-      return Buffer.from(response.data);
+      if (!attachmentData?.content) {
+        return null;
+      }
+
+      // Microsoft driver returns base64-encoded content
+      return Buffer.from(attachmentData.content, 'base64');
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
@@ -135,52 +74,28 @@ export class MicrosoftAttachmentHandler extends BaseAttachmentHandler {
 
   /**
    * Process attachments for a Microsoft email
-   * Wraps the base class method with Microsoft-specific logic
+   * Wraps the base class method with Microsoft-specific download logic
    *
-   * @param accessToken - Microsoft access token
+   * @param driver - Microsoft driver instance
    * @param emailId - Database email ID
    * @param externalId - External message ID
+   * @param attachments - Attachment metadata (already in canonical format from driver)
    * @param tenantId - Tenant ID
    * @param providerId - Provider config ID
-   * @param msRequestWithRetry - Retry wrapper function from MicrosoftSyncService
    */
   async processMicrosoftAttachments(
-    accessToken: string,
+    driver: MicrosoftDriver,
     emailId: string,
     externalId: string,
+    attachments: AttachmentMeta[],
     tenantId: string,
     providerId: string,
-    msRequestWithRetry: <T>(fn: () => Promise<T>) => Promise<T>,
   ): Promise<void> {
-    // Fetch attachment metadata from Microsoft Graph API
-    const msAttachments = await this.fetchMicrosoftAttachments(
-      accessToken,
-      externalId,
-      msRequestWithRetry,
-    );
-
-    if (!msAttachments.length) {
-      return;
-    }
-
-    // Convert Microsoft-specific metadata to provider-agnostic format
-    const normalizedAttachments: AttachmentMeta[] = msAttachments.map(
-      (att) => ({
-        id: att.id,
-        filename: att.name,
-        mimeType: att.contentType,
-        size: att.size,
-        isInline: att.isInline,
-        contentId: att.contentId,
-      }),
-    );
-
-    // Create download function closure with Microsoft API context
+    // Create download function closure with Microsoft driver
     const downloadFn = async (attachmentId: string): Promise<Buffer | null> => {
       return this.downloadAttachment(
         { messageId: externalId, attachmentId },
-        accessToken,
-        msRequestWithRetry,
+        driver,
       );
     };
 
@@ -188,7 +103,7 @@ export class MicrosoftAttachmentHandler extends BaseAttachmentHandler {
     await this.processEmailAttachments(
       emailId,
       externalId,
-      normalizedAttachments,
+      attachments,
       tenantId,
       providerId,
       downloadFn,

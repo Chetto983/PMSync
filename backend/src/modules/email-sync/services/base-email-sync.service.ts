@@ -68,9 +68,293 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
   }
 
   /**
-   * Main sync entry point - must be implemented by each provider
+   * Main sync entry point - orchestrates the sync process
+   * Providers only need to implement getDriverCredentials() and getEmbeddingQueue()
    */
-  abstract syncProvider(jobData: SyncJobData): Promise<SyncJobResult>;
+  async syncProvider(jobData: SyncJobData): Promise<SyncJobResult> {
+    const { providerId, email, syncType, tenantId } = jobData;
+
+    this.logger.log(`Starting ${syncType} sync for ${email} (driver mode)`);
+
+    try {
+      // Get provider credentials (provider-specific)
+      const { provider, credentials, driverType } = await this.getDriverCredentials(providerId);
+
+      // Create connected driver
+      const driver = await this.createDriver(driverType, credentials);
+
+      if (!driver.isConnected()) {
+        throw new Error('Driver failed to connect');
+      }
+
+      try {
+        // Hook for provider-specific pre-sync logic (e.g., capability checks)
+        await this.onBeforeSync(driver, provider);
+
+        // Get last sync token from metadata
+        const metadata = (provider.metadata) || {};
+        const lastSyncToken = metadata.lastSyncToken;
+
+        let messagesProcessed = 0;
+        let newMessages = 0;
+        let newSyncToken: string | undefined;
+
+        if (syncType === 'incremental' && lastSyncToken) {
+          // Incremental sync using driver
+          const result = await this.syncIncrementalWithDriver(
+            driver,
+            lastSyncToken,
+            providerId,
+            tenantId,
+          );
+          messagesProcessed = result.messagesProcessed;
+          newMessages = result.newMessages;
+          newSyncToken = result.newSyncToken;
+        } else {
+          // Full sync using driver
+          const result = await this.syncFullWithDriver(
+            driver,
+            providerId,
+            tenantId,
+          );
+          messagesProcessed = result.messagesProcessed;
+          newMessages = result.newMessages;
+          newSyncToken = result.syncToken;
+        }
+
+        // Emit realtime events
+        if (messagesProcessed > 0) {
+          this.realtimeEvents.emitEmailBatchProcessed(tenantId, {
+            providerId,
+            processed: messagesProcessed,
+            created: newMessages,
+            syncType,
+          });
+          this.realtimeEvents.emitSyncStatus(tenantId, {
+            providerId,
+            status: 'in_progress',
+            processed: messagesProcessed,
+          });
+        }
+
+        return {
+          success: true,
+          providerId,
+          email,
+          messagesProcessed,
+          newMessages,
+          syncDuration: 0, // Will be set by worker
+          lastSyncToken: newSyncToken,
+        };
+      } finally {
+        await driver.disconnect();
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Sync failed for ${email}: ${errorMessage}`);
+      if (errorStack) {
+        this.logger.error(`Stack trace: ${errorStack}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get driver credentials for connecting to provider
+   * Must be implemented by each provider (Google, Microsoft, IMAP)
+   */
+  protected abstract getDriverCredentials(providerId: string): Promise<{
+    provider: any;
+    credentials: any;
+    driverType: 'google' | 'microsoft' | 'imap';
+  }>;
+
+  /**
+   * Create and connect driver - can be overridden by providers
+   */
+  protected abstract createDriver(driverType: string, credentials: any): Promise<IEmailDriver>;
+
+  /**
+   * Hook for provider-specific pre-sync logic (e.g., capability checks)
+   * Override in providers that need to do something before sync starts
+   */
+  protected async onBeforeSync(_driver: IEmailDriver, _provider: any): Promise<void> {
+    // Default: no-op. Providers can override for capability checks, etc.
+  }
+
+  /**
+   * Get additional listMessages options for provider
+   * Override to add provider-specific options (e.g., includeBody for IMAP)
+   */
+  protected getListMessagesOptions(): Record<string, any> {
+    return {};
+  }
+
+  /**
+   * Hook for provider-specific incremental sync processing
+   * Called after getting changes, before processing. Can modify results.
+   * Override in providers that need special handling (e.g., Microsoft delta token expiration)
+   */
+  protected onIncrementalChanges(
+    changesResult: { changes: Array<{ type: string; messageId: string }>; newSyncToken: string },
+    _lastSyncToken: string,
+  ): { skipProcessing: boolean; logMessage?: string } {
+    // Default: process all changes
+    if (changesResult.changes.length === 0) {
+      return { skipProcessing: true, logMessage: 'No changes detected' };
+    }
+    return { skipProcessing: false };
+  }
+
+  /**
+   * Full sync using driver - shared implementation
+   * DC-2 consolidation: Removes ~55 lines × 3 providers = ~165 lines
+   */
+  protected async syncFullWithDriver(
+    driver: IEmailDriver,
+    providerId: string,
+    tenantId: string,
+  ): Promise<{
+    messagesProcessed: number;
+    newMessages: number;
+    syncToken: string;
+  }> {
+    this.logger.debug(`Full sync with driver - fetching latest ${this.fullSyncMaxMessages} messages`);
+
+    let messagesProcessed = 0;
+    let newMessages = 0;
+    let pageToken: string | undefined;
+    let fetchedCount = 0;
+
+    // List messages from INBOX
+    do {
+      const result = await driver.listMessages({
+        folder: 'INBOX',
+        pageSize: Math.min(this.batchSize, this.fullSyncMaxMessages - fetchedCount),
+        pageToken,
+        ...this.getListMessagesOptions(),
+      });
+
+      // Performance fix (N1-4/N1-5): Process messages in batch using transaction
+      const batchResult = await this.processMessagesBatch(
+        driver,
+        result.messages,
+        providerId,
+        tenantId,
+      );
+      messagesProcessed += batchResult.processed;
+      newMessages += batchResult.newCount;
+
+      fetchedCount += result.messages.length;
+      pageToken = result.nextPageToken;
+
+      // Stop if we've reached the limit or no more pages
+      if (fetchedCount >= this.fullSyncMaxMessages || !pageToken) {
+        break;
+      }
+    } while (pageToken);
+
+    // Get current sync token (method may not be available on all drivers)
+    if (!driver.getInitialSyncToken) {
+      throw new Error('Driver does not support getInitialSyncToken - cannot complete full sync');
+    }
+    const syncToken = await driver.getInitialSyncToken();
+
+    this.logger.debug(
+      `Full sync complete: ${messagesProcessed} processed, ${newMessages} new, syncToken: ${syncToken}`,
+    );
+
+    return {
+      messagesProcessed,
+      newMessages,
+      syncToken,
+    };
+  }
+
+  /**
+   * Incremental sync using driver - shared implementation
+   * DC-3 consolidation: Removes ~70 lines × 3 providers = ~210 lines
+   */
+  protected async syncIncrementalWithDriver(
+    driver: IEmailDriver,
+    lastSyncToken: string,
+    providerId: string,
+    tenantId: string,
+  ): Promise<{
+    messagesProcessed: number;
+    newMessages: number;
+    newSyncToken: string;
+  }> {
+    this.logger.debug(`Incremental sync with driver from token: ${lastSyncToken.substring(0, 20)}...`);
+
+    let messagesProcessed = 0;
+    let newMessages = 0;
+    const processedIds = new Set<string>();
+
+    // Get changes since last sync (method may not be available on all drivers)
+    if (!driver.getChangesSince) {
+      throw new Error('Driver does not support getChangesSince - cannot complete incremental sync');
+    }
+    const changesResult = await driver.getChangesSince(lastSyncToken);
+
+    // Provider-specific handling (e.g., Microsoft delta token expiration)
+    const hookResult = this.onIncrementalChanges(changesResult, lastSyncToken);
+    if (hookResult.skipProcessing) {
+      if (hookResult.logMessage) {
+        this.logger.debug(hookResult.logMessage);
+      }
+      return {
+        messagesProcessed: 0,
+        newMessages: 0,
+        newSyncToken: changesResult.newSyncToken,
+      };
+    }
+
+    this.logger.debug(`Found ${changesResult.changes.length} changes`);
+
+    // Process each change
+    for (const change of changesResult.changes) {
+      // Skip if already processed (deduplication)
+      if (processedIds.has(change.messageId)) {
+        continue;
+      }
+      processedIds.add(change.messageId);
+
+      try {
+        if (change.type === 'deleted') {
+          // Handle deletion
+          await this.handleMessageDeletion(change.messageId, providerId, tenantId);
+          messagesProcessed++;
+        } else if (change.type === 'added' || change.type === 'modified') {
+          // Fetch and upsert the message
+          const message = await driver.getMessage(change.messageId);
+          if (message) {
+            const upsertResult = await this.upsertMessageFromDriver(driver, message, providerId, tenantId);
+            messagesProcessed++;
+            if (upsertResult.wasNew) {
+              newMessages++;
+            }
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to process change for message ${change.messageId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        // Continue processing other changes
+      }
+    }
+
+    this.logger.debug(
+      `Incremental sync complete: ${messagesProcessed} processed, ${newMessages} new, newToken: ${changesResult.newSyncToken.substring(0, 20)}...`,
+    );
+
+    return {
+      messagesProcessed,
+      newMessages,
+      newSyncToken: changesResult.newSyncToken,
+    };
+  }
 
   /**
    * Get the email embedding queue service - must be provided by child classes
