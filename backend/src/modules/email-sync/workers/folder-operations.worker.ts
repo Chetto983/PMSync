@@ -184,7 +184,7 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
    */
   private async getDriverCredentials(providerId: string, providerType: string): Promise<DriverCredentials> {
     // Basic credential object
-    const creds: DriverCredentials = {
+    const _creds: DriverCredentials = {
       type: 'oauth2'
     };
 

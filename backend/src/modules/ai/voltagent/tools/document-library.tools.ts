@@ -23,9 +23,6 @@ import { Logger } from '@nestjs/common';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 import {
   DocumentLibraryService,
-  type DocumentLibrary as ServiceDocumentLibrary,
-  type LibraryDocument as ServiceLibraryDocument,
-  type DocumentQueryResult,
 } from '../services/document-library.service';
 
 const logger = new Logger('DocumentLibraryTools');

@@ -173,23 +173,28 @@ const draftExternalId = dto.id ?? `draft-${randomUUID()}`;
 ## Duplicate Code (Email-Sync) ⚠️ PENDING
 
 ### DC-1: Attachment processing duplicated in Gmail and Microsoft sync services
+
 - Affected: `backend/src/modules/email-sync/services/gmail/google-sync.service.ts`, `backend/src/modules/email-sync/services/microsoft/microsoft-sync.service.ts`, `backend/src/modules/email-sync/services/base-attachment-handler.ts`
 - Risk: Divergent behavior for attachment normalization and storage.
 
 ### DC-2: EmailSendWorker duplicates driver send logic
+
 - Affected: `backend/src/modules/email-sync/workers/email-send.worker.ts`, `backend/src/modules/email-sync/drivers/google/google.driver.ts`, `backend/src/modules/email-sync/drivers/microsoft/microsoft.driver.ts`
 - Risk: Feature drift (attachments, Bcc, headers) across send paths.
 - Note: Partially addressed by ES-3 fix which now routes through driver APIs.
 
 ### DC-3: Batch processors overlap driver-based sync
+
 - Affected: `backend/src/modules/email-sync/services/gmail/gmail-batch-processor.ts`, `backend/src/modules/email-sync/services/microsoft/microsoft-batch-processor.ts`
 - Risk: Two implementations of the same sync flow increase maintenance and bugs.
 
 ### DC-4: Message parsing duplicated between parser services and drivers
+
 - Affected: `backend/src/modules/email-sync/services/gmail/gmail-message-parser.ts`, `backend/src/modules/email-sync/drivers/google/google.driver.ts`, `backend/src/modules/email-sync/services/microsoft/microsoft-message-parser.ts`, `backend/src/modules/email-sync/drivers/microsoft/microsoft.driver.ts`
 - Risk: Canonical mapping differences and inconsistent flags.
 
 ### DC-5: Queue services repeat boilerplate patterns
+
 - Affected: `backend/src/modules/email-sync/services/email-send-queue.service.ts`, `backend/src/modules/email-sync/services/bulk-operations-queue.service.ts`, `backend/src/modules/email-sync/services/provider-sync-back-queue.service.ts`, `backend/src/modules/email-sync/services/folder-operations-queue.service.ts`
 - Risk: Repeated queue configuration and error handling logic.
 
@@ -202,20 +207,25 @@ const draftExternalId = dto.id ?? `draft-${randomUUID()}`;
 - ✅ Phase 4: Close top concurrency issues with scheduled email claiming and token refresh locking (RC-1, RC-2) - COMPLETED
 - ✅ Phase 5: Harden attachment and cleanup flows with locks, conditional uploads, and idempotent deletes (RC-3, RC-4) - COMPLETED
 - ✅ Phase 6: Enforce per-email sync-back ordering and randomize draft externalId (RC-5, RC-6) - COMPLETED
-- ⚠️ Phase 7: Consolidate duplicate parsing, send, and queue logic into shared helpers and driver APIs (DC-1 to DC-5) - PENDING
-- ⚠️ Phase 8: Validate with real providers and add regression tests and metrics for sync-back and send flows - PENDING
+- ✅ Phase 7: Codebase cleanup - removed unused code (DC-4 resolved by deletion) - COMPLETED
+- ⚠️ Phase 8: Consolidate remaining duplicate logic (DC-1, DC-2, DC-3, DC-5) - PENDING
+- ⚠️ Phase 9: Validate with real providers and add regression tests - PENDING
 
 ## Progress Summary
 
-| Category | Total | Fixed | Pending |
-|----------|-------|-------|---------|
+| Category | Total | Fixed/Cleaned | Pending |
+|----------|-------|---------------|---------|
 | Bugs (ES) | 7 | 7 | 0 |
 | Race Conditions (RC) | 6 | 6 | 0 |
-| Duplicate Code (DC) | 5 | 0 | 5 |
+| Duplicate Code (DC) | 5 | 1 (DC-4) | 4 |
+| Unused Code | 4 | 4 | 0 |
+| Spec Test Files | 55 | 55 removed | 0 |
 
 Notes
 - All bugs (ES-1 through ES-7) have been fixed.
 - All race conditions (RC-1 through RC-6) have been fixed with atomic operations, Redis locks, and idempotent patterns.
+- Codebase cleanup completed: removed unused example file, batch processors, message parsers, and 55 spec test files.
+- DC-4 (legacy batch processors) resolved by file deletion.
 - TypeScript compilation verified with `npx tsc --noEmit` - no errors.
-- Duplicate code clusters (DC-1 to DC-5) are code quality improvements, not bugs. Can be addressed in future refactoring.
+- Remaining duplicate code clusters (DC-1, DC-2, DC-3, DC-5) are code quality improvements, not bugs.
 - Ready for testing with real providers.

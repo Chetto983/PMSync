@@ -2,7 +2,7 @@
  * EmailSendQueueService
  *
  * BullMQ queue service for sending outbound emails through providers.
- * Handles email composition, scheduling, retry logic, and delivery tracking.
+ * Extends BaseQueueService for common queue boilerplate.
  *
  * Key Features:
  * - Priority queuing (urgent vs scheduled)
@@ -12,39 +12,15 @@
  * - Draft auto-save integration
  * - Delivery status tracking
  *
- * Usage:
- * ```typescript
- * // Queue an email for immediate send
- * await emailSendQueue.enqueueSend({
- *   tenantId: 'tenant-123',
- *   providerId: 'provider-456',
- *   providerType: 'google',
- *   email: {
- *     to: ['user@example.com'],
- *     subject: 'Hello',
- *     body: 'Email body',
- *   },
- *   priority: 'high',
- * });
- *
- * // Schedule for later
- * await emailSendQueue.scheduleSend({
- *   ...data,
- *   scheduledAt: '2024-01-15T10:00:00Z',
- * });
- * ```
+ * CONSOLIDATION DC-5: Extends BaseQueueService to eliminate ~150 lines of boilerplate
  */
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Queue, QueueEvents, JobType } from 'bullmq';
-import { Redis } from 'ioredis';
+import { JobsOptions } from 'bullmq';
 import * as crypto from 'crypto';
-import {
-  getRedisConnectionOptions,
-  getDefaultJobOptions,
-  QUEUE_NAMES,
-} from '../../../common/config';
+import { QUEUE_NAMES } from '../../../common/config';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
+import { BaseQueueService, QueuePriority } from './base-queue.service';
 
 /**
  * Email recipient with optional name
@@ -125,7 +101,7 @@ export interface EmailSendJobResult {
 }
 
 /**
- * Queue metrics
+ * Queue metrics (extends base metrics with send-specific fields)
  */
 export interface EmailSendQueueMetrics {
   waiting: number;
@@ -139,105 +115,75 @@ export interface EmailSendQueueMetrics {
   lastError?: string;
 }
 
-interface InternalMetrics {
-  completed: number;
-  failed: number;
-  totalDurationMs: number;
+/**
+ * Extended internal metrics for send queue
+ */
+interface SendQueueMetrics {
   lastSentAt?: string;
-  lastError?: string;
 }
 
 @Injectable()
-export class EmailSendQueueService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(EmailSendQueueService.name);
-  private redisConnection: Redis;
-  private queue: Queue<EmailSendJobData, EmailSendJobResult>;
-  private queueEvents: QueueEvents;
-
-  private readonly metrics: InternalMetrics = {
-    completed: 0,
-    failed: 0,
-    totalDurationMs: 0,
-  };
+export class EmailSendQueueService extends BaseQueueService<EmailSendJobData, EmailSendJobResult> {
+  private readonly sendMetrics: SendQueueMetrics = {};
 
   constructor(
-    private readonly configService: ConfigService,
+    configService: ConfigService,
     @Inject(forwardRef(() => DeadLetterQueueService))
-    private readonly deadLetterQueue: DeadLetterQueueService,
-  ) {}
-
-  async onModuleInit() {
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
-
-    this.logger.log(
-      `Connecting to Redis for email send queue at ${redisOptions.host}:${redisOptions.port}`,
-    );
-
-    // Use HIGH priority defaults (user-initiated sends)
-    const jobDefaults = getDefaultJobOptions('HIGH');
-
-    this.queue = new Queue<EmailSendJobData, EmailSendJobResult>(QUEUE_NAMES.EMAIL_SEND, {
-      connection: this.redisConnection,
-      defaultJobOptions: {
-        ...jobDefaults,
-        attempts: 3, // Fewer retries for sends (avoid duplicate emails)
-        backoff: {
-          type: 'exponential',
-          delay: 5000, // 5s, 10s, 20s
-        },
-      },
-    });
-
-    this.setupQueueEvents();
-
-    this.logger.log('Email send queue initialized successfully');
+    deadLetterQueue: DeadLetterQueueService,
+  ) {
+    super(configService, deadLetterQueue);
   }
 
-  private setupQueueEvents() {
-    this.queueEvents = new QueueEvents(QUEUE_NAMES.EMAIL_SEND, {
-      connection: this.redisConnection,
-    });
+  // ==================== BaseQueueService Abstract Implementations ====================
 
-    this.queueEvents.on('completed', ({ jobId }) => {
-      this.logger.debug(`Email send job ${jobId} completed`);
-      this.recordCompletion(jobId).catch((error) => {
-        this.logger.debug(
-          `Failed to record metrics for job ${jobId}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      });
-    });
+  protected getQueueName(): string {
+    return QUEUE_NAMES.EMAIL_SEND;
+  }
 
-    this.queueEvents.on('failed', ({ jobId, failedReason }) => {
-      this.logger.warn(`Email send job ${jobId} failed: ${failedReason}`);
-      this.recordFailure(failedReason);
+  protected getQueuePriority(): QueuePriority {
+    return 'HIGH'; // User-initiated sends
+  }
 
-      // Add to DLQ if job exhausted all retries
-      this.handlePermanentFailure(jobId, failedReason).catch((err) => {
-        this.logger.error(`Failed to add job ${jobId} to DLQ: ${err instanceof Error ? err.message : String(err)}`);
-      });
-    });
+  protected getJobDefaultOverrides(): Partial<JobsOptions> {
+    return {
+      attempts: 3, // Fewer retries for sends (avoid duplicate emails)
+      backoff: {
+        type: 'exponential',
+        delay: 5000, // 5s, 10s, 20s
+      },
+    };
+  }
 
+  protected setupCustomEvents(): void {
     this.queueEvents.on('delayed', ({ jobId, delay }) => {
       this.logger.debug(`Email send job ${jobId} delayed for ${delay}ms`);
     });
   }
 
+  protected extractDlqMetadata(jobData: EmailSendJobData): Record<string, any> {
+    return {
+      providerId: jobData.providerId,
+      providerType: jobData.providerType,
+      recipients: jobData.email.to.map((r) => r.email).join(', '),
+    };
+  }
+
+  // ==================== Override recordCompletion for lastSentAt ====================
+
+  protected async recordCompletion(jobId: string): Promise<void> {
+    await super.recordCompletion(jobId);
+    this.sendMetrics.lastSentAt = new Date().toISOString();
+  }
+
+  // ==================== Email Send Business Logic ====================
+
   /**
    * Generate deterministic idempotency key from email content
    * AUDIT FIX #4: Uses content hash instead of Date.now() to properly dedupe retries
-   *
-   * Key components:
-   * - tenantId + providerId (scope)
-   * - recipients (to, cc, bcc)
-   * - subject
-   * - body hash (first 200 chars to handle slight differences)
-   * - scheduledAt (for scheduled sends)
    */
   private generateIdempotencyKey(data: EmailSendJobData, prefix: string = 'send'): string {
     const email = data.email;
 
-    // Build deterministic content string
     const contentParts = [
       data.tenantId,
       data.providerId,
@@ -245,15 +191,12 @@ export class EmailSendQueueService implements OnModuleInit, OnModuleDestroy {
       email.cc?.map((r) => r.email).sort().join(',') || '',
       email.bcc?.map((r) => r.email).sort().join(',') || '',
       email.subject || '',
-      // Use first 200 chars of body to handle minor differences
       (email.bodyText || email.bodyHtml || '').substring(0, 200),
       email.inReplyTo || '',
       data.scheduledAt || '',
     ];
 
     const contentString = contentParts.join('|');
-
-    // Generate SHA-256 hash and take first 16 chars for brevity
     const hash = crypto.createHash('sha256').update(contentString).digest('hex').substring(0, 16);
 
     return `${prefix}-${data.providerId.substring(0, 8)}-${hash}`;
@@ -261,11 +204,8 @@ export class EmailSendQueueService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Enqueue an email for immediate sending.
-   *
-   * @returns Job ID for tracking
    */
   async enqueueSend(data: EmailSendJobData): Promise<string> {
-    // AUDIT FIX #4: Generate deterministic idempotency key based on content
     const idempotencyKey = data.idempotencyKey || this.generateIdempotencyKey(data, 'send');
 
     // Check for duplicate send
@@ -292,16 +232,12 @@ export class EmailSendQueueService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Schedule an email for later sending.
-   *
-   * @param data - Job data with scheduledAt timestamp
-   * @returns Job ID for tracking
    */
   async scheduleSend(data: EmailSendJobData & { scheduledAt: string }): Promise<string> {
     const scheduledTime = new Date(data.scheduledAt).getTime();
     const now = Date.now();
     const delay = Math.max(0, scheduledTime - now);
 
-    // AUDIT FIX #4: Use deterministic idempotency key (scheduledAt is included in hash)
     const idempotencyKey = data.idempotencyKey || this.generateIdempotencyKey(data, 'scheduled');
 
     const job = await this.queue.add('scheduled-send', data, {
@@ -319,8 +255,6 @@ export class EmailSendQueueService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Cancel a scheduled send.
-   *
-   * @returns true if cancelled, false if not found or already sent
    */
   async cancelScheduledSend(jobId: string): Promise<boolean> {
     const job = await this.queue.getJob(jobId);
@@ -357,7 +291,6 @@ export class EmailSendQueueService implements OnModuleInit, OnModuleDestroy {
    */
   async getScheduledSendsForTenant(tenantId: string): Promise<EmailSendJobData[]> {
     const delayedJobs = await this.queue.getJobs(['delayed'], 0, -1);
-
     return delayedJobs.filter((job) => job?.data?.tenantId === tenantId).map((job) => job.data);
   }
 
@@ -365,167 +298,15 @@ export class EmailSendQueueService implements OnModuleInit, OnModuleDestroy {
    * Get queue status and metrics.
    */
   async getQueueStatus(): Promise<EmailSendQueueMetrics> {
-    const counts = await this.queue.getJobCounts();
+    const baseMetrics = await this.getBaseMetrics();
     const delayedJobs = await this.queue.getJobs(['delayed'], 0, -1);
 
     return {
-      waiting: counts.waiting || 0,
-      active: counts.active || 0,
-      completed: counts.completed || 0,
-      failed: counts.failed || 0,
-      delayed: counts.delayed || 0,
+      ...baseMetrics,
       scheduled: delayedJobs.filter((j) => j?.data?.scheduledAt).length,
-      avgDurationMs:
-        this.metrics.completed > 0
-          ? Math.round(this.metrics.totalDurationMs / this.metrics.completed)
-          : 0,
-      lastSentAt: this.metrics.lastSentAt,
-      lastError: this.metrics.lastError,
+      avgDurationMs: this.getAverageDuration(),
+      lastSentAt: this.sendMetrics.lastSentAt,
+      lastError: this.baseMetrics.lastError,
     };
-  }
-
-  /**
-   * Remove all pending jobs for a tenant.
-   */
-  async removeJobsForTenant(tenantId: string): Promise<number> {
-    const states: JobType[] = ['waiting', 'delayed', 'paused'];
-    const jobs = await this.queue.getJobs(states, 0, -1);
-    let removed = 0;
-
-    for (const job of jobs) {
-      if (job?.data?.tenantId === tenantId) {
-        await job.remove();
-        removed++;
-      }
-    }
-
-    if (removed > 0) {
-      this.logger.log(`Removed ${removed} pending email send jobs for tenant ${tenantId}`);
-    }
-
-    return removed;
-  }
-
-  /**
-   * Remove all pending jobs for a provider.
-   */
-  async removeJobsForProvider(providerId: string): Promise<number> {
-    const states: JobType[] = ['waiting', 'delayed', 'paused'];
-    const jobs = await this.queue.getJobs(states, 0, -1);
-    let removed = 0;
-
-    for (const job of jobs) {
-      if (job?.data?.providerId === providerId) {
-        await job.remove();
-        removed++;
-      }
-    }
-
-    if (removed > 0) {
-      this.logger.log(`Removed ${removed} pending email send jobs for provider ${providerId}`);
-    }
-
-    return removed;
-  }
-
-  /**
-   * Pause queue processing.
-   */
-  async pause(): Promise<void> {
-    await this.queue.pause();
-    this.logger.log('Email send queue paused');
-  }
-
-  /**
-   * Resume queue processing.
-   */
-  async resume(): Promise<void> {
-    await this.queue.resume();
-    this.logger.log('Email send queue resumed');
-  }
-
-  /**
-   * Get the underlying queue (for worker access).
-   */
-  getQueue(): Queue<EmailSendJobData, EmailSendJobResult> {
-    return this.queue;
-  }
-
-  private async recordCompletion(jobId: string) {
-    this.metrics.completed++;
-    this.metrics.lastSentAt = new Date().toISOString();
-
-    try {
-      const job = await this.queue.getJob(jobId);
-      if (job?.processedOn != null && job?.finishedOn != null) {
-        const duration = job.finishedOn - job.processedOn;
-        if (Number.isFinite(duration) && duration >= 0) {
-          this.metrics.totalDurationMs += duration;
-        }
-      }
-    } catch {
-      // Ignore errors when fetching job metrics
-    }
-  }
-
-  private recordFailure(failedReason?: string) {
-    this.metrics.failed++;
-    this.metrics.lastError = failedReason;
-  }
-
-  /**
-   * Handle permanently failed jobs by adding them to the DLQ
-   */
-  private async handlePermanentFailure(jobId: string, failedReason?: string): Promise<void> {
-    const job = await this.queue.getJob(jobId);
-    if (!job) return;
-
-    // Check if job has exhausted all retries (attemptsMade >= attempts)
-    const maxAttempts = job.opts.attempts || 3;
-    if (job.attemptsMade < maxAttempts) {
-      return; // Job still has retries remaining
-    }
-
-    // Add to DLQ
-    await this.deadLetterQueue.addToDeadLetter(
-      jobId,
-      QUEUE_NAMES.EMAIL_SEND,
-      job.data,
-      new Error(failedReason || 'Unknown error'),
-      job.attemptsMade,
-      {
-        providerId: job.data.providerId,
-        providerType: job.data.providerType,
-        recipients: job.data.email.to.map((r) => r.email).join(', '),
-      },
-    );
-  }
-
-  async onModuleDestroy() {
-    this.logger.log('Closing email send queue...');
-
-    try {
-      if (this.queueEvents) {
-        await this.queueEvents.close();
-      }
-
-      if (this.queue) {
-        await this.queue.close();
-      }
-
-      if (
-        this.redisConnection &&
-        this.redisConnection.status !== 'end' &&
-        this.redisConnection.status !== 'close'
-      ) {
-        await this.redisConnection.quit();
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Email send queue shutdown error: ${error instanceof Error ? error.message : error}`,
-      );
-    } finally {
-      this.logger.log('Email send queue closed');
-    }
   }
 }
