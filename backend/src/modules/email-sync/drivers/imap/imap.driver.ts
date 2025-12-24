@@ -275,12 +275,15 @@ export class IMAPDriver extends BaseEmailDriver {
         const newCount = data.count - data.prevCount;
         const changes: ProviderChange[] = [];
 
-        // Create change entries for new messages
-        // Note: We don't have UIDs here, the callback should trigger a sync
+        // AUDIT FIX #1: Emit folder:uid format for consistency
+        // For new messages, we signal a sync trigger with special format
+        // The sync service should perform a full sync to get actual UIDs
         for (let i = 0; i < newCount; i++) {
           changes.push({
             type: 'added',
-            messageId: `${data.path}:new_${Date.now()}_${i}`,
+            // Use folder:__NEW__ to signal new messages need sync
+            // This is a trigger, not an actual message ID
+            messageId: `${data.path}:__NEW__${Date.now()}_${i}`,
             folder: this.pathToCanonicalFolder(data.path),
             timestamp: new Date(),
           });
@@ -296,14 +299,22 @@ export class IMAPDriver extends BaseEmailDriver {
 
     // 'expunge' - Message deleted
     // Note: Using 'as any' because ImapFlow types may not include all event types
+    // AUDIT FIX #1: Sequence numbers are unreliable (they change on deletion)
+    // Use special __EXPUNGE__ marker to signal that sync service should reconcile
     (this.idleConnection as any).on('expunge', async (data: { path: string; seq: number }) => {
       this.logger.debug(`IDLE expunge event: ${data.path} seq=${data.seq}`);
 
       if (!this.idleCallback) return;
 
+      // AUDIT FIX #1: Emit folder:__EXPUNGE__ to signal deletion reconciliation needed
+      // Cannot reliably map sequence number to UID after expunge
+      // The sync service should query the DB for messages in this folder
+      // and reconcile with current server state
       const changes: ProviderChange[] = [{
         type: 'deleted',
-        messageId: `${data.path}:seq_${data.seq}`,
+        // Use folder:__EXPUNGE__seq to signal deletion happened
+        // Sync service should reconcile by checking which UIDs no longer exist
+        messageId: `${data.path}:__EXPUNGE__${data.seq}`,
         folder: this.pathToCanonicalFolder(data.path),
         timestamp: new Date(),
       }];
@@ -318,13 +329,16 @@ export class IMAPDriver extends BaseEmailDriver {
     // 'flags' - Message flags changed (read/unread, starred, etc.)
     // Note: Using 'as any' because ImapFlow types may not include all event types
     (this.idleConnection as any).on('flags', async (data: { path: string; seq: number; uid?: number; flags: Set<string> }) => {
-      this.logger.debug(`IDLE flags event: ${data.path} seq=${data.seq} flags=${Array.from(data.flags).join(',')}`);
+      this.logger.debug(`IDLE flags event: ${data.path} seq=${data.seq} uid=${data.uid} flags=${Array.from(data.flags).join(',')}`);
 
       if (!this.idleCallback) return;
 
+      // AUDIT FIX #1: Use consistent folder:uid format
+      // If UID is available, use folder:uid (e.g., "INBOX:123")
+      // If only seq is available, use folder:__FLAGS__seq to signal reconciliation needed
       const messageId = data.uid
         ? `${data.path}:${data.uid}`
-        : `${data.path}:seq_${data.seq}`;
+        : `${data.path}:__FLAGS__${data.seq}`;
 
       const changes: ProviderChange[] = [{
         type: 'modified',
@@ -1318,93 +1332,116 @@ export class IMAPDriver extends BaseEmailDriver {
   // ============================================
 
   /**
+   * AUDIT FIX #6: Folders to sync incrementally
+   * These are the main folders that users care about for sync
+   */
+  private readonly SYNC_FOLDERS = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'ARCHIVE', 'SPAM'];
+
+  /**
    * Get changes since last sync using CONDSTORE/QRESYNC
    * Uses HIGHESTMODSEQ for efficient incremental sync
+   *
+   * AUDIT FIX #6: Now syncs ALL important folders, not just INBOX
    *
    * IMAP Best Practices 2025:
    * - Use CONDSTORE extension for change tracking
    * - MODSEQ is monotonically increasing per-folder
    * - More efficient than date-based search
+   * - Sync all user-relevant folders
    */
   async getChangesSince(syncToken: string): Promise<ChangesResult> {
     this.ensureConnected();
 
     return this.withConnection(async (client) => {
       const changes: ProviderChange[] = [];
-      const lastModSeq = BigInt(syncToken);
+
+      // AUDIT FIX #6: Parse multi-folder sync token
+      // Format: "INBOX:123,SENT:456,DRAFTS:789" or legacy single number
+      const folderModSeqs = this.parseSyncToken(syncToken);
 
       try {
-        // Select INBOX (can be extended to sync all folders)
-        const lock = await client.getMailboxLock('INBOX');
+        const newModSeqs: Map<string, bigint> = new Map();
+        let hasCondstore = true;
 
-        try {
-          // Check if server supports CONDSTORE
-          const mailboxStatus = await client.status('INBOX', {
-            highestModseq: true,
-          });
+        // AUDIT FIX #6: Sync ALL important folders
+        for (const canonicalFolder of this.SYNC_FOLDERS) {
+          try {
+            const folderPath = await this.resolveFolder(canonicalFolder);
+            const lastModSeq = folderModSeqs.get(canonicalFolder) || 0n;
 
-          if (!mailboxStatus.highestModseq) {
-            // Server doesn't support CONDSTORE - fallback to date-based sync
-            this.logger.warn('IMAP server does not support CONDSTORE, using date-based fallback');
-            const newSyncToken = Date.now().toString();
-            return {
-              changes: [],
-              newSyncToken,
-              hasMore: false,
-            };
-          }
-
-          const currentModSeq = mailboxStatus.highestModseq;
-
-          // If no changes, return early
-          if (currentModSeq <= lastModSeq) {
-            return {
-              changes: [],
-              newSyncToken: currentModSeq.toString(),
-              hasMore: false,
-            };
-          }
-
-          // Fetch messages modified since lastModSeq
-          // Using CHANGEDSINCE MODSEQ search criterion
-          for await (const message of client.fetch(
-            { modseq: lastModSeq + 1n }, // SearchObject with modseq filter
-            {
-              uid: true,
-              flags: true,
-              envelope: true,
-            },
-            { uid: true },
-          )) {
-            // Check if message is deleted
-            if (message.flags?.has('\\Deleted')) {
-              changes.push({
-                messageId: message.uid.toString(),
-                type: 'deleted',
-                timestamp: new Date(),
+            const lock = await client.getMailboxLock(folderPath);
+            try {
+              // Check if server supports CONDSTORE
+              const mailboxStatus = await client.status(folderPath, {
+                highestModseq: true,
               });
-            } else {
-              // Message was added or modified
-              changes.push({
-                messageId: message.uid.toString(),
-                type: 'modified', // Could be 'added' if new, but IMAP doesn't distinguish
-                timestamp: new Date(),
-              });
+
+              if (!mailboxStatus.highestModseq) {
+                // Server doesn't support CONDSTORE
+                hasCondstore = false;
+                this.logger.warn(`IMAP server does not support CONDSTORE for ${folderPath}`);
+                continue;
+              }
+
+              const currentModSeq = mailboxStatus.highestModseq;
+              newModSeqs.set(canonicalFolder, currentModSeq);
+
+              // If no changes in this folder, skip to next
+              if (currentModSeq <= lastModSeq) {
+                continue;
+              }
+
+              // Fetch messages modified since lastModSeq
+              for await (const message of client.fetch(
+                { modseq: lastModSeq + 1n },
+                {
+                  uid: true,
+                  flags: true,
+                  envelope: true,
+                },
+                { uid: true },
+              )) {
+                // AUDIT FIX #1: Use folder:uid format for consistent message IDs
+                const messageId = `${folderPath}:${message.uid}`;
+
+                if (message.flags?.has('\\Deleted')) {
+                  changes.push({
+                    messageId,
+                    type: 'deleted',
+                    folder: canonicalFolder,
+                    timestamp: new Date(),
+                  });
+                } else {
+                  changes.push({
+                    messageId,
+                    type: 'modified',
+                    folder: canonicalFolder,
+                    timestamp: new Date(),
+                  });
+                }
+              }
+            } finally {
+              lock.release();
             }
+          } catch (folderError: any) {
+            // Skip folders that don't exist or can't be accessed
+            this.logger.debug(`Skipping folder ${canonicalFolder}: ${folderError.message}`);
           }
-
-          return {
-            changes,
-            newSyncToken: currentModSeq.toString(),
-            hasMore: false,
-          };
-        } finally {
-          lock.release();
         }
+
+        // Build new sync token
+        const newSyncToken = hasCondstore
+          ? this.buildSyncToken(newModSeqs)
+          : Date.now().toString();
+
+        return {
+          changes,
+          newSyncToken,
+          hasMore: false,
+        };
       } catch (error: any) {
         this.logger.error(`IMAP getChangesSince failed: ${error.message}`);
 
-        // Return empty changes and current timestamp as fallback
         const fallbackToken = Date.now().toString();
         return {
           changes: [],
@@ -1416,28 +1453,83 @@ export class IMAPDriver extends BaseEmailDriver {
   }
 
   /**
+   * Parse multi-folder sync token
+   * AUDIT FIX #6: Support format "INBOX:123,SENT:456" or legacy single number
+   */
+  private parseSyncToken(syncToken: string): Map<string, bigint> {
+    const result = new Map<string, bigint>();
+
+    // Check if it's legacy format (single number)
+    if (/^\d+$/.test(syncToken)) {
+      // Legacy: apply same modseq to INBOX only
+      result.set('INBOX', BigInt(syncToken));
+      return result;
+    }
+
+    // Parse multi-folder format: "INBOX:123,SENT:456,DRAFTS:789"
+    const parts = syncToken.split(',');
+    for (const part of parts) {
+      const [folder, modseq] = part.split(':');
+      if (folder && modseq) {
+        try {
+          result.set(folder, BigInt(modseq));
+        } catch {
+          // Skip invalid entries
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Build multi-folder sync token
+   * AUDIT FIX #6: Format "INBOX:123,SENT:456,DRAFTS:789"
+   */
+  private buildSyncToken(modSeqs: Map<string, bigint>): string {
+    const parts: string[] = [];
+    for (const [folder, modseq] of modSeqs) {
+      parts.push(`${folder}:${modseq.toString()}`);
+    }
+    return parts.join(',') || Date.now().toString();
+  }
+
+  /**
    * Get initial sync token for delta sync
-   * Returns current HIGHESTMODSEQ for INBOX
+   * AUDIT FIX #6: Returns HIGHESTMODSEQ for ALL important folders
+   * Format: "INBOX:123,SENT:456,DRAFTS:789"
    */
   async getInitialSyncToken(): Promise<string> {
     this.ensureConnected();
 
     return this.withConnection(async (client) => {
-      try {
-        const mailboxStatus = await client.status('INBOX', {
-          highestModseq: true,
-        });
+      const modSeqs = new Map<string, bigint>();
+      let hasCondstore = false;
 
-        if (mailboxStatus.highestModseq) {
-          return mailboxStatus.highestModseq.toString();
+      // AUDIT FIX #6: Get modseq for all important folders
+      for (const canonicalFolder of this.SYNC_FOLDERS) {
+        try {
+          const folderPath = await this.resolveFolder(canonicalFolder);
+          const mailboxStatus = await client.status(folderPath, {
+            highestModseq: true,
+          });
+
+          if (mailboxStatus.highestModseq) {
+            modSeqs.set(canonicalFolder, mailboxStatus.highestModseq);
+            hasCondstore = true;
+          }
+        } catch (error: any) {
+          // Skip folders that don't exist
+          this.logger.debug(`Skipping folder ${canonicalFolder} for initial token: ${error.message}`);
         }
-
-        // Fallback to current timestamp if CONDSTORE not supported
-        return Date.now().toString();
-      } catch (error: any) {
-        this.logger.warn(`IMAP getInitialSyncToken failed: ${error.message}, using timestamp fallback`);
-        return Date.now().toString();
       }
+
+      if (hasCondstore && modSeqs.size > 0) {
+        return this.buildSyncToken(modSeqs);
+      }
+
+      // Fallback to current timestamp if CONDSTORE not supported
+      return Date.now().toString();
     });
   }
 

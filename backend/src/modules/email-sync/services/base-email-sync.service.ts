@@ -91,27 +91,103 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
   // ============================================
 
   /**
+   * Parse IMAP external ID to extract folder and UID
+   * AUDIT FIX #1: Supports folder:uid format and special markers
+   *
+   * @param externalId The external ID to parse
+   * @returns Object with folder, uid (if valid), and special marker type
+   */
+  protected parseImapExternalId(externalId: string): {
+    folder: string | null;
+    uid: number | null;
+    isSpecialMarker: boolean;
+    markerType: 'NEW' | 'EXPUNGE' | 'FLAGS' | null;
+  } {
+    const lastColon = externalId.lastIndexOf(':');
+
+    if (lastColon <= 0) {
+      // Legacy format: just UID
+      const uid = parseInt(externalId, 10);
+      return {
+        folder: null,
+        uid: isNaN(uid) ? null : uid,
+        isSpecialMarker: false,
+        markerType: null,
+      };
+    }
+
+    const folder = externalId.substring(0, lastColon);
+    const uidPart = externalId.substring(lastColon + 1);
+
+    // Check for special markers
+    if (uidPart.startsWith('__NEW__')) {
+      return { folder, uid: null, isSpecialMarker: true, markerType: 'NEW' };
+    }
+    if (uidPart.startsWith('__EXPUNGE__')) {
+      return { folder, uid: null, isSpecialMarker: true, markerType: 'EXPUNGE' };
+    }
+    if (uidPart.startsWith('__FLAGS__')) {
+      return { folder, uid: null, isSpecialMarker: true, markerType: 'FLAGS' };
+    }
+
+    // Normal folder:uid format
+    const uid = parseInt(uidPart, 10);
+    return {
+      folder,
+      uid: isNaN(uid) ? null : uid,
+      isSpecialMarker: false,
+      markerType: null,
+    };
+  }
+
+  /**
    * Handle message deletion - mark as deleted in database and emit events
    * This is identical across all providers and has been moved to base class
    *
    * Phase 4 Deduplication: Removes ~30 lines of duplicate code per provider
+   * AUDIT FIX #1: Now handles folder:uid format for IMAP
    *
    * @param messageId - External message ID from provider
    * @param providerId - Provider ID
    * @param tenantId - Tenant ID
+   * @returns Object indicating if reconciliation is needed
    */
   protected async handleMessageDeletion(
     messageId: string,
     providerId: string,
     tenantId: string,
-  ): Promise<void> {
+  ): Promise<{ needsReconciliation: boolean; folder?: string }> {
+    // AUDIT FIX #1: Parse the messageId to handle folder:uid format
+    const parsed = this.parseImapExternalId(messageId);
+
+    // Special markers indicate reconciliation is needed
+    if (parsed.isSpecialMarker && parsed.markerType === 'EXPUNGE') {
+      this.logger.debug(`IMAP deletion reconciliation needed for folder: ${parsed.folder}`);
+      return { needsReconciliation: true, folder: parsed.folder || undefined };
+    }
+
+    // Build query based on format
+    // Try to match both folder:uid format and just uid for backwards compatibility
     const existing = await this.prisma.email.findFirst({
-      where: { providerId, externalId: messageId },
-      select: { id: true, folder: true },
+      where: {
+        providerId,
+        OR: [
+          // Match full folder:uid format (new)
+          { externalId: messageId },
+          // Match just the UID part for backwards compatibility
+          ...(parsed.uid !== null ? [{ externalId: parsed.uid.toString() }] : []),
+          // Match folder:uid format if we have both parts
+          ...(parsed.folder && parsed.uid !== null
+            ? [{ externalId: `${parsed.folder}:${parsed.uid}` }]
+            : []),
+        ],
+      },
+      select: { id: true, folder: true, externalId: true },
     });
 
     if (!existing) {
-      return; // Message not in our database
+      this.logger.debug(`Message not found for deletion: ${messageId}`);
+      return { needsReconciliation: false };
     }
 
     // Mark as deleted or move to trash
@@ -130,6 +206,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       folder: existing.folder,
       reason: 'message-deleted',
     });
+
+    return { needsReconciliation: false };
   }
 
   /**

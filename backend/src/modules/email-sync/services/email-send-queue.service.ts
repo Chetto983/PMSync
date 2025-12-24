@@ -38,6 +38,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Inject, forwardRef }
 import { ConfigService } from '@nestjs/config';
 import { Queue, QueueEvents, JobType } from 'bullmq';
 import { Redis } from 'ioredis';
+import * as crypto from 'crypto';
 import {
   getRedisConnectionOptions,
   getDefaultJobOptions,
@@ -223,15 +224,49 @@ export class EmailSendQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Generate deterministic idempotency key from email content
+   * AUDIT FIX #4: Uses content hash instead of Date.now() to properly dedupe retries
+   *
+   * Key components:
+   * - tenantId + providerId (scope)
+   * - recipients (to, cc, bcc)
+   * - subject
+   * - body hash (first 200 chars to handle slight differences)
+   * - scheduledAt (for scheduled sends)
+   */
+  private generateIdempotencyKey(data: EmailSendJobData, prefix: string = 'send'): string {
+    const email = data.email;
+
+    // Build deterministic content string
+    const contentParts = [
+      data.tenantId,
+      data.providerId,
+      email.to.map((r) => r.email).sort().join(','),
+      email.cc?.map((r) => r.email).sort().join(',') || '',
+      email.bcc?.map((r) => r.email).sort().join(',') || '',
+      email.subject || '',
+      // Use first 200 chars of body to handle minor differences
+      (email.bodyText || email.bodyHtml || '').substring(0, 200),
+      email.inReplyTo || '',
+      data.scheduledAt || '',
+    ];
+
+    const contentString = contentParts.join('|');
+
+    // Generate SHA-256 hash and take first 16 chars for brevity
+    const hash = crypto.createHash('sha256').update(contentString).digest('hex').substring(0, 16);
+
+    return `${prefix}-${data.providerId.substring(0, 8)}-${hash}`;
+  }
+
+  /**
    * Enqueue an email for immediate sending.
    *
    * @returns Job ID for tracking
    */
   async enqueueSend(data: EmailSendJobData): Promise<string> {
-    // Generate idempotency key if not provided
-    const idempotencyKey =
-      data.idempotencyKey ||
-      `send-${data.providerId}-${data.email.to.map((r) => r.email).join(',')}-${Date.now()}`;
+    // AUDIT FIX #4: Generate deterministic idempotency key based on content
+    const idempotencyKey = data.idempotencyKey || this.generateIdempotencyKey(data, 'send');
 
     // Check for duplicate send
     const existingJob = await this.queue.getJob(idempotencyKey);
@@ -266,8 +301,8 @@ export class EmailSendQueueService implements OnModuleInit, OnModuleDestroy {
     const now = Date.now();
     const delay = Math.max(0, scheduledTime - now);
 
-    const idempotencyKey =
-      data.idempotencyKey || `scheduled-${data.providerId}-${data.scheduledAt}-${Date.now()}`;
+    // AUDIT FIX #4: Use deterministic idempotency key (scheduledAt is included in hash)
+    const idempotencyKey = data.idempotencyKey || this.generateIdempotencyKey(data, 'scheduled');
 
     const job = await this.queue.add('scheduled-send', data, {
       jobId: idempotencyKey,

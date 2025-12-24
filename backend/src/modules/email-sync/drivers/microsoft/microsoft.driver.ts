@@ -102,19 +102,69 @@ export class MicrosoftDriver extends BaseEmailDriver {
   // Folder Operations
   // ============================================
 
+  /**
+   * List all folders including nested child folders
+   * AUDIT FIX #5: Now recursively fetches child folders
+   */
   async listFolders(): Promise<CanonicalFolder[]> {
     this.ensureConnected();
 
-    // Note: Don't use $select with wellKnownName - not available for personal Outlook.com accounts
+    // Fetch top-level folders
     const response = await this.client!.get('/me/mailFolders', {
       params: {
         $top: 100,
       },
     });
 
-    const folders = response.data.value || [];
+    const topLevelFolders = response.data.value || [];
+    const allFolders: CanonicalFolder[] = [];
 
-    return folders.map((folder: any) => this.graphFolderToCanonical(folder));
+    // Process each folder and fetch children recursively
+    for (const folder of topLevelFolders) {
+      const canonicalFolder = this.graphFolderToCanonical(folder);
+      allFolders.push(canonicalFolder);
+
+      // AUDIT FIX #5: Recursively fetch child folders if they exist
+      if (folder.childFolderCount > 0) {
+        const children = await this.listChildFolders(folder.id, folder.displayName);
+        allFolders.push(...children);
+      }
+    }
+
+    return allFolders;
+  }
+
+  /**
+   * Recursively list child folders
+   * AUDIT FIX #5: Handles nested folder structure
+   */
+  private async listChildFolders(parentFolderId: string, parentPath: string): Promise<CanonicalFolder[]> {
+    const allChildren: CanonicalFolder[] = [];
+
+    try {
+      const response = await this.client!.get(`/me/mailFolders/${parentFolderId}/childFolders`, {
+        params: { $top: 100 },
+      });
+
+      const childFolders = response.data.value || [];
+
+      for (const folder of childFolders) {
+        // Build full path for nested folders
+        const fullPath = `${parentPath}/${folder.displayName}`;
+        const canonicalFolder = this.graphFolderToCanonical(folder, fullPath);
+        allChildren.push(canonicalFolder);
+
+        // Recursively fetch nested children
+        if (folder.childFolderCount > 0) {
+          const grandchildren = await this.listChildFolders(folder.id, fullPath);
+          allChildren.push(...grandchildren);
+        }
+      }
+    } catch (error: any) {
+      this.logger.warn(`Failed to fetch child folders for ${parentFolderId}: ${error.message}`);
+    }
+
+    return allChildren;
   }
 
   async getFolder(folderIdOrPath: string): Promise<CanonicalFolder | null> {
@@ -681,15 +731,21 @@ export class MicrosoftDriver extends BaseEmailDriver {
     return folderOrCanonical;
   }
 
-  private graphFolderToCanonical(folder: any): CanonicalFolder {
+  /**
+   * Convert Graph API folder to canonical format
+   * AUDIT FIX #5: Accept optional fullPath for nested folders
+   */
+  private graphFolderToCanonical(folder: any, fullPath?: string): CanonicalFolder {
     const type = this.wellKnownToCanonical(folder.wellKnownName, folder.displayName);
+    // Use provided fullPath for nested folders, otherwise use displayName
+    const path = fullPath || folder.displayName;
 
     return {
       id: folder.id,
       externalId: folder.id,
       name: folder.displayName,
       type,
-      path: folder.displayName,
+      path,
       parentId: folder.parentFolderId,
       unreadCount: folder.unreadItemCount || 0,
       totalCount: folder.totalItemCount || 0,
@@ -776,16 +832,34 @@ export class MicrosoftDriver extends BaseEmailDriver {
     };
   }
 
+  /**
+   * Convert parentFolderId to canonical folder type
+   * AUDIT FIX #5: Check path cache and attempt fallback fetch on cache miss
+   */
   private parentFolderIdToCanonical(parentFolderId?: string): CanonicalFolderType {
     if (!parentFolderId) return 'INBOX';
 
-    // Check cache
+    // Check canonical type cache first
     for (const [canonical, folderId] of this.folderIdCache.entries()) {
       if (folderId === parentFolderId) {
         return canonical;
       }
     }
 
+    // AUDIT FIX #5: Check if we have the path in folderPathCache
+    // This helps with nested folders that may not have a canonical type
+    const folderPath = this.folderPathCache.get(parentFolderId);
+    if (folderPath) {
+      // Try to derive canonical type from the folder path
+      const derivedType = this.displayNameToCanonical(folderPath.split('/').pop() || folderPath);
+      if (derivedType !== 'INBOX') {
+        return derivedType;
+      }
+    }
+
+    // Default to INBOX for unknown folders
+    // Note: In async context, could fetch folder details here,
+    // but this is called synchronously from message conversion
     return 'INBOX';
   }
 

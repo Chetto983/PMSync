@@ -114,6 +114,14 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
         throw new Error('Provider does not belong to tenant');
       }
 
+      // AUDIT FIX #7: Verify provider type matches job data
+      // This prevents a malicious or corrupted job from operating on wrong provider type
+      if (provider.providerType !== providerType) {
+        throw new Error(
+          `Provider type mismatch: job claims '${providerType}' but provider is '${provider.providerType}'`,
+        );
+      }
+
       // Get provider with valid tokens
       const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
 
@@ -198,32 +206,52 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
     return { messageId: data.id, threadId: data.threadId };
   }
 
+  /**
+   * Send email via Microsoft Graph API
+   * AUDIT FIX #3: Now includes attachments support
+   */
   private async sendViaMicrosoft(
     provider: any,
     accessToken: string,
     email: EmailSendJobData['email'],
   ): Promise<{ messageId?: string; threadId?: string }> {
-    const messagePayload = {
-      message: {
-        subject: email.subject,
-        body: {
-          contentType: email.bodyHtml ? 'HTML' : 'Text',
-          content: email.bodyHtml || email.bodyText || '',
-        },
-        toRecipients: email.to.map((r) => ({
-          emailAddress: { address: r.email, name: r.name },
-        })),
-        ccRecipients: email.cc?.map((r) => ({
-          emailAddress: { address: r.email, name: r.name },
-        })),
-        bccRecipients: email.bcc?.map((r) => ({
-          emailAddress: { address: r.email, name: r.name },
-        })),
-        // Handle reply thread
-        ...(email.inReplyTo && {
-          conversationId: email.threadId,
-        }),
+    // Build message payload
+    const message: any = {
+      subject: email.subject,
+      body: {
+        contentType: email.bodyHtml ? 'HTML' : 'Text',
+        content: email.bodyHtml || email.bodyText || '',
       },
+      toRecipients: email.to.map((r) => ({
+        emailAddress: { address: r.email, name: r.name },
+      })),
+      ccRecipients: email.cc?.map((r) => ({
+        emailAddress: { address: r.email, name: r.name },
+      })),
+      bccRecipients: email.bcc?.map((r) => ({
+        emailAddress: { address: r.email, name: r.name },
+      })),
+    };
+
+    // Handle reply thread
+    if (email.inReplyTo) {
+      message.conversationId = email.threadId;
+    }
+
+    // AUDIT FIX #3: Add attachments to the message
+    // Microsoft Graph API supports file attachments up to 3MB inline
+    // For larger files, we'd need to use upload sessions
+    if (email.attachments && email.attachments.length > 0) {
+      message.attachments = email.attachments.map((att) => ({
+        '@odata.type': '#microsoft.graph.fileAttachment',
+        name: att.filename,
+        contentType: att.contentType || 'application/octet-stream',
+        contentBytes: att.content, // Already base64 encoded
+      }));
+    }
+
+    const messagePayload = {
+      message,
       saveToSentItems: true,
     };
 
@@ -333,8 +361,14 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  /**
+   * Build RFC 2822 compliant message for Gmail API
+   * AUDIT FIX #3: Now includes BCC header and attachment support
+   */
   private buildRfc2822Message(from: string, email: EmailSendJobData['email']): string {
     const lines: string[] = [];
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+    const hasAttachments = email.attachments && email.attachments.length > 0;
 
     // Headers
     lines.push(`From: ${from}`);
@@ -344,7 +378,12 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
       lines.push(`Cc: ${email.cc.map((r) => (r.name ? `"${r.name}" <${r.email}>` : r.email)).join(', ')}`);
     }
 
-    lines.push(`Subject: ${email.subject}`);
+    // AUDIT FIX #3: Add BCC header (was missing!)
+    if (email.bcc?.length) {
+      lines.push(`Bcc: ${email.bcc.map((r) => (r.name ? `"${r.name}" <${r.email}>` : r.email)).join(', ')}`);
+    }
+
+    lines.push(`Subject: ${this.encodeRfc2047(email.subject)}`);
     lines.push(`Date: ${new Date().toUTCString()}`);
     lines.push('MIME-Version: 1.0');
 
@@ -360,20 +399,69 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Content type
-    if (email.bodyHtml) {
-      lines.push('Content-Type: text/html; charset=utf-8');
+    // AUDIT FIX #3: Handle attachments with multipart MIME
+    if (hasAttachments) {
+      lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+      lines.push('');
+
+      // Body part
+      lines.push(`--${boundary}`);
+      if (email.bodyHtml) {
+        lines.push('Content-Type: text/html; charset=utf-8');
+        lines.push('Content-Transfer-Encoding: quoted-printable');
+        lines.push('');
+        lines.push(email.bodyHtml);
+      } else {
+        lines.push('Content-Type: text/plain; charset=utf-8');
+        lines.push('Content-Transfer-Encoding: quoted-printable');
+        lines.push('');
+        lines.push(email.bodyText || '');
+      }
+
+      // Attachment parts
+      for (const att of email.attachments!) {
+        lines.push(`--${boundary}`);
+        lines.push(`Content-Type: ${att.contentType || 'application/octet-stream'}; name="${att.filename}"`);
+        lines.push('Content-Transfer-Encoding: base64');
+        lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
+        lines.push('');
+        // Split base64 content into 76-char lines per RFC 2045
+        if (att.content) {
+          const base64Content = att.content;
+          for (let i = 0; i < base64Content.length; i += 76) {
+            lines.push(base64Content.substring(i, i + 76));
+          }
+        }
+      }
+
+      // End boundary
+      lines.push(`--${boundary}--`);
     } else {
-      lines.push('Content-Type: text/plain; charset=utf-8');
+      // Simple message without attachments
+      if (email.bodyHtml) {
+        lines.push('Content-Type: text/html; charset=utf-8');
+      } else {
+        lines.push('Content-Type: text/plain; charset=utf-8');
+      }
+
+      // Empty line before body
+      lines.push('');
+
+      // Body
+      lines.push(email.bodyHtml || email.bodyText || '');
     }
 
-    // Empty line before body
-    lines.push('');
-
-    // Body
-    lines.push(email.bodyHtml || email.bodyText || '');
-
     return lines.join('\r\n');
+  }
+
+  /**
+   * Encode string using RFC 2047 if it contains non-ASCII characters
+   */
+  private encodeRfc2047(text: string): string {
+    if (!/[^\x00-\x7F]/.test(text)) {
+      return text;
+    }
+    return `=?UTF-8?B?${Buffer.from(text).toString('base64')}?=`;
   }
 
   private async cleanupDraft(draftId: string, tenantId: string): Promise<void> {

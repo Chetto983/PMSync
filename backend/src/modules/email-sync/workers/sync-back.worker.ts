@@ -112,6 +112,14 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
         throw new Error(`Provider ${providerId} not found or unauthorized`);
       }
 
+      // AUDIT FIX #7: Verify provider type matches job data
+      // This prevents a malicious or corrupted job from operating on wrong provider type
+      if (provider.providerType !== providerType) {
+        throw new Error(
+          `Provider type mismatch: job claims '${providerType}' but provider is '${provider.providerType}'`,
+        );
+      }
+
       // Get external IDs if not provided
       const messageExternalIds = externalIds || (await this.getExternalIds(emailIds, tenantId));
 
@@ -139,6 +147,9 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
             targetFolder,
             labelId,
             providerEmail: provider.email,
+            // AUDIT FIX #2: Pass tenantId and providerId for IMAP tenant safety
+            tenantId,
+            providerId,
           });
           syncedCount += batch.length;
 
@@ -199,7 +210,7 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
     accessToken: string,
     action: SyncBackJobData['action'],
     externalIds: string[],
-    options: { targetFolder?: string; labelId?: string; providerEmail?: string },
+    options: { targetFolder?: string; labelId?: string; providerEmail?: string; tenantId?: string; providerId?: string },
   ): Promise<void> {
     switch (providerType) {
       case 'google':
@@ -209,7 +220,12 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
         await this.syncToMicrosoft(accessToken, action, externalIds, options);
         break;
       case 'imap':
-        await this.syncToImap(options.providerEmail || '', action, externalIds, options);
+        // AUDIT FIX #2: Pass tenantId and providerId for tenant-scoped lookup
+        await this.syncToImap(options.providerEmail || '', action, externalIds, {
+          ...options,
+          tenantId: options.tenantId,
+          providerId: options.providerId,
+        });
         break;
       default:
         throw new Error(`Unsupported provider type: ${providerType}`);
@@ -403,16 +419,53 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Parse IMAP external ID to extract folder and UID
+   * Supports both formats:
+   * - New format: "folder:uid" (e.g., "INBOX:123")
+   * - Legacy format: just UID (e.g., "123")
+   *
+   * @param externalId The external ID to parse
+   * @returns Object with folder (or null) and uid (or NaN)
+   */
+  private parseImapExternalId(externalId: string): { folder: string | null; uid: number } {
+    const lastColon = externalId.lastIndexOf(':');
+
+    if (lastColon > 0) {
+      // New format: "folder:uid"
+      const folder = externalId.substring(0, lastColon);
+      const uidStr = externalId.substring(lastColon + 1);
+      const uid = parseInt(uidStr, 10);
+      return { folder, uid };
+    }
+
+    // Legacy format: just UID
+    return { folder: null, uid: parseInt(externalId, 10) };
+  }
+
   private async syncToImap(
     providerEmail: string,
     action: SyncBackJobData['action'],
     externalIds: string[],
-    options: { targetFolder?: string; labelId?: string },
+    options: { targetFolder?: string; labelId?: string; tenantId?: string; providerId?: string },
   ): Promise<void> {
-    // Get provider config for IMAP credentials
-    const provider = await this.prisma.providerConfig.findFirst({
-      where: { email: providerEmail, providerType: 'imap' },
-    });
+    // AUDIT FIX #2: Resolve provider by providerId AND tenantId for tenant safety
+    let provider;
+    if (options.providerId && options.tenantId) {
+      provider = await this.prisma.providerConfig.findFirst({
+        where: {
+          id: options.providerId,
+          tenantId: options.tenantId,
+          providerType: 'imap',
+        },
+      });
+    } else {
+      // Fallback to email lookup (legacy behavior, less secure)
+      this.logger.warn(`IMAP sync-back using email-only lookup (legacy) for ${providerEmail}`);
+      provider = await this.prisma.providerConfig.findFirst({
+        where: { email: providerEmail, providerType: 'imap' },
+      });
+    }
 
     if (!provider) {
       throw new Error(`IMAP provider not found for ${providerEmail}`);
@@ -425,12 +478,21 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
     const imapPort = metadata.imapPort || 993;
     const imapSecure = metadata.imapSecure !== false;
 
-    // Decrypt password
+    // AUDIT FIX #2: Use imapPassword from metadata, NOT accessToken
+    // accessToken is for OAuth providers, imapPassword is for IMAP basic auth
     let password: string;
     try {
-      password = this.cryptoService.decrypt(provider.accessToken!, provider.tokenEncryptionIv!);
-    } catch {
-      throw new Error('Failed to decrypt IMAP password');
+      // Try imapPassword first (correct for IMAP), fallback to accessToken for compatibility
+      const encryptedPassword = metadata.imapPassword || provider.accessToken;
+      const encryptionIv = metadata.imapPasswordIv || provider.tokenEncryptionIv;
+
+      if (!encryptedPassword || !encryptionIv) {
+        throw new Error('IMAP password not configured');
+      }
+
+      password = this.cryptoService.decrypt(encryptedPassword, encryptionIv);
+    } catch (error) {
+      throw new Error(`Failed to decrypt IMAP password: ${error instanceof Error ? error.message : error}`);
     }
 
     // Create IMAP connection
@@ -447,86 +509,118 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
 
     try {
       await client.connect();
-      await client.mailboxOpen('INBOX');
 
-      // Convert external IDs to UIDs (assuming they are UID strings)
-      const uids = externalIds.map((id) => parseInt(id, 10)).filter((uid) => !isNaN(uid));
+      // AUDIT FIX #1: Group messages by folder and process each folder separately
+      // External IDs are stored as "folder:uid" format
+      const messagesByFolder = new Map<string, number[]>();
 
-      if (uids.length === 0) {
+      for (const externalId of externalIds) {
+        const { folder, uid } = this.parseImapExternalId(externalId);
+
+        if (isNaN(uid)) {
+          this.logger.warn(`Invalid IMAP external ID (not a number): ${externalId}`);
+          continue;
+        }
+
+        // Use parsed folder or default to INBOX
+        const targetMailbox = folder || 'INBOX';
+
+        if (!messagesByFolder.has(targetMailbox)) {
+          messagesByFolder.set(targetMailbox, []);
+        }
+        messagesByFolder.get(targetMailbox)!.push(uid);
+      }
+
+      if (messagesByFolder.size === 0) {
         this.logger.warn('No valid UIDs for IMAP sync-back');
         return;
       }
 
-      // Execute action based on type
-      switch (action) {
-        case 'mark-read':
-          await client.messageFlagsAdd(uids, ['\\Seen']);
-          break;
+      // Process each folder's messages
+      let totalProcessed = 0;
+      for (const [mailbox, uids] of messagesByFolder) {
+        try {
+          // Open the correct mailbox for this batch of messages
+          await client.mailboxOpen(mailbox);
 
-        case 'mark-unread':
-          await client.messageFlagsRemove(uids, ['\\Seen']);
-          break;
+          // Execute action based on type
+          switch (action) {
+            case 'mark-read':
+              await client.messageFlagsAdd(uids, ['\\Seen'], { uid: true });
+              break;
 
-        case 'star':
-        case 'flag':
-          await client.messageFlagsAdd(uids, ['\\Flagged']);
-          break;
+            case 'mark-unread':
+              await client.messageFlagsRemove(uids, ['\\Seen'], { uid: true });
+              break;
 
-        case 'unstar':
-        case 'unflag':
-          await client.messageFlagsRemove(uids, ['\\Flagged']);
-          break;
+            case 'star':
+            case 'flag':
+              await client.messageFlagsAdd(uids, ['\\Flagged'], { uid: true });
+              break;
 
-        case 'archive':
-          // Move to Archive folder (try common names)
-          try {
-            await client.messageMove(uids, 'Archive');
-          } catch {
-            try {
-              await client.messageMove(uids, '[Gmail]/All Mail');
-            } catch {
-              // If no archive folder, just remove from INBOX
-              await client.messageFlagsAdd(uids, ['\\Deleted']);
-            }
+            case 'unstar':
+            case 'unflag':
+              await client.messageFlagsRemove(uids, ['\\Flagged'], { uid: true });
+              break;
+
+            case 'archive':
+              // Move to Archive folder (try common names)
+              try {
+                await client.messageMove(uids, 'Archive', { uid: true });
+              } catch {
+                try {
+                  await client.messageMove(uids, '[Gmail]/All Mail', { uid: true });
+                } catch {
+                  // If no archive folder, just remove from INBOX
+                  await client.messageFlagsAdd(uids, ['\\Deleted'], { uid: true });
+                }
+              }
+              break;
+
+            case 'delete':
+              // Move to Trash or mark as deleted
+              try {
+                await client.messageMove(uids, 'Trash', { uid: true });
+              } catch {
+                try {
+                  await client.messageMove(uids, '[Gmail]/Trash', { uid: true });
+                } catch {
+                  await client.messageFlagsAdd(uids, ['\\Deleted'], { uid: true });
+                }
+              }
+              break;
+
+            case 'move':
+              if (options.targetFolder) {
+                await client.messageMove(uids, options.targetFolder, { uid: true });
+              }
+              break;
+
+            case 'add-label':
+              // IMAP uses folders, copy to target folder
+              if (options.labelId) {
+                await client.messageCopy(uids, options.labelId, { uid: true });
+              }
+              break;
+
+            case 'remove-label':
+              // Can't remove from folder via IMAP, would need to delete from that folder
+              this.logger.debug('IMAP remove-label not directly supported');
+              break;
+
+            default:
+              throw new Error(`Unsupported IMAP action: ${action}`);
           }
-          break;
 
-        case 'delete':
-          // Move to Trash or mark as deleted
-          try {
-            await client.messageMove(uids, 'Trash');
-          } catch {
-            try {
-              await client.messageMove(uids, '[Gmail]/Trash');
-            } catch {
-              await client.messageFlagsAdd(uids, ['\\Deleted']);
-            }
-          }
-          break;
-
-        case 'move':
-          if (options.targetFolder) {
-            await client.messageMove(uids, options.targetFolder);
-          }
-          break;
-
-        case 'add-label':
-          // IMAP uses folders, copy to target folder
-          if (options.labelId) {
-            await client.messageCopy(uids, options.labelId);
-          }
-          break;
-
-        case 'remove-label':
-          // Can't remove from folder via IMAP, would need to delete from that folder
-          this.logger.debug('IMAP remove-label not directly supported');
-          break;
-
-        default:
-          throw new Error(`Unsupported IMAP action: ${action}`);
+          totalProcessed += uids.length;
+          this.logger.debug(`IMAP sync-back for ${mailbox}: ${action} for ${uids.length} messages`);
+        } catch (folderError) {
+          this.logger.error(`IMAP sync-back failed for folder ${mailbox}: ${folderError}`);
+          // Continue with other folders
+        }
       }
 
-      this.logger.debug(`IMAP sync-back completed: ${action} for ${uids.length} messages`);
+      this.logger.debug(`IMAP sync-back completed: ${action} for ${totalProcessed} total messages across ${messagesByFolder.size} folders`);
     } finally {
       await client.logout();
     }
