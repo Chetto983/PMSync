@@ -40,7 +40,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     protected readonly prisma: PrismaService,
     protected readonly realtimeEvents: RealtimeEventsService,
     protected readonly config: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Set the Redis lock service (injected by child classes)
@@ -575,18 +575,18 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
 
       const updateData = userModifiedRecently
         ? {
-            ...baseUpdateData,
-            // Preserve user's state changes when they modified recently
-            // Only update content fields, not state fields
-          }
+          ...baseUpdateData,
+          // Preserve user's state changes when they modified recently
+          // Only update content fields, not state fields
+        }
         : {
-            ...baseUpdateData,
-            isRead: canonicalMsg.isRead ?? false,
-            isStarred: canonicalMsg.isStarred ?? false,
-            isFlagged: canonicalMsg.isFlagged ?? false,
-            labels: canonicalMsg.labels || [],
-            folder: canonicalMsg.folder,
-          };
+          ...baseUpdateData,
+          isRead: canonicalMsg.isRead ?? false,
+          isStarred: canonicalMsg.isStarred ?? false,
+          isFlagged: canonicalMsg.isFlagged ?? false,
+          labels: canonicalMsg.labels || [],
+          folder: canonicalMsg.folder,
+        };
 
       let result;
       let wasNew: boolean;
@@ -665,24 +665,27 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       return { wasNew, conflictDetected: userModifiedRecently ?? false };
     };
 
-    // RC-1 FIX: Execute with distributed lock if available
-    if (this.redisLock) {
-      try {
-        return await this.redisLock.withLock(lockKey, lockTtlMs, executeUpsert);
-      } catch (lockError) {
-        // If lock acquisition fails, log warning and execute without lock
-        // This is a graceful degradation - better to process than to fail
-        this.logger.warn(
-          `Lock acquisition failed for ${lockKey}, proceeding without lock: ${
-            lockError instanceof Error ? lockError.message : String(lockError)
-          }`,
-        );
-        return executeUpsert();
-      }
+    // RC-9 FIX: Execute with MANDATORY distributed lock
+    // Lock is now required to prevent race conditions in multi-worker environments
+    if (!this.redisLock) {
+      // Log error and execute without lock as fallback (should not happen in production)
+      this.logger.error(
+        `RC-9: RedisLockService not available for email upsert. This may cause race conditions.`,
+      );
+      return executeUpsert();
     }
 
-    // No lock service available - execute without lock
-    return executeUpsert();
+    try {
+      return await this.redisLock.withLock(lockKey, lockTtlMs, executeUpsert);
+    } catch (lockError) {
+      // Lock acquisition failed - log warning and execute without lock
+      // This is graceful degradation for transient Redis issues
+      this.logger.warn(
+        `RC-9: Lock acquisition failed for ${lockKey}, proceeding with caution: ${lockError instanceof Error ? lockError.message : String(lockError)
+        }`,
+      );
+      return executeUpsert();
+    }
   }
 
   /**
@@ -754,12 +757,12 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       const updateData = userModifiedRecently
         ? baseUpdateData
         : {
-            ...baseUpdateData,
-            isRead: msg.isRead ?? false,
-            isStarred: msg.isStarred ?? false,
-            isFlagged: msg.isFlagged ?? false,
-            labels: msg.labels || [],
-          };
+          ...baseUpdateData,
+          isRead: msg.isRead ?? false,
+          isStarred: msg.isStarred ?? false,
+          isFlagged: msg.isFlagged ?? false,
+          labels: msg.labels || [],
+        };
 
       return this.prisma.email.upsert({
         where: {

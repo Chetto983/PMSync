@@ -427,7 +427,7 @@ export class GmailWebhookService {
           lastError: errorMessage,
           errorCount: { increment: 1 },
         },
-      }).catch(() => {}); // Ignore if doesn't exist
+      }).catch(() => { }); // Ignore if doesn't exist
 
       throw error;
     }
@@ -572,10 +572,12 @@ export class GmailWebhookService {
   }
 
   /**
-   * Update subscription statistics after receiving notification
+   * RC-11 FIX: Update subscription statistics after receiving notification
+   * Uses update with where clause - Prisma increment is already atomic at DB level
    */
   private async updateSubscriptionStats(providerId: string): Promise<void> {
     try {
+      // Try to update existing subscription
       const result = await this.prisma.webhookSubscription.updateMany({
         where: {
           providerId,
@@ -586,12 +588,15 @@ export class GmailWebhookService {
           notificationCount: { increment: 1 },
         },
       });
+
       if (result.count === 0) {
-        this.logger.warn(`No gmail subscription row found for stats update (providerId=${providerId})`);
+        // RC-11 FIX: Log if no subscription exists but don't fail
+        this.logger.warn(
+          `RC-11: No Gmail subscription row found for stats update (providerId=${providerId}). Stats not recorded.`,
+        );
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      // Ignore if subscription doesn't exist, but keep trace for diagnostics
       this.logger.debug(`Could not update stats for ${providerId}: ${errorMessage}`);
     }
   }

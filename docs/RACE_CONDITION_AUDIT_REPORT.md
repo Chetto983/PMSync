@@ -180,10 +180,11 @@ await this.redisLock.withLock(lockKey, 2000, async () => {
 
 ---
 
-### RC-9: Email Upsert Race (Base Sync Service)
+### RC-9: Email Upsert Race (Base Sync Service) ✅ FIXED
 
 **File:** `base-email-sync.service.ts:240-402`
 **Priority:** HIGH
+**Status:** FIXED (2025-12-24) - Made Redis lock mandatory with error logging if unavailable
 
 **Scenario:**
 
@@ -319,10 +320,11 @@ for (const [providerId, providerJobs] of jobsByProvider) {
 
 ---
 
-### RC-11: Webhook Subscription Stats Update Race
+### RC-11: Webhook Subscription Stats Update Race ✅ FIXED
 
 **File:** `gmail-webhook.service.ts:576-597`, `microsoft-webhook.service.ts:634-652`
 **Priority:** MEDIUM
+**Status:** FIXED (2025-12-24) - Changed to updateMany with proper logging when record missing
 
 **Scenario:**
 

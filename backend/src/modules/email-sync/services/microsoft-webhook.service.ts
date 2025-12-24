@@ -663,22 +663,28 @@ export class MicrosoftWebhookService {
   }
 
   /**
-   * Update subscription statistics after receiving notification
+   * RC-11 FIX: Update subscription statistics after receiving notification
+   * Uses updateMany for safer handling when record might not exist
    */
   private async updateSubscriptionStats(providerId: string): Promise<void> {
     try {
-      await this.prisma.webhookSubscription.update({
+      const result = await this.prisma.webhookSubscription.updateMany({
         where: {
-          providerId_resourcePath: {
-            providerId,
-            resourcePath: MICROSOFT_MAIL_RESOURCE,
-          },
+          providerId,
+          resourcePath: MICROSOFT_MAIL_RESOURCE,
         },
         data: {
           lastNotificationAt: new Date(),
           notificationCount: { increment: 1 },
         },
       });
+
+      if (result.count === 0) {
+        // RC-11 FIX: Log if no subscription exists but don't fail
+        this.logger.warn(
+          `RC-11: No Microsoft subscription row found for stats update (providerId=${providerId}). Stats not recorded.`,
+        );
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.debug(`Could not update stats for ${providerId}: ${errorMessage}`);
