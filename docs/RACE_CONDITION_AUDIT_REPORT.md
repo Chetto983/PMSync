@@ -11,6 +11,7 @@
 This audit identified **8 race conditions**, including **3 previously fixed issues** that were verified as still properly mitigated, and **5 new critical race conditions** requiring immediate attention.
 
 **Priority Breakdown:**
+
 - **HIGH Priority:** 4 issues (new)
 - **MEDIUM Priority:** 1 issue (new)
 - **VERIFIED FIXED:** 3 issues (RC-2, RC-5, RC-7)
@@ -24,12 +25,14 @@ This audit identified **8 race conditions**, including **3 previously fixed issu
 **Status:** VERIFIED FIXED
 **File:** `provider-token.service.ts:127-184, 218-269`
 **Fix Implementation:**
+
 - Uses Redis distributed lock with `acquireLock()` before token refresh
 - Re-reads provider after acquiring lock to check if another process refreshed
 - Properly releases lock in `finally` block
 - 30-second TTL with polling on lock wait
 
 **Verification:**
+
 ```typescript
 // Lines 127-148: Distributed lock pattern
 const lockKey = `${this.KEY_PREFIX_LOCK}${provider.id}`;
@@ -55,12 +58,14 @@ try {
 **Status:** VERIFIED FIXED
 **File:** `email-sync-back.service.ts:117-183`
 **Fix Implementation:**
+
 - Uses `RedisLockService.withLock()` with per-email lock key
 - Lock key: `sync-back:${operation.emailId}`
 - 60-second TTL for sync-back operations
 - Serializes rapid-fire operations (mark read + star)
 
 **Verification:**
+
 ```typescript
 // Lines 121-127: Per-email locking
 const lockKey = `sync-back:${operation.emailId}`;
@@ -81,12 +86,14 @@ await this.redisLock.withLock(
 **Status:** VERIFIED FIXED
 **File:** `gmail-webhook.service.ts:24-48, 86-94, 231-296`
 **Fix Implementation:**
+
 - Uses `AsyncMutex` class for per-provider locking
 - Mutex ensures only one webhook processed at a time per provider
 - Prevents race conditions on historyId tracking
 - Always releases mutex in `finally` block
 
 **Verification:**
+
 ```typescript
 // Lines 25-48: AsyncMutex implementation
 class AsyncMutex {
@@ -112,12 +119,14 @@ try {
 
 ## NEW CRITICAL RACE CONDITIONS 🔴
 
-### RC-8: Queue Job Deduplication Race
+### RC-8: Queue Job Deduplication Race ✅ FIXED
 
 **File:** `queue.service.ts:175-196`
 **Priority:** HIGH
+**Status:** FIXED (2025-12-24) - Wrapped check+add in Redis lock with `redisLock.withLock()`
 
 **Scenario:**
+
 1. Worker A checks for existing job with `queue.getJob(jobId)` at line 182
 2. Worker B concurrently checks for the same job (also not found)
 3. Worker A adds job to queue at line 202
@@ -125,12 +134,14 @@ try {
 5. Same sync job gets executed twice concurrently
 
 **Impact:**
+
 - Duplicate API calls to Gmail/Microsoft/IMAP servers
 - Wasted resources processing same emails twice
 - Potential rate limiting violations
 - Database contention on email upserts
 
 **Current Code:**
+
 ```typescript
 // Lines 175-196: Race window between check and add
 const jobId = `${data.providerId}-${data.syncType || 'delta'}`;
@@ -155,6 +166,7 @@ await queue.add(...); // Both workers reach here!
 ```
 
 **Fix:** Add Redis lock around job deduplication check:
+
 ```typescript
 const lockKey = `sync-job-dedup:${jobId}`;
 await this.redisLock.withLock(lockKey, 2000, async () => {
@@ -174,6 +186,7 @@ await this.redisLock.withLock(lockKey, 2000, async () => {
 **Priority:** HIGH
 
 **Scenario:**
+
 1. Worker A reads email record at line 253 (finds existing)
 2. Worker B reads same email record (also finds existing)
 3. Worker A updates with `version: { increment: 1 }` at line 316
@@ -181,12 +194,14 @@ await this.redisLock.withLock(lockKey, 2000, async () => {
 5. Lost update: A's changes vanish
 
 **Impact:**
+
 - **Data corruption:** User flag changes lost during sync
 - Stale `userModifiedAt` timestamps
 - Incorrect version numbers
 - Race between user actions and sync operations
 
 **Current Code:**
+
 ```typescript
 // Lines 253-271: Check-then-act pattern (RACE WINDOW)
 const existing = await this.prisma.email.findUnique({
@@ -211,6 +226,7 @@ if (existing) {
 ```
 
 **Fix:** Use optimistic locking with Prisma's `where` conditions:
+
 ```typescript
 // Option 1: Optimistic locking with version check
 if (existing) {
@@ -239,12 +255,14 @@ await this.redisLock.withLock(lockKey, 5000, async () => {
 
 ---
 
-### RC-10: Bulk Sync Job Enqueue Race
+### RC-10: Bulk Sync Job Enqueue Race ✅ FIXED
 
 **File:** `queue.service.ts:213-258`
 **Priority:** HIGH
+**Status:** FIXED (2025-12-24) - Added per-provider Redis locking with `redisLock.withLock()`
 
 **Scenario:**
+
 1. Thread A processes bulk sync for Provider X (10 jobs)
 2. Thread B processes bulk sync for Provider X (5 different jobs)
 3. Both threads call `hasPendingJob()` for Provider X concurrently
@@ -253,12 +271,14 @@ await this.redisLock.withLock(lockKey, 5000, async () => {
 6. Result: 15 jobs queued, but some may be duplicates
 
 **Impact:**
+
 - Duplicate sync jobs for same provider
 - Concurrent API calls causing rate limits
 - Database write conflicts
 - Wasted worker resources
 
 **Current Code:**
+
 ```typescript
 // Lines 232-257: Race between hasPendingJob check and addBulk
 for (const job of priorityJobs) {
@@ -274,6 +294,7 @@ await queue.addBulk(bullJobs);
 ```
 
 **Fix:** Add per-provider locking for bulk operations:
+
 ```typescript
 // Group by provider FIRST
 const jobsByProvider = new Map<string, SyncJobData[]>();
@@ -304,6 +325,7 @@ for (const [providerId, providerJobs] of jobsByProvider) {
 **Priority:** MEDIUM
 
 **Scenario:**
+
 1. Webhook notification A arrives for Provider X
 2. Webhook notification B arrives for same Provider X
 3. Both read `notificationCount` from DB (e.g., current value = 100)
@@ -311,12 +333,14 @@ for (const [providerId, providerJobs] of jobsByProvider) {
 5. Final count = 101 (should be 102)
 
 **Impact:**
+
 - Inaccurate webhook statistics
 - Underreported notification counts
 - Incorrect monitoring metrics
 - NOT critical for functionality, but breaks observability
 
 **Current Code (Gmail):**
+
 ```typescript
 // Lines 577-596: Non-atomic read-modify-write
 private async updateSubscriptionStats(providerId: string): Promise<void> {
@@ -333,6 +357,7 @@ private async updateSubscriptionStats(providerId: string): Promise<void> {
 ```
 
 **Current Code (Microsoft):**
+
 ```typescript
 // Lines 634-652: Same issue
 private async updateSubscriptionStats(providerId: string): Promise<void> {
@@ -347,6 +372,7 @@ private async updateSubscriptionStats(providerId: string): Promise<void> {
 ```
 
 **Fix:** Use database-level atomic increment (already using `{ increment: 1 }`), but add unique constraint:
+
 ```typescript
 // This is actually OK! Prisma's `{ increment: 1 }` is atomic at DB level.
 // The real issue is potential lost updates if updateMany affects 0 rows.
@@ -372,6 +398,7 @@ await this.prisma.webhookSubscription.upsert({
 **Priority:** HIGH
 
 **Scenario:**
+
 1. Notification A arrives for subscription X
 2. Notification B arrives for subscription X (duplicate from Microsoft)
 3. Both check `processedNotifications.has(key)` at line 135 → both return `false`
@@ -380,12 +407,14 @@ await this.prisma.webhookSubscription.upsert({
 6. Result: Duplicate sync jobs queued
 
 **Impact:**
+
 - Duplicate sync operations for same changes
 - Wasted API calls to Microsoft Graph
 - Database write conflicts
 - Race condition defeats the purpose of dedup cache
 
 **Current Code:**
+
 ```typescript
 // Lines 127-143: Check-then-set race
 private checkAndMarkProcessed(notification: MicrosoftGraphNotification): boolean {
@@ -406,6 +435,7 @@ private checkAndMarkProcessed(notification: MicrosoftGraphNotification): boolean
 ```
 
 **Fix:** Use atomic compare-and-set pattern:
+
 ```typescript
 private checkAndMarkProcessed(notification: MicrosoftGraphNotification): boolean {
   const resourceId = notification.resourceData?.id || notification.resource || '';
@@ -476,30 +506,35 @@ return claimed === 'OK';
 ## RECOMMENDED FIXES PRIORITY
 
 ### Immediate (This Sprint)
+
 1. **RC-8:** Queue job deduplication (HIGH) - Add Redis lock
 2. **RC-12:** Microsoft webhook deduplication (HIGH) - Use Redis SET NX
 3. **RC-9:** Email upsert race (HIGH) - Ensure Redis lock is ALWAYS used
 
 ### Next Sprint
-4. **RC-10:** Bulk sync job enqueue (HIGH) - Add per-provider locking
-5. **RC-11:** Webhook stats update (MEDIUM) - Use upsert instead of update
+
+1. **RC-10:** Bulk sync job enqueue (HIGH) - Add per-provider locking
+2. **RC-11:** Webhook stats update (MEDIUM) - Use upsert instead of update
 
 ### Future Improvements
-6. Add monitoring for race condition metrics (lock contention, retry counts)
-7. Implement circuit breaker for Redis lock failures
-8. Add distributed tracing for lock acquisition times
+
+1. Add monitoring for race condition metrics (lock contention, retry counts)
+2. Implement circuit breaker for Redis lock failures
+3. Add distributed tracing for lock acquisition times
 
 ---
 
 ## TESTING RECOMMENDATIONS
 
 ### Load Testing Scenarios
+
 1. **Concurrent Webhooks:** Send 100 webhook notifications for same provider simultaneously
 2. **Bulk Sync Storm:** Trigger 50 sync jobs for same provider in parallel
 3. **Token Refresh Burst:** Expire 10 provider tokens and trigger simultaneous refresh
 4. **Multi-Worker Upsert:** Process same email batch across 5 workers
 
 ### Metrics to Monitor
+
 - Redis lock acquisition failures
 - Duplicate job detection rate
 - Email version conflicts
@@ -518,6 +553,7 @@ The codebase has **good foundational race condition protection** with the fixes 
 **Risk Level:** MEDIUM-HIGH without fixes, LOW with recommended fixes applied.
 
 **Estimated Effort:**
+
 - RC-8: 2 hours
 - RC-12: 2 hours
 - RC-9: 4 hours (ensure lock is always used)
@@ -531,7 +567,8 @@ The codebase has **good foundational race condition protection** with the fixes 
 ## APPENDIX: CODE REFERENCES
 
 ### Files Analyzed
-```
+
+```text
 backend/src/modules/email-sync/
 ├── services/
 │   ├── provider-token.service.ts (356 lines) ✅ RC-2 FIXED
@@ -552,6 +589,7 @@ backend/src/common/services/
 ```
 
 ### Lock Coverage Map
+
 | Component | Lock Type | Coverage |
 |-----------|-----------|----------|
 | Token Refresh | Redis SET NX | ✅ Full |

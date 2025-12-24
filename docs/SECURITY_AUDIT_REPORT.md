@@ -14,6 +14,7 @@
 Completed comprehensive security audit of email-sync and email modules. Identified **8 security issues** requiring immediate attention, including tenant isolation vulnerabilities and potential unauthorized access vectors.
 
 **Critical Statistics:**
+
 - ✅ **52 controllers/services audited**
 - ⚠️ **2 CRITICAL vulnerabilities** (tenant isolation)
 - ⚠️ **3 HIGH severity issues** (authorization bypass)
@@ -27,9 +28,11 @@ Completed comprehensive security audit of email-sync and email modules. Identifi
 ## CRITICAL FINDINGS (IMMEDIATE ACTION REQUIRED)
 
 ### SEC-1: Missing Tenant Validation in /sync/:providerId Endpoint
+
 **File:Line:** `email-sync.controller.ts:59`
 **Vulnerability:** Insecure Direct Object Reference (IDOR) / Tenant Isolation Bypass
 **Attack Vector:**
+
 ```typescript
 // VULNERABLE CODE:
 @Post('sync/:providerId')
@@ -40,17 +43,20 @@ async syncProvider(@Param('providerId') providerId: string) {
 ```
 
 **Exploit:**
+
 1. Attacker from Tenant A obtains providerId from Tenant B
 2. Sends POST /email-sync/sync/{tenantB-providerId}
 3. Successfully triggers sync for Tenant B's email provider
 4. Can cause DoS by repeatedly triggering expensive sync operations
 
 **Impact:** HIGH
+
 - Cross-tenant unauthorized operations
 - Denial of Service (expensive sync operations)
 - Resource exhaustion attacks
 
 **Fix:**
+
 ```typescript
 @Post('sync/:providerId')
 async syncProvider(
@@ -82,11 +88,13 @@ async syncProvider(
 ---
 
 ### SEC-2: Missing Provider Ownership Check in Queue Operations
+
 **File:Line:** `email-sync.controller.ts:193-227`
 **Vulnerability:** Missing Authorization Check
 **Attack Vector:**
 
 Endpoints affected:
+
 - `POST /email-sync/queues/:priority/pause`
 - `POST /email-sync/queues/:priority/resume`
 - `POST /email-sync/queues/:priority/clear`
@@ -94,6 +102,7 @@ Endpoints affected:
 These endpoints operate on queues **globally** without tenant scoping. All authenticated users can pause/resume/clear queues affecting **all tenants**.
 
 **Exploit:**
+
 ```bash
 # Attacker pauses all high-priority sync jobs affecting ALL tenants
 curl -X POST /email-sync/queues/high/pause \
@@ -105,6 +114,7 @@ curl -X POST /email-sync/queues/high/clear \
 ```
 
 **Impact:** CRITICAL
+
 - Cross-tenant Denial of Service
 - Complete disruption of email synchronization for all users
 - Data loss (clear operation)
@@ -139,26 +149,31 @@ async pauseQueue(
 ## HIGH SEVERITY FINDINGS
 
 ### SEC-3: Webhook Replay Attack Window Too Large
+
 **File:Line:** `gmail-webhook.service.ts:61`
 **Vulnerability:** Extended Replay Attack Window
 **Current Configuration:**
+
 ```typescript
 // 10-minute replay protection window - TOO LONG
 private readonly MESSAGE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 ```
 
 **Attack Vector:**
+
 1. Attacker intercepts valid Gmail webhook notification
 2. Replays it multiple times within 10-minute window
 3. First replay succeeds, subsequent blocked
 4. BUT 10 minutes allows time for MitM attacks and network capture
 
 **Impact:** MEDIUM
+
 - Extended window for replay attacks
 - Potential duplicate sync operations
 - Resource waste
 
 **Fix:**
+
 ```typescript
 // Reduce to 3 minutes (Google Pub/Sub retry is ~2 minutes)
 private readonly MESSAGE_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
@@ -169,15 +184,18 @@ private readonly MESSAGE_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 ---
 
 ### SEC-4: Missing Rate Limiting on Folder Operations
+
 **File:Line:** `folders.controller.ts:354, 424, 498`
 **Vulnerability:** No Rate Limiting on Expensive Operations
 
 Endpoints affected:
+
 - `POST /folders` (create folder)
 - `PATCH /folders/:folderId` (rename folder)
 - `DELETE /folders/:folderId` (delete folder)
 
 **Attack Vector:**
+
 ```bash
 # Rapid-fire folder creation
 for i in {1..1000}; do
@@ -188,11 +206,13 @@ done
 ```
 
 **Impact:** MEDIUM
+
 - Resource exhaustion
 - DoS against external email providers (Gmail/Microsoft API limits)
 - Database bloat
 
 **Fix:**
+
 ```typescript
 @Post()
 @Throttle({ default: { ttl: 60000, limit: 10 } }) // 10 requests per minute
@@ -206,10 +226,12 @@ async createFolder(@Request() req: any, @Body() dto: CreateFolderDto) {
 ---
 
 ### SEC-5: Insufficient Input Validation on Pagination Parameters
+
 **File:Line:** `emails.controller.ts:131-148`
 **Vulnerability:** Integer Overflow / Resource Exhaustion
 
 **Current Validation:**
+
 ```typescript
 const parsedPage = page ? parseInt(page) : 1;
 const parsedLimit = limit ? parseInt(limit) : 50;
@@ -220,11 +242,13 @@ if (parsedLimit > this.maxEmailListLimit) {
 ```
 
 **Missing Validation:**
+
 - No check for negative numbers: `parseInt("-1")` = `-1`
 - No check for NaN: `parseInt("abc")` = `NaN`
 - No maximum page number (can cause skip overflow)
 
 **Attack Vector:**
+
 ```bash
 # Causes error or unexpected behavior
 GET /emails?page=-1&limit=-100
@@ -232,10 +256,12 @@ GET /emails?page=999999999&limit=1000
 ```
 
 **Impact:** LOW
+
 - Application errors
 - Potential database query issues
 
 **Fix:**
+
 ```typescript
 // Validate and sanitize
 const parsedPage = page ? Math.max(1, parseInt(page)) : 1;
@@ -257,11 +283,14 @@ if (parsedPage > MAX_PAGE) {
 
 ## MEDIUM SEVERITY FINDINGS
 
-### SEC-6: Potential Information Disclosure in Error Messages
+### SEC-6: Potential Information Disclosure in Error Messages ✅ FIXED
+
 **File:Line:** `attachment-on-demand.service.ts:76-82`
+**Status:** FIXED (2025-12-24) - Combined tenant filter into single query with generic error message
 **Vulnerability:** Different Error Messages Reveal Resource Existence
 
 **Current Code:**
+
 ```typescript
 if (!attachment) {
   throw new NotFoundException(`Attachment ${attachmentId} not found`);
@@ -275,14 +304,17 @@ if (attachment.email.tenantId !== tenantId) {
 
 **Attack Vector:**
 Attacker can enumerate valid attachment IDs by observing response timing or error patterns:
+
 - Invalid ID: Fast 404
 - Valid ID, wrong tenant: Slower 404 (database lookup happened)
 
 **Impact:** LOW
+
 - Information leakage (resource enumeration)
 - Timing side-channel
 
 **Fix:**
+
 ```typescript
 const attachment = await this.prisma.emailAttachment.findFirst({
   where: {
@@ -307,10 +339,12 @@ if (!attachment) {
 ---
 
 ### SEC-7: Header Injection Risk in Attachment Download
+
 **File:Line:** `attachments.controller.ts:104-109`
 **Vulnerability:** Potential HTTP Response Splitting
 
 **Current Code:**
+
 ```typescript
 const safeFilename = encodeURIComponent(result.filename).replace(/['()]/g, escape);
 res.setHeader(
@@ -321,15 +355,18 @@ res.setHeader(
 
 **Attack Vector:**
 If `result.filename` contains malicious characters (newlines, null bytes), header injection is possible:
-```
+
+```text
 filename: "file\r\nX-Malicious: header\r\n\r\n<script>alert(1)</script>"
 ```
 
 **Impact:** LOW (mitigated by RFC 5987 encoding)
+
 - HTTP response splitting (unlikely due to encoding)
 - XSS in download context (browsers protect)
 
 **Fix:**
+
 ```typescript
 // Sanitize filename before encoding
 const sanitizedFilename = result.filename
@@ -350,6 +387,7 @@ res.setHeader(
 ---
 
 ### SEC-8: Missing CSRF Protection on State-Changing Webhooks
+
 **File:Line:** `webhook.controller.ts:37-96`
 **Vulnerability:** Webhook Endpoints Accept GET Requests
 
@@ -357,6 +395,7 @@ res.setHeader(
 Webhooks use `@Post()` correctly, BUT there's no CSRF token validation. While webhooks should use secret tokens, Microsoft Graph's validation endpoint uses query parameters which can be CSRF-vulnerable.
 
 **Attack Vector:**
+
 ```html
 <!-- Attacker's page -->
 <form action="https://victim-app.com/webhooks/microsoft/notifications?validationToken=leaked-token" method="POST">
@@ -366,10 +405,12 @@ Webhooks use `@Post()` correctly, BUT there's no CSRF token validation. While we
 ```
 
 **Impact:** LOW (requires token leakage)
+
 - Webhook poisoning (if token leaked)
 - False sync triggers
 
 **Fix:**
+
 ```typescript
 // Already has clientState validation (good!)
 // Additionally: IP whitelist for known webhook sources
@@ -399,7 +440,7 @@ async handleMicrosoftNotification(
 
 ## POSITIVE SECURITY FINDINGS ✅
 
-### Excellent Security Practices Identified:
+### Excellent Security Practices Identified
 
 1. **✅ Timing-Safe String Comparison (CWE-208 Protected)**
    - Files: `sync-auth.service.ts:54-63`, `microsoft-webhook.service.ts:149-157`
@@ -469,34 +510,34 @@ async handleMicrosoftNotification(
 
 ### Short-term (Month 1)
 
-4. **Address SEC-3** (reduce replay window to 3 minutes)
+1. **Address SEC-3** (reduce replay window to 3 minutes)
 
-5. **Fix SEC-6** (consistent error messages)
+2. **Fix SEC-6** (consistent error messages)
 
-6. **Implement SEC-7** (filename sanitization)
+3. **Implement SEC-7** (filename sanitization)
 
 ### Medium-term (Quarter 1)
 
-7. **Add comprehensive audit logging**
+1. **Add comprehensive audit logging**
    - Log all provider access attempts
    - Log all queue operations
    - Log failed authorization attempts
 
-8. **Implement IP whitelisting for webhooks** (SEC-8)
+2. **Implement IP whitelisting for webhooks** (SEC-8)
 
-9. **Add automated security testing**
+3. **Add automated security testing**
    - Integration tests for tenant isolation
    - Fuzz testing for input validation
    - OWASP ZAP scans
 
 ### Long-term (Ongoing)
 
-10. **Security monitoring & alerting**
+1. **Security monitoring & alerting**
     - Unusual queue operation patterns
     - Cross-tenant access attempts
     - Repeated authorization failures
 
-11. **Regular security audits**
+2. **Regular security audits**
     - Quarterly code reviews
     - Annual penetration testing
     - Dependency vulnerability scanning
@@ -506,6 +547,7 @@ async handleMicrosoftNotification(
 ## COMPLIANCE & STANDARDS
 
 **✅ Compliant:**
+
 - OWASP Top 10 (2021): Mostly compliant
   - ✅ A01:2021 - Broken Access Control: **2 findings** (SEC-1, SEC-2)
   - ✅ A02:2021 - Cryptographic Failures: Good (encryption at rest)
@@ -516,6 +558,7 @@ async handleMicrosoftNotification(
   - ✅ A08:2021 - Software/Data Integrity Failures: Good (webhook validation)
 
 **⚠️ Needs Improvement:**
+
 - CWE-639: Authorization Bypass (SEC-1, SEC-2)
 - CWE-400: Uncontrolled Resource Consumption (SEC-4)
 
@@ -535,4 +578,3 @@ The email-sync and email modules demonstrate **strong security foundations** wit
 **Lines of Code Reviewed:** ~8,500
 **Vulnerabilities Found:** 8 (2 Critical, 3 High, 3 Medium)
 **False Positives:** 0
-

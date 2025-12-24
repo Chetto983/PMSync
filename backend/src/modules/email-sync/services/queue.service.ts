@@ -177,88 +177,127 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * RC-8 FIX: Add sync job with distributed lock to prevent race conditions
+   * Uses Redis lock around the check+add operation to ensure atomicity
+   */
   async addSyncJob(data: SyncJobData): Promise<void> {
     const queue = this.getQueueByPriority(data.priority);
     const jobData = this.withJobToken(data);
-
-    // Dedup job per provider + syncType to avoid bursts
     const jobId = `${data.providerId}-${data.syncType || 'delta'}`;
-    const existing = await queue.getJob(jobId);
-    if (existing) {
-      const state = await existing.getState();
-      if (state === 'completed' || state === 'failed' || state === 'delayed') {
-        await existing.remove();
-      } else {
-        this.logger.verbose(`Job ${jobId} already queued (state=${state}), skipping duplicate`);
-        return;
-      }
+
+    // RC-8 FIX: Use Redis lock to make check+add atomic across workers
+    const lockKey = `sync-job-dedup:${jobId}`;
+    const lockTtlMs = 2000; // 2 second lock (just enough for dedup check)
+
+    try {
+      await this.redisLock.withLock(
+        lockKey,
+        lockTtlMs,
+        async () => {
+          // Check if job already exists (inside lock = atomic)
+          const existing = await queue.getJob(jobId);
+          if (existing) {
+            const state = await existing.getState();
+            if (state === 'completed' || state === 'failed' || state === 'delayed') {
+              await existing.remove();
+            } else {
+              this.logger.verbose(`Job ${jobId} already queued (state=${state}), skipping duplicate`);
+              return;
+            }
+          }
+
+          // Soft guard: skip if any job for provider is in waiting/active/delayed
+          if (await this.hasPendingJob(data.providerId, data.tenantId)) {
+            this.logger.verbose(`Provider ${data.providerId} already has a pending job; skipping new enqueue`);
+            return;
+          }
+
+          // Jitter to spread webhook bursts
+          const jitterMs = this.getJitterMs(data.priority);
+
+          await queue.add(
+            `sync-${jobData.providerType}-${jobData.email}`,
+            jobData,
+            {
+              jobId,
+              delay: jitterMs,
+            },
+          );
+
+          this.logger.log(`Added ${data.priority} priority sync job for ${data.email} (${data.providerType}) [jobId=${jobId}]`);
+        },
+        { maxRetries: 2 },
+      );
+    } catch (error) {
+      // Lock acquisition failed - log warning but don't throw
+      // This prevents webhook failures when Redis is temporarily unavailable
+      this.logger.warn(
+        `RC-8: Lock acquisition failed for job ${jobId}, skipping: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-
-    // Soft guard: skip if any job for provider is in waiting/active/delayed
-    if (await this.hasPendingJob(data.providerId, data.tenantId)) {
-      this.logger.verbose(`Provider ${data.providerId} already has a pending job; skipping new enqueue`);
-      return;
-    }
-
-    // Jitter to spread webhook bursts; higher jitter for normal/low
-    const jitterMs = this.getJitterMs(data.priority);
-
-    await queue.add(
-      `sync-${jobData.providerType}-${jobData.email}`,
-      jobData,
-      {
-        jobId,
-        delay: jitterMs,
-      },
-    );
-
-    this.logger.log(`Added ${data.priority} priority sync job for ${data.email} (${data.providerType}) [jobId=${jobId}]`);
   }
 
+  /**
+   * RC-10 FIX: Add bulk sync jobs with per-provider locking to prevent race conditions
+   * Uses Redis lock per provider to ensure atomic check+add across workers
+   */
   async addBulkSyncJobs(jobs: SyncJobData[]): Promise<void> {
-    // Group jobs by priority
-    const jobsByPriority: { [key: string]: SyncJobData[] } = {
-      high: [],
-      normal: [],
-      low: [],
-    };
-
+    // RC-10 FIX: First group by provider to enable per-provider locking
+    const jobsByProvider = new Map<string, SyncJobData[]>();
     for (const job of jobs) {
-      jobsByPriority[job.priority].push(job);
+      const existing = jobsByProvider.get(job.providerId) || [];
+      existing.push(job);
+      jobsByProvider.set(job.providerId, existing);
     }
 
-    // Add jobs to respective queues
-    for (const [priority, priorityJobs] of Object.entries(jobsByPriority)) {
-      if (priorityJobs.length === 0) continue;
+    // Process each provider with a lock to prevent concurrent bulk enqueues
+    for (const [providerId, providerJobs] of jobsByProvider) {
+      const lockKey = `bulk-sync:${providerId}`;
+      const lockTtlMs = 5000; // 5 second lock for bulk operations
 
-      const queue = this.getQueueByPriority(priority as any);
+      try {
+        await this.redisLock.withLock(
+          lockKey,
+          lockTtlMs,
+          async () => {
+            // Check if provider already has pending jobs (inside lock = atomic)
+            if (await this.hasPendingJob(providerId, providerJobs[0]?.tenantId)) {
+              this.logger.verbose(`Provider ${providerId} already has pending job; skipping bulk enqueue`);
+              return;
+            }
 
-      // Filter out jobs that already have pending work for the same provider
-      const filteredJobs: SyncJobData[] = [];
-      for (const job of priorityJobs) {
-        if (await this.hasPendingJob(job.providerId, job.tenantId)) {
-          this.logger.verbose(`Provider ${job.providerId} already has pending job; skipping bulk enqueue`);
-          continue;
-        }
-        filteredJobs.push(this.withJobToken(job));
+            // Group by priority for this provider
+            const byPriority: { [key: string]: SyncJobData[] } = { high: [], normal: [], low: [] };
+            for (const job of providerJobs) {
+              byPriority[job.priority].push(this.withJobToken(job));
+            }
+
+            // Add jobs to respective queues
+            for (const [priority, priorityJobs] of Object.entries(byPriority)) {
+              if (priorityJobs.length === 0) continue;
+
+              const queue = this.getQueueByPriority(priority as QueuePriority);
+              const bullJobs = priorityJobs.map((job, index) => ({
+                name: `sync-${job.providerType}-${job.email}`,
+                data: job,
+                opts: {
+                  jobId: `${job.providerId}-${job.syncType || 'delta'}`,
+                  delay: this.getJitterMs(priority as QueuePriority) + index * 100,
+                },
+              }));
+
+              await queue.addBulk(bullJobs);
+              this.logger.log(`Added ${bullJobs.length} ${priority} priority jobs for provider ${providerId}`);
+            }
+          },
+          { maxRetries: 2 },
+        );
+      } catch (error) {
+        this.logger.warn(
+          `RC-10: Lock acquisition failed for bulk sync (provider ${providerId}), skipping: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-
-      if (filteredJobs.length === 0) {
-        continue;
-      }
-
-      const bullJobs = filteredJobs.map((job, index) => ({
-        name: `sync-${job.providerType}-${job.email}`,
-        data: job,
-        opts: {
-          jobId: `${job.providerId}-${job.syncType || 'delta'}`,
-          delay: this.getJitterMs(priority as QueuePriority) + index * 100, // Stagger jobs with base jitter
-        },
-      }));
-
-      await queue.addBulk(bullJobs);
-
-      this.logger.log(`Added ${bullJobs.length} ${priority} priority jobs (filtered from ${priorityJobs.length})`);
     }
   }
 
