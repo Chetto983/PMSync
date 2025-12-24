@@ -128,15 +128,25 @@ export class EmailsController {
   ) {
     const tenantId = req.user.tenantId;
 
-    // Validate and sanitize pagination parameters
-    const parsedPage = page ? parseInt(page) : 1;
-    const parsedLimit = limit ? parseInt(limit) : 50;
+    // SEC-5 FIX: Validate and sanitize pagination parameters with NaN checks
+    const parsedPage = page ? parseInt(page, 10) : 1;
+    const parsedLimit = limit ? parseInt(limit, 10) : 50;
 
-    // Security: Enforce maximum limit to prevent DOS attacks
+    // Security: Check for NaN values (parseInt returns NaN for non-numeric strings)
+    if (isNaN(parsedPage) || isNaN(parsedLimit)) {
+      throw new BadRequestException('Invalid pagination parameters: page and limit must be numbers');
+    }
+
+    // Security: Enforce minimum and maximum values to prevent DoS attacks
     const MIN_PAGE = 1;
+    const MAX_PAGE = 10000; // Prevent excessive skip values causing database issues
 
     if (parsedPage < MIN_PAGE) {
       throw new BadRequestException(`Page must be at least ${MIN_PAGE}`);
+    }
+
+    if (parsedPage > MAX_PAGE) {
+      throw new BadRequestException(`Page cannot exceed ${MAX_PAGE}`);
     }
 
     if (parsedLimit < 1) {

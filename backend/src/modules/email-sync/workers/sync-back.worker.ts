@@ -565,12 +565,15 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
 
             case 'archive':
               // Move to Archive folder (try common names)
+              // Q-1 FIX: Added logging to catch blocks for debugging
               try {
                 await client.messageMove(uids, 'Archive', { uid: true });
-              } catch {
+              } catch (archiveErr) {
+                this.logger.debug(`Archive folder not found, trying Gmail folder: ${archiveErr instanceof Error ? archiveErr.message : archiveErr}`);
                 try {
                   await client.messageMove(uids, '[Gmail]/All Mail', { uid: true });
-                } catch {
+                } catch (gmailErr) {
+                  this.logger.debug(`Gmail All Mail folder not found, marking as deleted: ${gmailErr instanceof Error ? gmailErr.message : gmailErr}`);
                   // If no archive folder, just remove from INBOX
                   await client.messageFlagsAdd(uids, ['\\Deleted'], { uid: true });
                 }
@@ -579,12 +582,15 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
 
             case 'delete':
               // Move to Trash or mark as deleted
+              // Q-2 FIX: Added logging to catch blocks for debugging
               try {
                 await client.messageMove(uids, 'Trash', { uid: true });
-              } catch {
+              } catch (trashErr) {
+                this.logger.debug(`Trash folder not found, trying Gmail folder: ${trashErr instanceof Error ? trashErr.message : trashErr}`);
                 try {
                   await client.messageMove(uids, '[Gmail]/Trash', { uid: true });
-                } catch {
+                } catch (gmailTrashErr) {
+                  this.logger.debug(`Gmail Trash folder not found, marking as deleted: ${gmailTrashErr instanceof Error ? gmailTrashErr.message : gmailTrashErr}`);
                   await client.messageFlagsAdd(uids, ['\\Deleted'], { uid: true });
                 }
               }

@@ -12,6 +12,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -344,7 +345,11 @@ export class FoldersController {
 
   // ========== FOLDER CRUD OPERATIONS ==========
 
+  /**
+   * SEC-4 FIX: Rate limiting on folder operations to prevent resource exhaustion
+   */
   @Post()
+  @Throttle({ default: { ttl: 60000, limit: 10 } }) // 10 requests per minute
   @ApiOperation({ summary: 'Create a new folder' })
   @ApiBody({ type: CreateFolderDto })
   @ApiQuery({ name: 'wait', required: false, description: 'Wait for operation to complete (default: true)' })
@@ -415,6 +420,7 @@ export class FoldersController {
   }
 
   @Patch(':folderId')
+  @Throttle({ default: { ttl: 60000, limit: 10 } }) // SEC-4: 10 requests per minute
   @ApiOperation({ summary: 'Rename a folder' })
   @ApiBody({ type: RenameFolderDto })
   @ApiQuery({ name: 'wait', required: false, description: 'Wait for operation to complete (default: true)' })
@@ -489,6 +495,7 @@ export class FoldersController {
   }
 
   @Delete(':folderId')
+  @Throttle({ default: { ttl: 60000, limit: 10 } }) // SEC-4: 10 requests per minute
   @ApiOperation({ summary: 'Delete a folder' })
   @ApiQuery({ name: 'wait', required: false, description: 'Wait for operation to complete (default: true)' })
   @ApiResponse({ status: 200, description: 'Folder deleted successfully' })

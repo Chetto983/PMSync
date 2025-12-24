@@ -46,8 +46,10 @@ export class MicrosoftDriver extends BaseEmailDriver {
       throw new Error('Access token is required for Microsoft authentication');
     }
 
+    // Q-10 FIX: Add timeout to prevent hanging requests
     this.client = axios.create({
       baseURL: this.GRAPH_API_BASE,
+      timeout: 30000, // 30 second timeout for Microsoft Graph API calls
       headers: {
         Authorization: `Bearer ${credentials.accessToken}`,
         'Content-Type': 'application/json',

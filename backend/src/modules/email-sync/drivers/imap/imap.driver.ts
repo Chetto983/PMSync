@@ -354,16 +354,24 @@ export class IMAPDriver extends BaseEmailDriver {
       }
     });
 
-    // Connection error handling
+    // Q-5 FIX: Connection error handling - clean up resources to prevent leak
     this.idleConnection.on('error', (error: Error) => {
       this.logger.error('IDLE connection error:', error);
       this.idleActive = false;
+      // Clean up the stale connection reference to prevent resource leak
+      this.idleConnection = undefined;
+      this.idleCallback = undefined;
+      this.idleFolder = undefined;
     });
 
-    // Connection close handling
+    // Q-5 FIX: Connection close handling - clean up resources to prevent leak
     this.idleConnection.on('close', () => {
       this.logger.warn('IDLE connection closed');
       this.idleActive = false;
+      // Clean up the stale connection reference to prevent resource leak
+      this.idleConnection = undefined;
+      this.idleCallback = undefined;
+      this.idleFolder = undefined;
     });
   }
 
