@@ -27,14 +27,10 @@ import { EmailEmbeddingCleanupService } from './services/email-embedding-cleanup
 // Gmail-specific services (pluggable adapters)
 import { GmailAttachmentHandler } from './services/gmail/gmail-attachment-handler';
 import { GmailFolderService } from './services/gmail/gmail-folder.service';
-import { GmailMessageParser } from './services/gmail/gmail-message-parser';
-import { GmailBatchProcessor } from './services/gmail/gmail-batch-processor';
 
 // Microsoft-specific services (pluggable adapters)
 import { MicrosoftAttachmentHandler } from './services/microsoft/microsoft-attachment-handler';
 import { MicrosoftFolderService } from './services/microsoft/microsoft-folder.service';
-import { MicrosoftMessageParser } from './services/microsoft/microsoft-message-parser';
-import { MicrosoftBatchProcessor } from './services/microsoft/microsoft-batch-processor';
 
 // IMAP-specific services (pluggable adapters)
 import { ImapAttachmentHandler } from './services/imap/imap-attachment-handler';
@@ -102,14 +98,10 @@ import { FoldersController } from '../email/controllers/folders.controller';
     // Gmail-specific services (pluggable adapters)
     GmailAttachmentHandler,
     GmailFolderService,
-    GmailMessageParser,
-    GmailBatchProcessor,
 
     // Microsoft-specific services (pluggable adapters)
     MicrosoftAttachmentHandler,
     MicrosoftFolderService,
-    MicrosoftMessageParser,
-    MicrosoftBatchProcessor,
 
     // IMAP-specific services (pluggable adapters)
     ImapAttachmentHandler,

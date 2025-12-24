@@ -9,7 +9,6 @@ import { EmailCleanupService } from './services/email-cleanup.service';
 import { AttachmentStorageService } from './services/attachment.storage';
 import { AttachmentOnDemandService } from './services/attachment-on-demand.service';
 import { AttachmentMetricsService } from './services/attachment-metrics.service';
-import { BatchProcessorService } from './services/batch-processor.service';
 import { ScheduledEmailService } from './services/scheduled-email.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
@@ -56,7 +55,6 @@ import { CalendarModule } from '../calendar/calendar.module';
     AttachmentStorageService,
     AttachmentOnDemandService,
     AttachmentMetricsService, // Centralized metrics for attachments
-    BatchProcessorService, // Batch processing with concurrency control
     StorageService,
     ProviderTokenService,
   ],
@@ -72,7 +70,6 @@ import { CalendarModule } from '../calendar/calendar.module';
     AttachmentStorageService,
     AttachmentOnDemandService,
     AttachmentMetricsService, // Export for cross-module access
-    BatchProcessorService, // Export for cross-module access
     StorageService,
     ScheduledEmailService,
   ],
