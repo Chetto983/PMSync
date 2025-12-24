@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Param, UseGuards, Request, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Param, UseGuards, Request, Logger, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../auth/guards/tenant.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { QueueService } from './services/queue.service';
 import { SyncSchedulerService } from './services/sync-scheduler.service';
 import { WebhookLifecycleService } from './services/webhook-lifecycle.service';
@@ -22,7 +24,7 @@ export class EmailSyncController {
     private webhookLifecycle: WebhookLifecycleService,
     private prisma: PrismaService,
     private storageService: StorageService,
-  ) {}
+  ) { }
 
   @Get('status')
   @ApiOperation({ summary: 'Get email sync system status' })
@@ -53,10 +55,27 @@ export class EmailSyncController {
     return await this.queueService.getQueueStatus();
   }
 
+  /**
+   * SEC-1 FIX: Manually trigger sync for a provider with tenant validation
+   */
   @Post('sync/:providerId')
   @ApiOperation({ summary: 'Manually trigger sync for a provider' })
   @ApiResponse({ status: 200, description: 'Sync job queued successfully' })
-  async syncProvider(@Param('providerId') providerId: string) {
+  async syncProvider(
+    @Param('providerId') providerId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const tenantId = req.user.tenantId;
+
+    // SEC-1 FIX: Validate provider belongs to tenant before queueing sync
+    const provider = await this.prisma.providerConfig.findFirst({
+      where: { id: providerId, tenantId },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Provider not found');
+    }
+
     await this.schedulerService.syncProviderNow(providerId, 'high');
 
     return {
@@ -190,9 +209,15 @@ export class EmailSyncController {
     };
   }
 
+  /**
+   * SEC-2 FIX: Queue operations require super-admin role
+   */
   @Post('queues/:priority/pause')
-  @ApiOperation({ summary: 'Pause a queue' })
+  @UseGuards(RolesGuard)
+  @Roles('super-admin')
+  @ApiOperation({ summary: 'Pause a queue (super-admin only)' })
   @ApiResponse({ status: 200, description: 'Queue paused successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - requires super-admin role' })
   async pauseQueue(@Param('priority') priority: 'high' | 'normal' | 'low') {
     await this.queueService.pauseQueue(priority);
 
@@ -203,8 +228,11 @@ export class EmailSyncController {
   }
 
   @Post('queues/:priority/resume')
-  @ApiOperation({ summary: 'Resume a queue' })
+  @UseGuards(RolesGuard)
+  @Roles('super-admin')
+  @ApiOperation({ summary: 'Resume a queue (super-admin only)' })
   @ApiResponse({ status: 200, description: 'Queue resumed successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - requires super-admin role' })
   async resumeQueue(@Param('priority') priority: 'high' | 'normal' | 'low') {
     await this.queueService.resumeQueue(priority);
 
@@ -215,8 +243,11 @@ export class EmailSyncController {
   }
 
   @Post('queues/:priority/clear')
-  @ApiOperation({ summary: 'Clear all jobs from a queue (DANGEROUS)' })
+  @UseGuards(RolesGuard)
+  @Roles('super-admin')
+  @ApiOperation({ summary: 'Clear all jobs from a queue - DANGEROUS (super-admin only)' })
   @ApiResponse({ status: 200, description: 'Queue cleared successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden - requires super-admin role' })
   async clearQueue(@Param('priority') priority: 'high' | 'normal' | 'low') {
     await this.queueService.obliterateQueue(priority);
 
