@@ -193,6 +193,8 @@ export class EmailSendService {
       );
 
       // Prepare compose message for driver
+      // BUG FIX B-1: Drivers expect base64 content, not storage path
+      // Use original attachment Buffers converted to base64
       const composeMessage: ComposeMessage = {
         to: data.to.map(email => ({ email, name: '' })),
         cc: data.cc?.map(email => ({ email, name: '' })),
@@ -200,14 +202,13 @@ export class EmailSendService {
         subject: data.subject,
         bodyHtml: data.bodyHtml,
         bodyText: data.bodyText,
-        attachments: uploadedAttachments.map((att, index) => ({
+        attachments: data.attachments?.map((att, index) => ({
           id: `att-${index}-${Date.now()}`,
           filename: att.filename,
-          mimeType: att.mimeType,
-          size: att.size,
-          isInline: att.isInline,
-          contentId: att.contentId,
-          content: att.storagePath, // Driver will read from storage path
+          mimeType: att.contentType,
+          size: att.content.byteLength,
+          isInline: false,
+          content: att.content.toString('base64'), // Driver expects base64 content
         })),
       };
 

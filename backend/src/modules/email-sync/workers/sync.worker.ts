@@ -111,14 +111,56 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processJob(job: Job<SyncJobData>): Promise<SyncJobResult> {
-    const { tenantId, providerId, providerType, email, syncType } = job.data;
+    const { tenantId, providerId, providerType: jobProviderType, email, syncType } = job.data;
 
     // Optional job token validation to align with webhook handshake pattern
     this.syncAuth.validateJobToken(job.data.authToken);
 
-    this.logger.log(`Processing ${syncType} sync for ${email} (${providerType})`);
-
     const startTime = Date.now();
+
+    // BUG FIX ES-7: Validate providerType from database, don't trust job data
+    // This prevents malformed job data from dispatching the wrong driver
+    const provider = await this.prisma.providerConfig.findUnique({
+      where: { id: providerId },
+      select: { id: true, tenantId: true, providerType: true, email: true },
+    });
+
+    if (!provider) {
+      this.logger.error(`Provider ${providerId} not found in database`);
+      return {
+        success: false,
+        providerId,
+        email,
+        messagesProcessed: 0,
+        newMessages: 0,
+        errors: [`Provider ${providerId} not found`],
+        syncDuration: Date.now() - startTime,
+      };
+    }
+
+    // Validate tenant matches
+    if (provider.tenantId !== tenantId) {
+      this.logger.error(`Provider ${providerId} belongs to tenant ${provider.tenantId}, not ${tenantId}`);
+      return {
+        success: false,
+        providerId,
+        email,
+        messagesProcessed: 0,
+        newMessages: 0,
+        errors: [`Tenant mismatch for provider ${providerId}`],
+        syncDuration: Date.now() - startTime,
+      };
+    }
+
+    // Use validated providerType from database, not job data
+    const providerType = provider.providerType;
+    if (jobProviderType && jobProviderType !== providerType) {
+      this.logger.warn(
+        `Job data providerType mismatch: job=${jobProviderType}, db=${providerType}. Using DB value.`,
+      );
+    }
+
+    this.logger.log(`Processing ${syncType} sync for ${email} (${providerType})`);
 
     try {
       // RACE CONDITION FIX RC-4: Sync folder structure with distributed lock

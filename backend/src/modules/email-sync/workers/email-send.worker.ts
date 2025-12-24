@@ -278,13 +278,11 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
     _accessToken: string,
     email: EmailSendJobData['email'],
   ): Promise<{ messageId?: string; threadId?: string }> {
-    // IMAP providers use SMTP for sending via nodemailer
-    const metadata = provider.metadata || {};
-
-    // Get SMTP configuration from provider metadata
-    const smtpHost = metadata.smtpHost;
-    const smtpPort = metadata.smtpPort || 587;
-    const smtpSecure = metadata.smtpSecure !== false;
+    // BUG FIX B-2 & B-7: Use proper SMTP credential fields from ProviderConfig schema
+    // Not accessToken (OAuth) or metadata, but smtpHost/smtpPort/smtpPassword/smtpUsername
+    const smtpHost = provider.smtpHost;
+    const smtpPort = provider.smtpPort || 587;
+    const smtpSecure = provider.smtpUseTls !== false;
 
     if (!smtpHost) {
       throw new Error(
@@ -293,13 +291,23 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    // Decrypt password from accessToken (IMAP stores password as encrypted accessToken)
+    // BUG FIX B-2: Decrypt smtpPassword (not accessToken) for IMAP SMTP auth
+    if (!provider.smtpPassword || !provider.smtpEncryptionIv) {
+      throw new Error(
+        `IMAP email sending requires SMTP password. ` +
+          `Configure SMTP credentials for provider ${provider.email} to enable sending.`,
+      );
+    }
+
     let password: string;
     try {
-      password = this.cryptoService.decrypt(provider.accessToken, provider.tokenEncryptionIv);
+      password = this.cryptoService.decrypt(provider.smtpPassword, provider.smtpEncryptionIv);
     } catch {
-      throw new Error('Failed to decrypt IMAP password for SMTP authentication');
+      throw new Error('Failed to decrypt SMTP password for IMAP authentication');
     }
+
+    // BUG FIX B-7: Use smtpUsername if available, fallback to provider.email
+    const smtpUsername = provider.smtpUsername || provider.email;
 
     // Create nodemailer transporter
     const transporter = nodemailer.createTransport({
@@ -307,7 +315,7 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
       port: smtpPort,
       secure: smtpSecure,
       auth: {
-        user: provider.email,
+        user: smtpUsername,
         pass: password,
       },
       // Connection timeout settings

@@ -423,9 +423,38 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       return { processed: 0, newCount: 0 };
     }
 
+    // BUG FIX B-5: Query existing emails to check userModifiedAt
+    // This prevents overwriting user's flag changes during full sync
+    const externalIds = messages.map((m) => m.id);
+    const existingEmails = await this.prisma.email.findMany({
+      where: {
+        providerId,
+        externalId: { in: externalIds },
+      },
+      select: {
+        externalId: true,
+        folder: true,
+        userModifiedAt: true,
+      },
+    });
+
+    // Build lookup map: `externalId:folder` -> userModifiedAt
+    const userModifiedMap = new Map<string, Date | null>();
+    for (const email of existingEmails) {
+      userModifiedMap.set(`${email.externalId}:${email.folder}`, email.userModifiedAt);
+    }
+
+    const now = Date.now();
+    const FIVE_MINUTES = 5 * 60 * 1000;
+
     // Prepare all upsert operations
     const upsertOps = messages.map((msg) => {
-      const updateData = {
+      // BUG FIX B-5: Check if user modified this email recently
+      const userModifiedAt = userModifiedMap.get(`${msg.id}:${msg.folder}`);
+      const userModifiedRecently = userModifiedAt && (now - userModifiedAt.getTime()) < FIVE_MINUTES;
+
+      // Base update data (content fields only)
+      const baseUpdateData = {
         subject: msg.subject || '(No Subject)',
         from: msg.from.email,
         to: msg.to?.map((r) => r.email) || [],
@@ -435,11 +464,18 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         bodyHtml: msg.bodyHtml || '',
         snippet: msg.snippet || '',
         receivedAt: msg.receivedAt,
-        isRead: msg.isRead ?? false,
-        isStarred: msg.isStarred ?? false,
-        isFlagged: msg.isFlagged ?? false,
-        labels: msg.labels || [],
       };
+
+      // Only include state fields if user didn't modify recently
+      const updateData = userModifiedRecently
+        ? baseUpdateData
+        : {
+            ...baseUpdateData,
+            isRead: msg.isRead ?? false,
+            isStarred: msg.isStarred ?? false,
+            isFlagged: msg.isFlagged ?? false,
+            labels: msg.labels || [],
+          };
 
       return this.prisma.email.upsert({
         where: {
@@ -454,7 +490,11 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
           tenantId,
           providerId,
           externalId: msg.id,
-          ...updateData,
+          ...baseUpdateData,
+          isRead: msg.isRead ?? false,
+          isStarred: msg.isStarred ?? false,
+          isFlagged: msg.isFlagged ?? false,
+          labels: msg.labels || [],
           sentAt: msg.sentAt || msg.receivedAt,
           isDeleted: false,
           folder: msg.folder,

@@ -1746,15 +1746,23 @@ export class EmailsService {
         },
         select: { id: true },
       }),
-      // Get emails for provider validation
+      // BUG FIX B-4: Include email id in select for tenant-safe filtering
+      // Get emails for provider validation AND to filter to only tenant's emails
       this.prisma.email.findMany({
         where: { id: { in: emailIds }, tenantId },
-        select: { providerId: true },
+        select: { id: true, providerId: true },
       }),
     ]);
 
     if (labels.length !== labelIds.length) {
       throw new NotFoundException('One or more labels not found');
+    }
+
+    // BUG FIX B-4: Only use email IDs that were found in tenant-scoped query
+    // This prevents cross-tenant label manipulation if foreign emailIds are passed
+    const validatedEmailIds = emails.map((e) => e.id);
+    if (validatedEmailIds.length === 0) {
+      throw new NotFoundException('No valid emails found for this tenant');
     }
 
     await this.ensureProvidersActive(
@@ -1763,11 +1771,12 @@ export class EmailsService {
     );
 
     // Create email-label associations
-    const emailLabelPairs = emailIds.flatMap((emailId) =>
+    // BUG FIX B-3: EmailLabel schema has no tenantId field - removed from createMany data
+    // BUG FIX B-4: Use validatedEmailIds (tenant-safe) instead of original emailIds
+    const emailLabelPairs = validatedEmailIds.flatMap((emailId) =>
       labelIds.map((labelId) => ({
         emailId,
         labelId,
-        tenantId,
       }))
     );
 
@@ -1778,7 +1787,8 @@ export class EmailsService {
     });
 
     // Return updated emails with all relationships
-    const updatedEmails = await this.getEmailsByIds(emailIds, tenantId);
+    // BUG FIX B-4: Use validatedEmailIds for consistency
+    const updatedEmails = await this.getEmailsByIds(validatedEmailIds, tenantId);
 
     // Emit realtime update events for each email
     for (const email of updatedEmails) {
@@ -1805,24 +1815,34 @@ export class EmailsService {
     this.validateBulkInput(emailIds, 'bulkRemoveLabels');
     this.validateBulkInput(labelIds, 'bulkRemoveLabels (labels)');
 
+    // BUG FIX B-4: Include email id in select for tenant-safe filtering
     const emails = await this.prisma.email.findMany({
       where: { id: { in: emailIds }, tenantId },
-      select: { providerId: true },
+      select: { id: true, providerId: true },
     });
+
+    // BUG FIX B-4: Only use email IDs that were found in tenant-scoped query
+    const validatedEmailIds = emails.map((e) => e.id);
+    if (validatedEmailIds.length === 0) {
+      return { deleted: 0, emails: [] };
+    }
+
     await this.ensureProvidersActive(
       tenantId,
       Array.from(new Set(emails.map((email) => email.providerId))),
     );
 
+    // BUG FIX B-4: Use validatedEmailIds (tenant-safe) instead of original emailIds
     const result = await this.prisma.emailLabel.deleteMany({
       where: {
-        emailId: { in: emailIds },
+        emailId: { in: validatedEmailIds },
         labelId: { in: labelIds },
       },
     });
 
     // Return updated emails with all relationships
-    const updatedEmails = await this.getEmailsByIds(emailIds, tenantId);
+    // BUG FIX B-4: Use validatedEmailIds for consistency
+    const updatedEmails = await this.getEmailsByIds(validatedEmailIds, tenantId);
 
     // Emit realtime update events for each email
     for (const email of updatedEmails) {

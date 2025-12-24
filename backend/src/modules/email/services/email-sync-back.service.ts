@@ -134,14 +134,18 @@ export class EmailSyncBackService {
             throw new Error(`Missing providerId for email ${operation.emailId}`);
           }
 
-          // Get provider config
-          const provider = await this.prisma.providerConfig.findUnique({
-            where: { id: operation.providerId },
+          // BUG FIX B-6: Get provider config with tenant validation
+          // This ensures multi-tenant isolation - provider must belong to the operation's tenant
+          const provider = await this.prisma.providerConfig.findFirst({
+            where: {
+              id: operation.providerId,
+              tenantId: operation.tenantId,
+            },
           });
 
           // Bug #6 fix: Clear error when provider not found
           if (!provider) {
-            throw new Error(`Provider not found: ${operation.providerId} for email ${operation.emailId}`);
+            throw new Error(`Provider not found: ${operation.providerId} for tenant ${operation.tenantId}`);
           }
 
           // Sync based on provider type (case-insensitive)
@@ -617,8 +621,12 @@ export class EmailSyncBackService {
       // Fall back to looking up from email record
       let normalizedFolder = operation.sourceFolder;
       if (!normalizedFolder) {
-        const email = await this.prisma.email.findUnique({
-          where: { id: operation.emailId },
+        // BUG FIX B-6: Add tenant validation to email lookup for multi-tenant isolation
+        const email = await this.prisma.email.findFirst({
+          where: {
+            id: operation.emailId,
+            tenantId: operation.tenantId,
+          },
           select: { folder: true },
         });
         normalizedFolder = email?.folder || 'INBOX';
