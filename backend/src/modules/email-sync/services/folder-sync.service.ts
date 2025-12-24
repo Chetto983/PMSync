@@ -7,6 +7,7 @@ import { google } from 'googleapis';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { ProviderTokenService } from './provider-token.service';
 import { GmailFolderService } from './gmail/gmail-folder.service';
+import { folderNameToCanonical } from '../drivers/interfaces/canonical.types';
 
 export interface FolderInfo {
   path: string;
@@ -234,7 +235,6 @@ export class FolderSyncService {
     }
 
     // Fallback: Use centralized heuristic matching from canonical.types
-    const { folderNameToCanonical } = require('../drivers/interfaces/canonical.types');
     return folderNameToCanonical(name);
   }
 
@@ -554,7 +554,6 @@ export class FolderSyncService {
   private determineMicrosoftFolderType(folderName: string): string | undefined {
     // metadata-based detection is handled by the driver, but here we deal with display names
     // Use the centralized heuristic from canonical.types (Common with IMAP)
-    const { folderNameToCanonical } = require('../drivers/interfaces/canonical.types');
     return folderNameToCanonical(folderName);
   }
 

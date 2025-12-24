@@ -90,7 +90,7 @@ export abstract class AbstractCalendarSyncService {
   /**
    * Extract attachments from events (optional, returns empty array by default)
    */
-  protected extractAttachments(events: any[]): CalendarEventAttachmentData[] {
+  protected extractAttachments(_events: any[]): CalendarEventAttachmentData[] {
     return [];
   }
 

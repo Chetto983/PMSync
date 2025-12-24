@@ -16,11 +16,7 @@ import { ProviderTokenService } from './provider-token.service';
 
 export const GMAIL_WEBHOOK_RESOURCE = 'gmail/mailbox';
 
-// Security: Replay attack prevention cache
-interface ProcessedMessage {
-  messageId: string;
-  processedAt: number;
-}
+// Security: Replay attack prevention cache (type used by replayCache Map)
 
 /**
  * Simple async mutex for per-provider locking

@@ -15,7 +15,7 @@ import { Contact, Prisma } from '@prisma/client';
 import vCard from 'vcf';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { CONTACTS_DEFAULTS, PUBLIC_EMAIL_DOMAINS, CONTACT_SOURCES } from '../contacts.constants';
-import type { EmailAddress, VCardImportResult, EmailExtractionResult } from '../contacts.types';
+import type { VCardImportResult, EmailExtractionResult } from '../contacts.types';
 import type { CreateContactDto } from '../dto/contact.dto';
 
 @Injectable()
