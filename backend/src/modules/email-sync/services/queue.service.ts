@@ -60,6 +60,34 @@ const DEFAULT_QUEUE_LIMITS: Record<QueuePriority, QueueLimits> = {
   },
 };
 
+/**
+ * RC-20/RC-21 FIX: Lua script for atomic provider count increment with limit check
+ * Prevents TOCTOU race condition in capacity check + increment
+ */
+const PROVIDER_COUNT_LUA_SCRIPT = `
+  local countKey = KEYS[1]
+  local mappingKey = KEYS[2]
+  local limit = tonumber(ARGV[1])
+  local providerId = ARGV[2]
+  local ttl = tonumber(ARGV[3])
+
+  -- Atomic increment
+  local newCount = redis.call('INCR', countKey)
+  redis.call('EXPIRE', countKey, ttl)
+
+  -- Check limit AFTER increment
+  if newCount > limit then
+    -- Rollback - exceeded limit
+    redis.call('DECR', countKey)
+    return {0, newCount - 1}
+  end
+
+  -- Store job-to-provider mapping for cleanup
+  redis.call('SET', mappingKey, providerId, 'EX', ttl)
+
+  return {1, newCount}
+`;
+
 export interface QueueMetricsSummary {
   queue: QueuePriority;
   completed: number;
@@ -270,22 +298,64 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * CRIT-5 FIX: Helper to decrement provider count when job finishes
+   * RC-20/RC-21 FIX: Helper to decrement provider count when job finishes
+   * Uses stored job-to-provider mapping instead of fetching job (which may be deleted)
    */
   private async decrementProviderCountForJob(
-    queue: Queue<SyncJobData>,
+    _queue: Queue<SyncJobData>,
     jobId: string,
     priority: QueuePriority,
   ): Promise<void> {
     try {
-      const job = await queue.getJob(jobId);
-      if (job?.data?.providerId) {
-        await this.decrementProviderJobCount(priority, job.data.providerId);
+      // RC-21 FIX: Use stored mapping instead of fetching job
+      const mappingKey = `queue:job-provider:${jobId}`;
+      const providerId = await this.redisConnection.get(mappingKey);
+
+      if (providerId) {
+        await this.decrementProviderJobCount(priority, providerId);
+        await this.redisConnection.del(mappingKey);
       }
     } catch (error) {
       this.logger.debug(
         `CRIT-5: Failed to decrement provider count for job ${jobId}: ${error instanceof Error ? error.message : String(error)}`,
       );
+    }
+  }
+
+  /**
+   * RC-20 FIX: Atomic provider count increment with limit check
+   * Uses Lua script to prevent TOCTOU race condition
+   */
+  private async atomicIncrementProviderCount(
+    priority: QueuePriority,
+    providerId: string,
+    jobId: string,
+  ): Promise<{ allowed: boolean; currentCount: number }> {
+    const countKey = `queue:provider-count:${priority}:${providerId}`;
+    const mappingKey = `queue:job-provider:${jobId}`;
+    const limits = DEFAULT_QUEUE_LIMITS[priority];
+    const ttl = 3600; // 1 hour TTL
+
+    try {
+      const result = await this.redisConnection.eval(
+        PROVIDER_COUNT_LUA_SCRIPT,
+        2,
+        countKey,
+        mappingKey,
+        limits.maxPerProvider.toString(),
+        providerId,
+        ttl.toString(),
+      ) as [number, number];
+
+      const [allowed, currentCount] = result;
+      return { allowed: allowed === 1, currentCount };
+    } catch (error) {
+      this.logger.warn(
+        `RC-20: Atomic increment failed, allowing job: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // On error, allow the job (fail open) but try to increment non-atomically
+      await this.incrementProviderJobCount(priority, providerId);
+      return { allowed: true, currentCount: 0 };
     }
   }
 
@@ -378,6 +448,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   /**
    * RC-8 FIX: Add sync job with distributed lock to prevent race conditions
    * CRIT-5 FIX: Added backpressure checks to prevent unbounded queue growth
+   * RC-20 FIX: Uses atomic increment with limit check to prevent TOCTOU
    * Uses Redis lock around the check+add operation to ensure atomicity
    */
   async addSyncJob(data: SyncJobData): Promise<void> {
@@ -385,9 +456,11 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     const jobData = this.withJobToken(data);
     const jobId = `${data.providerId}-${data.syncType || 'delta'}`;
 
-    // CRIT-5 FIX: Check queue capacity before attempting to add job
+    // CRIT-5 FIX: Check overall queue capacity before attempting to add job
+    // Note: Per-provider limit is checked atomically below with atomicIncrementProviderCount
     const capacityCheck = await this.checkQueueCapacity(queue, data.priority, data.providerId);
-    if (!capacityCheck.hasCapacity) {
+    if (!capacityCheck.hasCapacity && !capacityCheck.reason?.includes('Provider')) {
+      // Only reject on overall queue limits, not per-provider (handled atomically below)
       this.logger.warn(capacityCheck.reason);
       return; // Drop the job (backpressure applied)
     }
@@ -419,6 +492,20 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
             return;
           }
 
+          // RC-20 FIX: Atomic increment with limit check (prevents TOCTOU race)
+          const { allowed, currentCount } = await this.atomicIncrementProviderCount(
+            data.priority,
+            data.providerId,
+            jobId,
+          );
+
+          if (!allowed) {
+            this.logger.warn(
+              `CRIT-5: Provider ${data.providerId} at max capacity for ${data.priority} queue (${currentCount}/${DEFAULT_QUEUE_LIMITS[data.priority].maxPerProvider})`,
+            );
+            return; // Drop the job (per-provider backpressure)
+          }
+
           // Jitter to spread webhook bursts
           const jitterMs = this.getJitterMs(data.priority);
 
@@ -430,9 +517,6 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
               delay: jitterMs,
             },
           );
-
-          // CRIT-5 FIX: Track provider job count for backpressure
-          await this.incrementProviderJobCount(data.priority, data.providerId);
 
           this.logger.log(`Added ${data.priority} priority sync job for ${data.email} (${data.providerType}) [jobId=${jobId}]`);
         },

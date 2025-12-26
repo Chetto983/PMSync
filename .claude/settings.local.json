@@ -91,7 +91,8 @@
       "Bash(dir /s /b \"d:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email\")",
       "Bash(powershell -Command:*)",
       "Bash(npx prisma generate)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(del \"D:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email-sync\\\\utils\\\\email-metadata.util.ts\")"
     ],
     "deny": []
   }

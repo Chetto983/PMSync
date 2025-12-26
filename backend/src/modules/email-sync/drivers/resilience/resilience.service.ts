@@ -81,10 +81,6 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
   // Redis key prefixes for distributed state
   private readonly CIRCUIT_KEY_PREFIX = 'resilience:circuit:';
   private readonly RATE_LIMIT_KEY_PREFIX = 'resilience:ratelimit:';
-  private readonly LOCK_KEY_PREFIX = 'resilience:lock:';
-
-  // Lock TTL in seconds
-  private readonly LOCK_TTL_SECONDS = 5;
 
   // Local fallback caches (used when Redis fails - fail open pattern)
   private circuits = new Map<string, CircuitStatus>();
@@ -235,13 +231,145 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
     this.redis.on('ready', () => {
       this.degradedMode = false;
     });
+
+    // NEW-1 FIX: Start periodic health check for degraded mode recovery
+    this.healthCheckInterval = setInterval(() => {
+      this.checkRedisHealth().catch(() => {
+        // Ignore errors in health check
+      });
+    }, this.HEALTH_CHECK_INTERVAL_MS);
+    // Prevent interval from keeping Node.js process alive
+    this.healthCheckInterval.unref?.();
   }
 
   async onModuleDestroy(): Promise<void> {
+    // NEW-1 FIX: Clear health check interval
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = undefined;
+    }
+
     if (this.redis) {
       await this.redis.quit().catch(() => {
         // Ignore quit errors during shutdown
       });
+    }
+  }
+
+  /**
+   * NEW-1 FIX: Check Redis health and recover from degraded mode
+   */
+  private async checkRedisHealth(): Promise<void> {
+    if (!this.degradedMode) return;
+
+    try {
+      const pong = await this.redis.ping();
+      if (pong === 'PONG') {
+        this.logger.log('CRIT-4: Redis recovered, exiting degraded mode');
+        this.degradedMode = false;
+      }
+    } catch {
+      // Still degraded, will check again next interval
+    }
+  }
+
+  /**
+   * RC-16/RC-17 FIX: Execute circuit breaker Lua script atomically
+   */
+  private async executeCircuitLuaScript(
+    accountId: string,
+    action: 'check' | 'success' | 'failure',
+    config: CircuitBreakerConfig,
+  ): Promise<CircuitStatus> {
+    const key = `${this.CIRCUIT_KEY_PREFIX}${accountId}`;
+    const now = Date.now();
+
+    try {
+      const result = await this.redis.eval(
+        this.CIRCUIT_LUA_SCRIPT,
+        1,
+        key,
+        now.toString(),
+        action,
+        config.successThreshold.toString(),
+        config.failureThreshold.toString(),
+        config.resetTimeoutMs.toString(),
+      ) as string[];
+
+      const [state, failures, successCount, nextRetry] = result;
+
+      // Log circuit breaker trips
+      if (action === 'failure' && state === 'open') {
+        this.metrics.circuitBreakerTrips++;
+        this.logger.warn(
+          `Circuit breaker opened for account ${accountId}. Next retry: ${new Date(parseInt(nextRetry, 10)).toISOString()}`,
+        );
+      }
+
+      // Log circuit breaker recovery
+      if (action === 'success' && state === 'closed' && this.circuits.get(accountId)?.state === 'half-open') {
+        this.logger.log(`Circuit breaker closed for account ${accountId}`);
+      }
+
+      return {
+        state: state as 'closed' | 'open' | 'half-open',
+        failures: parseInt(failures, 10),
+        successCount: parseInt(successCount, 10),
+        nextRetry: nextRetry !== '0' ? new Date(parseInt(nextRetry, 10)) : undefined,
+      };
+    } catch (error) {
+      this.logger.warn(`RC-16/RC-17: Lua script failed, using local fallback: ${(error as Error).message}`);
+      this.degradedMode = true;
+      return this.getCircuitStatus(accountId);
+    }
+  }
+
+  /**
+   * RC-19 FIX: Execute rate limit Lua script atomically
+   * Returns { allowed, status } where allowed is true if request can proceed
+   */
+  private async executeRateLimitLuaScript(
+    accountId: string,
+    config: RateLimitConfig,
+  ): Promise<{ allowed: boolean; status: RateLimitStatus }> {
+    const key = `${this.RATE_LIMIT_KEY_PREFIX}${accountId}`;
+    const now = Date.now();
+
+    try {
+      const result = await this.redis.eval(
+        this.RATE_LIMIT_LUA_SCRIPT,
+        1,
+        key,
+        now.toString(),
+        config.requestsPerSecond.toString(),
+        config.requestsPerMinute.toString(),
+        config.cooldownMs.toString(),
+      ) as string[];
+
+      const [allowed, reqSec, reqMin, retryAfter] = result;
+      const isAllowed = allowed === '1';
+
+      return {
+        allowed: isAllowed,
+        status: {
+          accountId,
+          requestsThisSecond: parseInt(reqSec, 10),
+          requestsThisMinute: parseInt(reqMin, 10),
+          lastRequestAt: new Date(now),
+          isLimited: !isAllowed,
+          retryAfter: !isAllowed && retryAfter !== '0' ? new Date(parseInt(retryAfter, 10)) : undefined,
+        },
+      };
+    } catch (error) {
+      this.logger.warn(`RC-19: Rate limit Lua script failed, using local fallback: ${(error as Error).message}`);
+      this.degradedMode = true;
+
+      // Fall back to local rate limit check
+      const status = this.checkRateLimit(accountId, config);
+      if (!status.isLimited) {
+        this.recordRequest(accountId);
+      }
+      return { allowed: !status.isLimited, status };
     }
   }
 
@@ -261,6 +389,7 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
    * Execute an operation with full resilience (retry + rate limit + circuit breaker)
    * CRIT-4 FIX: Uses Redis for distributed state across multiple instances
    * RC-4/RC-5 Fix: Uses per-account mutex for atomic rate limit and circuit breaker checks (fallback)
+   * RC-16/RC-17/RC-19 FIX: Uses Lua scripts for atomic operations
    */
   async executeWithResilience<T>(
     accountId: string,
@@ -281,23 +410,24 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
     let circuitRetryAfter: Date | undefined;
 
     if (!this.degradedMode) {
-      // Use distributed Redis-backed checks
+      // RC-16/RC-17/RC-19 FIX: Use atomic Lua scripts for distributed checks
       try {
-        // Check circuit breaker first
-        const circuitStatus = await this.getCircuitStatusFromRedis(accountId);
+        // Atomic circuit breaker check
+        const circuitStatus = await this.executeCircuitLuaScript(accountId, 'check', fullConfig.circuitBreaker);
         if (circuitStatus.state === 'open') {
           circuitOpen = true;
           circuitRetryAfter = circuitStatus.nextRetry;
         } else {
-          // Check rate limit
-          const rateLimitStatus = await this.checkRateLimitDistributed(accountId, fullConfig.rateLimit);
-          if (rateLimitStatus.isLimited) {
+          // RC-19 FIX: Atomic rate limit check + increment (single Lua script)
+          const { allowed, status: rateLimitStatus } = await this.executeRateLimitLuaScript(
+            accountId,
+            fullConfig.rateLimit,
+          );
+          if (!allowed) {
             rateLimited = true;
             rateLimitRetryAfter = rateLimitStatus.retryAfter;
-          } else {
-            // Record request atomically
-            await this.recordRequestDistributed(accountId);
           }
+          // Note: Request already recorded atomically inside Lua script if allowed
         }
       } catch (error) {
         this.logger.warn(`CRIT-4: Distributed check failed, falling back to local: ${(error as Error).message}`);
@@ -370,8 +500,12 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
           fullConfig.timeout.requestTimeoutMs,
         );
 
-        // Success - record using distributed or local method
-        await this.recordSuccessDistributed(accountId, fullConfig.circuitBreaker);
+        // RC-16/RC-17 FIX: Success - record using atomic Lua script or local fallback
+        if (!this.degradedMode) {
+          await this.executeCircuitLuaScript(accountId, 'success', fullConfig.circuitBreaker);
+        } else {
+          this.recordSuccess(accountId, fullConfig.circuitBreaker);
+        }
         this.metrics.successfulRequests++;
 
         return {
@@ -408,10 +542,14 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
 
         await this.sleep(delay);
 
-        // Re-check rate limit before retry using distributed or local method
-        const retryRateLimitStatus = this.degradedMode
-          ? this.checkRateLimit(accountId, fullConfig.rateLimit)
-          : await this.checkRateLimitDistributed(accountId, fullConfig.rateLimit);
+        // RC-19 FIX: Re-check rate limit before retry using atomic Lua script or local method
+        let retryRateLimitStatus: RateLimitStatus;
+        if (!this.degradedMode) {
+          const { status } = await this.executeRateLimitLuaScript(accountId, fullConfig.rateLimit);
+          retryRateLimitStatus = status;
+        } else {
+          retryRateLimitStatus = this.checkRateLimit(accountId, fullConfig.rateLimit);
+        }
 
         if (retryRateLimitStatus.isLimited && retryRateLimitStatus.retryAfter) {
           // Guard against negative sleep if retryAfter is in the past
@@ -423,8 +561,12 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // All retries exhausted - record failure using distributed or local method
-    await this.recordFailureDistributed(accountId, fullConfig.circuitBreaker);
+    // RC-16/RC-17 FIX: All retries exhausted - record failure using atomic Lua script or local fallback
+    if (!this.degradedMode) {
+      await this.executeCircuitLuaScript(accountId, 'failure', fullConfig.circuitBreaker);
+    } else {
+      this.recordFailure(accountId, fullConfig.circuitBreaker);
+    }
     this.metrics.failedRequests++;
 
     return {
@@ -490,69 +632,9 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ============================================
-  // Circuit Breaker (CRIT-4 FIX: Redis-backed)
+  // Circuit Breaker (Local Fallback)
+  // RC-16/RC-17: Primary operations now use Lua scripts above
   // ============================================
-
-  /**
-   * CRIT-4 FIX: Get circuit status from Redis for distributed coordination
-   */
-  private async getCircuitStatusFromRedis(accountId: string): Promise<CircuitStatus> {
-    const key = `${this.CIRCUIT_KEY_PREFIX}${accountId}`;
-
-    try {
-      const data = await this.redis.hgetall(key);
-
-      if (!data || Object.keys(data).length === 0) {
-        return {
-          state: 'closed',
-          failures: 0,
-          successCount: 0,
-        };
-      }
-
-      const status: CircuitStatus = {
-        state: (data.state as 'closed' | 'open' | 'half-open') || 'closed',
-        failures: parseInt(data.failures || '0', 10),
-        successCount: parseInt(data.successCount || '0', 10),
-        lastFailure: data.lastFailure ? new Date(data.lastFailure) : undefined,
-        nextRetry: data.nextRetry ? new Date(data.nextRetry) : undefined,
-      };
-
-      // Check if we should transition from open to half-open
-      if (status.state === 'open' && status.nextRetry && new Date() >= status.nextRetry) {
-        status.state = 'half-open';
-        status.successCount = 0;
-        await this.saveCircuitStatusToRedis(accountId, status);
-        this.logger.log(`Circuit breaker half-open for account ${accountId}`);
-      }
-
-      return status;
-    } catch (error) {
-      this.logger.warn(`CRIT-4: Redis circuit read failed, using local: ${(error as Error).message}`);
-      return this.getCircuitStatus(accountId);
-    }
-  }
-
-  /**
-   * CRIT-4 FIX: Save circuit status to Redis
-   */
-  private async saveCircuitStatusToRedis(accountId: string, status: CircuitStatus): Promise<void> {
-    const key = `${this.CIRCUIT_KEY_PREFIX}${accountId}`;
-
-    try {
-      await this.redis.hset(key, {
-        state: status.state,
-        failures: status.failures.toString(),
-        successCount: status.successCount.toString(),
-        lastFailure: status.lastFailure?.toISOString() || '',
-        nextRetry: status.nextRetry?.toISOString() || '',
-      });
-      // Set TTL of 24 hours for automatic cleanup
-      await this.redis.expire(key, 86400);
-    } catch (error) {
-      this.logger.warn(`CRIT-4: Redis circuit write failed: ${(error as Error).message}`);
-    }
-  }
 
   private getCircuitStatus(accountId: string): CircuitStatus {
     let status = this.circuits.get(accountId);
@@ -576,37 +658,6 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
     return status;
   }
 
-  /**
-   * CRIT-4 FIX: Record success with Redis coordination
-   */
-  private async recordSuccessDistributed(accountId: string, config: CircuitBreakerConfig): Promise<void> {
-    if (this.degradedMode) {
-      this.recordSuccess(accountId, config);
-      return;
-    }
-
-    try {
-      const status = await this.getCircuitStatusFromRedis(accountId);
-
-      if (status.state === 'half-open') {
-        status.successCount++;
-        if (status.successCount >= config.successThreshold) {
-          status.state = 'closed';
-          status.failures = 0;
-          status.successCount = 0;
-          this.logger.log(`Circuit breaker closed for account ${accountId}`);
-        }
-        await this.saveCircuitStatusToRedis(accountId, status);
-      } else if (status.state === 'closed') {
-        status.failures = Math.max(0, status.failures - 1);
-        await this.saveCircuitStatusToRedis(accountId, status);
-      }
-    } catch (error) {
-      this.logger.warn(`CRIT-4: recordSuccess Redis failed, using local: ${(error as Error).message}`);
-      this.recordSuccess(accountId, config);
-    }
-  }
-
   private recordSuccess(accountId: string, config: CircuitBreakerConfig): void {
     const status = this.circuits.get(accountId);
     if (!status) return;
@@ -623,37 +674,6 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
     } else if (status.state === 'closed') {
       // Reset failure count on success
       status.failures = Math.max(0, status.failures - 1);
-    }
-  }
-
-  /**
-   * CRIT-4 FIX: Record failure with Redis coordination
-   */
-  private async recordFailureDistributed(accountId: string, config: CircuitBreakerConfig): Promise<void> {
-    if (this.degradedMode) {
-      this.recordFailure(accountId, config);
-      return;
-    }
-
-    try {
-      const status = await this.getCircuitStatusFromRedis(accountId);
-
-      status.failures++;
-      status.lastFailure = new Date();
-
-      if (status.failures >= config.failureThreshold) {
-        status.state = 'open';
-        status.nextRetry = new Date(Date.now() + config.resetTimeoutMs);
-        this.metrics.circuitBreakerTrips++;
-        this.logger.warn(
-          `Circuit breaker opened for account ${accountId}. Next retry: ${status.nextRetry.toISOString()}`,
-        );
-      }
-
-      await this.saveCircuitStatusToRedis(accountId, status);
-    } catch (error) {
-      this.logger.warn(`CRIT-4: recordFailure Redis failed, using local: ${(error as Error).message}`);
-      this.recordFailure(accountId, config);
     }
   }
 
@@ -700,102 +720,9 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ============================================
-  // Rate Limiting (CRIT-4 FIX: Redis-backed)
+  // Rate Limiting (Local Fallback)
+  // RC-19: Primary operations now use Lua scripts above
   // ============================================
-
-  /**
-   * CRIT-4 FIX: Check rate limit using Redis for distributed coordination
-   */
-  private async checkRateLimitDistributed(accountId: string, config: RateLimitConfig): Promise<RateLimitStatus> {
-    if (this.degradedMode) {
-      return this.checkRateLimit(accountId, config);
-    }
-
-    const key = `${this.RATE_LIMIT_KEY_PREFIX}${accountId}`;
-    const now = Date.now();
-
-    try {
-      const data = await this.redis.hgetall(key);
-
-      let requestsThisSecond = 0;
-      let requestsThisMinute = 0;
-      let lastRequestTime = 0;
-
-      if (data && Object.keys(data).length > 0) {
-        requestsThisSecond = parseInt(data.requestsThisSecond || '0', 10);
-        requestsThisMinute = parseInt(data.requestsThisMinute || '0', 10);
-        lastRequestTime = parseInt(data.lastRequestAt || '0', 10);
-
-        // Reset counters if time windows have passed
-        if (now - lastRequestTime >= 1000) {
-          requestsThisSecond = 0;
-        }
-        if (now - lastRequestTime >= 60000) {
-          requestsThisMinute = 0;
-        }
-      }
-
-      // Check limits
-      if (requestsThisSecond >= config.requestsPerSecond) {
-        return {
-          accountId,
-          requestsThisSecond,
-          requestsThisMinute,
-          lastRequestAt: new Date(lastRequestTime),
-          isLimited: true,
-          retryAfter: new Date(lastRequestTime + 1000),
-        };
-      }
-
-      if (requestsThisMinute >= config.requestsPerMinute) {
-        return {
-          accountId,
-          requestsThisSecond,
-          requestsThisMinute,
-          lastRequestAt: new Date(lastRequestTime),
-          isLimited: true,
-          retryAfter: new Date(lastRequestTime + config.cooldownMs),
-        };
-      }
-
-      return {
-        accountId,
-        requestsThisSecond,
-        requestsThisMinute,
-        lastRequestAt: new Date(lastRequestTime),
-        isLimited: false,
-      };
-    } catch (error) {
-      this.logger.warn(`CRIT-4: Redis rate limit check failed, using local: ${(error as Error).message}`);
-      return this.checkRateLimit(accountId, config);
-    }
-  }
-
-  /**
-   * CRIT-4 FIX: Record request in Redis for distributed rate limiting
-   */
-  private async recordRequestDistributed(accountId: string): Promise<void> {
-    if (this.degradedMode) {
-      this.recordRequest(accountId);
-      return;
-    }
-
-    const key = `${this.RATE_LIMIT_KEY_PREFIX}${accountId}`;
-    const now = Date.now();
-
-    try {
-      // Use Redis transaction for atomic increment
-      const pipeline = this.redis.pipeline();
-      pipeline.hincrby(key, 'requestsThisSecond', 1);
-      pipeline.hincrby(key, 'requestsThisMinute', 1);
-      pipeline.hset(key, 'lastRequestAt', now.toString());
-      pipeline.expire(key, 120); // 2 minute TTL for automatic cleanup
-      await pipeline.exec();
-    } catch (error) {
-      this.logger.warn(`CRIT-4: Redis rate limit record failed: ${(error as Error).message}`);
-      this.recordRequest(accountId);
-    }
-  }
 
   private checkRateLimit(accountId: string, config: RateLimitConfig): RateLimitStatus {
     const now = Date.now();

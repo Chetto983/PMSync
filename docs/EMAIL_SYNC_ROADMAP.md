@@ -16,12 +16,12 @@ This roadmap outlines the prioritized improvements for the email-sync module bas
 | Metric | Value |
 |--------|-------|
 | **Critical Issues** | 0 (all resolved) |
-| **High Priority Issues** | 5 remaining |
+| **High Priority Issues** | 0 ✅ (all resolved) |
 | **Medium Priority Issues** | 6 remaining |
 | **Low Priority Issues** | 10 remaining |
 | **Dead Code Items** | 24 items (~500 LOC) |
 | **Duplicate Code** | 12 patterns (~400-500 LOC) |
-| **Technical Debt** | ~40-50 hours estimated |
+| **Technical Debt** | ~30-40 hours estimated |
 
 ### Key Achievements (Completed)
 
@@ -31,21 +31,31 @@ This roadmap outlines the prioritized improvements for the email-sync module bas
 - CRIT-4: Redis-backed ResilienceService for horizontal scaling
 - CRIT-5: Queue backpressure mechanism
 - All original SEC-* and RC-* issues from initial audit
+- **RC-16/RC-17:** ✅ Atomic circuit breaker transitions with Lua script
+- **RC-19:** ✅ Atomic rate limit check+increment with Lua script
+- **RC-20/RC-21:** ✅ Queue capacity TOCTOU fix with atomic provider counter
+- **NEW-1:** ✅ DegradedMode health check recovery
+- **NEW-11:** ✅ Lock fail-closed with retry logic
 
 ---
 
-## Phase 1: Critical Race Conditions (Week 1)
+## Phase 1: Critical Race Conditions (Week 1) ✅ COMPLETED
 
 **Goal:** Fix remaining HIGH priority race conditions in CRIT-4/CRIT-5 implementations
 
-### 1.1 Circuit Breaker Atomicity (RC-16, RC-17)
+### 1.1 Circuit Breaker Atomicity (RC-16, RC-17) ✅ COMPLETED
 
 **Files:** `resilience.service.ts`
-**Effort:** 4-6 hours
-**Risk:** HIGH - Multiple instances can probe simultaneously in half-open state
+**Status:** ✅ Implemented with Lua script `CIRCUIT_LUA_SCRIPT`
 
-**Issue:** Non-atomic read-modify-write in circuit breaker state transitions
-- `getCircuitStatusFromRedis` + `saveCircuitStatusToRedis` has TOCTOU gap
+**Solution Implemented:**
+- Created atomic Lua script for circuit breaker state transitions
+- Single `executeCircuitLuaScript()` method handles check/success/failure atomically
+- Eliminates TOCTOU gap between read and write operations
+- Added health check interval for degraded mode recovery (NEW-1 fix)
+
+**Issue (was):** Non-atomic read-modify-write in circuit breaker state transitions
+- `getCircuitStatusFromRedis` + `saveCircuitStatusToRedis` had TOCTOU gap
 - Success counter lost updates when multiple instances succeed in half-open
 
 **Solution:** Implement Lua script for atomic operations:

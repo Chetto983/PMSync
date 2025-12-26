@@ -125,28 +125,45 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Refresh Microsoft token with distributed lock
+   * NEW-11 FIX: Added retry logic for transient Redis failures
    */
   private async refreshMicrosoftTokenWithLock(provider: ProviderEntity): Promise<string> {
     const lockKey = `${this.KEY_PREFIX_LOCK}${provider.id}`;
 
-    // Try to acquire lock
-    const lockAcquired = await this.acquireLock(lockKey);
+    // NEW-11 FIX: Retry lock acquisition for transient failures
+    let lockAcquired = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      lockAcquired = await this.acquireLock(lockKey);
+      if (lockAcquired) break;
+
+      // Check if another instance holds the lock (vs Redis failure)
+      try {
+        const exists = await this.redis.exists(lockKey);
+        if (exists) {
+          // Lock held by another instance - wait for it
+          this.logger.debug(`Waiting for token refresh lock: ${provider.email}`);
+          await this.waitForLockRelease(lockKey);
+
+          // Re-read provider from DB to get fresh token
+          const freshProvider = await this.prisma.providerConfig.findUnique({
+            where: { id: provider.id },
+          });
+
+          if (!freshProvider?.accessToken || !freshProvider.tokenEncryptionIv) {
+            throw new Error('Provider token not available after wait');
+          }
+
+          return this.crypto.decrypt(freshProvider.accessToken, freshProvider.tokenEncryptionIv);
+        }
+      } catch {
+        // Redis check failed, retry lock acquisition
+        this.logger.debug(`Lock acquisition retry ${attempt + 1}/3 for ${provider.email}`);
+        await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+      }
+    }
 
     if (!lockAcquired) {
-      // Another instance is refreshing, wait for it
-      this.logger.debug(`Waiting for token refresh lock: ${provider.email}`);
-      await this.waitForLockRelease(lockKey);
-
-      // Re-read provider from DB to get fresh token
-      const freshProvider = await this.prisma.providerConfig.findUnique({
-        where: { id: provider.id },
-      });
-
-      if (!freshProvider?.accessToken || !freshProvider.tokenEncryptionIv) {
-        throw new Error('Provider token not available after wait');
-      }
-
-      return this.crypto.decrypt(freshProvider.accessToken, freshProvider.tokenEncryptionIv);
+      throw new Error(`Failed to acquire token refresh lock after 3 attempts for ${provider.email}`);
     }
 
     try {
@@ -219,28 +236,45 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Refresh Google token with distributed lock
+   * NEW-11 FIX: Added retry logic for transient Redis failures
    */
   private async refreshGoogleTokenWithLock(provider: ProviderEntity): Promise<string> {
     const lockKey = `${this.KEY_PREFIX_LOCK}${provider.id}`;
 
-    // Try to acquire lock
-    const lockAcquired = await this.acquireLock(lockKey);
+    // NEW-11 FIX: Retry lock acquisition for transient failures
+    let lockAcquired = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      lockAcquired = await this.acquireLock(lockKey);
+      if (lockAcquired) break;
+
+      // Check if another instance holds the lock (vs Redis failure)
+      try {
+        const exists = await this.redis.exists(lockKey);
+        if (exists) {
+          // Lock held by another instance - wait for it
+          this.logger.debug(`Waiting for token refresh lock: ${provider.email}`);
+          await this.waitForLockRelease(lockKey);
+
+          // Re-read provider from DB to get fresh token
+          const freshProvider = await this.prisma.providerConfig.findUnique({
+            where: { id: provider.id },
+          });
+
+          if (!freshProvider?.accessToken || !freshProvider.tokenEncryptionIv) {
+            throw new Error('Provider token not available after wait');
+          }
+
+          return this.crypto.decrypt(freshProvider.accessToken, freshProvider.tokenEncryptionIv);
+        }
+      } catch {
+        // Redis check failed, retry lock acquisition
+        this.logger.debug(`Lock acquisition retry ${attempt + 1}/3 for ${provider.email}`);
+        await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+      }
+    }
 
     if (!lockAcquired) {
-      // Another instance is refreshing, wait for it
-      this.logger.debug(`Waiting for token refresh lock: ${provider.email}`);
-      await this.waitForLockRelease(lockKey);
-
-      // Re-read provider from DB to get fresh token
-      const freshProvider = await this.prisma.providerConfig.findUnique({
-        where: { id: provider.id },
-      });
-
-      if (!freshProvider?.accessToken || !freshProvider.tokenEncryptionIv) {
-        throw new Error('Provider token not available after wait');
-      }
-
-      return this.crypto.decrypt(freshProvider.accessToken, freshProvider.tokenEncryptionIv);
+      throw new Error(`Failed to acquire token refresh lock after 3 attempts for ${provider.email}`);
     }
 
     try {
@@ -312,15 +346,17 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Acquire a distributed lock using Redis SETNX
+   * NEW-11 FIX: Changed to fail-closed behavior to prevent concurrent token refreshes
    */
   private async acquireLock(key: string): Promise<boolean> {
     try {
       const result = await this.redis.set(key, process.pid.toString(), 'EX', this.LOCK_TTL_SECONDS, 'NX');
       return result === 'OK';
     } catch (error) {
-      this.logger.error(`Lock acquire failed: ${error instanceof Error ? error.message : String(error)}`);
-      // On Redis error, proceed without lock (fail open)
-      return true;
+      // NEW-11 FIX: Fail CLOSED - do not proceed without lock
+      // This prevents concurrent token refreshes which defeat the locking purpose
+      this.logger.error(`Lock acquire failed (fail-closed): ${error instanceof Error ? error.message : String(error)}`);
+      return false;
     }
   }
 

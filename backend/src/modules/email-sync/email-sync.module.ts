@@ -42,10 +42,6 @@ import { GmailWebhookService } from './services/gmail-webhook.service';
 import { MicrosoftWebhookService } from './services/microsoft-webhook.service';
 import { WebhookLifecycleService } from './services/webhook-lifecycle.service';
 
-// Cross-Provider Sync Services
-import { CrossProviderDedupService } from './services/cross-provider-dedup.service';
-import { CrossProviderConflictService } from './services/cross-provider-conflict.service';
-import { CrossProviderSyncService } from './services/cross-provider-sync.service';
 import { SyncAuthService } from './services/sync-auth.service';
 import { ProviderTokenService } from './services/provider-token.service';
 
@@ -116,11 +112,6 @@ import { FoldersController } from '../email/controllers/folders.controller';
     ProviderTokenService,
     RetryService,
 
-    // Cross-Provider Sync services
-    CrossProviderDedupService,
-    CrossProviderConflictService,
-    CrossProviderSyncService,
-
     // Workers
     SyncWorker,
     FolderOperationsWorker,
@@ -139,7 +130,6 @@ import { FoldersController } from '../email/controllers/folders.controller';
     GmailWebhookService,
     MicrosoftWebhookService,
     WebhookLifecycleService,
-    CrossProviderSyncService,
     ProviderTokenService, // Export for use in calendar and contacts modules
     SyncAuthService,
     // Attachment handlers (for on-demand download in EmailModule)
