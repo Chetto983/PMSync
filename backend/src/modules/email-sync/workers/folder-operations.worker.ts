@@ -1,13 +1,11 @@
 import {
   Injectable,
   Logger,
-  OnModuleInit,
-  OnModuleDestroy,
   Inject,
   forwardRef,
+  ConflictException,
 } from '@nestjs/common';
-import { Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
+import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { FolderJobData, FolderJobResult } from '../interfaces/folder-job.interface';
@@ -16,8 +14,9 @@ import { DriverCredentials } from '../drivers/interfaces/email-driver.interface'
 import { ProviderTokenService } from '../services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { SyncAuthService } from '../services/sync-auth.service';
-import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
-import { ConflictException } from '@nestjs/common';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { QUEUE_NAMES } from '../../../common/config';
+import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 
 /**
  * FolderOperationsWorker
@@ -34,85 +33,51 @@ import { ConflictException } from '@nestjs/common';
  * - Realtime event emission on success
  * - Database sync after provider operations
  * - Detailed logging for debugging
+ *
+ * PHASE 4 CONSOLIDATION: Now extends BaseWorker for shared lifecycle management.
  */
 @Injectable()
-export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(FolderOperationsWorker.name);
-  private redisConnection: Redis;
-  private worker: Worker<FolderJobData, FolderJobResult>;
+export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobResult> {
+  protected readonly logger = new Logger(FolderOperationsWorker.name);
+  protected readonly workerName = 'folder-operations';
+  protected readonly envToggle = 'EMAIL_SYNC_WORKERS_ENABLED';
 
-  // Worker configuration
-  // Performance fix: Increased lockDuration from 1min to 10min for operations on large folders
-  private readonly WORKER_CONFIG = {
-    concurrency: 5, // Process 5 folder operations simultaneously
-    lockDuration: 600000, // 10 minute lock (increased from 1 min)
-    stalledInterval: 120000, // Check for stalled jobs every 2 min (increased from 30s)
-  };
+  // Lock TTL for folder operations (10 minutes - same as lockDuration)
+  private readonly FOLDER_LOCK_TTL = 600000;
 
   constructor(
-    private configService: ConfigService,
-    private prisma: PrismaService,
-    private driverFactory: EmailDriverFactory,
-    private providerTokenService: ProviderTokenService,
+    configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly driverFactory: EmailDriverFactory,
+    private readonly providerTokenService: ProviderTokenService,
     @Inject(forwardRef(() => RealtimeEventsService))
-    private realtimeEvents: RealtimeEventsService,
-    private syncAuth: SyncAuthService,
-  ) { }
+    private readonly realtimeEvents: RealtimeEventsService,
+    private readonly syncAuth: SyncAuthService,
+    private readonly redisLock: RedisLockService,
+  ) {
+    super(configService);
+  }
 
-  async onModuleInit() {
-    const workersEnabled =
-      (this.configService.get<string>('EMAIL_SYNC_WORKERS_ENABLED') || 'true').toLowerCase() !==
-      'false';
+  protected getWorkerConfig(): BaseWorkerConfig {
+    return {
+      queueName: QUEUE_NAMES.FOLDER_OPERATIONS,
+      concurrency: 5, // Process 5 folder operations simultaneously
+      lockDuration: 600000, // 10 minute lock for operations on large folders
+      stalledInterval: 120000, // Check for stalled jobs every 2 min
+    };
+  }
 
-    if (!workersEnabled) {
-      this.logger.warn('Folder operations worker is disabled via EMAIL_SYNC_WORKERS_ENABLED=false');
-      return;
-    }
-
-    // Initialize Redis connection
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
-
-    // Start the worker using centralized queue name
-    this.worker = new Worker<FolderJobData, FolderJobResult>(
-      QUEUE_NAMES.FOLDER_OPERATIONS,
-      async (job: Job<FolderJobData>) => {
-        return this.processJob(job);
-      },
-      {
-        connection: this.redisConnection,
-        concurrency: this.WORKER_CONFIG.concurrency,
-        lockDuration: this.WORKER_CONFIG.lockDuration,
-        stalledInterval: this.WORKER_CONFIG.stalledInterval,
-      },
-    );
-
-    // Setup event handlers
-    this.worker.on('completed', (job, result) => {
-      this.logger.log(
-        `Folder job ${job.id} completed: ${result.operation} ${result.success ? 'succeeded' : 'failed'}`,
-      );
-    });
-
-    this.worker.on('failed', (job, error) => {
-      this.logger.error(
-        `Folder job ${job?.id} failed for ${job?.data?.email}: ${error.message}`,
-      );
-    });
-
-    this.worker.on('error', (error) => {
-      this.logger.error(`Folder worker error: ${error.message}`);
-    });
-
-    this.logger.log(
-      `Folder operations worker started with concurrency ${this.WORKER_CONFIG.concurrency}`,
-    );
+  protected formatCompletedLog(job: Job<FolderJobData>, result: FolderJobResult): string {
+    return `Folder ${result.operation} ${result.success ? 'succeeded' : 'failed'} for ${job.data.email}`;
   }
 
   /**
    * Process a folder operation job
+   *
+   * RACE CONDITION FIX: Uses distributed locking to prevent concurrent
+   * operations on the same folder/provider combination.
    */
-  private async processJob(job: Job<FolderJobData>): Promise<FolderJobResult> {
+  protected async processJob(job: Job<FolderJobData>): Promise<FolderJobResult> {
     const { tenantId, providerId, providerType, email, operation, authToken } = job.data;
     const startTime = Date.now();
 
@@ -121,47 +86,61 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
       this.syncAuth.validateJobToken(authToken);
     }
 
+    // Generate lock key based on operation type
+    // - For create: lock on parent path (or root)
+    // - For rename/delete: lock on the specific folder path
+    const lockTarget = this.getLockTarget(job.data);
+    const lockKey = this.generateLockKey('folder', `${providerId}:${lockTarget}`);
+
     this.logger.log(
       `Processing folder ${operation} job for ${email} (${providerType}) [jobId=${job.id}]`,
     );
 
     try {
-      let result: FolderJobResult;
+      // Acquire distributed lock to prevent concurrent folder operations
+      return await this.redisLock.withLock(
+        lockKey,
+        this.FOLDER_LOCK_TTL,
+        async () => {
+          let result: FolderJobResult;
 
-      // Create connected driver using factory
-      const credentials = await this.getDriverCredentials(providerId, providerType);
-      const driver = await this.driverFactory.createConnectedDriver(
-        providerType === 'generic' ? 'imap' : providerType,
-        credentials
+          // Create connected driver using factory
+          const credentials = await this.getDriverCredentials(providerId, providerType);
+          const driver = await this.driverFactory.createConnectedDriver(
+            providerType === 'generic' ? 'imap' : providerType,
+            credentials
+          );
+
+          try {
+            switch (operation) {
+              case 'create':
+                result = await this.processCreateFolder(job.data, driver);
+                break;
+              case 'rename':
+                result = await this.processRenameFolder(job.data, driver);
+                break;
+              case 'delete':
+                result = await this.processDeleteFolder(job.data, driver);
+                break;
+              default:
+                throw new Error(`Unknown operation: ${operation}`);
+            }
+          } finally {
+            // Always disconnect driver after use
+            await driver.disconnect();
+          }
+
+          result.duration = Date.now() - startTime;
+
+          // Emit realtime event on success
+          if (result.success && result.shouldRefreshFolders) {
+            this.emitFolderEvent(tenantId, providerId, operation, result);
+          }
+
+          return result;
+        },
+        { maxRetries: 10, baseDelayMs: 100, maxDelayMs: 2000 }
       );
-
-      try {
-        switch (operation) {
-          case 'create':
-            result = await this.processCreateFolder(job.data, driver);
-            break;
-          case 'rename':
-            result = await this.processRenameFolder(job.data, driver);
-            break;
-          case 'delete':
-            result = await this.processDeleteFolder(job.data, driver);
-            break;
-          default:
-            throw new Error(`Unknown operation: ${operation}`);
-        }
-      } finally {
-        // Always disconnect driver after use
-        await driver.disconnect();
-      }
-
-      result.duration = Date.now() - startTime;
-
-      // Emit realtime event on success
-      if (result.success && result.shouldRefreshFolders) {
-        this.emitFolderEvent(tenantId, providerId, operation, result);
-      }
-
-      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`Folder ${operation} failed for ${email}: ${errorMessage}`);
@@ -431,6 +410,27 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Get lock target based on folder operation type
+   * - create: lock on parent path to prevent concurrent creates in same parent
+   * - rename/delete: lock on the specific folder path
+   */
+  private getLockTarget(data: FolderJobData): string {
+    switch (data.operation) {
+      case 'create':
+        // Lock on parent path (or 'root' for top-level folders)
+        return data.parentPath || 'root';
+      case 'rename':
+        // Lock on old path to prevent concurrent renames
+        return data.oldPath || data.folderPath || 'unknown';
+      case 'delete':
+        // Lock on folder path to prevent concurrent deletes
+        return data.folderPath || 'unknown';
+      default:
+        return 'unknown';
+    }
+  }
+
   private getErrorCode(error: unknown): string | undefined {
     if (error instanceof ConflictException) {
       return 'CONFLICT';
@@ -450,38 +450,4 @@ export class FolderOperationsWorker implements OnModuleInit, OnModuleDestroy {
     return undefined;
   }
 
-  async onModuleDestroy() {
-    const workersEnabled =
-      (this.configService.get<string>('EMAIL_SYNC_WORKERS_ENABLED') || 'true').toLowerCase() !==
-      'false';
-
-    if (!workersEnabled) {
-      return;
-    }
-
-    this.logger.log('Stopping folder operations worker (graceful drain)...');
-
-    try {
-      if (this.worker) {
-        // Graceful shutdown: close with drain (waits for active jobs)
-        // BullMQ worker.close() already waits for running jobs by default
-        this.logger.log('Folder worker closing, waiting for in-flight jobs...');
-        await this.worker.close();
-      }
-
-      if (
-        this.redisConnection &&
-        this.redisConnection.status !== 'end' &&
-        this.redisConnection.status !== 'close'
-      ) {
-        await this.redisConnection.quit();
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Folder worker shutdown error: ${error instanceof Error ? error.message : error}`,
-      );
-    } finally {
-      this.logger.log('Folder operations worker stopped');
-    }
-  }
 }

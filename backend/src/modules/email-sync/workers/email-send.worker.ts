@@ -4,9 +4,8 @@
  * BullMQ worker that processes outbound email jobs.
  * Uses driver abstraction for sending emails through Gmail, Microsoft, and IMAP.
  *
- * CONSOLIDATION DC-2: Now uses EmailDriverFactory instead of inline implementations.
- * This eliminates ~200 lines of duplicated send logic and ensures consistency
- * with the rest of the driver-based architecture.
+ * PHASE 4 CONSOLIDATION: Now extends BaseWorker for shared lifecycle management.
+ * DC-2: Uses EmailDriverFactory instead of inline implementations.
  *
  * Features:
  * - Unified driver-based send implementation
@@ -15,9 +14,8 @@
  * - Rate limiting per provider
  * - Error handling with DLQ integration
  */
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common';
-import { Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
@@ -27,73 +25,48 @@ import {
 } from '../services/email-send-queue.service';
 import { ProviderTokenService } from '../services/provider-token.service';
 import { CryptoService } from '../../../common/services/crypto.service';
-import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import { QUEUE_NAMES } from '../../../common/config';
 import { EmailDriverFactory } from '../drivers/driver.factory';
 import { DriverCredentials, IEmailDriver } from '../drivers/interfaces/email-driver.interface';
 import { ComposeMessage, AttachmentData, EmailAddress, ProviderType } from '../drivers/interfaces/canonical.types';
+import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 
 @Injectable()
-export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(EmailSendWorker.name);
-  private redisConnection: Redis;
-  private worker: Worker<EmailSendJobData, EmailSendJobResult>;
-
-  private readonly CONCURRENCY = 3; // Lower concurrency to avoid rate limits
+export class EmailSendWorker extends BaseWorker<EmailSendJobData, EmailSendJobResult> {
+  protected readonly logger = new Logger(EmailSendWorker.name);
+  protected readonly workerName = 'email-send';
+  protected readonly envToggle = 'EMAIL_SEND_WORKERS_ENABLED';
 
   constructor(
-    private readonly configService: ConfigService,
+    configService: ConfigService,
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => EmailSendQueueService))
     private readonly queueService: EmailSendQueueService,
     private readonly providerTokenService: ProviderTokenService,
     private readonly cryptoService: CryptoService,
     private readonly driverFactory: EmailDriverFactory,
-  ) {}
-
-  async onModuleInit() {
-    const workersEnabled =
-      (this.configService.get<string>('EMAIL_SEND_WORKERS_ENABLED') || 'true').toLowerCase() !==
-      'false';
-
-    if (!workersEnabled) {
-      this.logger.warn('Email send workers disabled via EMAIL_SEND_WORKERS_ENABLED=false');
-      return;
-    }
-
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
-
-    this.worker = new Worker<EmailSendJobData, EmailSendJobResult>(
-      QUEUE_NAMES.EMAIL_SEND,
-      async (job: Job<EmailSendJobData>) => this.processJob(job),
-      {
-        connection: this.redisConnection,
-        concurrency: this.CONCURRENCY,
-        limiter: {
-          max: 10, // Max 10 sends per minute per worker
-          duration: 60000,
-        },
-        lockDuration: 120000, // 2 minutes for send operations
-        stalledInterval: 60000,
-      },
-    );
-
-    this.worker.on('completed', (job, result) => {
-      this.logger.log(`Email send job ${job.id} completed: messageId=${result.messageId}`);
-    });
-
-    this.worker.on('failed', (job, error) => {
-      this.logger.error(`Email send job ${job?.id} failed: ${error.message}`);
-    });
-
-    this.worker.on('error', (error) => {
-      this.logger.error(`Email send worker error: ${error.message}`);
-    });
-
-    this.logger.log('Email send worker started');
+  ) {
+    super(configService);
   }
 
-  private async processJob(job: Job<EmailSendJobData>): Promise<EmailSendJobResult> {
+  protected getWorkerConfig(): BaseWorkerConfig {
+    return {
+      queueName: QUEUE_NAMES.EMAIL_SEND,
+      concurrency: 3,
+      lockDuration: 120000, // 2 minutes for send operations
+      stalledInterval: 60000,
+      limiter: {
+        max: 10, // Max 10 sends per minute per worker
+        duration: 60000,
+      },
+    };
+  }
+
+  protected formatCompletedLog(job: Job<EmailSendJobData>, result: EmailSendJobResult): string {
+    return `Email send completed: messageId=${result.messageId}`;
+  }
+
+  protected async processJob(job: Job<EmailSendJobData>): Promise<EmailSendJobResult> {
     const startTime = Date.now();
     const { tenantId, providerId, providerType, email, draftId } = job.data;
 
@@ -306,26 +279,5 @@ export class EmailSendWorker implements OnModuleInit, OnModuleDestroy {
       );
     }
     return false;
-  }
-
-  async onModuleDestroy() {
-    this.logger.log('Shutting down email send worker (graceful drain)...');
-
-    try {
-      if (this.worker) {
-        this.logger.log('Email send worker closing, waiting for in-flight jobs...');
-        await this.worker.close();
-      }
-
-      if (this.redisConnection && this.redisConnection.status !== 'end') {
-        await this.redisConnection.quit();
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Email send worker shutdown error: ${error instanceof Error ? error.message : error}`,
-      );
-    }
-
-    this.logger.log('Email send worker stopped');
   }
 }

@@ -11,10 +11,11 @@
  * - Debounce handling for rapid changes
  * - Error handling with retries
  * - Progress tracking for bulk operations
+ *
+ * PHASE 4 CONSOLIDATION: Now extends BaseWorker for shared lifecycle management.
  */
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common';
-import { Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { ImapFlow } from 'imapflow';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -25,73 +26,46 @@ import {
 } from '../services/provider-sync-back-queue.service';
 import { ProviderTokenService } from '../services/provider-token.service';
 import { CryptoService } from '../../../common/services/crypto.service';
-import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import { QUEUE_NAMES } from '../../../common/config';
+import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 
 @Injectable()
-export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(SyncBackWorker.name);
-  private redisConnection: Redis;
-  private worker: Worker<SyncBackJobData, SyncBackJobResult>;
+export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResult> {
+  protected readonly logger = new Logger(SyncBackWorker.name);
+  protected readonly workerName = 'sync-back';
+  protected readonly envToggle = 'SYNC_BACK_WORKERS_ENABLED';
 
-  private readonly CONCURRENCY = 5;
   private readonly BATCH_SIZE = 50; // Max emails per API call
 
   constructor(
-    private readonly configService: ConfigService,
+    configService: ConfigService,
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => ProviderSyncBackQueueService))
     private readonly queueService: ProviderSyncBackQueueService,
     private readonly providerTokenService: ProviderTokenService,
     private readonly cryptoService: CryptoService,
-  ) {}
-
-  async onModuleInit() {
-    const workersEnabled =
-      (this.configService.get<string>('SYNC_BACK_WORKERS_ENABLED') || 'true').toLowerCase() !==
-      'false';
-
-    if (!workersEnabled) {
-      this.logger.warn('Sync-back workers disabled via SYNC_BACK_WORKERS_ENABLED=false');
-      return;
-    }
-
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
-
-    this.worker = new Worker<SyncBackJobData, SyncBackJobResult>(
-      QUEUE_NAMES.PROVIDER_SYNC_BACK,
-      async (job: Job<SyncBackJobData>) => this.processJob(job),
-      {
-        connection: this.redisConnection,
-        concurrency: this.CONCURRENCY,
-        limiter: {
-          max: 20, // Max 20 sync-back ops per minute
-          duration: 60000,
-        },
-        // Performance fix: Increased lockDuration from 3min to 10min for large bulk operations
-        lockDuration: 600000, // 10 minutes for bulk operations
-        stalledInterval: 180000, // 3 min stalled interval
-      },
-    );
-
-    this.worker.on('completed', (job, result) => {
-      this.logger.log(
-        `Sync-back job ${job.id} completed: ${result.action} synced=${result.syncedCount} failed=${result.failedCount}`,
-      );
-    });
-
-    this.worker.on('failed', (job, error) => {
-      this.logger.error(`Sync-back job ${job?.id} failed: ${error.message}`);
-    });
-
-    this.worker.on('error', (error) => {
-      this.logger.error(`Sync-back worker error: ${error.message}`);
-    });
-
-    this.logger.log('Sync-back worker started');
+  ) {
+    super(configService);
   }
 
-  private async processJob(job: Job<SyncBackJobData>): Promise<SyncBackJobResult> {
+  protected getWorkerConfig(): BaseWorkerConfig {
+    return {
+      queueName: QUEUE_NAMES.PROVIDER_SYNC_BACK,
+      concurrency: 5,
+      lockDuration: 600000, // 10 minutes for bulk operations
+      stalledInterval: 180000, // 3 min stalled interval
+      limiter: {
+        max: 20, // Max 20 sync-back ops per minute
+        duration: 60000,
+      },
+    };
+  }
+
+  protected formatCompletedLog(job: Job<SyncBackJobData>, result: SyncBackJobResult): string {
+    return `${result.action} synced=${result.syncedCount} failed=${result.failedCount}`;
+  }
+
+  protected async processJob(job: Job<SyncBackJobData>): Promise<SyncBackJobResult> {
     const startTime = Date.now();
     const { tenantId, providerId, providerType, action, emailIds, externalIds, targetFolder, labelId } =
       job.data;
@@ -632,26 +606,4 @@ export class SyncBackWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async onModuleDestroy() {
-    this.logger.log('Shutting down sync-back worker (graceful drain)...');
-
-    try {
-      if (this.worker) {
-        // Graceful shutdown: close with drain (waits for active jobs)
-        // BullMQ worker.close() already waits for running jobs by default
-        this.logger.log('Sync-back worker closing, waiting for in-flight jobs...');
-        await this.worker.close();
-      }
-
-      if (this.redisConnection && this.redisConnection.status !== 'end') {
-        await this.redisConnection.quit();
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Sync-back worker shutdown error: ${error instanceof Error ? error.message : error}`,
-      );
-    }
-
-    this.logger.log('Sync-back worker stopped');
-  }
 }

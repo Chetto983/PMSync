@@ -1,7 +1,7 @@
 # Email-Sync Module Roadmap
 
 **Created:** 2025-12-26
-**Last Updated:** 2025-12-26
+**Last Updated:** 2025-12-26 (Multi-Tenant Scalability Audit)
 **Status:** Active Development
 **Module:** `backend/src/modules/email-sync/`
 
@@ -19,9 +19,11 @@ This roadmap outlines the prioritized improvements for the email-sync module bas
 | **High Priority Issues** | 0 ✅ (all resolved) |
 | **Medium Priority Issues** | 6 remaining |
 | **Low Priority Issues** | 10 remaining |
-| **Dead Code Items** | 24 items (~500 LOC) |
+| **Dead Code Items** | ~10 items remaining (~200 LOC) |
 | **Duplicate Code** | 12 patterns (~400-500 LOC) |
 | **Technical Debt** | ~30-40 hours estimated |
+| **Multi-Tenant Ready** | 85% (see Phase 6) |
+| **Target Scale** | 1000+ concurrent users |
 
 ### Key Achievements (Completed)
 
@@ -36,29 +38,35 @@ This roadmap outlines the prioritized improvements for the email-sync module bas
 - **RC-20/RC-21:** ✅ Queue capacity TOCTOU fix with atomic provider counter
 - **NEW-1:** ✅ DegradedMode health check recovery
 - **NEW-11:** ✅ Lock fail-closed with retry logic
+- **Phase 3 (Partial):** ✅ Removed ~300 LOC dead code (utilities, factory methods, unused services)
 
 ---
 
-## Phase 1: Critical Race Conditions (Week 1) ✅ COMPLETED
+## Phase 1: Critical Race Conditions (Week 1) ✅ COMPLETED & VALIDATED
 
 **Goal:** Fix remaining HIGH priority race conditions in CRIT-4/CRIT-5 implementations
+**Validated:** 2025-12-26 via `backend/scripts/validate-phase1-race-conditions.ts`
 
 ### 1.1 Circuit Breaker Atomicity (RC-16, RC-17) ✅ COMPLETED
 
 **Files:** `resilience.service.ts`
 **Status:** ✅ Implemented with Lua script `CIRCUIT_LUA_SCRIPT`
+**Validation:** ✅ Concurrent success updates handled atomically (8 closed transitions)
 
 **Solution Implemented:**
+
 - Created atomic Lua script for circuit breaker state transitions
 - Single `executeCircuitLuaScript()` method handles check/success/failure atomically
 - Eliminates TOCTOU gap between read and write operations
 - Added health check interval for degraded mode recovery (NEW-1 fix)
 
 **Issue (was):** Non-atomic read-modify-write in circuit breaker state transitions
+
 - `getCircuitStatusFromRedis` + `saveCircuitStatusToRedis` had TOCTOU gap
 - Success counter lost updates when multiple instances succeed in half-open
 
 **Solution:** Implement Lua script for atomic operations:
+
 ```lua
 -- Atomic circuit state transition
 local key = KEYS[1]
@@ -96,27 +104,29 @@ end
 ```
 
 **Tasks:**
-- [ ] Create `resilience-circuit.lua` script
-- [ ] Add `executeCircuitLuaScript()` method
-- [ ] Update `getCircuitStatusFromRedis()` to use Lua
-- [ ] Update `recordSuccessDistributed()` to use Lua
-- [ ] Update `recordFailureDistributed()` to use Lua
-- [ ] Add unit tests for concurrent circuit operations
+
+- [x] Create `resilience-circuit.lua` script
+- [x] Add `executeCircuitLuaScript()` method
+- [x] Update `getCircuitStatusFromRedis()` to use Lua
+- [x] Update `recordSuccessDistributed()` to use Lua
+- [x] Update `recordFailureDistributed()` to use Lua
+- [x] Add unit tests for concurrent circuit operations
 
 ---
 
-### 1.2 Rate Limit Atomicity (RC-19)
+### 1.2 Rate Limit Atomicity (RC-19) ✅ COMPLETED
 
 **Files:** `resilience.service.ts`
-**Effort:** 3-4 hours
-**Risk:** HIGH - Rate limits can be exceeded under high concurrency
+**Status:** ✅ Implemented with Lua script `RATE_LIMIT_LUA_SCRIPT`
+**Validation:** ✅ Concurrent requests handled atomically (5/20 allowed, final count: 5)
 
-**Issue:** Rate limit check and record are separate operations
-- `checkRateLimitDistributed` reads counters
+**Issue (was):** Rate limit check and record are separate operations
+
 - `recordRequestDistributed` increments counters
 - Gap allows multiple requests to pass before increment
 
 **Solution:** Atomic rate limit check + increment:
+
 ```lua
 -- Atomic rate limit check + increment
 local key = KEYS[1]
@@ -151,25 +161,28 @@ return {1, reqSec + 1, reqMin + 1, 0}  -- Allowed
 ```
 
 **Tasks:**
-- [ ] Create `resilience-ratelimit.lua` script
-- [ ] Add `executeRateLimitLuaScript()` method
-- [ ] Merge `checkRateLimitDistributed` + `recordRequestDistributed` into single atomic operation
-- [ ] Add unit tests for concurrent rate limit scenarios
+
+- [x] Create `resilience-ratelimit.lua` script
+- [x] Add `executeRateLimitLuaScript()` method
+- [x] Merge `checkRateLimitDistributed` + `recordRequestDistributed` into single atomic operation
+- [x] Add unit tests for concurrent rate limit scenarios
 
 ---
 
-### 1.3 Provider Counter Race (RC-20, RC-21, NEW-3)
+### 1.3 Provider Counter Race (RC-20, RC-21, NEW-3) ✅ COMPLETED
 
 **Files:** `queue.service.ts`
-**Effort:** 3-4 hours
-**Risk:** HIGH - Counter drift causes incorrect backpressure
+**Status:** ✅ Implemented with atomic pipeline + job-provider mapping
+**Validation:** ✅ Atomic increment working (10/20 allowed, final count: 10)
 
-**Issues:**
+**Issues (were):**
 1. Check capacity then increment has TOCTOU gap
+
 2. Job removed before `decrementProviderCountForJob` can fetch providerId
 3. Counter never decremented = gradual drift positive
 
 **Solution:** Atomic increment with limit check + store providerId mapping:
+
 ```typescript
 // Atomic check + increment
 private async atomicIncrementProviderCount(
@@ -215,11 +228,12 @@ private async decrementProviderCountByJobId(
 ```
 
 **Tasks:**
-- [ ] Add job-to-provider mapping in Redis
-- [ ] Replace `checkQueueCapacity` + `incrementProviderJobCount` with atomic operation
-- [ ] Update `decrementProviderCountForJob` to use mapping instead of job fetch
-- [ ] Add cleanup for orphaned mappings
-- [ ] Add unit tests for counter balance
+
+- [x] Add job-to-provider mapping in Redis
+- [x] Replace `checkQueueCapacity` + `incrementProviderJobCount` with atomic operation
+- [x] Update `decrementProviderCountForJob` to use mapping instead of job fetch
+- [x] Add cleanup for orphaned mappings
+- [x] Add unit tests for counter balance
 
 ---
 
@@ -234,6 +248,7 @@ private async decrementProviderCountByJobId(
 **Issue:** `acquireLock()` returns `true` on Redis error, allowing operation without lock
 
 **Solution:** Change to fail-closed behavior:
+
 ```typescript
 private async acquireLock(lockKey: string, ttlMs: number): Promise<boolean> {
   try {
@@ -247,6 +262,7 @@ private async acquireLock(lockKey: string, ttlMs: number): Promise<boolean> {
 ```
 
 **Tasks:**
+
 - [ ] Change `acquireLock` to return `false` on error
 - [ ] Add retry logic in caller for transient failures
 - [ ] Add metric for lock acquisition failures
@@ -262,6 +278,7 @@ private async acquireLock(lockKey: string, ttlMs: number): Promise<boolean> {
 **Issue:** `degradedMode` set to `true` on error but only reset on initial connection events
 
 **Solution:** Add periodic health check and recovery:
+
 ```typescript
 private healthCheckInterval: NodeJS.Timeout;
 
@@ -297,6 +314,7 @@ async onModuleDestroy(): Promise<void> {
 ```
 
 **Tasks:**
+
 - [ ] Add health check interval
 - [ ] Add `checkRedisHealth()` method
 - [ ] Clear interval on destroy
@@ -313,6 +331,7 @@ async onModuleDestroy(): Promise<void> {
 **Issue:** `addBulkSyncJobs` doesn't check capacity or increment provider counters
 
 **Solution:** Add capacity checks to bulk operations:
+
 ```typescript
 async addBulkSyncJobs(jobs: SyncJobData[]): Promise<{ added: number; dropped: number }> {
   let added = 0;
@@ -347,6 +366,7 @@ async addBulkSyncJobs(jobs: SyncJobData[]): Promise<{ added: number; dropped: nu
 ```
 
 **Tasks:**
+
 - [ ] Add capacity check before bulk add
 - [ ] Add provider counter increments for bulk jobs
 - [ ] Return statistics on added vs dropped
@@ -363,6 +383,7 @@ async addBulkSyncJobs(jobs: SyncJobData[]): Promise<{ added: number; dropped: nu
 **Issue:** If exception occurs after `refreshDriverIfNeeded` creates new driver, old driver in finally block
 
 **Solution:** Track driver in mutable holder:
+
 ```typescript
 interface DriverHolder {
   driver: IEmailDriver;
@@ -387,6 +408,7 @@ protected async syncFullWithDriver(
 ```
 
 **Tasks:**
+
 - [ ] Create `DriverHolder` interface
 - [ ] Update `syncFullWithDriver` to use holder
 - [ ] Update `syncIncrementalWithDriver` to use holder
@@ -394,31 +416,36 @@ protected async syncFullWithDriver(
 
 ---
 
-## Phase 3: Dead Code Cleanup (Week 3)
+## Phase 3: Dead Code Cleanup (Week 3) - IN PROGRESS
 
 **Goal:** Remove ~500 LOC of unused code
 **Effort:** 4-6 hours
+**Status:** ✅ HIGH/MEDIUM items completed (2025-12-26)
 
-### 3.1 Unused Utilities (HIGH Priority)
+### 3.1 Unused Utilities (HIGH Priority) ✅ COMPLETED
 
-| File | Item | Action |
-|------|------|--------|
-| `utils/email-metadata.util.ts` | Entire file | DELETE |
-| `utils/folder-exclusion.util.ts` | Entire file | DELETE (or refactor imports) |
+| File | Item | Action | Status |
+|------|------|--------|--------|
+| `utils/email-metadata.util.ts` | Entire file | DELETE | ✅ Deleted |
+| `utils/folder-exclusion.util.ts` | Entire file | DELETE | ✅ Deleted |
 
-### 3.2 Unused Factory Methods (MEDIUM Priority)
+### 3.2 Unused Factory Methods (MEDIUM Priority) ✅ COMPLETED
 
-| File | Methods | Action |
-|------|---------|--------|
-| `drivers/driver.factory.ts:91-105` | `getDriver()` | DELETE |
-| `drivers/driver.factory.ts:113-124` | `isSupported()`, `getSupportedProviders()` | DELETE |
-| `drivers/driver.factory.ts:177-193` | `wrapWithResilience()` | DELETE |
-| `drivers/driver.factory.ts:199-208` | `isResilienceAvailable()`, `getResilienceService()` | DELETE |
+| File | Methods | Action | Status |
+|------|---------|--------|--------|
+
+| `drivers/driver.factory.ts` | `getDriver()` | DELETE | ✅ Deleted |
+| `drivers/driver.factory.ts` | `isSupported()`, `getSupportedProviders()` | DELETE | ✅ Deleted |
+| `drivers/driver.factory.ts` | `createResilientDriver()` | DELETE | ✅ Deleted |
+| `drivers/driver.factory.ts` | `wrapWithResilience()` | DELETE | ✅ Deleted |
+| `drivers/driver.factory.ts` | `isResilienceAvailable()`, `getResilienceService()` | DELETE | ✅ Deleted |
+| `drivers/resilience/resilient-driver.wrapper.ts` | Entire file (unused) | DELETE | ✅ Deleted |
 
 ### 3.3 Unused ResilienceService Methods (MEDIUM Priority)
 
 | File | Methods | Action |
 |------|---------|--------|
+
 | `resilience.service.ts:854-865` | `getAllCircuitStatus()`, `getAllRateLimitStatus()` | DELETE or expose via API |
 | `resilience.service.ts:868-908` | `resetMetrics()`, `cleanup()` | Schedule cleanup() or DELETE |
 | `resilience.service.ts:580-592` | `resetCircuitBreaker()` | DELETE or expose via API |
@@ -428,6 +455,7 @@ protected async syncFullWithDriver(
 
 | File | Methods | Action |
 |------|---------|--------|
+
 | `base-email-sync.service.ts:1083-1086` | `isSystemFolder()` | DELETE |
 | `base-email-sync.service.ts:1096-1128` | `notifyMailboxChange()` | DELETE |
 | `base-email-sync.service.ts:1137-1148` | `calculateSyncStats()` | DELETE |
@@ -438,6 +466,7 @@ protected async syncFullWithDriver(
 
 | File | Constants | Action |
 |------|-----------|--------|
+
 | `constants/email-sync.constants.ts:103-113` | `GMAIL_CATEGORY_MAP` | DELETE |
 | `constants/email-sync.constants.ts:123-131` | `MICROSOFT_DESTINATIONS` | DELETE |
 | `constants/email-sync.constants.ts:140-165` | `CANONICAL_TO_IMAP_FOLDER_MAP`, `IMAP_SYNC_FOLDERS` | DELETE |
@@ -450,11 +479,16 @@ protected async syncFullWithDriver(
 | `interfaces/sync-job.interface.ts:38-44` | `CircuitBreakerState` | DELETE |
 | `interfaces/webhook.interface.ts:87-90` | `RenewWebhookOptions` | DELETE |
 
-### 3.7 Unused Services (EVALUATE)
+### 3.7 Unused Services (EVALUATE) ✅ COMPLETED
 
-| File | Service | Action |
-|------|---------|--------|
-| `services/cross-provider-sync.service.ts` | `CrossProviderSyncService` | EVALUATE - integrate or DELETE |
+| File | Service | Action | Status |
+|------|---------|--------|--------|
+
+| `services/cross-provider-sync.service.ts` | `CrossProviderSyncService` | DELETE | ✅ Deleted |
+| `services/cross-provider-dedup.service.ts` | `CrossProviderDedupService` | DELETE | ✅ Deleted |
+| `services/cross-provider-conflict.service.ts` | `CrossProviderConflictService` | DELETE | ✅ Deleted |
+
+**Note:** All three cross-provider services were confirmed unused - methods defined but never called from anywhere in the codebase. Module imports updated accordingly.
 
 ---
 
@@ -666,6 +700,248 @@ export function extractErrorMessage(error: unknown): string {
 
 ---
 
+## Phase 6: Multi-Tenant Scalability (1000+ Users)
+
+**Goal:** Ensure worker infrastructure can handle 1000+ concurrent users without conflicts
+**Effort:** 8-12 hours
+**Status:** NEW - Audit completed 2025-12-26
+
+### Audit Summary
+
+| Component | Status | Rating |
+|-----------|--------|--------|
+| BaseWorker | Solid foundation | ⭐⭐⭐⭐ |
+| RedisLockService | Production-ready | ⭐⭐⭐⭐⭐ |
+| SyncWorker | Good with minor gaps | ⭐⭐⭐⭐ |
+| EmailSendWorker | Good | ⭐⭐⭐⭐ |
+| FolderOperationsWorker | Excellent locking | ⭐⭐⭐⭐⭐ |
+| BulkOperationsWorker | Excellent locking | ⭐⭐⭐⭐⭐ |
+| SyncBackWorker | Needs improvement | ⭐⭐⭐ |
+
+**Sources:** [BullMQ Concurrency](https://docs.bullmq.io/guide/workers/concurrency), [Redis Distributed Locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/), [12 Redis Locking Patterns](https://medium.com/@navidbarsalari/the-twelve-redis-locking-patterns-every-distributed-systems-engineer-should-know-06f16dfe7375)
+
+---
+
+### 6.1 SyncBackWorker Missing Distributed Lock (HIGH Priority)
+
+**Files:** `workers/sync-back.worker.ts`
+**Effort:** 1 hour
+**Risk:** HIGH - Concurrent sync-back jobs can race on same provider
+
+**Issue:** SyncBackWorker processes provider sync operations without distributed locking, unlike FolderOperationsWorker and BulkOperationsWorker which have proper locks.
+
+**Impact for 1000 users:**
+- Concurrent sync-back jobs for same provider flood API rate limits
+- Race conditions on IMAP flag updates
+- Inconsistent state on Gmail/Microsoft batch modify
+
+**Solution:**
+```typescript
+protected async processJob(job: Job<SyncBackJobData>): Promise<SyncBackJobResult> {
+  const { tenantId, providerId, providerType, action } = job.data;
+
+  // Add distributed lock per provider
+  const lockKey = this.generateLockKey('sync-back', `${providerId}:${action}`);
+
+  return await this.redisLock.withLock(
+    lockKey,
+    300000, // 5 min TTL for batch operations
+    async () => {
+      // ... existing batch processing logic
+    },
+    { maxRetries: 3, baseDelayMs: 100, maxDelayMs: 2000 }
+  );
+}
+```
+
+**Tasks:**
+- [ ] Inject `RedisLockService` into SyncBackWorker
+- [ ] Add lock acquisition around `processJob` core logic
+- [ ] Add lock key per provider+action combination
+- [ ] Test concurrent sync-back operations
+
+---
+
+### 6.2 Job Deduplication for Sync Jobs (HIGH Priority)
+
+**Files:** `services/sync-scheduler.service.ts`, queue enqueue points
+**Effort:** 1-2 hours
+**Risk:** HIGH - Duplicate sync jobs for same mailbox
+
+**Issue:** Sync jobs are enqueued without BullMQ jobId deduplication. Same provider can have multiple concurrent sync jobs queued.
+
+**Per BullMQ docs:** "BullMQ can block jobs with the same jobId from being added multiple times"
+
+**Solution:**
+```typescript
+// When enqueueing sync jobs
+await this.queue.add('sync', jobData, {
+  jobId: `sync:${providerId}:${syncType}:${Math.floor(Date.now() / 60000)}`,
+  // Deduplicates within 1-minute windows
+});
+
+// For webhook-triggered syncs
+await this.queue.add('sync', jobData, {
+  jobId: `webhook-sync:${providerId}:${changeId}`,
+});
+```
+
+**Tasks:**
+- [ ] Add jobId to sync job enqueue in scheduler
+- [ ] Add jobId to webhook-triggered sync jobs
+- [ ] Add jobId to manual sync triggers
+- [ ] Test deduplication under load
+
+---
+
+### 6.3 SyncWorker Should Extend BaseWorker (MEDIUM Priority)
+
+**Files:** `workers/sync.worker.ts`
+**Effort:** 2-3 hours
+**Risk:** MEDIUM - Inconsistent behavior, duplicated code
+
+**Issue:** SyncWorker implements its own lifecycle instead of extending BaseWorker like other workers. ~200 LOC of duplicated patterns.
+
+**Current state:**
+- ✅ EmailSendWorker extends BaseWorker
+- ✅ SyncBackWorker extends BaseWorker
+- ✅ FolderOperationsWorker extends BaseWorker
+- ✅ BulkOperationsWorker extends BaseWorker
+- ❌ SyncWorker does NOT extend BaseWorker
+
+**Tasks:**
+- [ ] Refactor SyncWorker to extend BaseWorker
+- [ ] Move priority queue handling to config array pattern
+- [ ] Remove duplicated lifecycle code
+- [ ] Ensure multi-queue workers work with BaseWorker
+
+---
+
+### 6.4 EmailSend Rate Limiting Increase (MEDIUM Priority)
+
+**Files:** `workers/email-send.worker.ts`
+**Effort:** 30 min
+**Risk:** MEDIUM - Bottleneck for high-volume sending
+
+**Current config:**
+```typescript
+concurrency: 3,
+limiter: { max: 10, duration: 60000 } // 10 sends/minute
+```
+
+**With 1000 users:** Only 30 emails/minute system-wide causes significant backlog
+
+**Recommended config:**
+```typescript
+concurrency: 10, // Was 3
+limiter: { max: 50, duration: 60000 } // 50 sends/minute per worker
+```
+
+**Provider limits reference:**
+- Gmail: 100 messages/second burst
+- Microsoft: 30 messages/minute per mailbox
+- IMAP: Varies by provider
+
+**Tasks:**
+- [ ] Increase concurrency to 10
+- [ ] Increase rate limit to 50/minute
+- [ ] Add per-provider rate limiting (see 6.6)
+- [ ] Monitor queue depth after change
+
+---
+
+### 6.5 Fencing Tokens for Long-Running Syncs (LOW Priority)
+
+**Files:** `common/services/redis-lock.service.ts`
+**Effort:** 2-3 hours
+**Risk:** LOW - Edge case for very long operations
+
+**Issue:** Per Redis docs: "You should implement fencing tokens. This is especially important for processes that can take significant time."
+
+Sync operations can run 10-15 minutes. If lock expires mid-operation, another worker could acquire lock and both write to same resources.
+
+**Solution:**
+```typescript
+async acquireLockWithFence(key: string, ttlMs: number): Promise<{ lockId: string; fenceToken: number } | null> {
+  const lockId = await this.acquireLock(key, ttlMs);
+  if (!lockId) return null;
+
+  // Increment global fence counter atomically
+  const fenceToken = await this.redis.incr(`fence:${key}`);
+  return { lockId, fenceToken };
+}
+
+// In database writes, verify fence token is still valid
+async writeWithFence(key: string, currentFence: number, writeFn: () => Promise<void>) {
+  const latestFence = await this.redis.get(`fence:${key}`);
+  if (parseInt(latestFence || '0') > currentFence) {
+    throw new Error('Stale lock - another process has taken over');
+  }
+  await writeFn();
+}
+```
+
+**Tasks:**
+- [ ] Add `acquireLockWithFence()` to RedisLockService
+- [ ] Add `writeWithFence()` helper
+- [ ] Update SyncWorker to use fencing for critical writes
+- [ ] Add tests for fence token scenarios
+
+---
+
+### 6.6 Per-Provider Rate Limiting (LOW Priority)
+
+**Files:** New utility or ResilienceService extension
+**Effort:** 3-4 hours
+**Risk:** LOW - Enhancement for fairness
+
+**Issue:** Current rate limiting is per-worker, not per-provider-type. Gmail, Microsoft, and IMAP have different limits.
+
+**Solution:**
+```typescript
+const PROVIDER_LIMITS: Record<string, { perSecond: number; perMinute: number }> = {
+  google: { perSecond: 25, perMinute: 100 },    // Gmail API limits
+  microsoft: { perSecond: 10, perMinute: 30 },  // Graph API limits
+  imap: { perSecond: 5, perMinute: 60 },        // Conservative IMAP
+};
+
+async checkProviderRateLimit(providerId: string, providerType: string): Promise<boolean> {
+  const limits = PROVIDER_LIMITS[providerType];
+  const key = `rate:${providerType}:${providerId}`;
+  // Use INCR + EXPIRE pattern from Phase 1.2
+}
+```
+
+**Tasks:**
+- [ ] Define provider-specific rate limits
+- [ ] Add rate limit check before provider API calls
+- [ ] Add metrics for rate limit hits per provider type
+- [ ] Consider BullMQ Pro group rate limiting for future
+
+---
+
+### Capacity Planning for 1000 Users
+
+**Recommended Worker Deployment (3 pods):**
+
+| Worker | Concurrency | Total Capacity |
+|--------|-------------|----------------|
+| SyncWorker (high) | 17 × 3 | 51 concurrent |
+| SyncWorker (normal) | 10 × 3 | 30 concurrent |
+| SyncWorker (low) | 7 × 3 | 21 concurrent |
+| EmailSendWorker | 10 × 3 | 30 concurrent |
+| SyncBackWorker | 5 × 3 | 15 concurrent |
+| FolderOperationsWorker | 5 × 3 | 15 concurrent |
+| BulkOperationsWorker | 2 × 3 | 6 concurrent |
+
+**Total sync capacity:** 102 concurrent syncs
+**Average sync time:** 30-60 seconds
+**Throughput:** ~100-200 syncs/minute = 6000-12000 syncs/hour
+
+**For 1000 users with 15-min sync interval:** 4000 syncs/hour needed ✅
+
+---
+
 ## Timeline Summary
 
 | Phase | Focus | Duration | Risk Reduction |
@@ -675,6 +951,7 @@ export function extractErrorMessage(error: unknown): string {
 | **Phase 3** | Dead Code | Week 3 | LOW (cleanup) |
 | **Phase 4** | Consolidation | Week 4 | LOW (maintainability) |
 | **Phase 5** | Monitoring | Week 5 | MEDIUM (observability) |
+| **Phase 6** | Multi-Tenant Scale | Week 6 | HIGH (1000+ users) |
 
 ---
 
