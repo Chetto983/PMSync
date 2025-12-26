@@ -7,6 +7,7 @@ import { EmailModule } from '../email/email.module';
 import { AiModule } from '../ai/ai.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { RetryService } from '../../common/services/retry.service';
+import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module';
 
 // Email Drivers (Phase 2 Driver Abstraction)
 import { DriversModule } from './drivers/drivers.module';
@@ -67,6 +68,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     forwardRef(() => AiModule),
     RealtimeModule, // WebSocket events
     DriversModule, // Email Drivers (Phase 2)
+    ScheduledJobsModule, // For RedisLockService (Phase 6.1)
   ],
   controllers: [
     EmailSyncController,

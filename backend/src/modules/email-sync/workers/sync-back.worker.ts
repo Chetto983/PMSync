@@ -26,6 +26,7 @@ import {
 } from '../services/provider-sync-back-queue.service';
 import { ProviderTokenService } from '../services/provider-token.service';
 import { CryptoService } from '../../../common/services/crypto.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { QUEUE_NAMES } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 
@@ -44,6 +45,7 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
     private readonly queueService: ProviderSyncBackQueueService,
     private readonly providerTokenService: ProviderTokenService,
     private readonly cryptoService: CryptoService,
+    private readonly redisLock: RedisLockService,
   ) {
     super(configService);
   }
@@ -70,101 +72,120 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
     const { tenantId, providerId, providerType, action, emailIds, externalIds, targetFolder, labelId } =
       job.data;
 
-    this.logger.log(`Processing sync-back: ${action} for ${emailIds.length} emails on ${providerType}`);
+    // PHASE 6.1: Distributed lock to prevent concurrent sync-back on same provider+action
+    // This prevents race conditions when multiple workers process the same provider
+    const lockKey = `sync-back:${providerId}:${action}`;
+    const lockTtlMs = 300000; // 5 minutes - enough for bulk operations
 
-    const errors: string[] = [];
-    let syncedCount = 0;
-    let failedCount = 0;
+    const result = await this.redisLock.tryWithLock<SyncBackJobResult>(
+      lockKey,
+      lockTtlMs,
+      async () => {
+        this.logger.log(`Processing sync-back: ${action} for ${emailIds.length} emails on ${providerType}`);
 
-    try {
-      // Get provider and tokens
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
-      });
-
-      if (!provider || provider.tenantId !== tenantId) {
-        throw new Error(`Provider ${providerId} not found or unauthorized`);
-      }
-
-      // AUDIT FIX #7: Verify provider type matches job data
-      // This prevents a malicious or corrupted job from operating on wrong provider type
-      if (provider.providerType !== providerType) {
-        throw new Error(
-          `Provider type mismatch: job claims '${providerType}' but provider is '${provider.providerType}'`,
-        );
-      }
-
-      // Get external IDs if not provided
-      const messageExternalIds = externalIds || (await this.getExternalIds(emailIds, tenantId));
-
-      if (!messageExternalIds.length) {
-        this.logger.warn(`No external IDs found for sync-back ${action}`);
-        return {
-          success: true,
-          action,
-          emailIds,
-          syncedCount: 0,
-          failedCount: 0,
-          durationMs: Date.now() - startTime,
-        };
-      }
-
-      // Get provider with valid tokens
-      const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
-
-      // Process in batches
-      for (let i = 0; i < messageExternalIds.length; i += this.BATCH_SIZE) {
-        const batch = messageExternalIds.slice(i, i + this.BATCH_SIZE);
+        const errors: string[] = [];
+        let syncedCount = 0;
+        let failedCount = 0;
 
         try {
-          await this.syncBatchToProvider(providerType, accessToken, action, batch, {
-            targetFolder,
-            labelId,
-            providerEmail: provider.email,
-            // AUDIT FIX #2: Pass tenantId and providerId for IMAP tenant safety
-            tenantId,
-            providerId,
+          // Get provider and tokens
+          const provider = await this.prisma.providerConfig.findUnique({
+            where: { id: providerId },
           });
-          syncedCount += batch.length;
 
-          // Update progress
-          const progress = Math.round(((i + batch.length) / messageExternalIds.length) * 100);
-          await job.updateProgress(progress);
-        } catch (batchError) {
-          const errorMsg = batchError instanceof Error ? batchError.message : String(batchError);
-          errors.push(`Batch ${i / this.BATCH_SIZE + 1}: ${errorMsg}`);
-          failedCount += batch.length;
+          if (!provider || provider.tenantId !== tenantId) {
+            throw new Error(`Provider ${providerId} not found or unauthorized`);
+          }
+
+          // AUDIT FIX #7: Verify provider type matches job data
+          // This prevents a malicious or corrupted job from operating on wrong provider type
+          if (provider.providerType !== providerType) {
+            throw new Error(
+              `Provider type mismatch: job claims '${providerType}' but provider is '${provider.providerType}'`,
+            );
+          }
+
+          // Get external IDs if not provided
+          const messageExternalIds = externalIds || (await this.getExternalIds(emailIds, tenantId));
+
+          if (!messageExternalIds.length) {
+            this.logger.warn(`No external IDs found for sync-back ${action}`);
+            return {
+              success: true,
+              action,
+              emailIds,
+              syncedCount: 0,
+              failedCount: 0,
+              durationMs: Date.now() - startTime,
+            };
+          }
+
+          // Get provider with valid tokens
+          const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+          // Process in batches
+          for (let i = 0; i < messageExternalIds.length; i += this.BATCH_SIZE) {
+            const batch = messageExternalIds.slice(i, i + this.BATCH_SIZE);
+
+            try {
+              await this.syncBatchToProvider(providerType, accessToken, action, batch, {
+                targetFolder,
+                labelId,
+                providerEmail: provider.email,
+                // AUDIT FIX #2: Pass tenantId and providerId for IMAP tenant safety
+                tenantId,
+                providerId,
+              });
+              syncedCount += batch.length;
+
+              // Update progress
+              const progress = Math.round(((i + batch.length) / messageExternalIds.length) * 100);
+              await job.updateProgress(progress);
+            } catch (batchError) {
+              const errorMsg = batchError instanceof Error ? batchError.message : String(batchError);
+              errors.push(`Batch ${i / this.BATCH_SIZE + 1}: ${errorMsg}`);
+              failedCount += batch.length;
+            }
+          }
+
+          const durationMs = Date.now() - startTime;
+          this.logger.log(
+            `Sync-back completed: ${action} synced=${syncedCount} failed=${failedCount} (${durationMs}ms)`,
+          );
+
+          return {
+            success: failedCount === 0,
+            action,
+            emailIds,
+            syncedCount,
+            failedCount,
+            errors: errors.length ? errors : undefined,
+            durationMs,
+          };
+        } catch (error) {
+          const durationMs = Date.now() - startTime;
+          const errorMessage = error instanceof Error ? error.message : String(error);
+
+          return {
+            success: false,
+            action,
+            emailIds,
+            syncedCount,
+            failedCount: emailIds.length - syncedCount,
+            errors: [errorMessage],
+            durationMs,
+          };
         }
-      }
+      },
+    );
 
-      const durationMs = Date.now() - startTime;
-      this.logger.log(
-        `Sync-back completed: ${action} synced=${syncedCount} failed=${failedCount} (${durationMs}ms)`,
-      );
-
-      return {
-        success: failedCount === 0,
-        action,
-        emailIds,
-        syncedCount,
-        failedCount,
-        errors: errors.length ? errors : undefined,
-        durationMs,
-      };
-    } catch (error) {
-      const durationMs = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
-
-      return {
-        success: false,
-        action,
-        emailIds,
-        syncedCount,
-        failedCount: emailIds.length - syncedCount,
-        errors: [errorMessage],
-        durationMs,
-      };
+    // If lock wasn't acquired, throw to trigger BullMQ retry
+    if (result === undefined) {
+      this.logger.warn(`Sync-back lock not acquired for ${providerId}:${action}, job will retry`);
+      throw new Error(`Lock not acquired for sync-back ${providerId}:${action} - concurrent operation in progress`);
     }
+
+    return result;
   }
 
   private async getExternalIds(emailIds: string[], tenantId: string): Promise<string[]> {

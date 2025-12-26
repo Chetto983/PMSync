@@ -52,11 +52,12 @@ export class EmailSendWorker extends BaseWorker<EmailSendJobData, EmailSendJobRe
   protected getWorkerConfig(): BaseWorkerConfig {
     return {
       queueName: QUEUE_NAMES.EMAIL_SEND,
-      concurrency: 3,
+      // PHASE 6.4: Increased for 1000+ users scalability
+      concurrency: 10, // Up from 3 - handle more concurrent sends
       lockDuration: 120000, // 2 minutes for send operations
       stalledInterval: 60000,
       limiter: {
-        max: 10, // Max 10 sends per minute per worker
+        max: 50, // Up from 10 - 50 sends per minute per worker for multi-tenant scale
         duration: 60000,
       },
     };
