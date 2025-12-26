@@ -68,6 +68,10 @@ class AsyncMutex {
  *
  * This ensures consistent circuit breaker and rate limiting behavior
  * across all running instances.
+ *
+ * RC-16/RC-17 FIX: Uses Lua scripts for atomic circuit breaker transitions
+ * RC-19 FIX: Uses Lua scripts for atomic rate limit check + increment
+ * NEW-1 FIX: Health check interval for degraded mode recovery
  */
 @Injectable()
 export class ResilienceService implements OnModuleInit, OnModuleDestroy {
@@ -92,6 +96,10 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
   // Track if we're in degraded mode (Redis unavailable)
   private degradedMode = false;
 
+  // NEW-1 FIX: Health check interval for degraded mode recovery
+  private healthCheckInterval?: NodeJS.Timeout;
+  private readonly HEALTH_CHECK_INTERVAL_MS = 30000; // Check every 30 seconds
+
   // Metrics for monitoring
   private metrics = {
     totalRequests: 0,
@@ -101,6 +109,106 @@ export class ResilienceService implements OnModuleInit, OnModuleDestroy {
     rateLimitedRequests: 0,
     circuitBreakerTrips: 0,
   };
+
+  // RC-16/RC-17 FIX: Lua script for atomic circuit breaker operations
+  private readonly CIRCUIT_LUA_SCRIPT = `
+    local key = KEYS[1]
+    local now = tonumber(ARGV[1])
+    local action = ARGV[2]
+    local successThreshold = tonumber(ARGV[3]) or 3
+    local failureThreshold = tonumber(ARGV[4]) or 5
+    local resetTimeoutMs = tonumber(ARGV[5]) or 60000
+
+    -- Get current state
+    local state = redis.call('HGET', key, 'state') or 'closed'
+    local failures = tonumber(redis.call('HGET', key, 'failures')) or 0
+    local successCount = tonumber(redis.call('HGET', key, 'successCount')) or 0
+    local nextRetry = tonumber(redis.call('HGET', key, 'nextRetry')) or 0
+
+    if action == 'check' then
+      -- Check if circuit should transition from open to half-open
+      if state == 'open' and now >= nextRetry then
+        redis.call('HMSET', key, 'state', 'half-open', 'successCount', '0')
+        redis.call('EXPIRE', key, 86400)
+        return {'half-open', '0', tostring(successCount), tostring(nextRetry)}
+      end
+      return {state, tostring(failures), tostring(successCount), tostring(nextRetry)}
+
+    elseif action == 'success' then
+      if state == 'half-open' then
+        -- Atomic increment and check threshold
+        local newCount = redis.call('HINCRBY', key, 'successCount', 1)
+        if newCount >= successThreshold then
+          redis.call('HMSET', key, 'state', 'closed', 'failures', '0', 'successCount', '0')
+          redis.call('EXPIRE', key, 86400)
+          return {'closed', '0', '0', '0'}
+        end
+        redis.call('EXPIRE', key, 86400)
+        return {'half-open', '0', tostring(newCount), '0'}
+      elseif state == 'closed' then
+        -- Decrement failure count on success
+        local newFailures = math.max(0, failures - 1)
+        redis.call('HSET', key, 'failures', tostring(newFailures))
+        redis.call('EXPIRE', key, 86400)
+        return {'closed', tostring(newFailures), '0', '0'}
+      end
+      return {state, tostring(failures), tostring(successCount), tostring(nextRetry)}
+
+    elseif action == 'failure' then
+      -- Atomic increment failures and check threshold
+      local newFailures = redis.call('HINCRBY', key, 'failures', 1)
+      local newNextRetry = now + resetTimeoutMs
+      redis.call('HSET', key, 'lastFailure', tostring(now))
+
+      if newFailures >= failureThreshold then
+        redis.call('HMSET', key, 'state', 'open', 'nextRetry', tostring(newNextRetry))
+        redis.call('EXPIRE', key, 86400)
+        return {'open', tostring(newFailures), '0', tostring(newNextRetry)}
+      end
+      redis.call('EXPIRE', key, 86400)
+      return {state, tostring(newFailures), tostring(successCount), tostring(nextRetry)}
+    end
+
+    return {state, tostring(failures), tostring(successCount), tostring(nextRetry)}
+  `;
+
+  // RC-19 FIX: Lua script for atomic rate limit check + increment
+  private readonly RATE_LIMIT_LUA_SCRIPT = `
+    local key = KEYS[1]
+    local now = tonumber(ARGV[1])
+    local limitPerSecond = tonumber(ARGV[2])
+    local limitPerMinute = tonumber(ARGV[3])
+    local cooldownMs = tonumber(ARGV[4])
+
+    local lastReq = tonumber(redis.call('HGET', key, 'lastRequestAt')) or 0
+    local reqSec = tonumber(redis.call('HGET', key, 'requestsThisSecond')) or 0
+    local reqMin = tonumber(redis.call('HGET', key, 'requestsThisMinute')) or 0
+
+    -- Reset counters if time windows have passed
+    if now - lastReq >= 1000 then
+      reqSec = 0
+    end
+    if now - lastReq >= 60000 then
+      reqMin = 0
+    end
+
+    -- Check limits BEFORE increment (atomic check)
+    if reqSec >= limitPerSecond then
+      return {'0', tostring(reqSec), tostring(reqMin), tostring(lastReq + 1000)}
+    end
+    if reqMin >= limitPerMinute then
+      return {'0', tostring(reqSec), tostring(reqMin), tostring(lastReq + cooldownMs)}
+    end
+
+    -- Atomic increment (allowed)
+    redis.call('HMSET', key,
+      'requestsThisSecond', tostring(reqSec + 1),
+      'requestsThisMinute', tostring(reqMin + 1),
+      'lastRequestAt', tostring(now))
+    redis.call('EXPIRE', key, 120)
+
+    return {'1', tostring(reqSec + 1), tostring(reqMin + 1), '0'}
+  `;
 
   constructor(private readonly configService: ConfigService) {}
 
