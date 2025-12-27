@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ImapFlow, MailboxObject } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import * as nodemailer from 'nodemailer';
+import { Semaphore, withTimeout } from 'async-mutex';
 import {
   BaseEmailDriver,
   DriverCredentials,
@@ -68,6 +69,13 @@ export class IMAPDriver extends BaseEmailDriver {
 
   // Connection pool for efficient resource usage
   private connectionPool: PooledConnection[] = [];
+
+  // BUG-1 FIX: Semaphore for connection pool access (replaces busy-wait)
+  // Using async-mutex Semaphore with timeout to prevent deadlock
+  private poolSemaphore = withTimeout(
+    new Semaphore(POOL_CONFIG.maxConnectionsPerUser),
+    POOL_CONFIG.connectionAcquireTimeout,
+  );
 
   // IMAP configuration
   private imapConfig?: {
@@ -427,6 +435,8 @@ export class IMAPDriver extends BaseEmailDriver {
 
   /**
    * Acquire a connection from the pool or create a new one
+   * BUG-1 FIX: Uses async-mutex Semaphore instead of busy-wait polling
+   * This prevents CPU-wasteful polling and ensures FIFO ordering
    * @param skipConnectionCheck Skip the connected check (used during initial connect)
    */
   private async acquireConnection(skipConnectionCheck = false): Promise<ImapFlow> {
@@ -438,64 +448,83 @@ export class IMAPDriver extends BaseEmailDriver {
       throw new Error('IMAP configuration not set. Call connect() first.');
     }
 
-    // Clean up idle connections first (ML-1 fix: properly await async cleanup)
-    await this.cleanupIdleConnections();
-
-    // Try to find an available connection
-    const available = this.connectionPool.find((p) => !p.inUse);
-    if (available) {
-      available.inUse = true;
-      available.lastUsed = Date.now();
-      return available.client;
+    // BUG-1 FIX: Acquire semaphore slot with timeout (replaces busy-wait)
+    // The semaphore ensures we never exceed maxConnectionsPerUser concurrent operations
+    // withTimeout wrapping ensures we don't wait forever (throws E_TIMEOUT on timeout)
+    let _semaphoreValue: number;
+    let semaphoreRelease: () => void;
+    try {
+      [_semaphoreValue, semaphoreRelease] = await this.poolSemaphore.acquire();
+    } catch {
+      // E_TIMEOUT error from async-mutex means timeout waiting for slot
+      throw new Error('Timeout waiting for available IMAP connection');
     }
 
-    // If pool isn't full, create new connection
-    if (this.connectionPool.length < POOL_CONFIG.maxConnectionsPerUser) {
-      const client = new ImapFlow({
-        host: this.imapConfig.host,
-        port: this.imapConfig.port,
-        secure: this.imapConfig.secure,
-        auth: this.imapConfig.auth,
-        logger: false,
-      });
+    try {
+      // Clean up idle connections first (ML-1 fix: properly await async cleanup)
+      await this.cleanupIdleConnections();
 
-      await client.connect();
-
-      // Phase 5: Detect server capabilities after connection (API Compliance)
-      this.detectServerCapabilities(client);
-
-      const pooled: PooledConnection = {
-        client,
-        lastUsed: Date.now(),
-        inUse: true,
-      };
-      this.connectionPool.push(pooled);
-      return client;
-    }
-
-    // Pool is full, wait for available connection
-    const startTime = Date.now();
-    while (Date.now() - startTime < POOL_CONFIG.connectionAcquireTimeout) {
-      const conn = this.connectionPool.find((p) => !p.inUse);
-      if (conn) {
-        conn.inUse = true;
-        conn.lastUsed = Date.now();
-        return conn.client;
+      // Try to find an available connection in pool
+      const available = this.connectionPool.find((p) => !p.inUse);
+      if (available) {
+        available.inUse = true;
+        available.lastUsed = Date.now();
+        // Store semaphore release function for later
+        (available as any)._semaphoreRelease = semaphoreRelease;
+        return available.client;
       }
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
 
-    throw new Error('Timeout waiting for available IMAP connection');
+      // Pool isn't full, create new connection
+      if (this.connectionPool.length < POOL_CONFIG.maxConnectionsPerUser) {
+        const client = new ImapFlow({
+          host: this.imapConfig.host,
+          port: this.imapConfig.port,
+          secure: this.imapConfig.secure,
+          auth: this.imapConfig.auth,
+          logger: false,
+        });
+
+        await client.connect();
+
+        // Phase 5: Detect server capabilities after connection (API Compliance)
+        this.detectServerCapabilities(client);
+
+        const pooled: PooledConnection = {
+          client,
+          lastUsed: Date.now(),
+          inUse: true,
+        };
+        // Store semaphore release function for later
+        (pooled as any)._semaphoreRelease = semaphoreRelease;
+        this.connectionPool.push(pooled);
+        return client;
+      }
+
+      // Should not reach here if semaphore count matches pool size
+      // but handle gracefully just in case
+      throw new Error('No IMAP connection available in pool');
+    } catch (error) {
+      // Release semaphore on error
+      semaphoreRelease();
+      throw error;
+    }
   }
 
   /**
    * Release a connection back to the pool
+   * BUG-1 FIX: Also releases the semaphore slot
    */
   private releaseConnection(client: ImapFlow): void {
     const pooled = this.connectionPool.find((p) => p.client === client);
     if (pooled) {
       pooled.inUse = false;
       pooled.lastUsed = Date.now();
+      // BUG-1 FIX: Release semaphore slot
+      const release = (pooled as any)._semaphoreRelease;
+      if (typeof release === 'function') {
+        release();
+        delete (pooled as any)._semaphoreRelease;
+      }
     }
   }
 

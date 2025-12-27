@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { Box, Drawer, useMediaQuery, useTheme, alpha } from '@mui/material';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { Group, Panel, Separator, type Layout } from 'react-resizable-panels';
 import { GripVertical } from 'lucide-react';
 
 /**
@@ -78,12 +78,24 @@ function ResizeHandle({
   const [isHovered, setIsHovered] = useState(false);
   const theme = useTheme();
 
+  useEffect(() => {
+    if (!isDragging || typeof window === 'undefined') return;
+
+    const handlePointerUp = () => setIsDragging(false);
+    window.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [isDragging]);
+
   return (
-    <PanelResizeHandle
+    <Separator
       id={id}
-      onDragging={setIsDragging}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onPointerDown={() => setIsDragging(true)}
+      onPointerUp={() => setIsDragging(false)}
+      onPointerEnter={() => setIsHovered(true)}
+      onPointerLeave={() => setIsHovered(false)}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -122,7 +134,7 @@ function ResizeHandle({
           }}
         />
       </Box>
-    </PanelResizeHandle>
+    </Separator>
   );
 }
 
@@ -192,14 +204,13 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
 
   // Handle panel resize - persist to localStorage
   const handlePanelResize = useCallback(
-    (sizes: number[]) => {
+    (layout: Layout) => {
       if (typeof window === 'undefined' || !persistSizes) return;
 
       try {
-        // sizes array: [sidebar, list, detail] or [sidebar, list] when detail hidden
         const newSizes = {
-          sidebar: sizes[0] ?? DEFAULT_SIZES.sidebar,
-          list: sizes[1] ?? DEFAULT_SIZES.list,
+          sidebar: clampSize(layout.sidebar ?? DEFAULT_SIZES.sidebar, 10, 25),
+          list: clampSize(layout.list ?? DEFAULT_SIZES.list, 20, 50),
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newSizes));
       } catch {
@@ -311,16 +322,14 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
         gap: 2, // Gaps between glass panels
       }}
     >
-      <PanelGroup
-        direction="horizontal"
-        onLayout={handlePanelResize}
-        autoSaveId={persistSizes ? 'email-layout' : undefined}
+      <Group
+        orientation="horizontal"
+        onLayoutChange={handlePanelResize}
         style={{ height: '100%', width: '100%', minHeight: 0, gap: '16px' }}
       >
         {/* Sidebar Panel - GLASS LEFT */}
         <Panel
           id="sidebar"
-          order={1}
           defaultSize={initialSizes.sidebar}
           minSize={10}
           maxSize={25}
@@ -358,7 +367,6 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
         {/* List Panel - GLASS CENTER */}
         <Panel
           id="list"
-          order={2}
           defaultSize={showDetail ? initialSizes.list : 100 - initialSizes.sidebar}
           minSize={20}
           maxSize={showDetail ? 50 : 100}
@@ -399,7 +407,6 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
             <ResizeHandle id="list-detail-handle" />
             <Panel
               id="detail"
-              order={3}
               minSize={30}
               style={{
                 display: 'flex',
@@ -430,7 +437,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
             </Panel>
           </>
         )}
-      </PanelGroup>
+      </Group>
     </Box>
   );
 };

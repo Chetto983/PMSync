@@ -304,13 +304,17 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     const graphMessage = this.composeToGraphMessage(message);
 
-    const response = await this.client!.post('/me/sendMail', {
-      message: graphMessage,
-      saveToSentItems: true,
-    });
+    // BUG-3 FIX: Microsoft Graph's /me/sendMail returns 202 Accepted with no body
+    // Use save-then-send pattern to get the message ID:
+    // 1. Create draft in Drafts folder (returns message ID)
+    // 2. Send the draft (moves to Sent Items)
+    const draftResponse = await this.client!.post('/me/messages', graphMessage);
+    const messageId = draftResponse.data.id;
 
-    // sendMail doesn't return ID, return empty string
-    return response.data?.id || '';
+    // Send the draft
+    await this.client!.post(`/me/messages/${messageId}/send`);
+
+    return messageId;
   }
 
   async saveDraft(message: ComposeMessage, existingDraftId?: string): Promise<string> {

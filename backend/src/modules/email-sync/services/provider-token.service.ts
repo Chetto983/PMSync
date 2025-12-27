@@ -1,11 +1,10 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Redis } from 'ioredis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
 import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
-import { getRedisConnectionOptions } from '../../../config/configuration';
 import type { ProviderConfig as ProviderEntity } from '@prisma/client';
 
 type ProviderWithToken = {
@@ -17,19 +16,21 @@ type ProviderWithToken = {
  * Centralizza recupero/refresh token provider per i servizi di sync.
  * Rimuove duplicazioni tra Google/Microsoft e IMAP.
  *
- * SCALABLE: Uses Redis distributed locking to prevent token refresh race conditions
- * when running multiple instances.
+ * SCALABLE: Uses RedisLockService for distributed locking to prevent token refresh
+ * race conditions when running multiple instances.
+ *
+ * RC-A4 FIX: Now uses RedisLockService instead of custom lock implementation.
+ * This ensures safe lock release with Lua script ownership verification.
  */
 @Injectable()
-export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
+export class ProviderTokenService {
   private readonly logger = new Logger(ProviderTokenService.name);
-  private redis!: Redis;
 
   // Redis key prefix for token refresh locks
-  private readonly KEY_PREFIX_LOCK = 'token:refresh:lock:';
+  private readonly KEY_PREFIX_LOCK = 'token-refresh:';
 
-  // Lock TTL in seconds (30 seconds should be enough for token refresh)
-  private readonly LOCK_TTL_SECONDS = 30;
+  // Lock TTL in milliseconds (30 seconds should be enough for token refresh)
+  private readonly LOCK_TTL_MS = 30000;
 
   // Max wait time for lock in ms
   private readonly MAX_WAIT_MS = 10000;
@@ -40,35 +41,11 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
+    private readonly redisLock: RedisLockService,
     private readonly googleOAuth: GoogleOAuthService,
     private readonly microsoftOAuth: MicrosoftOAuthService,
     private readonly config: ConfigService,
   ) {}
-
-  async onModuleInit() {
-    const options = getRedisConnectionOptions();
-    this.redis = new Redis({
-      ...options,
-      connectionName: 'provider-token',
-      lazyConnect: false,
-    });
-
-    this.redis.on('error', (err) => {
-      this.logger.error(`Redis provider token service error: ${err.message}`);
-    });
-
-    this.redis.on('connect', () => {
-      this.logger.log('Redis provider token service connected');
-    });
-  }
-
-  async onModuleDestroy() {
-    if (this.redis) {
-      await this.redis.quit().catch(() => {
-        // Ignore quit errors during shutdown
-      });
-    }
-  }
 
   async getProviderWithToken(providerId: string): Promise<ProviderWithToken> {
     const provider = await this.prisma.providerConfig.findUnique({
@@ -125,45 +102,34 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Refresh Microsoft token with distributed lock
-   * NEW-11 FIX: Added retry logic for transient Redis failures
+   * RC-A4 FIX: Uses RedisLockService with safe Lua-based release
    */
   private async refreshMicrosoftTokenWithLock(provider: ProviderEntity): Promise<string> {
     const lockKey = `${this.KEY_PREFIX_LOCK}${provider.id}`;
 
-    // NEW-11 FIX: Retry lock acquisition for transient failures
-    let lockAcquired = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      lockAcquired = await this.acquireLock(lockKey);
-      if (lockAcquired) break;
+    // Try to acquire lock with retries (RedisLockService handles exponential backoff)
+    const lockId = await this.redisLock.acquireLock(lockKey, this.LOCK_TTL_MS, { maxRetries: 3 });
 
-      // Check if another instance holds the lock (vs Redis failure)
-      try {
-        const exists = await this.redis.exists(lockKey);
-        if (exists) {
-          // Lock held by another instance - wait for it
-          this.logger.debug(`Waiting for token refresh lock: ${provider.email}`);
-          await this.waitForLockRelease(lockKey);
+    if (!lockId) {
+      // Lock held by another instance - wait for it to complete, then re-read token
+      const lockInfo = await this.redisLock.isLocked(lockKey);
+      if (lockInfo) {
+        this.logger.debug(`Waiting for token refresh lock: ${provider.email}`);
+        await this.waitForLockRelease(lockKey);
 
-          // Re-read provider from DB to get fresh token
-          const freshProvider = await this.prisma.providerConfig.findUnique({
-            where: { id: provider.id },
-          });
+        // Re-read provider from DB to get fresh token (other instance refreshed it)
+        const freshProvider = await this.prisma.providerConfig.findUnique({
+          where: { id: provider.id },
+        });
 
-          if (!freshProvider?.accessToken || !freshProvider.tokenEncryptionIv) {
-            throw new Error('Provider token not available after wait');
-          }
-
-          return this.crypto.decrypt(freshProvider.accessToken, freshProvider.tokenEncryptionIv);
+        if (!freshProvider?.accessToken || !freshProvider.tokenEncryptionIv) {
+          throw new Error('Provider token not available after wait');
         }
-      } catch {
-        // Redis check failed, retry lock acquisition
-        this.logger.debug(`Lock acquisition retry ${attempt + 1}/3 for ${provider.email}`);
-        await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
-      }
-    }
 
-    if (!lockAcquired) {
-      throw new Error(`Failed to acquire token refresh lock after 3 attempts for ${provider.email}`);
+        return this.crypto.decrypt(freshProvider.accessToken, freshProvider.tokenEncryptionIv);
+      }
+
+      throw new Error(`Failed to acquire token refresh lock for ${provider.email}`);
     }
 
     try {
@@ -197,8 +163,8 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Microsoft token refreshed for ${provider.email}`);
       return accessToken;
     } finally {
-      // Always release lock
-      await this.releaseLock(lockKey);
+      // RC-A4 FIX: Safe release with ownership verification via Lua script
+      await this.redisLock.releaseLock(lockKey, lockId);
     }
   }
 
@@ -236,45 +202,34 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Refresh Google token with distributed lock
-   * NEW-11 FIX: Added retry logic for transient Redis failures
+   * RC-A4 FIX: Uses RedisLockService with safe Lua-based release
    */
   private async refreshGoogleTokenWithLock(provider: ProviderEntity): Promise<string> {
     const lockKey = `${this.KEY_PREFIX_LOCK}${provider.id}`;
 
-    // NEW-11 FIX: Retry lock acquisition for transient failures
-    let lockAcquired = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      lockAcquired = await this.acquireLock(lockKey);
-      if (lockAcquired) break;
+    // Try to acquire lock with retries (RedisLockService handles exponential backoff)
+    const lockId = await this.redisLock.acquireLock(lockKey, this.LOCK_TTL_MS, { maxRetries: 3 });
 
-      // Check if another instance holds the lock (vs Redis failure)
-      try {
-        const exists = await this.redis.exists(lockKey);
-        if (exists) {
-          // Lock held by another instance - wait for it
-          this.logger.debug(`Waiting for token refresh lock: ${provider.email}`);
-          await this.waitForLockRelease(lockKey);
+    if (!lockId) {
+      // Lock held by another instance - wait for it to complete, then re-read token
+      const lockInfo = await this.redisLock.isLocked(lockKey);
+      if (lockInfo) {
+        this.logger.debug(`Waiting for token refresh lock: ${provider.email}`);
+        await this.waitForLockRelease(lockKey);
 
-          // Re-read provider from DB to get fresh token
-          const freshProvider = await this.prisma.providerConfig.findUnique({
-            where: { id: provider.id },
-          });
+        // Re-read provider from DB to get fresh token (other instance refreshed it)
+        const freshProvider = await this.prisma.providerConfig.findUnique({
+          where: { id: provider.id },
+        });
 
-          if (!freshProvider?.accessToken || !freshProvider.tokenEncryptionIv) {
-            throw new Error('Provider token not available after wait');
-          }
-
-          return this.crypto.decrypt(freshProvider.accessToken, freshProvider.tokenEncryptionIv);
+        if (!freshProvider?.accessToken || !freshProvider.tokenEncryptionIv) {
+          throw new Error('Provider token not available after wait');
         }
-      } catch {
-        // Redis check failed, retry lock acquisition
-        this.logger.debug(`Lock acquisition retry ${attempt + 1}/3 for ${provider.email}`);
-        await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
-      }
-    }
 
-    if (!lockAcquired) {
-      throw new Error(`Failed to acquire token refresh lock after 3 attempts for ${provider.email}`);
+        return this.crypto.decrypt(freshProvider.accessToken, freshProvider.tokenEncryptionIv);
+      }
+
+      throw new Error(`Failed to acquire token refresh lock for ${provider.email}`);
     }
 
     try {
@@ -302,8 +257,8 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Google token refreshed successfully for ${provider.email}`);
       return accessToken;
     } finally {
-      // Always release lock
-      await this.releaseLock(lockKey);
+      // RC-A4 FIX: Safe release with ownership verification via Lua script
+      await this.redisLock.releaseLock(lockKey, lockId);
     }
   }
 
@@ -345,47 +300,16 @@ export class ProviderTokenService implements OnModuleInit, OnModuleDestroy {
   // ==================== DISTRIBUTED LOCKING ====================
 
   /**
-   * Acquire a distributed lock using Redis SETNX
-   * NEW-11 FIX: Changed to fail-closed behavior to prevent concurrent token refreshes
-   */
-  private async acquireLock(key: string): Promise<boolean> {
-    try {
-      const result = await this.redis.set(key, process.pid.toString(), 'EX', this.LOCK_TTL_SECONDS, 'NX');
-      return result === 'OK';
-    } catch (error) {
-      // NEW-11 FIX: Fail CLOSED - do not proceed without lock
-      // This prevents concurrent token refreshes which defeat the locking purpose
-      this.logger.error(`Lock acquire failed (fail-closed): ${error instanceof Error ? error.message : String(error)}`);
-      return false;
-    }
-  }
-
-  /**
-   * Release a distributed lock
-   */
-  private async releaseLock(key: string): Promise<void> {
-    try {
-      await this.redis.del(key);
-    } catch (error) {
-      this.logger.error(`Lock release failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
    * Wait for a lock to be released by another instance
+   * Uses RedisLockService.isLocked for checking lock status
    */
   private async waitForLockRelease(key: string): Promise<void> {
     const startTime = Date.now();
 
     while (Date.now() - startTime < this.MAX_WAIT_MS) {
-      try {
-        const exists = await this.redis.exists(key);
-        if (!exists) {
-          return; // Lock released
-        }
-      } catch {
-        // On error, stop waiting
-        return;
+      const lockInfo = await this.redisLock.isLocked(key);
+      if (!lockInfo) {
+        return; // Lock released
       }
 
       await new Promise((resolve) => setTimeout(resolve, this.POLL_INTERVAL_MS));

@@ -24,7 +24,7 @@ import { RedisLockService } from '../../../../common/services/redis-lock.service
  * - Rate limit: 10,000 requests/10 min per app (Sept 2025 reduction)
  * - Delta query for incremental sync (deltaLink tokens)
  * - Batch requests: Max 20 per batch
- * - Handle 429 with Retry-After header (ResilienceService)
+ * - Handle 429 with Retry-After header (RedisCircuitBreakerService)
  * - Handle 410 Gone for expired delta tokens
  */
 @Injectable()

@@ -92,7 +92,9 @@
       "Bash(powershell -Command:*)",
       "Bash(npx prisma generate)",
       "Bash(find:*)",
-      "Bash(del \"D:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email-sync\\\\utils\\\\email-metadata.util.ts\")"
+      "Bash(del \"D:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email-sync\\\\utils\\\\email-metadata.util.ts\")",
+      "Bash(git restore:*)",
+      "Bash(npm ls:*)"
     ],
     "deny": []
   }

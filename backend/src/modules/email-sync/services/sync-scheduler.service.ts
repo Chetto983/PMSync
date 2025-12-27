@@ -8,11 +8,16 @@ import {
   ScheduledJobsQueueService,
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 @Injectable()
 export class SyncSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(SyncSchedulerService.name);
-  private isRunning = false;
+
+  // BUG-2 FIX: Use distributed Redis lock instead of process-local flag
+  // This ensures only one instance runs the scheduler at a time across the cluster
+  private readonly SCHEDULER_LOCK_KEY = 'sync-scheduler:running';
+  private readonly SCHEDULER_LOCK_TTL_MS = 5 * 60 * 1000; // 5 minute TTL (matches job interval)
 
   // Configuration - OPTIMIZED FOR 1000+ TENANTS (Plan B)
   private readonly BATCH_SIZE =
@@ -52,6 +57,8 @@ export class SyncSchedulerService implements OnModuleInit {
     private queueService: QueueService,
     private readonly configService: ConfigService,
     private readonly scheduledJobsQueue: ScheduledJobsQueueService,
+    // BUG-2 FIX: Inject RedisLockService for distributed running state
+    private readonly redisLock: RedisLockService,
   ) {
     const enabled =
       (this.configService.get<string>('EMAIL_SYNC_SCHEDULER_ENABLED') || 'true').toLowerCase() !==
@@ -99,42 +106,43 @@ export class SyncSchedulerService implements OnModuleInit {
   /**
    * Main scheduler - triggered by BullMQ repeatable job every 5 minutes
    * Selects providers to sync and adds them to queues
-   * BullMQ guarantees only one instance runs at a time (no distributed lock needed)
+   * BUG-2 FIX: Uses distributed Redis lock instead of process-local flag
    */
   async scheduleSyncJobs() {
     if (!this.schedulerEnabled) {
       return;
     }
 
-    if (this.isRunning) {
-      this.logger.warn('Previous sync schedule still running, skipping...');
-      return;
-    }
+    // BUG-2 FIX: Use tryWithLock to skip if another instance is running
+    // This ensures only one scheduler runs across the entire cluster
+    const result = await this.redisLock.tryWithLock(
+      this.SCHEDULER_LOCK_KEY,
+      this.SCHEDULER_LOCK_TTL_MS,
+      async () => {
+        this.logger.log('Starting sync scheduler...');
 
-    this.isRunning = true;
+        // Get providers that need syncing
+        const providers = await this.getProvidersToSync();
 
-    try {
-      this.logger.log('Starting sync scheduler...');
+        if (providers.length === 0) {
+          this.logger.log('No providers need syncing at this time');
+          return 0;
+        }
 
-      // Get providers that need syncing
-      const providers = await this.getProvidersToSync();
+        // Convert to sync jobs
+        const syncJobs = this.createSyncJobs(providers);
 
-      if (providers.length === 0) {
-        this.logger.log('No providers need syncing at this time');
-        return;
-      }
+        // Add to queues
+        await this.queueService.addBulkSyncJobs(syncJobs);
 
-      // Convert to sync jobs
-      const syncJobs = this.createSyncJobs(providers);
+        this.logger.log(`Scheduled ${syncJobs.length} sync jobs`);
+        return syncJobs.length;
+      },
+      { maxRetries: 1 }, // Don't wait long - just skip if locked
+    );
 
-      // Add to queues
-      await this.queueService.addBulkSyncJobs(syncJobs);
-
-      this.logger.log(`Scheduled ${syncJobs.length} sync jobs`);
-    } catch (error) {
-      this.logger.error('Error in sync scheduler:', error);
-    } finally {
-      this.isRunning = false;
+    if (result === undefined) {
+      this.logger.warn('Previous sync schedule still running on another instance, skipping...');
     }
   }
 
@@ -629,6 +637,10 @@ export class SyncSchedulerService implements OnModuleInit {
       _avg: { avgActivityRate: true },
     });
 
+    // BUG-2 FIX: Check distributed lock for isRunning status
+    const lockInfo = await this.redisLock.isLocked(this.SCHEDULER_LOCK_KEY);
+    const isRunning = lockInfo !== null;
+
     return {
       queues: queueStatus,
       providers: {
@@ -637,7 +649,7 @@ export class SyncSchedulerService implements OnModuleInit {
         syncedToday,
       },
       scheduler: {
-        isRunning: this.isRunning,
+        isRunning,
         batchSize: this.BATCH_SIZE,
         intervalMinutes: this.SYNC_INTERVAL_MINUTES,
       },

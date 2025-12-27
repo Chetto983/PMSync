@@ -1,6 +1,22 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common';
-import { Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
+/**
+ * SyncWorker
+ *
+ * BullMQ worker that processes email sync jobs for Gmail, Microsoft, and IMAP providers.
+ * Handles high, normal, and low priority queues with configurable concurrency.
+ *
+ * PHASE 6.3 CONSOLIDATION: Now extends BaseWorker for shared lifecycle management.
+ * This eliminates ~100 LOC of duplicated Redis/Worker boilerplate.
+ *
+ * Features:
+ * - Multi-queue support (high, normal, low priority)
+ * - Provider-specific sync delegation (Gmail, Microsoft, IMAP)
+ * - Folder sync with distributed locking (RC-4 fix)
+ * - Operation timeouts (CRIT-2 fix)
+ * - Auth error detection and handling
+ * - Atomic post-sync updates (RC-3 fix)
+ */
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { SyncJobData, SyncJobResult } from '../interfaces/sync-job.interface';
@@ -10,38 +26,33 @@ import { SyncAuthService } from '../services/sync-auth.service';
 import { GoogleSyncService } from '../services/gmail/google-sync.service';
 import { MicrosoftSyncService } from '../services/microsoft/microsoft-sync.service';
 import { ImapSyncService } from '../services/imap/imap-sync.service';
-import { getRedisConnectionOptions, QUEUE_NAMES } from '../../../common/config';
+import { QUEUE_NAMES } from '../../../common/config';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
 
 @Injectable()
-export class SyncWorker implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(SyncWorker.name);
-  private redisConnection: Redis;
-  private workers: Worker[] = [];
-
-  // Worker configuration - OPTIMIZED FOR 1000+ TENANTS
-  private readonly WORKER_CONFIG = {
-    high: {
-      concurrency: 17, // 17 jobs simultaneously (was 5)
-    },
-    normal: {
-      concurrency: 10, // 10 jobs simultaneously (was 3)
-    },
-    low: {
-      concurrency: 7, // 7 jobs simultaneously (was 2)
-    },
-  };
+export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
+  protected readonly logger = new Logger(SyncWorker.name);
+  protected readonly workerName = 'email-sync';
+  protected readonly envToggle = 'EMAIL_SYNC_WORKERS_ENABLED';
 
   // CRIT-2 FIX: Operation timeout configuration (prevents indefinite hangs)
   private readonly SYNC_TIMEOUT_MS: number;
   private readonly FOLDER_SYNC_TIMEOUT_MS = 60000; // 60 seconds for folder sync
 
+  // Worker configuration - OPTIMIZED FOR 1000+ TENANTS
+  private readonly WORKER_CONFIG = {
+    high: { concurrency: 17 },   // 17 jobs simultaneously
+    normal: { concurrency: 10 }, // 10 jobs simultaneously
+    low: { concurrency: 7 },     // 7 jobs simultaneously
+  };
+
   constructor(
-    private configService: ConfigService,
-    private prisma: PrismaService,
+    configService: ConfigService,
+    private readonly prisma: PrismaService,
     @Inject(forwardRef(() => SyncSchedulerService))
-    private syncScheduler: SyncSchedulerService,
-    private folderSyncService: FolderSyncService,
+    private readonly syncScheduler: SyncSchedulerService,
+    private readonly folderSyncService: FolderSyncService,
     private readonly syncAuth: SyncAuthService,
     private readonly googleSyncService: GoogleSyncService,
     private readonly microsoftSyncService: MicrosoftSyncService,
@@ -49,75 +60,75 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     // RACE CONDITION FIX RC-4: Redis lock for folder sync coordination
     private readonly redisLock: RedisLockService,
   ) {
+    super(configService);
     // CRIT-2 FIX: Initialize sync timeout from config (default 10 minutes)
     this.SYNC_TIMEOUT_MS = Number(configService.get('SYNC_OPERATION_TIMEOUT_MS')) || 10 * 60 * 1000;
   }
 
-  async onModuleInit() {
-    const workersEnabled =
-      (this.configService.get<string>('EMAIL_SYNC_WORKERS_ENABLED') || 'true').toLowerCase() !==
-      'false';
-    if (!workersEnabled) {
-      this.logger.warn('Email sync workers are disabled via EMAIL_SYNC_WORKERS_ENABLED=false');
-      return;
-    }
-
-    // Initialize Redis connection for workers using centralized config
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
-
-    // Start workers for each priority queue using centralized queue names
-    this.startWorker(QUEUE_NAMES.EMAIL_SYNC_HIGH, this.WORKER_CONFIG.high.concurrency);
-    this.startWorker(QUEUE_NAMES.EMAIL_SYNC_NORMAL, this.WORKER_CONFIG.normal.concurrency);
-    this.startWorker(QUEUE_NAMES.EMAIL_SYNC_LOW, this.WORKER_CONFIG.low.concurrency);
-
-    this.logger.log('Email sync workers started successfully');
-  }
-
-  private startWorker(queueName: string, concurrency: number) {
-    const worker = new Worker<SyncJobData, SyncJobResult>(
-      queueName,
-      async (job: Job<SyncJobData>) => {
-        return await this.processJob(job);
-      },
-      {
-        connection: this.redisConnection,
-        concurrency,
-        limiter: {
-          max: concurrency * 2, // Max jobs processed
-          duration: 60000, // per minute
-        },
-        // Long-running syncs need generous lock to avoid "missing lock" stalls
-        // Performance fix: Increased from 5min to 15min for large mailboxes
-        lockDuration: Number(this.configService.get('SYNC_WORKER_LOCK_MS')) || 900000,
-        stalledInterval: Math.max(
-          1000,
-          Number(this.configService.get('SYNC_WORKER_STALLED_INTERVAL_MS')) || 120000,
-        ),
-      },
+  /**
+   * PHASE 6.3: Return array of configs for multi-queue support
+   * BaseWorker handles creating workers for each config
+   */
+  protected getWorkerConfig(): BaseWorkerConfig[] {
+    // Configurable lock/stalled settings from env
+    const lockDuration = Number(this.configService.get('SYNC_WORKER_LOCK_MS')) || 900000; // 15 min
+    const stalledInterval = Math.max(
+      1000,
+      Number(this.configService.get('SYNC_WORKER_STALLED_INTERVAL_MS')) || 120000,
     );
 
-    worker.on('completed', (job, result) => {
-      this.logger.log(
-        `[${queueName}] Job ${job.id} completed: ${result.messagesProcessed} messages, ${result.newMessages} new`,
-      );
-    });
-
-    worker.on('failed', (job, error) => {
-      this.logger.error(
-        `[${queueName}] Job ${job?.id} failed for ${job?.data?.email}: ${error.message}`,
-      );
-    });
-
-    worker.on('error', (error) => {
-      this.logger.error(`[${queueName}] Worker error: ${error.message}`);
-    });
-
-    this.workers.push(worker);
-    this.logger.log(`Started worker for queue ${queueName} with concurrency ${concurrency}`);
+    return [
+      {
+        queueName: QUEUE_NAMES.EMAIL_SYNC_HIGH,
+        concurrency: this.WORKER_CONFIG.high.concurrency,
+        lockDuration,
+        stalledInterval,
+        limiter: {
+          max: this.WORKER_CONFIG.high.concurrency * 2,
+          duration: 60000,
+        },
+      },
+      {
+        queueName: QUEUE_NAMES.EMAIL_SYNC_NORMAL,
+        concurrency: this.WORKER_CONFIG.normal.concurrency,
+        lockDuration,
+        stalledInterval,
+        limiter: {
+          max: this.WORKER_CONFIG.normal.concurrency * 2,
+          duration: 60000,
+        },
+      },
+      {
+        queueName: QUEUE_NAMES.EMAIL_SYNC_LOW,
+        concurrency: this.WORKER_CONFIG.low.concurrency,
+        lockDuration,
+        stalledInterval,
+        limiter: {
+          max: this.WORKER_CONFIG.low.concurrency * 2,
+          duration: 60000,
+        },
+      },
+    ];
   }
 
-  private async processJob(job: Job<SyncJobData>): Promise<SyncJobResult> {
+  /**
+   * Custom log format for completed sync jobs
+   */
+  protected formatCompletedLog(job: Job<SyncJobData>, result: SyncJobResult): string {
+    return `Job ${job.id} completed: ${result.messagesProcessed} messages, ${result.newMessages} new`;
+  }
+
+  /**
+   * Custom log format for failed sync jobs
+   */
+  protected formatFailedLog(job: Job<SyncJobData> | undefined, error: Error): string {
+    return `Job ${job?.id} failed for ${job?.data?.email}: ${error.message}`;
+  }
+
+  /**
+   * Process a single sync job
+   */
+  protected async processJob(job: Job<SyncJobData>): Promise<SyncJobResult> {
     const { tenantId, providerId, providerType: jobProviderType, email, syncType } = job.data;
 
     // Optional job token validation to align with webhook handshake pattern
@@ -265,26 +276,6 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * CRIT-2 FIX: Wrap operation with timeout to prevent indefinite hangs
-   * Uses Promise.race to abort if operation exceeds timeout
-   */
-  private async withTimeout<T>(
-    operation: Promise<T>,
-    timeoutMs: number,
-    operationName: string,
-  ): Promise<T> {
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`CRIT-2: ${operationName} timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
-      // Ensure timer doesn't keep process alive
-      timer.unref?.();
-    });
-
-    return Promise.race([operation, timeoutPromise]);
-  }
-
   private async getProviderMetadata(providerId: string): Promise<any> {
     const provider = await this.prisma.providerConfig.findUnique({
       where: { id: providerId },
@@ -340,7 +331,7 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
    */
   private async applyAllPostSyncUpdates(
     providerId: string,
-    tenantId: string,
+    _tenantId: string, // Kept for potential future use (e.g., tenant-specific logic)
     metadataUpdates: Record<string, any>,
   ): Promise<void> {
     const shouldUpdateMetadata = Object.keys(metadataUpdates).length > 0;
@@ -470,53 +461,4 @@ export class SyncWorker implements OnModuleInit, OnModuleDestroy {
     const lowerMessage = errorMessage.toLowerCase();
     return authErrorPatterns.some((pattern) => lowerMessage.includes(pattern.toLowerCase()));
   }
-
-  async onModuleDestroy() {
-    const workersEnabled =
-      (this.configService.get<string>('EMAIL_SYNC_WORKERS_ENABLED') || 'true').toLowerCase() !==
-      'false';
-    if (!workersEnabled) {
-      return;
-    }
-
-    this.logger.log('Stopping email sync workers...');
-
-    try {
-      // Stop all workers safely
-      for (const worker of this.workers) {
-        try {
-          await worker.close();
-        } catch (error) {
-          this.logger.debug(
-            `Worker close skipped: ${error instanceof Error ? error.message : error}`,
-          );
-        }
-      }
-
-      // Close Redis connection safely
-      if (
-        this.redisConnection &&
-        this.redisConnection.status !== 'end' &&
-        this.redisConnection.status !== 'close'
-      ) {
-        try {
-          await this.redisConnection.quit();
-        } catch (error) {
-          this.logger.debug(
-            `Redis quit skipped: ${error instanceof Error ? error.message : error}`,
-          );
-        }
-      }
-    } catch (outerError) {
-      this.logger.warn(
-        `SyncWorker shutdown encountered an error (swallowed): ${
-          outerError instanceof Error ? outerError.message : outerError
-        }`,
-      );
-    } finally {
-      this.logger.log('All workers stopped successfully');
-    }
-  }
 }
-
-
