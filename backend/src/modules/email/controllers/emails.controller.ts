@@ -39,6 +39,14 @@ import {
   SendEmailRequestDto,
   type EmailAttachmentDto,
 } from '../dto/send-email.dto';
+import {
+  BulkDeleteDto,
+  BulkUpdateReadDto,
+  BulkUpdateStarDto,
+  BulkUpdateFlagDto,
+  BulkMoveToFolderDto,
+  BulkLabelsDto,
+} from '../dto/bulk-operations.dto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { IcsGeneratorService, CalendarResponseType } from '../../calendar/services/ics-generator.service';
 import { ParsedCalendarInvite } from '../../calendar/services/ics-parser.service';
@@ -775,7 +783,7 @@ export class EmailsController {
   @Delete('bulk')
   async bulkDelete(
     @Req() req: AuthenticatedRequest,
-    @Body() data: { emailIds: string[] },
+    @Body() data: BulkDeleteDto,
   ) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkDelete(data.emailIds, tenantId);
@@ -847,7 +855,7 @@ export class EmailsController {
   @Patch('bulk/read')
   async bulkUpdateRead(
     @Req() req: AuthenticatedRequest,
-    @Body() data: { emailIds: string[]; isRead: boolean },
+    @Body() data: BulkUpdateReadDto,
   ) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkUpdateRead(
@@ -862,7 +870,7 @@ export class EmailsController {
   @Patch('bulk/star')
   async bulkUpdateStar(
     @Req() req: AuthenticatedRequest,
-    @Body() data: { emailIds: string[]; isStarred: boolean },
+    @Body() data: BulkUpdateStarDto,
   ) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkUpdateStarred(
@@ -878,7 +886,7 @@ export class EmailsController {
   @Patch('bulk/flag')
   async bulkUpdateFlag(
     @Req() req: AuthenticatedRequest,
-    @Body() data: { emailIds: string[]; isFlagged: boolean },
+    @Body() data: BulkUpdateFlagDto,
   ) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkUpdateFlagged(
@@ -894,7 +902,7 @@ export class EmailsController {
   @Patch('bulk/move')
   async bulkMoveToFolder(
     @Req() req: AuthenticatedRequest,
-    @Body() data: { emailIds: string[]; folder: string },
+    @Body() data: BulkMoveToFolderDto,
   ) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkMoveToFolder(
@@ -910,7 +918,7 @@ export class EmailsController {
   @Patch('bulk/labels/add')
   async bulkAddLabels(
     @Req() req: AuthenticatedRequest,
-    @Body() data: { emailIds: string[]; labelIds: string[] },
+    @Body() data: BulkLabelsDto,
   ) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkAddLabels(
@@ -926,7 +934,7 @@ export class EmailsController {
   @Patch('bulk/labels/remove')
   async bulkRemoveLabels(
     @Req() req: AuthenticatedRequest,
-    @Body() data: { emailIds: string[]; labelIds: string[] },
+    @Body() data: BulkLabelsDto,
   ) {
     const tenantId = req.user.tenantId;
     return this.emailsService.bulkRemoveLabels(
@@ -1030,12 +1038,12 @@ export class EmailsController {
       lastModified: inviteData.lastModified ? new Date(inviteData.lastModified) : undefined,
       attendees: Array.isArray(inviteData.attendees)
         ? inviteData.attendees.map((attendee) => ({
-            email: attendee.email,
-            name: attendee.name,
-            status: attendee.status || 'NEEDS-ACTION',
-            role: attendee.role || 'REQ-PARTICIPANT',
-            rsvp: attendee.rsvp !== false,
-          }))
+          email: attendee.email,
+          name: attendee.name,
+          status: attendee.status || 'NEEDS-ACTION',
+          role: attendee.role || 'REQ-PARTICIPANT',
+          rsvp: attendee.rsvp !== false,
+        }))
         : [],
       organizer: inviteData.organizer || { email: '' },
       rawIcs: inviteData.rawIcs || '',

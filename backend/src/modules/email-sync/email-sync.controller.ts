@@ -9,6 +9,7 @@ import { SyncSchedulerService } from './services/sync-scheduler.service';
 import { WebhookLifecycleService } from './services/webhook-lifecycle.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../email/services/storage.service';
+import { AlertingService } from '../../common/services/alerting.service';
 import { AuthenticatedRequest } from '../../common/types/request.types';
 
 @ApiTags('Email Sync')
@@ -24,6 +25,7 @@ export class EmailSyncController {
     private webhookLifecycle: WebhookLifecycleService,
     private prisma: PrismaService,
     private storageService: StorageService,
+    private alertingService: AlertingService,
   ) { }
 
   @Get('status')
@@ -303,6 +305,99 @@ export class EmailSyncController {
         providersWithDeltaFallback: stats.smartSync.providersWithDeltaFallback,
         priorityDistribution: stats.smartSync.priorityDistribution,
       },
+    };
+  }
+
+  /**
+   * Phase 5.2: Alerting Thresholds Endpoint
+   * Returns alerts based on configured thresholds
+   */
+  @Get('alerts')
+  @ApiOperation({ summary: 'Get active alerts based on monitoring thresholds' })
+  @ApiResponse({ status: 200, description: 'Returns list of active alerts' })
+  async getAlerts() {
+    const alerts: Array<{ level: 'warning' | 'critical'; type: string; message: string; value?: number; threshold?: number }> = [];
+
+    // Thresholds (Phase 5.2)
+    const QUEUE_UTILIZATION_WARNING = 80;
+    const QUEUE_UTILIZATION_CRITICAL = 95;
+    const PROVIDER_ERROR_THRESHOLD = 3;
+    const AUTH_ERROR_THRESHOLD = 1;
+
+    // Check queue utilization
+    const queueHealth = await this.queueService.getHealthSummary();
+    if (queueHealth.capacity) {
+      for (const [priority, status] of Object.entries(queueHealth.capacity)) {
+        const utilization = status.utilizationPercent.waiting;
+        if (utilization >= QUEUE_UTILIZATION_CRITICAL) {
+          alerts.push({
+            level: 'critical',
+            type: 'queue_utilization',
+            message: `Queue ${priority} utilization critical`,
+            value: utilization,
+            threshold: QUEUE_UTILIZATION_CRITICAL,
+          });
+        } else if (utilization >= QUEUE_UTILIZATION_WARNING) {
+          alerts.push({
+            level: 'warning',
+            type: 'queue_utilization',
+            message: `Queue ${priority} utilization high`,
+            value: utilization,
+            threshold: QUEUE_UTILIZATION_WARNING,
+          });
+        }
+      }
+    }
+
+    // Check provider errors
+    const stats = await this.schedulerService.getSyncStats();
+    if (stats.smartSync.providersWithErrors > PROVIDER_ERROR_THRESHOLD) {
+      alerts.push({
+        level: 'warning',
+        type: 'provider_errors',
+        message: `${stats.smartSync.providersWithErrors} providers with sync errors`,
+        value: stats.smartSync.providersWithErrors,
+        threshold: PROVIDER_ERROR_THRESHOLD,
+      });
+    }
+
+    // Check auth errors (critical - needs immediate attention)
+    if (stats.smartSync.providersWithAuthErrors >= AUTH_ERROR_THRESHOLD) {
+      alerts.push({
+        level: 'critical',
+        type: 'auth_errors',
+        message: `${stats.smartSync.providersWithAuthErrors} providers with auth errors`,
+        value: stats.smartSync.providersWithAuthErrors,
+        threshold: AUTH_ERROR_THRESHOLD,
+      });
+    }
+
+    // Check webhook health
+    const webhookHealth = await this.webhookLifecycle.getHealthStatus();
+    const expiringSoon = webhookHealth.gmail.expiring + webhookHealth.microsoft.expiring;
+    if (expiringSoon > 0) {
+      alerts.push({
+        level: 'warning',
+        type: 'webhook_expiring',
+        message: `${expiringSoon} webhooks expiring soon`,
+        value: expiringSoon,
+      });
+    }
+
+    // Check Redis connectivity
+    if (!queueHealth.redisConnected) {
+      alerts.push({
+        level: 'critical',
+        type: 'redis_disconnected',
+        message: 'Redis connection lost',
+      });
+    }
+
+    return {
+      hasAlerts: alerts.length > 0,
+      criticalCount: alerts.filter(a => a.level === 'critical').length,
+      warningCount: alerts.filter(a => a.level === 'warning').length,
+      alerts,
     };
   }
 }

@@ -810,8 +810,8 @@ export class EmailSyncBackService {
       const tenantId = providerTenantMap.get(providerId);
       const provider = tenantId
         ? await this.prisma.providerConfig.findFirst({
-            where: { id: providerId, tenantId },
-          })
+          where: { id: providerId, tenantId },
+        })
         : null;
       if (!provider) {
         this.logger.error(`Gmail provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
@@ -825,8 +825,8 @@ export class EmailSyncBackService {
       const tenantId = providerTenantMap.get(providerId);
       const provider = tenantId
         ? await this.prisma.providerConfig.findFirst({
-            where: { id: providerId, tenantId },
-          })
+          where: { id: providerId, tenantId },
+        })
         : null;
       if (!provider) {
         this.logger.error(`Microsoft provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
@@ -840,8 +840,8 @@ export class EmailSyncBackService {
       const tenantId = providerTenantMap.get(providerId);
       const provider = tenantId
         ? await this.prisma.providerConfig.findFirst({
-            where: { id: providerId, tenantId },
-          })
+          where: { id: providerId, tenantId },
+        })
         : null;
       if (!provider) {
         this.logger.error(`IMAP provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
@@ -906,7 +906,8 @@ export class EmailSyncBackService {
           unflagIds.push(op.externalId);
           break;
         case 'moveToFolder':
-          if (op.folder === 'TRASH') {
+          // FIX (BUG-018): Case-insensitive folder comparison
+          if (op.folder?.toUpperCase() === 'TRASH') {
             moveToTrashIds.push(op.externalId);
           } else {
             // For non-TRASH folders fallback to per-item modify to honor specific label
@@ -1281,7 +1282,7 @@ export class EmailSyncBackService {
         try {
           await client.logout();
           this.logger.log(`🔌 Disconnected from IMAP server (Batch Mode)`);
-        } catch  { /* ignore */ }
+        } catch { /* ignore */ }
       }
     }
   }

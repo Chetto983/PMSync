@@ -17,14 +17,14 @@ This roadmap outlines the prioritized improvements for the email-sync module bas
 |--------|-------|
 
 | **Critical Issues** | 0 ✅ (all resolved) |
-| **High Priority Issues** | 1 remaining (RC-NEW-3) |
+| **High Priority Issues** | 0 ✅ (all resolved) |
 | **Medium Priority Issues** | 4 remaining |
 | **Low Priority Issues** | 8 remaining |
-| **Dead Code Items** | ~14 items (~150 LOC) |
+| **Dead Code Items** | ~8 items (~50 LOC) |
 | **Duplicate Code** | 9/9 patterns consolidated ✅ (+2 LOW optional) |
 | **Code Quality Score** | 8.5/10 (Duplicate) · 7.5/10 (Bugs) |
-| **LOC Saved** | ~2,210 LOC via consolidation |
-| **Technical Debt** | ~20-30 hours remaining |
+| **LOC Saved** | ~2,310 LOC via consolidation |
+| **Technical Debt** | ~15-20 hours remaining |
 | **Multi-Tenant Ready** | 95% (Phase 6 HIGH complete) |
 | **Target Scale** | 1000+ concurrent users ✅ |
 
@@ -35,7 +35,7 @@ This roadmap outlines the prioritized improvements for the email-sync module bas
 - CRIT-3: Token expiration during long syncs
 - CRIT-4: Redis-backed ResilienceService for horizontal scaling
 - CRIT-5: Queue backpressure mechanism
-- All original SEC-* and RC-* issues from initial audit
+- All original SEC-*and RC-* issues from initial audit
 - **RC-16/RC-17:** ✅ Atomic circuit breaker transitions with Lua script
 - **RC-19:** ✅ Atomic rate limit check+increment with Lua script
 - **RC-20/RC-21:** ✅ Queue capacity TOCTOU fix with atomic provider counter
@@ -397,6 +397,7 @@ async addBulkSyncJobs(jobs: SyncJobData[]): Promise<{ added: number; dropped: nu
 **Issue (was):** If exception occurs after `refreshDriverIfNeeded` creates new driver, old driver in finally block
 
 **Solution Implemented:** Alternative pattern - mutable driver variable:
+
 - `refreshDriverIfNeeded` disconnects old driver BEFORE creating new one
 - `driver = result.driver` reassigns variable after refresh
 - `finally { driver.disconnect() }` uses current value (always correct driver)
@@ -809,6 +810,7 @@ protected async processJob(job: Job<SyncBackJobData>): Promise<SyncBackJobResult
 **Per BullMQ docs:** "BullMQ can block jobs with the same jobId from being added multiple times"
 
 **Solution:**
+
 ```typescript
 // When enqueueing sync jobs
 await this.queue.add('sync', jobData, {
@@ -823,6 +825,7 @@ await this.queue.add('sync', jobData, {
 ```
 
 **Tasks:**
+
 - [ ] Add jobId to sync job enqueue in scheduler
 - [ ] Add jobId to webhook-triggered sync jobs
 - [ ] Add jobId to manual sync triggers
@@ -839,6 +842,7 @@ await this.queue.add('sync', jobData, {
 **Issue:** SyncWorker implements its own lifecycle instead of extending BaseWorker like other workers. ~200 LOC of duplicated patterns.
 
 **Current state:**
+
 - ✅ EmailSendWorker extends BaseWorker
 - ✅ SyncBackWorker extends BaseWorker
 - ✅ FolderOperationsWorker extends BaseWorker
@@ -846,6 +850,7 @@ await this.queue.add('sync', jobData, {
 - ❌ SyncWorker does NOT extend BaseWorker
 
 **Tasks:**
+
 - [ ] Refactor SyncWorker to extend BaseWorker
 - [ ] Move priority queue handling to config array pattern
 - [ ] Remove duplicated lifecycle code
@@ -861,6 +866,7 @@ await this.queue.add('sync', jobData, {
 **Status:** ✅ Implemented 2025-12-26
 
 **Previous config:**
+
 ```typescript
 concurrency: 3,
 limiter: { max: 10, duration: 60000 } // 10 sends/minute
@@ -869,17 +875,20 @@ limiter: { max: 10, duration: 60000 } // 10 sends/minute
 **With 1000 users:** Only 30 emails/minute system-wide causes significant backlog
 
 **New config (PHASE 6.4):**
+
 ```typescript
 concurrency: 10, // Was 3 - handles more concurrent sends
 limiter: { max: 50, duration: 60000 } // 50 sends/minute per worker
 ```
 
 **Provider limits reference:**
+
 - Gmail: 100 messages/second burst
 - Microsoft: 30 messages/minute per mailbox
 - IMAP: Varies by provider
 
 **Tasks:**
+
 - [x] Increase concurrency to 10
 - [x] Increase rate limit to 50/minute
 - [ ] Add per-provider rate limiting (see 6.6) - optional enhancement
@@ -898,6 +907,7 @@ limiter: { max: 50, duration: 60000 } // 50 sends/minute per worker
 Sync operations can run 10-15 minutes. If lock expires mid-operation, another worker could acquire lock and both write to same resources.
 
 **Solution:**
+
 ```typescript
 async acquireLockWithFence(key: string, ttlMs: number): Promise<{ lockId: string; fenceToken: number } | null> {
   const lockId = await this.acquireLock(key, ttlMs);
@@ -919,6 +929,7 @@ async writeWithFence(key: string, currentFence: number, writeFn: () => Promise<v
 ```
 
 **Tasks:**
+
 - [ ] Add `acquireLockWithFence()` to RedisLockService
 - [ ] Add `writeWithFence()` helper
 - [ ] Update SyncWorker to use fencing for critical writes
@@ -935,6 +946,7 @@ async writeWithFence(key: string, currentFence: number, writeFn: () => Promise<v
 **Issue:** Current rate limiting is per-worker, not per-provider-type. Gmail, Microsoft, and IMAP have different limits.
 
 **Solution:**
+
 ```typescript
 const PROVIDER_LIMITS: Record<string, { perSecond: number; perMinute: number }> = {
   google: { perSecond: 25, perMinute: 100 },    // Gmail API limits
@@ -950,6 +962,7 @@ async checkProviderRateLimit(providerId: string, providerType: string): Promise<
 ```
 
 **Tasks:**
+
 - [ ] Define provider-specific rate limits
 - [ ] Add rate limit check before provider API calls
 - [ ] Add metrics for rate limit hits per provider type
@@ -1165,6 +1178,7 @@ end
 **BaseWebhookService Consolidation (2025-12-27):**
 
 Created `base-webhook.service.ts` (~165 LOC) with common patterns:
+
 - `checkAndMarkProcessed()` - Atomic Redis dedup with in-memory fallback
 - `checkAndMarkProcessedFallback()` - Single-instance fallback cache
 - `cleanupExpiredCacheEntries()` - RC-9/RC-10 safe cache cleanup
@@ -1239,6 +1253,7 @@ Updated workers to use consolidated methods:
 - ⚠️ Consider: Fencing tokens for long-running sync operations
 
 **Sources:**
+
 - [Webhooks at Scale](https://hookdeck.com/blog/webhooks-at-scale)
 - [MS Graph Webhooks](https://learn.microsoft.com/en-us/graph/change-notifications-delivery-webhooks)
 - [Redis Distributed Locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/)

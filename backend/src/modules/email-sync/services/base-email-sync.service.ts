@@ -1074,78 +1074,11 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     return folderName.toUpperCase();
   }
 
-  /**
-   * Determine if a folder is a system folder
-   *
-   * @param folderName - The folder name to check (will be normalized)
-   * @returns True if the folder is a standard system folder
-   */
-  protected isSystemFolder(folderName: string): boolean {
-    const systemFolders = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'ARCHIVE'];
-    return systemFolders.includes(this.normalizeFolderName(folderName));
-  }
 
-  /**
-   * Notify about mailbox changes via WebSocket/SSE
-   *
-   * @param tenantId - The tenant ID to notify
-   * @param providerId - The provider ID (email account)
-   * @param reason - The type of change that occurred
-   * @param payload - Additional metadata about the change
-   */
-  protected notifyMailboxChange(
-    tenantId: string,
-    providerId: string,
-    reason: 'message-processed' | 'message-deleted' | 'sync-complete',
-    payload?: { emailId?: string; externalId?: string; folder?: string },
-  ): void {
-    try {
-      switch (reason) {
-        case 'message-processed':
-          this.realtimeEvents.emitEmailNew(tenantId, {
-            providerId,
-            reason: 'message-processed',
-            ...payload,
-          });
-          break;
-        case 'message-deleted':
-          this.realtimeEvents.emitEmailUpdate(tenantId, {
-            providerId,
-            reason: 'message-deleted',
-            ...payload,
-          });
-          break;
-        case 'sync-complete':
-          this.realtimeEvents.emitSyncStatus(tenantId, {
-            providerId,
-            status: 'completed',
-          });
-          break;
-      }
-    } catch (error) {
-      this.logger.warn(`Failed to notify mailbox change: ${this.extractErrorMessage(error)}`);
-    }
-  }
 
-  /**
-   * Calculate sync statistics from before/after counts
-   *
-   * @param before - Counts before sync (emails, folders)
-   * @param after - Counts after sync (emails, folders)
-   * @returns The number of new emails and folders added
-   */
-  protected calculateSyncStats(
-    before: { emails: number; folders: number },
-    after: { emails: number; folders: number },
-  ): {
-    newEmails: number;
-    newFolders: number;
-  } {
-    return {
-      newEmails: Math.max(0, after.emails - before.emails),
-      newFolders: Math.max(0, after.folders - before.folders),
-    };
-  }
+
+
+
 
   /**
    * Check if an error is a "not found" error (404, resource not found, etc.)
@@ -1259,42 +1192,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     return text.substring(0, maxLength - 3) + '...';
   }
 
-  /**
-   * Validate email address format
-   *
-   * @param email - The email address to validate
-   * @returns True if the email format is valid
-   */
-  protected validateEmailAddress(email: string): boolean {
-    if (!email) return false;
 
-    // RFC 5322 simplified regex
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  }
 
-  /**
-   * Format a date to ISO 8601 string
-   *
-   * @param date - The date to format (Date object, timestamp, or ISO string)
-   * @returns ISO 8601 formatted string
-   */
-  protected formatTimestamp(date: Date | number | string): string {
-    if (date instanceof Date) {
-      return date.toISOString();
-    }
 
-    if (typeof date === 'number') {
-      return new Date(date).toISOString();
-    }
-
-    // Already a string, validate and return
-    try {
-      return new Date(date).toISOString();
-    } catch {
-      return new Date().toISOString();
-    }
-  }
 
   /**
    * Sleep for a specified duration (useful for retry delays)
