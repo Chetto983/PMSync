@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
-import { ListItemButton, Box, Typography, Checkbox, Fade, useMediaQuery, useTheme, IconButton, Tooltip } from '@mui/material';
-import { Paperclip, Star } from 'lucide-react';
+import { ListItemButton, Box, Typography, Checkbox, useMediaQuery, useTheme, IconButton } from '@mui/material';
+import { Paperclip, Star, Reply } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { ThreadAvatar } from './shared';
 import { parseEmailFrom, formatListDate } from './shared/utils';
 import { SearchHighlight } from '../ui/SearchHighlight';
 
@@ -37,14 +36,11 @@ function isEmail(thread: Email | Conversation): thread is Email {
 
 /**
  * ThreadListItem - Outlook-style clean email list item
- *
- * Design principles (Outlook-inspired):
- * - Clean single-row layout with key info
- * - Checkbox visible on hover or when selected
- * - Star icon clickable inline
- * - NO floating action bar (actions in bulk bar or right-click)
- * - Subtle hover effects
- * - Clear unread indicator
+ * Refactored to match user screenshot:
+ * - No Avatar.
+ * - Light Gray Selection (No blue border).
+ * - Compact 2-line layout.
+ * - Purple Reply arrows.
  */
 export const ThreadListItem = React.memo<ThreadListItemProps>(
   ({
@@ -53,7 +49,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     multiSelected = false,
     onToggleSelect,
     onToggleStar,
-    getProviderIcon,
+    // getProviderIcon, // Unused
     onClick,
     searchQuery,
   }) => {
@@ -63,7 +59,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     const [isHovered, setIsHovered] = React.useState(false);
 
     // Extract common properties
-    const { threadId, emailId, from, subject, receivedAt, isRead, isStarred, hasAttachments } =
+    const { threadId, emailId, from, subject, receivedAt, isRead, isStarred, hasAttachments, folder } =
       useMemo(() => {
         if (isEmail(thread)) {
           const displayId = thread.threadId || thread.id;
@@ -76,6 +72,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             isRead: thread.isRead,
             isStarred: thread.isStarred || false,
             hasAttachments: thread.hasAttachments || false,
+            folder: thread.folder,
           };
         } else {
           return {
@@ -87,6 +84,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             isRead: thread.isRead,
             isStarred: thread.isStarred || false,
             hasAttachments: false,
+            folder: undefined,
           };
         }
       }, [thread]);
@@ -107,11 +105,8 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
 
     const handleToggleSelect = () => onToggleSelect?.(threadId);
 
-    // Email count for thread indicator
-    const emailCount = thread.emailCount;
-
-    // Show checkbox on hover or when selected
-    const showCheckbox = isHovered || multiSelected;
+    // Check if "Sent" folder logic applies (italic gray name)
+    const isSent = folder === 'SENT' || folder === 'sentitems';
 
     return (
       <Box
@@ -119,10 +114,10 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
         onMouseLeave={() => setIsHovered(false)}
         sx={{
           position: 'relative',
-          borderBottom: 1,
+          borderBottom: '1px solid',
           borderColor: 'divider',
           bgcolor: selected ? 'action.selected' : 'background.paper',
-          transition: 'background-color 0.15s ease',
+          transition: 'background-color 0.1s ease',
           '&:hover': {
             bgcolor: selected ? 'action.selected' : 'action.hover',
           },
@@ -134,172 +129,141 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
           data-testid="thread-list-item"
           data-thread-id={threadId}
           data-email-id={emailId}
+          disableRipple
           sx={{
             py: 1,
-            px: 1.5,
+            px: 2,
             display: 'flex',
-            gap: 1,
-            alignItems: 'center',
+            gap: 1.5,
+            alignItems: 'flex-start',
             bgcolor: 'transparent',
             cursor: 'pointer',
-            minHeight: 52,
+            minHeight: 56,
             '&.Mui-selected': {
               bgcolor: 'transparent',
-              '&:hover': {
-                bgcolor: 'transparent',
-              },
+              '&:hover': { bgcolor: 'transparent' },
             },
           }}
         >
-          {/* Checkbox - visible on hover/selected */}
-          {onToggleSelect && (
+          {/* Checkbox (Hidden unless hovered/selected) */}
+          {(isHovered || multiSelected) && onToggleSelect ? (
             <Box
               onClick={(e) => e.stopPropagation()}
               sx={{
-                width: 24,
+                width: 20,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0,
+                mt: 0.5,
+                mr: -1
               }}
             >
-              <Fade in={showCheckbox || isMobile} timeout={100}>
-                <Checkbox
-                  checked={multiSelected}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    handleToggleSelect();
-                  }}
-                  size="small"
-                  sx={{
-                    p: 0,
-                    color: 'action.active',
-                    '&.Mui-checked': {
-                      color: 'primary.main',
-                    },
-                  }}
-                />
-              </Fade>
-            </Box>
-          )}
-
-          {/* Unread indicator dot */}
-          <Box
-            sx={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              bgcolor: isRead ? 'transparent' : 'primary.main',
-              flexShrink: 0,
-            }}
-          />
-
-          {/* Avatar - Hidden on mobile */}
-          {!isMobile && (
-            <ThreadAvatar
-              email={fromData.email}
-              name={fromData.name}
-              providerIcon={isEmail(thread) ? getProviderIcon?.(thread.providerId) : undefined}
-              isUnread={!isRead}
-              size={28}
-            />
-          )}
-
-          {/* Content */}
-          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
-            {/* From */}
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: isRead ? 400 : 600,
-                width: { xs: 80, sm: 120, md: 160 },
-                flexShrink: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontSize: '0.875rem',
-                color: 'text.primary',
-              }}
-            >
-              {fromData.name}
-            </Typography>
-
-            {/* Subject */}
-            <Typography
-              variant="body2"
-              sx={{
-                flex: 1,
-                fontWeight: isRead ? 400 : 500,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontSize: '0.8125rem',
-                color: subject ? 'text.secondary' : 'text.disabled',
-                fontStyle: subject ? 'normal' : 'italic',
-              }}
-            >
-              <SearchHighlight
-                text={subject || t.common.noSubject}
-                query={searchQuery}
-                maxLength={isMobile ? 40 : 100}
-              />
-            </Typography>
-
-            {/* Indicators */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-              {hasAttachments && (
-                <Paperclip size={14} color={theme.palette.text.secondary} />
-              )}
-              {emailCount && emailCount > 1 && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    bgcolor: 'action.hover',
-                    px: 0.5,
-                    borderRadius: 0.5,
-                    fontSize: '0.7rem',
-                    fontWeight: 500,
-                    color: 'text.secondary',
-                  }}
-                >
-                  {emailCount}
-                </Typography>
-              )}
-            </Box>
-
-            {/* Date */}
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                flexShrink: 0,
-                fontSize: '0.75rem',
-                width: { xs: 45, sm: 60 },
-                textAlign: 'right',
-              }}
-            >
-              {formatListDate(receivedAt)}
-            </Typography>
-          </Box>
-
-          {/* Star button - always visible */}
-          {onToggleStar && (
-            <Tooltip title={isStarred ? t.email.actions.unstar : t.email.actions.star}>
-              <IconButton
+              <Checkbox
+                checked={multiSelected}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  handleToggleSelect();
+                }}
                 size="small"
-                onClick={handleToggleStar}
+                sx={{ p: 0 }}
+              />
+            </Box>
+          ) : (
+            // Unread Indicator - Blue Bar
+            isRead === false && (
+              <Box
                 sx={{
-                  p: 0.5,
-                  color: isStarred ? '#FFB300' : 'action.disabled',
-                  '&:hover': {
-                    color: isStarred ? '#FFB300' : 'action.active',
-                  },
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 4,
+                  bgcolor: 'primary.main',
+                }}
+              />
+            )
+          )}
+
+          {/* Content Column */}
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+            {/* Row 1: Sender Name + Date */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: isRead ? 400 : 700,
+                  fontStyle: isSent ? 'italic' : 'normal',
+                  color: isSent ? 'text.secondary' : 'text.primary',
+                  fontSize: '0.9rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  mr: 1
                 }}
               >
-                <Star size={16} fill={isStarred ? '#FFB300' : 'none'} />
-              </IconButton>
-            </Tooltip>
-          )}
+                {fromData.name || t.common.unnamedContact}
+              </Typography>
+
+              <Typography
+                variant="caption"
+                sx={{
+                  fontSize: '0.75rem',
+                  color: isRead ? 'text.secondary' : 'primary.main',
+                  fontWeight: isRead ? 400 : 600,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {formatListDate(receivedAt)}
+              </Typography>
+            </Box>
+
+            {/* Row 2: Subject + Icons */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.2 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: '0.8125rem',
+                  color: isSent ? 'text.disabled' : (subject ? 'text.secondary' : 'text.disabled'),
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flex: 1,
+                  mr: 1
+                }}
+              >
+                <SearchHighlight
+                  text={subject || t.common.noSubject}
+                  query={searchQuery}
+                  maxLength={50}
+                />
+              </Typography>
+
+              {/* Icons Grid */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {hasAttachments && <Paperclip size={14} style={{ opacity: 0.6 }} />}
+
+                {/* Reply Arrow visual (Purple) */}
+                <Reply size={14} color="#7650ce" style={{ opacity: 0.8 }} />
+
+                {onToggleStar && (
+                  <IconButton
+                    size="small"
+                    onClick={handleToggleStar}
+                    sx={{
+                      p: 0,
+                      ml: 0.5,
+                      color: isStarred ? '#FFB300' : 'text.disabled',
+                      '&:hover': { color: isStarred ? '#FFB300' : 'text.primary' },
+                      opacity: isStarred ? 1 : 0
+                    }}
+                  >
+                    {(isStarred || isHovered) && <Star size={14} fill={isStarred ? '#FFB300' : 'none'} />}
+                  </IconButton>
+                )}
+              </Box>
+            </Box>
+          </Box>
         </ListItemButton>
       </Box>
     );
@@ -307,10 +271,8 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
   (prevProps, nextProps) => {
     const prevThread = prevProps.thread;
     const nextThread = nextProps.thread;
-
     const prevId = 'threadId' in prevThread ? prevThread.threadId : prevThread.id;
     const nextId = 'threadId' in nextThread ? nextThread.threadId : nextThread.id;
-
     return (
       prevId === nextId &&
       prevThread.isRead === nextThread.isRead &&

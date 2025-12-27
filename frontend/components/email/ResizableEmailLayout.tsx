@@ -130,26 +130,6 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
   useEffect(() => {
     clearCorruptedStorage();
   }, []);
-
-  // Load and validate persisted sizes from localStorage (SSR-safe)
-  const getPersistedSizes = useCallback(() => {
-    if (typeof window === 'undefined' || !persistSizes) {
-      return DEFAULT_SIZES;
-    }
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return validateSizes(parsed);
-      }
-    } catch {
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch { /* ignore */ }
-    }
-    return DEFAULT_SIZES;
-  }, [persistSizes]);
-
   // Handle panel resize - v2 API passes array of sizes
   const handlePanelResize = useCallback(
     (sizes: number[]) => {
@@ -168,15 +148,21 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
     },
     [persistSizes]
   );
-
-  // Get initial sizes
-  const [initialSizes, setInitialSizes] = useState(DEFAULT_SIZES);
-
-  // Load sizes on mount (client-side only)
-  useEffect(() => {
-    const sizes = getPersistedSizes();
-    setInitialSizes(sizes);
-  }, [getPersistedSizes]);
+  const [initialSizes] = useState(() => {
+    if (typeof window === 'undefined' || !persistSizes) {
+      return DEFAULT_SIZES;
+    }
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return validateSizes(parsed);
+      }
+    } catch {
+      // Ignore
+    }
+    return DEFAULT_SIZES;
+  });
 
   // Mobile layout
   if (isMobile) {

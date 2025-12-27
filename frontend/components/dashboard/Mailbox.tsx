@@ -1446,22 +1446,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     setComposeOpen(true);
   }, [t.email.composer.forwardPrefix, t.email.composer.forwardedMessageHeader, t.email.composer.from, t.email.composer.subject, t.email.view.date, t.email.view.to]);
 
-  // Handle Edit Draft - open ComposeDialog with draft content
-  const handleEditDraft = useCallback((email: Email) => {
-    setComposeMode('compose');
-    setComposePrefill({
-      to: email.to || [],
-      cc: email.cc || [],
-      bcc: email.bcc || [],
-      subject: email.subject || '',
-      body: email.bodyHtml || email.bodyText || '',
-      // Keep the draft ID so we can update instead of create new
-      draftId: email.id,
-    });
-    setComposeOpen(true);
-    // Close the thread display since we're now editing in compose
-    setSelectedEmail(null);
-  }, [setSelectedEmail]);
+
 
   const selectedListId = storeSelectedEmail?.threadId || storeSelectedEmail?.id;
   const emptyBase = getEmptyState();
@@ -1650,15 +1635,11 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
           storeSelectedEmail ? (
             <ThreadDisplay
               email={storeSelectedEmail}
-              onClose={() => setSelectedEmail(null)}
-              onToggleStar={handleToggleStar}
-              onArchive={(id) => handleArchive([id])}
-              onDelete={handleDelete}
+              onDelete={(email) => handleDelete(email.id)}
               onReply={handleReplyLocal}
               onReplyAll={handleReplyAllLocal}
               onForward={handleForwardLocal}
               onLabelsChange={handleLabelsChange}
-              onEditDraft={handleEditDraft}
             />
           ) : undefined
         }

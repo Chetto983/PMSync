@@ -38,7 +38,7 @@ export { SwipeableThreadListItem } from './SwipeableThreadListItem';
  * Shows full email/thread content with actions
  */
 export { ThreadDisplay } from './ThreadDisplay';
-export { default as ThreadDisplayDefault } from './ThreadDisplay';
+
 
 // ============================================================================
 // SHARED COMPONENTS - Reusable UI elements

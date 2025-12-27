@@ -15,6 +15,8 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for SyncAuthService
+import { AlertingService } from '../../common/services/alerting.service';
+// DeadLetterQueueService is available globally from CacheModule
 
 @Module({
   imports: [
@@ -37,7 +39,8 @@ import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for
     MicrosoftContactsWebhookService,
     ContactsSyncQueueService, // Queue service for contacts sync
     ContactsSyncSchedulerService, // Scheduler for periodic sync
-    ContactsSyncWorker, // Worker to process sync jobs
+    ContactsSyncWorker, // Worker to process sync jobs (extends BaseWorker with DLQ/Alerting)
+    AlertingService, // Required by ContactsSyncWorker for critical failure alerts
   ],
   exports: [
     ContactsService,

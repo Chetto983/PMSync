@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { Contact, ProviderConfig } from '@prisma/client';
 import { getErrorMessage } from '../../../common/utils';
 import { ContactsError, ContactsErrorCode } from '../errors/contacts-error';
@@ -74,12 +75,15 @@ export abstract class BaseContactsSyncService {
   protected readonly logger: Logger;
   protected readonly contactsEnabled: boolean;
   protected abstract readonly providerName: string;
+  /** Provider type for rate limiting (must match 'google' | 'microsoft') */
+  protected abstract readonly providerType: 'google' | 'microsoft';
 
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly providerTokenService: ProviderTokenService,
     protected readonly realtimeEvents: RealtimeEventsService,
     protected readonly configService: ConfigService,
+    protected readonly redisLock: RedisLockService,
   ) {
     this.logger = new Logger(this.constructor.name);
     this.contactsEnabled =
@@ -134,6 +138,20 @@ export abstract class BaseContactsSyncService {
     this.logger.log(`Starting ${this.providerName} Contacts sync (bulk) for provider ${providerId}`);
 
     try {
+      // RATE LIMIT CHECK: Prevent API throttling
+      const isAllowed = await this.redisLock.checkProviderRateLimit(providerId, this.providerType);
+      if (!isAllowed) {
+        const status = await this.redisLock.getRateLimitStatus(providerId, this.providerType);
+        this.logger.warn(
+          `Rate limited for provider ${providerId} (${this.providerType}). Retry in ${status.remainingSeconds}s`,
+        );
+        throw new ContactsError(
+          `Rate limit exceeded - retry in ${status.remainingSeconds} seconds`,
+          ContactsErrorCode.API_RATE_LIMITED,
+          { provider: this.providerType, retryable: true },
+        );
+      }
+
       // Get provider and access token (handles refresh automatically)
       const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
 

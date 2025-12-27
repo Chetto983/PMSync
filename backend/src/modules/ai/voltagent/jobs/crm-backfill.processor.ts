@@ -21,6 +21,8 @@ import { Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RelationshipIntelligenceService } from '../services/relationship-intelligence.service';
+import { DeadLetterQueueService } from '../../../../common/services/dead-letter-queue.service';
+import { AlertingService } from '../../../../common/services/alerting.service';
 
 // Job data interface
 export interface CrmBackfillJobData {
@@ -40,6 +42,9 @@ export interface CrmBackfillResult {
 
 const QUEUE_NAME = 'crm-backfill';
 
+/** Maximum retry attempts before sending to DLQ */
+const MAX_ATTEMPTS = 3;
+
 @Injectable()
 export class CrmBackfillProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CrmBackfillProcessor.name);
@@ -51,6 +56,8 @@ export class CrmBackfillProcessor implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly relationshipService: RelationshipIntelligenceService,
+    private readonly dlqService: DeadLetterQueueService,
+    private readonly alertingService: AlertingService,
   ) {}
 
   async onModuleInit() {
@@ -110,8 +117,39 @@ export class CrmBackfillProcessor implements OnModuleInit, OnModuleDestroy {
         this.logger.log(`Backfill job ${job.id} completed: ${JSON.stringify(result)}`);
       });
 
-      this.worker.on('failed', (job, error) => {
-        this.logger.error(`Backfill job ${job?.id} failed:`, error);
+      this.worker.on('failed', async (job, error) => {
+        const jobId = job?.id ?? 'unknown';
+        const errorMessage = error?.message ?? String(error);
+        this.logger.error(`Backfill job ${jobId} failed: ${errorMessage}`);
+
+        // Add to DLQ if this is the last retry attempt
+        if (job && job.attemptsMade + 1 >= MAX_ATTEMPTS) {
+          this.logger.warn(`Job ${jobId} exhausted all ${MAX_ATTEMPTS} retries, adding to DLQ`);
+
+          const errorObj = error instanceof Error ? error : new Error(errorMessage);
+          await this.dlqService.addToDeadLetter(
+            jobId,
+            job.queueName,
+            job.data,
+            errorObj,
+            job.attemptsMade + 1,
+            {
+              tenantId: job.data.tenantId,
+              userId: job.data.userId,
+              queueName: job.queueName,
+            },
+          );
+
+          // Create alert for permanent backfill failure
+          const alert = this.alertingService.createAlert(
+            'warning',
+            'crm_backfill_failed',
+            `CRM backfill permanently failed for tenant ${job.data.tenantId} after ${MAX_ATTEMPTS} attempts: ${errorMessage}`,
+            job.attemptsMade + 1,
+            MAX_ATTEMPTS,
+          );
+          this.logger.error(`ALERT: ${alert.type} - ${alert.message}`);
+        }
       });
 
       this.logger.log('CRM backfill processor initialized');

@@ -21,6 +21,22 @@ import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
 
 export type SearchSource = 'emails' | 'deadlines' | 'followups' | 'actions' | 'memories';
 
+/** Memory record returned from LongTermMemoryService */
+interface LongTermMemoryRecord {
+  id: string;
+  content: string;
+  category: string;
+  score?: number;
+}
+
+/** Memory record returned from Mem0EnhancedMemoryService */
+interface Mem0MemoryRecord {
+  id: string;
+  content?: string;
+  memory?: string;
+  score?: number;
+}
+
 export interface MemoryContext {
   facts: Array<{ id: string; content: string; category: string; score: number }>;
   preferences: Array<{ id: string; content: string; category: string; score: number }>;
@@ -172,7 +188,7 @@ export class UnifiedRetriever extends BaseRetriever {
     };
 
     try {
-      const [longTermMemories, mem0Memories] = await Promise.all([
+      const [longTermMemoriesRaw, mem0MemoriesRaw] = await Promise.all([
         this.longTermMemory.searchMemories(this.tenantId, this.userId, query, {
           limit: this.memoryLimit,
         }).catch(() => []),
@@ -181,19 +197,23 @@ export class UnifiedRetriever extends BaseRetriever {
         }).catch(() => []) ?? Promise.resolve([]),
       ]);
 
+      // Cast to our interface - services return compatible structures
+      const longTermMemories = longTermMemoriesRaw as LongTermMemoryRecord[];
+      const mem0Memories = mem0MemoriesRaw as Mem0MemoryRecord[];
+
       return {
         facts: longTermMemories
-          .filter((m: any) => m.category === 'FACT' || m.category === 'GENERAL')
-          .map((m: any) => ({ id: m.id, content: m.content, category: m.category, score: m.score ?? 0.5 })),
+          .filter((m) => m.category === 'FACT' || m.category === 'GENERAL')
+          .map((m) => ({ id: m.id, content: m.content, category: m.category, score: m.score ?? 0.5 })),
         preferences: longTermMemories
-          .filter((m: any) => m.category === 'PREFERENCE' || m.category === 'HABIT')
-          .map((m: any) => ({ id: m.id, content: m.content, category: m.category, score: m.score ?? 0.5 })),
+          .filter((m) => m.category === 'PREFERENCE' || m.category === 'HABIT')
+          .map((m) => ({ id: m.id, content: m.content, category: m.category, score: m.score ?? 0.5 })),
         contacts: longTermMemories
-          .filter((m: any) => m.category === 'CONTACT' || m.category === 'RELATIONSHIP')
-          .map((m: any) => ({ id: m.id, content: m.content, category: m.category, score: m.score ?? 0.5 })),
-        history: mem0Memories.map((m: any) => ({
+          .filter((m) => m.category === 'CONTACT' || m.category === 'RELATIONSHIP')
+          .map((m) => ({ id: m.id, content: m.content, category: m.category, score: m.score ?? 0.5 })),
+        history: mem0Memories.map((m) => ({
           id: m.id,
-          content: m.memory || m.content,
+          content: m.memory || m.content || '',
           score: m.score ?? 0.5,
         })),
       };
@@ -268,7 +288,7 @@ export class UnifiedRetriever extends BaseRetriever {
           id: string;
           content: string;
           documentName: string | null;
-          metadata: any;
+          metadata: Record<string, unknown> | null;
           distance?: number;
         }>(this.tenantId, embedding, this.emailLimit);
 

@@ -4,6 +4,7 @@ import { google, people_v1 } from 'googleapis';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { BaseContactsSyncService, ExtractedContactData } from './base-contacts-sync.service';
 import { ContactsError, ContactsErrorCode } from '../errors';
 import { getContactsCircuitBreaker, withRetry } from '../utils';
@@ -14,14 +15,16 @@ export type { ContactRealtimeReason, ContactsSyncResult as GoogleContactsSyncRes
 @Injectable()
 export class GoogleContactsSyncService extends BaseContactsSyncService {
   protected readonly providerName = 'Google';
+  protected readonly providerType = 'google' as const;
 
   constructor(
     prisma: PrismaService,
     providerTokenService: ProviderTokenService,
     realtimeEvents: RealtimeEventsService,
     configService: ConfigService,
+    redisLock: RedisLockService,
   ) {
-    super(prisma, providerTokenService, realtimeEvents, configService);
+    super(prisma, providerTokenService, realtimeEvents, configService, redisLock);
   }
 
   /**

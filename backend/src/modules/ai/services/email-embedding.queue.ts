@@ -2,11 +2,16 @@ import { Job, Queue, Worker } from 'bullmq';
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { KnowledgeBaseService } from './knowledge-base.service';
+import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
+import { AlertingService } from '../../../common/services/alerting.service';
 import {
   getRedisConnectionOptions,
   getDefaultJobOptions,
   QUEUE_NAMES,
 } from '../../../common/config';
+
+/** Maximum retry attempts before sending to DLQ */
+const MAX_ATTEMPTS = 6;
 
 export interface EmailEmbeddingJob {
   tenantId: string;
@@ -35,12 +40,17 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
   private readonly WORKER_LOCK_MS: number;
   private readonly RATE_LIMIT_BASE_DELAY_MS: number;
   private readonly RATE_LIMIT_MAX_DELAY_MS: number;
+  /** Deduplication set to prevent duplicate job enqueuing - limited to prevent memory leaks */
   private readonly seenIds = new Set<string>();
+  /** Maximum seenIds size before forced cleanup (prevents unbounded memory growth) */
+  private readonly MAX_SEEN_IDS = 10000;
 
   constructor(
     private readonly config: ConfigService,
     @Inject(forwardRef(() => KnowledgeBaseService))
     private readonly knowledgeBaseService: KnowledgeBaseService,
+    private readonly dlqService: DeadLetterQueueService,
+    private readonly alertingService: AlertingService,
   ) {
     // Bulk batching settings
     this.BULK_SIZE = this.getPositiveNumber('EMBEDDING_BULK_SIZE', 50);
@@ -117,9 +127,41 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
       this.logger.verbose(`Email embedding job ${job.id} completed`);
     });
 
-    this.worker.on('failed', (job, error) => {
+    this.worker.on('failed', async (job, error) => {
       const jobId = job?.id ?? 'unknown';
-      this.logger.warn(`Email embedding job ${jobId} failed: ${error?.message ?? error}`);
+      const errorMessage = error?.message ?? String(error);
+      this.logger.warn(`Email embedding job ${jobId} failed: ${errorMessage}`);
+
+      // Phase 1: Add to DLQ if this is the last retry attempt
+      if (job && job.attemptsMade + 1 >= MAX_ATTEMPTS) {
+        this.logger.warn(`Job ${jobId} exhausted all ${MAX_ATTEMPTS} retries, adding to DLQ`);
+
+        const errorObj = error instanceof Error ? error : new Error(errorMessage);
+        await this.dlqService.addToDeadLetter(
+          jobId,
+          job.queueName,
+          job.data,
+          errorObj,
+          job.attemptsMade + 1,
+          {
+            tenantId: job.data.tenantId,
+            providerId: job.data.providerId,
+            emailId: job.data.emailId,
+            subject: job.data.subject,
+            queueName: job.queueName,
+          },
+        );
+
+        // Create alert for permanent embedding failure
+        const alert = this.alertingService.createAlert(
+          'critical',
+          'ai_embedding_failed',
+          `Email embedding permanently failed for email ${job.data.emailId} (tenant: ${job.data.tenantId}) after ${MAX_ATTEMPTS} attempts: ${errorMessage}`,
+          job.attemptsMade + 1,
+          MAX_ATTEMPTS,
+        );
+        this.logger.error(`ALERT: ${alert.type} - ${alert.message}`);
+      }
     });
   }
 
@@ -131,12 +173,18 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
     }
   }
 
-  async enqueue(job: EmailEmbeddingJob) {
+  async enqueue(job: EmailEmbeddingJob): Promise<void> {
     await this.enqueueMany([job]);
   }
 
-  async enqueueMany(jobs: EmailEmbeddingJob[]) {
+  async enqueueMany(jobs: EmailEmbeddingJob[]): Promise<void> {
     if (!jobs.length) return;
+
+    // Prevent memory leak: clear seenIds if it grows too large
+    if (this.seenIds.size > this.MAX_SEEN_IDS) {
+      this.logger.debug(`Clearing seenIds cache (size: ${this.seenIds.size} > ${this.MAX_SEEN_IDS})`);
+      this.seenIds.clear();
+    }
 
     for (const job of jobs) {
       if (job.emailId && this.seenIds.has(job.emailId)) {

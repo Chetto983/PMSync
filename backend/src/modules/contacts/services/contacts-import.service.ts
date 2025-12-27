@@ -135,10 +135,10 @@ export class ContactsImportService {
     // Check which emails already exist using PostgreSQL JSONB query (O(1) per batch)
     const existingEmailsResult = await this.prisma.$queryRaw<{ email: string }[]>`
       SELECT DISTINCT LOWER(email_obj->>'value') as email
-      FROM "Contact",
+      FROM "unified_contacts",
            jsonb_array_elements(emails) AS email_obj
-      WHERE tenant_id = ${tenantId}
-        AND is_deleted = false
+      WHERE "tenantId" = ${tenantId}
+        AND "isDeleted" = false
         AND LOWER(email_obj->>'value') = ANY(${candidateEmails}::text[])
     `;
     const existingEmails = new Set(existingEmailsResult.map(r => r.email));
@@ -305,10 +305,10 @@ export class ContactsImportService {
   private async getExistingEmailsSet(tenantId: string): Promise<Set<string>> {
     const existingContacts = await this.prisma.$queryRaw<{ email: string }[]>`
       SELECT DISTINCT LOWER(email_obj->>'value') as email
-      FROM "Contact",
+      FROM "unified_contacts",
            jsonb_array_elements(emails) AS email_obj
-      WHERE tenant_id = ${tenantId}
-        AND is_deleted = false
+      WHERE "tenantId" = ${tenantId}
+        AND "isDeleted" = false
     `;
     return new Set(existingContacts.map(r => r.email));
   }

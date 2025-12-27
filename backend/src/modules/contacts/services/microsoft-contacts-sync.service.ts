@@ -4,6 +4,7 @@ import axios from 'axios';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { BaseContactsSyncService, ExtractedContactData } from './base-contacts-sync.service';
 import { ContactsError, ContactsErrorCode } from '../errors';
 import { getContactsCircuitBreaker, withRetry } from '../utils';
@@ -40,6 +41,7 @@ interface MicrosoftContact {
 @Injectable()
 export class MicrosoftContactsSyncService extends BaseContactsSyncService {
   protected readonly providerName = 'Microsoft';
+  protected readonly providerType = 'microsoft' as const;
   private readonly GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
 
   constructor(
@@ -47,8 +49,9 @@ export class MicrosoftContactsSyncService extends BaseContactsSyncService {
     providerTokenService: ProviderTokenService,
     realtimeEvents: RealtimeEventsService,
     configService: ConfigService,
+    redisLock: RedisLockService,
   ) {
-    super(prisma, providerTokenService, realtimeEvents, configService);
+    super(prisma, providerTokenService, realtimeEvents, configService, redisLock);
   }
 
   /**

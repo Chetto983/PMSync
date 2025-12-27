@@ -172,8 +172,10 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
       deleteEmail(emailId);
 
       // Optimistic update - React Query (Infinite Lists & Flat Lists)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       queryClient.setQueriesData<any>(
         { queryKey: emailKeys.lists() },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (oldData: any) => {
           if (!oldData) return oldData;
 
@@ -197,7 +199,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
               };
             }
           } catch (error) {
-            console.error('[Optimistic Update Failed] Single Delete:', error);
+            logger.error('[Optimistic Update Failed] Single Delete:', { error });
             return oldData;
           }
 
@@ -389,8 +391,10 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
       bulkDelete(emailIds);
 
       // Optimistic update - React Query (Infinite Lists & Flat Lists)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       queryClient.setQueriesData<any>(
         { queryKey: emailKeys.lists() },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (oldData: any) => {
           if (!oldData) return oldData;
 
@@ -414,7 +418,7 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
               };
             }
           } catch (error) {
-            console.error('[Optimistic Update Failed] Bulk Delete:', error);
+            logger.error('[Optimistic Update Failed] Bulk Delete:', { error });
             return oldData;
           }
 

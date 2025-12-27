@@ -680,9 +680,9 @@ export class ContactsService {
     // Search for existing contact using PostgreSQL JSONB query (O(1) instead of O(n))
     // This searches within the emails JSON array for a matching value
     const existingContacts = await this.prisma.$queryRaw<Contact[]>`
-      SELECT * FROM "Contact"
-      WHERE tenant_id = ${tenantId}
-      AND is_deleted = false
+      SELECT * FROM "unified_contacts"
+      WHERE "tenantId" = ${tenantId}
+      AND "isDeleted" = false
       AND emails IS NOT NULL
       AND EXISTS (
         SELECT 1 FROM jsonb_array_elements(emails) AS email_obj

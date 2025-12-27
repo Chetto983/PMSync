@@ -4,7 +4,6 @@ import {
   IsBoolean,
   IsArray,
   IsEmail,
-  IsUUID,
   MaxLength,
   ValidateNested,
   IsInt,
@@ -54,7 +53,8 @@ export class PhoneNumberDto {
  * DTO for creating a contact
  */
 export class CreateContactDto {
-  @IsUUID()
+  @IsString()
+  @MaxLength(50) // CUID/UUID max length
   providerId!: string;
 
   @IsOptional()
@@ -162,7 +162,8 @@ export class UpdateContactDto {
  */
 export class ListContactsQueryDto {
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  @MaxLength(50) // CUID/UUID max length
   providerId?: string;
 
   @IsOptional()
@@ -243,7 +244,8 @@ export class CreateLocalContactDto {
  */
 export class ExtractContactsDto {
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  @MaxLength(50) // CUID/UUID max length
   providerId?: string;
 
   @IsOptional()
@@ -256,7 +258,8 @@ export class ExtractContactsDto {
  * DTO for Google contacts manual sync trigger
  */
 export class GoogleContactsSyncDto {
-  @IsUUID()
+  @IsString()
+  @MaxLength(50) // CUID/UUID max length
   providerId!: string;
 }
 
