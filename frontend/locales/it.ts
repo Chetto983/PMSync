@@ -569,6 +569,8 @@ export const it: AppTranslations = {
     },
     bulkBar: {
       selected: '{count} selezionate',
+      selectedLabel: 'selezionate',
+      clearSelection: 'Cancella selezione',
       markUnread: 'Segna come non letta',
       markRead: 'Segna come letta',
       delete: 'Elimina',
@@ -969,6 +971,11 @@ export const it: AppTranslations = {
       syncNow: 'Sincronizza ora',
       runRetention: 'Esegui conservazione',
       compose: 'Scrivi',
+      star: 'Stella',
+      unstar: 'Rimuovi stella',
+      markRead: 'Letta',
+      markUnread: 'Non letta',
+      archive: 'Archivia',
     },
   },
   calendar: {

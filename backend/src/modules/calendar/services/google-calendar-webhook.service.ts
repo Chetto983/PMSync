@@ -88,9 +88,14 @@ export class GoogleCalendarWebhookService extends AbstractCalendarWebhookService
         throw new Error('Provider not found or does not support calendar');
       }
 
+      // NULL CHECK FIX: Validate tokenEncryptionIv before decryption
+      if (!provider.tokenEncryptionIv) {
+        throw new Error(`Provider ${providerId} missing tokenEncryptionIv for webhook setup`);
+      }
+
       const accessToken = this.decryptAccessToken(
         provider.accessToken,
-        provider.tokenEncryptionIv!,
+        provider.tokenEncryptionIv,
       );
 
       const oauth2Client = new google.auth.OAuth2();
@@ -200,9 +205,15 @@ export class GoogleCalendarWebhookService extends AbstractCalendarWebhookService
         return;
       }
 
+      // NULL CHECK FIX: Validate tokenEncryptionIv before decryption
+      if (!provider.tokenEncryptionIv) {
+        this.logger.warn(`Provider ${providerId} missing tokenEncryptionIv, cannot delete subscriptions`);
+        return;
+      }
+
       const accessToken = this.decryptAccessToken(
         provider.accessToken,
-        provider.tokenEncryptionIv!,
+        provider.tokenEncryptionIv,
       );
 
       const oauth2Client = new google.auth.OAuth2();

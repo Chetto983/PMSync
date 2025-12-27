@@ -508,6 +508,8 @@ export interface AppTranslations {
     };
     bulkBar: {
       selected: string;
+      selectedLabel: string;
+      clearSelection: string;
       markUnread: string;
       markRead: string;
       delete: string;
@@ -908,6 +910,11 @@ export interface AppTranslations {
       syncNow: string;
       runRetention: string;
       compose: string;
+      star: string;
+      unstar: string;
+      markRead: string;
+      markUnread: string;
+      archive: string;
     };
   };
   calendar: {

@@ -94,7 +94,9 @@
       "Bash(find:*)",
       "Bash(del \"D:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email-sync\\\\utils\\\\email-metadata.util.ts\")",
       "Bash(git restore:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(if not exist \"D:\\\\MailAgent\\\\docs\" mkdir \"D:\\\\MailAgent\\\\docs\")",
+      "Bash(npm run typecheck:*)"
     ],
     "deny": []
   }

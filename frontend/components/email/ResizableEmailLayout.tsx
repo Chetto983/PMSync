@@ -1,172 +1,116 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { Box, Drawer, useMediaQuery, useTheme, alpha } from '@mui/material';
-import { Group, Panel, Separator, type Layout } from 'react-resizable-panels';
-import { GripVertical } from 'lucide-react';
+import { Box, Drawer, useMediaQuery, useTheme } from '@mui/material';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 /**
  * Default panel sizes (percentages)
- * - Sidebar: 15% (min 10%, max 25%)
- * - List: 30% (min 20%, max 50%)
- * - Detail: remaining space
+ * Outlook-style: Sidebar ~18%, List ~35%, Detail ~47%
  */
 const DEFAULT_SIZES = {
-  sidebar: 15,
-  list: 30,
+  sidebar: 18,
+  list: 35,
+};
+
+// Minimum sizes to prevent collapse (percentage)
+const MIN_SIZES = {
+  sidebar: 12,
+  list: 25,
+  detail: 30,
 };
 
 const STORAGE_KEY = 'mailagent-email-panel-sizes';
 
-const clampSize = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+/**
+ * Validate and clamp sizes to prevent broken layouts
+ */
+const validateSizes = (sizes: { sidebar?: number; list?: number }) => {
+  const sidebar = Math.max(MIN_SIZES.sidebar, Math.min(30, sizes.sidebar ?? DEFAULT_SIZES.sidebar));
+  const list = Math.max(MIN_SIZES.list, Math.min(55, sizes.list ?? DEFAULT_SIZES.list));
+  return { sidebar, list };
+};
+
+/**
+ * Clear corrupted localStorage on load
+ */
+const clearCorruptedStorage = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // If values are corrupted (too small), clear them
+      if (parsed.sidebar < MIN_SIZES.sidebar || parsed.list < MIN_SIZES.list) {
+        localStorage.removeItem(STORAGE_KEY);
+        return true;
+      }
+    }
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+    return true;
+  }
+  return false;
+};
 
 /**
  * Props for ResizableEmailLayout component
  */
 interface ResizableEmailLayoutProps {
-  /**
-   * Sidebar component (folders, navigation)
-   */
   sidebar: React.ReactNode;
-
-  /**
-   * Email list component
-   */
   list: React.ReactNode;
-
-  /**
-   * Email detail panel component (optional - shown when email is selected)
-   */
   detail?: React.ReactNode;
-
-  /**
-   * Whether to show the detail panel
-   */
   showDetail?: boolean;
-
-  /**
-   * Whether sidebar is open on mobile
-   */
   sidebarOpen?: boolean;
-
-  /**
-   * Callback to close mobile sidebar
-   */
   onSidebarClose?: () => void;
-
-  /**
-   * Custom height for the layout (default: '100%')
-   */
   height?: string;
-
-  /**
-   * Enable panel resize persistence to localStorage
-   * @default true
-   */
   persistSizes?: boolean;
 }
 
 /**
- * Custom resize handle component with visual indicator
+ * Outlook-style resize handle - minimal and clean
  */
-function ResizeHandle({
-  id,
-  orientation = 'vertical',
-}: {
-  id?: string;
-  orientation?: 'vertical' | 'horizontal';
-}) {
-  const [isDragging, setIsDragging] = useState(false);
+function OutlookResizeHandle({ id }: { id?: string }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const theme = useTheme();
 
-  useEffect(() => {
-    if (!isDragging || typeof window === 'undefined') return;
-
-    const handlePointerUp = () => setIsDragging(false);
-    window.addEventListener('pointerup', handlePointerUp);
-
-    return () => {
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [isDragging]);
+  const active = isHovered || isDragging;
 
   return (
-    <Separator
+    <PanelResizeHandle
       id={id}
-      onPointerDown={() => setIsDragging(true)}
-      onPointerUp={() => setIsDragging(false)}
-      onPointerEnter={() => setIsHovered(true)}
-      onPointerLeave={() => setIsHovered(false)}
+      onDragging={setIsDragging}
       style={{
+        width: 6,
+        background: active ? theme.palette.primary.light : 'transparent',
+        cursor: 'col-resize',
+        transition: 'background 0.15s ease',
+        flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: orientation === 'vertical' ? 12 : '100%',
-        height: orientation === 'horizontal' ? 12 : '100%',
-        backgroundColor: 'transparent',
-        cursor: orientation === 'vertical' ? 'col-resize' : 'row-resize',
-        flexShrink: 0,
-        zIndex: 10,
-        margin: '0 -6px', // Negative margin to overlay on padding
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Visual indicator line */}
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: orientation === 'vertical' ? 4 : 32,
-          height: orientation === 'horizontal' ? 4 : 32,
-          borderRadius: 2,
-          backgroundColor: isDragging
-            ? 'primary.main'
-            : alpha(theme.palette.divider, 0.0), // Invisible by default
-          transition: 'all 0.2s ease',
-          '&:hover': {
-            backgroundColor: 'primary.main', // Visible on hover
-          },
+          width: 3,
+          height: 40,
+          borderRadius: 1,
+          backgroundColor: active ? 'primary.main' : 'action.disabled',
+          opacity: active ? 1 : 0.5,
+          transition: 'all 0.15s ease',
         }}
-      >
-        <GripVertical
-          size={16}
-          style={{
-            opacity: isDragging || isHovered ? 1 : 0, // Only show icon on interaction
-            color: 'white',
-          }}
-        />
-      </Box>
-    </Separator>
+      />
+    </PanelResizeHandle>
   );
 }
 
 /**
- * ResizableEmailLayout - Gmail/Outlook-style email interface with resizable panels
- *
- * Uses react-resizable-panels for smooth, accessible panel resizing.
- * Panel sizes are persisted to localStorage.
- *
- * Desktop (>= md):
- * - Resizable sidebar (default 15%, min 10%, max 25%)
- * - Resizable email list (default 30%, min 20%, max 50%)
- * - Detail panel takes remaining space
- *
- * Mobile (< md):
- * - Drawer sidebar (swipeable)
- * - Fullscreen email list
- * - Fullscreen detail panel over list
- *
- * @see https://react-resizable-panels.vercel.app/
- *
- * @example
- * ```tsx
- * <ResizableEmailLayout
- *   sidebar={<EmailSidebar />}
- *   list={<ThreadList />}
- *   detail={<ThreadDisplay />}
- *   showDetail={!!selectedEmail}
- *   sidebarOpen={mobileDrawerOpen}
- *   onSidebarClose={() => setMobileDrawerOpen(false)}
- * />
- * ```
+ * ResizableEmailLayout - Outlook-style clean 3-pane email interface
+ * 
+ * Uses react-resizable-panels v2.x API (stable)
  */
 export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
   sidebar,
@@ -182,7 +126,12 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isVerySmallMobile = useMediaQuery('(max-width:360px)');
 
-  // Load persisted sizes from localStorage (SSR-safe)
+  // Clear corrupted storage on first load
+  useEffect(() => {
+    clearCorruptedStorage();
+  }, []);
+
+  // Load and validate persisted sizes from localStorage (SSR-safe)
   const getPersistedSizes = useCallback(() => {
     if (typeof window === 'undefined' || !persistSizes) {
       return DEFAULT_SIZES;
@@ -191,28 +140,28 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        return {
-          sidebar: clampSize(parsed.sidebar ?? DEFAULT_SIZES.sidebar, 10, 25),
-          list: clampSize(parsed.list ?? DEFAULT_SIZES.list, 20, 50),
-        };
+        return validateSizes(parsed);
       }
     } catch {
-      // Ignore parse errors
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch { /* ignore */ }
     }
     return DEFAULT_SIZES;
   }, [persistSizes]);
 
-  // Handle panel resize - persist to localStorage
+  // Handle panel resize - v2 API passes array of sizes
   const handlePanelResize = useCallback(
-    (layout: Layout) => {
+    (sizes: number[]) => {
       if (typeof window === 'undefined' || !persistSizes) return;
 
       try {
-        const newSizes = {
-          sidebar: clampSize(layout.sidebar ?? DEFAULT_SIZES.sidebar, 10, 25),
-          list: clampSize(layout.list ?? DEFAULT_SIZES.list, 20, 50),
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newSizes));
+        // v2 API: sizes is array [sidebar%, list%, detail%?]
+        const validated = validateSizes({
+          sidebar: sizes[0],
+          list: sizes[1],
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(validated));
       } catch {
         // Ignore storage errors
       }
@@ -225,10 +174,11 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
 
   // Load sizes on mount (client-side only)
   useEffect(() => {
-    setInitialSizes(getPersistedSizes());
+    const sizes = getPersistedSizes();
+    setInitialSizes(sizes);
   }, [getPersistedSizes]);
 
-  // Mobile layout - same as before (no resizing needed)
+  // Mobile layout
   if (isMobile) {
     return (
       <Box
@@ -240,6 +190,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
           width: '100%',
           minHeight: 0,
           minWidth: 0,
+          bgcolor: 'background.default',
         }}
       >
         {/* Mobile Sidebar - Drawer */}
@@ -256,6 +207,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
               display: 'flex',
               flexDirection: 'column',
               boxSizing: 'border-box',
+              bgcolor: 'background.paper',
             },
           }}
         >
@@ -271,7 +223,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
             overflow: 'hidden',
             minHeight: 0,
             minWidth: 0,
-            bgcolor: 'background.default',
+            bgcolor: 'background.paper',
           }}
         >
           {list}
@@ -292,7 +244,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
               bgcolor: 'background.paper',
               display: 'flex',
               flexDirection: 'column',
-              animation: 'slideInRight 0.3s ease-out',
+              animation: 'slideInRight 0.2s ease-out',
               '@keyframes slideInRight': {
                 '0%': { transform: 'translateX(100%)' },
                 '100%': { transform: 'translateX(0)' },
@@ -306,7 +258,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
     );
   }
 
-  // Desktop layout with resizable panels - GLASSMORPHISM UPDATE
+  // Desktop layout - Outlook-style clean design with v2.x API
   return (
     <Box
       sx={{
@@ -317,28 +269,24 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
         width: '100%',
         minHeight: 0,
         minWidth: 0,
-        bgcolor: 'background.default', // Ensure base background is visible through gaps
-        p: 2, // Outer padding for floating effect
-        gap: 2, // Gaps between glass panels
+        bgcolor: 'background.default',
       }}
     >
-      <Group
-        orientation="horizontal"
-        onLayoutChange={handlePanelResize}
-        style={{ height: '100%', width: '100%', minHeight: 0, gap: '16px' }}
+      <PanelGroup
+        direction="horizontal"
+        onLayout={handlePanelResize}
+        style={{ height: '100%', width: '100%' }}
       >
-        {/* Sidebar Panel - GLASS LEFT */}
+        {/* Sidebar Panel */}
         <Panel
           id="sidebar"
           defaultSize={initialSizes.sidebar}
-          minSize={10}
-          maxSize={25}
+          minSize={MIN_SIZES.sidebar}
+          maxSize={30}
           style={{
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            minHeight: 0,
-            minWidth: 0,
           }}
         >
           <Box
@@ -347,37 +295,27 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-              minHeight: 0,
-              minWidth: 0,
-              // Glassmorphism Container
-              backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.7),
-              backdropFilter: 'blur(12px)',
-              borderRadius: '16px',
-              border: '1px solid',
-              borderColor: (theme) => alpha(theme.palette.divider, 0.1),
-              boxShadow: (theme) => `0 4px 20px ${alpha(theme.palette.common.black, 0.05)}`,
+              bgcolor: 'background.paper',
+              borderRight: 1,
+              borderColor: 'divider',
             }}
           >
             {sidebar}
           </Box>
         </Panel>
 
-        <ResizeHandle id="sidebar-list-handle" />
+        <OutlookResizeHandle id="sidebar-list-handle" />
 
-        {/* List Panel - GLASS CENTER */}
+        {/* List Panel */}
         <Panel
           id="list"
           defaultSize={showDetail ? initialSizes.list : 100 - initialSizes.sidebar}
-          minSize={20}
-          maxSize={showDetail ? 50 : 100}
+          minSize={MIN_SIZES.list}
+          maxSize={showDetail ? 55 : 100}
           style={{
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            minHeight: 0,
-            minWidth: 0,
-            marginLeft: '16px',
-            marginRight: showDetail ? '16px' : 0,
           }}
         >
           <Box
@@ -386,34 +324,26 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-              minHeight: 0,
-              minWidth: 0,
-              // Glassmorphism Container
-              backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.6),
-              backdropFilter: 'blur(12px)',
-              borderRadius: '16px',
-              border: '1px solid',
-              borderColor: (theme) => alpha(theme.palette.divider, 0.1),
-              boxShadow: (theme) => `0 4px 20px ${alpha(theme.palette.common.black, 0.05)}`,
+              bgcolor: 'background.paper',
+              borderRight: showDetail ? 1 : 0,
+              borderColor: 'divider',
             }}
           >
             {list}
           </Box>
         </Panel>
 
-        {/* Detail Panel - GLASS RIGHT */}
+        {/* Detail Panel */}
         {showDetail && detail && (
           <>
-            <ResizeHandle id="list-detail-handle" />
+            <OutlookResizeHandle id="list-detail-handle" />
             <Panel
               id="detail"
-              minSize={30}
+              minSize={MIN_SIZES.detail}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
-                minHeight: 0,
-                minWidth: 0,
               }}
             >
               <Box
@@ -422,14 +352,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
                   display: 'flex',
                   flexDirection: 'column',
                   overflow: 'hidden',
-                  minHeight: 0,
-                  minWidth: 0,
-                  // Glassmorphism Container (Paper look)
-                  backgroundColor: 'background.paper',
-                  borderRadius: '16px',
-                  border: '1px solid',
-                  borderColor: (theme) => alpha(theme.palette.divider, 0.1),
-                  boxShadow: (theme) => `0 8px 30px ${alpha(theme.palette.common.black, 0.08)}`,
+                  bgcolor: 'background.paper',
                 }}
               >
                 {detail}
@@ -437,7 +360,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
             </Panel>
           </>
         )}
-      </Group>
+      </PanelGroup>
     </Box>
   );
 };

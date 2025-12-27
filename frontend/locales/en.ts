@@ -576,6 +576,8 @@ export const en: AppTranslations = {
     },
     bulkBar: {
       selected: '{count} selected',
+      selectedLabel: 'selected',
+      clearSelection: 'Clear selection',
       markUnread: 'Mark unread',
       markRead: 'Mark read',
       delete: 'Delete',
@@ -980,7 +982,13 @@ export const en: AppTranslations = {
       syncNow: 'Sync now',
       runRetention: 'Run retention',
       compose: 'Compose',
+      star: 'Star',
+      unstar: 'Unstar',
+      markRead: 'Read',
+      markUnread: 'Unread',
+      archive: 'Archive',
     },
+
   },
   calendar: {
     title: 'Calendar',

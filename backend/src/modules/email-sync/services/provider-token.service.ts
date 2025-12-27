@@ -1,4 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  UnauthorizedException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CryptoService } from '../../../common/services/crypto.service';
@@ -53,7 +60,7 @@ export class ProviderTokenService {
     });
 
     if (!provider) {
-      throw new Error('Provider not found');
+      throw new NotFoundException(`Provider not found: ${providerId}`);
     }
 
     switch (provider.providerType) {
@@ -66,13 +73,13 @@ export class ProviderTokenService {
         // IMAP/generic providers use password auth, not OAuth tokens
         return { provider, accessToken: await this.getImapToken(provider) };
       default:
-        throw new Error(`Unsupported provider type: ${provider.providerType}`);
+        throw new BadRequestException(`Unsupported provider type: ${provider.providerType}`);
     }
   }
 
   private async getMicrosoftToken(provider: ProviderEntity): Promise<string> {
     if (!provider.accessToken || !provider.tokenEncryptionIv) {
-      throw new Error('Provider missing access token');
+      throw new BadRequestException(`Provider ${provider.id} missing access token`);
     }
 
     const now = new Date();
@@ -94,7 +101,9 @@ export class ProviderTokenService {
       this.logger.error(
         `Microsoft token invalid and no refresh token available for ${provider.email} (${provider.id})`,
       );
-      throw new Error('Microsoft provider requires re-authentication (invalid access token)');
+      throw new UnauthorizedException(
+        `Microsoft provider ${provider.email} requires re-authentication (invalid access token)`,
+      );
     }
 
     return accessToken;
@@ -123,13 +132,17 @@ export class ProviderTokenService {
         });
 
         if (!freshProvider?.accessToken || !freshProvider.tokenEncryptionIv) {
-          throw new Error('Provider token not available after wait');
+          throw new ServiceUnavailableException(
+            `Microsoft provider ${provider.id} token not available after waiting for refresh`,
+          );
         }
 
         return this.crypto.decrypt(freshProvider.accessToken, freshProvider.tokenEncryptionIv);
       }
 
-      throw new Error(`Failed to acquire token refresh lock for ${provider.email}`);
+      throw new ServiceUnavailableException(
+        `Failed to acquire Microsoft token refresh lock for ${provider.email}`,
+      );
     }
 
     try {
@@ -170,7 +183,7 @@ export class ProviderTokenService {
 
   private async getGoogleToken(provider: ProviderEntity): Promise<string> {
     if (!provider.accessToken || !provider.tokenEncryptionIv) {
-      throw new Error('Provider missing access token');
+      throw new BadRequestException(`Google provider ${provider.id} missing access token`);
     }
 
     const now = new Date();
@@ -194,7 +207,9 @@ export class ProviderTokenService {
       this.logger.error(
         `Google token invalid and no refresh token available for ${provider.email} (${provider.id})`,
       );
-      throw new Error('Google provider requires re-authentication (invalid access token)');
+      throw new UnauthorizedException(
+        `Google provider ${provider.email} requires re-authentication (invalid access token)`,
+      );
     }
 
     return accessToken;
@@ -223,13 +238,17 @@ export class ProviderTokenService {
         });
 
         if (!freshProvider?.accessToken || !freshProvider.tokenEncryptionIv) {
-          throw new Error('Provider token not available after wait');
+          throw new ServiceUnavailableException(
+            `Google provider ${provider.id} token not available after waiting for refresh`,
+          );
         }
 
         return this.crypto.decrypt(freshProvider.accessToken, freshProvider.tokenEncryptionIv);
       }
 
-      throw new Error(`Failed to acquire token refresh lock for ${provider.email}`);
+      throw new ServiceUnavailableException(
+        `Failed to acquire Google token refresh lock for ${provider.email}`,
+      );
     }
 
     try {

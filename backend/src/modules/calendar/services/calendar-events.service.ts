@@ -610,15 +610,37 @@ export class CalendarEventsService {
       recurrence: data.recurrence,
     };
 
-    const response = await calendar.events.insert({
-      calendarId: data.calendarId || 'primary',
-      requestBody: event,
-    });
+    const targetCalendarId = data.calendarId || 'primary';
 
-    return {
-      id: response.data.id!,
-      iCalUID: response.data.iCalUID || null,
-    };
+    try {
+      const response = await calendar.events.insert({
+        calendarId: targetCalendarId,
+        requestBody: event,
+      });
+
+      return {
+        id: response.data.id!,
+        iCalUID: response.data.iCalUID || null,
+      };
+    } catch (error: unknown) {
+      const gaxiosError = error as { response?: { status?: number; data?: { error?: { message?: string } } }; message?: string };
+      const status = gaxiosError.response?.status;
+      const message = gaxiosError.response?.data?.error?.message || gaxiosError.message || 'Unknown error';
+
+      this.logger.error(`Google Calendar API error creating event on ${targetCalendarId}: ${status} - ${message}`);
+
+      if (status === 404) {
+        throw new NotFoundException(`Calendar not found: ${targetCalendarId}`);
+      }
+      if (status === 403) {
+        throw new BadRequestException(`Cannot create event on calendar ${targetCalendarId}: ${message}`);
+      }
+      if (status === 401) {
+        throw new BadRequestException('Google authentication expired - please re-authenticate');
+      }
+
+      throw new BadRequestException(`Failed to create event: ${message}`);
+    }
   }
 
   /**
@@ -729,23 +751,44 @@ export class CalendarEventsService {
 
     // Use calendar-specific endpoint when calendarId is provided (not 'primary')
     // Microsoft doesn't use 'primary' - that's a Google concept
-    const endpoint =
-      data.calendarId && data.calendarId !== 'primary'
-        ? `${this.GRAPH_API_BASE}/me/calendars/${data.calendarId}/events`
-        : `${this.GRAPH_API_BASE}/me/events`;
+    const targetCalendarId = data.calendarId && data.calendarId !== 'primary' ? data.calendarId : null;
+    const endpoint = targetCalendarId
+      ? `${this.GRAPH_API_BASE}/me/calendars/${targetCalendarId}/events`
+      : `${this.GRAPH_API_BASE}/me/events`;
 
-    const response = await axios.post(endpoint, event, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'client-request-id': crypto.randomUUID(),
-      },
-    });
+    try {
+      const response = await axios.post(endpoint, event, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'client-request-id': crypto.randomUUID(),
+        },
+      });
 
-    return {
-      id: response.data.id,
-      iCalUId: response.data.iCalUId || null,
-    };
+      return {
+        id: response.data.id,
+        iCalUId: response.data.iCalUId || null,
+      };
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number; data?: { error?: { message?: string; code?: string } } }; message?: string };
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.error?.message || axiosError.message || 'Unknown error';
+      const code = axiosError.response?.data?.error?.code;
+
+      this.logger.error(`Microsoft Graph API error creating event: ${status} - ${code} - ${message}`);
+
+      if (status === 404) {
+        throw new NotFoundException(`Calendar not found: ${targetCalendarId || 'default'}`);
+      }
+      if (status === 403) {
+        throw new BadRequestException(`Cannot create event on calendar: ${message}`);
+      }
+      if (status === 401) {
+        throw new BadRequestException('Microsoft authentication expired - please re-authenticate');
+      }
+
+      throw new BadRequestException(`Failed to create event: ${message}`);
+    }
   }
 
   /**

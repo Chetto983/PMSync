@@ -93,9 +93,14 @@ export class MicrosoftCalendarWebhookService extends AbstractCalendarWebhookServ
         throw new Error('Provider not found or does not support calendar');
       }
 
+      // NULL CHECK FIX: Validate tokenEncryptionIv before decryption
+      if (!provider.tokenEncryptionIv) {
+        throw new Error(`Provider ${providerId} missing tokenEncryptionIv for webhook setup`);
+      }
+
       const accessToken = this.decryptAccessToken(
         provider.accessToken,
-        provider.tokenEncryptionIv!,
+        provider.tokenEncryptionIv,
       );
 
       // Calculate expiration (max 4230 minutes = ~3 days for calendar)
@@ -195,9 +200,15 @@ export class MicrosoftCalendarWebhookService extends AbstractCalendarWebhookServ
         return;
       }
 
+      // NULL CHECK FIX: Validate tokenEncryptionIv before decryption
+      if (!provider.tokenEncryptionIv) {
+        this.logger.warn(`Provider ${providerId} missing tokenEncryptionIv, cannot delete subscription`);
+        return;
+      }
+
       const accessToken = this.decryptAccessToken(
         provider.accessToken,
-        provider.tokenEncryptionIv!,
+        provider.tokenEncryptionIv,
       );
 
       // Delete subscription from Microsoft
@@ -253,9 +264,15 @@ export class MicrosoftCalendarWebhookService extends AbstractCalendarWebhookServ
       return false;
     }
 
+    // NULL CHECK FIX: Validate tokenEncryptionIv before decryption
+    if (!provider.tokenEncryptionIv) {
+      this.logger.warn(`Provider ${providerId} missing tokenEncryptionIv, cannot renew subscription`);
+      return false;
+    }
+
     const accessToken = this.decryptAccessToken(
       provider.accessToken,
-      provider.tokenEncryptionIv!,
+      provider.tokenEncryptionIv,
     );
 
     // Calculate new expiration

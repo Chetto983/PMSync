@@ -1,6 +1,5 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { Worker, Job } from 'bullmq';
-import { Redis } from 'ioredis';
+import { Injectable, Logger } from '@nestjs/common';
+import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
@@ -9,102 +8,91 @@ import {
 } from '../services/calendar-sync-queue.service';
 import { GoogleCalendarSyncService } from '../services/google-calendar-sync.service';
 import { MicrosoftCalendarSyncService } from '../services/microsoft-calendar-sync.service';
-import {
-  getRedisConnectionOptions,
-  getWorkerOptions,
-  QUEUE_NAMES,
-} from '../../../common/config';
+import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
+import { QUEUE_NAMES, WORKER_PRESETS, QUEUE_PRESETS } from '../../../common/config';
 import { getErrorMessage } from '../../../common/utils';
+import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
+import { AlertingService } from '../../../common/services/alerting.service';
+
+/** Maximum retry attempts before sending to DLQ (matches QUEUE_PRESETS.CALENDAR_SYNC.attempts) */
+const MAX_ATTEMPTS = QUEUE_PRESETS.CALENDAR_SYNC.attempts;
 
 /**
  * CalendarSyncWorker
  *
  * Processes calendar sync jobs from the BullMQ queues.
- * Handles both Google and Microsoft calendar synchronization.
+ * Extends BaseWorker for standardized worker lifecycle management.
  *
  * Features:
  * - Priority-based processing (high, normal, low)
  * - Automatic retry with exponential backoff
  * - Provider-specific sync delegation
  * - Last synced timestamp tracking
+ * - Graceful shutdown with job draining (via BaseWorker)
+ * - Stalled job detection (via BaseWorker)
+ *
+ * Phase 3 Refactor: Migrated from custom implementation to BaseWorker
+ * Reduces ~60% boilerplate code for Redis/worker lifecycle management
  */
 @Injectable()
-export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(CalendarSyncWorker.name);
-  private redisConnection: Redis;
-  private workers: Worker[] = [];
+export class CalendarSyncWorker extends BaseWorker<CalendarSyncJobData, CalendarSyncJobResult> {
+  protected readonly logger = new Logger(CalendarSyncWorker.name);
+  protected readonly workerName = 'calendar-sync';
+  protected readonly envToggle = 'CALENDAR_SYNC_WORKERS_ENABLED';
 
   constructor(
-    private configService: ConfigService,
-    private prisma: PrismaService,
+    configService: ConfigService,
+    private readonly prisma: PrismaService,
     private readonly googleCalendarSync: GoogleCalendarSyncService,
     private readonly microsoftCalendarSync: MicrosoftCalendarSyncService,
-  ) { }
-
-  async onModuleInit() {
-    const workersEnabled =
-      (this.configService.get<string>('CALENDAR_SYNC_WORKERS_ENABLED') || 'true').toLowerCase() !==
-      'false';
-    if (!workersEnabled) {
-      this.logger.warn('Calendar sync workers are disabled via CALENDAR_SYNC_WORKERS_ENABLED=false');
-      return;
-    }
-
-    // Initialize Redis connection for workers using centralized config
-    const redisOptions = getRedisConnectionOptions();
-    this.redisConnection = new Redis(redisOptions);
-
-    this.logger.log(
-      `Connecting to Redis for calendar sync workers at ${redisOptions.host}:${redisOptions.port}`,
-    );
-
-    // Start workers for each priority queue using centralized worker options
-    this.startWorker(QUEUE_NAMES.CALENDAR_SYNC_HIGH);
-    this.startWorker(QUEUE_NAMES.CALENDAR_SYNC_NORMAL);
-    this.startWorker(QUEUE_NAMES.CALENDAR_SYNC_LOW);
-
-    this.logger.log('Calendar sync workers started successfully');
+    private readonly dlqService: DeadLetterQueueService,
+    private readonly alertingService: AlertingService,
+  ) {
+    super(configService);
   }
 
-  private startWorker(queueName: string) {
-    // Get centralized worker options
-    const workerOptions = getWorkerOptions('CALENDAR_SYNC');
+  /**
+   * Get worker configuration for all 3 priority queues
+   * Uses CALENDAR_SYNC preset from centralized config
+   */
+  protected getWorkerConfig(): BaseWorkerConfig[] {
+    const preset = WORKER_PRESETS.CALENDAR_SYNC;
 
-    const worker = new Worker<CalendarSyncJobData, CalendarSyncJobResult>(
-      queueName,
-      async (job: Job<CalendarSyncJobData>) => {
-        return await this.processJob(job);
+    return [
+      {
+        queueName: QUEUE_NAMES.CALENDAR_SYNC_HIGH,
+        concurrency: preset.concurrency,
+        lockDuration: preset.lockDuration,
+        stalledInterval: preset.stalledInterval,
+        removeOnComplete: 100,
+        removeOnFail: 100,
       },
       {
-        connection: this.redisConnection,
-        ...workerOptions,
+        queueName: QUEUE_NAMES.CALENDAR_SYNC_NORMAL,
+        concurrency: preset.concurrency,
+        lockDuration: preset.lockDuration,
+        stalledInterval: preset.stalledInterval,
+        removeOnComplete: 100,
+        removeOnFail: 100,
       },
-    );
-
-    worker.on('completed', (job, result) => {
-      this.logger.log(
-        `[${queueName}] Job ${job.id} completed: ${result.eventsProcessed} events processed, ${result.newEvents} new, ${result.updatedEvents} updated`,
-      );
-    });
-
-    worker.on('failed', (job, error) => {
-      this.logger.error(
-        `[${queueName}] Job ${job?.id} failed for ${job?.data?.email}: ${error.message}`,
-      );
-    });
-
-    worker.on('error', (error) => {
-      this.logger.error(`[${queueName}] Worker error: ${error.message}`);
-    });
-
-    this.workers.push(worker);
-    this.logger.log(`Started worker for queue ${queueName} with concurrency ${workerOptions.concurrency}`);
+      {
+        queueName: QUEUE_NAMES.CALENDAR_SYNC_LOW,
+        concurrency: Math.max(1, preset.concurrency - 1), // Lower concurrency for low priority
+        lockDuration: preset.lockDuration,
+        stalledInterval: preset.stalledInterval,
+        removeOnComplete: 100,
+        removeOnFail: 100,
+      },
+    ];
   }
 
-  private async processJob(job: Job<CalendarSyncJobData>): Promise<CalendarSyncJobResult> {
-    const { providerId, providerType, email } = job.data;
+  /**
+   * Process a single calendar sync job
+   */
+  protected async processJob(job: Job<CalendarSyncJobData>): Promise<CalendarSyncJobResult> {
+    const { providerId, email } = job.data;
 
-    this.logger.log(`Processing calendar sync for ${email} (${providerType})`);
+    this.logger.log(`Processing calendar sync for ${email} (attempt ${job.attemptsMade + 1}/${MAX_ATTEMPTS})`);
 
     const startTime = Date.now();
 
@@ -133,21 +121,68 @@ export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
       };
     } catch (error) {
       const errorMessage = getErrorMessage(error);
+      const errorObj = error instanceof Error ? error : new Error(errorMessage);
       this.logger.error(`Calendar sync failed for ${email}: ${errorMessage}`);
+
+      // PHASE 5: Add to DLQ if this is the last retry attempt
+      const isLastAttempt = job.attemptsMade + 1 >= MAX_ATTEMPTS;
+      if (isLastAttempt) {
+        this.logger.warn(`Job ${job.id} exhausted all ${MAX_ATTEMPTS} retries, adding to DLQ`);
+
+        // Add to Dead Letter Queue for manual investigation
+        await this.dlqService.addToDeadLetter(
+          job.id || `calendar-sync-${providerId}-${Date.now()}`,
+          job.queueName,
+          job.data,
+          errorObj,
+          job.attemptsMade + 1,
+          {
+            providerId,
+            email,
+            providerType: job.data.providerType,
+            queueName: job.queueName,
+          },
+        );
+
+        // PHASE 6: Create alert for permanent sync failure
+        const alert = this.alertingService.createAlert(
+          'critical',
+          'calendar_sync_failed',
+          `Calendar sync permanently failed for ${email} after ${MAX_ATTEMPTS} attempts: ${errorMessage}`,
+          job.attemptsMade + 1,
+          MAX_ATTEMPTS,
+        );
+        this.logger.error(`ALERT: ${alert.type} - ${alert.message}`);
+      }
 
       throw error; // Re-throw to let BullMQ handle retry logic
     }
   }
 
   /**
+   * Format log message for completed job
+   */
+  protected formatCompletedLog(job: Job<CalendarSyncJobData>, result: CalendarSyncJobResult): string {
+    return `${job.data.email}: ${result.eventsProcessed} events (${result.newEvents} new, ${result.updatedEvents} updated, ${result.deletedEvents} deleted)`;
+  }
+
+  /**
+   * Format log message for failed job
+   */
+  protected formatFailedLog(job: Job<CalendarSyncJobData> | undefined, error: Error): string {
+    return `${job?.data?.email || 'unknown'} failed: ${error.message}`;
+  }
+
+  /**
    * Run provider-specific sync
+   * Uses providerType from DB to prevent routing to wrong sync service
    */
   private async runProviderSync(
     jobData: CalendarSyncJobData,
   ): Promise<{ eventsProcessed: number; newEvents: number; updatedEvents: number; deletedEvents: number }> {
     const { providerId } = jobData;
 
-    // Get provider from database
+    // Get provider from database - CRITICAL: Use DB as source of truth
     const provider = await this.prisma.providerConfig.findUnique({
       where: { id: providerId },
     });
@@ -159,7 +194,7 @@ export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
     // Use providerType from DB instead of jobData to prevent routing to wrong sync service
     const providerType = provider.providerType;
 
-    // Warn if jobData.providerType differs from DB (indicates stale job data)
+    // Validate provider type matches job data (security check)
     if (jobData.providerType && jobData.providerType !== providerType) {
       this.logger.warn(
         `Job providerType mismatch for ${providerId}: job=${jobData.providerType}, db=${providerType}. Using DB value.`,
@@ -217,44 +252,5 @@ export class CalendarSyncWorker implements OnModuleInit, OnModuleDestroy {
       updatedEvents,
       deletedEvents,
     };
-  }
-
-  async onModuleDestroy() {
-    this.logger.log('Stopping calendar sync workers...');
-    try {
-      // Close all workers safely
-      await Promise.all(
-        this.workers.map(async (worker) => {
-          try {
-            await worker.close();
-          } catch (error) {
-            this.logger.debug(
-              `Worker close skipped: ${getErrorMessage(error)}`,
-            );
-          }
-        }),
-      );
-
-      // Close Redis connection safely
-      if (
-        this.redisConnection &&
-        this.redisConnection.status !== 'end' &&
-        this.redisConnection.status !== 'close'
-      ) {
-        try {
-          await this.redisConnection.quit();
-        } catch (error) {
-          this.logger.debug(
-            `Redis quit skipped: ${getErrorMessage(error)}`,
-          );
-        }
-      }
-    } catch (outerError) {
-      this.logger.warn(
-        `CalendarSyncWorker shutdown encountered an error (swallowed): ${getErrorMessage(outerError)}`,
-      );
-    } finally {
-      this.logger.log('Calendar sync workers stopped');
-    }
   }
 }

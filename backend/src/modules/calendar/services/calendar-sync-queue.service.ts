@@ -262,16 +262,51 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Add multiple sync jobs in bulk
+   *
+   * RACE CONDITION FIX: Now checks for existing jobs in ALL queues before adding
+   * to prevent duplicate jobs across different priority queues.
    */
   async addBulkSyncJobs(jobs: CalendarSyncJobData[]): Promise<void> {
     if (jobs.length === 0) {
       return;
     }
 
+    // RACE CONDITION FIX: Filter out jobs that already exist in any queue
+    const allQueues = [this.highQueue, this.normalQueue, this.lowQueue];
+    const filteredJobs: CalendarSyncJobData[] = [];
+
+    for (const job of jobs) {
+      const jobId = `${job.providerId}-calendar`;
+      let existsInAnyQueue = false;
+
+      for (const q of allQueues) {
+        const existingJob = await q.getJob(jobId);
+        if (existingJob) {
+          const state = await existingJob.getState();
+          if (['waiting', 'active', 'delayed'].includes(state)) {
+            existsInAnyQueue = true;
+            this.logger.debug(
+              `Skipping duplicate bulk calendar sync job for ${job.email} (found in ${q.name}, state: ${state})`,
+            );
+            break;
+          }
+        }
+      }
+
+      if (!existsInAnyQueue) {
+        filteredJobs.push(job);
+      }
+    }
+
+    if (filteredJobs.length === 0) {
+      this.logger.debug('All bulk sync jobs already exist in queues, skipping');
+      return;
+    }
+
     // Group jobs by priority
-    const highPriorityJobs = jobs.filter((j) => j.priority === 'high');
-    const normalPriorityJobs = jobs.filter((j) => j.priority === 'normal');
-    const lowPriorityJobs = jobs.filter((j) => j.priority === 'low');
+    const highPriorityJobs = filteredJobs.filter((j) => j.priority === 'high');
+    const normalPriorityJobs = filteredJobs.filter((j) => j.priority === 'normal');
+    const lowPriorityJobs = filteredJobs.filter((j) => j.priority === 'low');
 
     // Add jobs to respective queues in bulk
     const promises: Promise<any>[] = [];
@@ -321,7 +356,7 @@ export class CalendarSyncQueueService implements OnModuleInit, OnModuleDestroy {
     await Promise.all(promises);
 
     this.logger.log(
-      `Added ${jobs.length} calendar sync jobs (High: ${highPriorityJobs.length}, Normal: ${normalPriorityJobs.length}, Low: ${lowPriorityJobs.length})`,
+      `Added ${filteredJobs.length} calendar sync jobs (High: ${highPriorityJobs.length}, Normal: ${normalPriorityJobs.length}, Low: ${lowPriorityJobs.length}), skipped ${jobs.length - filteredJobs.length} duplicates`,
     );
   }
 

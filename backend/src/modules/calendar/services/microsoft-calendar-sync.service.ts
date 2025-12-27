@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { Client as GraphClient } from '@microsoft/microsoft-graph-client';
 import type { Calendar, Event } from '@microsoft/microsoft-graph-types';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { AbstractCalendarSyncService } from './abstract-calendar-sync.service';
@@ -48,8 +49,9 @@ export class MicrosoftCalendarSyncService extends AbstractCalendarSyncService {
     providerTokenService: ProviderTokenService,
     realtimeEvents: RealtimeEventsService,
     configService: ConfigService,
+    redisLock: RedisLockService,
   ) {
-    super(prisma, providerTokenService, realtimeEvents, configService);
+    super(prisma, providerTokenService, realtimeEvents, configService, redisLock);
 
     if (!this.calendarEnabled) {
       this.logger.warn('MicrosoftCalendarSyncService disabled via CALENDAR_SYNC_ENABLED=false');

@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
-import { ListItemButton, Box, Typography, Checkbox, Fade, useMediaQuery, useTheme } from '@mui/material';
+import { ListItemButton, Box, Typography, Checkbox, Fade, useMediaQuery, useTheme, IconButton, Tooltip } from '@mui/material';
 import { Paperclip, Star } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { ThreadActionBar, ThreadAvatar } from './shared';
+import { ThreadAvatar } from './shared';
 import { parseEmailFrom, formatListDate } from './shared/utils';
 import { SearchHighlight } from '../ui/SearchHighlight';
 
@@ -36,15 +36,15 @@ function isEmail(thread: Email | Conversation): thread is Email {
 }
 
 /**
- * ThreadListItem - Modern, clean email list item (Superhuman/shadcn inspired)
+ * ThreadListItem - Outlook-style clean email list item
  *
- * Design principles:
- * - Clean 2-line layout: sender+date, subject only
- * - Checkbox hidden until hover (clean look)
- * - Small avatar (28px)
- * - No snippet preview (minimal clutter)
+ * Design principles (Outlook-inspired):
+ * - Clean single-row layout with key info
+ * - Checkbox visible on hover or when selected
+ * - Star icon clickable inline
+ * - NO floating action bar (actions in bulk bar or right-click)
  * - Subtle hover effects
- * - Floating action bar on hover
+ * - Clear unread indicator
  */
 export const ThreadListItem = React.memo<ThreadListItemProps>(
   ({
@@ -53,10 +53,6 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     multiSelected = false,
     onToggleSelect,
     onToggleStar,
-    onToggleImportant,
-    onToggleRead,
-    onArchive,
-    onDelete,
     getProviderIcon,
     onClick,
     searchQuery,
@@ -67,7 +63,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     const [isHovered, setIsHovered] = React.useState(false);
 
     // Extract common properties
-    const { threadId, emailId, from, subject, receivedAt, isRead, isStarred, isImportant, hasAttachments } =
+    const { threadId, emailId, from, subject, receivedAt, isRead, isStarred, hasAttachments } =
       useMemo(() => {
         if (isEmail(thread)) {
           const displayId = thread.threadId || thread.id;
@@ -79,7 +75,6 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             receivedAt: thread.receivedAt,
             isRead: thread.isRead,
             isStarred: thread.isStarred || false,
-            isImportant: thread.isImportant ?? thread.isFlagged ?? false,
             hasAttachments: thread.hasAttachments || false,
           };
         } else {
@@ -91,7 +86,6 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             receivedAt: thread.receivedAt,
             isRead: thread.isRead,
             isStarred: thread.isStarred || false,
-            isImportant: thread.isFlagged || false,
             hasAttachments: false,
           };
         }
@@ -100,17 +94,17 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     const fromData = useMemo(() => parseEmailFrom(from), [from]);
 
     const handleClick = (e: React.MouseEvent) => {
-      if ((e.target as HTMLElement).closest('.MuiCheckbox-root')) {
+      if ((e.target as HTMLElement).closest('.MuiCheckbox-root, .MuiIconButton-root')) {
         return;
       }
       onClick?.();
     };
 
-    const handleToggleStar = () => onToggleStar?.(emailId, isStarred);
-    const handleToggleImportant = () => onToggleImportant?.(emailId, isImportant);
-    const handleToggleRead = () => onToggleRead?.(emailId, isRead);
-    const handleArchive = () => onArchive?.(emailId);
-    const handleDelete = () => onDelete?.(emailId);
+    const handleToggleStar = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onToggleStar?.(emailId, isStarred);
+    };
+
     const handleToggleSelect = () => onToggleSelect?.(threadId);
 
     // Email count for thread indicator
@@ -125,32 +119,12 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
         onMouseLeave={() => setIsHovered(false)}
         sx={{
           position: 'relative',
-          mb: 1, // Space between cards
-          mx: 1, // Side margins
-          borderRadius: 3, // Bento rounded corners
-          overflow: 'hidden',
-          maxWidth: '100%',
-          bgcolor: 'background.paper',
-          border: '1px solid',
-          borderColor: isRead ? 'divider' : 'primary.light',
-          boxShadow: isHovered ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
-          transition: 'all 0.2s ease',
-          // Unread indicator - left border effect inside card
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 4,
-            bgcolor: isRead ? 'transparent' : 'primary.main',
-            opacity: isRead ? 0 : 1,
-            transition: 'opacity 0.2s ease',
-          },
+          borderBottom: 1,
+          borderColor: 'divider',
+          bgcolor: selected ? 'action.selected' : 'background.paper',
+          transition: 'background-color 0.15s ease',
           '&:hover': {
-            transform: 'translateY(-2px)',
-            boxShadow: '0 8px 16px rgba(0,0,0,0.08)',
-            borderColor: 'primary.main',
+            bgcolor: selected ? 'action.selected' : 'action.hover',
           },
         }}
       >
@@ -161,29 +135,26 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
           data-thread-id={threadId}
           data-email-id={emailId}
           sx={{
-            py: 1.5,
-            px: 2,
+            py: 1,
+            px: 1.5,
             display: 'flex',
-            gap: 1.5,
+            gap: 1,
             alignItems: 'center',
-            bgcolor: 'transparent', // Let container bg show
+            bgcolor: 'transparent',
             cursor: 'pointer',
-            minHeight: 72, // Taller cards
-            maxWidth: '100%',
-            overflow: 'hidden',
+            minHeight: 52,
             '&.Mui-selected': {
-              bgcolor: 'action.selected',
+              bgcolor: 'transparent',
               '&:hover': {
-                bgcolor: 'action.selected',
+                bgcolor: 'transparent',
               },
             },
           }}
         >
-          {/* Checkbox - Hidden on mobile, only visible on hover for desktop */}
-          {onToggleSelect && !isMobile && (
+          {/* Checkbox - visible on hover/selected */}
+          {onToggleSelect && (
             <Box
               onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
               sx={{
                 width: 24,
                 display: 'flex',
@@ -192,22 +163,19 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
                 flexShrink: 0,
               }}
             >
-              <Fade in={showCheckbox} timeout={150}>
+              <Fade in={showCheckbox || isMobile} timeout={100}>
                 <Checkbox
                   checked={multiSelected}
                   onChange={(e) => {
                     e.stopPropagation();
                     handleToggleSelect();
                   }}
+                  size="small"
                   sx={{
                     p: 0,
-                    opacity: showCheckbox ? 1 : 0,
                     color: 'action.active',
                     '&.Mui-checked': {
                       color: 'primary.main',
-                    },
-                    '& .MuiSvgIcon-root': {
-                      fontSize: 16,
                     },
                   }}
                 />
@@ -215,127 +183,124 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             </Box>
           )}
 
-          {/* Avatar - Hidden on mobile for compact view, 24px on desktop */}
+          {/* Unread indicator dot */}
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: isRead ? 'transparent' : 'primary.main',
+              flexShrink: 0,
+            }}
+          />
+
+          {/* Avatar - Hidden on mobile */}
           {!isMobile && (
             <ThreadAvatar
               email={fromData.email}
               name={fromData.name}
               providerIcon={isEmail(thread) ? getProviderIcon?.(thread.providerId) : undefined}
               isUnread={!isRead}
-              size={24}
+              size={28}
             />
           )}
 
-          {/* Content - Responsive 2-line layout */}
-          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.125, overflow: 'hidden' }}>
-            {/* Line 1: Sender + Date */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: isRead ? 400 : 600,
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  fontSize: isMobile ? '0.8125rem' : '0.875rem',
-                  color: 'text.primary',
-                  minWidth: 0,
-                }}
-              >
-                {fromData.name}
-              </Typography>
-
-              {/* Indicators: Star, Attachment, Thread count - smaller on mobile */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-                {isStarred && (
-                  <Star size={isMobile ? 12 : 14} fill="#FFB300" color="#FFB300" />
-                )}
-                {hasAttachments && (
-                  <Paperclip size={isMobile ? 12 : 14} color="#9e9e9e" />
-                )}
-                {emailCount && emailCount > 1 && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      bgcolor: 'action.hover',
-                      px: 0.5,
-                      py: 0,
-                      borderRadius: 0.5,
-                      fontSize: '0.65rem',
-                      fontWeight: 500,
-                      color: 'text.secondary',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {emailCount}
-                  </Typography>
-                )}
-              </Box>
-
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{
-                  flexShrink: 0,
-                  fontSize: isMobile ? '0.7rem' : '0.75rem',
-                }}
-              >
-                {formatListDate(receivedAt)}
-              </Typography>
-            </Box>
-
-            {/* Line 2: Subject only */}
+          {/* Content */}
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
+            {/* From */}
             <Typography
               variant="body2"
-              component="div"
               sx={{
+                fontWeight: isRead ? 400 : 600,
+                width: { xs: 80, sm: 120, md: 160 },
+                flexShrink: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: '0.875rem',
+                color: 'text.primary',
+              }}
+            >
+              {fromData.name}
+            </Typography>
+
+            {/* Subject */}
+            <Typography
+              variant="body2"
+              sx={{
+                flex: 1,
                 fontWeight: isRead ? 400 : 500,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                fontSize: isMobile ? '0.75rem' : '0.8125rem',
+                fontSize: '0.8125rem',
                 color: subject ? 'text.secondary' : 'text.disabled',
                 fontStyle: subject ? 'normal' : 'italic',
-                lineHeight: 1.3,
               }}
             >
               <SearchHighlight
                 text={subject || t.common.noSubject}
                 query={searchQuery}
-                maxLength={isMobile ? 60 : 120}
+                maxLength={isMobile ? 40 : 100}
               />
             </Typography>
-          </Box>
-        </ListItemButton>
 
-        {/* Floating Action Bar - Hidden on mobile, appears on hover for desktop */}
-        {!isMobile && isHovered && (onToggleRead || onToggleStar || onToggleImportant || onArchive || onDelete) && (
-          <Box
-            className="thread-action-bar"
-            sx={{
-              position: 'absolute',
-              right: 16,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              zIndex: 10,
-            }}
-          >
-            <ThreadActionBar
-              isRead={isRead}
-              isStarred={isStarred}
-              isImportant={isImportant}
-              onToggleRead={handleToggleRead}
-              onToggleStar={handleToggleStar}
-              onToggleImportant={handleToggleImportant}
-              onArchive={handleArchive}
-              onDelete={handleDelete}
-              showOnHover={false}
-              isHovered={true}
-              position="center"
-            />
+            {/* Indicators */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+              {hasAttachments && (
+                <Paperclip size={14} color={theme.palette.text.secondary} />
+              )}
+              {emailCount && emailCount > 1 && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    bgcolor: 'action.hover',
+                    px: 0.5,
+                    borderRadius: 0.5,
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                    color: 'text.secondary',
+                  }}
+                >
+                  {emailCount}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Date */}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                flexShrink: 0,
+                fontSize: '0.75rem',
+                width: { xs: 45, sm: 60 },
+                textAlign: 'right',
+              }}
+            >
+              {formatListDate(receivedAt)}
+            </Typography>
           </Box>
-        )}
+
+          {/* Star button - always visible */}
+          {onToggleStar && (
+            <Tooltip title={isStarred ? t.email.actions.unstar : t.email.actions.star}>
+              <IconButton
+                size="small"
+                onClick={handleToggleStar}
+                sx={{
+                  p: 0.5,
+                  color: isStarred ? '#FFB300' : 'action.disabled',
+                  '&:hover': {
+                    color: isStarred ? '#FFB300' : 'action.active',
+                  },
+                }}
+              >
+                <Star size={16} fill={isStarred ? '#FFB300' : 'none'} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </ListItemButton>
       </Box>
     );
   },
@@ -346,21 +311,10 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     const prevId = 'threadId' in prevThread ? prevThread.threadId : prevThread.id;
     const nextId = 'threadId' in nextThread ? nextThread.threadId : nextThread.id;
 
-    const prevImportant =
-      (prevThread as { isImportant?: boolean; isFlagged?: boolean }).isImportant ??
-      (prevThread as { isImportant?: boolean; isFlagged?: boolean }).isFlagged ??
-      false;
-
-    const nextImportant =
-      (nextThread as { isImportant?: boolean; isFlagged?: boolean }).isImportant ??
-      (nextThread as { isImportant?: boolean; isFlagged?: boolean }).isFlagged ??
-      false;
-
     return (
       prevId === nextId &&
       prevThread.isRead === nextThread.isRead &&
       prevThread.isStarred === nextThread.isStarred &&
-      prevImportant === nextImportant &&
       prevProps.selected === nextProps.selected &&
       prevProps.multiSelected === nextProps.multiSelected &&
       prevProps.searchQuery === nextProps.searchQuery

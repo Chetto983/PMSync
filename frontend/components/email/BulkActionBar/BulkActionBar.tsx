@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { logger } from '@/lib/logger';
 import {
   Box,
-  Paper,
   Typography,
   Button,
   IconButton,
@@ -11,6 +10,7 @@ import {
   MenuItem,
   Divider,
   CircularProgress,
+  Checkbox,
 } from '@mui/material';
 import {
   X,
@@ -21,7 +21,8 @@ import {
   Flag,
   Tag,
   FolderInput,
-  MoreVertical,
+  MoreHorizontal,
+  Archive,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -33,6 +34,7 @@ export interface BulkActionBarProps {
   onMarkRead: () => Promise<void>;
   onMarkUnread: () => Promise<void>;
   onDelete: () => Promise<void>;
+  onArchive?: () => Promise<void>;
   onStar?: () => Promise<void>;
   onUnstar?: () => Promise<void>;
   onFlag?: () => Promise<void>;
@@ -42,14 +44,14 @@ export interface BulkActionBarProps {
 }
 
 /**
- * BulkActionBar - Action bar shown when emails are selected
- *
- * Features:
- * - Shows selected count
- * - Select all / Clear selection
- * - Bulk actions: mark read/unread, delete, star, labels, move
- * - Loading states for async operations
- * - Responsive design
+ * BulkActionBar - Outlook-style action bar for bulk email operations
+ * 
+ * Design principles:
+ * - Positioned at TOP of email list (not floating over rows)
+ * - Subtle background (not bright primary color)
+ * - Clear selection count with checkbox
+ * - Icons with text labels for clarity
+ * - Grouped related actions
  */
 export const BulkActionBar: React.FC<BulkActionBarProps> = ({
   selectedCount,
@@ -59,6 +61,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
   onMarkRead,
   onMarkUnread,
   onDelete,
+  onArchive,
   onStar,
   onUnstar,
   onFlag,
@@ -89,249 +92,261 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
     setMoreMenuAnchor(null);
   };
 
+  // Don't show if nothing selected
   if (selectedCount === 0) {
     return null;
   }
 
+  const allSelected = selectedCount === totalCount;
+
   return (
-    <Paper
-      elevation={3}
+    <Box
       sx={{
-        position: 'relative', // Not sticky, just part of flow
-        mx: 1, // Match ThreadList margins
-        mt: 1, // Add top spacing
-        mb: 1, // Add bottom spacing
-        borderRadius: 3, // Rounded corners (Bento)
-        // borderBottom: '1px solid', // Remove border
-        // borderColor: 'divider',
-        bgcolor: 'primary.main',
-        color: 'primary.contrastText',
-        overflow: 'hidden', // Contain children
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        px: 2,
+        py: 1,
+        bgcolor: 'action.selected',
+        borderBottom: 1,
+        borderColor: 'divider',
+        flexShrink: 0,
       }}
     >
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          px: 2,
-          py: 1.5,
-        }}
-      >
-        {/* Selection Info */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      {/* Selection checkbox + count */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Checkbox
+          checked={allSelected}
+          indeterminate={selectedCount > 0 && !allSelected}
+          onChange={() => allSelected ? onClearSelection() : onSelectAll()}
+          size="small"
+          disabled={loading !== null}
+          sx={{ p: 0.5 }}
+        />
+        <Typography variant="body2" sx={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+          {selectedCount} {t.email.bulkBar.selectedLabel || 'selected'}
+        </Typography>
+      </Box>
+
+      {/* Clear selection */}
+      <Tooltip title={t.email.bulkBar.clearSelection || 'Clear selection'}>
+        <IconButton
+          size="small"
+          onClick={onClearSelection}
+          disabled={loading !== null}
+          sx={{ color: 'text.secondary' }}
+        >
+          <X size={16} />
+        </IconButton>
+      </Tooltip>
+
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+      {/* Primary Actions - Icons with labels */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {/* Mark Read */}
+        <Tooltip title={t.email.bulkBar.markRead}>
+          <span>
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => handleAction(onMarkRead, 'markRead')}
+              disabled={loading !== null}
+              startIcon={loading === 'markRead' ? <CircularProgress size={14} /> : <MailOpen size={14} />}
+              sx={{
+                textTransform: 'none',
+                minWidth: 'auto',
+                color: 'text.secondary',
+                '&:hover': { bgcolor: 'action.hover' },
+                display: { xs: 'none', sm: 'inline-flex' },
+              }}
+            >
+              {t.email.actions.markRead || 'Read'}
+            </Button>
+            <IconButton
+              size="small"
+              onClick={() => handleAction(onMarkRead, 'markRead')}
+              disabled={loading !== null}
+              sx={{
+                display: { xs: 'inline-flex', sm: 'none' },
+                color: 'text.secondary',
+              }}
+            >
+              {loading === 'markRead' ? <CircularProgress size={16} /> : <MailOpen size={16} />}
+            </IconButton>
+          </span>
+        </Tooltip>
+
+        {/* Mark Unread */}
+        <Tooltip title={t.email.bulkBar.markUnread}>
+          <span>
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => handleAction(onMarkUnread, 'markUnread')}
+              disabled={loading !== null}
+              startIcon={loading === 'markUnread' ? <CircularProgress size={14} /> : <Mail size={14} />}
+              sx={{
+                textTransform: 'none',
+                minWidth: 'auto',
+                color: 'text.secondary',
+                '&:hover': { bgcolor: 'action.hover' },
+                display: { xs: 'none', sm: 'inline-flex' },
+              }}
+            >
+              {t.email.actions.markUnread || 'Unread'}
+            </Button>
+            <IconButton
+              size="small"
+              onClick={() => handleAction(onMarkUnread, 'markUnread')}
+              disabled={loading !== null}
+              sx={{
+                display: { xs: 'inline-flex', sm: 'none' },
+                color: 'text.secondary',
+              }}
+            >
+              {loading === 'markUnread' ? <CircularProgress size={16} /> : <Mail size={16} />}
+            </IconButton>
+          </span>
+        </Tooltip>
+
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5, display: { xs: 'none', md: 'block' } }} />
+
+        {/* Archive */}
+        {onArchive && (
+          <Tooltip title={t.email.actions.archive || 'Archive'}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => handleAction(onArchive, 'archive')}
+                disabled={loading !== null}
+                sx={{ color: 'text.secondary' }}
+              >
+                {loading === 'archive' ? <CircularProgress size={16} /> : <Archive size={16} />}
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+
+        {/* Delete */}
+        <Tooltip title={t.email.bulkBar.delete}>
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => handleAction(onDelete, 'delete')}
+              disabled={loading !== null}
+              sx={{ color: 'error.main' }}
+            >
+              {loading === 'delete' ? <CircularProgress size={16} /> : <Trash2 size={16} />}
+            </IconButton>
+          </span>
+        </Tooltip>
+
+        {/* Move to Folder */}
+        {onMoveToFolder && (
+          <Tooltip title={t.email.bulkBar.moveToFolder}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={onMoveToFolder}
+                disabled={loading !== null}
+                sx={{ color: 'text.secondary' }}
+              >
+                <FolderInput size={16} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+
+        {/* Labels */}
+        {onAddLabels && (
+          <Tooltip title={t.email.bulkBar.addLabels}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={onAddLabels}
+                disabled={loading !== null}
+                sx={{ color: 'text.secondary' }}
+              >
+                <Tag size={16} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+      </Box>
+
+      <Box sx={{ flex: 1 }} />
+
+      {/* More Actions Menu */}
+      <Tooltip title={t.email.bulkBar.moreActions}>
+        <span>
           <IconButton
             size="small"
-            onClick={onClearSelection}
-            sx={{
-              color: 'inherit',
-              width: { xs: 44, sm: 'auto' },
-              height: { xs: 44, sm: 'auto' },
+            onClick={handleMoreClick}
+            disabled={loading !== null}
+            sx={{ color: 'text.secondary' }}
+          >
+            <MoreHorizontal size={18} />
+          </IconButton>
+        </span>
+      </Tooltip>
+
+      <Menu
+        anchorEl={moreMenuAnchor}
+        open={Boolean(moreMenuAnchor)}
+        onClose={handleMoreClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        {onStar && (
+          <MenuItem
+            onClick={() => {
+              handleAction(onStar, 'star');
+              handleMoreClose();
             }}
             disabled={loading !== null}
           >
-            <X size={20} />
-          </IconButton>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {t.email.bulkBar.selected.replace('{count}', selectedCount.toString())}
-          </Typography>
-        </Box>
-
-        {/* Select All Button */}
-        {selectedCount < totalCount && (
-          <>
-            <Divider orientation="vertical" flexItem sx={{ bgcolor: 'primary.contrastText', opacity: 0.3 }} />
-            <Button
-              size="small"
-              onClick={onSelectAll}
-              sx={{
-                color: 'inherit',
-                textTransform: 'none',
-                fontWeight: 500,
-              }}
-              disabled={loading !== null}
-            >
-              {t.email.bulkBar.selectAll}
-            </Button>
-          </>
+            <Star size={16} style={{ marginRight: 8 }} />
+            {t.email.bulkBar.addStar}
+          </MenuItem>
         )}
-
-        <Box sx={{ flex: 1 }} />
-
-        {/* Action Buttons */}
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {/* Mark as Read */}
-          <Tooltip title={t.email.bulkBar.markRead}>
-            <span>
-              <IconButton
-                size="small"
-                onClick={() => handleAction(onMarkRead, 'markRead')}
-                disabled={loading !== null}
-                sx={{
-                  color: 'inherit',
-                  width: { xs: 44, sm: 'auto' },
-                  height: { xs: 44, sm: 'auto' },
-                }}
-              >
-                {loading === 'markRead' ? (
-                  <CircularProgress size={20} color="inherit" />
-                ) : (
-                  <MailOpen size={20} />
-                )}
-              </IconButton>
-            </span>
-          </Tooltip>
-
-          {/* Mark as Unread */}
-          <Tooltip title={t.email.bulkBar.markUnread}>
-            <span>
-              <IconButton
-                size="small"
-                onClick={() => handleAction(onMarkUnread, 'markUnread')}
-                disabled={loading !== null}
-                sx={{
-                  color: 'inherit',
-                  width: { xs: 44, sm: 'auto' },
-                  height: { xs: 44, sm: 'auto' },
-                }}
-              >
-                {loading === 'markUnread' ? (
-                  <CircularProgress size={20} color="inherit" />
-                ) : (
-                  <Mail size={20} />
-                )}
-              </IconButton>
-            </span>
-          </Tooltip>
-
-          {/* Delete */}
-          <Tooltip title={t.email.bulkBar.delete}>
-            <span>
-              <IconButton
-                size="small"
-                onClick={() => handleAction(onDelete, 'delete')}
-                disabled={loading !== null}
-                sx={{
-                  color: 'inherit',
-                  width: { xs: 44, sm: 'auto' },
-                  height: { xs: 44, sm: 'auto' },
-                }}
-              >
-                {loading === 'delete' ? (
-                  <CircularProgress size={20} color="inherit" />
-                ) : (
-                  <Trash2 size={20} />
-                )}
-              </IconButton>
-            </span>
-          </Tooltip>
-
-          {/* More Actions Menu */}
-          <Tooltip title={t.email.bulkBar.moreActions}>
-            <span>
-              <IconButton
-                size="small"
-                onClick={handleMoreClick}
-                disabled={loading !== null}
-                sx={{
-                  color: 'inherit',
-                  width: { xs: 44, sm: 'auto' },
-                  height: { xs: 44, sm: 'auto' },
-                }}
-              >
-                <MoreVertical size={20} />
-              </IconButton>
-            </span>
-          </Tooltip>
-
-          <Menu
-            anchorEl={moreMenuAnchor}
-            open={Boolean(moreMenuAnchor)}
-            onClose={handleMoreClose}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
+        {onUnstar && (
+          <MenuItem
+            onClick={() => {
+              handleAction(onUnstar, 'unstar');
+              handleMoreClose();
             }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
+            disabled={loading !== null}
           >
-            {onStar && (
-              <MenuItem
-                onClick={() => {
-                  handleAction(onStar, 'star');
-                  handleMoreClose();
-                }}
-                disabled={loading !== null}
-              >
-                <Star size={18} style={{ marginRight: 8 }} />
-                {t.email.bulkBar.addStar}
-              </MenuItem>
-            )}
-            {onUnstar && (
-              <MenuItem
-                onClick={() => {
-                  handleAction(onUnstar, 'unstar');
-                  handleMoreClose();
-                }}
-                disabled={loading !== null}
-              >
-                <Star size={18} style={{ marginRight: 8 }} />
-                {t.email.bulkBar.removeStar}
-              </MenuItem>
-            )}
-            {onFlag && (
-              <MenuItem
-                onClick={() => {
-                  handleAction(onFlag, 'flag');
-                  handleMoreClose();
-                }}
-                disabled={loading !== null}
-              >
-                <Flag size={18} style={{ marginRight: 8 }} />
-                {t.email.bulkBar.markImportant}
-              </MenuItem>
-            )}
-            {onUnflag && (
-              <MenuItem
-                onClick={() => {
-                  handleAction(onUnflag, 'unflag');
-                  handleMoreClose();
-                }}
-                disabled={loading !== null}
-              >
-                <Flag size={18} style={{ marginRight: 8 }} />
-                {t.email.bulkBar.unmarkImportant}
-              </MenuItem>
-            )}
-            {onAddLabels && (
-              <MenuItem
-                onClick={() => {
-                  onAddLabels();
-                  handleMoreClose();
-                }}
-                disabled={loading !== null}
-              >
-                <Tag size={18} style={{ marginRight: 8 }} />
-                {t.email.bulkBar.addLabels}
-              </MenuItem>
-            )}
-            {onMoveToFolder && (
-              <MenuItem
-                onClick={() => {
-                  onMoveToFolder();
-                  handleMoreClose();
-                }}
-                disabled={loading !== null}
-              >
-                <FolderInput size={18} style={{ marginRight: 8 }} />
-                {t.email.bulkBar.moveToFolder}
-              </MenuItem>
-            )}
-          </Menu>
-        </Box>
-      </Box>
-    </Paper>
+            <Star size={16} style={{ marginRight: 8 }} />
+            {t.email.bulkBar.removeStar}
+          </MenuItem>
+        )}
+        {onFlag && (
+          <MenuItem
+            onClick={() => {
+              handleAction(onFlag, 'flag');
+              handleMoreClose();
+            }}
+            disabled={loading !== null}
+          >
+            <Flag size={16} style={{ marginRight: 8 }} />
+            {t.email.bulkBar.markImportant}
+          </MenuItem>
+        )}
+        {onUnflag && (
+          <MenuItem
+            onClick={() => {
+              handleAction(onUnflag, 'unflag');
+              handleMoreClose();
+            }}
+            disabled={loading !== null}
+          >
+            <Flag size={16} style={{ marginRight: 8 }} />
+            {t.email.bulkBar.unmarkImportant}
+          </MenuItem>
+        )}
+      </Menu>
+    </Box>
   );
 };

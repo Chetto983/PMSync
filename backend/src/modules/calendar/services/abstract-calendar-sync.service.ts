@@ -11,6 +11,7 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getErrorMessage } from '../../../common/utils';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
@@ -33,12 +34,15 @@ export abstract class AbstractCalendarSyncService {
   protected abstract readonly logger: Logger;
   protected readonly calendarEnabled: boolean;
   protected readonly maxErrorsBeforeFullSync: number;
+  /** Lock TTL for sync operations (5 minutes) */
+  protected readonly SYNC_LOCK_TTL_MS = 5 * 60 * 1000;
 
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly providerTokenService: ProviderTokenService,
     protected readonly realtimeEvents: RealtimeEventsService,
     protected readonly configService: ConfigService,
+    protected readonly redisLock: RedisLockService,
   ) {
     this.calendarEnabled =
       (this.configService.get<string>('CALENDAR_SYNC_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -110,6 +114,9 @@ export abstract class AbstractCalendarSyncService {
   /**
    * Sync calendar events from provider
    * Uses incremental sync when available, falls back to full sync
+   *
+   * RACE CONDITION FIX: Uses distributed lock to prevent concurrent syncs
+   * for the same provider across multiple workers.
    */
   async syncCalendar(providerId: string, forceFullSync = false): Promise<CalendarSyncResult> {
     if (!this.calendarEnabled) {
@@ -119,10 +126,38 @@ export abstract class AbstractCalendarSyncService {
       return this.createEmptyResult(providerId);
     }
 
+    // RACE CONDITION FIX: Acquire distributed lock before sync
+    const lockKey = `calendar:sync:${providerId}`;
+
+    return this.redisLock.withLock(
+      lockKey,
+      this.SYNC_LOCK_TTL_MS,
+      async () => this.executeSyncWithinLock(providerId, forceFullSync),
+      { maxRetries: 3, baseDelayMs: 100, maxDelayMs: 1000 },
+    );
+  }
+
+  /**
+   * Execute the actual sync logic (called within distributed lock)
+   */
+  private async executeSyncWithinLock(
+    providerId: string,
+    forceFullSync: boolean,
+  ): Promise<CalendarSyncResult> {
     const startTime = Date.now();
     this.logger.log(`Starting ${this.providerType} Calendar sync for provider ${providerId}`);
 
     try {
+      // PHASE 4: Rate limit check before API calls
+      const isAllowed = await this.redisLock.checkProviderRateLimit(providerId, this.providerType);
+      if (!isAllowed) {
+        const status = await this.redisLock.getRateLimitStatus(providerId, this.providerType);
+        this.logger.warn(
+          `Rate limited for ${this.providerType} provider ${providerId}: ${status.current}/${status.limit}/min, retry in ${status.remainingSeconds}s`,
+        );
+        throw new Error(`Rate limit exceeded - retry in ${status.remainingSeconds} seconds`);
+      }
+
       // Get provider and access token (handles refresh automatically)
       const { provider, accessToken } = await this.providerTokenService.getProviderWithToken(
         providerId,
@@ -456,6 +491,8 @@ export abstract class AbstractCalendarSyncService {
     let createdCount = 0;
     let updatedCount = 0;
 
+    // PERFORMANCE FIX: Reduced timeout from 60s to 30s to prevent connection pool exhaustion
+    // Large batches are split to reduce transaction scope
     await this.prisma.$transaction(
       async (tx) => {
         // Create new events
@@ -495,7 +532,7 @@ export abstract class AbstractCalendarSyncService {
           });
         }
       },
-      { timeout: 60000 },
+      { timeout: 30000 },
     );
 
     // Handle deleted events for full sync (events not in response)

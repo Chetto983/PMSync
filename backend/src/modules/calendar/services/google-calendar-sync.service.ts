@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { calendar_v3, google } from 'googleapis';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { AbstractCalendarSyncService } from './abstract-calendar-sync.service';
@@ -36,8 +37,9 @@ export class GoogleCalendarSyncService extends AbstractCalendarSyncService {
     providerTokenService: ProviderTokenService,
     realtimeEvents: RealtimeEventsService,
     configService: ConfigService,
+    redisLock: RedisLockService,
   ) {
-    super(prisma, providerTokenService, realtimeEvents, configService);
+    super(prisma, providerTokenService, realtimeEvents, configService, redisLock);
     this.maxEventsPerRequest = configService.get<number>('GOOGLE_CALENDAR_MAX_EVENTS', 2500);
 
     if (!this.calendarEnabled) {

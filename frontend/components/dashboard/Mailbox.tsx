@@ -11,7 +11,10 @@ import {
   RefreshCcw,
   Filter,
   Menu,
+  MessageSquare,
+  Mail as MailListIcon,
 } from 'lucide-react';
+import { Tooltip } from '@mui/material';
 import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Alert, Stack, Typography, Button, CircularProgress, Paper, IconButton } from '@mui/material';
 import {
   DndContext,
@@ -252,6 +255,21 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
   });
   const [_syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
+
+  // Conversation vs Email list view toggle (persisted)
+  const [forceConversationView, setForceConversationView] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('mailagent-conversation-view');
+    return stored === 'true' ? true : stored === 'false' ? false : null;
+  });
+
+  const toggleConversationView = useCallback(() => {
+    setForceConversationView(prev => {
+      const newValue = prev === null ? false : !prev;
+      localStorage.setItem('mailagent-conversation-view', String(newValue));
+      return newValue;
+    });
+  }, []);
 
   const emailStatsQuery = useEmailStats();
   // Retention stats available via useRetentionStats() if needed
@@ -769,7 +787,16 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     return activeFolder.id.startsWith('label:') ? activeFolder.id.replace('label:', '') : undefined;
   }, [activeFolder]);
 
+  // Determine view mode: email list (flat) or conversation (threaded)
+  // Priority: 1) Force override from toggle, 2) Automatic based on filters
   const useEmailListView = useMemo(() => {
+    // If user explicitly set a preference, use it (unless filters require email view)
+    if (forceConversationView === false) return true; // Force email list
+    if (forceConversationView === true) {
+      // Force conversation view, but some scenarios require email list
+      if (labelFolderId) return true; // Labels require email list
+    }
+
     if (labelFolderId) return true;
     if (!activeFolder) return true;
 
@@ -793,7 +820,10 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     );
 
     return hasActiveFilters;
-  }, [activeFolder, advancedFilters, labelFolderId, searchQuery]);
+  }, [activeFolder, advancedFilters, forceConversationView, labelFolderId, searchQuery]);
+
+  // Computed state for UI
+  const isConversationView = !useEmailListView;
 
   const emailListParams = useMemo<Omit<EmailListParams, 'page'>>(() => {
     if (!activeFolder) {
@@ -1108,6 +1138,14 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
       });
     }
   }, [queryClient, resolveSelectedEmailIds, t.email.messages.unmarkedImportant, t.email.messages.unmarkedImportantFailed]);
+
+  const handleBulkArchive = useCallback(async () => {
+    const { emailIds } = await resolveSelectedEmailIds();
+    if (emailIds.length === 0) return;
+
+    clearSelection();
+    await handleArchive(emailIds);
+  }, [clearSelection, handleArchive, resolveSelectedEmailIds]);
 
   const handleBulkAddLabels = useCallback(async (labelIds: string[]) => {
     if (labelIds.length === 0) return;
@@ -1535,6 +1573,22 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
                 >
                   {t.email.advancedSearch.title}
                 </Button>
+                {/* Conversation/Email View Toggle */}
+                <Tooltip title={isConversationView ? 'Switch to Email List' : 'Switch to Conversation View'}>
+                  <IconButton
+                    size="small"
+                    onClick={toggleConversationView}
+                    color={isConversationView ? 'primary' : 'default'}
+                    aria-label={isConversationView ? 'Conversation view active' : 'Email list view active'}
+                    sx={{
+                      border: 1,
+                      borderColor: isConversationView ? 'primary.main' : 'divider',
+                      borderRadius: 1,
+                    }}
+                  >
+                    {isConversationView ? <MessageSquare size={16} /> : <MailListIcon size={16} />}
+                  </IconButton>
+                </Tooltip>
                 <IconButton
                   size="small"
                   onClick={handleSyncProviders}
@@ -1560,6 +1614,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
               onMarkRead={handleBulkMarkRead}
               onMarkUnread={handleBulkMarkUnread}
               onDelete={handleBulkDelete}
+              onArchive={handleBulkArchive}
               onStar={handleBulkStar}
               onUnstar={handleBulkUnstar}
               onFlag={handleBulkFlag}
