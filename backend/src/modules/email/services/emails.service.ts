@@ -46,7 +46,7 @@ export class EmailsService {
     private knowledgeBaseService: KnowledgeBaseService,
     private realtimeEvents: RealtimeEventsService,
     private storageService: StorageService,
-  ) {}
+  ) { }
 
   /** Maximum emails per bulk operation to prevent DoS */
   private readonly MAX_BULK_EMAILS = 1000;
@@ -352,11 +352,11 @@ export class EmailsService {
       // Date range filters - combine both conditions in single receivedAt object
       ...(filters.startDate || filters.endDate
         ? {
-            receivedAt: {
-              ...(filters.startDate && { gte: filters.startDate }),
-              ...(filters.endDate && { lte: filters.endDate }),
-            },
-          }
+          receivedAt: {
+            ...(filters.startDate && { gte: filters.startDate }),
+            ...(filters.endDate && { lte: filters.endDate }),
+          },
+        }
         : {}),
     };
 
@@ -534,7 +534,7 @@ export class EmailsService {
         Array<{ id: string; providerId: string; folder: string; externalId: string }>
       >`
         SELECT id, "providerId", folder, "externalId"
-        FROM "Email"
+        FROM "emails"
         WHERE id = ${id} AND "tenantId" = ${tenantId}
         FOR UPDATE
       `;
@@ -694,7 +694,7 @@ export class EmailsService {
         }>
       >`
         SELECT id, "externalId", "providerId", "tenantId", folder, "isDeleted"
-        FROM "Email"
+        FROM "emails"
         WHERE id = ${id} AND "tenantId" = ${tenantId}
         FOR UPDATE
       `;

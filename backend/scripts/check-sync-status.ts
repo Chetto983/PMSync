@@ -1,72 +1,56 @@
 /**
- * Check Sync Status
+ * Check Sync Status Script
  */
+import { PrismaClient } from '@prisma/client';
 
-import { createPrismaClient } from '../src/prisma/prisma-client.factory';
+const prisma = new PrismaClient();
 
-const prisma = createPrismaClient();
-const TENANT_ID = 'cmi31xyel0000yhukbwp6l714';
+async function checkSync() {
+  console.log('=== PROVIDER SYNC STATUS ===\n');
 
-async function main() {
-  console.log('=== SYNC STATUS CHECK ===\n');
-
+  // Get providers
   const providers = await prisma.providerConfig.findMany({
-    where: { tenantId: TENANT_ID },
+    where: { isActive: true },
     select: {
       id: true,
       email: true,
       providerType: true,
-      isActive: true,
       lastSyncedAt: true,
-      nextSyncAt: true,
-      syncPriority: true,
-      avgActivityRate: true,
-      errorStreak: true,
-      webhookSubscriptions: {
-        where: { isActive: true },
-        select: {
-          id: true,
-          resourcePath: true,
-          lastNotificationAt: true,
-          expiresAt: true,
-        },
-      },
-    },
+      syncStatus: true,
+      syncError: true,
+    }
   });
 
   for (const p of providers) {
-    console.log(`${p.providerType.toUpperCase()}: ${p.email}`);
-    console.log(`  Active: ${p.isActive}`);
-    console.log(`  Last Sync: ${p.lastSyncedAt}`);
-    console.log(`  Next Sync: ${p.nextSyncAt}`);
-    console.log(`  Sync Priority: ${p.syncPriority} (1=high, 5=low)`);
-    console.log(`  Activity Rate: ${p.avgActivityRate?.toFixed(2) ?? 'N/A'} emails/hr`);
-    console.log(`  Error Streak: ${p.errorStreak}`);
-
-    if (p.webhookSubscriptions.length > 0) {
-      console.log(`  Webhooks:`);
-      for (const w of p.webhookSubscriptions) {
-        console.log(`    - ${w.resourcePath}`);
-        console.log(`      Last notification: ${w.lastNotificationAt}`);
-        console.log(`      Expires: ${w.expiresAt}`);
-      }
-    } else {
-      console.log(`  Webhooks: None`);
-    }
-    console.log('');
+    console.log(`Provider: ${p.email}`);
+    console.log(`  Type: ${p.providerType}`);
+    console.log(`  Status: ${p.syncStatus || 'unknown'}`);
+    console.log(`  Last Sync: ${p.lastSyncedAt || 'never'}`);
+    if (p.syncError) console.log(`  ERROR: ${p.syncError}`);
+    console.log();
   }
 
-  // Check if nextSyncAt is in the past (should be syncing)
-  const now = new Date();
-  console.log(`Current time: ${now.toISOString()}`);
+  // Get email counts
+  const emailCount = await prisma.email.count();
+  console.log(`Total emails in DB: ${emailCount}`);
 
-  const dueProviders = providers.filter(
-    (p) => p.isActive && (!p.nextSyncAt || new Date(p.nextSyncAt) <= now)
-  );
-  console.log(`\nProviders due for sync: ${dueProviders.length}`);
-  dueProviders.forEach((p) => console.log(`  - ${p.email} (next: ${p.nextSyncAt})`));
+  // Get recent emails
+  const recentEmails = await prisma.email.findMany({
+    take: 5,
+    orderBy: { receivedAt: 'desc' },
+    select: { subject: true, receivedAt: true, folder: true }
+  });
+
+  console.log('\n=== 5 MOST RECENT EMAILS ===');
+  for (const e of recentEmails) {
+    const subj = (e.subject || '(no subject)').substring(0, 40);
+    console.log(`- ${subj} | ${e.folder} | ${e.receivedAt}`);
+  }
 
   await prisma.$disconnect();
 }
 
-main().catch(console.error);
+checkSync().catch((e) => {
+  console.error('Error:', e);
+  process.exit(1);
+});

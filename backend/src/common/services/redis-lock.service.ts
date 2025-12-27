@@ -301,6 +301,184 @@ export class RedisLockService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // ====================================
+  // Phase 6.5: Fencing Tokens
+  // ====================================
+
+  /**
+   * Phase 6.5: Acquire lock with fencing token for long-running operations
+   *
+   * Fencing tokens prevent stale lock holders from corrupting state.
+   * Per Redis docs: "Important for operations that can take significant time."
+   *
+   * @param key - Lock key
+   * @param ttlMs - Lock TTL in milliseconds
+   * @param options - Retry options
+   * @returns Lock ID and fence token if acquired, null if failed
+   */
+  async acquireLockWithFence(
+    key: string,
+    ttlMs: number,
+    options: LockOptions = {},
+  ): Promise<{ lockId: string; fenceToken: number } | null> {
+    const lockId = await this.acquireLock(key, ttlMs, options);
+    if (!lockId) return null;
+
+    try {
+      // Increment global fence counter atomically
+      const fenceToken = await this.redis.incr(`fence:${this.KEY_PREFIX}${key}`);
+      return { lockId, fenceToken };
+    } catch (error) {
+      // Release lock if fence token acquisition fails
+      await this.releaseLock(key, lockId);
+      this.logger.error(
+        `Fence token error for ${key}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Phase 6.5: Execute with fencing token validation
+   *
+   * Verifies fence token is still valid before executing write operation.
+   * Prevents stale lock holders from corrupting data.
+   *
+   * @param key - Lock key
+   * @param currentFence - Fence token from acquireLockWithFence
+   * @param writeFn - Async function to execute if fence is valid
+   * @throws Error if fence token is stale (another process took over)
+   */
+  async writeWithFence<T>(
+    key: string,
+    currentFence: number,
+    writeFn: () => Promise<T>,
+  ): Promise<T> {
+    const latestFence = await this.redis.get(`fence:${this.KEY_PREFIX}${key}`);
+    const latestFenceNum = parseInt(latestFence || '0', 10);
+
+    if (latestFenceNum > currentFence) {
+      throw new Error(`Stale lock - fence token ${currentFence} is behind current ${latestFenceNum}`);
+    }
+
+    return await writeFn();
+  }
+
+  /**
+   * Phase 6.5: withLock variant that includes fencing token
+   *
+   * Convenience method combining lock acquisition with fencing.
+   * Use for long-running sync operations (10+ minutes).
+   *
+   * @param key - Lock key
+   * @param ttlMs - Lock TTL
+   * @param fn - Function receiving fence token for validation
+   * @param options - Retry options
+   */
+  async withLockAndFence<T>(
+    key: string,
+    ttlMs: number,
+    fn: (fenceToken: number) => Promise<T>,
+    options: LockOptions = {},
+  ): Promise<T> {
+    const result = await this.acquireLockWithFence(key, ttlMs, options);
+
+    if (!result) {
+      throw new Error(`Failed to acquire lock with fence: ${key}`);
+    }
+
+    try {
+      return await fn(result.fenceToken);
+    } finally {
+      await this.releaseLock(key, result.lockId);
+    }
+  }
+
+  // ====================================
+  // Phase 6.6: Per-Provider Rate Limiting
+  // ====================================
+
+  /**
+   * Provider-specific API rate limits
+   * Based on official documentation:
+   * - Gmail: 100 messages/second burst, 250 quota/user/second
+   * - Microsoft: 10,000 requests/10min per mailbox
+   * - IMAP: Conservative limits for generic servers
+   */
+  private readonly PROVIDER_LIMITS: Record<string, { perSecond: number; perMinute: number }> = {
+    google: { perSecond: 25, perMinute: 100 },
+    microsoft: { perSecond: 10, perMinute: 30 },
+    imap: { perSecond: 5, perMinute: 60 },
+  };
+
+  /**
+   * Phase 6.6: Check if provider is within rate limits
+   *
+   * Uses Redis INCR + EXPIRE pattern for sliding window rate limiting.
+   *
+   * @param providerId - Unique provider ID
+   * @param providerType - Provider type (google, microsoft, imap)
+   * @returns true if request is allowed, false if rate limited
+   */
+  async checkProviderRateLimit(providerId: string, providerType: string): Promise<boolean> {
+    const limits = this.PROVIDER_LIMITS[providerType] || this.PROVIDER_LIMITS.imap;
+    const now = Math.floor(Date.now() / 1000);
+    const minuteKey = `rate:${providerType}:${providerId}:min:${now - (now % 60)}`;
+
+    try {
+      const count = await this.redis.incr(minuteKey);
+
+      // Set expiry on first increment
+      if (count === 1) {
+        await this.redis.expire(minuteKey, 120); // Keep for 2 minutes
+      }
+
+      if (count > limits.perMinute) {
+        this.logger.warn(`Rate limit exceeded for ${providerType}:${providerId}: ${count}/${limits.perMinute}/min`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Rate limit check error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // Fail open - allow request if Redis fails
+      return true;
+    }
+  }
+
+  /**
+   * Phase 6.6: Get current rate limit status for a provider
+   *
+   * @param providerId - Provider ID
+   * @param providerType - Provider type
+   * @returns Current usage and limits
+   */
+  async getRateLimitStatus(
+    providerId: string,
+    providerType: string,
+  ): Promise<{ current: number; limit: number; remainingSeconds: number }> {
+    const limits = this.PROVIDER_LIMITS[providerType] || this.PROVIDER_LIMITS.imap;
+    const now = Math.floor(Date.now() / 1000);
+    const minuteKey = `rate:${providerType}:${providerId}:min:${now - (now % 60)}`;
+
+    try {
+      const [countStr, ttl] = await Promise.all([
+        this.redis.get(minuteKey),
+        this.redis.ttl(minuteKey),
+      ]);
+
+      return {
+        current: parseInt(countStr || '0', 10),
+        limit: limits.perMinute,
+        remainingSeconds: Math.max(0, ttl),
+      };
+    } catch {
+      return { current: 0, limit: limits.perMinute, remainingSeconds: 60 };
+    }
+  }
+
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }

@@ -34,11 +34,3 @@ export interface SyncStatus {
   failed: number;
   delayed: number;
 }
-
-export interface CircuitBreakerState {
-  providerId: string;
-  state: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
-  failureCount: number;
-  lastFailureTime?: Date;
-  nextAttemptTime?: Date;
-}
