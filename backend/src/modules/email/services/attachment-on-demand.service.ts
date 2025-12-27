@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional, PayloadTooLargeException } from '@nestjs/common';
 import { google } from 'googleapis';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
@@ -383,19 +383,26 @@ export class AttachmentOnDemandService {
       const source = await client.download(`${uid}`, undefined, { uid: true });
 
       // Stream message content into buffer
+      // FIX (BUG-006): Use configurable limit and clear memory before throwing
       const chunks: Buffer[] = [];
-      const MAX_SIZE = 10 * 1024 * 1024; // 10MB limit for safety
+      const MAX_SIZE = parseInt(process.env.IMAP_MAX_MESSAGE_SIZE || '10485760', 10); // 10MB default
       let totalBytes = 0;
 
       for await (const chunk of source.content) {
         totalBytes += chunk.length;
         if (totalBytes > MAX_SIZE) {
-          throw new Error(`IMAP message exceeds ${MAX_SIZE} bytes limit`);
+          // Clear accumulated chunks before throwing to free memory
+          chunks.length = 0;
+          throw new PayloadTooLargeException(
+            `Message size (${(totalBytes / 1024 / 1024).toFixed(2)}MB) exceeds limit (${(MAX_SIZE / 1024 / 1024).toFixed(2)}MB)`,
+          );
         }
         chunks.push(chunk);
       }
 
       const messageBuffer = Buffer.concat(chunks);
+      // Clear chunks array to allow GC
+      chunks.length = 0;
       this.logger.debug(`Downloaded IMAP message: ${totalBytes} bytes`);
 
       // Parse message with mailparser

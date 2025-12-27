@@ -30,7 +30,7 @@ import { CalendarModule } from '../calendar/calendar.module';
  * - AttachmentOnDemandService: Lazy download from providers (Gmail, Microsoft, IMAP)
  * - EmailCleanupService: Retention policies with orphan S3 tracking
  *
- * @see EMAIL_MODULE_ROADMAP.md for implementation details
+ * @see docs/EMAIL_MODULE_ROADMAP.md for implementation details
  */
 @Module({
   imports: [

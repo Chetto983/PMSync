@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -9,6 +9,7 @@ import {
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 export type StorageType = 's3';
 
@@ -18,7 +19,10 @@ export class StorageService {
   private readonly client: S3Client;
   private readonly bucket: string;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    @Optional() private readonly redisLock?: RedisLockService,
+  ) {
     const endpoint = this.config.get<string>('S3_ENDPOINT');
     this.bucket = this.config.get<string>('S3_BUCKET', 'mailagent-attachments');
 
@@ -56,8 +60,30 @@ export class StorageService {
 
   /**
    * Upload object only if it does not already exist (dedup by key)
+   * FIX (RC-NEW-4): Uses distributed lock to prevent concurrent duplicate uploads
    */
   async putObjectIfAbsent(key: string, body: Buffer, contentType: string): Promise<'uploaded' | 'skipped'> {
+    // If Redis lock available, use distributed locking for concurrent safety
+    if (this.redisLock) {
+      const lockKey = `s3:upload:${key}`;
+      const result = await this.redisLock.tryWithLock(
+        lockKey,
+        30000, // 30 second TTL
+        async () => {
+          const exists = await this.objectExists(key);
+          if (exists) {
+            this.logger.debug(`Skipping upload, object already exists at ${key}`);
+            return 'skipped' as const;
+          }
+          await this.putObject(key, body, contentType);
+          return 'uploaded' as const;
+        },
+      );
+      // If lock failed, assume another instance is uploading - skip
+      return result ?? 'skipped';
+    }
+
+    // Fallback: no distributed lock (single instance mode)
     const exists = await this.objectExists(key);
     if (exists) {
       this.logger.debug(`Skipping upload, object already exists at ${key}`);
@@ -111,14 +137,20 @@ export class StorageService {
 
   /**
    * Delete multiple objects from S3 in batch (max 1000 per request)
+   * FIX (BUG-009): Returns detailed error info for failed keys
    */
-  async deleteObjects(keys: string[]): Promise<{ deleted: number; failed: number }> {
+  async deleteObjects(keys: string[]): Promise<{
+    deleted: number;
+    failed: number;
+    errors?: Array<{ key: string; code?: string; message?: string }>;
+  }> {
     if (keys.length === 0) {
       return { deleted: 0, failed: 0 };
     }
 
     let deleted = 0;
     let failed = 0;
+    const errors: Array<{ key: string; code?: string; message?: string }> = [];
 
     // S3 batch delete supports up to 1000 objects per request
     const BATCH_SIZE = 1000;
@@ -139,20 +171,38 @@ export class StorageService {
         deleted += result.Deleted?.length || 0;
         failed += result.Errors?.length || 0;
 
+        // FIX (BUG-009): Collect error details for each failed key
+        if (result.Errors?.length) {
+          for (const error of result.Errors) {
+            if (error.Key) {
+              errors.push({
+                key: error.Key,
+                code: error.Code,
+                message: error.Message,
+              });
+            }
+          }
+          this.logger.error(`Failed to delete ${result.Errors.length} S3 objects:`, result.Errors);
+        }
+
         if (result.Deleted?.length) {
           this.logger.debug(`Deleted ${result.Deleted.length} S3 objects from batch`);
         }
-
-        if (result.Errors?.length) {
-          this.logger.error(`Failed to delete ${result.Errors.length} S3 objects:`, result.Errors);
-        }
       } catch (error) {
         this.logger.error(`Failed to delete S3 batch (${batch.length} objects): ${error instanceof Error ? error.message : String(error)}`);
+        // Complete batch failure - all keys failed
+        for (const key of batch) {
+          errors.push({
+            key,
+            code: 'BatchFailure',
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
         failed += batch.length;
       }
     }
 
     this.logger.log(`Batch delete complete: ${deleted} deleted, ${failed} failed out of ${keys.length} total`);
-    return { deleted, failed };
+    return { deleted, failed, errors: errors.length > 0 ? errors : undefined };
   }
 }

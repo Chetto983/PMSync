@@ -52,17 +52,31 @@ interface CalendarEventMetadata {
   [key: string]: unknown;
 }
 
-const decodeAttachments = (attachments?: EmailAttachmentDto[]) =>
-  attachments?.map((attachment) => {
-    const [, base64 = attachment.contentBase64] =
-      attachment.contentBase64.split(',');
+// FIX (BUG-005): Validate attachment fields before processing
+interface DecodedAttachment {
+  filename: string;
+  contentType: string;
+  content: Buffer;
+}
 
-    return {
-      filename: attachment.filename,
-      contentType: attachment.contentType,
-      content: Buffer.from(base64, 'base64'),
-    };
-  });
+const decodeAttachments = (attachments?: EmailAttachmentDto[]): DecodedAttachment[] | undefined => {
+  if (!attachments?.length) return undefined;
+
+  return attachments
+    .filter(att => att?.contentBase64 && att?.filename)
+    .map((attachment) => {
+      // Handle data URI format: "data:mime/type;base64,XXXX"
+      const base64Data = attachment.contentBase64.includes(',')
+        ? attachment.contentBase64.split(',')[1] || attachment.contentBase64
+        : attachment.contentBase64;
+
+      return {
+        filename: attachment.filename,
+        contentType: attachment.contentType || 'application/octet-stream',
+        content: Buffer.from(base64Data, 'base64'),
+      };
+    });
+};
 
 @ApiTags('Emails')
 @ApiBearerAuth()
@@ -316,7 +330,12 @@ export class EmailsController {
     @Body() body: { response: 'accept' | 'decline' | 'tentative' },
   ) {
     const tenantId = req.user.tenantId;
-    const response = body.response?.toLowerCase();
+
+    // FIX (BUG-004): Validate response field exists before processing
+    if (!body?.response) {
+      throw new BadRequestException('response field is required');
+    }
+    const response = body.response.toLowerCase();
 
     if (!['accept', 'decline', 'tentative'].includes(response)) {
       throw new BadRequestException('response must be one of: accept, decline, tentative');
@@ -399,42 +418,49 @@ export class EmailsController {
 
     const shouldCreateEvent = (response === 'accept' || response === 'tentative') && email.provider?.supportsCalendar;
     if (shouldCreateEvent) {
-      const existingEvent = await this.prisma.calendarEvent.findFirst({
-        where: {
-          tenantId,
-          providerId: email.providerId,
-          iCalUID: invite.uid,
-        },
-      });
-
       const attendees = invite.attendees?.map((a) => ({
         email: a.email,
         name: a.name,
       }));
 
-      if (existingEvent) {
-        const updated = await this.prisma.calendarEvent.update({
-          where: { id: existingEvent.id },
-          data: {
-            title: invite.summary,
-            description: invite.description,
-            location: invite.location,
-            startTime: invite.startTime,
-            endTime: invite.endTime,
-            isAllDay: !!invite.isAllDay,
-            timeZone: invite.timezone || existingEvent.timeZone,
-            attendees,
-            status: 'confirmed',
-            isCancelled: false,
-            recurrence: invite.recurrence ?? [],
-            metadata: {
-              ...(existingEvent.metadata as Record<string, any> | null ?? {}),
-              sequence: invite.sequence ?? 0,
+      // FIX (RC-NEW-8): Use transaction with row-level lock to prevent duplicate calendar events
+      calendarEventId = await this.prisma.$transaction(async (tx) => {
+        // Check for existing event with lock to prevent race condition
+        const existingEvents = await tx.$queryRaw<Array<{ id: string; timeZone: string; metadata: unknown }>>`
+          SELECT id, "timeZone", metadata
+          FROM "CalendarEvent"
+          WHERE "tenantId" = ${tenantId}
+            AND "providerId" = ${email.providerId}
+            AND "iCalUID" = ${invite.uid}
+          FOR UPDATE
+        `;
+
+        if (existingEvents.length > 0) {
+          const existingEvent = existingEvents[0];
+          const updated = await tx.calendarEvent.update({
+            where: { id: existingEvent.id },
+            data: {
+              title: invite.summary,
+              description: invite.description,
+              location: invite.location,
+              startTime: invite.startTime,
+              endTime: invite.endTime,
+              isAllDay: !!invite.isAllDay,
+              timeZone: invite.timezone || existingEvent.timeZone,
+              attendees,
+              status: 'confirmed',
+              isCancelled: false,
+              recurrence: invite.recurrence ?? [],
+              metadata: {
+                ...((existingEvent.metadata as Record<string, unknown> | null) ?? {}),
+                sequence: invite.sequence ?? 0,
+              },
             },
-          },
-        });
-        calendarEventId = updated.id;
-      } else {
+          });
+          return updated.id;
+        }
+
+        // Create new event (within transaction to prevent duplicate creation)
         const created = await this.calendarService.createEvent(tenantId, {
           providerId: email.providerId,
           title: invite.summary,
@@ -447,7 +473,7 @@ export class EmailsController {
           attendees,
         });
 
-        await this.prisma.calendarEvent.update({
+        await tx.calendarEvent.update({
           where: { id: created.id },
           data: {
             iCalUID: invite.uid,
@@ -456,8 +482,8 @@ export class EmailsController {
           },
         });
 
-        calendarEventId = created.id;
-      }
+        return created.id;
+      });
     }
 
     await this.prisma.email.update({

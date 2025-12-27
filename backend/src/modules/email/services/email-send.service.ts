@@ -288,11 +288,15 @@ export class EmailSendService {
     if (provider.smtpPassword && provider.smtpEncryptionIv) {
       return this.crypto.decrypt(provider.smtpPassword, provider.smtpEncryptionIv);
     }
-    // Fall back to IMAP password
+    // Fall back to IMAP password (common for same-server setups)
     if (provider.imapPassword && provider.imapEncryptionIv) {
       return this.crypto.decrypt(provider.imapPassword, provider.imapEncryptionIv);
     }
-    return '';
+    // CRITICAL FIX (BUG-002): Throw descriptive error instead of empty string
+    throw new BadRequestException(
+      `SMTP password not configured for provider ${provider.id}. ` +
+        'Please update provider settings with SMTP credentials.',
+    );
   }
 
   /**

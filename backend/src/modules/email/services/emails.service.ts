@@ -520,50 +520,63 @@ export class EmailsService {
 
   /**
    * Update email flags - syncs back to provider
+   * FIX (RC-NEW-1): Uses FOR UPDATE lock to prevent lost updates from concurrent modifications
    */
   async updateEmail(
     id: string,
     tenantId: string,
     data: { isRead?: boolean; isStarred?: boolean; isFlagged?: boolean; folder?: string },
   ) {
-    const email = await this.prisma.email.findFirst({
-      where: { id, tenantId },
-    });
+    // Use transaction with row-level lock to prevent TOCTOU race condition
+    const { updated, originalFolder } = await this.prisma.$transaction(async (tx) => {
+      // Lock the row with FOR UPDATE to prevent concurrent modifications
+      const emails = await tx.$queryRaw<
+        Array<{ id: string; providerId: string; folder: string; externalId: string }>
+      >`
+        SELECT id, "providerId", folder, "externalId"
+        FROM "Email"
+        WHERE id = ${id} AND "tenantId" = ${tenantId}
+        FOR UPDATE
+      `;
 
-    if (!email) {
-      throw new NotFoundException('Email not found');
-    }
+      if (!emails.length) {
+        throw new NotFoundException('Email not found');
+      }
 
-    await this.ensureProvidersActive(tenantId, [email.providerId]);
+      const email = emails[0];
+      await this.ensureProvidersActive(tenantId, [email.providerId]);
 
-    // PERFORMANCE FIX: Use include in update to avoid duplicate query
-    const updated = await this.prisma.email.update({
-      where: { id },
-      data,
-      include: {
-        provider: {
-          select: {
-            id: true,
-            email: true,
-            providerType: true,
+      // Update within the same transaction
+      const updatedEmail = await tx.email.update({
+        where: { id },
+        data,
+        include: {
+          provider: {
+            select: {
+              id: true,
+              email: true,
+              providerType: true,
+            },
           },
-        },
-        attachments: true,
-        emailLabels: {
-          select: {
-            label: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
+          attachments: true,
+          emailLabels: {
+            select: {
+              label: {
+                select: {
+                  id: true,
+                  name: true,
+                  color: true,
+                },
               },
             },
           },
         },
-      },
+      });
+
+      return { updated: updatedEmail, originalFolder: email.folder };
     });
 
-    const targetFolder = data.folder ?? email.folder;
+    const targetFolder = data.folder ?? originalFolder;
 
     // Emit realtime update event
     this.realtimeEvents.emitEmailUpdate(tenantId, {
@@ -578,18 +591,18 @@ export class EmailsService {
     if (data.isRead !== undefined || data.folder) {
       const affectedFolders: string[] = [targetFolder];
       // If folder changed, also update source folder
-      if (data.folder && data.folder !== email.folder) {
-        affectedFolders.push(email.folder);
+      if (data.folder && data.folder !== originalFolder) {
+        affectedFolders.push(originalFolder);
       }
 
       // Update folder counts (async, don't wait)
-      this.updateFolderCounts(tenantId, email.providerId, affectedFolders).catch((error) => {
+      this.updateFolderCounts(tenantId, updated.providerId, affectedFolders).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
       });
     }
 
     // Sync changes back to provider (async, don't wait)
-    this.syncChangesToProvider(email, data).catch((error) => {
+    this.syncChangesToProvider(updated, data).catch((error) => {
       this.logger.error(`Failed to sync email update to provider: ${error.message}`);
     });
 
@@ -664,24 +677,59 @@ export class EmailsService {
   /**
    * Delete email - Sync to provider, provider handles folder move
    * Next sync updates our DB with actual folder from provider
+   * FIX (RC-NEW-3): Uses FOR UPDATE lock to prevent TOCTOU race condition
    */
   async deleteEmail(id: string, tenantId: string) {
-    const email = await this.prisma.email.findFirst({
-      where: { id, tenantId },
-    });
+    // Use transaction with row-level lock to prevent race condition
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Lock the row with FOR UPDATE to prevent concurrent modifications
+      const emails = await tx.$queryRaw<
+        Array<{
+          id: string;
+          externalId: string;
+          providerId: string;
+          tenantId: string;
+          folder: string;
+          isDeleted: boolean;
+        }>
+      >`
+        SELECT id, "externalId", "providerId", "tenantId", folder, "isDeleted"
+        FROM "Email"
+        WHERE id = ${id} AND "tenantId" = ${tenantId}
+        FOR UPDATE
+      `;
 
-    if (!email) {
-      throw new NotFoundException('Email not found');
-    }
+      if (!emails.length) {
+        throw new NotFoundException('Email not found');
+      }
 
-    // If already deleted, permanent delete
-    if (email.isDeleted) {
-      // CRITICAL FIX: Wrap in transaction for atomicity
-      await this.prisma.$transaction(async (tx) => {
+      const email = emails[0];
+
+      // If already deleted, permanent delete (within same transaction)
+      if (email.isDeleted) {
         await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
         await tx.email.delete({ where: { id } });
+        return { action: 'hard_delete' as const, email };
+      }
+
+      // Get trash folder path for this provider (locale-aware)
+      const trashFolder = await this.getTrashFolderPath(email.providerId);
+
+      // Soft delete: Mark deleted and move to trash folder
+      await tx.email.update({
+        where: { id },
+        data: { isDeleted: true, folder: trashFolder },
       });
 
+      await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
+
+      return { action: 'soft_delete' as const, email, trashFolder };
+    });
+
+    const { action, email } = result;
+
+    // Sync to provider (fire-and-forget, outside transaction)
+    if (action === 'hard_delete') {
       this.emailSyncBack
         .syncOperationToProvider({
           emailId: email.id,
@@ -695,7 +743,6 @@ export class EmailsService {
           this.logger.error(`Failed to sync permanent delete: ${error.message}`);
         });
 
-      // Emit WebSocket event for hard delete (CRITICAL FIX: was missing)
       this.realtimeEvents.emitEmailDelete(tenantId, {
         emailId: email.id,
         providerId: email.providerId,
@@ -706,49 +753,34 @@ export class EmailsService {
       this.updateFolderCounts(tenantId, email.providerId, [email.folder]).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
       });
+    } else {
+      const { trashFolder } = result as { trashFolder: string; action: 'soft_delete'; email: typeof email };
+      const originalFolder = email.folder;
 
-      return { success: true };
-    }
+      this.emailSyncBack
+        .syncOperationToProvider({
+          emailId: email.id,
+          externalId: email.externalId,
+          providerId: email.providerId,
+          tenantId: email.tenantId,
+          operation: 'delete',
+          sourceFolder: email.folder,
+        })
+        .catch((error) => {
+          this.logger.error(`Failed to sync delete: ${error.message}`);
+        });
 
-    // Get trash folder path for this provider (locale-aware)
-    const trashFolder = await this.getTrashFolderPath(email.providerId);
-    const originalFolder = email.folder;
-
-    // Mark deleted and move to trash folder for UI
-    // Provider sync confirms the move on the remote side
-    await this.prisma.email.update({
-      where: { id },
-      data: { isDeleted: true, folder: trashFolder },
-    });
-
-    await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
-
-    // Sync to provider - it handles the move to trash
-    this.emailSyncBack
-      .syncOperationToProvider({
+      this.realtimeEvents.emitEmailDelete(tenantId, {
         emailId: email.id,
-        externalId: email.externalId,
         providerId: email.providerId,
-        tenantId: email.tenantId,
-        operation: 'delete',
-        sourceFolder: email.folder,
-      })
-      .catch((error) => {
-        this.logger.error(`Failed to sync delete: ${error.message}`);
+        folder: originalFolder,
+        reason: 'message-deleted',
       });
 
-    // Emit WebSocket event for soft delete
-    this.realtimeEvents.emitEmailDelete(tenantId, {
-      emailId: email.id,
-      providerId: email.providerId,
-      folder: originalFolder, // Emit with original folder for UI removal
-      reason: 'message-deleted',
-    });
-
-    // Update folder counts for both source and trash folders
-    this.updateFolderCounts(tenantId, email.providerId, [originalFolder, trashFolder]).catch((error) => {
-      this.logger.error(`Failed to update folder counts: ${error.message}`);
-    });
+      this.updateFolderCounts(tenantId, email.providerId, [originalFolder, trashFolder]).catch((error) => {
+        this.logger.error(`Failed to update folder counts: ${error.message}`);
+      });
+    }
 
     return { success: true };
   }

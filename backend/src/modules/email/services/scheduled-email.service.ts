@@ -230,19 +230,30 @@ export class ScheduledEmailService implements OnModuleInit {
       });
 
       // Parse attachments if present (with error handling for malformed JSON)
+      // FIX (BUG-003): Validate individual attachment fields before processing
       let attachments: SendEmailDto['attachments'] = undefined;
       if (scheduled.attachments) {
         try {
-          const parsed = JSON.parse(scheduled.attachments as string) as {
-            filename: string;
-            contentType: string;
-            contentBase64: string;
-          }[];
-          attachments = parsed.map(att => ({
-            filename: att.filename,
-            contentType: att.contentType,
-            content: Buffer.from(att.contentBase64, 'base64'),
-          }));
+          const parsed = JSON.parse(scheduled.attachments as string);
+          if (!Array.isArray(parsed)) {
+            throw new Error('Attachments must be an array');
+          }
+          attachments = parsed
+            .filter((att): att is { filename: string; contentType?: string; contentBase64: string } => {
+              if (!att || typeof att !== 'object') return false;
+              if (!att.filename || !att.contentBase64) {
+                this.logger.warn(
+                  `Invalid attachment in scheduled email ${scheduled.id}: missing required fields`,
+                );
+                return false;
+              }
+              return true;
+            })
+            .map(att => ({
+              filename: String(att.filename),
+              contentType: att.contentType || 'application/octet-stream',
+              content: Buffer.from(att.contentBase64, 'base64'),
+            }));
         } catch (parseError) {
           this.logger.warn(
             `Invalid attachments JSON for scheduled email ${scheduled.id}: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,

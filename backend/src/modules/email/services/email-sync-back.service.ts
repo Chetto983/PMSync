@@ -1169,11 +1169,19 @@ export class EmailSyncBackService {
         let folder = op.sourceFolder;
         // Fallback if sourceFolder missing
         if (!folder) {
-          const email = await this.prisma.email.findUnique({
-            where: { id: op.emailId },
+          // CRITICAL FIX (BUG-001): Use findFirst with tenant filter to prevent cross-tenant access
+          const email = await this.prisma.email.findFirst({
+            where: {
+              id: op.emailId,
+              tenantId: op.tenantId,
+            },
             select: { folder: true },
           });
-          folder = email?.folder || 'INBOX';
+          if (!email) {
+            this.logger.warn(`Email ${op.emailId} not found for tenant ${op.tenantId}, skipping IMAP operation`);
+            continue;
+          }
+          folder = email.folder || 'INBOX';
         }
 
         if (!opsByFolder.has(folder)) {

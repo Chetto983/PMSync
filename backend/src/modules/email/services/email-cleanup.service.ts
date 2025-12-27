@@ -59,7 +59,11 @@ export class EmailCleanupService implements OnModuleInit {
   private readonly jobsEnabled: boolean;
 
   // Track orphaned S3 keys for retry or alerting
-  private orphanedS3Keys: Map<string, { key: string; tenantId: string; failedAt: Date }> = new Map();
+  // FIX (BUG-009): Extended type to include error details for better debugging
+  private orphanedS3Keys: Map<
+    string,
+    { key: string; tenantId: string; failedAt: Date; errorCode?: string; errorMessage?: string }
+  > = new Map();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -480,17 +484,17 @@ export class EmailCleanupService implements OnModuleInit {
           }),
         );
 
-        // If any failed, track them as orphans
-        if (result.failed > 0) {
-          // We don't know which specific keys failed from deleteObjects,
-          // so track all of them for potential retry
-          for (const key of s3Keys) {
-            this.orphanedS3Keys.set(key, {
-              key,
+        // FIX (BUG-009): Track only specifically failed keys as orphans
+        if (result.errors?.length) {
+          for (const error of result.errors) {
+            this.orphanedS3Keys.set(error.key, {
+              key: error.key,
               tenantId,
               failedAt: new Date(),
+              errorCode: error.code,
+              errorMessage: error.message,
             });
-            orphanedKeys.push(key);
+            orphanedKeys.push(error.key);
           }
 
           this.logger.warn(
@@ -498,9 +502,9 @@ export class EmailCleanupService implements OnModuleInit {
               event: 'orphan_s3_detected',
               emailId: id,
               tenantId,
-              orphanedCount: result.failed,
-              keys: s3Keys.slice(0, 5), // Log first 5 keys
-              message: `${result.failed} S3 objects may be orphaned`,
+              orphanedCount: result.errors.length,
+              keys: result.errors.map(e => e.key).slice(0, 5), // Log first 5 keys
+              message: `${result.errors.length} S3 objects are orphaned`,
             }),
           );
         }
