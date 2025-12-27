@@ -29,8 +29,8 @@ import { useFolderManagement, useEmailSidebarPreferences } from './hooks';
 import { SmartFiltersSection } from './SmartFiltersSection';
 import { LabelsSection } from './LabelsSection';
 import { FoldersList } from './FoldersList';
-import { FolderContextMenu } from '../FolderContextMenu';
-import { FolderManagementDialog } from '../FolderManagementDialog';
+import { FolderContextMenu } from '../dialogs/FolderContextMenu';
+import { FolderManagementDialog } from '../dialogs/FolderManagementDialog';
 
 // Types
 import type { EmailSidebarProps } from './types';

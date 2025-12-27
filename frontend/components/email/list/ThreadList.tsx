@@ -5,7 +5,7 @@ import { List, Box, Typography, CircularProgress } from '@mui/material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadListItem } from './ThreadListItem';
 import { ThreadListSkeleton } from './ThreadListSkeleton';
-import { DraggableThreadListItem } from './shared';
+import { DraggableThreadListItem } from '../shared';
 import type { Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
 import { emailThreadOptions } from '@/hooks/queries';

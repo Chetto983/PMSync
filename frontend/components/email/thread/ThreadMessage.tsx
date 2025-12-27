@@ -159,7 +159,16 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
            ================================================================================= */}
         <Collapse in={isExpanded} timeout="auto" unmountOnExit>
           {/* Rich Header Container */}
-          <Box sx={{ p: 2, pd: 1 }}> {/* Padding top/left/right for header */}
+          <Box
+            onClick={onToggle}
+            sx={{
+              p: 2,
+              pd: 1,
+              cursor: 'pointer',
+              '&:hover': { bgcolor: 'action.hover' },
+              transition: 'background-color 0.1s ease',
+            }}
+          >
             {/* Top Row: Avatar + Name + Actions */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 1 }}>
               <Avatar
@@ -189,22 +198,47 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
                   {/* Top Right Actions Toolbar - Icon Only for cleaner look */}
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <Tooltip title={t.email.view.reply}>
-                      <IconButton size="small" onClick={() => onReply?.(email)}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReply?.(email);
+                        }}
+                      >
                         <Reply size={18} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={t.email.view.replyAll}>
-                      <IconButton size="small" onClick={() => onReplyAll?.(email)}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReplyAll?.(email);
+                        }}
+                      >
                         <ReplyAll size={18} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={t.email.view.forward}>
-                      <IconButton size="small" onClick={() => onForward?.(email)}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onForward?.(email);
+                        }}
+                      >
                         <Forward size={18} />
                       </IconButton>
                     </Tooltip>
 
-                    <IconButton size="small" sx={{ ml: 1 }}>
+                    <IconButton
+                      size="small"
+                      sx={{ ml: 1 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // More actions handler
+                      }}
+                    >
                       <MoreHorizontal size={18} />
                     </IconButton>
                   </Stack>

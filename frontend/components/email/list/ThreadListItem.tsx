@@ -4,8 +4,8 @@ import { Paperclip, Star, Reply } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { parseEmailFrom, formatListDate } from './shared/utils';
-import { SearchHighlight } from '../ui/SearchHighlight';
+import { parseEmailFrom, formatListDate } from '../shared/utils';
+import { SearchHighlight } from '@/components/ui/SearchHighlight';
 
 /**
  * Props for ThreadListItem component

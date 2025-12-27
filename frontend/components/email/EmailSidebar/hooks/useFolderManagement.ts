@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Folder } from '@/lib/api/folders';
-import type { FolderDialogMode } from '../../FolderManagementDialog';
+import type { FolderDialogMode } from '../../dialogs/FolderManagementDialog';
 import type { FolderItem } from '../types';
 
 interface UseFolderManagementOptions {

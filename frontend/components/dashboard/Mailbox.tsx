@@ -26,7 +26,7 @@ import {
   pointerWithin,
 } from '@dnd-kit/core';
 import { emailApi, type EmailListParams, type Conversation } from '@/lib/api/email';
-import type { MemorySearchItem } from '@/lib/api/ai';
+
 import { logger } from '@/lib/logger';
 import type { ProviderConfig } from '@/lib/api/providers';
 import { getFolders, type Folder } from '@/lib/api/folders';
@@ -40,18 +40,22 @@ import { getFolderIcon as getIconForFolderUtil } from '@/lib/utils/folder-normal
 import { emailKeys, useEmailStats, useInfiniteConversations, useInfiniteEmails } from '@/hooks/queries';
 
 // Components
-import { ResizableEmailLayout } from '@/components/email/ResizableEmailLayout';
-import { EmailSidebar, type FolderGroup, type SmartFilter } from '@/components/email';
-import { ThreadList } from '@/components/email/ThreadList';
-import { ThreadDisplay } from '@/components/email/ThreadDisplay';
-import { ComposeDialog } from '@/components/email/ComposeDialog';
-import { AdvancedSearchDialog, type AdvancedSearchFilters } from '@/components/email/AdvancedSearchDialog';
-import { AISearchBar } from '@/components/email/AISearchBar';
+import {
+  ResizableEmailLayout,
+  EmailSidebar,
+  type FolderGroup,
+  type SmartFilter,
+  ThreadList,
+  ThreadDisplay,
+  ComposeDialog,
+  AdvancedSearchDialog,
+  type AdvancedSearchFilters,
+  BulkActionBar,
+  LabelSelectorDialog,
+  FolderSelectorDialog,
+  EmailDragOverlay
+} from '@/components/email';
 import { LabelManager } from '@/components/labels';
-import { BulkActionBar } from '@/components/email/BulkActionBar';
-import { LabelSelectorDialog } from '@/components/email/LabelSelectorDialog';
-import { FolderSelectorDialog } from '@/components/email/FolderSelectorDialog';
-import { EmailDragOverlay } from '@/components/email/shared';
 
 interface FolderItem {
   id: string;
@@ -495,26 +499,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     }
   }, [handleEmailClickOriginal, setSnackbar, t.email.messages.failedToOpenEmail]);
 
-  // Handle AI search result click
-  const handleAISearchResultClick = useCallback(async (item: MemorySearchItem) => {
-    if (!item.emailId) return;
 
-    try {
-      // Fetch the email by ID
-      const response = await emailApi.getEmail(item.emailId);
-      const email = response.data;
-
-      // Set as selected email to open in ThreadDisplay
-      setSelectedEmail(email);
-    } catch (error) {
-      logger.error('Failed to open email from AI search', { error });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.failedToOpenEmail,
-        severity: 'error',
-      });
-    }
-  }, [setSelectedEmail, t.email.messages.failedToOpenEmail]);
 
   // Smart Filters for quick access
   // Note: Counts come from database API (emailStats) - no need to load all emails
@@ -1532,14 +1517,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
                     {emailStats.unread > 0 ? `${emailStats.unread} unread` : `${emailStats.total} emails`}
                   </Typography>
                 )}
-                {/* AI Search Bar - Flexible width */}
-                <Box sx={{ flex: 1, minWidth: 120, maxWidth: { xs: '100%', md: 300 } }}>
-                  <AISearchBar
-                    onResultClick={handleAISearchResultClick}
-                    placeholder={isMobile ? t.email.list.aiSearchPlaceholder.split(' ').slice(0, 3).join(' ') + '...' : t.email.list.aiSearchPlaceholder}
-                    size="small"
-                  />
-                </Box>
+
                 {/* Action buttons - icons only on mobile */}
                 <IconButton
                   size="small"

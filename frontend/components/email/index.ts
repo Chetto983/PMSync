@@ -13,31 +13,32 @@
  * Layout component for email interface
  * Handles responsive layout with sidebar, list, and detail panels
  */
-export { EmailLayout } from './EmailLayout';
+export { EmailLayout } from './layout/EmailLayout';
+export { ResizableEmailLayout } from './layout/ResizableEmailLayout';
 
 /**
  * Unified thread list component
  * Replaces both EmailList and ConversationList with a single, flexible component
  */
-export { ThreadList } from './ThreadList';
-export { default as ThreadListDefault } from './ThreadList';
+export { ThreadList } from './list/ThreadList';
+export { default as ThreadListDefault } from './list/ThreadList';
 
 /**
  * Unified thread list item component
  * Displays individual email or conversation in the list
  */
-export { ThreadListItem } from './ThreadListItem';
+export { ThreadListItem } from './list/ThreadListItem';
 
 /**
  * Swipeable thread list item with mobile gesture support
  */
-export { SwipeableThreadListItem } from './SwipeableThreadListItem';
+export { SwipeableThreadListItem } from './list/SwipeableThreadListItem';
 
 /**
  * Thread display component
  * Shows full email/thread content with actions
  */
-export { ThreadDisplay } from './ThreadDisplay';
+export { ThreadDisplay } from './thread/ThreadDisplay';
 
 
 // ============================================================================
@@ -81,17 +82,19 @@ export { ComposeDialog } from './ComposeDialog';
 /**
  * Advanced search dialog
  */
-export { AdvancedSearchDialog } from './AdvancedSearchDialog/AdvancedSearchDialog';
+export { AdvancedSearchDialog, type AdvancedSearchFilters } from './AdvancedSearchDialog/AdvancedSearchDialog';
 
 /**
  * Folder selector dialog
  */
-export { FolderSelectorDialog } from './FolderSelectorDialog';
+export { FolderSelectorDialog } from './dialogs/FolderSelectorDialog';
 
 /**
  * Label selector dialog
  */
-export { LabelSelectorDialog } from './LabelSelectorDialog';
+export { LabelSelectorDialog } from './dialogs/LabelSelectorDialog';
+export { FolderManagementDialog, type FolderDialogMode } from './dialogs/FolderManagementDialog';
+export { FolderContextMenu } from './dialogs/FolderContextMenu';
 
 // ============================================================================
 // UTILITY COMPONENTS
@@ -105,7 +108,7 @@ export { BulkActionBar } from './BulkActionBar/BulkActionBar';
 /**
  * Contact autocomplete for email inputs
  */
-export { ContactAutocomplete } from './ContactAutocomplete';
+export { ContactAutocomplete } from './ui/ContactAutocomplete';
 
 // ============================================================================
 // UI ENHANCEMENT COMPONENTS
@@ -114,12 +117,13 @@ export { ContactAutocomplete } from './ContactAutocomplete';
 /**
  * Modern empty state for email lists
  */
-export { EmailEmptyState } from './EmailEmptyState';
+export { EmailEmptyState } from './ui/EmailEmptyState';
 
 /**
  * Enhanced skeleton loader with animations
  */
-export { EnhancedThreadListSkeleton } from './EnhancedThreadListSkeleton';
+export { EnhancedThreadListSkeleton } from './list/EnhancedThreadListSkeleton';
+export { EmailDragOverlay } from './shared/EmailDragOverlay';
 
 // ============================================================================
 // MIGRATION NOTES
