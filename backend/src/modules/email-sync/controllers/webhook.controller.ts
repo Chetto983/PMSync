@@ -74,11 +74,14 @@ export class WebhookController {
     }
 
     try {
-      // Security fix (Issue #2): Check for replay attacks using messageId
+      // Security fix (Issue #2): Atomic check-and-mark for replay attack prevention
       const messageId = payload?.message?.messageId;
-      if (messageId && this.gmailWebhook.isReplayedMessage(messageId)) {
-        this.logger.warn(`[WEBHOOK] Duplicate message detected: ${messageId}`);
-        return { success: true, skipped: true, reason: 'duplicate' };
+      if (messageId) {
+        const isNew = await this.gmailWebhook.checkAndMarkProcessed(messageId);
+        if (!isNew) {
+          this.logger.warn(`[WEBHOOK] Duplicate message detected: ${messageId}`);
+          return { success: true, skipped: true, reason: 'duplicate' };
+        }
       }
 
       // SECURITY: Only log structure, not content (payload may contain sensitive email metadata)
@@ -86,11 +89,6 @@ export class WebhookController {
 
       // Decode and process the message
       await this.gmailWebhook.handleNotification(payload);
-
-      // Mark message as processed
-      if (messageId) {
-        this.gmailWebhook.markMessageProcessed(messageId);
-      }
 
       this.logger.log('[WEBHOOK] Gmail notification processed successfully');
       return { success: true };

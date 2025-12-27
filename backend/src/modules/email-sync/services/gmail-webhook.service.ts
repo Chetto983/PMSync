@@ -2,12 +2,12 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { QueueService } from './queue.service';
+import { BaseWebhookService } from './base-webhook.service';
 import {
   GmailPubSubMessage,
   GmailPubSubData,
   GmailWatchResponse,
   CreateWebhookOptions,
-  WebhookStats,
 } from '../interfaces/webhook.interface';
 import { SyncJobData } from '../interfaces/sync-job.interface';
 import { google, gmail_v1 } from 'googleapis';
@@ -17,40 +17,33 @@ import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 export const GMAIL_WEBHOOK_RESOURCE = 'gmail/mailbox';
 
-// RC-2 FIX: Increased TTL for better replay attack prevention
-// In-memory cache only used as fallback when Redis unavailable
-const WEBHOOK_DEDUP_TTL_SECONDS = 3600; // 1 hour (was 3 minutes)
-const WEBHOOK_DEDUP_KEY_PREFIX = 'webhook:gmail:dedup:';
-
 @Injectable()
-export class GmailWebhookService {
-  private readonly logger = new Logger(GmailWebhookService.name);
+export class GmailWebhookService extends BaseWebhookService {
+  protected readonly logger = new Logger(GmailWebhookService.name);
 
-  // Gmail watch() expires after 7 days max
-  private readonly DEFAULT_EXPIRATION_DAYS = 7;
-
-  // RC-2 FIX: In-memory fallback cache only used when Redis unavailable
-  // Primary deduplication now uses Redis with 1-hour TTL
-  private readonly processedMessagesFallback: Map<string, number> = new Map();
-  private readonly MESSAGE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour (increased from 3 minutes)
-  private readonly MAX_CACHE_SIZE = 10000;
+  // Abstract property implementations
+  protected readonly providerType = 'google' as const;
+  protected readonly resourcePath = GMAIL_WEBHOOK_RESOURCE;
+  protected readonly DEDUP_KEY_PREFIX = 'webhook:gmail:dedup:';
+  protected readonly DEDUP_TTL_SECONDS = 3600; // 1 hour
 
   // Google OAuth2 client for JWT verification
   private readonly oauth2Client: OAuth2Client;
 
   constructor(
-    private prisma: PrismaService,
-    private queueService: QueueService,
-    private configService: ConfigService,
+    prisma: PrismaService,
+    queueService: QueueService,
+    configService: ConfigService,
     private providerTokenService: ProviderTokenService,
-    // RC-2 + RC-7 FIX: Use Redis for distributed dedup and per-provider locking
-    private redisLock: RedisLockService,
+    redisLock: RedisLockService,
   ) {
+    super(prisma, queueService, configService, redisLock);
+
     // Initialize OAuth2 client for JWT verification
     this.oauth2Client = new OAuth2Client();
 
     // Start cache cleanup interval for fallback cache
-    setInterval(() => this.cleanupProcessedMessages(), this.MESSAGE_CACHE_TTL_MS / 4);
+    setInterval(() => this.cleanupExpiredCacheEntries(), this.MESSAGE_CACHE_TTL_MS / 4);
   }
 
   /**
@@ -100,110 +93,6 @@ export class GmailWebhookService {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`[JWT] Failed to verify Pub/Sub token: ${message}`);
       throw new UnauthorizedException(`Invalid Pub/Sub JWT: ${message}`);
-    }
-  }
-
-  /**
-   * RC-2 FIX: Check and mark message as processed using Redis (distributed, atomic)
-   * Uses SET NX with TTL for atomic check-and-set across all instances
-   *
-   * @param messageId - Unique message ID (Pub/Sub message ID)
-   * @returns true if NEW message (not replayed), false if REPLAYED
-   */
-  async checkAndMarkProcessed(messageId: string): Promise<boolean> {
-    const key = `${WEBHOOK_DEDUP_KEY_PREFIX}${messageId}`;
-
-    try {
-      // Atomic SET NX with TTL - returns lockId if new, null if exists
-      const lockId = await this.redisLock.acquireLock(
-        key,
-        WEBHOOK_DEDUP_TTL_SECONDS * 1000, // Convert to ms
-        { maxRetries: 1 }, // Single attempt - if exists, it's a replay
-      );
-
-      if (lockId) {
-        this.logger.debug(`[DEDUP] New message accepted: ${messageId}`);
-        // Note: We intentionally don't release the lock - it expires after TTL
-        // This prevents the same message from being processed again
-        return true; // NEW message
-      }
-
-      this.logger.debug(`[DEDUP] Replay detected (Redis): ${messageId}`);
-      return false; // REPLAYED
-    } catch (error) {
-      // RC-2 FIX: FAIL CLOSED - If Redis unavailable, use in-memory fallback
-      // but log warning as this breaks distributed dedup
-      this.logger.warn(
-        `[DEDUP] Redis unavailable for ${messageId}, using in-memory fallback: ${error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      return this.checkAndMarkProcessedFallback(messageId);
-    }
-  }
-
-  /**
-   * In-memory fallback for deduplication (single-instance only)
-   * WARNING: Does not work across multiple workers!
-   */
-  private checkAndMarkProcessedFallback(messageId: string): boolean {
-    if (this.processedMessagesFallback.has(messageId)) {
-      this.logger.debug(`[DEDUP] Replay detected (fallback): ${messageId}`);
-      return false; // REPLAYED
-    }
-
-    // Enforce max cache size
-    if (this.processedMessagesFallback.size >= this.MAX_CACHE_SIZE) {
-      this.cleanupProcessedMessages();
-      if (this.processedMessagesFallback.size >= this.MAX_CACHE_SIZE) {
-        const entriesToRemove = Math.floor(this.MAX_CACHE_SIZE * 0.1);
-        const entries = Array.from(this.processedMessagesFallback.entries())
-          .sort((a, b) => a[1] - b[1])
-          .slice(0, entriesToRemove);
-        entries.forEach(([id]) => this.processedMessagesFallback.delete(id));
-      }
-    }
-
-    this.processedMessagesFallback.set(messageId, Date.now());
-    return true; // NEW message
-  }
-
-  /**
-   * Legacy method for backward compatibility
-   * @deprecated Use checkAndMarkProcessed instead
-   */
-  isReplayedMessage(messageId: string): boolean {
-    // Synchronous check for in-memory fallback only
-    return this.processedMessagesFallback.has(messageId);
-  }
-
-  /**
-   * Legacy method for backward compatibility
-   * @deprecated Use checkAndMarkProcessed instead
-   */
-  markMessageProcessed(messageId: string): void {
-    this.processedMessagesFallback.set(messageId, Date.now());
-  }
-
-  /**
-   * Clean up expired message IDs from fallback cache
-   * RC-9 FIX: Collect keys to delete first, then delete in separate pass
-   * This prevents concurrent modification issues during iteration
-   */
-  private cleanupProcessedMessages(): void {
-    const now = Date.now();
-    // RC-9 FIX: Collect keys first to avoid concurrent modification
-    const keysToDelete: string[] = [];
-    for (const [messageId, timestamp] of this.processedMessagesFallback.entries()) {
-      if (now - timestamp > this.MESSAGE_CACHE_TTL_MS) {
-        keysToDelete.push(messageId);
-      }
-    }
-    // Delete in separate pass
-    for (const key of keysToDelete) {
-      this.processedMessagesFallback.delete(key);
-    }
-    if (keysToDelete.length > 0) {
-      this.logger.debug(`[CACHE] Cleaned up ${keysToDelete.length} expired message IDs from fallback cache`);
     }
   }
 
@@ -637,44 +526,6 @@ export class GmailWebhookService {
   }
 
   /**
-   * RC-11 FIX: Update subscription statistics after receiving notification
-   * Uses update with where clause - Prisma increment is already atomic at DB level
-   */
-  private async updateSubscriptionStats(providerId: string): Promise<void> {
-    // RC-11 FIX: Use distributed lock to prevent race conditions during stats update
-    const lockKey = `webhook:stats:google:${providerId}`;
-    try {
-      await this.redisLock.withLock(lockKey, 2000, async () => {
-        const result = await this.prisma.webhookSubscription.updateMany({
-          where: {
-            providerId,
-            resourcePath: GMAIL_WEBHOOK_RESOURCE,
-          },
-          data: {
-            lastNotificationAt: new Date(),
-            notificationCount: { increment: 1 },
-            errorCount: 0,
-          },
-        });
-
-        if (result.count === 0) {
-          // RC-11 FIX: Log if no subscription exists but don't fail
-          this.logger.warn(
-            `RC-11: No Gmail subscription row found for stats update (providerId=${providerId}). Stats not recorded.`,
-          );
-        }
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Failed to acquire lock')) {
-        this.logger.debug(`Stats update already in progress for ${providerId}, skipping...`);
-        return;
-      }
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.debug(`Could not update stats for ${providerId}: ${errorMessage}`);
-    }
-  }
-
-  /**
    * Ensure a subscription row exists; warn and return false if missing.
    */
   private async ensureSubscriptionRow(providerId: string): Promise<boolean> {
@@ -693,65 +544,5 @@ export class GmailWebhookService {
     }
 
     return true;
-  }
-
-  /**
-   * Get Gmail webhook statistics
-   */
-  async getStats(): Promise<Partial<WebhookStats>> {
-    const total = await this.prisma.webhookSubscription.count({
-      where: { providerType: 'google', resourcePath: GMAIL_WEBHOOK_RESOURCE },
-    });
-
-    const active = await this.prisma.webhookSubscription.count({
-      where: {
-        providerType: 'google',
-        resourcePath: GMAIL_WEBHOOK_RESOURCE,
-        isActive: true,
-      },
-    });
-
-    const expiring = await this.prisma.webhookSubscription.count({
-      where: {
-        providerType: 'google',
-        resourcePath: GMAIL_WEBHOOK_RESOURCE,
-        isActive: true,
-        expiresAt: {
-          lte: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        },
-      },
-    });
-
-    const last1h = await this.prisma.webhookSubscription.count({
-      where: {
-        providerType: 'google',
-        resourcePath: GMAIL_WEBHOOK_RESOURCE,
-        lastNotificationAt: {
-          gte: new Date(Date.now() - 60 * 60 * 1000),
-        },
-      },
-    });
-
-    const withErrors = await this.prisma.webhookSubscription.count({
-      where: {
-        providerType: 'google',
-        resourcePath: GMAIL_WEBHOOK_RESOURCE,
-        errorCount: { gt: 0 },
-      },
-    });
-
-    return {
-      totalSubscriptions: total,
-      activeSubscriptions: active,
-      expiringWithin24h: expiring,
-      recentNotifications: {
-        last1h,
-        last24h: 0, // Would need separate query
-      },
-      errors: {
-        totalErrors: 0, // Would need aggregate
-        providersWithErrors: withErrors,
-      },
-    };
   }
 }

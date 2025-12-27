@@ -1148,20 +1148,30 @@ end
 
 ### 7.4 Duplicate Code (~525+ LOC across 9 patterns)
 
-| # | Pattern | Files | LOC | Refactoring |
-|---|---------|-------|-----|-------------|
+| # | Pattern | Files | LOC | Refactoring | Status |
+|---|---------|-------|-----|-------------|--------|
+| 1 | Webhook stats methods | gmail/microsoft-webhook.service.ts | 100 | Create `BaseWebhookService` | ✅ DONE |
+| 2 | Subscription stats update with Redis lock | gmail/microsoft-webhook.service.ts | 60 | Extract to base class | ✅ DONE |
+| 3 | In-memory cache cleanup logic | gmail/microsoft-webhook.service.ts | 50 | `cleanupExpiredCacheEntries()` in base | ✅ DONE |
+| 4 | Distributed lock with fallback | gmail/microsoft-webhook.service.ts | 100 | `checkAndMarkProcessed()` in base | ✅ DONE |
+| 5 | Attachment handler download methods | 3 attachment handlers | 69 | Move to `BaseAttachmentHandler` | Pending |
+| 6 | Provider type mismatch validation | 3 workers | 21 | Add to `BaseWorker` | Pending |
+| 7 | Worker config with limiter pattern | 4 workers | 50 | Create `WorkerConfigBuilder` | Pending |
+| 8 | Error message extraction | 10+ files | 60+ | `extractErrorMessage()` in base class | ✅ DONE |
+| 9 | Redis lock key generation | 3 workers | 15 | Use `BaseWorker.generateLockKey()` consistently | Pending |
 
-| 1 | Webhook stats methods | gmail/microsoft-webhook.service.ts | 100 | Create `BaseWebhookService` |
-| 2 | Subscription stats update with Redis lock | gmail/microsoft-webhook.service.ts | 60 | Extract to base class |
-| 3 | In-memory cache cleanup logic | gmail/microsoft-webhook.service.ts | 50 | Create `MapCacheWithTTL` utility |
-| 4 | Distributed lock with fallback | gmail/microsoft-webhook.service.ts | 100 | Create `DistributedDeduplicator` service |
-| 5 | Attachment handler download methods | 3 attachment handlers | 69 | Move to `BaseAttachmentHandler` |
-| 6 | Provider type mismatch validation | 3 workers | 21 | Add to `BaseWorker` |
-| 7 | Worker config with limiter pattern | 4 workers | 50 | Create `WorkerConfigBuilder` |
-| 8 | Error message extraction | 10+ files | 60+ | Use shared `extractErrorMessage()` |
-| 9 | Redis lock key generation | 3 workers | 15 | Use `BaseWorker.generateLockKey()` consistently |
+**BaseWebhookService Consolidation (2025-12-27):**
 
-**High Priority:** Pattern 4 - Create `DistributedDeduplicator` service for webhook deduplication.
+Created `base-webhook.service.ts` (~165 LOC) with common patterns:
+- `checkAndMarkProcessed()` - Atomic Redis dedup with in-memory fallback
+- `checkAndMarkProcessedFallback()` - Single-instance fallback cache
+- `cleanupExpiredCacheEntries()` - RC-9/RC-10 safe cache cleanup
+- `updateSubscriptionStats()` - RC-11 stats with Redis locking
+- `getStats()` - Provider-agnostic webhook statistics
+- `extractErrorMessage()` - Common error handling
+
+Both `GmailWebhookService` and `MicrosoftWebhookService` now extend `BaseWebhookService`.
+Microsoft keeps custom composite key dedup (`subscriptionId:resourceId:changeType`) and `staleRenewals` stat.
 
 ---
 

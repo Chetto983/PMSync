@@ -3,6 +3,7 @@ import { timingSafeEqual, randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { QueueService } from './queue.service';
+import { BaseWebhookService } from './base-webhook.service';
 import {
   MicrosoftGraphNotification,
   MicrosoftGraphSubscription,
@@ -29,8 +30,14 @@ interface ProcessedNotification {
 }
 
 @Injectable()
-export class MicrosoftWebhookService {
-  private readonly logger = new Logger(MicrosoftWebhookService.name);
+export class MicrosoftWebhookService extends BaseWebhookService {
+  protected readonly logger = new Logger(MicrosoftWebhookService.name);
+
+  // Abstract property implementations
+  protected readonly providerType = 'microsoft' as const;
+  protected readonly resourcePath = MICROSOFT_MAIL_RESOURCE;
+  protected readonly DEDUP_KEY_PREFIX = 'webhook:ms:dedup:';
+  protected readonly DEDUP_TTL_SECONDS = 300; // 5 minutes
 
   // Microsoft Graph subscriptions expire after max 4230 minutes (~ 3 days)
   private readonly DEFAULT_EXPIRATION_MINUTES = 4230;
@@ -45,19 +52,19 @@ export class MicrosoftWebhookService {
   private readonly RATE_LIMIT_MAX_REQUESTS = 100; // Max 100 notifications per minute per subscription
   private readonly RATE_LIMIT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // Cleanup every 5 minutes
 
-  // Security fix (SEC-1): Duplicate notification detection
-  // Microsoft can send duplicate notifications; track recently processed ones
+  // Security fix (SEC-1): Duplicate notification detection with composite keys
+  // Microsoft uses subscriptionId:resourceId:changeType for dedup
   private readonly processedNotifications: Map<string, ProcessedNotification> = new Map();
   private readonly NOTIFICATION_DEDUP_WINDOW_MS = 5 * 60 * 1000; // 5 minute dedup window
 
   constructor(
-    private prisma: PrismaService,
-    private queueService: QueueService,
-    private configService: ConfigService,
+    prisma: PrismaService,
+    queueService: QueueService,
+    configService: ConfigService,
     private providerTokenService: ProviderTokenService,
-    // RC-12 FIX: Inject RedisLockService for distributed deduplication
-    private readonly redisLock: RedisLockService,
+    redisLock: RedisLockService,
   ) {
+    super(prisma, queueService, configService, redisLock);
     // Start rate limit cleanup interval
     setInterval(() => this.cleanupRateLimitEntries(), this.RATE_LIMIT_CLEANUP_INTERVAL_MS);
   }
@@ -672,43 +679,6 @@ export class MicrosoftWebhookService {
         `Error cancelling Microsoft subscription: ${errorMessage}`,
       );
       throw error;
-    }
-  }
-
-  /**
-   * RC-11 FIX: Update subscription statistics after receiving notification
-   * Uses updateMany for safer handling when record might not exist
-   */
-  private async updateSubscriptionStats(providerId: string): Promise<void> {
-    const lockKey = `webhook:stats:microsoft:${providerId}`;
-    try {
-      await this.redisLock.withLock(lockKey, 2000, async () => {
-        const result = await this.prisma.webhookSubscription.updateMany({
-          where: {
-            providerId,
-            resourcePath: MICROSOFT_MAIL_RESOURCE,
-          },
-          data: {
-            lastNotificationAt: new Date(),
-            notificationCount: { increment: 1 },
-            errorCount: 0,
-          },
-        });
-
-        if (result.count === 0) {
-          // RC-11 FIX: Log if no subscription exists but don't fail
-          this.logger.warn(
-            `RC-11: No Microsoft subscription row found for stats update (providerId=${providerId}). Stats not recorded.`,
-          );
-        }
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Failed to acquire lock')) {
-        this.logger.debug(`Stats update already in progress for ${providerId}, skipping...`);
-        return;
-      }
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.debug(`Could not update stats for ${providerId}: ${errorMessage}`);
     }
   }
 
