@@ -9,6 +9,7 @@ import {
   ScheduledJobsQueueService,
   ScheduledJobType,
 } from '../../../common/services/scheduled-jobs.queue';
+import { formatBytes } from '../../../common/utils';
 
 /**
  * Result of a cleanup operation with detailed metrics
@@ -258,7 +259,7 @@ export class EmailCleanupService implements OnModuleInit {
         olderThanHours,
         cutoffDate: cutoff.toISOString(),
         ...result,
-        estimatedStorageReclaimHuman: this.formatBytes(totalBytes),
+        estimatedStorageReclaimHuman: formatBytes(totalBytes),
       }),
     );
 
@@ -311,17 +312,6 @@ export class EmailCleanupService implements OnModuleInit {
     }
 
     return { deleted, stillOrphaned: this.orphanedS3Keys.size };
-  }
-
-  /**
-   * Format bytes to human-readable string
-   */
-  private formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   async purgeSoftDeletedEmails(

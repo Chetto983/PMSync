@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { formatBytes } from '../../../common/utils';
 
 /**
  * Attachment operation types for metrics tracking
@@ -191,7 +192,7 @@ export class AttachmentMetricsService {
         event: 'attachment_dedup_hit',
         bytesSaved,
         ...this.formatContext(context),
-        message: `Attachment deduplicated, reused existing S3 object (saved ${this.formatBytes(bytesSaved)})`,
+        message: `Attachment deduplicated, reused existing S3 object (saved ${formatBytes(bytesSaved)})`,
       }),
     );
   }
@@ -333,7 +334,7 @@ export class AttachmentMetricsService {
       ...(context.filename && { filename: context.filename }),
       ...(context.contentHash && { contentHash: context.contentHash.substring(0, 16) + '...' }),
       ...(context.mimeType && { mimeType: context.mimeType }),
-      ...(context.size && { size: context.size, sizeHuman: this.formatBytes(context.size) }),
+      ...(context.size && { size: context.size, sizeHuman: formatBytes(context.size) }),
     };
   }
 
@@ -359,16 +360,5 @@ export class AttachmentMetricsService {
     } else {
       this.logger.debug(JSON.stringify(logData));
     }
-  }
-
-  /**
-   * Format bytes to human-readable string
-   */
-  private formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }

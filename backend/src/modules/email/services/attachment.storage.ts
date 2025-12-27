@@ -5,6 +5,7 @@ import {
   AttachmentMetricsService,
   AttachmentLogContext,
 } from './attachment-metrics.service';
+import { formatBytes } from '../../../common/utils';
 
 /**
  * Provider-agnostic attachment metadata
@@ -170,12 +171,12 @@ export class AttachmentStorageService {
         filename: attachment.filename,
         contentHash: hash.substring(0, 16) + '...',
         size: attachment.content.byteLength,
-        sizeHuman: this.formatBytes(attachment.content.byteLength),
+        sizeHuman: formatBytes(attachment.content.byteLength),
         dedupHit,
         durationMs: totalDuration,
         storagePath: key,
         message: dedupHit
-          ? `Reused existing S3 object for ${attachment.filename} (saved ${this.formatBytes(attachment.content.byteLength)})`
+          ? `Reused existing S3 object for ${attachment.filename} (saved ${formatBytes(attachment.content.byteLength)})`
           : `Uploaded ${attachment.filename} to S3`,
       }),
     );
@@ -195,14 +196,6 @@ export class AttachmentStorageService {
   /**
    * Format bytes to human-readable string
    */
-  private formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
   /**
    * Parse pending storage path to extract provider reference
    * Format: "providerId/externalMessageId/externalAttachmentId"
@@ -443,7 +436,7 @@ export class AttachmentStorageService {
         dedupMissCount,
         dedupRatio: attachments.length > 0 ? dedupHitCount / attachments.length : 0,
         totalBytes,
-        totalBytesHuman: this.formatBytes(totalBytes),
+        totalBytesHuman: formatBytes(totalBytes),
         durationMs,
         avgPerAttachment: attachments.length > 0 ? durationMs / attachments.length : 0,
       }),

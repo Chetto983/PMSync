@@ -9,6 +9,7 @@ import { ProviderTokenService } from '../../email-sync/services/provider-token.s
 import { CryptoService } from '../../../common/services/crypto.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { AttachmentMetricsService, AttachmentLogContext } from './attachment-metrics.service';
+import { formatBytes } from '../../../common/utils';
 
 /**
  * AttachmentOnDemandService - Downloads attachments lazily when requested
@@ -249,7 +250,7 @@ export class AttachmentOnDemandService {
             size: buffer.byteLength,
             dedupHit: uploaded.dedupHit,
             durationMs: duration,
-            message: `Downloaded and cached ${attachment.filename} (${this.formatBytes(buffer.byteLength)})`,
+            message: `Downloaded and cached ${attachment.filename} (${formatBytes(buffer.byteLength)})`,
           }),
         );
 
@@ -261,17 +262,6 @@ export class AttachmentOnDemandService {
       },
       { maxRetries: 3 },
     );
-  }
-
-  /**
-   * Format bytes to human-readable string
-   */
-  private formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   /**
