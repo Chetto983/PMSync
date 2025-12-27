@@ -10,6 +10,8 @@ import { AttachmentStorageService } from './services/attachment.storage';
 import { AttachmentOnDemandService } from './services/attachment-on-demand.service';
 import { AttachmentMetricsService } from './services/attachment-metrics.service';
 import { ScheduledEmailService } from './services/scheduled-email.service';
+import { ProviderValidationService } from './services/provider-validation.service';
+import { FolderLookupService } from './services/folder-lookup.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { AiModule } from '../ai/ai.module';
@@ -57,6 +59,9 @@ import { CalendarModule } from '../calendar/calendar.module';
     AttachmentMetricsService, // Centralized metrics for attachments
     StorageService,
     ProviderTokenService,
+    // Shared utility services (Phase 3 consolidation)
+    ProviderValidationService,
+    FolderLookupService,
   ],
   controllers: [EmailsController, AttachmentsController],
   exports: [
@@ -72,6 +77,9 @@ import { CalendarModule } from '../calendar/calendar.module';
     AttachmentMetricsService, // Export for cross-module access
     StorageService,
     ScheduledEmailService,
+    // Shared utility services (Phase 3 consolidation)
+    ProviderValidationService,
+    FolderLookupService,
   ],
 })
-export class EmailModule {}
+export class EmailModule { }

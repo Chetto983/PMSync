@@ -29,6 +29,7 @@ import { CryptoService } from '../../../common/services/crypto.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { QUEUE_NAMES } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
+import { parseImapExternalId as parseImapExternalIdShared } from '../utils/imap.utils';
 
 @Injectable()
 export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResult> {
@@ -412,29 +413,20 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
 
   /**
    * Parse IMAP external ID to extract folder and UID
-   * Supports both formats:
-   * - New format: "folder:uid" (e.g., "INBOX:123")
-   * - Legacy format: just UID (e.g., "123")
-   *
-   * BUG-006 FIX: Now returns null instead of NaN for invalid UIDs
-   * @param externalId The external ID to parse
-   * @returns Object with folder (or null) and uid (or null for invalid)
+   * Uses shared parseImapExternalId utility with null-safe wrapper
+   * @see email-sync/utils/imap.utils.ts for implementation
    */
-  private parseImapExternalId(externalId: string): { folder: string | null; uid: number | null } {
-    const lastColon = externalId.lastIndexOf(':');
-
-    if (lastColon > 0) {
-      // New format: "folder:uid"
-      const folder = externalId.substring(0, lastColon);
-      const uidStr = externalId.substring(lastColon + 1);
-      const uid = parseInt(uidStr, 10);
-      // BUG-006 FIX: Return null instead of NaN for invalid UIDs
-      return { folder, uid: Number.isFinite(uid) && uid > 0 ? uid : null };
+  private parseImapExternalIdSafe(externalId: string): { folder: string | null; uid: number | null } {
+    try {
+      const { folderPath, uid } = parseImapExternalIdShared(externalId);
+      const uidNum = parseInt(uid, 10);
+      return {
+        folder: folderPath,
+        uid: Number.isFinite(uidNum) && uidNum > 0 ? uidNum : null,
+      };
+    } catch {
+      return { folder: null, uid: null };
     }
-
-    // Legacy format: just UID
-    const uid = parseInt(externalId, 10);
-    return { folder: null, uid: Number.isFinite(uid) && uid > 0 ? uid : null };
   }
 
   private async syncToImap(
@@ -509,7 +501,7 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
       const messagesByFolder = new Map<string, number[]>();
 
       for (const externalId of externalIds) {
-        const { folder, uid } = this.parseImapExternalId(externalId);
+        const { folder, uid } = this.parseImapExternalIdSafe(externalId);
 
         // BUG-006 FIX: Check for null instead of NaN
         if (uid === null) {

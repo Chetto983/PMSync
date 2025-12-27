@@ -7,8 +7,15 @@ import {
   MaxLength,
   ArrayMaxSize,
   ValidateNested,
+  IsInt,
+  IsPositive,
+  Max,
 } from 'class-validator';
 
+/**
+ * Attachment DTO with size validation
+ * FIX (BUG-010, BUG-019): Added size validation with positive check and max limit
+ */
 class EmailAttachmentDto {
   @IsString()
   filename!: string;
@@ -17,7 +24,14 @@ class EmailAttachmentDto {
   contentType!: string;
 
   @IsString()
+  @MaxLength(35_000_000, { message: 'Attachment content exceeds 25MB base64 limit' }) // ~25MB in base64
   contentBase64!: string;
+
+  @IsOptional()
+  @IsInt({ message: 'Attachment size must be an integer' })
+  @IsPositive({ message: 'Attachment size must be positive' })
+  @Max(26_214_400, { message: 'Attachment size exceeds 25MB limit' }) // 25MB
+  size?: number;
 }
 
 class BaseComposeEmailDto {
@@ -69,6 +83,6 @@ export class SendEmailRequestDto extends BaseComposeEmailDto {
   providerId!: string;
 }
 
-export class ReplyForwardEmailRequestDto extends BaseComposeEmailDto {}
+export class ReplyForwardEmailRequestDto extends BaseComposeEmailDto { }
 
 export type { EmailAttachmentDto };
