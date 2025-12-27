@@ -33,6 +33,7 @@ import { EmailFetchService } from '../services/email-fetch.service';
 import { EmailSendService } from '../services/email-send.service';
 import { EmailCleanupService } from '../services/email-cleanup.service';
 import { StorageService } from '../services/storage.service';
+import { AttachmentOnDemandService } from '../services/attachment-on-demand.service';
 import {
   ReplyForwardEmailRequestDto,
   SendEmailRequestDto,
@@ -77,6 +78,7 @@ export class EmailsController {
     private emailSendService: EmailSendService,
     private cleanupService: EmailCleanupService,
     private storageService: StorageService,
+    private attachmentOnDemandService: AttachmentOnDemandService,
     private prisma: PrismaService,
     private icsGenerator: IcsGeneratorService,
     private calendarService: CalendarService,
@@ -171,14 +173,30 @@ export class EmailsController {
     if (to) filters.to = to;
     if (subject) filters.subject = subject;
     if (labelIds) filters.labelIds = labelIds.split(',').map(id => id.trim()).filter(Boolean);
-    if (startDate) filters.startDate = new Date(startDate);
-    if (endDate) filters.endDate = new Date(endDate);
+    if (startDate) {
+      const parsedStartDate = new Date(startDate);
+      if (Number.isNaN(parsedStartDate.getTime())) {
+        throw new BadRequestException('Invalid startDate: must be a valid ISO 8601 date');
+      }
+      filters.startDate = parsedStartDate;
+    }
+    if (endDate) {
+      const parsedEndDate = new Date(endDate);
+      if (Number.isNaN(parsedEndDate.getTime())) {
+        throw new BadRequestException('Invalid endDate: must be a valid ISO 8601 date');
+      }
+      filters.endDate = parsedEndDate;
+    }
+    if (filters.startDate && filters.endDate && filters.startDate > filters.endDate) {
+      throw new BadRequestException('startDate cannot be after endDate');
+    }
 
     return this.emailsService.listEmails({
       tenantId,
       providerId,
       page: parsedPage,
       limit: parsedLimit,
+      maxLimit: this.maxEmailListLimit,
       filters,
     });
   }
@@ -206,7 +224,13 @@ export class EmailsController {
     @Query('limit') limit?: string,
   ) {
     const tenantId = req.user.tenantId;
-    const parsedLimit = limit ? Math.min(parseInt(limit) || 20, 100) : 20;
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    if (Number.isNaN(parsedLimit) || parsedLimit < 1) {
+      throw new BadRequestException('Invalid limit: must be a positive number');
+    }
+    if (parsedLimit > 100) {
+      throw new BadRequestException('Limit cannot exceed 100');
+    }
     const emails = await this.emailsService.searchEmails(
       tenantId,
       query,
@@ -229,12 +253,26 @@ export class EmailsController {
     @Query('folder') folder?: string,
   ) {
     const tenantId = req.user.tenantId;
+    const parsedPage = page ? parseInt(page, 10) : 1;
+    const parsedLimit = limit ? parseInt(limit, 10) : 50;
+    if (Number.isNaN(parsedPage) || Number.isNaN(parsedLimit)) {
+      throw new BadRequestException('Invalid pagination parameters: page and limit must be numbers');
+    }
+    if (parsedPage < 1) {
+      throw new BadRequestException('Page must be at least 1');
+    }
+    if (parsedLimit < 1) {
+      throw new BadRequestException('Limit must be at least 1');
+    }
+    if (parsedLimit > this.maxEmailListLimit) {
+      throw new BadRequestException(`Limit cannot exceed ${this.maxEmailListLimit}`);
+    }
     return this.emailsService.getConversations({
       tenantId,
       providerId,
       folder,
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 50,
+      page: parsedPage,
+      limit: parsedLimit,
     });
   }
 
@@ -943,6 +981,10 @@ export class EmailsController {
     if (attachment.storageType === 's3' && attachment.storagePath) {
       const signedUrl = await this.storageService.getSignedDownloadUrl(attachment.storagePath);
       return res.redirect(signedUrl);
+    }
+    if (attachment.storageType === 'pending') {
+      const result = await this.attachmentOnDemandService.downloadAttachment(attachmentId, tenantId);
+      return res.redirect(result.url);
     }
 
     return res.status(400).json({ message: 'Invalid or unsupported storage configuration' });

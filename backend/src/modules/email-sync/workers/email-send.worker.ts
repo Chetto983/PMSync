@@ -91,12 +91,8 @@ export class EmailSendWorker extends BaseWorker<EmailSendJobData, EmailSendJobRe
         throw new Error('Provider does not belong to tenant');
       }
 
-      // AUDIT FIX #7: Verify provider type matches job data
-      if (provider.providerType !== providerType) {
-        throw new Error(
-          `Provider type mismatch: job claims '${providerType}' but provider is '${provider.providerType}'`,
-        );
-      }
+      // AUDIT FIX #7: Verify provider type matches job data (DC-6 consolidated)
+      this.validateProviderType(provider.providerType, providerType, providerId);
 
       // Build driver credentials and create connected driver
       const credentials = await this.buildDriverCredentials(provider, providerType as ProviderType);

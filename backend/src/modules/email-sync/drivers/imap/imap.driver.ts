@@ -944,8 +944,7 @@ export class IMAPDriver extends BaseEmailDriver {
   ): Promise<CanonicalMessage | null> {
     return this.withConnection(async (client) => {
       // messageId format: "folder:uid"
-      const [folderPath, uidStr] = this.parseMessageId(messageId);
-      const uid = parseInt(uidStr, 10);
+      const [folderPath, uid] = this.parseMessageId(messageId);
 
       const lock = await client.getMailboxLock(folderPath);
       try {
@@ -1097,8 +1096,7 @@ export class IMAPDriver extends BaseEmailDriver {
 
   async moveMessage(messageId: string, targetFolder: string): Promise<void> {
     return this.withConnection(async (client) => {
-      const [sourceFolder, uidStr] = this.parseMessageId(messageId);
-      const uid = parseInt(uidStr, 10);
+      const [sourceFolder, uid] = this.parseMessageId(messageId);
       const targetPath = await this.resolveFolder(targetFolder);
 
       const lock = await client.getMailboxLock(sourceFolder);
@@ -1112,8 +1110,7 @@ export class IMAPDriver extends BaseEmailDriver {
 
   async copyMessage(messageId: string, targetFolder: string): Promise<string> {
     return this.withConnection(async (client) => {
-      const [sourceFolder, uidStr] = this.parseMessageId(messageId);
-      const uid = parseInt(uidStr, 10);
+      const [sourceFolder, uid] = this.parseMessageId(messageId);
       const targetPath = await this.resolveFolder(targetFolder);
 
       const lock = await client.getMailboxLock(sourceFolder);
@@ -1134,8 +1131,7 @@ export class IMAPDriver extends BaseEmailDriver {
 
   async deleteMessage(messageId: string, permanent = false): Promise<void> {
     return this.withConnection(async (client) => {
-      const [folderPath, uidStr] = this.parseMessageId(messageId);
-      const uid = parseInt(uidStr, 10);
+      const [folderPath, uid] = this.parseMessageId(messageId);
 
       const lock = await client.getMailboxLock(folderPath);
       try {
@@ -1160,8 +1156,7 @@ export class IMAPDriver extends BaseEmailDriver {
 
   async setReadStatus(messageId: string, isRead: boolean): Promise<void> {
     return this.withConnection(async (client) => {
-      const [folderPath, uidStr] = this.parseMessageId(messageId);
-      const uid = parseInt(uidStr, 10);
+      const [folderPath, uid] = this.parseMessageId(messageId);
 
       const lock = await client.getMailboxLock(folderPath);
       try {
@@ -1178,8 +1173,7 @@ export class IMAPDriver extends BaseEmailDriver {
 
   async setStarredStatus(messageId: string, isStarred: boolean): Promise<void> {
     return this.withConnection(async (client) => {
-      const [folderPath, uidStr] = this.parseMessageId(messageId);
-      const uid = parseInt(uidStr, 10);
+      const [folderPath, uid] = this.parseMessageId(messageId);
 
       const lock = await client.getMailboxLock(folderPath);
       try {
@@ -1210,8 +1204,7 @@ export class IMAPDriver extends BaseEmailDriver {
     const byFolder = new Map<string, Array<{ uid: number; isRead: boolean }>>();
 
     for (const update of updates) {
-      const [folder, uidStr] = this.parseMessageId(update.id);
-      const uid = parseInt(uidStr, 10);
+      const [folder, uid] = this.parseMessageId(update.id);
 
       if (!byFolder.has(folder)) {
         byFolder.set(folder, []);
@@ -1248,8 +1241,7 @@ export class IMAPDriver extends BaseEmailDriver {
     const byFolder = new Map<string, number[]>();
 
     for (const id of messageIds) {
-      const [folder, uidStr] = this.parseMessageId(id);
-      const uid = parseInt(uidStr, 10);
+      const [folder, uid] = this.parseMessageId(id);
 
       if (!byFolder.has(folder)) {
         byFolder.set(folder, []);
@@ -1280,8 +1272,7 @@ export class IMAPDriver extends BaseEmailDriver {
       const byFolder = new Map<string, number[]>();
 
       for (const id of messageIds) {
-        const [folder, uidStr] = this.parseMessageId(id);
-        const uid = parseInt(uidStr, 10);
+        const [folder, uid] = this.parseMessageId(id);
 
         if (!byFolder.has(folder)) {
           byFolder.set(folder, []);
@@ -1321,8 +1312,7 @@ export class IMAPDriver extends BaseEmailDriver {
 
     // Get the raw message to extract attachment
     return this.withConnection(async (client) => {
-      const [folderPath, uidStr] = this.parseMessageId(messageId);
-      const uid = parseInt(uidStr, 10);
+      const [folderPath, uid] = this.parseMessageId(messageId);
 
       const lock = await client.getMailboxLock(folderPath);
       try {
@@ -1756,14 +1746,32 @@ export class IMAPDriver extends BaseEmailDriver {
 
   /**
    * Parse message ID to [folder, uid]
+   * BUG-002 FIX: Now validates UID is numeric and returns parsed number
+   * @throws Error if UID is not a valid positive integer
    */
-  private parseMessageId(messageId: string): [string, string] {
+  private parseMessageId(messageId: string): [string, number] {
     const lastColon = messageId.lastIndexOf(':');
+    let folderPath: string;
+    let uidStr: string;
+
     if (lastColon < 0) {
       // Assume INBOX if no folder specified
-      return ['INBOX', messageId];
+      folderPath = 'INBOX';
+      uidStr = messageId;
+    } else {
+      folderPath = messageId.substring(0, lastColon);
+      uidStr = messageId.substring(lastColon + 1);
     }
-    return [messageId.substring(0, lastColon), messageId.substring(lastColon + 1)];
+
+    // BUG-002 FIX: Validate UID is a valid positive integer
+    const uid = parseInt(uidStr, 10);
+    if (!Number.isFinite(uid) || uid <= 0) {
+      throw new Error(
+        `Invalid IMAP message ID "${messageId}": UID "${uidStr}" is not a valid positive integer`,
+      );
+    }
+
+    return [folderPath, uid];
   }
 
   /**

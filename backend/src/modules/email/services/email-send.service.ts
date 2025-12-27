@@ -45,51 +45,6 @@ export class EmailSendService {
   ) {}
 
   /**
-   * Schedule email for later (called when scheduledAt is provided)
-   */
-  async scheduleEmail(data: SendEmailDto): Promise<{ id: string; scheduledAt: Date }> {
-    if (!data.scheduledAt) {
-      throw new BadRequestException('scheduledAt is required for scheduling');
-    }
-
-    const scheduledAt = new Date(data.scheduledAt);
-    if (scheduledAt <= new Date()) {
-      throw new BadRequestException('scheduledAt must be in the future');
-    }
-
-    const provider = await this.getActiveEmailProvider(data.tenantId, data.providerId);
-
-    const scheduled = await this.prisma.scheduledEmail.create({
-      data: {
-        tenantId: data.tenantId,
-        providerId: provider.id,
-        to: data.to,
-        cc: data.cc || [],
-        bcc: data.bcc || [],
-        subject: data.subject,
-        bodyHtml: data.bodyHtml,
-        bodyText: data.bodyText,
-        inReplyTo: data.inReplyTo,
-        references: data.references,
-        attachments: data.attachments ? JSON.stringify(data.attachments.map(att => ({
-          filename: att.filename,
-          contentType: att.contentType,
-          contentBase64: att.content.toString('base64'),
-        }))) : undefined,
-        scheduledAt,
-        status: 'pending',
-      },
-    });
-
-    this.logger.log(`Email scheduled for ${scheduledAt.toISOString()}: ${scheduled.id}`);
-
-    return {
-      id: scheduled.id,
-      scheduledAt: scheduled.scheduledAt,
-    };
-  }
-
-  /**
    * Queue email for async sending via BullMQ worker.
    * Use this for non-blocking sends where you don't need immediate feedback.
    *
@@ -97,6 +52,7 @@ export class EmailSendService {
    */
   async queueSend(data: SendEmailDto): Promise<{ jobId: string }> {
     const provider = await this.getActiveEmailProvider(data.tenantId, data.providerId);
+    const providerType = provider.providerType === 'generic' ? 'imap' : provider.providerType;
 
     // Convert attachments to base64 for queue serialization
     const attachmentsForQueue = data.attachments?.map((att) => ({
@@ -109,7 +65,7 @@ export class EmailSendService {
     const jobId = await this.emailSendQueue.enqueueSend({
       tenantId: data.tenantId,
       providerId: provider.id,
-      providerType: provider.providerType as 'google' | 'microsoft' | 'imap',
+      providerType: providerType as 'google' | 'microsoft' | 'imap',
       email: {
         to: data.to.map((email) => ({ email })),
         cc: data.cc?.map((email) => ({ email })),
@@ -145,6 +101,10 @@ export class EmailSendService {
    */
   async sendEmail(data: SendEmailDto): Promise<{ success: boolean; messageId: string }> {
     const provider = await this.getActiveEmailProvider(data.tenantId, data.providerId);
+    const providerType = provider.providerType === 'generic' ? 'imap' : provider.providerType;
+
+    type ConnectedDriver = Awaited<ReturnType<EmailDriverFactory['createConnectedDriver']>>;
+    let driver: ConnectedDriver | null = null;
 
     try {
       // Process attachments first
@@ -162,7 +122,7 @@ export class EmailSendService {
           : [];
 
       // Get access token (SMTP password for IMAP, OAuth token for others)
-      const isImapProvider = provider.providerType === 'imap';
+      const isImapProvider = providerType === 'imap';
       const accessToken = isImapProvider
         ? await this.getSmtpPassword(provider)
         : await this.getAccessToken(provider);
@@ -187,8 +147,8 @@ export class EmailSendService {
           };
 
       // Create connected driver
-      const driver = await this.driverFactory.createConnectedDriver(
-        provider.providerType as 'google' | 'microsoft' | 'imap',
+      driver = await this.driverFactory.createConnectedDriver(
+        providerType as 'google' | 'microsoft' | 'imap',
         credentials,
       );
 
@@ -222,9 +182,6 @@ export class EmailSendService {
 
       this.logger.log(`Email sent successfully via ${provider.providerType}: ${messageId}`);
 
-      // Disconnect driver
-      await driver.disconnect();
-
       // Save to database
       await this.saveSentEmail(data, messageId, provider.id, uploadedAttachments);
 
@@ -234,6 +191,18 @@ export class EmailSendService {
       const stack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Failed to send email via ${provider.providerType}: ${message}`, stack);
       throw new BadRequestException(`Failed to send email: ${message}`);
+    } finally {
+      if (driver) {
+        try {
+          await driver.disconnect();
+        } catch (disconnectError) {
+          this.logger.warn(
+            `Failed to disconnect email driver for ${provider.providerType}: ${
+              disconnectError instanceof Error ? disconnectError.message : String(disconnectError)
+            }`,
+          );
+        }
+      }
     }
   }
 

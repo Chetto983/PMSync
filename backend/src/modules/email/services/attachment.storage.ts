@@ -1,5 +1,4 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { StorageService } from './storage.service';
 import { createHash } from 'crypto';
 import {
@@ -332,14 +331,6 @@ export class AttachmentStorageService {
    */
   private isImageMimeType(mimeType: string): boolean {
     return mimeType.startsWith('image/');
-  }
-
-  /**
-   * Build S3 object key for attachment storage
-   */
-  private buildObjectKey(tenantId: string, providerId: string, filename: string): string {
-    const safeName = filename.replace(/[^\w.\-]/g, '_');
-    return `tenants/${tenantId}/providers/${providerId}/attachments/${randomUUID()}-${safeName}`;
   }
 
   /**

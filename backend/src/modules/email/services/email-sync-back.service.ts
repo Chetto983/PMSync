@@ -757,6 +757,7 @@ export class EmailSyncBackService {
     const microsoftByProvider = new Map<string, EmailSyncOperation[]>();
     const imapByProvider = new Map<string, EmailSyncOperation[]>();
     const otherOps: EmailSyncOperation[] = [];
+    const providerTenantMap = new Map<string, string>();
 
     for (const op of operations) {
       // Bug #9 fix: Validate externalId in batch operations too
@@ -768,8 +769,16 @@ export class EmailSyncBackService {
         this.logger.error(`Skipping operation with missing providerId for email ${op.emailId}`);
         continue;
       }
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: op.providerId },
+      const existingTenantId = providerTenantMap.get(op.providerId);
+      if (existingTenantId && existingTenantId !== op.tenantId) {
+        this.logger.error(
+          `Provider ${op.providerId} referenced by multiple tenants in batch sync; skipping operation for email ${op.emailId}`,
+        );
+        continue;
+      }
+
+      const provider = await this.prisma.providerConfig.findFirst({
+        where: { id: op.providerId, tenantId: op.tenantId },
         select: { id: true, providerType: true },
       });
       // Bug #6 fix: Log error when provider not found instead of silently failing
@@ -777,6 +786,7 @@ export class EmailSyncBackService {
         this.logger.error(`Provider ${op.providerId} not found for operation ${op.operation} on email ${op.emailId}`);
         continue;
       }
+      providerTenantMap.set(op.providerId, op.tenantId);
       const type = provider.providerType?.toUpperCase();
       if (type === 'GOOGLE') {
         const list = gmailByProvider.get(op.providerId) ?? [];
@@ -797,9 +807,12 @@ export class EmailSyncBackService {
 
     // Process Gmail batches
     for (const [providerId, ops] of gmailByProvider) {
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
-      });
+      const tenantId = providerTenantMap.get(providerId);
+      const provider = tenantId
+        ? await this.prisma.providerConfig.findFirst({
+            where: { id: providerId, tenantId },
+          })
+        : null;
       if (!provider) {
         this.logger.error(`Gmail provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
         continue;
@@ -809,9 +822,12 @@ export class EmailSyncBackService {
 
     // Process Microsoft batches
     for (const [providerId, ops] of microsoftByProvider) {
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
-      });
+      const tenantId = providerTenantMap.get(providerId);
+      const provider = tenantId
+        ? await this.prisma.providerConfig.findFirst({
+            where: { id: providerId, tenantId },
+          })
+        : null;
       if (!provider) {
         this.logger.error(`Microsoft provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
         continue;
@@ -821,9 +837,12 @@ export class EmailSyncBackService {
 
     // Process IMAP batches (Sequential over single connection)
     for (const [providerId, ops] of imapByProvider) {
-      const provider = await this.prisma.providerConfig.findUnique({
-        where: { id: providerId },
-      });
+      const tenantId = providerTenantMap.get(providerId);
+      const provider = tenantId
+        ? await this.prisma.providerConfig.findFirst({
+            where: { id: providerId, tenantId },
+          })
+        : null;
       if (!provider) {
         this.logger.error(`IMAP provider ${providerId} not found during batch sync, skipping ${ops.length} operations`);
         continue;
@@ -1274,8 +1293,8 @@ export class EmailSyncBackService {
       where: {
         providerId,
         OR: [
-          { specialUse: folderName },
-          { specialUse: folderName.toUpperCase() },
+          { path: { equals: folderName, mode: 'insensitive' } },
+          { specialUse: { equals: folderName, mode: 'insensitive' } },
           { name: { equals: folderName, mode: 'insensitive' } },
         ],
       },

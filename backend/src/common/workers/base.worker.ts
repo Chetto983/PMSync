@@ -336,4 +336,28 @@ export abstract class BaseWorker<TData, TResult> implements OnModuleInit, OnModu
   protected generateLockKey(resource: string, resourceId: string): string {
     return `lock:${this.workerName}:${resource}:${resourceId}`;
   }
+
+  /**
+   * Utility: Validate provider type matches job data
+   *
+   * DC-6 CONSOLIDATION: Prevents malicious or corrupted jobs from operating
+   * on wrong provider type. Previously duplicated across email-send and sync-back workers.
+   *
+   * @param actualType - The provider's actual type from database
+   * @param expectedType - The type claimed by the job data
+   * @param context - Additional context for error message (e.g., providerId)
+   * @throws Error if types don't match
+   */
+  protected validateProviderType(
+    actualType: string,
+    expectedType: string,
+    context?: string,
+  ): void {
+    if (actualType !== expectedType) {
+      const contextStr = context ? ` (${context})` : '';
+      throw new Error(
+        `Provider type mismatch${contextStr}: job claims '${expectedType}' but provider is '${actualType}'`,
+      );
+    }
+  }
 }

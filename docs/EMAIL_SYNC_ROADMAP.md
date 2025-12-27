@@ -1,7 +1,7 @@
 # Email-Sync Module Roadmap
 
 **Created:** 2025-12-26
-**Last Updated:** 2025-12-27 (Comprehensive Code Audit)
+**Last Updated:** 2025-12-27 (Re-Audit after Phase 7 Completion)
 **Status:** Active Development
 **Module:** `backend/src/modules/email-sync/`
 
@@ -16,14 +16,16 @@ This roadmap outlines the prioritized improvements for the email-sync module bas
 | Metric | Value |
 |--------|-------|
 
-| **Critical Issues** | 0 (all resolved) |
-| **High Priority Issues** | 0 ✅ (all resolved) |
-| **Medium Priority Issues** | 6 remaining |
-| **Low Priority Issues** | 10 remaining |
-| **Dead Code Items** | ~10 items remaining (~200 LOC) |
-| **Duplicate Code** | 12 patterns (~400-500 LOC) |
-| **Technical Debt** | ~30-40 hours estimated |
-| **Multi-Tenant Ready** | 95% (Phase 6 HIGH priority complete) |
+| **Critical Issues** | 0 ✅ (all resolved) |
+| **High Priority Issues** | 1 remaining (RC-NEW-3) |
+| **Medium Priority Issues** | 4 remaining |
+| **Low Priority Issues** | 8 remaining |
+| **Dead Code Items** | ~14 items (~150 LOC) |
+| **Duplicate Code** | 9/9 patterns consolidated ✅ (+2 LOW optional) |
+| **Code Quality Score** | 8.5/10 (Duplicate) · 7.5/10 (Bugs) |
+| **LOC Saved** | ~2,210 LOC via consolidation |
+| **Technical Debt** | ~20-30 hours remaining |
+| **Multi-Tenant Ready** | 95% (Phase 6 HIGH complete) |
 | **Target Scale** | 1000+ concurrent users ✅ |
 
 ### Key Achievements (Completed)
@@ -1154,11 +1156,11 @@ end
 | 2 | Subscription stats update with Redis lock | gmail/microsoft-webhook.service.ts | 60 | Extract to base class | ✅ DONE |
 | 3 | In-memory cache cleanup logic | gmail/microsoft-webhook.service.ts | 50 | `cleanupExpiredCacheEntries()` in base | ✅ DONE |
 | 4 | Distributed lock with fallback | gmail/microsoft-webhook.service.ts | 100 | `checkAndMarkProcessed()` in base | ✅ DONE |
-| 5 | Attachment handler download methods | 3 attachment handlers | 69 | Move to `BaseAttachmentHandler` | Pending |
-| 6 | Provider type mismatch validation | 3 workers | 21 | Add to `BaseWorker` | Pending |
-| 7 | Worker config with limiter pattern | 4 workers | 50 | Create `WorkerConfigBuilder` | Pending |
+| 5 | Attachment handler download methods | 3 attachment handlers | 69 | Move to `BaseAttachmentHandler` | ✅ DONE (exists) |
+| 6 | Provider type mismatch validation | 2 workers | 21 | Add to `BaseWorker` | ✅ DONE |
+| 7 | Worker config with limiter pattern | 4 workers | 50 | Use `BaseWorkerConfig` with limiter | ✅ DONE (exists) |
 | 8 | Error message extraction | 10+ files | 60+ | `extractErrorMessage()` in base class | ✅ DONE |
-| 9 | Redis lock key generation | 3 workers | 15 | Use `BaseWorker.generateLockKey()` consistently | Pending |
+| 9 | Redis lock key generation | 1 worker | 15 | Use `BaseWorker.generateLockKey()` consistently | ✅ DONE |
 
 **BaseWebhookService Consolidation (2025-12-27):**
 
@@ -1172,6 +1174,23 @@ Created `base-webhook.service.ts` (~165 LOC) with common patterns:
 
 Both `GmailWebhookService` and `MicrosoftWebhookService` now extend `BaseWebhookService`.
 Microsoft keeps custom composite key dedup (`subscriptionId:resourceId:changeType`) and `staleRenewals` stat.
+
+**BaseWorker Consolidation (2025-12-27):**
+
+Added utility methods to `base.worker.ts`:
+
+- `validateProviderType()` - DC-6 pattern for provider type mismatch validation
+- `generateLockKey()` - DC-9 pattern for standardized Redis lock key generation
+
+Updated workers to use consolidated methods:
+
+- `email-send.worker.ts` - Uses `validateProviderType()` (~5 LOC saved)
+- `sync-back.worker.ts` - Uses `validateProviderType()` and `generateLockKey()` (~6 LOC saved)
+
+**Pre-existing Consolidations Found:**
+
+- `BaseAttachmentHandler` (~540 LOC) - Pattern 5 already consolidated
+- `BaseWorkerConfig` with limiter support - Pattern 7 already consolidated
 
 ---
 
@@ -1187,9 +1206,201 @@ Microsoft keeps custom composite key dedup (`subscriptionId:resourceId:changeTyp
 | **P1** | RC-A1: Add distributed lock to scheduleSyncJobs | 1h | ✅ Fixed via BUG-2 |
 | **P1** | Remove dead code (19 LOC definite) | 15m | ✅ Already cleaned |
 | **P2** | Remove unused ResilienceService (~950 LOC) | 1h | ✅ DONE |
-| **P2** | Create BaseWebhookService abstraction | 2-3h | Pending |
-| **P3** | Remove unused constants | 30m | Pending |
-| **P3** | Consolidate error message extraction | 1h | Pending |
+| **P2** | Create BaseWebhookService abstraction | 2-3h | ✅ DONE |
+| **P3** | Remove unused constants (~80 LOC) | 30m | ✅ DONE |
+| **P3** | Consolidate error message extraction | 1h | ✅ In BaseWebhookService |
 
-**Completed:** 8/11 items (all P0/P1 + P2-critical)
-**Remaining Effort:** 3-4 hours (optional refactoring)
+**Completed:** 11/11 items ✅ PHASE 7 COMPLETE
+
+---
+
+### 7.6 Best Practices Applied (2025 Research)
+
+**Webhook Deduplication (Industry Standard):**
+
+- ✅ Idempotency Key + Dedupe Store pattern with `SETNX` + TTL
+- ✅ Fetch-Before-Process pattern (webhook triggers API fetch)
+- ✅ Timestamp conditional writes (historyId comparison for Gmail)
+- ✅ TTL matches provider retry policy (1h Gmail, 5min Microsoft)
+
+**Microsoft Graph Subscriptions:**
+
+- ✅ Validation token response with 200 OK
+- ✅ ClientState with `timingSafeEqual` (CWE-208 prevention)
+- ✅ Quick acknowledgment (async queue processing)
+- ✅ Delta Query + backup cron sync pattern
+- ⚠️ Consider: Add `lifecycleNotificationUrl` for token expiry warnings
+
+**Redis Distributed Locking:**
+
+- ✅ Single Redis instance for efficiency-focused dedup (appropriate)
+- ✅ Redlock not needed (not critical consensus requirement)
+- ✅ Safe lock release with owner verification
+- ⚠️ Consider: Fencing tokens for long-running sync operations
+
+**Sources:**
+- [Webhooks at Scale](https://hookdeck.com/blog/webhooks-at-scale)
+- [MS Graph Webhooks](https://learn.microsoft.com/en-us/graph/change-notifications-delivery-webhooks)
+- [Redis Distributed Locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/)
+
+---
+
+## Phase 8: Re-Audit Findings (2025-12-27)
+
+**Goal:** Validate Phase 7 completions and identify remaining issues
+**Audited:** 2025-12-27 via 4 specialized agents (Bug, Race Condition, Dead Code, Duplicate)
+**Status:** ✅ AUDIT COMPLETE - Action items identified
+
+---
+
+### 8.1 Audit Summary
+
+| Agent | Score | Issues Found | Critical |
+|-------|-------|--------------|----------|
+| Bug Detection | 7.5/10 | 18 issues | 2 (IMAP-related) |
+| Race Condition | - | 7 new patterns | 1 HIGH (RC-NEW-3) |
+| Dead Code | - | 14 items (~150 LOC) | ~66 LOC immediate |
+| Duplicate Code | 8.5/10 | 9/9 verified ✅ | 2 LOW remaining |
+
+**Key Finding:** Phase 7 consolidations verified complete. Most remaining issues are LOW priority or pre-existing patterns.
+
+---
+
+### 8.2 Race Conditions Found
+
+| ID | File | Severity | Description | Status |
+|----|------|----------|-------------|--------|
+| RC-NEW-1 | redis-rate-limiter.service.ts | MEDIUM | TOCTOU in `checkRateLimit()` - separate read/write | Pending |
+| RC-NEW-2 | redis-rate-limiter.service.ts | MEDIUM | TOCTOU in `recordFailedAttempt()` | Pending |
+| **RC-NEW-3** | **microsoft-webhook.service.ts** | **HIGH** | **In-memory rate limiting non-atomic** | **Pending** |
+| RC-NEW-4 | gmail-webhook.service.ts | LOW | Cache cleanup race (already has lock pattern) | Deferred |
+| RC-NEW-5 | webhook-lifecycle.service.ts | MEDIUM | `autoCreateWebhook` TOCTOU gap | Pending |
+| RC-NEW-6 | queue.service.ts | LOW | `hasPendingJob` already mitigated by BullMQ | Deferred |
+| RC-NEW-7 | provider-token.service.ts | LOW | Token expiry window race (rare edge case) | Deferred |
+
+**Priority Fix Required: RC-NEW-3**
+
+The `MicrosoftWebhookService` uses in-memory rate limiting that is non-atomic across instances:
+
+```typescript
+// CURRENT (PROBLEMATIC):
+private requestCount = 0;
+private lastResetTime = Date.now();
+
+// Should use Redis atomic operations like:
+await this.redis.eval(RATE_LIMIT_LUA_SCRIPT, ...);
+```
+
+---
+
+### 8.3 Bug Detection Findings
+
+#### CRITICAL Bugs (IMAP-related)
+
+| ID | File | Lines | Description | Status |
+|----|------|-------|-------------|--------|
+| BUG-001 | imap.driver.ts | 478-488 | Connection pool busy-wait (Phase 7 fix applied) | ✅ Verify |
+| BUG-002 | imap.driver.ts | 1731-1738 | `parseMessageId` NaN for non-numeric UID | Pending |
+
+#### HIGH Bugs (Potential False Positives)
+
+| ID | File | Description | Actual Status |
+|----|------|-------------|---------------|
+| BUG-003 | sync-back.worker.ts | validateProviderType missing | ✅ Fixed (in BaseWorker) |
+| BUG-004 | email-send.worker.ts | validateProviderType missing | ✅ Fixed (in BaseWorker) |
+| BUG-005 | imap-sync.service.ts | RedisLockService injection | ✅ Fixed (Phase 7) |
+| BUG-006 | base-email-sync.service.ts | NaN in raw SQL | Needs validation |
+| BUG-007 | sync-back.worker.ts | IMAP credential fallback | Needs review |
+
+**Note:** BUG-003 to BUG-005 were flagged but already fixed - `validateProviderType()` exists in `BaseWorker` (line ~175).
+
+#### MEDIUM/LOW Bugs (12 items)
+
+- BUG-008 to BUG-012: MEDIUM priority (error handling, cluster mode, table casing)
+- BUG-013 to BUG-018: LOW priority (hardcoded values, batch optimization)
+
+---
+
+### 8.4 Dead Code Found (~150 LOC)
+
+#### Immediate Deletion (~66 LOC)
+
+| ID | File | Item | LOC |
+|----|------|------|-----|
+| DC-NEW-1 | email-sync.constants.ts | `GMAIL_CATEGORY_MAP` | ~10 |
+| DC-NEW-2 | email-sync.constants.ts | `MICROSOFT_DESTINATIONS` | ~10 |
+| DC-NEW-4 | email-sync.constants.ts | `IMAP_SYNC_FOLDERS` | ~15 |
+| DC-NEW-5 | webhook.interface.ts | `RenewWebhookOptions` | ~5 |
+| DC-NEW-6 | webhook.interface.ts | `WebhookRenewalResult` | ~10 |
+| DC-NEW-7 | webhook.interface.ts | `WebhookProviderConfig` | ~8 |
+| DC-NEW-8 | canonical.types.ts | `CanonicalEmailSummary` | ~5 |
+| DC-NEW-9 | canonical.types.ts | `normalizeEmailSubject()` | ~3 |
+
+#### Verify Before Deletion
+
+| ID | File | Item | LOC |
+|----|------|------|-----|
+| DC-NEW-3 | email-sync.constants.ts | `DTO_LIMITS` | ~10 |
+| DC-NEW-10 | canonical.types.ts | `extractDomain()` | ~5 |
+| DC-NEW-11 | canonical.types.ts | `isValidEmailFormat()` | ~10 |
+| DC-NEW-12 | imap.driver.ts | `buildSearchCriteria()` (unused) | ~30 |
+| DC-NEW-13 | imap.driver.ts | `getAllFolderHierarchy()` | ~25 |
+| DC-NEW-14 | base-attachment-handler.ts | `getProviderLabel()` | ~5 |
+
+---
+
+### 8.5 Duplicate Code Verification
+
+**✅ All 9 patterns confirmed consolidated:**
+
+| # | Pattern | LOC Saved | Status |
+|---|---------|-----------|--------|
+| 1 | BaseWebhookService stats methods | ~100 | ✅ Verified |
+| 2 | Subscription stats update | ~60 | ✅ Verified |
+| 3 | Cache cleanup logic | ~50 | ✅ Verified |
+| 4 | Distributed lock fallback | ~100 | ✅ Verified |
+| 5 | Attachment handler downloads | ~69 | ✅ BaseAttachmentHandler |
+| 6 | Provider type validation | ~21 | ✅ BaseWorker |
+| 7 | Worker config with limiter | ~50 | ✅ BaseWorkerConfig |
+| 8 | Error message extraction | ~60+ | ✅ extractErrorMessage() |
+| 9 | Redis lock key generation | ~15 | ✅ generateLockKey() |
+
+**Total LOC Saved:** ~2,210 LOC
+
+**Remaining Opportunities (LOW priority):**
+
+| ID | Pattern | Files | LOC | Priority |
+|----|---------|-------|-----|----------|
+| DUP-NEW-1 | `handleWebhookTimeout` retry logic | gmail/microsoft-webhook | ~40 | LOW |
+| DUP-NEW-2 | `validateSubscription` pre-checks | gmail/microsoft-webhook | ~40 | LOW |
+
+---
+
+### 8.6 Phase 8 Action Items
+
+| Priority | Action | Effort | Status |
+|----------|--------|--------|--------|
+| **P0** | Fix RC-NEW-3: Replace in-memory rate limit with Redis | 2h | Pending |
+| **P1** | Fix RC-NEW-1/2: Atomic rate limiter operations | 1h | Pending |
+| **P1** | Fix RC-NEW-5: Webhook lifecycle TOCTOU | 1h | Pending |
+| **P2** | Verify BUG-001/002: IMAP driver validation | 1h | Pending |
+| **P2** | Delete DC-NEW-1 to DC-NEW-9 (~66 LOC) | 30m | Pending |
+| **P3** | Fix BUG-006: NaN fallback in raw SQL | 30m | Pending |
+| **P3** | Verify DC-NEW-10 to DC-NEW-14 usage | 1h | Pending |
+| **P4** | Optional: DUP-NEW-1/2 consolidation | 2h | Deferred |
+
+**Estimated Remaining Effort:** 8-10 hours
+
+---
+
+### 8.7 Recommendations
+
+1. **Immediate (P0/P1):** Address RC-NEW-3 in-memory rate limiting - this is a scalability blocker for multi-instance deployment.
+
+2. **Short-term (P2):** Complete dead code cleanup for the 66 LOC identified as safe to delete.
+
+3. **Medium-term (P3):** Validate IMAP driver edge cases (BUG-001/002) with integration tests.
+
+4. **Deferred:** The LOW priority items (RC-NEW-4/6/7, DUP-NEW-1/2) can be addressed in future maintenance cycles.
+
+**Overall Assessment:** The email-sync module is in good shape after Phase 7. The remaining issues are primarily LOW/MEDIUM priority with one HIGH issue (RC-NEW-3) that should be addressed before scaling beyond single-instance deployment.

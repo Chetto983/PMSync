@@ -5,8 +5,6 @@ import { simpleParser } from 'mailparser';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { StorageService } from './storage.service';
 import { AttachmentStorageService } from './attachment.storage';
-import { GmailAttachmentHandler } from '../../email-sync/services/gmail/gmail-attachment-handler';
-import { MicrosoftAttachmentHandler } from '../../email-sync/services/microsoft/microsoft-attachment-handler';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
@@ -33,8 +31,6 @@ export class AttachmentOnDemandService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly attachmentStorage: AttachmentStorageService,
-    private readonly gmailHandler: GmailAttachmentHandler,
-    private readonly microsoftHandler: MicrosoftAttachmentHandler,
     private readonly providerTokenService: ProviderTokenService,
     private readonly crypto: CryptoService,
     // RACE CONDITION FIX RC-3: Add Redis lock for attachment download coordination
@@ -201,8 +197,12 @@ export class AttachmentOnDemandService {
         );
 
         // Download from provider
+        const providerType =
+          attachment.email.provider.providerType === 'generic'
+            ? 'imap'
+            : (attachment.email.provider.providerType as 'google' | 'microsoft' | 'imap');
         const buffer = await this.fetchFromProvider(
-          attachment.email.provider.providerType as 'google' | 'microsoft' | 'imap',
+          providerType,
           reference.externalMessageId,
           reference.externalAttachmentId,
           attachment.email.providerId,
@@ -287,7 +287,7 @@ export class AttachmentOnDemandService {
    * @throws Error if attachment download fails
    */
   private async fetchFromProvider(
-    providerType: 'google' | 'microsoft' | 'imap',
+    providerType: 'google' | 'microsoft' | 'imap' | 'generic',
     externalMessageId: string,
     externalAttachmentId: string,
     providerId: string,
@@ -308,6 +308,7 @@ export class AttachmentOnDemandService {
         );
 
       case 'imap':
+      case 'generic':
         return await this.fetchFromImap(externalMessageId, externalAttachmentId, providerId);
 
       default:
@@ -342,7 +343,7 @@ export class AttachmentOnDemandService {
         where: { id: providerId },
       });
 
-      if (!provider || provider.providerType !== 'imap' || !provider.imapPassword) {
+      if (!provider || !['imap', 'generic'].includes(provider.providerType) || !provider.imapPassword) {
         throw new Error(`Provider ${providerId} is not a valid IMAP provider`);
       }
 

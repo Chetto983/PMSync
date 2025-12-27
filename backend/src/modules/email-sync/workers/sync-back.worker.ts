@@ -74,7 +74,8 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
 
     // PHASE 6.1: Distributed lock to prevent concurrent sync-back on same provider+action
     // This prevents race conditions when multiple workers process the same provider
-    const lockKey = `sync-back:${providerId}:${action}`;
+    // DC-9: Use standardized lock key generation from BaseWorker
+    const lockKey = this.generateLockKey(`${providerId}`, action);
     const lockTtlMs = 300000; // 5 minutes - enough for bulk operations
 
     const result = await this.redisLock.tryWithLock<SyncBackJobResult>(
@@ -97,13 +98,8 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
             throw new Error(`Provider ${providerId} not found or unauthorized`);
           }
 
-          // AUDIT FIX #7: Verify provider type matches job data
-          // This prevents a malicious or corrupted job from operating on wrong provider type
-          if (provider.providerType !== providerType) {
-            throw new Error(
-              `Provider type mismatch: job claims '${providerType}' but provider is '${provider.providerType}'`,
-            );
-          }
+          // AUDIT FIX #7: Verify provider type matches job data (DC-6 consolidated)
+          this.validateProviderType(provider.providerType, providerType, providerId);
 
           // Get external IDs if not provided
           const messageExternalIds = externalIds || (await this.getExternalIds(emailIds, tenantId));
@@ -420,10 +416,11 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
    * - New format: "folder:uid" (e.g., "INBOX:123")
    * - Legacy format: just UID (e.g., "123")
    *
+   * BUG-006 FIX: Now returns null instead of NaN for invalid UIDs
    * @param externalId The external ID to parse
-   * @returns Object with folder (or null) and uid (or NaN)
+   * @returns Object with folder (or null) and uid (or null for invalid)
    */
-  private parseImapExternalId(externalId: string): { folder: string | null; uid: number } {
+  private parseImapExternalId(externalId: string): { folder: string | null; uid: number | null } {
     const lastColon = externalId.lastIndexOf(':');
 
     if (lastColon > 0) {
@@ -431,11 +428,13 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
       const folder = externalId.substring(0, lastColon);
       const uidStr = externalId.substring(lastColon + 1);
       const uid = parseInt(uidStr, 10);
-      return { folder, uid };
+      // BUG-006 FIX: Return null instead of NaN for invalid UIDs
+      return { folder, uid: Number.isFinite(uid) && uid > 0 ? uid : null };
     }
 
     // Legacy format: just UID
-    return { folder: null, uid: parseInt(externalId, 10) };
+    const uid = parseInt(externalId, 10);
+    return { folder: null, uid: Number.isFinite(uid) && uid > 0 ? uid : null };
   }
 
   private async syncToImap(
@@ -512,8 +511,9 @@ export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResul
       for (const externalId of externalIds) {
         const { folder, uid } = this.parseImapExternalId(externalId);
 
-        if (isNaN(uid)) {
-          this.logger.warn(`Invalid IMAP external ID (not a number): ${externalId}`);
+        // BUG-006 FIX: Check for null instead of NaN
+        if (uid === null) {
+          this.logger.warn(`Invalid IMAP external ID (not a valid positive integer): ${externalId}`);
           continue;
         }
 

@@ -83,6 +83,9 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
    * Auto-create webhook subscriptions for new providers
    * Called when a new provider is added
    * Returns true if successful, false if failed
+   *
+   * RC-NEW-5 FIX: Uses distributed lock to prevent TOCTOU race condition
+   * where multiple instances could try to create the same webhook simultaneously
    */
   async autoCreateWebhook(providerId: string): Promise<boolean> {
     try {
@@ -99,42 +102,54 @@ export class WebhookLifecycleService implements OnModuleInit, OnApplicationBoots
         return false;
       }
 
-      // Check if webhook already exists
-      const existing = await this.prisma.webhookSubscription.findFirst({
-        where: {
-          providerId,
-          resourcePath,
+      // RC-NEW-5 FIX: Use distributed lock to prevent concurrent webhook creation
+      // This eliminates the TOCTOU gap between check and create
+      const lockKey = `webhook:create:${providerId}:${resourcePath}`;
+      const lockTtlMs = 30000; // 30 seconds for webhook creation
+
+      return await this.redisLock.withLock(
+        lockKey,
+        lockTtlMs,
+        async () => {
+          // Check if webhook already exists (inside lock)
+          const existing = await this.prisma.webhookSubscription.findFirst({
+            where: {
+              providerId,
+              resourcePath,
+            },
+          });
+
+          if (existing) {
+            this.logger.debug(`Webhook already exists for provider ${providerId}`);
+            return false;
+          }
+
+          // Create webhook based on provider type
+          if (provider.providerType === 'google') {
+            await this.gmailWebhook.createSubscription({
+              providerId,
+              providerType: 'google',
+            });
+          } else if (provider.providerType === 'microsoft') {
+            // Derive webhook URL from API_PUBLIC_URL if not explicitly set
+            // NOTE: Microsoft uses clientState in notification body for validation,
+            // NOT URL tokens like Google Pub/Sub
+            const configuredUrl = this.configService.get<string>('MICROSOFT_EMAIL_WEBHOOK_URL');
+            const apiUrl = this.configService.get<string>('API_PUBLIC_URL', 'http://localhost:3000');
+            const webhookUrl = configuredUrl || `${apiUrl}/webhooks/microsoft/notifications`;
+
+            await this.microsoftWebhook.createSubscription({
+              providerId,
+              providerType: 'microsoft',
+              webhookUrl,
+            });
+          }
+
+          this.logger.log(`Auto-created webhook for ${provider.email}`);
+          return true;
         },
-      });
-
-      if (existing) {
-        this.logger.debug(`Webhook already exists for provider ${providerId}`);
-        return false;
-      }
-
-      // Create webhook based on provider type
-      if (provider.providerType === 'google') {
-        await this.gmailWebhook.createSubscription({
-          providerId,
-          providerType: 'google',
-        });
-      } else if (provider.providerType === 'microsoft') {
-        // Derive webhook URL from API_PUBLIC_URL if not explicitly set
-        // NOTE: Microsoft uses clientState in notification body for validation,
-        // NOT URL tokens like Google Pub/Sub
-        const configuredUrl = this.configService.get<string>('MICROSOFT_EMAIL_WEBHOOK_URL');
-        const apiUrl = this.configService.get<string>('API_PUBLIC_URL', 'http://localhost:3000');
-        const webhookUrl = configuredUrl || `${apiUrl}/webhooks/microsoft/notifications`;
-
-        await this.microsoftWebhook.createSubscription({
-          providerId,
-          providerType: 'microsoft',
-          webhookUrl,
-        });
-      }
-
-      this.logger.log(`Auto-created webhook for ${provider.email}`);
-      return true;
+        { maxRetries: 2, baseDelayMs: 100, maxDelayMs: 500 },
+      );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(

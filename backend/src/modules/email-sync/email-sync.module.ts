@@ -8,6 +8,7 @@ import { AiModule } from '../ai/ai.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { RetryService } from '../../common/services/retry.service';
 import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module';
+import { RedisRateLimiterService } from '../../common/services/redis-rate-limiter.service';
 
 // Email Drivers (Phase 2 Driver Abstraction)
 import { DriversModule } from './drivers/drivers.module';
@@ -113,6 +114,7 @@ import { FoldersController } from '../email/controllers/folders.controller';
     SyncAuthService,
     ProviderTokenService,
     RetryService,
+    RedisRateLimiterService, // Phase 8: RC-NEW-3 fix for distributed rate limiting
 
     // Workers
     SyncWorker,

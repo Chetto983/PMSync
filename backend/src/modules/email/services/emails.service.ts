@@ -32,6 +32,7 @@ export interface EmailListParams {
   providerId?: string;
   page?: number;
   limit?: number;
+  maxLimit?: number;
   filters?: EmailListFilters;
 }
 
@@ -131,21 +132,38 @@ export class EmailsService {
       const folderRecords = await this.prisma.folder.findMany({
         where: {
           providerId,
-          path: { in: folders, mode: 'insensitive' },
+          OR: [
+            { path: { in: folders, mode: 'insensitive' } },
+            { name: { in: folders, mode: 'insensitive' } },
+            { specialUse: { in: folders, mode: 'insensitive' } },
+          ],
         },
         select: { id: true, path: true, name: true, specialUse: true },
       });
 
-      // Create a map for quick lookup: path -> folder record
-      const folderMap = new Map(
-        folderRecords.map((f) => [f.path.toUpperCase(), f]),
-      );
+      // Create a map for quick lookup: path/name/specialUse -> folder record
+      const folderMap = new Map<string, (typeof folderRecords)[number]>();
+      const registerFolderKey = (
+        record: (typeof folderRecords)[number],
+        value?: string | null,
+      ) => {
+        if (!value) return;
+        folderMap.set(value.toUpperCase(), record);
+      };
+      for (const folderRecord of folderRecords) {
+        registerFolderKey(folderRecord, folderRecord.path);
+        registerFolderKey(folderRecord, folderRecord.name);
+        registerFolderKey(folderRecord, folderRecord.specialUse);
+      }
 
       // OPTIMIZATION: Run all folder count queries in parallel instead of sequentially
       const countPromises = folders.map(async (folder) => {
-        const folderRecord = folderMap.get(folder.toUpperCase());
+        const folderKey = folder.toUpperCase();
+        const folderRecord = folderMap.get(folderKey);
+        const queryFolder = folderRecord?.path || folderRecord?.name || folder;
         // Check if folder is TRASH by specialUse attribute (locale-independent)
-        const isTrashFolder = folderRecord?.specialUse?.toUpperCase() === 'TRASH';
+        const isTrashFolder =
+          folderRecord?.specialUse?.toUpperCase() === 'TRASH' || folderKey === 'TRASH';
 
         // Count total and unread emails in this folder
         const [totalCount, unreadCount] = await Promise.all([
@@ -153,7 +171,7 @@ export class EmailsService {
             where: {
               tenantId,
               providerId,
-              folder: { equals: folder, mode: 'insensitive' },
+              folder: { equals: queryFolder, mode: 'insensitive' },
               isDeleted: isTrashFolder ? undefined : false,
             },
           }),
@@ -161,7 +179,7 @@ export class EmailsService {
             where: {
               tenantId,
               providerId,
-              folder: { equals: folder, mode: 'insensitive' },
+              folder: { equals: queryFolder, mode: 'insensitive' },
               isDeleted: isTrashFolder ? undefined : false,
               isRead: false,
             },
@@ -202,14 +220,16 @@ export class EmailsService {
       page = 1,
       limit = 50,
       filters = {},
+      maxLimit,
     } = params;
 
     // CRITICAL FIX: Input validation
     if (page < 1) {
       throw new BadRequestException('Page must be >= 1');
     }
-    if (limit < 1 || limit > 100) {
-      throw new BadRequestException('Limit must be between 1 and 100');
+    const effectiveMaxLimit = typeof maxLimit === 'number' && maxLimit > 0 ? maxLimit : 100;
+    if (limit < 1 || limit > effectiveMaxLimit) {
+      throw new BadRequestException(`Limit must be between 1 and ${effectiveMaxLimit}`);
     }
 
     const skip = (page - 1) * limit;
@@ -219,27 +239,26 @@ export class EmailsService {
     let isTrashView = false;
 
     if (filters.specialUse) {
+      const specialUseUpper = filters.specialUse.toUpperCase();
       // Aggregation query: find all folders with this specialUse type across providers
       const foldersWithSpecialUse = await this.prisma.folder.findMany({
         where: {
           tenantId,
           ...(providerId && { providerId }),
-          specialUse: { equals: filters.specialUse, mode: 'insensitive' },
+          specialUse: { equals: specialUseUpper, mode: 'insensitive' },
         },
         select: { path: true, name: true, specialUse: true },
       });
 
-      if (foldersWithSpecialUse.length > 0) {
-        const folderPaths = new Set<string>();
-        foldersWithSpecialUse.forEach((f) => {
-          if (f.path) folderPaths.add(f.path);
-          if (f.name) folderPaths.add(f.name);
-          if (f.specialUse) folderPaths.add(f.specialUse);
-        });
-        folderPaths.add(filters.specialUse.toUpperCase());
-        folderFilter = { folder: { in: Array.from(folderPaths), mode: 'insensitive' } };
-        isTrashView = filters.specialUse.toUpperCase() === 'TRASH';
-      }
+      const folderPaths = new Set<string>();
+      foldersWithSpecialUse.forEach((f) => {
+        if (f.path) folderPaths.add(f.path);
+        if (f.name) folderPaths.add(f.name);
+        if (f.specialUse) folderPaths.add(f.specialUse);
+      });
+      folderPaths.add(specialUseUpper);
+      folderFilter = { folder: { in: Array.from(folderPaths), mode: 'insensitive' } };
+      isTrashView = specialUseUpper === 'TRASH';
     } else if (filters.folder) {
       // RFC 6154: Check if folder is a canonical specialUse value (INBOX, SENT, TRASH, etc.)
       // Frontend sends specialUse values directly for folders that have them
@@ -865,7 +884,7 @@ export class EmailsService {
     // RACE CONDITION FIX RC-6: Use UUID instead of Date.now() to prevent collisions
     // Date.now() can produce same value for concurrent requests in same millisecond
     const draftExternalId = dto.id ?? `draft-${randomUUID()}`;
-    const data: Prisma.EmailUncheckedCreateInput = {
+    const createData: Prisma.EmailUncheckedCreateInput = {
       id: dto.id ?? undefined,
       tenantId,
       providerId: provider.id,
@@ -902,14 +921,18 @@ export class EmailsService {
     };
 
     if (dto.id) {
-      await this.prisma.email.update({
-        where: { id: dto.id },
-        data,
+      const { id: _id, ...updateData } = createData;
+      const result = await this.prisma.email.updateMany({
+        where: { id: dto.id, tenantId, isDraft: true },
+        data: updateData,
       });
+      if (result.count === 0) {
+        throw new NotFoundException('Draft not found');
+      }
       return this.prisma.email.findUnique({ where: { id: dto.id } });
     }
 
-    return this.prisma.email.create({ data });
+    return this.prisma.email.create({ data: createData });
   }
 
   /**
@@ -1390,6 +1413,11 @@ export class EmailsService {
       where: { id: { in: emailIds }, tenantId },
       select: { id: true, externalId: true, providerId: true, tenantId: true, folder: true, isDeleted: true },
     });
+
+    await this.knowledgeBaseService.deleteEmbeddingsForEmails(
+      tenantId,
+      emails.map((email) => email.id),
+    );
 
     await this.ensureProvidersActive(tenantId, Array.from(new Set(emails.map((e) => e.providerId))));
 

@@ -84,11 +84,6 @@ export interface CreateWebhookOptions {
   expirationHours?: number; // Custom expiration (default: 7 days Gmail, 3 days Microsoft)
 }
 
-export interface RenewWebhookOptions {
-  subscriptionId: string;
-  expirationHours?: number;
-}
-
 export interface WebhookStats {
   totalSubscriptions: number;
   activeSubscriptions: number;

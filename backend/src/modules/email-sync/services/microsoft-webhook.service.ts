@@ -14,15 +14,12 @@ import { SyncJobData } from '../interfaces/sync-job.interface';
 import axios from 'axios';
 import { ProviderTokenService } from './provider-token.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { RedisRateLimiterService } from '../../../common/services/redis-rate-limiter.service';
 import type { ProviderConfig } from '@prisma/client';
 
 export const MICROSOFT_MAIL_RESOURCE = '/me/mailFolders/inbox/messages';
 
-// Security fix (Issue #3): Rate limiting structure
-interface RateLimitEntry {
-  count: number;
-  windowStart: number;
-}
+// RC-NEW-3 FIX: Removed in-memory RateLimitEntry - now using Redis-based rate limiting
 
 // Security fix (SEC-1): Duplicate notification detection
 interface ProcessedNotification {
@@ -46,11 +43,10 @@ export class MicrosoftWebhookService extends BaseWebhookService {
   private readonly RENEWAL_DRIFT_MINUTES =
     Number(process.env.MICROSOFT_RENEWAL_DRIFT_MINUTES) || 1440;
 
-  // Security fix (Issue #3): Rate limiting configuration
-  private readonly rateLimitMap: Map<string, RateLimitEntry> = new Map();
-  private readonly RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
+  // RC-NEW-3 FIX: Rate limiting now uses Redis via RedisRateLimiterService
+  // Configuration for distributed rate limiting
+  private readonly RATE_LIMIT_WINDOW_SECONDS = 60; // 1 minute window
   private readonly RATE_LIMIT_MAX_REQUESTS = 100; // Max 100 notifications per minute per subscription
-  private readonly RATE_LIMIT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // Cleanup every 5 minutes
 
   // Security fix (SEC-1): Duplicate notification detection with composite keys
   // Microsoft uses subscriptionId:resourceId:changeType for dedup
@@ -63,67 +59,37 @@ export class MicrosoftWebhookService extends BaseWebhookService {
     configService: ConfigService,
     private providerTokenService: ProviderTokenService,
     redisLock: RedisLockService,
+    private readonly rateLimiter: RedisRateLimiterService, // RC-NEW-3: Distributed rate limiting
   ) {
     super(prisma, queueService, configService, redisLock);
-    // Start rate limit cleanup interval
-    setInterval(() => this.cleanupRateLimitEntries(), this.RATE_LIMIT_CLEANUP_INTERVAL_MS);
+    // Start cleanup interval for in-memory dedup cache (fallback only)
+    setInterval(() => this.cleanupDedupEntries(), 5 * 60 * 1000);
   }
 
   /**
-   * Security fix (Issue #3): Check and update rate limit for a subscription
+   * RC-NEW-3 FIX: Distributed rate limiting using Redis
+   * Replaces in-memory rate limiting for multi-instance support
    * @returns true if request is allowed, false if rate limited
    */
-  private checkRateLimit(subscriptionId: string): boolean {
-    const now = Date.now();
-    const entry = this.rateLimitMap.get(subscriptionId);
-
-    if (!entry) {
-      // First request for this subscription
-      this.rateLimitMap.set(subscriptionId, { count: 1, windowStart: now });
-      return true;
-    }
-
-    // Check if we're in a new window
-    if (now - entry.windowStart > this.RATE_LIMIT_WINDOW_MS) {
-      // Reset window
-      this.rateLimitMap.set(subscriptionId, { count: 1, windowStart: now });
-      return true;
-    }
-
-    // Check if limit exceeded
-    if (entry.count >= this.RATE_LIMIT_MAX_REQUESTS) {
-      return false;
-    }
-
-    // Increment count
-    entry.count++;
-    return true;
+  private async checkRateLimit(subscriptionId: string): Promise<boolean> {
+    const key = `ms-webhook-rate:${subscriptionId}`;
+    const result = await this.rateLimiter.checkRateLimit(
+      key,
+      this.RATE_LIMIT_MAX_REQUESTS,
+      this.RATE_LIMIT_WINDOW_SECONDS,
+    );
+    return result.allowed;
   }
 
   /**
-   * Cleanup expired rate limit entries to prevent memory leak
+   * RC-NEW-3 FIX: Cleanup only in-memory dedup entries (fallback cache)
+   * Rate limiting is now handled by Redis with automatic TTL expiry
    * RC-10 FIX: Collect keys to delete first, then delete in separate pass
-   * This prevents concurrent modification issues during iteration
    */
-  private cleanupRateLimitEntries(): void {
+  private cleanupDedupEntries(): void {
     const now = Date.now();
 
-    // RC-10 FIX: Collect keys first to avoid concurrent modification
-    const rateLimitKeysToDelete: string[] = [];
-    for (const [subscriptionId, entry] of this.rateLimitMap.entries()) {
-      if (now - entry.windowStart > this.RATE_LIMIT_WINDOW_MS * 2) {
-        rateLimitKeysToDelete.push(subscriptionId);
-      }
-    }
-    // Delete in separate pass
-    for (const key of rateLimitKeysToDelete) {
-      this.rateLimitMap.delete(key);
-    }
-    if (rateLimitKeysToDelete.length > 0) {
-      this.logger.debug(`[RATE-LIMIT] Cleaned up ${rateLimitKeysToDelete.length} expired rate limit entries`);
-    }
-
-    // RC-10 FIX: Also cleanup old notification dedup entries with same pattern
+    // RC-10 FIX: Cleanup old notification dedup entries (in-memory fallback only)
     const dedupKeysToDelete: string[] = [];
     for (const [notificationKey, entry] of this.processedNotifications.entries()) {
       if (now - entry.timestamp > this.NOTIFICATION_DEDUP_WINDOW_MS) {
@@ -235,8 +201,8 @@ export class MicrosoftWebhookService extends BaseWebhookService {
       `Microsoft notification: ${notification.changeType} for subscription ${notification.subscriptionId}`,
     );
 
-    // Security fix (Issue #3): Apply rate limiting per subscription
-    if (!this.checkRateLimit(notification.subscriptionId)) {
+    // RC-NEW-3 FIX: Apply distributed rate limiting per subscription via Redis
+    if (!await this.checkRateLimit(notification.subscriptionId)) {
       this.logger.warn(
         `[RATE-LIMIT] Rate limit exceeded for subscription ${notification.subscriptionId}, dropping notification`,
       );

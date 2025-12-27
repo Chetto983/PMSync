@@ -3,8 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { google } from 'googleapis';
 import { Client as GraphClient } from '@microsoft/microsoft-graph-client';
 import { CryptoService } from '../../../common/services/crypto.service';
-import { GoogleOAuthService } from '../../providers/services/google-oauth.service';
-import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.service';
+import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 
@@ -18,8 +17,7 @@ export class EmailFetchService {
   constructor(
     private prisma: PrismaService,
     private crypto: CryptoService,
-    private googleOAuth: GoogleOAuthService,
-    private microsoftOAuth: MicrosoftOAuthService,
+    private providerTokenService: ProviderTokenService,
   ) {}
 
   /**
@@ -93,14 +91,11 @@ export class EmailFetchService {
   }
 
   private async fetchFromGmail(email: any, provider: any) {
-    if (!provider.accessToken || !provider.tokenEncryptionIv) {
-      throw new Error('Gmail provider missing access token or IV');
+    const { provider: freshProvider, accessToken } =
+      await this.providerTokenService.getProviderWithToken(provider.id);
+    if (freshProvider.providerType !== 'google') {
+      throw new Error(`Provider ${provider.id} is not a Gmail provider`);
     }
-
-    const accessToken = this.crypto.decrypt(
-      provider.accessToken,
-      provider.tokenEncryptionIv,
-    );
 
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({ access_token: accessToken });
@@ -147,14 +142,11 @@ export class EmailFetchService {
   }
 
   private async fetchFromMicrosoft(email: any, provider: any) {
-    if (!provider.accessToken || !provider.tokenEncryptionIv) {
-      throw new Error('Microsoft provider missing access token or IV');
+    const { provider: freshProvider, accessToken } =
+      await this.providerTokenService.getProviderWithToken(provider.id);
+    if (freshProvider.providerType !== 'microsoft') {
+      throw new Error(`Provider ${provider.id} is not a Microsoft provider`);
     }
-
-    const accessToken = this.crypto.decrypt(
-      provider.accessToken,
-      provider.tokenEncryptionIv,
-    );
 
     const graphClient = GraphClient.init({
       authProvider: (done: (error: any, token: string) => void) => {
@@ -186,7 +178,12 @@ export class EmailFetchService {
   }
 
   private async fetchFromIMAP(email: any, provider: any) {
-    if (!provider.imapUsername || !provider.imapPassword || !provider.imapEncryptionIv) {
+    if (
+      !provider.imapUsername ||
+      !provider.imapPassword ||
+      !provider.imapEncryptionIv ||
+      !['imap', 'generic'].includes(provider.providerType)
+    ) {
       throw new Error('IMAP provider missing credentials');
     }
 
@@ -206,16 +203,17 @@ export class EmailFetchService {
       logger: false,
     });
 
-    await client.connect();
-
-    const { folderPath, uid } = this.parseImapExternalId(email.externalId, email.folder);
-    const uidNumber = parseInt(uid, 10);
-    if (!Number.isFinite(uidNumber)) {
-      throw new Error(`Invalid IMAP UID: ${email.externalId}`);
-    }
-
-    const lock = await client.getMailboxLock(folderPath);
+    let lock: { release: () => void } | null = null;
     try {
+      await client.connect();
+
+      const { folderPath, uid } = this.parseImapExternalId(email.externalId, email.folder);
+      const uidNumber = parseInt(uid, 10);
+      if (!Number.isFinite(uidNumber)) {
+        throw new Error(`Invalid IMAP UID: ${email.externalId}`);
+      }
+
+      lock = await client.getMailboxLock(folderPath);
       const messageStream = await client.download(uidNumber.toString(), undefined, { uid: true });
       const parsed = await simpleParser(messageStream.content);
 
@@ -230,8 +228,18 @@ export class EmailFetchService {
         headers,
       };
     } finally {
-      lock.release();
-      await client.logout();
+      if (lock) {
+        lock.release();
+      }
+      try {
+        await client.logout();
+      } catch (logoutError) {
+        this.logger.warn(
+          `Failed to logout IMAP client: ${
+            logoutError instanceof Error ? logoutError.message : String(logoutError)
+          }`,
+        );
+      }
     }
   }
 

@@ -18,6 +18,53 @@ import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
 import { getRedisConnectionOptions } from '../../config/configuration';
 
+/**
+ * RC-NEW-1 FIX: Atomic rate limit Lua script
+ * Performs INCR + EXPIRE + TTL in a single atomic operation
+ * Returns [count, ttl]
+ */
+const RATE_LIMIT_LUA_SCRIPT = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+local ttl = redis.call('TTL', KEYS[1])
+return {count, ttl}
+`;
+
+/**
+ * RC-NEW-2 FIX: Atomic failed attempt + lockout Lua script
+ * Checks lockout, increments failure counter, and triggers lockout if threshold reached
+ * Returns [isLockedOut, lockoutTtl, failures, shouldLockout]
+ */
+const FAILED_ATTEMPT_LUA_SCRIPT = `
+local lockoutKey = KEYS[1]
+local failedKey = KEYS[2]
+local lockoutThreshold = tonumber(ARGV[1])
+local lockoutSeconds = tonumber(ARGV[2])
+
+-- Check if already locked out
+local lockoutTtl = redis.call('TTL', lockoutKey)
+if lockoutTtl > 0 then
+  return {1, lockoutTtl, 0, 0}
+end
+
+-- Increment failed attempts with TTL
+local failures = redis.call('INCR', failedKey)
+if failures == 1 then
+  redis.call('EXPIRE', failedKey, lockoutSeconds)
+end
+
+-- Check if should trigger lockout
+if failures >= lockoutThreshold then
+  redis.call('SETEX', lockoutKey, lockoutSeconds, '1')
+  redis.call('DEL', failedKey)
+  return {1, lockoutSeconds, failures, 1}
+end
+
+return {0, 0, failures, 0}
+`;
+
 export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
@@ -104,16 +151,15 @@ export class RedisRateLimiterService implements OnModuleInit, OnModuleDestroy {
     const now = Math.floor(Date.now() / 1000);
 
     try {
-      // Increment counter
-      const count = await this.redis.incr(redisKey);
+      // RC-NEW-1 FIX: Atomic INCR + EXPIRE + TTL via Lua script
+      const result = await this.redis.eval(
+        RATE_LIMIT_LUA_SCRIPT,
+        1,
+        redisKey,
+        windowSeconds.toString(),
+      ) as [number, number];
 
-      // Set TTL on first request
-      if (count === 1) {
-        await this.redis.expire(redisKey, windowSeconds);
-      }
-
-      // Get TTL for reset time
-      const ttl = await this.redis.ttl(redisKey);
+      const [count, ttl] = result;
       const resetAt = new Date((now + Math.max(ttl, 0)) * 1000);
 
       const allowed = count <= maxAttempts;
@@ -165,32 +211,23 @@ export class RedisRateLimiterService implements OnModuleInit, OnModuleDestroy {
     lockoutThreshold: number = this.lockoutThreshold,
     lockoutSeconds: number = this.defaultLockoutSeconds,
   ): Promise<LockoutResult> {
-    const failedKey = `failed:${key}`;
     const lockoutKey = `lockout:${key}`;
+    const failedKey = `failed:${key}`;
 
     try {
-      // Check if already locked out
-      const lockoutTtl = await this.redis.ttl(lockoutKey);
-      if (lockoutTtl > 0) {
-        return {
-          isLockedOut: true,
-          lockoutEndsAt: new Date(Date.now() + lockoutTtl * 1000),
-          retryAfterSeconds: lockoutTtl,
-        };
-      }
+      // RC-NEW-2 FIX: Atomic lockout check + failed attempt recording via Lua script
+      const result = await this.redis.eval(
+        FAILED_ATTEMPT_LUA_SCRIPT,
+        2,
+        lockoutKey,
+        failedKey,
+        lockoutThreshold.toString(),
+        lockoutSeconds.toString(),
+      ) as [number, number, number, number];
 
-      // Increment failed attempts
-      const failures = await this.redis.incr(failedKey);
-      if (failures === 1) {
-        // Set TTL on first failure (track failures for lockout window)
-        await this.redis.expire(failedKey, lockoutSeconds);
-      }
+      const [isLockedOut, lockoutTtl, failures, shouldLockout] = result;
 
-      // Check if should lock out
-      if (failures >= lockoutThreshold) {
-        await this.redis.setex(lockoutKey, lockoutSeconds, '1');
-        await this.redis.del(failedKey); // Clear failure counter
-
+      if (shouldLockout === 1) {
         this.logger.warn(
           JSON.stringify({
             event: 'lockout_triggered',
@@ -199,11 +236,13 @@ export class RedisRateLimiterService implements OnModuleInit, OnModuleDestroy {
             lockoutSeconds,
           }),
         );
+      }
 
+      if (isLockedOut === 1) {
         return {
           isLockedOut: true,
-          lockoutEndsAt: new Date(Date.now() + lockoutSeconds * 1000),
-          retryAfterSeconds: lockoutSeconds,
+          lockoutEndsAt: new Date(Date.now() + lockoutTtl * 1000),
+          retryAfterSeconds: lockoutTtl,
         };
       }
 

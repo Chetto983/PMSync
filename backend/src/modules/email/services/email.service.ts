@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
-import { PrismaService } from '../../../prisma/prisma.service';
 import { getConfiguration } from '../../../config/configuration';
 
 @Injectable()
@@ -9,7 +8,7 @@ export class EmailService {
   private transporter!: nodemailer.Transporter;
   private config = getConfiguration();
 
-  constructor(private prisma: PrismaService) {
+  constructor() {
     this.initializeTransporter();
   }
 

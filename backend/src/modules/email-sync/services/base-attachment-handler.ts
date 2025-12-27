@@ -520,20 +520,4 @@ export abstract class BaseAttachmentHandler {
       await executePersist();
     }
   }
-
-  /**
-   * Get provider type label for logging
-   */
-  protected getProviderLabel(): string {
-    switch (this.providerType) {
-      case 'gmail':
-        return 'Gmail';
-      case 'microsoft':
-        return 'Microsoft';
-      case 'imap':
-        return 'IMAP';
-      default:
-        return 'Unknown';
-    }
-  }
 }
