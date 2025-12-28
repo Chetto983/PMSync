@@ -195,31 +195,32 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
             </Button>
           )}
         </Box>
+      </Box>
 
-        <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3 }}>
-          {threadId && threadQuery.isFetching && !threadQuery.data && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-              <CircularProgress size={20} />
-            </Box>
-          )}
+      {/* Scrollable Content Area */}
+      <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3, flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        {threadId && threadQuery.isFetching && !threadQuery.data && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={20} />
+          </Box>
+        )}
 
-          {threadEmails.map((threadEmail) => (
-            <ThreadMessage
-              key={threadEmail.id}
-              email={threadEmail}
-              isExpanded={expandedEmails.has(threadEmail.id)}
-              onToggle={() => toggleEmail(threadEmail.id)}
-              onReply={onReply}
-              onReplyAll={onReplyAll}
-              onForward={onForward}
-              onDelete={onDelete ? (e) => onDelete(e) : undefined}
-              onAttachmentOpen={handleAttachmentOpen}
-              isDark={isDark}
-              onInviteRespond={handleInviteRespond}
-              t={t}
-            />
-          ))}
-        </Box>
+        {threadEmails.map((threadEmail) => (
+          <ThreadMessage
+            key={threadEmail.id}
+            email={threadEmail}
+            isExpanded={expandedEmails.has(threadEmail.id)}
+            onToggle={() => toggleEmail(threadEmail.id)}
+            onReply={onReply}
+            onReplyAll={onReplyAll}
+            onForward={onForward}
+            onDelete={onDelete ? (e) => onDelete(e) : undefined}
+            onAttachmentOpen={handleAttachmentOpen}
+            isDark={isDark}
+            onInviteRespond={handleInviteRespond}
+            t={t}
+          />
+        ))}
       </Box>
 
       {/* Sticky Reply Footer */}

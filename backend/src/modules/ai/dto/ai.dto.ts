@@ -21,7 +21,7 @@ export class ChatDto {
   @IsString()
   @MinLength(1)
   @MaxLength(10000)
-  message: string;
+  message!: string;
 
   @ApiPropertyOptional({
     description: 'Previous conversation history for context',
@@ -38,6 +38,15 @@ export class ChatDto {
   @IsOptional()
   @IsString()
   conversationId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Model size preference for response generation',
+    example: 'small',
+    enum: ['small', 'medium', 'large'],
+  })
+  @IsOptional()
+  @IsString()
+  model?: 'small' | 'medium' | 'large';
 }
 
 /**

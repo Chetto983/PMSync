@@ -2,7 +2,7 @@ import { useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
-import Underline from '@tiptap/extension-underline';
+// Note: Underline is included in tiptap-markdown - don't import separately
 import { Markdown } from 'tiptap-markdown';
 import { FileHandler } from '@tiptap/extension-file-handler';
 
@@ -57,7 +57,7 @@ export function useComposeEditor({
           levels: [1, 2, 3],
         },
       }),
-      Underline,
+      // Underline is provided by tiptap-markdown
       Placeholder.configure({
         placeholder,
       }),

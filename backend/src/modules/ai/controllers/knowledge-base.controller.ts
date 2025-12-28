@@ -4,6 +4,8 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
   Query,
@@ -39,6 +41,7 @@ export class KnowledgeBaseController {
   constructor(private readonly knowledgeBaseService: KnowledgeBaseService) {}
 
   @Post('emails/backfill')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Backfill embeddings for emails that are missing vector representations' })
   @ApiOkResponse({
     schema: {
@@ -141,6 +144,7 @@ export class KnowledgeBaseController {
   }
 
   @Post('search')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Search the tenant knowledge base using semantic similarity (RAG memory)',
   })

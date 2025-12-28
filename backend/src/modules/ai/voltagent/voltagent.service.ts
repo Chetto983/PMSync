@@ -14,7 +14,9 @@
  */
 import { Injectable, OnModuleInit, OnModuleDestroy, Optional, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Agent, Memory } from '@voltagent/core';
+import { Memory } from '@voltagent/core';
+import type { Agent } from '@voltagent/core';
+import { PostgreSQLMemoryAdapter } from '@voltagent/postgres';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -171,17 +173,29 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   ) { }
 
   async onModuleInit() {
-    // DISABLED: VoltAgent native PostgreSQL memory causes AI_InvalidPromptError
-    // when conversation history contains tool-call parts with null fields.
-    // See: https://github.com/vercel/ai/issues/8061, https://github.com/vercel/ai/issues/8520
-    // Using Prisma-based VoltAgentMemoryService instead (persists in chat() method).
-    this.memory = null;
-
-    // Original code (disabled due to upstream bug):
-    // this.memory = createMemory({
-    //   tablePrefix: 'voltagent_memory',
-    //   schema: 'public',
-    // });
+    // Initialize VoltAgent PostgreSQL memory for scalable multi-tenant storage
+    // Uses DATABASE_URL from environment for connection
+    const databaseUrl = this.configService.get<string>('DATABASE_URL');
+    if (databaseUrl) {
+      try {
+        const storage = new PostgreSQLMemoryAdapter({
+          connection: databaseUrl,
+          tablePrefix: 'voltagent_memory',
+          schema: 'public',
+          debug: process.env.NODE_ENV !== 'production',
+        });
+        this.memory = new Memory({ storage });
+        this.logger.log('VoltAgent PostgreSQL memory initialized for tenant isolation');
+      } catch (error) {
+        this.logger.warn('Failed to initialize VoltAgent memory, will use stateless mode', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        this.memory = null;
+      }
+    } else {
+      this.logger.warn('DATABASE_URL not configured, VoltAgent memory disabled');
+      this.memory = null;
+    }
 
     // Initialize observability hooks with NestJS logger adapter
     // CRITICAL: onPendingAction captures HITL actions from sub-agent tools
@@ -621,32 +635,47 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       // Determine budget based on model tier (large models get extended budget)
       const budgetType = selectedModel === 'large' || selectedModel === 'medium' ? 'extended' : 'default';
 
-      const budgetResult = await this.voltAgentMemoryService.getContextWithBudget(
-        {
-          tenantId: options.tenantId,
-          userId: options.userId,
-          conversationId: options.conversationId,
-          locale: options.locale,
-        },
-        budgetType,
-        processedMessage,
-      );
+      this.logger.debug(`${logPrefix} [DEBUG] About to call getContextWithBudget`);
+      let budgetResult;
+      try {
+        budgetResult = await this.voltAgentMemoryService.getContextWithBudget(
+          {
+            tenantId: options.tenantId,
+            userId: options.userId,
+            conversationId: options.conversationId,
+            locale: options.locale,
+          },
+          budgetType,
+          processedMessage,
+        );
+      } catch (budgetError) {
+        this.logger.error(`${logPrefix} [DEBUG] getContextWithBudget FAILED: ${budgetError instanceof Error ? budgetError.message : String(budgetError)}`);
+        this.logger.error(`${logPrefix} [DEBUG] getContextWithBudget Stack: ${budgetError instanceof Error ? budgetError.stack : 'no stack'}`);
+        throw budgetError;
+      }
+      this.logger.debug(`${logPrefix} [DEBUG] budgetResult type: ${typeof budgetResult}, keys: ${budgetResult ? Object.keys(budgetResult).join(', ') : 'null'}`);
+      this.logger.debug(`${logPrefix} [DEBUG] budgetResult.messages type: ${typeof budgetResult?.messages}, isArray: ${Array.isArray(budgetResult?.messages)}`);
 
       contextTruncated = budgetResult.wasTruncated;
 
       // FIX: Inject conversation history into agent context
       // Without this, the agent loses memory between messages!
-      if (budgetResult.messages.length > 0 || budgetResult.summaries.length > 0) {
+      // Defensive: ensure arrays exist (edge case protection for 1000+ concurrent users)
+      const messages = Array.isArray(budgetResult.messages) ? budgetResult.messages : [];
+      const summaries = Array.isArray(budgetResult.summaries) ? budgetResult.summaries : [];
+      this.logger.debug(`${logPrefix} [DEBUG] After defensive check - messages length: ${messages.length}`);
+
+      if (messages.length > 0 || summaries.length > 0) {
         const historyParts: string[] = [];
 
         // Include summaries first (older context)
-        if (budgetResult.summaries.length > 0) {
-          historyParts.push(`[Conversation Summary]\n${budgetResult.summaries.join('\n')}`);
+        if (summaries.length > 0) {
+          historyParts.push(`[Conversation Summary]\n${summaries.join('\n')}`);
         }
 
         // Include recent messages (chronological order)
-        if (budgetResult.messages.length > 0) {
-          const formattedMessages = budgetResult.messages.map((m) => {
+        if (messages.length > 0) {
+          const formattedMessages = messages.map((m) => {
             const roleLabel = m.role === 'user' ? 'User' : m.role === 'assistant' ? 'Assistant' : 'System';
             return `${roleLabel}: ${m.content}`;
           });
@@ -658,7 +687,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           conversationHistoryContext = this.piiDetectionService.redact(conversationHistoryContext);
         }
         this.logger.debug(
-          `${logPrefix} Conversation history injected: ${budgetResult.messages.length} messages, ${budgetResult.summaries.length} summaries`,
+          `${logPrefix} Conversation history injected: ${messages.length} messages, ${summaries.length} summaries`,
         );
       }
 
@@ -709,18 +738,29 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const tenantUserId = `${options.tenantId}:${options.userId}`;
     const uniqueRequestId = `${options.conversationId || 'req'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    const result = await agent.generateText(enhancedMessage, {
-      userId: tenantUserId,
-      conversationId: uniqueRequestId, // Unique per request - no history loaded
-      // CRITICAL: Disable parallel tool calls to ensure sequential delegation
-      // (ContactsAgent → EmailAgent flow requires one tool at a time)
-      providerOptions: {
-        mistral: {
-          parallelToolCalls: false,
-          structuredOutputs: true,
-        },
-      },
-    });
+    this.logger.debug(`${logPrefix} [DEBUG] About to call agent.generateText`);
+    let result;
+    try {
+      // WORKAROUND: Don't pass userId/conversationId to avoid VoltAgent's internal
+        // memory loading that causes 'messages.map is not a function' error.
+        // We manage conversation history via VoltAgentMemoryService and inject it as text.
+        result = await agent.generateText(enhancedMessage, {
+          // userId and conversationId intentionally omitted to bypass VoltAgent memory
+          // CRITICAL: Disable parallel tool calls to ensure sequential delegation
+          // (ContactsAgent → EmailAgent flow requires one tool at a time)
+          providerOptions: {
+            mistral: {
+              parallelToolCalls: false,
+              structuredOutputs: true,
+            },
+          },
+        });
+      this.logger.debug(`${logPrefix} [DEBUG] agent.generateText completed successfully`);
+    } catch (genError) {
+      this.logger.error(`${logPrefix} [DEBUG] agent.generateText FAILED: ${genError instanceof Error ? genError.message : String(genError)}`);
+      this.logger.error(`${logPrefix} [DEBUG] Stack: ${genError instanceof Error ? genError.stack : 'no stack'}`);
+      throw genError;
+    }
 
     // 4. Persist messages to Prisma-based memory (conversation history)
     let persistedConversationId: string | undefined;
@@ -850,6 +890,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    * Process a chat message with streaming response.
    * Enhanced with rate limiting and semantic cache for production use.
    * Persists messages to Prisma-based memory after streaming completes.
+   *
+   * @security PII Handling:
+   * - INPUT: PII is detected and redacted before sending to LLM
+   * - CONTEXT: Conversation history and long-term memory are redacted before injection
+   * - OUTPUT: ⚠️ Streaming output from LLM is NOT filtered for PII.
+   *   The LLM may generate PII-like patterns (e.g., example emails, phone numbers).
+   *   For sensitive deployments, consider post-processing the stream or using
+   *   content moderation APIs on the client side.
    */
   async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string> {
     const correlationId = CorrelationContext.getCorrelationId();
@@ -946,13 +994,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       );
 
       // CRITICAL: Inject conversation history so agent remembers prior messages
-      if (budgetResult.messages.length > 0 || budgetResult.summaries.length > 0) {
+      // Defensive: ensure arrays exist (edge case protection for 1000+ concurrent users)
+      const messages = Array.isArray(budgetResult.messages) ? budgetResult.messages : [];
+      const summaries = Array.isArray(budgetResult.summaries) ? budgetResult.summaries : [];
+
+      if (messages.length > 0 || summaries.length > 0) {
         const historyParts: string[] = [];
-        if (budgetResult.summaries.length > 0) {
-          historyParts.push(`[Conversation Summary]\n${budgetResult.summaries.join('\n')}`);
+        if (summaries.length > 0) {
+          historyParts.push(`[Conversation Summary]\n${summaries.join('\n')}`);
         }
-        if (budgetResult.messages.length > 0) {
-          const formattedMessages = budgetResult.messages.map((m) => {
+        if (messages.length > 0) {
+          const formattedMessages = messages.map((m) => {
             const roleLabel = m.role === 'user' ? 'User' : m.role === 'assistant' ? 'Assistant' : 'System';
             return `${roleLabel}: ${m.content}`;
           });
@@ -962,7 +1014,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         if (this.piiDetectionService) {
           conversationHistoryContext = this.piiDetectionService.redact(conversationHistoryContext);
         }
-        this.logger.debug(`${logPrefix} Conversation history injected: ${budgetResult.messages.length} messages`);
+        this.logger.debug(`${logPrefix} Conversation history injected: ${messages.length} messages`);
       }
     }
 

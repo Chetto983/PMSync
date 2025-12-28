@@ -403,7 +403,7 @@ export class HybridRetriever extends BaseRetriever {
         if (typeof msg.content === 'string') return msg.content;
         if (Array.isArray(msg.content)) {
           const textPart = msg.content.find(
-            (p) => typeof p === 'object' && 'type' in p && p.type === 'text',
+            (p: unknown) => typeof p === 'object' && p !== null && 'type' in p && (p as { type: string }).type === 'text',
           );
           if (textPart && 'text' in textPart) return textPart.text;
         }

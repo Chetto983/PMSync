@@ -1,0 +1,7 @@
+components/dashboard/Mailbox.tsx(712,5): error TS2322: Type '(emailIds: string[], isRead?: boolean) => void' is not assignable to type '(emailIds: string[], isRead: boolean) => Promise<void>'.
+  Type 'void' is not assignable to type 'Promise<void>'.
+components/dashboard/Mailbox.tsx(713,5): error TS2322: Type '(emailIds: string[]) => void' is not assignable to type '(emailIds: string[]) => Promise<void>'.
+  Type 'void' is not assignable to type 'Promise<void>'.
+components/dashboard/Mailbox.tsx(714,5): error TS2322: Type '(emailIds: string[]) => void' is not assignable to type '(emailIds: string[]) => Promise<void>'.
+  Type 'void' is not assignable to type 'Promise<void>'.
+components/email/ThreadListSkeleton.test.tsx(3,36): error TS2307: Cannot find module './ThreadListSkeleton' or its corresponding type declarations.

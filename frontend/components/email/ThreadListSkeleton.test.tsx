@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { ThreadListSkeleton } from './ThreadListSkeleton';
+import { ThreadListSkeleton } from './list/ThreadListSkeleton';
 
 describe('ThreadListSkeleton', () => {
   it('renders default number of skeleton items', () => {

@@ -89,6 +89,9 @@ import { DocumentLibraryController } from './controllers/document-library.contro
 import { LlmTelemetryService } from './observability/telemetry';
 // Security guards (OWASP LLM Top 10 2025)
 import { PromptGuardService, PiiDetectionService } from '../guards';
+// Common services for job processors
+import { AlertingService } from '../../../common/services/alerting.service';
+// DeadLetterQueueService is available globally from CacheModule
 
 @Module({
   imports: [
@@ -153,6 +156,8 @@ import { PromptGuardService, PiiDetectionService } from '../guards';
     // Security guards (OWASP LLM Top 10 2025)
     PromptGuardService,
     PiiDetectionService,
+    // Common services for job processors (CrmBackfillProcessor, ReconnectReminderProcessor)
+    AlertingService,
   ],
   exports: [
     VoltAgentService,

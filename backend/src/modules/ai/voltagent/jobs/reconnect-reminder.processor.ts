@@ -17,6 +17,8 @@ import { Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RelationshipIntelligenceService } from '../services/relationship-intelligence.service';
+import { DeadLetterQueueService } from '../../../../common/services/dead-letter-queue.service';
+import { AlertingService } from '../../../../common/services/alerting.service';
 
 // Job data interface
 export interface ReconnectReminderJobData {
@@ -35,6 +37,9 @@ export interface ReconnectReminderResult {
 
 const QUEUE_NAME = 'reconnect-reminders';
 
+/** Maximum retry attempts before sending to DLQ */
+const MAX_ATTEMPTS = 3;
+
 @Injectable()
 export class ReconnectReminderProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ReconnectReminderProcessor.name);
@@ -46,6 +51,8 @@ export class ReconnectReminderProcessor implements OnModuleInit, OnModuleDestroy
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly relationshipService: RelationshipIntelligenceService,
+    private readonly dlqService: DeadLetterQueueService,
+    private readonly alertingService: AlertingService,
   ) {}
 
   async onModuleInit() {
@@ -101,8 +108,39 @@ export class ReconnectReminderProcessor implements OnModuleInit, OnModuleDestroy
         this.logger.debug(`Reminder job ${job.id} completed: ${JSON.stringify(result)}`);
       });
 
-      this.worker.on('failed', (job, error) => {
-        this.logger.error(`Reminder job ${job?.id} failed:`, error);
+      this.worker.on('failed', async (job, error) => {
+        const jobId = job?.id ?? 'unknown';
+        const errorMessage = error?.message ?? String(error);
+        this.logger.error(`Reminder job ${jobId} failed: ${errorMessage}`);
+
+        // Add to DLQ if this is the last retry attempt
+        if (job && job.attemptsMade + 1 >= MAX_ATTEMPTS) {
+          this.logger.warn(`Job ${jobId} exhausted all ${MAX_ATTEMPTS} retries, adding to DLQ`);
+
+          const errorObj = error instanceof Error ? error : new Error(errorMessage);
+          await this.dlqService.addToDeadLetter(
+            jobId,
+            job.queueName,
+            job.data,
+            errorObj,
+            job.attemptsMade + 1,
+            {
+              tenantId: 'tenantId' in job.data ? job.data.tenantId : 'system',
+              userId: 'userId' in job.data ? job.data.userId : undefined,
+              queueName: job.queueName,
+            },
+          );
+
+          // Create alert for permanent reminder failure
+          const alert = this.alertingService.createAlert(
+            'warning',
+            'reconnect_reminder_failed',
+            `Reconnect reminder job permanently failed after ${MAX_ATTEMPTS} attempts: ${errorMessage}`,
+            job.attemptsMade + 1,
+            MAX_ATTEMPTS,
+          );
+          this.logger.error(`ALERT: ${alert.type} - ${alert.message}`);
+        }
       });
 
       // Schedule daily check for all tenants

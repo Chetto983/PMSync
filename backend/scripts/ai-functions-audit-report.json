@@ -1,0 +1,879 @@
+{
+  "timestamp": "2025-12-28T17:26:11.898Z",
+  "duration": 22858,
+  "summary": {
+    "total": 53,
+    "passed": 28,
+    "warned": 25,
+    "failed": 0,
+    "skipped": 0,
+    "passRate": 53
+  },
+  "byCategory": {
+    "Health": {
+      "total": 1,
+      "passed": 1,
+      "warned": 0,
+      "failed": 0
+    },
+    "Briefing": {
+      "total": 3,
+      "passed": 1,
+      "warned": 2,
+      "failed": 0
+    },
+    "Memory": {
+      "total": 4,
+      "passed": 1,
+      "warned": 3,
+      "failed": 0
+    },
+    "FollowUps": {
+      "total": 5,
+      "passed": 5,
+      "warned": 0,
+      "failed": 0
+    },
+    "ActionItems": {
+      "total": 5,
+      "passed": 1,
+      "warned": 4,
+      "failed": 0
+    },
+    "Deadlines": {
+      "total": 4,
+      "passed": 4,
+      "warned": 0,
+      "failed": 0
+    },
+    "Analytics": {
+      "total": 4,
+      "passed": 1,
+      "warned": 3,
+      "failed": 0
+    },
+    "CRM": {
+      "total": 3,
+      "passed": 3,
+      "warned": 0,
+      "failed": 0
+    },
+    "HITL": {
+      "total": 2,
+      "passed": 1,
+      "warned": 1,
+      "failed": 0
+    },
+    "Stats": {
+      "total": 6,
+      "passed": 0,
+      "warned": 6,
+      "failed": 0
+    },
+    "Cache": {
+      "total": 1,
+      "passed": 0,
+      "warned": 1,
+      "failed": 0
+    },
+    "Knowledge": {
+      "total": 4,
+      "passed": 2,
+      "warned": 2,
+      "failed": 0
+    },
+    "Personalization": {
+      "total": 3,
+      "passed": 1,
+      "warned": 2,
+      "failed": 0
+    },
+    "DocLibrary": {
+      "total": 2,
+      "passed": 1,
+      "warned": 1,
+      "failed": 0
+    },
+    "Chat": {
+      "total": 2,
+      "passed": 2,
+      "warned": 0,
+      "failed": 0
+    },
+    "AI": {
+      "total": 4,
+      "passed": 4,
+      "warned": 0,
+      "failed": 0
+    }
+  },
+  "results": [
+    {
+      "endpoint": "/ai/health",
+      "method": "GET",
+      "category": "Health",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 36,
+      "dataValidation": "All expected keys present: status, services",
+      "details": {
+        "status": "healthy",
+        "timestamp": "2025-12-28T17:25:49.163Z"
+      },
+      "responseShape": "Found: [status, services]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/briefing",
+      "method": "GET",
+      "category": "Briefing",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 56,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"briefing\":{\"userId\":\"cmjgylxqp000154yhyl5mu6ss\",\"tenantId\":\"cmjgylxkg000054yhnjpkmz",
+      "details": {
+        "success": true
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/briefing/status",
+      "method": "GET",
+      "category": "Briefing",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 15,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"enabled\":true,\"scheduleHour\":6,\"batchSize\":10,\"queueStats\":{\"waiting\":0,\"active\":0,",
+      "details": {
+        "success": true,
+        "enabled": true,
+        "scheduleHour": 6,
+        "batchSize": 10
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/briefing/refresh",
+      "method": "POST",
+      "category": "Briefing",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 80,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "jobId": "manual-briefing-cmjgylxkg000054yhnjpkmzd9-cmjgylxqp000154yhyl5mu6ss-1766942749265",
+        "message": "Briefing refresh triggered"
+      }
+    },
+    {
+      "endpoint": "/api/v1/voltagent/memory",
+      "method": "GET",
+      "category": "Memory",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 20,
+      "dataValidation": "All expected keys present: memories",
+      "details": {
+        "success": true,
+        "count": 4,
+        "memories": "[4 items]"
+      },
+      "responseShape": "Found: [memories]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/memory/stats",
+      "method": "GET",
+      "category": "Memory",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 23,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"enabled\":true,\"totalMemories\":4,\"byCategory\":{\"GENERAL\":4},\"avgImportance\":0.5}",
+      "details": {
+        "success": true,
+        "enabled": true,
+        "totalMemories": 4,
+        "avgImportance": 0.5
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/memory/search?query=test&limit=5",
+      "method": "GET",
+      "category": "Memory",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 341,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"count\":0,\"memories\":[]}",
+      "details": {
+        "success": true,
+        "count": 0,
+        "memories": "[0 items]"
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/memory",
+      "method": "POST",
+      "category": "Memory",
+      "status": "WARN",
+      "statusCode": 201,
+      "responseTime": 47,
+      "dataValidation": "{\"success\":false,\"memoryId\":null}",
+      "details": {},
+      "error": "Unexpected status: 201"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/follow-ups?limit=10",
+      "method": "GET",
+      "category": "FollowUps",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 13,
+      "dataValidation": "All expected keys present: followUps",
+      "details": {
+        "success": true,
+        "count": 0,
+        "followUps": "[0 items]"
+      },
+      "responseShape": "Found: [followUps]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/follow-ups/pending?limit=10",
+      "method": "GET",
+      "category": "FollowUps",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 9,
+      "dataValidation": "All expected keys present: followUps",
+      "details": {
+        "success": true,
+        "count": 0,
+        "followUps": "[0 items]"
+      },
+      "responseShape": "Found: [followUps]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/follow-ups/overdue?limit=10",
+      "method": "GET",
+      "category": "FollowUps",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "All expected keys present: followUps",
+      "details": {
+        "success": true,
+        "count": 0,
+        "followUps": "[0 items]"
+      },
+      "responseShape": "Found: [followUps]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/follow-ups/stats",
+      "method": "GET",
+      "category": "FollowUps",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 13,
+      "dataValidation": "All expected keys present: total, pending, overdue",
+      "details": {
+        "success": true,
+        "total": 0,
+        "pending": 0,
+        "reminded": 0,
+        "resolved": 0
+      },
+      "responseShape": "Found: [total, pending, overdue]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/follow-ups/analyze",
+      "method": "POST",
+      "category": "FollowUps",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 10,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "needsFollowUp": false
+      }
+    },
+    {
+      "endpoint": "/api/v1/voltagent/action-items?limit=10",
+      "method": "GET",
+      "category": "ActionItems",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 10,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"items\":[],\"count\":0}",
+      "details": {
+        "success": true,
+        "items": "[0 items]",
+        "count": 0
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/action-items/pending?limit=10",
+      "method": "GET",
+      "category": "ActionItems",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 10,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"items\":[],\"count\":0}",
+      "details": {
+        "success": true,
+        "items": "[0 items]",
+        "count": 0
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/action-items/overdue?limit=10",
+      "method": "GET",
+      "category": "ActionItems",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 10,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"items\":[],\"count\":0}",
+      "details": {
+        "success": true,
+        "items": "[0 items]",
+        "count": 0
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/action-items/stats",
+      "method": "GET",
+      "category": "ActionItems",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 11,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"stats\":{\"total\":0,\"todo\":0,\"inProgress\":0,\"waiting\":0,\"done\":0,\"cancelled\":0,\"dueTo",
+      "details": {
+        "success": true
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/action-items/extract",
+      "method": "POST",
+      "category": "ActionItems",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 12,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "createdIds": "[0 items]",
+        "count": 0
+      }
+    },
+    {
+      "endpoint": "/api/v1/voltagent/deadlines?limit=10",
+      "method": "GET",
+      "category": "Deadlines",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "All expected keys present: deadlines",
+      "details": {
+        "success": true,
+        "enabled": true,
+        "count": 0,
+        "deadlines": "[0 items]"
+      },
+      "responseShape": "Found: [deadlines]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/deadlines/stats",
+      "method": "GET",
+      "category": "Deadlines",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 10,
+      "dataValidation": "All expected keys present: total, upcoming, overdue",
+      "details": {
+        "success": true,
+        "enabled": true,
+        "total": 0,
+        "upcoming": 0,
+        "dueSoon": 0
+      },
+      "responseShape": "Found: [total, upcoming, overdue]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/deadlines/queue",
+      "method": "GET",
+      "category": "Deadlines",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 10,
+      "dataValidation": "All expected keys present: waiting, active",
+      "details": {
+        "success": true,
+        "waiting": 0,
+        "active": 0,
+        "completed": 4,
+        "failed": 0
+      },
+      "responseShape": "Found: [waiting, active]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/deadlines/extract",
+      "method": "POST",
+      "category": "Deadlines",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "count": 0,
+        "deadlines": "[0 items]"
+      }
+    },
+    {
+      "endpoint": "/api/v1/voltagent/analytics/dashboard",
+      "method": "GET",
+      "category": "Analytics",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 9,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"analytics\":{\"email\":{\"volumeTrends\":{\"type\":\"chart\",\"title\":\"Email Volume Trends\",\"",
+      "details": {
+        "success": true
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/analytics/email?period=7d",
+      "method": "GET",
+      "category": "Analytics",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"analytics\":{\"volumeTrends\":{\"type\":\"chart\",\"title\":\"Email Volume Trends\",\"descripti",
+      "details": {
+        "success": true
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/analytics/status",
+      "method": "GET",
+      "category": "Analytics",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"enabled\":true}",
+      "details": {
+        "success": true,
+        "enabled": true
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/analytics/ai",
+      "method": "POST",
+      "category": "Analytics",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 886,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true
+      }
+    },
+    {
+      "endpoint": "/api/v1/voltagent/crm/stale-contacts?limit=10",
+      "method": "GET",
+      "category": "CRM",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 15,
+      "dataValidation": "All expected keys present: contacts",
+      "details": {
+        "success": true,
+        "count": 0,
+        "contacts": "[0 items]"
+      },
+      "responseShape": "Found: [contacts]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/crm/reconnect?limit=10",
+      "method": "GET",
+      "category": "CRM",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 11,
+      "dataValidation": "All expected keys present: contacts",
+      "details": {
+        "success": true,
+        "count": 0,
+        "contacts": "[0 items]"
+      },
+      "responseShape": "Found: [contacts]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/crm/top-contacts?limit=10",
+      "method": "GET",
+      "category": "CRM",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "All expected keys present: contacts",
+      "details": {
+        "success": true,
+        "count": 0,
+        "contacts": "[0 items]"
+      },
+      "responseShape": "Found: [contacts]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/actions/pending?limit=10",
+      "method": "GET",
+      "category": "HITL",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 9,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"actions\":[],\"total\":0}",
+      "details": {
+        "success": true,
+        "actions": "[0 items]",
+        "total": 0
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/feedback?limit=10",
+      "method": "GET",
+      "category": "HITL",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "All expected keys present: feedback",
+      "details": {
+        "success": true,
+        "feedback": "[0 items]",
+        "total": 0,
+        "limit": 10,
+        "offset": 0
+      },
+      "responseShape": "Found: [feedback]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/stats/action-counts",
+      "method": "GET",
+      "category": "Stats",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 9,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"counts\":{}}",
+      "details": {
+        "success": true
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/stats/learning",
+      "method": "GET",
+      "category": "Stats",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"stats\":[]}",
+      "details": {
+        "success": true,
+        "stats": "[0 items]"
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/stats/aggregate",
+      "method": "GET",
+      "category": "Stats",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"stats\":{\"totalAttempts\":0,\"overallApprovalRate\":0,\"overallSuccessRate\":0,\"agentBrea",
+      "details": {
+        "success": true
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/stats/performance",
+      "method": "GET",
+      "category": "Stats",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 7,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"stats\":{\"totalOperations\":316,\"avgLatencyMs\":6445,\"successRate\":88.92405063291139,\"",
+      "details": {
+        "success": true
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/stats/metrics",
+      "method": "GET",
+      "category": "Stats",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 7,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"metrics\":[{\"agentName\":\"SupervisorAgent\",\"duration\":36,\"toolCalls\":0,\"success\":fals",
+      "details": {
+        "success": true,
+        "metrics": "[100 items]",
+        "count": 100
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/stats/optimizations",
+      "method": "GET",
+      "category": "Stats",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 13,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"optimizations\":{\"semanticCache\":{\"enabled\":true,\"cacheEntries\":0,\"cacheHits\":0,\"est",
+      "details": {
+        "success": true
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/cache/analytics",
+      "method": "GET",
+      "category": "Cache",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 9,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"analytics\":{\"enabled\":true,\"lookups\":15,\"hits\":0,\"misses\":15,\"hitRate\":\"0.0%\",\"avgH",
+      "details": {
+        "success": true,
+        "recommendations": "[1 items]"
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/knowledge/stats",
+      "method": "GET",
+      "category": "Knowledge",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 20,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"memoryCount\":4,\"deadlineCount\":0,\"followupCount\":0,\"actionCount\":0}",
+      "details": {
+        "success": true,
+        "memoryCount": 4,
+        "deadlineCount": 0,
+        "followupCount": 0,
+        "actionCount": 0
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/knowledge/search",
+      "method": "POST",
+      "category": "Knowledge",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 865,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "context": "## Relevant Emails\nTest message\n\n---\n\nTest message\n\n---\n\nTest message\n\n---\n\nTest message\n\n---\n\nTest message\n",
+        "sources": "[4 items]",
+        "itemCount": 0
+      }
+    },
+    {
+      "endpoint": "/ai/knowledge-base/embeddings?limit=5",
+      "method": "GET",
+      "category": "Knowledge",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 12,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"items\":[{\"id\":\"AMO_OqyvnYJvmRfkFE-2Z\",\"documentName\":\"Sara🦋&Macchia🐕 ha fatto un ",
+      "details": {
+        "success": true,
+        "items": "[5 items]"
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/ai/knowledge-base/search",
+      "method": "POST",
+      "category": "Knowledge",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 57,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "usedQuery": "test",
+        "items": "[5 items]"
+      }
+    },
+    {
+      "endpoint": "/ai/personalization/profile",
+      "method": "GET",
+      "category": "Personalization",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 11,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"profile\":{\"jobRole\":\"OTHER\",\"jobTitle\":\"Programmatore\",\"department\":\"IT\",\"industry\"",
+      "details": {
+        "success": true
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/ai/personalization/working-hours",
+      "method": "GET",
+      "category": "Personalization",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 9,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"withinWorkingHours\":false,\"workingHours\":{\"start\":\"08:00\",\"end\":\"17:30\",\"days\":[\"MO",
+      "details": {
+        "success": true,
+        "withinWorkingHours": false
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/ai/personalization/memories/semantic",
+      "method": "GET",
+      "category": "Personalization",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "All expected keys present: memories",
+      "details": {
+        "success": true,
+        "memories": "[0 items]"
+      },
+      "responseShape": "Found: [memories]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/documents/libraries",
+      "method": "GET",
+      "category": "DocLibrary",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 14,
+      "dataValidation": "All expected keys present: libraries",
+      "details": {
+        "success": true,
+        "libraries": "[0 items]",
+        "count": 0
+      },
+      "responseShape": "Found: [libraries]"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/documents/status",
+      "method": "GET",
+      "category": "DocLibrary",
+      "status": "WARN",
+      "statusCode": 200,
+      "responseTime": 8,
+      "dataValidation": "Unexpected shape: {\"success\":true,\"enabled\":true,\"features\":[\"document_library_rag\",\"automatic_chunking\",\"citation_sup",
+      "details": {
+        "success": true,
+        "enabled": true,
+        "features": "[6 items]"
+      },
+      "responseShape": "Found: []"
+    },
+    {
+      "endpoint": "/api/v1/voltagent/chat",
+      "method": "POST",
+      "category": "Chat",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 833,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "text": "Hello Davide! How can I assist you today?",
+        "requiresApproval": false,
+        "model": "small",
+        "fromCache": false,
+        "contextTruncated": false
+      }
+    },
+    {
+      "endpoint": "/ai/chat",
+      "method": "POST",
+      "category": "Chat",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 1307,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "response": "It looks like your input consists of placeholder text (\"Test message\") across all sources. Could you clarify or provide specific details, questions, or actual content you'd like me to analyze, summarize, or expand upon?\n\nFor example, I can help with:\n- **Summarizing** real information from sources.\n- **Answering questions** based on provided data.\n- **Generating insights** or comparisons.\n- **Drafting responses** (e.g., emails, reports)."
+      }
+    },
+    {
+      "endpoint": "/ai/summarize/cmjpycu6g004op8yhl98ag1zc",
+      "method": "POST",
+      "category": "AI",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 1449,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "summary": "This email appears to be a suspicious phishing attempt. It falsely claims your account is blocked and threatens deletion of photos/videos by 2025.12.28 to create urgency. The sender address is highly irregular, and the content lacks legitimate details.\n\nAction: Do not click links or reply. Delete the email and report it as phishing. Verify account status only through official channels."
+      }
+    },
+    {
+      "endpoint": "/ai/smart-reply/cmjpycu6g004op8yhl98ag1zc",
+      "method": "POST",
+      "category": "AI",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 2779,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "suggestions": "[3 items]"
+      }
+    },
+    {
+      "endpoint": "/ai/sentiment/cmjpycu6g004op8yhl98ag1zc",
+      "method": "POST",
+      "category": "AI",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 8151,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "sentiment": "neutral",
+        "tone": "casual",
+        "emotion": "neutral",
+        "emotionalIntensity": 0.5
+      }
+    },
+    {
+      "endpoint": "/ai/priority/cmjpycu6g004op8yhl98ag1zc",
+      "method": "POST",
+      "category": "AI",
+      "status": "PASS",
+      "statusCode": 200,
+      "responseTime": 5450,
+      "dataValidation": "Response received (validation skipped)",
+      "details": {
+        "success": true,
+        "score": 5,
+        "urgency": "medium",
+        "recommendation": "handle_this_week",
+        "factors": "[0 items]"
+      }
+    }
+  ]
+}

@@ -5,6 +5,7 @@
  * Model names are configurable via environment variables.
  */
 import { createMistral } from '@ai-sdk/mistral';
+import type { LanguageModel } from 'ai';
 
 // Validate API key at module load time
 const apiKey = process.env.MISTRAL_API_KEY;
@@ -68,15 +69,18 @@ export const mistralLarge = { get: getMistralLarge };
 // Model selection helper
 export type MistralModel = 'small' | 'medium' | 'large';
 
-export function getMistralModel(model: MistralModel = 'small') {
+export function getMistralModel(model: MistralModel = 'small'): LanguageModel {
+  // Type cast required: @ai-sdk/mistral returns LanguageModelV1 which is compatible
+  // with VoltAgent's LanguageModel interface at runtime, but TypeScript needs the cast.
+  // Using double-cast (unknown) to bridge V1 → V2 type differences.
   switch (model) {
     case 'large':
-      return getMistralLarge();
+      return getMistralLarge() as unknown as LanguageModel;
     case 'medium':
-      return getMistralMedium();
+      return getMistralMedium() as unknown as LanguageModel;
     case 'small':
     default:
-      return getMistralSmall();
+      return getMistralSmall() as unknown as LanguageModel;
   }
 }
 

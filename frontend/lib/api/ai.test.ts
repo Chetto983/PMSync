@@ -335,7 +335,9 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       const result = await voltAgentApi.approveAction('exec-1');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/voltagent/actions/exec-1/approve');
+      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/voltagent/actions/exec-1/approve', {
+        payload: undefined,
+      });
       expect(result.data.status).toBe('approved');
     });
   });
@@ -479,7 +481,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
 
       await voltAgentApi.resetLearning();
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/voltagent/learning/reset', undefined);
+      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/voltagent/learning/reset', {});
     });
 
     it('should pass agentName and actionType', async () => {
@@ -572,7 +574,9 @@ describe('multiAgentApi (Backwards Compatibility)', () => {
 
       await multiAgentApi.approveAction('exec-1');
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/voltagent/actions/exec-1/approve');
+      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/voltagent/actions/exec-1/approve', {
+        payload: undefined,
+      });
     });
   });
 

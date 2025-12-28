@@ -8,6 +8,8 @@ import {
   UsePipes,
   ValidationPipe,
   Logger,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -70,6 +72,7 @@ export class AiController {
    * Simple chat completion backed by Mistral
    */
   @Post('chat')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Chat completion',
     description: 'Send a message and receive an AI-generated response using Mistral',
@@ -95,6 +98,7 @@ export class AiController {
    * AI-assisted email composition (draft body + optional subject)
    */
   @Post('compose')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'AI-assisted email composition',
     description: 'Generate a ready-to-send email draft from a prompt, with optional tone and context',
@@ -120,6 +124,7 @@ export class AiController {
    * Generate AI summary for an email
    */
   @Post('summarize/:emailId')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Summarize email',
     description: 'Generate an AI-powered summary of a specific email',
@@ -145,6 +150,7 @@ export class AiController {
    * Generate smart reply suggestions
    */
   @Post('smart-reply/:emailId')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Generate smart replies',
     description: 'Generate AI-powered reply suggestions for a specific email',
@@ -171,6 +177,7 @@ export class AiController {
    * Suggest labels for an email
    */
   @Post('categorize/:emailId')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Categorize email',
     description: 'Generate AI-powered label suggestions for a specific email',
@@ -196,6 +203,7 @@ export class AiController {
    * Search knowledge base using semantic similarity (RAG)
    */
   @Post('memory/search')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Search knowledge base',
     description: 'Search the tenant knowledge base using semantic similarity (RAG)',
@@ -232,6 +240,7 @@ export class AiController {
    * Uses 2025 best practices: ABSA, emotion detection, churn risk
    */
   @Post('sentiment/:emailId')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Analyze email sentiment',
     description: 'Deep sentiment analysis with emotion detection, aspect-based analysis, and churn risk prediction',
@@ -267,6 +276,7 @@ export class AiController {
    * Calculate email priority with multi-factor scoring
    */
   @Post('priority/:emailId')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Calculate email priority',
     description: 'Multi-factor priority scoring based on urgency, importance, and sender context',
@@ -294,6 +304,7 @@ export class AiController {
    * Combines sentiment, priority, intent, and urgency in one call
    */
   @Post('analyze/:emailId')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Comprehensive email analysis',
     description: 'Full analysis including sentiment, tone, urgency, intent, priority, and escalation risk',

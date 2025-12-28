@@ -1,0 +1,11 @@
+components/dashboard/Mailbox.tsx(483,5): error TS6133: 'aggregatorFolders' is declared but its value is never read.
+components/dashboard/Mailbox.tsx(484,5): error TS6133: 'smartFilterFolders' is declared but its value is never read.
+components/dashboard/Mailbox.tsx(485,5): error TS6133: 'remoteFolders' is declared but its value is never read.
+components/dashboard/Mailbox.tsx(501,59): error TS2304: Cannot find name 'ProviderConfig'.
+components/dashboard/Mailbox.tsx(715,5): error TS2322: Type '(emailIds: string[], isRead?: boolean) => void' is not assignable to type '(emailIds: string[], isRead: boolean) => Promise<void>'.
+  Type 'void' is not assignable to type 'Promise<void>'.
+components/dashboard/Mailbox.tsx(716,5): error TS2322: Type '(emailIds: string[]) => void' is not assignable to type '(emailIds: string[]) => Promise<void>'.
+  Type 'void' is not assignable to type 'Promise<void>'.
+components/dashboard/Mailbox.tsx(717,5): error TS2322: Type '(emailIds: string[]) => void' is not assignable to type '(emailIds: string[]) => Promise<void>'.
+  Type 'void' is not assignable to type 'Promise<void>'.
+components/email/ThreadListSkeleton.test.tsx(3,36): error TS2307: Cannot find module './ThreadListSkeleton' or its corresponding type declarations.

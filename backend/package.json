@@ -26,7 +26,7 @@
     "worker:ai": "node dist/workers/ai.worker.js"
   },
   "dependencies": {
-    "@ai-sdk/mistral": "^3.0.1",
+    "@ai-sdk/mistral": "^2.0.25",
     "@anthropic-ai/sdk": "^0.71.2",
     "@aws-sdk/client-s3": "^3.958.0",
     "@aws-sdk/s3-request-presigner": "^3.958.0",
@@ -56,11 +56,11 @@
     "@qdrant/js-client-rest": "^1.16.2",
     "@simplewebauthn/server": "^13.2.2",
     "@supabase/supabase-js": "^2.89.0",
-    "@voltagent/core": "^1.5.1",
+    "@voltagent/core": "^1.5.2",
     "@voltagent/libsql": "^1.0.14",
     "@voltagent/logger": "^1.0.4",
     "@voltagent/postgres": "^1.1.4",
-    "ai": "^6.0.3",
+    "ai": "^5.0.116",
     "async-mutex": "^0.5.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",

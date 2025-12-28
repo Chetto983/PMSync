@@ -60,6 +60,13 @@ class ChatRequestDto {
   @IsString()
   conversationId?: string;
 
+  /**
+   * Alias for conversationId (for backwards compatibility)
+   */
+  @IsOptional()
+  @IsString()
+  sessionId?: string;
+
   @IsOptional()
   @IsString()
   locale?: string;
@@ -143,7 +150,8 @@ export class VoltAgentController {
     const options: ChatOptions = {
       userId: req.user.userId,
       tenantId: req.user.tenantId,
-      conversationId: body.conversationId,
+      // Support both conversationId and sessionId (backwards compatibility)
+      conversationId: body.conversationId || body.sessionId,
       locale: body.locale,
       model: body.model,
     };
@@ -209,6 +217,7 @@ export class VoltAgentController {
     );
 
     return {
+      success: true,
       actions: suspended.map((s) => ({
         id: s.executionId, // Frontend compatibility alias
         executionId: s.executionId,
@@ -589,7 +598,8 @@ export class VoltAgentController {
     const options: ChatOptions = {
       userId: req.user.userId,
       tenantId: req.user.tenantId,
-      conversationId: body.conversationId,
+      // Support both conversationId and sessionId (backwards compatibility)
+      conversationId: body.conversationId || body.sessionId,
       locale: body.locale,
       model: body.model,
     };
@@ -1062,6 +1072,7 @@ export class VoltAgentController {
     return {
       success: true,
       enabled: this.deadlineExtractorService.isEnabled(),
+      total: stats.upcoming + stats.dueSoon + stats.overdue + stats.completed,
       ...stats,
     };
   }

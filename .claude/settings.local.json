@@ -96,7 +96,14 @@
       "Bash(git restore:*)",
       "Bash(npm ls:*)",
       "Bash(if not exist \"D:\\\\MailAgent\\\\docs\" mkdir \"D:\\\\MailAgent\\\\docs\")",
-      "Bash(npm run typecheck:*)"
+      "Bash(npm run typecheck:*)",
+      "Bash(powershell -Command \"Set-Location 'D:\\\\MailAgent\\\\backend'; npx ts-node --transpile-only scripts/audit-ai-functions-production.ts\":*)",
+      "Bash(powershell:*)",
+      "Bash(if [ -f logs/error.log ])",
+      "Bash(then tail -100 logs/error.log)",
+      "Bash(else echo \"No error.log found\")",
+      "Bash(fi)",
+      "Bash(curl.exe:*)"
     ],
     "deny": []
   }

@@ -14,7 +14,9 @@ import { AttachmentContentExtractorService } from './services/attachment-content
 import { EmbeddingBackfillSchedulerService } from './services/embedding-backfill-scheduler.service';
 import { FeedbackQueueService } from './services/feedback-queue.service';
 import { EmailModule } from '../email/email.module';
+import { AlertingService } from '../../common/services/alerting.service';
 // VoltAgent module provides consolidated AI agent services
+// DeadLetterQueueService is available globally from CacheModule
 import { VoltAgentModule } from './voltagent/voltagent.module';
 
 @Module({
@@ -35,6 +37,7 @@ import { VoltAgentModule } from './voltagent/voltagent.module';
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,
     FeedbackQueueService,
+    AlertingService, // Required by EmailEmbeddingQueueService for critical failure alerts
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController, PersonalizationController],
   exports: [

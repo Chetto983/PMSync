@@ -266,6 +266,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
         {/* Sidebar Panel */}
         <Panel
           id="sidebar"
+          order={1}
           defaultSize={initialSizes.sidebar}
           minSize={MIN_SIZES.sidebar}
           maxSize={30}
@@ -295,6 +296,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
         {/* List Panel */}
         <Panel
           id="list"
+          order={2}
           defaultSize={showDetail ? initialSizes.list : 100 - initialSizes.sidebar}
           minSize={MIN_SIZES.list}
           maxSize={showDetail ? 55 : 100}
@@ -325,6 +327,7 @@ export const ResizableEmailLayout: React.FC<ResizableEmailLayoutProps> = ({
             <OutlookResizeHandle id="list-detail-handle" />
             <Panel
               id="detail"
+              order={3}
               minSize={MIN_SIZES.detail}
               style={{
                 display: 'flex',

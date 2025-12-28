@@ -1,21 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Inbox,
-  Star,
-  Mail as MailIcon,
-  Paperclip,
-  Clock,
-  Calendar as CalendarIcon,
-  RefreshCcw,
-  Filter,
-  Menu,
-  MessageSquare,
-  Mail as MailListIcon,
-} from 'lucide-react';
-import { Tooltip } from '@mui/material';
-import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme, Alert, Stack, Typography, Button, CircularProgress, Paper, IconButton } from '@mui/material';
+import { Snackbar, Alert as MuiAlert, Box, useMediaQuery, useTheme } from '@mui/material';
 import {
   DndContext,
   DragStartEvent,
@@ -28,23 +14,23 @@ import {
 import { emailApi, type EmailListParams, type Conversation } from '@/lib/api/email';
 
 import { logger } from '@/lib/logger';
-import type { ProviderConfig } from '@/lib/api/providers';
-import { getFolders, type Folder } from '@/lib/api/folders';
+import { getFolders, type Provider } from '@/lib/api/folders';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useEmailStore, type Email } from '@/stores/email-store';
 import { useFoldersStore } from '@/stores/folders-store';
 import { websocketClient } from '@/lib/websocket-client';
 import { useEmailActions } from '@/hooks/use-email-actions';
+import { useComposeHandlers } from '@/components/dashboard/hooks/use-compose-handlers';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
-import { getFolderIcon as getIconForFolderUtil } from '@/lib/utils/folder-normalization';
 import { emailKeys, useEmailStats, useInfiniteConversations, useInfiniteEmails } from '@/hooks/queries';
+import { useFolderLogic, type FolderItem } from '@/components/dashboard/hooks/use-folder-logic';
+import { useSelectionLogic } from '@/components/dashboard/hooks/use-selection-logic';
+import { MailboxHeader } from '@/components/dashboard/MailboxHeader';
 
 // Components
 import {
   ResizableEmailLayout,
   EmailSidebar,
-  type FolderGroup,
-  type SmartFilter,
   ThreadList,
   ThreadDisplay,
   ComposeDialog,
@@ -57,23 +43,7 @@ import {
 } from '@/components/email';
 import { LabelManager } from '@/components/labels';
 
-interface FolderItem {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  count?: number;
-  color?: string;
-  providerId?: string;
-  providerEmail?: string;
-  filterFolder?: string;
-  queryOverrides?: Partial<EmailListParams>;
-  aggregate?: boolean;
-  specialUse?: string;
-  /** Folder path for folder operations */
-  path?: string;
-  /** Full folder data for context menu CRUD operations */
-  folderData?: Folder;
-}
+// Interfaces imported from use-folder-logic
 
 /**
  * API Email type (matches backend response)
@@ -206,7 +176,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
   // Store state
   // Use explicit selectors for better re-render reliability
   const storeSelectedEmail = useEmailStore((state) => state.selectedEmail);
-  const selectedIds = useEmailStore((state) => state.selectedIds);
+
   const setSelectedEmail = useEmailStore((state) => state.setSelectedEmail);
   const toggleSelection = useEmailStore((state) => state.toggleSelection);
   const clearSelection = useEmailStore((state) => state.clearSelection);
@@ -236,12 +206,10 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
 
   // Folder state derived from store
   const foldersByProvider = useFoldersStore((state) => state.foldersByProvider);
-  const providersById = useFoldersStore((state) => state.providersById);
   const setFoldersData = useFoldersStore((state) => state.setFoldersData);
-  const countsByFolderId = useFoldersStore((state) => state.countsByFolderId);
   const [foldersLoading, setFoldersLoading] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [searchQuery] = useState(initialSearchQuery || '');
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeMode, setComposeMode] = useState<'compose' | 'reply' | 'forward'>('compose');
@@ -264,7 +232,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
   const [forceConversationView, setForceConversationView] = useState<boolean | null>(() => {
     if (typeof window === 'undefined') return null;
     const stored = localStorage.getItem('mailagent-conversation-view');
-    return stored === 'true' ? true : stored === 'false' ? false : null;
+    return stored === 'true' ? true : stored === 'false' ? false : true;
   });
 
   const toggleConversationView = useCallback(() => {
@@ -502,248 +470,16 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
 
 
   // Smart Filters for quick access
-  // Note: Counts come from database API (emailStats) - no need to load all emails
-  const smartFilters = useMemo<SmartFilter[]>(() => {
-    return [
-      {
-        id: 'smart:unread',
-        label: t.email.quickFilters.unread,
-        icon: <MailIcon size={18} />,
-        color: '#0B7EFF',
-        count: emailStats?.unread && emailStats.unread > 0 ? emailStats.unread : undefined,
-      },
-      {
-        id: 'smart:today',
-        label: t.email.quickFilters.today,
-        icon: <Clock size={18} />,
-        color: '#00C853',
-        count: emailStats?.today && emailStats.today > 0 ? emailStats.today : undefined,
-      },
-      {
-        id: 'smart:this-week',
-        label: t.email.quickFilters.thisWeek,
-        icon: <CalendarIcon size={18} />,
-        color: '#9C27B0',
-        count: emailStats?.thisWeek && emailStats.thisWeek > 0 ? emailStats.thisWeek : undefined,
-      },
-      {
-        id: 'smart:attachments',
-        label: t.email.quickFilters.hasAttachments,
-        icon: <Paperclip size={18} />,
-        color: '#FF9800',
-        count: emailStats?.attachments && emailStats.attachments > 0 ? emailStats.attachments : undefined,
-      },
-      {
-        id: 'smart:important',
-        label: t.email.quickFilters.important,
-        icon: <Star size={18} />,
-        color: '#FFB300',
-        count: emailStats?.important && emailStats.important > 0 ? emailStats.important : undefined,
-      },
-    ];
-  }, [t, emailStats]);
-
-  // Aggregator folders (All Inbox, All Starred)
-  // RFC 6154: Use specialUse for aggregation across providers with different folder names
-  const aggregatorFolders = useMemo<FolderItem[]>(
-    () => [
-      {
-        id: 'all:inbox',
-        label: t.folders.inbox,
-        icon: <Inbox size={20} />,
-        aggregate: true,
-        specialUse: 'INBOX',
-        queryOverrides: { specialUse: 'INBOX' }, // RFC 6154: aggregate by specialUse
-      },
-      {
-        id: 'all:starred',
-        label: t.email.starredFolderLabel || t.folders.starred,
-        icon: <Star size={20} />,
-        color: '#FFB300',
-        aggregate: true,
-        queryOverrides: { isStarred: true },
-      },
-    ],
-    [t]
-  );
-
-  // Convert smart filters to folder items for unified handling
-  const smartFilterFolders = useMemo<FolderItem[]>(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfToday = new Date(today);
-    endOfToday.setHours(23, 59, 59, 999);
-
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay());
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-
-    return smartFilters.map((filter) => {
-      let queryOverrides: Partial<EmailListParams> = {};
-
-      switch (filter.id) {
-        case 'smart:unread':
-          queryOverrides = { isRead: false };
-          break;
-        case 'smart:today':
-          queryOverrides = {
-            startDate: today.toISOString(),
-            endDate: endOfToday.toISOString(),
-          };
-          break;
-        case 'smart:this-week':
-          queryOverrides = {
-            startDate: startOfWeek.toISOString(),
-            endDate: endOfWeek.toISOString(),
-          };
-          break;
-        case 'smart:attachments':
-          queryOverrides = { hasAttachments: true };
-          break;
-        case 'smart:important':
-          // isImportant = isStarred OR isFlagged (provider-agnostic)
-          queryOverrides = { isImportant: true };
-          break;
-      }
-
-      return {
-        id: filter.id,
-        label: filter.label,
-        icon: filter.icon,
-        count: filter.count,
-        color: filter.color,
-        aggregate: true,
-        queryOverrides,
-      };
-    });
-  }, [smartFilters]);
-
-  // Derived remote folders from store
-  // Use actual folder.path for API queries - provider is source of truth
-  const remoteFolders = useMemo<FolderItem[]>(() => {
-    const items: FolderItem[] = [];
-    Object.entries(foldersByProvider).forEach(([providerId, folders]) => {
-      const providerEmail = providersById[providerId]?.email || '';
-      folders.forEach((folder) => {
-        const IconComponent = getIconForFolderUtil(folder.specialUse);
-        const countOverride = countsByFolderId[`${providerId}:${folder.id}`];
-        // CANONICAL FOLDER ARCHITECTURE:
-        // Backend expects canonical folder names (INBOX, SENT, TRASH, etc.)
-        // Use specialUse (which is canonical) for API queries
-        // Fall back to path only for custom folders without specialUse
-        const canonicalFolder = folder.specialUse?.toUpperCase() || folder.path || folder.name;
-
-        // Normalize label for standard folders
-        let label = folder.name;
-        if (folder.specialUse) {
-          const type = folder.specialUse.toUpperCase();
-          if (type === 'INBOX') label = t.folders.inbox;
-          else if (type === 'SENT') label = t.folders.sent;
-          else if (type === 'DRAFTS') label = t.folders.drafts;
-          else if (type === 'TRASH') label = t.folders.trash;
-          else if (type === 'SPAM' || type === 'JUNK') label = t.folders.spam;
-          else if (type === 'ARCHIVE') label = t.folders.archive;
-          else if (type === 'IMPORTANT') label = t.folders.starred;
-          else if (type === 'STARRED') label = t.folders.starred;
-        }
-
-        items.push({
-          id: folder.id,
-          label,
-          icon: <IconComponent size={20} />,
-          count: countOverride?.unreadCount ?? folder.unreadCount,
-          providerId: folder.providerId,
-          providerEmail,
-          filterFolder: canonicalFolder, // Use canonical name for API queries
-          specialUse: folder.specialUse,
-          path: folder.path,
-          folderData: folder as Folder, // Pass full folder data for CRUD operations
-          queryOverrides: {
-            providerId: folder.providerId,
-            folder: canonicalFolder, // Use canonical name for API query
-          },
-        });
-      });
-    });
-    return items;
-  }, [foldersByProvider, providersById, countsByFolderId, t.folders]);
-
-  // Combined folders
-  const combinedFolders = useMemo(
-    () => [...smartFilterFolders, ...aggregatorFolders, ...remoteFolders],
-    [smartFilterFolders, aggregatorFolders, remoteFolders]
-  );
-
-  // Folders grouped by provider for sidebar
-  const folderGroups = useMemo<FolderGroup[]>(() => {
-    const groups: FolderGroup[] = [];
-
-    if (aggregatorFolders.length) {
-      groups.push({
-        providerId: 'all',
-        providerEmail: t.email.allAccountsLabel,
-        folders: aggregatorFolders,
-      });
-    }
-
-    const providerMap = new Map<
-      string,
-      { providerId: string; providerEmail: string; folders: FolderItem[] }
-    >();
-
-    remoteFolders.forEach((folder) => {
-      if (!folder.providerId) return;
-      if (!providerMap.has(folder.providerId)) {
-        providerMap.set(folder.providerId, {
-          providerId: folder.providerId,
-          providerEmail: folder.providerEmail || t.email.noProviders,
-          folders: [],
-        });
-      }
-      providerMap.get(folder.providerId)!.folders.push(folder);
-    });
-
-    groups.push(
-      ...Array.from(providerMap.values()).sort((a, b) =>
-        a.providerEmail.localeCompare(b.providerEmail)
-      )
-    );
-
-    return groups;
-  }, [aggregatorFolders, remoteFolders, t]);
-
-  // Get provider icon
-  const getProviderIcon = useCallback((providerId: string) => {
-    const provider = providers.find((p) => p.id === providerId);
-    if (!provider) return null;
-
-    // Return icon based on provider type
-    if (provider.providerType === 'google') {
-      return (
-        <svg viewBox="0 0 24 24" width="20" height="20">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-        </svg>
-      );
-    }
-
-    if (provider.providerType === 'microsoft') {
-      return (
-        <svg viewBox="0 0 24 24" width="20" height="20">
-          <path fill="#f25022" d="M1 1h10v10H1z" />
-          <path fill="#00a4ef" d="M13 1h10v10H13z" />
-          <path fill="#7fba00" d="M1 13h10v10H1z" />
-          <path fill="#ffb900" d="M13 13h10v10H13z" />
-        </svg>
-      );
-    }
-
-    return null;
-  }, [providers]);
+  // Use extracted folder logic
+  const {
+    smartFilters,
+    combinedFolders,
+    folderGroups,
+    getProviderIcon
+  } = useFolderLogic({
+    emailStats,
+    providers
+  });
 
   // Load folder metadata
   const loadFolderMetadata = useCallback(async () => {
@@ -752,7 +488,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
       const folderResponse = await getFolders();
       setFoldersData(folderResponse.providers, folderResponse.foldersByProvider);
       // Note: Provider from folders API is a subset of ProviderConfig - safe cast for display purposes
-      setProviders(folderResponse.providers as unknown as ProviderConfig[]);
+      setProviders(folderResponse.providers);
       setFoldersLoading(false);
     } catch (error) {
       logger.error('Failed to load folders', { error });
@@ -773,18 +509,15 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
   }, [activeFolder]);
 
   // Determine view mode: email list (flat) or conversation (threaded)
-  // Priority: 1) Force override from toggle, 2) Automatic based on filters
+  // Priority: 1) Filters/labels always force list view, 2) User preference if no filters
   const useEmailListView = useMemo(() => {
-    // If user explicitly set a preference, use it (unless filters require email view)
-    if (forceConversationView === false) return true; // Force email list
-    if (forceConversationView === true) {
-      // Force conversation view, but some scenarios require email list
-      if (labelFolderId) return true; // Labels require email list
-    }
-
+    // Labels always require email list view (server-side filtering)
     if (labelFolderId) return true;
+
+    // No active folder means we show list view by default
     if (!activeFolder) return true;
 
+    // Check if filters are active - filters require email list view
     const hasActiveFilters = Boolean(
       searchQuery ||
       advancedFilters.searchQuery ||
@@ -804,7 +537,11 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
       activeFolder.queryOverrides?.endDate !== undefined,
     );
 
-    return hasActiveFilters;
+    // Filters active = must use email list view
+    if (hasActiveFilters) return true;
+
+    // No filters - use user preference (default: conversation view = true)
+    return forceConversationView === false; // Only return true (list view) if user explicitly disabled conversation
   }, [activeFolder, advancedFilters, forceConversationView, labelFolderId, searchQuery]);
 
   // Computed state for UI
@@ -944,245 +681,32 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
   }, [queryClient]);
 
-  const getThreadKey = useCallback((thread: Email | Conversation) => {
-    return 'providerId' in thread ? thread.threadId || thread.id : thread.threadId;
-  }, []);
-
-  const handleSelectAll = useCallback(() => {
-    const next = new Set<string>();
-    for (const thread of threads) {
-      const key = getThreadKey(thread);
-      if (key) next.add(key);
-    }
-    useEmailStore.getState().setSelectedIds(next);
-  }, [getThreadKey, threads]);
-
-  const resolveEmailIdsForThread = useCallback(async (thread: Email | Conversation) => {
-    if ('providerId' in thread) return [thread.id];
-
-    try {
-      const threadRes = await emailApi.getThread(thread.threadId);
-      return threadRes.data.map((e) => e.id);
-    } catch (error) {
-      logger.error('[Mailbox] Failed to expand thread for bulk operation', { threadId: thread.threadId, error });
-      return [thread.latestEmailId];
-    }
-  }, []);
-
-  const resolveSelectedEmailIds = useCallback(async () => {
-    const threadIds = Array.from(selectedIds);
-    if (threadIds.length === 0) return { emailIds: [], threadCount: 0 };
-
-    const selectedSet = new Set(threadIds);
-    const selectedThreads = threads.filter((thread) => selectedSet.has(getThreadKey(thread)));
-
-    const emailIdArrays = await Promise.all(selectedThreads.map(resolveEmailIdsForThread));
-    const emailIds = Array.from(new Set(emailIdArrays.flat())).filter(Boolean);
-
-    return { emailIds, threadCount: threadIds.length };
-  }, [getThreadKey, resolveEmailIdsForThread, selectedIds, threads]);
 
 
-  // Bulk operations handlers with optimistic updates
-  const handleBulkMarkRead = useCallback(async () => {
-    const { emailIds } = await resolveSelectedEmailIds();
-    if (emailIds.length === 0) return;
-    await handleMarkAsRead(emailIds, true);
-  }, [handleMarkAsRead, resolveSelectedEmailIds]);
-
-  const handleBulkMarkUnread = useCallback(async () => {
-    const { emailIds } = await resolveSelectedEmailIds();
-    if (emailIds.length === 0) return;
-    await handleMarkAsRead(emailIds, false);
-  }, [handleMarkAsRead, resolveSelectedEmailIds]);
-
-  const handleBulkDelete = useCallback(async () => {
-    const { emailIds, threadCount } = await resolveSelectedEmailIds();
-    if (emailIds.length === 0) return;
-
-    const confirmMessage = t.email.messages.deleteConfirm.replace('{count}', threadCount.toString());
-
-    if (!window.confirm(confirmMessage)) return;
-
-    clearSelection();
-    await handleBulkDeleteEmails(emailIds);
-  }, [clearSelection, handleBulkDeleteEmails, resolveSelectedEmailIds, t.email.messages.deleteConfirm]);
-
-  const handleBulkStar = useCallback(async () => {
-    const { emailIds } = await resolveSelectedEmailIds();
-    if (emailIds.length === 0) return;
-
-    // Optimistic update
-    useEmailStore.getState().markAsStarred(emailIds, true);
-
-    try {
-      await emailApi.bulkStar(emailIds, true);
-      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.starred.replace('{count}', emailIds.length.toString()),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to star emails', { error });
-      // Rollback - unstar
-      useEmailStore.getState().markAsStarred(emailIds, false);
-      setSnackbar({
-        open: true,
-        message: t.email.messages.starFailed,
-        severity: 'error',
-      });
-    }
-  }, [queryClient, resolveSelectedEmailIds, t.email.messages.starFailed, t.email.messages.starred]);
-
-  const handleBulkUnstar = useCallback(async () => {
-    const { emailIds } = await resolveSelectedEmailIds();
-    if (emailIds.length === 0) return;
-
-    // Optimistic update
-    useEmailStore.getState().markAsStarred(emailIds, false);
-
-    try {
-      await emailApi.bulkStar(emailIds, false);
-      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.unstarred.replace('{count}', emailIds.length.toString()),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to unstar emails', { error });
-      // Rollback - star again
-      useEmailStore.getState().markAsStarred(emailIds, true);
-      setSnackbar({
-        open: true,
-        message: t.email.messages.unstarFailed,
-        severity: 'error',
-      });
-    }
-  }, [queryClient, resolveSelectedEmailIds, t.email.messages.unstarFailed, t.email.messages.unstarred]);
-
-  const handleBulkFlag = useCallback(async () => {
-    const { emailIds } = await resolveSelectedEmailIds();
-    if (emailIds.length === 0) return;
-
-    // Optimistic update
-    useEmailStore.getState().markAsImportant(emailIds, true);
-
-    try {
-      await emailApi.bulkFlag(emailIds, true);
-      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.markedImportant.replace('{count}', emailIds.length.toString()),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to flag emails', { error });
-      // Rollback - unflag
-      useEmailStore.getState().markAsImportant(emailIds, false);
-      setSnackbar({
-        open: true,
-        message: t.email.messages.markedImportantFailed,
-        severity: 'error',
-      });
-    }
-  }, [queryClient, resolveSelectedEmailIds, t.email.messages.markedImportant, t.email.messages.markedImportantFailed]);
-
-  const handleBulkUnflag = useCallback(async () => {
-    const { emailIds } = await resolveSelectedEmailIds();
-    if (emailIds.length === 0) return;
-
-    // Optimistic update
-    useEmailStore.getState().markAsImportant(emailIds, false);
-
-    try {
-      await emailApi.bulkFlag(emailIds, false);
-      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.unmarkedImportant.replace('{count}', emailIds.length.toString()),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to unflag emails', { error });
-      // Rollback - flag again
-      useEmailStore.getState().markAsImportant(emailIds, true);
-      setSnackbar({
-        open: true,
-        message: t.email.messages.unmarkedImportantFailed,
-        severity: 'error',
-      });
-    }
-  }, [queryClient, resolveSelectedEmailIds, t.email.messages.unmarkedImportant, t.email.messages.unmarkedImportantFailed]);
-
-  const handleBulkArchive = useCallback(async () => {
-    const { emailIds } = await resolveSelectedEmailIds();
-    if (emailIds.length === 0) return;
-
-    clearSelection();
-    await handleArchive(emailIds);
-  }, [clearSelection, handleArchive, resolveSelectedEmailIds]);
-
-  const handleBulkAddLabels = useCallback(async (labelIds: string[]) => {
-    if (labelIds.length === 0) return;
-
-    const { emailIds } = await resolveSelectedEmailIds();
-    if (emailIds.length === 0) return;
-
-    try {
-      await emailApi.bulkAddLabels(emailIds, labelIds);
-      clearSelection();
-      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.labelsAdded.replace('{count}', emailIds.length.toString()),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to add labels', { error });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.labelsFailed,
-        severity: 'error',
-      });
-    }
-  }, [clearSelection, queryClient, resolveSelectedEmailIds, t.email.messages.labelsAdded, t.email.messages.labelsFailed]);
-
-  const handleBulkMoveToFolder = useCallback(async (folder: string) => {
-    const { emailIds } = await resolveSelectedEmailIds();
-    if (emailIds.length === 0) return;
-
-    try {
-      await emailApi.bulkMoveToFolder(emailIds, folder);
-      clearSelection();
-      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.moved.replace('{count}', emailIds.length.toString()).replace('{folder}', folder),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to move emails', { error });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.moveFailed,
-        severity: 'error',
-      });
-    }
-  }, [clearSelection, queryClient, resolveSelectedEmailIds, t.email.messages.moved, t.email.messages.moveFailed]);
+  // Use extracted selection logic (Bulk Actions)
+  const {
+    handleSelectAll,
+    handleBulkMarkRead,
+    handleBulkMarkUnread,
+    handleBulkStar,
+    handleBulkUnstar,
+    handleBulkFlag,
+    handleBulkUnflag,
+    handleBulkDelete,
+    handleBulkArchive: handleBulkArchiveLocal,
+    handleBulkAddLabels,
+    handleBulkMoveToFolder,
+    selectedIds,
+    getThreadKey,
+    resolveEmailIdsForThread
+  } = useSelectionLogic({
+    threads,
+    onSuccess: (message: string) => setSnackbar({ open: true, message, severity: 'success' }),
+    onError: (message: string) => setSnackbar({ open: true, message, severity: 'error' }),
+    handleMarkAsRead,
+    handleArchive,
+    handleBulkDeleteEmails,
+  });
 
   // Handle drag start - track which email is being dragged
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -1218,46 +742,43 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
       return;
     }
 
-    const droppedThread = dragData.email as Email | Conversation;
     const targetFolder = dropData.folder as FolderItem;
     const targetFolderName = targetFolder.filterFolder || targetFolder.label;
 
-    let emailIdsToMove: string[] = [];
-    let movedCount = 0;
-
     if (dragData.isSelected && selectedIds.size > 0) {
-      const resolved = await resolveSelectedEmailIds();
-      emailIdsToMove = resolved.emailIds;
-      movedCount = resolved.threadCount;
+      // Bulk move
+      await handleBulkMoveToFolder(targetFolderName);
     } else {
-      emailIdsToMove = await resolveEmailIdsForThread(droppedThread);
-      movedCount = 1;
-    }
+      // Single move
+      const droppedThread = dragData.email as Email | Conversation;
+      const emailIdsToMove = await resolveEmailIdsForThread(droppedThread);
 
-    if (emailIdsToMove.length === 0) return;
+      if (emailIdsToMove.length === 0) return;
 
-    try {
-      await emailApi.bulkMoveToFolder(emailIdsToMove, targetFolderName);
-      clearSelection();
-      queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
-      queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.moved
-          .replace('{count}', movedCount.toString())
-          .replace('{folder}', targetFolder.label),
-        severity: 'success',
-      });
-    } catch (error) {
-      logger.error('[Mailbox] Failed to move emails', { error });
-      setSnackbar({
-        open: true,
-        message: t.email.messages.moveFailed,
-        severity: 'error',
-      });
+      try {
+        await emailApi.bulkMoveToFolder(emailIdsToMove, targetFolderName);
+        queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
+        queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
+        queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+        setSnackbar({
+          open: true,
+          message: t.email.messages.moved
+            .replace('{count}', '1')
+            .replace('{folder}', targetFolder.label),
+          severity: 'success',
+        });
+      } catch (error) {
+        logger.error('[Mailbox] Failed to move emails', { error });
+        setSnackbar({
+          open: true,
+          message: t.email.messages.moveFailed,
+          severity: 'error',
+        });
+      }
     }
-  }, [clearSelection, queryClient, resolveEmailIdsForThread, resolveSelectedEmailIds, selectedIds, t.email.messages.moved, t.email.messages.moveFailed]);
+  }, [handleBulkMoveToFolder, queryClient, resolveEmailIdsForThread, selectedIds, t.email.messages]);
+
+
 
   // Get drag count for overlay
   const dragCount = useMemo(() => {
@@ -1329,107 +850,18 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     setAdvancedFilters({});
   }, []);
 
-  // Handle Reply - open ComposeDialog instead of redirect
-  const handleReplyLocal = useCallback((email: Email) => {
-    const replyPrefix = t.email.composer.replyPrefix;
-    const subject = email.subject?.trim() || '';
-    const replySubject = subject.toLowerCase().startsWith(replyPrefix.toLowerCase())
-      ? subject
-      : `${replyPrefix} ${subject}`.trim();
+  // Use extracted compose handlers (Reply, Reply All, Forward)
+  const {
+    handleReply: handleReplyLocal,
+    handleReplyAll: handleReplyAllLocal,
+    handleForward: handleForwardLocal
+  } = useComposeHandlers({
+    setComposeMode,
+    setComposePrefill,
+    setComposeOpen
+  });
 
-    const quotedBody = email.bodyHtml || email.bodyText || '';
-    const quotedDate = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : '';
-    const quotedFrom = email.from || '';
-    const quoteHeader = t.email.composer.replyQuotedHeader
-      .replace('{date}', quotedDate)
-      .replace('{from}', quotedFrom);
-    const formattedQuote = quotedBody
-      ? `<br/><br/><blockquote style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 0; color: #666;">
-          <p>${quoteHeader}</p>
-          ${quotedBody}
-        </blockquote>`
-      : '';
 
-    setComposeMode('reply');
-    setComposePrefill({
-      originalEmailId: email.id,
-      to: [email.from],
-      subject: replySubject,
-      body: formattedQuote,
-      inReplyTo: email.externalId,
-      references: email.references || email.externalId,
-    });
-    setComposeOpen(true);
-  }, [t.email.composer.replyPrefix, t.email.composer.replyQuotedHeader]);
-
-  // Handle Reply All - open ComposeDialog
-  const handleReplyAllLocal = useCallback((email: Email) => {
-    const allRecipients = [email.from, ...(!email.to ? [] : email.to), ...(!email.cc ? [] : email.cc)];
-    const uniqueRecipients = Array.from(new Set(allRecipients));
-
-    const replyPrefix = t.email.composer.replyPrefix;
-    const subject = email.subject?.trim() || '';
-    const replySubject = subject.toLowerCase().startsWith(replyPrefix.toLowerCase())
-      ? subject
-      : `${replyPrefix} ${subject}`.trim();
-
-    const quotedBody = email.bodyHtml || email.bodyText || '';
-    const quotedDate = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : '';
-    const quotedFrom = email.from || '';
-    const quoteHeader = t.email.composer.replyQuotedHeader
-      .replace('{date}', quotedDate)
-      .replace('{from}', quotedFrom);
-    const formattedQuote = quotedBody
-      ? `<br/><br/><blockquote style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 0; color: #666;">
-          <p>${quoteHeader}</p>
-          ${quotedBody}
-        </blockquote>`
-      : '';
-
-    setComposeMode('reply');
-    setComposePrefill({
-      originalEmailId: email.id,
-      to: uniqueRecipients,
-      subject: replySubject,
-      body: formattedQuote,
-      inReplyTo: email.externalId,
-      references: email.references || email.externalId,
-    });
-    setComposeOpen(true);
-  }, [t.email.composer.replyPrefix, t.email.composer.replyQuotedHeader]);
-
-  // Handle Forward - open ComposeDialog
-  const handleForwardLocal = useCallback((email: Email) => {
-    const forwardPrefix = t.email.composer.forwardPrefix;
-    const subject = email.subject?.trim() || '';
-    const forwardSubject = subject.toLowerCase().startsWith(forwardPrefix.toLowerCase())
-      ? subject
-      : `${forwardPrefix} ${subject}`.trim();
-
-    const forwardBody = email.bodyHtml || email.bodyText || '';
-    const forwardedDate = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : '';
-    const forwardedHeader = t.email.composer.forwardedMessageHeader;
-    const forwardFromLabel = t.email.composer.from;
-    const forwardDateLabel = t.email.view.date;
-    const forwardSubjectLabel = t.email.composer.subject;
-    const forwardToLabel = t.email.view.to;
-    const formattedForward = forwardBody
-      ? `<br/><br/>${forwardedHeader}<br/>
-          ${forwardFromLabel}: ${email.from || ''}<br/>
-          ${forwardDateLabel}: ${forwardedDate}<br/>
-          ${forwardSubjectLabel}: ${email.subject || ''}<br/>
-          ${forwardToLabel}: ${email.to?.join(', ') || ''}<br/><br/>
-          ${forwardBody}`
-      : '';
-
-    setComposeMode('forward');
-    setComposePrefill({
-      originalEmailId: email.id,
-      subject: forwardSubject,
-      body: formattedForward,
-    });
-    setComposeOpen(true);
-  }, [t.email.composer.forwardPrefix, t.email.composer.forwardedMessageHeader, t.email.composer.from, t.email.composer.subject, t.email.view.date, t.email.view.to]);
 
 
 
@@ -1476,98 +908,17 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
         }
         list={
           <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-            <Paper
-              elevation={0}
-              sx={{
-                px: { xs: 1, sm: 2 },
-                py: 1,
-                borderBottom: 1,
-                borderColor: 'divider',
-                flexShrink: 0,
-                overflow: 'hidden',
-              }}
-            >
-              {/* Compact header: Row 1 - Status + Stats + Actions */}
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-                {/* Hamburger Menu - Mobile Only */}
-                {isMobile && (
-                  <IconButton
-                    size="small"
-                    onClick={() => setMobileSidebarOpen(true)}
-                    aria-label="Open folders menu"
-                  >
-                    <Menu size={18} />
-                  </IconButton>
-                )}
-                {/* Connection Status - Compact */}
-                <Box
-                  component="span"
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: isConnected ? 'success.main' : 'warning.main',
-                    flexShrink: 0,
-                  }}
-                  aria-label={isConnected ? localText.connection.live : localText.connection.reconnecting}
-                />
-                {/* Stats - Desktop only, compact */}
-                {!isMobile && emailStats && (
-                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                    {emailStats.unread > 0 ? `${emailStats.unread} unread` : `${emailStats.total} emails`}
-                  </Typography>
-                )}
-
-                {/* Action buttons - icons only on mobile */}
-                <IconButton
-                  size="small"
-                  onClick={() => setAdvancedSearchOpen(true)}
-                  sx={{ display: { xs: 'flex', sm: 'none' } }}
-                  aria-label={t.email.advancedSearch.title}
-                >
-                  <Filter size={18} />
-                </IconButton>
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => setAdvancedSearchOpen(true)}
-                  startIcon={<Filter size={14} />}
-                  sx={{ display: { xs: 'none', sm: 'flex' }, flexShrink: 0, px: 1 }}
-                >
-                  {t.email.advancedSearch.title}
-                </Button>
-                {/* Conversation/Email View Toggle */}
-                <Tooltip title={isConversationView ? 'Switch to Email List' : 'Switch to Conversation View'}>
-                  <IconButton
-                    size="small"
-                    onClick={toggleConversationView}
-                    color={isConversationView ? 'primary' : 'default'}
-                    aria-label={isConversationView ? 'Conversation view active' : 'Email list view active'}
-                    sx={{
-                      border: 1,
-                      borderColor: isConversationView ? 'primary.main' : 'divider',
-                      borderRadius: 1,
-                    }}
-                  >
-                    {isConversationView ? <MessageSquare size={16} /> : <MailListIcon size={16} />}
-                  </IconButton>
-                </Tooltip>
-                <IconButton
-                  size="small"
-                  onClick={handleSyncProviders}
-                  disabled={syncLoading}
-                  aria-label={t.email.actions.syncNow}
-                >
-                  {syncLoading ? <CircularProgress size={16} /> : <RefreshCcw size={18} />}
-                </IconButton>
-              </Stack>
-              {/* Connection warning - only when disconnected */}
-              {!isConnected && (
-                <Alert severity="warning" variant="outlined" sx={{ mt: 1, py: 0.5 }}>
-                  {localText.connection.warning}
-                </Alert>
-              )}
-            </Paper>
+            <MailboxHeader
+              isMobile={isMobile}
+              setMobileSidebarOpen={setMobileSidebarOpen}
+              isConnected={isConnected}
+              emailStats={emailStats ?? undefined}
+              setAdvancedSearchOpen={setAdvancedSearchOpen}
+              isConversationView={isConversationView}
+              toggleConversationView={toggleConversationView}
+              handleSyncProviders={handleSyncProviders}
+              syncLoading={syncLoading}
+            />
             {/* Bulk Action Bar */}
             <BulkActionBar
               selectedCount={selectedIds.size}
@@ -1577,7 +928,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
               onMarkRead={handleBulkMarkRead}
               onMarkUnread={handleBulkMarkUnread}
               onDelete={handleBulkDelete}
-              onArchive={handleBulkArchive}
+              onArchive={handleBulkArchiveLocal}
               onStar={handleBulkStar}
               onUnstar={handleBulkUnstar}
               onFlag={handleBulkFlag}

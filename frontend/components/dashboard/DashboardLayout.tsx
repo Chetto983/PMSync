@@ -203,7 +203,7 @@ export function MaterialDashboardLayout({
             <LogOut size={20} />
           </ListItemIcon>
           <ListItemText
-            primary="Logout"
+            primary={t.nav.logout}
             primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
           />
         </ListItemButton>
@@ -237,7 +237,7 @@ export function MaterialDashboardLayout({
               width: 48,
               height: 48,
             }}
-            aria-label="open navigation menu"
+            aria-label={t.nav.mail}
           >
             <MenuIcon size={24} />
           </IconButton>
@@ -284,7 +284,7 @@ export function MaterialDashboardLayout({
               width: 40,
               height: 40,
             }}
-            aria-label="toggle theme"
+            aria-label={t.common.toggleTheme}
           >
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </IconButton>
@@ -294,7 +294,7 @@ export function MaterialDashboardLayout({
             edge="end"
             onClick={handleProfileMenuOpen}
             sx={{ width: 48, height: 48 }}
-            aria-label="account menu"
+            aria-label={t.nav.account}
             aria-controls="profile-menu"
             aria-haspopup="true"
           >
@@ -343,20 +343,20 @@ export function MaterialDashboardLayout({
               <ListItemIcon>
                 <Settings size={18} />
               </ListItemIcon>
-              Settings
+              {t.nav.settings}
             </MenuItem>
             <MenuItem onClick={handleThemeToggle}>
               <ListItemIcon>
                 {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
               </ListItemIcon>
-              {theme === 'dark' ? 'Light' : 'Dark'} mode
+              {theme === 'dark' ? t.nav.lightMode : t.nav.darkMode}
             </MenuItem>
             <Divider />
             <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
               <ListItemIcon sx={{ color: 'error.main' }}>
                 <LogOut size={18} />
               </ListItemIcon>
-              Logout
+              {t.nav.logout}
             </MenuItem>
           </Menu>
         </Toolbar>
