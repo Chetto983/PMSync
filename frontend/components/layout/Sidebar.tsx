@@ -124,6 +124,7 @@ export function Sidebar({
           alt={t.app.name}
           width={collapsed ? 48 : 120}
           height={collapsed ? 48 : 56}
+          priority
         />
         {!isMobile && onToggleCollapse && (
           <IconButton

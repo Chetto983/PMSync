@@ -558,6 +558,7 @@ export const it: AppTranslations = {
     noProviders: 'Collega un provider di posta per inviare e ricevere email.',
     selectEmail: 'Seleziona una conversazione per iniziare a collaborare.',
     allAccountsLabel: 'Tutti gli account',
+    accounts: 'Account',
     starredFolderLabel: 'Con stella',
     sentStatus: 'Posta inviata',
     quickFilters: {

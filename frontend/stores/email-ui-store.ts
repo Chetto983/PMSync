@@ -13,6 +13,7 @@
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 
 // =============================================================================
 // Types
@@ -20,11 +21,12 @@ import { devtools } from 'zustand/middleware';
 
 export type EmailViewMode = 'list' | 'thread';
 export type EmailDensity = 'compact' | 'comfortable' | 'spacious';
-export type SpecialFolder = 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'ARCHIVE' | 'ALL';
+export type SpecialFolder = 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'JUNK' | 'ARCHIVE' | 'STARRED' | 'FLAGGED' | 'IMPORTANT' | 'ALL';
 
 export interface EmailFilters {
   specialUse?: SpecialFolder;
   providerId?: string;
+  folderId?: string; // Track specific folder selection
   labelId?: string;
   isRead?: boolean;
   isImportant?: boolean;
@@ -32,6 +34,14 @@ export interface EmailFilters {
   search?: string;
   startDate?: string;
   endDate?: string;
+}
+
+// Sidebar configuration
+export interface SidebarConfig {
+  width: number;
+  minWidth: number;
+  maxWidth: number;
+  collapsedProviders: Set<string>; // Provider IDs that are collapsed
 }
 
 export interface ComposeState {
@@ -55,6 +65,9 @@ interface EmailUIState {
   previewPanelOpen: boolean;
   activeEmailId: string | null;
   activeThreadId: string | null;
+
+  // Sidebar
+  sidebar: SidebarConfig;
 
   // Filters
   filters: EmailFilters;
@@ -99,6 +112,11 @@ interface EmailUIState {
   removePendingAction: (emailId: string) => void;
   clearPendingActions: () => void;
 
+  // Actions - Sidebar
+  setSidebarWidth: (width: number) => void;
+  toggleProviderCollapse: (providerId: string) => void;
+  setProviderCollapsed: (providerId: string, collapsed: boolean) => void;
+
   // Reset
   reset: () => void;
 }
@@ -116,6 +134,13 @@ const initialFilters: EmailFilters = {
   specialUse: 'INBOX',
 };
 
+const initialSidebar: SidebarConfig = {
+  width: 220,
+  minWidth: 180,
+  maxWidth: 350,
+  collapsedProviders: new Set<string>(),
+};
+
 // =============================================================================
 // Store
 // =============================================================================
@@ -131,6 +156,7 @@ export const useEmailUIStore = create<EmailUIState>()(
       previewPanelOpen: true,
       activeEmailId: null,
       activeThreadId: null,
+      sidebar: initialSidebar,
       filters: initialFilters,
       compose: initialComposeState,
       pendingActions: new Set<string>(),
@@ -303,6 +329,41 @@ export const useEmailUIStore = create<EmailUIState>()(
 
       clearPendingActions: () => set({ pendingActions: new Set<string>() }),
 
+      // Sidebar actions
+      setSidebarWidth: (width) =>
+        set((state) => ({
+          sidebar: {
+            ...state.sidebar,
+            width: Math.max(state.sidebar.minWidth, Math.min(state.sidebar.maxWidth, width)),
+          },
+        })),
+
+      toggleProviderCollapse: (providerId) =>
+        set((state) => {
+          const newCollapsed = new Set(state.sidebar.collapsedProviders);
+          if (newCollapsed.has(providerId)) {
+            newCollapsed.delete(providerId);
+          } else {
+            newCollapsed.add(providerId);
+          }
+          return {
+            sidebar: { ...state.sidebar, collapsedProviders: newCollapsed },
+          };
+        }),
+
+      setProviderCollapsed: (providerId, collapsed) =>
+        set((state) => {
+          const newCollapsed = new Set(state.sidebar.collapsedProviders);
+          if (collapsed) {
+            newCollapsed.add(providerId);
+          } else {
+            newCollapsed.delete(providerId);
+          }
+          return {
+            sidebar: { ...state.sidebar, collapsedProviders: newCollapsed },
+          };
+        }),
+
       // Reset
       reset: () =>
         set({
@@ -313,6 +374,7 @@ export const useEmailUIStore = create<EmailUIState>()(
           previewPanelOpen: true,
           activeEmailId: null,
           activeThreadId: null,
+          sidebar: initialSidebar,
           filters: initialFilters,
           compose: initialComposeState,
           pendingActions: new Set<string>(),
@@ -327,12 +389,13 @@ export const useEmailUIStore = create<EmailUIState>()(
 // =============================================================================
 
 export const useEmailSelection = () =>
-  useEmailUIStore((state) => ({
-    selectedIds: state.selectedIds,
-    selectedCount: state.selectedIds.size,
-    hasSelection: state.selectedIds.size > 0,
-    isSelected: (id: string) => state.selectedIds.has(id),
-  }));
+  useEmailUIStore(
+    useShallow((state) => ({
+      selectedIds: state.selectedIds,
+      selectedCount: state.selectedIds.size,
+      hasSelection: state.selectedIds.size > 0,
+    }))
+  );
 
 export const useEmailFilters = () =>
   useEmailUIStore((state) => state.filters);
@@ -341,10 +404,22 @@ export const useEmailCompose = () =>
   useEmailUIStore((state) => state.compose);
 
 export const useEmailView = () =>
-  useEmailUIStore((state) => ({
-    viewMode: state.viewMode,
-    density: state.density,
-    previewPanelOpen: state.previewPanelOpen,
-    activeEmailId: state.activeEmailId,
-    activeThreadId: state.activeThreadId,
-  }));
+  useEmailUIStore(
+    useShallow((state) => ({
+      viewMode: state.viewMode,
+      density: state.density,
+      previewPanelOpen: state.previewPanelOpen,
+      activeEmailId: state.activeEmailId,
+      activeThreadId: state.activeThreadId,
+    }))
+  );
+
+export const useEmailSidebar = () =>
+  useEmailUIStore(
+    useShallow((state) => ({
+      width: state.sidebar.width,
+      minWidth: state.sidebar.minWidth,
+      maxWidth: state.sidebar.maxWidth,
+      collapsedProviders: state.sidebar.collapsedProviders,
+    }))
+  );

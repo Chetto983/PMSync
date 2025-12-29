@@ -90,31 +90,12 @@ export function FolderItem({
         {!collapsed && (
           <ListItemText
             primary={label}
-            primaryTypographyProps={{
-              variant: 'body2',
-              fontWeight: selected ? 600 : 400,
-              color: selected ? 'primary.main' : 'text.primary',
-              noWrap: true,
-            }}
-          />
-        )}
-
-        {/* Count badge on expanded view (alternative position) */}
-        {!collapsed && count !== undefined && count > 0 && (
-          <Badge
-            badgeContent={count > 99 ? '99+' : count}
-            color="default"
-            sx={{
-              '& .MuiBadge-badge': {
-                position: 'relative',
-                transform: 'none',
-                fontSize: '0.7rem',
-                height: 18,
-                minWidth: 18,
-                backgroundColor: selected
-                  ? theme.palette.primary.main + '1F'
-                  : theme.palette.action.selected,
-                color: selected ? 'primary.main' : 'text.secondary',
+            slotProps={{
+              primary: {
+                variant: 'body2',
+                fontWeight: selected ? 600 : 400,
+                color: selected ? 'primary.main' : 'text.primary',
+                noWrap: true,
               },
             }}
           />

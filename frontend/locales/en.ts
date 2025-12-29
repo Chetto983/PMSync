@@ -565,6 +565,7 @@ export const en: AppTranslations = {
     noProviders: 'Connect a mail provider to send and receive email.',
     selectEmail: 'Select a conversation to start collaborating.',
     allAccountsLabel: 'All accounts',
+    accounts: 'Accounts',
     starredFolderLabel: 'Starred',
     sentStatus: 'Sent',
     quickFilters: {
