@@ -45,6 +45,11 @@ interface ThreadListProps {
   onToggleSelect?: (id: string) => void;
 
   /**
+   * Callback to select a range of threads (Shift+Click)
+   */
+  onSelectRange?: (ids: string[]) => void;
+
+  /**
    * Callback to toggle star
    */
   onToggleStar?: (id: string, isStarred: boolean) => void;
@@ -109,6 +114,11 @@ interface ThreadListProps {
    * Search query to highlight in subject and snippet
    */
   searchQuery?: string;
+
+  /**
+   * Whether the current list is a Sent folder (affects display)
+   */
+  isSentFolder?: boolean;
 }
 
 /**
@@ -158,6 +168,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
   isLoading = false,
   onThreadClick,
   onToggleSelect,
+  onSelectRange,
   onToggleRead,
   onToggleStar,
   onToggleImportant,
@@ -171,6 +182,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
   isDragEnabled = true,
   enableVirtualization,
   searchQuery,
+  isSentFolder,
 }) => {
   const t = useTranslations();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -306,6 +318,39 @@ export const ThreadList: React.FC<ThreadListProps> = ({
 
     prevCountRef.current = newCount;
   }, [threadsWithCount.length]);
+
+  // Track last selected ID for Shift+Click range selection
+  const lastSelectedIdRef = useRef<string | null>(null);
+
+  // Handle selection toggle with modifier keys support
+  const handleItemToggleSelect = useCallback((id: string, event?: React.MouseEvent) => {
+    // If no modifier or no onSelectRange, just toggle single
+    if (!event || !onSelectRange || (!event.shiftKey)) {
+      lastSelectedIdRef.current = id;
+      onToggleSelect?.(id);
+      return;
+    }
+
+    // Handle Shift+Click (Range)
+    if (event.shiftKey && lastSelectedIdRef.current) {
+      const lastId = lastSelectedIdRef.current;
+      const lastIndex = threads.findIndex(t => getThreadKey(t) === lastId);
+      const currentIndex = threads.findIndex(t => getThreadKey(t) === id);
+
+      if (lastIndex !== -1 && currentIndex !== -1) {
+        const start = Math.min(lastIndex, currentIndex);
+        const end = Math.max(lastIndex, currentIndex);
+        const range = threads.slice(start, end + 1);
+        const rangeIds = range.map(t => getThreadKey(t)).filter(Boolean);
+        onSelectRange(rangeIds);
+        return;
+      }
+    }
+
+    // Fallback
+    lastSelectedIdRef.current = id;
+    onToggleSelect?.(id);
+  }, [onToggleSelect, onSelectRange, threads]);
 
   const handleThreadClick = useCallback(
     (thread: Email | Conversation) => {
@@ -449,7 +494,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
               thread={thread}
               selected={selectedId === threadId}
               multiSelected={isMultiSelected}
-              onToggleSelect={onToggleSelect}
+              onToggleSelect={handleItemToggleSelect}
               onToggleRead={onToggleRead}
               onToggleStar={onToggleStar}
               onToggleImportant={onToggleImportant}
@@ -460,6 +505,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
               searchQuery={searchQuery}
               isExpanded={isExpanded}
               onToggleExpand={emailCount && emailCount > 1 ? handleToggleExpand : undefined}
+              isSent={isSentFolder}
             />
           </div>
         </DraggableThreadListItem>
@@ -473,7 +519,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
               thread={childEmail}
               selected={selectedId === childEmail.id}
               multiSelected={selectedIds.has(childEmail.id)}
-              onToggleSelect={onToggleSelect}
+              onToggleSelect={handleItemToggleSelect}
               onToggleRead={onToggleRead}
               onToggleStar={onToggleStar}
               onToggleImportant={onToggleImportant}
@@ -482,6 +528,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
               getProviderIcon={getProviderIcon}
               onClick={() => handleThreadClick(childEmail)}
               searchQuery={searchQuery}
+              isSent={isSentFolder}
             />
           </Box>
         ))}

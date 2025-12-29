@@ -14,7 +14,8 @@ interface ThreadListItemProps {
   thread: Email | Conversation;
   selected?: boolean;
   multiSelected?: boolean;
-  onToggleSelect?: (id: string) => void;
+  isSent?: boolean;
+  onToggleSelect?: (id: string, event: React.MouseEvent) => void;
   onToggleStar?: (id: string, isStarred: boolean) => void;
   onToggleImportant?: (id: string, isImportant: boolean) => void;
   onToggleRead?: (id: string, isRead: boolean) => void;
@@ -49,6 +50,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     multiSelected = false,
     onToggleSelect,
     onToggleStar,
+    isSent,
     // getProviderIcon, // Unused
     onClick,
     searchQuery,
@@ -59,7 +61,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     const [isHovered, setIsHovered] = React.useState(false);
 
     // Extract common properties
-    const { threadId, emailId, from, subject, receivedAt, isRead, isFlagged, hasAttachments, folder } =
+    const { threadId, emailId, from, to, subject, receivedAt, isRead, isFlagged, hasAttachments, folder } =
       useMemo(() => {
         if (isEmail(thread)) {
           const displayId = thread.threadId || thread.id;
@@ -67,6 +69,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             threadId: displayId,
             emailId: thread.id,
             from: thread.from,
+            to: thread.to,
             subject: thread.subject,
             receivedAt: thread.receivedAt,
             isRead: thread.isRead,
@@ -79,6 +82,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             threadId: thread.threadId || '',
             emailId: thread.latestEmailId || thread.threadId || '',
             from: thread.from,
+            to: thread.to,
             subject: thread.subject,
             receivedAt: thread.receivedAt,
             isRead: thread.isRead,
@@ -89,7 +93,11 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
         }
       }, [thread]);
 
+    // Parse names
     const fromData = useMemo(() => parseEmailFrom(from), [from]);
+    // For "Sent" folder, we want to show who we sent TO
+    // "to" is an array, take the first one for display
+    const toData = useMemo(() => parseEmailFrom(to?.[0] || ''), [to]);
 
     const handleClick = (e: React.MouseEvent) => {
       if ((e.target as HTMLElement).closest('.MuiCheckbox-root, .MuiIconButton-root')) {
@@ -103,10 +111,15 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
       onToggleStar?.(emailId, isFlagged);
     };
 
-    const handleToggleSelect = () => onToggleSelect?.(threadId);
-
     // Check if "Sent" folder logic applies (italic gray name)
-    const isSent = folder === 'SENT' || folder === 'sentitems';
+    // We prefer the passed 'isSent' prop (from parent context) over the folder string check
+    const isSentFolder = isSent || folder === 'SENT' || folder === 'sentitems';
+    const showTo = isSentFolder; // Alias for clarity
+
+    // Legacy check for italic styling (can use same flag)
+    // const isSentStyle = isSentFolder;
+
+    const handleToggleSelect = (e: React.MouseEvent) => onToggleSelect?.(threadId, e); // Pass event logic
 
     return (
       <Box
@@ -160,10 +173,11 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             >
               <Checkbox
                 checked={multiSelected}
-                onChange={(e) => {
+                onClick={(e) => {
                   e.stopPropagation();
-                  handleToggleSelect();
+                  handleToggleSelect(e);
                 }}
+                onChange={() => { }} // Handled by onClick
                 size="small"
                 sx={{ p: 0 }}
               />
@@ -202,7 +216,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
                   mr: 1
                 }}
               >
-                {fromData.name || t.common.unnamedContact}
+                {showTo ? `To: ${toData.name || t.common.unnamedContact}` : (fromData.name || t.common.unnamedContact)}
               </Typography>
 
               <Typography

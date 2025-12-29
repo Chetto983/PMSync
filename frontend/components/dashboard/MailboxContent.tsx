@@ -32,7 +32,10 @@ interface MailboxContentProps {
   emptyTitle: string;
   emptySubtitle: string;
   onThreadClick: (thread: Email | Conversation) => void;
-  onToggleSelect: (id: string) => void;
+  onToggleSelect: (id: string, event?: React.MouseEvent) => void;
+  onSelectRange: (ids: string[]) => void;
+  /** Whether this is a Sent folder (affects display) */
+  isSentFolder?: boolean;
   onToggleRead: (emailId: string, isRead: boolean) => void;
   onToggleStar: (emailId: string, currentStarred: boolean) => void;
   onToggleImportant: (emailId: string, currentImportant: boolean) => void;
@@ -85,6 +88,8 @@ export function MailboxContent({
   emptySubtitle,
   onThreadClick,
   onToggleSelect,
+  onSelectRange,
+  isSentFolder,
   onToggleRead,
   onToggleStar,
   onToggleImportant,
@@ -160,6 +165,8 @@ export function MailboxContent({
           isLoading={isLoading}
           onThreadClick={onThreadClick}
           onToggleSelect={onToggleSelect}
+          onSelectRange={onSelectRange}
+          isSentFolder={isSentFolder}
           onToggleRead={onToggleRead}
           onToggleStar={onToggleStar}
           onToggleImportant={onToggleImportant}

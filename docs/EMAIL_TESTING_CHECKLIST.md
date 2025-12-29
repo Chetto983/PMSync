@@ -72,7 +72,7 @@ cat test-report.md
   1. Click "Today" filter
   2. Check email dates in list
 - **Expected**: Only emails received today are shown
-- **Notes**:
+- **Notes**: Passed
 
 ### 1.3 This Week Filter
 
@@ -81,7 +81,7 @@ cat test-report.md
   1. Click "This Week" filter
   2. Check email dates in list
 - **Expected**: Only emails from current week are shown
-- **Notes**:
+- **Notes**: Passed
 
 ### 1.4 Attachments Filter
 
@@ -90,7 +90,7 @@ cat test-report.md
   1. Click "Attachments" filter
   2. Verify all emails show paperclip icon
 - **Expected**: Only emails with attachments are shown
-- **Notes**:
+- **Notes**: Passed
 
 ### 1.5 Important Filter
 
@@ -99,36 +99,37 @@ cat test-report.md
   1. Click "Important" filter
   2. Verify all emails have important flag
 - **Expected**: Only flagged/important emails shown
-- **Notes**:
+- **Notes**: Passed
 
-### 1.6 Starred Filter
+### 1.9 Label Filter
 
-- [x] **TEST**: Click "Starred" in smart filters
+- [x] **TEST**: Click Label in sidebar
 - **Steps**:
-  1. Click "Starred" filter
-  2. Verify all emails have star icon filled
-- **Expected**: Only starred emails shown
-- **Notes**:
+  1. Click a label (e.g., Pubblicità)
+  2. Verify emails filtered by label
+  3. Open email, verify label chip in toolbar
+- **Expected**: Filter works, chip visible
+- **Notes**: Fixed and Verified
 
 ### 1.7 Stats Counter Accuracy
 
-- [ ] **TEST**: Verify header stats counter matches filter results
+- [x] **TEST**: Verify header stats counter matches filter results
 - **Steps**:
   1. Note the "X unread" count in header
   2. Click Unread filter
   3. Count emails in list
 - **Expected**: Counter matches actual unread count (excluding SPAM/JUNK)
-- **Notes**:
+- **Notes**: Passed
 
 ### 1.8 Filter Switching
 
-- [ ] **TEST**: Switch between filters rapidly
+- [x] **TEST**: Switch between filters rapidly
 - **Steps**:
   1. Click Unread filter
   2. Immediately click Today filter
   3. Immediately click INBOX folder
 - **Expected**: Each filter loads correctly, no stale data
-- **Notes**:
+- **Notes**: Passed
 
 ---
 
@@ -136,41 +137,41 @@ cat test-report.md
 
 ### 2.1 List Rendering
 
-- [ ] **TEST**: Email list renders correctly
+- [x] **TEST**: Email list renders correctly
 - **Steps**:
   1. Navigate to INBOX
   2. Verify list items show sender, subject, date
 - **Expected**: Clean 2-line layout with proper spacing
-- **Notes**:
+- **Notes**: Passed
 
 ### 2.2 Virtual Scrolling
 
-- [ ] **TEST**: Scroll through large email list
+- [x] **TEST**: Scroll through large email list
 - **Steps**:
   1. Open folder with 100+ emails
   2. Scroll rapidly up and down
   3. Check for stuttering or blank rows
 - **Expected**: Smooth scrolling, no blank rows
-- **Notes**:
+- **Notes**: Passed
 
 ### 2.3 Thread Click Opens Detail
 
-- [ ] **TEST**: Click email to open thread view
+- [x] **TEST**: Click email to open thread view
 - **Steps**:
   1. Click any email in list
   2. Verify thread panel opens on right
 - **Expected**: Email body and toolbar visible in detail pane
-- **Notes**:
+- **Notes**: Passed
 
 ### 2.4 Single Checkbox Select
 
-- [ ] **TEST**: Select single email with checkbox
+- [x] **TEST**: Select single email with checkbox
 - **Steps**:
   1. Hover over email
   2. Click checkbox
   3. Verify bulk action bar appears
 - **Expected**: Checkbox visible on hover, email selected, bulk bar shows "1 selected"
-- **Notes**:
+- **Notes**: Passed
 
 ### 2.5 Ctrl+Click Multi-Select
 
@@ -179,7 +180,7 @@ cat test-report.md
   1. Click checkbox on email 1
   2. Ctrl+Click checkbox on email 5
 - **Expected**: Both emails selected, bulk bar shows "2 selected"
-- **Notes**:
+- **Notes**: Fixed (Implemented in ThreadList - Pending Verification)
 
 ### 2.6 Shift+Click Range Select
 
@@ -188,27 +189,27 @@ cat test-report.md
   1. Click checkbox on email 1
   2. Shift+Click checkbox on email 5
 - **Expected**: Emails 1-5 all selected, bulk bar shows "5 selected"
-- **Notes**:
+- **Notes**: Fixed (Implemented in ThreadList - Pending Verification)
 
 ### 2.7 Star Toggle from List
 
-- [ ] **TEST**: Star/unstar email from list
+- [x] **TEST**: Star/unstar email from list
 - **Steps**:
   1. Click star icon on email
   2. Verify star fills with color
   3. Click again to unstar
 - **Expected**: Star toggles visually and persists after refresh
-- **Notes**:
+- **Notes**: Passed (Unified with Flag)
 
 ### 2.8 Unread Bold Styling
 
-- [ ] **TEST**: Unread emails appear bold
+- [x] **TEST**: Unread emails appear bold
 - **Steps**:
   1. Find unread email (blue dot or bold text)
   2. Click to read it
   3. Verify text becomes normal weight
 - **Expected**: Unread = bold, read = normal weight
-- **Notes**:
+- **Notes**: Passed
 
 ### 2.9 Sent Folder Italic Styling
 
@@ -217,35 +218,36 @@ cat test-report.md
   1. Navigate to Sent folder
   2. Check first column shows "To: recipient"
 - **Expected**: Sent emails show recipient in italic
-- **Notes**:
+- **Expected**: Sent emails show recipient in italic
+- **Notes**: Fixed (Implemented in ThreadListItem - Pending Verification)
 
 ### 2.10 Attachment Icon
 
-- [ ] **TEST**: Attachment paperclip icon visible
+- [x] **TEST**: Attachment paperclip icon visible
 - **Steps**:
   1. Find email with attachment
   2. Verify paperclip icon in list item
 - **Expected**: Paperclip icon visible next to date
-- **Notes**:
+- **Notes**: Passed
 
 ### 2.11 Empty State Display
 
-- [ ] **TEST**: Empty folder shows message
+- [x] **TEST**: Empty folder shows message
 - **Steps**:
   1. Navigate to empty folder (or create one)
   2. Verify empty state illustration
 - **Expected**: Shows "No emails" message with illustration
-- **Notes**:
+- **Notes**: Passed
 
 ### 2.12 Infinite Scroll Pagination
 
-- [ ] **TEST**: Scroll to load more emails
+- [x] **TEST**: Scroll to load more emails
 - **Steps**:
   1. Open folder with 50+ emails
   2. Scroll to bottom
   3. Verify more emails load
 - **Expected**: Additional emails load, loading indicator shown
-- **Notes**:
+- **Notes**: Passed (Verified by code review)
 
 ---
 

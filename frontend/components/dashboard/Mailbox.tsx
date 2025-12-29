@@ -39,6 +39,8 @@ import {
   ThreadDisplay,
   EmailDragOverlay,
 } from '@/components/email';
+import { useLabelStore } from '@/stores/label-store';
+import { Tag } from 'lucide-react';
 
 /**
  * Props for Mailbox component
@@ -118,13 +120,33 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     providers: [],
   });
 
+  // Access label store for label resolution
+  const labels = useLabelStore((state) => state.labels);
+
   // Active folder
   const activeFolder = useMemo<FolderItem | null>(() => {
     if (selectedFolderId) {
+      // Handle label selection
+      if (selectedFolderId.startsWith('label:')) {
+        const labelId = selectedFolderId.replace('label:', '');
+        const label = labels.find((l) => l.id === labelId);
+
+        if (label) {
+          return {
+            id: selectedFolderId,
+            label: label.name,
+            icon: <Tag size={20} color={label.color?.textColor || 'currentColor'} />,
+            color: label.color?.backgroundColor,
+            // Labels act as a filter on top of "all mail" conceptually, 
+            // but useMailboxData handles the query parameters specifically for it
+          } as FolderItem;
+        }
+      }
+
       return combinedFolders.find((folder) => folder.id === selectedFolderId) ?? combinedFolders[0] ?? null;
     }
     return combinedFolders[0] ?? null;
-  }, [combinedFolders, selectedFolderId]);
+  }, [combinedFolders, selectedFolderId, labels]);
 
   // Data fetching
   const mailboxData = useMailboxData({
@@ -405,6 +427,13 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
 
   const selectedListId = storeSelectedEmail?.threadId || storeSelectedEmail?.id;
 
+  const handleRangeSelect = useCallback((ids: string[]) => {
+    const current = useEmailStore.getState().selectedIds;
+    const next = new Set(current);
+    ids.forEach((id) => next.add(id));
+    useEmailStore.getState().setSelectedIds(next);
+  }, []);
+
   return (
     <DndContext
       sensors={dndSensors}
@@ -440,6 +469,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
             emailStats={emailStats ?? undefined}
             filteredCount={threads.length}
             activeFilterName={selectedFolderId?.startsWith('smart:') ? activeFolder?.label : undefined}
+            isSentFolder={activeFolder?.specialUse === 'SENT'}
             isConversationView={isConversationView}
             syncLoading={syncLoading}
             onMobileSidebarOpen={() => setMobileSidebarOpen(true)}
@@ -455,6 +485,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
             emptySubtitle={emptyState.subtitle}
             onThreadClick={handleEmailClick}
             onToggleSelect={toggleSelection}
+            onSelectRange={handleRangeSelect}
             onToggleRead={handleToggleRead}
             onToggleStar={handleToggleStar}
             onToggleImportant={handleToggleStar}
