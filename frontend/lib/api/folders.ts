@@ -1,4 +1,119 @@
 import { apiClient } from '../api-client';
+import type { EmailListParams } from './email';
+
+// =============================================================================
+// FOLDER ID PREFIXES - Used to identify folder types from their ID
+// =============================================================================
+
+export const FOLDER_PREFIXES = {
+  SMART: 'smart:',
+  AGGREGATE: 'all:',
+  LABEL: 'label:',
+} as const;
+
+// =============================================================================
+// FOLDER ID PARSER - Utility to determine folder type from ID
+// =============================================================================
+
+export type FolderIdType = 'smart' | 'aggregate' | 'label' | 'remote';
+
+export interface ParsedFolderId {
+  type: FolderIdType;
+  value: string;
+}
+
+/**
+ * Parse a folder ID to determine its type and extract the value
+ *
+ * @example
+ * parseFolderId('smart:unread') // { type: 'smart', value: 'unread' }
+ * parseFolderId('all:inbox') // { type: 'aggregate', value: 'inbox' }
+ * parseFolderId('label:abc123') // { type: 'label', value: 'abc123' }
+ * parseFolderId('cm1234567890') // { type: 'remote', value: 'cm1234567890' }
+ */
+export function parseFolderId(id: string): ParsedFolderId {
+  if (id.startsWith(FOLDER_PREFIXES.SMART)) {
+    return { type: 'smart', value: id.slice(FOLDER_PREFIXES.SMART.length) };
+  }
+  if (id.startsWith(FOLDER_PREFIXES.AGGREGATE)) {
+    return { type: 'aggregate', value: id.slice(FOLDER_PREFIXES.AGGREGATE.length) };
+  }
+  if (id.startsWith(FOLDER_PREFIXES.LABEL)) {
+    return { type: 'label', value: id.slice(FOLDER_PREFIXES.LABEL.length) };
+  }
+  return { type: 'remote', value: id };
+}
+
+// =============================================================================
+// UNIFIED FOLDERITEM - Single source of truth for folder display items
+// =============================================================================
+
+/**
+ * FolderItem represents a selectable folder in the UI
+ *
+ * This is the UNIFIED type - import from here, not from other files.
+ * Used by: EmailSidebar, Mailbox, FolderSelector, etc.
+ */
+export interface FolderItem {
+  /** Unique identifier - can be prefixed (smart:, all:, label:) or a database ID */
+  id: string;
+  /** Display label (localized) */
+  label: string;
+  /** Icon component to display */
+  icon: React.ReactNode;
+  /** Unread/total count to display */
+  count?: number;
+  /** Color for the folder icon/badge */
+  color?: string;
+
+  // === Folder classification ===
+  /** True if this is an aggregate folder (shows emails from multiple providers) */
+  aggregate?: boolean;
+
+  // === Provider info (for remote folders) ===
+  /** Provider ID this folder belongs to */
+  providerId?: string;
+  /** Provider email for display */
+  providerEmail?: string;
+
+  // === Folder identifiers (prefer specialUse for canonical, path for custom) ===
+  /** RFC 6154 special use type: INBOX, SENT, DRAFTS, TRASH, SPAM, ARCHIVE, STARRED */
+  specialUse?: string;
+  /** Folder path (may be localized): "INBOX", "Posta in arrivo", "MyFolder/Sub" */
+  path?: string;
+
+  // === Full data for CRUD operations ===
+  /** Complete folder data from database */
+  folderData?: Folder;
+
+  // === Query configuration ===
+  /** Query parameters to use when fetching emails for this folder */
+  queryOverrides?: Partial<EmailListParams>;
+}
+
+/**
+ * SmartFilter represents a virtual filter (Unread, Today, This Week, etc.)
+ */
+export interface SmartFilter {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  count?: number;
+  color?: string;
+}
+
+/**
+ * FolderGroup represents folders grouped by provider
+ */
+export interface FolderGroup {
+  providerId: string;
+  providerEmail: string;
+  folders: FolderItem[];
+}
+
+// =============================================================================
+// DATABASE FOLDER TYPE
+// =============================================================================
 
 export interface Folder {
   id: string;

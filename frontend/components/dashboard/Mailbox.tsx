@@ -115,7 +115,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
   }, []);
 
   // Folder logic
-  const { smartFilters, combinedFolders, folderGroups, getProviderIcon } = useFolderLogic({
+  const { smartFilters, combinedFolders, folderGroups, remoteFolders, getProviderIcon } = useFolderLogic({
     emailStats: null,
     providers: [],
   });
@@ -318,7 +318,8 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     if (dragData.type !== 'email' || dropData?.type !== 'folder') return;
 
     const targetFolder = dropData.folder as FolderItem;
-    const targetFolderName = targetFolder.filterFolder || targetFolder.label;
+    // Use specialUse for canonical folders (INBOX, TRASH), path for custom folders
+    const targetFolderName = targetFolder.specialUse || targetFolder.path || targetFolder.label;
 
     if (dragData.isSelected && selectedIds.size > 0) {
       await handleBulkMoveToFolder(targetFolderName);
@@ -541,6 +542,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
           handleRefresh();
         }}
         selectedCount={selectedIds.size}
+        remoteFolders={remoteFolders}
       />
 
       {/* Drag overlay */}

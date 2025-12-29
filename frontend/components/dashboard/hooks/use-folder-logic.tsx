@@ -1,37 +1,13 @@
 import { useMemo, useCallback } from 'react';
-import type { FolderGroup } from '@/components/email';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFoldersStore } from '@/stores/folders-store';
 import { getFolderIcon as getIconForFolderUtil } from '@/lib/utils/folder-normalization';
-import { Mail as MailIcon, Clock, Calendar as CalendarIcon, Paperclip, Flag, Inbox } from 'lucide-react';
-import type { EmailListParams } from '@/lib/api/email';
-import type { EmailStats } from '@/lib/api/email';
-import type { Provider } from '@/lib/api/folders';
-import type { Folder } from '@/lib/api/folders';
+import { Mail as MailIcon, Clock, Calendar as CalendarIcon, Paperclip, Flag, Inbox, Send, FileEdit, Trash2, Archive } from 'lucide-react';
+import type { EmailListParams, EmailStats } from '@/lib/api/email';
+import type { Provider, Folder, FolderItem, FolderGroup, SmartFilter } from '@/lib/api/folders';
 
-export interface FolderItem {
-    id: string;
-    label: string;
-    icon: React.ReactNode;
-    count?: number;
-    color?: string;
-    aggregate?: boolean;
-    providerId?: string;
-    providerEmail?: string;
-    filterFolder?: string;
-    specialUse?: string;
-    path?: string;
-    folderData?: Folder;
-    queryOverrides?: Partial<EmailListParams>;
-}
-
-export interface SmartFilter {
-    id: string;
-    label: string;
-    icon: React.ReactNode;
-    count?: number;
-    color?: string;
-}
+// Re-export types for backwards compatibility
+export type { FolderItem, SmartFilter } from '@/lib/api/folders';
 
 interface UseFolderLogicProps {
     emailStats: EmailStats | null;
@@ -96,6 +72,38 @@ export function useFolderLogic({ emailStats, providers }: UseFolderLogicProps) {
                 aggregate: true,
                 specialUse: 'INBOX',
                 queryOverrides: { specialUse: 'INBOX' },
+            },
+            {
+                id: 'all:sent',
+                label: t.folders.sent,
+                icon: <Send size={20} />,
+                aggregate: true,
+                specialUse: 'SENT',
+                queryOverrides: { specialUse: 'SENT' },
+            },
+            {
+                id: 'all:drafts',
+                label: t.folders.drafts,
+                icon: <FileEdit size={20} />,
+                aggregate: true,
+                specialUse: 'DRAFTS',
+                queryOverrides: { specialUse: 'DRAFTS' },
+            },
+            {
+                id: 'all:archive',
+                label: t.folders.archive,
+                icon: <Archive size={20} />,
+                aggregate: true,
+                specialUse: 'ARCHIVE',
+                queryOverrides: { specialUse: 'ARCHIVE' },
+            },
+            {
+                id: 'all:trash',
+                label: t.folders.trash,
+                icon: <Trash2 size={20} />,
+                aggregate: true,
+                specialUse: 'TRASH',
+                queryOverrides: { specialUse: 'TRASH' },
             },
         ],
         [t]
@@ -195,7 +203,6 @@ export function useFolderLogic({ emailStats, providers }: UseFolderLogicProps) {
                     count: countOverride?.unreadCount ?? folder.unreadCount,
                     providerId: folder.providerId,
                     providerEmail,
-                    filterFolder: canonicalFolder,
                     specialUse: folder.specialUse,
                     path: folder.path,
                     folderData: folder as Folder,

@@ -142,7 +142,6 @@ export function useMailboxData({
       limit: 50,
       providerId: activeFolder?.providerId,
       folder:
-        activeFolder?.filterFolder ||
         activeFolder?.queryOverrides?.folder ||
         activeFolder?.specialUse ||
         activeFolder?.queryOverrides?.specialUse,

@@ -276,6 +276,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
    * Full sync using driver - shared implementation
    * DC-2 consolidation: Removes ~55 lines × 3 providers = ~165 lines
    * CRIT-3 FIX: Accepts tokenExpiresAt and refreshes driver mid-sync if needed
+   * FOLDER-FIX: Now syncs ALL important folders, not just INBOX
    */
   protected async syncFullWithDriver(
     initialDriver: IEmailDriver,
@@ -288,49 +289,71 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     syncToken: string;
     driver: IEmailDriver;
   }> {
-    this.logger.debug(`Full sync with driver - fetching latest ${this.fullSyncMaxMessages} messages`);
+    // FOLDER-FIX: Sync all important folders, not just INBOX
+    const foldersToSync = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'ARCHIVE'];
+    const messagesPerFolder = Math.ceil(this.fullSyncMaxMessages / foldersToSync.length);
+
+    this.logger.debug(
+      `Full sync with driver - fetching ${messagesPerFolder} messages from each folder: ${foldersToSync.join(', ')}`,
+    );
 
     let messagesProcessed = 0;
     let newMessages = 0;
-    let pageToken: string | undefined;
-    let fetchedCount = 0;
 
     // CRIT-3 FIX: Track mutable driver and token expiry for mid-sync refresh
     let driver = initialDriver;
     let tokenExpiresAt = initialTokenExpiresAt;
 
-    // List messages from INBOX
-    do {
-      // CRIT-3 FIX: Check if token needs refresh before each batch
-      const refreshResult = await this.refreshDriverIfNeeded(driver, providerId, tokenExpiresAt);
-      driver = refreshResult.driver;
-      tokenExpiresAt = refreshResult.tokenExpiresAt;
+    // FOLDER-FIX: Iterate through all folders
+    for (const folder of foldersToSync) {
+      let pageToken: string | undefined;
+      let fetchedCount = 0;
 
-      const result = await driver.listMessages({
-        folder: 'INBOX',
-        pageSize: Math.min(this.batchSize, this.fullSyncMaxMessages - fetchedCount),
-        pageToken,
-        ...this.getListMessagesOptions(),
-      });
+      this.logger.debug(`Syncing folder: ${folder}`);
 
-      // Performance fix (N1-4/N1-5): Process messages in batch using transaction
-      const batchResult = await this.processMessagesBatch(
-        driver,
-        result.messages,
-        providerId,
-        tenantId,
-      );
-      messagesProcessed += batchResult.processed;
-      newMessages += batchResult.newCount;
+      try {
+        // List messages from current folder
+        do {
+          // CRIT-3 FIX: Check if token needs refresh before each batch
+          const refreshResult = await this.refreshDriverIfNeeded(driver, providerId, tokenExpiresAt);
+          driver = refreshResult.driver;
+          tokenExpiresAt = refreshResult.tokenExpiresAt;
 
-      fetchedCount += result.messages.length;
-      pageToken = result.nextPageToken;
+          const result = await driver.listMessages({
+            folder,
+            pageSize: Math.min(this.batchSize, messagesPerFolder - fetchedCount),
+            pageToken,
+            ...this.getListMessagesOptions(),
+          });
 
-      // Stop if we've reached the limit or no more pages
-      if (fetchedCount >= this.fullSyncMaxMessages || !pageToken) {
-        break;
+          // Performance fix (N1-4/N1-5): Process messages in batch using transaction
+          const batchResult = await this.processMessagesBatch(
+            driver,
+            result.messages,
+            providerId,
+            tenantId,
+          );
+          messagesProcessed += batchResult.processed;
+          newMessages += batchResult.newCount;
+
+          fetchedCount += result.messages.length;
+          pageToken = result.nextPageToken;
+
+          // Stop if we've reached the limit for this folder or no more pages
+          if (fetchedCount >= messagesPerFolder || !pageToken) {
+            break;
+          }
+        } while (pageToken);
+
+        this.logger.debug(`Folder ${folder}: synced ${fetchedCount} messages`);
+      } catch (folderError) {
+        // Some folders may not exist on all providers (e.g., ARCHIVE on some IMAP servers)
+        // Log warning and continue with other folders
+        this.logger.warn(
+          `Failed to sync folder ${folder}: ${folderError instanceof Error ? folderError.message : String(folderError)}`,
+        );
       }
-    } while (pageToken);
+    }
 
     // Get current sync token (method may not be available on all drivers)
     if (!driver.getInitialSyncToken) {
@@ -339,7 +362,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     const syncToken = await driver.getInitialSyncToken();
 
     this.logger.debug(
-      `Full sync complete: ${messagesProcessed} processed, ${newMessages} new, syncToken: ${syncToken}`,
+      `Full sync complete: ${messagesProcessed} processed, ${newMessages} new across ${foldersToSync.length} folders, syncToken: ${syncToken}`,
     );
 
     return {

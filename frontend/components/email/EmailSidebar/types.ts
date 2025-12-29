@@ -1,49 +1,28 @@
-import type { Folder } from '@/lib/api/folders';
+// =============================================================================
+// FOLDER TYPES - Re-exported from unified source
+// =============================================================================
+// IMPORTANT: All folder types are now in @/lib/api/folders
+// This file re-exports them for backwards compatibility.
+// New code should import directly from @/lib/api/folders.
+// =============================================================================
 
-/**
- * Folder item with provider info
- */
-export interface FolderItem {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  count?: number;
-  color?: string;
-  providerId?: string;
-  providerEmail?: string;
-  specialUse?: string;
-  /** Folder path for folder operations */
-  path?: string;
-  /** Full folder data for context menu operations */
-  folderData?: Folder;
-}
+export type {
+  FolderItem,
+  FolderGroup,
+  SmartFilter,
+  Folder,
+  FolderIdType,
+  ParsedFolderId,
+} from '@/lib/api/folders';
 
-/**
- * Group of folders by provider
- */
-export interface FolderGroup {
-  providerId: string;
-  providerEmail: string;
-  folders: FolderItem[];
-}
-
-/**
- * Smart filter definition
- */
-export interface SmartFilter {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  count?: number;
-  color?: string;
-}
+export { FOLDER_PREFIXES, parseFolderId } from '@/lib/api/folders';
 
 /**
  * Props for EmailSidebar component
  */
 export interface EmailSidebarProps {
   /** Folders grouped by provider */
-  folderGroups: FolderGroup[];
+  folderGroups: import('@/lib/api/folders').FolderGroup[];
 
   /** Currently selected folder ID */
   selectedFolderId?: string | null;
@@ -61,7 +40,7 @@ export interface EmailSidebarProps {
   onCompose?: () => void;
 
   /** Smart filters to display */
-  smartFilters?: SmartFilter[];
+  smartFilters?: import('@/lib/api/folders').SmartFilter[];
 
   /** Show smart filters section */
   showSmartFilters?: boolean;

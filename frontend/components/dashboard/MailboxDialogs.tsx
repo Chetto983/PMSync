@@ -9,6 +9,7 @@ import {
 } from '@/components/email';
 import { LabelManager } from '@/components/labels';
 import type { UseMailboxStateReturn } from './hooks/useMailboxState';
+import type { FolderItem } from '@/lib/api/folders';
 
 /**
  * Props for MailboxDialogs component
@@ -21,6 +22,8 @@ interface MailboxDialogsProps {
   onBulkMoveToFolder: (folder: string) => void;
   onSent: () => void;
   selectedCount: number;
+  /** Remote folders from user's email providers */
+  remoteFolders?: FolderItem[];
 }
 
 /**
@@ -35,6 +38,7 @@ export function MailboxDialogs({
   onBulkMoveToFolder,
   onSent,
   selectedCount,
+  remoteFolders,
 }: MailboxDialogsProps) {
   const {
     composeState,
@@ -113,6 +117,7 @@ export function MailboxDialogs({
         onClose={() => setFolderSelectorOpen(false)}
         onSelect={onBulkMoveToFolder}
         selectedCount={selectedCount}
+        folders={remoteFolders}
       />
     </>
   );

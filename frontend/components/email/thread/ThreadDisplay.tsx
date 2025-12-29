@@ -38,7 +38,6 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   onDelete,
   onArchive,
   onLabelsChange,
-  onToggleStar,
   onToggleImportant,
   onToggleRead,
   onMoveToFolder,
@@ -246,12 +245,6 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
     }
   }, [email, onArchive]);
 
-  const handleToolbarToggleStar = useCallback(() => {
-    if (email && onToggleStar) {
-      onToggleStar(email.id, !email.isStarred);
-    }
-  }, [email, onToggleStar]);
-
   const handleToolbarToggleImportant = useCallback(() => {
     if (email && onToggleImportant) {
       onToggleImportant(email.id, !(email.isImportant || email.isFlagged));
@@ -285,7 +278,6 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
         onForward={handleToolbarForward}
         onDelete={handleToolbarDelete}
         onArchive={handleToolbarArchive}
-        onToggleStar={handleToolbarToggleStar}
         onToggleImportant={handleToolbarToggleImportant}
         onToggleRead={handleToolbarToggleRead}
         onMoveToFolder={onMoveToFolder ? handleToolbarMoveToFolder : undefined}
