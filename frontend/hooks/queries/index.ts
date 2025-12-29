@@ -16,3 +16,5 @@ export * from './calendar-keys';
 export * from './use-calendar';
 export * from './contacts-keys';
 export * from './use-contacts';
+export * from './email-keys';
+export * from './use-emails';

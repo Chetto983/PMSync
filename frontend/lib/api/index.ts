@@ -5,7 +5,32 @@
  * import { emailApi, aiApi, calendarApi } from '@/lib/api';
  */
 
-// Email API will be re-added after rebuild
+// Email API - rebuilt with TanStack Query patterns
+export { emailsApi } from './emails';
+export type {
+  Email,
+  EmailAttachment,
+  EmailLabel,
+  EmailThread,
+  EmailStats,
+  ListEmailsParams,
+  ListEmailsResponse,
+  SendEmailDto,
+  ReplyEmailDto,
+  ForwardEmailDto,
+  UpdateEmailDto,
+  SaveDraftDto,
+  DraftResponse,
+  ParsedCalendarInvite,
+  CalendarInviteAttendee,
+  RespondToInviteDto,
+  SendInviteDto,
+  BulkEmailIdsDto,
+  BulkReadDto,
+  BulkFlagDto,
+  BulkMoveDto,
+  BulkLabelsDto,
+} from './emails';
 
 export { aiApi } from './ai';
 export type {

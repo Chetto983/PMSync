@@ -1,0 +1,478 @@
+/**
+ * Email API Module
+ *
+ * Provides typed API methods for all email operations.
+ * Matches backend endpoints documented in EMAIL_FRONTEND_COMPREHENSIVE_ROADMAP.md
+ *
+ * Key Decision: Frontend uses ONLY `isImportant` (consolidated from star/flag)
+ */
+
+import { apiClient } from '../api-client';
+
+// =============================================================================
+// Types - Email Entity
+// =============================================================================
+
+export interface EmailAttachment {
+  id: string;
+  emailId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  contentId?: string | null;
+  storageType: string;
+  storagePath?: string | null;
+  isInline: boolean;
+}
+
+export interface EmailLabel {
+  id: string;
+  emailId: string;
+  labelId: string;
+  createdAt: string;
+  label?: {
+    id: string;
+    name: string;
+    color?: { backgroundColor: string; textColor: string } | null;
+  };
+}
+
+export interface CalendarInviteAttendee {
+  email: string;
+  name?: string;
+  status?: 'NEEDS-ACTION' | 'ACCEPTED' | 'DECLINED' | 'TENTATIVE';
+  role?: 'REQ-PARTICIPANT' | 'OPT-PARTICIPANT' | 'CHAIR' | 'NON-PARTICIPANT';
+}
+
+export interface ParsedCalendarInvite {
+  uid: string;
+  method: 'REQUEST' | 'REPLY' | 'CANCEL' | 'PUBLISH';
+  summary: string;
+  description?: string;
+  location?: string;
+  startTime: string;
+  endTime: string;
+  isAllDay: boolean;
+  timezone?: string;
+  organizer: { email: string; name?: string };
+  attendees: CalendarInviteAttendee[];
+  status?: 'TENTATIVE' | 'CONFIRMED' | 'CANCELLED';
+}
+
+export interface Email {
+  id: string;
+  tenantId: string;
+  providerId: string;
+  externalId: string;
+  threadId?: string | null;
+  messageId?: string | null;
+  inReplyTo?: string | null;
+  references?: string | null;
+  from: string;
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  replyTo?: string | null;
+  subject: string;
+  bodyText?: string | null;
+  bodyHtml?: string | null;
+  snippet?: string | null;
+  folder: string;
+  labels: string[];
+  isRead: boolean;
+  isStarred: boolean;
+  isFlagged: boolean;
+  isDraft: boolean;
+  isDeleted: boolean;
+  isArchived: boolean;
+  sentAt: string;
+  receivedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  size?: number | null;
+  attachments?: EmailAttachment[];
+  emailLabels?: EmailLabel[];
+  hasCalendarInvite?: boolean;
+  calendarInviteStatus?: 'pending' | 'accepted' | 'declined' | 'tentative';
+  calendarInviteData?: ParsedCalendarInvite | null;
+}
+
+// =============================================================================
+// Types - List Parameters
+// =============================================================================
+
+export interface ListEmailsParams {
+  page?: number;
+  limit?: number;
+  providerId?: string;
+  folder?: string;
+  specialUse?: 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'ARCHIVE';
+  isRead?: boolean;
+  isImportant?: boolean; // CONSOLIDATED: replaces isStarred/isFlagged
+  hasAttachments?: boolean;
+  search?: string;
+  labelIds?: string;
+  startDate?: string;
+  endDate?: string;
+  excludeTrashSpam?: boolean;
+}
+
+export interface ListEmailsResponse {
+  emails: Email[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface EmailThread {
+  threadId: string;
+  emails: Email[];
+  subject: string;
+  participants: string[];
+  messageCount: number;
+  unreadCount: number;
+  latestDate: string;
+  hasAttachments: boolean;
+}
+
+export interface EmailStats {
+  total: number;
+  unread: number;
+  starred: number;
+  drafts: number;
+  byFolder: Record<string, number>;
+}
+
+// =============================================================================
+// Types - Send/Reply/Forward DTOs
+// =============================================================================
+
+export interface SendEmailDto {
+  providerId: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  bodyHtml: string;
+  bodyText?: string;
+  attachments?: File[];
+  replyToMessageId?: string;
+  threadId?: string;
+}
+
+export interface ReplyEmailDto {
+  bodyHtml: string;
+  bodyText?: string;
+  cc?: string[];
+  bcc?: string[];
+  attachments?: File[];
+}
+
+export interface ForwardEmailDto {
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  bodyHtml?: string;
+  bodyText?: string;
+  attachments?: File[];
+}
+
+// =============================================================================
+// Types - Update DTOs
+// =============================================================================
+
+export interface UpdateEmailDto {
+  isRead?: boolean;
+  isStarred?: boolean;
+  isFlagged?: boolean;
+  isArchived?: boolean;
+  folder?: string;
+}
+
+export interface BulkEmailIdsDto {
+  emailIds: string[];
+}
+
+export interface BulkReadDto extends BulkEmailIdsDto {
+  isRead: boolean;
+}
+
+export interface BulkFlagDto extends BulkEmailIdsDto {
+  isFlagged: boolean; // Maps to "important" in UI
+}
+
+export interface BulkMoveDto extends BulkEmailIdsDto {
+  targetFolder: string;
+}
+
+export interface BulkLabelsDto extends BulkEmailIdsDto {
+  labelIds: string[];
+}
+
+// =============================================================================
+// Types - Draft DTOs
+// =============================================================================
+
+export interface SaveDraftDto {
+  providerId: string;
+  to?: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject?: string;
+  bodyHtml?: string;
+  bodyText?: string;
+  replyToMessageId?: string;
+  threadId?: string;
+  existingDraftId?: string;
+}
+
+export interface DraftResponse {
+  id: string;
+  email: Email;
+}
+
+// =============================================================================
+// Types - Calendar Invite DTOs
+// =============================================================================
+
+export interface RespondToInviteDto {
+  response: 'accepted' | 'declined' | 'tentative';
+  comment?: string;
+}
+
+export interface SendInviteDto {
+  providerId: string;
+  to: string[];
+  subject: string;
+  description?: string;
+  location?: string;
+  startTime: string;
+  endTime: string;
+  isAllDay?: boolean;
+  timezone?: string;
+}
+
+// =============================================================================
+// API Methods
+// =============================================================================
+
+export const emailsApi = {
+  // -------------------------------------------------------------------------
+  // List & Get
+  // -------------------------------------------------------------------------
+
+  async listEmails(params: ListEmailsParams = {}): Promise<ListEmailsResponse> {
+    const response = await apiClient.get('/emails', { params });
+    return response.data;
+  },
+
+  async getEmail(emailId: string): Promise<Email> {
+    const response = await apiClient.get(`/emails/${emailId}`);
+    return response.data.email;
+  },
+
+  async searchEmails(query: string, limit = 100): Promise<Email[]> {
+    const response = await apiClient.get('/emails/search', {
+      params: { q: query, limit },
+    });
+    return response.data.emails;
+  },
+
+  async getStats(): Promise<EmailStats> {
+    const response = await apiClient.get('/emails/stats');
+    return response.data;
+  },
+
+  // -------------------------------------------------------------------------
+  // Threads
+  // -------------------------------------------------------------------------
+
+  async getConversations(params: ListEmailsParams = {}): Promise<EmailThread[]> {
+    const response = await apiClient.get('/emails/conversations', { params });
+    return response.data.threads;
+  },
+
+  async getThread(threadId: string): Promise<Email[]> {
+    const response = await apiClient.get(`/emails/thread/${threadId}`);
+    return response.data.emails;
+  },
+
+  // -------------------------------------------------------------------------
+  // Send / Reply / Forward
+  // -------------------------------------------------------------------------
+
+  async sendEmail(dto: SendEmailDto): Promise<Email> {
+    const formData = new FormData();
+    formData.append('providerId', dto.providerId);
+    formData.append('to', JSON.stringify(dto.to));
+    formData.append('subject', dto.subject);
+    formData.append('bodyHtml', dto.bodyHtml);
+
+    if (dto.cc?.length) formData.append('cc', JSON.stringify(dto.cc));
+    if (dto.bcc?.length) formData.append('bcc', JSON.stringify(dto.bcc));
+    if (dto.bodyText) formData.append('bodyText', dto.bodyText);
+    if (dto.replyToMessageId) formData.append('replyToMessageId', dto.replyToMessageId);
+    if (dto.threadId) formData.append('threadId', dto.threadId);
+    if (dto.attachments?.length) {
+      dto.attachments.forEach((file) => formData.append('attachments', file));
+    }
+
+    const response = await apiClient.post('/emails/send', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.email;
+  },
+
+  async replyToEmail(emailId: string, dto: ReplyEmailDto): Promise<Email> {
+    const formData = new FormData();
+    formData.append('bodyHtml', dto.bodyHtml);
+
+    if (dto.bodyText) formData.append('bodyText', dto.bodyText);
+    if (dto.cc?.length) formData.append('cc', JSON.stringify(dto.cc));
+    if (dto.bcc?.length) formData.append('bcc', JSON.stringify(dto.bcc));
+    if (dto.attachments?.length) {
+      dto.attachments.forEach((file) => formData.append('attachments', file));
+    }
+
+    const response = await apiClient.post(`/emails/${emailId}/reply`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.email;
+  },
+
+  async forwardEmail(emailId: string, dto: ForwardEmailDto): Promise<Email> {
+    const formData = new FormData();
+    formData.append('to', JSON.stringify(dto.to));
+
+    if (dto.cc?.length) formData.append('cc', JSON.stringify(dto.cc));
+    if (dto.bcc?.length) formData.append('bcc', JSON.stringify(dto.bcc));
+    if (dto.bodyHtml) formData.append('bodyHtml', dto.bodyHtml);
+    if (dto.bodyText) formData.append('bodyText', dto.bodyText);
+    if (dto.attachments?.length) {
+      dto.attachments.forEach((file) => formData.append('attachments', file));
+    }
+
+    const response = await apiClient.post(`/emails/${emailId}/forward`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data.email;
+  },
+
+  // -------------------------------------------------------------------------
+  // Update & Delete
+  // -------------------------------------------------------------------------
+
+  async updateEmail(emailId: string, dto: UpdateEmailDto): Promise<Email> {
+    const response = await apiClient.patch(`/emails/${emailId}`, dto);
+    return response.data.email;
+  },
+
+  async deleteEmail(emailId: string): Promise<void> {
+    await apiClient.delete(`/emails/${emailId}`);
+  },
+
+  // -------------------------------------------------------------------------
+  // Bulk Operations
+  // -------------------------------------------------------------------------
+
+  async bulkDelete(emailIds: string[]): Promise<{ deleted: number }> {
+    const response = await apiClient.delete('/emails/bulk', {
+      data: { emailIds },
+    });
+    return response.data;
+  },
+
+  async bulkMarkRead(emailIds: string[], isRead: boolean): Promise<{ updated: number }> {
+    const response = await apiClient.patch('/emails/bulk/read', { emailIds, isRead });
+    return response.data;
+  },
+
+  async bulkMarkImportant(emailIds: string[], isImportant: boolean): Promise<{ updated: number }> {
+    // Backend uses isFlagged, frontend consolidates as "important"
+    const response = await apiClient.patch('/emails/bulk/flag', {
+      emailIds,
+      isFlagged: isImportant,
+    });
+    return response.data;
+  },
+
+  async bulkMove(emailIds: string[], targetFolder: string): Promise<{ moved: number }> {
+    const response = await apiClient.patch('/emails/bulk/move', { emailIds, targetFolder });
+    return response.data;
+  },
+
+  async bulkAddLabels(emailIds: string[], labelIds: string[]): Promise<{ updated: number }> {
+    const response = await apiClient.patch('/emails/bulk/labels/add', { emailIds, labelIds });
+    return response.data;
+  },
+
+  async bulkRemoveLabels(emailIds: string[], labelIds: string[]): Promise<{ updated: number }> {
+    const response = await apiClient.patch('/emails/bulk/labels/remove', { emailIds, labelIds });
+    return response.data;
+  },
+
+  // -------------------------------------------------------------------------
+  // Drafts
+  // -------------------------------------------------------------------------
+
+  async saveDraft(dto: SaveDraftDto): Promise<DraftResponse> {
+    const response = await apiClient.post('/emails/drafts', dto);
+    return response.data;
+  },
+
+  async getDraft(draftId: string): Promise<Email> {
+    const response = await apiClient.get(`/emails/drafts/${draftId}`);
+    return response.data.email;
+  },
+
+  async deleteDraft(draftId: string): Promise<void> {
+    await apiClient.delete(`/emails/drafts/${draftId}`);
+  },
+
+  // -------------------------------------------------------------------------
+  // Calendar Invites
+  // -------------------------------------------------------------------------
+
+  async getCalendarInvite(emailId: string): Promise<ParsedCalendarInvite> {
+    const response = await apiClient.get(`/emails/${emailId}/calendar-invite`);
+    return response.data.invite;
+  },
+
+  async respondToCalendarInvite(
+    emailId: string,
+    dto: RespondToInviteDto
+  ): Promise<{ success: boolean }> {
+    const response = await apiClient.post(`/emails/${emailId}/calendar-invite/respond`, dto);
+    return response.data;
+  },
+
+  async sendCalendarInvite(dto: SendInviteDto): Promise<Email> {
+    const response = await apiClient.post('/emails/calendar-invite/send', dto);
+    return response.data.email;
+  },
+
+  async cancelCalendarInvite(eventId: string): Promise<{ success: boolean }> {
+    const response = await apiClient.post(`/emails/calendar-invite/${eventId}/cancel`);
+    return response.data;
+  },
+
+  // -------------------------------------------------------------------------
+  // Attachments
+  // -------------------------------------------------------------------------
+
+  async downloadAttachment(emailId: string, attachmentId: string): Promise<Blob> {
+    const response = await apiClient.get(
+      `/emails/${emailId}/attachments/${attachmentId}/download`,
+      { responseType: 'blob' }
+    );
+    return response.data;
+  },
+
+  async getAttachmentMetadata(
+    attachmentId: string
+  ): Promise<{ filename: string; mimeType: string; size: number }> {
+    const response = await apiClient.get(`/email/attachments/${attachmentId}/metadata`);
+    return response.data;
+  },
+};
