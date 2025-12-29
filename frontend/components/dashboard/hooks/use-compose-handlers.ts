@@ -29,11 +29,9 @@ export function useComposeHandlers({
             .replace('{date}', quotedDate)
             .replace('{from}', quotedFrom);
 
+        // Use simple blockquote without inline styles - TipTap StarterKit handles styling
         return quotedBody
-            ? `<br/><br/><blockquote style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 0; color: #666;">
-          <p>${quoteHeader}</p>
-          ${quotedBody}
-        </blockquote>`
+            ? `<p><br></p><p><br></p><blockquote><p>${quoteHeader}</p>${quotedBody}</blockquote>`
             : '';
     }, []);
 

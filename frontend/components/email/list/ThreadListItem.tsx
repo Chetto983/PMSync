@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { ListItemButton, Box, Typography, Checkbox, useMediaQuery, useTheme, IconButton } from '@mui/material';
-import { Paperclip, Star, Reply } from 'lucide-react';
+import { Paperclip, Flag, Reply } from 'lucide-react';
 import type { Email } from '@/stores/email-store';
 import type { Conversation } from '@/lib/api/email';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -59,7 +59,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
     const [isHovered, setIsHovered] = React.useState(false);
 
     // Extract common properties
-    const { threadId, emailId, from, subject, receivedAt, isRead, isStarred, hasAttachments, folder } =
+    const { threadId, emailId, from, subject, receivedAt, isRead, isFlagged, hasAttachments, folder } =
       useMemo(() => {
         if (isEmail(thread)) {
           const displayId = thread.threadId || thread.id;
@@ -70,7 +70,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             subject: thread.subject,
             receivedAt: thread.receivedAt,
             isRead: thread.isRead,
-            isStarred: thread.isStarred || false,
+            isFlagged: thread.isStarred || thread.isImportant || false,
             hasAttachments: thread.hasAttachments || false,
             folder: thread.folder,
           };
@@ -82,7 +82,7 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
             subject: thread.subject,
             receivedAt: thread.receivedAt,
             isRead: thread.isRead,
-            isStarred: thread.isStarred || false,
+            isFlagged: thread.isFlagged || thread.isStarred || false,
             hasAttachments: false,
             folder: undefined,
           };
@@ -98,9 +98,9 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
       onClick?.();
     };
 
-    const handleToggleStar = (e: React.MouseEvent) => {
+    const handleToggleFlag = (e: React.MouseEvent) => {
       e.stopPropagation();
-      onToggleStar?.(emailId, isStarred);
+      onToggleStar?.(emailId, isFlagged);
     };
 
     const handleToggleSelect = () => onToggleSelect?.(threadId);
@@ -240,25 +240,25 @@ export const ThreadListItem = React.memo<ThreadListItemProps>(
               </Typography>
 
               {/* Icons Grid */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 {hasAttachments && <Paperclip size={14} style={{ opacity: 0.6 }} />}
 
-                {/* Reply Arrow visual (Purple) */}
-                <Reply size={14} color="#7650ce" style={{ opacity: 0.8 }} />
+                {/* Reply Arrow visual */}
+                <Reply size={14} color={theme.palette.secondary.main} style={{ opacity: 0.8 }} />
 
+                {/* Flag icon like Outlook - always visible, colored when flagged */}
                 {onToggleStar && (
                   <IconButton
                     size="small"
-                    onClick={handleToggleStar}
+                    onClick={handleToggleFlag}
                     sx={{
                       p: 0,
                       ml: 0.5,
-                      color: isStarred ? '#FFB300' : 'text.disabled',
-                      '&:hover': { color: isStarred ? '#FFB300' : 'text.primary' },
-                      opacity: isStarred ? 1 : 0
+                      color: isFlagged ? 'warning.main' : 'text.disabled',
+                      '&:hover': { color: isFlagged ? 'warning.main' : 'text.primary' },
                     }}
                   >
-                    {(isStarred || isHovered) && <Star size={14} fill={isStarred ? '#FFB300' : 'none'} />}
+                    <Flag size={14} fill={isFlagged ? theme.palette.warning.main : 'none'} />
                   </IconButton>
                 )}
               </Box>

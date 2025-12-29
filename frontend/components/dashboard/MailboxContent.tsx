@@ -14,6 +14,8 @@ interface MailboxContentProps {
   isMobile: boolean;
   isConnected: boolean;
   emailStats?: EmailStats;
+  filteredCount?: number;
+  activeFilterName?: string;
   isConversationView: boolean;
   syncLoading: boolean;
   onMobileSidebarOpen: () => void;
@@ -64,6 +66,8 @@ export function MailboxContent({
   isMobile,
   isConnected,
   emailStats,
+  filteredCount,
+  activeFilterName,
   isConversationView,
   syncLoading,
   onMobileSidebarOpen,
@@ -120,6 +124,8 @@ export function MailboxContent({
         setMobileSidebarOpen={onMobileSidebarOpen}
         isConnected={isConnected}
         emailStats={emailStats}
+        filteredCount={filteredCount}
+        activeFilterName={activeFilterName}
         setAdvancedSearchOpen={onAdvancedSearchOpen}
         isConversationView={isConversationView}
         toggleConversationView={onToggleConversationView}

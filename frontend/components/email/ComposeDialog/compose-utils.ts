@@ -82,14 +82,19 @@ export function sanitizeHtmlForTiptap(html: string): string {
           case 'h2':
           case 'h3':
             return `<${tagName}>${children}</${tagName}>`;
-          // Convert block elements to paragraphs
+          // Convert block elements - only wrap if children don't contain block elements
           case 'div':
           case 'section':
           case 'article':
           case 'header':
           case 'footer':
           case 'main':
-            return children ? `<p>${children}</p>` : '';
+            // Don't wrap if children already contain block-level elements
+            if (!children.trim()) return '';
+            if (/<(p|h[1-6]|ul|ol|blockquote|div|table|section|article)[\s>]/i.test(children)) {
+              return children;
+            }
+            return `<p>${children}</p>`;
           // Convert table cells to line breaks
           case 'table':
           case 'tbody':
@@ -97,7 +102,11 @@ export function sanitizeHtmlForTiptap(html: string): string {
           case 'tfoot':
             return children;
           case 'tr':
-            return children ? `<p>${children}</p>` : '';
+            if (!children.trim()) return '';
+            if (/<p[\s>]/i.test(children)) {
+              return children;
+            }
+            return `<p>${children}</p>`;
           case 'td':
           case 'th':
             return children ? `${children} ` : '';
@@ -113,11 +122,18 @@ export function sanitizeHtmlForTiptap(html: string): string {
 
       const sanitized = processNode(doc.body);
 
-      // Clean up multiple empty paragraphs
+      // Aggressive cleanup for TipTap compatibility
       return sanitized
+        // Remove empty paragraphs
         .replace(/<p>\s*<\/p>/gi, '')
+        // Fix nested paragraphs by replacing </p><p> sequences with <br/>
+        .replace(/<p>\s*<p>/gi, '<p>')
+        .replace(/<\/p>\s*<\/p>/gi, '</p>')
+        // Remove excessive line breaks
         .replace(/(<br\s*\/?>\s*){3,}/gi, '<br/><br/>')
-        .replace(/(<p>\s*<\/p>\s*){2,}/gi, '<p></p>')
+        // Remove leading/trailing whitespace in paragraphs
+        .replace(/<p>\s+/gi, '<p>')
+        .replace(/\s+<\/p>/gi, '</p>')
         .trim();
     } catch {
       // Fall through to regex fallback
@@ -137,6 +153,9 @@ export function sanitizeHtmlForTiptap(html: string): string {
     .replace(/<\/div>/gi, '</p>')
     .replace(/<span[^>]*>/gi, '')
     .replace(/<\/span>/gi, '')
+    // Clean nested paragraphs
+    .replace(/<p>\s*<p>/gi, '<p>')
+    .replace(/<\/p>\s*<\/p>/gi, '</p>')
     .trim();
 }
 

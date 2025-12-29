@@ -1,11 +1,10 @@
 import React from 'react';
-import { Box, IconButton, Tooltip, Stack, Button, Divider } from '@mui/material';
+import { Box, IconButton, Tooltip, Stack, Button, Divider, useTheme } from '@mui/material';
 import {
   ArrowLeft,
   Reply,
   ReplyAll,
   Forward,
-  Star,
   Archive,
   Trash2,
   MoreHorizontal,
@@ -55,16 +54,15 @@ export const ThreadToolbar: React.FC<ThreadToolbarProps> = ({
   onDelete,
   onArchive,
   onToggleStar,
-  onToggleImportant,
   onToggleRead,
   onMoveToFolder,
   onPrint,
   isMobile = false,
 }) => {
   const t = useTranslations();
+  const theme = useTheme();
 
-  const isStarred = email.isStarred;
-  const isImportant = email.isImportant || email.isFlagged;
+  const isFlagged = email.isStarred || email.isImportant || email.isFlagged;
   const isRead = email.isRead;
 
   return (
@@ -244,39 +242,20 @@ export const ThreadToolbar: React.FC<ThreadToolbarProps> = ({
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 24, alignSelf: 'center' }} />
 
-        {/* Star Toggle */}
+        {/* Flag Toggle (like Outlook) - handles both star and important */}
         {onToggleStar && (
-          <Tooltip title={isStarred ? t.email.bulkBar.removeStar : t.email.bulkBar.addStar}>
+          <Tooltip title={isFlagged ? t.email.bulkBar.unmarkImportant : t.email.bulkBar.markImportant}>
             <IconButton
               onClick={onToggleStar}
               size="small"
               sx={{
-                '&:hover': { bgcolor: isStarred ? 'warning.light' : 'action.hover' },
-              }}
-            >
-              <Star
-                size={18}
-                fill={isStarred ? '#FFB300' : 'none'}
-                color={isStarred ? '#FFB300' : 'currentColor'}
-              />
-            </IconButton>
-          </Tooltip>
-        )}
-
-        {/* Important/Flag Toggle */}
-        {onToggleImportant && (
-          <Tooltip title={t.email.quickFilters.important}>
-            <IconButton
-              onClick={onToggleImportant}
-              size="small"
-              sx={{
-                '&:hover': { bgcolor: isImportant ? 'warning.light' : 'action.hover' },
+                '&:hover': { bgcolor: isFlagged ? 'warning.light' : 'action.hover' },
               }}
             >
               <Flag
                 size={18}
-                fill={isImportant ? '#FF9800' : 'none'}
-                color={isImportant ? '#FF9800' : 'currentColor'}
+                fill={isFlagged ? theme.palette.warning.main : 'none'}
+                color={isFlagged ? theme.palette.warning.main : 'currentColor'}
               />
             </IconButton>
           </Tooltip>

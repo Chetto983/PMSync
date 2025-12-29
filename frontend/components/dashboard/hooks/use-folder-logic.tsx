@@ -3,7 +3,7 @@ import type { FolderGroup } from '@/components/email';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFoldersStore } from '@/stores/folders-store';
 import { getFolderIcon as getIconForFolderUtil } from '@/lib/utils/folder-normalization';
-import { Mail as MailIcon, Clock, Calendar as CalendarIcon, Paperclip, Star, Inbox } from 'lucide-react';
+import { Mail as MailIcon, Clock, Calendar as CalendarIcon, Paperclip, Flag, Inbox } from 'lucide-react';
 import type { EmailListParams } from '@/lib/api/email';
 import type { EmailStats } from '@/lib/api/email';
 import type { Provider } from '@/lib/api/folders';
@@ -79,14 +79,14 @@ export function useFolderLogic({ emailStats, providers }: UseFolderLogicProps) {
             {
                 id: 'smart:important',
                 label: t.email.quickFilters.important,
-                icon: <Star size={18} />,
+                icon: <Flag size={18} />,
                 color: '#FFB300',
                 count: emailStats?.important && emailStats.important > 0 ? emailStats.important : undefined,
             },
         ];
     }, [t, emailStats]);
 
-    // Aggregator folders
+    // Aggregator folders (All Accounts section)
     const aggregatorFolders = useMemo<FolderItem[]>(
         () => [
             {
@@ -96,14 +96,6 @@ export function useFolderLogic({ emailStats, providers }: UseFolderLogicProps) {
                 aggregate: true,
                 specialUse: 'INBOX',
                 queryOverrides: { specialUse: 'INBOX' },
-            },
-            {
-                id: 'all:starred',
-                label: t.email.starredFolderLabel || t.folders.starred,
-                icon: <Star size={20} />,
-                color: '#FFB300',
-                aggregate: true,
-                queryOverrides: { isStarred: true },
             },
         ],
         [t]

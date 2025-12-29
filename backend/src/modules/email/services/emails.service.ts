@@ -25,6 +25,8 @@ export interface EmailListFilters {
   labelIds?: string[];
   startDate?: Date;
   endDate?: Date;
+  /** SECURITY: Exclude emails in TRASH, SPAM, and JUNK folders (for smart filters) */
+  excludeTrashSpam?: boolean;
 }
 
 export interface EmailListParams {
@@ -319,6 +321,17 @@ export class EmailsService {
       }
     }
 
+    // SECURITY FIX: Get folders to exclude for excludeTrashSpam filter
+    let excludedFolders: string[] = [];
+    if (filters.excludeTrashSpam) {
+      excludedFolders = await this.getFolderPathsBySpecialUse(
+        tenantId,
+        ['TRASH', 'SPAM', 'JUNK'],
+        providerId,
+      );
+      this.logger.debug(`[listEmails] excludeTrashSpam: excluding folders: ${JSON.stringify(excludedFolders)}`);
+    }
+
     // Build where clause
     const where: Prisma.EmailWhereInput = {
       tenantId,
@@ -326,6 +339,10 @@ export class EmailsService {
       ...folderFilter,
       // Only show deleted emails if we're viewing the TRASH folder
       ...(!isTrashView ? { isDeleted: false } : {}),
+      // SECURITY: Exclude TRASH/SPAM/JUNK folders when excludeTrashSpam is set
+      ...(filters.excludeTrashSpam && excludedFolders.length > 0 && {
+        folder: { notIn: excludedFolders, mode: 'insensitive' },
+      }),
       ...(filters.isRead !== undefined && { isRead: filters.isRead }),
       ...(filters.isStarred !== undefined && { isStarred: filters.isStarred }),
       ...(filters.isFlagged !== undefined && { isFlagged: filters.isFlagged }),

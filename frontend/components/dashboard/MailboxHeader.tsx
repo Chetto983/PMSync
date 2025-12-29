@@ -25,6 +25,8 @@ interface MailboxHeaderProps {
     setMobileSidebarOpen: (open: boolean) => void;
     isConnected: boolean;
     emailStats: EmailStats | undefined;
+    filteredCount?: number;
+    activeFilterName?: string;
     setAdvancedSearchOpen: (open: boolean) => void;
     isConversationView: boolean;
     toggleConversationView: () => void;
@@ -37,6 +39,8 @@ export function MailboxHeader({
     setMobileSidebarOpen,
     isConnected,
     emailStats,
+    filteredCount,
+    activeFilterName,
     setAdvancedSearchOpen,
     isConversationView,
     toggleConversationView,
@@ -82,11 +86,13 @@ export function MailboxHeader({
                     aria-label={isConnected ? t.email.realtime.live : t.email.realtime.reconnecting}
                 />
                 {/* Stats - Desktop only, compact */}
-                {!isMobile && emailStats && (
+                {!isMobile && (
                     <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                        {emailStats.unread > 0
-                          ? t.email.headerStats.unreadCount.replace('{count}', String(emailStats.unread))
-                          : t.email.headerStats.totalEmails.replace('{count}', String(emailStats.total))}
+                        {activeFilterName
+                            ? `${filteredCount ?? 0} ${activeFilterName.toLowerCase()}`
+                            : emailStats?.unread && emailStats.unread > 0
+                                ? t.email.headerStats.unreadCount.replace('{count}', String(emailStats.unread))
+                                : t.email.headerStats.totalEmails.replace('{count}', String(emailStats?.total ?? 0))}
                     </Typography>
                 )}
 

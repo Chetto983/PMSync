@@ -439,6 +439,8 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
             isMobile={isMobile}
             isConnected={isConnected}
             emailStats={emailStats ?? undefined}
+            filteredCount={threads.length}
+            activeFilterName={selectedFolderId?.startsWith('smart:') ? activeFolder?.label : undefined}
             isConversationView={isConversationView}
             syncLoading={syncLoading}
             onMobileSidebarOpen={() => setMobileSidebarOpen(true)}
@@ -480,11 +482,16 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
           storeSelectedEmail ? (
             <ThreadDisplay
               email={storeSelectedEmail}
+              onClose={() => setSelectedEmail(null)}
               onDelete={(email) => handleDelete(email.id)}
               onReply={handleReplyLocal}
               onReplyAll={handleReplyAllLocal}
               onForward={handleForwardLocal}
               onLabelsChange={handleLabelsChange}
+              onArchive={(email) => handleArchive([email.id])}
+              onToggleStar={(id, isStarred) => handleToggleStar(id, isStarred)}
+              onToggleImportant={(id, isImportant) => handleToggleImportant(id, isImportant)}
+              onToggleRead={(id, isRead) => handleToggleRead(id, isRead)}
             />
           ) : undefined
         }

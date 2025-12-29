@@ -21,12 +21,14 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   TextField,
   Box,
   IconButton,
   Typography,
   CircularProgress,
   Chip,
+  Button,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
@@ -83,6 +85,7 @@ export function ComposeDialog({
   const [sending, setSending] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [smartRepliesDismissed, setSmartRepliesDismissed] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
   // Track mounted state to prevent state updates after unmount (race condition fix)
   const isMountedRef = useRef(true);
@@ -210,16 +213,29 @@ export function ComposeDialog({
   // Check for unsaved changes
   const hasChanges = useCallback(() => {
     const bodyText = htmlToPlainText(body);
-    return !!(to.length > 0 || cc.length > 0 || bcc.length > 0 || subject.trim() || bodyText.trim());
+    const changes = !!(to.length > 0 || cc.length > 0 || bcc.length > 0 || subject.trim() || bodyText.trim());
+    return changes;
   }, [to, cc, bcc, subject, body]);
 
-  const handleClose = useCallback(() => {
+  // Request to close - shows confirmation if there are unsaved changes
+  const requestClose = useCallback(() => {
     if (hasChanges() && !sending) {
-      const confirmed = window.confirm(t.email.composer.discardConfirm);
-      if (!confirmed) return;
+      setConfirmDialogOpen(true);
+    } else {
+      onClose();
     }
+  }, [hasChanges, sending, onClose]);
+
+  // Force close without confirmation (for confirm dialog)
+  const handleConfirmDiscard = useCallback(() => {
+    setConfirmDialogOpen(false);
     onClose();
-  }, [hasChanges, sending, onClose, t]);
+  }, [onClose]);
+
+  // Cancel discard - keep dialog open
+  const handleCancelDiscard = useCallback(() => {
+    setConfirmDialogOpen(false);
+  }, []);
 
   const handleSend = useCallback(async () => {
     if (!selectedProvider) {
@@ -307,7 +323,7 @@ export function ComposeDialog({
     <>
       <Dialog
         open={open}
-        onClose={handleClose}
+        onClose={requestClose}
         maxWidth={isFullscreen ? false : 'md'}
         fullWidth={!isFullscreen}
         fullScreen={isMobile || isFullscreen}
@@ -343,7 +359,7 @@ export function ComposeDialog({
                   {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                 </IconButton>
               )}
-              <IconButton size="small" onClick={handleClose} disabled={sending}>
+              <IconButton size="small" onClick={requestClose} disabled={sending}>
                 <X size={20} />
               </IconButton>
             </Box>
@@ -445,10 +461,31 @@ export function ComposeDialog({
           canSend={to.length > 0}
           fileInputRef={attachmentsHook.fileInputRef}
           onFileSelect={attachmentsHook.handleFileSelect}
-          onDiscard={handleClose}
+          onDiscard={requestClose}
           onSend={handleSend}
           t={t}
         />
+      </Dialog>
+
+      {/* Discard Confirmation Dialog */}
+      <Dialog
+        open={confirmDialogOpen}
+        onClose={handleCancelDiscard}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{t.email.composer.discard}</DialogTitle>
+        <DialogContent>
+          <Typography>{t.email.composer.discardConfirm}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelDiscard}>
+            {t.common?.cancel || 'Cancel'}
+          </Button>
+          <Button onClick={handleConfirmDiscard} color="error" variant="contained">
+            {t.email.composer.discard}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <AiComposeDialog

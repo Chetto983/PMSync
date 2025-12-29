@@ -1,2 +1,0 @@
-components/dashboard/Mailbox.tsx(914,15): error TS2322: Type 'EmailStats | null' is not assignable to type 'EmailStats | undefined'.
-  Type 'null' is not assignable to type 'EmailStats | undefined'.
