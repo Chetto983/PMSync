@@ -10,6 +10,7 @@ import {
   FolderEventPayload,
   AiActionEventPayload,
   AiSessionEventPayload,
+  AiAgentStepEventPayload,
   KnownRealtimeEvent,
   RealtimeEventPayloads,
   buildTenantRoom,
@@ -24,6 +25,7 @@ export type {
   FolderEventPayload,
   AiActionEventPayload,
   AiSessionEventPayload,
+  AiAgentStepEventPayload,
 } from '../types/realtime.types';
 
 /**
@@ -556,6 +558,14 @@ export class RealtimeEventsService implements OnModuleDestroy {
    */
   emitAiSessionUpdate(tenantId: string, payload: AiSessionEventPayload) {
     this.emitToTenant(tenantId, 'ai:session:update', payload);
+  }
+
+  /**
+   * Emette evento per step agente AI (real-time activity streaming)
+   * Used for 2025 UX pattern: show live agent activity visualization
+   */
+  emitAiAgentStep(tenantId: string, payload: AiAgentStepEventPayload) {
+    this.emitToTenant(tenantId, 'ai:agent:step', payload);
   }
 
   /**

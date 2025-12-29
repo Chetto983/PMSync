@@ -1643,6 +1643,8 @@ export const en: AppTranslations = {
       add: 'Add',
       placeholder: 'E.g.: I prefer short and concise emails',
       moreMemories: '+{count} more memories',
+      memoryCount: '{count} memory',
+      memoryCountPlural: '{count} memories',
     },
     widgets: {
       title: 'AI Tools',
@@ -1698,7 +1700,55 @@ export const en: AppTranslations = {
         emailDraft: 'Draft Agent',
         emailSearch: 'Search Agent',
         calendarSchedule: 'Schedule Agent',
+        knowledge: 'Knowledge Agent',
+        general: 'General Agent',
+        websearch: 'Web Search Agent',
+        analytics: 'Analytics Agent',
+        unifiedKnowledge: 'Unified Knowledge',
+        documentLibrary: 'Document Library',
         unknown: 'AI Agent',
+      },
+      actions: {
+        intent: {
+          started: 'Analyzing your request...',
+          processing: 'Processing request...',
+          completed: 'Request analyzed',
+        },
+        supervisor: {
+          started: 'Coordinating agents...',
+          processing: 'Coordinating agents...',
+          completed: 'Agents coordinated',
+        },
+        email: {
+          started: 'Searching emails...',
+          processing: 'Processing emails...',
+          completed: 'Email processed',
+        },
+        calendar: {
+          started: 'Checking calendar...',
+          processing: 'Processing calendar...',
+          completed: 'Calendar processed',
+        },
+        contacts: {
+          started: 'Searching contacts...',
+          processing: 'Processing contacts...',
+          completed: 'Contacts processed',
+        },
+        response: {
+          started: 'Generating response...',
+          processing: 'Generating response...',
+          completed: 'Response generated',
+        },
+        knowledge: {
+          started: 'Searching knowledge base...',
+          processing: 'Processing knowledge...',
+          completed: 'Knowledge processed',
+        },
+        general: {
+          started: 'Processing...',
+          processing: 'Processing...',
+          completed: 'Completed',
+        },
       },
     },
     sessions: {
@@ -1726,6 +1776,10 @@ export const en: AppTranslations = {
       bulkDeleted: '{count} conversations deleted',
       autoGeneratingTitle: 'Generating title...',
       selectedCount: '{count} selected',
+      conversationCount: '{count} conversation',
+      conversationCountPlural: '{count} conversations',
+      messageCount: '{count} message',
+      messageCountPlural: '{count} messages',
     },
     // Dashboard AI widget
     unread: 'Unread',

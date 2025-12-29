@@ -159,6 +159,49 @@ export interface RealtimeAiSessionEvent {
   timestamp?: string;
 }
 
+/**
+ * AI Agent types available in VoltAgent
+ */
+export type AiAgentType =
+  | 'supervisor'
+  | 'intent'
+  | 'email'
+  | 'calendar'
+  | 'contacts'
+  | 'knowledge'
+  | 'general'
+  | 'websearch'
+  | 'analytics'
+  | 'unified-knowledge'
+  | 'document-library'
+  | 'response';
+
+/**
+ * AI Agent Step Event - Real-time streaming of agent activity
+ * Used for 2025 UX pattern: show live agent activity visualization
+ */
+export interface RealtimeAiAgentStepEvent {
+  sessionId: string;
+  userId: string;
+  /** Unique step ID for tracking */
+  stepId: string;
+  /** Agent type */
+  agentType: AiAgentType;
+  /** Step status */
+  status: 'started' | 'processing' | 'tool_call' | 'completed' | 'error';
+  /** Human-readable action description */
+  action: string;
+  /** Tool being called (if status is 'tool_call') */
+  toolName?: string;
+  /** Duration in ms (if completed) */
+  duration?: number;
+  /** Result summary (if completed) */
+  result?: string;
+  /** Error message (if error) */
+  error?: string;
+  timestamp?: string;
+}
+
 export type EventHandler<T> = (data: T) => void;
 
 // Auth error detection - these messages indicate token/auth issues
@@ -624,6 +667,14 @@ class WebSocketClient {
 
   onAiSessionUpdate(handler: EventHandler<RealtimeAiSessionEvent>): () => void {
     return this.registerHandler('ai:session:update', handler as (...args: unknown[]) => void);
+  }
+
+  /**
+   * AI Agent Step Events - Real-time agent activity streaming
+   * Used for 2025 UX pattern: live agent progress visualization
+   */
+  onAiAgentStep(handler: EventHandler<RealtimeAiAgentStepEvent>): () => void {
+    return this.registerHandler('ai:agent:step', handler as (...args: unknown[]) => void);
   }
 
 }

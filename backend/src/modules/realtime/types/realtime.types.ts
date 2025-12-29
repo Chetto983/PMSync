@@ -101,6 +101,49 @@ export interface AiSessionEventPayload {
   timestamp?: string;
 }
 
+/**
+ * AI Agent types available in VoltAgent
+ */
+export type AiAgentType =
+  | 'supervisor'
+  | 'intent'
+  | 'email'
+  | 'calendar'
+  | 'contacts'
+  | 'knowledge'
+  | 'general'
+  | 'websearch'
+  | 'analytics'
+  | 'unified-knowledge'
+  | 'document-library'
+  | 'response';
+
+/**
+ * AI Agent Step Event - Real-time streaming of agent activity
+ * Used to show live visualization of what each agent is doing
+ */
+export interface AiAgentStepEventPayload {
+  sessionId: string;
+  userId: string;
+  /** Unique step ID for tracking */
+  stepId: string;
+  /** Agent type */
+  agentType: AiAgentType;
+  /** Step status */
+  status: 'started' | 'processing' | 'tool_call' | 'completed' | 'error';
+  /** Human-readable action description */
+  action: string;
+  /** Tool being called (if status is 'tool_call') */
+  toolName?: string;
+  /** Duration in ms (if completed) */
+  duration?: number;
+  /** Result summary (if completed) */
+  result?: string;
+  /** Error message (if error) */
+  error?: string;
+  timestamp?: string;
+}
+
 
 export interface RealtimeEventPayloads {
   'email:new': EmailEventPayload;
@@ -173,6 +216,8 @@ export interface RealtimeEventPayloads {
   'ai:action:executed': AiActionEventPayload;
   'ai:action:failed': AiActionEventPayload;
   'ai:session:update': AiSessionEventPayload;
+  // AI Agent Activity Streaming (2025 UX pattern)
+  'ai:agent:step': AiAgentStepEventPayload;
 }
 
 export type KnownRealtimeEvent = keyof RealtimeEventPayloads;

@@ -4,10 +4,16 @@
  * Agent Progress Indicator - 2025 Multi-Agent UX Pattern
  * Shows live agent chain with status, timing, and progress
  * Inspired by Victor Dibia's AutoGen UX principles
+ *
+ * Features:
+ * - Real-time WebSocket streaming support
+ * - Glassmorphism design with theme colors
+ * - All VoltAgent types supported
+ * - Fallback simulation when no real data
  */
 
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Box, Typography, LinearProgress, alpha, useTheme, Collapse } from '@mui/material';
+import { Box, Typography, LinearProgress, alpha, useTheme, Collapse, type Theme } from '@mui/material';
 import {
   Bot,
   Brain,
@@ -20,18 +26,27 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  BookOpen,
+  MessageSquare,
+  Globe,
+  BarChart3,
+  Database,
+  FileText,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import type { AiAgentType } from '@/lib/websocket-client';
 
-// Agent types that can be involved in processing
-export type AgentType = 'intent' | 'email' | 'calendar' | 'contacts' | 'response';
+// Agent types that can be involved in processing (extended to match VoltAgent types)
+export type AgentType = AiAgentType;
 
 export interface AgentStep {
-  id: AgentType;
+  id: string;
+  agentType?: AgentType;
   status: 'pending' | 'active' | 'completed' | 'error';
   action?: string;
   duration?: number; // ms
   result?: string;
+  error?: string;
 }
 
 interface AgentProgressIndicatorProps {
@@ -40,17 +55,44 @@ interface AgentProgressIndicatorProps {
   agentSteps?: AgentStep[];
 }
 
-// Agent configuration with icons and colors
-const AGENT_CONFIG: Record<AgentType, { icon: typeof Bot; color: string; label: string }> = {
-  intent: { icon: Brain, color: '#55cae5', label: 'Intent Agent' },
-  email: { icon: Mail, color: '#7650ce', label: 'Email Agent' },
-  calendar: { icon: Calendar, color: '#b43db6', label: 'Calendar Agent' },
-  contacts: { icon: Users, color: '#10b981', label: 'Contacts Agent' },
-  response: { icon: Sparkles, color: '#f59e0b', label: 'Response Agent' },
+// Agent configuration with icons - uses theme colors via getAgentColor function
+const AGENT_ICONS: Record<AgentType, typeof Bot> = {
+  supervisor: Bot,
+  intent: Brain,
+  email: Mail,
+  calendar: Calendar,
+  contacts: Users,
+  knowledge: BookOpen,
+  general: MessageSquare,
+  websearch: Globe,
+  analytics: BarChart3,
+  'unified-knowledge': Database,
+  'document-library': FileText,
+  response: Sparkles,
 };
 
+// Get agent color from theme palette (glassmorphism compatible)
+function getAgentColor(agentType: AgentType, theme: Theme): string {
+  const colorMap: Record<AgentType, string> = {
+    supervisor: theme.palette.primary.main,
+    intent: theme.palette.info.main,
+    email: theme.palette.secondary.main,
+    calendar: theme.palette.warning.main,
+    contacts: theme.palette.success.main,
+    knowledge: theme.palette.primary.light,
+    general: theme.palette.text.secondary,
+    websearch: theme.palette.info.light,
+    analytics: theme.palette.warning.light,
+    'unified-knowledge': theme.palette.secondary.light,
+    'document-library': theme.palette.success.light,
+    response: theme.palette.warning.main,
+  };
+  return colorMap[agentType] || theme.palette.primary.main;
+}
+
 // Simulated agent workflow (used when no real streaming data)
-const SIMULATED_WORKFLOW: { agent: AgentType; action: string; duration: number }[] = [
+type SimulatedAgentType = 'intent' | 'email' | 'response';
+const SIMULATED_WORKFLOW: { agent: SimulatedAgentType; action: string; duration: number }[] = [
   { agent: 'intent', action: 'Analyzing request...', duration: 800 },
   { agent: 'email', action: 'Searching inbox...', duration: 2000 },
   { agent: 'response', action: 'Composing reply...', duration: 1500 },
@@ -92,6 +134,15 @@ function useStepProgression(isActive: boolean, externalSteps?: AgentStep[]) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef(false);
+  const hasExternalStepsRef = useRef(false);
+
+  // Sync external steps when they change (always update, not just on init)
+  React.useEffect(() => {
+    if (externalSteps && externalSteps.length > 0) {
+      hasExternalStepsRef.current = true;
+      setSteps(externalSteps);
+    }
+  }, [externalSteps]);
 
   // Initialize steps when becoming active
   React.useEffect(() => {
@@ -99,22 +150,17 @@ function useStepProgression(isActive: boolean, externalSteps?: AgentStep[]) {
       // Cleanup when deactivated
       if (timerRef.current) clearTimeout(timerRef.current);
       isInitializedRef.current = false;
+      hasExternalStepsRef.current = false;
       setSteps([]);
       setCurrentIndex(0);
       return;
     }
 
-    // Already initialized, skip
-    if (isInitializedRef.current) return;
+    // Already initialized or using external steps, skip simulation init
+    if (isInitializedRef.current || hasExternalStepsRef.current) return;
     isInitializedRef.current = true;
 
-    // Use external steps if provided
-    if (externalSteps && externalSteps.length > 0) {
-      setSteps(externalSteps);
-      return;
-    }
-
-    // Initialize with simulated workflow
+    // Initialize with simulated workflow (only if no external steps)
     const initialSteps: AgentStep[] = SIMULATED_WORKFLOW.map(w => ({
       id: w.agent,
       status: 'pending' as const,
@@ -122,7 +168,7 @@ function useStepProgression(isActive: boolean, externalSteps?: AgentStep[]) {
     }));
     setSteps(initialSteps);
     setCurrentIndex(0);
-  }, [isActive, externalSteps]);
+  }, [isActive]);
 
   // Progress through steps
   React.useEffect(() => {
@@ -165,13 +211,38 @@ export function AgentProgressIndicator({ isActive, agentSteps: externalSteps }: 
   const elapsedTime = useAnimationTimer(isActive);
   const { steps } = useStepProgression(isActive, externalSteps);
 
-  // Get translated agent labels
+  // Get translated agent labels - converts agent type to locale key
   const getAgentLabel = useCallback((agentType: AgentType): string => {
     const labels = t.ai?.chat?.agents;
-    if (labels) {
-      return labels[agentType] || AGENT_CONFIG[agentType].label;
+    if (!labels) return agentType;
+
+    // Convert agent type for locale lookup (e.g., 'unified-knowledge' → 'unifiedKnowledge')
+    const localeKey = agentType.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+    const label = labels[localeKey as keyof typeof labels];
+    return typeof label === 'string' ? label : agentType;
+  }, [t]);
+
+  // Get translated action string based on agent type and status
+  const getTranslatedAction = useCallback((agentType: AgentType, status: AgentStep['status'], fallbackAction?: string): string => {
+    const actions = t.ai?.chat?.actions;
+    if (!actions) return fallbackAction || '';
+
+    // Convert agent type for locale lookup
+    const localeKey = agentType.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()) as keyof typeof actions;
+    const agentActions = actions[localeKey] as { started?: string; processing?: string; completed?: string } | undefined;
+
+    if (!agentActions) {
+      // Fallback to general actions
+      const generalActions = actions.general as { started?: string; processing?: string; completed?: string } | undefined;
+      if (!generalActions) return fallbackAction || '';
+
+      const statusKey = status === 'active' ? 'processing' : status;
+      return generalActions[statusKey as keyof typeof generalActions] || fallbackAction || '';
     }
-    return AGENT_CONFIG[agentType].label;
+
+    // Map status to action key
+    const statusKey = status === 'active' ? 'processing' : status === 'pending' ? 'started' : status;
+    return agentActions[statusKey as keyof typeof agentActions] || fallbackAction || '';
   }, [t]);
 
   // Calculate progress
@@ -279,7 +350,9 @@ export function AgentProgressIndicator({ isActive, agentSteps: externalSteps }: 
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {activeStep?.action || (t.ai?.chat?.progress?.analyzing || 'Analyzing context...')}
+                  {activeStep
+                    ? getTranslatedAction((activeStep.agentType || activeStep.id) as AgentType, activeStep.status, activeStep.action)
+                    : (t.ai?.chat?.progress?.analyzing || 'Analyzing context...')}
                 </Typography>
               </Box>
             </Box>
@@ -307,8 +380,10 @@ export function AgentProgressIndicator({ isActive, agentSteps: externalSteps }: 
             {/* Agent Steps */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1, md: 1.5 } }}>
               {steps.map((step) => {
-                const config = AGENT_CONFIG[step.id];
-                const Icon = config.icon;
+                // Get agent type from step (use agentType field or id as fallback)
+                const agentType = (step.agentType || step.id) as AgentType;
+                const Icon = AGENT_ICONS[agentType] || Bot;
+                const agentColor = getAgentColor(agentType, theme);
                 const isStepActive = step.status === 'active';
                 const isCompleted = step.status === 'completed';
                 const isPending = step.status === 'pending';
@@ -325,7 +400,7 @@ export function AgentProgressIndicator({ isActive, agentSteps: externalSteps }: 
                       borderRadius: 2.5,
                       transition: 'all 0.3s ease',
                       ...(isStepActive && {
-                        bgcolor: alpha(config.color, 0.08),
+                        bgcolor: alpha(agentColor, 0.08),
                       }),
                     }}
                   >
@@ -345,7 +420,7 @@ export function AgentProgressIndicator({ isActive, agentSteps: externalSteps }: 
                           color: 'white',
                         }),
                         ...(isStepActive && {
-                          bgcolor: config.color,
+                          bgcolor: agentColor,
                           color: 'white',
                           animation: 'pulse-status 1.5s ease-in-out infinite',
                           '@keyframes pulse-status': {
@@ -378,7 +453,7 @@ export function AgentProgressIndicator({ isActive, agentSteps: externalSteps }: 
                           fontSize: { xs: '0.875rem', md: '0.95rem' },
                         }}
                       >
-                        {getAgentLabel(step.id)}
+                        {getAgentLabel(agentType)}
                       </Typography>
                       {(isStepActive || isCompleted) && step.action && (
                         <Typography
@@ -393,7 +468,7 @@ export function AgentProgressIndicator({ isActive, agentSteps: externalSteps }: 
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          {isStepActive ? step.action : (step.result || step.action.replace('...', ''))}
+                          {getTranslatedAction(agentType, step.status, step.action)}
                         </Typography>
                       )}
                     </Box>
@@ -432,7 +507,9 @@ export function AgentProgressIndicator({ isActive, agentSteps: externalSteps }: 
                     mr: 1,
                   }}
                 >
-                  {activeStep?.action || (t.ai?.chat?.progress?.finalizing || 'Finalizing...')}
+                  {activeStep
+                    ? getTranslatedAction((activeStep.agentType || activeStep.id) as AgentType, activeStep.status, activeStep.action)
+                    : (t.ai?.chat?.progress?.finalizing || 'Finalizing...')}
                 </Typography>
                 <Typography
                   variant="body2"

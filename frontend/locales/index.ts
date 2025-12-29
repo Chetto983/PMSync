@@ -1739,6 +1739,8 @@ export interface AppTranslations {
       add: string;
       placeholder: string;
       moreMemories: string;
+      memoryCount: string;
+      memoryCountPlural: string;
     };
     widgets: {
       title: string;
@@ -1792,7 +1794,23 @@ export interface AppTranslations {
         emailDraft: string;
         emailSearch: string;
         calendarSchedule: string;
+        knowledge: string;
+        general: string;
+        websearch: string;
+        analytics: string;
+        unifiedKnowledge: string;
+        documentLibrary: string;
         unknown: string;
+      };
+      actions: {
+        intent: { started: string; processing: string; completed: string };
+        supervisor: { started: string; processing: string; completed: string };
+        email: { started: string; processing: string; completed: string };
+        calendar: { started: string; processing: string; completed: string };
+        contacts: { started: string; processing: string; completed: string };
+        response: { started: string; processing: string; completed: string };
+        knowledge: { started: string; processing: string; completed: string };
+        general: { started: string; processing: string; completed: string };
       };
     };
     sessions: {
@@ -1820,6 +1838,10 @@ export interface AppTranslations {
       bulkDeleted: string;
       autoGeneratingTitle: string;
       selectedCount: string;
+      conversationCount: string;
+      conversationCountPlural: string;
+      messageCount: string;
+      messageCountPlural: string;
     };
     unread: string;
     learned: string;

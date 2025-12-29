@@ -89,7 +89,10 @@ export function AiMemoryWidget() {
   // Collapsed summary - show memory count
   const collapsedSummary = (
     <Typography variant="caption" color="text.secondary">
-      {memories.length} {memories.length === 1 ? 'memory' : 'memories'}
+      {(memories.length === 1
+        ? t.ai?.memory?.memoryCount || '{count} memory'
+        : t.ai?.memory?.memoryCountPlural || '{count} memories'
+      ).replace('{count}', memories.length.toString())}
     </Typography>
   );
 

@@ -11,6 +11,8 @@ import {
   Request,
   UsePipes,
   ValidationPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -188,6 +190,7 @@ export class PersonalizationController {
    * POST /ai/personalization/context
    */
   @Post('context')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get personalization context for AI interactions' })
   @ApiResponse({ status: 200, description: 'Returns personalization context' })
   async getContext(
@@ -232,6 +235,7 @@ export class PersonalizationController {
    * POST /ai/personalization/memories/search
    */
   @Post('memories/search')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Search memories using semantic similarity' })
   @ApiResponse({ status: 200, description: 'Returns matching memories' })
   async searchMemories(

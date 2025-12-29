@@ -103,7 +103,8 @@
       "Bash(then tail -100 logs/error.log)",
       "Bash(else echo \"No error.log found\")",
       "Bash(fi)",
-      "Bash(curl.exe:*)"
+      "Bash(curl.exe:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": []
   }

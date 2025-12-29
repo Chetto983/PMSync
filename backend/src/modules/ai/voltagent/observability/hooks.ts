@@ -263,6 +263,18 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Ag
      * that would otherwise be lost during delegate_task execution.
      */
     onToolEnd: async ({ agent, tool, output, error, context }) => {
+      // DEBUG: Always log tool completion for HITL debugging
+      logger?.debug('[HITL DEBUG] onToolEnd called', {
+        agentName: agent.name,
+        toolName: tool.name,
+        hasOutput: output !== undefined,
+        outputType: typeof output,
+        outputKeys: output && typeof output === 'object' ? Object.keys(output as object) : [],
+        hasError: !!error,
+        contextUserId: context.userId,
+        contextConversationId: context.conversationId,
+      });
+
       if (error) {
         if (logToolCalls) {
           logger?.warn('Tool execution failed', {
@@ -277,6 +289,13 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Ag
 
       // Check if tool returned a pending action that needs HITL approval
       const result = output as Record<string, unknown> | undefined;
+      // DEBUG: Log whether requiresApproval is present
+      logger?.debug('[HITL DEBUG] Checking requiresApproval', {
+        hasResult: !!result,
+        requiresApproval: result?.requiresApproval,
+        hasOnPendingAction: !!onPendingAction,
+        toolName: tool.name,
+      });
       if (result?.requiresApproval && onPendingAction) {
         const tenantId = extractTenantId(context.userId);
         const userId = extractUserId(context.userId);

@@ -135,7 +135,8 @@ async function audit(
     result.error = (data as { error?: string })?.error || 'Connection failed';
     result.dataValidation = 'Request failed';
     console.log(`     ❌ FAIL: ${result.error} (${time}ms)`);
-  } else if (status === 200) {
+  } else if (status >= 200 && status < 300) {
+    // Accept all 2xx success codes (200 OK, 201 Created, 204 No Content, etc.)
     if (options?.skipValidation) {
       result.status = 'PASS';
       result.dataValidation = 'Response received (validation skipped)';
@@ -254,15 +255,16 @@ async function auditMemory(): Promise<void> {
     allowEmpty: true,
   });
 
-  // Test memory creation
+  // Test memory creation (controller expects: { fact, category?, importance? })
   await audit(
     'Memory',
     '/api/v1/voltagent/memory',
     'POST',
-    ['id', 'content'],
+    ['success', 'memoryId'],
     {
-      content: 'AI Audit test memory - can be deleted',
-      type: 'note',
+      fact: 'AI Audit test memory - user prefers concise responses',
+      category: 'PREFERENCE',
+      importance: 0.7,
     },
     { skipValidation: true },
   );
@@ -413,12 +415,13 @@ async function auditHITL(): Promise<void> {
 
   // 2. Submit a HIGH severity action for approval (should require human approval)
   const submitResult = await api('POST', '/api/v1/voltagent/actions/submit', {
-    type: 'SEND_EMAIL',
+    actionType: 'SEND_EMAIL', // DTO expects 'actionType', not 'type'
     payload: {
       to: 'test-audit@example.com',
       subject: 'AI Audit Test - HITL Approval',
       body: 'This is a test action from the AI audit script.',
     },
+    summary: 'Send test email for AI audit', // Required field
     confidence: 0.75, // Below auto-approve threshold
     severity: 'HIGH', // Requires approval
     autoApproveThreshold: 0.95,
@@ -450,8 +453,9 @@ async function auditHITL(): Promise<void> {
 
       // 4. Test REJECT flow with a new action
       const rejectTestResult = await api('POST', '/api/v1/voltagent/actions/submit', {
-        type: 'DELETE_EMAIL',
+        actionType: 'DELETE_EMAIL',
         payload: { emailId: 'test-email-id-for-rejection' },
+        summary: 'Delete test email for rejection test',
         confidence: 0.5,
         severity: 'HIGH',
         autoApproveThreshold: 0.95,
@@ -487,8 +491,9 @@ async function auditHITL(): Promise<void> {
 
       // 5. Test APPROVE flow with a new action
       const approveTestResult = await api('POST', '/api/v1/voltagent/actions/submit', {
-        type: 'CREATE_FOLDER',
+        actionType: 'CREATE_FOLDER',
         payload: { name: 'Test Folder from Audit' },
+        summary: 'Create test folder for approval test',
         confidence: 0.6,
         severity: 'MEDIUM',
         autoApproveThreshold: 0.95,
@@ -523,12 +528,13 @@ async function auditHITL(): Promise<void> {
 
       // 6. Test MODIFY flow (approve with modified payload)
       const modifyTestResult = await api('POST', '/api/v1/voltagent/actions/submit', {
-        type: 'CREATE_EVENT',
+        actionType: 'CREATE_EVENT',
         payload: {
           title: 'Original Meeting Title',
           startTime: new Date(Date.now() + 86400000).toISOString(),
           duration: 30,
         },
+        summary: 'Create calendar event for modification test',
         confidence: 0.65,
         severity: 'MEDIUM',
         autoApproveThreshold: 0.95,

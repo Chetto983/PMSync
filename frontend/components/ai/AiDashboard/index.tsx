@@ -400,7 +400,7 @@ export function AiDashboard() {
             ) : (
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <Suspense fallback={<WidgetSkeleton height={300} />}>
-                  <ChatMessages messages={messages} sending={sending} />
+                  <ChatMessages messages={messages} sending={sending} conversationId={conversationId} />
                 </Suspense>
               </Box>
             )}

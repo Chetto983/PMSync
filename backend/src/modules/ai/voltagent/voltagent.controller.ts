@@ -887,6 +887,15 @@ export class VoltAgentController {
       importance?: number;
     },
   ) {
+    // Check if long-term memory is enabled
+    if (!this.longTermMemoryService.isEnabled()) {
+      return {
+        success: true,
+        memoryId: null,
+        message: 'Long-term memory is disabled (set MEM0_ENABLED=true to enable)',
+      };
+    }
+
     const memoryId = await this.longTermMemoryService.addFact(
       req.user.tenantId,
       req.user.userId,
@@ -900,6 +909,7 @@ export class VoltAgentController {
     return {
       success: !!memoryId,
       memoryId,
+      ...(memoryId ? {} : { error: 'Failed to store memory' }),
     };
   }
 

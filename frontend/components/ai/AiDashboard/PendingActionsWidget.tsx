@@ -44,9 +44,8 @@ export function PendingActionsWidget() {
   });
 
   // WebSocket subscription for real-time updates
+  // Always set up subscriptions - websocketClient handles reconnection internally
   useEffect(() => {
-    if (!websocketClient.isConnected()) return;
-
     const invalidate = () => {
       queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
     };

@@ -21,6 +21,9 @@ export { useEmailInsights, emailInsightsKeys } from './use-email-insights';
 // AI actions hooks (HITL)
 export { useAiActions, aiActionsKeys } from './use-ai-actions';
 
+// Agent activity streaming (real-time WebSocket)
+export { useAgentActivityStream, type AgentStep } from './use-agent-activity-stream';
+
 // Re-export types from API for convenience
 export type {
   ChatMessage,

@@ -363,7 +363,10 @@ export function ChatSessionList({
                 '{count}',
                 selectedIds.size.toString()
               )
-              : `${conversations.length} ${conversations.length === 1 ? 'conversation' : 'conversations'}`}
+              : (conversations.length === 1
+                  ? t.ai?.sessions?.conversationCount || '{count} conversation'
+                  : t.ai?.sessions?.conversationCountPlural || '{count} conversations'
+                ).replace('{count}', conversations.length.toString())}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -556,7 +559,10 @@ export function ChatSessionList({
                             }
                             secondary={
                               <Typography variant="caption" color="text.secondary">
-                                {conv.messageCount} messages
+                                {(conv.messageCount === 1
+                                  ? t.ai?.sessions?.messageCount || '{count} message'
+                                  : t.ai?.sessions?.messageCountPlural || '{count} messages'
+                                ).replace('{count}', conv.messageCount.toString())}
                               </Typography>
                             }
                           />

@@ -39,6 +39,8 @@ import { getLocale, type SupportedLocale } from './locales';
 import { VoltAgentMemoryService, LongTermMemoryService } from './memory';
 import { DocumentLibraryService } from './services/document-library.service';
 import { PromptGuardService, PiiDetectionService } from '../guards';
+import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import type { AiAgentType } from '../../realtime/types/realtime.types';
 import { createObservabilityHooks, type AgentMetrics } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import {
@@ -170,6 +172,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly documentLibraryService?: DocumentLibraryService,
     @Optional() private readonly promptGuardService?: PromptGuardService,
     @Optional() private readonly piiDetectionService?: PiiDetectionService,
+    @Optional() private readonly realtimeEventsService?: RealtimeEventsService,
   ) { }
 
   async onModuleInit() {
@@ -503,6 +506,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       calendarService: this.calendarService,
       locale,
       tenantId,
+      // VoltAgent memory for conversation persistence (fixed in latest VoltAgent version)
       memory: this.memory ?? undefined,
       hooks: this.observabilityHooks ?? undefined,
       // RAG services for HybridRetriever (optional - gracefully degrades)
@@ -521,6 +525,37 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     this.agents.set(cacheKey, { agent, createdAt: now });
 
     return agent;
+  }
+
+  /**
+   * Emit agent step event via WebSocket for real-time UI feedback.
+   * Used to show live agent progress in the frontend.
+   */
+  private emitAgentStep(
+    tenantId: string,
+    sessionId: string,
+    userId: string,
+    agentType: AiAgentType,
+    status: 'started' | 'processing' | 'tool_call' | 'completed' | 'error',
+    action: string,
+    options?: { toolName?: string; duration?: number; result?: string; error?: string },
+  ): void {
+    if (!this.realtimeEventsService) return;
+
+    const stepId = `${agentType}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    this.realtimeEventsService.emitAiAgentStep(tenantId, {
+      sessionId,
+      userId,
+      stepId,
+      agentType,
+      status,
+      action,
+      toolName: options?.toolName,
+      duration: options?.duration,
+      result: options?.result,
+      error: options?.error,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   /**
@@ -729,34 +764,58 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       enhancedMessage = `${conversationHistoryContext}\n\n---\n\n[Current Message]\n${enhancedMessage}`;
     }
 
-    // WORKAROUND: Use unique requestId instead of persistent conversationId
-    // to avoid VoltAgent's internal memory loading corrupted tool-call history.
-    // VoltAgent stores UIMessage parts with null fields that cause AI_InvalidPromptError.
-    // See: https://github.com/vercel/ai/issues/8061, https://github.com/vercel/ai/issues/8520
-    // Our Prisma-based VoltAgentMemoryService handles conversation persistence instead.
-    // Tenant isolation: userId includes tenantId prefix for data segregation.
+    // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
+    // Format: "tenantId:userId" allows hooks to extract both values
     const tenantUserId = `${options.tenantId}:${options.userId}`;
-    const uniqueRequestId = `${options.conversationId || 'req'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // Use persistent conversationId or generate fallback for new conversations
+    const fallbackSessionId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     this.logger.debug(`${logPrefix} [DEBUG] About to call agent.generateText`);
+
+    // Emit real-time agent step: Intent analysis started
+    const sessionId = options.conversationId || fallbackSessionId;
+    this.emitAgentStep(options.tenantId, sessionId, options.userId, 'intent', 'started', 'Analyzing your request...');
+
     let result;
+    const agentStartTime = Date.now();
     try {
-      // WORKAROUND: Don't pass userId/conversationId to avoid VoltAgent's internal
-        // memory loading that causes 'messages.map is not a function' error.
-        // We manage conversation history via VoltAgentMemoryService and inject it as text.
-        result = await agent.generateText(enhancedMessage, {
-          // userId and conversationId intentionally omitted to bypass VoltAgent memory
-          // CRITICAL: Disable parallel tool calls to ensure sequential delegation
-          // (ContactsAgent → EmailAgent flow requires one tool at a time)
-          providerOptions: {
-            mistral: {
-              parallelToolCalls: false,
-              structuredOutputs: true,
-            },
+      // Emit: Supervisor processing
+      this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'processing', 'Coordinating agents...');
+
+      // Pass userId and conversationId for proper context in hooks (HITL, metrics, etc.)
+      // VoltAgent memory issue fixed in latest version
+      result = await agent.generateText(enhancedMessage, {
+        // Tenant-isolated userId for multi-tenant data segregation
+        userId: tenantUserId,
+        // Session/conversation ID for message threading
+        conversationId: sessionId,
+        // CRITICAL: Disable parallel tool calls to ensure sequential delegation
+        // (ContactsAgent → EmailAgent flow requires one tool at a time)
+        providerOptions: {
+          mistral: {
+            parallelToolCalls: false,
+            structuredOutputs: true,
           },
-        });
+        },
+      });
+
+      // Emit: Intent completed
+      this.emitAgentStep(options.tenantId, sessionId, options.userId, 'intent', 'completed', 'Request analyzed', {
+        duration: Date.now() - agentStartTime,
+      });
+
+      // Emit: Supervisor completed (important for frontend to mark processing as done)
+      this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'completed', 'Agents coordinated', {
+        duration: Date.now() - agentStartTime,
+      });
+
       this.logger.debug(`${logPrefix} [DEBUG] agent.generateText completed successfully`);
     } catch (genError) {
+      // Emit: Error state
+      this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'error', 'Processing failed', {
+        error: genError instanceof Error ? genError.message : String(genError),
+      });
+
       this.logger.error(`${logPrefix} [DEBUG] agent.generateText FAILED: ${genError instanceof Error ? genError.message : String(genError)}`);
       this.logger.error(`${logPrefix} [DEBUG] Stack: ${genError instanceof Error ? genError.stack : 'no stack'}`);
       throw genError;
@@ -814,12 +873,20 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Extract any pending actions from tool results
     const pendingActions: PendingAction[] = [];
-    for (const step of result.steps) {
-      // Access tool results from the step - type assertion needed for ai-sdk step type
-      const toolResults = (step as unknown as { toolResults?: Array<{ result?: unknown }> }).toolResults;
+    this.logger.debug(`[HITL DEBUG] result.steps count: ${result.steps?.length || 0}`);
+    for (let i = 0; i < result.steps.length; i++) {
+      const step = result.steps[i];
+      // Log the full step structure for debugging
+      this.logger.debug(`[HITL DEBUG] Step ${i} keys: ${Object.keys(step).join(', ')}`);
+      this.logger.debug(`[HITL DEBUG] Step ${i} JSON (first 500 chars): ${JSON.stringify(step).substring(0, 500)}`);
+      // Access tool results from the step - AI SDK v5 uses 'output' property
+      const toolResults = (step as unknown as { toolResults?: Array<{ output?: unknown; toolName?: string }> }).toolResults;
+      this.logger.debug(`[HITL DEBUG] toolResults found: ${!!toolResults}, count: ${toolResults?.length || 0}`);
       if (toolResults) {
         for (const toolResult of toolResults) {
-          const resultValue = toolResult.result as Record<string, unknown> | undefined;
+          // AI SDK v5 uses 'output' not 'result' for tool execution results
+          const resultValue = toolResult.output as Record<string, unknown> | undefined;
+          this.logger.debug(`[HITL DEBUG] toolResult.output for ${toolResult.toolName}: ${JSON.stringify(resultValue)?.substring(0, 200)}`);
           if (resultValue?.requiresApproval) {
             const actionType = resultValue.actionType as string;
             const severity = resultValue.severity as 'LOW' | 'MEDIUM' | 'HIGH';
@@ -874,6 +941,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         estimatedTokens,
       );
     }
+
+    // Emit final response event with the correct persistedConversationId
+    // This ensures the frontend can match events even for new conversations
+    const finalSessionId = persistedConversationId || sessionId;
+    this.emitAgentStep(options.tenantId, finalSessionId, options.userId, 'response', 'completed', 'Response ready', {
+      duration: Date.now() - startTime,
+      result: pendingActions.length > 0 ? 'Action requires approval' : 'Response generated',
+    });
 
     return {
       text: result.text,
@@ -1046,13 +1121,13 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       enhancedMessage = `${conversationHistoryContext}\n\n---\n\n[Current Message]\n${enhancedMessage}`;
     }
 
-    // WORKAROUND: Use unique requestId instead of persistent conversationId
+    // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     const tenantUserId = `${options.tenantId}:${options.userId}`;
-    const uniqueRequestId = `${options.conversationId || 'req'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const sessionId = options.conversationId || `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const result = await agent.streamText(enhancedMessage, {
       userId: tenantUserId,
-      conversationId: uniqueRequestId,
+      conversationId: sessionId,
       // CRITICAL: Disable parallel tool calls to ensure sequential delegation
       providerOptions: {
         mistral: {

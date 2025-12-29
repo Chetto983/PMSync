@@ -9,10 +9,13 @@ import type { Message } from './index';
 import { AgentProgressIndicator } from './AgentProgressIndicator';
 import { InlineActionCard, type PendingAction } from './InlineActionCard';
 import { multiAgentApi } from '@/lib/api/ai';
+import { useAgentActivityStream } from '@/hooks/ai/use-agent-activity-stream';
 
 interface ChatMessagesProps {
   messages: Message[];
   sending: boolean;
+  /** Current conversation ID for filtering agent events */
+  conversationId?: string | null;
 }
 
 // Hook to fetch pending actions for a message
@@ -146,8 +149,13 @@ const MarkdownComponents = {
   ),
 };
 
-export function ChatMessages({ messages, sending }: ChatMessagesProps) {
+export function ChatMessages({ messages, sending, conversationId }: ChatMessagesProps) {
   const theme = useTheme();
+
+  // Real-time agent activity streaming
+  const { steps: agentSteps, isActive: hasAgentActivity } = useAgentActivityStream({
+    sessionId: conversationId,
+  });
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
@@ -287,8 +295,11 @@ export function ChatMessages({ messages, sending }: ChatMessagesProps) {
         </Box>
       ))}
 
-      {/* Agent Progress Indicator - Shows live agent chain */}
-      <AgentProgressIndicator isActive={sending} />
+      {/* Agent Progress Indicator - Shows live agent chain with real-time streaming */}
+      <AgentProgressIndicator
+        isActive={sending || hasAgentActivity}
+        agentSteps={agentSteps.length > 0 ? agentSteps : undefined}
+      />
     </Box>
   );
 }
