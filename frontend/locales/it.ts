@@ -729,6 +729,9 @@ export const it: AppTranslations = {
       nextMonday: 'Lunedì prossimo (9:00)',
       pickDateTime: 'Scegli data e ora...',
       scheduleSend: 'Programma invio',
+      // Fullscreen toggle
+      fullscreen: 'Schermo intero',
+      exitFullscreen: 'Esci da schermo intero',
     },
     advancedSearch: {
       title: 'Ricerca avanzata',
@@ -966,6 +969,10 @@ export const it: AppTranslations = {
       memoryLastQueryPrefix: 'Usando query:',
       memoryCopyError: 'Impossibile copiare questa memoria ora.',
       memoryError: 'Impossibile cercare nella memoria ora.',
+      // Thread view extras
+      downloadImage: 'Scarica immagine',
+      toPrefix: 'A:',
+      toMe: 'Me',
     },
     actions: {
       syncNow: 'Sincronizza ora',

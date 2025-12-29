@@ -668,6 +668,8 @@ export interface AppTranslations {
       nextMonday: string;
       pickDateTime: string;
       scheduleSend: string;
+      fullscreen: string;
+      exitFullscreen: string;
     };
     advancedSearch: {
       title: string;
@@ -905,6 +907,9 @@ export interface AppTranslations {
       memoryLastQueryPrefix: string;
       memoryCopyError: string;
       memoryError: string;
+      downloadImage: string;
+      toPrefix: string;
+      toMe: string;
     };
     actions: {
       syncNow: string;

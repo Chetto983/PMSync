@@ -880,10 +880,21 @@ export class MicrosoftDriver extends BaseEmailDriver {
   }
 
   private graphAddressToCanonical(address?: { name?: string; address?: string }): EmailAddress {
-    return {
-      name: address?.name,
-      email: address?.address || '',
-    };
+    const email = address?.address || '';
+    const name = address?.name;
+
+    // Validate that email contains @ symbol - otherwise it's likely malformed
+    if (email && email.includes('@')) {
+      return { name, email };
+    }
+
+    // If address field is invalid but name looks like an email, use that
+    if (name && name.includes('@')) {
+      return { email: name };
+    }
+
+    // Return what we have, but this may be a malformed address
+    return { name, email: email || name || '' };
   }
 
   private composeToGraphMessage(message: ComposeMessage): any {

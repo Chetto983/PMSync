@@ -187,7 +187,7 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
                       {senderLabel}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                      To: {email.to?.join(', ') || 'Me'}
+                      {t.email.view.toPrefix} {email.to?.join(', ') || t.email.view.toMe}
                     </Typography>
                   </Box>
 

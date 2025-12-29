@@ -739,6 +739,9 @@ export const en: AppTranslations = {
       nextMonday: 'Next Monday (9:00 AM)',
       pickDateTime: 'Pick date & time...',
       scheduleSend: 'Schedule send',
+      // Fullscreen toggle
+      fullscreen: 'Fullscreen',
+      exitFullscreen: 'Exit fullscreen',
     },
     advancedSearch: {
       title: 'Advanced Search',
@@ -977,6 +980,10 @@ export const en: AppTranslations = {
       memoryLastQueryPrefix: 'Using query:',
       memoryCopyError: 'Unable to copy this memory right now.',
       memoryError: 'Unable to search memory right now.',
+      // Thread view extras
+      downloadImage: 'Download image',
+      toPrefix: 'To:',
+      toMe: 'Me',
     },
     actions: {
       syncNow: 'Sync now',

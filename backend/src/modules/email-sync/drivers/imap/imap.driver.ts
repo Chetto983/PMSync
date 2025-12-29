@@ -1681,7 +1681,18 @@ export class IMAPDriver extends BaseEmailDriver {
     const email = address.address || '';
     const name = address.name || undefined;
 
-    return { email, name };
+    // Validate that email contains @ symbol - otherwise it's likely malformed
+    if (email && email.includes('@')) {
+      return { email, name };
+    }
+
+    // If address field is invalid but name looks like an email, use that
+    if (name && name.includes('@')) {
+      return { email: name };
+    }
+
+    // Return what we have, but this may be a malformed address
+    return { email: email || name || '', name };
   }
 
   /**

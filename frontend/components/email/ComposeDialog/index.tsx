@@ -321,7 +321,7 @@ export function ComposeDialog({
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               {!isMobile && (
-                <IconButton size="small" onClick={() => setIsFullscreen((p) => !p)} disabled={sending} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
+                <IconButton size="small" onClick={() => setIsFullscreen((p) => !p)} disabled={sending} title={isFullscreen ? t.email.composer.exitFullscreen : t.email.composer.fullscreen}>
                   {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                 </IconButton>
               )}

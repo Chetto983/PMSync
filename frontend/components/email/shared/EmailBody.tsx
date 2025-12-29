@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { Box, SxProps, Theme } from '@mui/material';
 import DOMPurify from 'dompurify';
 import { apiClient } from '@/lib/api-client';
+import logger from '@/lib/logger';
 
 /**
  * Props for EmailBody component
@@ -305,8 +306,8 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
-        } catch (error) {
-          console.error('Failed to download image:', error);
+        } catch {
+          logger.error('Failed to download image:');
         }
       });
 

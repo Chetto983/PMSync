@@ -898,14 +898,36 @@ export class GoogleDriver extends BaseEmailDriver {
   }
 
   private parseEmailAddress(address: string): { name?: string; email: string } {
+    if (!address || !address.trim()) {
+      return { email: '' };
+    }
+
     const match = address.match(/^(?:"?([^"<]*)"?\s*)?<?([^>]+)>?$/);
     if (match) {
-      return {
-        name: match[1]?.trim() || undefined,
-        email: match[2]?.trim() || address,
-      };
+      const name = match[1]?.trim() || undefined;
+      const email = match[2]?.trim() || '';
+
+      // Validate that email contains @ symbol - otherwise it's likely a malformed header
+      if (email && email.includes('@')) {
+        return { name, email };
+      }
+
+      // If no valid email found but we have a name-like value, check if IT contains an @
+      if (name && name.includes('@')) {
+        return { email: name };
+      }
+
+      // Fallback: if the original address has @, use it
+      if (address.includes('@')) {
+        return { email: address.trim() };
+      }
+
+      // No valid email found - return the display name as email for debugging
+      // This preserves the original value for troubleshooting malformed headers
+      return { name, email: email || address.trim() };
     }
-    return { email: address };
+
+    return { email: address.trim() };
   }
 
   private parseEmailAddresses(addresses: string): Array<{ name?: string; email: string }> {
