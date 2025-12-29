@@ -117,12 +117,20 @@ export interface ListEmailsParams {
   excludeTrashSpam?: boolean;
 }
 
-export interface ListEmailsResponse {
-  emails: Email[];
-  total: number;
+/**
+ * Response from listEmails endpoint
+ * Backend returns { emails, pagination: { page, limit, total, totalPages } }
+ */
+export interface ListEmailsPagination {
   page: number;
   limit: number;
-  hasMore: boolean;
+  total: number;
+  totalPages: number;
+}
+
+export interface ListEmailsResponse {
+  emails: Email[];
+  pagination: ListEmailsPagination;
 }
 
 export interface EmailThread {
@@ -140,7 +148,10 @@ export interface EmailStats {
   total: number;
   unread: number;
   starred: number;
-  drafts: number;
+  important: number;
+  today: number;
+  thisWeek: number;
+  attachments: number;
   byFolder: Record<string, number>;
 }
 
@@ -254,6 +265,19 @@ export interface SendInviteDto {
 }
 
 // =============================================================================
+// Types - Response Types (matching backend exactly)
+// =============================================================================
+
+/**
+ * Response from send/reply/forward operations
+ * Backend returns { success: boolean; messageId: string }, NOT the Email object
+ */
+export interface SendEmailResponse {
+  success: boolean;
+  messageId: string;
+}
+
+// =============================================================================
 // API Methods
 // =============================================================================
 
@@ -269,7 +293,8 @@ export const emailsApi = {
 
   async getEmail(emailId: string): Promise<Email> {
     const response = await apiClient.get(`/emails/${emailId}`);
-    return response.data.email;
+    // Backend returns email directly, not wrapped in { email }
+    return response.data;
   },
 
   async searchEmails(query: string, limit = 100): Promise<Email[]> {
@@ -290,19 +315,21 @@ export const emailsApi = {
 
   async getConversations(params: ListEmailsParams = {}): Promise<EmailThread[]> {
     const response = await apiClient.get('/emails/conversations', { params });
-    return response.data.threads;
+    // Backend returns { conversations, pagination }
+    return response.data.conversations;
   },
 
   async getThread(threadId: string): Promise<Email[]> {
     const response = await apiClient.get(`/emails/thread/${threadId}`);
-    return response.data.emails;
+    // Backend returns array directly, not wrapped in { emails }
+    return response.data;
   },
 
   // -------------------------------------------------------------------------
   // Send / Reply / Forward
   // -------------------------------------------------------------------------
 
-  async sendEmail(dto: SendEmailDto): Promise<Email> {
+  async sendEmail(dto: SendEmailDto): Promise<SendEmailResponse> {
     const formData = new FormData();
     formData.append('providerId', dto.providerId);
     formData.append('to', JSON.stringify(dto.to));
@@ -321,10 +348,11 @@ export const emailsApi = {
     const response = await apiClient.post('/emails/send', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data.email;
+    // Backend returns { success: boolean; messageId: string }
+    return response.data;
   },
 
-  async replyToEmail(emailId: string, dto: ReplyEmailDto): Promise<Email> {
+  async replyToEmail(emailId: string, dto: ReplyEmailDto): Promise<SendEmailResponse> {
     const formData = new FormData();
     formData.append('bodyHtml', dto.bodyHtml);
 
@@ -338,10 +366,11 @@ export const emailsApi = {
     const response = await apiClient.post(`/emails/${emailId}/reply`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data.email;
+    // Backend returns { success: boolean; messageId: string }
+    return response.data;
   },
 
-  async forwardEmail(emailId: string, dto: ForwardEmailDto): Promise<Email> {
+  async forwardEmail(emailId: string, dto: ForwardEmailDto): Promise<SendEmailResponse> {
     const formData = new FormData();
     formData.append('to', JSON.stringify(dto.to));
 
@@ -356,7 +385,8 @@ export const emailsApi = {
     const response = await apiClient.post(`/emails/${emailId}/forward`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return response.data.email;
+    // Backend returns { success: boolean; messageId: string }
+    return response.data;
   },
 
   // -------------------------------------------------------------------------
@@ -365,7 +395,8 @@ export const emailsApi = {
 
   async updateEmail(emailId: string, dto: UpdateEmailDto): Promise<Email> {
     const response = await apiClient.patch(`/emails/${emailId}`, dto);
-    return response.data.email;
+    // Backend returns email directly, not wrapped in { email }
+    return response.data;
   },
 
   async deleteEmail(emailId: string): Promise<void> {
@@ -418,12 +449,15 @@ export const emailsApi = {
 
   async saveDraft(dto: SaveDraftDto): Promise<DraftResponse> {
     const response = await apiClient.post('/emails/drafts', dto);
-    return response.data;
+    // Backend returns email directly, wrap it in DraftResponse format
+    const email = response.data;
+    return { id: email.id, email };
   },
 
   async getDraft(draftId: string): Promise<Email> {
     const response = await apiClient.get(`/emails/drafts/${draftId}`);
-    return response.data.email;
+    // Backend returns email directly, not wrapped in { email }
+    return response.data;
   },
 
   async deleteDraft(draftId: string): Promise<void> {
