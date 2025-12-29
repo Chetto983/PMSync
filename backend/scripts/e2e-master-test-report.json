@@ -1,6 +1,6 @@
 {
-  "timestamp": "2025-12-28T13:03:48.200Z",
-  "duration": 4193,
+  "timestamp": "2025-12-29T12:32:14.214Z",
+  "duration": 2919,
   "summary": {
     "total": 86,
     "passed": 86,
@@ -95,603 +95,603 @@
       "name": "GET /health",
       "category": "Health",
       "status": "pass",
-      "time": 384,
+      "time": 325,
       "details": "healthy"
     },
     {
       "name": "GET /health/ready",
       "category": "Health",
       "status": "pass",
-      "time": 8,
+      "time": 4,
       "details": "ready"
     },
     {
       "name": "GET /health/live",
       "category": "Health",
       "status": "pass",
-      "time": 5,
+      "time": 2,
       "details": "alive"
     },
     {
       "name": "GET /health/queues",
       "category": "Health",
       "status": "pass",
-      "time": 3,
+      "time": 2,
       "details": "3 queues"
     },
     {
       "name": "GET /health/metrics",
       "category": "Health",
       "status": "pass",
-      "time": 166,
+      "time": 50,
       "details": "metrics retrieved"
     },
     {
       "name": "GET /ai/health",
       "category": "Health",
       "status": "pass",
-      "time": 3,
+      "time": 2,
       "details": "healthy"
     },
     {
       "name": "GET /auth/me",
       "category": "Auth",
       "status": "pass",
-      "time": 18,
+      "time": 8,
       "details": "dvdmarchetto@gmail.com"
     },
     {
       "name": "GET /users/me",
       "category": "Users",
       "status": "pass",
-      "time": 23,
+      "time": 12,
       "details": "dvdmarchetto@gmail.com"
     },
     {
       "name": "GET /users/me/preferences",
       "category": "Users",
       "status": "pass",
-      "time": 19,
+      "time": 12,
       "details": "theme=light"
     },
     {
       "name": "GET /auth/mfa/status",
       "category": "MFA",
       "status": "pass",
-      "time": 51,
+      "time": 25,
       "details": "enabled=undefined"
     },
     {
       "name": "GET /auth/mfa/totp/status",
       "category": "MFA",
       "status": "pass",
-      "time": 22,
+      "time": 16,
       "details": "setup=undefined"
     },
     {
       "name": "GET /auth/mfa/devices",
       "category": "MFA",
       "status": "pass",
-      "time": 15,
+      "time": 10,
       "details": "0 devices"
     },
     {
       "name": "GET /auth/mfa/backup/count",
       "category": "MFA",
       "status": "pass",
-      "time": 21,
+      "time": 9,
       "details": "undefined backup codes"
     },
     {
       "name": "GET /providers",
       "category": "Provider",
       "status": "pass",
-      "time": 24,
+      "time": 10,
       "details": "3 providers (microsoft, imap, google)"
     },
     {
       "name": "GET /providers/:id",
       "category": "Provider",
       "status": "pass",
-      "time": 23,
+      "time": 8,
       "details": "dvdmarchetto@gmail.com (google)"
     },
     {
       "name": "GET /providers/:id/aliases",
       "category": "Provider",
       "status": "pass",
-      "time": 36,
+      "time": 253,
       "details": "1 aliases"
     },
     {
       "name": "GET /emails (list)",
       "category": "Email",
       "status": "pass",
-      "time": 43,
-      "details": "10 emails, 43ms"
+      "time": 18,
+      "details": "10 emails, 18ms"
     },
     {
       "name": "GET /emails?isRead=false",
       "category": "Email",
       "status": "pass",
-      "time": 35,
-      "details": "5 unread"
+      "time": 11,
+      "details": "0 unread"
     },
     {
       "name": "GET /emails?isStarred=true",
       "category": "Email",
       "status": "pass",
-      "time": 27,
+      "time": 9,
       "details": "0 starred"
     },
     {
       "name": "GET /emails?hasAttachments=true",
       "category": "Email",
       "status": "pass",
-      "time": 34,
+      "time": 11,
       "details": "5 with attachments"
     },
     {
       "name": "GET /emails/stats",
       "category": "Email",
       "status": "pass",
-      "time": 58,
-      "details": "total=235, unread=7"
+      "time": 21,
+      "details": "total=225, unread=0"
     },
     {
       "name": "GET /emails/search",
       "category": "Email",
       "status": "pass",
-      "time": 30,
-      "details": "5 results, 30ms"
+      "time": 14,
+      "details": "5 results, 14ms"
     },
     {
       "name": "GET /emails/conversations",
       "category": "Email",
       "status": "pass",
-      "time": 45,
+      "time": 15,
       "details": "5 conversations"
     },
     {
       "name": "GET /emails/retention/stats",
       "category": "Email",
       "status": "pass",
-      "time": 18,
+      "time": 11,
       "details": "retention stats retrieved"
     },
     {
       "name": "GET /emails/:id",
       "category": "Email",
       "status": "pass",
-      "time": 28,
-      "details": "Subject: \"Fabrizio Garofolo ha fatto un ...\""
+      "time": 11,
+      "details": "Subject: \"[chetto1983/MailAgent] Run fai...\""
     },
     {
       "name": "PATCH /emails/:id (mark read)",
       "category": "Email",
       "status": "pass",
-      "time": 52,
+      "time": 22,
       "details": "marked as read"
     },
     {
       "name": "GET /emails/:id/calendar-invite",
       "category": "Email",
       "status": "pass",
-      "time": 25,
+      "time": 10,
       "details": "no invite"
     },
     {
       "name": "PATCH /emails/bulk/read",
       "category": "Email",
       "status": "pass",
-      "time": 53,
+      "time": 24,
       "details": "3 updated"
     },
     {
       "name": "PATCH /emails/bulk/star",
       "category": "Email",
       "status": "pass",
-      "time": 62,
+      "time": 20,
       "details": "3 updated"
     },
     {
       "name": "PATCH /emails/bulk/flag",
       "category": "Email",
       "status": "pass",
-      "time": 63,
+      "time": 21,
       "details": "3 updated"
     },
     {
       "name": "GET /folders",
       "category": "Folder",
       "status": "pass",
-      "time": 79,
+      "time": 23,
       "details": "0 folders"
     },
     {
       "name": "GET /folders/provider/:providerId",
       "category": "Folder",
       "status": "pass",
-      "time": 41,
+      "time": 12,
       "details": "0 folders for provider"
     },
     {
       "name": "GET /folders/audit/:providerId",
       "category": "Folder",
       "status": "pass",
-      "time": 237,
+      "time": 326,
       "details": "audit retrieved"
     },
     {
       "name": "GET /folders/queue/status",
       "category": "Folder",
       "status": "pass",
-      "time": 21,
+      "time": 10,
       "details": "jobs=0 waiting"
     },
     {
       "name": "GET /emails?specialUse=INBOX",
       "category": "Folder",
       "status": "pass",
-      "time": 37,
+      "time": 14,
       "details": "5 inbox emails"
     },
     {
       "name": "GET /emails?specialUse=SENT",
       "category": "Folder",
       "status": "pass",
-      "time": 38,
+      "time": 13,
       "details": "0 sent emails"
     },
     {
       "name": "GET /calendar/calendars",
       "category": "Calendar",
       "status": "pass",
-      "time": 35,
+      "time": 17,
       "details": "0 calendars"
     },
     {
       "name": "GET /calendar/events",
       "category": "Calendar",
       "status": "pass",
-      "time": 31,
+      "time": 13,
       "details": "10 events"
     },
     {
       "name": "GET /calendar/events (upcoming)",
       "category": "Calendar",
       "status": "pass",
-      "time": 19,
+      "time": 8,
       "details": "param format differs"
     },
     {
       "name": "GET /calendar/events/:id",
       "category": "Calendar",
       "status": "pass",
-      "time": 23,
+      "time": 9,
       "details": "\"Compleanno di Daniele Alessand...\""
     },
     {
       "name": "GET /calendar/events/:id/attachments",
       "category": "Calendar",
       "status": "pass",
-      "time": 22,
+      "time": 10,
       "details": "0 attachments"
     },
     {
       "name": "GET /contacts",
       "category": "Contacts",
       "status": "pass",
-      "time": 39,
+      "time": 19,
       "details": "10 contacts"
     },
     {
       "name": "GET /contacts/counts",
       "category": "Contacts",
       "status": "pass",
-      "time": 20,
+      "time": 77,
       "details": "total=5475"
     },
     {
       "name": "GET /contacts/:id",
       "category": "Contacts",
       "status": "pass",
-      "time": 30,
+      "time": 14,
       "details": "Ass. tecnica (applicaz.)"
     },
     {
       "name": "GET /labels",
       "category": "Labels",
       "status": "pass",
-      "time": 26,
+      "time": 10,
       "details": "0 labels"
     },
     {
       "name": "GET /email-sync/status",
       "category": "Sync",
       "status": "pass",
-      "time": 65,
+      "time": 19,
       "details": "4 providers"
     },
     {
       "name": "GET /api/v1/voltagent/briefing",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 16,
-      "details": "16ms, sections=2"
+      "time": 10,
+      "details": "10ms, sections=2"
     },
     {
       "name": "GET /api/v1/voltagent/briefing/status",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 20,
+      "time": 13,
       "details": "cached=undefined"
     },
     {
       "name": "GET /api/v1/voltagent/memory",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 22,
-      "details": "4 memories"
+      "time": 10,
+      "details": "5 memories"
     },
     {
       "name": "GET /api/v1/voltagent/memory/stats",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 24,
-      "details": "total=4"
+      "time": 8,
+      "details": "total=8"
     },
     {
       "name": "GET /api/v1/voltagent/memory/search",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 311,
+      "time": 342,
       "details": "0 results"
     },
     {
       "name": "GET /api/v1/voltagent/follow-ups",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 22,
+      "time": 12,
       "details": "0 follow-ups"
     },
     {
       "name": "GET /api/v1/voltagent/follow-ups/pending",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 21,
+      "time": 9,
       "details": "0 pending"
     },
     {
       "name": "GET /api/v1/voltagent/follow-ups/overdue",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 26,
+      "time": 9,
       "details": "0 overdue"
     },
     {
       "name": "GET /api/v1/voltagent/follow-ups/stats",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 27,
+      "time": 11,
       "details": "total=0"
     },
     {
       "name": "GET /api/v1/voltagent/action-items",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 24,
+      "time": 11,
       "details": "0 items"
     },
     {
       "name": "GET /api/v1/voltagent/action-items/pending",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 22,
+      "time": 11,
       "details": "0 pending"
     },
     {
       "name": "GET /api/v1/voltagent/action-items/stats",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 48,
+      "time": 26,
       "details": "total=0"
     },
     {
       "name": "GET /api/v1/voltagent/deadlines",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 22,
+      "time": 19,
       "details": "0 deadlines"
     },
     {
       "name": "GET /api/v1/voltagent/deadlines/stats",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 21,
+      "time": 17,
       "details": "total=0"
     },
     {
       "name": "GET /api/v1/voltagent/deadlines/queue",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 20,
+      "time": 17,
       "details": "waiting=0"
     },
     {
       "name": "GET /api/v1/voltagent/analytics/dashboard",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 23,
+      "time": 22,
       "details": "22ms"
     },
     {
       "name": "GET /api/v1/voltagent/analytics/email",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 26,
+      "time": 11,
       "details": "email analytics retrieved"
     },
     {
       "name": "GET /api/v1/voltagent/analytics/status",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 20,
+      "time": 9,
       "details": "cached=undefined"
     },
     {
       "name": "GET /api/v1/voltagent/knowledge/stats",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 58,
+      "time": 25,
       "details": "documents=0"
     },
     {
       "name": "GET /api/v1/voltagent/crm/stale-contacts",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 38,
+      "time": 12,
       "details": "0 stale"
     },
     {
       "name": "GET /api/v1/voltagent/crm/reconnect",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 21,
+      "time": 12,
       "details": "0 to reconnect"
     },
     {
       "name": "GET /api/v1/voltagent/crm/top-contacts",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 18,
+      "time": 11,
       "details": "0 top contacts"
     },
     {
       "name": "GET /api/v1/voltagent/actions/pending",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 21,
+      "time": 8,
       "details": "0 pending"
     },
     {
       "name": "GET /api/v1/voltagent/stats/action-counts",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 18,
+      "time": 9,
       "details": "action counts retrieved"
     },
     {
       "name": "GET /api/v1/voltagent/stats/learning",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 18,
+      "time": 8,
       "details": "learning stats retrieved"
     },
     {
       "name": "GET /api/v1/voltagent/stats/aggregate",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 18,
+      "time": 7,
       "details": "aggregate stats retrieved"
     },
     {
       "name": "GET /api/v1/voltagent/stats/performance",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 19,
+      "time": 10,
       "details": "performance stats retrieved"
     },
     {
       "name": "GET /api/v1/voltagent/stats/metrics",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 23,
+      "time": 9,
       "details": "metrics retrieved"
     },
     {
       "name": "GET /api/v1/voltagent/stats/optimizations",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 34,
+      "time": 14,
       "details": "optimizations retrieved"
     },
     {
       "name": "GET /api/v1/voltagent/cache/analytics",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 20,
+      "time": 10,
       "details": "hitRate=0%"
     },
     {
       "name": "GET /api/v1/voltagent/feedback",
       "category": "VoltAgent",
       "status": "pass",
-      "time": 24,
+      "time": 11,
       "details": "0 feedback items"
     },
     {
       "name": "GET /ai/knowledge-base/embeddings",
       "category": "KnowledgeBase",
       "status": "pass",
-      "time": 26,
+      "time": 10,
       "details": "0 embeddings"
     },
     {
       "name": "GET /ai/personalization/profile",
       "category": "Personalization",
       "status": "pass",
-      "time": 25,
+      "time": 9,
       "details": "profile retrieved"
     },
     {
       "name": "GET /ai/personalization/working-hours",
       "category": "Personalization",
       "status": "pass",
-      "time": 25,
+      "time": 8,
       "details": "working hours retrieved"
     },
     {
       "name": "GET /ai/personalization/memories/semantic",
       "category": "Personalization",
       "status": "pass",
-      "time": 19,
+      "time": 10,
       "details": "0 semantic memories"
     },
     {
       "name": "GET /api/v1/voltagent/documents/libraries",
       "category": "DocLibrary",
       "status": "pass",
-      "time": 19,
+      "time": 11,
       "details": "0 libraries"
     },
     {
       "name": "GET /api/v1/voltagent/documents/status",
       "category": "DocLibrary",
       "status": "pass",
-      "time": 16,
+      "time": 7,
       "details": "status retrieved"
     },
     {
       "name": "10 concurrent email requests",
       "category": "Stress",
       "status": "pass",
-      "time": 176,
-      "details": "total=176ms, avg=154ms/req"
+      "time": 76,
+      "details": "total=75ms, avg=62ms/req"
     },
     {
       "name": "20 concurrent mixed requests",
       "category": "Stress",
       "status": "pass",
-      "time": 379,
-      "details": "379ms for 20 requests, 0 failures"
+      "time": 364,
+      "details": "364ms for 20 requests, 0 failures"
     },
     {
       "name": "5 concurrent AI requests",
       "category": "Stress",
       "status": "pass",
-      "time": 65,
-      "details": "65ms for 5 AI stats"
+      "time": 29,
+      "details": "29ms for 5 AI stats"
     }
   ]
 }

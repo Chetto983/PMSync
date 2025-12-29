@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { Command } from 'cmdk';
 import {
@@ -26,6 +26,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface CommandItem {
   id: string;
@@ -41,6 +42,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const logout = useAuthStore((state) => state.logout);
+  const t = useTranslations();
 
   // Toggle command palette with Cmd+K or Ctrl+K
   useEffect(() => {
@@ -64,11 +66,11 @@ export function CommandPalette() {
     command();
   }, []);
 
-  const commands: CommandItem[] = [
+  const commands: CommandItem[] = useMemo(() => [
     // Navigation
     {
       id: 'home',
-      name: 'Go to Dashboard',
+      name: t.commandPalette.commands.goToDashboard,
       shortcut: '⌘1',
       icon: Home,
       action: () => router.push('/dashboard'),
@@ -77,7 +79,7 @@ export function CommandPalette() {
     },
     {
       id: 'inbox',
-      name: 'Go to Inbox',
+      name: t.commandPalette.commands.goToInbox,
       shortcut: '⌘2',
       icon: Mail,
       action: () => router.push('/dashboard/email'),
@@ -86,7 +88,7 @@ export function CommandPalette() {
     },
     {
       id: 'calendar',
-      name: 'Go to Calendar',
+      name: t.commandPalette.commands.goToCalendar,
       shortcut: '⌘3',
       icon: Calendar,
       action: () => router.push('/dashboard/calendar'),
@@ -95,7 +97,7 @@ export function CommandPalette() {
     },
     {
       id: 'contacts',
-      name: 'Go to Contacts',
+      name: t.commandPalette.commands.goToContacts,
       shortcut: '⌘4',
       icon: Users,
       action: () => router.push('/dashboard/contacts'),
@@ -104,7 +106,7 @@ export function CommandPalette() {
     },
     {
       id: 'ai-assistant',
-      name: 'Go to AI Assistant',
+      name: t.commandPalette.commands.goToAiAssistant,
       shortcut: '⌘5',
       icon: Sparkles,
       action: () => router.push('/dashboard/ai'),
@@ -113,7 +115,7 @@ export function CommandPalette() {
     },
     {
       id: 'analytics',
-      name: 'Go to Analytics',
+      name: t.commandPalette.commands.goToAnalytics,
       shortcut: '⌘6',
       icon: BarChart3,
       action: () => router.push('/dashboard/analytics'),
@@ -122,7 +124,7 @@ export function CommandPalette() {
     },
     {
       id: 'settings',
-      name: 'Go to Settings',
+      name: t.commandPalette.commands.goToSettings,
       shortcut: '⌘,',
       icon: Settings,
       action: () => router.push('/dashboard/settings'),
@@ -133,7 +135,7 @@ export function CommandPalette() {
     // Actions
     {
       id: 'compose',
-      name: 'Compose Email',
+      name: t.commandPalette.commands.composeEmail,
       shortcut: '⌘N',
       icon: PenSquare,
       action: () => {
@@ -144,7 +146,7 @@ export function CommandPalette() {
     },
     {
       id: 'search',
-      name: 'Search Emails',
+      name: t.commandPalette.commands.searchEmails,
       shortcut: '⌘F',
       icon: Search,
       action: () => {
@@ -155,7 +157,7 @@ export function CommandPalette() {
     },
     {
       id: 'archive',
-      name: 'Archive Selected',
+      name: t.commandPalette.commands.archiveSelected,
       shortcut: 'E',
       icon: Archive,
       action: () => {
@@ -167,7 +169,7 @@ export function CommandPalette() {
     },
     {
       id: 'star',
-      name: 'Toggle Star',
+      name: t.commandPalette.commands.toggleStar,
       shortcut: 'S',
       icon: Star,
       action: () => {
@@ -178,7 +180,7 @@ export function CommandPalette() {
     },
     {
       id: 'delete',
-      name: 'Delete Selected',
+      name: t.commandPalette.commands.deleteSelected,
       shortcut: '#',
       icon: Trash2,
       action: () => {
@@ -191,7 +193,7 @@ export function CommandPalette() {
     // AI Actions
     {
       id: 'ai-summarize',
-      name: 'AI: Summarize Email',
+      name: t.commandPalette.commands.aiSummarize,
       shortcut: '⇧S',
       icon: Sparkles,
       action: () => {
@@ -202,7 +204,7 @@ export function CommandPalette() {
     },
     {
       id: 'ai-reply',
-      name: 'AI: Quick Reply',
+      name: t.commandPalette.commands.aiQuickReply,
       shortcut: '⇧R',
       icon: Reply,
       action: () => {
@@ -213,7 +215,7 @@ export function CommandPalette() {
     },
     {
       id: 'ai-compose',
-      name: 'AI: Compose with Context',
+      name: t.commandPalette.commands.aiComposeContext,
       shortcut: '⌘J',
       icon: Wand2,
       action: () => {
@@ -226,7 +228,7 @@ export function CommandPalette() {
     // Productivity
     {
       id: 'followups',
-      name: 'View Follow-ups',
+      name: t.commandPalette.commands.viewFollowups,
       icon: Bell,
       action: () => router.push('/dashboard?view=followups'),
       group: 'productivity',
@@ -234,7 +236,7 @@ export function CommandPalette() {
     },
     {
       id: 'deadlines',
-      name: 'View Deadlines',
+      name: t.commandPalette.commands.viewDeadlines,
       icon: Clock,
       action: () => router.push('/dashboard?view=deadlines'),
       group: 'productivity',
@@ -242,7 +244,7 @@ export function CommandPalette() {
     },
     {
       id: 'stale-contacts',
-      name: 'View Stale Contacts',
+      name: t.commandPalette.commands.viewStaleContacts,
       icon: AlertTriangle,
       action: () => router.push('/dashboard/contacts?filter=stale'),
       group: 'productivity',
@@ -252,7 +254,7 @@ export function CommandPalette() {
     // AI Knowledge
     {
       id: 'search-memories',
-      name: 'Search AI Memories',
+      name: t.commandPalette.commands.searchAiMemories,
       icon: Brain,
       action: () => router.push('/dashboard/ai/memories'),
       group: 'ai',
@@ -260,7 +262,7 @@ export function CommandPalette() {
     },
     {
       id: 'search-docs',
-      name: 'Search Documents',
+      name: t.commandPalette.commands.searchDocuments,
       icon: FileSearch,
       action: () => router.push('/dashboard/ai/documents'),
       group: 'ai',
@@ -270,7 +272,7 @@ export function CommandPalette() {
     // System
     {
       id: 'logout',
-      name: 'Logout',
+      name: t.commandPalette.commands.logout,
       icon: LogOut,
       action: () => {
         logout();
@@ -279,15 +281,15 @@ export function CommandPalette() {
       group: 'system',
       keywords: ['logout', 'signout', 'exit'],
     },
-  ];
+  ], [t, router, logout]);
 
-  const groupLabels: Record<string, string> = {
-    navigation: 'Navigation',
-    actions: 'Actions',
-    ai: 'AI Features',
-    productivity: 'Productivity',
-    system: 'System',
-  };
+  const groupLabels: Record<string, string> = useMemo(() => ({
+    navigation: t.commandPalette.navigation,
+    actions: t.commandPalette.actions,
+    ai: t.commandPalette.ai,
+    productivity: t.commandPalette.productivity,
+    system: t.commandPalette.system,
+  }), [t]);
 
   const groupedCommands = commands.reduce(
     (acc, cmd) => {
@@ -317,14 +319,14 @@ export function CommandPalette() {
           loop
         >
           <Command.Input
-            placeholder="Type a command or search..."
+            placeholder={t.commandPalette.searchPlaceholder}
             className="w-full border-b border-gray-200 bg-transparent px-4 py-4 text-lg outline-none placeholder:text-gray-400 dark:border-gray-700 dark:text-white dark:placeholder:text-gray-500"
             autoFocus
           />
 
           <Command.List className="max-h-80 overflow-y-auto p-2">
             <Command.Empty className="px-4 py-8 text-center text-sm text-gray-500">
-              No results found.
+              {t.commandPalette.noResults}
             </Command.Empty>
 
             {Object.entries(groupedCommands).map(([group, items]) => (
@@ -359,15 +361,15 @@ export function CommandPalette() {
           <div className="flex items-center justify-between border-t border-gray-200 px-4 py-2 text-xs text-gray-400 dark:border-gray-700">
             <div className="flex items-center gap-2">
               <kbd className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">↑↓</kbd>
-              <span>Navigate</span>
+              <span>{t.commandPalette.navigate}</span>
             </div>
             <div className="flex items-center gap-2">
               <kbd className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">↵</kbd>
-              <span>Select</span>
+              <span>{t.commandPalette.select}</span>
             </div>
             <div className="flex items-center gap-2">
               <kbd className="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">esc</kbd>
-              <span>Close</span>
+              <span>{t.commandPalette.close}</span>
             </div>
           </div>
         </Command>

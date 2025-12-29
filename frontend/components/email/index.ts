@@ -119,10 +119,6 @@ export { ContactAutocomplete } from './ui/ContactAutocomplete';
  */
 export { EmailEmptyState } from './ui/EmailEmptyState';
 
-/**
- * Enhanced skeleton loader with animations
- */
-export { EnhancedThreadListSkeleton } from './list/EnhancedThreadListSkeleton';
 export { EmailDragOverlay } from './shared/EmailDragOverlay';
 
 // ============================================================================

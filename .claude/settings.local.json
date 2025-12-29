@@ -106,7 +106,8 @@
       "Bash(curl.exe:*)",
       "Bash(npm run dev:*)",
       "Bash(npx @playwright/mcp@latest --help:*)",
-      "Bash(if not exist \"D:\\\\MailAgent\\\\esempio\" mkdir \"D:\\\\MailAgent\\\\esempio\")"
+      "Bash(if not exist \"D:\\\\MailAgent\\\\esempio\" mkdir \"D:\\\\MailAgent\\\\esempio\")",
+      "Bash(npm run test:e2e:*)"
     ],
     "deny": []
   }

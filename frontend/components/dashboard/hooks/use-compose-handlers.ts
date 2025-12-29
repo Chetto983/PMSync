@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import type { Email } from '@/stores/email-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { ComposePrefillData } from '@/components/email/ComposeDialog/types';
+import { sanitizeHtmlForTiptap } from '@/components/email/ComposeDialog/compose-utils';
 
 interface UseComposeHandlersProps {
     /**
@@ -19,7 +20,9 @@ export function useComposeHandlers({
     const t = useTranslations();
 
     const createQuotedBody = useCallback((email: Email, headerTemplate: string) => {
-        const quotedBody = email.bodyHtml || email.bodyText || '';
+        const rawBody = email.bodyHtml || email.bodyText || '';
+        // Sanitize HTML to TipTap-compatible format (removes tables, complex divs, etc.)
+        const quotedBody = sanitizeHtmlForTiptap(rawBody);
         const quotedDate = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : '';
         const quotedFrom = email.from || '';
         const quoteHeader = headerTemplate
@@ -35,7 +38,9 @@ export function useComposeHandlers({
     }, []);
 
     const createForwardBody = useCallback((email: Email) => {
-        const forwardBody = email.bodyHtml || email.bodyText || '';
+        const rawBody = email.bodyHtml || email.bodyText || '';
+        // Sanitize HTML to TipTap-compatible format (removes tables, complex divs, etc.)
+        const forwardBody = sanitizeHtmlForTiptap(rawBody);
         const forwardedDate = email.receivedAt ? new Date(email.receivedAt).toLocaleString() : '';
 
         // Explicitly getting translated labels within the function to ensure freshness

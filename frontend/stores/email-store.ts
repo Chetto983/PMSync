@@ -328,7 +328,8 @@ export const useEmailStore = create<EmailState>((set, get) => ({
       const email = state.emails.find((e) => e.id === id);
 
       if (!email) {
-        logger.warn('[Email Store] Email not found, cannot delete');
+        // This is expected when WebSocket notifies about emails not loaded in store
+        logger.debug('[Email Store] Email not found in store, skipping delete (expected for unloaded emails)');
         return state;
       }
 

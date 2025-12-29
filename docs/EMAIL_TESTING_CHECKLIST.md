@@ -1,8 +1,46 @@
 # MailAgent Email Module - Comprehensive Testing Checklist
 
-**Version**: 1.0
-**Created**: 2025-12-29
-**Total Tests**: 138
+**Version**: 1.1
+**Updated**: 2025-12-29
+**Total Tests**: 138+
+
+---
+
+## Quick Start: Automated E2E Tests
+
+### Running the E2E Test Suite
+
+```bash
+# Step 1: Get auth token (choose one method)
+
+# Method A: Use helper script
+cd backend
+npx ts-node test/get-auth-token.ts your@email.com your-password
+
+# Method B: Get from browser DevTools
+# 1. Login to the app in your browser
+# 2. Open DevTools (F12) > Application > Local Storage
+# 3. Find "auth-storage" key
+# 4. Copy the "token" value from the JSON
+
+# Step 2: Run E2E tests
+cd backend
+TEST_AUTH_TOKEN="your-token" npm run test:e2e -- --testPathPattern=production-e2e
+
+# Step 3: View test report
+cat test-report.md
+```
+
+### E2E Test Coverage
+
+- **Providers**: List, get, update, aliases
+- **Emails**: CRUD, filters, bulk operations, threads
+- **Labels**: CRUD, add/remove emails
+- **Contacts**: CRUD, search, local contacts
+- **AI/VoltAgent**: Briefing, memory, deadlines, follow-ups, action items
+- **Sync**: Status, health, queues, webhooks
+- **Drafts**: Save, get, update, delete
+- **Calendar**: List, events
 
 ---
 

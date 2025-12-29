@@ -863,6 +863,7 @@ export interface AppTranslations {
       zoomOut: string;
       rotate: string;
       failedToLoadPreview: string;
+      failedToDownload: string;
       noPreview: string;
       reply: string;
       replyAll: string;
@@ -1304,6 +1305,23 @@ export interface AppTranslations {
     };
     lastSynced: string;
     neverSynced: string;
+    // Edit dialog
+    editDialogTitle: string;
+    editTooltip: string;
+    deleteDialogDescription: string;
+    saveChanges: string;
+    editForm: {
+      displayNameLabel: string;
+      displayNamePlaceholder: string;
+      displayNameHelper: string;
+      scopeLabel: string;
+      scopePlaceholder: string;
+      scopeHelper: string;
+    };
+    errors: {
+      deleteFailed: string;
+      updateFailed: string;
+    };
     genericCard: {
       title: string;
       description: string;
@@ -2138,13 +2156,40 @@ export interface AppTranslations {
     searchPlaceholder: string;
     navigation: string;
     actions: string;
+    ai: string;
+    productivity: string;
+    system: string;
     recentSearches: string;
     emailResults: string;
     noResults: string;
     pressEnterToSearch: string;
     navigate: string;
     select: string;
+    close: string;
     openWith: string;
+    commands: {
+      goToDashboard: string;
+      goToInbox: string;
+      goToCalendar: string;
+      goToContacts: string;
+      goToAiAssistant: string;
+      goToAnalytics: string;
+      goToSettings: string;
+      composeEmail: string;
+      searchEmails: string;
+      archiveSelected: string;
+      toggleStar: string;
+      deleteSelected: string;
+      aiSummarize: string;
+      aiQuickReply: string;
+      aiComposeContext: string;
+      viewFollowups: string;
+      viewDeadlines: string;
+      viewStaleContacts: string;
+      searchAiMemories: string;
+      searchDocuments: string;
+      logout: string;
+    };
   };
   errors: {
     notFound: {

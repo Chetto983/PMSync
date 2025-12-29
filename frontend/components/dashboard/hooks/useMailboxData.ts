@@ -169,12 +169,27 @@ export function useMailboxData({
     [conversationsQuery.data],
   );
 
-  // Unified threads array
+  // Unified threads array with starred emails first (Outlook-like behavior)
   const threads = useMemo<(Email | Conversation)[]>(() => {
+    let result: (Email | Conversation)[];
+
     if (useEmailListView) {
-      return emailThreads.map((e) => mapApiEmailToStore(e as unknown as ApiEmail));
+      result = emailThreads.map((e) => mapApiEmailToStore(e as unknown as ApiEmail));
+    } else {
+      result = [...conversationThreads];
     }
-    return conversationThreads;
+
+    // Sort: starred emails first, then by date (preserving original order within each group)
+    return result.sort((a, b) => {
+      const aStarred = 'isStarred' in a ? a.isStarred : false;
+      const bStarred = 'isStarred' in b ? b.isStarred : false;
+
+      // If both have same starred status, maintain original order (by date)
+      if (aStarred === bStarred) return 0;
+
+      // Starred items come first
+      return aStarred ? -1 : 1;
+    });
   }, [conversationThreads, emailThreads, useEmailListView]);
 
   // Loading states

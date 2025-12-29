@@ -4,7 +4,6 @@ import { emailApi } from '@/lib/api/email';
 import { emailKeys } from '@/hooks/queries';
 import { logger } from '@/lib/logger';
 import type { Provider } from '@/lib/api/folders';
-import type { Email } from '@/stores/email-store';
 import { useEmailStore } from '@/stores/email-store';
 import type { UseMailboxStateReturn } from './useMailboxState';
 
@@ -64,38 +63,25 @@ export function useMailboxActions({ state, t }: UseMailboxActionsProps) {
   }, [queryClient, setSyncLoading, showSnackbar, t.email.messages]);
 
   /**
-   * Handle label changes on an email
+   * Handle label changes on an email - invalidates caches after API mutation completes
+   * Note: The actual API call is made by ThreadDisplay using mutations
    */
-  const handleLabelsChange = useCallback(async (emailId: string, labelIds: string[], updatedEmail?: Email) => {
-    if (!updatedEmail) {
-      logger.warn('[Mailbox] No updated email provided - this should not happen');
-      return;
-    }
+  const handleLabelsChange = useCallback(async (emailId: string, labelIds: string[]) => {
+    logger.debug('[Mailbox] handleLabelsChange - invalidating caches', { emailId, labelIds });
 
-    logger.debug('[Mailbox] handleLabelsChange', { emailId, labelIds });
-
-    const storeState = useEmailStore.getState();
-    const selectedEmail = storeState.selectedEmail;
-
-    // Keep selected email in sync immediately
-    if (selectedEmail?.id === emailId) {
-      storeState.setSelectedEmail(updatedEmail);
-    }
-
-    // Store cache for compose/reply prefill and keyboard actions
-    storeState.updateEmail(emailId, updatedEmail);
-
-    // Ensure list/detail reflect the new labels
+    // Invalidate caches to reflect label changes
     queryClient.invalidateQueries({ queryKey: emailKeys.detail(emailId) });
     queryClient.invalidateQueries({ queryKey: emailKeys.lists() });
     queryClient.invalidateQueries({ queryKey: emailKeys.conversations() });
     queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
 
-    const threadKey = updatedEmail.threadId || emailId;
-    queryClient.invalidateQueries({ queryKey: emailKeys.thread(threadKey) });
-
-    showSnackbar(t.email.messages.labelsUpdated, 'success');
-  }, [queryClient, showSnackbar, t.email.messages.labelsUpdated]);
+    // Also invalidate thread if we know the thread ID
+    const storeState = useEmailStore.getState();
+    const selectedEmail = storeState.selectedEmail;
+    if (selectedEmail?.id === emailId && selectedEmail.threadId) {
+      queryClient.invalidateQueries({ queryKey: emailKeys.thread(selectedEmail.threadId) });
+    }
+  }, [queryClient]);
 
   /**
    * Refresh email lists

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Button, CircularProgress, Stack, Typography, useTheme, useMediaQuery } from '@mui/material';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { Box, Button, CircularProgress, Snackbar, Alert, Stack, Typography, useTheme, useMediaQuery } from '@mui/material';
 import { Reply } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import type { Email } from '@/stores/email-store';
@@ -9,6 +9,8 @@ import { ThreadToolbar } from './ThreadToolbar';
 import { LabelSelector } from '../../labels/LabelSelector';
 import { EmailSummaryPanel } from '../ai/EmailSummaryPanel';
 import { emailApi } from '@/lib/api/email';
+import { useBulkAddLabels, useBulkRemoveLabels } from '@/hooks/mutations/use-email-mutations';
+import { logger } from '@/lib/logger';
 
 interface ThreadDisplayProps {
   email: Email | null;
@@ -47,6 +49,13 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  // Label mutations for persisting changes via API
+  const bulkAddLabels = useBulkAddLabels();
+  const bulkRemoveLabels = useBulkRemoveLabels();
+
+  // Track previous label IDs for diff calculation
+  const prevLabelIdsRef = useRef<string[]>([]);
 
   const threadQuery = useQuery({
     queryKey: ['thread', threadId],
@@ -124,17 +133,82 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
     setExpandedEmails(next);
   };
 
-  const handleAttachmentOpen = useCallback((_attachment: unknown, e: React.MouseEvent) => {
+  // State for attachment download feedback
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleAttachmentOpen = useCallback(async (attachment: NonNullable<Email['attachments']>[number], e: React.MouseEvent) => {
     e.stopPropagation();
-  }, []);
+
+    try {
+      logger.debug('[ThreadDisplay] Downloading attachment', { attachmentId: attachment.id, filename: attachment.filename });
+      const response = await emailApi.downloadAttachment(attachment.id);
+      const blob = response.data;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = attachment.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      logger.debug('[ThreadDisplay] Attachment downloaded successfully', { filename: attachment.filename });
+    } catch (error) {
+      logger.error('[ThreadDisplay] Failed to download attachment', { error, attachmentId: attachment.id });
+      setDownloadError(t.email.view.failedToDownload || 'Failed to download attachment');
+    }
+  }, [t]);
+
+  // Update prevLabelIdsRef when email changes
+  useEffect(() => {
+    if (email) {
+      prevLabelIdsRef.current = email.emailLabels?.map((el) => el.label.id) || [];
+    }
+  }, [email]);
 
   const handleLabelsChange = useCallback(
-    (labelIds: string[]) => {
-      if (email && onLabelsChange) {
-        onLabelsChange(email.id, labelIds);
+    async (newLabelIds: string[]) => {
+      if (!email) return;
+
+      const currentLabelIds = prevLabelIdsRef.current;
+
+      // Calculate diff: what was added and what was removed
+      const addedLabelIds = newLabelIds.filter((id) => !currentLabelIds.includes(id));
+      const removedLabelIds = currentLabelIds.filter((id) => !newLabelIds.includes(id));
+
+      logger.debug('[ThreadDisplay] Label change', {
+        emailId: email.id,
+        addedLabelIds,
+        removedLabelIds,
+      });
+
+      try {
+        // Call API to add labels
+        if (addedLabelIds.length > 0) {
+          await bulkAddLabels.mutateAsync({
+            emailIds: [email.id],
+            labelIds: addedLabelIds,
+          });
+        }
+
+        // Call API to remove labels
+        if (removedLabelIds.length > 0) {
+          await bulkRemoveLabels.mutateAsync({
+            emailIds: [email.id],
+            labelIds: removedLabelIds,
+          });
+        }
+
+        // Update ref for next comparison
+        prevLabelIdsRef.current = newLabelIds;
+
+        // Notify parent of the change (for cache invalidation)
+        onLabelsChange?.(email.id, newLabelIds);
+      } catch (error) {
+        logger.error('[ThreadDisplay] Failed to update labels', { error });
+        // Mutations already handle error toasts
       }
     },
-    [email, onLabelsChange]
+    [email, onLabelsChange, bulkAddLabels, bulkRemoveLabels]
   );
 
   const handleInviteRespond = useCallback(async (_emailId: string, _response: 'accept' | 'decline' | 'tentative') => {
@@ -334,6 +408,18 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
           {t.email.view.reply}...
         </Button>
       </Box>
+
+      {/* Error Snackbar for attachment download */}
+      <Snackbar
+        open={!!downloadError}
+        autoHideDuration={4000}
+        onClose={() => setDownloadError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setDownloadError(null)} sx={{ width: '100%' }}>
+          {downloadError}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

@@ -66,7 +66,7 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
       setProviderToDelete(null);
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to delete provider');
+      setError(error.response?.data?.message || providersCopy.errors.deleteFailed);
     } finally {
       setDeletingId(null);
     }
@@ -85,7 +85,7 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
       setProviderToEdit(null);
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to update provider');
+      setError(error.response?.data?.message || providersCopy.errors.updateFailed);
     } finally {
       setUpdatingId(null);
     }
@@ -141,11 +141,11 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
   const getProviderName = (type: string) => {
     switch (type) {
       case 'google':
-        return 'Google';
+        return providersCopy.googleTitle;
       case 'microsoft':
-        return 'Microsoft';
+        return providersCopy.microsoftTitle;
       case 'generic':
-        return 'Generic IMAP/CalDAV';
+        return providersCopy.genericTitle;
       default:
         return type;
     }
@@ -221,7 +221,7 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
                   sx={{ fontSize: '0.7rem', px: 1.5, py: 0.25 }}
                 />
               )}
-              <Tooltip title="Edit provider settings">
+              <Tooltip title={providersCopy.editTooltip}>
                 <IconButton size="small" onClick={() => openEditDialog(provider)}>
                   <EditIcon />
                 </IconButton>
@@ -321,12 +321,12 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
         <DialogTitle>{providersCopy.deleteConfirm.replace('{email}', providerToDelete?.email || '')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This will disconnect the provider and stop syncing. You can reconnect it later.
+            {providersCopy.deleteDialogDescription}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)} disabled={deletingId !== null}>
-            Cancel
+            {translations.common.cancel}
           </Button>
           <Button
             onClick={handleDelete}
@@ -346,37 +346,37 @@ export function ProvidersList({ providers, onDelete, onUpdate }: ProvidersListPr
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Edit Provider Settings</DialogTitle>
+        <DialogTitle>{providersCopy.editDialogTitle}</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
             <TextField
-              label="Display Name"
-              placeholder="e.g., Work Gmail, Personal Outlook"
+              label={providersCopy.editForm.displayNameLabel}
+              placeholder={providersCopy.editForm.displayNamePlaceholder}
               value={editForm.displayName || ''}
               onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
               fullWidth
-              helperText="A friendly name to identify this account"
+              helperText={providersCopy.editForm.displayNameHelper}
             />
             <TextField
-              label="Scope / Purpose"
-              placeholder="e.g., Work, Personal, Legal, Info, Kork"
+              label={providersCopy.editForm.scopeLabel}
+              placeholder={providersCopy.editForm.scopePlaceholder}
               value={editForm.scope || ''}
               onChange={(e) => setEditForm({ ...editForm, scope: e.target.value })}
               fullWidth
-              helperText="What this email account is used for (helps AI understand context)"
+              helperText={providersCopy.editForm.scopeHelper}
             />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialogOpen(false)} disabled={updatingId !== null}>
-            Cancel
+            {translations.common.cancel}
           </Button>
           <Button
             onClick={handleUpdate}
             variant="contained"
             disabled={updatingId !== null}
           >
-            {updatingId !== null ? 'Saving...' : 'Save Changes'}
+            {updatingId !== null ? translations.common.saving : providersCopy.saveChanges}
           </Button>
         </DialogActions>
       </Dialog>
