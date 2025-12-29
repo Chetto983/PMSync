@@ -574,6 +574,10 @@ export const en: AppTranslations = {
       hasAttachments: 'Has Attachments',
       important: 'Important',
     },
+    headerStats: {
+      unreadCount: '{count} unread',
+      totalEmails: '{count} emails',
+    },
     bulkBar: {
       selected: '{count} selected',
       selectedLabel: 'selected',
@@ -757,6 +761,7 @@ export const en: AppTranslations = {
       statusFilters: 'Status Filters',
       hasAttachments: 'Has attachments',
       starredOnly: 'Starred only',
+      importantOnly: 'Important only',
       readStatus: 'Read Status',
       unreadOnly: 'Unread only',
       readOnly: 'Read only',

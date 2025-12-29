@@ -506,6 +506,10 @@ export interface AppTranslations {
       hasAttachments: string;
       important: string;
     };
+    headerStats: {
+      unreadCount: string;
+      totalEmails: string;
+    };
     bulkBar: {
       selected: string;
       selectedLabel: string;
@@ -685,6 +689,7 @@ export interface AppTranslations {
       statusFilters: string;
       hasAttachments: string;
       starredOnly: string;
+      importantOnly: string;
       readStatus: string;
       unreadOnly: string;
       readOnly: string;

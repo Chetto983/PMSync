@@ -143,10 +143,10 @@ This project uses SPARC (Specification, Pseudocode, Architecture, Refinement, Co
 ## 🚀 Quick Setup
 
 ```bash
-# Add MCP servers (Claude Flow required, others optional)
+# Add MCP servers (REQUIRED - always add these)
 claude mcp add claude-flow npx claude-flow@alpha mcp start
+claude mcp add flow-nexus npx flow-nexus@latest mcp start  # REQUIRED: Cloud features & advanced orchestration
 claude mcp add ruv-swarm npx ruv-swarm mcp start  # Optional: Enhanced coordination
-claude mcp add flow-nexus npx flow-nexus@latest mcp start  # Optional: Cloud features
 ```
 
 ## MCP Tool Categories
@@ -166,7 +166,8 @@ claude mcp add flow-nexus npx flow-nexus@latest mcp start  # Optional: Cloud fea
 ### System
 `benchmark_run`, `features_detect`, `swarm_monitor`
 
-### Flow-Nexus MCP Tools (Optional Advanced Features)
+### Flow-Nexus MCP Tools (REQUIRED - Always Use)
+
 Flow-Nexus extends MCP capabilities with 70+ cloud-based orchestration tools:
 
 **Key MCP Tool Categories:**

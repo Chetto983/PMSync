@@ -117,6 +117,7 @@ export function useDraftAutosave({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastDataRef = useRef<string>('');
   const serverVersionRef = useRef<string | null>(null); // Track server version/etag
+  const saveDraftRef = useRef<() => Promise<void>>(() => Promise.resolve()); // Ref to latest saveDraft (stale closure fix)
 
   useEffect(() => {
     if (!enabled) {
@@ -255,7 +256,13 @@ export function useDraftAutosave({
     }
   }, [enabled, draftData, draftId, isDraftEmpty, onSaved, onError, onConflict, onUpdateFromServer, hasConflict, forceSave]);
 
-  // Setup autosave interval
+  // Keep ref updated with latest saveDraft (stale closure fix)
+  useEffect(() => {
+    saveDraftRef.current = saveDraft;
+  }, [saveDraft]);
+
+  // Setup autosave interval - uses ref to avoid stale closure
+  // Only depends on enabled/interval to prevent timer reset on every keystroke
   useEffect(() => {
     if (!enabled) {
       // Clear timeout if autosave disabled
@@ -266,24 +273,21 @@ export function useDraftAutosave({
       return;
     }
 
-    // Clear existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    // Set new timeout
-    timeoutRef.current = setTimeout(() => {
-      saveDraft();
+    // Set up recurring autosave using setInterval
+    const intervalId = setInterval(() => {
+      // Use ref to always get latest saveDraft (stale closure fix)
+      saveDraftRef.current();
     }, interval);
 
     // Cleanup on unmount or when deps change
     return () => {
+      clearInterval(intervalId);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
     };
-  }, [draftData, enabled, interval, saveDraft]);
+  }, [enabled, interval]);
 
   // Clear conflict state when draft data changes significantly
   const clearConflict = useCallback(() => {

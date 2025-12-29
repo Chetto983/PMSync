@@ -145,6 +145,8 @@ export type EmailListParams = {
   folder?: string;
   /** RFC 6154: Filter by folder specialUse type for aggregation (INBOX, SENT, TRASH, etc.) */
   specialUse?: string;
+  /** Exclude emails in SPAM, JUNK, and TRASH folders */
+  excludeTrashSpam?: boolean;
   isRead?: boolean;
   isStarred?: boolean;
   /** Provider-agnostic "important" = isStarred OR isFlagged */
@@ -261,6 +263,7 @@ export const emailApi = {
     }
     if (params?.startDate) queryParams.append('startDate', params.startDate);
     if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.excludeTrashSpam) queryParams.append('excludeTrashSpam', 'true');
 
     const query = queryParams.toString();
     return apiClient.get<EmailListResponse>(`/emails${query ? `?${query}` : ''}`);

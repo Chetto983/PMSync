@@ -3,6 +3,7 @@ import { Box, SxProps, Theme } from '@mui/material';
 import DOMPurify from 'dompurify';
 import { apiClient } from '@/lib/api-client';
 import logger from '@/lib/logger';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 /**
  * Props for EmailBody component
@@ -132,6 +133,7 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
   onImagesLoaded,
   attachments,
 }) => {
+  const t = useTranslations();
   const containerRef = useRef<HTMLDivElement>(null);
   const [imagesProcessed, setImagesProcessed] = useState(false);
   const [sanitizedHtml, setSanitizedHtml] = useState('');
@@ -184,6 +186,9 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
   useEffect(() => {
     setSanitizedHtml(sanitizeEmailBody(html || ''));
   }, [html]);
+
+  // Get the download image label
+  const downloadImageLabel = t.email.view.downloadImage;
 
   // Process images for lazy loading after initial render
   useEffect(() => {
@@ -266,7 +271,7 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
       const downloadBtn = document.createElement('button');
       downloadBtn.className = 'email-img-download';
       downloadBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
-      downloadBtn.title = 'Download image';
+      downloadBtn.title = downloadImageLabel;
       downloadBtn.style.cssText = `
         position: absolute;
         top: 8px;
@@ -432,6 +437,7 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
     onImagesLoaded,
     inlineAttachmentMap,
     resolveInlineAttachmentUrl,
+    downloadImageLabel,
   ]);
 
   useEffect(() => {

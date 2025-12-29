@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { isAxiosError } from 'axios';
 import { aiApi } from '@/lib/api/ai';
 import { logger } from '@/lib/logger';
@@ -61,6 +61,19 @@ export function useComposeAI({
   const [aiPreviewSubject, setAiPreviewSubject] = useState<string | null>(null);
   const [aiComposing, setAiComposing] = useState(false);
 
+  // Track mounted state and abort controller for cleanup (race condition fix)
+  const isMountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Abort any pending AI request on unmount
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   const resetAiState = useCallback(() => {
     setAiPrompt('');
     setAiTone(mode === 'reply' ? 'formal' : '');
@@ -72,6 +85,11 @@ export function useComposeAI({
     if (!aiPrompt.trim()) {
       return;
     }
+
+    // Cancel any pending request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+
     setAiComposing(true);
     try {
       const { data } = await aiApi.composeEmail({
@@ -83,6 +101,9 @@ export function useComposeAI({
         variant: aiVariant,
       });
 
+      // Check if still mounted before state updates (race condition fix)
+      if (!isMountedRef.current) return;
+
       if (data?.body) {
         setAiPreview(data.body);
       }
@@ -90,6 +111,10 @@ export function useComposeAI({
         setAiPreviewSubject(data.subject);
       }
     } catch (error) {
+      // Check if still mounted and not aborted before handling error
+      if (!isMountedRef.current) return;
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+
       logger.error('AI compose failed', { error });
       let message = t.email.composer.aiComposeError;
       if (isAxiosError(error)) {
@@ -97,7 +122,10 @@ export function useComposeAI({
       }
       onError?.(message);
     } finally {
-      setAiComposing(false);
+      // Only update state if still mounted (race condition fix)
+      if (isMountedRef.current) {
+        setAiComposing(false);
+      }
     }
   }, [aiPrompt, aiTone, aiVariant, cleanEmailArray, locale, mode, onError, subject, t, to]);
 

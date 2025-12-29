@@ -328,6 +328,15 @@ export const AdvancedSearchDialog: React.FC<AdvancedSearchDialogProps> = ({
                 }
                 label={t.email.advancedSearch.starredOnly}
               />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={filters.isImportant || false}
+                    onChange={(e) => updateFilter('isImportant', e.target.checked)}
+                  />
+                }
+                label={t.email.advancedSearch.importantOnly}
+              />
             </FormGroup>
           </Box>
 

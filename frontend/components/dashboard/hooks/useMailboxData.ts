@@ -80,6 +80,7 @@ export function useMailboxData({
       advancedFilters.isStarred !== undefined ||
       activeFolder.queryOverrides?.isRead !== undefined ||
       activeFolder.queryOverrides?.isStarred !== undefined ||
+      activeFolder.queryOverrides?.isImportant !== undefined ||
       activeFolder.queryOverrides?.hasAttachments !== undefined ||
       activeFolder.queryOverrides?.startDate !== undefined ||
       activeFolder.queryOverrides?.endDate !== undefined,
@@ -114,6 +115,7 @@ export function useMailboxData({
         hasAttachments: advancedFilters.hasAttachments || undefined,
         isRead: advancedFilters.isRead !== null ? advancedFilters.isRead : undefined,
         isStarred: advancedFilters.isStarred || undefined,
+        isImportant: advancedFilters.isImportant || undefined,
       };
     }
 
@@ -130,6 +132,7 @@ export function useMailboxData({
       ...(advancedFilters.hasAttachments !== undefined ? { hasAttachments: advancedFilters.hasAttachments } : {}),
       ...(advancedFilters.isRead != null ? { isRead: advancedFilters.isRead } : {}),
       ...(advancedFilters.isStarred !== undefined ? { isStarred: advancedFilters.isStarred } : {}),
+      ...(advancedFilters.isImportant !== undefined ? { isImportant: advancedFilters.isImportant } : {}),
     };
   }, [activeFolder, advancedFilters, labelFolderId, searchQuery]);
 

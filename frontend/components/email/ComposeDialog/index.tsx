@@ -16,7 +16,7 @@
  * />
  * ```
  */
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -83,6 +83,15 @@ export function ComposeDialog({
   const [sending, setSending] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [smartRepliesDismissed, setSmartRepliesDismissed] = useState(false);
+
+  // Track mounted state to prevent state updates after unmount (race condition fix)
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Mutations
   const sendEmailMutation = useSendEmail();
@@ -263,14 +272,23 @@ export function ComposeDialog({
         }
       }
 
+      // Check if still mounted before state updates (race condition fix)
+      if (!isMountedRef.current) return;
+
       onSent?.();
       onClose();
       resetForm();
     } catch (error) {
+      // Check if still mounted before state updates (race condition fix)
+      if (!isMountedRef.current) return;
+
       logger.error('Failed to send email', { error });
       onError?.(t.email.composer.sendError);
     } finally {
-      setSending(false);
+      // Only update state if still mounted (race condition fix)
+      if (isMountedRef.current) {
+        setSending(false);
+      }
     }
   }, [selectedProvider, to, cc, bcc, subject, body, attachments, mode, prefillData, cleanEmailArray, onError, onSent, onClose, resetForm, t, sendEmailMutation, replyEmailMutation, forwardEmailMutation, deleteDraftMutation]);
 

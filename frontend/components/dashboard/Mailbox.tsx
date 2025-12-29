@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMediaQuery, useTheme } from '@mui/material';
@@ -66,7 +66,6 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
   const {
     selectedFolderId,
     setSelectedFolderId,
-    composeState,
     openCompose,
     closeCompose,
     setAdvancedSearchOpen,
@@ -94,6 +93,15 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
 
   // WebSocket connection status
   const [isConnected, setIsConnected] = useState(() => websocketClient.isConnected());
+
+  // Track mounted state to prevent state updates after unmount (race condition fix)
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const unsubConnected = websocketClient.onConnected(() => setIsConnected(true));
@@ -177,10 +185,14 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     } else if ('latestEmailId' in thread && thread.latestEmailId) {
       try {
         const response = await emailApi.getEmail(thread.latestEmailId);
+        // Check if still mounted before state updates (race condition fix)
+        if (!isMountedRef.current) return;
         const email = mapApiEmailToStore(response.data);
         useEmailStore.getState().updateEmail(email.id, email);
         handleEmailClickOriginal(email);
       } catch (error) {
+        // Check if still mounted before state updates (race condition fix)
+        if (!isMountedRef.current) return;
         logger.error('Failed to open conversation email', { error });
         showSnackbar(t.email.messages.failedToOpenEmail, 'error');
       }
@@ -212,13 +224,9 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     handleBulkDeleteEmails,
   });
 
-  // Compose handlers
+  // Compose handlers - pass openCompose directly to avoid stale closure issues
   const { handleReply: handleReplyLocal, handleReplyAll: handleReplyAllLocal, handleForward: handleForwardLocal } =
-    useComposeHandlers({
-      setComposeMode: (mode) => openCompose(mode, composeState.prefill),
-      setComposePrefill: (prefill) => state.setComposeState({ ...composeState, prefill }),
-      setComposeOpen: (open) => open ? openCompose(composeState.mode, composeState.prefill) : closeCompose(),
-    });
+    useComposeHandlers({ openCompose });
 
   // Handle compose query params
   useEffect(() => {
@@ -227,17 +235,36 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
 
     const openFromQuery = async () => {
       if (compose === 'reply' && replyTo) {
-        // Handle reply from query params
-        openCompose('reply', {
-          originalEmailId: String(replyTo),
-          to: to ? [String(to)] : undefined,
-          subject: subject ? String(subject) : undefined,
-        });
+        // Fetch email to build proper reply with quoted body
+        try {
+          const response = await emailApi.getEmail(String(replyTo));
+          const email = response.data;
+          // Use the proper reply handler which builds quoted body
+          handleReplyLocal(mapApiEmailToStore(email));
+        } catch (error) {
+          logger.error('[Mailbox] Failed to fetch email for reply', { error });
+          // Fallback: open with minimal data
+          openCompose('reply', {
+            originalEmailId: String(replyTo),
+            to: to ? [String(to)] : undefined,
+            subject: subject ? String(subject) : undefined,
+          });
+        }
       } else if (compose === 'forward' && forward) {
-        openCompose('forward', {
-          originalEmailId: String(forward),
-          subject: subject ? String(subject) : undefined,
-        });
+        // Fetch email to build proper forward with body
+        try {
+          const response = await emailApi.getEmail(String(forward));
+          const email = response.data;
+          // Use the proper forward handler which builds body
+          handleForwardLocal(mapApiEmailToStore(email));
+        } catch (error) {
+          logger.error('[Mailbox] Failed to fetch email for forward', { error });
+          // Fallback: open with minimal data
+          openCompose('forward', {
+            originalEmailId: String(forward),
+            subject: subject ? String(subject) : undefined,
+          });
+        }
       } else {
         openCompose('compose', null);
       }
@@ -245,7 +272,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     };
 
     void openFromQuery();
-  }, [router, router.query, openCompose]);
+  }, [router, router.query, openCompose, handleReplyLocal, handleForwardLocal]);
 
   // Handle drag start
   const handleDragStart = useCallback((event: DragStartEvent) => {

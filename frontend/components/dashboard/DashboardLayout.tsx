@@ -116,27 +116,13 @@ export function MaterialDashboardLayout({
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Toolbar sx={{ display: { md: 'none' } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Image
-            src="/Logo PMSync.svg"
-            alt={t.app.name}
-            width={40}
-            height={40}
-            priority
-          />
-          <Typography
-            variant="h6"
-            component="div"
-            sx={{
-              fontWeight: 700,
-              background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            {t.app.name}
-          </Typography>
-        </Box>
+        <Image
+          src="/Logo PMSync.svg"
+          alt={t.app.name}
+          width={200}
+          height={100}
+          priority
+        />
       </Toolbar>
       <Divider sx={{ display: { md: 'none' } }} />
 
@@ -242,34 +228,20 @@ export function MaterialDashboardLayout({
             <MenuIcon size={24} />
           </IconButton>
 
-          {/* Logo & Title (Desktop only) */}
+          {/* Logo (Desktop only) */}
           <Box
             sx={{
               display: { xs: 'none', md: 'flex' },
               alignItems: 'center',
-              gap: 1.5,
             }}
           >
             <Image
               src="/Logo PMSync.svg"
               alt={t.app.name}
-              width={40}
-              height={40}
+              width={100}
+              height={100}
               priority
             />
-            <Typography
-              variant="h6"
-              noWrap
-              component="div"
-              sx={{
-                fontWeight: 700,
-                background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              {t.app.name}
-            </Typography>
           </Box>
 
           {/* Spacer */}

@@ -84,7 +84,9 @@ export function MailboxHeader({
                 {/* Stats - Desktop only, compact */}
                 {!isMobile && emailStats && (
                     <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                        {emailStats.unread > 0 ? `${emailStats.unread} unread` : `${emailStats.total} emails`}
+                        {emailStats.unread > 0
+                          ? t.email.headerStats.unreadCount.replace('{count}', String(emailStats.unread))
+                          : t.email.headerStats.totalEmails.replace('{count}', String(emailStats.total))}
                     </Typography>
                 )}
 

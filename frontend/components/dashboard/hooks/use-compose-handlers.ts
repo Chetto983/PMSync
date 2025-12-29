@@ -4,15 +4,17 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import type { ComposePrefillData } from '@/components/email/ComposeDialog/types';
 
 interface UseComposeHandlersProps {
-    setComposeMode: (mode: 'compose' | 'reply' | 'forward') => void;
-    setComposePrefill: (data: ComposePrefillData | null) => void;
-    setComposeOpen: (open: boolean) => void;
+    /**
+     * Opens the compose dialog with the given mode and prefill data.
+     * Using a single function avoids stale closure issues that occur
+     * when separate setComposeMode/setComposePrefill/setComposeOpen calls
+     * capture different state snapshots.
+     */
+    openCompose: (mode: 'compose' | 'reply' | 'forward', prefill: ComposePrefillData | null) => void;
 }
 
 export function useComposeHandlers({
-    setComposeMode,
-    setComposePrefill,
-    setComposeOpen
+    openCompose
 }: UseComposeHandlersProps) {
     const t = useTranslations();
 
@@ -62,8 +64,8 @@ export function useComposeHandlers({
 
         const formattedQuote = createQuotedBody(email, t.email.composer.replyQuotedHeader);
 
-        setComposeMode('reply');
-        setComposePrefill({
+        // Use single openCompose call to avoid stale closure issues
+        openCompose('reply', {
             originalEmailId: email.id,
             to: [email.from],
             subject: replySubject,
@@ -71,8 +73,7 @@ export function useComposeHandlers({
             inReplyTo: email.externalId || undefined,
             references: email.references || email.externalId || undefined,
         });
-        setComposeOpen(true);
-    }, [t, createQuotedBody, setComposeMode, setComposePrefill, setComposeOpen]);
+    }, [t, createQuotedBody, openCompose]);
 
     const handleReplyAll = useCallback((email: Email) => {
         const allRecipients = [email.from, ...(!email.to ? [] : email.to), ...(!email.cc ? [] : email.cc)];
@@ -87,8 +88,8 @@ export function useComposeHandlers({
 
         const formattedQuote = createQuotedBody(email, t.email.composer.replyQuotedHeader);
 
-        setComposeMode('reply');
-        setComposePrefill({
+        // Use single openCompose call to avoid stale closure issues
+        openCompose('reply', {
             originalEmailId: email.id,
             to: uniqueRecipients,
             subject: replySubject,
@@ -96,8 +97,7 @@ export function useComposeHandlers({
             inReplyTo: email.externalId || undefined,
             references: email.references || email.externalId || undefined,
         });
-        setComposeOpen(true);
-    }, [t, createQuotedBody, setComposeMode, setComposePrefill, setComposeOpen]);
+    }, [t, createQuotedBody, openCompose]);
 
     const handleForward = useCallback((email: Email) => {
         const forwardPrefix = t.email.composer.forwardPrefix;
@@ -108,14 +108,13 @@ export function useComposeHandlers({
 
         const formattedForward = createForwardBody(email);
 
-        setComposeMode('forward');
-        setComposePrefill({
+        // Use single openCompose call to avoid stale closure issues
+        openCompose('forward', {
             originalEmailId: email.id,
             subject: forwardSubject,
             body: formattedForward,
         });
-        setComposeOpen(true);
-    }, [t, createForwardBody, setComposeMode, setComposePrefill, setComposeOpen]);
+    }, [t, createForwardBody, openCompose]);
 
     return {
         handleReply,

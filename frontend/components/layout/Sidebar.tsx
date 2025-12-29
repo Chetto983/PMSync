@@ -10,7 +10,6 @@ import {
   IconButton,
   Tooltip,
   Divider,
-  Typography,
   Button,
   useMediaQuery,
   useTheme,
@@ -120,35 +119,12 @@ export function Sidebar({
           minHeight: 64,
         }}
       >
-        {!collapsed && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Image
-              src="/Logo PMSync.svg"
-              alt={t.app.name}
-              width={32}
-              height={32}
-            />
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 700,
-                background: 'linear-gradient(135deg, #55cae5 0%, #7650ce 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              {t.app.name}
-            </Typography>
-          </Box>
-        )}
-        {collapsed && (
-          <Image
-            src="/Logo PMSync.svg"
-            alt={t.app.name}
-            width={32}
-            height={32}
-          />
-        )}
+        <Image
+          src="/Logo PMSync.svg"
+          alt={t.app.name}
+          width={collapsed ? 48 : 120}
+          height={collapsed ? 48 : 56}
+        />
         {!isMobile && onToggleCollapse && (
           <IconButton
             size="small"

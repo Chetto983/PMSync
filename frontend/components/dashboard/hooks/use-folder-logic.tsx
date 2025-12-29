@@ -130,7 +130,9 @@ export function useFolderLogic({ emailStats, providers }: UseFolderLogicProps) {
 
             switch (filter.id) {
                 case 'smart:unread':
-                    queryOverrides = { ...baseQuery, isRead: false };
+                    // Unread filter shows ALL unread emails except SPAM/JUNK/TRASH
+                    // This includes UPDATES, PROMOTIONS, SOCIAL, etc. (Gmail categories)
+                    queryOverrides = { isRead: false, excludeTrashSpam: true };
                     break;
                 case 'smart:today':
                     queryOverrides = {
