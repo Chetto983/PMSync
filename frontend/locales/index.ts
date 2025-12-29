@@ -776,6 +776,21 @@ export interface AppTranslations {
       addRemoveLabels: string;
       noLabelsAvailable: string;
       addLabelText: string;
+      // LabelDialog & ColorPicker
+      presetColors: string;
+      customColor: string;
+      nameLabel: string;
+      namePlaceholder: string;
+      preview: string;
+      deleteLabel: string;
+      deleteConfirmation: string;
+      deleteWarning: string;
+      create: string;
+      errors: {
+        nameRequired: string;
+        nameTooShort: string;
+        saveFailed: string;
+      };
     };
     conversations: {
       title: string;
@@ -2243,12 +2258,26 @@ export interface AppTranslations {
     nameRequired: string;
     deleteWarning: string;
     deleteConfirm: string;
+    deleteConfirmation: string;
     createSubfolder: string;
     moveEmailsHere: string;
     refresh: string;
     systemFolder: string;
     duplicateError: string;
     genericError: string;
+    // FolderDialog
+    selectAccount: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    willBeCreatedAs: string;
+    create: string;
+    noActionsAvailable: string;
+    errors: {
+      nameRequired: string;
+      nameTooShort: string;
+      providerRequired: string;
+      saveFailed: string;
+    };
   };
 }
 

@@ -8,7 +8,7 @@
  * @see https://m3.material.io/components/bottom-sheets
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Drawer,
   Box,
@@ -39,10 +39,13 @@ import {
   ChevronRight,
   X,
   Star,
+  Tag,
+  Plus,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useFolders } from '@/hooks/queries/use-folders';
+import { useFolders, useLabels } from '@/hooks/queries';
 import { useEmailUIStore, type SpecialFolder } from '@/stores/email-ui-store';
+import { LabelDialog } from '../labels/LabelDialog';
 import type { Folder as FolderType, Provider } from '@/lib/api/folders';
 
 interface MobileFolderSheetProps {
@@ -81,10 +84,33 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
   const theme = useTheme();
   const t = useTranslations();
   const { data } = useFolders();
+  const { data: labels } = useLabels();
 
   const filters = useEmailUIStore((state) => state.filters);
+  const setFilters = useEmailUIStore((state) => state.setFilters);
   const collapsedProviders = useEmailUIStore((state) => state.sidebar.collapsedProviders);
   const toggleProviderCollapse = useEmailUIStore((state) => state.toggleProviderCollapse);
+
+  // Labels section state
+  const [labelsExpanded, setLabelsExpanded] = useState(true);
+  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
+
+  // Filter to show only USER labels
+  const userLabels = useMemo(() =>
+    labels?.filter((l) => l.type === 'USER') || [],
+    [labels]
+  );
+
+  // Handle label selection
+  const handleLabelClick = useCallback((labelId: string) => {
+    setFilters({
+      labelId,
+      providerId: undefined,
+      folderId: undefined,
+      specialUse: undefined,
+    });
+    onClose();
+  }, [setFilters, onClose]);
 
   // Get folder label from translations
   const getFolderLabel = useCallback((folder: string): string => {
@@ -262,6 +288,107 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
           </ListItemButton>
         </List>
 
+        {/* Labels Section */}
+        <Divider sx={{ my: 1 }} />
+        <Box sx={{ px: 1 }}>
+          {/* Labels Header */}
+          <ListItemButton
+            onClick={() => setLabelsExpanded((prev) => !prev)}
+            sx={{
+              borderRadius: 2,
+              minHeight: 44,
+              py: 0.5,
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              <Tag size={18} />
+            </ListItemIcon>
+            <ListItemText
+              primary={t.email?.labels?.title || 'Etichette'}
+              slotProps={{
+                primary: {
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: 0.5,
+                },
+              }}
+            />
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLabelDialogOpen(true);
+              }}
+              sx={{ mr: 0.5 }}
+            >
+              <Plus size={16} />
+            </IconButton>
+            {labelsExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+          </ListItemButton>
+
+          {/* Labels List */}
+          <Collapse in={labelsExpanded} timeout="auto" unmountOnExit>
+            <List disablePadding sx={{ pl: 2 }}>
+              {userLabels.length === 0 ? (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ px: 2, py: 1, display: 'block' }}
+                >
+                  {t.email?.labels?.noLabels || 'Nessuna etichetta'}
+                </Typography>
+              ) : (
+                userLabels.map((label) => {
+                  const isSelected = filters.labelId === label.id;
+                  return (
+                    <ListItemButton
+                      key={label.id}
+                      selected={isSelected}
+                      onClick={() => handleLabelClick(label.id)}
+                      sx={{
+                        borderRadius: 2,
+                        minHeight: 40,
+                        py: 0.25,
+                        '&.Mui-selected': {
+                          backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                        },
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        <Tag
+                          size={16}
+                          color={label.color?.backgroundColor || '#9e9e9e'}
+                          fill={label.color?.backgroundColor || '#9e9e9e'}
+                        />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={label.name}
+                        slotProps={{
+                          primary: {
+                            fontSize: '0.8125rem',
+                            noWrap: true,
+                            fontWeight: isSelected ? 500 : 400,
+                          },
+                        }}
+                      />
+                      {label._count?.emailLabels !== undefined &&
+                        label._count.emailLabels > 0 && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                          >
+                            {label._count.emailLabels}
+                          </Typography>
+                        )}
+                    </ListItemButton>
+                  );
+                })
+              )}
+            </List>
+          </Collapse>
+        </Box>
+
         {/* Provider Sections */}
         {data?.providers && data.providers.length > 0 && (
           <>
@@ -383,6 +510,12 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
         {/* Bottom padding */}
         <Box sx={{ height: 16 }} />
       </Box>
+
+      {/* Create Label Dialog */}
+      <LabelDialog
+        open={labelDialogOpen}
+        onClose={() => setLabelDialogOpen(false)}
+      />
     </Drawer>
   );
 }

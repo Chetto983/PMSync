@@ -18,3 +18,4 @@ export * from './contacts-keys';
 export * from './use-contacts';
 export * from './email-keys';
 export * from './use-emails';
+export * from './use-labels';

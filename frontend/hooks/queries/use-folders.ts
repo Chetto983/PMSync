@@ -6,12 +6,30 @@
  * - Long staleTime (5 min) - folders rarely change
  * - Proper gcTime for memory efficiency
  * - Query prefetching support
+ * - useMutation for create/rename/delete with cache invalidation
  *
  * @see https://tanstack.com/query/v5/docs/framework/react/guides/queries
+ * @see https://tanstack.com/query/v5/docs/framework/react/guides/mutations
  */
 
-import { useQuery, queryOptions } from '@tanstack/react-query';
-import { getFolders, getFoldersByProvider, type FoldersResponse, type ProviderFoldersResponse } from '@/lib/api/folders';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  queryOptions,
+} from '@tanstack/react-query';
+import {
+  getFolders,
+  getFoldersByProvider,
+  createFolder,
+  renameFolder,
+  deleteFolder,
+  syncFolders,
+  syncAllFolders,
+  type FoldersResponse,
+  type ProviderFoldersResponse,
+  type CreateFolderRequest,
+} from '@/lib/api/folders';
 
 // ============================================================================
 // Query Keys
@@ -88,4 +106,135 @@ export function useFolders() {
  */
 export function useFoldersByProvider(providerId: string) {
   return useQuery(foldersByProviderOptions(providerId));
+}
+
+// ============================================================================
+// Mutation Hooks
+// ============================================================================
+
+/**
+ * Hook for creating a new folder
+ *
+ * @example
+ * ```tsx
+ * const createFolder = useCreateFolder();
+ * createFolder.mutate({ name: 'My Folder', providerId: 'provider-id' });
+ * ```
+ */
+export function useCreateFolder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (dto: CreateFolderRequest) => createFolder(dto),
+    onSuccess: (_, variables) => {
+      // Invalidate both general and provider-specific queries
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: folderKeys.byProvider(variables.providerId),
+      });
+    },
+  });
+}
+
+/**
+ * Hook for renaming a folder
+ *
+ * @example
+ * ```tsx
+ * const renameFolder = useRenameFolder();
+ * renameFolder.mutate({ folderId: '123', newName: 'New Name', providerId: 'provider-id' });
+ * ```
+ */
+export function useRenameFolder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      folderId,
+      newName,
+    }: {
+      folderId: string;
+      newName: string;
+      providerId: string;
+    }) => renameFolder(folderId, { newName }),
+    onSuccess: (_, variables) => {
+      // Invalidate both general and provider-specific queries
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: folderKeys.byProvider(variables.providerId),
+      });
+    },
+  });
+}
+
+/**
+ * Hook for deleting a folder
+ *
+ * @example
+ * ```tsx
+ * const deleteFolder = useDeleteFolder();
+ * deleteFolder.mutate({ folderId: '123', providerId: 'provider-id' });
+ * ```
+ */
+export function useDeleteFolder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      folderId,
+    }: {
+      folderId: string;
+      providerId: string;
+    }) => deleteFolder(folderId),
+    onSuccess: (_, variables) => {
+      // Invalidate both general and provider-specific queries
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: folderKeys.byProvider(variables.providerId),
+      });
+    },
+  });
+}
+
+/**
+ * Hook for syncing folders for a specific provider
+ *
+ * @example
+ * ```tsx
+ * const sync = useSyncFolders();
+ * sync.mutate('provider-id');
+ * ```
+ */
+export function useSyncFolders() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (providerId: string) => syncFolders(providerId),
+    onSuccess: (_, providerId) => {
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: folderKeys.byProvider(providerId),
+      });
+    },
+  });
+}
+
+/**
+ * Hook for syncing folders for all providers
+ *
+ * @example
+ * ```tsx
+ * const syncAll = useSyncAllFolders();
+ * syncAll.mutate();
+ * ```
+ */
+export function useSyncAllFolders() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => syncAllFolders(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: folderKeys.all });
+    },
+  });
 }

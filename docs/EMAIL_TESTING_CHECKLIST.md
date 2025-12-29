@@ -1199,14 +1199,174 @@ cat test-report.md
 
 ---
 
-## 10. Edge Cases (12 tests)
+## 10. Label & Folder Management (16 tests) - NEW
 
-### 10.1 Empty Inbox
+> **Phase 3**: Label and folder CRUD operations with UI dialogs
+
+### 10.1 Create Label Dialog
+
+- [ ] **TEST**: Open create label dialog
+- **Steps**:
+  1. Click "+" button in Labels section
+  2. Enter label name
+  3. Select color
+  4. Click Create
+- **Expected**: Label created, appears in sidebar
+- **Notes**:
+
+### 10.2 Edit Label Dialog
+
+- [ ] **TEST**: Edit existing label
+- **Steps**:
+  1. Right-click label in sidebar
+  2. Select "Edit"
+  3. Modify name/color
+  4. Save
+- **Expected**: Label updated in sidebar
+- **Notes**:
+
+### 10.3 Delete Label
+
+- [ ] **TEST**: Delete label with confirmation
+- **Steps**:
+  1. Right-click label
+  2. Select "Delete"
+  3. Confirm in dialog
+- **Expected**: Label removed, emails retain but without label
+- **Notes**:
+
+### 10.4 Label Color Picker
+
+- [ ] **TEST**: Color selection in dialog
+- **Steps**:
+  1. Open label dialog
+  2. Click different colors
+- **Expected**: Color selected, preview updates
+- **Notes**:
+
+### 10.5 Create Folder (Account-specific)
+
+- [ ] **TEST**: Create folder for account
+- **Steps**:
+  1. Right-click account in sidebar
+  2. Select "New Folder"
+  3. Enter name
+  4. Create
+- **Expected**: Folder appears under account
+- **Notes**:
+
+### 10.6 Rename Folder
+
+- [ ] **TEST**: Rename existing folder
+- **Steps**:
+  1. Right-click folder
+  2. Select "Rename"
+  3. Enter new name
+- **Expected**: Folder renamed, emails preserved
+- **Notes**:
+
+### 10.7 Delete Folder
+
+- [ ] **TEST**: Delete folder with warning
+- **Steps**:
+  1. Right-click folder
+  2. Select "Delete"
+  3. Confirm deletion
+- **Expected**: Folder deleted, emails moved to trash or deleted
+- **Notes**:
+
+### 10.8 Label Context Menu
+
+- [ ] **TEST**: Right-click context menu appears
+- **Steps**:
+  1. Right-click any label
+  2. Check menu options
+- **Expected**: Shows Edit, Delete options
+- **Notes**:
+
+### 10.9 Folder Context Menu
+
+- [ ] **TEST**: Right-click context menu on folder
+- **Steps**:
+  1. Right-click folder in account section
+  2. Check menu options
+- **Expected**: Shows Rename, Delete, possibly New Subfolder
+- **Notes**:
+
+### 10.10 Apply Label to Email
+
+- [ ] **TEST**: Add label to email from thread view
+- **Steps**:
+  1. Open email
+  2. Click label icon in toolbar
+  3. Select label
+- **Expected**: Label added to email, chip visible
+- **Notes**:
+
+### 10.11 Remove Label from Email
+
+- [ ] **TEST**: Remove label from email
+- **Steps**:
+  1. Open labeled email
+  2. Click X on label chip
+- **Expected**: Label removed from email
+- **Notes**:
+
+### 10.12 Label Name Validation
+
+- [ ] **TEST**: Empty name rejected
+- **Steps**:
+  1. Open create label dialog
+  2. Leave name empty
+  3. Try to create
+- **Expected**: Validation error shown
+- **Notes**:
+
+### 10.13 Duplicate Label Prevention
+
+- [ ] **TEST**: Cannot create duplicate label name
+- **Steps**:
+  1. Try to create label with existing name
+- **Expected**: Error message about duplicate
+- **Notes**:
+
+### 10.14 Mobile Label Management
+
+- [ ] **TEST**: Create label on mobile
+- **Steps**:
+  1. Open Folders sheet (bottom nav)
+  2. Look for "+" or create option
+- **Expected**: Can create/manage labels on mobile
+- **Notes**:
+
+### 10.15 Nested Folders Display
+
+- [ ] **TEST**: Nested folders expand/collapse
+- **Steps**:
+  1. Create nested folder structure
+  2. Test expand/collapse
+- **Expected**: Hierarchical display with indentation
+- **Notes**:
+
+### 10.16 Optimistic Updates for Labels
+
+- [ ] **TEST**: Label creates instantly
+- **Steps**:
+  1. Create label
+  2. Observe immediate feedback
+- **Expected**: Label appears immediately, persists after refresh
+- **Notes**:
+
+---
+
+## 11. Edge Cases (12 tests)
+
+### 11.1 Empty Inbox
 
 - [ ] **TEST**: Empty inbox shows message
 - **Expected**: Friendly empty state, not error
 
-### 10.2 Very Long Subjects
+### 11.2 Very Long Subjects
 
 - [ ] **TEST**: Long subject truncates properly
 - **Expected**: Ellipsis, no layout break
@@ -1270,7 +1430,6 @@ cat test-report.md
 
 | Section | Total Tests | Passed | Failed |
 |---------|-------------|--------|--------|
-
 | 1. Smart Filters | 8 | | |
 | 2. Email List View | 12 | | |
 | 3. Email Thread View | 15 | | |
@@ -1280,8 +1439,9 @@ cat test-report.md
 | 7. Attachment Handling | 10 | | |
 | 8. API Integration | 26 | **26** | **0** |
 | 9. Translation Verification | 8 | | |
-| 10. Edge Cases | 12 | | |
-| **TOTAL** | **139** | **26** | **0** |
+| 10. Label & Folder Management | 16 | | |
+| 11. Edge Cases | 12 | | |
+| **TOTAL** | **155** | **26** | **0** |
 
 ### Phase 1 API Validation - COMPLETE (2025-12-29)
 

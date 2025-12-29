@@ -64,6 +64,7 @@ import { useUserPreferences, useUpdatePreferences } from '@/hooks/queries/use-se
 import { useEmailUIStore, useEmailSidebar, type SpecialFolder } from '@/stores/email-ui-store';
 import { FolderItem } from './FolderItem';
 import { SortableFolderItem, FolderItemDisplay } from './SortableFolderItem';
+import { LabelsSidebar } from './LabelsSidebar';
 import type { Folder as FolderType, Provider } from '@/lib/api/folders';
 
 interface FolderSidebarProps {
@@ -351,6 +352,10 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                 />
               ))}
             </List>
+
+            {/* Labels Section */}
+            <Divider sx={{ my: 1 }} />
+            <LabelsSidebar collapsed={collapsed} />
 
             {/* Quick Filters - Important */}
             <Divider sx={{ my: 1 }} />
