@@ -3,4 +3,4 @@
  * Re-exports all TanStack Query mutation hooks for convenient imports
  */
 
-export * from './use-email-mutations';
+// Email mutations will be re-added after rebuild

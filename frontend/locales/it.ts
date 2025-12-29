@@ -559,6 +559,7 @@ export const it: AppTranslations = {
     selectEmail: 'Seleziona una conversazione per iniziare a collaborare.',
     allAccountsLabel: 'Tutti gli account',
     starredFolderLabel: 'Con stella',
+    sentStatus: 'Posta inviata',
     quickFilters: {
       title: 'Filtri rapidi',
       unread: 'Non lette',

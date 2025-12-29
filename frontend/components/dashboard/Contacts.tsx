@@ -42,7 +42,7 @@ import {
   ContactBulkActionBar,
   type ProviderFilter,
 } from '@/components/contacts';
-import { ComposeDialog } from '@/components/email/ComposeDialog';
+// ComposeDialog removed during email rebuild
 
 type ContactFormState = {
   firstName: string;
@@ -146,9 +146,7 @@ export function Contacts() {
     byProvider: [],
   };
 
-  // Compose dialog state
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [composeToEmail, setComposeToEmail] = useState<string>('');
+  // Compose disabled during email rebuild
 
   // Refs
   const selectedContactIdRef = useRef<string | null>(null);
@@ -621,10 +619,9 @@ export function Contacts() {
     setSelectedContact(contact);
   };
 
-  // Email handler - open compose dialog directly
-  const handleEmail = (email: string) => {
-    setComposeToEmail(email);
-    setComposeOpen(true);
+  // Email handler - disabled during email rebuild
+  const handleEmail = (_email: string) => {
+    // Compose disabled during rebuild
   };
 
   // Select all handler for bulk action bar
@@ -935,33 +932,7 @@ export function Contacts() {
         </MuiAlert>
       </Snackbar>
 
-      {/* Compose Email Dialog */}
-      <ComposeDialog
-        open={composeOpen}
-        onClose={() => {
-          setComposeOpen(false);
-          setComposeToEmail('');
-        }}
-        prefillData={{
-          to: composeToEmail ? [composeToEmail] : [],
-        }}
-        onSent={() => {
-          setComposeOpen(false);
-          setComposeToEmail('');
-          setSnackbar({
-            open: true,
-            message: 'Email sent successfully',
-            severity: 'success',
-          });
-        }}
-        onError={(message) => {
-          setSnackbar({
-            open: true,
-            message,
-            severity: 'error',
-          });
-        }}
-      />
+      {/* ComposeDialog removed during email rebuild */}
     </>
   );
 }

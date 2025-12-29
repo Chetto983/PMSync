@@ -16,7 +16,6 @@ import { DailyBriefing } from '../ai/DailyBriefing';
 
 // Non-critical widgets - lazy loaded
 const EventsWidget = lazy(() => import('./widgets/EventsWidget'));
-const PriorityInbox = lazy(() => import('./widgets/PriorityInbox'));
 const AiHubWidget = lazy(() => import('./widgets/AiHubWidget'));
 // RecentContactsWidget removed - user feedback: not useful
 const DeadlineWidget = lazy(() => import('../productivity/DeadlineWidget'));
@@ -139,13 +138,6 @@ export function Dashboard() {
         <Box sx={{ gridColumn: { xs: '1', lg: '1' } }}>
           <Suspense fallback={<WidgetSkeleton />}>
             <AiHubWidget />
-          </Suspense>
-        </Box>
-
-        {/* Priority Inbox */}
-        <Box>
-          <Suspense fallback={<WidgetSkeleton />}>
-            <PriorityInbox limit={5} />
           </Suspense>
         </Box>
 

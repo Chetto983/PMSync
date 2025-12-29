@@ -1,7 +1,17 @@
 import { create } from 'zustand';
 import { labelsApi, type Label, hexToLabelColor } from '@/lib/api/labels';
-import type { Email } from '@/lib/api/email';
 import { logger } from '@/lib/logger';
+
+// Temporary Email type until email API is rebuilt
+interface Email {
+  id: string;
+  subject?: string;
+  from: string;
+  to: string[];
+  receivedAt: string;
+  isRead: boolean;
+  isStarred: boolean;
+}
 
 interface LabelStore {
   labels: Label[];

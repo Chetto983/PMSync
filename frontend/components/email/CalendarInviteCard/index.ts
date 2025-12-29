@@ -1,1 +1,0 @@
-export { CalendarInviteCard } from './CalendarInviteCard';

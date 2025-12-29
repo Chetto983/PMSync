@@ -15,9 +15,6 @@ export { useAiChat, useAiStreamChat, type StreamChatMessage, type ChatStatus } f
 // Compose hooks
 export { useAiCompose, type ComposeOptions, type ComposeResult } from './use-ai-compose';
 
-// Email insights hooks
-export { useEmailInsights, emailInsightsKeys } from './use-email-insights';
-
 // AI actions hooks (HITL)
 export { useAiActions, aiActionsKeys } from './use-ai-actions';
 

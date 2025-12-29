@@ -1404,9 +1404,55 @@ export class IMAPDriver extends BaseEmailDriver {
               });
 
               if (!mailboxStatus.highestModseq) {
-                // Server doesn't support CONDSTORE
+                // Server doesn't support CONDSTORE - fall back to date-based search
                 hasCondstore = false;
-                this.logger.warn(`IMAP server does not support CONDSTORE for ${folderPath}`);
+                this.logger.warn(`IMAP server does not support CONDSTORE for ${folderPath}, using date-based sync`);
+
+                // Parse timestamp from sync token
+                // Token could be: timestamp "1703847234567" or multi-folder "INBOX:123,SENT:456"
+                let lastSyncDate: Date;
+                if (/^\d+$/.test(syncToken)) {
+                  // Pure timestamp format
+                  const lastSyncTimestamp = parseInt(syncToken, 10);
+                  lastSyncDate = !isNaN(lastSyncTimestamp) && lastSyncTimestamp > 0
+                    ? new Date(lastSyncTimestamp)
+                    : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                } else {
+                  // Multi-folder format or invalid - default to 7 days ago for safety
+                  lastSyncDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                }
+
+                // Search for messages since last sync date
+                const searchCriteria = { since: lastSyncDate };
+                const searchResult = await client.search(searchCriteria, { uid: true });
+
+                if (searchResult && searchResult.length > 0) {
+                  for await (const message of client.fetch(searchResult, {
+                    uid: true,
+                    flags: true,
+                    envelope: true,
+                  }, { uid: true })) {
+                    const messageId = `${folderPath}:${message.uid}`;
+
+                    if (message.flags?.has('\\Deleted')) {
+                      changes.push({
+                        messageId,
+                        type: 'deleted',
+                        folder: canonicalFolder,
+                        timestamp: new Date(),
+                      });
+                    } else {
+                      changes.push({
+                        messageId,
+                        type: 'modified',
+                        folder: canonicalFolder,
+                        timestamp: new Date(),
+                      });
+                    }
+                  }
+                }
+
+                // Continue to next folder (date-based sync completed)
                 continue;
               }
 

@@ -1,5 +1,15 @@
 import { apiClient } from '../api-client';
-import type { Email } from './email';
+
+// Temporary Email type - will be replaced when email API is rebuilt
+interface Email {
+  id: string;
+  subject?: string;
+  from: string;
+  to: string[];
+  receivedAt: string;
+  isRead: boolean;
+  isStarred: boolean;
+}
 
 // ===== UTILITIES =====
 

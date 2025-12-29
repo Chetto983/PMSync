@@ -5,6 +5,5 @@
 
 export { StatsGrid } from './StatsGrid';
 export { EventsWidget } from './EventsWidget';
-export { PriorityInbox } from './PriorityInbox';
 export { AiHubWidget } from './AiHubWidget';
 

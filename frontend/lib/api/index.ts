@@ -5,22 +5,7 @@
  * import { emailApi, aiApi, calendarApi } from '@/lib/api';
  */
 
-export { emailApi } from './email';
-export type {
-  Email,
-  EmailAttachment,
-  EmailAttachmentUpload,
-  SendEmailPayload,
-  ReplyForwardEmailPayload,
-  SendEmailResponse,
-  EmailListFilters,
-  EmailListParams,
-  EmailListResponse,
-  EmailStats,
-  EmailUpdateData,
-  Conversation,
-  ConversationsResponse,
-} from './email';
+// Email API will be re-added after rebuild
 
 export { aiApi } from './ai';
 export type {

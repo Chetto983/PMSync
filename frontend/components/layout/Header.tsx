@@ -40,12 +40,10 @@ import {
 import { useRouter } from 'next/router';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAuth } from '@/lib/hooks/use-auth';
-import { emailApi } from '@/lib/api/email';
+// Email notifications disabled during rebuild
 import { multiAgentApi } from '@/lib/api/ai';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { logger } from '@/lib/logger';
-
 interface HeaderNotification {
   id: string;
   subject: string;
@@ -77,22 +75,11 @@ export function Header({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationAnchor, setNotificationAnchor] = useState<null | HTMLElement>(null);
   const [languageAnchor, setLanguageAnchor] = useState<null | HTMLElement>(null);
-  const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  // Notifications disabled during email rebuild - static empty state
+  const notifications: HeaderNotification[] = [];
+  const notificationsLoading = false;
   const [pendingAiActions, setPendingAiActions] = useState(0);
   const { locale, changeLocale } = useLocale();
-
-  // Fetch AI pending actions count - API returns { actions: [], total, limit, offset }
-  const fetchAiPendingActions = useCallback(async () => {
-    try {
-      const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
-      const data = response.data;
-      setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
-    } catch {
-      // Silently fail - AI stats are not critical
-    }
-  }, []);
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -102,21 +89,13 @@ export function Header({
     setAnchorEl(null);
   };
 
-  const parseSender = (from: string) => {
-    if (!from) return '';
-    const match = from.match(/^(.+?)\s*<(.+?)>$/);
-    if (match) {
-      return match[1];
-    }
-    return from;
-  };
-
-  const formatRelativeTime = (isoDate?: string) => {
+  const formatRelativeTime = useCallback((isoDate?: string) => {
     if (!isoDate) {
       return '';
     }
     const date = new Date(isoDate);
-    const diffMs = Date.now() - date.getTime();
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
     const diffMinutes = Math.floor(diffMs / 60000);
     if (diffMinutes < 1) return t.timeAgo.justNow;
     if (diffMinutes < 60) return t.timeAgo.minutesAgo.replace('{minutes}', diffMinutes.toString());
@@ -125,34 +104,12 @@ export function Header({
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return t.timeAgo.daysAgo.replace('{days}', diffDays.toString());
     return date.toLocaleDateString();
-  };
+  }, [t.timeAgo]);
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      setNotificationsLoading(true);
-      setNotificationsError(null);
-      const response = await emailApi.listEmails({
-        page: 1,
-        limit: 5,
-        isRead: false,
-      });
-
-      const items = response.data.emails || [];
-      const mapped: HeaderNotification[] = items.map((email) => ({
-        id: email.id,
-        subject: email.subject || t.common.noSubject,
-        sender: parseSender(email.from),
-        receivedAt: email.receivedAt || email.sentAt || email.createdAt,
-      }));
-      setNotifications(mapped);
-    } catch (error) {
-      logger.error('Failed to load notifications', { error });
-      setNotifications([]);
-      setNotificationsError(t.settings.mailAccountsPanel.loadError);
-    } finally {
-      setNotificationsLoading(false);
-    }
-  }, [t]);
+  // Notifications disabled during email rebuild - no-op function
+  const fetchNotifications = useCallback(() => {
+    // Disabled during rebuild - state already initialized to empty
+  }, []);
 
   const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => {
     setNotificationAnchor(event.currentTarget);
@@ -191,12 +148,42 @@ export function Header({
   };
 
   useEffect(() => {
-    fetchNotifications();
-    fetchAiPendingActions();
+    let mounted = true;
+
+    // Initial fetch with mount check
+    const initFetch = async () => {
+      fetchNotifications();
+      try {
+        const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
+        if (mounted) {
+          const data = response.data;
+          setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
+        }
+      } catch {
+        // Silently fail - AI stats are not critical
+      }
+    };
+
+    initFetch();
+
     // Refresh AI actions periodically
-    const interval = setInterval(fetchAiPendingActions, 60000);
-    return () => clearInterval(interval);
-  }, [fetchNotifications, fetchAiPendingActions]);
+    const interval = setInterval(async () => {
+      try {
+        const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
+        if (mounted) {
+          const data = response.data;
+          setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
+        }
+      } catch {
+        // Silently fail
+      }
+    }, 60000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [fetchNotifications]);
 
   const unreadCount = notifications.length;
   const displayName =
@@ -586,14 +573,7 @@ export function Header({
               <CircularProgress size={24} />
             </Box>
           )}
-          {!notificationsLoading && notificationsError && (
-            <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-              <Typography variant="body2" color="error">
-                {notificationsError}
-              </Typography>
-            </Box>
-          )}
-          {!notificationsLoading && !notificationsError && notifications.length === 0 && (
+          {!notificationsLoading && notifications.length === 0 && (
             <Box sx={{ px: 2, py: 4, textAlign: 'center' }}>
               <Mail size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
               <Typography variant="body2" color="text.secondary">
@@ -602,7 +582,6 @@ export function Header({
             </Box>
           )}
           {!notificationsLoading &&
-            !notificationsError &&
             notifications.map((notification) => (
               <MenuItem
                 key={notification.id}

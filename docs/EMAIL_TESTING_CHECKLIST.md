@@ -57,7 +57,7 @@ cat test-report.md
 
 ### 1.1 Unread Filter
 
-- [x] **TEST**: Click "Unread" in smart filters
+- [ ] **TEST**: Click "Unread" in smart filters
 - **Steps**:
   1. Navigate to Email page
   2. Click "Unread" filter in left sidebar
@@ -67,7 +67,7 @@ cat test-report.md
 
 ### 1.2 Today Filter
 
-- [x] **TEST**: Click "Today" in smart filters
+- [ ] **TEST**: Click "Today" in smart filters
 - **Steps**:
   1. Click "Today" filter
   2. Check email dates in list
@@ -76,7 +76,7 @@ cat test-report.md
 
 ### 1.3 This Week Filter
 
-- [x] **TEST**: Click "This Week" in smart filters
+- [ ] **TEST**: Click "This Week" in smart filters
 - **Steps**:
   1. Click "This Week" filter
   2. Check email dates in list
@@ -85,7 +85,7 @@ cat test-report.md
 
 ### 1.4 Attachments Filter
 
-- [x] **TEST**: Click "Attachments" in smart filters
+- [ ] **TEST**: Click "Attachments" in smart filters
 - **Steps**:
   1. Click "Attachments" filter
   2. Verify all emails show paperclip icon
@@ -94,7 +94,7 @@ cat test-report.md
 
 ### 1.5 Important Filter
 
-- [x] **TEST**: Click "Important" in smart filters
+- [ ] **TEST**: Click "Important" in smart filters
 - **Steps**:
   1. Click "Important" filter
   2. Verify all emails have important flag
@@ -103,7 +103,7 @@ cat test-report.md
 
 ### 1.9 Label Filter
 
-- [x] **TEST**: Click Label in sidebar
+- [ ] **TEST**: Click Label in sidebar
 - **Steps**:
   1. Click a label (e.g., Pubblicità)
   2. Verify emails filtered by label
@@ -113,7 +113,7 @@ cat test-report.md
 
 ### 1.7 Stats Counter Accuracy
 
-- [x] **TEST**: Verify header stats counter matches filter results
+- [ ] **TEST**: Verify header stats counter matches filter results
 - **Steps**:
   1. Note the "X unread" count in header
   2. Click Unread filter
@@ -123,7 +123,7 @@ cat test-report.md
 
 ### 1.8 Filter Switching
 
-- [x] **TEST**: Switch between filters rapidly
+- [ ] **TEST**: Switch between filters rapidly
 - **Steps**:
   1. Click Unread filter
   2. Immediately click Today filter
@@ -137,7 +137,7 @@ cat test-report.md
 
 ### 2.1 List Rendering
 
-- [x] **TEST**: Email list renders correctly
+- [] **TEST**: Email list renders correctly
 - **Steps**:
   1. Navigate to INBOX
   2. Verify list items show sender, subject, date
@@ -146,7 +146,7 @@ cat test-report.md
 
 ### 2.2 Virtual Scrolling
 
-- [x] **TEST**: Scroll through large email list
+- [] **TEST**: Scroll through large email list
 - **Steps**:
   1. Open folder with 100+ emails
   2. Scroll rapidly up and down
@@ -156,7 +156,7 @@ cat test-report.md
 
 ### 2.3 Thread Click Opens Detail
 
-- [x] **TEST**: Click email to open thread view
+- [] **TEST**: Click email to open thread view
 - **Steps**:
   1. Click any email in list
   2. Verify thread panel opens on right
@@ -165,7 +165,7 @@ cat test-report.md
 
 ### 2.4 Single Checkbox Select
 
-- [x] **TEST**: Select single email with checkbox
+- [] **TEST**: Select single email with checkbox
 - **Steps**:
   1. Hover over email
   2. Click checkbox
@@ -193,7 +193,7 @@ cat test-report.md
 
 ### 2.7 Star Toggle from List
 
-- [x] **TEST**: Star/unstar email from list
+- [] **TEST**: Star/unstar email from list
 - **Steps**:
   1. Click star icon on email
   2. Verify star fills with color
@@ -203,7 +203,7 @@ cat test-report.md
 
 ### 2.8 Unread Bold Styling
 
-- [x] **TEST**: Unread emails appear bold
+- [] **TEST**: Unread emails appear bold
 - **Steps**:
   1. Find unread email (blue dot or bold text)
   2. Click to read it
@@ -223,7 +223,7 @@ cat test-report.md
 
 ### 2.10 Attachment Icon
 
-- [x] **TEST**: Attachment paperclip icon visible
+- [] **TEST**: Attachment paperclip icon visible
 - **Steps**:
   1. Find email with attachment
   2. Verify paperclip icon in list item
@@ -232,7 +232,7 @@ cat test-report.md
 
 ### 2.11 Empty State Display
 
-- [x] **TEST**: Empty folder shows message
+- [] **TEST**: Empty folder shows message
 - **Steps**:
   1. Navigate to empty folder (or create one)
   2. Verify empty state illustration
@@ -241,7 +241,7 @@ cat test-report.md
 
 ### 2.12 Infinite Scroll Pagination
 
-- [x] **TEST**: Scroll to load more emails
+- [] **TEST**: Scroll to load more emails
 - **Steps**:
   1. Open folder with 50+ emails
   2. Scroll to bottom
@@ -1251,7 +1251,6 @@ cat test-report.md
 
 | Issue | Description | Status | Fix Date |
 |-------|-------------|--------|----------|
-| | | | |
 
 ---
 

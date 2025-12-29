@@ -1,5 +1,23 @@
 import { apiClient } from '../api-client';
-import type { EmailListParams } from './email';
+
+// EmailListParams type - will be re-added with email API rebuild
+export interface EmailListParams {
+  page?: number;
+  limit?: number;
+  providerId?: string;
+  folder?: string;
+  specialUse?: string;
+  isRead?: boolean;
+  isStarred?: boolean;
+  isFlagged?: boolean;
+  isImportant?: boolean;
+  hasAttachments?: boolean;
+  search?: string;
+  labelIds?: string[];
+  startDate?: string;
+  endDate?: string;
+  excludeTrashSpam?: boolean;
+}
 
 // =============================================================================
 // FOLDER ID PREFIXES - Used to identify folder types from their ID

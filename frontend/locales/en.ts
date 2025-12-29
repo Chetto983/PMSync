@@ -566,6 +566,7 @@ export const en: AppTranslations = {
     selectEmail: 'Select a conversation to start collaborating.',
     allAccountsLabel: 'All accounts',
     starredFolderLabel: 'Starred',
+    sentStatus: 'Sent',
     quickFilters: {
       title: 'Quick Filters',
       unread: 'Unread',

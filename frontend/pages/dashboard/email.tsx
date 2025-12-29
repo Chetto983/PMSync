@@ -1,50 +1,37 @@
 import React from 'react';
-import { useRouter } from 'next/router';
-import { Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { Layout } from '@/components/layout/Layout';
-import { Mailbox } from '@/components/dashboard/Mailbox';
-import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
+import { Mail } from 'lucide-react';
 
 /**
- * Email Page - Dedicated full-screen email management interface
+ * Email Page - Placeholder during rebuild
  *
- * Full-featured email client with:
- * - Folder navigation
- * - Email list with search and filters
- * - Email detail view
- * - Compose functionality
- * - Bulk actions
- * - Uses shared Layout for consistent theming
+ * Will be rebuilt step by step with clean Outlook/Superhuman design
  */
 export default function EmailPage() {
-  const router = useRouter();
-
-  // Read query parameters from URL
-  const searchQuery = typeof router.query.search === 'string' ? router.query.search : undefined;
-  const emailId = typeof router.query.id === 'string' ? router.query.id : undefined;
-
   return (
     <Layout>
-      <PageErrorBoundary pageName="Email">
-        <Box
-          sx={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            height: '100%',
-            minHeight: 0,
-            minWidth: 0, // Critical: allows flex item to shrink below content size
-          }}
-        >
-          <Mailbox initialSearchQuery={searchQuery} initialEmailId={emailId} />
-        </Box>
-      </PageErrorBoundary>
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          gap: 2,
+        }}
+      >
+        <Mail size={64} strokeWidth={1.5} />
+        <Typography variant="h5">Email Module Rebuilding</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Clean Outlook/Superhuman design coming soon
+        </Typography>
+      </Box>
     </Layout>
   );
 }
 
-// Force SSR to avoid NextRouter SSR errors
 export const getServerSideProps = async () => {
   return { props: {} };
 };

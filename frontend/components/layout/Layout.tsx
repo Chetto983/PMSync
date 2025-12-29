@@ -2,12 +2,11 @@ import React, { useState } from 'react';
 import { Box, ThemeProvider, CssBaseline, Snackbar, Alert } from '@mui/material';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { CommandPalette, useCommandPalette } from './CommandPalette';
 import { CookieConsent } from '@/components/ui/cookie-consent';
 import { darkTheme, lightTheme } from '@/theme/appTheme';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
 import { useAuth } from '@/lib/hooks/use-auth';
-import { useWebSocket } from '@/hooks/use-websocket';
+// WebSocket disabled during email rebuild
 import { useSyncStore } from '@/stores/sync-store';
 
 export interface LayoutProps {
@@ -15,8 +14,8 @@ export interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { token } = useAuth();
-  useWebSocket(token || null, true);
+  useAuth(); // Keep auth for session management
+  // WebSocket disabled during email rebuild
   const { lastStatus, clear } = useSyncStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -24,9 +23,6 @@ export function Layout({ children }: LayoutProps) {
   // Unified theme management - syncs with database
   const { resolvedTheme, isDarkMode, toggleTheme } = useThemePersistence();
   const theme = resolvedTheme === 'dark' ? darkTheme : lightTheme;
-
-  // Command palette state
-  const { isOpen: commandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
 
   const handleToggleCollapse = () => {
     setCollapsed(!collapsed);
@@ -103,12 +99,6 @@ export function Layout({ children }: LayoutProps) {
           </Snackbar>
         )}
         <CookieConsent />
-
-        {/* Command Palette (Cmd+K) */}
-        <CommandPalette
-          open={commandPaletteOpen}
-          onClose={closeCommandPalette}
-        />
       </Box>
     </ThemeProvider>
   );

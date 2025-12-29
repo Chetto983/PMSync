@@ -498,6 +498,7 @@ export interface AppTranslations {
     selectEmail: string;
     allAccountsLabel: string;
     starredFolderLabel: string;
+    sentStatus: string;
     quickFilters: {
       title: string;
       unread: string;

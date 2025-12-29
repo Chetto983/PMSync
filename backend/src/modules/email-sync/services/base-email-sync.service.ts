@@ -119,6 +119,44 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
           newMessages = result.newMessages;
           newSyncToken = result.newSyncToken;
           driver = result.driver; // Use potentially refreshed driver for disconnect
+
+          // IMAP-SYNC-FIX: If incremental sync found nothing, check if we need full sync
+          // This handles stale tokens, servers without CONDSTORE, and the legacy single-folder sync bug
+          if (messagesProcessed === 0 && newMessages === 0) {
+            // Check email counts per folder to detect missing folder syncs
+            const folderCounts = await this.prisma.email.groupBy({
+              by: ['folder'],
+              where: { providerId },
+              _count: true,
+            });
+
+            const folderMap = new Map(folderCounts.map(f => [f.folder, f._count]));
+            const inboxCount = folderMap.get('INBOX') || 0;
+            const sentCount = folderMap.get('SENT') || 0;
+            const draftsCount = folderMap.get('DRAFTS') || 0;
+
+            // Force full sync if:
+            // 1. INBOX has emails but SENT folder is completely empty (legacy bug)
+            // 2. Or overall email count is very low (new provider)
+            const totalCount = folderCounts.reduce((sum, f) => sum + f._count, 0);
+            const needsFullSync = (inboxCount > 0 && sentCount === 0) || totalCount < 3;
+
+            if (needsFullSync) {
+              this.logger.warn(
+                `Incremental sync found 0 changes - DB has INBOX:${inboxCount}, SENT:${sentCount}, DRAFTS:${draftsCount} - forcing full sync to repair`,
+              );
+              const fullResult = await this.syncFullWithDriver(
+                driver,
+                providerId,
+                tenantId,
+                tokenExpiresAt,
+              );
+              messagesProcessed = fullResult.messagesProcessed;
+              newMessages = fullResult.newMessages;
+              newSyncToken = fullResult.syncToken;
+              driver = fullResult.driver;
+            }
+          }
         } else {
           // Full sync using driver
           // CRIT-3 FIX: Pass token expiry for mid-sync refresh
