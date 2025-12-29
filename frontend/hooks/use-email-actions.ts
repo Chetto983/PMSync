@@ -24,7 +24,6 @@ import {
   useBulkFlag,
   useBulkMarkRead,
   useBulkMoveToFolder,
-  useBulkStar,
   useDeleteEmail,
   useUpdateEmail,
 } from '@/hooks/mutations';
@@ -75,12 +74,10 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // Zustand store actions
   const {
     updateEmail,
     deleteEmail,
     markAsRead,
-    markAsStarred,
     bulkDelete,
     moveToFolder,
     setSelectedEmail,
@@ -90,7 +87,6 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   const deleteEmailMutation = useDeleteEmail();
   const bulkDeleteMutation = useBulkDelete();
   const bulkMarkReadMutation = useBulkMarkRead();
-  const bulkStarMutation = useBulkStar();
   const bulkFlagMutation = useBulkFlag();
   const bulkMoveToFolderMutation = useBulkMoveToFolder();
   const updateEmailMutation = useUpdateEmail();
@@ -270,74 +266,34 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
   );
 
   /**
-   * Toggle star on email
+   * Toggle flag on email (unified star/flag/important like Outlook)
    */
   const handleToggleStar = useCallback(
-    (emailId: string, currentStarred: boolean) => {
-      const newStarred = !currentStarred;
+    (emailId: string, currentFlagged: boolean) => {
+      const newFlagged = !currentFlagged;
 
-      // Optimistic update
-      markAsStarred([emailId], newStarred);
+      // Optimistic update - toggle both isStarred and isFlagged for consistency
+      useEmailStore.getState().markAsImportant([emailId], newFlagged);
 
-      // Fire mutation (use bulk endpoint - more efficient)
-      bulkStarMutation.mutate(
-        { emailIds: [emailId], isStarred: newStarred },
-        {
-          onSuccess: () => {
-            invalidateEmailCaches([emailId]);
-            callbacksRef.current?.onSuccess?.(
-              replaceCount(newStarred ? t.email.messages.starred : t.email.messages.unstarred, 1)
-            );
-          },
-          onError: (error) => {
-            // Rollback
-            markAsStarred([emailId], currentStarred);
-            logger.error('[EmailActions] Failed to toggle star', {
-              emailId,
-              errorMessage: getApiErrorMessage(error),
-            });
-            callbacksRef.current?.onError?.(
-              newStarred ? t.email.messages.starFailed : t.email.messages.unstarFailed
-            );
-          },
-        }
-      );
-    },
-    [bulkStarMutation, invalidateEmailCaches, markAsStarred, t.email.messages]
-  );
-
-  /**
-   * Toggle important status on email
-   */
-  const handleToggleImportant = useCallback(
-    (emailId: string, currentImportant: boolean) => {
-      const newImportant = !currentImportant;
-
-      // Optimistic update
-      useEmailStore.getState().markAsImportant([emailId], newImportant);
-
-      // Fire mutation (use bulk endpoint - more efficient)
+      // Fire mutation using flag endpoint (works for both Google and Microsoft)
       bulkFlagMutation.mutate(
-        { emailIds: [emailId], isFlagged: newImportant },
+        { emailIds: [emailId], isFlagged: newFlagged },
         {
           onSuccess: () => {
             invalidateEmailCaches([emailId]);
             callbacksRef.current?.onSuccess?.(
-              replaceCount(
-                newImportant ? t.email.messages.markedImportant : t.email.messages.unmarkedImportant,
-                1
-              )
+              replaceCount(newFlagged ? t.email.messages.markedImportant : t.email.messages.unmarkedImportant, 1)
             );
           },
           onError: (error) => {
             // Rollback
-            useEmailStore.getState().markAsImportant([emailId], currentImportant);
-            logger.error('[EmailActions] Failed to toggle important', {
+            useEmailStore.getState().markAsImportant([emailId], currentFlagged);
+            logger.error('[EmailActions] Failed to toggle flag', {
               emailId,
               errorMessage: getApiErrorMessage(error),
             });
             callbacksRef.current?.onError?.(
-              newImportant ? t.email.messages.markedImportantFailed : t.email.messages.unmarkedImportantFailed
+              newFlagged ? t.email.messages.markedImportantFailed : t.email.messages.unmarkedImportantFailed
             );
           },
         }
@@ -639,7 +595,6 @@ export function useEmailActions(callbacks?: EmailActionsCallbacks) {
     handleDelete,
     handleToggleRead,
     handleToggleStar,
-    handleToggleImportant,
     handleEmailClick,
     // Bulk actions
     handleBulkDelete,

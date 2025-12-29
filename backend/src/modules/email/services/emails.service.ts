@@ -1606,7 +1606,10 @@ export class EmailsService {
         id: { in: emailIds },
         tenantId,
       },
-      data: { isStarred },
+      data: {
+        isStarred,
+        isFlagged: isStarred
+      },
     });
 
     // Sync to provider (async, don't wait)
@@ -1671,12 +1674,17 @@ export class EmailsService {
     );
 
     // Update in database
+    // UNIFICATION FIX: Update both isFlagged and isStarred to ensure UI consistency
+    // Frontend checks (isStarred || isFlagged || isImportant), so we must sync them.
     const result = await this.prisma.email.updateMany({
       where: {
         id: { in: emailIds },
         tenantId,
       },
-      data: { isFlagged },
+      data: {
+        isFlagged,
+        isStarred: isFlagged
+      },
     });
 
     // Sync to provider (async, don't wait)

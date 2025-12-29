@@ -56,7 +56,8 @@ cat test-report.md
 ## 1. Smart Filters (8 tests)
 
 ### 1.1 Unread Filter
-- [ ] **TEST**: Click "Unread" in smart filters
+
+- [x] **TEST**: Click "Unread" in smart filters
 - **Steps**:
   1. Navigate to Email page
   2. Click "Unread" filter in left sidebar
@@ -65,7 +66,8 @@ cat test-report.md
 - **Notes**: Stats counter should match filtered count
 
 ### 1.2 Today Filter
-- [ ] **TEST**: Click "Today" in smart filters
+
+- [x] **TEST**: Click "Today" in smart filters
 - **Steps**:
   1. Click "Today" filter
   2. Check email dates in list
@@ -73,7 +75,8 @@ cat test-report.md
 - **Notes**:
 
 ### 1.3 This Week Filter
-- [ ] **TEST**: Click "This Week" in smart filters
+
+- [x] **TEST**: Click "This Week" in smart filters
 - **Steps**:
   1. Click "This Week" filter
   2. Check email dates in list
@@ -81,7 +84,8 @@ cat test-report.md
 - **Notes**:
 
 ### 1.4 Attachments Filter
-- [ ] **TEST**: Click "Attachments" in smart filters
+
+- [x] **TEST**: Click "Attachments" in smart filters
 - **Steps**:
   1. Click "Attachments" filter
   2. Verify all emails show paperclip icon
@@ -89,7 +93,8 @@ cat test-report.md
 - **Notes**:
 
 ### 1.5 Important Filter
-- [ ] **TEST**: Click "Important" in smart filters
+
+- [x] **TEST**: Click "Important" in smart filters
 - **Steps**:
   1. Click "Important" filter
   2. Verify all emails have important flag
@@ -97,7 +102,8 @@ cat test-report.md
 - **Notes**:
 
 ### 1.6 Starred Filter
-- [ ] **TEST**: Click "Starred" in smart filters
+
+- [x] **TEST**: Click "Starred" in smart filters
 - **Steps**:
   1. Click "Starred" filter
   2. Verify all emails have star icon filled
@@ -105,6 +111,7 @@ cat test-report.md
 - **Notes**:
 
 ### 1.7 Stats Counter Accuracy
+
 - [ ] **TEST**: Verify header stats counter matches filter results
 - **Steps**:
   1. Note the "X unread" count in header
@@ -114,6 +121,7 @@ cat test-report.md
 - **Notes**:
 
 ### 1.8 Filter Switching
+
 - [ ] **TEST**: Switch between filters rapidly
 - **Steps**:
   1. Click Unread filter
@@ -127,6 +135,7 @@ cat test-report.md
 ## 2. Email List View (12 tests)
 
 ### 2.1 List Rendering
+
 - [ ] **TEST**: Email list renders correctly
 - **Steps**:
   1. Navigate to INBOX
@@ -135,6 +144,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.2 Virtual Scrolling
+
 - [ ] **TEST**: Scroll through large email list
 - **Steps**:
   1. Open folder with 100+ emails
@@ -144,6 +154,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.3 Thread Click Opens Detail
+
 - [ ] **TEST**: Click email to open thread view
 - **Steps**:
   1. Click any email in list
@@ -152,6 +163,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.4 Single Checkbox Select
+
 - [ ] **TEST**: Select single email with checkbox
 - **Steps**:
   1. Hover over email
@@ -161,6 +173,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.5 Ctrl+Click Multi-Select
+
 - [ ] **TEST**: Select multiple non-adjacent emails
 - **Steps**:
   1. Click checkbox on email 1
@@ -169,6 +182,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.6 Shift+Click Range Select
+
 - [ ] **TEST**: Select range of emails
 - **Steps**:
   1. Click checkbox on email 1
@@ -177,6 +191,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.7 Star Toggle from List
+
 - [ ] **TEST**: Star/unstar email from list
 - **Steps**:
   1. Click star icon on email
@@ -186,6 +201,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.8 Unread Bold Styling
+
 - [ ] **TEST**: Unread emails appear bold
 - **Steps**:
   1. Find unread email (blue dot or bold text)
@@ -195,6 +211,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.9 Sent Folder Italic Styling
+
 - [ ] **TEST**: Sent emails show recipient instead of sender
 - **Steps**:
   1. Navigate to Sent folder
@@ -203,6 +220,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.10 Attachment Icon
+
 - [ ] **TEST**: Attachment paperclip icon visible
 - **Steps**:
   1. Find email with attachment
@@ -211,6 +229,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.11 Empty State Display
+
 - [ ] **TEST**: Empty folder shows message
 - **Steps**:
   1. Navigate to empty folder (or create one)
@@ -219,6 +238,7 @@ cat test-report.md
 - **Notes**:
 
 ### 2.12 Infinite Scroll Pagination
+
 - [ ] **TEST**: Scroll to load more emails
 - **Steps**:
   1. Open folder with 50+ emails
@@ -232,6 +252,7 @@ cat test-report.md
 ## 3. Email Thread View (15 tests)
 
 ### 3.1 Thread Toolbar - Back Button
+
 - [ ] **TEST**: Close thread with back button
 - **Steps**:
   1. Open email thread
@@ -240,6 +261,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.2 Thread Toolbar - Reply Button
+
 - [ ] **TEST**: Reply button opens compose
 - **Steps**:
   1. Open email thread
@@ -249,6 +271,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.3 Thread Toolbar - Reply All Button
+
 - [ ] **TEST**: Reply All opens compose with all recipients
 - **Steps**:
   1. Open email with multiple recipients
@@ -257,6 +280,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.4 Thread Toolbar - Forward Button
+
 - [ ] **TEST**: Forward opens compose with body
 - **Steps**:
   1. Open email thread
@@ -265,6 +289,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.5 Thread Toolbar - Delete Button
+
 - [ ] **TEST**: Delete moves email to trash
 - **Steps**:
   1. Open email thread
@@ -274,6 +299,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.6 Thread Toolbar - Archive Button
+
 - [ ] **TEST**: Archive moves email to Archive
 - **Steps**:
   1. Open email thread
@@ -283,6 +309,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.7 Thread Toolbar - Star Toggle
+
 - [ ] **TEST**: Star toggle in toolbar
 - **Steps**:
   1. Open email
@@ -291,6 +318,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.8 Thread Toolbar - Important Toggle
+
 - [ ] **TEST**: Flag/Important toggle in toolbar
 - **Steps**:
   1. Open email
@@ -299,6 +327,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.9 Thread Toolbar - Read/Unread Toggle
+
 - [ ] **TEST**: Toggle read/unread status
 - **Steps**:
   1. Open read email
@@ -308,6 +337,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.10 Thread Toolbar - Move to Folder
+
 - [ ] **TEST**: Move email to different folder
 - **Steps**:
   1. Open email
@@ -317,6 +347,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.11 Expand/Collapse Messages
+
 - [ ] **TEST**: Toggle message expansion in thread
 - **Steps**:
   1. Open thread with multiple messages
@@ -325,6 +356,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.12 Attachment Display
+
 - [ ] **TEST**: Attachments shown in thread
 - **Steps**:
   1. Open email with attachments
@@ -333,6 +365,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.13 Attachment Download
+
 - [ ] **TEST**: Download attachment
 - **Steps**:
   1. Open email with attachment
@@ -342,6 +375,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.14 Image Attachment Preview
+
 - [ ] **TEST**: Preview image attachment
 - **Steps**:
   1. Open email with image attachment
@@ -351,6 +385,7 @@ cat test-report.md
 - **Notes**:
 
 ### 3.15 Calendar Invite Display
+
 - [ ] **TEST**: Calendar invite renders correctly
 - **Steps**:
   1. Find email with calendar invite (.ics)
@@ -363,6 +398,7 @@ cat test-report.md
 ## 4. Bulk Actions (14 tests)
 
 ### 4.1 Bulk Bar Appears
+
 - [ ] **TEST**: Bulk action bar shows on selection
 - **Steps**:
   1. Select one email with checkbox
@@ -371,6 +407,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.2 Selection Count Display
+
 - [ ] **TEST**: Selection count updates correctly
 - **Steps**:
   1. Select 3 emails
@@ -379,6 +416,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.3 Max Selection Limit
+
 - [ ] **TEST**: Cannot select more than 20 emails
 - **Steps**:
   1. Try to select 25 emails
@@ -387,6 +425,7 @@ cat test-report.md
 - **Notes**: Microsoft Graph API limit
 
 ### 4.4 Clear Selection
+
 - [ ] **TEST**: Clear all selections
 - **Steps**:
   1. Select multiple emails
@@ -395,6 +434,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.5 Bulk Mark as Read
+
 - [ ] **TEST**: Mark multiple emails as read
 - **Steps**:
   1. Select 3 unread emails
@@ -403,6 +443,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.6 Bulk Mark as Unread
+
 - [ ] **TEST**: Mark multiple emails as unread
 - **Steps**:
   1. Select 3 read emails
@@ -411,6 +452,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.7 Bulk Delete
+
 - [ ] **TEST**: Delete multiple emails
 - **Steps**:
   1. Select 3 emails
@@ -420,6 +462,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.8 Bulk Archive
+
 - [ ] **TEST**: Archive multiple emails
 - **Steps**:
   1. Select 3 emails
@@ -428,6 +471,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.9 Bulk Star
+
 - [ ] **TEST**: Star multiple emails
 - **Steps**:
   1. Select 3 unstarred emails
@@ -436,6 +480,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.10 Bulk Unstar
+
 - [ ] **TEST**: Unstar multiple emails
 - **Steps**:
   1. Select 3 starred emails
@@ -444,6 +489,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.11 Bulk Flag/Important
+
 - [ ] **TEST**: Flag multiple emails
 - **Steps**:
   1. Select 3 emails
@@ -452,6 +498,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.12 Bulk Move to Folder
+
 - [ ] **TEST**: Move multiple emails to folder
 - **Steps**:
   1. Select 3 emails
@@ -461,6 +508,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.13 Bulk Add Labels
+
 - [ ] **TEST**: Add label to multiple emails
 - **Steps**:
   1. Select 3 emails
@@ -470,6 +518,7 @@ cat test-report.md
 - **Notes**:
 
 ### 4.14 Loading States
+
 - [ ] **TEST**: Loading spinner during bulk operations
 - **Steps**:
   1. Select 10 emails
@@ -483,6 +532,7 @@ cat test-report.md
 ## 5. Compose Dialog (18 tests)
 
 ### 5.1 New Compose Opens Empty
+
 - [ ] **TEST**: Compose new email
 - **Steps**:
   1. Click Compose button
@@ -491,6 +541,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.2 Reply Prefills Correctly
+
 - [ ] **TEST**: Reply prefills sender
 - **Steps**:
   1. Open email
@@ -500,6 +551,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.3 Reply-All Prefills All Recipients
+
 - [ ] **TEST**: Reply-All includes all recipients
 - **Steps**:
   1. Open email with CC recipients
@@ -509,6 +561,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.4 Forward Prefills Body
+
 - [ ] **TEST**: Forward includes original content
 - **Steps**:
   1. Open email
@@ -518,6 +571,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.5 Recipient Validation
+
 - [ ] **TEST**: Invalid email addresses rejected
 - **Steps**:
   1. Open compose
@@ -527,6 +581,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.6 Subject Field
+
 - [ ] **TEST**: Subject field accepts text
 - **Steps**:
   1. Open compose
@@ -535,6 +590,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.7 Body Editor Formatting
+
 - [ ] **TEST**: Rich text formatting works
 - **Steps**:
   1. Open compose
@@ -544,6 +600,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.8 Attachment Upload
+
 - [ ] **TEST**: Upload attachment via button
 - **Steps**:
   1. Open compose
@@ -553,6 +610,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.9 Drag-Drop Attachments
+
 - [ ] **TEST**: Drag file to compose
 - **Steps**:
   1. Open compose
@@ -561,6 +619,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.10 Send Email
+
 - [ ] **TEST**: Send email successfully
 - **Steps**:
   1. Compose email with To, Subject, Body
@@ -570,6 +629,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.11 Save Draft
+
 - [ ] **TEST**: Draft auto-saves
 - **Steps**:
   1. Compose email with content
@@ -579,6 +639,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.12 Delete Draft
+
 - [ ] **TEST**: Draft deleted after send
 - **Steps**:
   1. Start composing (let it save draft)
@@ -588,6 +649,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.13 Fullscreen Toggle
+
 - [ ] **TEST**: Toggle fullscreen compose
 - **Steps**:
   1. Open compose
@@ -596,6 +658,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.14 Provider Selection
+
 - [ ] **TEST**: Select email account/provider
 - **Steps**:
   1. Open compose (with multiple accounts)
@@ -605,6 +668,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.15 AI Compose Toggle
+
 - [ ] **TEST**: AI compose panel opens
 - **Steps**:
   1. Open compose
@@ -613,6 +677,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.16 Smart Reply Suggestions
+
 - [ ] **TEST**: Smart reply suggestions appear
 - **Steps**:
   1. Reply to email
@@ -621,6 +686,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.17 Error Handling
+
 - [ ] **TEST**: Send error shows message
 - **Steps**:
   1. Disconnect network
@@ -629,6 +695,7 @@ cat test-report.md
 - **Notes**:
 
 ### 5.18 Cancel Closes Dialog
+
 - [ ] **TEST**: Cancel button closes compose
 - **Steps**:
   1. Open compose
@@ -641,6 +708,7 @@ cat test-report.md
 ## 6. Advanced Search (16 tests)
 
 ### 6.1 Text Search
+
 - [ ] **TEST**: Search by keyword in subject/body
 - **Steps**:
   1. Click search icon
@@ -651,6 +719,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.2 From Filter
+
 - [ ] **TEST**: Filter by sender email
 - **Steps**:
   1. Open advanced search
@@ -660,6 +729,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.3 To Filter
+
 - [ ] **TEST**: Filter by recipient
 - **Steps**:
   1. Open advanced search
@@ -669,6 +739,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.4 Subject Filter
+
 - [ ] **TEST**: Filter by subject keyword
 - **Steps**:
   1. Open advanced search
@@ -677,6 +748,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.5 Label Filter
+
 - [ ] **TEST**: Filter by label
 - **Steps**:
   1. Open advanced search
@@ -686,6 +758,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.6 Date Range Filter
+
 - [ ] **TEST**: Filter by date range
 - **Steps**:
   1. Open advanced search
@@ -694,6 +767,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.7 Has Attachments Filter
+
 - [ ] **TEST**: Filter to emails with attachments
 - **Steps**:
   1. Open advanced search
@@ -702,6 +776,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.8 Starred Only Filter
+
 - [ ] **TEST**: Filter to starred emails
 - **Steps**:
   1. Open advanced search
@@ -710,6 +785,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.9 Important Only Filter
+
 - [ ] **TEST**: Filter to important emails
 - **Steps**:
   1. Open advanced search
@@ -718,6 +794,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.10 Unread Only Filter
+
 - [ ] **TEST**: Filter to unread emails
 - **Steps**:
   1. Open advanced search
@@ -726,6 +803,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.11 Read Only Filter
+
 - [ ] **TEST**: Filter to read emails
 - **Steps**:
   1. Open advanced search
@@ -734,6 +812,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.12 AI Semantic Search Tab
+
 - [ ] **TEST**: AI search tab works
 - **Steps**:
   1. Open advanced search
@@ -743,6 +822,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.13 Active Filter Count
+
 - [ ] **TEST**: Filter count updates
 - **Steps**:
   1. Open advanced search
@@ -752,6 +832,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.14 Reset All Filters
+
 - [ ] **TEST**: Reset clears all filters
 - **Steps**:
   1. Open advanced search
@@ -761,6 +842,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.15 Search Button Triggers Search
+
 - [ ] **TEST**: Search button applies filters
 - **Steps**:
   1. Open advanced search
@@ -770,6 +852,7 @@ cat test-report.md
 - **Notes**:
 
 ### 6.16 Cancel Closes Dialog
+
 - [ ] **TEST**: Cancel without searching
 - **Steps**:
   1. Open advanced search
@@ -783,6 +866,7 @@ cat test-report.md
 ## 7. Attachment Handling (10 tests)
 
 ### 7.1 Panel Variant Display
+
 - [ ] **TEST**: Attachments panel in thread view
 - **Steps**:
   1. Open email with attachments
@@ -791,6 +875,7 @@ cat test-report.md
 - **Notes**:
 
 ### 7.2 Inline Variant Display
+
 - [ ] **TEST**: Attachment chips in compact view
 - **Steps**:
   1. Check attachment display in list item
@@ -798,6 +883,7 @@ cat test-report.md
 - **Notes**:
 
 ### 7.3 File Type Icon Detection
+
 - [ ] **TEST**: Icons match file types
 - **Steps**:
   1. Open email with PDF, image, doc attachments
@@ -806,6 +892,7 @@ cat test-report.md
 - **Notes**:
 
 ### 7.4 File Size Formatting
+
 - [ ] **TEST**: File sizes formatted correctly
 - **Steps**:
   1. Open email with large attachment
@@ -814,6 +901,7 @@ cat test-report.md
 - **Notes**:
 
 ### 7.5 Image Preview Dialog
+
 - [ ] **TEST**: Click image opens preview
 - **Steps**:
   1. Open email with image attachment
@@ -822,6 +910,7 @@ cat test-report.md
 - **Notes**:
 
 ### 7.6 Zoom In/Out
+
 - [ ] **TEST**: Zoom controls in preview
 - **Steps**:
   1. Open image preview
@@ -830,6 +919,7 @@ cat test-report.md
 - **Notes**:
 
 ### 7.7 Rotate Image
+
 - [ ] **TEST**: Rotate button works
 - **Steps**:
   1. Open image preview
@@ -838,6 +928,7 @@ cat test-report.md
 - **Notes**:
 
 ### 7.8 Download File
+
 - [ ] **TEST**: Download attachment
 - **Steps**:
   1. Open email with attachment
@@ -846,6 +937,7 @@ cat test-report.md
 - **Notes**:
 
 ### 7.9 Filter Inline (CID) Attachments
+
 - [ ] **TEST**: Inline images not shown as attachments
 - **Steps**:
   1. Open email with inline images in body
@@ -854,6 +946,7 @@ cat test-report.md
 - **Notes**:
 
 ### 7.10 Blob URL Cleanup
+
 - [ ] **TEST**: Memory cleanup after preview close
 - **Steps**:
   1. Open image preview
@@ -867,102 +960,127 @@ cat test-report.md
 ## 8. API Integration (25 tests)
 
 ### 8.1 List Emails
+
 - [ ] **TEST**: GET /emails loads list
 - **Expected**: Paginated email list loads
 
 ### 8.2 Get Single Email
+
 - [ ] **TEST**: GET /emails/:id loads email
 - **Expected**: Full email content loads
 
 ### 8.3 Get Email Stats
+
 - [ ] **TEST**: GET /emails/stats returns counts
 - **Expected**: Unread, starred, important counts
 
 ### 8.4 Search Emails
+
 - [ ] **TEST**: GET /emails/search returns results
 - **Expected**: Search results match query
 
 ### 8.5 Update Email Flags
+
 - [ ] **TEST**: PATCH /emails/:id updates flags
 - **Expected**: Read, star, flag update and sync
 
 ### 8.6 Delete Email
+
 - [ ] **TEST**: DELETE /emails/:id removes email
 - **Expected**: Email moves to trash or hard deletes
 
 ### 8.7 Bulk Mark Read
+
 - [ ] **TEST**: PATCH /emails/bulk/read
 - **Expected**: Multiple emails marked read
 
 ### 8.8 Bulk Delete
+
 - [ ] **TEST**: DELETE /emails/bulk
 - **Expected**: Multiple emails deleted
 
 ### 8.9 Bulk Star
+
 - [ ] **TEST**: PATCH /emails/bulk/star
 - **Expected**: Multiple emails starred
 
 ### 8.10 Bulk Flag
+
 - [ ] **TEST**: PATCH /emails/bulk/flag
 - **Expected**: Multiple emails flagged
 
 ### 8.11 Bulk Move
+
 - [ ] **TEST**: PATCH /emails/bulk/move
 - **Expected**: Multiple emails moved
 
 ### 8.12 Bulk Add Labels
+
 - [ ] **TEST**: PATCH /emails/bulk/labels/add
 - **Expected**: Labels added to emails
 
 ### 8.13 Bulk Remove Labels
+
 - [ ] **TEST**: PATCH /emails/bulk/labels/remove
 - **Expected**: Labels removed from emails
 
 ### 8.14 Save Draft
+
 - [ ] **TEST**: POST /emails/drafts
 - **Expected**: Draft saved with content
 
 ### 8.15 Get Draft
+
 - [ ] **TEST**: GET /emails/drafts/:id
 - **Expected**: Draft content loaded
 
 ### 8.16 Delete Draft
+
 - [ ] **TEST**: DELETE /emails/drafts/:id
 - **Expected**: Draft removed
 
 ### 8.17 Send Email
+
 - [ ] **TEST**: POST /emails/send
 - **Expected**: Email sent successfully
 
 ### 8.18 Reply to Email
+
 - [ ] **TEST**: POST /emails/:id/reply
 - **Expected**: Reply sent with threading
 
 ### 8.19 Forward Email
+
 - [ ] **TEST**: POST /emails/:id/forward
 - **Expected**: Email forwarded
 
 ### 8.20 Download Attachment
+
 - [ ] **TEST**: GET /email/attachments/:id/download
 - **Expected**: File downloads correctly
 
 ### 8.21 Get Calendar Invite
+
 - [ ] **TEST**: GET /emails/:id/calendar-invite
 - **Expected**: Invite data parsed
 
 ### 8.22 Respond to Calendar Invite
+
 - [ ] **TEST**: POST /emails/:id/calendar-invite/respond
 - **Expected**: Response sent (accept/decline)
 
 ### 8.23 Get Conversations
+
 - [ ] **TEST**: GET /emails/conversations
 - **Expected**: Threaded conversations returned
 
 ### 8.24 Get Thread
+
 - [ ] **TEST**: GET /emails/thread/:threadId
 - **Expected**: All messages in thread
 
 ### 8.25 Sync Provider
+
 - [ ] **TEST**: POST /email-sync/sync/:providerId
 - **Expected**: Sync triggered successfully
 
@@ -971,6 +1089,7 @@ cat test-report.md
 ## 9. Translation Verification (8 tests)
 
 ### 9.1 English Locale
+
 - [ ] **TEST**: English translations load
 - **Steps**:
   1. Set browser to English
@@ -979,6 +1098,7 @@ cat test-report.md
 - **Notes**:
 
 ### 9.2 Italian Locale
+
 - [ ] **TEST**: Italian translations load
 - **Steps**:
   1. Set browser to Italian
@@ -987,6 +1107,7 @@ cat test-report.md
 - **Notes**:
 
 ### 9.3 Button Labels
+
 - [ ] **TEST**: All buttons translated
 - **Steps**:
   1. Check Reply, Forward, Delete, Archive buttons
@@ -994,6 +1115,7 @@ cat test-report.md
 - **Notes**:
 
 ### 9.4 Form Labels
+
 - [ ] **TEST**: Form labels translated
 - **Steps**:
   1. Open advanced search
@@ -1002,6 +1124,7 @@ cat test-report.md
 - **Notes**:
 
 ### 9.5 Error Messages
+
 - [ ] **TEST**: Error messages translated
 - **Steps**:
   1. Trigger validation error
@@ -1010,6 +1133,7 @@ cat test-report.md
 - **Notes**:
 
 ### 9.6 Placeholder Text
+
 - [ ] **TEST**: Input placeholders translated
 - **Steps**:
   1. Check search bar placeholder
@@ -1018,6 +1142,7 @@ cat test-report.md
 - **Notes**:
 
 ### 9.7 Dynamic Text with Placeholders
+
 - [ ] **TEST**: "X unread" displays correctly
 - **Steps**:
   1. Check header stats
@@ -1026,6 +1151,7 @@ cat test-report.md
 - **Notes**:
 
 ### 9.8 Date Formatting
+
 - [ ] **TEST**: Dates respect locale
 - **Steps**:
   1. Check email dates in Italian locale
@@ -1037,38 +1163,47 @@ cat test-report.md
 ## 10. Edge Cases (12 tests)
 
 ### 10.1 Empty Inbox
+
 - [ ] **TEST**: Empty inbox shows message
 - **Expected**: Friendly empty state, not error
 
 ### 10.2 Very Long Subjects
+
 - [ ] **TEST**: Long subject truncates properly
 - **Expected**: Ellipsis, no layout break
 
 ### 10.3 Very Long Recipient Lists
+
 - [ ] **TEST**: Many CC recipients display
 - **Expected**: Shows first few + "and X more"
 
 ### 10.4 Large Attachments
+
 - [ ] **TEST**: Large file upload (>10MB)
 - **Expected**: Progress indicator, successful upload
 
 ### 10.5 Malformed HTML
+
 - [ ] **TEST**: Bad HTML in email body
 - **Expected**: Renders safely, no XSS
 
 ### 10.6 Invalid Sender Format
+
 - [ ] **TEST**: Email without proper From header
 - **Expected**: Falls back to "Unknown sender"
 
 ### 10.7 Missing Subject
+
 - [ ] **TEST**: Email with no subject
 - **Expected**: Shows "(No Subject)" placeholder
 
 ### 10.8 Network Error
+
 - [ ] **TEST**: API call fails
 - **Expected**: Error toast, retry option
 
 ### 10.9 Optimistic Update Rollback
+
 - [ ] **TEST**: Star fails, rolls back
 - **Steps**:
   1. Star email
@@ -1076,14 +1211,17 @@ cat test-report.md
 - **Expected**: Star reverts after error
 
 ### 10.10 Session Expiry
+
 - [ ] **TEST**: Token expires mid-session
 - **Expected**: Redirect to login, no data loss
 
 ### 10.11 Concurrent Edits
+
 - [ ] **TEST**: Star same email in two tabs
 - **Expected**: Last write wins, no corruption
 
 ### 10.12 Provider Sync Errors
+
 - [ ] **TEST**: Gmail API returns error
 - **Expected**: Error displayed, local data preserved
 

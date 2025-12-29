@@ -168,7 +168,6 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
     handleMarkAsRead,
     handleToggleRead,
     handleToggleStar,
-    handleToggleImportant,
     handleArchive,
     handleReply,
     handleEmailClick: handleEmailClickOriginal,
@@ -458,7 +457,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
             onToggleSelect={toggleSelection}
             onToggleRead={handleToggleRead}
             onToggleStar={handleToggleStar}
-            onToggleImportant={handleToggleImportant}
+            onToggleImportant={handleToggleStar}
             onArchive={(id) => handleArchive([id])}
             onDelete={handleDelete}
             onLoadMore={onLoadMoreThreads}
@@ -490,7 +489,7 @@ export function Mailbox({ initialSearchQuery, initialEmailId }: MailboxProps = {
               onLabelsChange={handleLabelsChange}
               onArchive={(email) => handleArchive([email.id])}
               onToggleStar={(id, isStarred) => handleToggleStar(id, isStarred)}
-              onToggleImportant={(id, isImportant) => handleToggleImportant(id, isImportant)}
+              onToggleImportant={(id, isImportant) => handleToggleStar(id, isImportant)}
               onToggleRead={(id, isRead) => handleToggleRead(id, isRead)}
             />
           ) : undefined

@@ -465,14 +465,14 @@ export const useEmailStore = create<EmailState>((set, get) => ({
       const idSet = new Set(ids);
       const updatedEmails = state.emails.map((email) =>
         idSet.has(email.id) || (email.threadId && idSet.has(email.threadId))
-          ? { ...email, isImportant: important, isFlagged: important }
+          ? { ...email, isImportant: important, isFlagged: important, isStarred: important }
           : email
       );
 
       // Also update selectedEmail if it was marked as important/unimportant
       const updatedSelectedEmail = state.selectedEmail &&
         (idSet.has(state.selectedEmail.id) || (state.selectedEmail.threadId && idSet.has(state.selectedEmail.threadId)))
-        ? { ...state.selectedEmail, isImportant: important, isFlagged: important }
+        ? { ...state.selectedEmail, isImportant: important, isFlagged: important, isStarred: important }
         : state.selectedEmail;
 
       return {

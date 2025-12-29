@@ -24,7 +24,6 @@ interface ThreadToolbarProps {
   onForward?: () => void;
   onDelete?: () => void;
   onArchive?: () => void;
-  onToggleStar?: () => void;
   onToggleImportant?: () => void;
   onToggleRead?: () => void;
   onMoveToFolder?: () => void;
@@ -53,7 +52,7 @@ export const ThreadToolbar: React.FC<ThreadToolbarProps> = ({
   onForward,
   onDelete,
   onArchive,
-  onToggleStar,
+  onToggleImportant,
   onToggleRead,
   onMoveToFolder,
   onPrint,
@@ -189,6 +188,32 @@ export const ThreadToolbar: React.FC<ThreadToolbarProps> = ({
         )}
       </Stack>
 
+      {/* Center Section: Labels */}
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, px: 2, overflow: 'hidden' }}>
+        {email.emailLabels?.map(({ label }) => (
+          <Tooltip key={label.id} title={label.name}>
+            <Box
+              sx={{
+                bgcolor: label.color?.backgroundColor || theme.palette.action.selected,
+                color: label.color?.textColor || theme.palette.text.primary,
+                px: 1,
+                py: 0.5,
+                borderRadius: 1,
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                maxWidth: 150,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: 'inline-block',
+              }}
+            >
+              {label.name}
+            </Box>
+          </Tooltip>
+        ))}
+      </Stack>
+
       {/* Right Section: Actions */}
       <Stack direction="row" alignItems="center" spacing={0.5}>
         {/* Delete Button - Prominent Red */}
@@ -242,11 +267,11 @@ export const ThreadToolbar: React.FC<ThreadToolbarProps> = ({
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 24, alignSelf: 'center' }} />
 
-        {/* Flag Toggle (like Outlook) - handles both star and important */}
-        {onToggleStar && (
+        {/* Flag Toggle (like Outlook) - uses onToggleImportant to toggle isFlagged */}
+        {onToggleImportant && (
           <Tooltip title={isFlagged ? t.email.bulkBar.unmarkImportant : t.email.bulkBar.markImportant}>
             <IconButton
-              onClick={onToggleStar}
+              onClick={onToggleImportant}
               size="small"
               sx={{
                 '&:hover': { bgcolor: isFlagged ? 'warning.light' : 'action.hover' },
