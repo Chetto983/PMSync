@@ -108,7 +108,8 @@
       "Bash(npx @playwright/mcp@latest --help:*)",
       "Bash(if not exist \"D:\\\\MailAgent\\\\esempio\" mkdir \"D:\\\\MailAgent\\\\esempio\")",
       "Bash(npm run test:e2e:*)",
-      "Bash(npx ts-node scripts/force-full-sync-all-folders.ts)"
+      "Bash(npx ts-node scripts/force-full-sync-all-folders.ts)",
+      "Bash(npx tsx:*)"
     ],
     "deny": []
   }

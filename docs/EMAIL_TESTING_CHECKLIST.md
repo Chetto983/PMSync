@@ -1270,6 +1270,7 @@ cat test-report.md
 
 | Section | Total Tests | Passed | Failed |
 |---------|-------------|--------|--------|
+
 | 1. Smart Filters | 8 | | |
 | 2. Email List View | 12 | | |
 | 3. Email Thread View | 15 | | |
@@ -1288,6 +1289,7 @@ cat test-report.md
 **Result**: 26/26 tests passed
 
 Key fixes applied during validation:
+ 
 - `saveDraft`: Backend returns email directly → frontend wraps to `{ id, email }`
 - `getDraft`: Backend returns email directly → removed `.email` accessor
 
