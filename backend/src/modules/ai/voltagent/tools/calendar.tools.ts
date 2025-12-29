@@ -133,10 +133,17 @@ export function createCalendarTools(
           },
         });
 
+        // Convert Date objects to ISO strings for AI SDK JSON schema compatibility
         return {
           success: true,
           data: events.map((e) => ({
-            ...e,
+            id: e.id,
+            title: e.title,
+            description: e.description,
+            location: e.location,
+            isAllDay: e.isAllDay,
+            startTime: e.startTime?.toISOString() ?? null,
+            endTime: e.endTime?.toISOString() ?? null,
             startTimeFormatted: formatDate(e.startTime),
             endTimeFormatted: formatDate(e.endTime),
           })),

@@ -1953,6 +1953,19 @@ export interface AppTranslations {
       autoApproved: string;
       confidence: string;
     };
+    // Superhuman-style mentions
+    mentions?: {
+      contacts: string;
+      accounts: string;
+      selectContact: string;
+      selectAccount: string;
+      noContactsFound: string;
+      noAccountsFound: string;
+      navigate: string;
+      select: string;
+      close: string;
+      typeHint: string;
+    };
     emailAi: {
       smartReplies: {
         title: string;

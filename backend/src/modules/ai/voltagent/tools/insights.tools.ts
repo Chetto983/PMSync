@@ -782,7 +782,7 @@ export function createAnalyzeEmailTool(options: InsightsToolOptions) {
           emailId,
           subject: email.subject,
           from: email.from,
-          receivedAt: email.receivedAt,
+          receivedAt: email.receivedAt?.toISOString() ?? null,
           analysis: {
             sentiment: parsed.sentiment || 'neutral',
             tone: parsed.tone || 'casual',
@@ -801,7 +801,7 @@ export function createAnalyzeEmailTool(options: InsightsToolOptions) {
           emailId,
           subject: email.subject,
           from: email.from,
-          receivedAt: email.receivedAt,
+          receivedAt: email.receivedAt?.toISOString() ?? null,
           analysis: {
             sentiment: 'neutral',
             tone: 'casual',
@@ -1092,12 +1092,21 @@ function createSemanticSearchEmailsTool(options: InsightsToolOptions) {
         });
 
         // Add relevance scores from embeddings
+        // Convert Date objects to ISO strings for AI SDK JSON schema compatibility
         const emailsWithScores = emails.map((email) => {
           const embedding = similarResults.find((r) => r.metadata?.emailId === email.id);
           const relevanceScore = embedding?.distance !== undefined
             ? Math.round((1 - embedding.distance / 2) * 100)
             : 50;
-          return { ...email, relevanceScore };
+          return {
+            id: email.id,
+            subject: email.subject,
+            from: email.from,
+            snippet: email.snippet,
+            receivedAt: email.receivedAt?.toISOString() ?? null,
+            isRead: email.isRead,
+            relevanceScore,
+          };
         });
 
         // Sort by relevance

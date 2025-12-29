@@ -8,7 +8,6 @@ import {
   Stack,
   Tooltip,
   Collapse,
-  Button,
 } from '@mui/material';
 import {
   ChevronDown,
@@ -16,7 +15,6 @@ import {
   ReplyAll,
   Forward,
   Paperclip,
-  Trash2,
   MoreHorizontal
 } from 'lucide-react';
 import { EmailBody } from '../shared/EmailBody';
@@ -34,7 +32,6 @@ interface ThreadMessageProps {
   onReply?: (email: Email) => void;
   onReplyAll?: (email: Email) => void;
   onForward?: (email: Email) => void;
-  onDelete?: (email: Email) => void;
   onAttachmentOpen: (attachment: NonNullable<Email['attachments']>[number], e: React.MouseEvent) => void;
   isDark: boolean;
   onInviteRespond?: (emailId: string, response: 'accept' | 'decline' | 'tentative') => void;
@@ -49,7 +46,6 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
     onReply,
     onReplyAll,
     onForward,
-    onDelete,
     onAttachmentOpen,
     isDark,
     onInviteRespond,
@@ -299,20 +295,6 @@ export const ThreadMessage: React.FC<ThreadMessageProps> = React.memo(
               </Box>
             )}
 
-            {/* Delete Button (Bottom) */}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-              {onDelete && (
-                <Button
-                  size="small"
-                  color="error"
-                  startIcon={<Trash2 size={16} />}
-                  onClick={() => onDelete(email)}
-                  sx={{ opacity: 0.7 }}
-                >
-                  {t.email.bulkBar.delete}
-                </Button>
-              )}
-            </Box>
           </Box>
         </Collapse>
       </Box>

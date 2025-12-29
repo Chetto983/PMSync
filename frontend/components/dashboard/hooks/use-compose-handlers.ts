@@ -1,10 +1,11 @@
 import { useCallback } from 'react';
 import type { Email } from '@/stores/email-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import type { ComposePrefillData } from '@/components/email/ComposeDialog/types';
 
 interface UseComposeHandlersProps {
     setComposeMode: (mode: 'compose' | 'reply' | 'forward') => void;
-    setComposePrefill: (data: any) => void;
+    setComposePrefill: (data: ComposePrefillData | null) => void;
     setComposeOpen: (open: boolean) => void;
 }
 
@@ -67,8 +68,8 @@ export function useComposeHandlers({
             to: [email.from],
             subject: replySubject,
             body: formattedQuote,
-            inReplyTo: email.externalId,
-            references: email.references || email.externalId,
+            inReplyTo: email.externalId || undefined,
+            references: email.references || email.externalId || undefined,
         });
         setComposeOpen(true);
     }, [t, createQuotedBody, setComposeMode, setComposePrefill, setComposeOpen]);
@@ -92,8 +93,8 @@ export function useComposeHandlers({
             to: uniqueRecipients,
             subject: replySubject,
             body: formattedQuote,
-            inReplyTo: email.externalId,
-            references: email.references || email.externalId,
+            inReplyTo: email.externalId || undefined,
+            references: email.references || email.externalId || undefined,
         });
         setComposeOpen(true);
     }, [t, createQuotedBody, setComposeMode, setComposePrefill, setComposeOpen]);

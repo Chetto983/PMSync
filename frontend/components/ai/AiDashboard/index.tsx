@@ -11,7 +11,6 @@ import {
   Box,
   Typography,
   Paper,
-  TextField,
   Button,
   CircularProgress,
   Chip,
@@ -32,10 +31,10 @@ import { useAuth } from '@/lib/hooks/use-auth';
 // Lazy loaded widgets
 const ChatMessages = lazy(() => import('./ChatMessages'));
 const QuickActions = lazy(() => import('./QuickActions'));
-const PendingActionsWidget = lazy(() => import('./PendingActionsWidget'));
 const LearningWidget = lazy(() => import('./LearningWidget'));
 const AiMemoryWidget = lazy(() => import('./AiMemoryWidget'));
 const ChatSessionList = lazy(() => import('./ChatSessionList'));
+const MentionInput = lazy(() => import('./MentionInput'));
 
 // Types
 export interface Message {
@@ -445,42 +444,17 @@ export function AiDashboard() {
             )}
 
             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
-              <TextField
-                fullWidth
-                placeholder={t.ai?.inputPlaceholder || 'Chiedimi qualsiasi cosa su email, calendario o contatti...'}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                disabled={sending}
-                multiline
-                maxRows={4}
-                inputRef={inputRef}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 3,
-                    bgcolor: alpha(theme.palette.background.paper, 0.8),
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid',
-                    borderColor: alpha(theme.palette.divider, 0.1),
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      borderColor: alpha(theme.palette.primary.main, 0.3),
-                    },
-                    '&.Mui-focused': {
-                      borderColor: alpha(theme.palette.primary.main, 0.5),
-                      boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`,
-                    },
-                    '& fieldset': {
-                      border: 'none',
-                    },
-                  },
-                }}
-              />
+              {/* Superhuman-style MentionInput with @ for contacts and # for providers */}
+              <Suspense fallback={<Skeleton variant="rounded" height={56} sx={{ flex: 1, borderRadius: 3 }} />}>
+                <MentionInput
+                  value={prompt}
+                  onChange={setPrompt}
+                  onSubmit={() => handleSendMessage()}
+                  disabled={sending}
+                  placeholder={t.ai?.mentions?.typeHint || t.ai?.inputPlaceholder || 'Type @ for contacts, # for accounts...'}
+                  inputRef={inputRef}
+                />
+              </Suspense>
               {/* Glassmorphism Send Button */}
               <Button
                 variant="contained"
@@ -534,8 +508,10 @@ export function AiDashboard() {
             display: { xs: 'none', lg: 'flex' },
             flexDirection: 'column',
             gap: 2,
+            height: '100%', // Fill grid cell height
             overflow: 'auto',
             minHeight: 0, // Critical for flex overflow
+            pb: 2, // Padding at bottom for scroll
             '&::-webkit-scrollbar': {
               width: 6,
             },
@@ -558,9 +534,7 @@ export function AiDashboard() {
           </Suspense>
 
           {/* Collapsible widgets - compact when collapsed */}
-          <Suspense fallback={<WidgetSkeleton height={60} />}>
-            <PendingActionsWidget />
-          </Suspense>
+          {/* PendingActionsWidget removed - now inline in chat messages */}
 
           <Suspense fallback={<WidgetSkeleton height={60} />}>
             <LearningWidget />
@@ -664,10 +638,7 @@ export function AiDashboard() {
             />
           </Suspense>
 
-          {/* Pending Actions */}
-          <Suspense fallback={<WidgetSkeleton height={60} />}>
-            <PendingActionsWidget />
-          </Suspense>
+          {/* Pending Actions - now inline in chat, no sidebar widget */}
 
           {/* Learning Widget */}
           <Suspense fallback={<WidgetSkeleton height={60} />}>

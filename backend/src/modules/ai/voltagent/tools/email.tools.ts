@@ -94,21 +94,63 @@ export function createEmailTools(
   const t = getToolTranslations(locale);
 
   return [
+    // ========== LIST EMAIL ACCOUNTS ==========
+    createTool({
+      name: 'list_email_accounts',
+      description:
+        'List all connected email accounts/providers. Use this BEFORE sending emails to know which account to send from.',
+      parameters: z.object({}),
+      execute: async () => {
+        const providers = await prisma.providerConfig.findMany({
+          where: { tenantId, isActive: true, supportsEmail: true },
+          select: {
+            id: true,
+            email: true,
+            providerType: true,
+            displayName: true,
+          },
+          orderBy: { email: 'asc' },
+        });
+
+        return {
+          success: true,
+          data: providers.map((p: { id: string; email: string; providerType: string; displayName: string | null }) => ({
+            providerId: p.id,
+            email: p.email,
+            provider: p.providerType,
+            displayName: p.displayName,
+          })),
+          summary: `Found ${providers.length} connected email account(s): ${providers.map((p: { email: string }) => p.email).join(', ')}`,
+        };
+      },
+    }),
+
     // ========== SEND EMAIL ==========
     createTool({
       name: 'send_email',
       description:
-        'Send a new email to one or more recipients. Use this when the user explicitly wants to send a new email (not reply or forward).',
+        'Send a new email to one or more recipients. IMPORTANT: You MUST first call list_email_accounts to get available accounts, then ask the user which account to send from.',
       parameters: z.object({
+        providerId: z.string().describe('ID of the email provider/account to send from (get from list_email_accounts)'),
         to: z.array(z.string()).min(1).describe('List of recipient email addresses'),
         subject: z.string().describe('Email subject line'),
         body: z.string().describe('Email body content (plain text or HTML)'),
         cc: z.array(z.string()).optional().describe('Optional CC recipients'),
         bcc: z.array(z.string()).optional().describe('Optional BCC recipients'),
       }),
-      execute: async ({ to, subject, body, cc, bcc }) => {
+      execute: async ({ providerId, to, subject, body, cc, bcc }) => {
         if (!emailSendService) {
           return { success: false, error: t.email.serviceUnavailable };
+        }
+
+        // Verify the provider belongs to this tenant
+        const provider = await prisma.providerConfig.findFirst({
+          where: { id: providerId, tenantId, isActive: true, supportsEmail: true },
+          select: { email: true },
+        });
+
+        if (!provider) {
+          return { success: false, error: 'Email account not found or not active' };
         }
 
         const subjectText = subject || t.email.noSubject;
@@ -117,8 +159,8 @@ export function createEmailTools(
           requiresApproval: true,
           actionType: 'SEND_EMAIL',
           severity: 'HIGH',
-          payload: { to, subject: subjectText, body, cc, bcc },
-          summary: t.email.sent(to.join(', '), subjectText),
+          payload: { providerId, from: provider.email, to, subject: subjectText, body, cc, bcc },
+          summary: t.email.sent(to.join(', '), subjectText) + ` (from ${provider.email})`,
         };
       },
     }),
@@ -226,9 +268,15 @@ export function createEmailTools(
           },
         });
 
+        // Convert Date objects to ISO strings for AI SDK JSON schema compatibility
+        const serializedEmails = emails.map((e) => ({
+          ...e,
+          receivedAt: e.receivedAt?.toISOString() ?? null,
+        }));
+
         return {
           success: true,
-          data: emails,
+          data: serializedEmails,
           summary: t.email.searched(emails.length, query),
         };
       },
@@ -421,9 +469,15 @@ export function createEmailTools(
           },
         });
 
+        // Convert Date objects to ISO strings for AI SDK JSON schema compatibility
+        const serializedEmails = emails.map((e) => ({
+          ...e,
+          receivedAt: e.receivedAt?.toISOString() ?? null,
+        }));
+
         return {
           success: true,
-          data: emails,
+          data: serializedEmails,
           summary: t.email.unreadCount(emails.length),
         };
       },

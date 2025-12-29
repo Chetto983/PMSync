@@ -102,6 +102,7 @@ export function createContactsTools(
         const takeLimit = limit ?? 10;
 
         // First search by name/company fields using Prisma
+        // Fetch more than needed since we'll filter for valid emails
         let contacts = await prisma.contact.findMany({
           where: {
             tenantId,
@@ -112,7 +113,7 @@ export function createContactsTools(
               { company: { contains: query, mode: 'insensitive' as const } },
             ],
           },
-          take: takeLimit,
+          take: takeLimit * 3, // Fetch extra to account for filtering
           select: {
             id: true,
             displayName: true,
@@ -133,16 +134,29 @@ export function createContactsTools(
             FROM unified_contacts
             WHERE "tenantId" = ${tenantId}
               AND emails::text ILIKE ${'%' + query + '%'}
-            LIMIT ${takeLimit}
+            LIMIT ${takeLimit * 3}
           `;
           // Cast to match Prisma's generated types
           contacts = emailContacts as typeof contacts;
         }
 
+        // Filter contacts to only include those with at least one valid email address
+        // This is critical for email-sending workflows - contacts without email are useless
+        const contactsWithEmail = contacts.filter((contact) => {
+          if (!Array.isArray(contact.emails) || contact.emails.length === 0) {
+            return false;
+          }
+          // Check if at least one email has a valid value
+          return contact.emails.some((email: unknown) => {
+            const emailObj = email as { value?: string };
+            return emailObj?.value && emailObj.value.includes('@');
+          });
+        }).slice(0, takeLimit); // Apply limit after filtering
+
         return {
           success: true,
-          data: contacts,
-          summary: t.contacts.found(contacts.length, query),
+          data: contactsWithEmail,
+          summary: t.contacts.found(contactsWithEmail.length, query),
         };
       },
     }),

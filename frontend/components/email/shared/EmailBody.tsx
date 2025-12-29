@@ -237,6 +237,7 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
         max-width: 100%;
         overflow: hidden;
       `;
+      wrapper.className = 'email-img-wrapper';
 
       // Create skeleton placeholder
       const skeleton = document.createElement('div');
@@ -260,6 +261,55 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
       `;
       skeleton.className = 'email-img-skeleton';
 
+      // Create download button overlay
+      const downloadBtn = document.createElement('button');
+      downloadBtn.className = 'email-img-download';
+      downloadBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+      downloadBtn.title = 'Download image';
+      downloadBtn.style.cssText = `
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        border: none;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        z-index: 10;
+        padding: 0;
+      `;
+      downloadBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const imgSrc = img.src;
+        if (!imgSrc) return;
+
+        try {
+          const response = await fetch(imgSrc);
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          // Extract filename from URL or use default
+          const urlParts = imgSrc.split('/');
+          const fileName = urlParts[urlParts.length - 1]?.split('?')[0] || 'image.png';
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error('Failed to download image:', error);
+        }
+      });
+
       // Style the image
       img.style.cssText = `
         max-width: 100%;
@@ -273,7 +323,18 @@ export const EmailBody: React.FC<EmailBodyProps> = ({
       if (img.parentNode) {
         img.parentNode.insertBefore(wrapper, img);
         wrapper.appendChild(skeleton);
+        wrapper.appendChild(downloadBtn);
         wrapper.appendChild(img);
+
+        // Add hover events to show/hide download button
+        wrapper.addEventListener('mouseenter', () => {
+          if (img.complete && img.naturalWidth > 0) {
+            downloadBtn.style.opacity = '1';
+          }
+        });
+        wrapper.addEventListener('mouseleave', () => {
+          downloadBtn.style.opacity = '0';
+        });
       }
 
       // Handle image load

@@ -1895,6 +1895,19 @@ export const en: AppTranslations = {
       autoApproved: 'Auto-approved',
       confidence: 'Confidence',
     },
+    // Superhuman-style mentions
+    mentions: {
+      contacts: 'contacts',
+      accounts: 'accounts',
+      selectContact: 'Select Contact',
+      selectAccount: 'Select Account',
+      noContactsFound: 'No contacts found',
+      noAccountsFound: 'No accounts found',
+      navigate: 'navigate',
+      select: 'select',
+      close: 'close',
+      typeHint: 'Type @ for contacts, # for accounts',
+    },
     emailAi: {
       smartReplies: {
         title: 'Smart Replies',

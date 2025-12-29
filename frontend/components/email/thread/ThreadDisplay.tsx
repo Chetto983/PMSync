@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Button, CircularProgress, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Button, CircularProgress, Stack, Typography, useTheme, useMediaQuery } from '@mui/material';
 import { Reply } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import type { Email } from '@/stores/email-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadMessage } from './ThreadMessage';
+import { ThreadToolbar } from './ThreadToolbar';
 import { LabelSelector } from '../../labels/LabelSelector';
 import { EmailSummaryPanel } from '../ai/EmailSummaryPanel';
 import { emailApi } from '@/lib/api/email';
@@ -19,26 +20,33 @@ interface ThreadDisplayProps {
   onArchive?: (email: Email) => void;
   onLabelsChange?: (emailId: string, labelIds: string[]) => void;
   onToggleStar?: (emailId: string, isStarred: boolean) => void;
+  onToggleImportant?: (emailId: string, isImportant: boolean) => void;
+  onToggleRead?: (emailId: string, isRead: boolean) => void;
+  onMoveToFolder?: (email: Email) => void;
   onEditDraft?: (email: Email) => void;
   threadId?: string;
 }
 
 export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
   email,
-  // onClose,
+  onClose,
   onReply,
   onReplyAll,
   onForward,
   onDelete,
-  // onArchive,
+  onArchive,
   onLabelsChange,
-  // onToggleStar,
+  onToggleStar,
+  onToggleImportant,
+  onToggleRead,
+  onMoveToFolder,
   // onEditDraft,
   threadId,
 }) => {
   const t = useTranslations();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const threadQuery = useQuery({
     queryKey: ['thread', threadId],
@@ -133,15 +141,86 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
     // Implementation placeholder
   }, []);
 
+  // Toolbar handlers
+  const handleToolbarReply = useCallback(() => {
+    if (email && onReply) {
+      onReply(threadEmails[0] || email);
+    }
+  }, [email, onReply, threadEmails]);
+
+  const handleToolbarReplyAll = useCallback(() => {
+    if (email && onReplyAll) {
+      onReplyAll(threadEmails[0] || email);
+    }
+  }, [email, onReplyAll, threadEmails]);
+
+  const handleToolbarForward = useCallback(() => {
+    if (email && onForward) {
+      onForward(threadEmails[0] || email);
+    }
+  }, [email, onForward, threadEmails]);
+
+  const handleToolbarDelete = useCallback(() => {
+    if (email && onDelete) {
+      onDelete(email);
+    }
+  }, [email, onDelete]);
+
+  const handleToolbarArchive = useCallback(() => {
+    if (email && onArchive) {
+      onArchive(email);
+    }
+  }, [email, onArchive]);
+
+  const handleToolbarToggleStar = useCallback(() => {
+    if (email && onToggleStar) {
+      onToggleStar(email.id, !email.isStarred);
+    }
+  }, [email, onToggleStar]);
+
+  const handleToolbarToggleImportant = useCallback(() => {
+    if (email && onToggleImportant) {
+      onToggleImportant(email.id, !(email.isImportant || email.isFlagged));
+    }
+  }, [email, onToggleImportant]);
+
+  const handleToolbarToggleRead = useCallback(() => {
+    if (email && onToggleRead) {
+      onToggleRead(email.id, !email.isRead);
+    }
+  }, [email, onToggleRead]);
+
+  const handleToolbarMoveToFolder = useCallback(() => {
+    if (email && onMoveToFolder) {
+      onMoveToFolder(email);
+    }
+  }, [email, onMoveToFolder]);
+
   if (!email) return null;
 
   const hasBody = !!(email.bodyHtml || email.bodyText);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {/* Outlook-style Top Toolbar */}
+      <ThreadToolbar
+        email={email}
+        onClose={onClose}
+        onReply={handleToolbarReply}
+        onReplyAll={handleToolbarReplyAll}
+        onForward={handleToolbarForward}
+        onDelete={handleToolbarDelete}
+        onArchive={handleToolbarArchive}
+        onToggleStar={handleToolbarToggleStar}
+        onToggleImportant={handleToolbarToggleImportant}
+        onToggleRead={handleToolbarToggleRead}
+        onMoveToFolder={onMoveToFolder ? handleToolbarMoveToFolder : undefined}
+        isMobile={isMobile}
+      />
+
       <Box sx={{ flexShrink: 0 }}>
-        {/* Toolbar and Header */}
-        <Box sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 3 }, pb: 2 }}>
+        {/* Subject and Header */}
+        <Box sx={{ px: { xs: 2, sm: 3 }, pt: 2, pb: 2 }}>
           <Typography
             variant="h5"
             sx={{
@@ -214,7 +293,6 @@ export const ThreadDisplay: React.FC<ThreadDisplayProps> = ({
             onReply={onReply}
             onReplyAll={onReplyAll}
             onForward={onForward}
-            onDelete={onDelete ? (e) => onDelete(e) : undefined}
             onAttachmentOpen={handleAttachmentOpen}
             isDark={isDark}
             onInviteRespond={handleInviteRespond}

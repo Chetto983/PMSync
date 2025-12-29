@@ -1873,6 +1873,19 @@ export const it: AppTranslations = {
       autoApproved: 'Auto-approvato',
       confidence: 'Affidabilità',
     },
+    // Menzioni stile Superhuman
+    mentions: {
+      contacts: 'contatti',
+      accounts: 'account',
+      selectContact: 'Seleziona Contatto',
+      selectAccount: 'Seleziona Account',
+      noContactsFound: 'Nessun contatto trovato',
+      noAccountsFound: 'Nessun account trovato',
+      navigate: 'naviga',
+      select: 'seleziona',
+      close: 'chiudi',
+      typeHint: 'Digita @ per contatti, # per account',
+    },
     emailAi: {
       smartReplies: {
         title: 'Risposte intelligenti',
