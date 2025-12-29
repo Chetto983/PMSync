@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { QueryProvider } from '@/lib/query-client';
 import { AuthProvider } from '@/lib/context/auth-context';
-import { lightTheme, darkTheme } from '@/lib/theme/material-theme';
+import { lightTheme, darkTheme } from '@/theme/appTheme';
 import { useAuth } from '@/lib/hooks/use-auth';
 // CommandPalette is rendered by Layout component (components/layout/CommandPalette.tsx)
 import '@/styles/globals.css';

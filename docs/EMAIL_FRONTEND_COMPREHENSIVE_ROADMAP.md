@@ -35,6 +35,18 @@
 4. **Zustand for UI state** - Lightweight, no boilerplate
 5. **Superhuman UX patterns** - Fast, keyboard-first, minimal
 
+### Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **Consolidate star/flag → "Important"** | Backend has `isStarred`, `isFlagged`, and `isImportant`. Frontend will ONLY use `isImportant` for cleaner UX. One toggle, one concept. |
+| **2-line list items (no snippet)** | Superhuman pattern: sender+date on line 1, subject on line 2. No body preview = cleaner, faster rendering. |
+| **Virtual list always** | Even for small lists, use `@tanstack/react-virtual` for consistency and future-proofing. |
+| **Optimistic updates with undo** | Update UI immediately, show toast with "Undo" button, delay API call by 3s for undo window. |
+| **Keyboard-first navigation** | j/k for up/down (vim-style), Enter to open, Escape to close. Gmail/Superhuman standard. |
+| **Thread view collapsed by default** | Show latest email expanded, previous emails collapsed with sender+snippet preview. |
+| **Labels over folders for organization** | Folders for system categories (Inbox, Sent, Trash), labels for user organization (color-coded tags). |
+
 ---
 
 ## 2. Backend API Reference
