@@ -389,10 +389,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                           >
                             <List disablePadding sx={{ pl: 2 }}>
                               {sortedFolders.map((folder) => {
-                                // For system folders, translate specialUse. For custom folders, use name directly.
-                                const folderName = folder.isSystem && folder.specialUse
-                                  ? getFolderLabel(folder.specialUse)
-                                  : folder.name;
+                                const folderName = getFolderDisplayName(folder, getFolderLabel);
 
                                 return (
                                   <Box
@@ -440,11 +437,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                               <FolderItemDisplay
                                 folder={activeFolder}
                                 icon={getFolderIcon(activeFolder)}
-                                label={
-                                  activeFolder.isSystem && activeFolder.specialUse
-                                    ? getFolderLabel(activeFolder.specialUse)
-                                    : activeFolder.name
-                                }
+                                label={getFolderDisplayName(activeFolder, getFolderLabel)}
                                 isOverlay
                               />
                             ) : null}
