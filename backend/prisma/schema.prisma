@@ -1437,9 +1437,27 @@ model AiMemory {
   updatedAt      DateTime  @updatedAt
   lastAccessedAt DateTime? // For LRU-style management
 
+  // Relations
+  history AiMemoryHistory[]
+
   @@index([tenantId, userId])
   @@index([tenantId, userId, category])
   @@map("ai_memories")
+}
+
+/// Tracks memory changes for audit trail (Mem0-style history)
+model AiMemoryHistory {
+  id            String   @id @default(cuid())
+  memoryId      String
+  previousValue String?  @db.Text
+  newValue      String?  @db.Text
+  action        String   // CREATE, UPDATE, DELETE
+  createdAt     DateTime @default(now())
+
+  memory        AiMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  @@index([memoryId])
+  @@map("ai_memory_history")
 }
 
 /// Tracks deadlines extracted from emails and calendar

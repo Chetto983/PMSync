@@ -6,8 +6,6 @@
  */
 import { Memory } from '@voltagent/core';
 import { PostgreSQLMemoryAdapter } from '@voltagent/postgres';
-import { LibSQLMemoryAdapter } from '@voltagent/libsql';
-
 export interface MemoryOptions {
   /**
    * PostgreSQL connection string or config
@@ -57,19 +55,6 @@ export function createMemory(options: MemoryOptions = {}): Memory {
       tablePrefix,
       schema,
       debug,
-    }),
-  });
-}
-
-/**
- * Creates an in-memory adapter for testing (uses LibSQL :memory:).
- */
-export function createTestMemory(): Memory {
-  return new Memory({
-    storage: new LibSQLMemoryAdapter({
-      url: ':memory:',
-      tablePrefix: 'test_memory',
-      debug: false,
     }),
   });
 }

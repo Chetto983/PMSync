@@ -10,6 +10,7 @@
 Frontend sidebar was not correctly aggregating Gmail CATEGORY_PERSONAL emails into the INBOX count. Gmail folders with `specialUse: 'CATEGORY_PERSONAL'` were being counted separately instead of being aggregated with INBOX.
 
 **Example**:
+
 - Database: INBOX folder with `specialUse: 'CATEGORY_PERSONAL'` has 6 unread emails
 - Frontend: Should show these 6 emails in the INBOX count
 - Issue: Frontend was counting them separately
@@ -74,7 +75,7 @@ export function folderMetadataOptions() {
   return queryOptions({
     queryKey: ['folders', 'metadata'],
     queryFn: getFolderMetadata,
-    staleTime: 60 * 60 * 1000,  // 1 hour
+    staleTime: 10 * 60 * 1000,  // 10 minutes
     gcTime: 24 * 60 * 60 * 1000, // 24 hours
     retry: 1,
   });

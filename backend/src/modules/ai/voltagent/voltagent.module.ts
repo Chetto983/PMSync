@@ -50,8 +50,8 @@ import {
   SummarizationQueueService,
   LongTermMemoryService,
 } from './memory';
-// Mem0 enhanced memory (consolidation, history, time decay)
-import { Mem0EnhancedMemoryService } from './memory/mem0-enhanced-memory.service';
+// PgVector memory service (replaces mem0ai - no external dependencies)
+import { PgVectorMemoryService } from './memory/pgvector-memory.service';
 // Consolidated AI services
 import { PersonalizationService } from './services/personalization.service';
 import { WritingStyleService } from './services/writing-style.service';
@@ -117,7 +117,7 @@ import { AlertingService } from '../../../common/services/alerting.service';
     SessionBridgeService,
     SummarizationQueueService,
     LongTermMemoryService,
-    Mem0EnhancedMemoryService,
+    PgVectorMemoryService,
     // Consolidated AI services (Step 8)
     PersonalizationService,
     WritingStyleService,
@@ -169,7 +169,7 @@ import { AlertingService } from '../../../common/services/alerting.service';
     SessionBridgeService,
     SummarizationQueueService,
     LongTermMemoryService,
-    Mem0EnhancedMemoryService,
+    PgVectorMemoryService,
     // Consolidated AI services
     PersonalizationService,
     WritingStyleService,

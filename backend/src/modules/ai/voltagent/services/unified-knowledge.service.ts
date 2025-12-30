@@ -10,7 +10,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { LongTermMemoryService } from '../memory/long-term-memory.service';
-import { Mem0EnhancedMemoryService } from '../memory/mem0-enhanced-memory.service';
+import { PgVectorMemoryService } from '../memory/pgvector-memory.service';
 import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
 import { DeadlineExtractorService } from './deadline-extractor.service';
@@ -48,7 +48,7 @@ export class UnifiedKnowledgeService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly longTermMemory: LongTermMemoryService,
-    private readonly mem0Memory: Mem0EnhancedMemoryService,
+    private readonly pgVectorMemory: PgVectorMemoryService,
     private readonly mistralService: MistralService,
     private readonly embeddingsService: EmbeddingsService,
     private readonly deadlineService: DeadlineExtractorService,
@@ -85,7 +85,7 @@ export class UnifiedKnowledgeService {
         locale,
         prisma: this.prisma,
         longTermMemory: this.longTermMemory,
-        mem0Memory: this.mem0Memory,
+        pgVectorMemory: this.pgVectorMemory,
         mistralService: this.mistralService,
         embeddingsService: this.embeddingsService,
         emailLimit: options.limit ?? 5,

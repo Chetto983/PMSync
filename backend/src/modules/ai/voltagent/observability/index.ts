@@ -18,6 +18,7 @@ export {
   type ObservabilityOptions,
   type AgentMetrics,
   type HitlPendingAction,
+  type DisposableHooks,
 } from './hooks';
 
 // HITL (Human-in-the-Loop) observability

@@ -9,7 +9,7 @@
  */
 
 // Core memory configuration (VoltAgent native)
-export { createMemory, createTestMemory, type MemoryOptions } from './memory.config';
+export { createMemory, type MemoryOptions } from './memory.config';
 
 // Enhanced memory service (Prisma-based)
 export {
@@ -36,7 +36,7 @@ export {
   type SummarizationJobResult,
 } from './summarization.queue';
 
-// Long-term memory service (Mem0 integration)
+// Long-term memory service (Prisma + Mistral)
 export {
   LongTermMemoryService,
   type MemoryResult,
@@ -44,3 +44,14 @@ export {
   type StoreMemoryOptions,
   type SearchMemoryOptions,
 } from './long-term-memory.service';
+
+// PgVector memory service (mem0-style with no external dependencies)
+export { PgVectorMemoryService } from './pgvector-memory.service';
+export type {
+  MemoryItem,
+  MemorySearchResult,
+  StoreMemoryOptions as PgVectorStoreOptions,
+  SearchMemoryOptions as PgVectorSearchOptions,
+  MemoryContext,
+  MemoryStats,
+} from './prompts/memory.types';

@@ -41,7 +41,7 @@ import { DocumentLibraryService } from './services/document-library.service';
 import { PromptGuardService, PiiDetectionService } from '../guards';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import type { AiAgentType } from '../../realtime/types/realtime.types';
-import { createObservabilityHooks, type AgentMetrics } from './observability';
+import { createObservabilityHooks, type AgentMetrics, type DisposableHooks } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import {
   createApprovalWorkflow,
@@ -136,7 +136,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private agents: Map<string, CachedAgent> = new Map();
   private memory: Memory | null = null;
   private approvalWorkflow: ReturnType<typeof createApprovalWorkflow> | null = null;
-  private observabilityHooks: ReturnType<typeof createObservabilityHooks> | null = null;
+  private observabilityHooks: DisposableHooks | null = null;
 
   /** Redis key prefix for suspended workflows (horizontal scaling) */
   private readonly SUSPENDED_WORKFLOW_PREFIX = 'voltagent:workflow:suspended:';
@@ -374,6 +374,12 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Flush remaining metrics to Redis
     await this.flushMetricsToRedis();
 
+    // Cleanup observability hooks to prevent interval memory leaks during hot reload
+    if (this.observabilityHooks) {
+      this.observabilityHooks.cleanup();
+      this.observabilityHooks = null;
+    }
+
     // Cleanup agents on shutdown
     this.agents.clear();
   }
@@ -508,7 +514,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       tenantId,
       // VoltAgent memory for conversation persistence (fixed in latest VoltAgent version)
       memory: this.memory ?? undefined,
-      hooks: this.observabilityHooks ?? undefined,
+      hooks: this.observabilityHooks?.hooks ?? undefined,
       // RAG services for HybridRetriever (optional - gracefully degrades)
       mistralService: this.mistralService,
       embeddingsService: this.embeddingsService,

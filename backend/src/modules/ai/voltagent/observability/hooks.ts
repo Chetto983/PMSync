@@ -66,6 +66,15 @@ export interface AgentMetrics {
 }
 
 /**
+ * Disposable hooks with cleanup method to prevent memory leaks.
+ * CRITICAL: Call cleanup() in onModuleDestroy to prevent interval accumulation.
+ */
+export interface DisposableHooks {
+  hooks: AgentHooks;
+  cleanup: () => void;
+}
+
+/**
  * Creates observability hooks for VoltAgent agents.
  *
  * These hooks integrate with:
@@ -102,7 +111,7 @@ interface OperationTracking {
   userId?: string;
 }
 
-export function createObservabilityHooks(options: ObservabilityOptions = {}): AgentHooks {
+export function createObservabilityHooks(options: ObservabilityOptions = {}): DisposableHooks {
   const { logger, logToolCalls = true, trackUsage = true, onMetrics, onPendingAction } = options;
 
   // Track operations with TTL cleanup for >1000 tenants
@@ -124,7 +133,7 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Ag
     cleanupInterval.unref();
   }
 
-  return createHooks({
+  const hooks = createHooks({
     /**
      * Called before agent begins processing a request.
      * Use for initialization and request logging.
@@ -343,6 +352,15 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Ag
       }
     },
   });
+
+  // Return disposable hooks with cleanup function to prevent memory leaks during hot reload
+  return {
+    hooks,
+    cleanup: () => {
+      clearInterval(cleanupInterval);
+      operations.clear();
+    },
+  };
 }
 
 /**
@@ -588,7 +606,7 @@ export function createHitlObservability(options: HitlObservabilityOptions = {}) 
  */
 export function createProductionHooks(
   onMetrics?: (metrics: AgentMetrics) => void,
-): AgentHooks {
+): DisposableHooks {
   // Use same scalable tracking as createObservabilityHooks
   const operations = new Map<string, OperationTracking>();
 
@@ -607,7 +625,7 @@ export function createProductionHooks(
     cleanupInterval.unref();
   }
 
-  return createHooks({
+  const hooks = createHooks({
     onStart: async ({ context }) => {
       const tenantId = extractTenantId(context.userId);
       const userId = extractUserId(context.userId);
@@ -655,4 +673,13 @@ export function createProductionHooks(
       }
     },
   });
+
+  // Return disposable hooks with cleanup function to prevent memory leaks during hot reload
+  return {
+    hooks,
+    cleanup: () => {
+      clearInterval(cleanupInterval);
+      operations.clear();
+    },
+  };
 }

@@ -120,7 +120,15 @@
       "Bash(npm run prisma:studio:*)",
       "Bash(del check-providers.ts)",
       "Skill(email-frontend-roadmap)",
-      "Skill(email-frontend-roadmap:*)"
+      "Skill(email-frontend-roadmap:*)",
+      "Bash(tasklist /FI \"PID eq 27020\" /FO LIST /V)",
+      "Bash(wmic process where ProcessId=27020 get WorkingSetSize,VirtualSize,HandleCount,ThreadCount,Name /format:list)",
+      "Bash(systeminfo:*)",
+      "Bash(npm run start:dev:*)",
+      "Bash(npx dotenv:*)",
+      "Bash(set DATABASE_URL=postgresql://mailuser:mailpass@localhost:5432/mailagent:*)",
+      "Bash(cmd //c \"tasklist /FI \"\"IMAGENAME eq node.exe\"\" /FO TABLE\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"D:/MailAgent/backend/scripts/check-mem.ps1\")"
     ],
     "deny": []
   }
