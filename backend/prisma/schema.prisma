@@ -413,6 +413,10 @@ model Folder {
   level        Int            @default(0)
   isSelectable Boolean        @default(true)
   specialUse   String?
+  // Explicit system folder flag - set during sync based on provider detection
+  // TRUE = system folder (INBOX, SENT, etc.) - cannot edit/delete
+  // FALSE = user folder - can edit/delete
+  isSystem     Boolean        @default(false)
   attributes   String[]       @default([])
   totalCount   Int            @default(0)
   unreadCount  Int            @default(0)
@@ -433,6 +437,7 @@ model Folder {
   @@index([providerId, externalId])
   @@index([tenantId, providerId])
   @@index([tenantId, specialUse])
+  @@index([tenantId, isSystem])
   @@index([providerId, parentId])
   @@index([lastSyncedAt])
   @@map("folders")

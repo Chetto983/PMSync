@@ -446,11 +446,29 @@ export function imapSpecialUseToCanonical(specialUse: string): CanonicalFolderTy
 }
 
 /**
- * Check if a folder type is a system folder
+ * System label IDs that cannot be modified or deleted
+ * Based on Zero/Mail-0 pattern for Gmail compatibility
+ *
+ * @see https://github.com/elie222/inbox-zero (Zero reference)
+ */
+export const SYSTEM_LABEL_IDS = new Set<string>([
+  // Core system folders (all providers)
+  'INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'ARCHIVE', 'IMPORTANT', 'STARRED', 'OUTBOX',
+  // Aliases
+  'JUNK', 'FLAGGED', 'DRAFT',
+  // Gmail system labels
+  'UNREAD', 'MUTED', 'CHAT', 'ALL',
+  // Gmail categories
+  'CATEGORY_PERSONAL', 'CATEGORY_SOCIAL', 'CATEGORY_UPDATES', 'CATEGORY_FORUMS', 'CATEGORY_PROMOTIONS',
+  // Gmail star variants
+  'YELLOW_STAR', 'BLUE_STAR', 'GREEN_STAR', 'RED_STAR', 'ORANGE_STAR', 'PURPLE_STAR',
+  // Microsoft extended folders (from Zero systemFolderNames)
+  'CONVERSATIONHISTORY', 'CONVERSATION HISTORY', 'CLUTTER', 'SCHEDULED', 'NOTES', 'JOURNAL',
+]);
+
+/**
+ * Check if a folder type is a system folder that cannot be deleted
  */
 export function isSystemFolder(type: CanonicalFolderType): boolean {
-  const systemFolders: CanonicalFolderType[] = [
-    'INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'ARCHIVE', 'IMPORTANT', 'STARRED', 'OUTBOX'
-  ];
-  return systemFolders.includes(type);
+  return SYSTEM_LABEL_IDS.has(type);
 }

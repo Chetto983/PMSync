@@ -65,6 +65,10 @@ export const FOLDER_ICONS: Record<string, (size: number) => React.ReactNode> = {
   CATEGORY_PROMOTIONS: (size) => React.createElement(Mail, { size }),
   CATEGORY_UPDATES: (size) => React.createElement(Mail, { size }),
   CATEGORY_FORUMS: (size) => React.createElement(Mail, { size }),
+  // Gmail labels
+  YELLOW_STAR: (size) => React.createElement(Star, { size }),
+  UNREAD: (size) => React.createElement(Mail, { size }),
+  UPDATES: (size) => React.createElement(Mail, { size }),
 };
 
 /**
@@ -130,7 +134,7 @@ export function getSpecialFolderIcon(folderType: string, size = 18): React.React
  * @returns true if folder can be modified
  */
 export function canModifyFolder(folder: FolderType | null): boolean {
-  return folder !== null && !folder.specialUse;
+  return folder !== null && !folder.isSystem;
 }
 
 /**
@@ -199,6 +203,9 @@ export type FolderTranslations = {
     categoryPromotions?: string;
     categoryUpdates?: string;
     categoryForums?: string;
+    // Gmail labels
+    unread?: string;
+    updates?: string;
   };
   email?: {
     quickFilters?: {
@@ -230,6 +237,7 @@ export function createFolderLabelGetter(t: FolderTranslations) {
       IMPORTANT: t.folders.important || t.email?.quickFilters?.important,
       OUTBOX: t.folders.outbox,
       CONVERSATIONHISTORY: t.folders.conversationhistory,
+      'CONVERSATION HISTORY': t.folders.conversationhistory,
       CLUTTER: t.folders.clutter,
       SCHEDULED: t.folders.scheduled,
       CONFLICTS: t.folders.conflicts,
@@ -239,7 +247,29 @@ export function createFolderLabelGetter(t: FolderTranslations) {
       CATEGORY_PROMOTIONS: t.folders.categoryPromotions,
       CATEGORY_UPDATES: t.folders.categoryUpdates,
       CATEGORY_FORUMS: t.folders.categoryForums,
+      // Gmail labels
+      YELLOW_STAR: t.folders.starred,
+      UNREAD: t.folders.unread,
+      UPDATES: t.folders.updates,
     };
     return labels[upperFolder] || folder;
   };
+}
+
+/**
+ * Get display name for a folder
+ * For system folders, translates specialUse. For custom folders, uses name directly.
+ * This ensures custom folders (like Gmail labels) display their actual name, not invalid specialUse values.
+ *
+ * @param folder - Folder object from API
+ * @param getFolderLabel - Label getter function from createFolderLabelGetter
+ * @returns Display name for the folder
+ */
+export function getFolderDisplayName(
+  folder: FolderType,
+  getFolderLabel: (label: string) => string
+): string {
+  return folder.isSystem && folder.specialUse
+    ? getFolderLabel(folder.specialUse)
+    : folder.name;
 }

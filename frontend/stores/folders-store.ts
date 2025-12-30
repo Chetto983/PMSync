@@ -65,6 +65,7 @@ export const useFoldersStore = create<FolderState>((set) => ({
         level: folder.level ?? 0,
         isSelectable: folder.isSelectable ?? true,
         specialUse: folder.specialUse,
+        isSystem: folder.isSystem ?? !!folder.specialUse, // Fallback: treat as system if specialUse is set
         attributes: folder.attributes || [],
         totalCount: folder.totalCount ?? 0,
         unreadCount: folder.unreadCount ?? 0,

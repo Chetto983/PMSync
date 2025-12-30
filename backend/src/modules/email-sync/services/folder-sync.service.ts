@@ -7,7 +7,7 @@ import { google } from 'googleapis';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { ProviderTokenService } from './provider-token.service';
 import { GmailFolderService } from './gmail/gmail-folder.service';
-import { folderNameToCanonical } from '../drivers/interfaces/canonical.types';
+import { folderNameToCanonical, isSystemFolder } from '../drivers/interfaces/canonical.types';
 
 export interface FolderInfo {
   path: string;
@@ -297,6 +297,7 @@ export class FolderSyncService {
             delimiter: folderInfo.delimiter,
             attributes: folderInfo.attributes,
             specialUse: folderInfo.specialUse,
+            isSystem: isSystemFolder(folderInfo.specialUse ?? ''),
             level,
             isSelectable: !folderInfo.attributes.some(
               (attr) =>
@@ -313,6 +314,7 @@ export class FolderSyncService {
             delimiter: folderInfo.delimiter,
             attributes: folderInfo.attributes,
             specialUse: folderInfo.specialUse,
+            isSystem: isSystemFolder(folderInfo.specialUse ?? ''),
             externalId: folderInfo.externalId,
             level,
             isSelectable: !folderInfo.attributes.some(
@@ -554,7 +556,10 @@ export class FolderSyncService {
   private determineMicrosoftFolderType(folderName: string): string | undefined {
     // metadata-based detection is handled by the driver, but here we deal with display names
     // Use the centralized heuristic from canonical.types (Common with IMAP)
-    return folderNameToCanonical(folderName);
+    const canonical = folderNameToCanonical(folderName);
+    // Only return specialUse for known system folders, not custom folders
+    // This ensures custom folders have specialUse = null/undefined
+    return isSystemFolder(canonical) ? canonical : undefined;
   }
 
   private async fetchMicrosoftFolders(

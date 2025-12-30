@@ -235,11 +235,11 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
           <ListItemButton
             selected={filters.isImportant === true}
             onClick={() => {
-              onClose();
               // Toggle important filter
-              useEmailUIStore.getState().setFilters({
+              setFilters({
                 isImportant: filters.isImportant ? undefined : true,
               });
+              onClose();
             }}
             sx={{
               borderRadius: 2,
@@ -428,7 +428,8 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                   <Collapse in={!isCollapsed} timeout="auto" unmountOnExit>
                     <List disablePadding sx={{ pl: 2 }}>
                       {providerFolders.map((folder) => {
-                        const folderName = folder.specialUse
+                        // For system folders, translate specialUse. For custom folders, use name directly.
+                        const folderName = folder.isSystem && folder.specialUse
                           ? getFolderLabel(folder.specialUse)
                           : folder.name;
                         const isSelected = filters.folderId === folder.id;
@@ -481,8 +482,8 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                                 },
                               }}
                             />
-                            {/* Show menu for custom folders only */}
-                            {!folder.specialUse && (
+                            {/* Show menu for custom folders only (not system folders) */}
+                            {!folder.isSystem && (
                               <IconButton
                                 size="small"
                                 onClick={(e) => handleFolderMenu(e, folder)}

@@ -156,8 +156,8 @@ export function FolderDialog({
         transition: { onEnter: handleEnter },
       }}
     >
-      <DialogTitle sx={{ pb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <DialogTitle sx={{ pb: 2, pt: 2.5, px: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           {isEditMode ? <Folder size={20} /> : <FolderPlus size={20} />}
           <Typography variant="h6" component="span">
             {isEditMode
@@ -167,7 +167,7 @@ export function FolderDialog({
         </Box>
       </DialogTitle>
 
-      <DialogContent>
+      <DialogContent sx={{ pt: 0, px: 3, pb: 2 }}>
         {error && (
           <Alert
             severity="error"
@@ -239,14 +239,20 @@ export function FolderDialog({
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={handleClose} disabled={isLoading} color="inherit">
+      <DialogActions sx={{ px: 3, pb: 2.5, pt: 2, gap: 1 }}>
+        <Button
+          onClick={handleClose}
+          disabled={isLoading}
+          color="inherit"
+          sx={{ minWidth: 80 }}
+        >
           {t.common?.cancel || 'Annulla'}
         </Button>
         <Button
           onClick={handleSubmit}
           disabled={isLoading || !name.trim() || (!isEditMode && !providerId)}
           variant="contained"
+          sx={{ minWidth: 80 }}
           startIcon={
             isLoading ? <CircularProgress size={16} color="inherit" /> : null
           }

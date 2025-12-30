@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { gmail_v1 } from 'googleapis';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CryptoService } from '../../../../common/services/crypto.service';
+import { isSystemFolder } from '../../drivers/interfaces/canonical.types';
 
 /**
  * Gmail-specific folder (labels) management service
@@ -144,20 +145,27 @@ export class GmailFolderService {
       for (const label of labels) {
         if (!label.id || !label.name) continue;
 
-        // Determine special use
-        const specialUse = this.determineFolderTypeFromLabelId(label.id);
-
-        // Determine if selectable
-        const isSelectable = label.type !== 'system' || specialUse !== undefined;
+        // CRITICAL: Skip ALL Gmail category labels - they are virtual categories, not real folders.
+        // Based on Zero-staging pattern: Gmail categories are just label filters for inbox tabs.
+        // Users cannot create/delete/rename categories - they're managed by Gmail settings.
+        if (label.id?.startsWith('CATEGORY_')) {
+          this.logger.debug(`Skipping Gmail category label: ${label.id} (virtual category, not a real folder)`);
+          continue;
+        }
 
         // CRITICAL: folder.path MUST match what determineFolderFromLabels returns
         // This ensures email.folder can join with folder.path
         // determineFolderFromLabels returns: INBOX, SENT, TRASH, SPAM, PROMOTIONS, SOCIAL, UPDATES, FORUMS, DRAFTS
         const folderPath = this.labelIdToFolderPath(label.id, label.name);
 
-        // CRITICAL: folder.name MUST equal folder.path for consistency
-        // This ensures email.folder can match either field
-        const folderName = folderPath;
+        // Determine special use from Gmail label ID
+        const specialUse = this.determineFolderTypeFromLabelId(label.id);
+
+        // Determine if selectable
+        const isSelectable = label.type !== 'system' || specialUse !== undefined;
+
+        // Determine if this is a system folder (protected from edit/delete)
+        const isSystem = isSystemFolder(specialUse ?? '');
 
         await (this.prisma as any).folder.upsert({
           where: {
@@ -171,18 +179,20 @@ export class GmailFolderService {
             providerId,
             path: folderPath,
             externalId: label.id, // Keep original label ID for API operations
-            name: folderName,  // Use normalized name, not label.name
+            name: label.name,  // Use Gmail's label display name
             delimiter: '/',
             specialUse,
+            isSystem,  // Set system flag based on specialUse
             isSelectable,
             totalCount: label.messagesTotal || 0,
             unreadCount: label.messagesUnread || 0,
             level: 0,
           },
           update: {
-            name: folderName,  // Use normalized name, not label.name
+            name: label.name,  // Use Gmail's label display name
             externalId: label.id, // Update external ID if needed
             specialUse,
+            isSystem,  // Update system flag
             isSelectable,
             totalCount: label.messagesTotal || 0,
             unreadCount: label.messagesUnread || 0,
@@ -242,9 +252,10 @@ export class GmailFolderService {
       return labelId === 'DRAFT' ? 'DRAFTS' : labelId;
     }
 
-    // For custom labels (Label_xxx), use the label name as path
+    // For custom labels (Label_xxx or label_xxx), use the label name as path
     // This allows custom labels to be properly identified
-    if (labelId.startsWith('Label_')) {
+    // Gmail can return both "Label_" and "label_" prefixes
+    if (labelId.startsWith('Label_') || labelId.startsWith('label_')) {
       return labelName;
     }
 
@@ -260,7 +271,10 @@ export class GmailFolderService {
    * @returns Folder type or undefined for non-standard labels
    */
   private determineFolderTypeFromLabelId(labelId: string): string | undefined {
+    // Map Gmail label IDs to specialUse values
+    // Labels with specialUse are protected from deletion in the UI
     const labelMap: Record<string, string | undefined> = {
+      // Core system folders - PROTECTED
       'INBOX': 'INBOX',
       'SENT': 'SENT',
       'DRAFT': 'DRAFTS',
@@ -268,12 +282,23 @@ export class GmailFolderService {
       'SPAM': 'JUNK',
       'STARRED': 'FLAGGED',
       'IMPORTANT': 'IMPORTANT',
-      'UNREAD': undefined, // Not a folder, it's a filter
-      'CATEGORY_PERSONAL': undefined,
-      'CATEGORY_SOCIAL': undefined,
-      'CATEGORY_PROMOTIONS': undefined,
-      'CATEGORY_UPDATES': undefined,
-      'CATEGORY_FORUMS': undefined,
+      // Gmail categories - PROTECTED (can't be deleted via API)
+      'CATEGORY_PERSONAL': 'CATEGORY_PERSONAL',
+      'CATEGORY_SOCIAL': 'CATEGORY_SOCIAL',
+      'CATEGORY_PROMOTIONS': 'CATEGORY_PROMOTIONS',
+      'CATEGORY_UPDATES': 'CATEGORY_UPDATES',
+      'CATEGORY_FORUMS': 'CATEGORY_FORUMS',
+      // Gmail system labels - PROTECTED (cannot be deleted, keep as-is for specialUse)
+      'UNREAD': 'UNREAD',
+      'CHAT': 'CHAT',
+      'MUTED': 'MUTED',
+      // Gmail star variants - system labels
+      'YELLOW_STAR': 'YELLOW_STAR',
+      'BLUE_STAR': 'BLUE_STAR',
+      'GREEN_STAR': 'GREEN_STAR',
+      'RED_STAR': 'RED_STAR',
+      'ORANGE_STAR': 'ORANGE_STAR',
+      'PURPLE_STAR': 'PURPLE_STAR',
     };
 
     return labelMap[labelId];

@@ -2337,6 +2337,9 @@ export const it: AppTranslations = {
     categoryPromotions: 'Promozioni',
     categoryUpdates: 'Aggiornamenti',
     categoryForums: 'Forum',
+    // Gmail labels
+    unread: 'Non letti',
+    updates: 'Aggiornamenti',
     // Folder management
     createFolder: 'Crea cartella',
     renameFolder: 'Rinomina cartella',

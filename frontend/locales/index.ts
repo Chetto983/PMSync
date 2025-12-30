@@ -2268,6 +2268,9 @@ export interface AppTranslations {
     categoryPromotions: string;
     categoryUpdates: string;
     categoryForums: string;
+    // Gmail labels
+    unread: string;
+    updates: string;
     // Folder management
     createFolder: string;
     renameFolder: string;

@@ -40,7 +40,7 @@ export function FolderContextMenu({
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   // Can only rename/delete non-system folders
-  const canModify = folder && !folder.specialUse;
+  const canModify = folder && !folder.isSystem;
 
   const handleRename = useCallback(() => {
     onClose();

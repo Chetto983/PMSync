@@ -28,6 +28,7 @@ import { FolderSyncService } from '../../email-sync/services/folder-sync.service
 import { FolderOperationsQueueService } from '../../email-sync/services/folder-operations-queue.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
+import { isSystemFolder } from '../../email-sync/drivers/interfaces/canonical.types';
 
 // DTOs for folder operations
 export class CreateFolderDto {
@@ -621,6 +622,11 @@ Frontend can use this to avoid duplicating folder type logic.`,
       throw new NotFoundException('Folder not found');
     }
 
+    // Prevent renaming system folders
+    if (folder.specialUse && isSystemFolder(folder.specialUse)) {
+      throw new BadRequestException(`Cannot rename system folder: ${folder.specialUse}`);
+    }
+
     // Validate new name
     if (!dto.newName || dto.newName.trim().length === 0) {
       throw new BadRequestException('New folder name is required');
@@ -695,9 +701,8 @@ Frontend can use this to avoid duplicating folder type logic.`,
       throw new NotFoundException('Folder not found');
     }
 
-    // Prevent deletion of system folders (check here for immediate feedback)
-    const systemFolders = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'JUNK', 'ARCHIVE'];
-    if (folder.specialUse && systemFolders.includes(folder.specialUse)) {
+    // Prevent deletion of system folders (uses canonical SYSTEM_LABEL_IDS)
+    if (folder.specialUse && isSystemFolder(folder.specialUse)) {
       throw new BadRequestException(`Cannot delete system folder: ${folder.specialUse}`);
     }
 

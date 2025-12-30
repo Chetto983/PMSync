@@ -1,9 +1,14 @@
 /**
- * Label Management Components
+ * Label Management Components and Utilities
  *
- * Components for creating, editing, and managing email labels.
+ * Components, hooks, and utilities for creating, editing, and managing email labels.
  */
 
+// Components
 export { LabelColorPicker } from './LabelColorPicker';
 export { LabelDialog } from './LabelDialog';
 export { LabelContextMenu } from './LabelContextMenu';
+export { LabelDeleteDialog } from './LabelDeleteDialog';
+
+// Hooks
+export { useLabelManagement, type LabelManagementState } from './useLabelManagement';

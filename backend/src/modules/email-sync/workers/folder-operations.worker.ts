@@ -17,6 +17,7 @@ import { SyncAuthService } from '../services/sync-auth.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { QUEUE_NAMES } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
+import { isSystemFolder } from '../drivers/interfaces/canonical.types';
 
 /**
  * FolderOperationsWorker
@@ -236,6 +237,11 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
         }
       });
     } else {
+      // Determine specialUse and isSystem - only set if it's actually a system folder
+      const folderType = createdFolder.type && createdFolder.type !== 'Custom' ? createdFolder.type : null;
+      const specialUse = folderType && isSystemFolder(folderType) ? folderType : null;
+      const isSystem = !!specialUse;
+
       dbFolder = await this.prisma.folder.create({
         data: {
           tenantId,
@@ -246,7 +252,8 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
           delimiter: '/', // Driver ensures / delimiter
           isSelectable: createdFolder.attributes?.selectable ?? true,
           level: (createdFolder.path.match(/\//g) || []).length,
-          specialUse: createdFolder.type !== 'Custom' ? createdFolder.type : null
+          specialUse,
+          isSystem,
         },
       });
     }

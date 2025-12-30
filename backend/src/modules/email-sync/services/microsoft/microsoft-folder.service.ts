@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CryptoService } from '../../../../common/services/crypto.service';
+import { isSystemFolder } from '../../drivers/interfaces/canonical.types';
 
 /**
  * Microsoft-specific folder service
@@ -279,6 +280,9 @@ export class MicrosoftFolderService {
         const specialUse = this.determineMicrosoftFolderType(folder.displayName);
         const folderPath = specialUse || folder.displayName;
 
+        // Determine if this is a system folder (protected from edit/delete)
+        const isSystem = isSystemFolder(specialUse ?? '');
+
         await (this.prisma as any).folder.upsert({
           where: {
             providerId_path: {
@@ -294,6 +298,7 @@ export class MicrosoftFolderService {
             name: folder.displayName,
             delimiter: '/',
             specialUse,
+            isSystem,  // Set system flag based on specialUse
             isSelectable: true,
             totalCount: folder.totalItemCount || 0,
             unreadCount: folder.unreadItemCount || 0,
@@ -303,6 +308,7 @@ export class MicrosoftFolderService {
             name: folder.displayName,
             externalId: folder.id, // Update external ID if needed
             specialUse,
+            isSystem,  // Update system flag
             totalCount: folder.totalItemCount || 0,
             unreadCount: folder.unreadItemCount || 0,
             lastSyncedAt: new Date(),
@@ -325,52 +331,59 @@ export class MicrosoftFolderService {
 
   /**
    * Determine folder type from Microsoft folder name
+   * Based on Zero/Mail-0 systemFolderNames pattern
    *
+   * @see https://github.com/elie222/inbox-zero (Zero reference)
    * @param folderName - Microsoft folder display name
-   * @returns Standard folder type or undefined
+   * @returns Standard folder type or undefined for custom folders
    */
   private determineMicrosoftFolderType(folderName: string): string | undefined {
-    const lowerName = folderName.toLowerCase();
+    const lowerName = folderName.toLowerCase().trim();
 
-    // Well-known Microsoft folder names
-    if (lowerName === 'inbox' || lowerName === 'posta in arrivo' || lowerName === 'posteingang')
-      return 'INBOX';
-    if (
-      lowerName === 'sent items' ||
-      lowerName === 'sentitems' ||
-      lowerName === 'sent' ||
-      lowerName === 'posta inviata' ||
-      lowerName === 'inviata' ||
-      lowerName === 'elementi inviati'
-    )
-      return 'SENT';
-    if (lowerName === 'drafts' || lowerName === 'bozze' || lowerName === 'draft') return 'DRAFTS';
-    if (
-      lowerName === 'deleted items' ||
-      lowerName === 'deleteditems' ||
-      lowerName === 'trash' ||
-      lowerName === 'posta eliminata' ||
-      lowerName === 'cestino' ||
-      lowerName === 'eliminata'
-    )
-      return 'TRASH';
-    if (
-      lowerName === 'junk email' ||
-      lowerName === 'junk' ||
-      lowerName === 'spam' ||
-      lowerName === 'posta indesiderata' ||
-      lowerName === 'post indiserata'
-    )
-      return 'JUNK';
-    if (
-      lowerName === 'archive' ||
-      lowerName === 'archivia' ||
-      lowerName === 'archivio' ||
-      lowerName === 'all mail'
-    )
-      return 'ARCHIVE';
-    if (lowerName === 'outbox' || lowerName === 'posta in uscita') return undefined; // Outbox is temporary
+    // Microsoft system folder names (based on Zero pattern)
+    // These folders cannot be deleted or renamed by users
+    const systemFolderMap: Record<string, string> = {
+      // INBOX
+      'inbox': 'INBOX',
+      'posta in arrivo': 'INBOX',
+      'posteingang': 'INBOX',
+      // SENT
+      'sent items': 'SENT',
+      'sentitems': 'SENT',
+      'sent': 'SENT',
+      'posta inviata': 'SENT',
+      'elementi inviati': 'SENT',
+      // DRAFTS
+      'drafts': 'DRAFTS',
+      'bozze': 'DRAFTS',
+      'draft': 'DRAFTS',
+      // TRASH
+      'deleted items': 'TRASH',
+      'deleteditems': 'TRASH',
+      'trash': 'TRASH',
+      'posta eliminata': 'TRASH',
+      'cestino': 'TRASH',
+      // JUNK/SPAM
+      'junk email': 'JUNK',
+      'junkemail': 'JUNK',
+      'junk': 'JUNK',
+      'spam': 'JUNK',
+      'posta indesiderata': 'JUNK',
+      // ARCHIVE
+      'archive': 'ARCHIVE',
+      'archivio': 'ARCHIVE',
+      'all mail': 'ARCHIVE',
+      // OUTBOX
+      'outbox': 'OUTBOX',
+      'posta in uscita': 'OUTBOX',
+      // Microsoft extended system folders (from Zero)
+      'clutter': 'CLUTTER',
+      'conversation history': 'CONVERSATIONHISTORY',
+      'conversationhistory': 'CONVERSATIONHISTORY',
+      'notes': 'NOTES',
+      'journal': 'JOURNAL',
+    };
 
-    return undefined;
+    return systemFolderMap[lowerName];
   }
 }

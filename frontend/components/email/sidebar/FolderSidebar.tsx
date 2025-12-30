@@ -65,6 +65,7 @@ import {
   FOLDER_ORDER,
   getSpecialFolderIcon,
   getFolderIcon,
+  getFolderDisplayName,
   sortFoldersByOrder,
 } from '../folders';
 import type { Folder as FolderType, Provider } from '@/lib/api/folders';
@@ -388,7 +389,8 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                           >
                             <List disablePadding sx={{ pl: 2 }}>
                               {sortedFolders.map((folder) => {
-                                const folderName = folder.specialUse
+                                // For system folders, translate specialUse. For custom folders, use name directly.
+                                const folderName = folder.isSystem && folder.specialUse
                                   ? getFolderLabel(folder.specialUse)
                                   : folder.name;
 
@@ -410,8 +412,8 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                                       selected={filters.folderId === folder.id}
                                       onClick={() => handleProviderFolderClick(provider.id, folder)}
                                     />
-                                    {/* Show menu for custom folders only */}
-                                    {!folder.specialUse && (
+                                    {/* Show menu for custom folders only (not system folders) */}
+                                    {!folder.isSystem && (
                                       <IconButton
                                         size="small"
                                         className="folder-menu-btn"
@@ -439,7 +441,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                                 folder={activeFolder}
                                 icon={getFolderIcon(activeFolder)}
                                 label={
-                                  activeFolder.specialUse
+                                  activeFolder.isSystem && activeFolder.specialUse
                                     ? getFolderLabel(activeFolder.specialUse)
                                     : activeFolder.name
                                 }

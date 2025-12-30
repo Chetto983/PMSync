@@ -118,7 +118,7 @@ export function MobileEmailNav() {
           {/* Folders Button */}
           <NavButton
             icon={<FolderOpen size={22} />}
-            label="Cartelle"
+            label={t.folders?.title || 'Folders'}
             onClick={handleFoldersClick}
           />
         </Box>

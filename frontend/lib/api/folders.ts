@@ -144,6 +144,7 @@ export interface Folder {
   level: number;
   isSelectable: boolean;
   specialUse?: string;
+  isSystem: boolean;  // TRUE = system folder (cannot edit/delete), FALSE = user folder
   attributes: string[];
   totalCount: number;
   unreadCount: number;

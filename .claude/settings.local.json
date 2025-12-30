@@ -109,7 +109,10 @@
       "Bash(if not exist \"D:\\\\MailAgent\\\\esempio\" mkdir \"D:\\\\MailAgent\\\\esempio\")",
       "Bash(npm run test:e2e:*)",
       "Bash(npx ts-node scripts/force-full-sync-all-folders.ts)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(claude mcp tools:*)",
+      "Bash(npx @anthropic-ai/claude-code mcp list-tools)",
+      "Bash(powershell -Command \"Start-Process ''http://localhost:3001/dashboard/email''\")"
     ],
     "deny": []
   }
