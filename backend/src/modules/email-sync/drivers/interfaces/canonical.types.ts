@@ -9,25 +9,52 @@
  */
 
 /**
- * Known canonical folder types based on RFC 6154 special-use attributes.
+ * Known canonical folder types based on:
+ * - RFC 6154 (IMAP LIST Extension for Special-Use Mailboxes)
+ * - RFC 8457 (IMAP "$Important" Keyword and "\Important" Special-Use Attribute)
+ * - Microsoft Graph API wellKnownName values
+ * - Gmail API system labels
+ *
  * These are locale-independent identifiers for standard mailbox folders.
+ *
+ * @see https://www.rfc-editor.org/rfc/rfc6154.html
+ * @see https://www.rfc-editor.org/rfc/rfc8457.html
+ * @see https://learn.microsoft.com/en-us/graph/api/resources/mailfolder
+ * @see https://developers.google.com/workspace/gmail/api/guides/labels
  */
 export type KnownFolderType =
+  // RFC 6154 standard special-use attributes
   | 'INBOX'      // Primary inbox - \Inbox
   | 'SENT'       // Sent messages - \Sent
   | 'DRAFTS'     // Draft messages - \Drafts
   | 'TRASH'      // Deleted items - \Trash
   | 'SPAM'       // Junk/spam mail - \Junk
   | 'ARCHIVE'    // Archived messages - \Archive
+  | 'ALL'        // All mail - \All
+  | 'FLAGGED'    // Flagged messages - \Flagged
+  // RFC 8457 - Important
   | 'IMPORTANT'  // Important/priority - \Important
-  | 'STARRED'    // Starred/flagged - \Flagged
-  | 'OUTBOX'     // Pending send
+  // Common aliases
+  | 'STARRED'    // Starred (alias for FLAGGED)
+  | 'JUNK'       // Junk (alias for SPAM)
+  // Microsoft Graph wellKnownName values
+  | 'OUTBOX'             // Pending send
+  | 'CONVERSATIONHISTORY' // Skype/Teams IM history
+  | 'CLUTTER'            // Low-priority messages
+  | 'CONFLICTS'          // Sync conflicts
+  | 'LOCALFAILURES'      // Local sync failures
+  | 'SERVERFAILURES'     // Server sync failures
+  | 'SYNCISSUES'         // Sync logs
+  | 'SCHEDULED'          // Scheduled messages
   // Gmail categories
   | 'SOCIAL'
   | 'PROMOTIONS'
   | 'UPDATES'
   | 'FORUMS'
-  | 'PERSONAL';
+  | 'PERSONAL'
+  // Gmail system labels
+  | 'CHAT'       // Gmail chat messages
+  | 'UNREAD';    // Gmail unread label
 
 /**
  * CanonicalFolderType allows any string for custom user folders.
@@ -39,6 +66,7 @@ export type CanonicalFolderType = KnownFolderType | (string & Record<never, neve
  * Mapping from provider-specific folder identifiers to canonical types
  */
 export const GMAIL_TO_CANONICAL: Record<string, CanonicalFolderType> = {
+  // Core system labels
   'INBOX': 'INBOX',
   'SENT': 'SENT',
   'DRAFT': 'DRAFTS',
@@ -46,6 +74,9 @@ export const GMAIL_TO_CANONICAL: Record<string, CanonicalFolderType> = {
   'SPAM': 'SPAM',
   'STARRED': 'STARRED',
   'IMPORTANT': 'IMPORTANT',
+  'UNREAD': 'UNREAD',
+  'CHAT': 'CHAT',
+  // Category labels
   'CATEGORY_PERSONAL': 'PERSONAL',
   'CATEGORY_SOCIAL': 'SOCIAL',
   'CATEGORY_PROMOTIONS': 'PROMOTIONS',
@@ -53,7 +84,12 @@ export const GMAIL_TO_CANONICAL: Record<string, CanonicalFolderType> = {
   'CATEGORY_FORUMS': 'FORUMS',
 };
 
+/**
+ * Microsoft Graph API wellKnownName to canonical mapping
+ * @see https://learn.microsoft.com/en-us/graph/api/resources/mailfolder
+ */
 export const MICROSOFT_WELLKNOWN_TO_CANONICAL: Record<string, CanonicalFolderType> = {
+  // Core folders
   'inbox': 'INBOX',
   'sentitems': 'SENT',
   'drafts': 'DRAFTS',
@@ -61,12 +97,26 @@ export const MICROSOFT_WELLKNOWN_TO_CANONICAL: Record<string, CanonicalFolderTyp
   'junkemail': 'SPAM',
   'archive': 'ARCHIVE',
   'outbox': 'OUTBOX',
+  // Extended Microsoft folders
+  'conversationhistory': 'CONVERSATIONHISTORY',
+  'clutter': 'CLUTTER',
+  'conflicts': 'CONFLICTS',
+  'localfailures': 'LOCALFAILURES',
+  'serverfailures': 'SERVERFAILURES',
+  'syncissues': 'SYNCISSUES',
+  'scheduled': 'SCHEDULED',
+  // Aliases (localized display names from wellKnownName)
+  'junk email': 'SPAM',
+  'deleted items': 'TRASH',
+  'sent items': 'SENT',
 };
 
 /**
  * Reverse mapping: canonical to provider-specific
+ * Indexed by string to allow dynamic lookups
  */
-export const CANONICAL_TO_GMAIL: Record<CanonicalFolderType, string> = {
+export const CANONICAL_TO_GMAIL: Record<string, string> = {
+  // Core folders
   'INBOX': 'INBOX',
   'SENT': 'SENT',
   'DRAFTS': 'DRAFT',
@@ -74,16 +124,31 @@ export const CANONICAL_TO_GMAIL: Record<CanonicalFolderType, string> = {
   'SPAM': 'SPAM',
   'STARRED': 'STARRED',
   'IMPORTANT': 'IMPORTANT',
-  'ARCHIVE': 'all', // Gmail uses 'all' for archive
-  'OUTBOX': 'INBOX', // Gmail doesn't have outbox
+  'ARCHIVE': 'all',           // Gmail uses 'all' for archive
+  'ALL': 'all',
+  'FLAGGED': 'STARRED',
+  'JUNK': 'SPAM',
+  'UNREAD': 'UNREAD',
+  'CHAT': 'CHAT',
+  // Categories
   'SOCIAL': 'CATEGORY_SOCIAL',
   'PROMOTIONS': 'CATEGORY_PROMOTIONS',
   'UPDATES': 'CATEGORY_UPDATES',
   'FORUMS': 'CATEGORY_FORUMS',
   'PERSONAL': 'CATEGORY_PERSONAL',
+  // Gmail doesn't have these - map to INBOX as fallback
+  'OUTBOX': 'INBOX',
+  'CONVERSATIONHISTORY': 'INBOX',
+  'CLUTTER': 'INBOX',
+  'SCHEDULED': 'INBOX',
 };
 
-export const CANONICAL_TO_MICROSOFT: Record<CanonicalFolderType, string> = {
+/**
+ * Microsoft Graph API canonical to wellKnownName mapping
+ * Indexed by string to allow dynamic lookups
+ */
+export const CANONICAL_TO_MICROSOFT: Record<string, string> = {
+  // Core folders
   'INBOX': 'inbox',
   'SENT': 'sentitems',
   'DRAFTS': 'drafts',
@@ -91,13 +156,28 @@ export const CANONICAL_TO_MICROSOFT: Record<CanonicalFolderType, string> = {
   'SPAM': 'junkemail',
   'ARCHIVE': 'archive',
   'OUTBOX': 'outbox',
-  'STARRED': 'inbox', // Microsoft doesn't have starred folder
-  'IMPORTANT': 'inbox', // Microsoft doesn't have important folder
+  // Extended Microsoft folders
+  'CONVERSATIONHISTORY': 'conversationhistory',
+  'CLUTTER': 'clutter',
+  'CONFLICTS': 'conflicts',
+  'LOCALFAILURES': 'localfailures',
+  'SERVERFAILURES': 'serverfailures',
+  'SYNCISSUES': 'syncissues',
+  'SCHEDULED': 'scheduled',
+  // Aliases
+  'JUNK': 'junkemail',
+  'ALL': 'archive',
+  'FLAGGED': 'inbox',         // Microsoft doesn't have flagged folder
+  // Microsoft doesn't have these - map to inbox as fallback
+  'STARRED': 'inbox',
+  'IMPORTANT': 'inbox',
   'SOCIAL': 'inbox',
   'PROMOTIONS': 'inbox',
   'UPDATES': 'inbox',
   'FORUMS': 'inbox',
   'PERSONAL': 'inbox',
+  'CHAT': 'inbox',
+  'UNREAD': 'inbox',
 };
 
 /**

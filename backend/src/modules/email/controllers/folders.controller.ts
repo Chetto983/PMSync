@@ -57,6 +57,102 @@ export class FolderResponseDto {
   name: string;
 }
 
+/**
+ * Canonical folder types exposed to frontend
+ * Avoids code duplication between frontend and backend
+ */
+export const CANONICAL_FOLDER_TYPES = {
+  // RFC 6154 standard special-use attributes
+  INBOX: 'INBOX',
+  SENT: 'SENT',
+  DRAFTS: 'DRAFTS',
+  TRASH: 'TRASH',
+  SPAM: 'SPAM',
+  JUNK: 'JUNK',
+  ARCHIVE: 'ARCHIVE',
+  ALL: 'ALL',
+  FLAGGED: 'FLAGGED',
+  STARRED: 'STARRED',
+  IMPORTANT: 'IMPORTANT',
+  // Microsoft Graph wellKnownName values
+  OUTBOX: 'OUTBOX',
+  CONVERSATIONHISTORY: 'CONVERSATIONHISTORY',
+  CLUTTER: 'CLUTTER',
+  SCHEDULED: 'SCHEDULED',
+  // Gmail categories
+  CATEGORY_PERSONAL: 'CATEGORY_PERSONAL',
+  CATEGORY_SOCIAL: 'CATEGORY_SOCIAL',
+  CATEGORY_PROMOTIONS: 'CATEGORY_PROMOTIONS',
+  CATEGORY_UPDATES: 'CATEGORY_UPDATES',
+  CATEGORY_FORUMS: 'CATEGORY_FORUMS',
+} as const;
+
+/**
+ * Localized folder name mappings for display name to canonical type conversion
+ * Used when IMAP servers don't provide RFC 6154 special-use flags
+ */
+export const LOCALIZED_FOLDER_NAMES: Record<string, keyof typeof CANONICAL_FOLDER_TYPES> = {
+  // English
+  'inbox': 'INBOX',
+  'sent': 'SENT',
+  'sent items': 'SENT',
+  'sent mail': 'SENT',
+  'drafts': 'DRAFTS',
+  'draft': 'DRAFTS',
+  'trash': 'TRASH',
+  'deleted items': 'TRASH',
+  'bin': 'TRASH',
+  'spam': 'SPAM',
+  'junk': 'SPAM',
+  'junk email': 'SPAM',
+  'archive': 'ARCHIVE',
+  'all mail': 'ALL',
+  'important': 'IMPORTANT',
+  'starred': 'STARRED',
+  'flagged': 'FLAGGED',
+  'outbox': 'OUTBOX',
+  // Italian
+  'posta in arrivo': 'INBOX',
+  'posta inviata': 'SENT',
+  'inviata': 'SENT',
+  'elementi inviati': 'SENT',
+  'bozze': 'DRAFTS',
+  'cestino': 'TRASH',
+  'posta eliminata': 'TRASH',
+  'posta indesiderata': 'SPAM',
+  'archivio': 'ARCHIVE',
+  'posta in uscita': 'OUTBOX',
+  // German
+  'posteingang': 'INBOX',
+  'gesendet': 'SENT',
+  'gesendete objekte': 'SENT',
+  'entwürfe': 'DRAFTS',
+  'papierkorb': 'TRASH',
+  'gelöschte objekte': 'TRASH',
+  'junk-e-mail': 'SPAM',
+  'archiv': 'ARCHIVE',
+  'postausgang': 'OUTBOX',
+  // French
+  'boîte de réception': 'INBOX',
+  'éléments envoyés': 'SENT',
+  'envoyés': 'SENT',
+  'brouillons': 'DRAFTS',
+  'corbeille': 'TRASH',
+  'courrier indésirable': 'SPAM',
+  'archives': 'ARCHIVE',
+  "boîte d'envoi": 'OUTBOX',
+  // Spanish
+  'bandeja de entrada': 'INBOX',
+  'elementos enviados': 'SENT',
+  'enviados': 'SENT',
+  'borradores': 'DRAFTS',
+  'papelera': 'TRASH',
+  'eliminados': 'TRASH',
+  'correo no deseado': 'SPAM',
+  'archivo': 'ARCHIVE',
+  'bandeja de salida': 'OUTBOX',
+};
+
 @ApiTags('Folders')
 @Controller('folders')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -67,6 +163,79 @@ export class FoldersController {
     private readonly folderQueue: FolderOperationsQueueService,
     private readonly prisma: PrismaService,
   ) {}
+
+  /**
+   * Get canonical folder type metadata
+   * Returns folder type definitions and localized name mappings
+   * Frontend can use this to avoid duplicating folder type logic
+   */
+  @Get('metadata')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Get canonical folder type metadata',
+    description: `Returns folder type definitions and localized name mappings.
+
+**Canonical Types**: RFC 6154 special-use attributes, Microsoft Graph wellKnownName values, Gmail system labels.
+
+**Localized Names**: Display name to canonical type mappings for English, Italian, German, French, Spanish.
+
+Frontend can use this to avoid duplicating folder type logic.`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Folder type metadata',
+    schema: {
+      type: 'object',
+      properties: {
+        canonicalTypes: {
+          type: 'object',
+          description: 'All canonical folder type constants',
+          example: { INBOX: 'INBOX', SENT: 'SENT', DRAFTS: 'DRAFTS' },
+        },
+        localizedNames: {
+          type: 'object',
+          description: 'Localized folder names mapped to canonical types',
+          example: { 'posta in arrivo': 'INBOX', 'bozze': 'DRAFTS' },
+        },
+        systemFolders: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Core system folders for sidebar display',
+          example: ['INBOX', 'SENT', 'DRAFTS', 'ARCHIVE', 'SPAM', 'TRASH'],
+        },
+        microsoftFolders: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Microsoft Graph specific folder types',
+          example: ['OUTBOX', 'CONVERSATIONHISTORY', 'CLUTTER', 'SCHEDULED'],
+        },
+        gmailCategories: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Gmail category labels',
+          example: ['CATEGORY_PERSONAL', 'CATEGORY_SOCIAL'],
+        },
+      },
+    },
+  })
+  async getFolderMetadata() {
+    return {
+      canonicalTypes: CANONICAL_FOLDER_TYPES,
+      localizedNames: LOCALIZED_FOLDER_NAMES,
+      // Core system folders that should be displayed in sidebar
+      systemFolders: ['INBOX', 'SENT', 'DRAFTS', 'ARCHIVE', 'SPAM', 'TRASH'],
+      // Microsoft-specific folders
+      microsoftFolders: ['OUTBOX', 'CONVERSATIONHISTORY', 'CLUTTER', 'SCHEDULED'],
+      // Gmail categories
+      gmailCategories: [
+        'CATEGORY_PERSONAL',
+        'CATEGORY_SOCIAL',
+        'CATEGORY_PROMOTIONS',
+        'CATEGORY_UPDATES',
+        'CATEGORY_FORUMS',
+      ],
+    };
+  }
 
   @Get()
   @ApiOperation({ summary: 'Get all folders for current user' })

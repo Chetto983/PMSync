@@ -21,6 +21,7 @@ import {
 import {
   getFolders,
   getFoldersByProvider,
+  getFolderMetadata,
   createFolder,
   renameFolder,
   deleteFolder,
@@ -28,6 +29,7 @@ import {
   syncAllFolders,
   type FoldersResponse,
   type ProviderFoldersResponse,
+  type FolderMetadataResponse,
   type CreateFolderRequest,
 } from '@/lib/api/folders';
 
@@ -40,6 +42,7 @@ export const folderKeys = {
   lists: () => [...folderKeys.all, 'list'] as const,
   list: () => [...folderKeys.lists()] as const,
   byProvider: (providerId: string) => [...folderKeys.all, 'provider', providerId] as const,
+  metadata: () => [...folderKeys.all, 'metadata'] as const,
 } as const;
 
 // ============================================================================
@@ -76,6 +79,25 @@ export function foldersByProviderOptions(providerId: string) {
   });
 }
 
+/**
+ * Query options for fetching folder metadata (canonical types, localized names)
+ * This is STATIC data that never changes during a session.
+ * Query once on app load and never refetch.
+ */
+export function folderMetadataOptions() {
+  return queryOptions({
+    queryKey: folderKeys.metadata(),
+    queryFn: async (): Promise<FolderMetadataResponse> => {
+      return getFolderMetadata();
+    },
+    staleTime: Infinity, // Never goes stale - data is static
+    gcTime: Infinity, // Keep in cache forever (session lifetime)
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+}
+
 // ============================================================================
 // Query Hooks
 // ============================================================================
@@ -106,6 +128,22 @@ export function useFolders() {
  */
 export function useFoldersByProvider(providerId: string) {
   return useQuery(foldersByProviderOptions(providerId));
+}
+
+/**
+ * Hook for fetching folder metadata (canonical types, localized names)
+ * Use this to get backend-defined folder types and translations
+ * instead of duplicating them in the frontend.
+ *
+ * @example
+ * ```tsx
+ * const { data: metadata } = useFolderMetadata();
+ * const localizedName = metadata?.localizedNames?.['it']?.['INBOX'] ?? 'Inbox';
+ * const isSystemFolder = metadata?.systemFolders?.includes('INBOX');
+ * ```
+ */
+export function useFolderMetadata() {
+  return useQuery(folderMetadataOptions());
 }
 
 // ============================================================================

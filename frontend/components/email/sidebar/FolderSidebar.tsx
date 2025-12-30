@@ -10,7 +10,7 @@
  * @see https://docs.dndkit.com/presets/sortable
  */
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   List,
@@ -43,20 +43,13 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import {
-  Inbox,
-  Send,
-  FileText,
-  Trash2,
-  AlertOctagon,
-  Archive,
-  Mail,
   RefreshCw,
   Flag,
   ChevronDown,
   ChevronRight,
-  Folder,
   User,
-  Star,
+  Plus,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders } from '@/hooks/queries/use-folders';
@@ -65,82 +58,20 @@ import { useEmailUIStore, useEmailSidebar, type SpecialFolder } from '@/stores/e
 import { FolderItem } from './FolderItem';
 import { SortableFolderItem, FolderItemDisplay } from './SortableFolderItem';
 import { LabelsSidebar } from './LabelsSidebar';
+import {
+  FolderDialog,
+  FolderContextMenu,
+  useFolderManagement,
+  FOLDER_ORDER,
+  getSpecialFolderIcon,
+  getFolderIcon,
+  sortFoldersByOrder,
+} from '../folders';
 import type { Folder as FolderType, Provider } from '@/lib/api/folders';
 
 interface FolderSidebarProps {
   collapsed?: boolean;
   width?: number;
-}
-
-// Map special folder types to icons (including all backend special uses)
-const FOLDER_ICONS: Record<string, React.ReactNode> = {
-  INBOX: <Inbox size={18} />,
-  SENT: <Send size={18} />,
-  DRAFTS: <FileText size={18} />,
-  TRASH: <Trash2 size={18} />,
-  SPAM: <AlertOctagon size={18} />,
-  JUNK: <AlertOctagon size={18} />,
-  ARCHIVE: <Archive size={18} />,
-  ALL: <Mail size={18} />,
-  STARRED: <Star size={18} />,
-  FLAGGED: <Flag size={18} />,
-  IMPORTANT: <Flag size={18} />,
-};
-
-// Order of special folders in sidebar (top-level aggregated view)
-const FOLDER_ORDER: SpecialFolder[] = [
-  'INBOX',
-  'SENT',
-  'DRAFTS',
-  'ARCHIVE',
-  'SPAM',
-  'TRASH',
-  'ALL',
-];
-
-// Get icon for a folder based on specialUse
-function getFolderIcon(folder: FolderType): React.ReactNode {
-  if (folder.specialUse) {
-    const specialUse = folder.specialUse.toUpperCase();
-    return FOLDER_ICONS[specialUse] || <Folder size={16} />;
-  }
-  return <Folder size={16} />;
-}
-
-/**
- * Sort folders by user preference order, then by default order
- */
-function sortFoldersByOrder(
-  folders: FolderType[],
-  orderIds: string[] | undefined
-): FolderType[] {
-  if (orderIds && orderIds.length > 0) {
-    return [...folders].sort((a, b) => {
-      const indexA = orderIds.indexOf(a.id);
-      const indexB = orderIds.indexOf(b.id);
-      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
-      return defaultFolderSort(a, b);
-    });
-  }
-  return [...folders].sort(defaultFolderSort);
-}
-
-/**
- * Default folder sorting: special folders first by order, then alphabetical
- */
-function defaultFolderSort(a: FolderType, b: FolderType): number {
-  const orderA = a.specialUse
-    ? FOLDER_ORDER.indexOf(a.specialUse.toUpperCase() as SpecialFolder)
-    : 99;
-  const orderB = b.specialUse
-    ? FOLDER_ORDER.indexOf(b.specialUse.toUpperCase() as SpecialFolder)
-    : 99;
-  if (orderA !== orderB) {
-    return (orderA === -1 ? 99 : orderA) - (orderB === -1 ? 99 : orderB);
-  }
-  return a.name.localeCompare(b.name);
 }
 
 export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) {
@@ -160,6 +91,20 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null);
 
+  // Folder management (shared hook)
+  const {
+    folderDialogOpen,
+    createFolderProviderId,
+    folderMenuAnchor,
+    selectedFolder,
+    openCreateDialog: handleCreateFolder,
+    closeDialog: handleCloseDialog,
+    openContextMenu: handleFolderMenu,
+    closeContextMenu: handleFolderMenuClose,
+    getFolderLabel,
+    folderCounts,
+  } = useFolderManagement();
+
   // Configure DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -171,43 +116,6 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
-  // Get folder labels from translations
-  const getFolderLabel = useCallback((folder: string): string => {
-    const upperFolder = folder.toUpperCase();
-    const labels: Record<string, string> = {
-      INBOX: t.folders.inbox,
-      SENT: t.folders.sent,
-      DRAFTS: t.folders.drafts,
-      TRASH: t.folders.trash,
-      SPAM: t.folders.spam,
-      JUNK: t.folders.spam, // JUNK is same as SPAM
-      ARCHIVE: t.folders.archive,
-      ALL: t.folders.all,
-      STARRED: t.folders.starred,
-      FLAGGED: t.folders.starred, // FLAGGED is same as STARRED
-      IMPORTANT: t.email?.quickFilters?.important || 'Important',
-    };
-    return labels[upperFolder] || folder;
-  }, [t]);
-
-  // Calculate unread counts per folder from API data
-  const folderCounts = useMemo(() => {
-    const counts: Partial<Record<SpecialFolder, number>> = {};
-
-    if (data?.foldersByProvider) {
-      Object.values(data.foldersByProvider).forEach((folders) => {
-        folders.forEach((folder) => {
-          if (folder.specialUse) {
-            const specialUse = folder.specialUse.toUpperCase() as SpecialFolder;
-            counts[specialUse] = (counts[specialUse] || 0) + (folder.unreadCount || 0);
-          }
-        });
-      });
-    }
-
-    return counts;
-  }, [data]);
 
   // Handle aggregated folder selection (clears provider filter)
   const handleFolderClick = (folder: SpecialFolder) => {
@@ -343,7 +251,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
               {FOLDER_ORDER.map((folder) => (
                 <FolderItem
                   key={folder}
-                  icon={FOLDER_ICONS[folder]}
+                  icon={getSpecialFolderIcon(folder, 18)}
                   label={getFolderLabel(folder)}
                   count={folderCounts[folder]}
                   selected={filters.specialUse === folder && !filters.providerId}
@@ -447,6 +355,18 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                             },
                           }}
                         />
+                        <Tooltip title={t.folders?.createFolder || 'Create folder'}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateFolder(provider.id);
+                            }}
+                            sx={{ mr: 0.5, p: 0.25 }}
+                          >
+                            <Plus size={14} />
+                          </IconButton>
+                        </Tooltip>
                         {isProviderCollapsed ? (
                           <ChevronRight size={16} />
                         ) : (
@@ -473,14 +393,40 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                                   : folder.name;
 
                                 return (
-                                  <SortableFolderItem
+                                  <Box
                                     key={folder.id}
-                                    folder={folder}
-                                    icon={getFolderIcon(folder)}
-                                    label={folderName}
-                                    selected={filters.folderId === folder.id}
-                                    onClick={() => handleProviderFolderClick(provider.id, folder)}
-                                  />
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      '&:hover .folder-menu-btn': {
+                                        opacity: 1,
+                                      },
+                                    }}
+                                  >
+                                    <SortableFolderItem
+                                      folder={folder}
+                                      icon={getFolderIcon(folder)}
+                                      label={folderName}
+                                      selected={filters.folderId === folder.id}
+                                      onClick={() => handleProviderFolderClick(provider.id, folder)}
+                                    />
+                                    {/* Show menu for custom folders only */}
+                                    {!folder.specialUse && (
+                                      <IconButton
+                                        size="small"
+                                        className="folder-menu-btn"
+                                        onClick={(e) => handleFolderMenu(e, folder)}
+                                        sx={{
+                                          p: 0.25,
+                                          opacity: 0,
+                                          transition: 'opacity 0.15s',
+                                          mr: 0.5,
+                                        }}
+                                      >
+                                        <MoreHorizontal size={14} />
+                                      </IconButton>
+                                    )}
+                                  </Box>
                                 );
                               })}
                             </List>
@@ -511,6 +457,21 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
           </>
         )}
       </Box>
+
+      {/* Folder Context Menu */}
+      <FolderContextMenu
+        anchorEl={folderMenuAnchor}
+        open={Boolean(folderMenuAnchor)}
+        onClose={handleFolderMenuClose}
+        folder={selectedFolder}
+      />
+
+      {/* Create Folder Dialog */}
+      <FolderDialog
+        open={folderDialogOpen}
+        onClose={handleCloseDialog}
+        providerId={createFolderProviderId}
+      />
     </Box>
   );
 }

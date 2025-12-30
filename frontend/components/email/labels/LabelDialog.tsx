@@ -2,18 +2,10 @@
  * Label Dialog Component
  *
  * Dialog for creating and editing email labels.
- * Uses controlled state for simple form management.
- *
- * Features:
- * - Create new labels
- * - Edit existing labels
- * - Color picker integration
- * - Name validation
- *
- * @see D:\MailAgent\esempio\Zero-staging\apps\mail\components\labels\label-dialog.tsx
+ * Uses slotProps.transition.onEnter for form reset.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -34,23 +26,12 @@ import { DEFAULT_LABEL_COLOR, type LabelColor } from '@/lib/label-colors';
 import type { Label } from '@/lib/api/labels';
 
 interface LabelDialogProps {
-  /** Whether the dialog is open */
   open: boolean;
-  /** Callback when dialog closes */
   onClose: () => void;
-  /** Label to edit (null for create mode) */
   label?: Label | null;
-  /** Callback after successful save */
   onSuccess?: (label: Label) => void;
 }
 
-/**
- * LabelDialog - Create/Edit label dialog
- *
- * Modes:
- * - Create: No label prop, creates new label
- * - Edit: Label prop provided, updates existing
- */
 export function LabelDialog({
   open,
   onClose,
@@ -68,27 +49,18 @@ export function LabelDialog({
   // Mutations
   const createLabel = useCreateLabel();
   const updateLabel = useUpdateLabel();
-
   const isLoading = createLabel.isPending || updateLabel.isPending;
 
-  // Reset form when dialog opens or label changes
-  useEffect(() => {
-    if (open) {
-      if (label) {
-        setName(label.name);
-        setColor(label.color || DEFAULT_LABEL_COLOR);
-      } else {
-        setName('');
-        setColor(DEFAULT_LABEL_COLOR);
-      }
-      setError(null);
-    }
-  }, [open, label]);
+  // Reset form when dialog opens
+  const handleEnter = useCallback(() => {
+    setName(label?.name ?? '');
+    setColor(label?.color ?? DEFAULT_LABEL_COLOR);
+    setError(null);
+  }, [label]);
 
-  // Handle form submission
   const handleSubmit = useCallback(async () => {
-    // Validate name
     const trimmedName = name.trim();
+
     if (!trimmedName) {
       setError(t.email?.labels?.errors?.nameRequired || 'Il nome è obbligatorio');
       return;
@@ -101,14 +73,12 @@ export function LabelDialog({
 
     try {
       if (isEditMode && label) {
-        // Update existing label
         const response = await updateLabel.mutateAsync({
           labelId: label.id,
           dto: { name: trimmedName, color },
         });
         onSuccess?.(response.label);
       } else {
-        // Create new label
         const response = await createLabel.mutateAsync({
           name: trimmedName,
           color,
@@ -116,23 +86,27 @@ export function LabelDialog({
         onSuccess?.(response.label);
       }
       onClose();
-    } catch (err) {
-      setError(
-        t.email?.labels?.errors?.saveFailed ||
-          'Errore durante il salvataggio. Riprova.'
-      );
+    } catch (err: unknown) {
+      // Check for 409 Conflict (duplicate name)
+      const error = err as { response?: { status?: number } };
+      if (error?.response?.status === 409) {
+        setError(t.email?.labels?.errors?.nameExists || 'Esiste già un\'etichetta con questo nome.');
+      } else {
+        setError(
+          t.email?.labels?.errors?.saveFailed ||
+            'Errore durante il salvataggio. Riprova.'
+        );
+      }
     }
   }, [name, color, isEditMode, label, createLabel, updateLabel, onClose, onSuccess, t]);
 
-  // Handle close
   const handleClose = useCallback(() => {
     if (!isLoading) {
       onClose();
     }
   }, [isLoading, onClose]);
 
-  // Handle key press for Enter to submit
-  const handleKeyPress = useCallback(
+  const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !isLoading) {
         handleSubmit();
@@ -147,9 +121,9 @@ export function LabelDialog({
       onClose={handleClose}
       maxWidth="xs"
       fullWidth
-      keepMounted
-      PaperProps={{
-        sx: { borderRadius: 2 },
+      slotProps={{
+        paper: { sx: { borderRadius: 2 } },
+        transition: { onEnter: handleEnter },
       }}
     >
       <DialogTitle sx={{ pb: 1 }}>
@@ -164,14 +138,16 @@ export function LabelDialog({
       </DialogTitle>
 
       <DialogContent>
-        {/* Error Alert */}
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            onClose={() => setError(null)}
+          >
             {error}
           </Alert>
         )}
 
-        {/* Name Field */}
         <TextField
           autoFocus
           fullWidth
@@ -182,18 +158,12 @@ export function LabelDialog({
             setName(e.target.value);
             setError(null);
           }}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyDown}
           disabled={isLoading}
           error={!!error && !name.trim()}
           sx={{ mb: 3 }}
-          slotProps={{
-            input: {
-              sx: { borderRadius: 1.5 },
-            },
-          }}
         />
 
-        {/* Color Picker */}
         <LabelColorPicker
           selectedColor={color}
           onColorSelect={setColor}
@@ -226,11 +196,7 @@ export function LabelDialog({
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button
-          onClick={handleClose}
-          disabled={isLoading}
-          color="inherit"
-        >
+        <Button onClick={handleClose} disabled={isLoading} color="inherit">
           {t.common?.cancel || 'Annulla'}
         </Button>
         <Button

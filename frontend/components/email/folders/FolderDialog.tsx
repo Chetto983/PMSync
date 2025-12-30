@@ -2,17 +2,10 @@
  * Folder Dialog Component
  *
  * Dialog for creating and renaming email folders.
- * Uses controlled state for simple form management.
- *
- * Features:
- * - Create new folders (requires provider selection)
- * - Rename existing folders
- * - Name validation
- *
- * @see D:\MailAgent\frontend\components\email\labels\LabelDialog.tsx
+ * Uses key prop for state reset on folder change.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -35,25 +28,13 @@ import { useFolders, useCreateFolder, useRenameFolder } from '@/hooks/queries';
 import type { Folder as FolderType, Provider } from '@/lib/api/folders';
 
 interface FolderDialogProps {
-  /** Whether the dialog is open */
   open: boolean;
-  /** Callback when dialog closes */
   onClose: () => void;
-  /** Folder to edit (null for create mode) */
   folder?: FolderType | null;
-  /** Pre-selected provider ID for create mode */
   providerId?: string;
-  /** Callback after successful save */
   onSuccess?: (folder: { id: string; name: string; path: string }) => void;
 }
 
-/**
- * FolderDialog - Create/Rename folder dialog
- *
- * Modes:
- * - Create: No folder prop, creates new folder in selected provider
- * - Rename: Folder prop provided, renames existing folder
- */
 export function FolderDialog({
   open,
   onClose,
@@ -64,50 +45,52 @@ export function FolderDialog({
   const t = useTranslations();
   const isEditMode = !!folder;
 
+  // Fetch providers
+  const { data: foldersData } = useFolders();
+  const providers = useMemo(
+    () => foldersData?.providers || [],
+    [foldersData?.providers]
+  );
+
   // Form state
   const [name, setName] = useState('');
   const [providerId, setProviderId] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch providers for create mode
-  const { data: foldersData } = useFolders();
-  const providers = foldersData?.providers || [];
-
   // Mutations
   const createFolder = useCreateFolder();
   const renameFolder = useRenameFolder();
-
   const isLoading = createFolder.isPending || renameFolder.isPending;
 
-  // Reset form when dialog opens or folder changes
-  useEffect(() => {
+  // Sync providerId when initialProviderId changes or dialog opens
+  React.useEffect(() => {
     if (open) {
-      if (folder) {
-        setName(folder.name);
-        setProviderId(folder.providerId);
-      } else {
-        setName('');
-        setProviderId(initialProviderId || providers[0]?.id || '');
-      }
+      setName(folder?.name ?? '');
+      setProviderId(
+        folder?.providerId ?? initialProviderId ?? providers[0]?.id ?? ''
+      );
       setError(null);
     }
   }, [open, folder, initialProviderId, providers]);
 
-  // Handle form submission
+  // Reset form when dialog opens (for transition animation timing)
+  const handleEnter = useCallback(() => {
+    // Form state is now synced via useEffect, but keep this for backwards compat
+    if (!providerId && (initialProviderId || providers[0]?.id)) {
+      setProviderId(
+        folder?.providerId ?? initialProviderId ?? providers[0]?.id ?? ''
+      );
+    }
+  }, [folder, initialProviderId, providers, providerId]);
+
   const handleSubmit = useCallback(async () => {
-    // Validate name
     const trimmedName = name.trim();
+
     if (!trimmedName) {
       setError(t.folders?.errors?.nameRequired || 'Il nome è obbligatorio');
       return;
     }
 
-    if (trimmedName.length < 1) {
-      setError(t.folders?.errors?.nameTooShort || 'Il nome deve essere almeno 1 carattere');
-      return;
-    }
-
-    // Validate provider for create mode
     if (!isEditMode && !providerId) {
       setError(t.folders?.errors?.providerRequired || 'Seleziona un account');
       return;
@@ -115,7 +98,6 @@ export function FolderDialog({
 
     try {
       if (isEditMode && folder) {
-        // Rename existing folder
         const response = await renameFolder.mutateAsync({
           folderId: folder.id,
           newName: trimmedName,
@@ -123,7 +105,6 @@ export function FolderDialog({
         });
         onSuccess?.(response);
       } else {
-        // Create new folder
         const response = await createFolder.mutateAsync({
           name: trimmedName,
           providerId,
@@ -131,23 +112,31 @@ export function FolderDialog({
         onSuccess?.(response);
       }
       onClose();
-    } catch (err) {
+    } catch {
       setError(
         t.folders?.errors?.saveFailed ||
           'Errore durante il salvataggio. Riprova.'
       );
     }
-  }, [name, providerId, isEditMode, folder, createFolder, renameFolder, onClose, onSuccess, t]);
+  }, [
+    name,
+    providerId,
+    isEditMode,
+    folder,
+    createFolder,
+    renameFolder,
+    onClose,
+    onSuccess,
+    t,
+  ]);
 
-  // Handle close
   const handleClose = useCallback(() => {
     if (!isLoading) {
       onClose();
     }
   }, [isLoading, onClose]);
 
-  // Handle key press for Enter to submit
-  const handleKeyPress = useCallback(
+  const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !isLoading) {
         handleSubmit();
@@ -162,9 +151,9 @@ export function FolderDialog({
       onClose={handleClose}
       maxWidth="xs"
       fullWidth
-      keepMounted
-      PaperProps={{
-        sx: { borderRadius: 2 },
+      slotProps={{
+        paper: { sx: { borderRadius: 2 } },
+        transition: { onEnter: handleEnter },
       }}
     >
       <DialogTitle sx={{ pb: 1 }}>
@@ -179,21 +168,20 @@ export function FolderDialog({
       </DialogTitle>
 
       <DialogContent>
-        {/* Error Alert */}
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            onClose={() => setError(null)}
+          >
             {error}
           </Alert>
         )}
 
-        {/* Provider Select (only for create mode) */}
         {!isEditMode && providers.length > 1 && (
           <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel id="provider-select-label">
-              {t.folders?.selectAccount || 'Account'}
-            </InputLabel>
+            <InputLabel>{t.folders?.selectAccount || 'Account'}</InputLabel>
             <Select
-              labelId="provider-select-label"
               value={providerId}
               label={t.folders?.selectAccount || 'Account'}
               onChange={(e) => {
@@ -211,7 +199,6 @@ export function FolderDialog({
           </FormControl>
         )}
 
-        {/* Name Field */}
         <TextField
           autoFocus
           fullWidth
@@ -222,17 +209,11 @@ export function FolderDialog({
             setName(e.target.value);
             setError(null);
           }}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyDown}
           disabled={isLoading}
           error={!!error && !name.trim()}
-          slotProps={{
-            input: {
-              sx: { borderRadius: 1.5 },
-            },
-          }}
         />
 
-        {/* Folder path preview for create mode */}
         {!isEditMode && providerId && name.trim() && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="caption" color="text.secondary">
@@ -259,11 +240,7 @@ export function FolderDialog({
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button
-          onClick={handleClose}
-          disabled={isLoading}
-          color="inherit"
-        >
+        <Button onClick={handleClose} disabled={isLoading} color="inherit">
           {t.common?.cancel || 'Annulla'}
         </Button>
         <Button

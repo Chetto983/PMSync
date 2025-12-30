@@ -789,6 +789,7 @@ export interface AppTranslations {
       errors: {
         nameRequired: string;
         nameTooShort: string;
+        nameExists: string;
         saveFailed: string;
       };
     };
@@ -2241,15 +2242,33 @@ export interface AppTranslations {
     alreadyEnabled: string;
   };
   folders: {
+    title: string;
+    // RFC 6154 standard folders
     all: string;
     inbox: string;
     sent: string;
     drafts: string;
     trash: string;
     spam: string;
+    junk: string;
     archive: string;
-    outbox: string;
     starred: string;
+    flagged: string;
+    important: string;
+    // Microsoft Graph wellKnownName folders
+    outbox: string;
+    conversationhistory: string;
+    clutter: string;
+    scheduled: string;
+    conflicts: string;
+    syncissues: string;
+    // Gmail categories
+    categoryPersonal: string;
+    categorySocial: string;
+    categoryPromotions: string;
+    categoryUpdates: string;
+    categoryForums: string;
+    // Folder management
     createFolder: string;
     renameFolder: string;
     deleteFolder: string;

@@ -21,7 +21,35 @@ import { useShallow } from 'zustand/react/shallow';
 
 export type EmailViewMode = 'list' | 'thread';
 export type EmailDensity = 'compact' | 'comfortable' | 'spacious';
-export type SpecialFolder = 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'JUNK' | 'ARCHIVE' | 'STARRED' | 'FLAGGED' | 'IMPORTANT' | 'ALL';
+
+/**
+ * Canonical folder types - matches backend CANONICAL_FOLDER_TYPES
+ * Sources:
+ * - RFC 6154 (IMAP LIST Extension for Special-Use Mailboxes)
+ * - RFC 8457 (IMAP "$Important" Keyword)
+ * - Microsoft Graph API wellKnownName
+ * - Gmail API system labels
+ *
+ * @see https://www.rfc-editor.org/rfc/rfc6154.html
+ * @see https://learn.microsoft.com/en-us/graph/api/resources/mailfolder
+ * @see https://developers.google.com/workspace/gmail/api/guides/labels
+ */
+export type SpecialFolder =
+  // RFC 6154 standard special-use attributes
+  | 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'JUNK' | 'ARCHIVE'
+  | 'ALL' | 'FLAGGED' | 'STARRED' | 'IMPORTANT'
+  // Common aliases
+  | 'SCHEDULED' | 'SNOOZED'
+  // Microsoft Graph wellKnownName values
+  | 'OUTBOX' | 'CONVERSATIONHISTORY' | 'CONVERSATION HISTORY'
+  | 'CLUTTER' | 'CONFLICTS' | 'LOCALFAILURES' | 'SERVERFAILURES' | 'SYNCISSUES'
+  | 'DELETEDITEMS' | 'DELETED ITEMS' | 'SENTITEMS' | 'SENT ITEMS'
+  | 'JUNKEMAIL' | 'JUNK EMAIL'
+  // Gmail categories
+  | 'CATEGORY_PERSONAL' | 'CATEGORY_SOCIAL' | 'CATEGORY_PROMOTIONS'
+  | 'CATEGORY_UPDATES' | 'CATEGORY_FORUMS'
+  // Gmail system labels
+  | 'CHAT' | 'UNREAD';
 
 export interface EmailFilters {
   specialUse?: SpecialFolder;

@@ -192,9 +192,15 @@ export class LabelsService {
   async delete(tenantId: string, id: string) {
     const label = await this.findOne(tenantId, id);
 
+    // Append timestamp to slug to free it up for future labels
+    const deletedSlug = `${label.slug}-deleted-${Date.now()}`;
+
     await this.prisma.userLabel.update({
       where: { id },
-      data: { isArchived: true },
+      data: {
+        isArchived: true,
+        slug: deletedSlug,
+      },
     });
 
     // Emit WebSocket event for deleted label

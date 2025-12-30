@@ -25,60 +25,36 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  Inbox,
-  Send,
-  FileText,
-  Trash2,
-  AlertOctagon,
-  Archive,
-  Mail,
   Flag,
-  Folder,
   User,
   ChevronDown,
   ChevronRight,
   X,
-  Star,
   Tag,
   Plus,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders, useLabels } from '@/hooks/queries';
 import { useEmailUIStore, type SpecialFolder } from '@/stores/email-ui-store';
 import { LabelDialog } from '../labels/LabelDialog';
-import type { Folder as FolderType, Provider } from '@/lib/api/folders';
+import { LabelContextMenu } from '../labels/LabelContextMenu';
+import {
+  FolderDialog,
+  FolderContextMenu,
+  useFolderManagement,
+  FOLDER_ORDER,
+  getSpecialFolderIcon,
+  getFolderIcon,
+} from '../folders';
+import type { Provider } from '@/lib/api/folders';
+import type { Label } from '@/lib/api/labels';
 
 interface MobileFolderSheetProps {
   open: boolean;
   onClose: () => void;
   onSelect: (folder: SpecialFolder, providerId?: string, folderId?: string) => void;
 }
-
-// Folder icons mapping
-const FOLDER_ICONS: Record<string, React.ReactNode> = {
-  INBOX: <Inbox size={20} />,
-  SENT: <Send size={20} />,
-  DRAFTS: <FileText size={20} />,
-  TRASH: <Trash2 size={20} />,
-  SPAM: <AlertOctagon size={20} />,
-  JUNK: <AlertOctagon size={20} />,
-  ARCHIVE: <Archive size={20} />,
-  ALL: <Mail size={20} />,
-  STARRED: <Star size={20} />,
-  FLAGGED: <Flag size={20} />,
-  IMPORTANT: <Flag size={20} />,
-};
-
-// Main folder order
-const FOLDER_ORDER: SpecialFolder[] = [
-  'INBOX',
-  'SENT',
-  'DRAFTS',
-  'ARCHIVE',
-  'SPAM',
-  'TRASH',
-  'ALL',
-];
 
 export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheetProps) {
   const theme = useTheme();
@@ -94,6 +70,24 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
   // Labels section state
   const [labelsExpanded, setLabelsExpanded] = useState(true);
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
+
+  // Label context menu state
+  const [labelMenuAnchor, setLabelMenuAnchor] = useState<HTMLElement | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState<Label | null>(null);
+
+  // Folder management (shared hook)
+  const {
+    folderDialogOpen,
+    createFolderProviderId,
+    folderMenuAnchor,
+    selectedFolder,
+    openCreateDialog: handleCreateFolder,
+    closeDialog: handleCloseDialog,
+    openContextMenu: handleFolderMenu,
+    closeContextMenu: handleFolderMenuClose,
+    getFolderLabel,
+    folderCounts,
+  } = useFolderManagement();
 
   // Filter to show only USER labels
   const userLabels = useMemo(() =>
@@ -112,48 +106,20 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
     onClose();
   }, [setFilters, onClose]);
 
-  // Get folder label from translations
-  const getFolderLabel = useCallback((folder: string): string => {
-    const upperFolder = folder.toUpperCase();
-    const labels: Record<string, string> = {
-      INBOX: t.folders.inbox,
-      SENT: t.folders.sent,
-      DRAFTS: t.folders.drafts,
-      TRASH: t.folders.trash,
-      SPAM: t.folders.spam,
-      JUNK: t.folders.spam,
-      ARCHIVE: t.folders.archive,
-      ALL: t.folders.all,
-      STARRED: t.folders.starred,
-      FLAGGED: t.folders.starred,
-      IMPORTANT: t.email?.quickFilters?.important || 'Important',
-    };
-    return labels[upperFolder] || folder;
-  }, [t]);
+  // Handle label context menu
+  const handleLabelMenu = useCallback(
+    (event: React.MouseEvent<HTMLElement>, label: Label) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setLabelMenuAnchor(event.currentTarget);
+      setSelectedLabel(label);
+    },
+    []
+  );
 
-  // Calculate folder counts
-  const folderCounts = useMemo(() => {
-    const counts: Partial<Record<SpecialFolder, number>> = {};
-    if (data?.foldersByProvider) {
-      Object.values(data.foldersByProvider).forEach((folders) => {
-        folders.forEach((folder) => {
-          if (folder.specialUse) {
-            const specialUse = folder.specialUse.toUpperCase() as SpecialFolder;
-            counts[specialUse] = (counts[specialUse] || 0) + (folder.unreadCount || 0);
-          }
-        });
-      });
-    }
-    return counts;
-  }, [data]);
-
-  // Get folder icon
-  const getFolderIcon = (folder: FolderType): React.ReactNode => {
-    if (folder.specialUse) {
-      return FOLDER_ICONS[folder.specialUse.toUpperCase()] || <Folder size={20} />;
-    }
-    return <Folder size={20} />;
-  };
+  const handleLabelMenuClose = useCallback(() => {
+    setLabelMenuAnchor(null);
+  }, []);
 
   return (
     <Drawer
@@ -200,7 +166,7 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
         }}
       >
         <Typography variant="h6" fontWeight={600}>
-          Cartelle
+          {t.folders?.title || 'Cartelle'}
         </Typography>
         <IconButton onClick={onClose} size="small">
           <X size={20} />
@@ -244,10 +210,10 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                         },
                       }}
                     >
-                      {FOLDER_ICONS[folder]}
+                      {getSpecialFolderIcon(folder, 20)}
                     </Badge>
                   ) : (
-                    FOLDER_ICONS[folder]
+                    getSpecialFolderIcon(folder, 20)
                   )}
                 </ListItemIcon>
                 <ListItemText
@@ -377,10 +343,18 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                           <Typography
                             variant="caption"
                             color="text.secondary"
+                            sx={{ mr: 0.5 }}
                           >
                             {label._count.emailLabels}
                           </Typography>
                         )}
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleLabelMenu(e, label)}
+                        sx={{ p: 0.5 }}
+                      >
+                        <MoreHorizontal size={14} />
+                      </IconButton>
                     </ListItemButton>
                   );
                 })
@@ -436,6 +410,17 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                         },
                       }}
                     />
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCreateFolder(provider.id);
+                      }}
+                      sx={{ mr: 0.5 }}
+                      title={t.folders?.createFolder || 'Create folder'}
+                    >
+                      <Plus size={16} />
+                    </IconButton>
                     {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
                   </ListItemButton>
 
@@ -481,10 +466,10 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                                     },
                                   }}
                                 >
-                                  {getFolderIcon(folder)}
+                                  {getFolderIcon(folder, 20)}
                                 </Badge>
                               ) : (
-                                getFolderIcon(folder)
+                                getFolderIcon(folder, 20)
                               )}
                             </ListItemIcon>
                             <ListItemText
@@ -496,6 +481,16 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                                 },
                               }}
                             />
+                            {/* Show menu for custom folders only */}
+                            {!folder.specialUse && (
+                              <IconButton
+                                size="small"
+                                onClick={(e) => handleFolderMenu(e, folder)}
+                                sx={{ p: 0.5 }}
+                              >
+                                <MoreHorizontal size={14} />
+                              </IconButton>
+                            )}
                           </ListItemButton>
                         );
                       })}
@@ -515,6 +510,29 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
       <LabelDialog
         open={labelDialogOpen}
         onClose={() => setLabelDialogOpen(false)}
+      />
+
+      {/* Label Context Menu */}
+      <LabelContextMenu
+        anchorEl={labelMenuAnchor}
+        open={Boolean(labelMenuAnchor)}
+        onClose={handleLabelMenuClose}
+        label={selectedLabel}
+      />
+
+      {/* Folder Context Menu */}
+      <FolderContextMenu
+        anchorEl={folderMenuAnchor}
+        open={Boolean(folderMenuAnchor)}
+        onClose={handleFolderMenuClose}
+        folder={selectedFolder}
+      />
+
+      {/* Create Folder Dialog */}
+      <FolderDialog
+        open={folderDialogOpen}
+        onClose={handleCloseDialog}
+        providerId={createFolderProviderId}
       />
     </Drawer>
   );

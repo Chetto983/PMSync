@@ -851,6 +851,7 @@ export const it: AppTranslations = {
       errors: {
         nameRequired: 'Il nome è obbligatorio',
         nameTooShort: 'Il nome deve essere almeno 2 caratteri',
+        nameExists: 'Esiste già un\'etichetta con questo nome.',
         saveFailed: 'Errore durante il salvataggio. Riprova.',
       },
     },
@@ -2310,15 +2311,33 @@ export const it: AppTranslations = {
     close: 'Chiudi',
   },
   folders: {
+    title: 'Cartelle',
+    // RFC 6154 standard folders
     all: 'Tutta la posta',
     inbox: 'Posta in arrivo',
     sent: 'Inviata',
     drafts: 'Bozze',
     trash: 'Cestino',
     spam: 'Spam',
+    junk: 'Posta indesiderata',
     archive: 'Archivio',
-    outbox: 'Posta in uscita',
     starred: 'Con stella',
+    flagged: 'Contrassegnata',
+    important: 'Importante',
+    // Microsoft Graph wellKnownName folders
+    outbox: 'Posta in uscita',
+    conversationhistory: 'Cronologia conversazioni',
+    clutter: 'Messaggi secondari',
+    scheduled: 'Pianificata',
+    conflicts: 'Conflitti',
+    syncissues: 'Problemi di sincronizzazione',
+    // Gmail categories
+    categoryPersonal: 'Personale',
+    categorySocial: 'Social',
+    categoryPromotions: 'Promozioni',
+    categoryUpdates: 'Aggiornamenti',
+    categoryForums: 'Forum',
+    // Folder management
     createFolder: 'Crea cartella',
     renameFolder: 'Rinomina cartella',
     deleteFolder: 'Elimina cartella',

@@ -79,7 +79,7 @@ export function LabelsSidebar({ collapsed = false }: LabelsSidebarProps) {
 
   const handleMenuClose = useCallback(() => {
     setMenuAnchor(null);
-    setSelectedLabel(null);
+    // Don't clear selectedLabel here - the dialog still needs it!
   }, []);
 
   // Toggle section expanded

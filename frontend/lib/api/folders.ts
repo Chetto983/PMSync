@@ -260,6 +260,37 @@ export interface DeleteFolderResponse {
   message: string;
 }
 
+// ========== FOLDER METADATA (Canonical Types) ==========
+
+/**
+ * Localized folder names by language
+ */
+export interface LocalizedFolderNames {
+  en: Record<string, string>;
+  it: Record<string, string>;
+  de: Record<string, string>;
+  fr: Record<string, string>;
+  es: Record<string, string>;
+  [key: string]: Record<string, string>;
+}
+
+/**
+ * Folder metadata response from backend
+ * Contains canonical types and localized names for multi-provider support
+ */
+export interface FolderMetadataResponse {
+  /** All canonical folder types (INBOX, SENT, DRAFTS, etc.) */
+  canonicalTypes: string[];
+  /** Localized folder names by language */
+  localizedNames: LocalizedFolderNames;
+  /** Core system folders that exist in all providers */
+  systemFolders: string[];
+  /** Microsoft-specific folders */
+  microsoftFolders: string[];
+  /** Gmail category labels */
+  gmailCategories: string[];
+}
+
 /**
  * Create a new folder
  */
@@ -291,6 +322,18 @@ export async function deleteFolder(
   return response.data;
 }
 
+// ========== FOLDER METADATA API ==========
+
+/**
+ * Get folder metadata (canonical types, localized names)
+ * This provides unified folder type definitions from the backend
+ * to avoid duplicating canonical folder logic in the frontend
+ */
+export async function getFolderMetadata(): Promise<FolderMetadataResponse> {
+  const response = await apiClient.get('/folders/metadata');
+  return response.data;
+}
+
 /**
  * Folders API object for convenient access
  */
@@ -303,4 +346,5 @@ export const foldersApi = {
   createFolder,
   renameFolder,
   deleteFolder,
+  getFolderMetadata,
 };

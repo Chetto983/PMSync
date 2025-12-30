@@ -862,6 +862,7 @@ export const en: AppTranslations = {
       errors: {
         nameRequired: 'Name is required',
         nameTooShort: 'Name must be at least 2 characters',
+        nameExists: 'A label with this name already exists.',
         saveFailed: 'Failed to save. Please try again.',
       },
     },
@@ -2335,15 +2336,32 @@ export const en: AppTranslations = {
     close: 'Close',
   },
   folders: {
+    title: 'Folders',
+    // RFC 6154 standard folders
     all: 'All Mail',
     inbox: 'Inbox',
     sent: 'Sent',
     drafts: 'Drafts',
     trash: 'Trash',
     spam: 'Spam',
+    junk: 'Junk',
     archive: 'Archive',
-    outbox: 'Outbox',
     starred: 'Starred',
+    flagged: 'Flagged',
+    important: 'Important',
+    // Microsoft Graph wellKnownName folders
+    outbox: 'Outbox',
+    conversationhistory: 'Conversation History',
+    clutter: 'Clutter',
+    scheduled: 'Scheduled',
+    conflicts: 'Conflicts',
+    syncissues: 'Sync Issues',
+    // Gmail categories
+    categoryPersonal: 'Personal',
+    categorySocial: 'Social',
+    categoryPromotions: 'Promotions',
+    categoryUpdates: 'Updates',
+    categoryForums: 'Forums',
     // Folder management
     createFolder: 'Create Folder',
     renameFolder: 'Rename Folder',
