@@ -2316,6 +2316,35 @@ export interface AppTranslations {
       saveFailed: string;
     };
   };
+  // Email List
+  emailList: {
+    // Header
+    selectAll: string;
+    deselectAll: string;
+    selected: string;
+    refresh: string;
+    markAsRead: string;
+    markAsUnread: string;
+    archive: string;
+    delete: string;
+    moveToFolder: string;
+    addLabel: string;
+    // Empty states
+    emptyInbox: string;
+    emptyInboxDesc: string;
+    emptyFolder: string;
+    emptyFolderDesc: string;
+    emptySearch: string;
+    emptySearchDesc: string;
+    // List item
+    starred: string;
+    unstarred: string;
+    hasAttachments: string;
+    threadCount: string;
+    // Loading
+    loading: string;
+    loadingMore: string;
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;

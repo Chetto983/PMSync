@@ -2410,4 +2410,33 @@ export const en: AppTranslations = {
       saveFailed: 'Failed to save. Please try again.',
     },
   },
+  // Email List
+  emailList: {
+    // Header
+    selectAll: 'Select all',
+    deselectAll: 'Deselect all',
+    selected: '{count} selected',
+    refresh: 'Refresh',
+    markAsRead: 'Mark as read',
+    markAsUnread: 'Mark as unread',
+    archive: 'Archive',
+    delete: 'Delete',
+    moveToFolder: 'Move to folder',
+    addLabel: 'Add label',
+    // Empty states
+    emptyInbox: 'Your inbox is empty',
+    emptyInboxDesc: 'No emails to display',
+    emptyFolder: 'This folder is empty',
+    emptyFolderDesc: 'No emails in this folder',
+    emptySearch: 'No results found',
+    emptySearchDesc: 'Try different search terms',
+    // List item
+    starred: 'Starred',
+    unstarred: 'Not starred',
+    hasAttachments: 'Has attachments',
+    threadCount: '{count} messages',
+    // Loading
+    loading: 'Loading emails...',
+    loadingMore: 'Loading more...',
+  },
 };

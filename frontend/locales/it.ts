@@ -2385,4 +2385,33 @@ export const it: AppTranslations = {
       saveFailed: 'Errore durante il salvataggio. Riprova.',
     },
   },
+  // Email List
+  emailList: {
+    // Header
+    selectAll: 'Seleziona tutto',
+    deselectAll: 'Deseleziona tutto',
+    selected: '{count} selezionati',
+    refresh: 'Aggiorna',
+    markAsRead: 'Segna come letto',
+    markAsUnread: 'Segna come non letto',
+    archive: 'Archivia',
+    delete: 'Elimina',
+    moveToFolder: 'Sposta in cartella',
+    addLabel: 'Aggiungi etichetta',
+    // Empty states
+    emptyInbox: 'La posta in arrivo è vuota',
+    emptyInboxDesc: 'Nessuna email da visualizzare',
+    emptyFolder: 'Questa cartella è vuota',
+    emptyFolderDesc: 'Nessuna email in questa cartella',
+    emptySearch: 'Nessun risultato trovato',
+    emptySearchDesc: 'Prova con termini di ricerca diversi',
+    // List item
+    starred: 'Speciale',
+    unstarred: 'Non speciale',
+    hasAttachments: 'Ha allegati',
+    threadCount: '{count} messaggi',
+    // Loading
+    loading: 'Caricamento email...',
+    loadingMore: 'Caricamento ulteriori...',
+  },
 };
