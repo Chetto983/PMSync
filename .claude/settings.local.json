@@ -114,7 +114,8 @@
       "Bash(npx @anthropic-ai/claude-code mcp list-tools)",
       "Bash(powershell -Command \"Start-Process ''http://localhost:3001/dashboard/email''\")",
       "Skill(episodic-memory:search-conversations)",
-      "Skill(episodic-memory:search-conversations:*)"
+      "Skill(episodic-memory:search-conversations:*)",
+      "Bash(git mv:*)"
     ],
     "deny": []
   }

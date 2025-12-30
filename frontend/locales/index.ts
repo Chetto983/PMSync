@@ -2337,13 +2337,42 @@ export interface AppTranslations {
     emptySearch: string;
     emptySearchDesc: string;
     // List item
-    starred: string;
-    unstarred: string;
+    flagged: string;
+    unflagged: string;
     hasAttachments: string;
     threadCount: string;
     // Loading
     loading: string;
     loadingMore: string;
+    // Drag and drop
+    dragToMove: string;
+    dropToFolder: string;
+    dragging: string;
+    emailMoved: string;
+    emailsMoved: string;
+    cannotMoveCrossProvider: string;
+    dropHereToMove: string;
+  };
+  // Thread Actions
+  threadActions: {
+    deleteThread: string;
+    deleteThreadConfirm: string;
+    deleteThreadDesc: string;
+    moveThread: string;
+    moveThreadTo: string;
+    archiveThread: string;
+    markThreadRead: string;
+    markThreadUnread: string;
+    flagThread: string;
+    unflagThread: string;
+    addLabelsThread: string;
+    threadDeleted: string;
+    threadMoved: string;
+    threadArchived: string;
+    threadMarkedRead: string;
+    threadMarkedUnread: string;
+    threadFlagged: string;
+    threadUnflagged: string;
   };
 }
 

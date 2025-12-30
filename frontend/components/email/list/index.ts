@@ -8,6 +8,7 @@ export { ThreadList } from './ThreadList';
 export { ThreadListItem } from './ThreadListItem';
 export { ThreadListHeader } from './ThreadListHeader';
 export { EmptyState } from './EmptyState';
+export { DraggableThreadListItem } from './DraggableThreadListItem';
 
 export type { ThreadListItemData } from './ThreadListItem';
 export type { EmptyStateVariant } from './EmptyState';

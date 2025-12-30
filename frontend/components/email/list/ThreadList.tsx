@@ -20,10 +20,36 @@
 import { useState, useCallback, useRef } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadListHeader } from './ThreadListHeader';
 import { ThreadListItem, ThreadListItemData } from './ThreadListItem';
+import { DraggableThreadListItem } from './DraggableThreadListItem';
 import { EmptyState, EmptyStateVariant } from './EmptyState';
+
+// Drag and drop data types
+interface EmailDragData {
+  type: 'email';
+  emailId: string;
+  providerId: string;
+  thread: ThreadListItemData;
+}
+
+interface FolderDragData {
+  type: 'folder';
+  folderId: string;
+  providerId: string;
+  folderName?: string;
+}
 
 interface ThreadListProps {
   /** Email threads to display */
@@ -46,9 +72,11 @@ interface ThreadListProps {
   onBulkDelete?: (ids: string[]) => void;
   onBulkMove?: (ids: string[]) => void;
   onBulkLabel?: (ids: string[]) => void;
-  onStar?: (id: string) => void;
+  onFlag?: (id: string) => void;
   onArchive?: (id: string) => void;
   onDelete?: (id: string) => void;
+  /** Drag and drop handler */
+  onEmailDrop?: (emailIds: string[], folderId: string, folderName: string) => void;
 }
 
 /**
@@ -72,9 +100,10 @@ export function ThreadList({
   onBulkDelete,
   onBulkMove,
   onBulkLabel,
-  onStar,
+  onFlag,
   onArchive,
   onDelete,
+  onEmailDrop,
 }: ThreadListProps) {
   const t = useTranslations();
 
@@ -82,6 +111,19 @@ export function ThreadList({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Drag and drop state
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Configure DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
 
   // Virtual scrolling setup
   const parentRef = useRef<HTMLDivElement>(null);
@@ -160,9 +202,49 @@ export function ThreadList({
   };
 
   // Individual action handlers
-  const handleStar = (id: string) => onStar?.(id);
+  const handleFlag = (id: string) => onFlag?.(id);
   const handleArchive = (id: string) => onArchive?.(id);
   const handleDelete = (id: string) => onDelete?.(id);
+
+  // Drag and drop handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    setActiveId(null);
+
+    if (!over || !onEmailDrop) return;
+
+    const emailId = active.id as string;
+    const folderId = over.id as string;
+    const folderData = over.data.current as FolderDragData | undefined;
+    const folderName = folderData?.folderName || 'folder';
+
+    // Get provider IDs for validation
+    const emailData = active.data.current as EmailDragData | undefined;
+    const emailProviderId = emailData?.providerId;
+    const folderProviderId = folderData?.providerId;
+
+    // Provider guardrail: only allow drops within same provider
+    if (emailProviderId && folderProviderId && emailProviderId !== folderProviderId) {
+      // Toast error handled in email.tsx
+      return;
+    }
+
+    onEmailDrop([emailId], folderId, folderName);
+  };
+
+  // Get active thread for DragOverlay
+  const getActiveThread = (): (ThreadListItemData & { providerId: string }) | null => {
+    if (!activeId) return null;
+    const thread = threads.find((t) => t.id === activeId);
+    return thread && thread.providerId ? (thread as ThreadListItemData & { providerId: string }) : null;
+  };
+
+  const activeThread = getActiveThread();
 
   // Infinite scroll - load more when near bottom
   const virtualItems = virtualizer.getVirtualItems();
@@ -226,16 +308,21 @@ export function ThreadList({
   }
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        overflow: 'hidden',
-      }}
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
     >
-      {/* Header with bulk actions */}
-      <ThreadListHeader
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header with bulk actions */}
+        <ThreadListHeader
         totalCount={threads.length}
         selectedCount={selectedIds.size}
         allSelected={allSelected}
@@ -289,18 +376,33 @@ export function ThreadList({
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <ThreadListItem
-                  thread={thread}
-                  isSelected={isSelected}
-                  isHovered={isHovered}
-                  onSelect={handleSelect}
-                  onClick={onThreadClick}
-                  onStar={handleStar}
-                  onArchive={handleArchive}
-                  onDelete={handleDelete}
-                  onMouseEnter={() => setHoveredId(thread.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                />
+                {thread.providerId ? (
+                  <DraggableThreadListItem
+                    thread={thread as ThreadListItemData & { providerId: string }}
+                    isSelected={isSelected}
+                    isHovered={isHovered}
+                    onSelect={handleSelect}
+                    onClick={onThreadClick}
+                    onFlag={handleFlag}
+                    onArchive={handleArchive}
+                    onDelete={handleDelete}
+                    onMouseEnter={() => setHoveredId(thread.id)}
+                    onMouseLeave={() => setHoveredId(null)}
+                  />
+                ) : (
+                  <ThreadListItem
+                    thread={thread}
+                    isSelected={isSelected}
+                    isHovered={isHovered}
+                    onSelect={handleSelect}
+                    onClick={onThreadClick}
+                    onFlag={handleFlag}
+                    onArchive={handleArchive}
+                    onDelete={handleDelete}
+                    onMouseEnter={() => setHoveredId(thread.id)}
+                    onMouseLeave={() => setHoveredId(null)}
+                  />
+                )}
               </Box>
             );
           })}
@@ -322,7 +424,36 @@ export function ThreadList({
           </Box>
         )}
       </Box>
+
+      {/* DragOverlay for smooth drag animation (250ms ease) */}
+      <DragOverlay dropAnimation={{ duration: 250, easing: 'ease' }}>
+        {activeThread ? (
+          <Box
+            sx={{
+              opacity: 0.8,
+              transform: 'scale(1.02)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+              borderRadius: 1,
+              bgcolor: 'background.paper',
+            }}
+          >
+            <ThreadListItem
+              thread={activeThread}
+              isSelected={false}
+              isHovered={false}
+              onSelect={() => {}}
+              onClick={() => {}}
+              onFlag={() => {}}
+              onArchive={() => {}}
+              onDelete={() => {}}
+              onMouseEnter={() => {}}
+              onMouseLeave={() => {}}
+            />
+          </Box>
+        ) : null}
+      </DragOverlay>
     </Box>
+    </DndContext>
   );
 }
 

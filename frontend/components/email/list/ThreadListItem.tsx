@@ -8,7 +8,7 @@
  *
  * Features:
  * - Checkbox (hidden until hover)
- * - Action buttons on hover (star, archive, delete)
+ * - Action buttons on hover (flag, archive, delete)
  * - Unread indicator
  * - Optimized with React.memo
  */
@@ -23,7 +23,7 @@ import {
   Chip,
   Fade,
 } from '@mui/material';
-import { Star, Paperclip, Archive, Trash2 } from 'lucide-react';
+import { Flag, Paperclip, Archive, Trash2 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 export interface ThreadListItemData {
@@ -33,11 +33,12 @@ export interface ThreadListItemData {
   snippet: string;
   date: string;
   isUnread: boolean;
-  isStarred: boolean;
+  isFlagged: boolean;
   hasAttachments: boolean;
   threadCount?: number;
   labels?: { id: string; name: string; color: string }[];
   avatarUrl?: string;
+  providerId?: string; // For drag-and-drop provider validation
 }
 
 interface ThreadListItemProps {
@@ -46,7 +47,7 @@ interface ThreadListItemProps {
   isHovered: boolean;
   onSelect: (id: string, checked: boolean) => void;
   onClick: (id: string) => void;
-  onStar: (id: string) => void;
+  onFlag: (id: string) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
   onMouseEnter: () => void;
@@ -65,7 +66,7 @@ export const ThreadListItem = memo(function ThreadListItem({
   isHovered,
   onSelect,
   onClick,
-  onStar,
+  onFlag,
   onArchive,
   onDelete,
   onMouseEnter,
@@ -82,9 +83,9 @@ export const ThreadListItem = memo(function ThreadListItem({
     onClick(thread.id);
   };
 
-  const handleStar = (e: MouseEvent) => {
+  const handleFlag = (e: MouseEvent) => {
     e.stopPropagation();
-    onStar(thread.id);
+    onFlag(thread.id);
   };
 
   const handleArchive = (e: MouseEvent) => {
@@ -280,18 +281,20 @@ export const ThreadListItem = memo(function ThreadListItem({
             flexShrink: 0,
           }}
         >
-          {/* Star */}
+          {/* Flag */}
           <IconButton
             size="small"
-            onClick={handleStar}
+            onClick={handleFlag}
             sx={{ p: 0.5 }}
-            aria-label={thread.isStarred ? t.emailList.unstarred : t.emailList.starred}
+            aria-label={thread.isFlagged ? t.emailList.unflagged : t.emailList.flagged}
           >
-            <Star
+            <Flag
               size={18}
-              fill={thread.isStarred ? '#FFB300' : 'none'}
-              stroke={thread.isStarred ? '#FFB300' : 'currentColor'}
+              fill={thread.isFlagged ? 'currentColor' : 'none'}
               strokeWidth={2}
+              style={{
+                color: thread.isFlagged ? 'var(--mui-palette-error-main)' : 'currentColor',
+              }}
             />
           </IconButton>
 
