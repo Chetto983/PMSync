@@ -149,6 +149,92 @@ claude mcp add flow-nexus npx flow-nexus@latest mcp start  # REQUIRED: Cloud fea
 claude mcp add ruv-swarm npx ruv-swarm mcp start  # Optional: Enhanced coordination
 ```
 
+## 🧠 Memory Management System
+
+### Two Memory Systems Available
+
+#### 1. Episodic Memory (Automatic - READ ONLY)
+
+- **Search past conversations**: `episodic-memory:search-conversations` skill
+- **Read full transcripts**: `mcp__plugin_episodic-memory_episodic-memory__read`
+- **Automatic storage**: All conversations automatically saved
+- **Use when**: Looking for previous discussions, decisions, or solutions
+
+#### 2. Claude-Flow ReasoningBank (Manual - AI-Powered)
+
+- **Store information**: `npx claude-flow memory store <key> <value> --namespace <ns>`
+- **Query with semantic search**: `npx claude-flow memory query "<search>" --namespace <ns>`
+- **List all keys**: `npx claude-flow memory list --namespace <ns>`
+- **Export/Import**: `npx claude-flow memory export/import <file>`
+- **Use when**: Storing project-specific fixes, patterns, configurations
+
+### 🎯 CRITICAL: When to Update Memory
+
+**ALWAYS store in ReasoningBank after:**
+
+1. Fixing a complex bug or issue
+2. Creating new reusable components
+3. Discovering important patterns or solutions
+4. Completing major refactoring
+5. Implementing workarounds for framework issues
+
+### Memory Commands
+
+```bash
+# Store a fix or pattern (ALWAYS use --namespace)
+npx claude-flow memory store gmail-folders-fix-2025-12-30 '{
+  "date": "2025-12-30",
+  "issue": "Description of problem",
+  "solution": "How it was fixed",
+  "files": ["file1.ts", "file2.tsx"],
+  "status": "RESOLVED"
+}' --namespace mailagent
+
+# Query memory (semantic search)
+npx claude-flow memory query "Gmail folders" --namespace mailagent
+
+# List all stored memories
+npx claude-flow memory list --namespace mailagent --sort recent --limit 20
+
+# Export for backup
+npx claude-flow memory export memory-backup.json --namespace mailagent
+
+# Check memory statistics
+npx claude-flow memory stats --namespace mailagent
+```
+
+### Namespace Organization
+
+| Namespace   | Purpose                               |
+| ----------- | ------------------------------------- |
+| `mailagent` | MailAgent project fixes and patterns  |
+| `frontend`  | Frontend-specific solutions           |
+| `backend`   | Backend-specific solutions            |
+| `sparc`     | SPARC workflow patterns               |
+| `testing`   | Test patterns and fixes               |
+
+### Memory Storage Best Practices
+
+**Store as JSON with these fields:**
+
+```json
+{
+  "date": "YYYY-MM-DD",
+  "issue": "Clear problem description",
+  "solution": "Step-by-step solution",
+  "files": ["affected files"],
+  "references": ["GitHub issues, docs"],
+  "status": "RESOLVED|PARTIAL|WORKAROUND"
+}
+```
+
+**Memory Workflow:**
+
+1. Fix a bug or implement a feature
+2. Update documentation (if needed)
+3. Store in ReasoningBank with proper namespace
+4. Episodic memory automatically captures full conversation
+
 ## MCP Tool Categories
 
 ### Coordination

@@ -50,11 +50,14 @@ import {
   User,
   Plus,
   MoreHorizontal,
+  RefreshCcw,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useFolders } from '@/hooks/queries/use-folders';
+import { useFolders, useSyncProviderComplete } from '@/hooks/queries/use-folders';
 import { useUserPreferences, useUpdatePreferences } from '@/hooks/queries/use-settings';
 import { useEmailUIStore, useEmailSidebar, type SpecialFolder } from '@/stores/email-ui-store';
+import { useFoldersStore } from '@/stores/folders-store';
+import { useToast } from '@/hooks/use-toast';
 import { FolderItem } from './FolderItem';
 import { SortableFolderItem, FolderItemDisplay } from './SortableFolderItem';
 import { LabelsSidebar } from './LabelsSidebar';
@@ -80,6 +83,9 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
   const { data, isLoading, refetch, isFetching } = useFolders();
   const { data: preferences } = useUserPreferences();
   const updatePreferences = useUpdatePreferences();
+  const syncComplete = useSyncProviderComplete();
+  const toast = useToast();
+  const { syncingProviders, setSyncing, setLastSync } = useFoldersStore();
 
   const filters = useEmailUIStore((state) => state.filters);
   const setFolder = useEmailUIStore((state) => state.setFolder);
@@ -133,10 +139,45 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
     });
   };
 
-  // Handle refresh
-  const handleRefresh = () => {
-    refetch();
+  // Handle refresh (basic refetch without sync)
+  const handleRefresh = async () => {
+    try {
+      await refetch();
+      toast.success(t.folders.refreshSuccess);
+    } catch {
+      toast.error(t.folders.refreshFailed);
+    }
   };
+
+  // Handle sync for specific provider (syncs BOTH folders AND emails)
+  const handleSyncProvider = (providerId: string, providerEmail: string) => {
+    // Prevent duplicate sync requests
+    if (syncingProviders.has(providerId)) {
+      toast.warning(t.folders.syncInProgress);
+      return;
+    }
+
+    setSyncing(providerId, true);
+
+    syncComplete.mutate(providerId, {
+      onSuccess: (data: { foldersCount: number; emailsSynced: boolean; message: string }) => {
+        setSyncing(providerId, false);
+        setLastSync(providerId, new Date().toISOString());
+        toast.success(
+          t.folders.syncSuccessComplete
+            .replace('{count}', data.foldersCount.toString())
+            .replace('{provider}', providerEmail)
+        );
+      },
+      onError: () => {
+        setSyncing(providerId, false);
+        toast.error(t.folders.syncFailedProvider.replace('{provider}', providerEmail));
+      },
+    });
+  };
+
+  // Note: handleSyncAll is available via syncAllFolders hook but not currently used in UI
+  // To add "Sync All" button, use: syncAllFolders.mutate() with similar pattern as handleSyncProvider
 
   // Handle drag start
   const handleDragStart = (event: DragStartEvent, providerId: string) => {
@@ -356,6 +397,29 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                             },
                           }}
                         />
+                        <Tooltip title={t.folders.syncFolder}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSyncProvider(provider.id, provider.displayName || provider.email);
+                              }}
+                              disabled={syncingProviders.has(provider.id)}
+                              sx={{
+                                mr: 0.5,
+                                p: 0.25,
+                                animation: syncingProviders.has(provider.id) ? 'spin 1s linear infinite' : 'none',
+                                '@keyframes spin': {
+                                  '0%': { transform: 'rotate(0deg)' },
+                                  '100%': { transform: 'rotate(360deg)' },
+                                },
+                              }}
+                            >
+                              <RefreshCcw size={14} />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
                         <Tooltip title={t.folders?.createFolder || 'Create folder'}>
                           <IconButton
                             size="small"
@@ -467,6 +531,9 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
         onClose={handleCloseDialog}
         providerId={createFolderProviderId}
       />
+
+      {/* Toast Container - must be rendered for toast notifications to work */}
+      <toast.ToastContainer />
     </Box>
   );
 }

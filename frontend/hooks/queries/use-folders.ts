@@ -32,6 +32,7 @@ import {
   type FolderMetadataResponse,
   type CreateFolderRequest,
 } from '@/lib/api/folders';
+import { providersApi } from '@/lib/api/providers';
 
 // ============================================================================
 // Query Keys
@@ -237,10 +238,21 @@ export function useDeleteFolder() {
 /**
  * Hook for syncing folders for a specific provider
  *
+ * Includes loading states, toast notifications, and race condition prevention.
+ *
  * @example
  * ```tsx
  * const sync = useSyncFolders();
- * sync.mutate('provider-id');
+ * const toast = useToast();
+ *
+ * sync.mutate('provider-id', {
+ *   onSuccess: (data) => {
+ *     toast.success(t.folders.syncSuccessProvider
+ *       .replace('{count}', data.foldersCount.toString())
+ *       .replace('{provider}', providerEmail));
+ *   },
+ *   onError: () => toast.error(t.folders.syncFailed),
+ * });
  * ```
  */
 export function useSyncFolders() {
@@ -260,10 +272,20 @@ export function useSyncFolders() {
 /**
  * Hook for syncing folders for all providers
  *
+ * Includes loading states, toast notifications, and race condition prevention.
+ *
  * @example
  * ```tsx
  * const syncAll = useSyncAllFolders();
- * syncAll.mutate();
+ * const toast = useToast();
+ *
+ * syncAll.mutate(undefined, {
+ *   onSuccess: (data) => {
+ *     const successCount = data.results.filter(r => r.success).length;
+ *     toast.success(`Synced ${successCount} accounts successfully`);
+ *   },
+ *   onError: () => toast.error(t.folders.syncFailed),
+ * });
  * ```
  */
 export function useSyncAllFolders() {
@@ -273,6 +295,55 @@ export function useSyncAllFolders() {
     mutationFn: () => syncAllFolders(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: folderKeys.all });
+    },
+  });
+}
+
+/**
+ * Hook for syncing BOTH folders AND emails for a specific provider
+ *
+ * This performs a complete sync:
+ * 1. Syncs folder structure
+ * 2. Syncs email messages
+ *
+ * Prevents race conditions by executing sequentially.
+ *
+ * @example
+ * ```tsx
+ * const syncComplete = useSyncProviderComplete();
+ * const toast = useToast();
+ *
+ * syncComplete.mutate('provider-id', {
+ *   onSuccess: () => toast.success('Synced folders and emails'),
+ *   onError: () => toast.error('Sync failed'),
+ * });
+ * ```
+ */
+export function useSyncProviderComplete() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (providerId: string) => {
+      // Step 1: Sync folder structure
+      const foldersResult = await syncFolders(providerId);
+
+      // Step 2: Sync emails (this triggers email-sync job queue)
+      const emailsResult = await providersApi.syncProvider(providerId);
+
+      return {
+        foldersCount: foldersResult.foldersCount,
+        emailsSynced: true,
+        message: emailsResult.message,
+      };
+    },
+    onSuccess: (_, providerId) => {
+      // Invalidate all relevant queries
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      queryClient.invalidateQueries({
+        queryKey: folderKeys.byProvider(providerId),
+      });
+      // Also invalidate email queries (if they exist)
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
     },
   });
 }

@@ -135,7 +135,11 @@ export function ConfirmDialog({
 
   const handleCancel = () => {
     if (!isLoading) {
-      onCancel?.() ?? onClose();
+      if (onCancel) {
+        onCancel();
+      } else {
+        onClose();
+      }
     }
   };
 

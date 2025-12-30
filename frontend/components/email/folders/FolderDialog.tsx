@@ -7,15 +7,9 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
-  Button,
   Box,
   Typography,
-  CircularProgress,
   Alert,
   FormControl,
   InputLabel,
@@ -25,6 +19,7 @@ import {
 import { FolderPlus, Folder } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders, useCreateFolder, useRenameFolder } from '@/hooks/queries';
+import { FormDialog } from '@/components/ui';
 import type { Folder as FolderType, Provider } from '@/lib/api/folders';
 
 interface FolderDialogProps {
@@ -146,123 +141,102 @@ export function FolderDialog({
   );
 
   return (
-    <Dialog
+    <FormDialog
       open={open}
       onClose={handleClose}
-      maxWidth="xs"
-      fullWidth
-      slotProps={{
-        paper: { sx: { borderRadius: 2 } },
-        transition: { onEnter: handleEnter },
+      onSubmit={handleSubmit}
+      title={
+        isEditMode
+          ? t.folders?.renameFolder || 'Rinomina cartella'
+          : t.folders?.createFolder || 'Nuova cartella'
+      }
+      icon={isEditMode ? <Folder size={20} /> : <FolderPlus size={20} />}
+      submitText={isEditMode ? t.common?.save || 'Salva' : t.folders?.create || 'Crea'}
+      cancelText={t.common?.cancel || 'Annulla'}
+      isLoading={isLoading}
+      submitDisabled={!name.trim() || (!isEditMode && !providerId)}
+      DialogProps={{
+        slotProps: {
+          transition: { onEnter: handleEnter },
+        },
       }}
     >
-      <DialogTitle sx={{ pb: 2, pt: 2.5, px: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {isEditMode ? <Folder size={20} /> : <FolderPlus size={20} />}
-          <Typography variant="h6" component="span">
-            {isEditMode
-              ? t.folders?.renameFolder || 'Rinomina cartella'
-              : t.folders?.createFolder || 'Nuova cartella'}
-          </Typography>
-        </Box>
-      </DialogTitle>
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => setError(null)}
+        >
+          {error}
+        </Alert>
+      )}
 
-      <DialogContent sx={{ pt: 0, px: 3, pb: 2 }}>
-        {error && (
-          <Alert
-            severity="error"
-            sx={{ mb: 2 }}
-            onClose={() => setError(null)}
+      {!isEditMode && providers.length > 1 && (
+        <FormControl fullWidth sx={{ mb: 2, mt: 1 }}>
+          <InputLabel id="provider-select-label">
+            {t.folders?.selectAccount || 'Account'}
+          </InputLabel>
+          <Select
+            labelId="provider-select-label"
+            value={providerId}
+            label={t.folders?.selectAccount || 'Account'}
+            onChange={(e) => {
+              setProviderId(e.target.value);
+              setError(null);
+            }}
+            disabled={isLoading}
           >
-            {error}
-          </Alert>
-        )}
+            {providers.map((provider: Provider) => (
+              <MenuItem key={provider.id} value={provider.id}>
+                {provider.displayName || provider.email}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
 
-        {!isEditMode && providers.length > 1 && (
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>{t.folders?.selectAccount || 'Account'}</InputLabel>
-            <Select
-              value={providerId}
-              label={t.folders?.selectAccount || 'Account'}
-              onChange={(e) => {
-                setProviderId(e.target.value);
-                setError(null);
-              }}
-              disabled={isLoading}
-            >
-              {providers.map((provider: Provider) => (
-                <MenuItem key={provider.id} value={provider.id}>
-                  {provider.displayName || provider.email}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
+      <TextField
+        autoFocus
+        fullWidth
+        label={t.folders?.nameLabel || 'Nome cartella'}
+        placeholder={t.folders?.namePlaceholder || 'es. Progetti, Clienti...'}
+        value={name}
+        onChange={(e) => {
+          setName(e.target.value);
+          setError(null);
+        }}
+        onKeyDown={handleKeyDown}
+        disabled={isLoading}
+        error={!!error && !name.trim()}
+        slotProps={{
+          inputLabel: { shrink: true }
+        }}
+        sx={{ mt: 1 }}
+      />
 
-        <TextField
-          autoFocus
-          fullWidth
-          label={t.folders?.nameLabel || 'Nome cartella'}
-          placeholder={t.folders?.namePlaceholder || 'es. Progetti, Clienti...'}
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            setError(null);
-          }}
-          onKeyDown={handleKeyDown}
-          disabled={isLoading}
-          error={!!error && !name.trim()}
-        />
-
-        {!isEditMode && providerId && name.trim() && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              {t.folders?.willBeCreatedAs || 'Sarà creata come'}:
+      {!isEditMode && providerId && name.trim() && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+            {t.folders?.willBeCreatedAs || 'Sarà creata come'}:
+          </Typography>
+          <Box
+            sx={{
+              p: 1,
+              bgcolor: 'action.hover',
+              borderRadius: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            <Folder size={16} />
+            <Typography variant="body2" fontFamily="monospace">
+              {name.trim()}
             </Typography>
-            <Box
-              sx={{
-                mt: 0.5,
-                p: 1,
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-              }}
-            >
-              <Folder size={16} />
-              <Typography variant="body2" fontFamily="monospace">
-                {name.trim()}
-              </Typography>
-            </Box>
           </Box>
-        )}
-      </DialogContent>
-
-      <DialogActions sx={{ px: 3, pb: 2.5, pt: 2, gap: 1 }}>
-        <Button
-          onClick={handleClose}
-          disabled={isLoading}
-          color="inherit"
-          sx={{ minWidth: 80 }}
-        >
-          {t.common?.cancel || 'Annulla'}
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={isLoading || !name.trim() || (!isEditMode && !providerId)}
-          variant="contained"
-          sx={{ minWidth: 80 }}
-          startIcon={
-            isLoading ? <CircularProgress size={16} color="inherit" /> : null
-          }
-        >
-          {isEditMode
-            ? t.common?.save || 'Salva'
-            : t.folders?.create || 'Crea'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+        </Box>
+      )}
+    </FormDialog>
   );
 }
 

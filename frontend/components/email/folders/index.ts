@@ -18,6 +18,7 @@ export {
   DEFAULT_FOLDER_ICON,
   getFolderIcon,
   getSpecialFolderIcon,
+  getFolderDisplayName,
   canModifyFolder,
   defaultFolderSort,
   sortFoldersByOrder,

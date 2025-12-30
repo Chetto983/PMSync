@@ -37,7 +37,30 @@
 - `saveDraft`: Backend returns email directly → wrapped to `{ id, email }` format
 - `getDraft`: Backend returns email directly → removed `.email` accessor
 
-### 🔲 Phase 2: Folder & Navigation - PENDING
+### ✅ Phase 2: Folder & Navigation - IN PROGRESS (December 30, 2025)
+**Completed Components:**
+- [x] FormDialog reusable component (with icon support)
+- [x] FolderDialog (create/rename) with proper MUI layout
+- [x] getFolderDisplayName() utility function
+- [x] Gmail custom folder display fix (backend + frontend)
+
+**Fixes Applied:**
+1. **Gmail Custom Folders Display Issue**:
+   - Backend: `folder-operations.worker.ts` now validates `specialUse` using `isSystemFolder()`
+   - Frontend: `getFolderDisplayName()` utility returns `folder.name` for custom folders
+   - Applied to: `FolderSidebar.tsx`, `MobileFolderSheet.tsx`
+
+2. **MUI Dialog Layout Fixes**:
+   - Created `FormDialog` component following `ConfirmDialog` pattern
+   - Fixed DialogContent padding (MUI removes it when DialogTitle present)
+   - Added `dividers` prop and explicit `pt: 3` padding
+   - TextField with `slotProps={{ inputLabel: { shrink: true } }}` (modern API)
+
+**Pending:**
+- [ ] Folder sync integration
+- [ ] Create/rename/delete folder backend integration
+- [ ] Drag-drop folder organization
+
 ### 🔲 Phase 3: Actions & Bulk Operations - PENDING
 ### 🔲 Phase 4: Labels & Organization - PENDING
 ### 🔲 Phase 5: Compose & Draft - PENDING
@@ -818,6 +841,64 @@ frontend/
 - [ ] E2E tests pass
 - [ ] Accessibility audit passed
 - [ ] Mobile responsive
+
+---
+
+## 9. Known Issues & Solutions
+
+### MUI Dialog with TextField Label Overlap (December 30, 2025)
+
+**Problem**: TextField label appears outside/above input field instead of floating properly.
+
+**Root Cause**:
+- MUI automatically removes DialogContent's top padding when DialogTitle is present
+- CSS rule: `.MuiDialogTitle-root+.MuiDialogContent-root { padding-top: 0; }`
+- TextField label needs space to float at top edge of input
+
+**Solution**:
+```typescript
+// FormDialog.tsx
+<DialogContent dividers sx={{ pt: 3 }}>{children}</DialogContent>
+
+// FolderDialog.tsx
+<TextField
+  slotProps={{ inputLabel: { shrink: true } }}
+  sx={{ mt: 1 }}
+/>
+```
+
+**References**:
+- [TextField label overlap issue](https://github.com/mui/material-ui/issues/46049)
+- [DialogContent padding with DialogTitle](https://github.com/mui/material-ui/issues/27851)
+- [TextField in DialogContent label cutoff](https://github.com/mui/material-ui/issues/14777)
+
+### Gmail Custom Folders Display Fix (December 30, 2025)
+
+**Problem**: Custom Gmail labels showed "Label_64" instead of actual names like "Pippo".
+
+**Root Cause**:
+- Backend stored invalid `specialUse` values for custom folders
+- Frontend prioritized `specialUse` over `folder.name` for display
+
+**Solution**:
+```typescript
+// backend/src/modules/email-sync/workers/folder-operations.worker.ts
+import { isSystemFolder } from '../drivers/interfaces/canonical.types';
+
+const folderType = createdFolder.type && createdFolder.type !== 'Custom' ? createdFolder.type : null;
+const specialUse = folderType && isSystemFolder(folderType) ? folderType : null;
+const isSystem = !!specialUse;
+
+// frontend/components/email/folders/folder-utils.ts
+export function getFolderDisplayName(
+  folder: FolderType,
+  getFolderLabel: (label: string) => string
+): string {
+  return folder.isSystem && folder.specialUse
+    ? getFolderLabel(folder.specialUse)
+    : folder.name;
+}
+```
 
 ---
 

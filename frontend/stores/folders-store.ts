@@ -12,6 +12,8 @@ interface FolderState {
   countsByFolderId: Record<string, FolderCounts>;
   foldersByProvider: Record<string, Folder[]>;
   providersById: Record<string, Provider>;
+  syncingProviders: Set<string>; // Track which providers are currently syncing
+  lastSyncByProvider: Record<string, string>; // Track last sync timestamp per provider
   updateFolderCounts: (
     providerId: string,
     folderId: string,
@@ -21,6 +23,8 @@ interface FolderState {
   upsertFolder: (folder: Partial<Folder> & { id: string; providerId: string; name: string; path: string }) => void;
   renameFolder: (folderId: string, newName: string) => void;
   deleteFolder: (folderId: string) => void;
+  setSyncing: (providerId: string, isSyncing: boolean) => void;
+  setLastSync: (providerId: string, timestamp: string) => void;
   reset: () => void;
 }
 
@@ -28,6 +32,8 @@ export const useFoldersStore = create<FolderState>((set) => ({
   countsByFolderId: {},
   foldersByProvider: {},
   providersById: {},
+  syncingProviders: new Set(),
+  lastSyncByProvider: {},
 
   updateFolderCounts: (providerId, folderId, counts) =>
     set((state) => ({
@@ -120,10 +126,31 @@ export const useFoldersStore = create<FolderState>((set) => ({
       return { foldersByProvider: next };
     }),
 
+  setSyncing: (providerId, isSyncing) =>
+    set((state) => {
+      const syncingProviders = new Set(state.syncingProviders);
+      if (isSyncing) {
+        syncingProviders.add(providerId);
+      } else {
+        syncingProviders.delete(providerId);
+      }
+      return { syncingProviders };
+    }),
+
+  setLastSync: (providerId, timestamp) =>
+    set((state) => ({
+      lastSyncByProvider: {
+        ...state.lastSyncByProvider,
+        [providerId]: timestamp,
+      },
+    })),
+
   reset: () =>
     set({
       countsByFolderId: {},
       foldersByProvider: {},
       providersById: {},
+      syncingProviders: new Set(),
+      lastSyncByProvider: {},
     }),
 }));

@@ -46,6 +46,7 @@ import {
   FOLDER_ORDER,
   getSpecialFolderIcon,
   getFolderIcon,
+  getFolderDisplayName,
 } from '../folders';
 import type { Provider } from '@/lib/api/folders';
 import type { Label } from '@/lib/api/labels';
@@ -428,10 +429,7 @@ export function MobileFolderSheet({ open, onClose, onSelect }: MobileFolderSheet
                   <Collapse in={!isCollapsed} timeout="auto" unmountOnExit>
                     <List disablePadding sx={{ pl: 2 }}>
                       {providerFolders.map((folder) => {
-                        // For system folders, translate specialUse. For custom folders, use name directly.
-                        const folderName = folder.isSystem && folder.specialUse
-                          ? getFolderLabel(folder.specialUse)
-                          : folder.name;
+                        const folderName = getFolderDisplayName(folder, getFolderLabel);
                         const isSelected = filters.folderId === folder.id;
 
                         return (

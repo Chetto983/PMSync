@@ -2287,6 +2287,21 @@ export interface AppTranslations {
     systemFolder: string;
     duplicateError: string;
     genericError: string;
+    // Folder sync
+    syncFolder: string;
+    syncAllFolders: string;
+    syncing: string;
+    syncSuccess: string;
+    syncSuccessProvider: string;
+    syncSuccessComplete: string;
+    syncFailed: string;
+    syncFailedProvider: string;
+    lastSynced: string;
+    lastSyncedAgo: string;
+    neverSynced: string;
+    syncInProgress: string;
+    refreshSuccess: string;
+    refreshFailed: string;
     // FolderDialog
     selectAccount: string;
     nameLabel: string;
