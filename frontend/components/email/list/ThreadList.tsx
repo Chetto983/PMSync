@@ -17,7 +17,7 @@
  * - <50KB bundle size
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -158,53 +158,60 @@ export function ThreadList({
     });
   }, []);
 
-  // Refresh handler
-  const handleRefresh = async () => {
+  // CRITICAL FIX: Memoized mouse event handlers to prevent re-renders
+  const handleMouseEnter = useCallback((id: string) => {
+    setHoveredId(id);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredId(null);
+  }, []);
+
+  // Refresh handler - FIXED: Memoized
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
       await onRefresh();
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [onRefresh]);
 
-  // Bulk action handlers
-  const getSelectedIds = () => Array.from(selectedIds);
-
-  const handleBulkMarkAsRead = () => {
-    onBulkMarkAsRead?.(getSelectedIds());
+  // Bulk action handlers - FIXED: All memoized
+  const handleBulkMarkAsRead = useCallback(() => {
+    onBulkMarkAsRead?.(Array.from(selectedIds));
     setSelectedIds(new Set());
-  };
+  }, [onBulkMarkAsRead, selectedIds]);
 
-  const handleBulkMarkAsUnread = () => {
-    onBulkMarkAsUnread?.(getSelectedIds());
+  const handleBulkMarkAsUnread = useCallback(() => {
+    onBulkMarkAsUnread?.(Array.from(selectedIds));
     setSelectedIds(new Set());
-  };
+  }, [onBulkMarkAsUnread, selectedIds]);
 
-  const handleBulkArchive = () => {
-    onBulkArchive?.(getSelectedIds());
+  const handleBulkArchive = useCallback(() => {
+    onBulkArchive?.(Array.from(selectedIds));
     setSelectedIds(new Set());
-  };
+  }, [onBulkArchive, selectedIds]);
 
-  const handleBulkDelete = () => {
-    onBulkDelete?.(getSelectedIds());
+  const handleBulkDelete = useCallback(() => {
+    onBulkDelete?.(Array.from(selectedIds));
     setSelectedIds(new Set());
-  };
+  }, [onBulkDelete, selectedIds]);
 
-  const handleBulkMove = () => {
-    onBulkMove?.(getSelectedIds());
+  const handleBulkMove = useCallback(() => {
+    onBulkMove?.(Array.from(selectedIds));
     // Keep selection for folder picker
-  };
+  }, [onBulkMove, selectedIds]);
 
-  const handleBulkLabel = () => {
-    onBulkLabel?.(getSelectedIds());
+  const handleBulkLabel = useCallback(() => {
+    onBulkLabel?.(Array.from(selectedIds));
     // Keep selection for label picker
-  };
+  }, [onBulkLabel, selectedIds]);
 
-  // Individual action handlers
-  const handleFlag = (id: string) => onFlag?.(id);
-  const handleArchive = (id: string) => onArchive?.(id);
-  const handleDelete = (id: string) => onDelete?.(id);
+  // Individual action handlers - FIXED: Memoized
+  const handleFlag = useCallback((id: string) => onFlag?.(id), [onFlag]);
+  const handleArchive = useCallback((id: string) => onArchive?.(id), [onArchive]);
+  const handleDelete = useCallback((id: string) => onDelete?.(id), [onDelete]);
 
   // Drag and drop handlers
   const handleDragStart = (event: DragStartEvent) => {
@@ -246,20 +253,23 @@ export function ThreadList({
 
   const activeThread = getActiveThread();
 
-  // Infinite scroll - load more when near bottom
+  // CRITICAL FIX: Infinite scroll in useEffect (not during render!)
   const virtualItems = virtualizer.getVirtualItems();
-  const lastItem = virtualItems[virtualItems.length - 1];
 
-  // Trigger load more when scrolled near bottom
-  if (
-    lastItem &&
-    lastItem.index >= threads.length - 5 &&
-    hasMore &&
-    !isLoadingMore &&
-    onLoadMore
-  ) {
-    onLoadMore();
-  }
+  useEffect(() => {
+    const lastItem = virtualItems[virtualItems.length - 1];
+
+    // Trigger load more when scrolled near bottom
+    if (
+      lastItem &&
+      lastItem.index >= threads.length - 5 &&
+      hasMore &&
+      !isLoadingMore &&
+      onLoadMore
+    ) {
+      onLoadMore();
+    }
+  }, [virtualItems, threads.length, hasMore, isLoadingMore, onLoadMore]);
 
   // Loading state
   if (isLoading) {
@@ -386,8 +396,8 @@ export function ThreadList({
                     onFlag={handleFlag}
                     onArchive={handleArchive}
                     onDelete={handleDelete}
-                    onMouseEnter={() => setHoveredId(thread.id)}
-                    onMouseLeave={() => setHoveredId(null)}
+                    onMouseEnter={() => handleMouseEnter(thread.id)}
+                    onMouseLeave={handleMouseLeave}
                   />
                 ) : (
                   <ThreadListItem
@@ -399,8 +409,8 @@ export function ThreadList({
                     onFlag={handleFlag}
                     onArchive={handleArchive}
                     onDelete={handleDelete}
-                    onMouseEnter={() => setHoveredId(thread.id)}
-                    onMouseLeave={() => setHoveredId(null)}
+                    onMouseEnter={() => handleMouseEnter(thread.id)}
+                    onMouseLeave={handleMouseLeave}
                   />
                 )}
               </Box>

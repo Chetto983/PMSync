@@ -115,7 +115,12 @@
       "Bash(powershell -Command \"Start-Process ''http://localhost:3001/dashboard/email''\")",
       "Skill(episodic-memory:search-conversations)",
       "Skill(episodic-memory:search-conversations:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(npx claude-flow@alpha memory store:*)",
+      "Bash(npm run prisma:studio:*)",
+      "Bash(del check-providers.ts)",
+      "Skill(email-frontend-roadmap)",
+      "Skill(email-frontend-roadmap:*)"
     ],
     "deny": []
   }

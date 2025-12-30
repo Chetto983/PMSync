@@ -180,6 +180,8 @@ export class FoldersController {
 
 **Localized Names**: Display name to canonical type mappings for English, Italian, German, French, Spanish.
 
+**Display Mapping**: Maps provider-specific types to canonical display types (e.g., CATEGORY_PERSONAL → INBOX).
+
 Frontend can use this to avoid duplicating folder type logic.`,
   })
   @ApiResponse({
@@ -197,6 +199,11 @@ Frontend can use this to avoid duplicating folder type logic.`,
           type: 'object',
           description: 'Localized folder names mapped to canonical types',
           example: { 'posta in arrivo': 'INBOX', 'bozze': 'DRAFTS' },
+        },
+        displayMapping: {
+          type: 'object',
+          description: 'Maps provider-specific folder types to canonical display types',
+          example: { CATEGORY_PERSONAL: 'INBOX', CATEGORY_SOCIAL: 'CATEGORY_SOCIAL' },
         },
         systemFolders: {
           type: 'array',
@@ -223,6 +230,16 @@ Frontend can use this to avoid duplicating folder type logic.`,
     return {
       canonicalTypes: CANONICAL_FOLDER_TYPES,
       localizedNames: LOCALIZED_FOLDER_NAMES,
+      // Display mapping: Maps provider-specific types to canonical display types
+      // CRITICAL: CATEGORY_PERSONAL → INBOX (for aggregation)
+      // Other CATEGORY_* types display as themselves
+      displayMapping: {
+        CATEGORY_PERSONAL: 'INBOX',
+        CATEGORY_SOCIAL: 'CATEGORY_SOCIAL',
+        CATEGORY_PROMOTIONS: 'CATEGORY_PROMOTIONS',
+        CATEGORY_UPDATES: 'CATEGORY_UPDATES',
+        CATEGORY_FORUMS: 'CATEGORY_FORUMS',
+      },
       // Core system folders that should be displayed in sidebar
       systemFolders: ['INBOX', 'SENT', 'DRAFTS', 'ARCHIVE', 'SPAM', 'TRASH'],
       // Microsoft-specific folders

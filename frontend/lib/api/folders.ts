@@ -281,9 +281,11 @@ export interface LocalizedFolderNames {
  */
 export interface FolderMetadataResponse {
   /** All canonical folder types (INBOX, SENT, DRAFTS, etc.) */
-  canonicalTypes: string[];
+  canonicalTypes: Record<string, string>;
   /** Localized folder names by language */
-  localizedNames: LocalizedFolderNames;
+  localizedNames: Record<string, string>;
+  /** Maps provider-specific folder types to canonical display types (e.g., CATEGORY_PERSONAL → INBOX) */
+  displayMapping: Record<string, string>;
   /** Core system folders that exist in all providers */
   systemFolders: string[];
   /** Microsoft-specific folders */

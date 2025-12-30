@@ -7,7 +7,7 @@ import { google } from 'googleapis';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { ProviderTokenService } from './provider-token.service';
 import { GmailFolderService } from './gmail/gmail-folder.service';
-import { folderNameToCanonical, isSystemFolder } from '../drivers/interfaces/canonical.types';
+import { folderNameToCanonical, isSystemFolder, CORE_SYSTEM_FOLDERS, SpecialUse } from '../drivers/interfaces/canonical.types';
 
 export interface FolderInfo {
   path: string;
@@ -1141,6 +1141,9 @@ export class FolderSyncService {
 
   /**
    * Delete a folder from the mail server and database
+   *
+   * FIX 1.1: Added safeguard to move emails to INBOX before deletion
+   * to prevent orphaned emails (emails.folder pointing to non-existent folder)
    */
   async deleteFolder(
     tenantId: string,
@@ -1164,12 +1167,29 @@ export class FolderSyncService {
     }
 
     // Prevent deletion of system folders
-    const systemFolders = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'JUNK', 'ARCHIVE'];
-    if (folder.specialUse && systemFolders.includes(folder.specialUse)) {
+    // FIX 3.6: Use CORE_SYSTEM_FOLDERS constant for consistency
+    if (folder.specialUse && CORE_SYSTEM_FOLDERS.includes(folder.specialUse)) {
       throw new Error(`Cannot delete system folder: ${folder.specialUse}`);
     }
 
     this.logger.log(`Deleting folder "${folder.name}" for provider ${providerId}`);
+
+    // FIX 1.1: Move all emails from this folder to INBOX before deletion
+    // This prevents orphaned emails with folder paths that don't exist
+    const emailsInFolder = await this.prisma.email.count({
+      where: { providerId, folder: folderPath },
+    });
+
+    if (emailsInFolder > 0) {
+      this.logger.log(
+        `Moving ${emailsInFolder} emails from folder "${folder.name}" to INBOX before deletion`,
+      );
+      await this.prisma.email.updateMany({
+        where: { providerId, folder: folderPath },
+        data: { folder: 'INBOX' },
+      });
+      this.logger.log(`Moved ${emailsInFolder} emails to INBOX`);
+    }
 
     if (provider.providerType === 'imap') {
       await this.deleteImapFolder(providerId, folderPath);
@@ -1363,10 +1383,30 @@ export class FolderSyncService {
 
   // ========== GMAIL LABEL OPERATIONS ==========
 
+  /**
+   * FIX 1.2: Added validation to prevent creating labels with reserved system folder names
+   */
   private async createGmailLabel(
     providerId: string,
     name: string,
   ): Promise<{ externalId: string; path: string }> {
+    // FIX 1.2: Validate that label name doesn't conflict with reserved system folder names
+    const RESERVED_NAMES = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'JUNK', 'ARCHIVE', 'ALL', 'FLAGGED', 'IMPORTANT'];
+    const normalizedName = name.toUpperCase().trim();
+
+    if (RESERVED_NAMES.includes(normalizedName)) {
+      throw new ConflictException(
+        `Cannot create label with reserved system folder name: "${name}". Please choose a different name.`,
+      );
+    }
+
+    // Also check for CATEGORY_ prefix (Gmail internal categories)
+    if (normalizedName.startsWith('CATEGORY_')) {
+      throw new ConflictException(
+        `Cannot create label with CATEGORY_ prefix: "${name}". This prefix is reserved for Gmail categories.`,
+      );
+    }
+
     const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
 
     const oauth2Client = new google.auth.OAuth2();

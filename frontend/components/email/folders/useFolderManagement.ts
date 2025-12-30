@@ -8,6 +8,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders } from '@/hooks/queries/use-folders';
+import { useFolderMetadata } from '@/hooks/queries/use-folder-metadata';
 import type { Folder as FolderType } from '@/lib/api/folders';
 import type { SpecialFolder } from '@/stores/email-ui-store';
 import {
@@ -60,6 +61,7 @@ export interface FolderManagementState {
 export function useFolderManagement(): FolderManagementState {
   const t = useTranslations() as FolderTranslations;
   const { data } = useFolders();
+  const { data: metadata } = useFolderMetadata();
 
   // Dialog state
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
@@ -77,6 +79,7 @@ export function useFolderManagement(): FolderManagementState {
   );
 
   // Calculate unread counts per folder from API data
+  // Uses backend displayMapping to avoid duplication (e.g., CATEGORY_PERSONAL → INBOX)
   const folderCounts = useMemo(() => {
     const counts: Partial<Record<SpecialFolder, number>> = {};
 
@@ -84,7 +87,10 @@ export function useFolderManagement(): FolderManagementState {
       Object.values(data.foldersByProvider).forEach((folders) => {
         folders.forEach((folder) => {
           if (folder.specialUse) {
-            const specialUse = folder.specialUse.toUpperCase() as SpecialFolder;
+            const rawSpecialUse = folder.specialUse.toUpperCase();
+            // Map using backend displayMapping (e.g., CATEGORY_PERSONAL → INBOX)
+            const displayAs = metadata?.displayMapping?.[rawSpecialUse] || rawSpecialUse;
+            const specialUse = displayAs as SpecialFolder;
             counts[specialUse] = (counts[specialUse] || 0) + (folder.unreadCount || 0);
           }
         });
@@ -92,7 +98,7 @@ export function useFolderManagement(): FolderManagementState {
     }
 
     return counts;
-  }, [data]);
+  }, [data, metadata]);
 
   // ==========================================================================
   // Dialog Handlers

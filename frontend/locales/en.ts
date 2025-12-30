@@ -2356,8 +2356,8 @@ export const en: AppTranslations = {
     scheduled: 'Scheduled',
     conflicts: 'Conflicts',
     syncissues: 'Sync Issues',
-    // Gmail categories
-    categoryPersonal: 'Personal',
+    // Gmail categories - map to canonical folder names
+    categoryPersonal: 'Inbox',  // CATEGORY_PERSONAL → INBOX
     categorySocial: 'Social',
     categoryPromotions: 'Promotions',
     categoryUpdates: 'Updates',

@@ -63,6 +63,64 @@ export type KnownFolderType =
 export type CanonicalFolderType = KnownFolderType | (string & Record<never, never>);
 
 /**
+ * FIX 3.6: Enum for type-safe specialUse field operations
+ * Provides compile-time type checking and autocomplete for special folder types
+ *
+ * Usage:
+ * ```typescript
+ * if (folder.specialUse === SpecialUse.INBOX) { ... }
+ * const systemFolders = Object.values(SpecialUse);
+ * const isCore = CORE_SYSTEM_FOLDERS.includes(folder.specialUse as SpecialUse);
+ * ```
+ */
+export enum SpecialUse {
+  // RFC 6154 standard special-use attributes
+  INBOX = 'INBOX',
+  SENT = 'SENT',
+  DRAFTS = 'DRAFTS',
+  TRASH = 'TRASH',
+  SPAM = 'SPAM',
+  ARCHIVE = 'ARCHIVE',
+  ALL = 'ALL',
+  FLAGGED = 'FLAGGED',
+  IMPORTANT = 'IMPORTANT',
+  STARRED = 'STARRED',
+  JUNK = 'JUNK',
+  // Microsoft Graph wellKnownName values
+  OUTBOX = 'OUTBOX',
+  CONVERSATIONHISTORY = 'CONVERSATIONHISTORY',
+  CLUTTER = 'CLUTTER',
+  CONFLICTS = 'CONFLICTS',
+  LOCALFAILURES = 'LOCALFAILURES',
+  SERVERFAILURES = 'SERVERFAILURES',
+  SYNCISSUES = 'SYNCISSUES',
+  SCHEDULED = 'SCHEDULED',
+  // Gmail categories
+  SOCIAL = 'SOCIAL',
+  PROMOTIONS = 'PROMOTIONS',
+  UPDATES = 'UPDATES',
+  FORUMS = 'FORUMS',
+  PERSONAL = 'PERSONAL',
+  // Gmail system labels
+  CHAT = 'CHAT',
+  UNREAD = 'UNREAD',
+}
+
+/**
+ * Core system folders that should not be deleted or renamed
+ * Used for validation in folder operations
+ */
+export const CORE_SYSTEM_FOLDERS: readonly string[] = [
+  SpecialUse.INBOX,
+  SpecialUse.SENT,
+  SpecialUse.DRAFTS,
+  SpecialUse.TRASH,
+  SpecialUse.SPAM,
+  SpecialUse.JUNK,
+  SpecialUse.ARCHIVE,
+] as const;
+
+/**
  * Mapping from provider-specific folder identifiers to canonical types
  */
 export const GMAIL_TO_CANONICAL: Record<string, CanonicalFolderType> = {
@@ -77,7 +135,10 @@ export const GMAIL_TO_CANONICAL: Record<string, CanonicalFolderType> = {
   'UNREAD': 'UNREAD',
   'CHAT': 'CHAT',
   // Category labels
-  'CATEGORY_PERSONAL': 'PERSONAL',
+  // FIX 1.3: CATEGORY_PERSONAL maps to INBOX (not 'PERSONAL')
+  // This aligns with google.driver.ts:determineFolderFromLabels() logic
+  // and prevents creating phantom "Personale" folders for Italian Gmail accounts
+  'CATEGORY_PERSONAL': 'INBOX',
   'CATEGORY_SOCIAL': 'SOCIAL',
   'CATEGORY_PROMOTIONS': 'PROMOTIONS',
   'CATEGORY_UPDATES': 'UPDATES',
@@ -135,7 +196,9 @@ export const CANONICAL_TO_GMAIL: Record<string, string> = {
   'PROMOTIONS': 'CATEGORY_PROMOTIONS',
   'UPDATES': 'CATEGORY_UPDATES',
   'FORUMS': 'CATEGORY_FORUMS',
-  'PERSONAL': 'CATEGORY_PERSONAL',
+  // FIX 1.3: PERSONAL maps to INBOX (not 'CATEGORY_PERSONAL')
+  // Ensures reverse mapping consistency with forward mapping above
+  'PERSONAL': 'INBOX',
   // Gmail doesn't have these - map to INBOX as fallback
   'OUTBOX': 'INBOX',
   'CONVERSATIONHISTORY': 'INBOX',
