@@ -7,7 +7,7 @@ import { google } from 'googleapis';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { ProviderTokenService } from './provider-token.service';
 import { GmailFolderService } from './gmail/gmail-folder.service';
-import { folderNameToCanonical, isSystemFolder, CORE_SYSTEM_FOLDERS, SpecialUse } from '../drivers/interfaces/canonical.types';
+import { folderNameToCanonical, isSystemFolder, CORE_SYSTEM_FOLDERS } from '../drivers/interfaces/canonical.types';
 
 export interface FolderInfo {
   path: string;

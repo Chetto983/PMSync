@@ -278,7 +278,7 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Di
         toolName: tool.name,
         hasOutput: output !== undefined,
         outputType: typeof output,
-        outputKeys: output && typeof output === 'object' ? Object.keys(output as object) : [],
+        outputKeys: output && typeof output === 'object' ? Object.keys(output) : [],
         hasError: !!error,
         contextUserId: context.userId,
         contextConversationId: context.conversationId,

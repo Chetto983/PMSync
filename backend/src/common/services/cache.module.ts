@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { CacheService } from './cache.service';
 import { WebhookValidationService } from './webhook-validation.service';
 import { DeadLetterQueueService } from './dead-letter-queue.service';
+import { MemoryManagerService } from './memory-manager.service';
 
 /**
  * CacheModule
@@ -36,7 +37,7 @@ import { DeadLetterQueueService } from './dead-letter-queue.service';
  */
 @Global()
 @Module({
-  providers: [CacheService, WebhookValidationService, DeadLetterQueueService],
-  exports: [CacheService, WebhookValidationService, DeadLetterQueueService],
+  providers: [CacheService, WebhookValidationService, DeadLetterQueueService, MemoryManagerService],
+  exports: [CacheService, WebhookValidationService, DeadLetterQueueService, MemoryManagerService],
 })
 export class CacheModule {}

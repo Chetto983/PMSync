@@ -148,8 +148,13 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private readonly SUSPENDED_WORKFLOW_TTL = 86400;
   /** TTL for cached agents (5 minutes) - balances memory vs code reload */
   private readonly AGENT_CACHE_TTL_MS = 5 * 60 * 1000;
-  /** Max agents in cache - LRU eviction when exceeded */
-  private readonly MAX_CACHED_AGENTS = 100;
+  /**
+   * MEMORY OPTIMIZATION 2025: Reduced from 100 to 5 agents.
+   * Uses model-only cache key instead of per-tenant.
+   * 1000 tenants share 5 agents = ~25MB instead of 500MB.
+   * Tenant context is passed per-request, not cached.
+   */
+  private readonly MAX_CACHED_AGENTS = 5;
 
   /** In-memory buffer for batch Redis writes */
   private metricsBuffer: AgentMetrics[] = [];
