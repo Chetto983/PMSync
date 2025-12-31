@@ -375,21 +375,13 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     subAgents.push(analyticsAgent);
   }
 
-  // UnifiedKnowledgeAgent - only create if all required services are available
-  // Debug: Log dependency availability for troubleshooting
-  console.debug('[UnifiedKnowledgeAgent] Dependencies check:', {
-    longTermMemoryService: !!longTermMemoryService,
-    deadlineService: !!deadlineService,
-    followUpService: !!followUpService,
-    actionItemService: !!actionItemService,
-    userId: !!userId,
-    mistralService: !!mistralService,
-    embeddingsService: !!embeddingsService,
-  });
   // UnifiedKnowledgeAgent - only create if long-term memory service is enabled
+  // RAG services (mistralService, embeddingsService) are optional - agent will work with basic tools
   const memoryEnabled = longTermMemoryService?.isEnabled?.() ?? false;
-  console.log('[UnifiedKnowledgeAgent] memoryEnabled=' + memoryEnabled + ', longTermMemoryService=' + !!longTermMemoryService);
-  if (userId && memoryEnabled && mistralService && embeddingsService) {
+  console.log('[UnifiedKnowledgeAgent] Check: memoryEnabled=' + memoryEnabled + ', userId=' + !!userId + ', mistral=' + !!mistralService + ', embeddings=' + !!embeddingsService);
+
+  // FIX: Only require userId and memoryEnabled - RAG services are optional
+  if (userId && memoryEnabled) {
     // Create placeholder services if not provided (graceful degradation)
     const safeDeadlineService = deadlineService ?? {
       getUpcomingDeadlines: async () => [],
@@ -402,6 +394,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     const safeActionItemService = actionItemService ?? {
       getOpenActionItems: async () => [],
       getActionItems: async () => [],
+      getPending: async () => [],
     };
 
     const unifiedKnowledgeAgent = createUnifiedKnowledgeAgent({
@@ -415,13 +408,14 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
       deadlineService: (deadlineService ?? safeDeadlineService) as DeadlineExtractorService,
       followUpService: (followUpService ?? safeFollowUpService) as FollowUpService,
       actionItemService: (actionItemService ?? safeActionItemService) as ActionItemService,
+      // RAG services are optional - agent works without them using basic tools
       mistralService,
       embeddingsService,
     });
     subAgents.push(unifiedKnowledgeAgent);
-    console.debug('[UnifiedKnowledgeAgent] Created successfully');
+    console.log('[UnifiedKnowledgeAgent] Created successfully with ' + (mistralService ? 'full RAG' : 'basic tools'));
   } else {
-    console.warn('[UnifiedKnowledgeAgent] Not created - memoryEnabled=' + memoryEnabled + ', userId=' + !!userId + ' (requires MISTRAL_API_KEY)');
+    console.warn('[UnifiedKnowledgeAgent] Not created - memoryEnabled=' + memoryEnabled + ', userId=' + !!userId);
   }
 
   // Create the supervisor agent with all sub-agents

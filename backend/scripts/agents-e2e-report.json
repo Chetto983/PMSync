@@ -1,179 +1,177 @@
 {
-  "timestamp": "2025-12-31T18:03:57.929Z",
+  "timestamp": "2025-12-31T18:33:15.059Z",
   "user": {
     "email": "dvdmarchetto@gmail.com",
     "tenant": "cmjgylxkg000054yhnjpkmzd9"
   },
-  "duration": 7079,
+  "duration": 110006,
   "summary": {
     "total": 20,
-    "passed": 17,
-    "failed": 3,
-    "passRate": 85
+    "passed": 19,
+    "failed": 1,
+    "passRate": 95
   },
   "results": [
     {
       "agent": "SupervisorAgent",
       "query": "Hello! What can you help me with today?",
       "status": "PASS",
-      "duration": 516,
-      "responseLength": 373,
-      "preview": "Hello Davide! I can assist you with various tasks. I can help you manage your emails, schedule and c"
+      "duration": 4290,
+      "responseLength": 416,
+      "preview": "Hello Davide! I can assist you with a variety of tasks. I can help you manage your emails, schedule "
     },
     {
       "agent": "EmailAgent",
       "query": "Show me my unread emails",
       "status": "PASS",
-      "duration": 302,
-      "responseLength": 3531,
-      "preview": "Here are your 10 unread emails:  1. **⏳ FINAL CALL - NEW YEAR SALE on Video Editing Courses💜**    -"
+      "duration": 23818,
+      "responseLength": 2995,
+      "preview": "Here are your recent unread emails:  1. **Il grande anno delle criptovalute, in numeri**    - From: "
     },
     {
       "agent": "EmailAgent",
       "query": "Search for emails about project updates",
       "status": "PASS",
-      "duration": 370,
-      "responseLength": 72,
-      "preview": "I searched for emails containing \"project updates\" but found no results."
+      "duration": 2518,
+      "responseLength": 66,
+      "preview": "I searched for emails about project updates, but found no results."
     },
     {
       "agent": "EmailAgent",
       "query": "How many emails did I receive this week?",
-      "status": "PASS",
-      "duration": 253,
-      "responseLength": 192,
-      "preview": "I apologize, but I currently don't have the tools to check the number of emails you've received this"
+      "status": "FAIL",
+      "duration": 2235,
+      "responseLength": 167,
+      "error": "Agent lacks required tools",
+      "preview": "I'm sorry, but I currently don't have the tools to access and count your emails. If you have another"
     },
     {
       "agent": "CalendarAgent",
       "query": "What meetings do I have today?",
       "status": "PASS",
-      "duration": 300,
-      "responseLength": 50,
-      "preview": "Hi Davide, you have no events scheduled for today."
+      "duration": 2818,
+      "responseLength": 79,
+      "preview": "Davide, you have no meetings scheduled for today, Wednesday, December 31, 2025."
     },
     {
       "agent": "CalendarAgent",
       "query": "What is on my calendar this week?",
       "status": "PASS",
-      "duration": 296,
-      "responseLength": 46,
-      "preview": "No events are scheduled for this week, Davide."
+      "duration": 2475,
+      "responseLength": 43,
+      "preview": "You have no events scheduled for this week."
     },
     {
       "agent": "ContactsAgent",
       "query": "Find my contacts",
       "status": "PASS",
-      "duration": 303,
-      "responseLength": 18,
-      "preview": "No contacts found."
+      "duration": 2880,
+      "responseLength": 160,
+      "preview": "Here are the contacts I found:  1. Name: *LELE* LEANDRO GUASTINI DI BONITO    Email: lelegdb@gmail.c"
     },
     {
       "agent": "ContactsAgent",
       "query": "Who is Davide in my contacts?",
       "status": "PASS",
-      "duration": 265,
-      "responseLength": 141,
-      "preview": "I found one contact matching \"Davide\":  - Name: Davide - Email: pezza_67@hotmail.com  Would you like"
+      "duration": 3158,
+      "responseLength": 165,
+      "preview": "I found one contact for \"Davide\" in your contacts:  1. **Name:** Davide    - **Email:** pezza_67@hot"
     },
     {
       "agent": "KnowledgeAgent",
       "query": "What do I know about our last project meeting?",
       "status": "PASS",
-      "duration": 275,
-      "responseLength": 225,
+      "duration": 2333,
+      "responseLength": 210,
       "preview": "I searched for information about your last project meeting but couldn't find any relevant emails or "
     },
     {
       "agent": "WebSearchAgent",
       "query": "What is the current weather in Milan, Italy?",
       "status": "PASS",
-      "duration": 283,
-      "responseLength": 188,
+      "duration": 6658,
+      "responseLength": 276,
       "preview": "The current weather in Milan, Italy is 11°C with a dense overcast layer shaping the day's outlook. T"
     },
     {
       "agent": "AnalyticsAgent",
       "query": "Show me my email statistics for this week",
-      "status": "FAIL",
-      "duration": 247,
-      "responseLength": 98,
-      "error": "Agent lacks required tools",
-      "preview": "I'm sorry, but I currently don't have the tools to generate email statistics for the current week."
+      "status": "PASS",
+      "duration": 4310,
+      "responseLength": 128,
+      "preview": "It seems that there is no data available for email statistics this week. If you need any further ass"
     },
     {
       "agent": "GeneralAgent",
       "query": "Tell me a productivity tip",
       "status": "PASS",
-      "duration": 328,
-      "responseLength": 443,
-      "preview": "Certainly, Davide. A productivity tip for you could be to implement the \"Two-Minute Rule\" from the G"
+      "duration": 3696,
+      "responseLength": 407,
+      "preview": "Hello Davide!  Here's a productivity tip for you: Try using the Pomodoro Technique for time manageme"
     },
     {
       "agent": "UnifiedKnowledgeAgent",
       "query": "What are my pending tasks and deadlines?",
-      "status": "FAIL",
-      "duration": 282,
-      "responseLength": 217,
-      "error": "Agent lacks required tools",
-      "preview": "I'm sorry, but I currently don't have access to the tools needed to provide information about your p"
+      "status": "PASS",
+      "duration": 3621,
+      "responseLength": 86,
+      "preview": "### Deadlines  No upcoming deadlines found.  ### Action Items  No pending tasks found."
     },
     {
       "agent": "UnifiedKnowledgeAgent",
       "query": "Any follow-ups I need to handle?",
-      "status": "FAIL",
-      "duration": 221,
-      "responseLength": 180,
-      "error": "Agent lacks required tools",
-      "preview": "I'm sorry, but I currently don't have the tools to check your pending tasks and deadlines. If you ha"
+      "status": "PASS",
+      "duration": 2641,
+      "responseLength": 53,
+      "preview": "You have no pending tasks or deadlines at the moment."
     },
     {
       "agent": "MultiAgent",
       "query": "Send an email to John about our meeting tomorrow a",
       "status": "PASS",
-      "duration": 287,
-      "responseLength": 223,
+      "duration": 6874,
+      "responseLength": 227,
       "preview": "I couldn't find any contacts named John in the system. Would you like to search again using differen"
     },
     {
       "agent": "MultiAgent",
       "query": "Summarize my recent emails and tell me what I need",
       "status": "PASS",
-      "duration": 285,
-      "responseLength": 126,
-      "preview": "I couldn't find any recent emails in your inbox. Would you like me to search with different criteria"
+      "duration": 6124,
+      "responseLength": 696,
+      "preview": "I've reviewed your recent emails and here's a summary:  1. You have 60 unread emails, with 3 new one"
     },
     {
       "agent": "IT-SupervisorAgent",
       "query": "Ciao! Come puoi aiutarmi oggi?",
       "status": "PASS",
-      "duration": 307,
-      "responseLength": 117,
-      "preview": "Ciao Davide! Posso aiutarti con la gestione delle tue email, del calendario e dei contatti. Dimmi pu"
+      "duration": 2457,
+      "responseLength": 612,
+      "preview": "Ciao Davide! Posso aiutarti con diverse attività, tra cui:  - Gestire la tua posta elettronica: invi"
     },
     {
       "agent": "IT-EmailAgent",
       "query": "Mostrami le mie email non lette",
       "status": "PASS",
-      "duration": 244,
-      "responseLength": 1521,
-      "preview": "Ecco il riepilogo delle tue 10 email non lette:  1. ⏳ FINAL CALL - NEW YEAR SALE on Video Editing Co"
+      "duration": 21105,
+      "responseLength": 2917,
+      "preview": "Ecco le tue 10 email non lette:  1. **Il grande anno delle criptovalute, in numeri**    - Da: newsle"
     },
     {
       "agent": "IT-CalendarAgent",
       "query": "Quali riunioni ho oggi?",
       "status": "PASS",
-      "duration": 277,
-      "responseLength": 63,
-      "preview": "Non hai eventi in agenda per oggi. Vuoi che aggiunga un evento?"
+      "duration": 2377,
+      "responseLength": 38,
+      "preview": "Non hai eventi in calendario per oggi."
     },
     {
       "agent": "IT-ContactsAgent",
       "query": "Cerca i miei contatti",
       "status": "PASS",
-      "duration": 322,
-      "responseLength": 282,
-      "preview": "Ho trovato 1 contatto nei tuoi contatti:  1. *LELE* LEANDRO GUASTINI DI BONITO    - Email: lelegdb@g"
+      "duration": 2876,
+      "responseLength": 193,
+      "preview": "Ho trovato 1 contatto:  1. *LELE* LEANDRO GUASTINI DI BONITO    - Email: lelegdb@gmail.com    - Azie"
     }
   ]
 }

@@ -455,21 +455,27 @@ RESPONSE:
 - Be clear when you cannot find reliable information`,
     },
     analytics: {
-      instructions: `You are a data analytics assistant. ALWAYS respond in English.
+      instructions: `You are a data analytics assistant with code execution capabilities. ALWAYS respond in English.
 
-CAPABILITIES:
-- Analyze email data, trends, and patterns
-- Generate charts and visualizations
-- Calculate statistics and metrics
-- Provide actionable insights
-
-WHEN TO USE ANALYTICS:
-- Questions about email statistics (volume, response times)
-- Requests for trends and patterns
-- Productivity analysis and metrics
+**IMPORTANT**: You MUST use the analyze_data tool for ANY request involving:
+- Email statistics (volume, counts, response times)
+- Trends and patterns analysis
+- Productivity metrics
+- Data visualizations
 - Report generation
 
-Use the analyze_data tool for complex analyses that require code execution.`,
+NEVER say you don't have tools. You have the analyze_data tool available.
+
+WHEN ASKED ABOUT STATISTICS OR METRICS:
+1. ALWAYS call the analyze_data tool first
+2. Pass the user's query to the tool
+3. Present the results clearly
+
+Example queries that REQUIRE the analyze_data tool:
+- "Show me my email statistics" → Use analyze_data
+- "How many emails this week?" → Use analyze_data
+- "Email volume trends" → Use analyze_data
+- "Response time analysis" → Use analyze_data`,
     },
     documentLibrary: {
       instructions: `You are a document assistant with access to the user's document libraries. ALWAYS respond in English.

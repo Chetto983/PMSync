@@ -61,8 +61,9 @@ export interface UnifiedRetrieverOptions {
   prisma: PrismaService;
   longTermMemory: LongTermMemoryService;
   pgVectorMemory?: PgVectorMemoryService;
-  mistralService: MistralService;
-  embeddingsService: EmbeddingsService;
+  // RAG services (optional - will use basic text search if not available)
+  mistralService?: MistralService;
+  embeddingsService?: EmbeddingsService;
   // Limits
   memoryLimit?: number;
   emailLimit?: number;
@@ -86,8 +87,8 @@ export class UnifiedRetriever extends BaseRetriever {
   private readonly prisma: PrismaService;
   private readonly longTermMemory: LongTermMemoryService;
   private readonly pgVectorMemory?: PgVectorMemoryService;
-  private readonly mistralService: MistralService;
-  private readonly embeddingsService: EmbeddingsService;
+  private readonly mistralService?: MistralService;
+  private readonly embeddingsService?: EmbeddingsService;
 
   // Limits
   private readonly memoryLimit: number;
@@ -282,28 +283,30 @@ export class UnifiedRetriever extends BaseRetriever {
     const seenIds = new Set<string>();
 
     try {
-      // Vector search for semantic similarity
-      const embedding = await this.mistralService.generateEmbedding(query);
-      if (embedding && embedding.length > 0) {
-        const vectorResults = await this.embeddingsService.findSimilarContent<{
-          id: string;
-          content: string;
-          documentName: string | null;
-          metadata: Record<string, unknown> | null;
-          distance?: number;
-        }>(this.tenantId, embedding, this.emailLimit);
+      // Vector search for semantic similarity (only if RAG services are available)
+      if (this.mistralService && this.embeddingsService) {
+        const embedding = await this.mistralService.generateEmbedding(query);
+        if (embedding && embedding.length > 0) {
+          const vectorResults = await this.embeddingsService.findSimilarContent<{
+            id: string;
+            content: string;
+            documentName: string | null;
+            metadata: Record<string, unknown> | null;
+            distance?: number;
+          }>(this.tenantId, embedding, this.emailLimit);
 
-        for (const vr of vectorResults) {
-          if (!seenIds.has(vr.id)) {
-            seenIds.add(vr.id);
-            // Convert distance (0-2) to score (1-0)
-            const score = vr.distance !== undefined ? 1 - vr.distance / 2 : 0.5;
-            items.push({
-              id: vr.id,
-              content: vr.content,
-              score,
-              metadata: { type: 'email', source: 'vector', ...vr.metadata },
-            });
+          for (const vr of vectorResults) {
+            if (!seenIds.has(vr.id)) {
+              seenIds.add(vr.id);
+              // Convert distance (0-2) to score (1-0)
+              const score = vr.distance !== undefined ? 1 - vr.distance / 2 : 0.5;
+              items.push({
+                id: vr.id,
+                content: vr.content,
+                score,
+                metadata: { type: 'email', source: 'vector', ...vr.metadata },
+              });
+            }
           }
         }
       }

@@ -45,9 +45,9 @@ export interface UnifiedKnowledgeAgentOptions {
   deadlineService: DeadlineExtractorService;
   followUpService: FollowUpService;
   actionItemService: ActionItemService;
-  // RAG services
-  mistralService: MistralService;
-  embeddingsService: EmbeddingsService;
+  // RAG services (optional - agent works with basic tools without them)
+  mistralService?: MistralService;
+  embeddingsService?: EmbeddingsService;
 }
 
 /**
