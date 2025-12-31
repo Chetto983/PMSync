@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
+import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 import { EmailLayout } from '@/components/email';
 import { ThreadList, ThreadListItemData } from '@/components/email/list';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useEmails, useBulkMoveEmails } from '@/hooks/queries';
+import {
+  useEmails,
+  useBulkMoveEmails,
+  useBulkMarkRead,
+  useBulkDeleteEmails,
+  useUpdateEmail,
+  useDeleteEmail,
+} from '@/hooks/queries';
+import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { CircularProgress, Box, Typography } from '@mui/material';
 import type { Email } from '@/lib/api/emails';
 
@@ -93,17 +103,25 @@ const generateMockThreads = (count: number): ThreadListItemData[] => {
 };
 
 export default function EmailPage() {
+  const router = useRouter();
   const toast = useToast();
   const t = useTranslations();
 
+  // Enable realtime updates via WebSocket
+  useEmailRealtime({ folder: 'INBOX', enabled: true });
+
   // Fetch real email data from API
-  const { data: emailsData, isLoading, error, refetch } = useEmails({
+  const { data: emailsData, isLoading, refetch } = useEmails({
     specialUse: 'INBOX',
     limit: 50,
   });
 
-  // Mutation for moving emails
+  // Mutations for email operations
   const moveEmails = useBulkMoveEmails();
+  const markRead = useBulkMarkRead();
+  const bulkDelete = useBulkDeleteEmails();
+  const updateEmail = useUpdateEmail();
+  const deleteEmail = useDeleteEmail();
 
   // Format emails to thread list format
   const threads = emailsData?.emails?.map(formatEmailToThread) ?? [];
@@ -112,50 +130,129 @@ export default function EmailPage() {
   const [mockThreads] = useState(() => generateMockThreads(50));
   const displayThreads = threads.length > 0 ? threads : mockThreads;
 
-  // Mock handlers - TODO: Replace with real API calls
-  const handleThreadClick = (_id: string) => {
-    // TODO: Navigate to thread detail view
-  };
+  // Thread click - navigate to thread detail view
+  const handleThreadClick = useCallback(
+    (id: string) => {
+      // Find the email to get its threadId
+      const email = emailsData?.emails?.find((e) => e.id === id);
+      const threadId = email?.threadId || id;
+      router.push(`/dashboard/email/thread/${threadId}`);
+    },
+    [router, emailsData?.emails]
+  );
 
-  const handleRefresh = async () => {
+  // Refresh emails
+  const handleRefresh = useCallback(async () => {
     await refetch();
-  };
+  }, [refetch]);
 
-  const handleBulkMarkAsRead = (_ids: string[]) => {
-    // TODO: Call API to mark emails as read
-  };
+  // Bulk mark as read
+  const handleBulkMarkAsRead = useCallback(
+    async (ids: string[]) => {
+      try {
+        await markRead.mutateAsync({ emailIds: ids, isRead: true });
+        toast.success(t.common.success ?? 'Done');
+      } catch {
+        toast.error(t.common.genericError);
+      }
+    },
+    [markRead, toast, t]
+  );
 
-  const handleBulkMarkAsUnread = (_ids: string[]) => {
-    // TODO: Call API to mark emails as unread
-  };
+  // Bulk mark as unread
+  const handleBulkMarkAsUnread = useCallback(
+    async (ids: string[]) => {
+      try {
+        await markRead.mutateAsync({ emailIds: ids, isRead: false });
+        toast.success(t.common.success ?? 'Done');
+      } catch {
+        toast.error(t.common.genericError);
+      }
+    },
+    [markRead, toast, t]
+  );
 
-  const handleBulkArchive = (_ids: string[]) => {
-    // TODO: Call API to archive emails
-  };
+  // Bulk archive - moves to Archive folder
+  const handleBulkArchive = useCallback(
+    async (ids: string[]) => {
+      try {
+        await moveEmails.mutateAsync({ emailIds: ids, targetFolder: 'ARCHIVE' });
+        toast.success(t.common.success ?? 'Done');
+      } catch {
+        toast.error(t.common.genericError);
+      }
+    },
+    [moveEmails, toast, t]
+  );
 
-  const handleBulkDelete = (_ids: string[]) => {
-    // TODO: Call API to delete emails
-  };
+  // Bulk delete
+  const handleBulkDelete = useCallback(
+    async (ids: string[]) => {
+      try {
+        await bulkDelete.mutateAsync(ids);
+        toast.success(t.common.success ?? 'Done');
+      } catch {
+        toast.error(t.common.genericError);
+      }
+    },
+    [bulkDelete, toast, t]
+  );
 
-  const handleBulkMove = (_ids: string[]) => {
-    // TODO: Show folder picker dialog
-  };
+  // Bulk move - show folder picker (TODO: implement picker dialog)
+  const handleBulkMove = useCallback((_ids: string[]) => {
+    // TODO: Show folder picker dialog (implement in Phase 4.3)
+    toast.info(t.threadActions?.folderPickerComingSoon || 'Folder picker coming soon');
+  }, [toast, t]);
 
-  const handleBulkLabel = (_ids: string[]) => {
-    // TODO: Show label picker dialog
-  };
+  // Bulk label - show label picker (TODO: implement picker dialog)
+  const handleBulkLabel = useCallback((_ids: string[]) => {
+    // TODO: Show label picker dialog (implement in Phase 4.3)
+    toast.info(t.threadActions?.labelPickerComingSoon || 'Label picker coming soon');
+  }, [toast, t]);
 
-  const handleFlag = (_id: string) => {
-    // TODO: Call API to toggle flag
-  };
+  // Toggle flag on single email
+  const handleFlag = useCallback(
+    async (id: string) => {
+      const email = displayThreads.find((t) => t.id === id);
+      if (!email) return;
 
-  const handleArchive = (_id: string) => {
-    // TODO: Call API to archive single email
-  };
+      try {
+        await updateEmail.mutateAsync({
+          emailId: id,
+          dto: { isFlagged: !email.isFlagged },
+        });
+      } catch {
+        toast.error(t.common.genericError);
+      }
+    },
+    [displayThreads, updateEmail, toast, t]
+  );
 
-  const handleDelete = (_id: string) => {
-    // TODO: Call API to delete single email
-  };
+  // Archive single email
+  const handleArchive = useCallback(
+    async (id: string) => {
+      try {
+        await moveEmails.mutateAsync({ emailIds: [id], targetFolder: 'ARCHIVE' });
+        toast.success(t.common.success ?? 'Done');
+      } catch {
+        toast.error(t.common.genericError);
+      }
+    },
+    [moveEmails, toast, t]
+  );
+
+  // Delete single email
+  const handleDelete = useCallback(
+    async (id: string) => {
+      try {
+        await deleteEmail.mutateAsync(id);
+        toast.success(t.common.success ?? 'Done');
+      } catch {
+        toast.error(t.common.genericError);
+      }
+    },
+    [deleteEmail, toast, t]
+  );
 
   // Drag and drop handler with provider validation
   const handleEmailDrop = async (emailIds: string[], folderId: string, folderName: string) => {
@@ -222,34 +319,34 @@ export default function EmailPage() {
     );
   }
 
-  // Show error state with fallback to mock data
-  if (error) {
-    // Error loading emails - fall back to mock data
-  }
+  // Note: Error state is handled by displayThreads fallback to mockThreads
+  // and by PageErrorBoundary for render errors
 
   return (
-    <Layout>
-      <EmailLayout>
-        <ThreadList
-          threads={displayThreads}
-          emptyVariant="inbox"
-          isLoading={isLoading}
-          onThreadClick={handleThreadClick}
-          onRefresh={handleRefresh}
-          onBulkMarkAsRead={handleBulkMarkAsRead}
-          onBulkMarkAsUnread={handleBulkMarkAsUnread}
-          onBulkArchive={handleBulkArchive}
-          onBulkDelete={handleBulkDelete}
-          onBulkMove={handleBulkMove}
-          onBulkLabel={handleBulkLabel}
-          onFlag={handleFlag}
-          onArchive={handleArchive}
-          onDelete={handleDelete}
-          onEmailDrop={handleEmailDrop}
-        />
-        <toast.ToastContainer />
-      </EmailLayout>
-    </Layout>
+    <PageErrorBoundary pageName="Email">
+      <Layout>
+        <EmailLayout>
+          <ThreadList
+            threads={displayThreads}
+            emptyVariant="inbox"
+            isLoading={isLoading}
+            onThreadClick={handleThreadClick}
+            onRefresh={handleRefresh}
+            onBulkMarkAsRead={handleBulkMarkAsRead}
+            onBulkMarkAsUnread={handleBulkMarkAsUnread}
+            onBulkArchive={handleBulkArchive}
+            onBulkDelete={handleBulkDelete}
+            onBulkMove={handleBulkMove}
+            onBulkLabel={handleBulkLabel}
+            onFlag={handleFlag}
+            onArchive={handleArchive}
+            onDelete={handleDelete}
+            onEmailDrop={handleEmailDrop}
+          />
+          <toast.ToastContainer />
+        </EmailLayout>
+      </Layout>
+    </PageErrorBoundary>
   );
 }
 

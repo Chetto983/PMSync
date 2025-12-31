@@ -41,12 +41,13 @@ interface PooledConnection {
 /**
  * IMAP Connection Pool Configuration
  * Phase 6: Made configurable via environment variables
+ * Phase 7: Reduced defaults for memory optimization (target <200MB/tenant)
  */
 const POOL_CONFIG = {
-  maxConnectionsPerUser: parseInt(process.env.IMAP_MAX_CONNECTIONS_PER_USER || '3', 10),
-  connectionIdleTimeout: parseInt(process.env.IMAP_CONNECTION_IDLE_TIMEOUT_MS || '60000', 10),
+  maxConnectionsPerUser: parseInt(process.env.IMAP_MAX_CONNECTIONS_PER_USER || '2', 10), // Reduced from 3
+  connectionIdleTimeout: parseInt(process.env.IMAP_CONNECTION_IDLE_TIMEOUT_MS || '30000', 10), // Reduced from 60s
   connectionAcquireTimeout: parseInt(process.env.IMAP_CONNECTION_ACQUIRE_TIMEOUT_MS || '10000', 10),
-  maxMessageBodySize: parseInt(process.env.IMAP_MAX_MESSAGE_BODY_SIZE || String(10 * 1024 * 1024), 10),
+  maxMessageBodySize: parseInt(process.env.IMAP_MAX_MESSAGE_BODY_SIZE || String(5 * 1024 * 1024), 10), // Reduced from 10MB
   bodyDownloadTimeout: parseInt(process.env.IMAP_BODY_DOWNLOAD_TIMEOUT_MS || '15000', 10),
 };
 

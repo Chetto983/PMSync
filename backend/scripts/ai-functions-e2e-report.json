@@ -1,0 +1,208 @@
+{
+  "timestamp": "2025-12-31T09:03:58.036Z",
+  "duration": 2010,
+  "summary": {
+    "total": 28,
+    "passed": 26,
+    "failed": 2,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "service": "MistralService",
+      "function": "getCircuitBreakerStatus",
+      "status": "passed",
+      "duration": 0,
+      "details": "state=closed, failures=0"
+    },
+    {
+      "service": "MistralService",
+      "function": "generateEmbedding",
+      "status": "passed",
+      "duration": 342,
+      "details": "dimensions=1024"
+    },
+    {
+      "service": "CacheService",
+      "function": "isHealthy",
+      "status": "passed",
+      "duration": 0,
+      "details": "healthy=true"
+    },
+    {
+      "service": "SemanticCacheService",
+      "function": "isEnabled",
+      "status": "passed",
+      "duration": 0,
+      "details": "enabled=true"
+    },
+    {
+      "service": "SemanticCacheService",
+      "function": "classifyQuery",
+      "status": "passed",
+      "duration": 0,
+      "details": "category=greeting"
+    },
+    {
+      "service": "SemanticCacheService",
+      "function": "getDetailedAnalytics",
+      "status": "passed",
+      "duration": 2,
+      "details": "lookups=0, hits=0"
+    },
+    {
+      "service": "DailyBriefingService",
+      "function": "getStatus",
+      "status": "passed",
+      "duration": 1,
+      "details": "enabled=true, hour=6"
+    },
+    {
+      "service": "DailyBriefingService",
+      "function": "getBriefing",
+      "status": "passed",
+      "duration": 1,
+      "details": "cached: 2025-12-31T07:57:29.436Z"
+    },
+    {
+      "service": "DailyBriefingService",
+      "function": "generateBriefingOnDemand",
+      "status": "passed",
+      "duration": 1,
+      "details": "unread=60"
+    },
+    {
+      "service": "HitlService",
+      "function": "getPendingActions",
+      "status": "passed",
+      "duration": 15,
+      "details": "count=6"
+    },
+    {
+      "service": "HitlService",
+      "function": "getActionCounts",
+      "status": "failed",
+      "duration": 2,
+      "details": "pending=undefined, approved=0"
+    },
+    {
+      "service": "HitlService",
+      "function": "shouldAutoApprove",
+      "status": "passed",
+      "duration": 0,
+      "details": "autoApprove=true"
+    },
+    {
+      "service": "DeadlineExtractorService",
+      "function": "extractDeadlines",
+      "status": "passed",
+      "duration": 23,
+      "details": "found=1 deadlines"
+    },
+    {
+      "service": "DeadlineExtractorService",
+      "function": "getUpcomingDeadlines",
+      "status": "passed",
+      "duration": 2,
+      "details": "upcoming=0"
+    },
+    {
+      "service": "FollowUpService",
+      "function": "listFollowUps",
+      "status": "passed",
+      "duration": 4,
+      "details": "count=0"
+    },
+    {
+      "service": "FollowUpService",
+      "function": "getStats",
+      "status": "passed",
+      "duration": 22,
+      "details": "pending=0, overdue=0"
+    },
+    {
+      "service": "ActionItemService",
+      "function": "isEnabled",
+      "status": "passed",
+      "duration": 0,
+      "details": "enabled=true"
+    },
+    {
+      "service": "ActionItemService",
+      "function": "detectActionPatterns",
+      "status": "passed",
+      "duration": 1,
+      "details": "detected=1 action items"
+    },
+    {
+      "service": "AnalyticsService",
+      "function": "getEmailAnalytics",
+      "status": "passed",
+      "duration": 1,
+      "details": "loaded"
+    },
+    {
+      "service": "AnalyticsService",
+      "function": "getDashboardAnalytics",
+      "status": "passed",
+      "duration": 1,
+      "details": "loaded"
+    },
+    {
+      "service": "FeedbackService",
+      "function": "getLearningStats",
+      "status": "passed",
+      "duration": 2,
+      "details": "loaded"
+    },
+    {
+      "service": "FeedbackService",
+      "function": "getAggregateStats",
+      "status": "passed",
+      "duration": 2,
+      "details": "loaded"
+    },
+    {
+      "service": "PersonalizationService",
+      "function": "getUserProfile",
+      "status": "passed",
+      "duration": 3,
+      "details": "profile loaded"
+    },
+    {
+      "service": "ModelRouterService",
+      "function": "routeMessage",
+      "status": "passed",
+      "duration": 1,
+      "details": "model=small, complexity=simple"
+    },
+    {
+      "service": "ModelRouterService",
+      "function": "getStats",
+      "status": "passed",
+      "duration": 0,
+      "details": "requests=1"
+    },
+    {
+      "service": "VoltAgentService",
+      "function": "getMetricsStats",
+      "status": "passed",
+      "duration": 3,
+      "details": "ops=350, success=90%"
+    },
+    {
+      "service": "VoltAgentService",
+      "function": "getOptimizationStats",
+      "status": "passed",
+      "duration": 5,
+      "details": "cache hits=0"
+    },
+    {
+      "service": "VoltAgentService",
+      "function": "chat",
+      "status": "failed",
+      "duration": 800,
+      "details": "response=0 chars"
+    }
+  ]
+}

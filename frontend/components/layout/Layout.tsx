@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, ThemeProvider, CssBaseline, Snackbar, Alert } from '@mui/material';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
@@ -6,8 +6,9 @@ import { CookieConsent } from '@/components/ui/cookie-consent';
 import { darkTheme, lightTheme } from '@/theme/appTheme';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
 import { useAuth } from '@/lib/hooks/use-auth';
-// WebSocket disabled during email rebuild
+import { useWebSocket } from '@/hooks/use-websocket';
 import { useSyncStore } from '@/stores/sync-store';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 export interface LayoutProps {
   children: React.ReactNode;
@@ -15,7 +16,11 @@ export interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   useAuth(); // Keep auth for session management
-  // WebSocket disabled during email rebuild
+
+  // WebSocket connection - auto-connects when authenticated
+  useWebSocket({ autoConnect: true, refetchOnReconnect: true });
+
+  const t = useTranslations();
   const { lastStatus, clear } = useSyncStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -23,6 +28,26 @@ export function Layout({ children }: LayoutProps) {
   // Unified theme management - syncs with database
   const { resolvedTheme, isDarkMode, toggleTheme } = useThemePersistence();
   const theme = resolvedTheme === 'dark' ? darkTheme : lightTheme;
+
+  // Get translated sync status message
+  const getSyncStatusMessage = useMemo(() => {
+    if (!lastStatus) return '';
+
+    const statusMap: Record<string, string | undefined> = {
+      started: t.common.syncStarted,
+      in_progress: t.common.syncInProgress,
+      completed: t.common.syncCompleted,
+      failed: t.common.syncFailed,
+    };
+
+    const statusText = statusMap[lastStatus.status] || lastStatus.status;
+    const progress = lastStatus.progress !== undefined
+      ? ` ${(t.common.syncProgress || '({progress}%)').replace('{progress}', Math.round(lastStatus.progress).toString())}`
+      : '';
+    const error = lastStatus.error ? `: ${lastStatus.error}` : '';
+
+    return `${statusText}${progress}${error}`;
+  }, [lastStatus, t]);
 
   const handleToggleCollapse = () => {
     setCollapsed(!collapsed);
@@ -92,9 +117,7 @@ export function Layout({ children }: LayoutProps) {
               severity={lastStatus.status === 'failed' ? 'error' : lastStatus.status === 'completed' ? 'success' : 'info'}
               variant="filled"
             >
-              Sync {lastStatus.status}
-              {lastStatus.progress !== undefined ? ` (${Math.round(lastStatus.progress)}%)` : ''}
-              {lastStatus.error ? `: ${lastStatus.error}` : ''}
+              {getSyncStatusMessage}
             </Alert>
           </Snackbar>
         )}

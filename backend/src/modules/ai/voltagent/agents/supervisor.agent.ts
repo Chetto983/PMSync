@@ -23,6 +23,11 @@ import { createKnowledgeAgent } from './knowledge.agent';
 import { createWebSearchAgent } from './websearch.agent';
 import { createDocumentLibraryAgent } from './document-library.agent';
 import { createAnalyticsAgent } from './analytics.agent';
+import { createUnifiedKnowledgeAgent } from './unified-knowledge.agent';
+import type { LongTermMemoryService } from '../memory/long-term-memory.service';
+import type { DeadlineExtractorService } from '../services/deadline-extractor.service';
+import type { FollowUpService } from '../services/follow-up.service';
+import type { ActionItemService } from '../services/action-item.service';
 
 export interface SupervisorAgentOptions {
   model: LanguageModel;
@@ -47,6 +52,11 @@ export interface SupervisorAgentOptions {
   cacheService?: CacheService;
   /** Optional: DocumentLibraryService for document RAG */
   documentLibraryService?: DocumentLibraryService;
+  /** Optional: UnifiedKnowledgeAgent dependencies */
+  longTermMemoryService?: LongTermMemoryService;
+  deadlineService?: DeadlineExtractorService;
+  followUpService?: FollowUpService;
+  actionItemService?: ActionItemService;
 }
 
 /**
@@ -200,8 +210,8 @@ Use this information when answering questions about "today", "tomorrow", "this w
     for (const provider of userContext.connectedProviders) {
       const providerLabel = provider.displayName || provider.email;
       const typeLabel = provider.providerType === 'GOOGLE' ? 'Gmail' :
-                        provider.providerType === 'MICROSOFT' ? 'Outlook/Microsoft 365' :
-                        provider.providerType === 'IMAP' ? 'IMAP' : provider.providerType;
+        provider.providerType === 'MICROSOFT' ? 'Outlook/Microsoft 365' :
+          provider.providerType === 'IMAP' ? 'IMAP' : provider.providerType;
       const capabilities: string[] = [];
       if (provider.supportsEmail) capabilities.push('email');
       if (provider.supportsCalendar) capabilities.push('calendar');
@@ -260,6 +270,10 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     userId,
     cacheService,
     documentLibraryService,
+    longTermMemoryService,
+    deadlineService,
+    followUpService,
+    actionItemService,
   } = options;
   const t = getAgentTranslations(locale);
 
@@ -359,6 +373,25 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
       cacheService,
     });
     subAgents.push(analyticsAgent);
+  }
+
+  // UnifiedKnowledgeAgent - only create if all required services are available
+  if (longTermMemoryService && deadlineService && followUpService && actionItemService && userId && mistralService && embeddingsService) {
+    const unifiedKnowledgeAgent = createUnifiedKnowledgeAgent({
+      model,
+      prisma,
+      locale,
+      tenantId,
+      userId,
+      hooks,
+      longTermMemory: longTermMemoryService,
+      deadlineService,
+      followUpService,
+      actionItemService,
+      mistralService,
+      embeddingsService,
+    });
+    subAgents.push(unifiedKnowledgeAgent);
   }
 
   // Create the supervisor agent with all sub-agents

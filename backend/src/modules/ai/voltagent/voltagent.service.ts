@@ -41,6 +41,9 @@ import { DocumentLibraryService } from './services/document-library.service';
 import { PromptGuardService, PiiDetectionService } from '../guards';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import type { AiAgentType } from '../../realtime/types/realtime.types';
+import { DeadlineExtractorService } from './services/deadline-extractor.service';
+import { FollowUpService } from './services/follow-up.service';
+import { ActionItemService } from './services/action-item.service';
 import { createObservabilityHooks, type AgentMetrics, type DisposableHooks } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import {
@@ -128,6 +131,7 @@ interface SerializableSuspendedWorkflow {
 interface CachedAgent {
   agent: Agent;
   createdAt: number;
+  lastUsed: number; // For LRU eviction
 }
 
 @Injectable()
@@ -142,9 +146,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private readonly SUSPENDED_WORKFLOW_PREFIX = 'voltagent:workflow:suspended:';
   /** TTL for suspended workflows (24 hours) */
   private readonly SUSPENDED_WORKFLOW_TTL = 86400;
-  /** TTL for cached agents - DISABLED (0) for immediate code changes pickup */
-  /** TODO: Implement Redis-based version tracking for horizontal scaling */
-  private readonly AGENT_CACHE_TTL_MS = 0; // Was 5 * 60 * 1000
+  /** TTL for cached agents (5 minutes) - balances memory vs code reload */
+  private readonly AGENT_CACHE_TTL_MS = 5 * 60 * 1000;
+  /** Max agents in cache - LRU eviction when exceeded */
+  private readonly MAX_CACHED_AGENTS = 100;
 
   /** In-memory buffer for batch Redis writes */
   private metricsBuffer: AgentMetrics[] = [];
@@ -173,6 +178,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly promptGuardService?: PromptGuardService,
     @Optional() private readonly piiDetectionService?: PiiDetectionService,
     @Optional() private readonly realtimeEventsService?: RealtimeEventsService,
+    @Optional() private readonly deadlineService?: DeadlineExtractorService,
+    @Optional() private readonly followUpService?: FollowUpService,
+    @Optional() private readonly actionItemService?: ActionItemService,
   ) { }
 
   async onModuleInit() {
@@ -500,7 +508,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Check if cached agent exists and is not expired
     const cached = this.agents.get(cacheKey);
     if (cached && (now - cached.createdAt) < this.AGENT_CACHE_TTL_MS) {
+      // Update lastUsed for LRU tracking
+      cached.lastUsed = now;
       return cached.agent;
+    }
+
+    // LRU eviction if at capacity
+    if (this.agents.size >= this.MAX_CACHED_AGENTS) {
+      this.evictLeastRecentlyUsedAgent();
     }
 
     // Create new agent (or replace expired one)
@@ -527,10 +542,32 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       documentLibraryService: this.documentLibraryService,
     });
 
-    // Cache with timestamp for TTL
-    this.agents.set(cacheKey, { agent, createdAt: now });
+    // Cache with timestamps for TTL and LRU
+    this.agents.set(cacheKey, { agent, createdAt: now, lastUsed: now });
+
+    this.logger.debug(`Created agent for ${cacheKey}, cache size: ${this.agents.size}/${this.MAX_CACHED_AGENTS}`);
 
     return agent;
+  }
+
+  /**
+   * Evict the least recently used agent from cache
+   */
+  private evictLeastRecentlyUsedAgent(): void {
+    let oldestKey: string | null = null;
+    let oldestTime = Infinity;
+
+    for (const [key, cached] of this.agents.entries()) {
+      if (cached.lastUsed < oldestTime) {
+        oldestTime = cached.lastUsed;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      this.agents.delete(oldestKey);
+      this.logger.debug(`Evicted LRU agent: ${oldestKey}`);
+    }
   }
 
   /**

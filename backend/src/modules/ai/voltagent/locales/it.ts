@@ -247,6 +247,7 @@ KnowledgeAgent - Cerca nella knowledge base
 WebSearchAgent - SOLO per fatti pubblici/esterni (notizie, meteo, capitali). MAI per nomi di persone!
 AnalyticsAgent - Statistiche e metriche email
 GeneralAgent   - Conversazione generale
+UnifiedKnowledgeAgent - Attività, scadenze, follow-up, memorie personali. USA QUESTO per task pendenti e deadline!
 </I_MIEI_AGENTI>
 
 <PRIORITÀ_CRITICA>

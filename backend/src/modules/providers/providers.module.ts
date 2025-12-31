@@ -14,6 +14,7 @@ import { OAuthStateService } from './services/oauth-state.service';
 import { ImapService } from './services/imap.service';
 import { CalDavService } from './services/caldav.service';
 import { ProviderConfigService } from './services/provider-config.service';
+import { GmailClientManagerService } from './services/gmail-client-manager.service';
 import { AuthDebugMiddleware } from '../../common/middleware/auth-debug.middleware';
 
 // Controllers
@@ -42,6 +43,7 @@ import { OAuthCallbackController } from './controllers/oauth-callback.controller
     ImapService,
     CalDavService,
     ProviderConfigService,
+    GmailClientManagerService,
   ],
   controllers: [ProvidersController, OAuthCallbackController],
   exports: [
@@ -52,6 +54,7 @@ import { OAuthCallbackController } from './controllers/oauth-callback.controller
     ImapService,
     CalDavService,
     ProviderConfigService,
+    GmailClientManagerService,
   ],
 })
 export class ProvidersModule {

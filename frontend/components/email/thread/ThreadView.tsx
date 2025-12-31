@@ -148,11 +148,18 @@ export function ThreadView({
   });
 
   // Handle scroll events using CSS class toggle (no React state = no re-renders)
+  // CRITICAL FIX: Added mounted guard to prevent DOM mutations after unmount
   useEffect(() => {
     const scrollElement = parentRef.current;
     if (!scrollElement) return;
 
+    // Track mounted state to prevent memory leak
+    let isMounted = true;
+
     const handleScroll = () => {
+      // Guard against unmounted component
+      if (!isMounted) return;
+
       // Add scrolling class immediately (CSS handles transitions)
       if (!isScrollingRef.current) {
         isScrollingRef.current = true;
@@ -166,6 +173,8 @@ export function ThreadView({
 
       // Remove class after scroll ends (100ms debounce)
       scrollTimeoutRef.current = setTimeout(() => {
+        // Guard against unmounted component in timeout callback
+        if (!isMounted) return;
         isScrollingRef.current = false;
         scrollElement.classList.remove('is-scrolling');
       }, 100);
@@ -174,6 +183,8 @@ export function ThreadView({
     scrollElement.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
+      // Mark as unmounted FIRST to prevent any pending callbacks
+      isMounted = false;
       scrollElement.removeEventListener('scroll', handleScroll);
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);

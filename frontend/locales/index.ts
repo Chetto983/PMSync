@@ -355,6 +355,12 @@ export interface AppTranslations {
     provider?: string;
     parent?: string;
     processing?: string;
+    success?: string;
+    syncStarted?: string;
+    syncInProgress?: string;
+    syncCompleted?: string;
+    syncFailed?: string;
+    syncProgress?: string;
   };
   timeAgo: {
     justNow: string;
@@ -859,6 +865,9 @@ export interface AppTranslations {
       attachments: string;
       attachmentsWithCount: string;
       attachmentsTooltip: string;
+      fileSizeBytes: string;
+      fileSizeKB: string;
+      fileSizeMB: string;
       fetchArchived: string;
       to: string;
       cc: string;
@@ -2373,6 +2382,8 @@ export interface AppTranslations {
     threadMarkedUnread: string;
     threadFlagged: string;
     threadUnflagged: string;
+    folderPickerComingSoon: string;
+    labelPickerComingSoon: string;
   };
 }
 

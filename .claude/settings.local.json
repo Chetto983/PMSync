@@ -130,7 +130,14 @@
       "Bash(cmd //c \"tasklist /FI \"\"IMAGENAME eq node.exe\"\" /FO TABLE\")",
       "Bash(powershell -ExecutionPolicy Bypass -File \"D:/MailAgent/backend/scripts/check-mem.ps1\")",
       "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 2; cd D:\\\\MailAgent\\\\backend; Start-Process -FilePath ''node'' -ArgumentList ''dist/main.js'' -PassThru | Select-Object Id\")",
-      "Bash(powershell -Command \"Start-Sleep 5; Invoke-WebRequest -Uri ''http://localhost:3000/health'' -UseBasicParsing -TimeoutSec 10 | Select-Object StatusCode; Get-Process -Id 13668 | Format-List WorkingSet64\")"
+      "Bash(powershell -Command \"Start-Sleep 5; Invoke-WebRequest -Uri ''http://localhost:3000/health'' -UseBasicParsing -TimeoutSec 10 | Select-Object StatusCode; Get-Process -Id 13668 | Format-List WorkingSet64\")",
+      "Bash(npx claude-flow@alpha:*)",
+      "Bash(move \"docs\\\\MarketingUI_Ux.md\" \"frontend\\\\docs\"\" && move \"docsAPI_BACKEND_OVERVIEW.md\" \"frontenddocs\"\")",
+      "Bash(git -C D:/MailAgent status --short)",
+      "Bash(git -C D:/MailAgent checkout -- frontend/components/email/thread/ThreadMessage.tsx frontend/components/email/thread/ThreadView.tsx frontend/components/email/thread/index.ts frontend/locales/en.ts frontend/locales/it.ts frontend/locales/index.ts)",
+      "Bash(git -C D:MailAgent status --short)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"D:\\\\MailAgent\\\\backend\\\\scripts\\\\check-mem.ps1\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)"
     ],
     "deny": []
   }
