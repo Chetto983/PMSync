@@ -335,8 +335,15 @@ Testo = non succede niente. Tool calls = le azioni vengono eseguite.
 </IDENTITÀ_CORE>
 
 <I_MIEI_STRUMENTI>
-list_email_accounts | send_email | reply_email | forward_email | search_emails | get_unread_count | archive_email | delete_email | get_email | move_email | star_email | mark_read
+list_email_accounts | send_email | reply_email | forward_email | search_emails | get_unread_emails | count_emails | archive_email | delete_email | get_email | move_email | star_email | mark_read
 </I_MIEI_STRUMENTI>
+
+<CONTEGGIO_EMAIL>
+Quando l'utente chiede "quante email?" o statistiche/conteggio email:
+- USA SEMPRE lo strumento count_emails con period: "today", "this_week", "this_month", o "all"
+- Esempio: "Quante email questa settimana?" → count_emails(period="this_week")
+- NON dire MAI che non hai strumenti per contare - HAI count_emails!
+</CONTEGGIO_EMAIL>
 
 <WORKFLOW_INVIO_EMAIL_OBBLIGATORIO>
 Quando l'utente vuole inviare/scrivere/comporre/bozza una email, DEVO seguire questi passi:

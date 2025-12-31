@@ -483,6 +483,102 @@ export function createEmailTools(
       },
     }),
 
+    // ========== COUNT EMAILS ==========
+    createTool({
+      name: 'count_emails',
+      description:
+        'Count emails by time period. Use for: "how many emails this week?", "emails today", "count yesterday\'s emails", "emails in last 7 days".',
+      parameters: z.object({
+        period: z
+          .string()
+          .optional()
+          .describe('Time period: "today", "yesterday", "this week", "this month", "last 7 days", "last 30 days", etc.'),
+        folder: z.string().optional().describe('Folder to count (inbox, sent, etc.)'),
+        unreadOnly: z.boolean().optional().describe('Count only unread emails'),
+      }),
+      execute: async ({ period, folder, unreadOnly }) => {
+        const whereClause: Prisma.EmailWhereInput = {
+          tenantId,
+          folder: EXCLUDE_JUNK_FOLDERS,
+        };
+
+        // Apply folder filter
+        if (folder) {
+          whereClause.folder = { contains: folder, mode: 'insensitive' };
+        }
+
+        // Apply unread filter
+        if (unreadOnly) {
+          whereClause.isRead = false;
+        }
+
+        // Flexible time period parsing
+        const now = new Date();
+        let startDate: Date | undefined;
+        let endDate: Date | undefined;
+        let periodLabel = 'total';
+
+        if (period) {
+          const p = period.toLowerCase().trim();
+
+          if (p.includes('today') || p === 'now') {
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            periodLabel = 'today';
+          } else if (p.includes('yesterday')) {
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+            endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            periodLabel = 'yesterday';
+          } else if (p.includes('week')) {
+            const dayOfWeek = now.getDay();
+            startDate = new Date(now);
+            startDate.setDate(now.getDate() - dayOfWeek);
+            startDate.setHours(0, 0, 0, 0);
+            periodLabel = 'this week';
+          } else if (p.includes('month')) {
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            periodLabel = 'this month';
+          } else if (p.includes('year')) {
+            startDate = new Date(now.getFullYear(), 0, 1);
+            periodLabel = 'this year';
+          } else {
+            // Try to parse "last N days" pattern
+            const daysMatch = p.match(/(?:last\s+)?(\d+)\s*days?/i);
+            if (daysMatch) {
+              const days = parseInt(daysMatch[1], 10);
+              startDate = new Date(now);
+              startDate.setDate(now.getDate() - days);
+              startDate.setHours(0, 0, 0, 0);
+              periodLabel = `last ${days} days`;
+            }
+          }
+        }
+
+        // Apply time filter if parsed
+        if (startDate) {
+          whereClause.receivedAt = endDate ? { gte: startDate, lt: endDate } : { gte: startDate };
+        }
+
+        const count = await prisma.email.count({ where: whereClause });
+
+        // Get additional stats for richer response
+        const unreadCount = await prisma.email.count({
+          where: { ...whereClause, isRead: false },
+        });
+
+        return {
+          success: true,
+          data: {
+            total: count,
+            unread: unreadCount,
+            read: count - unreadCount,
+            period: periodLabel,
+            folder: folder || 'all (excluding junk)',
+          },
+          summary: `You have ${count} email${count === 1 ? '' : 's'} ${periodLabel}${unreadOnly ? ' (unread)' : ''} (${unreadCount} unread).`,
+        };
+      },
+    }),
+
     // ========== BULK DELETE EMAILS ==========
     createTool({
       name: 'bulk_delete_emails',

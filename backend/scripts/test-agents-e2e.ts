@@ -255,6 +255,18 @@ async function main() {
 
     const voltAgent = app.get(VoltAgentService);
 
+    // Clear agent cache to ensure fresh agents with latest tools
+    voltAgent.clearAgentCache();
+    console.log('[DEBUG] Agent cache cleared - using fresh agents');
+
+    // Clear semantic cache for this tenant to avoid stale LLM responses
+    try {
+        const invalidated = await voltAgent.invalidateCache(tenantId);
+        console.log(`[DEBUG] Semantic cache invalidated: ${invalidated} entries`);
+    } catch (e) {
+        console.log('[DEBUG] Semantic cache invalidation skipped (not enabled)');
+    }
+
     // DEBUG: Check if LongTermMemoryService is enabled after init
     try {
         const memService = app.get(LongTermMemoryService);
