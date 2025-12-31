@@ -3,8 +3,8 @@ import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 import { EmailLayout } from '@/components/email';
-import { ThreadView } from '@/components/email/thread/ThreadView';
-import type { ThreadMessageData } from '@/components/email/thread/ThreadMessage';
+import { ThreadView } from '@/components/email/thread';
+import type { ThreadMessageData } from '@/components/email/thread';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {

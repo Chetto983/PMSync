@@ -892,7 +892,7 @@ export class VoltAgentController {
       return {
         success: true,
         memoryId: null,
-        message: 'Long-term memory is disabled (set MEM0_ENABLED=true to enable)',
+        message: 'Long-term memory is disabled (MISTRAL_API_KEY required)',
       };
     }
 

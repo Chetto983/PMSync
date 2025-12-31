@@ -17,6 +17,10 @@ import { MobileEmailNav } from './MobileEmailNav';
 
 interface EmailLayoutProps {
   children: React.ReactNode;
+  /** Reading pane content (thread view) - shown on desktop as 3rd panel */
+  readingPane?: React.ReactNode;
+  /** Callback when reading pane is closed */
+  onCloseReadingPane?: () => void;
 }
 
 /**
@@ -26,7 +30,7 @@ interface EmailLayoutProps {
  * - Tablet: 2 panels (sidebar collapsed + content)
  * - Desktop: 3 panels (sidebar + list + preview)
  */
-export function EmailLayout({ children }: EmailLayoutProps) {
+export function EmailLayout({ children, readingPane, onCloseReadingPane: _onCloseReadingPane }: EmailLayoutProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
@@ -99,7 +103,80 @@ export function EmailLayout({ children }: EmailLayoutProps) {
     );
   }
 
-  // Desktop: resizable sidebar
+  // Desktop: resizable 2 or 3 panel layout
+  // Use separate autoSaveIds to preserve sizes independently
+  const hasReadingPane = Boolean(readingPane);
+
+  // 2-panel mode (no reading pane selected)
+  if (!hasReadingPane) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flex: 1,
+          height: '100%',
+          minHeight: 0,
+          overflow: 'hidden',
+          backgroundColor: 'background.default',
+        }}
+      >
+        <PanelGroup
+          direction="horizontal"
+          autoSaveId="email-layout-2panel"
+          style={{ height: '100%' }}
+        >
+          {/* Sidebar Panel */}
+          <Panel
+            defaultSize={15}
+            minSize={12}
+            maxSize={25}
+            style={{ display: 'flex' }}
+          >
+            <FolderSidebar collapsed={false} />
+          </Panel>
+
+          {/* Resize Handle */}
+          <PanelResizeHandle
+            style={{
+              width: 4,
+              backgroundColor: 'transparent',
+              cursor: 'col-resize',
+              position: 'relative',
+              transition: 'background-color 0.15s',
+            }}
+            className="resize-handle"
+          />
+
+          {/* Email List Panel - Full width */}
+          <Panel
+            defaultSize={85}
+            minSize={50}
+            style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}
+          >
+            {children}
+          </Panel>
+        </PanelGroup>
+
+        {/* CSS for resize handle hover effect */}
+        <style jsx global>{`
+          .resize-handle:hover,
+          .resize-handle[data-resize-handle-active] {
+            background-color: ${theme.palette.primary.main} !important;
+          }
+          .resize-handle::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -3px;
+            right: -3px;
+            bottom: 0;
+          }
+        `}</style>
+      </Box>
+    );
+  }
+
+  // 3-panel mode (reading pane visible)
   return (
     <Box
       sx={{
@@ -113,14 +190,14 @@ export function EmailLayout({ children }: EmailLayoutProps) {
     >
       <PanelGroup
         direction="horizontal"
-        autoSaveId="email-layout-panels"
+        autoSaveId="email-layout-3panel"
         style={{ height: '100%' }}
       >
         {/* Sidebar Panel */}
         <Panel
           defaultSize={15}
-          minSize={12}
-          maxSize={25}
+          minSize={10}
+          maxSize={20}
           style={{ display: 'flex' }}
         >
           <FolderSidebar collapsed={false} />
@@ -138,9 +215,36 @@ export function EmailLayout({ children }: EmailLayoutProps) {
           className="resize-handle"
         />
 
-        {/* Main Content Panel */}
-        <Panel style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* Email List Panel */}
+        <Panel
+          defaultSize={30}
+          minSize={25}
+          maxSize={45}
+          style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}
+        >
           {children}
+        </Panel>
+
+        {/* Resize Handle */}
+        <PanelResizeHandle
+          style={{
+            width: 4,
+            backgroundColor: 'transparent',
+            cursor: 'col-resize',
+            position: 'relative',
+            transition: 'background-color 0.15s',
+          }}
+          className="resize-handle"
+        />
+
+        {/* Reading Pane Panel */}
+        <Panel
+          defaultSize={55}
+          minSize={35}
+          maxSize={65}
+          style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}
+        >
+          {readingPane}
         </Panel>
       </PanelGroup>
 

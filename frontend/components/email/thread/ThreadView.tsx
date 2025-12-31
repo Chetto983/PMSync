@@ -20,7 +20,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Box, Typography, Button, IconButton, Menu, MenuItem, Divider } from '@mui/material';
-import { useVirtualizer, defaultRangeExtractor } from '@tanstack/react-virtual';
+import { useThreadVirtualizer } from './useThreadVirtualizer';
 import {
   ArrowLeft,
   ChevronDown,
@@ -72,10 +72,6 @@ interface ThreadViewProps {
  * - Expand all / Collapse all control
  * - Smooth accordion transitions
  */
-// Estimated heights for virtual scrolling
-const COLLAPSED_HEIGHT = 72; // Collapsed accordion height
-const EXPANDED_HEIGHT = 400; // Average expanded height (will be measured)
-
 export function ThreadView({
   threadId: _threadId,
   subject,
@@ -124,27 +120,11 @@ export function ThreadView({
     new Set(messages.length > 0 ? [messages[messages.length - 1].id] : [])
   );
 
-  // Memoized size estimator for stable reference
-  const estimateSize = useCallback(
-    (index: number) => {
-      const message = messages[index];
-      return expandedIds.has(message.id) ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT;
-    },
-    [messages, expandedIds]
-  );
-
-  // Virtual scroll with dynamic height estimation and scroll optimization
-  const virtualizer = useVirtualizer({
-    count: messages.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize,
-    overscan: 5, // Increase overscan for smoother scrolling
-    rangeExtractor: useCallback(
-      (range: Parameters<typeof defaultRangeExtractor>[0]) => {
-        return defaultRangeExtractor(range);
-      },
-      []
-    ),
+  // Virtual scroll with React Compiler compatible wrapper hook
+  const virtualizer = useThreadVirtualizer({
+    messages,
+    expandedIds,
+    parentRef,
   });
 
   // Handle scroll events using CSS class toggle (no React state = no re-renders)
@@ -209,9 +189,12 @@ export function ThreadView({
   );
 
   // Re-measure all items when expanded state changes
+  // CRITICAL FIX: Do NOT include `virtualizer` in deps - it creates new object reference
+  // each render, causing infinite loop. Only expandedIds should trigger re-measure.
   useEffect(() => {
     virtualizer.measure();
-  }, [expandedIds, virtualizer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedIds]);
 
   // Expand all messages
   const handleExpandAll = useCallback(() => {
@@ -278,7 +261,9 @@ export function ThreadView({
 
         {/* Message count */}
         <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-          {messages.length} {messages.length === 1 ? 'message' : 'messages'}
+          {messages.length === 1
+            ? t.threadView?.messageCount?.replace('{count}', '1') || '1 message'
+            : t.threadView?.messageCountPlural?.replace('{count}', String(messages.length)) || `${messages.length} messages`}
         </Typography>
 
         {/* Expand/Collapse all */}
@@ -291,7 +276,7 @@ export function ThreadView({
                 onClick={handleExpandAll}
                 sx={{ flexShrink: 0 }}
               >
-                Expand all
+                {t.threadView?.expandAll || 'Expand all'}
               </Button>
             )}
             {!noneExpanded && (
@@ -301,7 +286,7 @@ export function ThreadView({
                 onClick={handleCollapseAll}
                 sx={{ flexShrink: 0 }}
               >
-                Collapse all
+                {t.threadView?.collapseAll || 'Collapse all'}
               </Button>
             )}
           </>
@@ -312,7 +297,7 @@ export function ThreadView({
           size="small"
           onClick={handleMenuOpen}
           sx={{ flexShrink: 0 }}
-          aria-label="Thread actions"
+          aria-label={t.threadView?.actionsLabel || 'Thread actions'}
         >
           <MoreVertical size={20} />
         </IconButton>

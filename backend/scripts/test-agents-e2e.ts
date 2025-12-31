@@ -22,6 +22,7 @@ import { createPrismaClient } from '../src/prisma/prisma-client.factory';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { VoltAgentService } from '../src/modules/ai/voltagent/voltagent.service';
+import { LongTermMemoryService } from '../src/modules/ai/voltagent/memory';
 
 interface TestResult {
     agent: string;
@@ -248,7 +249,19 @@ async function main() {
         logger: ['error', 'warn'],
     });
 
+    // IMPORTANT: Initialize the app to trigger onModuleInit hooks
+    // This enables LongTermMemoryService and allows UnifiedKnowledgeAgent to be created
+    await app.init();
+
     const voltAgent = app.get(VoltAgentService);
+
+    // DEBUG: Check if LongTermMemoryService is enabled after init
+    try {
+        const memService = app.get(LongTermMemoryService);
+        console.log(`[DEBUG] LongTermMemoryService enabled: ${memService?.isEnabled?.() ?? 'service not found'}`);
+    } catch (e) {
+        console.log(`[DEBUG] LongTermMemoryService lookup failed: ${e}`);
+    }
 
     try {
         // =========================================================================

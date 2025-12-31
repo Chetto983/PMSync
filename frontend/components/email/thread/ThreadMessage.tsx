@@ -17,10 +17,13 @@ import {
   Box,
   Typography,
   Avatar,
+  Button,
   IconButton,
   Chip,
 } from '@mui/material';
 import { ChevronDown, Flag, Reply, Forward, MoreVertical, Paperclip } from 'lucide-react';
+import { useTranslations } from '@/lib/hooks/use-translations';
+import { EmailHtmlContent } from './EmailHtmlContent';
 
 export interface ThreadMessageData {
   id: string;
@@ -65,6 +68,7 @@ export const ThreadMessage = memo(function ThreadMessage({
   onReply,
   onForward,
 }: ThreadMessageProps) {
+  const t = useTranslations();
   const [showActions, setShowActions] = useState(false);
 
   const handleAccordionChange = (_event: React.SyntheticEvent, isExpanded: boolean) => {
@@ -238,32 +242,26 @@ export const ThreadMessage = memo(function ThreadMessage({
         {/* Recipients */}
         <Box sx={{ mb: 2 }}>
           <Typography variant="caption" color="text.secondary">
-            To: {message.to.join(', ')}
+            {t.threadMessage?.to || 'To:'} {message.to.join(', ')}
           </Typography>
           {message.cc && message.cc.length > 0 && (
             <Typography variant="caption" color="text.secondary" display="block">
-              Cc: {message.cc.join(', ')}
+              {t.threadMessage?.cc || 'Cc:'} {message.cc.join(', ')}
             </Typography>
           )}
         </Box>
 
-        {/* Email body */}
-        <Typography
-          variant="body2"
-          sx={{
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            mb: 2,
-          }}
-        >
-          {message.body}
-        </Typography>
+        {/* Email body - FIXED: Use EmailHtmlContent for proper HTML rendering */}
+        <Box sx={{ mb: 2 }}>
+          <EmailHtmlContent html={message.body} />
+        </Box>
 
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="caption" color="text.secondary" gutterBottom>
-              Attachments ({message.attachments.length})
+              {t.threadMessage?.attachments?.replace('{count}', String(message.attachments.length)) ||
+               `Attachments (${message.attachments.length})`}
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
               {message.attachments.map((attachment) => (
@@ -279,36 +277,32 @@ export const ThreadMessage = memo(function ThreadMessage({
           </Box>
         )}
 
-        {/* Action buttons */}
+        {/* Action buttons - FIXED: Use Button instead of IconButton to avoid nesting */}
         <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
-          <IconButton
+          <Button
             size="small"
+            variant="outlined"
+            startIcon={<Reply size={16} />}
             onClick={() => onReply(message.id)}
             sx={{
-              border: 1,
-              borderColor: 'divider',
+              textTransform: 'none',
               borderRadius: 1,
-              px: 1.5,
-              py: 0.5,
             }}
           >
-            <Reply size={16} style={{ marginRight: 6 }} />
-            <Typography variant="caption">Reply</Typography>
-          </IconButton>
-          <IconButton
+            {t.threadMessage?.reply || 'Reply'}
+          </Button>
+          <Button
             size="small"
+            variant="outlined"
+            startIcon={<Forward size={16} />}
             onClick={() => onForward(message.id)}
             sx={{
-              border: 1,
-              borderColor: 'divider',
+              textTransform: 'none',
               borderRadius: 1,
-              px: 1.5,
-              py: 0.5,
             }}
           >
-            <Forward size={16} style={{ marginRight: 6 }} />
-            <Typography variant="caption">Forward</Typography>
-          </IconButton>
+            {t.threadMessage?.forward || 'Forward'}
+          </Button>
         </Box>
       </AccordionDetails>
     </Accordion>

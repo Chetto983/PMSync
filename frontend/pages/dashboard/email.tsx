@@ -1,13 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 import { EmailLayout } from '@/components/email';
 import { ThreadList, ThreadListItemData } from '@/components/email/list';
+import { ThreadView } from '@/components/email/thread';
+import type { ThreadMessageData } from '@/components/email/thread';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   useEmails,
+  useEmailThread,
   useBulkMoveEmails,
   useBulkMarkRead,
   useBulkDeleteEmails,
@@ -15,7 +18,7 @@ import {
   useDeleteEmail,
 } from '@/hooks/queries';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
-import { CircularProgress, Box, Typography } from '@mui/material';
+import { CircularProgress, Box, Typography, useMediaQuery, useTheme } from '@mui/material';
 import type { Email } from '@/lib/api/emails';
 
 /**
@@ -106,6 +109,14 @@ export default function EmailPage() {
   const router = useRouter();
   const toast = useToast();
   const t = useTranslations();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const isDesktop = !isMobile && !isTablet;
+
+  // Selected thread ID for 3-panel view (desktop only)
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<string>('');
 
   // Enable realtime updates via WebSocket
   useEmailRealtime({ folder: 'INBOX', enabled: true });
@@ -115,6 +126,9 @@ export default function EmailPage() {
     specialUse: 'INBOX',
     limit: 50,
   });
+
+  // Fetch thread data when selected (desktop 3-panel view)
+  const { data: threadData, isLoading: isThreadLoading } = useEmailThread(selectedThreadId || '');
 
   // Mutations for email operations
   const moveEmails = useBulkMoveEmails();
@@ -130,16 +144,131 @@ export default function EmailPage() {
   const [mockThreads] = useState(() => generateMockThreads(50));
   const displayThreads = threads.length > 0 ? threads : mockThreads;
 
-  // Thread click - navigate to thread detail view
+  // Thread click - show inline on desktop, navigate on mobile/tablet
   const handleThreadClick = useCallback(
     (id: string) => {
-      // Find the email to get its threadId
+      // Find the email to get its threadId and subject
       const email = emailsData?.emails?.find((e) => e.id === id);
       const threadId = email?.threadId || id;
-      router.push(`/dashboard/email/thread/${threadId}`);
+      const subject = email?.subject || '(No subject)';
+
+      if (isDesktop) {
+        // Desktop: show in reading pane (3-panel view)
+        setSelectedThreadId(threadId);
+        setSelectedSubject(subject);
+      } else {
+        // Mobile/Tablet: navigate to thread detail page
+        router.push(`/dashboard/email/thread/${threadId}`);
+      }
     },
-    [router, emailsData?.emails]
+    [router, emailsData?.emails, isDesktop]
   );
+
+  // Close reading pane
+  const handleCloseReadingPane = useCallback(() => {
+    setSelectedThreadId(null);
+    setSelectedSubject('');
+  }, []);
+
+  // Format thread emails to ThreadMessageData for ThreadView
+  const threadMessages: ThreadMessageData[] = useMemo(() => {
+    if (!threadData || !Array.isArray(threadData)) return [];
+    return threadData.map((email: Email) => ({
+      id: email.id,
+      from: email.from,
+      to: email.to || [],
+      cc: email.cc,
+      date: new Date(email.receivedAt).toLocaleDateString(),
+      subject: email.subject || '',
+      body: email.bodyHtml || email.bodyText || '',
+      isUnread: !email.isRead,
+      isFlagged: email.isFlagged || email.isStarred || false,
+      hasAttachments: (email.attachments?.length ?? 0) > 0,
+      attachments: email.attachments?.map((att) => ({
+        id: att.id,
+        name: att.filename,
+        size: att.size,
+      })),
+    }));
+  }, [threadData]);
+
+  // Thread action handlers
+  const handleReply = useCallback((messageId: string) => {
+    router.push(`/dashboard/email/compose?replyTo=${messageId}`);
+  }, [router]);
+
+  const handleReplyAll = useCallback((messageId: string) => {
+    router.push(`/dashboard/email/compose?replyTo=${messageId}&replyAll=true`);
+  }, [router]);
+
+  const handleForward = useCallback((messageId: string) => {
+    router.push(`/dashboard/email/compose?forward=${messageId}`);
+  }, [router]);
+
+  const handleFlagMessage = useCallback(async (messageId: string) => {
+    const email = threadMessages.find((m) => m.id === messageId);
+    if (!email) return;
+    try {
+      await updateEmail.mutateAsync({
+        emailId: messageId,
+        dto: { isFlagged: !email.isFlagged },
+      });
+    } catch {
+      toast.error(t.common.genericError);
+    }
+  }, [threadMessages, updateEmail, toast, t]);
+
+  // Reading pane component for 3-panel desktop view
+  const readingPane = useMemo(() => {
+    if (!selectedThreadId || !isDesktop) return undefined;
+
+    // Show loading state while fetching thread
+    if (isThreadLoading) {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            gap: 2,
+          }}
+        >
+          <CircularProgress size={32} />
+          <Typography variant="body2" color="text.secondary">
+            {t.threadView?.loading || 'Loading thread...'}
+          </Typography>
+        </Box>
+      );
+    }
+
+    // Show thread view
+    return (
+      <ThreadView
+        threadId={selectedThreadId}
+        subject={selectedSubject}
+        messages={threadMessages}
+        onBack={handleCloseReadingPane}
+        onReply={handleReply}
+        onReplyAll={handleReplyAll}
+        onForward={handleForward}
+        onFlag={handleFlagMessage}
+      />
+    );
+  }, [
+    selectedThreadId,
+    isDesktop,
+    isThreadLoading,
+    selectedSubject,
+    threadMessages,
+    handleCloseReadingPane,
+    handleReply,
+    handleReplyAll,
+    handleForward,
+    handleFlagMessage,
+    t.threadView?.loading,
+  ]);
 
   // Refresh emails
   const handleRefresh = useCallback(async () => {
@@ -325,7 +454,7 @@ export default function EmailPage() {
   return (
     <PageErrorBoundary pageName="Email">
       <Layout>
-        <EmailLayout>
+        <EmailLayout readingPane={readingPane}>
           <ThreadList
             threads={displayThreads}
             emptyVariant="inbox"

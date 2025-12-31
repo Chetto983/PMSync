@@ -2479,4 +2479,27 @@ export const en: AppTranslations = {
     folderPickerComingSoon: 'Folder picker coming soon',
     labelPickerComingSoon: 'Label picker coming soon',
   },
+  // Thread View (reading pane) - New Outlook Style
+  threadView: {
+    loading: 'Loading thread...',
+    emptyThread: 'No messages in this thread',
+    messageCount: '{count} message',
+    messageCountPlural: '{count} messages',
+    expandAll: 'Expand all',
+    collapseAll: 'Collapse all',
+    actionsLabel: 'Thread actions',
+    seeMoreMessages: 'See {count} more messages',
+    hideMessages: 'Hide messages',
+    sentAutoReply: 'sent an automatic reply',
+  },
+  // Thread Message (individual email in thread)
+  threadMessage: {
+    to: 'To:',
+    cc: 'Cc:',
+    bcc: 'Bcc:',
+    attachments: 'Attachments ({count})',
+    reply: 'Reply',
+    forward: 'Forward',
+    replyAll: 'Reply all',
+  },
 };

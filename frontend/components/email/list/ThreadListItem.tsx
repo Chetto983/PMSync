@@ -120,6 +120,7 @@ export const ThreadListItem = memo(function ThreadListItem({
         py: 1.5,
         minHeight: 96,
         cursor: 'pointer',
+        position: 'relative',
         bgcolor: thread.isUnread
           ? 'rgba(25, 118, 210, 0.04)'
           : isSelected
@@ -159,24 +160,26 @@ export const ThreadListItem = memo(function ThreadListItem({
       </Avatar>
 
       {/* Content - 3 lines */}
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
         {/* Line 1: Sender + Labels + Date */}
         <Box
           sx={{
             display: 'flex',
             alignItems: 'center',
-            gap: 1,
+            gap: 0.75,
             mb: 0.5,
+            minWidth: 0,
           }}
         >
           {/* Sender */}
           <Typography
             variant="body2"
+            component="span"
             sx={{
               fontWeight: thread.isUnread ? 600 : 400,
               fontSize: '0.875rem',
-              flexShrink: 1,
-              minWidth: 0,
+              flex: '1 1 auto',
+              minWidth: 40,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -272,13 +275,20 @@ export const ThreadListItem = memo(function ThreadListItem({
         </Typography>
       </Box>
 
-      {/* Action buttons - show on hover */}
+      {/* Action buttons - show on hover (absolute positioned to not affect layout) */}
       <Fade in={isHovered}>
         <Box
           sx={{
+            position: 'absolute',
+            right: 8,
+            top: '50%',
+            transform: 'translateY(-50%)',
             display: 'flex',
             gap: 0.5,
-            flexShrink: 0,
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+            boxShadow: 1,
+            p: 0.5,
           }}
         >
           {/* Flag */}

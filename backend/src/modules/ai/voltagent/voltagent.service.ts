@@ -503,11 +503,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     locale: SupportedLocale,
     modelType: MistralModel = 'small',
     userContext?: UserContext | null,
+    userId?: string,
   ): Agent {
     // Cache key includes userId if userContext is provided (personalized agents)
     // Fall back to locale+model for anonymous/system calls
+    // Include memoryEnabled state to recreate agents when LongTermMemoryService enables
     const userKey = userContext?.email ?? 'anonymous';
-    const cacheKey = `${tenantId}:${userKey}:${locale}:${modelType}`;
+    const memoryKey = this.longTermMemoryService?.isEnabled() ? 'mem' : 'nomem';
+    const cacheKey = `${tenantId}:${userKey}:${locale}:${modelType}:${memoryKey}`;
     const now = Date.now();
 
     // Check if cached agent exists and is not expired
@@ -545,6 +548,12 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       cacheService: this.cacheService,
       // Document Library agent for document RAG
       documentLibraryService: this.documentLibraryService,
+      // UnifiedKnowledgeAgent dependencies
+      longTermMemoryService: this.longTermMemoryService,
+      deadlineService: this.deadlineService,
+      followUpService: this.followUpService,
+      actionItemService: this.actionItemService,
+      userId,
     });
 
     // Cache with timestamps for TTL and LRU
@@ -705,7 +714,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Fetch user context for personalized agent instructions
     const userContext = await this.getUserContext(options.userId, options.tenantId);
-    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext);
+    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId);
 
     // NOTE: tenantUserId was previously used for VoltAgent's native memory (disabled due to bug)
     // Tenant isolation is now handled by our Prisma-based VoltAgentMemoryService
@@ -1099,7 +1108,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Fetch user context for personalized agent instructions
     const userContext = await this.getUserContext(options.userId, options.tenantId);
-    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext);
+    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId);
 
     // 2.5. Load conversation history for context continuity
     let conversationHistoryContext = '';

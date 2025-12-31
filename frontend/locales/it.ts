@@ -2454,4 +2454,27 @@ export const it: AppTranslations = {
     folderPickerComingSoon: 'Selettore cartelle in arrivo',
     labelPickerComingSoon: 'Selettore etichette in arrivo',
   },
+  // Thread View (reading pane) - New Outlook Style
+  threadView: {
+    loading: 'Caricamento conversazione...',
+    emptyThread: 'Nessun messaggio in questa conversazione',
+    messageCount: '{count} messaggio',
+    messageCountPlural: '{count} messaggi',
+    expandAll: 'Espandi tutto',
+    collapseAll: 'Comprimi tutto',
+    actionsLabel: 'Azioni conversazione',
+    seeMoreMessages: 'Vedi altri {count} messaggi',
+    hideMessages: 'Nascondi messaggi',
+    sentAutoReply: 'ha inviato una risposta automatica',
+  },
+  // Thread Message (individual email in thread)
+  threadMessage: {
+    to: 'A:',
+    cc: 'Cc:',
+    bcc: 'Ccn:',
+    attachments: 'Allegati ({count})',
+    reply: 'Rispondi',
+    forward: 'Inoltra',
+    replyAll: 'Rispondi a tutti',
+  },
 };

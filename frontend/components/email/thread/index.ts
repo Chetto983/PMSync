@@ -1,10 +1,17 @@
 /**
- * Thread View Components
+ * Thread View Components - New Outlook Style
  *
  * Export all thread-related components for convenient imports
  */
 
-export { ThreadView } from './ThreadView';
-export { ThreadMessage } from './ThreadMessage';
+// Main ThreadView component (New Outlook Style)
+export { ThreadView, ThreadViewOutlook } from './ThreadViewOutlook';
+export type { ThreadMessageData } from './ThreadViewOutlook';
 
-export type { ThreadMessageData } from './ThreadMessage';
+// Sub-components
+export { CollapsedMessage } from './CollapsedMessage';
+export { ExpandedMessage } from './ExpandedMessage';
+export { EmailHtmlContent } from './EmailHtmlContent';
+
+// Legacy exports (deprecated - use ThreadViewOutlook)
+// export { ThreadMessage } from './ThreadMessage';

@@ -127,14 +127,15 @@ export class LongTermMemoryService implements OnModuleInit {
     private readonly mistralService: MistralService,
     private readonly configService: ConfigService,
   ) {
-    this.maxMemories = this.configService.get<number>('MEM0_MAX_MEMORIES', 10);
+    this.maxMemories = this.configService.get<number>('LONG_TERM_MEMORY_MAX_MEMORIES', 10);
   }
 
   async onModuleInit(): Promise<void> {
-    const mem0Enabled = this.configService.get<string>('MEM0_ENABLED', 'false');
-
-    if (mem0Enabled !== 'true') {
-      this.logger.warn('Long-term memory disabled by configuration (MEM0_ENABLED != true)');
+    // Long-term memory enabled by default (custom implementation)
+    // Optionally disable with LONG_TERM_MEMORY_ENABLED=false
+    const memoryDisabled = this.configService.get<string>('LONG_TERM_MEMORY_ENABLED', 'true') === 'false';
+    if (memoryDisabled) {
+      this.logger.warn('Long-term memory disabled by configuration (LONG_TERM_MEMORY_ENABLED=false)');
       return;
     }
 

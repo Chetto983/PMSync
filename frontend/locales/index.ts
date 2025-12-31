@@ -2385,6 +2385,29 @@ export interface AppTranslations {
     folderPickerComingSoon: string;
     labelPickerComingSoon: string;
   };
+  // Thread View (reading pane) - New Outlook Style
+  threadView?: {
+    loading: string;
+    emptyThread: string;
+    messageCount: string;
+    messageCountPlural: string;
+    expandAll: string;
+    collapseAll: string;
+    actionsLabel: string;
+    seeMoreMessages: string;
+    hideMessages: string;
+    sentAutoReply: string;
+  };
+  // Thread Message (individual email in thread)
+  threadMessage?: {
+    to: string;
+    cc: string;
+    bcc: string;
+    attachments: string;
+    reply: string;
+    forward: string;
+    replyAll: string;
+  };
 }
 
 const translations: Record<LocaleKey, AppTranslations> = appTranslations;
