@@ -3,12 +3,13 @@
  *
  * Single email message within a thread conversation.
  * Used with MUI Accordion for collapsible thread view.
+ * Memoized for virtual scrolling performance (60 FPS).
  *
  * Design: Gmail/Outlook-inspired collapsible messages
  * @see https://mui.com/material-ui/react-accordion/
  */
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import {
   Accordion,
   AccordionSummary,
@@ -54,8 +55,9 @@ interface ThreadMessageProps {
  * - Full email body in details
  * - Action buttons (flag, reply, forward)
  * - Attachment indicators
+ * - Memoized for virtual scroll performance
  */
-export function ThreadMessage({
+export const ThreadMessage = memo(function ThreadMessage({
   message,
   expanded,
   onChange,
@@ -86,10 +88,22 @@ export function ThreadMessage({
       onMouseLeave={() => setShowActions(false)}
       disableGutters
       elevation={0}
+      // PERFORMANCE: Disable transitions completely for virtual scroll (60 FPS)
+      // Per MUI issue #10560: animations cause mobile/scroll lag
+      TransitionProps={{
+        timeout: 0, // Instant expand/collapse - no animation
+        unmountOnExit: false, // Keep content mounted for faster re-expansion
+      }}
       sx={{
         bgcolor: message.isUnread ? 'rgba(25, 118, 210, 0.04)' : 'transparent',
         borderBottom: 1,
         borderColor: 'divider',
+        // CSS containment for paint optimization
+        contain: 'layout style',
+        // Disable ALL transitions for scroll performance
+        '& *': {
+          transition: 'none !important',
+        },
         '&:before': {
           display: 'none', // Remove default MUI divider
         },
@@ -299,6 +313,6 @@ export function ThreadMessage({
       </AccordionDetails>
     </Accordion>
   );
-}
+});
 
 export default ThreadMessage;

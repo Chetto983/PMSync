@@ -128,7 +128,9 @@
       "Bash(npx dotenv:*)",
       "Bash(set DATABASE_URL=postgresql://mailuser:mailpass@localhost:5432/mailagent:*)",
       "Bash(cmd //c \"tasklist /FI \"\"IMAGENAME eq node.exe\"\" /FO TABLE\")",
-      "Bash(powershell -ExecutionPolicy Bypass -File \"D:/MailAgent/backend/scripts/check-mem.ps1\")"
+      "Bash(powershell -ExecutionPolicy Bypass -File \"D:/MailAgent/backend/scripts/check-mem.ps1\")",
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep 2; cd D:\\\\MailAgent\\\\backend; Start-Process -FilePath ''node'' -ArgumentList ''dist/main.js'' -PassThru | Select-Object Id\")",
+      "Bash(powershell -Command \"Start-Sleep 5; Invoke-WebRequest -Uri ''http://localhost:3000/health'' -UseBasicParsing -TimeoutSec 10 | Select-Object StatusCode; Get-Process -Id 13668 | Format-List WorkingSet64\")"
     ],
     "deny": []
   }
