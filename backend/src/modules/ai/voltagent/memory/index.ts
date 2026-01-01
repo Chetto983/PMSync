@@ -44,14 +44,3 @@ export {
   type StoreMemoryOptions,
   type SearchMemoryOptions,
 } from './long-term-memory.service';
-
-// PgVector memory service (mem0-style with no external dependencies)
-export { PgVectorMemoryService } from './pgvector-memory.service';
-export type {
-  MemoryItem,
-  MemorySearchResult,
-  StoreMemoryOptions as PgVectorStoreOptions,
-  SearchMemoryOptions as PgVectorSearchOptions,
-  MemoryContext,
-  MemoryStats,
-} from './prompts/memory.types';

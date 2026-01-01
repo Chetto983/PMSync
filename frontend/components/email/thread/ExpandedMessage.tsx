@@ -17,9 +17,8 @@ import {
   Reply,
   Forward,
   Users,
-  MoreHorizontal,
-  ThumbsUp,
   ChevronUp,
+  Tag,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { EmailHtmlContent } from './EmailHtmlContent';
@@ -36,7 +35,7 @@ interface ExpandedMessageProps {
     isUnread: boolean;
     isFlagged: boolean;
     hasAttachments: boolean;
-    attachments?: Array<{ id: string; name: string; size: number }>;
+    attachments?: Array<{ id: string; name: string; size: number; contentId?: string | null }>;
     avatarUrl?: string;
   };
   onCollapse: () => void;
@@ -44,6 +43,7 @@ interface ExpandedMessageProps {
   onReplyAll?: (messageId: string) => void;
   onForward: (messageId: string) => void;
   onFlag: (messageId: string) => void;
+  onLabels?: (messageId: string) => void;
 }
 
 /**
@@ -91,6 +91,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
   onReplyAll,
   onForward,
   onFlag,
+  onLabels,
 }: ExpandedMessageProps) {
   void onFlag; // Reserved for future use
   const t = useTranslations();
@@ -195,11 +196,6 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           {/* Action Icons (visible on hover) */}
           {showActions && (
             <Box sx={{ display: 'flex', gap: 0.25 }}>
-              <Tooltip title="React">
-                <IconButton size="small" sx={{ p: 0.5 }}>
-                  <ThumbsUp size={16} />
-                </IconButton>
-              </Tooltip>
               <Tooltip title={t.threadMessage?.reply || 'Reply'}>
                 <IconButton size="small" onClick={() => onReply(message.id)} sx={{ p: 0.5 }}>
                   <Reply size={16} />
@@ -217,9 +213,13 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                   <Forward size={16} />
                 </IconButton>
               </Tooltip>
-              <IconButton size="small" sx={{ p: 0.5 }}>
-                <MoreHorizontal size={16} />
-              </IconButton>
+              {onLabels && (
+                <Tooltip title={t.email?.labels?.addLabels || 'Labels'}>
+                  <IconButton size="small" onClick={() => onLabels(message.id)} sx={{ p: 0.5 }}>
+                    <Tag size={16} />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
           )}
 
@@ -237,7 +237,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
 
       {/* Body */}
       <Box sx={{ px: 2, pb: 2, pl: 7.5 }}>
-        <EmailHtmlContent html={message.body} />
+        <EmailHtmlContent html={message.body} attachments={message.attachments} />
       </Box>
 
       {/* Attachments */}
@@ -300,6 +300,17 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         >
           {t.threadMessage?.forward || 'Forward'}
         </Button>
+        {onLabels && (
+          <Button
+            size="small"
+            variant="text"
+            startIcon={<Tag size={16} />}
+            onClick={() => onLabels(message.id)}
+            sx={{ textTransform: 'none', color: 'text.secondary' }}
+          >
+            {t.email?.labels?.title || 'Labels'}
+          </Button>
+        )}
       </Box>
     </Box>
   );

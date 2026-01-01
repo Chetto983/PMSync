@@ -77,7 +77,8 @@ export type MemoryCategory =
   | 'HABIT'           // User work habits
   | 'RELATIONSHIP'    // Contact relationship context
   | 'PROJECT'         // Project/task context
-  | 'GENERAL';        // General facts
+  | 'GENERAL'         // General facts
+  | 'FACT';           // Fact
 
 /**
  * Options for storing memories
@@ -85,7 +86,7 @@ export type MemoryCategory =
 export interface StoreMemoryOptions {
   category?: MemoryCategory;
   importance?: number;
-  sourceType?: 'CONVERSATION' | 'EMAIL' | 'CALENDAR';
+  sourceType?: 'CONVERSATION' | 'EMAIL' | 'CALENDAR' | 'INFERRED' | 'EXPLICIT';
   sourceId?: string;
   metadata?: Record<string, unknown>;
 }
@@ -106,9 +107,9 @@ export interface SearchMemoryOptions {
 interface MemoryRow {
   id: string;
   content: string;
+  memoryType: string | null;
+  confidence: number;
   category: string | null;
-  importance: number;
-  metadata: unknown;
   created_at: Date;
   similarity: number;
 }
@@ -190,43 +191,42 @@ export class LongTermMemoryService implements OnModuleInit {
       }
 
       const id = this.generateId();
-      const category = options.category || 'GENERAL';
-      const importance = options.importance || 0.5;
-      const sourceType = options.sourceType || null;
-      const sourceId = options.sourceId || null;
+      // Map 'category' to 'memoryType'
+      const memoryType = options.category || 'GENERAL';
+      const confidence = options.importance || 0.5;
+      const source = options.sourceType || 'INFERRED';
+      // UserProfileEmbedding has a 'category' field too, we can map to it if needed, or leave null
+      const category = null;
 
       // Store in Prisma using raw SQL for vector
       if (vector) {
         const validatedVector = validateEmbeddingVector(vector);
         const vectorLiteral = Prisma.raw(`'[${validatedVector.join(',')}]'::vector`);
-        const metadataFragment = options.metadata
-          ? Prisma.sql`${JSON.stringify(options.metadata)}::jsonb`
-          : Prisma.sql`'{}'::jsonb`;
+        // Metadata not supported in UserProfileEmbedding, ignoring options.metadata
 
         await this.prisma.$executeRaw(
           Prisma.sql`
-            INSERT INTO "ai_memories"
-              ("id", "tenantId", "userId", "content", "category", "importance",
-               "sourceType", "sourceId", "metadata", "vector", "createdAt", "updatedAt")
+            INSERT INTO "user_profile_embeddings"
+              ("id", "tenantId", "userId", "content", "memoryType", "confidence",
+               "source", "category", "vector", "createdAt", "updatedAt")
             VALUES
-              (${id}, ${tenantId}, ${userId}, ${content}, ${category}, ${importance},
-               ${sourceType}, ${sourceId}, ${metadataFragment}, ${vectorLiteral}, NOW(), NOW())
+              (${id}, ${tenantId}, ${userId}, ${content}, ${memoryType}, ${confidence},
+               ${source}, ${category}, ${vectorLiteral}, NOW(), NOW())
           `,
         );
         this.logger.debug(`Stored memory ${id} for user ${userId}`);
         return id;
       } else {
         // Store without vector using Prisma ORM
-        const memory = await this.prisma.aiMemory.create({
+        const memory = await this.prisma.userProfileEmbedding.create({
           data: {
             tenantId,
             userId,
             content,
-            category,
-            importance,
-            sourceType,
-            sourceId,
-            metadata: options.metadata as Prisma.InputJsonValue || Prisma.JsonNull,
+            memoryType,
+            confidence: confidence,
+            source,
+            category: category,
           },
           select: { id: true },
         });
@@ -262,40 +262,36 @@ export class LongTermMemoryService implements OnModuleInit {
       }
 
       const id = this.generateId();
-      const category = options.category || 'GENERAL';
-      const importance = options.importance || 0.5;
-      const sourceType = options.sourceType || null;
-      const sourceId = options.sourceId || null;
+      const memoryType = options.category || 'FACT';
+      const confidence = options.importance || 0.5;
+      const source = options.sourceType || 'EXPLICIT';
+      const category = null;
 
       if (vector) {
         const validatedVector = validateEmbeddingVector(vector);
         const vectorLiteral = Prisma.raw(`'[${validatedVector.join(',')}]'::vector`);
-        const metadataFragment = options.metadata
-          ? Prisma.sql`${JSON.stringify(options.metadata)}::jsonb`
-          : Prisma.sql`'{}'::jsonb`;
 
         await this.prisma.$executeRaw(
           Prisma.sql`
-            INSERT INTO "ai_memories"
-              ("id", "tenantId", "userId", "content", "category", "importance",
-               "sourceType", "sourceId", "metadata", "vector", "createdAt", "updatedAt")
+            INSERT INTO "user_profile_embeddings"
+              ("id", "tenantId", "userId", "content", "memoryType", "confidence",
+               "source", "category", "vector", "createdAt", "updatedAt")
             VALUES
-              (${id}, ${tenantId}, ${userId}, ${fact}, ${category}, ${importance},
-               ${sourceType}, ${sourceId}, ${metadataFragment}, ${vectorLiteral}, NOW(), NOW())
+              (${id}, ${tenantId}, ${userId}, ${fact}, ${memoryType}, ${confidence},
+               ${source}, ${category}, ${vectorLiteral}, NOW(), NOW())
           `,
         );
         return id;
       } else {
-        const memory = await this.prisma.aiMemory.create({
+        const memory = await this.prisma.userProfileEmbedding.create({
           data: {
             tenantId,
             userId,
             content: fact,
-            category,
-            importance,
-            sourceType,
-            sourceId,
-            metadata: options.metadata as Prisma.InputJsonValue || Prisma.JsonNull,
+            memoryType,
+            confidence: confidence,
+            source,
+            category: category,
           },
           select: { id: true },
         });
@@ -337,17 +333,18 @@ export class LongTermMemoryService implements OnModuleInit {
       const vectorLiteral = Prisma.raw(`'[${validatedVector.join(',')}]'::vector`);
 
       // Semantic search with pgvector using CTE for tenant isolation
+      // Note: mapping user_profile_embeddings columns
       const results = await this.prisma.$queryRaw<MemoryRow[]>(
         Prisma.sql`
           WITH tenant_memories AS (
-            SELECT "id", "content", "category", "importance", "metadata",
+            SELECT "id", "content", "memoryType", "confidence", "category",
                    "createdAt", "vector"
-            FROM "ai_memories"
+            FROM "user_profile_embeddings"
             WHERE "tenantId" = ${tenantId}
               AND "userId" = ${userId}
               AND "vector" IS NOT NULL
           )
-          SELECT "id", "content", "category", "importance", "metadata",
+          SELECT "id", "content", "memoryType", "confidence", "category",
                  "createdAt" as created_at,
                  1 - ("vector" <-> ${vectorLiteral}) as similarity
           FROM tenant_memories
@@ -358,15 +355,16 @@ export class LongTermMemoryService implements OnModuleInit {
 
       return results
         .filter((r: MemoryRow) => r.similarity >= this.similarityThreshold)
-        .filter((r: MemoryRow) => !options.minImportance || r.importance >= options.minImportance)
-        .filter((r: MemoryRow) => !options.category || r.category === options.category)
+        .filter((r: MemoryRow) => !options.minImportance || r.confidence >= options.minImportance)
+        .filter((r: MemoryRow) => !options.category || r.memoryType === options.category)
         .map((r: MemoryRow) => ({
           id: r.id,
           memory: r.content,
-          category: r.category || undefined,
-          importance: r.importance,
+          category: r.memoryType || undefined,
+          importance: r.confidence,
           score: r.similarity,
-          metadata: options.includeMetadata ? (r.metadata as Record<string, unknown>) : undefined,
+          // Metadata not available
+          metadata: undefined,
           createdAt: r.created_at,
         }));
     } catch (error) {
@@ -421,20 +419,20 @@ export class LongTermMemoryService implements OnModuleInit {
     if (!this.enabled) return [];
 
     try {
-      const memories = await this.prisma.aiMemory.findMany({
+      const memories = await this.prisma.userProfileEmbedding.findMany({
         where: {
           tenantId,
           userId,
-          ...(options.category ? { category: options.category } : {}),
+          ...(options.category ? { memoryType: options.category } : {}),
         },
         orderBy: { createdAt: 'desc' },
         take: options.limit || 100,
         select: {
           id: true,
           content: true,
+          memoryType: true,
+          confidence: true,
           category: true,
-          importance: true,
-          metadata: true,
           createdAt: true,
         },
       });
@@ -442,16 +440,16 @@ export class LongTermMemoryService implements OnModuleInit {
       return memories.map((m: {
         id: string;
         content: string;
+        memoryType: string;
+        confidence: number;
         category: string | null;
-        importance: number;
-        metadata: Prisma.JsonValue;
         createdAt: Date;
       }) => ({
         id: m.id,
         memory: m.content,
-        category: m.category || undefined,
-        importance: m.importance,
-        metadata: m.metadata as Record<string, unknown> | undefined,
+        category: m.memoryType || undefined,
+        importance: m.confidence,
+        metadata: undefined,
         createdAt: m.createdAt,
       }));
     } catch (error) {
@@ -468,7 +466,7 @@ export class LongTermMemoryService implements OnModuleInit {
     if (!this.enabled) return false;
 
     try {
-      await this.prisma.aiMemory.delete({
+      await this.prisma.userProfileEmbedding.delete({
         where: { id: memoryId, tenantId },
       });
       this.logger.debug(`Deleted memory ${memoryId}`);
@@ -487,7 +485,7 @@ export class LongTermMemoryService implements OnModuleInit {
     if (!this.enabled) return 0;
 
     try {
-      const result = await this.prisma.aiMemory.deleteMany({
+      const result = await this.prisma.userProfileEmbedding.deleteMany({
         where: { tenantId, userId },
       });
 
@@ -538,21 +536,21 @@ export class LongTermMemoryService implements OnModuleInit {
     userId: string,
     options: SearchMemoryOptions,
   ): Promise<MemoryResult[]> {
-    const memories = await this.prisma.aiMemory.findMany({
+    const memories = await this.prisma.userProfileEmbedding.findMany({
       where: {
         tenantId,
         userId,
-        ...(options.category ? { category: options.category } : {}),
-        ...(options.minImportance ? { importance: { gte: options.minImportance } } : {}),
+        ...(options.category ? { memoryType: options.category } : {}),
+        ...(options.minImportance ? { confidence: { gte: options.minImportance } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: options.limit || this.maxMemories,
       select: {
         id: true,
         content: true,
+        memoryType: true,
+        confidence: true,
         category: true,
-        importance: true,
-        metadata: true,
         createdAt: true,
       },
     });
@@ -560,16 +558,16 @@ export class LongTermMemoryService implements OnModuleInit {
     return memories.map((m: {
       id: string;
       content: string;
+      memoryType: string;
+      confidence: number;
       category: string | null;
-      importance: number;
-      metadata: Prisma.JsonValue;
       createdAt: Date;
     }) => ({
       id: m.id,
       memory: m.content,
-      category: m.category || undefined,
-      importance: m.importance,
-      metadata: options.includeMetadata ? (m.metadata as Record<string, unknown>) : undefined,
+      category: m.memoryType || undefined,
+      importance: m.confidence,
+      metadata: undefined,
       createdAt: m.createdAt,
     }));
   }

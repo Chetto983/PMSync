@@ -1,9 +1,9 @@
 # MailAgent Email Frontend - Comprehensive Implementation Roadmap
 
-> **Version**: 2.1
+> **Version**: 3.0
 > **Created**: December 2025
-> **Updated**: December 29, 2025
-> **Status**: Phase 1 Complete - API Validation Passed
+> **Updated**: January 1, 2026
+> **Status**: Phase 7 Complete - Real-time Updates Implemented
 > **Note**: This is the 5th rebuild - all research MUST be completed before writing code!
 
 ---
@@ -21,6 +21,7 @@
 
 | API Module | Tests | Status |
 |------------|-------|--------|
+
 | emailsApi | 14 | ✅ PASSED |
 | foldersApi | 4 | ✅ PASSED |
 | labelsApi | 5 | ✅ PASSED |
@@ -37,12 +38,14 @@
 - `saveDraft`: Backend returns email directly → wrapped to `{ id, email }` format
 - `getDraft`: Backend returns email directly → removed `.email` accessor
 
-### ✅ Phase 2: Folder & Navigation - IN PROGRESS (December 30, 2025)
+### ✅ Phase 2: Folder & Navigation - COMPLETE (December 30, 2025)
 **Completed Components:**
 - [x] FormDialog reusable component (with icon support)
 - [x] FolderDialog (create/rename) with proper MUI layout
 - [x] getFolderDisplayName() utility function
 - [x] Gmail custom folder display fix (backend + frontend)
+- [x] FolderSidebar with folder filtering via Zustand store
+- [x] useEmailFilters hook for folder selection
 
 **Fixes Applied:**
 1. **Gmail Custom Folders Display Issue**:
@@ -56,16 +59,66 @@
    - Added `dividers` prop and explicit `pt: 3` padding
    - TextField with `slotProps={{ inputLabel: { shrink: true } }}` (modern API)
 
-**Pending:**
-- [ ] Folder sync integration
-- [ ] Create/rename/delete folder backend integration
-- [ ] Drag-drop folder organization
+### ✅ Phase 3: Email List & View - COMPLETE (December 31, 2025)
+**Completed Components:**
+- [x] ThreadList with virtual scrolling (@tanstack/react-virtual)
+- [x] ThreadListItem with 3-line layout (sender/subject/snippet)
+- [x] Single email view (Outlook-style, NOT thread view)
+- [x] ExpandedMessage component with full email rendering
+- [x] EmailHtmlContent with Shadow DOM isolation
+- [x] CID image resolution for inline attachments
+- [x] Drag-and-drop between folders with provider validation
+- [x] Mark as read on click
+- [x] Bulk selection with action bar
 
-### 🔲 Phase 3: Actions & Bulk Operations - PENDING
-### 🔲 Phase 4: Labels & Organization - PENDING
+**Key Features:**
+- `useEmails` hook with folder filtering via `useEmailFilters` Zustand store
+- `useEmail` for single email fetch (not thread view)
+- DOMPurify sanitization with cid: and data: protocol support
+- `replaceCidUrls()` function converts cid: URLs to attachment download URLs
+- Provider validation prevents cross-provider folder moves
+
+**Files:**
+- `pages/dashboard/email.tsx` - Main email page
+- `components/email/thread/ExpandedMessage.tsx` - Email display
+- `components/email/thread/EmailHtmlContent.tsx` - HTML rendering with Shadow DOM
+- `components/email/list/ThreadList.tsx` - Virtual scrolling list
+- `hooks/use-email-realtime.ts` - WebSocket integration
+
+### ✅ Phase 4: Labels & Organization - PARTIAL (January 1, 2026)
+**Completed Components:**
+- [x] LabelPickerDialog - Select and add labels to emails
+- [x] LabelDialog - Create/edit labels
+- [x] LabelColorPicker - Color selection
+- [x] LabelContextMenu - Right-click label management
+- [x] LabelDeleteDialog - Confirm label deletion
+- [x] useLabelManagement hook
+- [x] Bulk add labels via `useBulkAddLabels` mutation
+
+**Pending:**
+- [ ] Label filter in email list
+- [ ] Label chips in ThreadListItem
+- [ ] Remove labels from emails
+
 ### 🔲 Phase 5: Compose & Draft - PENDING
 ### 🔲 Phase 6: Search & Filters - PENDING
-### 🔲 Phase 7: Real-time & Notifications - PENDING
+
+### ✅ Phase 7: Real-time & Notifications - COMPLETE (December 31, 2025)
+**Completed Components:**
+- [x] `useEmailRealtime` hook - WebSocket event handlers
+- [x] Query invalidation on email events (new, update, delete)
+- [x] Folder count updates via WebSocket
+- [x] Optimized query keys (`folderKeys.lists()` vs `folderKeys.all`)
+
+**Key Features:**
+- Subscribes to WebSocket events: `email:new`, `email:update`, `email:delete`
+- Handles batch sync events (`email:batch-processed`)
+- Updates folder unread counts in real-time
+- Uses refs pattern to prevent stale closures and duplicate subscriptions
+- Fixed 429 rate limit by using specific query key invalidation
+
+**File:** `hooks/use-email-realtime.ts`
+
 ### 🔲 Phase 8: AI Integration - PENDING
 ### 🔲 Phase 9: Advanced UX - PENDING
 ### 🔲 Phase 10: Performance & Polish - PENDING
@@ -104,6 +157,7 @@
 
 | Decision | Rationale |
 |----------|-----------|
+
 | **Consolidate star/flag → "Important"** | Backend has `isStarred`, `isFlagged`, and `isImportant`. Frontend will ONLY use `isImportant` for cleaner UX. One toggle, one concept. |
 | **2-line list items (no snippet)** | Superhuman pattern: sender+date on line 1, subject on line 2. No body preview = cleaner, faster rendering. |
 | **Virtual list always** | Even for small lists, use `@tanstack/react-virtual` for consistency and future-proofing. |
@@ -120,6 +174,7 @@
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+
 | `GET` | `/emails` | List emails with pagination & filters |
 | `GET` | `/emails/:id` | Get single email by ID |
 | `GET` | `/emails/search` | Search emails (limit: 100) |
@@ -133,8 +188,10 @@
 | `DELETE` | `/emails/:id` | Delete email |
 
 #### Bulk Operations
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+
 | `DELETE` | `/emails/bulk` | Bulk delete emails |
 | `PATCH` | `/emails/bulk/read` | Bulk mark read/unread |
 | `PATCH` | `/emails/bulk/star` | Bulk star/unstar |
@@ -144,8 +201,10 @@
 | `PATCH` | `/emails/bulk/labels/remove` | Bulk remove labels |
 
 #### Draft Operations
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+
 | `POST` | `/emails/drafts` | Create/update draft (autosave) |
 | `GET` | `/emails/drafts/:id` | Get draft by ID |
 | `DELETE` | `/emails/drafts/:id` | Delete draft |

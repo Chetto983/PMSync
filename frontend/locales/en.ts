@@ -49,6 +49,7 @@ export const en: AppTranslations = {
     backToLogin: 'Back to login',
     continue: 'Continue',
     cancel: 'Cancel',
+    apply: 'Apply',
     send: 'Send',
     compose: 'Compose',
     refresh: 'Refresh',
@@ -865,11 +866,20 @@ export const en: AppTranslations = {
       deleteConfirmation: 'Are you sure you want to delete this label?',
       deleteWarning: 'Emails with this label will not be deleted.',
       create: 'Create',
+      // LabelPickerDialog
+      addLabels: 'Add Labels',
+      addToEmail: 'Add labels to 1 email',
+      addToEmails: 'Add labels to {count} emails',
+      searchLabels: 'Search labels...',
+      noLabelsFound: 'No labels found',
+      addSelected: 'Add Labels',
       errors: {
         nameRequired: 'Name is required',
         nameTooShort: 'Name must be at least 2 characters',
         nameExists: 'A label with this name already exists.',
         saveFailed: 'Failed to save. Please try again.',
+        selectLabel: 'Select at least one label',
+        addFailed: 'Failed to add labels. Please try again.',
       },
     },
     conversations: {

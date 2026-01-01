@@ -13,6 +13,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { websocketClient, RealtimeEmailEvent, RealtimeFolderCountsEvent } from '@/lib/websocket-client';
 import { emailKeys } from '@/hooks/queries/email-keys';
+import { folderKeys } from '@/hooks/queries/use-folders';
 import { useSyncStore } from '@/stores/sync-store';
 
 interface UseEmailRealtimeOptions {
@@ -53,6 +54,10 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
       // Invalidate stats for updated counts
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
 
+      // Invalidate folder list queries to update sidebar unread counts
+      // Use lists() not all - metadata is static and should not be refetched
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+
       // If we have the full email object, we could prefetch the detail
       if (event.emailId) {
         // Prefetch is optional - can be enabled for faster detail loading
@@ -86,9 +91,11 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
         });
       }
 
-      // Stats may change for read/unread updates
+      // Stats and folder counts may change for read/unread updates
       if (event.reason === 'read-status-updated') {
         queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+        // Update sidebar folder unread counts (not metadata - it's static)
+        queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
       }
     },
     [queryClient, folder]
@@ -110,6 +117,10 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
       // Invalidate stats for count update
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
 
+      // Invalidate folder list queries to update sidebar unread counts
+      // Use lists() not all - metadata is static and should not be refetched
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+
       // Invalidate thread if provided
       if (event.threadId) {
         queryClient.invalidateQueries({
@@ -123,8 +134,15 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   // Handler for batch processed events (sync complete)
   const handleBatchProcessed = useCallback(
     (event: { providerId: string; processed: number; created?: number; syncType?: string }) => {
-      // Full sync completed - invalidate everything
+      // Full sync completed - invalidate all email queries
       queryClient.invalidateQueries({ queryKey: emailKeys.all });
+
+      // Invalidate folder list queries to update sidebar counts after sync
+      // Use lists() not all - metadata is static and should not be refetched
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+      if (event.providerId) {
+        queryClient.invalidateQueries({ queryKey: folderKeys.byProvider(event.providerId) });
+      }
 
       // Update sync status in store
       setStatus({
@@ -140,8 +158,11 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   // Handler for folder counts update
   const handleFolderCountsUpdate = useCallback(
     (event: RealtimeFolderCountsEvent) => {
-      // Invalidate stats and folder-specific queries
+      // Invalidate email stats
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+
+      // Invalidate folder list queries to update sidebar counts (not metadata)
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
 
       // If watching specific folder, invalidate its list
       if (folder && event.folderName === folder) {
@@ -165,7 +186,16 @@ export function useEmailRealtime(options: UseEmailRealtimeOptions = {}) {
   // Handler for unread count update
   const handleUnreadCountUpdate = useCallback(
     (event: { folder: string; count: number; providerId: string }) => {
+      // Invalidate email stats
       queryClient.invalidateQueries({ queryKey: emailKeys.stats() });
+
+      // Invalidate folder list queries to update sidebar counts (not metadata)
+      queryClient.invalidateQueries({ queryKey: folderKeys.lists() });
+
+      // Invalidate specific provider folders if provided
+      if (event.providerId) {
+        queryClient.invalidateQueries({ queryKey: folderKeys.byProvider(event.providerId) });
+      }
 
       if (folder && event.folder === folder) {
         queryClient.invalidateQueries({ queryKey: emailKeys.byFolder(folder) });

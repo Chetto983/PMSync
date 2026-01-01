@@ -49,6 +49,7 @@ export const it: AppTranslations = {
     backToLogin: 'Torna al login',
     continue: 'Continua',
     cancel: 'Annulla',
+    apply: 'Applica',
     send: 'Invia',
     compose: 'Scrivi',
     refresh: 'Aggiorna',
@@ -854,11 +855,20 @@ export const it: AppTranslations = {
       deleteConfirmation: 'Sei sicuro di voler eliminare questa etichetta?',
       deleteWarning: 'Le email con questa etichetta non verranno eliminate.',
       create: 'Crea',
+      // LabelPickerDialog
+      addLabels: 'Aggiungi etichette',
+      addToEmail: 'Aggiungi etichette a 1 email',
+      addToEmails: 'Aggiungi etichette a {count} email',
+      searchLabels: 'Cerca etichette...',
+      noLabelsFound: 'Nessuna etichetta trovata',
+      addSelected: 'Aggiungi etichette',
       errors: {
         nameRequired: 'Il nome è obbligatorio',
         nameTooShort: 'Il nome deve essere almeno 2 caratteri',
         nameExists: 'Esiste già un\'etichetta con questo nome.',
         saveFailed: 'Errore durante il salvataggio. Riprova.',
+        selectLabel: 'Seleziona almeno un\'etichetta',
+        addFailed: 'Aggiunta etichette fallita. Riprova.',
       },
     },
     conversations: {

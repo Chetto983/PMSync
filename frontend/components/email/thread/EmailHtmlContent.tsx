@@ -15,21 +15,60 @@ import { useTheme as useMuiTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import DOMPurify from 'dompurify';
 
+/** Inline attachment for CID resolution */
+interface InlineAttachment {
+  id: string;
+  contentId?: string | null;
+}
+
 interface EmailHtmlContentProps {
   /** Raw HTML content from email */
   html: string;
   /** Optional className for container */
   className?: string;
+  /** Attachments for resolving cid: URLs */
+  attachments?: InlineAttachment[];
+}
+
+/**
+ * Replace cid: URLs with actual attachment download URLs
+ * cid:agenda_icon → /api/v1/email/attachments/{id}/download
+ */
+function replaceCidUrls(html: string, attachments?: InlineAttachment[]): string {
+  if (!attachments || attachments.length === 0) return html;
+
+  // Build contentId → attachment URL map
+  const cidMap = new Map<string, string>();
+  for (const att of attachments) {
+    if (att.contentId) {
+      // contentId may include angle brackets like <image001.png@xxx>
+      const cleanCid = att.contentId.replace(/^<|>$/g, '');
+      cidMap.set(cleanCid, `/api/v1/email/attachments/${att.id}/download`);
+    }
+  }
+
+  if (cidMap.size === 0) return html;
+
+  // Replace all cid: references in src attributes
+  // Handles: src="cid:xxx", src='cid:xxx', src=cid:xxx
+  return html.replace(/src=["']?cid:([^"'\s>]+)["']?/gi, (match, cid) => {
+    const url = cidMap.get(cid);
+    if (url) {
+      return `src="${url}"`;
+    }
+    // Keep original if no matching attachment
+    return match;
+  });
 }
 
 /**
  * DOMPurify configuration for email content
  * - Allow safe tags and attributes
  * - Remove scripts, event handlers
- * - Allow data: URIs for embedded images
+ * - Allow data: and cid: URIs for embedded/inline images
  */
 const PURIFY_CONFIG = {
-  RETURN_TRUSTED_TYPE: false as const, // Return string, not TrustedHTML
+  RETURN_TRUSTED_TYPE: false, // Return string, not TrustedHTML
   ALLOWED_TAGS: [
     // Structure
     'div', 'span', 'p', 'br', 'hr',
@@ -57,15 +96,17 @@ const PURIFY_CONFIG = {
   ALLOWED_ATTR: [
     'href', 'src', 'alt', 'title', 'width', 'height',
     'style', 'class', 'id',
-    'align', 'valign', 'bgcolor', 'border',
+    'align', 'valign', 'bgcolor', 'border', 'background',
     'cellpadding', 'cellspacing',
     'colspan', 'rowspan',
     'target', 'rel',
     'color', 'face', 'size',
   ],
-  // Allow data: URIs for embedded images
-  ALLOW_DATA_ATTR: false,
+  // Allow data: URIs for embedded images (base64)
+  ALLOW_DATA_ATTR: true,
   ADD_ATTR: ['target'],
+  // Allow cid: protocol for inline images and data: for embedded
+  ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
   // Force all links to open in new tab
   ADD_TAGS: [],
   FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
@@ -135,7 +176,7 @@ const getBaseStyles = (isDark: boolean) => `
  * - Dark/light mode support
  * - External links open in new tab
  */
-export function EmailHtmlContent({ html, className }: EmailHtmlContentProps) {
+export function EmailHtmlContent({ html, className, attachments }: EmailHtmlContentProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const shadowRootRef = useRef<ShadowRoot | null>(null);
   const muiTheme = useMuiTheme();
@@ -144,6 +185,9 @@ export function EmailHtmlContent({ html, className }: EmailHtmlContentProps) {
   // Sanitize HTML with DOMPurify
   // CRITICAL FIX: Wrap hook management in try/finally to prevent global leak
   const sanitizedHtml = useMemo(() => {
+    // First, replace cid: URLs with actual attachment download URLs
+    const htmlWithResolvedCids = replaceCidUrls(html, attachments);
+
     // Configure DOMPurify to add target="_blank" to all links
     DOMPurify.addHook('afterSanitizeAttributes', (node) => {
       if (node.tagName === 'A') {
@@ -153,12 +197,12 @@ export function EmailHtmlContent({ html, className }: EmailHtmlContentProps) {
     });
 
     try {
-      return DOMPurify.sanitize(html, PURIFY_CONFIG);
+      return DOMPurify.sanitize(htmlWithResolvedCids, PURIFY_CONFIG) as string;
     } finally {
       // Always remove the hook, even if sanitization throws
       DOMPurify.removeHook('afterSanitizeAttributes');
     }
-  }, [html]);
+  }, [html, attachments]);
 
   // Create shadow root on mount
   useEffect(() => {

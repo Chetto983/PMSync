@@ -307,6 +307,7 @@ export interface AppTranslations {
     backToLogin: string;
     continue: string;
     cancel: string;
+    apply: string;
     send: string;
     compose: string;
     refresh: string;
@@ -792,11 +793,20 @@ export interface AppTranslations {
       deleteConfirmation: string;
       deleteWarning: string;
       create: string;
+      // LabelPickerDialog
+      addLabels: string;
+      addToEmail: string;
+      addToEmails: string;
+      searchLabels: string;
+      noLabelsFound: string;
+      addSelected: string;
       errors: {
         nameRequired: string;
         nameTooShort: string;
         nameExists: string;
         saveFailed: string;
+        selectLabel: string;
+        addFailed: string;
       };
     };
     conversations: {

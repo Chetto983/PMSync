@@ -1411,54 +1411,7 @@ enum ContactInteractionType {
   NOTE
 }
 
-/// Stores long-term AI memories (Mem0-compatible schema for future migration)
-model AiMemory {
-  id       String @id @default(cuid())
-  tenantId String
-  userId   String
 
-  // Memory content
-  content  String  @db.Text // The actual memory fact
-  category String? // PREFERENCE, CONTACT, SCHEDULE, HABIT, etc.
-
-  // Semantic search
-  vector Unsupported("vector")? // Embedding for similarity search
-
-  // Metadata
-  metadata   Json? // Additional structured data
-  importance Float @default(0.5) // 0-1 importance score
-
-  // Source tracking
-  sourceType String? // CONVERSATION, EMAIL, CALENDAR
-  sourceId   String?
-
-  // Timestamps
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  lastAccessedAt DateTime? // For LRU-style management
-
-  // Relations
-  history AiMemoryHistory[]
-
-  @@index([tenantId, userId])
-  @@index([tenantId, userId, category])
-  @@map("ai_memories")
-}
-
-/// Tracks memory changes for audit trail (Mem0-style history)
-model AiMemoryHistory {
-  id            String   @id @default(cuid())
-  memoryId      String
-  previousValue String?  @db.Text
-  newValue      String?  @db.Text
-  action        String   // CREATE, UPDATE, DELETE
-  createdAt     DateTime @default(now())
-
-  memory        AiMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
-
-  @@index([memoryId])
-  @@map("ai_memory_history")
-}
 
 /// Tracks deadlines extracted from emails and calendar
 model AiDeadline {

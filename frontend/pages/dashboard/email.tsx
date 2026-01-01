@@ -4,13 +4,13 @@ import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 import { EmailLayout } from '@/components/email';
 import { ThreadList, ThreadListItemData } from '@/components/email/list';
-import { ThreadView } from '@/components/email/thread';
-import type { ThreadMessageData } from '@/components/email/thread';
+import { ExpandedMessage } from '@/components/email/thread';
+import { LabelPickerDialog } from '@/components/email/labels';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   useEmails,
-  useEmailThread,
+  useEmail,
   useBulkMoveEmails,
   useBulkMarkRead,
   useBulkDeleteEmails,
@@ -18,6 +18,7 @@ import {
   useDeleteEmail,
 } from '@/hooks/queries';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
+import { useEmailFilters } from '@/stores/email-ui-store';
 import { CircularProgress, Box, Typography, useMediaQuery, useTheme } from '@mui/material';
 import type { Email } from '@/lib/api/emails';
 
@@ -41,69 +42,14 @@ function formatEmailToThread(email: Email): ThreadListItemData {
     isFlagged: email.isFlagged || email.isStarred,
     hasAttachments: (email.attachments?.length ?? 0) > 0,
     providerId: email.providerId, // Provider ID for drag-and-drop validation
+    // Map emailLabels to the format expected by ThreadListItem
+    labels: email.emailLabels?.map((el) => ({
+      id: el.labelId,
+      name: el.label?.name || 'Label',
+      color: el.label?.color?.backgroundColor || '#9E9E9E',
+    })),
   };
 }
-
-// Mock data for demonstration (ONLY as fallback)
-const generateMockThreads = (count: number): ThreadListItemData[] => {
-  const senders = [
-    'John Smith',
-    'Sarah Johnson',
-    'Mike Chen',
-    'Emily Davis',
-    'David Wilson',
-    'Lisa Anderson',
-    'Tom Brown',
-    'Anna Martinez',
-  ];
-
-  const subjects = [
-    'Meeting tomorrow at 10am',
-    'Q4 Report Review',
-    'Project Update - Phase 3',
-    'Budget Approval Request',
-    'Team Lunch This Friday',
-    'Code Review Required',
-    'New Feature Proposal',
-    'Performance Optimization Ideas',
-  ];
-
-  const snippets = [
-    'Hi team, just wanted to confirm our meeting tomorrow morning. Please bring your laptops...',
-    'Attached you will find the Q4 financial report for review. Please review by end of week...',
-    'Phase 3 is progressing well. We have completed the email list component with virtual scrolling...',
-    'The budget for next quarter needs your approval. Please review the attached spreadsheet...',
-    'Looking forward to our team lunch this Friday at 12:30pm. Location TBD...',
-    'Please review the pull request #123. It includes the new authentication flow...',
-    'I have an idea for a new feature that could improve user engagement...',
-    'Found several performance bottlenecks in the dashboard. Here are my suggestions...',
-  ];
-
-  const labels = [
-    { id: '1', name: 'Important', color: '#EF4444' },
-    { id: '2', name: 'Work', color: '#3B82F6' },
-    { id: '3', name: 'Personal', color: '#10B981' },
-    { id: '4', name: 'Follow-up', color: '#F59E0B' },
-  ];
-
-  // Mock provider IDs (simulate multiple email accounts)
-  const providers = ['gmail-account-1', 'outlook-account-2', 'yahoo-account-3'];
-
-  return Array.from({ length: count }, (_, i) => ({
-    id: `email-${i}`,
-    from: senders[i % senders.length],
-    subject: subjects[i % subjects.length],
-    snippet: snippets[i % snippets.length],
-    date: i < 10 ? 'Today' : i < 20 ? 'Yesterday' : `${Math.floor(i / 10)} days ago`,
-    isUnread: i % 3 === 0, // Every 3rd email is unread
-    isFlagged: i % 5 === 0, // Every 5th email is flagged
-    hasAttachments: i % 7 === 0, // Every 7th email has attachments
-    threadCount: i % 10 === 0 && i > 0 ? Math.floor(Math.random() * 5) + 2 : undefined,
-    labels: i % 4 === 0 ? [labels[i % labels.length]] : undefined,
-    // Add providerId for drag-and-drop (alternate between providers)
-    providerId: providers[i % providers.length],
-  }));
-};
 
 export default function EmailPage() {
   const router = useRouter();
@@ -114,21 +60,45 @@ export default function EmailPage() {
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const isDesktop = !isMobile && !isTablet;
 
-  // Selected thread ID for 3-panel view (desktop only)
+  // Selected email ID for 3-panel view (desktop only)
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
+
+  // Label picker dialog state
+  const [labelPickerOpen, setLabelPickerOpen] = useState(false);
+  const [labelPickerEmailIds, setLabelPickerEmailIds] = useState<string[]>([]);
+
+  // Get folder filters from store (sidebar sets these)
+  const filters = useEmailFilters();
 
   // Enable realtime updates via WebSocket
-  useEmailRealtime({ folder: 'INBOX', enabled: true });
+  useEmailRealtime({ folder: filters.specialUse || 'INBOX', enabled: true });
 
-  // Fetch real email data from API
+  // Map special folder to API-supported values
+  const getApiSpecialUse = (
+    folder?: string
+  ): 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'ARCHIVE' | undefined => {
+    const supported = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'SPAM', 'ARCHIVE'];
+    if (folder && supported.includes(folder)) {
+      return folder as 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'ARCHIVE';
+    }
+    return 'INBOX'; // Default to INBOX
+  };
+
+  // Fetch email data from API based on current folder filters
   const { data: emailsData, isLoading, refetch } = useEmails({
-    specialUse: 'INBOX',
+    specialUse: filters.labelId ? undefined : getApiSpecialUse(filters.specialUse), // Don't filter by folder when filtering by label
+    providerId: filters.providerId,
+    folder: filters.folderId, // API uses 'folder' for folder path/ID
+    isRead: filters.isRead,
+    isImportant: filters.isImportant,
+    hasAttachments: filters.hasAttachments,
+    search: filters.search,
+    labelIds: filters.labelId, // Filter by label ID
     limit: 50,
   });
 
-  // Fetch thread data when selected (desktop 3-panel view)
-  const { data: threadData, isLoading: isThreadLoading } = useEmailThread(selectedThreadId || '');
+  // Fetch single email when selected (desktop 3-panel view)
+  const { data: selectedEmail, isLoading: isEmailLoading } = useEmail(selectedThreadId || '');
 
   // Mutations for email operations
   const moveEmails = useBulkMoveEmails();
@@ -137,60 +107,69 @@ export default function EmailPage() {
   const updateEmail = useUpdateEmail();
   const deleteEmail = useDeleteEmail();
 
-  // Format emails to thread list format
-  const threads = emailsData?.emails?.map(formatEmailToThread) ?? [];
+  // Format emails to thread list format (no mock data - real API only)
+  const threads = useMemo(
+    () => emailsData?.emails?.map(formatEmailToThread) ?? [],
+    [emailsData?.emails]
+  );
 
-  // Fallback to mock data if API fails (development only)
-  const [mockThreads] = useState(() => generateMockThreads(50));
-  const displayThreads = threads.length > 0 ? threads : mockThreads;
-
-  // Thread click - show inline on desktop, navigate on mobile/tablet
+  // Email click - mark as read and show in reading pane (single email, not thread)
   const handleThreadClick = useCallback(
-    (id: string) => {
-      // Find the email to get its threadId and subject
+    async (id: string) => {
+      // Find the email
       const email = emailsData?.emails?.find((e) => e.id === id);
-      const threadId = email?.threadId || id;
-      const subject = email?.subject || '(No subject)';
+      if (!email) return;
+
+      // Mark as read if unread
+      if (!email.isRead) {
+        try {
+          await updateEmail.mutateAsync({
+            emailId: id,
+            dto: { isRead: true },
+          });
+        } catch {
+          // Silent fail - don't block UI for read status
+        }
+      }
 
       if (isDesktop) {
-        // Desktop: show in reading pane (3-panel view)
-        setSelectedThreadId(threadId);
-        setSelectedSubject(subject);
+        // Desktop: show single email in reading pane (not thread view)
+        setSelectedThreadId(id); // Use email ID
       } else {
-        // Mobile/Tablet: navigate to thread detail page
-        router.push(`/dashboard/email/thread/${threadId}`);
+        // Mobile/Tablet: navigate to email detail page
+        router.push(`/dashboard/email/${id}`);
       }
     },
-    [router, emailsData?.emails, isDesktop]
+    [router, emailsData?.emails, isDesktop, updateEmail]
   );
 
   // Close reading pane
   const handleCloseReadingPane = useCallback(() => {
     setSelectedThreadId(null);
-    setSelectedSubject('');
   }, []);
 
-  // Format thread emails to ThreadMessageData for ThreadView
-  const threadMessages: ThreadMessageData[] = useMemo(() => {
-    if (!threadData || !Array.isArray(threadData)) return [];
-    return threadData.map((email: Email) => ({
-      id: email.id,
-      from: email.from,
-      to: email.to || [],
-      cc: email.cc,
-      date: new Date(email.receivedAt).toLocaleDateString(),
-      subject: email.subject || '',
-      body: email.bodyHtml || email.bodyText || '',
-      isUnread: !email.isRead,
-      isFlagged: email.isFlagged || email.isStarred || false,
-      hasAttachments: (email.attachments?.length ?? 0) > 0,
-      attachments: email.attachments?.map((att) => ({
+  // Format single email for ExpandedMessage component
+  const selectedEmailData = useMemo(() => {
+    if (!selectedEmail) return null;
+    return {
+      id: selectedEmail.id,
+      from: selectedEmail.from,
+      to: selectedEmail.to || [],
+      cc: selectedEmail.cc,
+      date: new Date(selectedEmail.receivedAt).toLocaleDateString(),
+      subject: selectedEmail.subject || '',
+      body: selectedEmail.bodyHtml || selectedEmail.bodyText || '',
+      isUnread: !selectedEmail.isRead,
+      isFlagged: selectedEmail.isFlagged || selectedEmail.isStarred || false,
+      hasAttachments: (selectedEmail.attachments?.length ?? 0) > 0,
+      attachments: selectedEmail.attachments?.map((att) => ({
         id: att.id,
         name: att.filename,
         size: att.size,
+        contentId: att.contentId,
       })),
-    }));
-  }, [threadData]);
+    };
+  }, [selectedEmail]);
 
   // Thread action handlers
   const handleReply = useCallback((messageId: string) => {
@@ -206,24 +185,29 @@ export default function EmailPage() {
   }, [router]);
 
   const handleFlagMessage = useCallback(async (messageId: string) => {
-    const email = threadMessages.find((m) => m.id === messageId);
-    if (!email) return;
+    if (!selectedEmailData || selectedEmailData.id !== messageId) return;
     try {
       await updateEmail.mutateAsync({
         emailId: messageId,
-        dto: { isFlagged: !email.isFlagged },
+        dto: { isFlagged: !selectedEmailData.isFlagged },
       });
     } catch {
       toast.error(t.common.genericError);
     }
-  }, [threadMessages, updateEmail, toast, t]);
+  }, [selectedEmailData, updateEmail, toast, t]);
 
-  // Reading pane component for 3-panel desktop view
+  // Handle adding labels to a single message
+  const handleLabelsMessage = useCallback((messageId: string) => {
+    setLabelPickerEmailIds([messageId]);
+    setLabelPickerOpen(true);
+  }, []);
+
+  // Reading pane component for 3-panel desktop view (single email, not thread)
   const readingPane = useMemo(() => {
     if (!selectedThreadId || !isDesktop) return undefined;
 
-    // Show loading state while fetching thread
-    if (isThreadLoading) {
+    // Show loading state while fetching email
+    if (isEmailLoading) {
       return (
         <Box
           sx={{
@@ -237,36 +221,39 @@ export default function EmailPage() {
         >
           <CircularProgress size={32} />
           <Typography variant="body2" color="text.secondary">
-            {t.threadView?.loading || 'Loading thread...'}
+            {t.threadView?.loading || 'Loading email...'}
           </Typography>
         </Box>
       );
     }
 
-    // Show thread view
+    // Show single email view
+    if (!selectedEmailData) return undefined;
+
     return (
-      <ThreadView
-        threadId={selectedThreadId}
-        subject={selectedSubject}
-        messages={threadMessages}
-        onBack={handleCloseReadingPane}
-        onReply={handleReply}
-        onReplyAll={handleReplyAll}
-        onForward={handleForward}
-        onFlag={handleFlagMessage}
-      />
+      <Box sx={{ height: '100%', overflow: 'auto', p: 2 }}>
+        <ExpandedMessage
+          message={selectedEmailData}
+          onCollapse={handleCloseReadingPane}
+          onReply={handleReply}
+          onReplyAll={handleReplyAll}
+          onForward={handleForward}
+          onFlag={handleFlagMessage}
+          onLabels={handleLabelsMessage}
+        />
+      </Box>
     );
   }, [
     selectedThreadId,
     isDesktop,
-    isThreadLoading,
-    selectedSubject,
-    threadMessages,
+    isEmailLoading,
+    selectedEmailData,
     handleCloseReadingPane,
     handleReply,
     handleReplyAll,
     handleForward,
     handleFlagMessage,
+    handleLabelsMessage,
     t.threadView?.loading,
   ]);
 
@@ -333,16 +320,61 @@ export default function EmailPage() {
     toast.info(t.threadActions?.folderPickerComingSoon || 'Folder picker coming soon');
   }, [toast, t]);
 
-  // Bulk label - show label picker (TODO: implement picker dialog)
-  const handleBulkLabel = useCallback((_ids: string[]) => {
-    // TODO: Show label picker dialog (implement in Phase 4.3)
-    toast.info(t.threadActions?.labelPickerComingSoon || 'Label picker coming soon');
+  // Get current label IDs for selected emails (intersection of all labels)
+  const getCurrentLabelIds = useCallback(
+    (ids: string[]): string[] => {
+      const selectedEmails = emailsData?.emails?.filter((e) => ids.includes(e.id)) || [];
+      if (selectedEmails.length === 0) return [];
+
+      // Get label IDs from first email
+      const firstEmailLabels = new Set(
+        selectedEmails[0].emailLabels?.map((el) => el.labelId) || []
+      );
+
+      // For single email, return all its labels
+      if (selectedEmails.length === 1) {
+        return Array.from(firstEmailLabels);
+      }
+
+      // For multiple emails, return intersection (labels common to all)
+      for (let i = 1; i < selectedEmails.length; i++) {
+        const emailLabels = new Set(
+          selectedEmails[i].emailLabels?.map((el) => el.labelId) || []
+        );
+        firstEmailLabels.forEach((labelId) => {
+          if (!emailLabels.has(labelId)) {
+            firstEmailLabels.delete(labelId);
+          }
+        });
+      }
+      return Array.from(firstEmailLabels);
+    },
+    [emailsData?.emails]
+  );
+
+  // Bulk label - show label picker dialog
+  const handleBulkLabel = useCallback((ids: string[]) => {
+    setLabelPickerEmailIds(ids);
+    setLabelPickerOpen(true);
+  }, []);
+
+  // Handle label picker success
+  const handleLabelPickerSuccess = useCallback(() => {
+    toast.success(t.common.success ?? 'Labels added');
+    setLabelPickerOpen(false);
+    setLabelPickerEmailIds([]);
   }, [toast, t]);
+
+  // Close label picker
+  const handleLabelPickerClose = useCallback(() => {
+    setLabelPickerOpen(false);
+    setLabelPickerEmailIds([]);
+  }, []);
 
   // Toggle flag on single email
   const handleFlag = useCallback(
     async (id: string) => {
-      const email = displayThreads.find((t) => t.id === id);
+      const email = threads.find((t) => t.id === id);
       if (!email) return;
 
       try {
@@ -354,7 +386,7 @@ export default function EmailPage() {
         toast.error(t.common.genericError);
       }
     },
-    [displayThreads, updateEmail, toast, t]
+    [threads, updateEmail, toast, t]
   );
 
   // Archive single email
@@ -386,7 +418,7 @@ export default function EmailPage() {
   // Drag and drop handler with provider validation
   const handleEmailDrop = async (emailIds: string[], folderId: string, folderName: string) => {
     // Find the email(s) being moved
-    const emails = displayThreads.filter((t) => emailIds.includes(t.id));
+    const emails = threads.filter((t) => emailIds.includes(t.id));
 
     if (emails.length === 0) return;
 
@@ -448,15 +480,14 @@ export default function EmailPage() {
     );
   }
 
-  // Note: Error state is handled by displayThreads fallback to mockThreads
-  // and by PageErrorBoundary for render errors
+  // Note: Error state is handled by PageErrorBoundary for render errors
 
   return (
     <PageErrorBoundary pageName="Email">
       <Layout>
         <EmailLayout readingPane={readingPane}>
           <ThreadList
-            threads={displayThreads}
+            threads={threads}
             emptyVariant="inbox"
             isLoading={isLoading}
             onThreadClick={handleThreadClick}
@@ -474,6 +505,15 @@ export default function EmailPage() {
           />
           <toast.ToastContainer />
         </EmailLayout>
+
+        {/* Label Picker Dialog */}
+        <LabelPickerDialog
+          open={labelPickerOpen}
+          onClose={handleLabelPickerClose}
+          emailIds={labelPickerEmailIds}
+          currentLabelIds={getCurrentLabelIds(labelPickerEmailIds)}
+          onSuccess={handleLabelPickerSuccess}
+        />
       </Layout>
     </PageErrorBoundary>
   );

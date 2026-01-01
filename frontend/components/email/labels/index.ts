@@ -7,6 +7,7 @@
 // Components
 export { LabelColorPicker } from './LabelColorPicker';
 export { LabelDialog } from './LabelDialog';
+export { LabelPickerDialog } from './LabelPickerDialog';
 export { LabelContextMenu } from './LabelContextMenu';
 export { LabelDeleteDialog } from './LabelDeleteDialog';
 

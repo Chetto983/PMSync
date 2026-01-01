@@ -66,6 +66,8 @@ interface ThreadViewOutlookProps {
   onFlagAllMessages?: () => void;
   onUnflagAllMessages?: () => void;
   onAddLabelsToThread?: () => void;
+  /** Callback for adding labels to a single message */
+  onLabelsMessage?: (messageId: string) => void;
 }
 
 // Re-export as ThreadView for backward compatibility
@@ -88,6 +90,7 @@ export function ThreadViewOutlook({
   onFlagAllMessages,
   onUnflagAllMessages,
   onAddLabelsToThread,
+  onLabelsMessage,
 }: ThreadViewOutlookProps) {
   const t = useTranslations();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -252,6 +255,13 @@ export function ThreadViewOutlook({
                 </IconButton>
               </Tooltip>
             )}
+            {onAddLabelsToThread && (
+              <Tooltip title={t.email?.labels?.addLabels || 'Add labels'}>
+                <IconButton size="small" onClick={onAddLabelsToThread}>
+                  <Tag size={18} />
+                </IconButton>
+              </Tooltip>
+            )}
 
             <IconButton
               size="small"
@@ -331,6 +341,7 @@ export function ThreadViewOutlook({
                 onReplyAll={onReplyAll}
                 onForward={onForward}
                 onFlag={onFlag}
+                onLabels={onLabelsMessage}
               />
             ) : (
               <CollapsedMessage
@@ -416,6 +427,7 @@ export function ThreadViewOutlook({
                           onReplyAll={onReplyAll}
                           onForward={onForward}
                           onFlag={onFlag}
+                          onLabels={onLabelsMessage}
                         />
                       ) : (
                         <CollapsedMessage
@@ -441,6 +453,7 @@ export function ThreadViewOutlook({
                   onReplyAll={onReplyAll}
                   onForward={onForward}
                   onFlag={onFlag}
+                  onLabels={onLabelsMessage}
                 />
               ) : (
                 <CollapsedMessage

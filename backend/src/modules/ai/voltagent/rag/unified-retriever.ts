@@ -13,7 +13,7 @@ import { Logger } from '@nestjs/common';
 import { BaseRetriever, type BaseMessage } from '@voltagent/core';
 import type { PrismaService } from '../../../../prisma/prisma.service';
 import type { LongTermMemoryService } from '../memory/long-term-memory.service';
-import type { PgVectorMemoryService } from '../memory/pgvector-memory.service';
+
 import type { MistralService } from '../../services/mistral.service';
 import type { EmbeddingsService } from '../../services/embeddings.service';
 import type { SupportedLocale } from '../locales';
@@ -29,13 +29,7 @@ interface LongTermMemoryRecord {
   score?: number;
 }
 
-/** Memory record returned from PgVectorMemoryService */
-interface PgVectorMemoryRecord {
-  id: string;
-  content: string;
-  score?: number;
-  decayedScore?: number;
-}
+
 
 export interface MemoryContext {
   facts: Array<{ id: string; content: string; category: string; score: number }>;
@@ -60,7 +54,7 @@ export interface UnifiedRetrieverOptions {
   locale: SupportedLocale;
   prisma: PrismaService;
   longTermMemory: LongTermMemoryService;
-  pgVectorMemory?: PgVectorMemoryService;
+
   // RAG services (optional - will use basic text search if not available)
   mistralService?: MistralService;
   embeddingsService?: EmbeddingsService;
@@ -86,7 +80,7 @@ export class UnifiedRetriever extends BaseRetriever {
   private readonly locale: SupportedLocale;
   private readonly prisma: PrismaService;
   private readonly longTermMemory: LongTermMemoryService;
-  private readonly pgVectorMemory?: PgVectorMemoryService;
+
   private readonly mistralService?: MistralService;
   private readonly embeddingsService?: EmbeddingsService;
 
@@ -106,7 +100,7 @@ export class UnifiedRetriever extends BaseRetriever {
     this.locale = options.locale;
     this.prisma = options.prisma;
     this.longTermMemory = options.longTermMemory;
-    this.pgVectorMemory = options.pgVectorMemory;
+
     this.mistralService = options.mistralService;
     this.embeddingsService = options.embeddingsService;
 
@@ -181,6 +175,7 @@ export class UnifiedRetriever extends BaseRetriever {
    * Memory-First: Get user's personal context
    */
   async getMemoryContext(query: string): Promise<MemoryContext> {
+
     const emptyContext: MemoryContext = {
       facts: [],
       preferences: [],
@@ -189,19 +184,10 @@ export class UnifiedRetriever extends BaseRetriever {
     };
 
     try {
-      const memoryCtx = { tenantId: this.tenantId, userId: this.userId };
-      const [longTermMemoriesRaw, pgVectorMemoriesRaw] = await Promise.all([
-        this.longTermMemory.searchMemories(this.tenantId, this.userId, query, {
-          limit: this.memoryLimit,
-        }).catch(() => []),
-        this.pgVectorMemory?.searchMemories(memoryCtx, query, {
-          limit: this.memoryLimit,
-        }).catch(() => []) ?? Promise.resolve([]),
-      ]);
-
-      // Cast to our interface - services return compatible structures
-      const longTermMemories = longTermMemoriesRaw as LongTermMemoryRecord[];
-      const pgVectorMemories = pgVectorMemoriesRaw as PgVectorMemoryRecord[];
+      // Cast searchMemories result to LongTermMemoryRecord[]
+      const longTermMemories = (await this.longTermMemory.searchMemories(this.tenantId, this.userId, query, {
+        limit: this.memoryLimit,
+      })) as unknown as LongTermMemoryRecord[];
 
       return {
         facts: longTermMemories
@@ -213,16 +199,13 @@ export class UnifiedRetriever extends BaseRetriever {
         contacts: longTermMemories
           .filter((m) => m.category === 'CONTACT' || m.category === 'RELATIONSHIP')
           .map((m) => ({ id: m.id, content: m.content, category: m.category, score: m.score ?? 0.5 })),
-        history: pgVectorMemories.map((m) => ({
-          id: m.id,
-          content: m.content,
-          score: m.decayedScore ?? m.score ?? 0.5,
-        })),
+        history: [],
       };
     } catch (error) {
       this.nestLogger.warn(`Memory retrieval failed: ${error instanceof Error ? error.message : String(error)}`);
       return emptyContext;
     }
+
   }
 
   /**

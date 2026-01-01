@@ -22,7 +22,7 @@ import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import type { PrismaService } from '../../../../prisma/prisma.service';
 import type { LongTermMemoryService } from '../memory/long-term-memory.service';
-import type { PgVectorMemoryService } from '../memory/pgvector-memory.service';
+
 import type { MistralService } from '../../services/mistral.service';
 import type { EmbeddingsService } from '../../services/embeddings.service';
 import type { DeadlineExtractorService } from '../services/deadline-extractor.service';
@@ -40,7 +40,7 @@ export interface UnifiedKnowledgeAgentOptions {
   hooks?: AgentHooks;
   // Memory services
   longTermMemory: LongTermMemoryService;
-  pgVectorMemory?: PgVectorMemoryService;
+
   // Data services
   deadlineService: DeadlineExtractorService;
   followUpService: FollowUpService;
@@ -88,7 +88,7 @@ function createUnifiedKnowledgeTools(options: UnifiedKnowledgeAgentOptions) {
           locale,
           prisma,
           longTermMemory,
-          pgVectorMemory: options.pgVectorMemory,
+
           mistralService: options.mistralService,
           embeddingsService,
           emailLimit: limit ?? 5,
@@ -234,7 +234,7 @@ export function createUnifiedKnowledgeAgent(options: UnifiedKnowledgeAgentOption
     locale,
     prisma,
     longTermMemory: options.longTermMemory,
-    pgVectorMemory: options.pgVectorMemory,
+
     mistralService: options.mistralService,
     embeddingsService: options.embeddingsService,
   });
