@@ -191,7 +191,7 @@ function createUnifiedKnowledgeTools(options: UnifiedKnowledgeAgentOptions) {
       parameters: z.object({
         content: z.string().describe('What to remember'),
         category: z
-          .enum(['preference', 'fact', 'contact', 'project', 'general'])
+          .enum(['preference', 'fact', 'contact', 'project', 'general', 'pattern', 'interaction'])
           .optional()
           .describe('Category of memory'),
       }),
@@ -199,9 +199,11 @@ function createUnifiedKnowledgeTools(options: UnifiedKnowledgeAgentOptions) {
         const categoryMap: Record<string, string> = {
           preference: 'PREFERENCE',
           fact: 'FACT',
-          contact: 'CONTACT',
+          contact: 'CONTACT_NOTE',
           project: 'PROJECT',
           general: 'GENERAL',
+          pattern: 'PATTERN',
+          interaction: 'INTERACTION',
         };
 
         await longTermMemory.addFact(tenantId, userId, content, {
@@ -212,6 +214,74 @@ function createUnifiedKnowledgeTools(options: UnifiedKnowledgeAgentOptions) {
           success: true,
           message: t.knowledge.remembered,
         };
+      },
+    }),
+
+    // Forget something (delete from memory)
+    createTool({
+      name: 'forget',
+      description:
+        'Delete a specific memory by its ID. Use when the user asks to remove something from memory.',
+      parameters: z.object({
+        memoryId: z.string().describe('The ID of the memory to delete'),
+      }),
+      execute: async ({ memoryId }) => {
+        const success = await longTermMemory.deleteMemory(tenantId, memoryId);
+        return {
+          success,
+          message: success ? 'Memory deleted successfully.' : 'Failed to delete memory.',
+        };
+      },
+    }),
+
+    // List user's memories
+    createTool({
+      name: 'list_my_memories',
+      description:
+        'List what the AI knows/remembers about the user. Use when user asks "what do you know about me?"',
+      parameters: z.object({
+        category: z
+          .enum(['preference', 'fact', 'contact', 'pattern', 'interaction', 'all'])
+          .optional()
+          .default('all')
+          .describe('Filter by category'),
+        limit: z.number().optional().default(10).describe('Maximum memories to return'),
+      }),
+      execute: async ({ category, limit }) => {
+        const categoryMap: Record<string, string | undefined> = {
+          preference: 'PREFERENCE',
+          fact: 'FACT',
+          contact: 'CONTACT_NOTE',
+          pattern: 'PATTERN',
+          interaction: 'INTERACTION',
+          all: undefined,
+        };
+
+        const memories = await longTermMemory.getAllMemories(tenantId, userId, {
+          category: categoryMap[category ?? 'all'] as MemoryCategory | undefined,
+          limit: limit ?? 10,
+        });
+
+        return {
+          count: memories.length,
+          memories: memories.map((m) => ({
+            id: m.id,
+            content: m.memory,
+            category: m.category,
+            createdAt: m.createdAt,
+          })),
+        };
+      },
+    }),
+
+    // Memory statistics
+    createTool({
+      name: 'memory_stats',
+      description: 'Get statistics about stored memories. Use to understand memory usage.',
+      parameters: z.object({}),
+      execute: async () => {
+        const stats = await longTermMemory.getStats(tenantId, userId);
+        return stats;
       },
     }),
   ];

@@ -2053,6 +2053,7 @@ export const it: AppTranslations = {
         deleteConfirm: 'Eliminare questo ricordo?',
         copied: 'Copiato!',
         copy: 'Copia',
+        showHistory: 'Cronologia',
       },
       loading: 'Caricamento ricordi...',
       error: 'Impossibile caricare i ricordi',
@@ -2060,6 +2061,39 @@ export const it: AppTranslations = {
       memoryAdded: 'Ricordo aggiunto con successo',
       memoryDeleted: 'Ricordo eliminato',
       memoriesCleared: 'Tutti i ricordi cancellati',
+      // P2: Tracciamento cronologia
+      history: {
+        title: 'Cronologia Ricordo',
+        noHistory: 'Nessuna modifica registrata',
+        action: {
+          CREATE: 'Creato',
+          UPDATE: 'Aggiornato',
+          DELETE: 'Eliminato',
+        },
+        previousValue: 'Precedente',
+        newValue: 'Nuovo',
+      },
+      // P2: Pattern procedurali
+      patterns: {
+        title: 'Pattern Appresi',
+        subtitle: 'Pattern di attività che l\'AI ha imparato dalle tue azioni',
+        noPatterns: 'Nessun pattern appreso ancora',
+        noPatternsDescription: 'L\'AI impara i pattern delle attività mentre la usi.',
+        taskTypes: {
+          email_reply: 'Risposta Email',
+          schedule_meeting: 'Pianifica Riunione',
+          follow_up: 'Follow Up',
+          contact_update: 'Aggiorna Contatto',
+        },
+        successRate: 'Tasso di Successo',
+        usedCount: 'Usato {count} volte',
+        lastUsed: 'Ultimo utilizzo',
+        steps: 'Passaggi',
+      },
+      tabs: {
+        memories: 'Ricordi',
+        patterns: 'Pattern',
+      },
     },
     followUpTracker: {
       title: 'Tracker Follow-up',

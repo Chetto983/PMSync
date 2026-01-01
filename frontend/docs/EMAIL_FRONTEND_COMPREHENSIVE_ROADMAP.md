@@ -85,20 +85,20 @@
 - `components/email/list/ThreadList.tsx` - Virtual scrolling list
 - `hooks/use-email-realtime.ts` - WebSocket integration
 
-### ✅ Phase 4: Labels & Organization - PARTIAL (January 1, 2026)
+### ✅ Phase 4: Labels & Organization - COMPLETE (January 1, 2026)
 **Completed Components:**
-- [x] LabelPickerDialog - Select and add labels to emails
+- [x] LabelPickerDialog - Select and add/remove labels
 - [x] LabelDialog - Create/edit labels
 - [x] LabelColorPicker - Color selection
 - [x] LabelContextMenu - Right-click label management
 - [x] LabelDeleteDialog - Confirm label deletion
 - [x] useLabelManagement hook
 - [x] Bulk add labels via `useBulkAddLabels` mutation
-
-**Pending:**
-- [ ] Label filter in email list
-- [ ] Label chips in ThreadListItem
-- [ ] Remove labels from emails
+- [x] Bulk remove labels via `useBulkRemoveLabels` mutation
+- [x] Label filter in sidebar (click label to filter emails)
+- [x] Label chips display in ThreadListItem
+- [x] Single email label management (Label button in ExpandedMessage)
+- [x] Thread label management (Tag button in ThreadViewOutlook toolbar)
 
 ### 🔲 Phase 5: Compose & Draft - PENDING
 ### 🔲 Phase 6: Search & Filters - PENDING
@@ -687,22 +687,24 @@ function EmailList({ emails }) {
 - [ ] Bulk move works
 - [ ] Undo functionality works
 
-### Phase 4: Labels & Organization
+### Phase 4: Labels & Organization ✅ COMPLETE
 **Goal**: Custom organization
 
-| Task | Component | Dependencies |
-|------|-----------|--------------|
-| 4.1 | Label sidebar section | Phase 3 |
-| 4.2 | Label CRUD operations | 4.1 |
-| 4.3 | Apply/remove labels | 4.2 |
-| 4.4 | Label color picker | 4.2 |
-| 4.5 | Label drag-drop reorder | 4.2 |
+| Task | Component | Dependencies | Status |
+|------|-----------|--------------|--------|
+| 4.1 | Label sidebar section | Phase 3 | ✅ |
+| 4.2 | Label CRUD operations | 4.1 | ✅ |
+| 4.3 | Apply/remove labels | 4.2 | ✅ |
+| 4.4 | Label color picker | 4.2 | ✅ |
+| 4.5 | Single email labels | 4.2 | ✅ |
+| 4.6 | Label filter in list | 4.1 | ✅ |
 
 **Validation**:
-- [ ] Can create labels with colors
-- [ ] Can apply labels to emails
-- [ ] Can filter by label
-- [ ] Label reorder persists
+- [x] Can create labels with colors
+- [x] Can apply labels to emails (bulk + single)
+- [x] Can remove labels from emails
+- [x] Can filter by label in sidebar
+- [x] Label chips display in email list
 
 ### Phase 5: Compose & Draft
 **Goal**: Full email composition

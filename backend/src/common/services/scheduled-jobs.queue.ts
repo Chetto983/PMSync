@@ -46,6 +46,9 @@ export enum ScheduledJobType {
   // AI/Embedding jobs
   EMAIL_EMBEDDING_CLEANUP = 'email-embedding-cleanup',
 
+  // Memory management jobs (2025 Best Practices)
+  MEMORY_CLEANUP = 'memory-cleanup',
+
   // Log rotation
   LOG_ROTATION = 'log-rotation',
 }
@@ -53,9 +56,9 @@ export enum ScheduledJobType {
 /**
  * Cron patterns for scheduled jobs
  */
-export const SCHEDULED_JOB_PATTERNS = {
+export const SCHEDULED_JOB_PATTERNS: Record<ScheduledJobType, string> = {
   [ScheduledJobType.SYNC_SCHEDULER]: '*/5 * * * *', // Every 5 minutes
-  [ScheduledJobType.WEBHOOK_RENEWAL]: '0 */6 * * *', // Every 6 hours (Microsoft subscriptions expire after ~3 days)
+  [ScheduledJobType.WEBHOOK_RENEWAL]: '0 */6 * * *', // Every 6 hours
   [ScheduledJobType.WEBHOOK_DEEP_CHECK]: '0 3 * * *', // Daily at 3 AM
   [ScheduledJobType.WEBHOOK_CLEANUP]: '0 4 * * 0', // Weekly on Sunday at 4 AM
   [ScheduledJobType.SCHEDULED_EMAIL_PROCESS]: '* * * * *', // Every minute
@@ -64,6 +67,7 @@ export const SCHEDULED_JOB_PATTERNS = {
   [ScheduledJobType.EMAIL_CLEANUP_ORPHANS]: '30 3 * * *', // 3:30 AM
   [ScheduledJobType.EMAIL_RETENTION]: '0 2 * * *', // Daily at 2 AM
   [ScheduledJobType.EMAIL_EMBEDDING_CLEANUP]: '*/30 * * * *', // Every 30 minutes
+  [ScheduledJobType.MEMORY_CLEANUP]: '0 1 * * *', // Daily at 1 AM - cleanup expired memories
   [ScheduledJobType.LOG_ROTATION]: '0 0 * * *', // Daily at midnight
 };
 

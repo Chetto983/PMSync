@@ -143,4 +143,32 @@ export const personalizationApi = {
       '/ai/personalization/working-hours'
     );
   },
+
+  // Get memory history
+  getMemoryHistory(memoryId: string) {
+    return apiClient.get<{
+      success: boolean;
+      history: Array<{
+        action: string;
+        previousValue?: string;
+        newValue?: string;
+        createdAt: string;
+      }>;
+    }>(`/ai/personalization/memories/${memoryId}/history`);
+  },
+
+  // Get procedural patterns
+  getPatterns() {
+    return apiClient.get<{
+      success: boolean;
+      patterns: Array<{
+        id: string;
+        taskType: string;
+        trigger: string;
+        steps: unknown;
+        successRate: number;
+        lastUsedAt: string;
+      }>;
+    }>('/ai/personalization/patterns');
+  },
 };

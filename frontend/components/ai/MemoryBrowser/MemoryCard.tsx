@@ -19,6 +19,7 @@ import type { Memory, MemoryType } from '@/hooks/queries';
 interface MemoryCardProps {
   memory: Memory;
   onDelete?: (id: string) => void;
+  onShowHistory?: (id: string) => void;
   isDeleting?: boolean;
 }
 
@@ -38,7 +39,7 @@ const MEMORY_TYPE_COLORS: Record<MemoryType, string> = {
   CONTACT_NOTE: 'secondary',
 };
 
-export function MemoryCard({ memory, onDelete, isDeleting }: MemoryCardProps) {
+export function MemoryCard({ memory, onDelete, isDeleting, onShowHistory }: MemoryCardProps) {
   const theme = useTheme();
   const t = useTranslations();
   const [copied, setCopied] = React.useState(false);
@@ -71,15 +72,15 @@ export function MemoryCard({ memory, onDelete, isDeleting }: MemoryCardProps) {
   const isValidDate = parsedDate && !isNaN(parsedDate.getTime());
   const formattedDate = isValidDate
     ? parsedDate.toLocaleDateString(t.locale, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
     : new Date().toLocaleDateString(t.locale, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
 
   return (
     <Card
@@ -118,6 +119,17 @@ export function MemoryCard({ memory, onDelete, isDeleting }: MemoryCardProps) {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 0.5 }}>
+            {onShowHistory && (
+              <Tooltip title={t.ai.memoryBrowser.actions.showHistory}>
+                <IconButton
+                  size="small"
+                  onClick={() => onShowHistory(memory.id)}
+                  sx={{ opacity: 0.6, '&:hover': { opacity: 1, color: 'info.main' } }}
+                >
+                  <TrendingUp size={14} />
+                </IconButton>
+              </Tooltip>
+            )}
             <Tooltip title={copied ? t.ai.memoryBrowser.actions.copied : t.ai.memoryBrowser.actions.copy}>
               <IconButton size="small" onClick={handleCopy} sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}>
                 {copied ? <Check size={14} /> : <Copy size={14} />}

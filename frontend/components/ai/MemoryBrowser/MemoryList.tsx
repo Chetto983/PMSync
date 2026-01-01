@@ -13,6 +13,7 @@ interface MemoryListProps {
   error?: Error | null;
   onDelete?: (id: string) => void;
   deletingId?: string | null;
+  onShowHistory?: (id: string) => void;
   onRetry?: () => void;
 }
 
@@ -29,7 +30,7 @@ function MemorySkeleton() {
   );
 }
 
-export function MemoryList({ memories, isLoading, error, onDelete, deletingId, onRetry }: MemoryListProps) {
+export function MemoryList({ memories, isLoading, error, onDelete, deletingId, onRetry, onShowHistory }: MemoryListProps) {
   const theme = useTheme();
   const t = useTranslations();
 
@@ -120,6 +121,7 @@ export function MemoryList({ memories, isLoading, error, onDelete, deletingId, o
           memory={memory}
           onDelete={onDelete}
           isDeleting={deletingId === memory.id}
+          onShowHistory={onShowHistory}
         />
       ))}
     </Box>

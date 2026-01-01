@@ -238,3 +238,48 @@ export function useClearAllMemories() {
     },
   });
 }
+
+/**
+ * Hook for memory history
+ */
+export interface MemoryHistoryItem {
+  action: string;
+  previousValue?: string;
+  newValue?: string;
+  createdAt: string;
+}
+
+export function useMemoryHistory(memoryId: string, enabled = false) {
+  return useQuery({
+    queryKey: memoryKeys.history(memoryId),
+    queryFn: async () => {
+      const response = await personalizationApi.getMemoryHistory(memoryId);
+      return response.data?.history || [];
+    },
+    enabled: enabled && !!memoryId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook for procedural patterns
+ */
+export interface ProceduralPattern {
+  id: string;
+  taskType: string;
+  trigger: string;
+  steps: unknown;
+  successRate: number;
+  lastUsedAt: string;
+}
+
+export function usePatterns() {
+  return useQuery({
+    queryKey: memoryKeys.patterns(),
+    queryFn: async () => {
+      const response = await personalizationApi.getPatterns();
+      return response.data?.patterns || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}

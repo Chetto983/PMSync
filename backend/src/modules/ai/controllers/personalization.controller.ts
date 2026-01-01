@@ -147,7 +147,7 @@ class UpdateProfileDto {
 @UseGuards(JwtAuthGuard, TenantGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class PersonalizationController {
-  constructor(private readonly personalizationService: PersonalizationService) {}
+  constructor(private readonly personalizationService: PersonalizationService) { }
 
   /**
    * Get user's personalization profile
@@ -326,6 +326,42 @@ export class PersonalizationController {
       dto,
     );
     return { success: true };
+  }
+
+
+
+  /**
+   * Get memory history (audit trail)
+   * GET /ai/personalization/memories/:id/history
+   */
+  @Get('memories/:id/history')
+  @ApiOperation({ summary: 'Get memory history' })
+  @ApiParam({ name: 'id', description: 'Memory ID' })
+  @ApiResponse({ status: 200, description: 'Returns memory history' })
+  async getMemoryHistory(
+    @Request() req: AuthenticatedRequest,
+    @Param('id') memoryId: string,
+  ) {
+    const history = await this.personalizationService.getMemoryHistory(
+      req.user.tenantId,
+      memoryId,
+    );
+    return { success: true, history };
+  }
+
+  /**
+   * Get procedural patterns
+   * GET /ai/personalization/patterns
+   */
+  @Get('patterns')
+  @ApiOperation({ summary: 'Get procedural patterns' })
+  @ApiResponse({ status: 200, description: 'Returns learned patterns' })
+  async getPatterns(@Request() req: AuthenticatedRequest) {
+    const patterns = await this.personalizationService.getPatterns(
+      req.user.tenantId,
+      req.user.userId,
+    );
+    return { success: true, patterns };
   }
 
   /**

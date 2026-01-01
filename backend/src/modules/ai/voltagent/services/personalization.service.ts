@@ -7,6 +7,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { MistralService } from '../../services/mistral.service';
+import { LongTermMemoryService } from '../memory/long-term-memory.service';
 
 /**
  * Job role types for personalization
@@ -145,7 +146,8 @@ export class PersonalizationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mistralService: MistralService,
-  ) {}
+    private readonly longTermMemoryService: LongTermMemoryService,
+  ) { }
 
   /**
    * Get the complete personalization profile for a user
@@ -512,5 +514,27 @@ export class PersonalizationService {
     prompt += `\n\nRespond in ${context.profile.language === 'it' ? 'Italian' : 'English'}.`;
 
     return prompt;
+  }
+
+  /**
+   * Get memory history (audit trail)
+   */
+  async getMemoryHistory(
+    tenantId: string,
+    memoryId: string,
+    limit = 10,
+  ) {
+    return this.longTermMemoryService.getMemoryHistory(tenantId, memoryId, limit);
+  }
+
+  /**
+   * Get procedural patterns
+   */
+  async getPatterns(
+    tenantId: string,
+    userId: string,
+    limit = 20,
+  ) {
+    return this.longTermMemoryService.getRecentPatterns(tenantId, userId, limit);
   }
 }

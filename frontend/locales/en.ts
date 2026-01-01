@@ -2075,6 +2075,7 @@ export const en: AppTranslations = {
         deleteConfirm: 'Delete this memory?',
         copied: 'Copied!',
         copy: 'Copy',
+        showHistory: 'History',
       },
       loading: 'Loading memories...',
       error: 'Failed to load memories',
@@ -2082,6 +2083,39 @@ export const en: AppTranslations = {
       memoryAdded: 'Memory added successfully',
       memoryDeleted: 'Memory deleted',
       memoriesCleared: 'All memories cleared',
+      // P2: History tracking
+      history: {
+        title: 'Memory History',
+        noHistory: 'No changes recorded',
+        action: {
+          CREATE: 'Created',
+          UPDATE: 'Updated',
+          DELETE: 'Deleted',
+        },
+        previousValue: 'Previous',
+        newValue: 'New',
+      },
+      // P2: Procedural patterns
+      patterns: {
+        title: 'Learned Patterns',
+        subtitle: 'Task patterns the AI has learned from your actions',
+        noPatterns: 'No patterns learned yet',
+        noPatternsDescription: 'The AI learns task patterns as you use it.',
+        taskTypes: {
+          email_reply: 'Email Reply',
+          schedule_meeting: 'Schedule Meeting',
+          follow_up: 'Follow Up',
+          contact_update: 'Contact Update',
+        },
+        successRate: 'Success Rate',
+        usedCount: 'Used {count} times',
+        lastUsed: 'Last used',
+        steps: 'Steps',
+      },
+      tabs: {
+        memories: 'Memories',
+        patterns: 'Patterns',
+      },
     },
     followUpTracker: {
       title: 'Follow-up Tracker',

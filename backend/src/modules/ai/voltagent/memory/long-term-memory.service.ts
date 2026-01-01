@@ -17,11 +17,12 @@
  * - https://arxiv.org/abs/2504.19413 (Mem0 Research Paper: 26% accuracy improvement)
  * - Design inspired by Mem0, implemented with existing stack
  */
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { MistralService } from '../../services/mistral.service';
+import { ScheduledJobsQueueService, ScheduledJobType } from '../../../../common/services/scheduled-jobs.queue';
 
 /**
  * Validates and sanitizes an embedding vector for safe SQL usage.
@@ -69,16 +70,20 @@ export interface MemoryResult {
 
 /**
  * Memory category types for organization
+ * NOTE: Must match frontend filter options in Memories page
  */
 export type MemoryCategory =
-  | 'PREFERENCE'      // User preferences (communication style, timezone, etc.)
-  | 'CONTACT'         // Information about contacts
+  | 'PREFERENCE'      // User preferences (Preferenze)
+  | 'FACT'            // Facts about user (Fatti)
+  | 'PATTERN'         // Behavioral patterns (Pattern)
+  | 'INTERACTION'     // Conversation interactions (Interazioni)
+  | 'CONTACT_NOTE'    // Notes about contacts (Note Contatti)
+  | 'CONTACT'         // Legacy: Information about contacts
   | 'SCHEDULE'        // Scheduling preferences and patterns
   | 'HABIT'           // User work habits
   | 'RELATIONSHIP'    // Contact relationship context
   | 'PROJECT'         // Project/task context
-  | 'GENERAL'         // General facts
-  | 'FACT';           // Fact
+  | 'GENERAL';        // General facts
 
 /**
  * Options for storing memories
@@ -89,6 +94,10 @@ export interface StoreMemoryOptions {
   sourceType?: 'CONVERSATION' | 'EMAIL' | 'CALENDAR' | 'INFERRED' | 'EXPLICIT';
   sourceId?: string;
   metadata?: Record<string, unknown>;
+  /** TTL in days - memory will expire after this period */
+  ttlDays?: number;
+  /** Skip deduplication check (default: false) */
+  skipDedup?: boolean;
 }
 
 /**
@@ -127,6 +136,7 @@ export class LongTermMemoryService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly mistralService: MistralService,
     private readonly configService: ConfigService,
+    @Optional() private readonly scheduledJobsQueue?: ScheduledJobsQueueService,
   ) {
     this.maxMemories = this.configService.get<number>('LONG_TERM_MEMORY_MAX_MEMORIES', 10);
   }
@@ -149,6 +159,18 @@ export class LongTermMemoryService implements OnModuleInit {
 
     this.enabled = true;
     this.logger.log('Long-term memory initialized (Prisma + Mistral)');
+
+    // Register memory cleanup handler with BullMQ scheduler
+    if (this.scheduledJobsQueue) {
+      this.scheduledJobsQueue.registerHandler(
+        ScheduledJobType.MEMORY_CLEANUP,
+        async () => {
+          const count = await this.cleanupExpiredMemories();
+          this.logger.log(`Memory cleanup job completed: ${count} expired memories removed`);
+        },
+      );
+      this.logger.debug('Registered MEMORY_CLEANUP handler with scheduler');
+    }
   }
 
   /**
@@ -243,6 +265,10 @@ export class LongTermMemoryService implements OnModuleInit {
   /**
    * Store a single fact/memory directly.
    * Use this for explicit memory storage (vs. conversation extraction).
+   * 
+   * 2025 Best Practices:
+   * - Checks for similar existing memories (deduplication)
+   * - Supports TTL for memory expiration
    */
   async addFact(
     tenantId: string,
@@ -261,11 +287,28 @@ export class LongTermMemoryService implements OnModuleInit {
         this.logger.debug('Failed to generate embedding, storing without vector');
       }
 
+      // P0 FIX: Deduplication - Check for similar existing memories
+      if (!options.skipDedup && vector) {
+        const existing = await this.searchMemories(tenantId, userId, fact, { limit: 1 });
+        if (existing.length > 0 && existing[0].score && existing[0].score > 0.9) {
+          this.logger.debug(
+            `Dedup: Found similar memory (${existing[0].score.toFixed(2)}), updating instead of creating`,
+          );
+          // Update existing memory with new content
+          await this.updateMemoryContent(existing[0].id, fact, vector);
+          return existing[0].id;
+        }
+      }
+
       const id = this.generateId();
       const memoryType = options.category || 'FACT';
       const confidence = options.importance || 0.5;
       const source = options.sourceType || 'EXPLICIT';
       const category = null;
+      // P0 FIX: Calculate expiration date if TTL provided
+      const expiresAt = options.ttlDays
+        ? new Date(Date.now() + options.ttlDays * 24 * 60 * 60 * 1000)
+        : null;
 
       if (vector) {
         const validatedVector = validateEmbeddingVector(vector);
@@ -275,10 +318,10 @@ export class LongTermMemoryService implements OnModuleInit {
           Prisma.sql`
             INSERT INTO "user_profile_embeddings"
               ("id", "tenantId", "userId", "content", "memoryType", "confidence",
-               "source", "category", "vector", "createdAt", "updatedAt")
+               "source", "category", "vector", "expiresAt", "createdAt", "updatedAt")
             VALUES
               (${id}, ${tenantId}, ${userId}, ${fact}, ${memoryType}, ${confidence},
-               ${source}, ${category}, ${vectorLiteral}, NOW(), NOW())
+               ${source}, ${category}, ${vectorLiteral}, ${expiresAt}, NOW(), NOW())
           `,
         );
         return id;
@@ -292,6 +335,7 @@ export class LongTermMemoryService implements OnModuleInit {
             confidence: confidence,
             source,
             category: category,
+            expiresAt,
           },
           select: { id: true },
         });
@@ -303,10 +347,14 @@ export class LongTermMemoryService implements OnModuleInit {
       return null;
     }
   }
-
   /**
    * Search for relevant memories based on a query.
    * Uses CTE pattern to ensure tenant isolation at query level.
+   * 
+   * P2 Enhancement: Includes importance decay based on usage patterns.
+   * Formula: final_score = similarity * (0.7 + 0.3 * recency_factor * usage_factor)
+   * - recency_factor: exp(-0.01 * days_since_last_use)
+   * - usage_factor: min(1, usageCount / 10)
    */
   async searchMemories(
     tenantId: string,
@@ -332,41 +380,66 @@ export class LongTermMemoryService implements OnModuleInit {
       const validatedVector = validateEmbeddingVector(queryEmbedding);
       const vectorLiteral = Prisma.raw(`'[${validatedVector.join(',')}]'::vector`);
 
-      // Semantic search with pgvector using CTE for tenant isolation
-      // Note: mapping user_profile_embeddings columns
-      const results = await this.prisma.$queryRaw<MemoryRow[]>(
+      // P2 Enhancement: Semantic search with importance decay
+      // Combines vector similarity with recency and usage factors
+      const results = await this.prisma.$queryRaw<
+        Array<MemoryRow & { usage_count: number | null; last_used: Date | null }>
+      >(
         Prisma.sql`
           WITH tenant_memories AS (
             SELECT "id", "content", "memoryType", "confidence", "category",
-                   "createdAt", "vector"
+                   "createdAt", "vector", "usageCount", "lastUsedAt"
             FROM "user_profile_embeddings"
             WHERE "tenantId" = ${tenantId}
               AND "userId" = ${userId}
               AND "vector" IS NOT NULL
+              AND ("expiresAt" IS NULL OR "expiresAt" > NOW())
           )
           SELECT "id", "content", "memoryType", "confidence", "category",
                  "createdAt" as created_at,
+                 "usageCount" as usage_count,
+                 "lastUsedAt" as last_used,
                  1 - ("vector" <-> ${vectorLiteral}) as similarity
           FROM tenant_memories
           ORDER BY "vector" <-> ${vectorLiteral}
-          LIMIT ${limit}
+          LIMIT ${limit * 2}
         `,
       );
 
-      return results
-        .filter((r: MemoryRow) => r.similarity >= this.similarityThreshold)
-        .filter((r: MemoryRow) => !options.minImportance || r.confidence >= options.minImportance)
-        .filter((r: MemoryRow) => !options.category || r.memoryType === options.category)
-        .map((r: MemoryRow) => ({
-          id: r.id,
-          memory: r.content,
-          category: r.memoryType || undefined,
-          importance: r.confidence,
-          score: r.similarity,
-          // Metadata not available
-          metadata: undefined,
-          createdAt: r.created_at,
-        }));
+      // Apply importance decay and filter
+      const scored = results
+        .filter((r) => r.similarity >= this.similarityThreshold)
+        .filter((r) => !options.minImportance || r.confidence >= options.minImportance)
+        .filter((r) => !options.category || r.memoryType === options.category)
+        .map((r) => {
+          // Calculate decay factors
+          const daysSinceUse = r.last_used
+            ? (Date.now() - new Date(r.last_used).getTime()) / (1000 * 60 * 60 * 24)
+            : 30; // Default to 30 days if never used
+          const recencyFactor = Math.exp(-0.01 * daysSinceUse);
+          const usageFactor = Math.min(1, (r.usage_count || 0) / 10);
+
+          // Combined score: base similarity boosted by usage patterns
+          const decayedScore = r.similarity * (0.7 + 0.3 * recencyFactor * (0.5 + 0.5 * usageFactor));
+
+          return {
+            id: r.id,
+            memory: r.content,
+            category: r.memoryType || undefined,
+            importance: r.confidence,
+            score: decayedScore,
+            metadata: undefined,
+            createdAt: r.created_at,
+          };
+        })
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, limit);
+
+      // P1: Update usage stats for retrieved memories (fire-and-forget)
+      const memoryIds = scored.map((m) => m.id);
+      this.updateMemoryUsage(memoryIds).catch(() => { }); // Ignore errors
+
+      return scored;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Failed to search memories: ${message}`);
@@ -625,5 +698,352 @@ If nothing important to remember, return "NONE".`,
       GENERAL: 'General',
     };
     return labels[category] || category;
+  }
+
+  /**
+   * Update an existing memory's content (for deduplication).
+   * Keeps the original ID but updates content and timestamp.
+   */
+  private async updateMemoryContent(
+    memoryId: string,
+    newContent: string,
+    vector?: number[],
+  ): Promise<void> {
+    try {
+      if (vector) {
+        const validatedVector = validateEmbeddingVector(vector);
+        const vectorLiteral = Prisma.raw(`'[${validatedVector.join(',')}]'::vector`);
+
+        await this.prisma.$executeRaw(
+          Prisma.sql`
+            UPDATE "user_profile_embeddings"
+            SET "content" = ${newContent},
+                "vector" = ${vectorLiteral},
+                "usageCount" = COALESCE("usageCount", 0) + 1,
+                "lastUsedAt" = NOW(),
+                "updatedAt" = NOW()
+            WHERE "id" = ${memoryId}
+          `,
+        );
+      } else {
+        await this.prisma.userProfileEmbedding.update({
+          where: { id: memoryId },
+          data: {
+            content: newContent,
+            usageCount: { increment: 1 },
+            lastUsedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to update memory content: ${message}`);
+    }
+  }
+
+  /**
+   * Cleanup expired memories (call from scheduled job).
+   * Deletes memories where expiresAt < NOW().
+   */
+  async cleanupExpiredMemories(): Promise<number> {
+    if (!this.enabled) return 0;
+
+    try {
+      const result = await this.prisma.userProfileEmbedding.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date(),
+            not: null,
+          },
+        },
+      });
+
+      if (result.count > 0) {
+        this.logger.log(`Cleaned up ${result.count} expired memories`);
+      }
+      return result.count;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to cleanup expired memories: ${message}`);
+      return 0;
+    }
+  }
+
+  /**
+   * Update usage statistics for retrieved memories (for importance decay).
+   */
+  async updateMemoryUsage(memoryIds: string[]): Promise<void> {
+    if (memoryIds.length === 0) return;
+
+    try {
+      await this.prisma.userProfileEmbedding.updateMany({
+        where: { id: { in: memoryIds } },
+        data: {
+          usageCount: { increment: 1 },
+          lastUsedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(`Failed to update memory usage: ${message}`);
+    }
+  }
+
+  // ============================================================================
+  // P2: HISTORY TRACKING (2025 Best Practice: Selective Audit Logging)
+  // ============================================================================
+
+  /**
+   * Log a memory change for audit trail.
+   * Implements "selective logging at decision boundaries" pattern.
+   */
+  async logMemoryChange(
+    tenantId: string,
+    userId: string,
+    memoryId: string,
+    action: 'CREATE' | 'UPDATE' | 'DELETE',
+    previousValue?: string,
+    newValue?: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await this.prisma.memoryChangeLog.create({
+        data: {
+          tenantId,
+          userId,
+          memoryId,
+          action,
+          previousValue,
+          newValue,
+          metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined,
+        },
+      });
+    } catch (error) {
+      // Fire-and-forget: don't fail the main operation
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(`Failed to log memory change: ${message}`);
+    }
+  }
+
+  /**
+   * Get change history for a specific memory.
+   */
+  async getMemoryHistory(
+    tenantId: string,
+    memoryId: string,
+    limit = 10,
+  ): Promise<Array<{ action: string; previousValue?: string; newValue?: string; createdAt: Date }>> {
+    try {
+      const logs = await this.prisma.memoryChangeLog.findMany({
+        where: { tenantId, memoryId },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        select: {
+          action: true,
+          previousValue: true,
+          newValue: true,
+          createdAt: true,
+        },
+      });
+      return logs.map((log) => ({
+        action: log.action,
+        previousValue: log.previousValue ?? undefined,
+        newValue: log.newValue ?? undefined,
+        createdAt: log.createdAt,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  // ============================================================================
+  // P2: PROCEDURAL MEMORY (2025 Memp/PRAXIS Inspired)
+  // ============================================================================
+
+  /**
+   * Store a successful task pattern for future reuse.
+   * Called after an agent successfully completes a task.
+   */
+  async storeProceduralPattern(
+    tenantId: string,
+    userId: string,
+    taskType: string,
+    trigger: string,
+    steps: Array<{ tool: string; args?: Record<string, unknown>; result?: unknown }>,
+    context?: string,
+  ): Promise<string | null> {
+    if (!this.enabled) return null;
+
+    try {
+      // Generate embedding for similarity search
+      let vector: number[] | undefined;
+      try {
+        vector = await this.mistralService.generateEmbedding(trigger);
+      } catch {
+        // Continue without vector
+      }
+
+      if (vector) {
+        const validatedVector = validateEmbeddingVector(vector);
+        const vectorLiteral = Prisma.raw(`'[${validatedVector.join(',')}]'::vector`);
+        const id = this.generateId().replace('mem_', 'proc_');
+
+        await this.prisma.$executeRaw(
+          Prisma.sql`
+            INSERT INTO "procedural_patterns"
+              ("id", "tenantId", "userId", "taskType", "trigger", "steps", "context", "vector", "createdAt", "updatedAt")
+            VALUES
+              (${id}, ${tenantId}, ${userId}, ${taskType}, ${trigger}, ${JSON.stringify(steps)}::jsonb, ${context}, ${vectorLiteral}, NOW(), NOW())
+          `,
+        );
+        return id;
+      } else {
+        const pattern = await this.prisma.proceduralPattern.create({
+          data: {
+            tenantId,
+            userId,
+            taskType,
+            trigger,
+            steps: steps as unknown as Prisma.InputJsonValue,
+            context,
+          },
+          select: { id: true },
+        });
+        return pattern.id;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to store procedural pattern: ${message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Find similar procedural patterns for a given trigger.
+   */
+  async findSimilarPatterns(
+    tenantId: string,
+    userId: string,
+    trigger: string,
+    taskType?: string,
+    limit = 3,
+  ): Promise<Array<{ id: string; taskType: string; steps: unknown; successRate: number }>> {
+    if (!this.enabled) return [];
+
+    try {
+      let queryEmbedding: number[];
+      try {
+        queryEmbedding = await this.mistralService.generateEmbedding(trigger);
+      } catch {
+        return [];
+      }
+
+      const validatedVector = validateEmbeddingVector(queryEmbedding);
+      const vectorLiteral = Prisma.raw(`'[${validatedVector.join(',')}]'::vector`);
+
+      const results = await this.prisma.$queryRaw<
+        Array<{
+          id: string;
+          taskType: string;
+          steps: unknown;
+          successCount: number;
+          failureCount: number;
+          similarity: number;
+        }>
+      >(
+        Prisma.sql`
+          SELECT "id", "taskType", "steps", "successCount", "failureCount",
+                 1 - ("vector" <-> ${vectorLiteral}) as similarity
+          FROM "procedural_patterns"
+          WHERE "tenantId" = ${tenantId}
+            AND "userId" = ${userId}
+            AND "vector" IS NOT NULL
+            ${taskType ? Prisma.sql`AND "taskType" = ${taskType}` : Prisma.empty}
+          ORDER BY "vector" <-> ${vectorLiteral}
+          LIMIT ${limit}
+        `,
+      );
+
+      return results
+        .filter((r) => r.similarity > 0.7)
+        .map((r) => ({
+          id: r.id,
+          taskType: r.taskType,
+          steps: r.steps,
+          successRate: r.successCount / (r.successCount + r.failureCount),
+        }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.debug(`Failed to find similar patterns: ${message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Update pattern effectiveness after use.
+   */
+  async updatePatternEffectiveness(
+    patternId: string,
+    success: boolean,
+  ): Promise<void> {
+    try {
+      await this.prisma.proceduralPattern.update({
+        where: { id: patternId },
+        data: {
+          successCount: success ? { increment: 1 } : undefined,
+          failureCount: !success ? { increment: 1 } : undefined,
+          lastUsedAt: new Date(),
+        },
+      });
+    } catch {
+      // Ignore errors
+    }
+  }
+
+  /**
+   * Get recent procedural patterns for browser.
+   */
+  async getRecentPatterns(
+    tenantId: string,
+    userId: string,
+    limit = 20,
+  ): Promise<
+    Array<{
+      id: string;
+      taskType: string;
+      trigger: string;
+      steps: unknown;
+      successRate: number;
+      lastUsedAt: Date;
+    }>
+  > {
+    const patterns = await this.prisma.proceduralPattern.findMany({
+      where: { tenantId, userId },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        taskType: true,
+        trigger: true,
+        steps: true,
+        successCount: true,
+        failureCount: true,
+        lastUsedAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return patterns.map((p) => ({
+      id: p.id,
+      taskType: p.taskType,
+      trigger: p.trigger,
+      steps: p.steps,
+      successRate:
+        p.successCount + p.failureCount > 0
+          ? p.successCount / (p.successCount + p.failureCount)
+          : 0,
+      lastUsedAt: p.lastUsedAt || p.updatedAt,
+    }));
   }
 }

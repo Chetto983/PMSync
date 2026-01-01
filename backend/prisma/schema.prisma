@@ -56,6 +56,7 @@ model User {
   agentPendingActions   AgentPendingAction[]   @relation("AgentPendingActionsToUser")
   agentActionFeedback   AgentActionFeedback[]  @relation("AgentActionFeedbackToUser")
   userProfileEmbeddings UserProfileEmbedding[] @relation("UserProfileEmbeddingsToUser")
+  proceduralPatterns    ProceduralPattern[]    @relation("ProceduralPatternsToUser")
   tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
@@ -1096,6 +1097,60 @@ model UserProfileEmbedding {
   @@index([tenantId, userId, category])
   @@index([expiresAt])
   @@map("user_profile_embeddings")
+}
+
+/// Memory Change Log for audit trail (2025 Best Practice: Selective Logging)
+/// Tracks CREATE, UPDATE, DELETE operations for compliance and rollback
+model MemoryChangeLog {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String
+  memoryId      String   // Reference to UserProfileEmbedding.id
+  action        String   // CREATE, UPDATE, DELETE
+  previousValue String?  @db.Text // Old content (for UPDATE/DELETE)
+  newValue      String?  @db.Text // New content (for CREATE/UPDATE)
+  metadata      Json?    // Additional context (trigger, confidence change, etc.)
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, userId])
+  @@index([memoryId])
+  @@index([createdAt])
+  @@map("memory_change_logs")
+}
+
+/// Procedural Pattern for task learning (2025 Memp/PRAXIS inspired)
+/// Stores successful action sequences that can be retrieved for similar tasks
+model ProceduralPattern {
+  id          String                @id @default(cuid())
+  tenantId    String
+  userId      String
+  
+  // Pattern identification
+  taskType    String   // "email_reply", "schedule_meeting", "follow_up", etc.
+  trigger     String   @db.Text // What triggered this pattern (user request summary)
+  
+  // The learned procedure
+  steps       Json     // Array of action steps: [{tool, args, result}]
+  context     String?  @db.Text // Relevant context that led to success
+  
+  // Effectiveness tracking
+  successCount Int     @default(1) // Times this pattern succeeded
+  failureCount Int     @default(0) // Times this pattern failed
+  lastUsedAt   DateTime?
+  
+  // Vector for semantic matching
+  vector      Unsupported("vector")? // Embedding of trigger for similarity search
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user User @relation("ProceduralPatternsToUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, taskType])
+  @@index([lastUsedAt])
+  @@map("procedural_patterns")
 }
 
 // Writing Style Profile - Learned from user's sent emails

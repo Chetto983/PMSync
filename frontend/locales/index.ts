@@ -2130,6 +2130,7 @@ export interface AppTranslations {
         deleteConfirm: string;
         copied: string;
         copy: string;
+        showHistory: string;
       };
       loading: string;
       error: string;
@@ -2137,6 +2138,37 @@ export interface AppTranslations {
       memoryAdded: string;
       memoryDeleted: string;
       memoriesCleared: string;
+      history: {
+        title: string;
+        noHistory: string;
+        action: {
+          CREATE: string;
+          UPDATE: string;
+          DELETE: string;
+        };
+        previousValue: string;
+        newValue: string;
+      };
+      patterns: {
+        title: string;
+        subtitle: string;
+        noPatterns: string;
+        noPatternsDescription: string;
+        taskTypes: {
+          email_reply: string;
+          schedule_meeting: string;
+          follow_up: string;
+          contact_update: string;
+        };
+        successRate: string;
+        usedCount: string;
+        lastUsed: string;
+        steps: string;
+      };
+      tabs: {
+        memories: string;
+        patterns: string;
+      };
     };
     followUpTracker: {
       title: string;
