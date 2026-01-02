@@ -358,6 +358,7 @@ model Email {
   crossProviderLink    EmailCrossProviderLink? @relation(fields: [crossProviderLinkId], references: [id])
   provider             ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  followUp             EmailFollowUp?
 
   @@unique([providerId, externalId, folder]) // UIDs are unique per-folder, not globally
   @@unique([tenantId, messageId, folder]) // Allow same messageId in different folders
@@ -1409,6 +1410,8 @@ model EmailFollowUp {
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  email     Email    @relation(fields: [emailId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId])
   @@index([tenantId, userId, status])

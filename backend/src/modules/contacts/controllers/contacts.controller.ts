@@ -20,6 +20,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ContactsService } from '../services/contacts.service';
 import { ContactsSyncQueueService } from '../services/contacts-sync-queue.service';
+import { RelationshipIntelligenceService } from '../../ai/voltagent/services/relationship-intelligence.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { ForbiddenException } from '@nestjs/common';
@@ -41,8 +42,9 @@ export class ContactsController {
   constructor(
     private readonly contactsService: ContactsService,
     private readonly contactsSyncQueue: ContactsSyncQueueService,
+    private readonly relationshipService: RelationshipIntelligenceService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   /**
    * List contacts
@@ -90,6 +92,21 @@ export class ContactsController {
   async getContact(@Req() req: any, @Param('id') contactId: string) {
     const tenantId = req.user.tenantId;
     return this.contactsService.getContact(tenantId, contactId);
+  }
+
+  /**
+   * Get interaction history for a contact
+   * GET /api/contacts/:id/history
+   */
+  @Get(':id/history')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Get interaction history', description: 'Returns interaction history for a contact' })
+  @ApiParam({ name: 'id', description: 'Contact ID' })
+  @ApiResponse({ status: 200, description: 'History returned successfully' })
+  async getContactHistory(@Req() req: any, @Param('id') contactId: string, @Query('limit') limit?: number) {
+    const tenantId = req.user.tenantId;
+    const parsedLimit = limit ? parseInt(String(limit), 10) : 50;
+    return this.relationshipService.getContactInteractionHistory(tenantId, contactId, { limit: parsedLimit });
   }
 
   /**

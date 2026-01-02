@@ -10,6 +10,8 @@ import { CanonicalMessage, AttachmentMeta } from '../drivers/interfaces/canonica
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
 import { isJunkFolder } from '../../email/email.helpers';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { FollowUpService } from '../../ai/voltagent/services/follow-up.service';
+import { WritingStyleService } from '../../ai/voltagent/services/writing-style.service';
 
 /**
  * Abstract base class for email sync services (Google, Microsoft, IMAP)
@@ -44,6 +46,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     protected readonly prisma: PrismaService,
     protected readonly realtimeEvents: RealtimeEventsService,
     protected readonly config: ConfigService,
+    protected readonly followUpService: FollowUpService,
+    protected readonly writingStyleService: WritingStyleService,
   ) { }
 
   /**
@@ -88,6 +92,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       let driver = await this.createDriver(driverType, credentials);
       // CRIT-3 FIX: Track token expiry for mid-sync refresh
       const tokenExpiresAt = provider.tokenExpiresAt;
+      const userId = provider.userId; // Extract userId for follow-up service
 
       if (!driver.isConnected()) {
         throw new Error('Driver failed to connect');
@@ -114,6 +119,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
             providerId,
             tenantId,
             tokenExpiresAt,
+            userId,
           );
           messagesProcessed = result.messagesProcessed;
           newMessages = result.newMessages;
@@ -150,6 +156,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
                 providerId,
                 tenantId,
                 tokenExpiresAt,
+                userId,
               );
               messagesProcessed = fullResult.messagesProcessed;
               newMessages = fullResult.newMessages;
@@ -165,6 +172,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
             providerId,
             tenantId,
             tokenExpiresAt,
+            userId,
           );
           messagesProcessed = result.messagesProcessed;
           newMessages = result.newMessages;
@@ -321,6 +329,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     providerId: string,
     tenantId: string,
     initialTokenExpiresAt?: Date | null,
+    userId?: string,
   ): Promise<{
     messagesProcessed: number;
     newMessages: number;
@@ -370,6 +379,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
             result.messages,
             providerId,
             tenantId,
+            userId,
           );
           messagesProcessed += batchResult.processed;
           newMessages += batchResult.newCount;
@@ -422,6 +432,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     providerId: string,
     tenantId: string,
     initialTokenExpiresAt?: Date | null,
+    userId?: string,
   ): Promise<{
     messagesProcessed: number;
     newMessages: number;
@@ -489,7 +500,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
           // Fetch and upsert the message
           const message = await driver.getMessage(change.messageId);
           if (message) {
-            const upsertResult = await this.upsertMessageFromDriver(driver, message, providerId, tenantId);
+            const upsertResult = await this.upsertMessageFromDriver(driver, message, providerId, tenantId, userId);
             messagesProcessed++;
             if (upsertResult.wasNew) {
               newMessages++;
@@ -686,6 +697,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     canonicalMsg: CanonicalMessage,
     providerId: string,
     tenantId: string,
+    userId?: string,
   ): Promise<{ wasNew: boolean; conflictDetected?: boolean }> {
     // RC-1 FIX: Create unique lock key for this message
     const lockKey = `email:upsert:${providerId}:${canonicalMsg.id}:${canonicalMsg.folder}`;
@@ -875,6 +887,21 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
           folder: result.folder,
           reason: 'message-processed',
         });
+
+        // TRIGGER FOLLOW-UP ANALYSIS
+        if (userId && !isJunkFolder(result.folder)) {
+          this.followUpService
+            .analyzeAndCreateFollowUp(
+              tenantId,
+              userId,
+              result.id,
+              result.bodyText || '',
+              result.subject,
+            )
+            .catch((err) =>
+              this.logger.warn(`Follow-up analysis failed for ${result.id}: ${err.message}`),
+            );
+        }
       }
 
       return { wasNew, conflictDetected: userModifiedRecently ?? false };
@@ -920,6 +947,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     messages: CanonicalMessage[],
     providerId: string,
     tenantId: string,
+    userId?: string,
   ): Promise<{ processed: number; newCount: number }> {
     if (messages.length === 0) {
       return { processed: 0, newCount: 0 };
@@ -1035,6 +1063,31 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
           folder: result.folder,
           reason: 'message-processed',
         });
+
+        // TRIGGER FOLLOW-UP ANALYSIS
+        if (userId && !isJunkFolder(result.folder)) {
+          this.followUpService
+            .analyzeAndCreateFollowUp(
+              tenantId,
+              userId,
+              result.id,
+              result.bodyText || '',
+              result.subject,
+            )
+            .catch((err) =>
+              this.logger.warn(`Follow-up analysis failed for ${result.id}: ${err.message}`),
+            );
+        }
+
+
+        // TRIGGER WRITING STYLE LEARNING
+        if (userId && result.folder === 'SENT' && (result.bodyText && result.bodyText.length > 50)) {
+          this.writingStyleService
+            .learnFromEmail(tenantId, userId, result.bodyText)
+            .catch((err) =>
+              this.logger.warn(`Writing style learning failed for ${result.id}: ${err.message}`),
+            );
+        }
       }
 
       // Process attachments (must be sequential - involves external API calls)

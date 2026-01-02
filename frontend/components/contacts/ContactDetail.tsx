@@ -15,6 +15,11 @@ import {
   Chip,
   alpha,
   useTheme,
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
 } from '@mui/material';
 import {
   Mail,
@@ -29,9 +34,13 @@ import {
   Cake,
   Globe,
   ArrowLeft,
+  ArrowUpRight,
+  ArrowDownLeft,
+  MessageSquare,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import type { Contact } from '@/lib/api/contacts';
+import type { Contact, ContactInteraction } from '@/lib/api/contacts';
+import { useContactHistory } from '@/hooks/queries/use-contacts';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -41,8 +50,8 @@ interface TabPanelProps {
 
 function TabPanel({ children, value, index }: TabPanelProps) {
   return (
-    <div role="tabpanel" hidden={value !== index}>
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    <div role="tabpanel" hidden={value !== index} style={{ height: '100%' }}>
+      {value === index && <Box sx={{ py: 3, height: '100%' }}>{children}</Box>}
     </div>
   );
 }
@@ -105,40 +114,14 @@ const ProviderIcon = ({ providerType, size = 16 }: { providerType: string; size?
  * Props for ContactDetail component
  */
 interface ContactDetailProps {
-  /**
-   * Contact to display
-   */
   contact: Contact;
-
-  /**
-   * Callback to close detail panel
-   */
   onClose?: () => void;
-
-  /**
-   * Callback to edit contact
-   */
   onEdit?: () => void;
-
-  /**
-   * Callback to delete contact
-   */
   onDelete?: () => void;
-
-  /**
-   * Callback to email contact
-   */
   onEmail?: (email: string) => void;
-
-  /**
-   * Whether actions are loading
-   */
   isLoading?: boolean;
 }
 
-/**
- * Get display name from contact
- */
 function getContactName(contact: Contact, fallback: string = 'Unnamed contact'): string {
   if (contact.displayName) return contact.displayName;
   const parts = [contact.firstName, contact.lastName].filter(Boolean);
@@ -146,17 +129,11 @@ function getContactName(contact: Contact, fallback: string = 'Unnamed contact'):
   return contact.emails?.[0]?.value || fallback;
 }
 
-/**
- * Get primary email from contact
- */
 function getPrimaryEmail(contact: Contact): string | null {
   const primary = contact.emails?.find((e) => e.primary);
   return primary?.value || contact.emails?.[0]?.value || null;
 }
 
-/**
- * Format date for display
- */
 function formatDate(date?: Date | string | null, fallback: string = 'Never'): string {
   if (!date) return fallback;
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -167,15 +144,151 @@ function formatDate(date?: Date | string | null, fallback: string = 'Never'): st
   });
 }
 
-/**
- * ContactDetail - Contact detail panel with tabs
- *
- * Features:
- * - Header with avatar and actions
- * - Tabs: Details, Activity, Notes
- * - Full contact information display
- * - Provider sources
- */
+function formatDateTime(date?: Date | string | null): string {
+  if (!date) return '';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+// Interaction List Component
+const InteractionList = ({ contactId }: { contactId: string }) => {
+  const { data: history, isLoading, error } = useContactHistory(contactId);
+  const theme = useTheme();
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress size={24} />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Typography color="error" variant="body2" align="center">
+        Failed to load activity history.
+      </Typography>
+    );
+  }
+
+  if (!history || history.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography variant="body2" color="text.secondary">
+          No recent activity found.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <List disablePadding>
+      {history.map((interaction: ContactInteraction) => {
+        let Icon = MessageSquare;
+        let color = theme.palette.text.secondary;
+        let label = 'Interaction';
+
+        switch (interaction.type) {
+          case 'EMAIL_SENT':
+            Icon = ArrowUpRight;
+            color = theme.palette.success.main;
+            label = 'Email Sent';
+            break;
+          case 'EMAIL_RECEIVED':
+            Icon = ArrowDownLeft;
+            color = theme.palette.info.main;
+            label = 'Email Received';
+            break;
+          case 'MEETING':
+            Icon = Calendar;
+            color = theme.palette.warning.main;
+            label = 'Meeting';
+            break;
+          case 'CALL':
+            Icon = Phone;
+            color = theme.palette.secondary.main;
+            label = 'Call';
+            break;
+          case 'NOTE':
+            Icon = Edit;
+            color = theme.palette.text.secondary;
+            label = 'Note';
+            break;
+        }
+
+        return (
+          <ListItem
+            key={interaction.id}
+            alignItems="flex-start"
+            sx={{
+              mb: 1,
+              bgcolor: alpha(theme.palette.background.paper, 0.4),
+              backdropFilter: 'blur(10px)',
+              borderRadius: 2,
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            }}
+          >
+            <ListItemAvatar>
+              <Avatar sx={{ bgcolor: alpha(color, 0.1), color: color }}>
+                <Icon size={20} />
+              </Avatar>
+            </ListItemAvatar>
+            <ListItemText
+              primary={
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    {interaction.summary || label}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatDateTime(interaction.date)}
+                  </Typography>
+                </Box>
+              }
+              secondary={
+                <React.Fragment>
+                  <Typography
+                    variant="body2"
+                    color="text.primary"
+                    component="span"
+                    sx={{ display: 'block', mt: 0.5 }}
+                  >
+                    {interaction.type === 'EMAIL_SENT' ? `To: ${interaction.contactEmail || 'Contact'}` :
+                      interaction.type === 'EMAIL_RECEIVED' ? `From: ${interaction.contactEmail || 'Contact'}` :
+                        interaction.sourceType}
+                  </Typography>
+                  {interaction.sentiment && (
+                    <Chip
+                      label={interaction.sentiment}
+                      size="small"
+                      sx={{
+                        mt: 0.5,
+                        height: 20,
+                        fontSize: '0.7rem',
+                        bgcolor: interaction.sentiment === 'POSITIVE' ? alpha(theme.palette.success.main, 0.1) :
+                          interaction.sentiment === 'NEGATIVE' ? alpha(theme.palette.error.main, 0.1) :
+                            alpha(theme.palette.text.secondary, 0.1),
+                        color: interaction.sentiment === 'POSITIVE' ? theme.palette.success.main :
+                          interaction.sentiment === 'NEGATIVE' ? theme.palette.error.main :
+                            theme.palette.text.secondary
+                      }}
+                    />
+                  )}
+                </React.Fragment>
+              }
+            />
+          </ListItem>
+        );
+      })}
+    </List>
+  );
+};
+
 export const ContactDetail: React.FC<ContactDetailProps> = ({
   contact,
   onClose,
@@ -205,7 +318,9 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
 
   const contactName = useMemo(() => getContactName(contact, t.common?.unnamedContact ?? 'Unnamed contact'), [contact, t.common?.unnamedContact]);
   const primaryEmail = useMemo(() => getPrimaryEmail(contact), [contact]);
-  const lastInteraction = contact.updatedAt || contact.createdAt;
+
+  // Use CRM Intelligence field if available, fallback to updatedAt/createdAt
+  const lastInteraction = contact.lastInteractedAt || contact.updatedAt || contact.createdAt;
 
   return (
     <Box
@@ -245,6 +360,17 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                 {contact.jobTitle}
                 {contact.company && ` ${detailsCopy.at ?? 'at'} ${contact.company}`}
               </Typography>
+            )}
+
+            {/* Relationship Score Chip */}
+            {typeof contact.relationshipScore === 'number' && (
+              <Chip
+                label={`Score: ${contact.relationshipScore}`}
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ mt: 0.5 }}
+              />
             )}
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -521,19 +647,36 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
             </Box>
           )}
 
-          {/* Last Interaction */}
+          {/* CRM Intelligence */}
           <Box>
-            <Card variant="outlined" sx={glassCardSx}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Clock size={18} color={theme.palette.text.secondary} />
-                  <Typography variant="subtitle2" color="text.secondary">
-                    {contactsCopy.details?.lastInteraction || 'Last Interaction'}
-                  </Typography>
-                </Box>
-                <Typography variant="body1">{formatDate(lastInteraction, detailsCopy.never ?? 'Never')}</Typography>
-              </CardContent>
-            </Card>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+              Relationship Intelligence
+            </Typography>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
+              <Card variant="outlined" sx={glassCardSx}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <Clock size={18} color={theme.palette.text.secondary} />
+                    <Typography variant="subtitle2" color="text.secondary">
+                      {contactsCopy.details?.lastInteraction || 'Last Interaction'}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body1">{formatDate(lastInteraction, detailsCopy.never ?? 'Never')}</Typography>
+                </CardContent>
+              </Card>
+
+              <Card variant="outlined" sx={glassCardSx}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <MessageSquare size={18} color={theme.palette.text.secondary} />
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Total Interactions
+                    </Typography>
+                  </Box>
+                  <Typography variant="body1">{contact.totalInteractions ?? 0}</Typography>
+                </CardContent>
+              </Card>
+            </Box>
           </Box>
         </TabPanel>
 
@@ -541,11 +684,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
             {contactsCopy.activity?.title || 'Activity'}
           </Typography>
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="body2" color="text.secondary">
-              {contactsCopy.activity?.noActivity || 'No recent activity'}
-            </Typography>
-          </Box>
+          <InteractionList contactId={contact.id} />
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>

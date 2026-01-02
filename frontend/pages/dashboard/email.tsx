@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -19,7 +19,8 @@ import {
 } from '@/hooks/queries';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { useEmailFilters } from '@/stores/email-ui-store';
-import { CircularProgress, Box, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
+import { Pencil } from 'lucide-react';
 import type { Email } from '@/lib/api/emails';
 
 /**
@@ -43,11 +44,12 @@ function formatEmailToThread(email: Email): ThreadListItemData {
     hasAttachments: (email.attachments?.length ?? 0) > 0,
     providerId: email.providerId, // Provider ID for drag-and-drop validation
     // Map emailLabels to the format expected by ThreadListItem
+    // Backend returns el.label.id, not el.labelId
     labels: email.emailLabels?.map((el) => ({
-      id: el.labelId,
+      id: el.label?.id || '',
       name: el.label?.name || 'Label',
       color: el.label?.color?.backgroundColor || '#9E9E9E',
-    })),
+    })).filter((l) => l.id),
   };
 }
 
@@ -66,6 +68,30 @@ export default function EmailPage() {
   // Label picker dialog state
   const [labelPickerOpen, setLabelPickerOpen] = useState(false);
   const [labelPickerEmailIds, setLabelPickerEmailIds] = useState<string[]>([]);
+
+  // Navigate to compose page
+  const handleCompose = useCallback(() => {
+    router.push('/dashboard/email/compose');
+  }, [router]);
+
+  // Keyboard shortcut: 'C' to compose new email
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input field
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      // 'C' key to compose
+      if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        handleCompose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleCompose]);
 
   // Get folder filters from store (sidebar sets these)
   const filters = useEmailFilters();
@@ -136,8 +162,8 @@ export default function EmailPage() {
         // Desktop: show single email in reading pane (not thread view)
         setSelectedThreadId(id); // Use email ID
       } else {
-        // Mobile/Tablet: navigate to email detail page
-        router.push(`/dashboard/email/${id}`);
+        // Mobile/Tablet: navigate to thread detail page
+        router.push(`/dashboard/email/thread/${id}`);
       }
     },
     [router, emailsData?.emails, isDesktop, updateEmail]
@@ -173,15 +199,15 @@ export default function EmailPage() {
 
   // Thread action handlers
   const handleReply = useCallback((messageId: string) => {
-    router.push(`/dashboard/email/compose?replyTo=${messageId}`);
+    router.push(`/dashboard/email/compose?mode=reply&emailId=${messageId}`);
   }, [router]);
 
   const handleReplyAll = useCallback((messageId: string) => {
-    router.push(`/dashboard/email/compose?replyTo=${messageId}&replyAll=true`);
+    router.push(`/dashboard/email/compose?mode=replyAll&emailId=${messageId}`);
   }, [router]);
 
   const handleForward = useCallback((messageId: string) => {
-    router.push(`/dashboard/email/compose?forward=${messageId}`);
+    router.push(`/dashboard/email/compose?mode=forward&emailId=${messageId}`);
   }, [router]);
 
   const handleFlagMessage = useCallback(async (messageId: string) => {
@@ -321,15 +347,25 @@ export default function EmailPage() {
   }, [toast, t]);
 
   // Get current label IDs for selected emails (intersection of all labels)
+  // Note: Backend returns emailLabels: [{ label: { id, name, color } }]
+  // So we access el.label?.id, not el.labelId
   const getCurrentLabelIds = useCallback(
     (ids: string[]): string[] => {
+      // Helper to extract label IDs from emailLabels array
+      const extractLabelIds = (emailLabels?: { label?: { id: string } }[]): string[] =>
+        emailLabels?.map((el) => el.label?.id).filter((id): id is string => !!id) || [];
+
+      // For single email, check selectedEmail first (from reading pane)
+      if (ids.length === 1 && selectedEmail && selectedEmail.id === ids[0]) {
+        return extractLabelIds(selectedEmail.emailLabels);
+      }
+
+      // Fall back to list data
       const selectedEmails = emailsData?.emails?.filter((e) => ids.includes(e.id)) || [];
       if (selectedEmails.length === 0) return [];
 
       // Get label IDs from first email
-      const firstEmailLabels = new Set(
-        selectedEmails[0].emailLabels?.map((el) => el.labelId) || []
-      );
+      const firstEmailLabels = new Set(extractLabelIds(selectedEmails[0].emailLabels));
 
       // For single email, return all its labels
       if (selectedEmails.length === 1) {
@@ -338,9 +374,7 @@ export default function EmailPage() {
 
       // For multiple emails, return intersection (labels common to all)
       for (let i = 1; i < selectedEmails.length; i++) {
-        const emailLabels = new Set(
-          selectedEmails[i].emailLabels?.map((el) => el.labelId) || []
-        );
+        const emailLabels = new Set(extractLabelIds(selectedEmails[i].emailLabels));
         firstEmailLabels.forEach((labelId) => {
           if (!emailLabels.has(labelId)) {
             firstEmailLabels.delete(labelId);
@@ -349,7 +383,7 @@ export default function EmailPage() {
       }
       return Array.from(firstEmailLabels);
     },
-    [emailsData?.emails]
+    [emailsData?.emails, selectedEmail]
   );
 
   // Bulk label - show label picker dialog
@@ -514,6 +548,24 @@ export default function EmailPage() {
           currentLabelIds={getCurrentLabelIds(labelPickerEmailIds)}
           onSuccess={handleLabelPickerSuccess}
         />
+
+        {/* Compose FAB - Desktop only (mobile/tablet use MobileEmailNav FAB) */}
+        <Tooltip title={`${t.email?.composer?.title || 'Compose'} (C)`} placement="left">
+          <Fab
+            color="primary"
+            aria-label="compose"
+            onClick={handleCompose}
+            sx={{
+              display: { xs: 'none', md: 'flex' }, // Hidden on mobile/tablet
+              position: 'fixed',
+              bottom: 24,
+              right: 24,
+              zIndex: 1200,
+            }}
+          >
+            <Pencil size={24} />
+          </Fab>
+        </Tooltip>
       </Layout>
     </PageErrorBoundary>
   );

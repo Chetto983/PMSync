@@ -37,16 +37,28 @@ function learningStatsOptions() {
 export function LearningWidget() {
   const theme = useTheme();
   const t = useTranslations();
-  const { data, isLoading } = useQuery(learningStatsOptions());
+  const { data: learningStats } = useQuery(learningStatsOptions());
 
-  const learningProgress = data?.learningProgress ?? 0;
-  const successRate = data?.successRate ?? 0;
-  const totalAttempts = data?.totalAttempts ?? 0;
+  // New: Fetch writing style profile
+  const { data: writingStyleData, isLoading } = useQuery({
+    queryKey: ['ai', 'writingStyle'],
+    queryFn: async () => {
+      const response = await multiAgentApi.getWritingStyle();
+      return response.data?.profile;
+    },
+  });
+
+  // Use writing style sample count as the primary progress metric (target: 50 emails)
+  const sampleCount = writingStyleData?.sampleCount || 0;
+  const learningProgress = Math.min(100, Math.round((sampleCount / 50) * 100)); // Cap at 100%
+
+  const successRate = learningStats?.successRate ?? 0; // Keep success rate from feedback loop if available
+  const totalAttempts = sampleCount; // Use analyzed emails as "interactions" count for this context
 
   const getLearningMessage = () => {
-    if (learningProgress < 20) return t.ai?.writingStyleLearningLow || 'Getting started';
-    if (learningProgress < 60) return t.ai?.writingStyleLearningMedium || 'Learning your style';
-    return t.ai?.writingStyleLearningHigh || 'Knows your style well';
+    if (learningProgress < 20) return t.ai?.writingStyleLearningLow || 'Analysing your style...';
+    if (learningProgress < 80) return t.ai?.writingStyleLearningMedium || 'Learning your patterns';
+    return t.ai?.writingStyleLearningHigh || 'Style calibrated';
   };
 
   if (isLoading) {
@@ -116,7 +128,7 @@ export function LearningWidget() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <MessageSquare size={14} style={{ color: theme.palette.primary.main }} />
             <Typography variant="caption">
-              <strong>{totalAttempts}</strong> {t.ai?.learning?.interactions || 'interactions'}
+              <strong>{totalAttempts}</strong> {t.ai?.learning?.interactions || 'emails analyzed'}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

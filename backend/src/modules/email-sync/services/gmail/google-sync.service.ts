@@ -11,6 +11,8 @@ import { AttachmentMeta } from '../../drivers/interfaces/canonical.types';
 import { IEmailDriver } from '../../drivers/interfaces/email-driver.interface';
 import { GmailAttachmentHandler } from './gmail-attachment-handler';
 import { RedisLockService } from '../../../../common/services/redis-lock.service';
+import { FollowUpService } from '../../../ai/voltagent/services/follow-up.service';
+import { WritingStyleService } from '../../../ai/voltagent/services/writing-style.service';
 
 /**
  * GoogleSyncService - Driver-based implementation
@@ -34,8 +36,10 @@ export class GoogleSyncService extends BaseEmailSyncService {
     private gmailAttachmentHandler: GmailAttachmentHandler,
     // RACE CONDITION FIX RC-5: Redis lock for attachment processing
     private redisLockService: RedisLockService,
+    followUpService: FollowUpService,
+    writingStyleService: WritingStyleService,
   ) {
-    super(prisma, realtimeEvents, config);
+    super(prisma, realtimeEvents, config, followUpService, writingStyleService);
     // Inject Redis lock service into base class for email upsert locking
     this.setRedisLockService(redisLockService);
     // Inject Redis lock service into attachment handler for attachment processing locking

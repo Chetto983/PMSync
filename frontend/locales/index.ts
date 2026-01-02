@@ -362,6 +362,11 @@ export interface AppTranslations {
     syncCompleted?: string;
     syncFailed?: string;
     syncProgress?: string;
+    overdue?: string;
+    today?: string;
+    tomorrow?: string;
+    remaining?: string;
+    started?: string;
   };
   timeAgo: {
     justNow: string;
@@ -800,6 +805,8 @@ export interface AppTranslations {
       searchLabels: string;
       noLabelsFound: string;
       addSelected: string;
+      labelSelected: string;
+      labelsSelected: string;
       errors: {
         nameRequired: string;
         nameTooShort: string;
@@ -2219,6 +2226,66 @@ export interface AppTranslations {
       retry: string;
       resolved: string;
       snoozed: string;
+    };
+    actionItems: {
+      title: string;
+      subtitle: string;
+      pending: string;
+      allDone: string;
+      noPending: string;
+      viewAll: string;
+      overdue: string;
+      today: string;
+      tomorrow: string;
+      status: {
+        TODO: string;
+        IN_PROGRESS: string;
+        WAITING: string;
+        DONE: string;
+        CANCELLED: string;
+      };
+      priority: {
+        high: string;
+        medium: string;
+        low: string;
+      };
+      actions: {
+        complete: string;
+        start: string;
+        delete: string;
+      };
+    };
+    focusTime: {
+      title: string;
+      subtitle: string;
+      inFocusMode: string;
+      noSlots: string;
+      findSlots: string;
+      createBlocks: string;
+      noConflicts: string;
+      avgDaily: string;
+      optimalDays: string;
+    };
+    meetingPrep: {
+      title: string;
+      subtitle: string;
+      needingPrep: string;
+      allPrepared: string;
+      noMeetings: string;
+      viewCalendar: string;
+      prepScore: string;
+    };
+    analytics: {
+      title: string;
+      subtitle: string;
+      noData: string;
+      viewAll: string;
+      emailsProcessed: string;
+      thisWeek: string;
+      avgResponseTime: string;
+      aiActions: string;
+      approved: string;
+      learningProgress: string;
     };
   };
   commandPalette: {

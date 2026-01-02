@@ -30,6 +30,7 @@ import { DailyBriefingService } from './services/daily-briefing.service';
 import { SemanticCacheService } from './services/semantic-cache.service';
 import { DeadlineExtractorService } from './services/deadline-extractor.service';
 import { FollowUpService } from './services/follow-up.service';
+import { WritingStyleService } from './services/writing-style.service';
 import { ActionItemService } from './services/action-item.service';
 import { AnalyticsService } from './services/analytics.service';
 import { UnifiedKnowledgeService } from './services/unified-knowledge.service';
@@ -137,6 +138,7 @@ export class VoltAgentController {
     private readonly focusTimeService: FocusTimeService,
     private readonly meetingPrepService: MeetingPrepService,
     private readonly voltAgentMemoryService: VoltAgentMemoryService,
+    private readonly writingStyleService: WritingStyleService,
   ) { }
 
   /**
@@ -392,6 +394,19 @@ export class VoltAgentController {
       userId,
     );
     return { success: true, stats };
+  }
+
+  /**
+   * Get writing style statistics for the current user.
+   */
+  @Get('stats/writing-style')
+  @ApiOperation({ summary: 'Get writing style profile' })
+  async getWritingStyle(@Req() req: AuthenticatedRequest) {
+    const profile = await this.writingStyleService.getOrCreateProfile(
+      req.user.tenantId,
+      req.user.userId,
+    );
+    return { success: true, profile };
   }
 
   /**

@@ -100,6 +100,25 @@ export type LearningProfileStats = {
   avgAdjustedConfidence: number;
 };
 
+export type WritingStyleProfile = {
+  id: string;
+  tenantId: string;
+  userId: string;
+  sampleCount: number;
+  avgSentenceLength: number;
+  avgParagraphLines: number;
+  avgWordsPerEmail: number;
+  sentimentPolarity: number;
+  formalityScore: number;
+  emojiRate: number;
+  questionRate: number;
+  greetingPresent: boolean;
+  signOffPresent: boolean;
+  preferredGreetings: string[];
+  preferredSignOffs: string[];
+  lastAnalyzed: string;
+};
+
 export type AggregateStats = {
   totalAttempts: number;
   overallApprovalRate: number;
@@ -483,6 +502,12 @@ export const voltAgentApi = {
     return apiClient.get<{ success: boolean; stats: LearningProfileStats[] }>(
       '/api/v1/voltagent/stats/learning',
       { params },
+    );
+  },
+
+  getWritingStyle() {
+    return apiClient.get<{ success: boolean; profile: WritingStyleProfile }>(
+      '/api/v1/voltagent/stats/writing-style',
     );
   },
 
@@ -993,6 +1018,167 @@ export const unifiedKnowledgeApi = {
   },
 };
 
+// ============ Focus Time API ============
+
+export type FocusTimeSlot = {
+  start: string;
+  end: string;
+  duration: number;
+  score: number;
+  conflictCount: number;
+};
+
+export type FocusTimeStats = {
+  totalFocusMinutes: number;
+  averageDailyFocus: number;
+  busyDays: number;
+  optimalDays: number;
+  meetingLoad: Record<string, number>;
+};
+
+export const focusTimeApi = {
+  getOptimalSlots(params?: { duration?: number; preferredTime?: string; numSlots?: number }) {
+    return apiClient.get<{
+      success: boolean;
+      count: number;
+      slots: FocusTimeSlot[];
+    }>('/api/v1/voltagent/scheduling/focus-time/optimal', { params });
+  },
+
+  getStats(params?: { days?: number }) {
+    return apiClient.get<{
+      success: boolean;
+      stats: FocusTimeStats;
+    }>('/api/v1/voltagent/scheduling/focus-time/stats', { params });
+  },
+
+  createBlocks(payload: {
+    duration?: number;
+    frequency?: 'daily' | 'weekly' | 'twice_weekly';
+    preferredTime?: 'morning' | 'afternoon' | 'flexible';
+    protectFromMeetings?: boolean;
+  }) {
+    return apiClient.post<{
+      success: boolean;
+      count: number;
+      blocks: FocusTimeSlot[];
+    }>('/api/v1/voltagent/scheduling/focus-time/create', payload);
+  },
+
+  getStatus() {
+    return apiClient.get<{
+      success: boolean;
+      isInFocusBlock: boolean;
+      currentBlock?: { start: string; end: string; remaining: number };
+    }>('/api/v1/voltagent/scheduling/focus-time/status');
+  },
+};
+
+// ============ Calendar Conflict API ============
+
+export type CalendarConflict = {
+  eventId: string;
+  title: string;
+  start: string;
+  end: string;
+  overlapMinutes: number;
+};
+
+export type AvailableSlot = {
+  start: string;
+  end: string;
+  duration: number;
+  score: number;
+};
+
+export const calendarConflictApi = {
+  detectConflicts(payload: {
+    title: string;
+    startTime: string;
+    endTime: string;
+    duration?: number;
+    isFlexible?: boolean;
+    includeSuggestions?: boolean;
+    numSuggestions?: number;
+  }) {
+    return apiClient.post<{
+      success: boolean;
+      hasConflicts: boolean;
+      conflicts: CalendarConflict[];
+      suggestions?: AvailableSlot[];
+    }>('/api/v1/voltagent/scheduling/conflicts/detect', payload);
+  },
+
+  findAvailableSlots(params?: { duration?: number; days?: number; numSlots?: number }) {
+    return apiClient.get<{
+      success: boolean;
+      count: number;
+      slots: AvailableSlot[];
+    }>('/api/v1/voltagent/scheduling/conflicts/available-slots', { params });
+  },
+
+  getSchedulingPreferences() {
+    return apiClient.get<{
+      success: boolean;
+      preferences: {
+        preferredMeetingTimes: string[];
+        avoidTimes: string[];
+        maxMeetingsPerDay: number;
+      };
+    }>('/api/v1/voltagent/scheduling/preferences');
+  },
+
+  getDayLoad(params?: { date?: string }) {
+    return apiClient.get<{
+      success: boolean;
+      date: string;
+      totalMeetingMinutes: number;
+      eventCount: number;
+      busyPercentage: number;
+    }>('/api/v1/voltagent/scheduling/day-load', { params });
+  },
+};
+
+// ============ Meeting Prep API ============
+
+export type MeetingBrief = {
+  eventId: string;
+  title: string;
+  startTime: string;
+  attendees: string[];
+  summary: string;
+  relevantEmails?: Array<{ id: string; subject: string; snippet: string }>;
+  actionItems?: Array<{ id: string; title: string }>;
+  previousMeetings?: Array<{ id: string; title: string; date: string }>;
+};
+
+export const meetingPrepApi = {
+  getMeetingBrief(eventId: string, params?: {
+    includeEmails?: boolean;
+    includePreviousMeetings?: boolean;
+    includeActionItems?: boolean;
+  }) {
+    return apiClient.get<{
+      success: boolean;
+      brief: MeetingBrief;
+    }>(`/api/v1/voltagent/scheduling/meeting-prep/${eventId}`, { params });
+  },
+
+  getUpcomingMeetingsNeedingPrep(params?: { hoursAhead?: number }) {
+    return apiClient.get<{
+      success: boolean;
+      count: number;
+      meetings: Array<{
+        eventId: string;
+        title: string;
+        startTime: string;
+        attendeeCount: number;
+        prepScore: number;
+      }>;
+    }>('/api/v1/voltagent/scheduling/meeting-prep', { params });
+  },
+};
+
 // Legacy API alias for backwards compatibility (maps to voltAgentApi)
 export const multiAgentApi = {
   processMessage: async (payload: {
@@ -1034,4 +1220,5 @@ export const multiAgentApi = {
   getAggregateStats: voltAgentApi.getAggregateStats,
   getFeedback: voltAgentApi.getFeedback,
   resetLearning: voltAgentApi.resetLearning,
+  getWritingStyle: voltAgentApi.getWritingStyle,
 };

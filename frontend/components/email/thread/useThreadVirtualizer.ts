@@ -46,6 +46,8 @@ export function useThreadVirtualizer({
     [messages, expandedIds]
   );
 
+  // TanStack Virtual API limitation - functions cannot be memoized safely
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => parentRef.current,

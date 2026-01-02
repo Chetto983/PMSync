@@ -5,6 +5,8 @@ import { RealtimeEventsService } from '../../../realtime/services/realtime-event
 import { ConfigService } from '@nestjs/config';
 import { CryptoService } from '../../../../common/services/crypto.service';
 import { RedisLockService } from '../../../../common/services/redis-lock.service';
+import { FollowUpService } from '../../../ai/voltagent/services/follow-up.service';
+import { WritingStyleService } from '../../../ai/voltagent/services/writing-style.service';
 import { BaseEmailSyncService } from '../base-email-sync.service';
 import { EmailDriverFactory } from '../../drivers/driver.factory';
 import { IMAPDriver } from '../../drivers/imap/imap.driver';
@@ -40,8 +42,10 @@ export class ImapSyncService extends BaseEmailSyncService {
     private imapAttachmentHandler: ImapAttachmentHandler,
     // BUG-5 FIX: Inject RedisLockService for distributed locking (matching Google/Microsoft)
     private redisLockService: RedisLockService,
+    followUpService: FollowUpService,
+    writingStyleService: WritingStyleService,
   ) {
-    super(prisma, realtimeEvents, config);
+    super(prisma, realtimeEvents, config, followUpService, writingStyleService);
     // BUG-5 FIX: Set RedisLockService for base class email upsert locking
     this.setRedisLockService(redisLockService);
     // Also set for attachment handler

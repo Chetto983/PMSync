@@ -94,10 +94,10 @@ export function FollowUpCard({
   // Format date
   const formattedDate = dueDate
     ? dueDate.toLocaleDateString(t.locale, {
-        month: 'short',
-        day: 'numeric',
-        year: dueDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-      })
+      month: 'short',
+      day: 'numeric',
+      year: dueDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    })
     : null;
 
   const statusColor = STATUS_COLORS[followUp.status] || 'warning';
@@ -201,8 +201,16 @@ export function FollowUpCard({
           </Typography>
         )}
 
-        {/* From */}
-        {followUp.email?.from && (
+        {/* To (for sent emails) or From (for received) */}
+        {followUp.email?.to && followUp.email.to.length > 0 ? (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mb: 1 }}
+          >
+            To: {followUp.email.to.join(', ')}
+          </Typography>
+        ) : followUp.email?.from ? (
           <Typography
             variant="caption"
             color="text.secondary"
@@ -210,7 +218,7 @@ export function FollowUpCard({
           >
             {followUp.email.from}
           </Typography>
-        )}
+        ) : null}
 
         {/* Reason */}
         <Typography

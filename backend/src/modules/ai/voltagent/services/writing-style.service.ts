@@ -94,7 +94,7 @@ const SIGN_OFFS = [
 export class WritingStyleService {
   private readonly logger = new Logger(WritingStyleService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Analyze an email body and extract writing metrics.
@@ -249,6 +249,77 @@ export class WritingStyleService {
   }
 
   /**
+   * Learn from a single email (incremental update)
+   * Uses moving average to update stats without re-reading all history.
+   */
+  async learnFromEmail(
+    tenantId: string,
+    userId: string,
+    emailBody: string,
+  ): Promise<void> {
+    if (!emailBody || emailBody.length < 50) {
+      return; // Skip short emails
+    }
+
+    try {
+      const metrics = this.analyzeText(emailBody);
+      const profile = await this.getOrCreateProfile(tenantId, userId);
+
+      const n = profile.sampleCount;
+      const newN = n + 1;
+
+      // Moving average formula: NewAvg = ((OldAvg * n) + NewVal) / (n + 1)
+      const updateAvg = (oldVal: number, newVal: number) => ((oldVal * n) + newVal) / newN;
+
+      // Update basic metrics
+      const newMetrics: Partial<WritingMetrics> = {
+        avgSentenceLength: updateAvg(profile.avgSentenceLength, metrics.avgSentenceLength),
+        avgParagraphLines: updateAvg(profile.avgParagraphLines, metrics.avgParagraphLines),
+        avgWordsPerEmail: Math.round(updateAvg(profile.avgWordsPerEmail, metrics.avgWordsPerEmail)),
+        bulletListRate: updateAvg(profile.bulletListRate, metrics.bulletListRate),
+        formalityScore: updateAvg(profile.formalityScore, metrics.formalityScore),
+        contractionRate: updateAvg(profile.contractionRate, metrics.contractionRate),
+        emojiRate: updateAvg(profile.emojiRate, metrics.emojiRate),
+        typeTokenRatio: updateAvg(profile.typeTokenRatio, metrics.typeTokenRatio),
+        exclamationRate: updateAvg(profile.exclamationRate, metrics.exclamationRate),
+        questionRate: updateAvg(profile.questionRate, metrics.questionRate),
+        ellipsisRate: updateAvg(profile.ellipsisRate, metrics.ellipsisRate),
+        sentimentPolarity: updateAvg(profile.sentimentPolarity, metrics.sentimentPolarity),
+        empathyPhraseRate: updateAvg(profile.empathyPhraseRate, metrics.empathyPhraseRate),
+        hedgeRate: updateAvg(profile.hedgeRate, metrics.hedgeRate),
+        // Booleans can be approximated as probabilities if stored as numbers, but here we just keep them if frequent enough
+        // Ideally we should track "greetingRate" instead of boolean. For now, let's keep boolean logic simple:
+        // If current is true, stay true. If false, become true if new email has it? No, that's flip-floppy.
+        // Let's rely on the lists logic below for greetings/signoffs mainly.
+      };
+
+      // Update Lists (Greetings/SignOffs) - Naive merge (keep top N most frequent)
+      // Since we don't store full frequency map in DB, we just merge simply.
+      // A better approach requires schema change to store frequency map. 
+      // For now: Add detected ones to the list, if list grows too big, we can't easily trim by frequency without history.
+      // COMPROMISE: We just append unique new ones to the top 10 unique list to accumulate variety.
+      const uniqueGreetings = Array.from(new Set([...profile.preferredGreetings, ...metrics.preferredGreetings])).slice(0, 10);
+      const uniqueSignOffs = Array.from(new Set([...profile.preferredSignOffs, ...metrics.preferredSignOffs])).slice(0, 10);
+
+      await this.prisma.writingStyleProfile.update({
+        where: { id: profile.id },
+        data: {
+          ...newMetrics,
+          preferredGreetings: uniqueGreetings,
+          preferredSignOffs: uniqueSignOffs,
+          sampleCount: { increment: 1 },
+          lastAnalyzed: new Date(),
+          greetingPresent: uniqueGreetings.length > 0, // Simplified
+          signOffPresent: uniqueSignOffs.length > 0, // Simplified
+        },
+      });
+
+    } catch (error) {
+      this.logger.warn(`Failed to learn from email for user ${userId}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
    * Get or create a user's writing style profile.
    */
   async getOrCreateProfile(tenantId: string, userId: string): Promise<WritingStyleProfile> {
@@ -260,6 +331,24 @@ export class WritingStyleService {
       profile = await this.prisma.writingStyleProfile.create({
         data: { tenantId, userId },
       });
+
+      // Auto-backfill on creation
+      this.logger.log(`New writing style profile created for ${userId}. Triggering auto-backfill...`);
+      // We await this to ensure the user sees data immediately, 
+      // as 50 emails analysis is sub-second usually.
+      try {
+        profile = await this.analyzeUserEmails(tenantId, userId, 50);
+      } catch (e) {
+        this.logger.error(`Auto-backfill failed: ${(e as Error).message}`);
+      }
+    } else if (profile.sampleCount === 0) {
+      // Profile exists but empty? Try to backfill again.
+      this.logger.log(`Existing empty writing style profile for ${userId}. Retrying backfill...`);
+      try {
+        profile = await this.analyzeUserEmails(tenantId, userId, 50);
+      } catch (e) {
+        this.logger.error(`Auto-backfill failed: ${(e as Error).message}`);
+      }
     }
 
     return profile;

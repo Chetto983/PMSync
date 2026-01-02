@@ -21,6 +21,10 @@ const AiHubWidget = lazy(() => import('./widgets/AiHubWidget'));
 const DeadlineWidget = lazy(() => import('../productivity/DeadlineWidget'));
 const FollowUpWidget = lazy(() => import('../productivity/FollowUpWidget'));
 const CrmAlertsWidget = lazy(() => import('../crm/CrmAlertsWidget'));
+const ActionItemsWidget = lazy(() => import('./widgets/ActionItemsWidget'));
+const FocusTimeWidget = lazy(() => import('./widgets/FocusTimeWidget'));
+const MeetingPrepWidget = lazy(() => import('./widgets/MeetingPrepWidget'));
+const AiAnalyticsWidget = lazy(() => import('./widgets/AiAnalyticsWidget'));
 
 // Premium skeleton for lazy widgets
 function WidgetSkeleton() {
@@ -162,10 +166,38 @@ export function Dashboard() {
           </Suspense>
         </Box>
 
+        {/* Action Items (Tasks) */}
+        <Box>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <ActionItemsWidget limit={4} />
+          </Suspense>
+        </Box>
+
+        {/* Focus Time */}
+        <Box>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <FocusTimeWidget />
+          </Suspense>
+        </Box>
+
+        {/* Meeting Prep */}
+        <Box>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <MeetingPrepWidget limit={3} />
+          </Suspense>
+        </Box>
+
         {/* CRM Alerts */}
         <Box>
           <Suspense fallback={<WidgetSkeleton />}>
             <CrmAlertsWidget limit={4} />
+          </Suspense>
+        </Box>
+
+        {/* AI Analytics */}
+        <Box>
+          <Suspense fallback={<WidgetSkeleton />}>
+            <AiAnalyticsWidget />
           </Suspense>
         </Box>
       </Box>

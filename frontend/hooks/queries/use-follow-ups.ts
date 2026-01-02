@@ -38,6 +38,7 @@ export interface EmailFollowUp {
     subject?: string;
     from?: string;
     receivedAt?: string;
+    to?: string[];
   };
 }
 

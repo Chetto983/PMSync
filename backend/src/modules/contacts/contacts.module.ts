@@ -15,6 +15,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for SyncAuthService
+import { VoltAgentModule } from '../ai/voltagent/voltagent.module';
 import { AlertingService } from '../../common/services/alerting.service';
 // DeadLetterQueueService is available globally from CacheModule
 
@@ -24,6 +25,7 @@ import { AlertingService } from '../../common/services/alerting.service';
     forwardRef(() => ProvidersModule),
     RealtimeModule, // WebSocket events
     EmailSyncModule, // Import for SyncAuthService (webhook authentication)
+    VoltAgentModule, // CRM Relationship Intelligence
   ],
   controllers: [
     ContactsController,
@@ -54,4 +56,4 @@ import { AlertingService } from '../../common/services/alerting.service';
     ContactsSyncSchedulerService,
   ],
 })
-export class ContactsModule {}
+export class ContactsModule { }

@@ -11,6 +11,7 @@
  */
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
 import {
   Box,
   Paper,
@@ -31,21 +32,22 @@ import { MobileFolderSheet } from './MobileFolderSheet';
 
 export function MobileEmailNav() {
   const theme = useTheme();
+  const router = useRouter();
   const t = useTranslations();
   const [folderSheetOpen, setFolderSheetOpen] = useState(false);
 
   const filters = useEmailUIStore((state) => state.filters);
   const setFolder = useEmailUIStore((state) => state.setFolder);
   const setFilters = useEmailUIStore((state) => state.setFilters);
-  const openCompose = useEmailUIStore((state) => state.openCompose);
 
   const handleInboxClick = () => {
     setFilters({ providerId: undefined, folderId: undefined });
     setFolder('INBOX');
   };
 
+  // Navigate to compose page
   const handleComposeClick = () => {
-    openCompose({ mode: 'new' });
+    router.push('/dashboard/email/compose');
   };
 
   const handleFoldersClick = () => {

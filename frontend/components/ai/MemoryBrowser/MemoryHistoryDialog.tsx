@@ -50,7 +50,7 @@ export function MemoryHistoryDialog({ memoryId, open, onClose }: MemoryHistoryDi
         }
     };
 
-    const getActionColor = (action: string) => {
+    const getActionColor = (action: string): 'success' | 'info' | 'error' | 'default' => {
         switch (action) {
             case 'CREATE': return 'success';
             case 'UPDATE': return 'info';
@@ -85,7 +85,7 @@ export function MemoryHistoryDialog({ memoryId, open, onClose }: MemoryHistoryDi
                                         <Chip
                                             label={getActionLabel(item.action)}
                                             size="small"
-                                            color={getActionColor(item.action) as any}
+                                            color={getActionColor(item.action)}
                                             variant="outlined"
                                         />
                                         <Typography variant="caption" color="text.secondary">

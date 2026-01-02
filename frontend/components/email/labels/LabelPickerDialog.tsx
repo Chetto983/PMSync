@@ -26,10 +26,13 @@ import {
   Chip,
   TextField,
   InputAdornment,
+  IconButton,
 } from '@mui/material';
-import { Tag, Search, Check, Plus } from 'lucide-react';
+import { Tag, Search, Check, Plus, MoreHorizontal } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useLabels, useBulkAddLabels, useBulkRemoveLabels } from '@/hooks/queries';
+import { LabelContextMenu } from './LabelContextMenu';
+import type { Label } from '@/lib/api/labels';
 
 interface LabelPickerDialogProps {
   open: boolean;
@@ -56,6 +59,10 @@ export function LabelPickerDialog({
   const [selected, setSelected] = useState<Set<string>>(new Set(currentLabelIds));
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Context menu state for edit/delete
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [menuLabel, setMenuLabel] = useState<Label | null>(null);
 
   // Bulk mutations
   const bulkAddLabels = useBulkAddLabels();
@@ -95,6 +102,18 @@ export function LabelPickerDialog({
       }
       return next;
     });
+  }, []);
+
+  // Open context menu for label edit/delete
+  const handleLabelMenu = useCallback((event: React.MouseEvent<HTMLElement>, label: Label) => {
+    event.stopPropagation();
+    setMenuAnchor(event.currentTarget);
+    setMenuLabel(label);
+  }, []);
+
+  // Close context menu
+  const handleMenuClose = useCallback(() => {
+    setMenuAnchor(null);
   }, []);
 
   // Calculate changes
@@ -229,8 +248,28 @@ export function LabelPickerDialog({
             {filteredLabels.map((label) => {
               const isSelected = selected.has(label.id);
               return (
-                <ListItem key={label.id} disablePadding>
-                  <ListItemButton onClick={() => handleToggle(label.id)} dense>
+                <ListItem
+                  key={label.id}
+                  disablePadding
+                  secondaryAction={
+                    <IconButton
+                      edge="end"
+                      size="small"
+                      onClick={(e) => handleLabelMenu(e, label)}
+                      sx={{
+                        opacity: 0,
+                        '.MuiListItem-root:hover &': { opacity: 1 },
+                        p: 0.5,
+                      }}
+                    >
+                      <MoreHorizontal size={16} />
+                    </IconButton>
+                  }
+                  sx={{
+                    '&:hover .MuiIconButton-root': { opacity: 1 },
+                  }}
+                >
+                  <ListItemButton onClick={() => handleToggle(label.id)} dense sx={{ pr: 5 }}>
                     <ListItemIcon sx={{ minWidth: 36 }}>
                       <Checkbox
                         edge="start"
@@ -270,7 +309,12 @@ export function LabelPickerDialog({
         {/* Selected count */}
         {selectedCount > 0 && (
           <Typography variant="body2" color="primary" sx={{ mt: 1 }}>
-            {selectedCount} {selectedCount === 1 ? 'label' : 'labels'} selected
+            {selectedCount === 1
+              ? t.email?.labels?.labelSelected || '1 label selected'
+              : (t.email?.labels?.labelsSelected || '{count} labels selected').replace(
+                  '{count}',
+                  String(selectedCount)
+                )}
           </Typography>
         )}
       </DialogContent>
@@ -300,6 +344,14 @@ export function LabelPickerDialog({
               : t.email?.labels?.addSelected || 'Add Labels'}
         </Button>
       </DialogActions>
+
+      {/* Context menu for edit/delete label */}
+      <LabelContextMenu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleMenuClose}
+        label={menuLabel}
+      />
     </Dialog>
   );
 }

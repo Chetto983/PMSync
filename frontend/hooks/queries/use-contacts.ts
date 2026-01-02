@@ -102,6 +102,21 @@ export function contactsByProviderOptions(providerId: string) {
   });
 }
 
+/**
+ * Query options for contact history
+ */
+export function contactHistoryOptions(id: string, limit: number = 50) {
+  return queryOptions({
+    queryKey: ['contacts', 'history', id, limit],
+    queryFn: async () => {
+      return await contactsApi.getContactHistory(id, limit);
+    },
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000,
+    enabled: !!id,
+  });
+}
+
 // ============================================================================
 // Query Hooks
 // ============================================================================
@@ -168,6 +183,13 @@ export function useContactSearch(query: string) {
  */
 export function useContactsByProvider(providerId: string) {
   return useQuery(contactsByProviderOptions(providerId));
+}
+
+/**
+ * Hook for fetching contact history
+ */
+export function useContactHistory(id: string, limit: number = 50) {
+  return useQuery(contactHistoryOptions(id, limit));
 }
 
 // ============================================================================

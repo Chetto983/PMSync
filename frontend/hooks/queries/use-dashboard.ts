@@ -50,6 +50,21 @@ export interface FollowUp {
   reason?: string;
 }
 
+/** API response item for follow-up - used internally */
+interface ApiFollowUpItem {
+  id: string;
+  emailId?: string;
+  dueDate?: string;
+  reason?: string;
+  subject?: string;
+  contactName?: string;
+  contactEmail?: string;
+  email?: {
+    subject?: string;
+    from?: string;
+  };
+}
+
 export interface StaleContact {
   id: string;
   name: string;
@@ -192,19 +207,20 @@ export function followUpsOptions(params?: { status?: string; limit?: number }) {
       try {
         // Use dedicated pending endpoint - it returns items ordered by dueDate
         const response = await voltAgentApi.getPendingFollowUps({ limit });
-        const items = response.data?.followUps || [];
+        const items = (response.data?.followUps || []) as unknown as ApiFollowUpItem[];
         const now = new Date();
 
-        const followUps: FollowUp[] = items.map((f: Record<string, unknown>) => {
+        const followUps: FollowUp[] = items.map((f) => {
           const dueDate = f.dueDate as string || '';
           const isOverdue = dueDate && new Date(dueDate) < now;
+          const email = f.email || {};
 
           return {
             id: f.id as string,
             emailId: f.emailId as string || '',
-            subject: f.subject as string || '(No subject)',
-            contactName: f.contactName as string || f.contactEmail as string || 'Unknown',
-            contactEmail: f.contactEmail as string || '',
+            subject: email.subject || f.subject || '(No subject)',
+            contactName: email.from || f.contactName || f.contactEmail || 'Unknown',
+            contactEmail: email.from || f.contactEmail || '',
             dueDate,
             status: isOverdue ? 'overdue' : 'pending',
             reason: f.reason as string,
@@ -317,7 +333,7 @@ export function dashboardStatsOptions() {
       pendingTasks: number;
       totalContacts: number;
     }> => {
-      const [emailStats, contacts, events] = await Promise.allSettled([
+      const [emailStats, contacts, events, actionItemStats] = await Promise.allSettled([
         apiClient.get('/emails/stats'),
         contactsApi.getContactCounts(),
         (() => {
@@ -329,12 +345,20 @@ export function dashboardStatsOptions() {
             endTime: endOfDay.toISOString(),
           });
         })(),
+        voltAgentApi.getActionItemStats(),
       ]);
+
+      // Extract pending tasks from action item stats
+      let pendingTasks = 0;
+      if (actionItemStats.status === 'fulfilled' && actionItemStats.value.data?.stats) {
+        const stats = actionItemStats.value.data.stats as { todo?: number; inProgress?: number };
+        pendingTasks = (stats.todo || 0) + (stats.inProgress || 0);
+      }
 
       return {
         unreadEmails: emailStats.status === 'fulfilled' ? emailStats.value.data?.unread || 0 : 0,
         todayEvents: events.status === 'fulfilled' ? events.value.data?.events?.length || 0 : 0,
-        pendingTasks: 0, // Phase 5
+        pendingTasks,
         totalContacts: contacts.status === 'fulfilled' ? contacts.value?.total || 0 : 0,
       };
     },

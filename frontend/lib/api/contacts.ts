@@ -58,6 +58,14 @@ export interface Contact {
   notes?: string | null;
   photoUrl?: string | null;
   photoEtag?: string | null;
+  // CRM Intelligence Fields
+  lastInteractedAt?: string | null;
+  totalInteractions?: number;
+  sentCount?: number;
+  receivedCount?: number;
+  relationshipScore?: number | null;
+  reconnectRemindedAt?: string | null;
+
   isDeleted: boolean;
   isStarred: boolean;
   isFavorite: boolean;
@@ -229,5 +237,22 @@ export const contactsApi = {
     const response = await apiClient.post('/contacts/sync-all');
     return response.data;
   },
+
+  async getContactHistory(id: string, limit: number = 50): Promise<ContactInteraction[]> {
+    const response = await apiClient.get(`/contacts/${id}/history`, { params: { limit } });
+    return response.data;
+  },
 };
+
+export interface ContactInteraction {
+  id: string;
+  type: 'EMAIL_SENT' | 'EMAIL_RECEIVED' | 'MEETING' | 'CALL' | 'NOTE';
+  date: string;
+  summary: string | null;
+  sentiment: string | null;
+  sourceType: string | null;
+  emailId: string | null;
+  contactEmail: string | null;
+  contactName: string | null;
+}
 
