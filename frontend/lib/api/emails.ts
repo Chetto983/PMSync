@@ -170,6 +170,8 @@ export interface SendEmailDto {
   attachments?: File[];
   replyToMessageId?: string;
   threadId?: string;
+  /** ISO 8601 date string for scheduled send */
+  scheduledAt?: string;
 }
 
 export interface ReplyEmailDto {
@@ -341,6 +343,7 @@ export const emailsApi = {
     if (dto.bodyText) formData.append('bodyText', dto.bodyText);
     if (dto.replyToMessageId) formData.append('replyToMessageId', dto.replyToMessageId);
     if (dto.threadId) formData.append('threadId', dto.threadId);
+    if (dto.scheduledAt) formData.append('scheduledAt', dto.scheduledAt);
     if (dto.attachments?.length) {
       dto.attachments.forEach((file) => formData.append('attachments', file));
     }

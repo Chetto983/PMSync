@@ -5,6 +5,7 @@
 
 export const dashboardKeys = {
   all: ['dashboard'] as const,
+  preferences: () => [...dashboardKeys.all, 'preferences'] as const,
   briefing: () => [...dashboardKeys.all, 'briefing'] as const,
   deadlines: (params?: { limit?: number; dueWithin?: string }) =>
     [...dashboardKeys.all, 'deadlines', params] as const,

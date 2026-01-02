@@ -10,11 +10,7 @@
  * - Send functionality
  */
 
-/* eslint-disable react-hooks/set-state-in-effect */
-// Dialog initialization requires setState in useEffect - this is a valid pattern
-// See: https://github.com/facebook/react/issues/34743
-
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -31,15 +27,21 @@ import {
   CircularProgress,
   Divider,
   Alert,
+  InputAdornment,
+  Collapse,
 } from '@mui/material';
-import { X, Send, Minimize2, Maximize2 } from 'lucide-react';
+import { X, Send, Minimize2, Maximize2, Sparkles, FileText, Clock, Wand2 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useSendEmail, useSaveDraft, useDeleteDraft } from '@/hooks/queries';
 import { useProviders } from '@/hooks/queries/use-providers';
-import { ComposeEditor } from './ComposeEditor';
+import { ComposeEditor, type ComposeEditorRef } from './ComposeEditor';
 import { ComposeRecipients } from './ComposeRecipients';
 import { ComposeAttachments } from './ComposeAttachments';
+import { AIContentPreview } from './AIContentPreview';
+import { EmailTemplatesDialog } from './EmailTemplatesDialog';
+import { ScheduleSendDialog } from './ScheduleSendDialog';
 import { useDebouncedCallback } from 'use-debounce';
+import { aiApi } from '@/lib/api/ai';
 
 interface AttachmentFile {
   id: string;
@@ -94,6 +96,21 @@ export function ComposeDialog({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // New feature dialogs
+  const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false);
+  const [templatesMode, setTemplatesMode] = useState<'load' | 'save'>('load');
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduledTime, setScheduledTime] = useState<Date | null>(null);
+
+  // Inline AI compose state
+  const [aiPromptOpen, setAiPromptOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiIsLoading, setAiIsLoading] = useState(false);
+  const [aiGeneratedContent, setAiGeneratedContent] = useState<{ body: string; subject?: string } | null>(null);
+
+  // Editor ref for AI content insertion
+  const editorRef = useRef<ComposeEditorRef>(null);
 
   // Queries
   const { data: providersData } = useProviders();
@@ -246,6 +263,7 @@ export function ComposeDialog({
         attachments: attachments.map((a) => a.file),
         replyToMessageId: mode !== 'new' && mode !== 'forward' ? originalEmail?.id : undefined,
         threadId: originalEmail?.id,
+        scheduledAt: scheduledTime ? scheduledTime.toISOString() : undefined,
       });
 
       // Delete draft if exists
@@ -277,6 +295,7 @@ export function ComposeDialog({
     deleteDraft,
     onSent,
     onClose,
+    scheduledTime,
     t,
   ]);
 
@@ -294,6 +313,87 @@ export function ComposeDialog({
   // Handle attachment remove
   const handleRemoveAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  // Handle inline AI generation
+  const handleAiGenerate = useCallback(async () => {
+    const prompt = aiPrompt.trim() || editorRef.current?.getText().trim();
+    if (!prompt) return;
+
+    setAiIsLoading(true);
+    setAiGeneratedContent(null);
+
+    try {
+      const response = await aiApi.composeEmail({
+        prompt,
+        to,
+        subject: subject || undefined,
+        tone: 'professional',
+      });
+
+      if (response.data.success && response.data.body) {
+        setAiGeneratedContent({
+          body: response.data.body,
+          subject: response.data.subject,
+        });
+      }
+    } catch {
+      setError(t.email?.aiCompose?.generateError || 'Failed to generate email');
+    } finally {
+      setAiIsLoading(false);
+    }
+  }, [aiPrompt, to, subject, t]);
+
+  // Accept AI generated content
+  const handleAiAccept = useCallback((content: string, generatedSubject?: string) => {
+    setBodyHtml(content);
+    if (generatedSubject && !subject) {
+      setSubject(generatedSubject);
+    }
+    setAiGeneratedContent(null);
+    setAiPrompt('');
+    setAiPromptOpen(false);
+    editorRef.current?.focus();
+  }, [subject]);
+
+  // Reject AI generated content
+  const handleAiReject = useCallback(() => {
+    setAiGeneratedContent(null);
+  }, []);
+
+  // Toggle AI prompt input
+  const toggleAiPrompt = useCallback(() => {
+    setAiPromptOpen((prev) => !prev);
+    if (aiGeneratedContent) {
+      setAiGeneratedContent(null);
+    }
+  }, [aiGeneratedContent]);
+
+  // Handle template select
+  const handleTemplateSelect = useCallback((template: { subject: string; body: string }) => {
+    if (template.subject) {
+      setSubject(template.subject);
+    }
+    if (template.body) {
+      setBodyHtml(template.body);
+    }
+  }, []);
+
+  // Handle schedule select
+  const handleScheduleSelect = useCallback((time: Date) => {
+    setScheduledTime(time);
+    setScheduleDialogOpen(false);
+  }, []);
+
+  // Clear scheduled time
+  const clearScheduledTime = useCallback(() => {
+    setScheduledTime(null);
+  }, []);
+
+  // Open templates dialog (load mode)
+  const openLoadTemplates = useCallback(() => {
+    setTemplatesMode('load');
+    setTemplatesDialogOpen(true);
   }, []);
 
   // Format last saved time - computed directly since it depends on current time
@@ -423,13 +523,81 @@ export function ComposeDialog({
           />
         </Box>
 
+        {/* Inline AI Prompt */}
+        <Collapse in={aiPromptOpen}>
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              borderBottom: 1,
+              borderColor: 'divider',
+              bgcolor: 'action.hover',
+              position: 'relative',
+            }}
+          >
+            <TextField
+              fullWidth
+              size="small"
+              placeholder={t.email?.aiCompose?.promptPlaceholder || 'Describe the email you want to write...'}
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleAiGenerate();
+                }
+              }}
+              disabled={aiIsLoading}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Sparkles size={16} color="#8B5CF6" />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={handleAiGenerate}
+                      disabled={aiIsLoading || (!aiPrompt.trim() && !editorRef.current?.getText().trim())}
+                      startIcon={aiIsLoading ? <CircularProgress size={14} /> : <Wand2 size={14} />}
+                      sx={{ minWidth: 100 }}
+                    >
+                      {aiIsLoading ? t.email?.aiCompose?.generating || 'Generating...' : t.email?.aiCompose?.generate || 'Generate'}
+                    </Button>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: 'background.paper',
+                },
+              }}
+            />
+            {/* AI Content Preview - floating card */}
+            {aiGeneratedContent && (
+              <AIContentPreview
+                content={aiGeneratedContent.body}
+                subject={aiGeneratedContent.subject}
+                isLoading={aiIsLoading}
+                onAccept={handleAiAccept}
+                onReject={handleAiReject}
+                onRegenerate={handleAiGenerate}
+              />
+            )}
+          </Box>
+        </Collapse>
+
         {/* Editor */}
-        <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+        <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: 2 }}>
           <ComposeEditor
+            ref={editorRef}
             initialContent={bodyHtml}
             onChange={setBodyHtml}
             minHeight={200}
             autoFocus={mode === 'new'}
+            fillHeight
           />
         </Box>
 
@@ -453,7 +621,43 @@ export function ComposeDialog({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {lastSavedText && (
+          {/* AI and Templates buttons */}
+          <IconButton
+            size="small"
+            onClick={toggleAiPrompt}
+            sx={{ color: aiPromptOpen ? 'primary.main' : 'text.secondary' }}
+            title={t.email?.aiCompose?.title || 'AI Compose'}
+          >
+            <Sparkles size={18} />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={openLoadTemplates}
+            title={t.email?.templates?.title || 'Templates'}
+          >
+            <FileText size={18} />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => setScheduleDialogOpen(true)}
+            sx={{ color: scheduledTime ? 'primary.main' : 'text.secondary' }}
+            title={t.email?.scheduleSend?.title || 'Schedule Send'}
+          >
+            <Clock size={18} />
+          </IconButton>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 24, alignSelf: 'center' }} />
+          {scheduledTime && (
+            <Typography
+              variant="caption"
+              color="primary.main"
+              sx={{ cursor: 'pointer' }}
+              onClick={clearScheduledTime}
+              title={t.email?.scheduleSend?.clearSchedule || 'Click to clear schedule'}
+            >
+              {t.email?.scheduleSend?.scheduledFor || 'Scheduled:'} {scheduledTime.toLocaleString()}
+            </Typography>
+          )}
+          {!scheduledTime && lastSavedText && (
             <Typography variant="caption" color="text.secondary">
               {isSaving ? (t.email?.composer?.saving || 'Saving...') : lastSavedText}
             </Typography>
@@ -471,14 +675,32 @@ export function ComposeDialog({
             variant="contained"
             onClick={handleSend}
             disabled={isSending || to.length === 0}
-            startIcon={isSending ? <CircularProgress size={16} /> : <Send size={16} />}
+            startIcon={isSending ? <CircularProgress size={16} /> : (scheduledTime ? <Clock size={16} /> : <Send size={16} />)}
           >
             {isSending
               ? t.email?.composer?.sending || 'Sending...'
-              : t.email?.composer?.send || 'Send'}
+              : scheduledTime
+                ? t.email?.scheduleSend?.schedule || 'Schedule'
+                : t.email?.composer?.send || 'Send'}
           </Button>
         </Box>
       </DialogActions>
+
+      {/* Schedule Send Dialog */}
+      <ScheduleSendDialog
+        open={scheduleDialogOpen}
+        onClose={() => setScheduleDialogOpen(false)}
+        onSchedule={handleScheduleSelect}
+      />
+
+      {/* Email Templates Dialog */}
+      <EmailTemplatesDialog
+        open={templatesDialogOpen}
+        onClose={() => setTemplatesDialogOpen(false)}
+        onSelect={handleTemplateSelect}
+        currentEmail={{ subject, body: bodyHtml }}
+        mode={templatesMode}
+      />
     </Dialog>
   );
 }

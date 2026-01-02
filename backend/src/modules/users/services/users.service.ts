@@ -12,7 +12,7 @@ export class UsersService {
     private prisma: PrismaService,
     private emailEmbeddingQueue: EmailEmbeddingQueueService,
     private queueService: QueueService,
-  ) {}
+  ) { }
 
   /**
    * Get user profile
@@ -171,5 +171,36 @@ export class UsersService {
         },
       });
     }
+  }
+  /**
+   * Get dashboard preferences
+   */
+  async getDashboardPreferences(userId: string) {
+    const prefs = await this.prisma.dashboardPreference.findUnique({
+      where: { userId },
+    });
+
+    if (!prefs) {
+      // Return null or default structure; frontend handles empty state
+      return { layout: [] };
+    }
+
+    return prefs;
+  }
+
+  /**
+   * Update dashboard preferences
+   */
+  async updateDashboardPreferences(userId: string, layout: any[]) {
+    return this.prisma.dashboardPreference.upsert({
+      where: { userId },
+      update: {
+        layout: layout as any,
+      },
+      create: {
+        userId,
+        layout: layout as any,
+      },
+    });
   }
 }

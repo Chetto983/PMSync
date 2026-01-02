@@ -367,6 +367,7 @@ export interface AppTranslations {
     tomorrow?: string;
     remaining?: string;
     started?: string;
+    done?: string;
   };
   timeAgo: {
     justNow: string;
@@ -396,6 +397,23 @@ export interface AppTranslations {
     mfa: MfaTranslations;
   };
   dashboard: {
+    title: string;
+    subtitle?: string;
+    customize?: {
+      description: string;
+    };
+    empty?: {
+      title: string;
+      description: string;
+    };
+    actions: {
+      customize: string;
+      doneEditing: string;
+      addWidget: string;
+      layouts: string;
+      save: string;
+      reset: string;
+    };
     index: {
       loading: string;
       redirecting: string;
@@ -452,6 +470,9 @@ export interface AppTranslations {
         staleContactsPlural: string;
         today: string;
         todaysHighlights: string;
+        defaultSummary?: string;
+        urgent?: string;
+        highlights?: string;
       };
       deadlines: {
         title: string;
@@ -500,6 +521,21 @@ export interface AppTranslations {
         yearsAgo: string;
         daysAgo: string;
       };
+      categories: {
+        all: string;
+        email: string;
+        calendar: string;
+        ai: string;
+        crm: string;
+        analytics: string;
+        actions: string;
+        productivity: string;
+      };
+      addWidget: string;
+      searchPlaceholder: string;
+      addAnother: string;
+      addToDashboard: string;
+      noResults: string;
     };
   };
   email: {
@@ -688,6 +724,14 @@ export interface AppTranslations {
       scheduleSend: string;
       fullscreen: string;
       exitFullscreen: string;
+      // Additional editor toolbar translations
+      imageUrlPrompt?: string;
+      textColor?: string;
+      highlight?: string;
+      removeLink?: string;
+      insertLink?: string;
+      insertImage?: string;
+      insert?: string;
     };
     advancedSearch: {
       title: string;
@@ -816,18 +860,6 @@ export interface AppTranslations {
         addFailed: string;
       };
     };
-    conversations: {
-      title: string;
-      noConversations: string;
-      noConversationsDescription: string;
-      failedToLoad: string;
-      loadMore: string;
-      loading: string;
-      messages: string;
-      participants: string;
-      yesterday: string;
-      retry: string;
-    };
     list: {
       loading: string;
       empty: string;
@@ -867,15 +899,6 @@ export interface AppTranslations {
       archiveSubtitle: string;
       searchTitle: string;
       searchSubtitle: string;
-    };
-    swipe: {
-      delete: string;
-      markRead: string;
-      markUnread: string;
-      archive: string;
-    };
-    skeleton: {
-      loadingEmails: string;
     };
     view: {
       folderLabel: string;
@@ -971,6 +994,72 @@ export interface AppTranslations {
       markUnread: string;
       archive: string;
     };
+    // AI Compose Dialog
+    aiCompose: {
+      title: string;
+      promptRequired: string;
+      generateError: string;
+      quickPrompts: string;
+      prompts: {
+        followUp: string;
+        thankYou: string;
+        introduction: string;
+        requestMeeting: string;
+        apology: string;
+        reminder: string;
+      };
+      promptLabel: string;
+      promptPlaceholder: string;
+      toneLabel: string;
+      tones: {
+        professional: string;
+        friendly: string;
+        formal: string;
+        casual: string;
+        persuasive: string;
+        empathetic: string;
+      };
+      generating: string;
+      generate: string;
+      preview: string;
+      subject: string;
+      insertIntoEmail: string;
+      accept: string;
+      reject: string;
+    };
+    // Email Templates Dialog
+    templates: {
+      title: string;
+      saveError: string;
+      nameRequired: string;
+      contentRequired: string;
+      savedSuccessfully: string;
+      loadTab: string;
+      saveTab: string;
+      noTemplates: string;
+      builtIn: string;
+      noSubject: string;
+      templateName: string;
+      templateNamePlaceholder: string;
+      preview: string;
+      subject: string;
+      composeFirst: string;
+      saveTemplate: string;
+      builtInTemplates: {
+        [key: string]: { name: string; subject: string; body: string };
+      };
+    };
+    // Schedule Send Dialog
+    scheduleSend: {
+      title: string;
+      customTime: string;
+      schedule: string;
+      clearSchedule: string;
+      scheduledFor: string;
+      options: {
+        [key: string]: string;
+      };
+    };
   };
   calendar: {
     title: string;
@@ -1040,61 +1129,6 @@ export interface AppTranslations {
     allDay: string;
     noCalendarsFound: string;
     failedToDownloadAttachment: string;
-    invitation: {
-      title: string;
-      from: string;
-      when: string;
-      where: string;
-      organizer: string;
-      attendees: string;
-      description: string;
-      status: {
-        pending: string;
-        accepted: string;
-        declined: string;
-        tentative: string;
-        needsAction: string;
-        cancelled: string;
-        updated: string;
-      };
-      actions: {
-        accept: string;
-        decline: string;
-        tentative: string;
-        addToCalendar: string;
-        viewDetails: string;
-        downloadIcs: string;
-      };
-      method: {
-        request: string;
-        reply: string;
-        cancel: string;
-        publish: string;
-      };
-      messages: {
-        inviteReceived: string;
-        inviteCancelled: string;
-        inviteUpdated: string;
-        responseSuccess: string;
-        responseFailed: string;
-        addedToCalendar: string;
-        alreadyResponded: string;
-      };
-      attendeeRole: {
-        required: string;
-        optional: string;
-        chair: string;
-      };
-      recurrence: {
-        daily: string;
-        weekly: string;
-        monthly: string;
-        yearly: string;
-        custom: string;
-      };
-      allDay: string;
-      timezone: string;
-    };
     ai: {
       scheduling: {
         title: string;
@@ -1205,20 +1239,6 @@ export interface AppTranslations {
       phoneType?: string;
       addressType?: string;
       websiteType?: string;
-    };
-    tabs: {
-      details: string;
-      activity: string;
-      notes: string;
-    };
-    activity: {
-      title: string;
-      noActivity: string;
-    };
-    notes: {
-      title: string;
-      noNotes: string;
-      addNote: string;
     };
     list: {
       emptyTitle: string;
@@ -1691,19 +1711,6 @@ export interface AppTranslations {
       deleteDialogDeleting: string;
       deleteDialogError: string;
     };
-    notificationsPanel: {
-      title: string;
-      description: string;
-      emailToggle: string;
-      emailTitle: string;
-      newEmailsTitle: string;
-      newEmailsDesc: string;
-      calendarTitle: string;
-      calendarDesc: string;
-      aiActionsTitle: string;
-      aiActionsDesc: string;
-      save: string;
-    };
   };
   cookies: {
     title: string;
@@ -1977,56 +1984,8 @@ export interface AppTranslations {
       categorizationFailed: string;
     };
     dismiss: string;
-    // Inline HITL Action Card
-    inlineAction?: {
-      actionTypes: {
-        SEND_EMAIL: string;
-        CREATE_EVENT: string;
-        UPDATE_CONTACT: string;
-        DELETE_EMAIL: string;
-        MOVE_EMAIL: string;
-        ARCHIVE_EMAIL: string;
-        REPLY_EMAIL: string;
-        FORWARD_EMAIL: string;
-      };
-      severity: {
-        LOW: string;
-        MEDIUM: string;
-        HIGH: string;
-      };
-      fields: {
-        to: string;
-        cc: string;
-        bcc: string;
-        subject: string;
-        body: string;
-        title: string;
-        location: string;
-        attendees: string;
-        startTime: string;
-        endTime: string;
-        description: string;
-      };
-      approved: string;
-      rejected: string;
-      executed: string;
-      failed: string;
-      expired: string;
-      pending: string;
-      reasoning: string;
-      actionDetails: string;
-      editPayload: string;
-      hideDetails: string;
-      approving: string;
-      rejecting: string;
-      expand: string;
-      collapse: string;
-      requiresApproval: string;
-      autoApproved: string;
-      confidence: string;
-    };
     // Superhuman-style mentions
-    mentions?: {
+    mentions: {
       contacts: string;
       accounts: string;
       selectContact: string;
@@ -2226,66 +2185,6 @@ export interface AppTranslations {
       retry: string;
       resolved: string;
       snoozed: string;
-    };
-    actionItems: {
-      title: string;
-      subtitle: string;
-      pending: string;
-      allDone: string;
-      noPending: string;
-      viewAll: string;
-      overdue: string;
-      today: string;
-      tomorrow: string;
-      status: {
-        TODO: string;
-        IN_PROGRESS: string;
-        WAITING: string;
-        DONE: string;
-        CANCELLED: string;
-      };
-      priority: {
-        high: string;
-        medium: string;
-        low: string;
-      };
-      actions: {
-        complete: string;
-        start: string;
-        delete: string;
-      };
-    };
-    focusTime: {
-      title: string;
-      subtitle: string;
-      inFocusMode: string;
-      noSlots: string;
-      findSlots: string;
-      createBlocks: string;
-      noConflicts: string;
-      avgDaily: string;
-      optimalDays: string;
-    };
-    meetingPrep: {
-      title: string;
-      subtitle: string;
-      needingPrep: string;
-      allPrepared: string;
-      noMeetings: string;
-      viewCalendar: string;
-      prepScore: string;
-    };
-    analytics: {
-      title: string;
-      subtitle: string;
-      noData: string;
-      viewAll: string;
-      emailsProcessed: string;
-      thisWeek: string;
-      avgResponseTime: string;
-      aiActions: string;
-      approved: string;
-      learningProgress: string;
     };
   };
   commandPalette: {

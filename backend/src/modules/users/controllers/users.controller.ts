@@ -11,7 +11,7 @@ import { UpdatePreferencesDto } from '../dtos/update-preferences.dto';
 @UseGuards(JwtAuthGuard, TenantGuard)
 @ApiBearerAuth()
 export class UsersController {
-  constructor(private usersService: UsersService) {}
+  constructor(private usersService: UsersService) { }
 
   /**
    * Get current user profile
@@ -72,5 +72,26 @@ export class UsersController {
     @Body() body: UpdatePreferencesDto,
   ) {
     return this.usersService.updateUserPreferences(req.user.userId, body);
+  }
+  /**
+   * Get dashboard preferences
+   * GET /users/me/dashboard-preferences
+   */
+  @Get('me/dashboard-preferences')
+  @ApiOperation({ summary: 'Get dashboard layout preferences' })
+  @ApiResponse({ status: 200, description: 'Returns dashboard preferences' })
+  async getMyDashboardPreferences(@Request() req: AuthenticatedRequest) {
+    return this.usersService.getDashboardPreferences(req.user.userId);
+  }
+
+  /**
+   * Update dashboard preferences
+   * PUT /users/me/dashboard-preferences
+   */
+  @Put('me/dashboard-preferences')
+  @ApiOperation({ summary: 'Update dashboard layout preferences' })
+  @ApiResponse({ status: 200, description: 'Dashboard preferences updated' })
+  async updateMyDashboardPreferences(@Request() req: AuthenticatedRequest, @Body() body: { layout: any[] }) {
+    return this.usersService.updateDashboardPreferences(req.user.userId, body.layout);
   }
 }

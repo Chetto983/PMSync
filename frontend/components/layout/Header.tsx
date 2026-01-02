@@ -635,7 +635,7 @@ export function Header({
               fontWeight: 600,
             }}
           >
-            {t.dashboard.home.sections.viewAllEmails}
+            {t.dashboard?.home?.sections?.viewAllEmails || 'View All Emails'}
           </MenuItem>
         </Menu>
 

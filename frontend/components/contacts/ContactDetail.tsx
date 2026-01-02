@@ -407,9 +407,9 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
       {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-          <Tab label={contactsCopy.tabs?.details || 'Details'} />
-          <Tab label={contactsCopy.tabs?.activity || 'Activity'} />
-          <Tab label={contactsCopy.tabs?.notes || 'Notes'} />
+          <Tab label="Details" />
+          <Tab label="Activity" />
+          <Tab label="Notes" />
         </Tabs>
       </Box>
 
@@ -637,7 +637,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
           {contact.notes && (
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                {contactsCopy.notes?.title || 'Notes'}
+                Notes
               </Typography>
               <Card variant="outlined" sx={glassCardSx}>
                 <CardContent>
@@ -682,21 +682,21 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
 
         <TabPanel value={tabValue} index={1}>
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-            {contactsCopy.activity?.title || 'Activity'}
+            Activity
           </Typography>
           <InteractionList contactId={contact.id} />
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-            {contactsCopy.notes?.title || 'Notes'}
+            Notes
           </Typography>
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="body2" color="text.secondary">
-              {contactsCopy.notes?.noNotes || 'No notes yet'}
+              No notes yet
             </Typography>
             <Button variant="contained" startIcon={<Plus size={18} />} sx={{ mt: 2 }}>
-              {contactsCopy.notes?.addNote || 'Add Note'}
+              Add Note
             </Button>
           </Box>
         </TabPanel>

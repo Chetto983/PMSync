@@ -8,13 +8,14 @@
  * - Graceful fallbacks when APIs fail
  */
 
-import { useQuery, queryOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import { dashboardKeys } from './dashboard-keys';
 import { voltAgentApi, type CachedDeadline } from '@/lib/api/ai';
 import { crmApi, type ContactRelationshipStats } from '@/lib/api/crm';
 import { contactsApi } from '@/lib/api/contacts';
 import { calendarApi } from '@/lib/api/calendar';
 import { apiClient } from '@/lib/api-client';
+import type { WidgetLayout, DashboardLayout } from '@/lib/dashboard/layout-engine';
 
 // ============================================================================
 // Types
@@ -523,6 +524,84 @@ export function recentContactsOptions(params?: { limit?: number }) {
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 0,
+  });
+}
+
+// ============================================================================
+// Dashboard Preferences (Layout)
+// ============================================================================
+
+/**
+ * Default dashboard layout
+ */
+function getDefaultLayout(): DashboardLayout {
+  return {
+    id: 'default',
+    name: 'Default Layout',
+    isDefault: true,
+    isPreset: false,
+    cols: 12,
+    rowHeight: 60,
+    widgets: [
+      { i: 'briefing-1', widgetId: 'briefing', x: 0, y: 0, w: 6, h: 3, minW: 4, minH: 3 },
+      { i: 'unread-emails-1', widgetId: 'unread-emails', x: 6, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
+      { i: 'today-events-1', widgetId: 'today-events', x: 9, y: 0, w: 3, h: 2, minW: 2, minH: 2 },
+      { i: 'deadlines-1', widgetId: 'deadlines', x: 6, y: 2, w: 3, h: 2, minW: 2, minH: 2 },
+      { i: 'follow-up-tracker-1', widgetId: 'follow-up-tracker', x: 9, y: 2, w: 3, h: 2, minW: 3, minH: 2 },
+    ],
+  };
+}
+
+/**
+ * Query options for dashboard preferences (layout)
+ */
+export function dashboardPreferencesOptions() {
+  return queryOptions({
+    queryKey: dashboardKeys.preferences(),
+    queryFn: async (): Promise<DashboardLayout> => {
+      try {
+        const response = await apiClient.get('/users/me/dashboard-preferences');
+        if (response.data?.layout && Array.isArray(response.data.layout)) {
+          return {
+            ...getDefaultLayout(),
+            widgets: response.data.layout as WidgetLayout[],
+          };
+        }
+        return getDefaultLayout();
+      } catch {
+        return getDefaultLayout();
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook for dashboard preferences (layout)
+ */
+export function useDashboardPreferences() {
+  return useQuery(dashboardPreferencesOptions());
+}
+
+/**
+ * Hook for saving dashboard layout
+ */
+export function useSaveDashboardLayout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (layout: WidgetLayout[]) => {
+      await apiClient.put('/users/me/dashboard-preferences', { layout });
+      return layout;
+    },
+    onSuccess: (layout) => {
+      // Update cache optimistically
+      queryClient.setQueryData(dashboardKeys.preferences(), (old: DashboardLayout | undefined) => ({
+        ...(old || getDefaultLayout()),
+        widgets: layout,
+      }));
+    },
   });
 }
 

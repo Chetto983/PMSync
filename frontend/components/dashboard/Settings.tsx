@@ -310,7 +310,7 @@ export function Settings() {
       setNotifSaveLoading(true);
       setNotifError('');
       setNotifSuccess('');
-      setNotifSuccess(settingsCopy.notificationsPanel?.save || 'Saved');
+      setNotifSuccess('Saved');
     } catch {
       setNotifError(settingsCopy.generalPanel?.saveError || 'Failed');
     } finally {
@@ -355,7 +355,7 @@ export function Settings() {
     saveSuccess: settingsCopy.generalPanel?.saveSuccess || 'Saved',
     saveError: settingsCopy.generalPanel?.saveError || 'Failed',
     saving: settingsCopy.aiPanel?.saving || 'Saving...',
-    save: settingsCopy.notificationsPanel?.save || 'Save',
+    save: 'Save',
   }), [settingsCopy]);
 
   const aiCopy = useMemo(() => ({
@@ -448,16 +448,16 @@ export function Settings() {
   }), [settingsCopy]);
 
   const notifCopy = useMemo(() => ({
-    title: settingsCopy.notificationsPanel?.title || 'Notifications',
-    description: settingsCopy.notificationsPanel?.description || '',
-    emailTitle: settingsCopy.notificationsPanel?.emailTitle || 'Email',
-    newEmailsTitle: settingsCopy.notificationsPanel?.newEmailsTitle || 'New Emails',
-    newEmailsDesc: settingsCopy.notificationsPanel?.newEmailsDesc || '',
-    calendarTitle: settingsCopy.notificationsPanel?.calendarTitle || 'Calendar',
-    calendarDesc: settingsCopy.notificationsPanel?.calendarDesc || '',
-    aiActionsTitle: settingsCopy.notificationsPanel?.aiActionsTitle || 'AI Actions',
-    aiActionsDesc: settingsCopy.notificationsPanel?.aiActionsDesc || '',
-    save: settingsCopy.notificationsPanel?.save || 'Save',
+    title: 'Notifications',
+    description: 'Manage your notification preferences',
+    emailTitle: 'Email Notifications',
+    newEmailsTitle: 'New Emails',
+    newEmailsDesc: 'Get notified when new emails arrive',
+    calendarTitle: 'Calendar Reminders',
+    calendarDesc: 'Get reminders for upcoming events',
+    aiActionsTitle: 'AI Actions',
+    aiActionsDesc: 'Get notified when AI needs your approval',
+    save: 'Save',
     saving: settingsCopy.aiPanel?.saving || 'Saving...',
   }), [settingsCopy]);
 

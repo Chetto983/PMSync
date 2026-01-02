@@ -57,6 +57,7 @@ model User {
   agentActionFeedback   AgentActionFeedback[]  @relation("AgentActionFeedbackToUser")
   userProfileEmbeddings UserProfileEmbedding[] @relation("UserProfileEmbeddingsToUser")
   proceduralPatterns    ProceduralPattern[]    @relation("ProceduralPatternsToUser")
+  dashboardPreference   DashboardPreference?
   tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
@@ -107,6 +108,21 @@ model UserPreferences {
 
   @@index([userId])
   @@map("user_preferences")
+}
+
+model DashboardPreference {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Active layout configuration
+  // Stores array of { i: string, x: number, y: number, w: number, h: number }
+  layout    Json
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("dashboard_preferences")
 }
 
 // ============================================

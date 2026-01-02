@@ -2,18 +2,31 @@
  * Compose Editor Component
  *
  * Tiptap-based rich text editor for email composition.
- * Supports formatting, lists, links, and image handling.
+ * Supports formatting, lists, links, colors, and image handling.
  *
  * @see https://tiptap.dev/docs/editor/getting-started
  */
 
-import { useEffect, useRef } from 'react';
-import { Box, IconButton, Divider, Tooltip } from '@mui/material';
+import { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
+import {
+  Box,
+  IconButton,
+  Divider,
+  Tooltip,
+  Popover,
+  TextField,
+  Button,
+  Stack,
+} from '@mui/material';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
+import Link from '@tiptap/extension-link';
+import { TextStyle } from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import Highlight from '@tiptap/extension-highlight';
 import {
   Bold,
   Italic,
@@ -26,36 +39,116 @@ import {
   Redo,
   Heading1,
   Heading2,
+  Link as LinkIcon,
+  Unlink,
+  Image as ImageIcon,
+  Palette,
+  Highlighter,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
+// Predefined colors for the color picker
+const TEXT_COLORS = [
+  '#000000', '#374151', '#6B7280', '#9CA3AF',
+  '#EF4444', '#F97316', '#EAB308', '#22C55E',
+  '#14B8A6', '#3B82F6', '#8B5CF6', '#EC4899',
+];
+
+const HIGHLIGHT_COLORS = [
+  '#FEF08A', '#FDE68A', '#D9F99D', '#BBF7D0',
+  '#A5F3FC', '#BAE6FD', '#DDD6FE', '#FBCFE8',
+];
+
 // Toolbar button component - defined outside to avoid recreation on each render
 interface ToolbarButtonProps {
-  onClick: () => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   isActive?: boolean;
   tooltip: string;
+  disabled?: boolean;
   children: React.ReactNode;
 }
 
-function ToolbarButton({ onClick, isActive, tooltip, children }: ToolbarButtonProps) {
+function ToolbarButton({ onClick, isActive, tooltip, disabled, children }: ToolbarButtonProps) {
   return (
     <Tooltip title={tooltip}>
-      <IconButton
-        size="small"
-        onClick={onClick}
-        sx={{
-          p: 0.5,
-          borderRadius: 1,
-          color: isActive ? 'primary.main' : 'text.secondary',
-          bgcolor: isActive ? 'action.selected' : 'transparent',
-          '&:hover': {
-            bgcolor: 'action.hover',
-          },
-        }}
-      >
-        {children}
-      </IconButton>
+      <span>
+        <IconButton
+          size="small"
+          onClick={onClick}
+          disabled={disabled}
+          sx={{
+            p: 0.5,
+            borderRadius: 1,
+            color: isActive ? 'primary.main' : 'text.secondary',
+            bgcolor: isActive ? 'action.selected' : 'transparent',
+            '&:hover': {
+              bgcolor: 'action.hover',
+            },
+          }}
+        >
+          {children}
+        </IconButton>
+      </span>
     </Tooltip>
+  );
+}
+
+// Color picker button component
+interface ColorPickerButtonProps {
+  colors: string[];
+  currentColor?: string;
+  onSelect: (color: string) => void;
+  tooltip: string;
+  icon: React.ReactNode;
+}
+
+function ColorPickerButton({ colors, currentColor, onSelect, tooltip, icon }: ColorPickerButtonProps) {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+
+  return (
+    <>
+      <Tooltip title={tooltip}>
+        <IconButton
+          size="small"
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+          sx={{
+            p: 0.5,
+            borderRadius: 1,
+            color: currentColor || 'text.secondary',
+            '&:hover': { bgcolor: 'action.hover' },
+          }}
+        >
+          {icon}
+        </IconButton>
+      </Tooltip>
+      <Popover
+        open={Boolean(anchorEl)}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Box sx={{ p: 1, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0.5 }}>
+          {colors.map((color) => (
+            <IconButton
+              key={color}
+              size="small"
+              onClick={() => {
+                onSelect(color);
+                setAnchorEl(null);
+              }}
+              sx={{
+                width: 28,
+                height: 28,
+                bgcolor: color,
+                border: currentColor === color ? 2 : 1,
+                borderColor: currentColor === color ? 'primary.main' : 'divider',
+                '&:hover': { opacity: 0.8 },
+              }}
+            />
+          ))}
+        </Box>
+      </Popover>
+    </>
   );
 }
 
@@ -72,19 +165,38 @@ interface ComposeEditorProps {
   readOnly?: boolean;
   /** Auto-focus on mount */
   autoFocus?: boolean;
+  /** Fill available height */
+  fillHeight?: boolean;
 }
 
-export function ComposeEditor({
+/** Ref handle for external editor control */
+export interface ComposeEditorRef {
+  /** Get plain text content */
+  getText: () => string;
+  /** Get HTML content */
+  getHTML: () => string;
+  /** Set HTML content */
+  setContent: (html: string) => void;
+  /** Focus the editor */
+  focus: () => void;
+}
+
+export const ComposeEditor = forwardRef<ComposeEditorRef, ComposeEditorProps>(function ComposeEditor({
   initialContent = '',
   placeholder,
   onChange,
   minHeight = 200,
   readOnly = false,
   autoFocus = false,
-}: ComposeEditorProps) {
+  fillHeight = false,
+}, ref) {
   const t = useTranslations();
   // Track last set content to prevent infinite loops
   const lastSetContentRef = useRef<string>(initialContent);
+
+  // Link dialog state
+  const [linkAnchorEl, setLinkAnchorEl] = useState<HTMLElement | null>(null);
+  const [linkUrl, setLinkUrl] = useState('');
 
   const editor = useEditor({
     extensions: [
@@ -100,6 +212,17 @@ export function ComposeEditor({
       Image.configure({
         inline: true,
         allowBase64: true,
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'compose-link',
+        },
+      }),
+      TextStyle,
+      Color,
+      Highlight.configure({
+        multicolor: true,
       }),
     ],
     content: initialContent,
@@ -125,6 +248,47 @@ export function ComposeEditor({
     }
   }, [editor, initialContent]);
 
+  // Expose editor methods via ref for external control (AI compose, templates)
+  useImperativeHandle(ref, () => ({
+    getText: () => editor?.getText() || '',
+    getHTML: () => editor?.getHTML() || '',
+    setContent: (html: string) => {
+      if (editor) {
+        lastSetContentRef.current = html;
+        editor.commands.setContent(html);
+      }
+    },
+    focus: () => editor?.commands.focus(),
+  }), [editor]);
+
+  // Handle link insertion
+  const handleInsertLink = useCallback(() => {
+    if (!editor || !linkUrl) return;
+
+    // Add https:// if no protocol
+    const url = linkUrl.startsWith('http') ? linkUrl : `https://${linkUrl}`;
+
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange('link')
+      .setLink({ href: url })
+      .run();
+
+    setLinkUrl('');
+    setLinkAnchorEl(null);
+  }, [editor, linkUrl]);
+
+  // Handle image insertion from URL
+  const handleInsertImage = useCallback(() => {
+    if (!editor) return;
+
+    const url = window.prompt(t.email?.composer?.imageUrlPrompt || 'Enter image URL:');
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+  }, [editor, t]);
+
   if (!editor) {
     return null;
   }
@@ -136,6 +300,9 @@ export function ComposeEditor({
         borderColor: 'divider',
         borderRadius: 1,
         overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        height: fillHeight ? '100%' : 'auto',
         '&:focus-within': {
           borderColor: 'primary.main',
         },
@@ -154,6 +321,7 @@ export function ComposeEditor({
             borderColor: 'divider',
             bgcolor: 'background.default',
             flexWrap: 'wrap',
+            flexShrink: 0,
           }}
         >
           {/* Undo/Redo */}
@@ -222,6 +390,24 @@ export function ComposeEditor({
 
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 20, alignSelf: 'center' }} />
 
+          {/* Colors */}
+          <ColorPickerButton
+            colors={TEXT_COLORS}
+            currentColor={editor.getAttributes('textStyle').color}
+            onSelect={(color) => editor.chain().focus().setColor(color).run()}
+            tooltip={t.email?.composer?.textColor || 'Text color'}
+            icon={<Palette size={16} />}
+          />
+          <ColorPickerButton
+            colors={HIGHLIGHT_COLORS}
+            currentColor={editor.getAttributes('highlight').color}
+            onSelect={(color) => editor.chain().focus().toggleHighlight({ color }).run()}
+            tooltip={t.email?.composer?.highlight || 'Highlight'}
+            icon={<Highlighter size={16} />}
+          />
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 20, alignSelf: 'center' }} />
+
           {/* Lists */}
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -248,17 +434,80 @@ export function ComposeEditor({
           >
             <Quote size={16} />
           </ToolbarButton>
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 20, alignSelf: 'center' }} />
+
+          {/* Link */}
+          <ToolbarButton
+            onClick={(e) => {
+              if (editor.isActive('link')) {
+                editor.chain().focus().unsetLink().run();
+              } else {
+                setLinkAnchorEl(e.currentTarget as HTMLElement);
+              }
+            }}
+            isActive={editor.isActive('link')}
+            tooltip={editor.isActive('link') ? (t.email?.composer?.removeLink || 'Remove link') : (t.email?.composer?.insertLink || 'Insert link')}
+          >
+            {editor.isActive('link') ? <Unlink size={16} /> : <LinkIcon size={16} />}
+          </ToolbarButton>
+
+          {/* Image */}
+          <ToolbarButton
+            onClick={handleInsertImage}
+            tooltip={t.email?.composer?.insertImage || 'Insert image'}
+          >
+            <ImageIcon size={16} />
+          </ToolbarButton>
         </Box>
       )}
+
+      {/* Link insertion popover */}
+      <Popover
+        open={Boolean(linkAnchorEl)}
+        anchorEl={linkAnchorEl}
+        onClose={() => {
+          setLinkAnchorEl(null);
+          setLinkUrl('');
+        }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Stack direction="row" spacing={1} sx={{ p: 1.5 }}>
+          <TextField
+            size="small"
+            placeholder="https://example.com"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleInsertLink();
+              }
+            }}
+            sx={{ minWidth: 250 }}
+            autoFocus
+          />
+          <Button
+            size="small"
+            variant="contained"
+            onClick={handleInsertLink}
+            disabled={!linkUrl}
+          >
+            {t.email?.composer?.insert || 'Insert'}
+          </Button>
+        </Stack>
+      </Popover>
 
       {/* Editor content */}
       <Box
         sx={{
-          minHeight,
+          flex: fillHeight ? 1 : 'none',
+          minHeight: fillHeight ? 0 : minHeight,
+          overflow: 'auto',
           p: 1.5,
           '& .compose-editor-content': {
             outline: 'none',
-            minHeight: minHeight - 24,
+            minHeight: fillHeight ? '100%' : minHeight - 24,
+            height: fillHeight ? '100%' : 'auto',
             fontSize: '0.9375rem',
             lineHeight: 1.6,
             '& p': {
@@ -287,6 +536,11 @@ export function ComposeEditor({
               marginRight: 0,
               color: 'text.secondary',
             },
+            '& a.compose-link': {
+              color: 'primary.main',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+            },
             '& .is-editor-empty:first-child::before': {
               content: 'attr(data-placeholder)',
               float: 'left',
@@ -301,6 +555,6 @@ export function ComposeEditor({
       </Box>
     </Box>
   );
-}
+});
 
 export default ComposeEditor;

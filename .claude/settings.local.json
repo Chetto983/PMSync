@@ -137,7 +137,12 @@
       "Bash(git -C D:/MailAgent checkout -- frontend/components/email/thread/ThreadMessage.tsx frontend/components/email/thread/ThreadView.tsx frontend/components/email/thread/index.ts frontend/locales/en.ts frontend/locales/it.ts frontend/locales/index.ts)",
       "Bash(git -C D:MailAgent status --short)",
       "Bash(powershell -ExecutionPolicy Bypass -File \"D:\\\\MailAgent\\\\backend\\\\scripts\\\\check-mem.ps1\")",
-      "Bash(powershell -ExecutionPolicy Bypass -File:*)"
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)",
+      "Bash(for section in \"greetings\" \"timeAgo\" \"date\" \"emailList\" \"threadActions\" \"email.templates\" \"email.scheduleSend\" \"email.aiCompose\")",
+      "Bash(do echo -n \"$section: \")",
+      "Bash(for section in \"ai.mentions\" \"ai.inlineAction\" \"ai.memoryBrowser\" \"ai.followUpTracker\" \"ai.actionItems\" \"ai.focusTime\" \"ai.meetingPrep\" \"ai.analytics\")",
+      "Bash(for section in \"commandPalette\" \"calendar.invitation\" \"calendar.ai\" \"contacts.tabs\" \"contacts.activity\" \"contacts.notes\")",
+      "Bash(grep -n \"_selected\\\\|_search\\\\|_setSearch\" d:/MailAgent/frontend/components/dashboard/*.tsx)"
     ],
     "deny": []
   }

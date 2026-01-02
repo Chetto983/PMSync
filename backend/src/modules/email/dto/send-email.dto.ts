@@ -81,6 +81,10 @@ class BaseComposeEmailDto {
 export class SendEmailRequestDto extends BaseComposeEmailDto {
   @IsString()
   providerId!: string;
+
+  @IsOptional()
+  @IsString()
+  scheduledAt?: string;
 }
 
 export class ReplyForwardEmailRequestDto extends BaseComposeEmailDto { }
