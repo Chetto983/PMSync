@@ -1,45 +1,22 @@
-/**
- * Compose Attachments Component
- *
- * File upload with drag-and-drop support using react-dropzone.
- * Displays attachment list with remove capability.
- *
- * @see https://react-dropzone.js.org/
- */
-
-import { useCallback, useMemo } from 'react';
-import {
-  Box,
-  Typography,
-  Chip,
-  Button,
-  alpha,
-} from '@mui/material';
-import { Paperclip, X, Upload, FileIcon } from 'lucide-react';
+import { useCallback } from 'react';
+import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { useDropzone } from 'react-dropzone';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
-interface AttachmentFile {
-  id: string;
+export type Attachment = {
   file: File;
-  name: string;
-  size: number;
-  uploading?: boolean;
-  progress?: number;
-  error?: string;
-}
+  id: string;
+};
 
-interface ComposeAttachmentsProps {
-  attachments: AttachmentFile[];
-  onAdd: (files: File[]) => void;
-  onRemove: (id: string) => void;
-  maxFileSize?: number; // in bytes, default 10MB
-  maxTotalSize?: number; // in bytes, default 25MB
-  readOnly?: boolean;
-}
-
-const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const DEFAULT_MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25MB
+export type ComposeAttachmentsProps = {
+  attachments: Attachment[];
+  onAttachmentsChange: (attachments: Attachment[]) => void;
+  maxSize?: number;
+};
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -47,159 +24,104 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function ComposeAttachments({
+export default function ComposeAttachments({
   attachments,
-  onAdd,
-  onRemove,
-  maxFileSize = DEFAULT_MAX_FILE_SIZE,
-  maxTotalSize = DEFAULT_MAX_TOTAL_SIZE,
-  readOnly = false,
+  onAttachmentsChange,
+  maxSize = 25 * 1024 * 1024, // 25MB default
 }: ComposeAttachmentsProps) {
   const t = useTranslations();
 
-  const totalSize = attachments.reduce((sum, att) => sum + att.size, 0);
-
-  // Handle file drop/selection with validation
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
-      if (acceptedFiles.length === 0) return;
-
-      const validFiles: File[] = [];
-      let newTotalSize = totalSize;
-
-      for (const file of acceptedFiles) {
-        // Check individual file size
-        if (file.size > maxFileSize) {
-          continue;
-        }
-
-        // Check total size limit
-        if (newTotalSize + file.size > maxTotalSize) {
-          break;
-        }
-
-        validFiles.push(file);
-        newTotalSize += file.size;
-      }
-
-      if (validFiles.length > 0) {
-        onAdd(validFiles);
-      }
+      const newAttachments = acceptedFiles.map((file) => ({
+        file,
+        id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      }));
+      onAttachmentsChange([...attachments, ...newAttachments]);
     },
-    [totalSize, maxFileSize, maxTotalSize, onAdd]
+    [attachments, onAttachmentsChange],
   );
 
-  // Configure dropzone
-  const {
-    getRootProps,
-    getInputProps,
-    isDragActive,
-    open,
-  } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    multiple: true,
-    disabled: readOnly,
-    // Don't open file dialog on click - we use the button
+    maxSize,
     noClick: true,
-    // Don't trigger on keyboard events
     noKeyboard: true,
-    // File size validation (per-file)
-    maxSize: maxFileSize,
   });
 
-  // Memoize dropzone root props for stable reference
-  const rootProps = useMemo(() => getRootProps(), [getRootProps]);
-  const inputProps = useMemo(() => getInputProps(), [getInputProps]);
+  const handleRemove = (id: string) => {
+    onAttachmentsChange(attachments.filter((a) => a.id !== id));
+  };
 
-  if (readOnly && attachments.length === 0) {
-    return null;
-  }
+  const handleAttachClick = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.onchange = (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files) {
+        onDrop(Array.from(files));
+      }
+    };
+    input.click();
+  };
 
   return (
-    <Box
-      {...rootProps}
-      sx={{ px: 2, py: 0.5 }}
-    >
-      {/* Hidden file input managed by react-dropzone */}
-      <Box component="input" {...inputProps} sx={{ display: 'none' }} />
+    <Box {...getRootProps()} sx={{ position: 'relative' }}>
+      <input {...getInputProps()} />
 
-      {/* Drop zone overlay - only visible when dragging */}
-      {isDragActive && !readOnly && (
+      {isDragActive && (
         <Box
           sx={{
-            border: 2,
-            borderStyle: 'dashed',
+            position: 'absolute',
+            inset: 0,
+            bgcolor: 'action.hover',
+            border: '2px dashed',
             borderColor: 'primary.main',
             borderRadius: 1,
-            p: 1.5,
-            textAlign: 'center',
-            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
-            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
           }}
         >
-          <Upload size={20} />
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-            {t.email?.composer?.releaseToAttachFiles || 'Release to attach files'}
-          </Typography>
+          <Typography color="primary">{t.email.composer.dropFilesHere}</Typography>
         </Box>
       )}
 
-      {/* Compact inline: attach button + attachment chips */}
-      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
-        {/* Attach button - uses dropzone open() function */}
-        {!readOnly && (
-          <Button
-            type="button"
-            onClick={open}
-            size="small"
-            startIcon={<Paperclip size={14} />}
-            sx={{
-              textTransform: 'none',
-              minWidth: 'auto',
-              py: 0.25,
-              px: 1,
-              fontSize: '0.75rem',
-              cursor: 'pointer',
-            }}
-          >
-            {t.email?.composer?.attachFiles || 'Attach'}
-          </Button>
-        )}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          px: 2,
+          py: 1,
+          borderTop: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <IconButton size="small" onClick={handleAttachClick}>
+          <AttachFileIcon fontSize="small" />
+        </IconButton>
 
-        {/* Attachment chips inline */}
-        {attachments.map((att) => (
-          <Chip
-            key={att.id}
-            icon={<FileIcon size={12} />}
-            label={`${att.name} (${formatFileSize(att.size)})`}
-            onDelete={readOnly ? undefined : () => onRemove(att.id)}
-            deleteIcon={<X size={12} />}
-            size="small"
-            sx={{
-              maxWidth: 180,
-              height: 24,
-              '& .MuiChip-label': {
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                fontSize: '0.7rem',
-                px: 0.5,
-              },
-              '& .MuiChip-icon': {
-                ml: 0.5,
-              },
-            }}
-          />
-        ))}
-
-        {/* Size indicator - inline */}
-        {attachments.length > 0 && (
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-            {formatFileSize(totalSize)} / {formatFileSize(maxTotalSize)}
+        {attachments.length > 0 ? (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {attachments.map((attachment) => (
+              <Chip
+                key={attachment.id}
+                label={`${attachment.file.name} (${formatFileSize(attachment.file.size)})`}
+                size="small"
+                onDelete={() => handleRemove(attachment.id)}
+                sx={{ maxWidth: 200 }}
+              />
+            ))}
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            {t.email.composer.attachFiles}
           </Typography>
         )}
       </Box>
     </Box>
   );
 }
-
-export default ComposeAttachments;

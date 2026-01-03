@@ -76,6 +76,8 @@ export const it: AppTranslations = {
     delete: 'Elimina',
     edit: 'Modifica',
     close: 'Chiudi',
+    fullscreen: 'Schermo intero',
+    exitFullscreen: 'Esci da schermo intero',
     confirm: 'Conferma',
     yes: 'Sì',
     no: 'No',

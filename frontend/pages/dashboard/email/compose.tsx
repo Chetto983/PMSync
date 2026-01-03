@@ -14,9 +14,7 @@ import { Layout } from '@/components/layout/Layout';
 import { ComposeDialog } from '@/components/email/compose';
 import { useEmail } from '@/hooks/queries';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import type { ComposeDialogProps } from '@/components/email/compose';
-
-type ComposeMode = 'new' | 'reply' | 'replyAll' | 'forward';
+import type { ComposeDialogProps, ComposeMode } from '@/components/email/compose';
 
 export default function ComposePage() {
   const router = useRouter();
@@ -90,9 +88,15 @@ export default function ComposePage() {
   const originalEmail: ComposeDialogProps['originalEmail'] = originalEmailData
     ? {
         id: originalEmailData.id,
-        from: originalEmailData.from,
-        to: originalEmailData.to || [],
-        cc: originalEmailData.cc || [],
+        from: typeof originalEmailData.from === 'string'
+          ? { email: originalEmailData.from }
+          : originalEmailData.from,
+        to: (originalEmailData.to || []).map((t: string | { email: string; name?: string }) =>
+          typeof t === 'string' ? { email: t } : t
+        ),
+        cc: (originalEmailData.cc || []).map((c: string | { email: string; name?: string }) =>
+          typeof c === 'string' ? { email: c } : c
+        ),
         subject: originalEmailData.subject || '',
         bodyHtml: originalEmailData.bodyHtml || originalEmailData.bodyText || undefined,
         receivedAt: originalEmailData.receivedAt,

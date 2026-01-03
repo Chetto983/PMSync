@@ -8,8 +8,19 @@
  * - ComposeAttachments: File upload handling
  */
 
-export { ComposeDialog } from './ComposeDialog';
-export type { ComposeDialogProps } from './ComposeDialog';
-export { ComposeEditor } from './ComposeEditor';
-export { ComposeRecipients } from './ComposeRecipients';
-export { ComposeAttachments } from './ComposeAttachments';
+export { default as ComposeDialog } from './ComposeDialog';
+export type { ComposeDialogProps, ComposeMode, OriginalEmail } from './ComposeDialog';
+
+export { default as ComposeEditor } from './ComposeEditor';
+export type { ComposeEditorProps } from './ComposeEditor';
+
+export { default as ComposeRecipients } from './ComposeRecipients';
+export type { ComposeRecipientsProps, Recipient } from './ComposeRecipients';
+
+export { default as ComposeAttachments } from './ComposeAttachments';
+export type { ComposeAttachmentsProps, Attachment } from './ComposeAttachments';
+
+export { default as useExtensions } from './useExtensions';
+export type { UseExtensionsOptions } from './useExtensions';
+
+export { default as EditorMenuControls } from './EditorMenuControls';

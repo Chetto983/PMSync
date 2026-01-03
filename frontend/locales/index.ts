@@ -334,6 +334,8 @@ export interface AppTranslations {
     delete: string;
     edit: string;
     close: string;
+    fullscreen: string;
+    exitFullscreen: string;
     confirm: string;
     yes: string;
     no: string;
