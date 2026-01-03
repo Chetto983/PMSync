@@ -187,11 +187,6 @@ export default function ComposeDialog({
     e.target.value = '';
   }, []);
 
-  const handleAiCompose = useCallback(() => {
-    // TODO: Open AI compose dialog
-    console.log('AI Compose clicked');
-  }, []);
-
   const toggleFullscreen = useCallback(() => {
     setIsFullscreen((prev) => !prev);
   }, []);
@@ -298,8 +293,9 @@ export default function ComposeDialog({
             content={body}
             onChange={setBody}
             minHeight={isFullscreen ? 500 : 300}
-            onAiCompose={handleAiCompose}
             onAttach={handleAttachFromToolbar}
+            recipients={to.map((r) => r.email)}
+            subject={subject}
           />
         </Box>
       </DialogContent>
@@ -311,8 +307,10 @@ export default function ComposeDialog({
 
       <Divider />
 
+      {/* Footer Actions */}
       <DialogActions sx={{ px: 2, py: 1.5 }}>
         <Box sx={{ flex: 1 }} />
+
         {onSchedule && (
           <Button
             variant="outlined"

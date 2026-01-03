@@ -82,11 +82,23 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
 
       <MenuDivider />
 
-      <MenuSelectHeading />
+      <MenuSelectHeading
+        labels={{
+          paragraph: composer.headingParagraph,
+          heading1: composer.heading1,
+          heading2: composer.heading2,
+          heading3: composer.heading3,
+          heading4: composer.heading4,
+          heading5: composer.heading5,
+          heading6: composer.heading6,
+        }}
+      />
 
       <MenuDivider />
 
-      <MenuSelectFontSize />
+      <MenuSelectFontSize
+        unsetOptionLabel={composer.fontSizeDefault}
+      />
 
       <MenuDivider />
 
@@ -98,9 +110,9 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
 
       <MenuButtonStrikethrough tooltipLabel={composer.strikethrough} />
 
-      <MenuButtonSubscript />
+      <MenuButtonSubscript tooltipLabel={composer.subscript} />
 
-      <MenuButtonSuperscript />
+      <MenuButtonSuperscript tooltipLabel={composer.superscript} />
 
       <MenuDivider />
 
@@ -117,6 +129,13 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
           { value: '#00d000', label: 'Green' },
           { value: '#0000ff', label: 'Blue' },
         ]}
+        labels={{
+          cancelButton: composer.colorPickerCancel,
+          saveButton: composer.colorPickerSave,
+          removeColorButton: composer.colorPickerReset,
+          removeColorButtonTooltipTitle: composer.colorPickerRemove,
+          textFieldPlaceholder: composer.colorPickerPlaceholder,
+        }}
       />
 
       <MenuButtonHighlightColor
@@ -131,6 +150,13 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
           { value: '#90c6ff', label: 'Light blue' },
           { value: '#8085e9', label: 'Light purple' },
         ]}
+        labels={{
+          cancelButton: composer.colorPickerCancel,
+          saveButton: composer.colorPickerSave,
+          removeColorButton: composer.colorPickerReset,
+          removeColorButtonTooltipTitle: composer.colorPickerRemove,
+          textFieldPlaceholder: composer.colorPickerPlaceholder,
+        }}
       />
 
       <MenuDivider />
@@ -147,12 +173,12 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
 
       <MenuButtonBulletedList tooltipLabel={composer.bulletList} />
 
-      <MenuButtonTaskList />
+      <MenuButtonTaskList tooltipLabel={composer.taskList} />
 
       {isTouchDevice() && (
         <>
-          <MenuButtonIndent />
-          <MenuButtonUnindent />
+          <MenuButtonIndent tooltipLabel={composer.indent} />
+          <MenuButtonUnindent tooltipLabel={composer.unindent} />
         </>
       )}
 
@@ -162,9 +188,9 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
 
       <MenuDivider />
 
-      <MenuButtonCode />
+      <MenuButtonCode tooltipLabel={composer.code} />
 
-      <MenuButtonCodeBlock />
+      <MenuButtonCodeBlock tooltipLabel={composer.codeBlock} />
 
       <MenuDivider />
 
@@ -180,13 +206,13 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
 
       <MenuDivider />
 
-      <MenuButtonHorizontalRule />
+      <MenuButtonHorizontalRule tooltipLabel={composer.horizontalRule} />
 
-      <MenuButtonAddTable />
+      <MenuButtonAddTable tooltipLabel={composer.addTable} />
 
       <MenuDivider />
 
-      <MenuButtonRemoveFormatting />
+      <MenuButtonRemoveFormatting tooltipLabel={composer.removeFormatting} />
 
       <MenuDivider />
 

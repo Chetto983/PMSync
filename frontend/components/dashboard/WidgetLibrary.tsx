@@ -80,8 +80,8 @@ export function WidgetLibrary({ open, onClose }: WidgetLibraryProps) {
     const { data: dashboardLayout } = useDashboardPreferences();
     const saveLayout = useSaveDashboardLayout();
 
-    const currentLayout = dashboardLayout?.widgets || [];
-    const visibleWidgets = currentLayout.map((w) => w.i);
+    const currentLayout = useMemo(() => dashboardLayout?.widgets || [], [dashboardLayout?.widgets]);
+    const visibleWidgets = useMemo(() => currentLayout.map((w) => w.i), [currentLayout]);
 
     // Memoized filtered widgets
     const filteredWidgets = useMemo(() => {

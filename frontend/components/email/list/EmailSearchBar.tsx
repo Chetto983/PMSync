@@ -42,8 +42,13 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
   }, 300);
 
   // Sync local state with store when it changes externally
+  // Only update if values differ to avoid cascading renders
   useEffect(() => {
-    setInputValue(currentSearch || '');
+    const storeValue = currentSearch || '';
+    if (storeValue !== inputValue) {
+      setInputValue(storeValue);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSearch]);
 
   // Handle input change
