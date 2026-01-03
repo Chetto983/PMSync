@@ -4,32 +4,32 @@
 
 'use client';
 
-import { useImportantEmails } from '@/hooks/queries/use-dashboard';
+import { useRecentUnreadEmails } from '@/hooks/queries/use-dashboard';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
-import { Typography, List, ListItem, ListItemText, Chip } from '@mui/material';
+import { Typography, List, ListItem, ListItemText } from '@mui/material';
+import { Mail } from 'lucide-react';
 
 export function UnreadEmailsWidget() {
-    const { data, isLoading, error, refetch } = useImportantEmails({ limit: 5 });
+    const t = useTranslations();
+    const { data, isLoading, error, refetch } = useRecentUnreadEmails({ limit: 5 });
 
     return (
         <BaseWidget
             id="unread-emails"
-            title="Unread Emails"
+            title={t.dashboard.widgets.unreadEmails.title}
             loading={isLoading}
             error={error?.message}
             onRefresh={() => refetch()}
-            actions={
-                data?.total ? (
-                    <Chip label={data.total} size="small" color="primary" />
-                ) : null
-            }
+            icon={<Mail size={18} />}
+            badge={data?.total || undefined}
         >
             {data && data.emails.length > 0 ? (
                 <List dense disablePadding>
                     {data.emails.map((email) => (
                         <ListItem key={email.id} disablePadding sx={{ mb: 1 }}>
                             <ListItemText
-                                primary={email.subject || '(No subject)'}
+                                primary={email.subject || t.dashboard.widgets.unreadEmails.noSubject}
                                 secondary={email.from?.name || email.from?.email}
                                 slotProps={{
                                     primary: {
@@ -48,7 +48,7 @@ export function UnreadEmailsWidget() {
                 </List>
             ) : (
                 <Typography variant="body2" color="text.secondary">
-                    All caught up!
+                    {t.dashboard.widgets.unreadEmails.allCaughtUp}
                 </Typography>
             )}
         </BaseWidget>

@@ -192,14 +192,6 @@ export class ComposeEmailDto {
   locale?: string;
 
   @ApiPropertyOptional({
-    description: 'Experiment bucket for A/B validation',
-    example: 'B',
-  })
-  @IsOptional()
-  @IsString()
-  variant?: string;
-
-  @ApiPropertyOptional({
     description: 'Optional thread/email context for better grounding',
     type: 'array',
     example: [{ subject: 'Previous subject', body: 'Thread content here' }],
@@ -218,9 +210,6 @@ export class ComposeEmailResponseDto {
 
   @ApiPropertyOptional({ description: 'Suggested subject (if generated)' })
   subject?: string;
-
-  @ApiPropertyOptional({ description: 'Variant bucket used for generation', example: 'A' })
-  variantUsed?: string;
 }
 
 /**

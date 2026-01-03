@@ -39,7 +39,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { useDashboardStore } from '@/stores/dashboard-store';
+import { ALL_WIDGETS } from '@/stores/dashboard-store';
 
 // Lazy loaded widgets for better performance
 const BriefingWidget = lazy(() =>
@@ -57,12 +57,15 @@ const FollowUpWidget = lazy(() =>
 const TodayEventsWidget = lazy(() =>
   import('./widgets/TodayEventsWidget').then((m) => ({ default: m.TodayEventsWidget }))
 );
+const PredictiveInsightsWidget = lazy(() =>
+  import('./widgets/PredictiveInsightsWidget').then((m) => ({ default: m.PredictiveInsightsWidget }))
+);
 
 // ============================================================================
 // Widget Registry
 // ============================================================================
 
-type WidgetId = 'briefing' | 'events' | 'emails' | 'deadlines' | 'followups';
+type WidgetId = 'briefing' | 'insights' | 'events' | 'emails' | 'deadlines' | 'followups';
 
 interface WidgetConfig {
   id: WidgetId;
@@ -77,6 +80,11 @@ const WIDGETS: WidgetConfig[] = [
     icon: <Sparkles size={20} />,
     component: BriefingWidget,
     fullWidth: true,
+  },
+  {
+    id: 'insights',
+    icon: <Sparkles size={20} />,
+    component: PredictiveInsightsWidget,
   },
   {
     id: 'events',
@@ -104,6 +112,7 @@ const WIDGETS: WidgetConfig[] = [
 const getWidgetName = (id: WidgetId, t: ReturnType<typeof useTranslations>): string => {
   const names: Record<WidgetId, string> = {
     briefing: t.dashboard?.widgets?.briefing?.title || 'Daily Briefing',
+    insights: t.dashboard?.widgets?.insights?.title || 'AI Insights',
     events: t.calendar?.title || "Today's Events",
     emails: t.email?.title || 'Unread Emails',
     deadlines: t.dashboard?.widgets?.deadlines?.title || 'Deadlines',
@@ -115,6 +124,7 @@ const getWidgetName = (id: WidgetId, t: ReturnType<typeof useTranslations>): str
 const getWidgetDescription = (id: WidgetId): string => {
   const descriptions: Record<WidgetId, string> = {
     briefing: 'AI-powered summary of your day',
+    insights: 'Proactive action items and alerts',
     events: 'Calendar events for today',
     emails: 'Your unread email count',
     deadlines: 'Upcoming deadlines',
@@ -491,16 +501,19 @@ export default function DashboardContainer() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Customization state
+  // Customization state - show all widgets by default (backend controls via API)
   const [customizeOpen, setCustomizeOpen] = useState(false);
-  const { visibleWidgets, toggleWidget, resetWidgets } = useDashboardStore();
+  const [visibleWidgets, setVisibleWidgets] = useState<WidgetId[]>(ALL_WIDGETS as WidgetId[]);
 
-  const handleToggleWidget = useCallback(
-    (id: WidgetId) => {
-      toggleWidget(id);
-    },
-    [toggleWidget]
-  );
+  const handleToggleWidget = useCallback((id: WidgetId) => {
+    setVisibleWidgets((prev) =>
+      prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]
+    );
+  }, []);
+
+  const handleResetWidgets = useCallback(() => {
+    setVisibleWidgets(ALL_WIDGETS as WidgetId[]);
+  }, []);
 
   // Get visible widgets in order
   const widgetsToShow = WIDGETS.filter((w) => visibleWidgets.includes(w.id));
@@ -632,7 +645,7 @@ export default function DashboardContainer() {
         onClose={() => setCustomizeOpen(false)}
         visibleWidgets={visibleWidgets}
         onToggleWidget={handleToggleWidget}
-        onReset={resetWidgets}
+        onReset={handleResetWidgets}
       />
     </Box>
   );

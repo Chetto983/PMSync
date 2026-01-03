@@ -106,7 +106,7 @@ export class DocumentLibraryService {
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
     @Optional() private readonly storageService?: StorageService,
-  ) {}
+  ) { }
 
   /**
    * Check if S3 backup is enabled
@@ -172,7 +172,7 @@ export class DocumentLibraryService {
     const startTime = Date.now();
     const client = this.createMistralClient();
 
-    const model = this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-medium-latest';
+    const model = this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-latest';
 
     const agent = await client.beta.agents.create({
       model,

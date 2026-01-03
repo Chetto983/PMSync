@@ -341,6 +341,8 @@ export interface MistralTranslations {
     unauthorized: string;
     serverError: string;
     tryAgain: string;
+    toolExecution: (error: string) => string;
+    retryPrompt: (error: string) => string;
   };
 }
 

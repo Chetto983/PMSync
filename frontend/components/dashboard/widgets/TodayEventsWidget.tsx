@@ -5,17 +5,19 @@
 'use client';
 
 import { useTodayEvents } from '@/hooks/queries/use-dashboard';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
 import { Typography, List, ListItem, ListItemText, Chip } from '@mui/material';
 import { format } from 'date-fns';
 
 export function TodayEventsWidget() {
+    const t = useTranslations();
     const { data, isLoading, error, refetch } = useTodayEvents();
 
     return (
         <BaseWidget
             id="today-events"
-            title="Today's Events"
+            title={t.dashboard.widgets.todayEvents.title}
             loading={isLoading}
             error={error?.message}
             onRefresh={() => refetch()}
@@ -48,7 +50,7 @@ export function TodayEventsWidget() {
                 </List>
             ) : (
                 <Typography variant="body2" color="text.secondary">
-                    No events scheduled for today
+                    {t.dashboard.widgets.todayEvents.noEvents}
                 </Typography>
             )}
         </BaseWidget>

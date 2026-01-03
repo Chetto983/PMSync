@@ -35,7 +35,7 @@ import { MistralBatchService } from './services/mistral-batch.service';
 import { AgentAction, AgentActionType, ActionSeverity } from './interfaces/agent-action.interface';
 import { AgentContext } from './interfaces/agent-context.interface';
 import { createSupervisorAgent, type UserContext, type ConnectedProvider } from './agents';
-import { getLocale, type SupportedLocale } from './locales';
+import { getLocale, getTranslations, type SupportedLocale } from './locales';
 import { VoltAgentMemoryService, LongTermMemoryService } from './memory';
 import { DocumentLibraryService } from './services/document-library.service';
 import { PromptGuardService, PiiDetectionService } from '../guards';
@@ -46,6 +46,7 @@ import { FollowUpService } from './services/follow-up.service';
 import { ActionItemService } from './services/action-item.service';
 import { createObservabilityHooks, type AgentMetrics, type DisposableHooks } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
+import { EpisodicMemoryService } from './services/episodic-memory.service';
 import {
   createApprovalWorkflow,
   type ApprovalInput,
@@ -179,6 +180,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly mistralBatchService?: MistralBatchService,
     @Optional() private readonly voltAgentMemoryService?: VoltAgentMemoryService,
     @Optional() private readonly longTermMemoryService?: LongTermMemoryService,
+    @Optional() private readonly episodicMemoryService?: EpisodicMemoryService,
     @Optional() private readonly documentLibraryService?: DocumentLibraryService,
     @Optional() private readonly promptGuardService?: PromptGuardService,
     @Optional() private readonly piiDetectionService?: PiiDetectionService,
@@ -815,7 +817,32 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 3.6. CRITICAL: Inject conversation history for context continuity
+    // 3.6. Inject episodic learning (rejection lessons)
+    // Fetch global lessons (agentName undefined) to apply constraints across all agents
+    if (this.episodicMemoryService) {
+      try {
+        const lessons = await this.episodicMemoryService.getRecentLessons(
+          options.tenantId,
+          options.userId,
+          undefined, // Fetch all lessons regardless of agent
+          5
+        );
+        const lessonContext = this.episodicMemoryService.formatLessonsForPrompt(lessons);
+
+        if (lessonContext) {
+          const safeLessonContext = this.piiDetectionService
+            ? this.piiDetectionService.redact(lessonContext)
+            : lessonContext;
+
+          enhancedMessage = `${safeLessonContext}\n\n---\n\n${enhancedMessage}`;
+          this.logger.debug(`${logPrefix} Episodic learning lessons injected: ${lessons.length}`);
+        }
+      } catch (error) {
+        this.logger.warn(`${logPrefix} Failed to fetch episodic lessons: ${error}`);
+      }
+    }
+
+    // 3.7. CRITICAL: Inject conversation history for context continuity
     // This ensures the agent remembers prior messages in the conversation
     if (conversationHistoryContext) {
       enhancedMessage = `${conversationHistoryContext}\n\n---\n\n[Current Message]\n${enhancedMessage}`;
@@ -835,47 +862,75 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     let result;
     const agentStartTime = Date.now();
-    try {
-      // Emit: Supervisor processing
-      this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'processing', 'Coordinating agents...');
+    let attempts = 0;
+    const MAX_RETRIES = 3;
+    let currentMessage = enhancedMessage;
 
-      // Pass userId and conversationId for proper context in hooks (HITL, metrics, etc.)
-      // VoltAgent memory issue fixed in latest version
-      result = await agent.generateText(enhancedMessage, {
-        // Tenant-isolated userId for multi-tenant data segregation
-        userId: tenantUserId,
-        // Session/conversation ID for message threading
-        conversationId: sessionId,
-        // CRITICAL: Disable parallel tool calls to ensure sequential delegation
-        // (ContactsAgent → EmailAgent flow requires one tool at a time)
-        providerOptions: {
-          mistral: {
-            parallelToolCalls: false,
-            structuredOutputs: true,
+    while (attempts < MAX_RETRIES) {
+      try {
+        attempts++;
+        // Emit: Supervisor processing
+        this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'processing', `Coordinating agents (Attempt ${attempts})...`);
+
+        // Pass userId and conversationId for proper context in hooks (HITL, metrics, etc.)
+        // VoltAgent memory issue fixed in latest version
+        result = await agent.generateText(currentMessage, {
+          // Tenant-isolated userId for multi-tenant data segregation
+          userId: tenantUserId,
+          // Session/conversation ID for message threading
+          conversationId: sessionId,
+          // CRITICAL: Disable parallel tool calls to ensure sequential delegation
+          // (ContactsAgent → EmailAgent flow requires one tool at a time)
+          providerOptions: {
+            mistral: {
+              parallelToolCalls: false,
+              structuredOutputs: true,
+            },
           },
-        },
-      });
+        });
 
-      // Emit: Intent completed
-      this.emitAgentStep(options.tenantId, sessionId, options.userId, 'intent', 'completed', 'Request analyzed', {
-        duration: Date.now() - agentStartTime,
-      });
+        // Emit: Intent completed
+        this.emitAgentStep(options.tenantId, sessionId, options.userId, 'intent', 'completed', 'Request analyzed', {
+          duration: Date.now() - agentStartTime,
+        });
 
-      // Emit: Supervisor completed (important for frontend to mark processing as done)
-      this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'completed', 'Agents coordinated', {
-        duration: Date.now() - agentStartTime,
-      });
+        // Emit: Supervisor completed (important for frontend to mark processing as done)
+        this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'completed', 'Agents coordinated', {
+          duration: Date.now() - agentStartTime,
+        });
 
-      this.logger.debug(`${logPrefix} [DEBUG] agent.generateText completed successfully`);
-    } catch (genError) {
-      // Emit: Error state
-      this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'error', 'Processing failed', {
-        error: genError instanceof Error ? genError.message : String(genError),
-      });
+        this.logger.debug(`${logPrefix} [DEBUG] agent.generateText completed successfully`);
+        break; // Success, exit loop
+      } catch (genError) {
+        const isLastAttempt = attempts >= MAX_RETRIES;
+        const errorMessage = genError instanceof Error ? genError.message : String(genError);
 
-      this.logger.error(`${logPrefix} [DEBUG] agent.generateText FAILED: ${genError instanceof Error ? genError.message : String(genError)}`);
-      this.logger.error(`${logPrefix} [DEBUG] Stack: ${genError instanceof Error ? genError.stack : 'no stack'}`);
-      throw genError;
+        this.logger.warn(`${logPrefix} [DEBUG] agent.generateText FAILED (Attempt ${attempts}/${MAX_RETRIES}): ${errorMessage}`);
+
+        if (isLastAttempt) {
+          // Emit: Error state
+          this.emitAgentStep(options.tenantId, sessionId, options.userId, 'supervisor', 'error', 'Processing failed', {
+            error: errorMessage,
+          });
+          this.logger.error(`${logPrefix} [DEBUG] Stack: ${genError instanceof Error ? genError.stack : 'no stack'}`);
+          throw genError;
+        }
+
+        // Prepare context for retry
+        const t = getTranslations(locale); // locale is already defined above
+        const retryPrompt = t.mistral.errors.retryPrompt(errorMessage);
+
+        // Append error feedback to the message for the next attempt
+        // We add it as a system/user message simulation to guide the model
+        currentMessage += `\n\n---\n\n${retryPrompt}`;
+
+        // Short delay before retry to prevent thundering herd
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+      }
+    }
+
+    if (!result) {
+      throw new Error('Agent failed to generate a response after multiple attempts.');
     }
 
     // 4. Persist messages to Prisma-based memory (conversation history)
@@ -1173,7 +1228,30 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 2.7. CRITICAL: Prepend conversation history for context continuity
+    // 2.7. Inject episodic learning (rejection lessons)
+    if (this.episodicMemoryService) {
+      try {
+        const lessons = await this.episodicMemoryService.getRecentLessons(
+          options.tenantId,
+          options.userId,
+          undefined, // Fetch all lessons
+          5
+        );
+        const lessonContext = this.episodicMemoryService.formatLessonsForPrompt(lessons);
+
+        if (lessonContext) {
+          const safeLessonContext = this.piiDetectionService
+            ? this.piiDetectionService.redact(lessonContext)
+            : lessonContext;
+          enhancedMessage = `${safeLessonContext}\n\n---\n\n${enhancedMessage}`;
+          this.logger.debug(`${logPrefix} Episodic learning lessons injected: ${lessons.length}`);
+        }
+      } catch (error) {
+        this.logger.warn(`${logPrefix} Failed to fetch episodic lessons: ${error}`);
+      }
+    }
+
+    // 2.8. CRITICAL: Prepend conversation history for context continuity
     if (conversationHistoryContext) {
       enhancedMessage = `${conversationHistoryContext}\n\n---\n\n[Current Message]\n${enhancedMessage}`;
     }

@@ -373,7 +373,7 @@ export class MistralBatchService {
 
     return this.createBatchJob({
       tenantId,
-      model: 'mistral-small-latest',
+      model: this.configService?.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest',
       endpoint: '/v1/chat/completions',
       requests,
       metadata: { type: 'sentiment', count: emails.length.toString() },
@@ -408,7 +408,7 @@ export class MistralBatchService {
 
     return this.createBatchJob({
       tenantId,
-      model: 'mistral-small-latest',
+      model: this.configService?.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest',
       endpoint: '/v1/chat/completions',
       requests,
       metadata: { type: 'summarize', count: documents.length.toString() },

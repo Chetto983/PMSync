@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { WritingStyleService } from '../voltagent/services/writing-style.service';
+import { PersonalizationService } from '../voltagent/services/personalization.service';
 import { parseArrayFromAiPayload } from '../utils/ai-output.utils';
 import { sanitizeForLLM, wrapUserContent, validatePromptLength } from '../utils/prompt-sanitizer';
 import {
@@ -47,6 +48,7 @@ export class EmailInsightsService {
     private readonly prisma: PrismaService,
     private readonly mistral: MistralService,
     private readonly writingStyle: WritingStyleService,
+    private readonly personalization: PersonalizationService,
   ) {}
 
   async summarizeEmail(tenantId: string, emailId: string, locale?: string) {
@@ -116,7 +118,7 @@ export class EmailInsightsService {
 
   /**
    * Compose an email body (and optional subject) from a user prompt.
-   * Supports lightweight A/B via `variant` to tweak temperature/phrasing.
+   * Integrates user writing style and semantic memory for personalization.
    */
   async composeEmail(
     tenantId: string,
@@ -126,14 +128,12 @@ export class EmailInsightsService {
       subject?: string;
       tone?: string;
       locale?: string;
-      variant?: string;
       threadContext?: Array<{ subject?: string; body?: string }>;
     },
     userId?: string,
   ) {
     const lang = this.resolveLocale(payload.locale);
     const toneKey = this.resolveTone(payload.tone);
-    const variant = payload.variant?.toUpperCase() === 'B' ? 'B' : 'A';
     const supportedLocale = getLocale(payload.locale);
     const t = getToolTranslations(supportedLocale);
 
@@ -148,25 +148,64 @@ export class EmailInsightsService {
       }
     }
 
+    // Fetch relevant memories from semantic search (RAG)
+    let memoryContext = '';
+    if (userId && payload.prompt) {
+      try {
+        const memories = await this.personalization.getRelevantMemories(
+          tenantId,
+          userId,
+          payload.prompt,
+          3, // Limit to top 3 relevant memories
+        );
+
+        if (memories.length > 0) {
+          const relevantMemories = memories
+            .filter((m) => m.relevance > 0.5) // Only high-relevance memories
+            .map((m) => `- ${m.content}`)
+            .join('\n');
+
+          if (relevantMemories) {
+            memoryContext = lang === 'it'
+              ? `<contesto_utente>\nInformazioni rilevanti dalla memoria:\n${relevantMemories}\n</contesto_utente>`
+              : `<user_context>\nRelevant information from memory:\n${relevantMemories}\n</user_context>`;
+          }
+        }
+      } catch (error) {
+        this.logger.debug(`No memories found for compose: ${this.getErrorMessage(error)}`);
+      }
+    }
+
     const toneInstruction = t.insights.tones[toneKey];
     const systemPrompt = t.insights.compose.systemPrompt(toneInstruction);
 
-    const userPrompt = this.buildComposePrompt(payload, lang, toneKey, styleSection, supportedLocale);
+    const userPrompt = this.buildComposePrompt(
+      payload,
+      lang,
+      toneKey,
+      styleSection,
+      supportedLocale,
+      memoryContext,
+    );
 
     try {
       const raw = await this.mistral.completePrompt({
         systemPrompt,
         userPrompt,
-        temperature: variant === 'B' ? 0.55 : 0.35,
+        temperature: 0.35,
         maxTokens: 900,
+        jsonMode: true, // Enable JSON mode for guaranteed valid JSON output
       });
 
+      this.logger.debug(`[composeEmail] Raw Mistral response (first 500 chars): ${raw?.substring(0, 500)}`);
+
       const parsed = this.parseComposeResult(raw, payload.subject);
+
+      this.logger.log(`[composeEmail] Parsed result: body="${parsed.body?.substring(0, 100)}..." subject="${parsed.subject}"`);
 
       return {
         body: parsed.body,
         subject: parsed.subject,
-        variantUsed: variant,
       };
     } catch (error) {
       this.logger.error(
@@ -490,6 +529,7 @@ export class EmailInsightsService {
     tone: ToneKey,
     styleSection?: string,
     supportedLocale?: SupportedLocale,
+    memoryContext?: string,
   ): string {
     const t = getToolTranslations(supportedLocale || 'en');
     const toLine =
@@ -519,6 +559,7 @@ export class EmailInsightsService {
       toLine,
       subjectLine,
       threadLines,
+      memoryContext,  // Include semantic memory context
       styleSection,
       `${t.insights.compose.userPrompt}: ${payload.prompt}`,
       t.insights.compose.jsonInstruction,
@@ -528,6 +569,7 @@ export class EmailInsightsService {
   }
 
   private parseComposeResult(raw: string, fallbackSubject?: string): { body: string; subject?: string } {
+    this.logger.debug(`[parseComposeResult] Input raw (first 300 chars): ${raw?.substring(0, 300)}`);
     try {
       let cleaned = raw.trim();
       if (cleaned.startsWith('```json')) {
@@ -539,16 +581,107 @@ export class EmailInsightsService {
       if (cleaned.endsWith('```')) {
         cleaned = cleaned.slice(0, -3);
       }
+      cleaned = cleaned.trim();
+
+      // Fix: Mistral often returns JSON with actual newlines inside string values
+      // which is invalid JSON. We need to escape them properly.
+      // This regex finds strings and escapes unescaped newlines within them.
+      cleaned = this.fixJsonNewlines(cleaned);
+
+      this.logger.debug(`[parseComposeResult] Cleaned JSON: ${cleaned.substring(0, 200)}`);
       const parsed = JSON.parse(cleaned);
+      this.logger.debug(`[parseComposeResult] Parsed body: "${parsed.body?.substring(0, 100)}", subject: "${parsed.subject}"`);
       const body = parsed.body ? this.stripMarkdown(String(parsed.body)) : this.stripMarkdown(cleaned);
       const subject = parsed.subject ? this.stripMarkdown(String(parsed.subject)) : fallbackSubject;
       return { body, subject };
-    } catch {
-      return {
-        body: this.stripMarkdown(raw.trim() || 'Draft unavailable'),
-        subject: fallbackSubject,
-      };
+    } catch (error) {
+      this.logger.warn(`[parseComposeResult] JSON parse failed: ${error instanceof Error ? error.message : String(error)}`);
+      // Fallback: try to extract body/subject using regex
+      const fallback = this.extractComposeFromMalformedJson(raw, fallbackSubject);
+      return fallback;
     }
+  }
+
+  /**
+   * Fix JSON strings that contain actual newlines instead of escaped \n
+   * Mistral often returns multi-line strings without proper escaping
+   */
+  private fixJsonNewlines(json: string): string {
+    // Replace actual newlines inside JSON string values with escaped \n
+    // This is a simplified approach that works for our use case
+    let result = '';
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < json.length; i++) {
+      const char = json[i];
+
+      if (escaped) {
+        result += char;
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\') {
+        result += char;
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        result += char;
+        continue;
+      }
+
+      if (inString && char === '\n') {
+        result += '\\n';
+        continue;
+      }
+
+      if (inString && char === '\r') {
+        // Skip carriage returns, just use \n
+        continue;
+      }
+
+      result += char;
+    }
+
+    return result;
+  }
+
+  /**
+   * Extract body and subject from malformed JSON response using regex
+   */
+  private extractComposeFromMalformedJson(raw: string, fallbackSubject?: string): { body: string; subject?: string } {
+    // Try to extract subject
+    const subjectMatch = raw.match(/"subject"\s*:\s*"([^"]+)"/);
+    const subject = subjectMatch ? subjectMatch[1] : fallbackSubject;
+
+    // Try to extract body - find content between "body": " and the closing
+    const bodyMatch = raw.match(/"body"\s*:\s*"([\s\S]*?)(?:"\s*[,}]|"$)/);
+    if (bodyMatch) {
+      // Unescape and clean the body
+      let body = bodyMatch[1]
+        .replace(/\\n/g, '\n')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
+      return { body: this.stripMarkdown(body), subject };
+    }
+
+    // Ultimate fallback: strip JSON markers and return as plain text
+    let plainText = raw
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .replace(/\{[\s\S]*?"body"\s*:\s*"/g, '')
+      .replace(/"[\s\S]*$/g, '')
+      .trim();
+
+    if (plainText) {
+      return { body: this.stripMarkdown(plainText), subject };
+    }
+
+    return { body: 'Draft unavailable', subject: fallbackSubject };
   }
 
   private truncate(value: string, limit = 6000): string {

@@ -212,7 +212,7 @@ async function getOrCreateAnalyticsAgent(
   const startTime = Date.now();
 
   // Get model from env (AI_MODEL_MEDIUM for analytics tasks)
-  const model = configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-medium-latest';
+  const model = configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-latest';
 
   const agent = await client.beta.agents.create({
     model,

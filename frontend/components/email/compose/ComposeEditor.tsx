@@ -19,6 +19,7 @@ import {
   Stack,
 } from '@mui/material';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -58,6 +59,33 @@ const HIGHLIGHT_COLORS = [
   '#FEF08A', '#FDE68A', '#D9F99D', '#BBF7D0',
   '#A5F3FC', '#BAE6FD', '#DDD6FE', '#FBCFE8',
 ];
+
+/**
+ * SpaceKeyHandler Extension
+ *
+ * Fixes Tiptap issue where space key doesn't work correctly when exiting links.
+ * Based on Zero email client's ExitLinkOnSpace implementation.
+ *
+ * @see https://github.com/elie222/inbox-zero
+ * @see https://github.com/ueberdosis/tiptap/issues/873
+ */
+const SpaceKeyHandler = Extension.create({
+  name: 'spaceKeyHandler',
+
+  addKeyboardShortcuts() {
+    return {
+      Space: ({ editor }) => {
+        // Only handle special case when inside a link
+        if (editor.isActive('link')) {
+          editor.chain().focus().insertContent(' ').unsetLink().run();
+          return true;
+        }
+        // Let Tiptap handle normal space insertion
+        return false;
+      },
+    };
+  },
+});
 
 // Toolbar button component - defined outside to avoid recreation on each render
 interface ToolbarButtonProps {
@@ -204,7 +232,12 @@ export const ComposeEditor = forwardRef<ComposeEditorRef, ComposeEditorProps>(fu
         heading: {
           levels: [1, 2, 3],
         },
+        // Disable built-in extensions that we're adding with custom config
+        // This fixes the "Duplicate extension names" warning
+        link: false,
+        underline: false,
       }),
+      SpaceKeyHandler, // Fix space key not working
       Underline,
       Placeholder.configure({
         placeholder: placeholder || t.email?.composer?.bodyPlaceholder || 'Compose your message...',
@@ -229,12 +262,36 @@ export const ComposeEditor = forwardRef<ComposeEditorRef, ComposeEditorProps>(fu
     editable: !readOnly,
     autofocus: autoFocus ? 'end' : false,
     immediatelyRender: false, // Fix SSR hydration mismatch
+    // Fix: Preserve whitespace to allow space key to work correctly
+    // See: https://github.com/ueberdosis/tiptap/issues/873
+    parseOptions: {
+      preserveWhitespace: 'full',
+    },
     onUpdate: ({ editor }) => {
       onChange?.(editor.getHTML());
     },
     editorProps: {
       attributes: {
         class: 'compose-editor-content',
+      },
+      // Prevent MUI Dialog focus trap from intercepting keyboard events
+      // This is required because Dialog captures events at the DOM level
+      // See: https://github.com/ueberdosis/tiptap/discussions/1741
+      handleDOMEvents: {
+        keydown: (_view, event) => {
+          // Stop propagation to prevent MUI Dialog from capturing the event
+          event.stopPropagation();
+          // Return false to let Tiptap/ProseMirror handle the event normally
+          return false;
+        },
+        keyup: (_view, event) => {
+          event.stopPropagation();
+          return false;
+        },
+        keypress: (_view, event) => {
+          event.stopPropagation();
+          return false;
+        },
       },
     },
   });
@@ -295,6 +352,11 @@ export const ComposeEditor = forwardRef<ComposeEditorRef, ComposeEditorProps>(fu
 
   return (
     <Box
+      // Prevent MUI Dialog focus trap from intercepting keyboard events
+      // This fixes the space key not working issue in Tiptap
+      // See: https://github.com/shadcn-ui/ui/issues/6126
+      onKeyDown={(e) => e.stopPropagation()}
+      onKeyUp={(e) => e.stopPropagation()}
       sx={{
         border: 1,
         borderColor: 'divider',
@@ -510,6 +572,9 @@ export const ComposeEditor = forwardRef<ComposeEditorRef, ComposeEditorProps>(fu
             height: fillHeight ? '100%' : 'auto',
             fontSize: '0.9375rem',
             lineHeight: 1.6,
+            // Preserve whitespace for proper space key handling
+            whiteSpace: 'pre-wrap',
+            wordWrap: 'break-word',
             '& p': {
               margin: 0,
               marginBottom: '0.5em',

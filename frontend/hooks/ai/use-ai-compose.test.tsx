@@ -122,7 +122,6 @@ describe('useAiCompose', () => {
         subject: 'Team Meeting',
         tone: 'friendly',
         locale: 'en',
-        variant: 'concise',
       });
     });
 

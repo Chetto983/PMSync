@@ -28,7 +28,7 @@ type ConversationMessage = {
 @Injectable()
 export class MistralService {
   private logger = new Logger(MistralService.name);
-  private defaultModel = 'mistral-medium-latest';
+  private defaultModel: string;
   private readonly embeddingModel = 'mistral-embed';
 
   // Rate limiting for direct embedding calls (not through queue)
@@ -146,8 +146,10 @@ export class MistralService {
     telemetryContext?: { tenantId: string; userId?: string; promptName?: string };
     /** Model override: 'fast' for mistral-small, 'default' for configured model */
     modelTier?: 'fast' | 'default';
+    /** Enable JSON mode for guaranteed valid JSON output */
+    jsonMode?: boolean;
   }): Promise<string> {
-    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000, telemetryContext, modelTier } = options;
+    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000, telemetryContext, modelTier, jsonMode = false } = options;
     // Model routing: use AI_MODEL_SIMPLE for 'fast' tier (3-4x faster, cost-effective for scoring tasks)
     const fastModel = this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
     const model = modelTier === 'fast' ? fastModel : this.getModel();
@@ -181,6 +183,8 @@ export class MistralService {
             messages,
             temperature,
             maxTokens,
+            // Enable JSON mode for guaranteed valid JSON output
+            ...(jsonMode && { responseFormat: { type: 'json_object' as const } }),
           });
 
           const timeoutPromise = new Promise<never>((_, reject) => {

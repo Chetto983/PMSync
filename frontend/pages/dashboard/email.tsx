@@ -522,7 +522,7 @@ export default function EmailPage() {
         <EmailLayout readingPane={readingPane}>
           <ThreadList
             threads={threads}
-            emptyVariant="inbox"
+            emptyVariant={filters.search ? 'search' : 'inbox'}
             isLoading={isLoading}
             onThreadClick={handleThreadClick}
             onRefresh={handleRefresh}

@@ -157,6 +157,14 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
     sessionId: conversationId,
   });
 
+  // Auto-scroll to bottom ref
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom whenever messages or agent activity changes
+  React.useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, sending, hasAgentActivity, agentSteps]);
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   };
@@ -193,13 +201,13 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
               flexShrink: 0,
               ...(message.role === 'user'
                 ? {
-                    bgcolor: alpha(theme.palette.primary.main, 0.1),
-                    color: 'primary.main',
-                  }
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  color: 'primary.main',
+                }
                 : {
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                    color: 'white',
-                  }),
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+                  color: 'white',
+                }),
             }}
           >
             {message.role === 'user' ? <User size={18} /> : <Bot size={18} />}
@@ -214,16 +222,16 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
                 borderRadius: 3,
                 ...(message.role === 'user'
                   ? {
-                      bgcolor: 'primary.main',
-                      color: 'white',
-                      borderBottomRightRadius: 0.5,
-                    }
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    borderBottomRightRadius: 0.5,
+                  }
                   : {
-                      bgcolor: alpha(theme.palette.background.default, 0.8),
-                      border: '1px solid',
-                      borderColor: alpha(theme.palette.divider, 0.08),
-                      borderBottomLeftRadius: 0.5,
-                    }),
+                    bgcolor: alpha(theme.palette.background.default, 0.8),
+                    border: '1px solid',
+                    borderColor: alpha(theme.palette.divider, 0.08),
+                    borderBottomLeftRadius: 0.5,
+                  }),
               }}
             >
               {message.role === 'user' ? (
@@ -300,6 +308,7 @@ export function ChatMessages({ messages, sending, conversationId }: ChatMessages
         isActive={sending || hasAgentActivity}
         agentSteps={agentSteps.length > 0 ? agentSteps : undefined}
       />
+      <div ref={messagesEndRef} />
     </Box>
   );
 }

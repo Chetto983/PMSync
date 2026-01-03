@@ -215,7 +215,7 @@ export function loadConfiguration(): Configuration {
   const trustProxy =
     trustProxyOverride === undefined || trustProxyOverride === ''
       ? // Trust first proxy hops on local networks by default (nginx/traefik)
-        'loopback, linklocal, uniquelocal'
+      'loopback, linklocal, uniquelocal'
       : ['true', '1'].includes(trustProxyOverride.toLowerCase())
         ? true
         : ['false', '0'].includes(trustProxyOverride.toLowerCase())
@@ -405,7 +405,7 @@ export function loadConfiguration(): Configuration {
     ai: {
       mistral: {
         apiKey: process.env.MISTRAL_API_KEY || '',
-        model: process.env.MISTRAL_MODEL || 'mistral-large-latest',
+        model: process.env.AI_DEFAULT_MODEL || 'mistral-small-latest',
       },
     },
 

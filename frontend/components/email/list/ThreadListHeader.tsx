@@ -21,6 +21,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { EmailSearchBar } from './EmailSearchBar';
 
 interface ThreadListHeaderProps {
   /** Total number of emails in list */
@@ -172,8 +173,16 @@ export function ThreadListHeader({
         </>
       )}
 
-      {/* Spacer */}
-      <Box sx={{ flex: 1 }} />
+      {/* Search bar - hide when bulk actions are showing */}
+      {!hasSelection && (
+        <>
+          <Box sx={{ flex: 1 }} />
+          <EmailSearchBar compact />
+        </>
+      )}
+
+      {/* Spacer - only when no search (selection mode) */}
+      {hasSelection && <Box sx={{ flex: 1 }} />}
 
       {/* Refresh button - always visible */}
       <Tooltip title={t.emailList.refresh}>

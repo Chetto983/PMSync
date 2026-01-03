@@ -89,6 +89,7 @@ import { DocumentLibraryController } from './controllers/document-library.contro
 import { LlmTelemetryService } from './observability/telemetry';
 // Security guards (OWASP LLM Top 10 2025)
 import { PromptGuardService, PiiDetectionService } from '../guards';
+import { EpisodicMemoryService } from './services/episodic-memory.service';
 // Common services for job processors
 import { AlertingService } from '../../../common/services/alerting.service';
 // DeadLetterQueueService is available globally from CacheModule
@@ -154,8 +155,11 @@ import { AlertingService } from '../../../common/services/alerting.service';
     // Observability
     LlmTelemetryService,
     // Security guards (OWASP LLM Top 10 2025)
+    // Security guards (OWASP LLM Top 10 2025)
     PromptGuardService,
     PiiDetectionService,
+    // Episodic Learning
+    EpisodicMemoryService,
     // Common services for job processors (CrmBackfillProcessor, ReconnectReminderProcessor)
     AlertingService,
   ],
@@ -205,6 +209,8 @@ import { AlertingService } from '../../../common/services/alerting.service';
     // Security guards (OWASP LLM Top 10 2025)
     PromptGuardService,
     PiiDetectionService,
+    // Episodic Learning
+    EpisodicMemoryService,
   ],
 })
 export class VoltAgentModule { }

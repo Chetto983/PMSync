@@ -99,7 +99,7 @@ export class AnalyticsService {
     private readonly prisma: PrismaService,
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   // ===========================================================================
   // Mistral Client & Agent Management
@@ -147,7 +147,7 @@ export class AnalyticsService {
     const startTime = Date.now();
     const client = this.createMistralClient();
 
-    const model = this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-medium-latest';
+    const model = this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-latest';
 
     const agent = await client.beta.agents.create({
       model,

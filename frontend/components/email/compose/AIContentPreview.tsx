@@ -1,26 +1,23 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 /**
  * AI Content Preview Component
  *
- * Displays AI-generated email content in a floating preview card
+ * Displays AI-generated email content in an inline chat-style preview
  * with accept/reject buttons and animated text reveal.
  *
- * Based on Zero-staging (Inbox Zero) pattern.
- *
- * @see D:\MailAgent\esempio\Zero-staging\apps\mail\components\create\email-composer.tsx
+ * Based on chat message bubble pattern for better UX integration.
  */
 
 import { useState, useEffect } from 'react';
 import {
   Box,
-  Paper,
   Typography,
   IconButton,
   Button,
   Fade,
   CircularProgress,
+  alpha,
 } from '@mui/material';
-import { Check, X, RefreshCw } from 'lucide-react';
+import { Check, X, RefreshCw, Sparkles } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface AIContentPreviewProps {
@@ -50,7 +47,7 @@ function AnimatedText({ text, delay = 0 }: { text: string; delay?: number }) {
       const timeout = setTimeout(() => {
         setDisplayedText((prev) => prev + text[currentIndex]);
         setCurrentIndex((prev) => prev + 1);
-      }, delay + 10); // 10ms per character for smooth reveal
+      }, delay + 8); // 8ms per character for smooth reveal
 
       return () => clearTimeout(timeout);
     }
@@ -80,57 +77,63 @@ export function AIContentPreview({
 
   return (
     <Fade in>
-      <Paper
-        elevation={8}
+      <Box
         sx={{
-          position: 'absolute',
-          bottom: '100%',
-          right: 0,
-          mb: 1,
-          width: { xs: 280, sm: 400 },
-          maxHeight: 320,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1.5,
+          p: 2,
           borderRadius: 2,
-          overflow: 'hidden',
-          zIndex: 50,
-          bgcolor: 'background.paper',
+          bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04),
           border: 1,
-          borderColor: 'divider',
+          borderColor: (theme) => alpha(theme.palette.primary.main, 0.2),
         }}
       >
-        {/* Header */}
+        {/* Header with AI icon */}
         <Box
           sx={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            px: 2,
-            py: 1,
-            borderBottom: 1,
-            borderColor: 'divider',
-            bgcolor: 'action.hover',
           }}
         >
-          <Typography variant="subtitle2" color="text.secondary">
-            {t.email?.aiCompose?.preview || 'AI Preview'}
-          </Typography>
-          {onRegenerate && (
-            <IconButton
-              size="small"
-              onClick={onRegenerate}
-              disabled={isLoading}
-              sx={{ color: 'text.secondary' }}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 24,
+                height: 24,
+                borderRadius: 1,
+                bgcolor: 'primary.main',
+              }}
             >
-              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-            </IconButton>
-          )}
+              <Sparkles size={14} color="white" />
+            </Box>
+            <Typography variant="subtitle2" fontWeight={600}>
+              {t.email?.aiCompose?.preview || 'Anteprima AI'}
+            </Typography>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={onReject}
+            sx={{
+              color: 'text.secondary',
+              '&:hover': { color: 'error.main' },
+            }}
+          >
+            <X size={16} />
+          </IconButton>
         </Box>
 
-        {/* Content */}
+        {/* Content area */}
         <Box
           sx={{
             maxHeight: 200,
-            minHeight: 100,
             overflow: 'auto',
+            bgcolor: 'background.paper',
+            borderRadius: 1.5,
             p: 2,
           }}
         >
@@ -140,13 +143,13 @@ export function AIContentPreview({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                height: 100,
-                gap: 1,
+                py: 3,
+                gap: 1.5,
               }}
             >
-              <CircularProgress size={16} />
+              <CircularProgress size={18} />
               <Typography variant="body2" color="text.secondary">
-                {t.email?.aiCompose?.generating || 'Generating...'}
+                {t.email?.aiCompose?.generating || 'Generazione in corso...'}
               </Typography>
             </Box>
           ) : (
@@ -156,19 +159,23 @@ export function AIContentPreview({
                 <Typography
                   variant="body2"
                   sx={{
-                    fontWeight: 600,
                     mb: 1.5,
-                    color: 'text.primary',
+                    pb: 1.5,
+                    borderBottom: 1,
+                    borderColor: 'divider',
                   }}
                 >
                   <Typography
                     component="span"
                     variant="body2"
                     color="text.secondary"
+                    fontWeight={500}
                   >
-                    {t.email?.aiCompose?.subject || 'Subject'}:{' '}
+                    {t.email?.aiCompose?.subject || 'Oggetto'}:{' '}
                   </Typography>
-                  <AnimatedText text={subject} />
+                  <Typography component="span" fontWeight={600}>
+                    <AnimatedText text={subject} />
+                  </Typography>
                 </Typography>
               )}
 
@@ -181,10 +188,11 @@ export function AIContentPreview({
                     component="p"
                     sx={{
                       whiteSpace: 'pre-wrap',
-                      lineHeight: 1.6,
+                      lineHeight: 1.7,
+                      color: 'text.primary',
                     }}
                   >
-                    <AnimatedText text={paragraph} delay={index * 50} />
+                    <AnimatedText text={paragraph} delay={index * 30} />
                   </Typography>
                 ))}
               </Box>
@@ -198,12 +206,23 @@ export function AIContentPreview({
             display: 'flex',
             justifyContent: 'flex-end',
             gap: 1,
-            p: 1.5,
-            borderTop: 1,
-            borderColor: 'divider',
-            bgcolor: 'action.hover',
           }}
         >
+          {onRegenerate && (
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />}
+              onClick={onRegenerate}
+              disabled={isLoading}
+              sx={{
+                textTransform: 'none',
+                color: 'text.secondary',
+              }}
+            >
+              {t.email?.aiCompose?.regenerate || 'Rigenera'}
+            </Button>
+          )}
           <Button
             size="small"
             variant="outlined"
@@ -213,7 +232,7 @@ export function AIContentPreview({
             disabled={isLoading}
             sx={{ textTransform: 'none' }}
           >
-            {t.email?.aiCompose?.reject || 'Reject'}
+            {t.email?.aiCompose?.reject || 'Rifiuta'}
           </Button>
           <Button
             size="small"
@@ -224,10 +243,10 @@ export function AIContentPreview({
             disabled={isLoading || !content}
             sx={{ textTransform: 'none' }}
           >
-            {t.email?.aiCompose?.accept || 'Accept'}
+            {t.email?.aiCompose?.accept || 'Accetta'}
           </Button>
         </Box>
-      </Paper>
+      </Box>
     </Fade>
   );
 }

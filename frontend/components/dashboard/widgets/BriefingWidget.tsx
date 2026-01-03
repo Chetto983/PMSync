@@ -7,12 +7,11 @@
 import { useBriefing, useRecentUnreadEmails } from '@/hooks/queries/use-dashboard';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
-import { Box, Typography, Chip, Stack, alpha, useTheme } from '@mui/material';
+import { Box, Typography, Chip, Stack } from '@mui/material';
 import { Sparkles, AlertCircle, Calendar, Mail, Users } from 'lucide-react';
 
 export function BriefingWidget() {
   const t = useTranslations();
-  const theme = useTheme();
   const { data, isLoading, error, refetch } = useBriefing();
   const { data: recentEmails } = useRecentUnreadEmails({ limit: 3 });
 
@@ -36,19 +35,19 @@ export function BriefingWidget() {
     >
       {data && (
         <Stack spacing={2.5}>
-          {/* Summary */}
-          <Typography
-            variant="body1"
-            sx={{
-              color: 'text.primary',
-              fontWeight: 500,
-              lineHeight: 1.6,
-            }}
-          >
-            {data.summary ||
-              t.dashboard?.widgets?.briefing?.defaultSummary?.replace('{count}', String(recentEmails?.total || 0)) ||
-              `You have ${recentEmails?.total || 0} unread emails${recentEmails?.emails?.length ? `, ${recentEmails.emails.length} received today.` : '.'}`}
-          </Typography>
+          {/* AI Summary - only show if backend provided one */}
+          {data.summary && (
+            <Typography
+              variant="body1"
+              sx={{
+                color: 'text.primary',
+                fontWeight: 500,
+                lineHeight: 1.6,
+              }}
+            >
+              {data.summary}
+            </Typography>
+          )}
 
           {/* Stats Chips */}
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -106,11 +105,8 @@ export function BriefingWidget() {
                   <Box
                     key={i}
                     sx={{
-                      p: 1.5,
-                      borderRadius: 2,
-                      bgcolor: alpha(theme.palette.action.hover, 0.5),
-                      border: '1px solid',
-                      borderColor: alpha(theme.palette.divider, 0.06),
+                      py: 0.75,
+                      px: 0,
                     }}
                   >
                     <Typography

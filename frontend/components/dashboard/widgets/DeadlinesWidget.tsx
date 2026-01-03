@@ -5,23 +5,25 @@
 'use client';
 
 import { useDeadlines } from '@/hooks/queries/use-dashboard';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
 import { Typography, List, ListItem, ListItemText, Chip } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
 
 export function DeadlinesWidget() {
+    const t = useTranslations();
     const { data, isLoading, error, refetch } = useDeadlines({ limit: 5 });
 
     return (
         <BaseWidget
             id="deadlines"
-            title="Deadlines"
+            title={t.dashboard.widgets.deadlines.title}
             loading={isLoading}
             error={error?.message}
             onRefresh={() => refetch()}
             actions={
                 data?.todayCount ? (
-                    <Chip label={`${data.todayCount} today`} size="small" color="warning" />
+                    <Chip label={`${data.todayCount} ${t.dashboard.widgets.common.today}`} size="small" color="warning" />
                 ) : null
             }
         >
@@ -48,7 +50,7 @@ export function DeadlinesWidget() {
                 </List>
             ) : (
                 <Typography variant="body2" color="text.secondary">
-                    No upcoming deadlines
+                    {t.dashboard.widgets.deadlines.noUpcoming}
                 </Typography>
             )}
         </BaseWidget>

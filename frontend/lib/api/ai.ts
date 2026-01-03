@@ -335,9 +335,8 @@ export const aiApi = {
     subject?: string;
     tone?: string;
     locale?: string;
-    variant?: string;
   }) {
-    return apiClient.post<{ success: boolean; body: string; subject?: string; variantUsed?: string }>(
+    return apiClient.post<{ success: boolean; body: string; subject?: string }>(
       '/ai/compose',
       payload,
     );

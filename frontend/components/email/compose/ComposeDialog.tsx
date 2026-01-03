@@ -32,6 +32,7 @@ import {
 } from '@mui/material';
 import { X, Send, Minimize2, Maximize2, Sparkles, FileText, Clock, Wand2 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { useSendEmail, useSaveDraft, useDeleteDraft } from '@/hooks/queries';
 import { useProviders } from '@/hooks/queries/use-providers';
 import { ComposeEditor, type ComposeEditorRef } from './ComposeEditor';
@@ -83,6 +84,7 @@ export function ComposeDialog({
   onSent,
 }: ComposeDialogProps) {
   const t = useTranslations();
+  const { locale } = useLocale();
 
   // State
   const [providerId, setProviderId] = useState(initialProviderId || '');
@@ -329,6 +331,7 @@ export function ComposeDialog({
         to,
         subject: subject || undefined,
         tone: 'professional',
+        locale,
       });
 
       if (response.data.success && response.data.body) {
@@ -342,11 +345,19 @@ export function ComposeDialog({
     } finally {
       setAiIsLoading(false);
     }
-  }, [aiPrompt, to, subject, t]);
+  }, [aiPrompt, to, subject, t, locale]);
 
   // Accept AI generated content
   const handleAiAccept = useCallback((content: string, generatedSubject?: string) => {
-    setBodyHtml(content);
+    // Convert plain text with newlines to proper HTML for Tiptap
+    // Split by newlines and wrap each paragraph in <p> tags
+    const htmlContent = content
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+      .map((line) => `<p>${line}</p>`)
+      .join('');
+
+    setBodyHtml(htmlContent);
     if (generatedSubject && !subject) {
       setSubject(generatedSubject);
     }
@@ -437,9 +448,12 @@ export function ComposeDialog({
       maxWidth={isFullscreen ? false : 'md'}
       fullWidth
       fullScreen={isFullscreen}
-      // Disable focus enforcement to prevent file input from triggering multiple times
+      // Disable focus management to allow Tiptap editor to handle keyboard events
       // See: https://github.com/reactjs/react-modal/issues/494
+      // See: https://github.com/ueberdosis/tiptap/issues/873
       disableEnforceFocus
+      disableAutoFocus
+      disableRestoreFocus
       PaperProps={{
         sx: {
           height: isFullscreen ? '100%' : '80vh',

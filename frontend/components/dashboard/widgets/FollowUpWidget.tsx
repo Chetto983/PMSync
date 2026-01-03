@@ -5,23 +5,25 @@
 'use client';
 
 import { useFollowUps } from '@/hooks/queries/use-dashboard';
+import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
 import { Typography, List, ListItem, ListItemText, Chip } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
 
 export function FollowUpWidget() {
+    const t = useTranslations();
     const { data, isLoading, error, refetch } = useFollowUps({ limit: 5 });
 
     return (
         <BaseWidget
             id="follow-ups"
-            title="Follow-ups"
+            title={t.dashboard.widgets.followUps.title}
             loading={isLoading}
             error={error?.message}
             onRefresh={() => refetch()}
             actions={
                 data?.overdueCount ? (
-                    <Chip label={`${data.overdueCount} overdue`} size="small" color="error" />
+                    <Chip label={`${data.overdueCount} ${t.dashboard.widgets.common.overdue}`} size="small" color="error" />
                 ) : null
             }
         >
@@ -49,7 +51,7 @@ export function FollowUpWidget() {
                 </List>
             ) : (
                 <Typography variant="body2" color="text.secondary">
-                    No pending follow-ups
+                    {t.dashboard.widgets.followUps.noPending}
                 </Typography>
             )}
         </BaseWidget>

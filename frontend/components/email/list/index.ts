@@ -7,6 +7,7 @@
 export { ThreadList } from './ThreadList';
 export { ThreadListItem } from './ThreadListItem';
 export { ThreadListHeader } from './ThreadListHeader';
+export { EmailSearchBar } from './EmailSearchBar';
 export { EmptyState } from './EmptyState';
 export { DraggableThreadListItem } from './DraggableThreadListItem';
 

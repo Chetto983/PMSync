@@ -21,6 +21,7 @@ import {
   Chip,
 } from '@mui/material';
 import { RefreshCw, Inbox } from 'lucide-react';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 export interface BaseWidgetProps {
   /** Unique widget ID */
@@ -75,6 +76,7 @@ export function BaseWidget({
   isEmpty = false,
 }: BaseWidgetProps) {
   const theme = useTheme();
+  const t = useTranslations();
 
   return (
     <Box
@@ -160,7 +162,7 @@ export function BaseWidget({
                 size="small"
                 onClick={onRefresh}
                 disabled={loading}
-                aria-label="Refresh widget"
+                aria-label={t.dashboard.widgets.common.refreshWidget}
                 sx={{
                   width: 32,
                   height: 32,
@@ -208,7 +210,7 @@ export function BaseWidget({
             {error}
           </Alert>
         ) : isEmpty ? (
-          <EmptyState text={emptyText} />
+          <EmptyState text={emptyText} defaultText={t.dashboard.widgets.common.noItems} />
         ) : (
           children
         )}
@@ -239,7 +241,7 @@ function WidgetSkeleton() {
 /**
  * Empty state component
  */
-function EmptyState({ text }: { text?: string }) {
+function EmptyState({ text, defaultText }: { text?: string; defaultText: string }) {
   const theme = useTheme();
 
   return (
@@ -268,7 +270,7 @@ function EmptyState({ text }: { text?: string }) {
         <Inbox size={24} />
       </Box>
       <Typography variant="body2" color="text.secondary" textAlign="center">
-        {text || 'No items'}
+        {text || defaultText}
       </Typography>
     </Box>
   );

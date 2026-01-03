@@ -8,7 +8,6 @@
  * - Draft generation from prompts
  * - Tone adjustment (formal, casual, professional)
  * - Subject line generation
- * - Variant support for A/B testing
  * - Caching with React Query patterns
  * - Loading and error states
  */
@@ -27,8 +26,6 @@ export interface ComposeOptions {
   tone?: 'formal' | 'casual' | 'professional' | 'friendly' | 'concise';
   /** Locale for AI responses */
   locale?: string;
-  /** Variant for A/B testing */
-  variant?: string;
 }
 
 export interface ComposeResult {
@@ -36,8 +33,6 @@ export interface ComposeResult {
   body: string;
   /** Generated or refined subject line */
   subject?: string;
-  /** Which variant was used */
-  variantUsed?: string;
 }
 
 interface UseAiComposeOptions {
@@ -79,7 +74,6 @@ export function useAiCompose(options: UseAiComposeOptions = {}): UseAiComposeRet
         subject: composeOptions.subject,
         tone: composeOptions.tone || defaultTone,
         locale: composeOptions.locale || locale,
-        variant: composeOptions.variant,
       });
 
       if (!response.data.success) {
@@ -89,7 +83,6 @@ export function useAiCompose(options: UseAiComposeOptions = {}): UseAiComposeRet
       return {
         body: response.data.body,
         subject: response.data.subject,
-        variantUsed: response.data.variantUsed,
       };
     },
     onSuccess: (data) => {

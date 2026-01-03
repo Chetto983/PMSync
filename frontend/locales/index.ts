@@ -521,6 +521,37 @@ export interface AppTranslations {
         yearsAgo: string;
         daysAgo: string;
       };
+      unreadEmails: {
+        title: string;
+        noSubject: string;
+        allCaughtUp: string;
+      };
+      todayEvents: {
+        title: string;
+        noEvents: string;
+      };
+      common: {
+        refreshWidget: string;
+        noItems: string;
+        today: string;
+        overdue: string;
+      };
+      insights: {
+        title: string;
+        subtitle: string;
+        urgentEmails: string;
+        urgentEmailsDesc: string;
+        overdueDeadlines: string;
+        overdueDeadlinesDesc: string;
+        todayDeadlines: string;
+        todayDeadlinesDesc: string;
+        overdueFollowUps: string;
+        overdueFollowUpsDesc: string;
+        staleContacts: string;
+        staleContactsDesc: string;
+        allClear: string;
+        allClearDesc: string;
+      };
       categories: {
         all: string;
         email: string;
@@ -1026,6 +1057,7 @@ export interface AppTranslations {
       insertIntoEmail: string;
       accept: string;
       reject: string;
+      regenerate: string;
     };
     // Email Templates Dialog
     templates: {
