@@ -58,6 +58,8 @@ interface ThreadViewOutlookProps {
   onReply: (messageId: string) => void;
   onReplyAll?: (messageId: string) => void;
   onForward: (messageId: string) => void;
+  /** Callback when attachment download is clicked */
+  onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
   onDeleteThread?: () => void;
   onMoveThread?: () => void;
   onArchiveThread?: () => void;
@@ -82,6 +84,7 @@ export function ThreadViewOutlook({
   onReply,
   onReplyAll,
   onForward,
+  onDownloadAttachment,
   onDeleteThread,
   onMoveThread,
   onArchiveThread,
@@ -342,6 +345,7 @@ export function ThreadViewOutlook({
                 onForward={onForward}
                 onFlag={onFlag}
                 onLabels={onLabelsMessage}
+                onDownloadAttachment={onDownloadAttachment}
               />
             ) : (
               <CollapsedMessage
@@ -428,6 +432,7 @@ export function ThreadViewOutlook({
                           onForward={onForward}
                           onFlag={onFlag}
                           onLabels={onLabelsMessage}
+                          onDownloadAttachment={onDownloadAttachment}
                         />
                       ) : (
                         <CollapsedMessage
@@ -454,6 +459,7 @@ export function ThreadViewOutlook({
                   onForward={onForward}
                   onFlag={onFlag}
                   onLabels={onLabelsMessage}
+                  onDownloadAttachment={onDownloadAttachment}
                 />
               ) : (
                 <CollapsedMessage

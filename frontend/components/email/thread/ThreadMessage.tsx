@@ -21,7 +21,7 @@ import {
   IconButton,
   Chip,
 } from '@mui/material';
-import { ChevronDown, Flag, Reply, Forward, MoreVertical, Paperclip } from 'lucide-react';
+import { ChevronDown, Flag, Reply, ReplyAll, Forward, MoreVertical, Paperclip, Download } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { EmailHtmlContent } from './EmailHtmlContent';
 
@@ -46,7 +46,9 @@ interface ThreadMessageProps {
   onChange: (messageId: string, isExpanded: boolean) => void;
   onFlag: (messageId: string) => void;
   onReply: (messageId: string) => void;
+  onReplyAll?: (messageId: string) => void;
   onForward: (messageId: string) => void;
+  onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
 }
 
 /**
@@ -66,7 +68,9 @@ export const ThreadMessage = memo(function ThreadMessage({
   onChange,
   onFlag,
   onReply,
+  onReplyAll,
   onForward,
+  onDownloadAttachment,
 }: ThreadMessageProps) {
   const t = useTranslations();
   const [showActions, setShowActions] = useState(false);
@@ -271,6 +275,10 @@ export const ThreadMessage = memo(function ThreadMessage({
                   label={`${attachment.name} (${Math.round(attachment.size / 1024)}KB)`}
                   size="small"
                   variant="outlined"
+                  onClick={onDownloadAttachment ? () => onDownloadAttachment(message.id, attachment.id) : undefined}
+                  onDelete={onDownloadAttachment ? () => onDownloadAttachment(message.id, attachment.id) : undefined}
+                  deleteIcon={<Download size={14} />}
+                  sx={{ cursor: onDownloadAttachment ? 'pointer' : 'default' }}
                 />
               ))}
             </Box>
@@ -291,6 +299,20 @@ export const ThreadMessage = memo(function ThreadMessage({
           >
             {t.threadMessage?.reply || 'Reply'}
           </Button>
+          {onReplyAll && (message.to.length > 1 || (message.cc && message.cc.length > 0)) && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<ReplyAll size={16} />}
+              onClick={() => onReplyAll(message.id)}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 1,
+              }}
+            >
+              {t.threadMessage?.replyAll || 'Reply all'}
+            </Button>
+          )}
           <Button
             size="small"
             variant="outlined"

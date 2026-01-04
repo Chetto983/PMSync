@@ -10,6 +10,7 @@
 import { NestFactory } from '@nestjs/core';
 import { Module, Logger } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduledJobsModule } from '../src/common/services/scheduled-jobs.module';
 import { PrismaModule } from '../src/prisma/prisma.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CryptoService } from '../src/common/services/crypto.service';
@@ -18,7 +19,6 @@ import { MicrosoftOAuthService } from '../src/modules/providers/services/microso
 import { ProviderTokenService } from '../src/modules/email-sync/services/provider-token.service';
 import { DriversModule } from '../src/modules/email-sync/drivers/drivers.module';
 import { EmailDriverFactory } from '../src/modules/email-sync/drivers/driver.factory';
-import { ResilienceService } from '../src/modules/email-sync/drivers/resilience/resilience.service';
 import { ProviderType } from '../src/modules/email-sync/drivers/interfaces/canonical.types';
 import { DriverCredentials } from '../src/modules/email-sync/drivers/interfaces/email-driver.interface';
 
@@ -26,6 +26,7 @@ import { DriverCredentials } from '../src/modules/email-sync/drivers/interfaces/
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduledJobsModule,
     PrismaModule,
     DriversModule,
   ],
@@ -54,7 +55,6 @@ interface ValidationResult {
 
 async function validateDriver(
   factory: EmailDriverFactory,
-  resilience: ResilienceService,
   provider: any,
   credentials: DriverCredentials,
   logger: Logger,
@@ -78,11 +78,7 @@ async function validateDriver(
   try {
     // Test 1: Create resilient driver and connect
     const connectStart = Date.now();
-    const driver = await factory.createResilientDriver(
-      driverType,
-      provider.id,
-      credentials,
-    );
+    const driver = await factory.createConnectedDriver(driverType, credentials);
     const connectDuration = Date.now() - connectStart;
 
     result.tests.push({
@@ -225,22 +221,6 @@ async function validateDriver(
       result.overallPassed = false;
     }
 
-    // Test 7: Check resilience metrics
-    const metrics = resilience.getMetrics();
-    result.tests.push({
-      name: 'Resilience Metrics',
-      passed: true,
-      duration: 0,
-      details: {
-        totalRequests: metrics.totalRequests,
-        successfulRequests: metrics.successfulRequests,
-        failedRequests: metrics.failedRequests,
-        retriedRequests: metrics.retriedRequests,
-        rateLimitedRequests: metrics.rateLimitedRequests,
-      },
-    });
-    logger.log(`  [INFO] Resilience: ${metrics.totalRequests} requests, ${metrics.retriedRequests} retried, ${metrics.rateLimitedRequests} rate-limited`);
-
     // Disconnect
     await driver.disconnect();
     logger.log(`  [PASS] Disconnect`);
@@ -273,7 +253,6 @@ async function main() {
   const prisma = app.get(PrismaService);
   const tokenService = app.get(ProviderTokenService);
   const factory = app.get(EmailDriverFactory);
-  const resilience = app.get(ResilienceService);
   const crypto = app.get(CryptoService);
 
   // Get active providers - ALL types including IMAP/generic
@@ -323,7 +302,7 @@ async function main() {
         };
       }
 
-      const result = await validateDriver(factory, resilience, provider, credentials, logger);
+      const result = await validateDriver(factory, provider, credentials, logger);
       results.push(result);
 
       // Small delay between providers to be nice to APIs
@@ -357,12 +336,6 @@ async function main() {
   }
 
   logger.log(`\nTotal: ${passed} passed, ${failed} failed out of ${results.length} providers`);
-
-  // Final resilience metrics
-  const finalMetrics = resilience.getMetrics();
-  logger.log(`\nResilience Totals:`);
-  logger.log(`  Requests: ${finalMetrics.totalRequests} total, ${finalMetrics.successfulRequests} success, ${finalMetrics.failedRequests} failed`);
-  logger.log(`  Retries: ${finalMetrics.retriedRequests}, Rate-limited: ${finalMetrics.rateLimitedRequests}`);
 
   await app.close();
   process.exit(failed > 0 ? 1 : 0);

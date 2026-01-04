@@ -76,16 +76,32 @@ function formatLogEntry(entry: LogEntry): string {
 }
 
 /**
+ * Normalize context - accepts LogContext or Error
+ */
+function normalizeContext(contextOrError?: LogContext | Error): LogContext | undefined {
+  if (!contextOrError) return undefined;
+  if (contextOrError instanceof Error) {
+    return {
+      error: contextOrError.message,
+      ...(contextOrError.stack && { stack: contextOrError.stack }),
+    };
+  }
+  return contextOrError;
+}
+
+/**
  * Core logging function
  */
-function log(level: LogLevel, message: string, context?: LogContext, component?: string): void {
+function log(level: LogLevel, message: string, context?: LogContext | Error, component?: string): void {
   if (!shouldLog(level)) return;
+
+  const normalizedContext = normalizeContext(context);
 
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     level,
     message,
-    ...(context && { context }),
+    ...(normalizedContext && { context: normalizedContext }),
     ...(component && { component }),
   };
 
@@ -114,10 +130,10 @@ function log(level: LogLevel, message: string, context?: LogContext, component?:
  */
 export function createLogger(component: string) {
   return {
-    debug: (message: string, context?: LogContext) => log('debug', message, context, component),
-    info: (message: string, context?: LogContext) => log('info', message, context, component),
-    warn: (message: string, context?: LogContext) => log('warn', message, context, component),
-    error: (message: string, context?: LogContext) => log('error', message, context, component),
+    debug: (message: string, context?: LogContext | Error) => log('debug', message, context, component),
+    info: (message: string, context?: LogContext | Error) => log('info', message, context, component),
+    warn: (message: string, context?: LogContext | Error) => log('warn', message, context, component),
+    error: (message: string, context?: LogContext | Error) => log('error', message, context, component),
   };
 }
 
@@ -125,10 +141,10 @@ export function createLogger(component: string) {
  * Default logger instance
  */
 export const logger = {
-  debug: (message: string, context?: LogContext) => log('debug', message, context),
-  info: (message: string, context?: LogContext) => log('info', message, context),
-  warn: (message: string, context?: LogContext) => log('warn', message, context),
-  error: (message: string, context?: LogContext) => log('error', message, context),
+  debug: (message: string, context?: LogContext | Error) => log('debug', message, context),
+  info: (message: string, context?: LogContext | Error) => log('info', message, context),
+  warn: (message: string, context?: LogContext | Error) => log('warn', message, context),
+  error: (message: string, context?: LogContext | Error) => log('error', message, context),
 };
 
 /**

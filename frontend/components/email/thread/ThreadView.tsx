@@ -50,8 +50,12 @@ interface ThreadViewProps {
   onFlag: (messageId: string) => void;
   /** Callback when reply is clicked */
   onReply: (messageId: string) => void;
+  /** Callback when reply all is clicked */
+  onReplyAll?: (messageId: string) => void;
   /** Callback when forward is clicked */
   onForward: (messageId: string) => void;
+  /** Callback when attachment download is clicked */
+  onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
   /** Bulk thread actions */
   onDeleteThread?: () => void;
   onMoveThread?: () => void;
@@ -79,7 +83,9 @@ export function ThreadView({
   onBack,
   onFlag,
   onReply,
+  onReplyAll,
   onForward,
+  onDownloadAttachment,
   onDeleteThread,
   onMoveThread,
   onArchiveThread,
@@ -433,7 +439,9 @@ export function ThreadView({
                   onChange={handleMessageChange}
                   onFlag={onFlag}
                   onReply={onReply}
+                  onReplyAll={onReplyAll}
                   onForward={onForward}
+                  onDownloadAttachment={onDownloadAttachment}
                 />
               </Box>
             );

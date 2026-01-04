@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import {
   BaseEmailDriver,
   DriverCredentials,
@@ -111,14 +111,8 @@ export class MicrosoftDriver extends BaseEmailDriver {
   async listFolders(): Promise<CanonicalFolder[]> {
     this.ensureConnected();
 
-    // Fetch top-level folders
-    const response = await this.client!.get('/me/mailFolders', {
-      params: {
-        $top: 100,
-      },
-    });
-
-    const topLevelFolders = response.data.value || [];
+    // Fetch top-level folders (handle pagination)
+    const topLevelFolders = await this.fetchAllPages('/me/mailFolders', { $top: 100 });
     const allFolders: CanonicalFolder[] = [];
 
     // Process each folder and fetch children recursively
@@ -144,11 +138,10 @@ export class MicrosoftDriver extends BaseEmailDriver {
     const allChildren: CanonicalFolder[] = [];
 
     try {
-      const response = await this.client!.get(`/me/mailFolders/${parentFolderId}/childFolders`, {
-        params: { $top: 100 },
-      });
-
-      const childFolders = response.data.value || [];
+      const childFolders = await this.fetchAllPages(
+        `/me/mailFolders/${parentFolderId}/childFolders`,
+        { $top: 100 },
+      );
 
       for (const folder of childFolders) {
         // Build full path for nested folders
@@ -226,8 +219,11 @@ export class MicrosoftDriver extends BaseEmailDriver {
       $top: options.pageSize || 50,
       // Include 'body' to get full HTML/text content (uses Prefer: outlook.body-content-type="html" header)
       $select: 'id,conversationId,subject,body,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId',
-      $orderby: 'receivedDateTime desc',
     };
+
+    if (!options.query) {
+      params.$orderby = 'receivedDateTime desc';
+    }
 
     // Build filter
     const filters: string[] = [];
@@ -448,6 +444,23 @@ export class MicrosoftDriver extends BaseEmailDriver {
     );
 
     const attachment = response.data;
+    let content = attachment.contentBytes || '';
+    const attachmentType = attachment['@odata.type'] || '';
+    const canFetchValue = !attachmentType
+      || attachmentType.includes('fileAttachment')
+      || attachmentType.includes('itemAttachment');
+
+    if (!content && canFetchValue) {
+      try {
+        const rawResponse = await this.client!.get(
+          `/me/messages/${messageId}/attachments/${attachmentId}/$value`,
+          { responseType: 'arraybuffer' },
+        );
+        content = Buffer.from(rawResponse.data).toString('base64');
+      } catch (error: any) {
+        this.logger.warn(`Failed to fetch attachment content for ${attachmentId}: ${error.message}`);
+      }
+    }
 
     return {
       id: attachment.id,
@@ -456,7 +469,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
       size: attachment.size,
       isInline: attachment.isInline || false,
       contentId: attachment.contentId,
-      content: attachment.contentBytes || '',
+      content,
     };
   }
 
@@ -500,12 +513,26 @@ export class MicrosoftDriver extends BaseEmailDriver {
     this.ensureConnected();
 
     // Microsoft uses delta links for incremental sync
-    const response = await this.client!.get('/me/mailFolders/inbox/messages/delta', {
-      params: { $select: 'id' },
-    });
+    let nextUrl: string | null = '/me/mailFolders/inbox/messages/delta';
+    let params: Record<string, any> | undefined = { $select: 'id' };
+    const MAX_PAGES = 50;
 
-    // Return the deltaLink as sync token
-    return response.data['@odata.deltaLink'] || '';
+    for (let page = 0; nextUrl && page < MAX_PAGES; page += 1) {
+      const isAbsolute = /^https?:/i.test(nextUrl);
+      const response: AxiosResponse<any> = await this.client!.get(
+        nextUrl,
+        isAbsolute ? { baseURL: '' } : { params },
+      );
+      const deltaLink = response.data['@odata.deltaLink'];
+      if (deltaLink) {
+        return deltaLink;
+      }
+      nextUrl = response.data['@odata.nextLink'] || null;
+      params = undefined;
+    }
+
+    this.logger.warn('Could not resolve deltaLink for initial sync');
+    return '';
   }
 
   async getChangesSince(syncToken: string): Promise<ChangesResult> {
@@ -559,11 +586,18 @@ export class MicrosoftDriver extends BaseEmailDriver {
         }
       }
 
-      // Get new delta link for next sync
-      deltaLink = response.data['@odata.deltaLink'] || deltaLink;
+      const nextLink = response.data['@odata.nextLink'];
+      const deltaLinkResponse = response.data['@odata.deltaLink'];
+      const newSyncToken = nextLink || deltaLinkResponse || deltaLink;
 
       // Check if there are more pages (@odata.nextLink)
-      hasMore = !!response.data['@odata.nextLink'];
+      hasMore = !!nextLink;
+
+      return {
+        changes,
+        newSyncToken,
+        hasMore,
+      };
 
     } catch (error: any) {
       // Handle 410 Gone or 400 Bad Request - delta token expired or invalid
@@ -581,12 +615,6 @@ export class MicrosoftDriver extends BaseEmailDriver {
       }
       throw error;
     }
-
-    return {
-      changes,
-      newSyncToken: deltaLink,
-      hasMore,
-    };
   }
 
   // ============================================
@@ -696,6 +724,33 @@ export class MicrosoftDriver extends BaseEmailDriver {
   // ============================================
   // Private Helpers
   // ============================================
+
+  private async fetchAllPages<T = any>(
+    initialUrl: string,
+    params?: Record<string, any>,
+  ): Promise<T[]> {
+    const items: T[] = [];
+    let nextUrl: string | null = initialUrl;
+    let nextParams = params;
+    const MAX_PAGES = 50;
+
+    for (let page = 0; nextUrl && page < MAX_PAGES; page += 1) {
+      const isAbsolute = /^https?:/i.test(nextUrl);
+      const response: AxiosResponse<any> = await this.client!.get(
+        nextUrl,
+        isAbsolute ? { baseURL: '' } : { params: nextParams },
+      );
+      items.push(...(response.data.value || []));
+      nextUrl = response.data['@odata.nextLink'] || null;
+      nextParams = undefined;
+    }
+
+    if (nextUrl) {
+      this.logger.warn(`Pagination exceeded ${MAX_PAGES} pages for ${initialUrl}`);
+    }
+
+    return items;
+  }
 
   private async cacheFolderIds(): Promise<void> {
     try {

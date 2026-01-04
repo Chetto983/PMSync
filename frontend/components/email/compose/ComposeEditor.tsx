@@ -24,6 +24,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { aiApi } from '@/lib/api/ai';
 import EditorMenuControls from './EditorMenuControls';
 import useExtensions from './useExtensions';
+import logger from '@/lib/logger';
 
 function fileListToImageFiles(fileList: FileList): File[] {
   return Array.from(fileList).filter((file) => {
@@ -220,7 +221,7 @@ export default function ComposeEditor({
         setAiContent(formattedBody);
       }
     } catch (err) {
-      console.error('AI compose error:', err);
+      logger.error('AI compose error: ${err}');
     } finally {
       setAiIsLoading(false);
       setAiInstruction('');
@@ -301,7 +302,22 @@ export default function ComposeEditor({
         {() => (
           <>
             <LinkBubbleMenu />
-            <TableBubbleMenu />
+            <TableBubbleMenu
+              labels={{
+                insertColumnBefore: composer.tableInsertColumnBefore,
+                insertColumnAfter: composer.tableInsertColumnAfter,
+                deleteColumn: composer.tableDeleteColumn,
+                insertRowAbove: composer.tableInsertRowBefore,
+                insertRowBelow: composer.tableInsertRowAfter,
+                deleteRow: composer.tableDeleteRow,
+                mergeCells: composer.tableMergeCells,
+                splitCell: composer.tableSplitCell,
+                toggleHeaderRow: composer.tableToggleHeaderRow,
+                toggleHeaderColumn: composer.tableToggleHeaderColumn,
+                toggleHeaderCell: composer.tableToggleHeaderCell,
+                deleteTable: composer.tableDeleteTable,
+              }}
+            />
           </>
         )}
       </RichTextEditor>

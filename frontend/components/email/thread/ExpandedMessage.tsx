@@ -19,6 +19,7 @@ import {
   Users,
   ChevronUp,
   Tag,
+  Download,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { EmailHtmlContent } from './EmailHtmlContent';
@@ -44,6 +45,8 @@ interface ExpandedMessageProps {
   onForward: (messageId: string) => void;
   onFlag: (messageId: string) => void;
   onLabels?: (messageId: string) => void;
+  /** Callback when attachment download is clicked */
+  onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
 }
 
 /**
@@ -92,6 +95,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
   onForward,
   onFlag,
   onLabels,
+  onDownloadAttachment,
 }: ExpandedMessageProps) {
   void onFlag; // Reserved for future use
   const t = useTranslations();
@@ -252,7 +256,11 @@ export const ExpandedMessage = memo(function ExpandedMessage({
                 label={`${attachment.name} (${Math.round(attachment.size / 1024)}KB)`}
                 size="small"
                 variant="outlined"
-                clickable
+                clickable={!!onDownloadAttachment}
+                onClick={onDownloadAttachment ? () => onDownloadAttachment(message.id, attachment.id) : undefined}
+                onDelete={onDownloadAttachment ? () => onDownloadAttachment(message.id, attachment.id) : undefined}
+                deleteIcon={<Download size={14} />}
+                sx={{ cursor: onDownloadAttachment ? 'pointer' : 'default' }}
               />
             ))}
           </Box>

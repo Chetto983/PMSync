@@ -11,6 +11,7 @@ import {
   useEmailThread,
   useBulkMoveEmails,
   useBulkMarkRead,
+  useBulkMarkImportant,
   useBulkDeleteEmails,
   useUpdateEmail,
 } from '@/hooks/queries';
@@ -65,6 +66,7 @@ export default function ThreadDetailPage() {
   // Mutations for email operations
   const moveEmails = useBulkMoveEmails();
   const markRead = useBulkMarkRead();
+  const bulkFlag = useBulkMarkImportant();
   const bulkDelete = useBulkDeleteEmails();
   const updateEmail = useUpdateEmail();
 
@@ -124,6 +126,42 @@ export default function ThreadDetailPage() {
     [router]
   );
 
+  // Reply All handler - navigate to compose with reply all context
+  const handleReplyAll = useCallback(
+    (messageId: string) => {
+      router.push(`/dashboard/email/compose?replyTo=${messageId}&threadId=${threadId}&replyAll=true`);
+    },
+    [router, threadId]
+  );
+
+  // Download attachment handler
+  const handleDownloadAttachment = useCallback(
+    async (messageId: string, attachmentId: string) => {
+      try {
+        const { emailsApi } = await import('@/lib/api/emails');
+        const blob = await emailsApi.downloadAttachment(messageId, attachmentId);
+
+        // Get attachment metadata for filename
+        const email = emails?.find((e) => e.id === messageId);
+        const attachment = email?.attachments?.find((a) => a.id === attachmentId);
+        const filename = attachment?.filename || 'attachment';
+
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch {
+        toast.error(t.common.genericError);
+      }
+    },
+    [emails, toast, t]
+  );
+
   // Delete entire thread
   const handleDeleteThread = useCallback(async () => {
     if (!emailIds.length) return;
@@ -180,34 +218,29 @@ export default function ThreadDetailPage() {
     }
   }, [emailIds, markRead, toast, t]);
 
-  // Flag all messages
+  // Flag all messages - using bulk API for efficiency
   const handleFlagAllMessages = useCallback(async () => {
     if (!emailIds.length) return;
 
     try {
-      // Update each email to flagged
-      await Promise.all(
-        emailIds.map((id) => updateEmail.mutateAsync({ emailId: id, dto: { isFlagged: true } }))
-      );
+      await bulkFlag.mutateAsync({ emailIds, isImportant: true });
       toast.success(t.threadActions?.threadFlagged || 'All messages flagged');
     } catch {
       toast.error(t.common.genericError);
     }
-  }, [emailIds, updateEmail, toast, t]);
+  }, [emailIds, bulkFlag, toast, t]);
 
-  // Unflag all messages
+  // Unflag all messages - using bulk API for efficiency
   const handleUnflagAllMessages = useCallback(async () => {
     if (!emailIds.length) return;
 
     try {
-      await Promise.all(
-        emailIds.map((id) => updateEmail.mutateAsync({ emailId: id, dto: { isFlagged: false } }))
-      );
+      await bulkFlag.mutateAsync({ emailIds, isImportant: false });
       toast.success(t.threadActions?.threadUnflagged || 'All messages unflagged');
     } catch {
       toast.error(t.common.genericError);
     }
-  }, [emailIds, updateEmail, toast, t]);
+  }, [emailIds, bulkFlag, toast, t]);
 
   // Add labels - TODO: implement label picker
   const handleAddLabelsToThread = useCallback(() => {
@@ -231,7 +264,7 @@ export default function ThreadDetailPage() {
           >
             <CircularProgress size={40} />
             <Typography variant="body2" color="text.secondary">
-              Loading thread...
+              {t.threadView?.loading || 'Loading thread...'}
             </Typography>
           </Box>
         </EmailLayout>
@@ -305,7 +338,9 @@ export default function ThreadDetailPage() {
             onBack={handleBack}
             onFlag={handleFlag}
             onReply={handleReply}
+            onReplyAll={handleReplyAll}
             onForward={handleForward}
+            onDownloadAttachment={handleDownloadAttachment}
             onDeleteThread={handleDeleteThread}
             onMoveThread={handleMoveThread}
             onArchiveThread={handleArchiveThread}

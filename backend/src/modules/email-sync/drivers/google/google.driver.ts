@@ -430,7 +430,7 @@ export class GoogleDriver extends BaseEmailDriver {
       size: response.data.size || 0,
       isInline: attachmentMeta?.isInline || false,
       contentId: attachmentMeta?.contentId,
-      content: response.data.data || '',
+      content: response.data.data ? this.normalizeBase64Url(response.data.data) : '',
     };
   }
 
@@ -801,9 +801,9 @@ export class GoogleDriver extends BaseEmailDriver {
 
     const extractParts = (part: gmail_v1.Schema$MessagePart) => {
       if (part.mimeType === 'text/plain' && part.body?.data) {
-        bodyText = Buffer.from(part.body.data, 'base64').toString('utf8');
+        bodyText = this.decodeBase64Url(part.body.data);
       } else if (part.mimeType === 'text/html' && part.body?.data) {
-        bodyHtml = Buffer.from(part.body.data, 'base64').toString('utf8');
+        bodyHtml = this.decodeBase64Url(part.body.data);
       }
 
       // Extract attachment metadata
@@ -955,6 +955,20 @@ export class GoogleDriver extends BaseEmailDriver {
     }
 
     return parts.length > 0 ? parts.join(' ') : null;
+  }
+
+  private normalizeBase64Url(data: string): string {
+    let normalized = data.replace(/-/g, '+').replace(/_/g, '/');
+    const padLength = normalized.length % 4;
+    if (padLength !== 0) {
+      normalized += '='.repeat(4 - padLength);
+    }
+    return normalized;
+  }
+
+  private decodeBase64Url(data: string): string {
+    if (!data) return '';
+    return Buffer.from(this.normalizeBase64Url(data), 'base64').toString('utf8');
   }
 
   /**

@@ -718,6 +718,19 @@ export interface AppTranslations {
       imageUrlPrompt: string;
       insert: string;
       link: string;
+      // Table toolbar labels (TableBubbleMenu)
+      tableInsertColumnBefore: string;
+      tableInsertColumnAfter: string;
+      tableDeleteColumn: string;
+      tableInsertRowBefore: string;
+      tableInsertRowAfter: string;
+      tableDeleteRow: string;
+      tableMergeCells: string;
+      tableSplitCell: string;
+      tableToggleHeaderRow: string;
+      tableToggleHeaderColumn: string;
+      tableToggleHeaderCell: string;
+      tableDeleteTable: string;
       send: string;
       saveDraft: string;
       discard: string;

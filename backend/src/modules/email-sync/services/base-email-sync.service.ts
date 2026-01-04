@@ -323,6 +323,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
    * DC-2 consolidation: Removes ~55 lines × 3 providers = ~165 lines
    * CRIT-3 FIX: Accepts tokenExpiresAt and refreshes driver mid-sync if needed
    * FOLDER-FIX: Now syncs ALL important folders, not just INBOX
+   * DEDUP-FIX: Cross-folder deduplication to prevent duplicate emails (2025-01-04)
    */
   protected async syncFullWithDriver(
     initialDriver: IEmailDriver,
@@ -351,6 +352,11 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     let driver = initialDriver;
     let tokenExpiresAt = initialTokenExpiresAt;
 
+    // DEDUP-FIX: Track processed externalIds across ALL folders to prevent duplicates
+    // Critical for MS Graph where message IDs are globally unique (unlike IMAP UIDs)
+    // Same email moved between folders should UPDATE not INSERT
+    const processedExternalIds = new Set<string>();
+
     // FOLDER-FIX: Iterate through all folders
     for (const folder of foldersToSync) {
       let pageToken: string | undefined;
@@ -373,10 +379,25 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
             ...this.getListMessagesOptions(),
           });
 
+          // DEDUP-FIX: Filter out messages already processed in previous folders
+          // For MS Graph, same email can appear in multiple folders with same ID
+          // For IMAP, UIDs are per-folder but messageId/externalId might be shared
+          const dedupedMessages = result.messages.filter((msg) => {
+            if (processedExternalIds.has(msg.id)) {
+              this.logger.debug(
+                `DEDUP-FIX: Skipping duplicate message ${msg.id} (already processed in another folder)`,
+              );
+              return false;
+            }
+            // Mark as processed for subsequent folders
+            processedExternalIds.add(msg.id);
+            return true;
+          });
+
           // Performance fix (N1-4/N1-5): Process messages in batch using transaction
           const batchResult = await this.processMessagesBatch(
             driver,
-            result.messages,
+            dedupedMessages,
             providerId,
             tenantId,
             userId,
@@ -1033,8 +1054,39 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       });
     });
 
-    // Execute all upserts in a single transaction
-    const results = await this.prisma.$transaction(upsertOps);
+    // Execute all upserts in a single transaction with P2002 retry logic
+    // Per Prisma best practices: handle P2002 (unique constraint) and retry
+    // See: https://github.com/prisma/prisma/issues/3242
+    const MAX_RETRIES = 3;
+    let retryCount = 0;
+    let results: Awaited<ReturnType<typeof this.prisma.email.upsert>>[];
+
+    while (true) {
+      try {
+        results = await this.prisma.$transaction(upsertOps);
+        break; // Success - exit retry loop
+      } catch (error: unknown) {
+        const isPrismaError = error && typeof error === 'object' && 'code' in error;
+        const isP2002 = isPrismaError && (error as { code: string }).code === 'P2002';
+
+        if (isP2002 && retryCount < MAX_RETRIES) {
+          retryCount++;
+          this.logger.warn(
+            `P2002 unique constraint error on batch upsert (attempt ${retryCount}/${MAX_RETRIES}). ` +
+              `Retrying in ${100 * retryCount}ms...`,
+          );
+          // Exponential backoff: 100ms, 200ms, 300ms
+          await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
+          continue;
+        }
+
+        // Non-retryable error or max retries exceeded
+        this.logger.error(
+          `Batch upsert failed after ${retryCount} retries: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        throw error;
+      }
+    }
 
     // Track new messages and process post-upsert operations
     let newCount = 0;
