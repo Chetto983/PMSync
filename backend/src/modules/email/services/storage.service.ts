@@ -105,8 +105,9 @@ export class StorageService {
         }),
       );
       return true;
-    } catch (err: any) {
-      if (err?.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404) {
+    } catch (err: unknown) {
+      const errObj = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+      if (errObj?.name === 'NotFound' || errObj?.$metadata?.httpStatusCode === 404) {
         return false;
       }
       this.logger.warn(`HeadObject failed for ${key}: ${err instanceof Error ? err.message : String(err)}`);
@@ -126,7 +127,7 @@ export class StorageService {
       await this.client.send(command);
       this.logger.debug(`Deleted S3 object: ${key}`);
     } catch (error) {
-      if ((error as any).name === 'NoSuchKey') {
+      if ((error as { name?: string }).name === 'NoSuchKey') {
         this.logger.warn(`S3 object not found (already deleted): ${key}`);
       } else {
         this.logger.error(`Failed to delete S3 object ${key}: ${error instanceof Error ? error.message : String(error)}`);

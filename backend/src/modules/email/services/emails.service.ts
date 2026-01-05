@@ -288,8 +288,9 @@ export class EmailsService {
           timestamp,
         });
       }
-    } catch (error: any) {
-      this.logger.error(`Failed to update folder counts: ${error?.message || error}`);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to update folder counts: ${errMsg}`);
     }
   }
 
@@ -713,7 +714,7 @@ export class EmailsService {
    * Sync email changes back to provider
    */
   private async syncChangesToProvider(
-    email: any,
+    email: { id: string; externalId: string; providerId: string; tenantId: string; folder: string },
     changes: { isRead?: boolean; isStarred?: boolean; isFlagged?: boolean; folder?: string },
   ) {
     const operations = [];

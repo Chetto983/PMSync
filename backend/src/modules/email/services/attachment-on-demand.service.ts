@@ -416,7 +416,7 @@ export class AttachmentOnDemandService {
 
       // Match attachment by filename or contentId
       const attachment = parsed.attachments.find(
-        (att: any) =>
+        (att: { filename?: string; contentId?: string }) =>
           att.filename === externalAttachmentId ||
           att.contentId === externalAttachmentId ||
           att.contentId === `<${externalAttachmentId}>`,
@@ -424,7 +424,7 @@ export class AttachmentOnDemandService {
 
       if (!attachment) {
         this.logger.warn(
-          `Attachment not found. Available: ${parsed.attachments.map((a: any) => a.filename || a.contentId).join(', ')}`,
+          `Attachment not found. Available: ${parsed.attachments.map((a: { filename?: string; contentId?: string }) => a.filename || a.contentId).join(', ')}`,
         );
         throw new Error(
           `Attachment ${externalAttachmentId} not found in IMAP message UID ${uid}`,
