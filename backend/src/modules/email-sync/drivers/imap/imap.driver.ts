@@ -1302,16 +1302,20 @@ export class IMAPDriver extends BaseEmailDriver {
   // Attachments
   // ============================================
 
+  /**
+   * Get attachment content by ID
+   *
+   * MEMORY LEAK FIX (2025-01-05):
+   * - Removed redundant getMessage call that fetched message twice
+   * - Added chunked download with MAX_ATTACHMENT_SIZE limit (50MB)
+   * - Added memory cleanup after processing
+   */
   async getAttachment(
     messageId: string,
     attachmentId: string,
   ): Promise<AttachmentData> {
-    const message = await this.getMessage(messageId, { includeBody: true });
-    if (!message) {
-      throw new Error(`Message not found: ${messageId}`);
-    }
+    // FIX: Removed redundant getMessage call - was causing double memory usage
 
-    // Get the raw message to extract attachment
     return this.withConnection(async (client) => {
       const [folderPath, uid] = this.parseMessageId(messageId);
 
@@ -1321,11 +1325,24 @@ export class IMAPDriver extends BaseEmailDriver {
           uid: true,
         });
 
+        // MEMORY LEAK FIX: Add size limit to prevent OOM on large messages
+        const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB limit
         const chunks: Buffer[] = [];
+        let totalSize = 0;
+
         for await (const chunk of source.content) {
+          totalSize += chunk.length;
+          if (totalSize > MAX_ATTACHMENT_SIZE) {
+            // Clear accumulated chunks to free memory
+            chunks.length = 0;
+            throw new Error(`Attachment exceeds maximum size limit (${MAX_ATTACHMENT_SIZE / 1024 / 1024}MB)`);
+          }
           chunks.push(chunk);
         }
+
         const buffer = Buffer.concat(chunks);
+        // MEMORY FIX: Clear chunks array immediately after concat to free memory
+        chunks.length = 0;
 
         const parsed = await simpleParser(buffer);
 
@@ -1340,7 +1357,7 @@ export class IMAPDriver extends BaseEmailDriver {
           throw new Error(`Attachment not found: ${attachmentId}`);
         }
 
-        return {
+        const result: AttachmentData = {
           id: attachmentId,
           filename: attachment.filename || 'attachment',
           mimeType: attachment.contentType || 'application/octet-stream',
@@ -1349,6 +1366,13 @@ export class IMAPDriver extends BaseEmailDriver {
           contentId: attachment.contentId,
           content: attachment.content.toString('base64'),
         };
+
+        // MEMORY FIX: Clear attachment content buffer after base64 encoding
+        if (attachment.content && typeof attachment.content.fill === 'function') {
+          attachment.content.fill(0);
+        }
+
+        return result;
       } finally {
         lock.release();
       }

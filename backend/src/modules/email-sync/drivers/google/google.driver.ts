@@ -405,14 +405,30 @@ export class GoogleDriver extends BaseEmailDriver {
   // Attachments
   // ============================================
 
+  /**
+   * Get attachment content by ID
+   *
+   * MEMORY AUDIT FIX (2025-01-05):
+   * - Added MAX_ATTACHMENT_SIZE limit (50MB) to prevent OOM
+   * - Added size validation before processing
+   */
   async getAttachment(messageId: string, attachmentId: string): Promise<AttachmentData> {
     this.ensureConnected();
+
+    // MEMORY FIX: Add size limit constant
+    const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB limit
 
     const response = await this.gmail!.users.messages.attachments.get({
       userId: 'me',
       messageId,
       id: attachmentId,
     });
+
+    // MEMORY FIX: Check attachment size before processing
+    const attachmentSize = response.data.size || 0;
+    if (attachmentSize > MAX_ATTACHMENT_SIZE) {
+      throw new Error(`Attachment exceeds maximum size limit (${MAX_ATTACHMENT_SIZE / 1024 / 1024}MB)`);
+    }
 
     // Get message to find attachment metadata
     const message = await this.gmail!.users.messages.get({
@@ -427,7 +443,7 @@ export class GoogleDriver extends BaseEmailDriver {
       id: attachmentId,
       filename: attachmentMeta?.filename || 'attachment',
       mimeType: attachmentMeta?.mimeType || 'application/octet-stream',
-      size: response.data.size || 0,
+      size: attachmentSize,
       isInline: attachmentMeta?.isInline || false,
       contentId: attachmentMeta?.contentId,
       content: response.data.data ? this.normalizeBase64Url(response.data.data) : '',

@@ -53,8 +53,10 @@ export class MicrosoftDriver extends BaseEmailDriver {
       headers: {
         Authorization: `Bearer ${credentials.accessToken}`,
         'Content-Type': 'application/json',
+        // CRITICAL: IdType="ImmutableId" ensures message IDs remain stable when moved between folders
+        // Without this, Microsoft Graph returns mutable IDs that change on move operations!
         // Request HTML body content instead of text (Microsoft Graph API default is text)
-        'Prefer': 'outlook.body-content-type="html"',
+        'Prefer': 'IdType="ImmutableId", outlook.body-content-type="html"',
       },
     });
 
@@ -436,14 +438,31 @@ export class MicrosoftDriver extends BaseEmailDriver {
   // Attachments
   // ============================================
 
+  /**
+   * Get attachment content by ID
+   *
+   * MEMORY AUDIT FIX (2025-01-05):
+   * - Added MAX_ATTACHMENT_SIZE limit (50MB) to prevent OOM
+   * - Added size validation before binary download
+   */
   async getAttachment(messageId: string, attachmentId: string): Promise<AttachmentData> {
     this.ensureConnected();
+
+    // MEMORY FIX: Add size limit constant
+    const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB limit
 
     const response = await this.client!.get(
       `/me/messages/${messageId}/attachments/${attachmentId}`,
     );
 
     const attachment = response.data;
+
+    // MEMORY FIX: Check attachment size before processing
+    const attachmentSize = attachment.size || 0;
+    if (attachmentSize > MAX_ATTACHMENT_SIZE) {
+      throw new Error(`Attachment exceeds maximum size limit (${MAX_ATTACHMENT_SIZE / 1024 / 1024}MB)`);
+    }
+
     let content = attachment.contentBytes || '';
     const attachmentType = attachment['@odata.type'] || '';
     const canFetchValue = !attachmentType
@@ -466,7 +485,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
       id: attachment.id,
       filename: attachment.name,
       mimeType: attachment.contentType,
-      size: attachment.size,
+      size: attachmentSize,
       isInline: attachment.isInline || false,
       contentId: attachment.contentId,
       content,
