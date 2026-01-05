@@ -37,6 +37,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
   private readonly BATCH_SIZE: number;
   private readonly ENABLED: boolean;
   private readonly INTERVAL_MS: number;
+  private readonly BACKFILL_DAYS: number; // Option C: Limit history
 
   constructor(
     private readonly prisma: PrismaService,
@@ -52,6 +53,10 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
       (this.configService.get<string>('EMBEDDING_BACKFILL_ENABLED') || 'true').toLowerCase() !== 'false';
     this.INTERVAL_MS = parseInt(
       this.configService.get<string>('EMBEDDING_BACKFILL_INTERVAL_MS', '600000'), // 10 minutes
+      10,
+    );
+    this.BACKFILL_DAYS = parseInt(
+      this.configService.get<string>('EMBEDDING_BACKFILL_DAYS', '30'), // Default 30 days
       10,
     );
   }
@@ -266,6 +271,10 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
       ' OR ',
     );
 
+    // Option C: Limit to recent history
+    const limitDate = new Date();
+    limitDate.setDate(limitDate.getDate() - this.BACKFILL_DAYS);
+
     const rows = await this.prisma.$queryRaw<Array<any>>(
       Prisma.sql`
         SELECT
@@ -286,6 +295,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
           AND (f."path" = e."folder" OR f."name" = e."folder" OR f."externalId" = e."folder")
         WHERE emb."id" IS NULL
           AND e."isDeleted" = FALSE
+          AND e."receivedAt" > ${limitDate}
           -- Exclude by specialUse
           AND (f."specialUse" IS NULL OR f."specialUse" NOT IN (${Prisma.join(excludedSpecialUse)}))
           -- Exclude by folder name patterns (case insensitive)
@@ -313,6 +323,9 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
       ' OR ',
     );
 
+    const limitDate = new Date();
+    limitDate.setDate(limitDate.getDate() - this.BACKFILL_DAYS);
+
     const result = await this.prisma.$queryRaw<Array<{ count: bigint }>>(
       Prisma.sql`
         SELECT COUNT(*)::bigint AS count
@@ -324,6 +337,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
           AND (f."path" = e."folder" OR f."name" = e."folder" OR f."externalId" = e."folder")
         WHERE emb."id" IS NULL
           AND e."isDeleted" = FALSE
+          AND e."receivedAt" > ${limitDate}
           -- Exclude by specialUse
           AND (f."specialUse" IS NULL OR f."specialUse" NOT IN (${Prisma.join(excludedSpecialUse)}))
           -- Exclude by folder name patterns (case insensitive)

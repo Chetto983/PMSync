@@ -22,12 +22,15 @@ import type { MistralModel } from '../providers/mistral.provider';
 
 export type TaskComplexity = 'simple' | 'moderate' | 'complex';
 
+export type AgentType = 'Supervisor' | 'Email' | 'Calendar' | 'Contacts' | 'General';
+
 export interface TaskClassification {
   complexity: TaskComplexity;
   recommendedModel: MistralModel;
   confidence: number;
   reasoning: string;
   estimatedTokens: number;
+  suggestedAgent?: AgentType;
 }
 
 export interface RoutingStats {
@@ -141,6 +144,30 @@ const TOOL_COMPLEXITY: Record<string, TaskComplexity> = {
   merge_contacts: 'complex',
 };
 
+// Intent patterns for direct agent routing
+const INTENT_PATTERNS = {
+  EMAIL: [
+    /email|inbox|mail|message|reply|forward|send/i,
+    /unread|read|mark as/i,
+    /draft|compose/i,
+  ],
+  CALENDAR: [
+    /calendar|schedule|meeting|appointment|event/i,
+    /availability|free|busy/i,
+    /meet|reschedule/i,
+  ],
+  CONTACTS: [
+    /contact|address|phone|who is/i,
+  ],
+  GENERAL: [
+    /^(hi|hello|hey|thanks|thank you|ok|okay)\b/i,
+    /^what (is|are|was|were) /i,
+    /^how (to|do|can) /i,
+    /^translate/i,
+    /^define/i,
+  ],
+};
+
 @Injectable()
 export class ModelRouterService {
   private readonly logger = new Logger(ModelRouterService.name);
@@ -154,7 +181,7 @@ export class ModelRouterService {
   };
 
   /**
-   * Route a message to the appropriate model based on complexity.
+   * Route a message to the appropriate model and agent based on complexity and intent.
    */
   routeMessage(
     message: string,
@@ -165,19 +192,29 @@ export class ModelRouterService {
       expectedTools?: string[];
     },
   ): TaskClassification {
-    // Honor forced model
+    const estimatedTokens = this.estimateTokens(message);
+    const messageComplexity = this.classifyMessageComplexity(message);
+    const intent = this.classifyIntent(message);
+
+    // Determine suggested agent based on intent
+    let suggestedAgent: AgentType = 'Supervisor'; // Default to Supervisor
+    if (intent === 'EMAIL') suggestedAgent = 'Email';
+    else if (intent === 'CALENDAR') suggestedAgent = 'Calendar';
+    else if (intent === 'CONTACTS') suggestedAgent = 'Contacts';
+    else if (intent === 'GENERAL') suggestedAgent = 'General';
+
+    // Honor forced model (after intent classification)
     if (options?.forceModel) {
       return {
         complexity: this.getComplexityForModel(options.forceModel),
         recommendedModel: options.forceModel,
         confidence: 1.0,
         reasoning: 'Model explicitly specified',
-        estimatedTokens: this.estimateTokens(message),
+        estimatedTokens,
+        suggestedAgent,
       };
     }
 
-    const estimatedTokens = this.estimateTokens(message);
-    const messageComplexity = this.classifyMessageComplexity(message);
     const toolComplexity = this.classifyToolComplexity(options?.expectedTools || []);
 
     // Take the higher complexity between message and tools
@@ -196,6 +233,15 @@ export class ModelRouterService {
       recommendedModel = complexity === 'simple' ? 'medium' : 'large';
     }
 
+    // Force 'medium' or 'large' if using specialized agents (Email/Calendar often need tools)
+    if (suggestedAgent === 'Email' || suggestedAgent === 'Calendar') {
+      if (recommendedModel === 'small') recommendedModel = 'medium';
+    }
+    // General chat can stay small
+    if (suggestedAgent === 'General') {
+      recommendedModel = 'small';
+    }
+
     // Track stats
     this.stats.totalRequests++;
     this.stats.byModel[recommendedModel]++;
@@ -204,7 +250,7 @@ export class ModelRouterService {
     const reasoning = this.generateReasoning(message, complexity, recommendedModel);
 
     this.logger.debug(
-      `Routed to ${recommendedModel}: "${message.substring(0, 50)}..." (${complexity})`,
+      `Routed to ${recommendedModel} (Agent: ${suggestedAgent}): "${message.substring(0, 50)}..." (${complexity})`,
     );
 
     return {
@@ -213,7 +259,22 @@ export class ModelRouterService {
       confidence: this.calculateConfidence(message, complexity),
       reasoning,
       estimatedTokens,
+      suggestedAgent,
     };
+  }
+
+  /**
+   * Classify intent based on regex patterns.
+   */
+  private classifyIntent(message: string): keyof typeof INTENT_PATTERNS | 'UNKNOWN' {
+    for (const [intent, patterns] of Object.entries(INTENT_PATTERNS)) {
+      for (const pattern of patterns) {
+        if (pattern.test(message)) {
+          return intent as keyof typeof INTENT_PATTERNS;
+        }
+      }
+    }
+    return 'UNKNOWN';
   }
 
   /**

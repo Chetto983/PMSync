@@ -340,12 +340,16 @@ export class GoogleDriver extends BaseEmailDriver {
 
     const targetLabelId = this.canonicalToGmailLabel(targetFolder);
 
+    // FIX HIGH-4 (2025-01-05): Add retry wrapper - was missing
     // Get current labels
-    const message = await this.gmail!.users.messages.get({
-      userId: 'me',
-      id: messageId,
-      format: 'minimal',
-    });
+    const message = await this.executeWithRetry(
+      () => this.gmail!.users.messages.get({
+        userId: 'me',
+        id: messageId,
+        format: 'minimal',
+      }),
+      'moveMessage:get',
+    );
 
     const currentLabels = message.data.labelIds || [];
 
@@ -372,13 +376,17 @@ export class GoogleDriver extends BaseEmailDriver {
     const targetLabelId = this.canonicalToGmailLabel(targetFolder);
 
     // Gmail doesn't have copy - we add the label instead
-    await this.gmail!.users.messages.modify({
-      userId: 'me',
-      id: messageId,
-      requestBody: {
-        addLabelIds: targetLabelId ? [targetLabelId] : [],
-      },
-    });
+    // FIX HIGH-4 (2025-01-05): Add retry wrapper - was missing
+    await this.executeWithRetry(
+      () => this.gmail!.users.messages.modify({
+        userId: 'me',
+        id: messageId,
+        requestBody: {
+          addLabelIds: targetLabelId ? [targetLabelId] : [],
+        },
+      }),
+      'copyMessage:modify',
+    );
 
     return messageId; // Same message, just with additional label
   }
@@ -576,6 +584,7 @@ export class GoogleDriver extends BaseEmailDriver {
     if (messageIds.length === 0) return [];
 
     const messages: CanonicalMessage[] = [];
+    const failedIds: Array<{ id: string; error: string; code?: number }> = [];
 
     // SENIOR-LEVEL OPTIMIZATION for >1000 concurrent users:
     // - Controlled concurrency (5 at a time, not 50)
@@ -593,7 +602,13 @@ export class GoogleDriver extends BaseEmailDriver {
           try {
             return await this.getMessage(id, { format, includeBody });
           } catch (error: any) {
-            this.logger.debug(`Failed to fetch message ${id}: ${error.message}`);
+            // FIX CRIT-1 (2025-01-05): Accumulate failures instead of swallowing
+            const statusCode = error?.response?.status || error?.code;
+            failedIds.push({
+              id,
+              error: error.message || 'Unknown error',
+              code: typeof statusCode === 'number' ? statusCode : undefined,
+            });
             return null;
           }
         })
@@ -609,6 +624,40 @@ export class GoogleDriver extends BaseEmailDriver {
 
       // Yield to event loop for GC opportunity between batches
       await new Promise<void>(r => setImmediate(r));
+    }
+
+    // FIX CRIT-1 (2025-01-05): Report failures instead of silent swallowing
+    if (failedIds.length > 0) {
+      const failureRate = failedIds.length / messageIds.length;
+      const authErrors = failedIds.filter((f) => f.code === 401 || f.code === 403);
+      const rateLimitErrors = failedIds.filter((f) => f.code === 429);
+
+      // Auth errors = systemic issue, throw immediately
+      if (authErrors.length > 0) {
+        throw new Error(
+          `Authentication failed during batch fetch: ${authErrors.length} auth errors. Token may need refresh.`,
+        );
+      }
+
+      // Rate limit = back off needed
+      if (rateLimitErrors.length > 0) {
+        throw new Error(
+          `Rate limited during batch fetch: ${rateLimitErrors.length} messages hit 429. Retry with backoff.`,
+        );
+      }
+
+      // High failure rate (>20%) = something wrong, throw
+      if (failureRate > 0.2) {
+        throw new Error(
+          `Batch fetch failed: ${failedIds.length}/${messageIds.length} messages (${Math.round(failureRate * 100)}% failure rate). IDs: ${failedIds.slice(0, 5).map((f) => f.id).join(', ')}${failedIds.length > 5 ? '...' : ''}`,
+        );
+      }
+
+      // Low failure rate = log warning but continue (messages may have been deleted)
+      this.logger.warn(
+        `batchGetMessages: ${failedIds.length}/${messageIds.length} messages failed to fetch. ` +
+          `Continuing with ${messages.length} successful. Failed IDs: ${failedIds.map((f) => f.id).join(', ')}`,
+      );
     }
 
     return messages;

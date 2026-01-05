@@ -16,6 +16,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { CryptoService } from '../src/common/services/crypto.service';
 import { GoogleOAuthService } from '../src/modules/providers/services/google-oauth.service';
 import { MicrosoftOAuthService } from '../src/modules/providers/services/microsoft-oauth.service';
+import { RedisLockService } from '../src/common/services/redis-lock.service';
 import { ProviderTokenService } from '../src/modules/email-sync/services/provider-token.service';
 import { DriversModule } from '../src/modules/email-sync/drivers/drivers.module';
 import { EmailDriverFactory } from '../src/modules/email-sync/drivers/driver.factory';
@@ -34,9 +35,10 @@ import { DriverCredentials } from '../src/modules/email-sync/drivers/interfaces/
     GoogleOAuthService,
     MicrosoftOAuthService,
     ProviderTokenService,
+    RedisLockService,
   ],
 })
-class SendTestModule {}
+class SendTestModule { }
 
 // Create a simple test attachment (text file)
 function createTestAttachment(): AttachmentData {

@@ -59,7 +59,9 @@ export class FolderSyncService {
    */
   async syncProviderFolders(tenantId: string, providerId: string): Promise<void> {
     const lockKey = `folder-sync:${providerId}`;
-    const lockTtl = 60000; // 60 seconds - folder sync should complete within this time
+    // FIX CRIT-4 (2025-01-05): 60s was too short - nested folder fetching can take >60s
+    // Lock expires mid-sync → concurrent sync starts → duplicate DB writes → P2002 errors
+    const lockTtl = 300000; // 5 minutes - safe margin for large mailboxes
 
     await this.redisLock.withLock(lockKey, lockTtl, async () => {
       const provider = await this.prisma.providerConfig.findUnique({
@@ -1204,13 +1206,14 @@ export class FolderSyncService {
 
       if (emailsInFolder > 0) {
         this.logger.log(
-          `Moving ${emailsInFolder} emails from folder "${folder.name}" to INBOX before deletion`,
+          `Moving ${emailsInFolder} emails from folder "${folder.name}" to TRASH before deletion`,
         );
         await this.prisma.email.updateMany({
           where: { providerId, folder: folderPath },
-          data: { folder: 'INBOX' },
+          // FIX CRIT-5 (2025-01-05): Move to TRASH not INBOX - prevents spam flooding inbox
+          data: { folder: 'TRASH' },
         });
-        this.logger.log(`Moved ${emailsInFolder} emails to INBOX`);
+        this.logger.log(`Moved ${emailsInFolder} emails to TRASH`);
       }
 
       if (provider.providerType === 'imap') {

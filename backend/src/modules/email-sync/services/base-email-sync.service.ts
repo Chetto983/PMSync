@@ -6,7 +6,7 @@ import { SyncJobData, SyncJobResult } from '../interfaces/sync-job.interface';
 import { IEmailDriver } from '../drivers/interfaces/email-driver.interface';
 import { CanonicalMessage, AttachmentMeta } from '../drivers/interfaces/canonical.types';
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
-import { isJunkFolder } from '../../email/email.helpers';
+import { isJunkFolder, isRecentEmail as isRecentEmailHelper } from '../../email/email.helpers';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { FollowUpService } from '../../ai/voltagent/services/follow-up.service';
 import { WritingStyleService } from '../../ai/voltagent/services/writing-style.service';
@@ -907,8 +907,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
           reason: 'message-processed',
         });
 
-        // TRIGGER FOLLOW-UP ANALYSIS
-        if (userId && !isJunkFolder(result.folder)) {
+        // TRIGGER FOLLOW-UP ANALYSIS (only for recent emails to avoid storm on full sync)
+        // FIX (2025-01-05): Added recency check - old emails during full sync don't need AI analysis
+        if (userId && !isJunkFolder(result.folder) && isRecentEmailHelper(result.receivedAt)) {
           this.followUpService
             .analyzeAndCreateFollowUp(
               tenantId,
@@ -917,9 +918,16 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
               result.bodyText || '',
               result.subject,
             )
-            .catch((err) =>
-              this.logger.warn(`Follow-up analysis failed for ${result.id}: ${err.message}`),
-            );
+            .catch((err) => {
+              // FIX CRIT-3 (2025-01-05): Proper error handling for AI feature failures
+              // Changed from warn to error for monitoring visibility
+              this.logger.error(
+                `Follow-up analysis failed for email ${result.id} in ${result.folder}: ${err.message}`,
+                err.stack,
+              );
+              // Note: Fire-and-forget is intentional - AI features shouldn't block sync
+              // TODO: Consider adding retry queue for failed AI analyses
+            });
         }
       }
 
@@ -1133,8 +1141,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
           reason: 'message-processed',
         });
 
-        // TRIGGER FOLLOW-UP ANALYSIS
-        if (userId && !isJunkFolder(result.folder)) {
+        // TRIGGER FOLLOW-UP ANALYSIS (only for recent emails to avoid storm on full sync)
+        // FIX (2025-01-05): Added recency check - old emails during full sync don't need AI analysis
+        if (userId && !isJunkFolder(result.folder) && isRecentEmailHelper(result.receivedAt)) {
           this.followUpService
             .analyzeAndCreateFollowUp(
               tenantId,
@@ -1143,9 +1152,16 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
               result.bodyText || '',
               result.subject,
             )
-            .catch((err) =>
-              this.logger.warn(`Follow-up analysis failed for ${result.id}: ${err.message}`),
-            );
+            .catch((err) => {
+              // FIX CRIT-3 (2025-01-05): Proper error handling for AI feature failures
+              // Changed from warn to error for monitoring visibility
+              this.logger.error(
+                `Follow-up analysis failed for email ${result.id} in ${result.folder}: ${err.message}`,
+                err.stack,
+              );
+              // Note: Fire-and-forget is intentional - AI features shouldn't block sync
+              // TODO: Consider adding retry queue for failed AI analyses
+            });
         }
 
 

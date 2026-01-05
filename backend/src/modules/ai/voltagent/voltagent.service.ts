@@ -27,14 +27,24 @@ import { EmbeddingsService } from '../services/embeddings.service';
 import { HitlService, PendingActionStatus } from './services/hitl.service';
 import { ActionExecutorService, ActionExecutionResult } from './services/action-executor.service';
 import { SemanticCacheService } from './services/semantic-cache.service';
+import { WritingStyleService } from './services/writing-style.service';
 import { ModelRouterService } from './services/model-router.service';
+import { createCalendarAgent } from './agents/calendar.agent';
+import { createContactsAgent } from './agents/contacts.agent';
+import { createEmailAgent } from './agents/email.agent';
+import { createGeneralAgent } from './agents/general.agent';
+import { createSupervisorAgent, SupervisorAgentOptions, UserContext } from './agents/supervisor.agent';
+import { createWebSearchAgent } from './agents/websearch.agent';
+import { createDocumentLibraryAgent } from './agents/document-library.agent';
+import { createAnalyticsAgent } from './agents/analytics.agent';
+import { createUnifiedKnowledgeAgent } from './agents/unified-knowledge.agent';
 import { AiQueueService, type AiJobData } from './services/ai-queue.service';
 import { RateLimiterService } from './services/rate-limiter.service';
 import { AiError, AiErrorCode } from '../errors';
 import { MistralBatchService } from './services/mistral-batch.service';
 import { AgentAction, AgentActionType, ActionSeverity } from './interfaces/agent-action.interface';
 import { AgentContext } from './interfaces/agent-context.interface';
-import { createSupervisorAgent, type UserContext, type ConnectedProvider } from './agents';
+import { type ConnectedProvider } from './agents';
 import { getLocale, getTranslations, type SupportedLocale } from './locales';
 import { VoltAgentMemoryService, LongTermMemoryService } from './memory';
 import { DocumentLibraryService } from './services/document-library.service';
@@ -188,6 +198,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly deadlineService?: DeadlineExtractorService,
     @Optional() private readonly followUpService?: FollowUpService,
     @Optional() private readonly actionItemService?: ActionItemService,
+    @Optional() private readonly writingStyleService?: WritingStyleService,
   ) { }
 
   async onModuleInit() {
@@ -506,13 +517,15 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     modelType: MistralModel = 'small',
     userContext?: UserContext | null,
     userId?: string,
+    agentType: import('./services/model-router.service').AgentType = 'Supervisor',
   ): Agent {
     // Cache key includes userId if userContext is provided (personalized agents)
     // Fall back to locale+model for anonymous/system calls
     // Include memoryEnabled state to recreate agents when LongTermMemoryService enables
     const userKey = userContext?.email ?? 'anonymous';
     const memoryKey = this.longTermMemoryService?.isEnabled() ? 'mem' : 'nomem';
-    const cacheKey = `${tenantId}:${userKey}:${locale}:${modelType}:${memoryKey}`;
+    // Use agentType in cache key to separate Supervisors from specialized agents
+    const cacheKey = `${tenantId}:${userKey}:${locale}:${modelType}:${memoryKey}:${agentType}`;
     const now = Date.now();
 
     // Check if cached agent exists and is not expired
@@ -530,38 +543,77 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Create new agent (or replace expired one)
     const model = getMistralModel(modelType);
-    const agent = createSupervisorAgent({
+    let agent: Agent;
+
+    const commonOptions = {
       model,
       prisma: this.prisma,
-      emailSendService: this.emailSendService,
-      calendarService: this.calendarService,
       locale,
       tenantId,
-      // VoltAgent memory for conversation persistence (fixed in latest VoltAgent version)
-      memory: this.memory ?? undefined,
       hooks: this.observabilityHooks?.hooks ?? undefined,
-      // RAG services for HybridRetriever (optional - gracefully degrades)
-      mistralService: this.mistralService,
-      embeddingsService: this.embeddingsService,
-      // User context for personalized instructions
-      userContext: userContext ?? undefined,
-      // Web search agent requires ConfigService + CacheService for Redis caching
-      configService: this.configService,
-      cacheService: this.cacheService,
-      // Document Library agent for document RAG
-      documentLibraryService: this.documentLibraryService,
-      // UnifiedKnowledgeAgent dependencies
-      longTermMemoryService: this.longTermMemoryService,
-      deadlineService: this.deadlineService,
-      followUpService: this.followUpService,
-      actionItemService: this.actionItemService,
       userId,
-    });
+      cacheService: this.cacheService,
+    };
+
+    switch (agentType) {
+      case 'Email':
+        agent = createEmailAgent({
+          ...commonOptions,
+          emailSendService: this.emailSendService,
+          mistral: this.mistralService,
+          embeddingsService: this.embeddingsService,
+          writingStyle: this.writingStyleService,
+        });
+        break;
+      case 'Calendar':
+        agent = createCalendarAgent({
+          ...commonOptions,
+          calendarService: this.calendarService,
+        });
+        break;
+      case 'Contacts':
+        agent = createContactsAgent({
+          ...commonOptions,
+          // Contacts agent options
+        });
+        break;
+      case 'General':
+        agent = createGeneralAgent({
+          model,
+          locale,
+          hooks: commonOptions.hooks,
+        });
+        break;
+      case 'Supervisor':
+      default:
+        agent = createSupervisorAgent({
+          ...commonOptions,
+          emailSendService: this.emailSendService,
+          calendarService: this.calendarService,
+          // VoltAgent memory for conversation persistence (fixed in latest VoltAgent version)
+          memory: this.memory ?? undefined,
+          // RAG services for HybridRetriever (optional - gracefully degrades)
+          mistralService: this.mistralService,
+          embeddingsService: this.embeddingsService,
+          // User context for personalized instructions
+          userContext: userContext ?? undefined,
+          // Web search agent requires ConfigService + CacheService for Redis caching
+          configService: this.configService,
+          // Document Library agent for document RAG
+          documentLibraryService: this.documentLibraryService,
+          // UnifiedKnowledgeAgent dependencies
+          longTermMemoryService: this.longTermMemoryService,
+          deadlineService: this.deadlineService,
+          followUpService: this.followUpService,
+          actionItemService: this.actionItemService,
+        });
+        break;
+    }
 
     // Cache with timestamps for TTL and LRU
     this.agents.set(cacheKey, { agent, createdAt: now, lastUsed: now });
 
-    this.logger.debug(`Created agent for ${cacheKey}, cache size: ${this.agents.size}/${this.MAX_CACHED_AGENTS}`);
+    this.logger.debug(`Created ${agentType} agent for ${cacheKey}, cache size: ${this.agents.size}/${this.MAX_CACHED_AGENTS}`);
 
     return agent;
   }
@@ -884,7 +936,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           providerOptions: {
             mistral: {
               parallelToolCalls: false,
-              structuredOutputs: true,
+              // FIX: Mistral SDK strict validation fails with array content (AI_InvalidPromptError).
+              // Disabling structuredOutputs bypasses the strict schema check.
+              structuredOutputs: false,
             },
           },
         });
@@ -1089,6 +1143,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string> {
     const correlationId = CorrelationContext.getCorrelationId();
     const logPrefix = `[${correlationId}] [stream] [tenant:${options.tenantId}]`;
+    const startTimeResult = Date.now();
+    this.logger.log(`${logPrefix} START Request processing`);
 
     // 0a. Security: Validate input for prompt injection (OWASP LLM01:2025)
     if (this.promptGuardService) {
@@ -1143,27 +1199,39 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       );
 
       if (cacheResult.hit && cacheResult.response) {
-        this.logger.debug(`${logPrefix} Cache hit, returning cached response`);
+        this.logger.debug(`${logPrefix} Cache hit, returning cached response. Took ${Date.now() - startTimeResult}ms`);
         yield cacheResult.response;
         return;
       }
     }
+    this.logger.log(`${logPrefix} Cache Check took ${Date.now() - startTimeResult}ms`);
 
-    // 2. Route to optimal model
+    // 2. Route to optimal model and agent
     let selectedModel = options.model;
-    if (!selectedModel && this.modelRouterService) {
+    let suggestedAgent: import('./services/model-router.service').AgentType = 'Supervisor';
+
+    if (this.modelRouterService) {
       const routing = this.modelRouterService.routeMessage(processedMessage, {
         preferSpeed: options.preferSpeed,
         preferQuality: options.preferQuality,
       });
-      selectedModel = routing.recommendedModel;
+      if (!selectedModel) {
+        selectedModel = routing.recommendedModel;
+      }
+      suggestedAgent = routing.suggestedAgent || 'Supervisor';
     }
+    this.logger.log(`${logPrefix} Routing took ${Date.now() - startTimeResult}ms. Selected: ${selectedModel}, Agent: ${suggestedAgent}`);
 
     const locale = getLocale(options.locale);
 
     // Fetch user context for personalized agent instructions
+    const contextStart = Date.now();
     const userContext = await this.getUserContext(options.userId, options.tenantId);
-    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId);
+    this.logger.log(`${logPrefix} UserContext fetch took ${Date.now() - contextStart}ms`);
+
+    const agentStart = Date.now();
+    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId, suggestedAgent);
+    this.logger.log(`${logPrefix} Agent Creation took ${Date.now() - agentStart}ms`);
 
     // 2.5. Load conversation history for context continuity
     let conversationHistoryContext = '';
@@ -1255,6 +1323,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     if (conversationHistoryContext) {
       enhancedMessage = `${conversationHistoryContext}\n\n---\n\n[Current Message]\n${enhancedMessage}`;
     }
+    this.logger.log(`${logPrefix} Context Injection (History/Memory) took ${Date.now() - contextStart}ms`);
 
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     const tenantUserId = `${options.tenantId}:${options.userId}`;
@@ -1267,10 +1336,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       providerOptions: {
         mistral: {
           parallelToolCalls: false,
-          structuredOutputs: true,
+          structuredOutputs: false,
         },
       },
     });
+    this.logger.log(`${logPrefix} Stream Setup took ${Date.now() - startTimeResult}ms. Starting stream...`);
 
     // Collect full response for memory persistence and caching
     let fullResponse = '';

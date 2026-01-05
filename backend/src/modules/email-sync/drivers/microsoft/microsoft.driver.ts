@@ -415,7 +415,11 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
   async sendDraft(draftId: string): Promise<void> {
     this.ensureConnected();
-    await this.client!.post(`/me/messages/${draftId}/send`);
+    // FIX HIGH-5 (2025-01-05): Add retry wrapper - critical path was missing retry
+    await this.executeWithRetry(
+      () => this.client!.post(`/me/messages/${draftId}/send`),
+      'sendDraft',
+    );
   }
 
   async moveMessage(messageId: string, targetFolder: string): Promise<void> {
@@ -598,7 +602,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
           const base64 = Buffer.from(photoResponse.data).toString('base64');
           photo = `data:image/jpeg;base64,${base64}`;
         }
-      } catch (e) {
+      } catch {
         // Photo not found or no permission, ignore
       }
 
@@ -786,6 +790,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
     // Use 10 for aggressive memory management
     const BATCH_SIZE = 10;
     const messages: CanonicalMessage[] = [];
+    const failedIds: Array<{ id: string; error: string; code?: number }> = [];
 
     for (let i = 0; i < messageIds.length; i += BATCH_SIZE) {
       const batchIds = messageIds.slice(i, i + BATCH_SIZE);
@@ -808,15 +813,34 @@ export class MicrosoftDriver extends BaseEmailDriver {
         // AGGRESSIVE CLEANUP: Clear response reference
         response = null as any;
 
-      } catch (error) {
+      } catch (error: any) {
+        // FIX CRIT-2 (2025-01-05): Distinguish systemic errors from individual failures
+        const statusCode = error?.response?.status || error?.status;
+
+        // Auth errors = don't fallback, throw immediately
+        if (statusCode === 401 || statusCode === 403) {
+          throw new Error(`Authentication failed during batch fetch. Token may need refresh.`);
+        }
+
+        // Rate limit = don't fallback, throw with backoff hint
+        if (statusCode === 429) {
+          throw new Error(`Rate limited during batch fetch. Retry with backoff.`);
+        }
+
         this.logger.warn(`Batch request failed, falling back to sequential: ${error}`);
-        // Fallback to sequential with cleanup
+        // Fallback to sequential with error tracking
         for (const id of batchIds) {
           try {
             const msg = await this.getMessage(id);
             if (msg) messages.push(msg);
-          } catch {
-            // Skip failed messages
+          } catch (seqError: any) {
+            // FIX CRIT-2: Track failures instead of swallowing
+            const seqStatusCode = seqError?.response?.status || seqError?.status;
+            failedIds.push({
+              id,
+              error: seqError.message || 'Unknown error',
+              code: typeof seqStatusCode === 'number' ? seqStatusCode : undefined,
+            });
           }
         }
       }
@@ -825,6 +849,24 @@ export class MicrosoftDriver extends BaseEmailDriver {
       if (i + BATCH_SIZE < messageIds.length) {
         await new Promise<void>(r => setImmediate(r));
       }
+    }
+
+    // FIX CRIT-2 (2025-01-05): Report failures instead of silent swallowing
+    if (failedIds.length > 0) {
+      const failureRate = failedIds.length / messageIds.length;
+
+      // High failure rate (>20%) = something wrong, throw
+      if (failureRate > 0.2) {
+        throw new Error(
+          `Batch fetch failed: ${failedIds.length}/${messageIds.length} messages (${Math.round(failureRate * 100)}% failure rate). IDs: ${failedIds.slice(0, 5).map((f) => f.id).join(', ')}${failedIds.length > 5 ? '...' : ''}`,
+        );
+      }
+
+      // Low failure rate = log warning but continue
+      this.logger.warn(
+        `batchGetMessages: ${failedIds.length}/${messageIds.length} messages failed to fetch. ` +
+          `Continuing with ${messages.length} successful. Failed IDs: ${failedIds.map((f) => f.id).join(', ')}`,
+      );
     }
 
     return messages;

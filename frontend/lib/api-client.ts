@@ -21,7 +21,8 @@ export const apiClient = axios.create({
   },
   withCredentials: true,
   // CRITICAL FIX: Add timeout to prevent requests hanging indefinitely
-  timeout: 30000, // 30 seconds default
+  // Increased to 90s to support RAG/AI operations
+  timeout: 90000, // 90 seconds default
 });
 
 /**

@@ -7,21 +7,27 @@ async function main() {
   const prisma = createPrismaClient();
   const tenantId = 'cmiz37cl10000aoyh9yn0s4a1';
 
-  const totalEmails = await prisma.email.count({ where: { tenantId } });
-  const unreadEmails = await prisma.email.count({ where: { tenantId, isRead: false } });
-  const sentEmails = await prisma.email.count({ where: { tenantId, folder: 'SENT' } });
+  const totalEmails = await prisma.email.count();
+  const totalTenants = await prisma.tenant.count();
+  const unreadEmails = await prisma.email.count({ where: { isRead: false } });
 
   const providers = await prisma.providerConfig.findMany({
-    where: { tenantId },
-    select: { id: true, providerType: true, email: true, isActive: true },
+    where: {
+      email: { not: { endsWith: '@test.local' } }
+    },
+    select: { id: true, providerType: true, email: true, isActive: true, tenantId: true },
   });
 
-  const recentEmails = await prisma.email.findMany({
-    where: { tenantId },
-    take: 5,
-    orderBy: { receivedAt: 'desc' },
-    select: { subject: true, from: true, folder: true, receivedAt: true },
+  console.log('=== REAL PROVIDERS ===');
+  const tenantCounts: Record<string, number> = {};
+
+  providers.forEach(p => {
+    console.log(`- ${p.email} [${p.providerType}] (Tenant: ${p.tenantId})`);
+    tenantCounts[p.tenantId] = (tenantCounts[p.tenantId] || 0) + 1;
   });
+
+  console.log('\n=== TENANT COUNTS ===');
+  console.log(tenantCounts);
 
   console.log('=== TENANT DATA ===');
   console.log('Tenant ID:', tenantId);
@@ -30,14 +36,10 @@ async function main() {
   providers.forEach((p) => console.log('  -', p.providerType, '|', p.email, '| active:', p.isActive));
   console.log('');
   console.log('EMAIL STATS:');
+  console.log('  Total tenants:', totalTenants);
   console.log('  Total emails:', totalEmails);
   console.log('  Unread:', unreadEmails);
-  console.log('  Sent:', sentEmails);
   console.log('');
-  console.log('RECENT EMAILS:');
-  recentEmails.forEach((e) =>
-    console.log('  -', e.folder, '|', (e.subject || '').substring(0, 50), '|', e.receivedAt),
-  );
 
   await prisma.$disconnect();
 }

@@ -375,6 +375,7 @@ model Email {
   provider          ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   followUp          EmailFollowUp?
+  embeddings        Embedding[]
 
   @@unique([providerId, externalId, folder]) // UIDs are unique per-folder, not globally
   @@unique([tenantId, messageId, folder]) // Allow same messageId in different folders
@@ -564,10 +565,16 @@ model Embedding {
   vector         Unsupported("vector")?
   embeddingModel String                 @default("mistral-embed")
   metadata       Json?
+  
+  // Hard Links (Polymorphic-style but with FKs)
+  emailId        String?
+  email          Email?                 @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  
   createdAt      DateTime               @default(now())
   tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@index([emailId])
   @@map("embeddings")
 }
 

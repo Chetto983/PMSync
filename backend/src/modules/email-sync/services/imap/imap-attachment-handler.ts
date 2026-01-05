@@ -49,7 +49,7 @@ export class ImapAttachmentHandler extends BaseAttachmentHandler {
   async downloadAttachment(
     context: DownloadContext,
     driver: IMAPDriver,
-  ): Promise<Buffer | any | null> {
+  ): Promise<Buffer | null> {
     try {
       const attachmentData = await driver.getAttachment(
         context.messageId,
@@ -96,7 +96,7 @@ export class ImapAttachmentHandler extends BaseAttachmentHandler {
     providerId: string,
   ): Promise<void> {
     // Create download function closure with IMAP driver
-    const downloadFn = async (attachmentId: string): Promise<Buffer | any | null> => {
+    const downloadFn = async (attachmentId: string): Promise<Buffer | null> => {
       return this.downloadAttachment(
         { messageId: externalId, attachmentId },
         driver,

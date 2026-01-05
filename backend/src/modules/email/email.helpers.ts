@@ -76,3 +76,19 @@ export const SYSTEM_FOLDERS = [
 
 export type SystemFolder = (typeof SYSTEM_FOLDERS)[number];
 export type JunkFolder = (typeof JUNK_FOLDERS)[number];
+
+/**
+ * Check if an email is recent (within the last 7 days)
+ * Used to determine if AI features should run on the email
+ * to avoid processing old emails during full syncs.
+ *
+ * @param date - The date to check
+ * @returns true if the date is within the last 7 days
+ */
+export function isRecentEmail(date: Date): boolean {
+  if (!date) return false;
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+  return diff < SEVEN_DAYS;
+}
