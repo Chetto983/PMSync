@@ -287,8 +287,12 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       this.logger.error(
         `CRIT-3: Failed to refresh driver: ${error instanceof Error ? error.message : String(error)}`,
       );
-      // Return existing driver - let it fail naturally if token is expired
-      return { driver: currentDriver, tokenExpiresAt };
+      // FIX Phase 1.3: Throw error instead of returning expired driver
+      // Returning expired driver causes all subsequent operations to fail silently
+      // Better to fail fast and let caller handle the token refresh failure
+      throw new Error(
+        `Token refresh failed for provider ${providerId}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -936,24 +940,29 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
 
     // RC-9 FIX: Execute with MANDATORY distributed lock
     // Lock is now required to prevent race conditions in multi-worker environments
+    // FIX Phase 1.4: Throw error instead of silent fallback - locks are REQUIRED
     if (!this.redisLock) {
-      // Log error and execute without lock as fallback (should not happen in production)
-      this.logger.error(
-        `RC-9: RedisLockService not available for email upsert. This may cause race conditions.`,
+      throw new Error(
+        `RC-9: RedisLockService not available for email upsert. ` +
+        `Distributed locking is REQUIRED in multi-worker environments. ` +
+        `Ensure RedisLockService is properly injected.`
       );
-      return executeUpsert();
     }
 
     try {
       return await this.redisLock.withLock(lockKey, lockTtlMs, executeUpsert);
     } catch (lockError) {
-      // Lock acquisition failed - log warning and execute without lock
-      // This is graceful degradation for transient Redis issues
-      this.logger.warn(
-        `RC-9: Lock acquisition failed for ${lockKey}, proceeding with caution: ${lockError instanceof Error ? lockError.message : String(lockError)
-        }`,
+      // FIX Phase 1.4: Throw error on lock failure instead of proceeding without lock
+      // Proceeding without lock causes race conditions and data corruption
+      // If Redis is consistently failing, the system should stop and alert
+      this.logger.error(
+        `RC-9: Lock acquisition failed for ${lockKey}: ${lockError instanceof Error ? lockError.message : String(lockError)}`,
       );
-      return executeUpsert();
+      throw new Error(
+        `RC-9: Failed to acquire distributed lock for ${lockKey}. ` +
+        `Email upsert aborted to prevent race conditions. ` +
+        `Check Redis connectivity.`
+      );
     }
   }
 

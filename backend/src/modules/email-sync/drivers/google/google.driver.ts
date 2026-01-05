@@ -53,11 +53,20 @@ export class GoogleDriver extends BaseEmailDriver {
     this.connected = true;
 
     // Get user email for later use
+    // FIX Phase 1.3: Throw on auth errors (401/403) instead of silently continuing
     try {
       const profile = await this.gmail.users.getProfile({ userId: 'me' });
       this.userEmail = profile.data.emailAddress || null;
-    } catch {
-      this.logger.warn('Could not fetch user profile during connect');
+    } catch (err: unknown) {
+      const error = err as any;
+      const status = error?.response?.status || error?.code;
+      // 401/403 indicates invalid/expired token - driver is unusable
+      if (status === 401 || status === 403) {
+        this.connected = false;
+        throw new Error(`Google authentication failed (${status}): Token is invalid or expired`);
+      }
+      // Other errors (network, etc) are non-fatal for connect
+      this.logger.warn(`Could not fetch user profile during connect: ${error?.message || String(err)}`);
     }
   }
 
@@ -148,11 +157,27 @@ export class GoogleDriver extends BaseEmailDriver {
   async createFolder(name: string, _parentId?: string): Promise<CanonicalFolder> {
     this.ensureConnected();
 
+    // FIX Phase 2.3: Input validation for folder name
+    if (!name || typeof name !== 'string') {
+      throw new Error('Folder name is required');
+    }
+    const trimmedName = name.trim();
+    if (trimmedName.length === 0) {
+      throw new Error('Folder name cannot be empty');
+    }
+    if (trimmedName.length > 225) {
+      throw new Error('Folder name cannot exceed 225 characters');
+    }
+    // Gmail labels cannot contain certain special characters
+    if (/[\\\/]/.test(trimmedName)) {
+      throw new Error('Folder name cannot contain \\ or / characters');
+    }
+
     const response = await this.executeWithRetry(
       () => this.gmail!.users.labels.create({
         userId: 'me',
         requestBody: {
-          name,
+          name: trimmedName,
           labelListVisibility: 'labelShow',
           messageListVisibility: 'show',
         },
@@ -178,11 +203,26 @@ export class GoogleDriver extends BaseEmailDriver {
   async renameFolder(folderId: string, newName: string): Promise<void> {
     this.ensureConnected();
 
+    // FIX Phase 2.3: Input validation for folder name
+    if (!newName || typeof newName !== 'string') {
+      throw new Error('New folder name is required');
+    }
+    const trimmedName = newName.trim();
+    if (trimmedName.length === 0) {
+      throw new Error('New folder name cannot be empty');
+    }
+    if (trimmedName.length > 225) {
+      throw new Error('Folder name cannot exceed 225 characters');
+    }
+    if (/[\\\/]/.test(trimmedName)) {
+      throw new Error('Folder name cannot contain \\ or / characters');
+    }
+
     await this.executeWithRetry(
       () => this.gmail!.users.labels.patch({
         userId: 'me',
         id: folderId,
-        requestBody: { name: newName },
+        requestBody: { name: trimmedName },
       }),
       'renameFolder',
     );
@@ -198,11 +238,16 @@ export class GoogleDriver extends BaseEmailDriver {
     const labelId = this.canonicalToGmailLabel(options.folder);
     const query = this.buildSearchQuery(options);
 
+    // FIX Phase 2.3: Cap pageSize to prevent excessive queries (Gmail max is 500)
+    const MAX_PAGE_SIZE = 500;
+    const requestedPageSize = options.pageSize || 50;
+    const effectivePageSize = Math.min(Math.max(1, requestedPageSize), MAX_PAGE_SIZE);
+
     const response = await this.executeWithRetry(
       () => this.gmail!.users.messages.list({
         userId: 'me',
         labelIds: labelId ? [labelId] : undefined,
-        maxResults: options.pageSize || 50,
+        maxResults: effectivePageSize,
         pageToken: options.pageToken,
         q: query || undefined,
       }),
@@ -360,14 +405,17 @@ export class GoogleDriver extends BaseEmailDriver {
       (l) => !immutableLabels.includes(l) && l !== targetLabelId
     );
 
-    await this.gmail!.users.messages.modify({
-      userId: 'me',
-      id: messageId,
-      requestBody: {
-        addLabelIds: targetLabelId ? [targetLabelId] : [],
-        removeLabelIds: labelsToRemove,
-      },
-    });
+    await this.executeWithRetry(
+      () => this.gmail!.users.messages.modify({
+        userId: 'me',
+        id: messageId,
+        requestBody: {
+          addLabelIds: targetLabelId ? [targetLabelId] : [],
+          removeLabelIds: labelsToRemove,
+        },
+      }),
+      'moveMessage:modify',
+    );
   }
 
   async copyMessage(messageId: string, targetFolder: string): Promise<string> {
@@ -395,15 +443,21 @@ export class GoogleDriver extends BaseEmailDriver {
     this.ensureConnected();
 
     if (permanent) {
-      await this.gmail!.users.messages.delete({
-        userId: 'me',
-        id: messageId,
-      });
+      await this.executeWithRetry(
+        () => this.gmail!.users.messages.delete({
+          userId: 'me',
+          id: messageId,
+        }),
+        'deleteMessage:permanent',
+      );
     } else {
-      await this.gmail!.users.messages.trash({
-        userId: 'me',
-        id: messageId,
-      });
+      await this.executeWithRetry(
+        () => this.gmail!.users.messages.trash({
+          userId: 'me',
+          id: messageId,
+        }),
+        'deleteMessage:trash',
+      );
     }
   }
 
@@ -414,40 +468,49 @@ export class GoogleDriver extends BaseEmailDriver {
   async setReadStatus(messageId: string, isRead: boolean): Promise<void> {
     this.ensureConnected();
 
-    await this.gmail!.users.messages.modify({
-      userId: 'me',
-      id: messageId,
-      requestBody: {
-        addLabelIds: isRead ? [] : ['UNREAD'],
-        removeLabelIds: isRead ? ['UNREAD'] : [],
-      },
-    });
+    await this.executeWithRetry(
+      () => this.gmail!.users.messages.modify({
+        userId: 'me',
+        id: messageId,
+        requestBody: {
+          addLabelIds: isRead ? [] : ['UNREAD'],
+          removeLabelIds: isRead ? ['UNREAD'] : [],
+        },
+      }),
+      'setReadStatus',
+    );
   }
 
   async setStarredStatus(messageId: string, isStarred: boolean): Promise<void> {
     this.ensureConnected();
 
-    await this.gmail!.users.messages.modify({
-      userId: 'me',
-      id: messageId,
-      requestBody: {
-        addLabelIds: isStarred ? ['STARRED'] : [],
-        removeLabelIds: isStarred ? [] : ['STARRED'],
-      },
-    });
+    await this.executeWithRetry(
+      () => this.gmail!.users.messages.modify({
+        userId: 'me',
+        id: messageId,
+        requestBody: {
+          addLabelIds: isStarred ? ['STARRED'] : [],
+          removeLabelIds: isStarred ? [] : ['STARRED'],
+        },
+      }),
+      'setStarredStatus',
+    );
   }
 
   async setFlaggedStatus(messageId: string, isFlagged: boolean): Promise<void> {
     this.ensureConnected();
 
-    await this.gmail!.users.messages.modify({
-      userId: 'me',
-      id: messageId,
-      requestBody: {
-        addLabelIds: isFlagged ? ['IMPORTANT'] : [],
-        removeLabelIds: isFlagged ? [] : ['IMPORTANT'],
-      },
-    });
+    await this.executeWithRetry(
+      () => this.gmail!.users.messages.modify({
+        userId: 'me',
+        id: messageId,
+        requestBody: {
+          addLabelIds: isFlagged ? ['IMPORTANT'] : [],
+          removeLabelIds: isFlagged ? [] : ['IMPORTANT'],
+        },
+      }),
+      'setFlaggedStatus',
+    );
   }
 
   // ============================================
@@ -457,25 +520,31 @@ export class GoogleDriver extends BaseEmailDriver {
   async addLabels(messageId: string, labels: string[]): Promise<void> {
     this.ensureConnected();
 
-    await this.gmail!.users.messages.modify({
-      userId: 'me',
-      id: messageId,
-      requestBody: {
-        addLabelIds: labels,
-      },
-    });
+    await this.executeWithRetry(
+      () => this.gmail!.users.messages.modify({
+        userId: 'me',
+        id: messageId,
+        requestBody: {
+          addLabelIds: labels,
+        },
+      }),
+      'addLabels',
+    );
   }
 
   async removeLabels(messageId: string, labels: string[]): Promise<void> {
     this.ensureConnected();
 
-    await this.gmail!.users.messages.modify({
-      userId: 'me',
-      id: messageId,
-      requestBody: {
-        removeLabelIds: labels,
-      },
-    });
+    await this.executeWithRetry(
+      () => this.gmail!.users.messages.modify({
+        userId: 'me',
+        id: messageId,
+        requestBody: {
+          removeLabelIds: labels,
+        },
+      }),
+      'removeLabels',
+    );
   }
 
   // ============================================
@@ -495,11 +564,14 @@ export class GoogleDriver extends BaseEmailDriver {
     // MEMORY FIX: Add size limit constant
     const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB limit
 
-    const response = await this.gmail!.users.messages.attachments.get({
-      userId: 'me',
-      messageId,
-      id: attachmentId,
-    });
+    const response = await this.executeWithRetry(
+      () => this.gmail!.users.messages.attachments.get({
+        userId: 'me',
+        messageId,
+        id: attachmentId,
+      }),
+      'getAttachment',
+    );
 
     // MEMORY FIX: Check attachment size before processing
     const attachmentSize = response.data.size || 0;
@@ -508,11 +580,14 @@ export class GoogleDriver extends BaseEmailDriver {
     }
 
     // Get message to find attachment metadata
-    const message = await this.gmail!.users.messages.get({
-      userId: 'me',
-      id: messageId,
-      format: 'full',
-    });
+    const message = await this.executeWithRetry(
+      () => this.gmail!.users.messages.get({
+        userId: 'me',
+        id: messageId,
+        format: 'full',
+      }),
+      'getAttachment:meta',
+    );
 
     const attachmentMeta = this.findAttachmentMeta(message.data, attachmentId);
 
@@ -534,7 +609,10 @@ export class GoogleDriver extends BaseEmailDriver {
   async getUserInfo(): Promise<{ email: string; name: string; photo?: string }> {
     this.ensureConnected();
 
-    const response = await this.gmail!.users.getProfile({ userId: 'me' });
+    const response = await this.executeWithRetry(
+      () => this.gmail!.users.getProfile({ userId: 'me' }),
+      'getUserInfo',
+    );
 
     return {
       email: response.data.emailAddress || this.userEmail || '',
@@ -547,7 +625,10 @@ export class GoogleDriver extends BaseEmailDriver {
     this.ensureConnected();
 
     try {
-      const response = await this.gmail!.users.settings.sendAs.list({ userId: 'me' });
+      const response = await this.executeWithRetry(
+        () => this.gmail!.users.settings.sendAs.list({ userId: 'me' }),
+        'getEmailAliases',
+      );
       const sendAs = response.data.sendAs || [];
 
       return sendAs.map((alias) => ({
@@ -672,25 +753,31 @@ export class GoogleDriver extends BaseEmailDriver {
 
     if (toRead.length > 0) {
       promises.push(
-        this.gmail!.users.messages.batchModify({
-          userId: 'me',
-          requestBody: {
-            ids: toRead,
-            removeLabelIds: ['UNREAD'],
-          },
-        }).then(() => { })
+        this.executeWithRetry(
+          () => this.gmail!.users.messages.batchModify({
+            userId: 'me',
+            requestBody: {
+              ids: toRead,
+              removeLabelIds: ['UNREAD'],
+            },
+          }),
+          'batchSetReadStatus:read',
+        ).then(() => { })
       );
     }
 
     if (toUnread.length > 0) {
       promises.push(
-        this.gmail!.users.messages.batchModify({
-          userId: 'me',
-          requestBody: {
-            ids: toUnread,
-            addLabelIds: ['UNREAD'],
-          },
-        }).then(() => { })
+        this.executeWithRetry(
+          () => this.gmail!.users.messages.batchModify({
+            userId: 'me',
+            requestBody: {
+              ids: toUnread,
+              addLabelIds: ['UNREAD'],
+            },
+          }),
+          'batchSetReadStatus:unread',
+        ).then(() => { })
       );
     }
 
@@ -702,33 +789,42 @@ export class GoogleDriver extends BaseEmailDriver {
 
     const targetLabelId = this.canonicalToGmailLabel(targetFolder);
 
-    await this.gmail!.users.messages.batchModify({
-      userId: 'me',
-      requestBody: {
-        ids: messageIds,
-        addLabelIds: targetLabelId ? [targetLabelId] : [],
-        // Note: This doesn't remove from source folder - Gmail uses labels
-      },
-    });
+    await this.executeWithRetry(
+      () => this.gmail!.users.messages.batchModify({
+        userId: 'me',
+        requestBody: {
+          ids: messageIds,
+          addLabelIds: targetLabelId ? [targetLabelId] : [],
+          // Note: This doesn't remove from source folder - Gmail uses labels
+        },
+      }),
+      'batchMoveMessages',
+    );
   }
 
   async batchDeleteMessages(messageIds: string[], permanent = false): Promise<void> {
     this.ensureConnected();
 
     if (permanent) {
-      await this.gmail!.users.messages.batchDelete({
-        userId: 'me',
-        requestBody: { ids: messageIds },
-      });
+      await this.executeWithRetry(
+        () => this.gmail!.users.messages.batchDelete({
+          userId: 'me',
+          requestBody: { ids: messageIds },
+        }),
+        'batchDeleteMessages:permanent',
+      );
     } else {
       // Move to trash
-      await this.gmail!.users.messages.batchModify({
-        userId: 'me',
-        requestBody: {
-          ids: messageIds,
-          addLabelIds: ['TRASH'],
-        },
-      });
+      await this.executeWithRetry(
+        () => this.gmail!.users.messages.batchModify({
+          userId: 'me',
+          requestBody: {
+            ids: messageIds,
+            addLabelIds: ['TRASH'],
+          },
+        }),
+        'batchDeleteMessages:trash',
+      );
     }
   }
 
@@ -768,6 +864,7 @@ export class GoogleDriver extends BaseEmailDriver {
     let pageToken: string | undefined;
     let pagesFetched = 0;
     const MAX_PAGES = 25; // Prevent runaway pagination
+    const MAX_CHANGES = 10000; // MEMORY FIX: Prevent unbounded array growth
     let hasMore = false;
 
     try {
@@ -844,6 +941,13 @@ export class GoogleDriver extends BaseEmailDriver {
 
         pageToken = historyResponse.data.nextPageToken ?? undefined;
         pagesFetched += 1;
+
+        // MEMORY FIX: Stop if we've accumulated too many changes
+        if (changes.length >= MAX_CHANGES) {
+          this.logger.warn(`Gmail changes limit reached (${MAX_CHANGES}). Stopping pagination.`);
+          hasMore = true;
+          break;
+        }
       } while (pageToken && pagesFetched < MAX_PAGES);
 
       if (pageToken) {

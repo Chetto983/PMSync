@@ -277,8 +277,13 @@ export class MicrosoftDriver extends BaseEmailDriver {
     const folderId = await this.resolveFolderId(options.folder);
     const endpoint = `/me/mailFolders/${folderId}/messages`;
 
+    // FIX Phase 2.3: Cap pageSize to prevent excessive queries
+    const MAX_PAGE_SIZE = 500;
+    const requestedPageSize = options.pageSize || 50;
+    const effectivePageSize = Math.min(Math.max(1, requestedPageSize), MAX_PAGE_SIZE);
+
     const params: any = {
-      $top: options.pageSize || 50,
+      $top: effectivePageSize,
       // Include 'body' to get full HTML/text content (uses Prefer: outlook.body-content-type="html" header)
       $select: 'id,conversationId,subject,body,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId',
     };
@@ -427,9 +432,12 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     const destinationId = await this.resolveFolderId(targetFolder);
 
-    await this.client!.post(`/me/messages/${messageId}/move`, {
-      destinationId,
-    });
+    await this.executeWithRetry(
+      () => this.client!.post(`/me/messages/${messageId}/move`, {
+        destinationId,
+      }),
+      'moveMessage',
+    );
   }
 
   async copyMessage(messageId: string, targetFolder: string): Promise<string> {
@@ -437,9 +445,12 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     const destinationId = await this.resolveFolderId(targetFolder);
 
-    const response = await this.client!.post(`/me/messages/${messageId}/copy`, {
-      destinationId,
-    });
+    const response = await this.executeWithRetry(
+      () => this.client!.post(`/me/messages/${messageId}/copy`, {
+        destinationId,
+      }),
+      'copyMessage',
+    );
 
     return response.data.id;
   }
@@ -448,13 +459,19 @@ export class MicrosoftDriver extends BaseEmailDriver {
     this.ensureConnected();
 
     if (permanent) {
-      await this.client!.delete(`/me/messages/${messageId}`);
+      await this.executeWithRetry(
+        () => this.client!.delete(`/me/messages/${messageId}`),
+        'deleteMessage:permanent',
+      );
     } else {
       // Move to deleted items
       const trashId = await this.resolveFolderId('TRASH');
-      await this.client!.post(`/me/messages/${messageId}/move`, {
-        destinationId: trashId,
-      });
+      await this.executeWithRetry(
+        () => this.client!.post(`/me/messages/${messageId}/move`, {
+          destinationId: trashId,
+        }),
+        'deleteMessage:trash',
+      );
     }
   }
 
@@ -465,25 +482,34 @@ export class MicrosoftDriver extends BaseEmailDriver {
   async setReadStatus(messageId: string, isRead: boolean): Promise<void> {
     this.ensureConnected();
 
-    await this.client!.patch(`/me/messages/${messageId}`, { isRead });
+    await this.executeWithRetry(
+      () => this.client!.patch(`/me/messages/${messageId}`, { isRead }),
+      'setReadStatus',
+    );
   }
 
   async setStarredStatus(messageId: string, isStarred: boolean): Promise<void> {
     this.ensureConnected();
 
-    await this.client!.patch(`/me/messages/${messageId}`, {
-      flag: {
-        flagStatus: isStarred ? 'flagged' : 'notFlagged',
-      },
-    });
+    await this.executeWithRetry(
+      () => this.client!.patch(`/me/messages/${messageId}`, {
+        flag: {
+          flagStatus: isStarred ? 'flagged' : 'notFlagged',
+        },
+      }),
+      'setStarredStatus',
+    );
   }
 
   async setFlaggedStatus(messageId: string, isFlagged: boolean): Promise<void> {
     this.ensureConnected();
 
-    await this.client!.patch(`/me/messages/${messageId}`, {
-      importance: isFlagged ? 'high' : 'normal',
-    });
+    await this.executeWithRetry(
+      () => this.client!.patch(`/me/messages/${messageId}`, {
+        importance: isFlagged ? 'high' : 'normal',
+      }),
+      'setFlaggedStatus',
+    );
   }
 
   // ============================================
@@ -495,15 +521,21 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     // Fetch only categories to minimize API response size
     // Note: format: 'minimal' doesn't include categories, so we use a direct call
-    const response = await this.client!.get(`/me/messages/${messageId}`, {
-      params: { $select: 'categories' },
-    });
+    const response = await this.executeWithRetry(
+      () => this.client!.get(`/me/messages/${messageId}`, {
+        params: { $select: 'categories' },
+      }),
+      'addLabels:get',
+    );
     const currentCategories: string[] = response.data.categories || [];
     const newCategories = [...new Set([...currentCategories, ...labels])];
 
-    await this.client!.patch(`/me/messages/${messageId}`, {
-      categories: newCategories,
-    });
+    await this.executeWithRetry(
+      () => this.client!.patch(`/me/messages/${messageId}`, {
+        categories: newCategories,
+      }),
+      'addLabels:patch',
+    );
   }
 
   async removeLabels(messageId: string, labels: string[]): Promise<void> {
@@ -511,15 +543,21 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     // Fetch only categories to minimize API response size
     // Note: format: 'minimal' doesn't include categories, so we use a direct call
-    const response = await this.client!.get(`/me/messages/${messageId}`, {
-      params: { $select: 'categories' },
-    });
+    const response = await this.executeWithRetry(
+      () => this.client!.get(`/me/messages/${messageId}`, {
+        params: { $select: 'categories' },
+      }),
+      'removeLabels:get',
+    );
     const currentCategories: string[] = response.data.categories || [];
     const newCategories = currentCategories.filter((c) => !labels.includes(c));
 
-    await this.client!.patch(`/me/messages/${messageId}`, {
-      categories: newCategories,
-    });
+    await this.executeWithRetry(
+      () => this.client!.patch(`/me/messages/${messageId}`, {
+        categories: newCategories,
+      }),
+      'removeLabels:patch',
+    );
   }
 
   // ============================================
@@ -539,8 +577,11 @@ export class MicrosoftDriver extends BaseEmailDriver {
     // MEMORY FIX: Add size limit constant
     const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB limit
 
-    const response = await this.client!.get(
-      `/me/messages/${messageId}/attachments/${attachmentId}`,
+    const response = await this.executeWithRetry(
+      () => this.client!.get(
+        `/me/messages/${messageId}/attachments/${attachmentId}`,
+      ),
+      'getAttachment',
     );
 
     const attachment = response.data;
@@ -559,9 +600,12 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     if (!content && canFetchValue) {
       try {
-        const rawResponse = await this.client!.get(
-          `/me/messages/${messageId}/attachments/${attachmentId}/$value`,
-          { responseType: 'arraybuffer' },
+        const rawResponse = await this.executeWithRetry(
+          () => this.client!.get(
+            `/me/messages/${messageId}/attachments/${attachmentId}/$value`,
+            { responseType: 'arraybuffer' },
+          ),
+          'getAttachment:value',
         );
         content = Buffer.from(rawResponse.data).toString('base64');
       } catch (error: any) {
@@ -884,9 +928,33 @@ export class MicrosoftDriver extends BaseEmailDriver {
     }));
 
     const BATCH_SIZE = 20;
+    const failedIds: Array<{ id: string; status: number; error: string }> = [];
+
     for (let i = 0; i < requests.length; i += BATCH_SIZE) {
       const batch = requests.slice(i, i + BATCH_SIZE);
-      await this.client!.post('/$batch', { requests: batch });
+      const response = await this.client!.post('/$batch', { requests: batch });
+
+      // FIX Phase 2.1: Validate batch responses and track failures
+      const responses = (response as any).data?.responses || [];
+      for (const resp of responses) {
+        if (resp.status >= 400) {
+          const originalIdx = i + parseInt(resp.id, 10);
+          failedIds.push({
+            id: updates[originalIdx]?.id || resp.id,
+            status: resp.status,
+            error: resp.body?.error?.message || `HTTP ${resp.status}`,
+          });
+        }
+      }
+    }
+
+    // Log failures and throw if >20% failed
+    if (failedIds.length > 0) {
+      const failRate = failedIds.length / updates.length;
+      this.logger.warn(`batchSetReadStatus: ${failedIds.length}/${updates.length} failed (${(failRate * 100).toFixed(1)}%)`);
+      if (failRate > 0.2) {
+        throw new Error(`batchSetReadStatus failed: ${failedIds.length}/${updates.length} operations failed (>${20}% threshold)`);
+      }
     }
   }
 
@@ -904,9 +972,33 @@ export class MicrosoftDriver extends BaseEmailDriver {
     }));
 
     const BATCH_SIZE = 20;
+    const failedIds: Array<{ id: string; status: number; error: string }> = [];
+
     for (let i = 0; i < requests.length; i += BATCH_SIZE) {
       const batch = requests.slice(i, i + BATCH_SIZE);
-      await this.client!.post('/$batch', { requests: batch });
+      const response = await this.client!.post('/$batch', { requests: batch });
+
+      // FIX Phase 2.1: Validate batch responses and track failures
+      const responses = (response as any).data?.responses || [];
+      for (const resp of responses) {
+        if (resp.status >= 400) {
+          const originalIdx = i + parseInt(resp.id, 10);
+          failedIds.push({
+            id: messageIds[originalIdx] || resp.id,
+            status: resp.status,
+            error: resp.body?.error?.message || `HTTP ${resp.status}`,
+          });
+        }
+      }
+    }
+
+    // Log failures and throw if >20% failed
+    if (failedIds.length > 0) {
+      const failRate = failedIds.length / messageIds.length;
+      this.logger.warn(`batchMoveMessages: ${failedIds.length}/${messageIds.length} failed (${(failRate * 100).toFixed(1)}%)`);
+      if (failRate > 0.2) {
+        throw new Error(`batchMoveMessages failed: ${failedIds.length}/${messageIds.length} operations failed (>${20}% threshold)`);
+      }
     }
   }
 
@@ -921,11 +1013,36 @@ export class MicrosoftDriver extends BaseEmailDriver {
       }));
 
       const BATCH_SIZE = 20;
+      const failedIds: Array<{ id: string; status: number; error: string }> = [];
+
       for (let i = 0; i < requests.length; i += BATCH_SIZE) {
         const batch = requests.slice(i, i + BATCH_SIZE);
-        await this.client!.post('/$batch', { requests: batch });
+        const response = await this.client!.post('/$batch', { requests: batch });
+
+        // FIX Phase 2.1: Validate batch responses and track failures
+        const responses = (response as any).data?.responses || [];
+        for (const resp of responses) {
+          if (resp.status >= 400) {
+            const originalIdx = i + parseInt(resp.id, 10);
+            failedIds.push({
+              id: messageIds[originalIdx] || resp.id,
+              status: resp.status,
+              error: resp.body?.error?.message || `HTTP ${resp.status}`,
+            });
+          }
+        }
+      }
+
+      // Log failures and throw if >20% failed
+      if (failedIds.length > 0) {
+        const failRate = failedIds.length / messageIds.length;
+        this.logger.warn(`batchDeleteMessages: ${failedIds.length}/${messageIds.length} failed (${(failRate * 100).toFixed(1)}%)`);
+        if (failRate > 0.2) {
+          throw new Error(`batchDeleteMessages failed: ${failedIds.length}/${messageIds.length} operations failed (>${20}% threshold)`);
+        }
       }
     } else {
+      // Non-permanent uses batchMoveMessages which has its own validation
       await this.batchMoveMessages(messageIds, 'TRASH');
     }
   }
@@ -973,6 +1090,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
     let nextUrl: string | null = initialUrl;
     let nextParams = params;
     const MAX_PAGES = 50;
+    const MAX_ITEMS = 5000; // MEMORY FIX: Prevent unbounded array growth
 
     for (let page = 0; nextUrl && page < MAX_PAGES; page += 1) {
       const isAbsolute = /^https?:/i.test(nextUrl);
@@ -989,6 +1107,13 @@ export class MicrosoftDriver extends BaseEmailDriver {
       );
 
       items.push(...(response.data.value || []));
+
+      // MEMORY FIX: Stop if we've accumulated too many items
+      if (items.length >= MAX_ITEMS) {
+        this.logger.warn(`Item limit reached (${MAX_ITEMS}) for ${initialUrl}. Stopping pagination.`);
+        break;
+      }
+
       nextUrl = response.data['@odata.nextLink'] || null;
       nextParams = undefined;
     }

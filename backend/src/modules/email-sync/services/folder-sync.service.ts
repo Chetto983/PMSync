@@ -352,10 +352,11 @@ export class FolderSyncService {
             const isPrismaError = error && typeof error === 'object' && 'code' in error;
             const errorCode = isPrismaError ? (error as { code: string }).code : null;
 
-            if (errorCode === 'P2002' && retryCount < MAX_UPSERT_RETRIES) {
+            // FIX: Also retry on P2034 (deadlock/write conflict)
+            if ((errorCode === 'P2002' || errorCode === 'P2034') && retryCount < MAX_UPSERT_RETRIES) {
               retryCount++;
               this.logger.warn(
-                `P2002 unique constraint on folder ${folderInfo.path} (attempt ${retryCount}/${MAX_UPSERT_RETRIES}), retrying...`
+                `${errorCode} on folder ${folderInfo.path} (attempt ${retryCount}/${MAX_UPSERT_RETRIES}), retrying...`
               );
               await new Promise(resolve => setTimeout(resolve, 50 * retryCount));
               continue;
@@ -384,10 +385,26 @@ export class FolderSyncService {
         const folderId = pathToIdMap.get(folderInfo.path);
 
         if (folderId && parentId) {
-          await this.prisma.folder.update({
-            where: { id: folderId },
-            data: { parentId },
-          });
+          // FIX: Add P2002/P2034 retry for parent updates
+          let retryCount = 0;
+          while (retryCount < MAX_UPSERT_RETRIES) {
+            try {
+              await this.prisma.folder.update({
+                where: { id: folderId },
+                data: { parentId },
+              });
+              break;
+            } catch (error: unknown) {
+              const isPrismaError = error && typeof error === 'object' && 'code' in error;
+              const errorCode = isPrismaError ? (error as { code: string }).code : null;
+              if ((errorCode === 'P2002' || errorCode === 'P2034') && retryCount < MAX_UPSERT_RETRIES - 1) {
+                retryCount++;
+                await new Promise(resolve => setTimeout(resolve, 50 * retryCount));
+                continue;
+              }
+              throw error;
+            }
+          }
         }
       });
 
@@ -466,33 +483,50 @@ export class FolderSyncService {
         const specialUse = this.gmailFolderService.getSpecialUseForLabel(label.id);
         const isSelectable = label.type !== 'system' || specialUse !== undefined;
 
-        await (this.prisma as any).folder.upsert({
-          where: { providerId_path: { providerId, path: folderPath } },
-          create: {
-            tenantId,
-            providerId,
-            externalId: label.id,
-            path: folderPath,
-            name: folderName,
-            delimiter: '/',
-            specialUse,
-            isSelectable,
-            totalCount: label.messagesTotal || 0,
-            unreadCount: label.messagesUnread || 0,
-            level: 0,
-            syncToken,
-          },
-          update: {
-            name: folderName,
-            specialUse,
-            externalId: label.id,
-            isSelectable,
-            totalCount: label.messagesTotal || 0,
-            unreadCount: label.messagesUnread || 0,
-            lastSyncedAt: new Date(),
-            syncToken: syncToken ?? undefined,
-          },
-        });
+        // FIX: Add P2002/P2034 retry for Gmail label upserts
+        let retryCount = 0;
+        const MAX_RETRIES = 3;
+        while (retryCount < MAX_RETRIES) {
+          try {
+            await (this.prisma as any).folder.upsert({
+              where: { providerId_path: { providerId, path: folderPath } },
+              create: {
+                tenantId,
+                providerId,
+                externalId: label.id,
+                path: folderPath,
+                name: folderName,
+                delimiter: '/',
+                specialUse,
+                isSelectable,
+                totalCount: label.messagesTotal || 0,
+                unreadCount: label.messagesUnread || 0,
+                level: 0,
+                syncToken,
+              },
+              update: {
+                name: folderName,
+                specialUse,
+                externalId: label.id,
+                isSelectable,
+                totalCount: label.messagesTotal || 0,
+                unreadCount: label.messagesUnread || 0,
+                lastSyncedAt: new Date(),
+                syncToken: syncToken ?? undefined,
+              },
+            });
+            break;
+          } catch (error: unknown) {
+            const isPrismaError = error && typeof error === 'object' && 'code' in error;
+            const errorCode = isPrismaError ? (error as { code: string }).code : null;
+            if ((errorCode === 'P2002' || errorCode === 'P2034') && retryCount < MAX_RETRIES - 1) {
+              retryCount++;
+              await new Promise(resolve => setTimeout(resolve, 50 * retryCount));
+              continue;
+            }
+            throw error;
+          }
+        }
       }
 
       this.logger.log(`Synced ${labels.length} Gmail labels as folders for provider ${providerId}`);
@@ -547,40 +581,61 @@ export class FolderSyncService {
       // Performance optimization: Parallel folder upserts in batches
       const validFolders = folders.filter((f) => f.id && f.displayName);
       const folderChunks = chunk(validFolders, PARALLEL_FOLDER_BATCH_SIZE);
+      const MAX_UPSERT_RETRIES = 3;
 
       for (const folderChunk of folderChunks) {
         const upsertPromises = folderChunk.map(async (folder) => {
           const specialUse = this.determineMicrosoftFolderType(folder.displayName);
           const folderPath = specialUse || folder.displayName;
 
-          // Use canonical path for known system folders; keep displayName for custom folders.
-          await (this.prisma as any).folder.upsert({
-            where: { providerId_path: { providerId, path: folderPath } },
-            create: {
-              tenantId,
-              providerId,
-              externalId: folder.id,
-              path: folderPath,
-              name: folder.displayName,
-              delimiter: '/',
-              specialUse,
-              isSelectable: true,
-              totalCount: folder.totalItemCount || 0,
-              unreadCount: folder.unreadItemCount || 0,
-              level: folder.parentFolderId ? 1 : 0,
-              syncToken: deltaLink,
-              lastSyncedAt: new Date(),
-            },
-            update: {
-              name: folder.displayName,
-              externalId: folder.id,
-              specialUse,
-              totalCount: folder.totalItemCount || 0,
-              unreadCount: folder.unreadItemCount || 0,
-              lastSyncedAt: new Date(),
-              syncToken: deltaLink ?? undefined,
-            },
-          });
+          // FIX: Add P2002/P2034 retry wrapper for upsert operations
+          let retryCount = 0;
+          while (retryCount < MAX_UPSERT_RETRIES) {
+            try {
+              // Use canonical path for known system folders; keep displayName for custom folders.
+              await (this.prisma as any).folder.upsert({
+                where: { providerId_path: { providerId, path: folderPath } },
+                create: {
+                  tenantId,
+                  providerId,
+                  externalId: folder.id,
+                  path: folderPath,
+                  name: folder.displayName,
+                  delimiter: '/',
+                  specialUse,
+                  isSelectable: true,
+                  totalCount: folder.totalItemCount || 0,
+                  unreadCount: folder.unreadItemCount || 0,
+                  level: folder.parentFolderId ? 1 : 0,
+                  syncToken: deltaLink,
+                  lastSyncedAt: new Date(),
+                },
+                update: {
+                  name: folder.displayName,
+                  externalId: folder.id,
+                  specialUse,
+                  totalCount: folder.totalItemCount || 0,
+                  unreadCount: folder.unreadItemCount || 0,
+                  lastSyncedAt: new Date(),
+                  syncToken: deltaLink ?? undefined,
+                },
+              });
+              break; // Success, exit retry loop
+            } catch (error: unknown) {
+              const isPrismaError = error && typeof error === 'object' && 'code' in error;
+              const errorCode = isPrismaError ? (error as { code: string }).code : null;
+              // FIX: Retry on P2002 (unique constraint) and P2034 (deadlock/write conflict)
+              if ((errorCode === 'P2002' || errorCode === 'P2034') && retryCount < MAX_UPSERT_RETRIES - 1) {
+                retryCount++;
+                this.logger.warn(
+                  `${errorCode} on Microsoft folder ${folderPath} (attempt ${retryCount}/${MAX_UPSERT_RETRIES}), retrying...`
+                );
+                await new Promise(resolve => setTimeout(resolve, 50 * retryCount));
+                continue;
+              }
+              throw error;
+            }
+          }
         });
 
         await Promise.all(upsertPromises);
@@ -832,15 +887,22 @@ export class FolderSyncService {
     }
 
     // Batch update in a transaction
+    // FIX Phase 1.5: Chunk updates to prevent unbounded transaction array
+    // Large transactions can cause memory issues and timeouts
+    const TRANSACTION_BATCH_SIZE = 50;
     if (updates.length > 0) {
-      await this.prisma.$transaction(
-        updates.map((u) =>
-          this.prisma.folder.update({
-            where: { id: u.id },
-            data: { totalCount: u.totalCount, unreadCount: u.unreadCount },
-          }),
-        ),
-      );
+      // Process in batches to avoid transaction size limits
+      for (let i = 0; i < updates.length; i += TRANSACTION_BATCH_SIZE) {
+        const batch = updates.slice(i, i + TRANSACTION_BATCH_SIZE);
+        await this.prisma.$transaction(
+          batch.map((u) =>
+            this.prisma.folder.update({
+              where: { id: u.id },
+              data: { totalCount: u.totalCount, unreadCount: u.unreadCount },
+            }),
+          ),
+        );
+      }
     }
 
     // Emit realtime events for changed folders

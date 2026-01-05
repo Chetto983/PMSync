@@ -747,15 +747,17 @@ export class IMAPDriver extends BaseEmailDriver {
       try {
         // Use NOOP or select INBOX to deselect the target folder
         await client.noop();
-      } catch {
-        // Ignore NOOP errors
+      } catch (err: unknown) {
+        // FIX: Log instead of silent swallow - helps debug connection issues
+        this.logger.debug(`[deleteFolder] NOOP failed for ${folderId}: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       // Step 2: Unsubscribe from folder (required by some servers)
       try {
         await client.mailboxUnsubscribe(folderId);
-      } catch {
-        // Ignore unsubscribe errors - folder may not be subscribed
+      } catch (err: unknown) {
+        // FIX: Log instead of silent swallow - expected for non-subscribed folders
+        this.logger.debug(`[deleteFolder] Unsubscribe failed for ${folderId}: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       // Step 3: Empty the folder first (some servers require empty folder)
@@ -771,8 +773,9 @@ export class IMAPDriver extends BaseEmailDriver {
         } finally {
           lock.release();
         }
-      } catch {
-        // Ignore errors - folder might be non-selectable or already empty
+      } catch (err: unknown) {
+        // FIX: Log instead of silent swallow - folder might be non-selectable or already empty
+        this.logger.debug(`[deleteFolder] Empty folder failed for ${folderId}: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       // Step 4: IMPORTANT - Deselect the folder by selecting INBOX
@@ -780,8 +783,9 @@ export class IMAPDriver extends BaseEmailDriver {
       try {
         const inboxLock = await client.getMailboxLock('INBOX');
         inboxLock.release();
-      } catch {
-        // Ignore - just ensuring we're not in the target folder
+      } catch (err: unknown) {
+        // FIX: Log instead of silent swallow - helps debug selection issues
+        this.logger.debug(`[deleteFolder] Deselect via INBOX failed: ${err instanceof Error ? err.message : String(err)}`);
       }
 
       // Small delay for server to process the deselection
@@ -872,7 +876,12 @@ export class IMAPDriver extends BaseEmailDriver {
         try {
           const searchResult = await client.search(searchCriteria, { uid: true });
           uids = searchResult || [];
-        } catch {
+        } catch (searchError: unknown) {
+          // FIX Phase 2.5: Log search failure before fallback - helps debug filter issues
+          const errMsg = searchError instanceof Error ? searchError.message : String(searchError);
+          this.logger.warn(
+            `[listMessages] Search with criteria failed for ${folderPath}, falling back to all messages: ${errMsg}`,
+          );
           // Fallback to all messages if search fails
           const fallbackResult = await client.search({}, { uid: true });
           uids = fallbackResult || [];
