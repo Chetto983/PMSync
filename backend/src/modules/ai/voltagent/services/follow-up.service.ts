@@ -26,7 +26,7 @@ import { CacheService } from '../../../../common/services/cache.service';
 import { Queue, Worker, Job } from 'bullmq';
 import { FollowUpStatus, EmailFollowUp } from '@prisma/client';
 import { MistralService } from '../../services/mistral.service';
-import { CorrelationContext } from '../../../../common/services/correlation-context.service';
+//import { CorrelationContext } from '../../../../common/services/correlation-context.service';
 
 /**
  * Patterns that indicate an email needs follow-up

@@ -7,6 +7,7 @@ import { MicrosoftOAuthService } from '../../providers/services/microsoft-oauth.
 import { google } from 'googleapis';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { ImapFlow } from 'imapflow';
+import type { ProviderConfig } from '@prisma/client';
 
 export interface EmailSyncOperation {
   emailId: string;
@@ -48,16 +49,17 @@ export class EmailSyncBackService {
     baseDelayMs = 500,
   ): Promise<T> {
     let attempt = 0;
-    let lastError: any;
+    let lastError: Error | null = null;
 
     while (attempt < maxAttempts) {
       try {
         // Bug #13 fix: Add timeout protection to prevent hanging operations
         return await this.withTimeout(action(), this.OPERATION_TIMEOUT_MS, description);
-      } catch (error: any) {
-        lastError = error;
-        const status = error?.code || error?.status || error?.response?.status;
-        const message = error?.message || '';
+      } catch (error: unknown) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        const errObj = error as { code?: number; status?: number; response?: { status?: number }; message?: string };
+        const status = errObj?.code || errObj?.status || errObj?.response?.status;
+        const message = errObj?.message || '';
         const is429 =
           status === 429 ||
           message.includes('rateLimitExceeded') ||
@@ -186,7 +188,7 @@ export class EmailSyncBackService {
    * Get a valid access token, refreshing if necessary
    * RACE CONDITION FIX RC-2: Uses distributed lock to prevent concurrent token refresh
    */
-  private async getValidAccessToken(provider: any): Promise<string> {
+  private async getValidAccessToken(provider: ProviderConfig): Promise<string> {
     const now = new Date();
     const isExpired = provider.tokenExpiresAt && now > new Date(provider.tokenExpiresAt);
 
@@ -271,7 +273,7 @@ export class EmailSyncBackService {
               data: {
                 isActive: false, // Deactivate until user re-authenticates
                 metadata: {
-                  ...((freshProvider.metadata as Record<string, any>) || {}),
+                  ...((freshProvider.metadata as Record<string, unknown>) || {}),
                   lastTokenError: errMsg,
                   lastTokenErrorAt: new Date().toISOString(),
                 },
@@ -290,6 +292,9 @@ export class EmailSyncBackService {
     }
 
     // Token is still valid, decrypt and return
+    if (!provider.accessToken || !provider.tokenEncryptionIv) {
+      throw new Error(`Provider ${provider.id} has no access token configured`);
+    }
     return this.crypto.decrypt(provider.accessToken, provider.tokenEncryptionIv);
   }
 
@@ -570,7 +575,7 @@ export class EmailSyncBackService {
    * Sync operation to IMAP server
    * Implements write operations for IMAP providers
    */
-  private async syncToImap(operation: EmailSyncOperation, provider: any): Promise<void> {
+  private async syncToImap(operation: EmailSyncOperation, provider: ProviderConfig): Promise<void> {
     let client: ImapFlow | null = null;
 
     try {
@@ -860,7 +865,7 @@ export class EmailSyncBackService {
   /**
    * Gmail batch handling to reduce concurrent requests (429)
    */
-  private async syncGmailBatch(provider: any, ops: EmailSyncOperation[]) {
+  private async syncGmailBatch(provider: ProviderConfig, ops: EmailSyncOperation[]) {
     if (!ops.length) return;
 
     this.logger.log(`[SYNC-BACK] Syncing ${ops.length} operations to Gmail provider ${provider.id}`);
@@ -1040,7 +1045,7 @@ export class EmailSyncBackService {
   /**
    * Microsoft batch handling via Graph $batch (max 20 requests)
    */
-  private async syncMicrosoftBatch(provider: any, ops: EmailSyncOperation[]) {
+  private async syncMicrosoftBatch(provider: ProviderConfig, ops: EmailSyncOperation[]) {
     if (!ops.length) return;
 
     const accessToken = await this.getValidAccessToken(provider);
@@ -1048,10 +1053,10 @@ export class EmailSyncBackService {
       authProvider: (done) => done(null, accessToken),
     });
 
-    const requests: { method: string; url: string; id: string; headers?: any; body?: any }[] = [];
+    const requests: { method: string; url: string; id: string; headers?: Record<string, string>; body?: Record<string, unknown> }[] = [];
     let reqId = 1;
 
-    const enqueue = (method: string, url: string, body?: any) => {
+    const enqueue = (method: string, url: string, body?: Record<string, unknown>) => {
       requests.push({
         id: `${reqId++}`,
         method,
@@ -1128,7 +1133,7 @@ export class EmailSyncBackService {
    * IMAP batch handling: Reuses a single connection for multiple operations
    * Solves "Too Many Connections" vulnerability
    */
-  private async syncImapBatch(provider: any, ops: EmailSyncOperation[]) {
+  private async syncImapBatch(provider: ProviderConfig, ops: EmailSyncOperation[]) {
     if (!ops.length) return;
 
     this.logger.log(`[SYNC-BACK] Syncing ${ops.length} operations to IMAP provider ${provider.id} (Reusable Connection)`);

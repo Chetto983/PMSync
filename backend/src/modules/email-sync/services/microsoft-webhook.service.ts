@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { timingSafeEqual, randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -27,7 +27,7 @@ interface ProcessedNotification {
 }
 
 @Injectable()
-export class MicrosoftWebhookService extends BaseWebhookService {
+export class MicrosoftWebhookService extends BaseWebhookService implements OnModuleDestroy {
   protected readonly logger = new Logger(MicrosoftWebhookService.name);
 
   // Abstract property implementations
@@ -50,8 +50,13 @@ export class MicrosoftWebhookService extends BaseWebhookService {
 
   // Security fix (SEC-1): Duplicate notification detection with composite keys
   // Microsoft uses subscriptionId:resourceId:changeType for dedup
+  // MEMORY LEAK FIX: Added max size limit to prevent unbounded growth
   private readonly processedNotifications: Map<string, ProcessedNotification> = new Map();
   private readonly NOTIFICATION_DEDUP_WINDOW_MS = 5 * 60 * 1000; // 5 minute dedup window
+  private readonly MAX_DEDUP_ENTRIES = 10000; // Limit map size to prevent memory leak
+
+  // MEMORY LEAK FIX: Store interval reference for cleanup
+  private cleanupIntervalRef: NodeJS.Timeout;
 
   constructor(
     prisma: PrismaService,
@@ -63,7 +68,18 @@ export class MicrosoftWebhookService extends BaseWebhookService {
   ) {
     super(prisma, queueService, configService, redisLock);
     // Start cleanup interval for in-memory dedup cache (fallback only)
-    setInterval(() => this.cleanupDedupEntries(), 5 * 60 * 1000);
+    this.cleanupIntervalRef = setInterval(() => this.cleanupDedupEntries(), 5 * 60 * 1000);
+  }
+
+  /**
+   * MEMORY LEAK FIX: Clean up interval and map on module destroy
+   */
+  onModuleDestroy() {
+    if (this.cleanupIntervalRef) {
+      clearInterval(this.cleanupIntervalRef);
+      this.logger.debug('Cleaned up Microsoft webhook dedup interval');
+    }
+    this.processedNotifications.clear();
   }
 
   /**
@@ -153,6 +169,17 @@ export class MicrosoftWebhookService extends BaseWebhookService {
 
     if (existing && (now - existing.timestamp) < this.NOTIFICATION_DEDUP_WINDOW_MS) {
       return false;
+    }
+
+    // MEMORY LEAK FIX: Enforce max size limit to prevent unbounded growth
+    if (this.processedNotifications.size >= this.MAX_DEDUP_ENTRIES) {
+      // Clear oldest entries (simple approach - clear all and re-add recent)
+      const entries = Array.from(this.processedNotifications.entries())
+        .sort((a, b) => b[1].timestamp - a[1].timestamp)
+        .slice(0, this.MAX_DEDUP_ENTRIES / 2);
+      this.processedNotifications.clear();
+      entries.forEach(([key, value]) => this.processedNotifications.set(key, value));
+      this.logger.warn(`[DEDUP] Map exceeded ${this.MAX_DEDUP_ENTRIES} entries, cleaned up to ${this.processedNotifications.size}`);
     }
 
     this.processedNotifications.set(notificationKey, { timestamp: now });

@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { QueueService } from './queue.service';
@@ -18,7 +18,7 @@ import { RedisLockService } from '../../../common/services/redis-lock.service';
 export const GMAIL_WEBHOOK_RESOURCE = 'gmail/mailbox';
 
 @Injectable()
-export class GmailWebhookService extends BaseWebhookService {
+export class GmailWebhookService extends BaseWebhookService implements OnModuleDestroy {
   protected readonly logger = new Logger(GmailWebhookService.name);
 
   // Abstract property implementations
@@ -29,6 +29,9 @@ export class GmailWebhookService extends BaseWebhookService {
 
   // Google OAuth2 client for JWT verification
   private readonly oauth2Client: OAuth2Client;
+
+  // MEMORY LEAK FIX: Store interval reference for cleanup
+  private cleanupIntervalRef: NodeJS.Timeout;
 
   constructor(
     prisma: PrismaService,
@@ -43,7 +46,17 @@ export class GmailWebhookService extends BaseWebhookService {
     this.oauth2Client = new OAuth2Client();
 
     // Start cache cleanup interval for fallback cache
-    setInterval(() => this.cleanupExpiredCacheEntries(), this.MESSAGE_CACHE_TTL_MS / 4);
+    this.cleanupIntervalRef = setInterval(() => this.cleanupExpiredCacheEntries(), this.MESSAGE_CACHE_TTL_MS / 4);
+  }
+
+  /**
+   * MEMORY LEAK FIX: Clean up interval on module destroy
+   */
+  onModuleDestroy() {
+    if (this.cleanupIntervalRef) {
+      clearInterval(this.cleanupIntervalRef);
+      this.logger.debug('Cleaned up Gmail webhook cache cleanup interval');
+    }
   }
 
   /**

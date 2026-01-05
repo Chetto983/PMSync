@@ -10,23 +10,6 @@ import {
 } from '../../../common/config';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 
-// Extended interface for sync job processing
-// interface ProcessableSyncJobData extends SyncJobData {
-//   maxMessages?: number;
-//   folder?: string;
-//   historyId?: string;
-//   deltaLink?: string;
-// }
-
-// Provider data structure for processing
-// interface ProviderWithTokens {
-//   id: string;
-//   providerType: 'google' | 'microsoft' | 'imap';
-//   email: string;
-//   decryptedAccessToken: string;
-//   decryptedRefreshToken?: string;
-// }
-
 type QueuePriority = 'high' | 'normal' | 'low';
 
 /**

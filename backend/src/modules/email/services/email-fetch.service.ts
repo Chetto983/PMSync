@@ -1,12 +1,13 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { google } from 'googleapis';
+import { google, gmail_v1 } from 'googleapis';
 import { Client as GraphClient } from '@microsoft/microsoft-graph-client';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { parseImapExternalId } from '../../../common/utils/imap-utils';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
+import type { Email, ProviderConfig } from '@prisma/client';
 
 /**
  * Service to fetch archived emails on-demand from email servers
@@ -19,7 +20,7 @@ export class EmailFetchService {
     private prisma: PrismaService,
     private crypto: CryptoService,
     private providerTokenService: ProviderTokenService,
-  ) {}
+  ) { }
 
   /**
    * Fetch email content from the provider when body is missing or archived.
@@ -74,7 +75,7 @@ export class EmailFetchService {
         data: {
           bodyText: fetchedContent.bodyText,
           bodyHtml: fetchedContent.bodyHtml,
-          headers: fetchedContent.headers as any,
+          headers: fetchedContent.headers as Record<string, string>,
           isArchived: false, // No longer archived since we restored content
         },
         include: {
@@ -91,7 +92,7 @@ export class EmailFetchService {
     }
   }
 
-  private async fetchFromGmail(email: any, provider: any) {
+  private async fetchFromGmail(email: Email, provider: ProviderConfig) {
     const { provider: freshProvider, accessToken } =
       await this.providerTokenService.getProviderWithToken(provider.id);
     if (freshProvider.providerType !== 'google') {
@@ -114,7 +115,7 @@ export class EmailFetchService {
     let bodyText = '';
     let bodyHtml = '';
 
-    const extractBody = (part: any) => {
+    const extractBody = (part: gmail_v1.Schema$MessagePart) => {
       if (part.mimeType === 'text/plain' && part.body?.data) {
         bodyText = Buffer.from(part.body.data, 'base64').toString('utf8');
       } else if (part.mimeType === 'text/html' && part.body?.data) {
@@ -142,7 +143,7 @@ export class EmailFetchService {
     };
   }
 
-  private async fetchFromMicrosoft(email: any, provider: any) {
+  private async fetchFromMicrosoft(email: Email, provider: ProviderConfig) {
     const { provider: freshProvider, accessToken } =
       await this.providerTokenService.getProviderWithToken(provider.id);
     if (freshProvider.providerType !== 'microsoft') {
@@ -150,7 +151,7 @@ export class EmailFetchService {
     }
 
     const graphClient = GraphClient.init({
-      authProvider: (done: (error: any, token: string) => void) => {
+      authProvider: (done: (error: Error | null, token: string) => void) => {
         done(null, accessToken);
       },
     });
@@ -165,7 +166,7 @@ export class EmailFetchService {
 
     const headers = {
       'From': message.from?.emailAddress?.address,
-      'To': message.toRecipients?.map((r: any) => r.emailAddress?.address).join(', '),
+      'To': message.toRecipients?.map((r: { emailAddress?: { address?: string } }) => r.emailAddress?.address).join(', '),
       'Subject': message.subject,
       'Date': message.receivedDateTime,
       'Message-ID': message.internetMessageId,
@@ -178,7 +179,7 @@ export class EmailFetchService {
     };
   }
 
-  private async fetchFromIMAP(email: any, provider: any) {
+  private async fetchFromIMAP(email: Email, provider: ProviderConfig) {
     if (
       !provider.imapUsername ||
       !provider.imapPassword ||
@@ -194,11 +195,11 @@ export class EmailFetchService {
     );
 
     const client = new ImapFlow({
-      host: provider.imapHost,
+      host: provider.imapHost!, // Validated above
       port: provider.imapPort || 993,
       secure: provider.imapUseTls ?? true,
       auth: {
-        user: provider.imapUsername,
+        user: provider.imapUsername!, // Validated above
         pass: imapPassword,
       },
       logger: false,
@@ -219,7 +220,7 @@ export class EmailFetchService {
       const parsed = await simpleParser(messageStream.content);
 
       const headers: Record<string, string> = {};
-      parsed.headers.forEach((value: any, key: string) => {
+      parsed.headers.forEach((value: string | string[] | undefined, key: string) => {
         headers[key] = Array.isArray(value) ? value.join(', ') : String(value);
       });
 
@@ -236,8 +237,7 @@ export class EmailFetchService {
         await client.logout();
       } catch (logoutError) {
         this.logger.warn(
-          `Failed to logout IMAP client: ${
-            logoutError instanceof Error ? logoutError.message : String(logoutError)
+          `Failed to logout IMAP client: ${logoutError instanceof Error ? logoutError.message : String(logoutError)
           }`,
         );
       }
