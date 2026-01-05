@@ -147,7 +147,8 @@ export class GoogleDriver extends BaseEmailDriver {
       if (response.data) {
         return this.labelToCanonicalFolder(response.data);
       }
-    } catch {
+    } catch (error: any) {
+      this.logger.debug(`Folder not found by ID ${folderIdOrPath}, searching by name: ${error.message}`);
       // If not found by ID, search by name
       const allLabels = await this.listFolders();
       return allLabels.find(
@@ -531,7 +532,8 @@ export class GoogleDriver extends BaseEmailDriver {
         name: alias.displayName || undefined,
         isPrimary: alias.isPrimary || false,
       }));
-    } catch {
+    } catch (error: any) {
+      this.logger.debug(`Could not fetch aliases, using primary only: ${error.message}`);
       // Fallback to just primary email
       const profile = await this.getUserInfo();
       return [{ email: profile.email, name: profile.name, isPrimary: true }];
@@ -575,7 +577,8 @@ export class GoogleDriver extends BaseEmailDriver {
         batch.map(async (id) => {
           try {
             return await this.getMessage(id, { format, includeBody });
-          } catch {
+          } catch (error: any) {
+            this.logger.debug(`Failed to fetch message ${id}: ${error.message}`);
             return null;
           }
         })
@@ -795,11 +798,12 @@ export class GoogleDriver extends BaseEmailDriver {
         this.logger.warn(
           `Gmail history ID ${startHistoryId} is invalid or expired. Full sync required.`,
         );
-        // Return empty changes with current historyId, caller should do full sync
+        // Return clear signal for full sync
         return {
           changes: [],
           newSyncToken: currentHistoryId,
           hasMore: false,
+          fullSyncRequired: true,
         };
       }
 
@@ -1053,11 +1057,15 @@ export class GoogleDriver extends BaseEmailDriver {
     }
 
     if (options.since) {
-      parts.push(`after:${Math.floor(options.since.getTime() / 1000)}`);
+      // LOW-3: Use YYYY/MM/DD format for better readability
+      const sinceStr = options.since.toISOString().split('T')[0].replace(/-/g, '/');
+      parts.push(`after:${sinceStr}`);
     }
 
     if (options.before) {
-      parts.push(`before:${Math.floor(options.before.getTime() / 1000)}`);
+      // LOW-3: Use YYYY/MM/DD format for better readability
+      const beforeStr = options.before.toISOString().split('T')[0].replace(/-/g, '/');
+      parts.push(`before:${beforeStr}`);
     }
 
     return parts.length > 0 ? parts.join(' ') : null;
@@ -1111,6 +1119,8 @@ export class GoogleDriver extends BaseEmailDriver {
 
     // MIME-Version header (required for proper MIME parsing)
     lines.push('MIME-Version: 1.0');
+    // LOW-6: Add explicit Date header
+    lines.push(`Date: ${new Date().toUTCString()}`);
 
     // From header (with RFC 2047 encoding for non-ASCII names)
     if (message.fromEmail) {

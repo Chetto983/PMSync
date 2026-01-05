@@ -93,7 +93,8 @@ export abstract class BaseAttachmentHandler {
   abstract downloadAttachment(
     context: DownloadContext,
     ...args: any[]
-  ): Promise<Buffer | null>;
+  ): Promise<Buffer | null>; // Returns Buffer or Readable stream
+
 
   // ==================== Shared Processing Logic ====================
 
@@ -117,6 +118,7 @@ export abstract class BaseAttachmentHandler {
     tenantId: string,
     providerId: string,
     downloadFn: (attachmentId: string) => Promise<Buffer | null>,
+
   ): Promise<void> {
     if (!attachments.length) {
       return;
@@ -195,7 +197,8 @@ export abstract class BaseAttachmentHandler {
               continue;
             }
 
-            // Upload to S3/MinIO
+            // Upload to S3/MinIO - supports Buffer or Stream
+            // If data is a Stream, it will be piped directly
             const uploaded = await this.attachmentStorage.uploadAttachment(
               tenantId,
               providerId,
@@ -509,8 +512,7 @@ export abstract class BaseAttachmentHandler {
         // If lock acquisition fails, proceed without lock (graceful degradation)
         // This is better than failing the entire attachment processing
         this.logger.warn(
-          `Attachment lock failed for ${emailId}, proceeding without lock: ${
-            lockError instanceof Error ? lockError.message : String(lockError)
+          `Attachment lock failed for ${emailId}, proceeding without lock: ${lockError instanceof Error ? lockError.message : String(lockError)
           }`,
         );
         await executePersist();

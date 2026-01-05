@@ -48,7 +48,7 @@ export class MicrosoftAttachmentHandler extends BaseAttachmentHandler {
   async downloadAttachment(
     context: DownloadContext,
     driver: MicrosoftDriver,
-  ): Promise<Buffer | null> {
+  ): Promise<Buffer| null> {
     try {
       const attachmentData = await driver.getAttachment(
         context.messageId,

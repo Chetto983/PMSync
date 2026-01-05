@@ -49,7 +49,7 @@ export class ImapAttachmentHandler extends BaseAttachmentHandler {
   async downloadAttachment(
     context: DownloadContext,
     driver: IMAPDriver,
-  ): Promise<Buffer | null> {
+  ): Promise<Buffer | any | null> {
     try {
       const attachmentData = await driver.getAttachment(
         context.messageId,
@@ -60,8 +60,11 @@ export class ImapAttachmentHandler extends BaseAttachmentHandler {
         return null;
       }
 
-      // IMAP driver returns base64-encoded content
-      return Buffer.from(attachmentData.content, 'base64');
+      // IMAP driver returns base64-encoded content OR stream
+      if (attachmentData.contentStream) {
+        return attachmentData.contentStream;
+      }
+      return attachmentData.content ? Buffer.from(attachmentData.content, 'base64') : null;
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
@@ -93,7 +96,7 @@ export class ImapAttachmentHandler extends BaseAttachmentHandler {
     providerId: string,
   ): Promise<void> {
     // Create download function closure with IMAP driver
-    const downloadFn = async (attachmentId: string): Promise<Buffer | null> => {
+    const downloadFn = async (attachmentId: string): Promise<Buffer | any | null> => {
       return this.downloadAttachment(
         { messageId: externalId, attachmentId },
         driver,

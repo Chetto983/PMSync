@@ -362,7 +362,8 @@ export interface AttachmentMeta {
  * Attachment with content
  */
 export interface AttachmentData extends AttachmentMeta {
-  content: string;      // Base64 encoded content
+  content?: string;      // Base64 encoded content (optional if streaming)
+  contentStream?: any;   // Readable stream
 }
 
 /**
@@ -453,6 +454,7 @@ export interface ComposeMessage {
   references?: string;
   threadId?: string;
   fromEmail?: string;                 // Send as alias
+  replyTo?: EmailAddress;             // Reply-To address
 }
 
 /**

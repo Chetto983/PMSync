@@ -85,6 +85,7 @@ export interface ChangesResult {
   changes: ProviderChange[];
   newSyncToken: string;
   hasMore: boolean;
+  fullSyncRequired?: boolean;
 }
 
 /**

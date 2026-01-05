@@ -1052,6 +1052,21 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       });
     });
 
+    // HIGH-1 FIX (2025-01-05): Query existing emails BEFORE upsert for reliable wasNew detection
+    // The timestamp comparison (createdAt vs updatedAt) is unreliable due to:
+    // 1. Database clock skew
+    // 2. Race conditions between createdAt and updatedAt
+    // 3. Arbitrary 1-second threshold may not work in all environments
+    const existingEmailIds = new Set(
+      (await this.prisma.email.findMany({
+        where: {
+          providerId,
+          externalId: { in: messages.map(m => m.id) },
+        },
+        select: { externalId: true },
+      })).map(e => e.externalId)
+    );
+
     // Execute all upserts in a single transaction with P2002/P2034 retry logic
     // Per Prisma best practices: handle P2002 (unique constraint) and P2034 (deadlock) and retry
     // See: https://github.com/prisma/prisma/issues/3242
@@ -1094,7 +1109,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       const msg = messages[i];
-      const wasNew = Math.abs(result.createdAt.getTime() - result.updatedAt.getTime()) < 1000;
+      // HIGH-1 FIX: Use pre-query Set instead of unreliable timestamp comparison
+      const wasNew = !existingEmailIds.has(msg.id);
 
       if (wasNew) {
         newCount++;

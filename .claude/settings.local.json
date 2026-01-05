@@ -151,7 +151,8 @@
       "Bash(npx madge:*)",
       "Bash(wc -l \"D:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email\\\\services\"/*.ts)",
       "Bash(source:*)",
-      "Bash(DISABLE_EMBEDDINGS=true npx ts-node:*)"
+      "Bash(DISABLE_EMBEDDINGS=true npx ts-node:*)",
+      "Bash(npx nest build:*)"
     ],
     "deny": []
   }

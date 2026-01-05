@@ -189,6 +189,16 @@ export class AttachmentOnDemandService {
         }
 
         // CASE 3: Cache miss - fetch from provider and upload to S3
+
+        // CRIT-7 FIX (2025-01-05): Check attachment size BEFORE downloading
+        // Prevents OOM attacks from malicious/large attachments
+        const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB limit
+        if (attachment.size && attachment.size > MAX_ATTACHMENT_SIZE) {
+          throw new Error(
+            `Attachment ${attachment.filename} exceeds maximum size limit (${Math.round(attachment.size / 1024 / 1024)}MB > ${MAX_ATTACHMENT_SIZE / 1024 / 1024}MB)`
+          );
+        }
+
         this.logger.log(
           JSON.stringify({
             event: 'attachment_download_start',

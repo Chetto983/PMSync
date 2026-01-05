@@ -283,62 +283,84 @@ export class FolderSyncService {
     const pathToIdMap = new Map<string, string>();
 
     // Performance optimization: First pass with parallel folder upserts in batches
+    // HIGH-2 FIX (2025-01-05): Add P2002 retry for parallel upserts
     const folderChunks = chunk(folderInfos, PARALLEL_FOLDER_BATCH_SIZE);
+    const MAX_UPSERT_RETRIES = 3;
 
     for (const folderChunk of folderChunks) {
       const upsertPromises = folderChunk.map(async (folderInfo) => {
         const level = folderInfo.path.split(folderInfo.delimiter).length - 1;
 
-        const folder = await this.prisma.folder.upsert({
-          where: {
-            providerId_path: {
-              providerId,
-              path: folderInfo.path,
-            },
-          },
-          create: {
-            tenantId,
-            providerId,
-            externalId: folderInfo.externalId,
-            path: folderInfo.path,
-            name: folderInfo.name,
-            delimiter: folderInfo.delimiter,
-            attributes: folderInfo.attributes,
-            specialUse: folderInfo.specialUse,
-            isSystem: isSystemFolder(folderInfo.specialUse ?? ''),
-            level,
-            isSelectable: !folderInfo.attributes.some(
-              (attr) =>
-                attr === '\\Noselect' ||
-                attr === '\\NonExistent' ||
-                attr.toLowerCase() === '\\noselect',
-            ),
-            syncToken: folderInfo.syncToken,
-            uidNext: folderInfo.uidNext,
-            uidValidity: folderInfo.uidValidity,
-          },
-          update: {
-            name: folderInfo.name,
-            delimiter: folderInfo.delimiter,
-            attributes: folderInfo.attributes,
-            specialUse: folderInfo.specialUse,
-            isSystem: isSystemFolder(folderInfo.specialUse ?? ''),
-            externalId: folderInfo.externalId,
-            level,
-            isSelectable: !folderInfo.attributes.some(
-              (attr) =>
-                attr === '\\Noselect' ||
-                attr === '\\NonExistent' ||
-                attr.toLowerCase() === '\\noselect',
-            ),
-            syncToken: folderInfo.syncToken ?? undefined,
-            uidNext: folderInfo.uidNext ?? undefined,
-            uidValidity: folderInfo.uidValidity ?? undefined,
-            lastSyncedAt: new Date(),
-          },
-        });
+        // HIGH-2 FIX: Wrap individual upsert with P2002 retry logic
+        let retryCount = 0;
+        while (true) {
+          try {
+            const folder = await this.prisma.folder.upsert({
+              where: {
+                providerId_path: {
+                  providerId,
+                  path: folderInfo.path,
+                },
+              },
+              create: {
+                tenantId,
+                providerId,
+                externalId: folderInfo.externalId,
+                path: folderInfo.path,
+                name: folderInfo.name,
+                delimiter: folderInfo.delimiter,
+                attributes: folderInfo.attributes,
+                specialUse: folderInfo.specialUse,
+                isSystem: isSystemFolder(folderInfo.specialUse ?? ''),
+                level,
+                isSelectable: !folderInfo.attributes.some(
+                  (attr) =>
+                    attr === '\\Noselect' ||
+                    attr === '\\NonExistent' ||
+                    attr.toLowerCase() === '\\noselect',
+                ),
+                syncToken: folderInfo.syncToken,
+                uidNext: folderInfo.uidNext,
+                uidValidity: folderInfo.uidValidity,
+              },
+              update: {
+                name: folderInfo.name,
+                delimiter: folderInfo.delimiter,
+                attributes: folderInfo.attributes,
+                specialUse: folderInfo.specialUse,
+                isSystem: isSystemFolder(folderInfo.specialUse ?? ''),
+                externalId: folderInfo.externalId,
+                level,
+                isSelectable: !folderInfo.attributes.some(
+                  (attr) =>
+                    attr === '\\Noselect' ||
+                    attr === '\\NonExistent' ||
+                    attr.toLowerCase() === '\\noselect',
+                ),
+                syncToken: folderInfo.syncToken ?? undefined,
+                uidNext: folderInfo.uidNext ?? undefined,
+                uidValidity: folderInfo.uidValidity ?? undefined,
+                lastSyncedAt: new Date(),
+              },
+            });
 
-        return { folderInfo, folder };
+            return { folderInfo, folder };
+          } catch (error: unknown) {
+            // HIGH-2 FIX: Handle P2002 unique constraint violation
+            const isPrismaError = error && typeof error === 'object' && 'code' in error;
+            const errorCode = isPrismaError ? (error as { code: string }).code : null;
+
+            if (errorCode === 'P2002' && retryCount < MAX_UPSERT_RETRIES) {
+              retryCount++;
+              this.logger.warn(
+                `P2002 unique constraint on folder ${folderInfo.path} (attempt ${retryCount}/${MAX_UPSERT_RETRIES}), retrying...`
+              );
+              await new Promise(resolve => setTimeout(resolve, 50 * retryCount));
+              continue;
+            }
+            throw error;
+          }
+        }
       });
 
       const results = await Promise.all(upsertPromises);

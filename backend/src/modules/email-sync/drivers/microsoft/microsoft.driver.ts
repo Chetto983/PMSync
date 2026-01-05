@@ -247,17 +247,33 @@ export class MicrosoftDriver extends BaseEmailDriver {
       : '/me/mailFolders';
 
     const response = await this.client!.post(endpoint, { displayName: name });
-    return this.graphFolderToCanonical(response.data);
+    const newFolder = this.graphFolderToCanonical(response.data);
+
+    // MED-6 FIX: Update cache
+    if (newFolder.id) {
+      if (newFolder.type) this.folderIdCache.set(newFolder.type.toUpperCase(), newFolder.id);
+      this.folderPathCache.set(newFolder.id, name);
+    }
+
+    return newFolder;
   }
 
   async deleteFolder(folderId: string): Promise<void> {
     this.ensureConnected();
     await this.client!.delete(`/me/mailFolders/${folderId}`);
+
+    // MED-6 FIX: Invalidate cache
+    this.folderPathCache.delete(folderId);
+    // Note: We can't easily remove from folderIdCache without iterating, 
+    // but stale IDs will just fail and be re-fetched next time.
   }
 
   async renameFolder(folderId: string, newName: string): Promise<void> {
     this.ensureConnected();
     await this.client!.patch(`/me/mailFolders/${folderId}`, { displayName: newName });
+
+    // MED-6 FIX: Update cache
+    this.folderPathCache.set(folderId, newName);
   }
 
   // ============================================
@@ -557,10 +573,24 @@ export class MicrosoftDriver extends BaseEmailDriver {
         params: { $select: 'mail,userPrincipalName,displayName' },
       });
 
+      let photo: string | undefined;
+      // LOW-2: Fetch user photo
+      try {
+        const photoResponse = await this.client!.get('/me/photo/$value', {
+          responseType: 'arraybuffer',
+        });
+        if (photoResponse.data) {
+          const base64 = Buffer.from(photoResponse.data).toString('base64');
+          photo = `data:image/jpeg;base64,${base64}`;
+        }
+      } catch (e) {
+        // Photo not found or no permission, ignore
+      }
+
       return {
         email: response.data.mail || response.data.userPrincipalName || this.userEmail || '',
         name: response.data.displayName || '',
-        photo: undefined, // Would need separate call to /me/photo
+        photo,
       };
     } catch (error: any) {
       // 403 can happen if User.Read scope is not consented
@@ -584,109 +614,140 @@ export class MicrosoftDriver extends BaseEmailDriver {
   async getInitialSyncToken(): Promise<string> {
     this.ensureConnected();
 
-    // Microsoft uses delta links for incremental sync
-    let nextUrl: string | null = '/me/mailFolders/inbox/messages/delta';
-    let params: Record<string, any> | undefined = { $select: 'id' };
-    const MAX_PAGES = 50;
+    // MED-3 FIX (2025-01-05): Sync multiple folders
+    const foldersToSync = ['INBOX', 'SENT', 'DRAFTS', 'TRASH'];
+    const tokenMap: Record<string, string> = {};
 
-    for (let page = 0; nextUrl && page < MAX_PAGES; page += 1) {
-      const isAbsolute = /^https?:/i.test(nextUrl);
-      const response: AxiosResponse<any> = await this.client!.get(
-        nextUrl,
-        isAbsolute ? { baseURL: '' } : { params },
-      );
-      const deltaLink = response.data['@odata.deltaLink'];
-      if (deltaLink) {
-        return deltaLink;
+    for (const folderType of foldersToSync) {
+      try {
+        const folderId = await this.resolveFolderId(folderType);
+        if (!folderId) continue;
+
+        let nextUrl: string | null = `/me/mailFolders/${folderId}/messages/delta`;
+        let params: Record<string, any> | undefined = { $select: 'id' };
+        const MAX_PAGES = 50;
+
+        for (let page = 0; nextUrl && page < MAX_PAGES; page += 1) {
+          const isAbsolute = /^https?:/i.test(nextUrl);
+          const response: AxiosResponse<any> = await this.client!.get(
+            nextUrl,
+            isAbsolute ? { baseURL: '' } : { params },
+          );
+          const deltaLink = response.data['@odata.deltaLink'];
+          if (deltaLink) {
+            tokenMap[folderType] = deltaLink;
+            break;
+          }
+          nextUrl = response.data['@odata.nextLink'] || null;
+          params = undefined;
+        }
+      } catch (error: any) {
+        this.logger.warn(`Could not get delta link for ${folderType}: ${error.message}`);
       }
-      nextUrl = response.data['@odata.nextLink'] || null;
-      params = undefined;
     }
 
-    this.logger.warn('Could not resolve deltaLink for initial sync');
-    return '';
+    if (Object.keys(tokenMap).length === 0) {
+      this.logger.warn('Could not resolve any delta links');
+      return '';
+    }
+
+    return JSON.stringify(tokenMap);
   }
 
   async getChangesSince(syncToken: string): Promise<ChangesResult> {
     this.ensureConnected();
 
+    let tokenMap: Record<string, string> = {};
     const changes: ProviderChange[] = [];
-    let deltaLink = syncToken;
-    let hasMore = false;
+    let hasMoreGlobal = false;
 
-    // Validate syncToken format - must be a full delta URL
-    // Legacy format was timestamp (e.g., "2025-12-11T17:17:57Z") - these are invalid
-    if (!deltaLink.includes('graph.microsoft.com') || !deltaLink.includes('delta')) {
-      this.logger.warn(
-        `Invalid syncToken format (expected deltaLink URL): ${deltaLink.substring(0, 50)}...`,
-      );
-      this.logger.warn('Treating as expired token, returning empty changes');
-      deltaLink = await this.getInitialSyncToken();
-      return {
-        changes: [],
-        newSyncToken: deltaLink,
-        hasMore: false,
-      };
+    // Parse token - handle legacy single-URL format
+    try {
+      if (syncToken.trim().startsWith('{')) {
+        tokenMap = JSON.parse(syncToken);
+      } else if (syncToken.includes('http')) {
+        // Legacy: assume INBOX
+        tokenMap = { INBOX: syncToken };
+      } else {
+        // Invalid/Empty
+        return { changes: [], newSyncToken: await this.getInitialSyncToken(), hasMore: false };
+      }
+    } catch {
+      return { changes: [], newSyncToken: await this.getInitialSyncToken(), hasMore: false };
     }
 
-    try {
-      // Delta sync using the deltaLink URL
-      // Must use absolute URL, not relative path
-      const response = await this.client!.get(deltaLink, {
-        baseURL: '', // Override baseURL to use absolute deltaLink
-      });
+    const newTokenMap: Record<string, string> = { ...tokenMap };
 
-      const items = response.data.value || [];
+    // Iterate all tracked folders
+    for (const [folder, deltaLink] of Object.entries(tokenMap)) {
+      try {
+        // Validate URL format
+        if (!deltaLink.includes('graph.microsoft.com') || !deltaLink.includes('delta')) {
+          this.logger.warn(`Invalid delta link for ${folder}, refreshing token`);
+          delete newTokenMap[folder];
+          continue;
+        }
 
-      for (const item of items) {
-        if (item['@removed']) {
-          // Deleted message
-          changes.push({
-            messageId: item.id,
-            type: 'deleted',
-            timestamp: new Date(),
-          });
-        } else if (item.id) {
-          // Added or modified message
-          // Microsoft doesn't distinguish between added/modified in delta
-          // We treat all as "modified" - the sync service will check if it's new
-          changes.push({
-            messageId: item.id,
-            type: 'modified',
-            timestamp: new Date(item.receivedDateTime || new Date()),
-          });
+        const response = await this.client!.get(deltaLink, {
+          baseURL: '', // Absolute URL
+        });
+
+        const items = response.data.value || [];
+
+        for (const item of items) {
+          if (item['@removed']) {
+            changes.push({
+              messageId: item.id,
+              type: 'deleted',
+              timestamp: new Date(),
+            });
+          } else if (item.id) {
+            changes.push({
+              messageId: item.id,
+              type: 'modified',
+              timestamp: new Date(item.receivedDateTime || new Date()),
+            });
+          }
+        }
+
+        const nextLink = response.data['@odata.nextLink'];
+        const newDeltaLink = response.data['@odata.deltaLink'];
+
+        if (newDeltaLink) {
+          newTokenMap[folder] = newDeltaLink;
+        } else if (nextLink) {
+          newTokenMap[folder] = nextLink;
+          hasMoreGlobal = true;
+        }
+
+      } catch (error: any) {
+        // 410 Gone / 400 Bad Request = expired
+        if (error.response?.status === 410 || error.response?.status === 400) {
+          this.logger.warn(`Delta token expired for ${folder}, resetting`);
+          // Try to get fresh token for this folder only
+          try {
+            const freshTokensJson = await this.getInitialSyncToken();
+            const freshTokens = JSON.parse(freshTokensJson);
+            if (freshTokens[folder]) {
+              newTokenMap[folder] = freshTokens[folder];
+            } else {
+              delete newTokenMap[folder];
+            }
+          } catch {
+            delete newTokenMap[folder];
+          }
+        } else {
+          // Other errors, log and keep old token to retry later
+          this.logger.warn(`Delta sync failed for ${folder}: ${error.message}`);
         }
       }
-
-      const nextLink = response.data['@odata.nextLink'];
-      const deltaLinkResponse = response.data['@odata.deltaLink'];
-      const newSyncToken = nextLink || deltaLinkResponse || deltaLink;
-
-      // Check if there are more pages (@odata.nextLink)
-      hasMore = !!nextLink;
-
-      return {
-        changes,
-        newSyncToken,
-        hasMore,
-      };
-
-    } catch (error: any) {
-      // Handle 410 Gone or 400 Bad Request - delta token expired or invalid
-      if (error.response?.status === 410 || error.response?.status === 400) {
-        this.logger.warn(
-          `Delta token expired or invalid (${error.response.status}), returning empty changes`,
-        );
-        // Get new delta token
-        deltaLink = await this.getInitialSyncToken();
-        return {
-          changes: [],
-          newSyncToken: deltaLink,
-          hasMore: false,
-        };
-      }
-      throw error;
     }
+
+    return {
+      changes,
+      newSyncToken: JSON.stringify(newTokenMap),
+      hasMore: hasMoreGlobal,
+    };
   }
 
   // ============================================
@@ -836,7 +897,8 @@ export class MicrosoftDriver extends BaseEmailDriver {
         name: userInfo.name,
         isPrimary: true,
       }];
-    } catch {
+    } catch (error: any) {
+      this.logger.debug(`Could not fetch user info for aliases: ${error.message}`);
       // Fallback
       return [{ email: this.credentials?.emailHint || '', isPrimary: true }];
     }
@@ -1089,6 +1151,13 @@ export class MicrosoftDriver extends BaseEmailDriver {
       bccRecipients: message.bcc?.map((addr) => ({
         emailAddress: { name: addr.name, address: addr.email },
       })),
+      replyTo: message.replyTo
+        ? [
+          {
+            emailAddress: { name: message.replyTo.name, address: message.replyTo.email },
+          },
+        ]
+        : undefined,
     };
 
     // Add attachments if present (per Microsoft Graph API spec)

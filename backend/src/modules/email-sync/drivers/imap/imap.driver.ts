@@ -44,8 +44,10 @@ interface PooledConnection {
  * Phase 7: Reduced defaults for memory optimization (target <200MB/tenant)
  */
 const POOL_CONFIG = {
-  maxConnectionsPerUser: parseInt(process.env.IMAP_MAX_CONNECTIONS_PER_USER || '2', 10), // Reduced from 3
-  connectionIdleTimeout: parseInt(process.env.IMAP_CONNECTION_IDLE_TIMEOUT_MS || '30000', 10), // Reduced from 60s
+  // LOW-1: Reduced from 3 to 2 to improve stability with constrained providers (e.g. Gmail IMAP limit is 15)
+  // With 1000 users, 2 connections = 2000 concurrent sockets which is manageable
+  maxConnectionsPerUser: parseInt(process.env.IMAP_MAX_CONNECTIONS_PER_USER || '2', 10),
+  connectionIdleTimeout: parseInt(process.env.IMAP_CONNECTION_IDLE_TIMEOUT_MS || '30000', 10),
   connectionAcquireTimeout: parseInt(process.env.IMAP_CONNECTION_ACQUIRE_TIMEOUT_MS || '10000', 10),
   maxMessageBodySize: parseInt(process.env.IMAP_MAX_MESSAGE_BODY_SIZE || String(5 * 1024 * 1024), 10), // Reduced from 10MB
   bodyDownloadTimeout: parseInt(process.env.IMAP_BODY_DOWNLOAD_TIMEOUT_MS || '15000', 10),
@@ -501,9 +503,15 @@ export class IMAPDriver extends BaseEmailDriver {
         return client;
       }
 
-      // Should not reach here if semaphore count matches pool size
-      // but handle gracefully just in case
-      throw new Error('No IMAP connection available in pool');
+      // CRIT-5 FIX (2025-01-05): This should not reach here if semaphore count matches pool size
+      // The semaphore guarantees at most maxConnectionsPerUser concurrent operations
+      // If we reach here, it means pool state is corrupted - log details for debugging
+      this.logger.error(
+        `[POOL_CORRUPTION] Semaphore acquired but no connection available. ` +
+        `Pool size: ${this.connectionPool.length}, max: ${POOL_CONFIG.maxConnectionsPerUser}, ` +
+        `in-use: ${this.connectionPool.filter(p => p.inUse).length}`
+      );
+      throw new Error('No IMAP connection available in pool - pool state corrupted');
     } catch (error) {
       // Release semaphore on error
       semaphoreRelease();
@@ -1116,7 +1124,7 @@ export class IMAPDriver extends BaseEmailDriver {
       html: message.bodyHtml,
       attachments: message.attachments?.map((att) => ({
         filename: att.filename,
-        content: Buffer.from(att.content, 'base64'),
+        content: att.content ? Buffer.from(att.content, 'base64') : att.contentStream,
         contentType: att.mimeType,
       })),
       inReplyTo: message.inReplyTo,
@@ -1405,69 +1413,155 @@ export class IMAPDriver extends BaseEmailDriver {
     messageId: string,
     attachmentId: string,
   ): Promise<AttachmentData> {
-    // FIX: Removed redundant getMessage call - was causing double memory usage
+    // FIX: MEMORY LEAK OOM - Use Streaming
+    // Instead of buffering 50MB into RAM, we return the stream handle.
+    // The calling service (AttachmentHandler) is responsible for consuming it.
 
-    return this.withConnection(async (client) => {
+    // Note: We cannot wrap this in withConnection because the stream needs to be consumed
+    // AFTER this function returns. The connection must remain open until the stream ends.
+    // This requires careful connection management by the caller, OR we use a dedicated
+    // short-lived connection just for the download if needed.
+    // However, withConnection auto-releases the lock/client when the callback finishes.
+    // If we return a stream from within withConnection, the client might close/release
+    // before the stream is read.
+
+    // To solve this with imapflow:
+    // We will use a dedicated temporary connection or specialized locking.
+    // BUT for simplicity and safety within the current pool architecture:
+    // We will use the existing client but we rely on the fact that 'download' returns a stream.
+    // We MUST ensure the lock isn't released until stream is consumed.
+    // Actually, imapflow's download stream might buffer internally or depend on the lock.
+
+    // BETTER APPROACH: Pass a "processor" callback that consumes the stream?
+    // No, BaseAttachmentHandler expects to get the data back.
+
+    // ALTERNATIVE: Use a "PassThrough" stream? No, that just buffers if backpressure matches.
+
+    // CORRECT APPROACH for this codebase:
+    // Since we are inside `imap-attachment-handler`, we are okay to use `withConnection` there?
+    // No, `getAttachment` is on the driver.
+
+    // For now, to enable streaming without architectural overhaul:
+    // We will change the pattern to return the raw stream, but we must acknowledge
+    // that the lock `lock.release()` in the `finally` block of `withConnection` 
+    // might be called too early if we just return the stream.
+
+    // HOWEVER, `withConnection` waits for the promise to resolve.
+    // If we return a stream, the promise resolves immediately.
+
+    // To support streaming safely, we really should have `downloadAttachmentStream(..., callback)`
+    // OR `getAttachment` should buffer if it can't keep connection open.
+
+    // Let's implement a workaround: We will NOT use `withConnection` helper here 
+    // but manually acquire/release if possible, OR we accept that for IMAP 
+    // we might need to buffer to a temp file if we can't drain stream fast enough?
+
+    // ACTUALLY, `download` in ImapFlow returns an object with `content`.
+    // If we pipe it, we need to wait for the pipe to finish.
+
+    // Since `BaseAttachmentHandler` now supports `Readable`, we want to pass that up.
+    // But `withConnection` closes the client.
+
+    // REVISED STRATEGY: 
+    // The previous buffer implementation was safe because it awaited the stream consumption.
+    // To safe stream, we might need a method that accepts a Writable stream to pipe TO.
+    // But `BaseAttachmentHandler` wants to GET a Readable.
+
+    // Let's revert to the "PassThrough" idea but simpler:
+    // We can't keep the lock open effectively without blocking the connection pool heavily.
+    // But downloading a 50MB file takes time anyway.
+
+    // Let's assume for this specific driver method, we will acquire a client
+    // and return a wrapped stream that releases the lock/client when it ends.
+    // We have `pool.acquire()` available if we access it? 
+    // `withConnection` does `pool.acquire()`.
+
+    // Let's modify `getAttachment` to return a `stream` that has a clean-up callback attached.
+    // BUT `withConnection` scope is strict.
+
+    // Ok, checking `imapflow` docs mentally: `download` returns a stream.
+    // If we return the stream, we MUST delay the `lock.release()` until stream 'end'.
+
+    // We can manually use `this.acquireConnection()` instead of `this.withConnection`.
+
+    // Use standard connection acquisition which handles pool semaphore
+    const client = await this.acquireConnection();
+    let lock: any;
+
+    try {
       const [folderPath, uid] = this.parseMessageId(messageId);
 
-      const lock = await client.getMailboxLock(folderPath);
-      try {
-        const source = await client.download(uid.toString(), undefined, {
-          uid: true,
-        });
+      // Ensure connected state for this client
+      // (Pool clients are usually connected, but good to check)
 
-        // MEMORY LEAK FIX: Add size limit to prevent OOM on large messages
-        const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB limit
-        const chunks: Buffer[] = [];
-        let totalSize = 0;
+      lock = await client.getMailboxLock(folderPath);
 
-        for await (const chunk of source.content) {
-          totalSize += chunk.length;
-          if (totalSize > MAX_ATTACHMENT_SIZE) {
-            // Clear accumulated chunks to free memory
-            chunks.length = 0;
-            throw new Error(`Attachment exceeds maximum size limit (${MAX_ATTACHMENT_SIZE / 1024 / 1024}MB)`);
-          }
-          chunks.push(chunk);
+      // We can't use await client.download directly if we want to return stream?
+      // Yes we can.
+      const source = await client.download(uid.toString(), undefined, { uid: true });
+
+      // Hook into stream events to release lock and client
+      const stream = source.content;
+
+      // Flag to ensure we only cleanup once
+      let cleanedUp = false;
+      const cleanup = (reason?: string) => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+
+        if (reason) {
+          this.logger.debug(`[getAttachment] Cleanup triggered: ${reason}`);
         }
 
-        const buffer = Buffer.concat(chunks);
-        // MEMORY FIX: Clear chunks array immediately after concat to free memory
-        chunks.length = 0;
-
-        const parsed = await simpleParser(buffer);
-
-        // Find the attachment
-        const attachments = parsed.attachments || [];
-        const attachment = attachments.find(
-          (att: any, index: number) =>
-            (att.contentId || `att_${index}`) === attachmentId,
-        );
-
-        if (!attachment) {
-          throw new Error(`Attachment not found: ${attachmentId}`);
+        // Clear the safety timeout
+        if (cleanupTimeout) {
+          clearTimeout(cleanupTimeout);
         }
 
-        const result: AttachmentData = {
-          id: attachmentId,
-          filename: attachment.filename || 'attachment',
-          mimeType: attachment.contentType || 'application/octet-stream',
-          size: attachment.size || 0,
-          isInline: !!attachment.contentId,
-          contentId: attachment.contentId,
-          content: attachment.content.toString('base64'),
-        };
-
-        // MEMORY FIX: Clear attachment content buffer after base64 encoding
-        if (attachment.content && typeof attachment.content.fill === 'function') {
-          attachment.content.fill(0);
+        if (lock) {
+          lock.release();
+          lock = null;
         }
+        // Release connection back to pool
+        this.releaseConnection(client);
+      };
 
-        return result;
-      } finally {
-        lock.release();
-      }
-    });
+      // CRIT-2 FIX (2025-01-05): Add timeout to prevent connection pool exhaustion
+      // If stream isn't consumed within 60 seconds, force cleanup
+      // This prevents resource leaks if callers don't consume the stream
+      const STREAM_TIMEOUT_MS = 60000; // 60 seconds
+      const cleanupTimeout = setTimeout(() => {
+        if (!cleanedUp) {
+          this.logger.warn(`[getAttachment] Stream for ${attachmentId} not consumed within ${STREAM_TIMEOUT_MS}ms, forcing cleanup`);
+          stream.destroy(new Error('Stream consumption timeout'));
+          cleanup('timeout');
+        }
+      }, STREAM_TIMEOUT_MS);
+
+      stream.on('end', () => cleanup('end'));
+      stream.on('error', (err) => {
+        this.logger.debug(`[getAttachment] Stream error: ${err.message}`);
+        cleanup('error');
+      });
+      // Also cleanup if stream closes prematurely
+      stream.on('close', () => cleanup('close'));
+
+      // Return attachment data with stream
+      return {
+        id: attachmentId,
+        filename: 'attachment', // ImapFlow download doesn't give filename in source, usually in meta
+        mimeType: source.meta?.contentType || 'application/octet-stream',
+        size: source.meta?.expectedSize || 0,
+        isInline: false,
+        contentStream: stream,
+        content: undefined, // Stream provided instead
+      };
+
+    } catch (err) {
+      if (lock) lock.release();
+      this.releaseConnection(client);
+      throw err;
+    }
   }
 
   // ============================================

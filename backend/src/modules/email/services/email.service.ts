@@ -92,14 +92,13 @@ export class EmailService {
       this.logger.log(`Email sent to ${to}: ${subject}`);
       return result;
     } catch (error) {
-      // In development, SMTP server may not be configured
-      // Log the error but don't throw - allow application to continue
-      this.logger.warn(`Email delivery failed for ${to}: ${error instanceof Error ? error.message : String(error)}`);
-      return {
-        accepted: [to],
-        rejected: [],
-        messageId: 'dev-mock-' + Date.now(),
-      };
+      // CRIT-1 FIX (2025-01-05): Never return fake success for email delivery
+      // This was masking OTP/password reset failures - security critical!
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`[CRITICAL] Email delivery failed for ${to}: ${errorMessage}`);
+
+      // Throw instead of returning mock success - callers must handle failures
+      throw new Error(`Email delivery failed: ${errorMessage}`);
     }
   }
 }
