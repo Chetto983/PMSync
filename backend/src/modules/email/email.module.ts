@@ -22,6 +22,7 @@ import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageService } from './services/storage.service';
 import { ProviderTokenService } from '../email-sync/services/provider-token.service';
 import { CalendarModule } from '../calendar/calendar.module';
+import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module';
 
 /**
  * EmailModule - Core email functionality with observability
@@ -42,6 +43,7 @@ import { CalendarModule } from '../calendar/calendar.module';
     forwardRef(() => EmailSyncModule),
     forwardRef(() => CalendarModule),
     RealtimeModule,
+    ScheduledJobsModule, // For RedisLockService
   ],
   providers: [
     // Core services

@@ -62,7 +62,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
    */
   onModuleInit() {
     // Default batch size (providers can override)
-    this.batchSize = this.config.get<number>('SYNC_BATCH_SIZE', 100);
+    this.batchSize = this.config.get<number>('SYNC_BATCH_SIZE', 500);
 
     // Retry configuration
     this.retryMaxAttempts = this.config.get<number>('RETRY_MAX_ATTEMPTS', 3);
@@ -70,7 +70,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     this.retry5xxDelayMs = this.config.get<number>('RETRY_5XX_DELAY_MS', 2000);
 
     // Full sync limits
-    this.fullSyncMaxMessages = this.config.get<number>('FULL_SYNC_MAX_MESSAGES', 200);
+    this.fullSyncMaxMessages = this.config.get<number>('FULL_SYNC_MAX_MESSAGES', 1000);
   }
 
   /**

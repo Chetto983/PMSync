@@ -6,6 +6,8 @@ import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { StorageService } from './storage.service';
+import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 
 export interface EmailListFilters {
   folder?: string;
@@ -48,10 +50,16 @@ export class EmailsService {
     private knowledgeBaseService: KnowledgeBaseService,
     private realtimeEvents: RealtimeEventsService,
     private storageService: StorageService,
+    private cacheService: CacheService,
+    private redisLock: RedisLockService,
   ) { }
 
   /** Maximum emails per bulk operation to prevent DoS */
   private readonly MAX_BULK_EMAILS = 1000;
+
+  /** Redis-based distributed debounce config */
+  private readonly FOLDER_UPDATE_DEBOUNCE_MS = 5000;
+
 
   /**
    * Validate bulk operation input size
@@ -77,6 +85,14 @@ export class EmailsService {
     specialUseTypes: string[],
     providerId?: string,
   ): Promise<string[]> {
+    const cacheKey = `special-use:${tenantId}:${specialUseTypes.sort().join(',')}:${providerId || 'all'}`;
+
+    // Try cache first
+    const cached = await this.cacheService.get<string[]>(cacheKey, {
+      namespace: CacheNamespace.FOLDER_STRUCTURE
+    });
+    if (cached) return cached;
+
     const folders = await this.prisma.folder.findMany({
       where: {
         tenantId,
@@ -91,7 +107,16 @@ export class EmailsService {
       if (folder.name) paths.add(folder.name);
       if (folder.specialUse) paths.add(folder.specialUse);
     });
-    return Array.from(paths);
+
+    const result = Array.from(paths);
+
+    // Cache for 5 minutes
+    await this.cacheService.set(cacheKey, result, {
+      namespace: CacheNamespace.FOLDER_STRUCTURE,
+      ttl: 300
+    });
+
+    return result;
   }
 
   /**
@@ -117,11 +142,68 @@ export class EmailsService {
    * Recalculate and emit folder counts for affected folders
    * Only calculates if tenant has active WebSocket connections to avoid wasting resources
    */
+  /**
+   * Queue folder counts for update (distributed debounce via Redis)
+   */
   private async updateFolderCounts(
     tenantId: string,
     providerId: string,
     folders: string[],
   ) {
+    const listKey = `folder_updates:${tenantId}:${providerId}`;
+    const debounceLockKey = `folder_debounce:${tenantId}:${providerId}`;
+
+    // 1. Push folders to Redis List
+    // We use a list to accumulate all changed folders during the debounce window
+    await this.cacheService.lpush(listKey, folders, { namespace: CacheNamespace.FOLDER_METADATA });
+
+    // 2. Try to acquire execution lock
+    // If we acquire it, we are responsible for triggering the update after the debounce time.
+    // If we don't, someone else is already waiting to trigger it.
+    const lockId = await this.redisLock.acquireLock(debounceLockKey, this.FOLDER_UPDATE_DEBOUNCE_MS);
+
+    if (lockId) {
+      this.logger.debug(`Acquired folder update lock for ${tenantId}:${providerId}, scheduling run in ${this.FOLDER_UPDATE_DEBOUNCE_MS}ms`);
+
+      // We are the coordinator. Wait for the debounce window, then execute.
+      setTimeout(async () => {
+        try {
+          // Release lock first so next batch can start accumulating immediately if needed? 
+          // Actually, lock TTL expires automatically roughly now.
+          // We don't manually release here because we WANT it to block others during the wait.
+          // We proceed to process.
+          await this.executeFolderCountsUpdate(tenantId, providerId, listKey);
+        } catch (e) {
+          this.logger.error(`Error in scheduled folder update: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }, this.FOLDER_UPDATE_DEBOUNCE_MS);
+    }
+  }
+
+  /**
+   * Execute the actual folder count update (drains Redis list)
+   */
+  private async executeFolderCountsUpdate(
+    tenantId: string,
+    providerId: string,
+    listKey: string
+  ) {
+    // 1. Fetch all pending folders from Redis
+    // Range 0 to -1 gets all elements
+    const folders = await this.cacheService.lrange<string>(listKey, 0, -1, { namespace: CacheNamespace.FOLDER_METADATA });
+
+    // 2. Clear the list 
+    // (Note: Small race condition possible here if new items added between lrange and del,
+    // but acceptable for eventual consistency of folder counts)
+    await this.cacheService.del(listKey, { namespace: CacheNamespace.FOLDER_METADATA });
+
+    if (!folders || folders.length === 0) return;
+
+    // 3. Deduplicate
+    const uniqueFolders = Array.from(new Set(folders));
+
+    this.logger.debug(`Processing folder counts for ${uniqueFolders.length} folders (Tenant: ${tenantId})`);
+
     try {
       // Skip calculation if no active WebSocket connections for this tenant
       // This avoids wasting resources on inactive tenants
@@ -135,9 +217,9 @@ export class EmailsService {
         where: {
           providerId,
           OR: [
-            { path: { in: folders, mode: 'insensitive' } },
-            { name: { in: folders, mode: 'insensitive' } },
-            { specialUse: { in: folders, mode: 'insensitive' } },
+            { path: { in: uniqueFolders, mode: 'insensitive' } },
+            { name: { in: uniqueFolders, mode: 'insensitive' } },
+            { specialUse: { in: uniqueFolders, mode: 'insensitive' } },
           ],
         },
         select: { id: true, path: true, name: true, specialUse: true },
@@ -159,7 +241,7 @@ export class EmailsService {
       }
 
       // OPTIMIZATION: Run all folder count queries in parallel instead of sequentially
-      const countPromises = folders.map(async (folder) => {
+      const countPromises = uniqueFolders.map(async (folder) => {
         const folderKey = folder.toUpperCase();
         const folderRecord = folderMap.get(folderKey);
         const queryFolder = folderRecord?.path || folderRecord?.name || folder;
