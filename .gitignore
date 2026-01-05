@@ -84,7 +84,7 @@ docker-compose.override.yml
 .parcel-cache/
 
 # Claude Code local settings
-.claude/settings.local.json
+.claude/*
 
 # Backend specific
 backend/dist/
