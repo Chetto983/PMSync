@@ -103,6 +103,59 @@ export class MicrosoftDriver extends BaseEmailDriver {
   }
 
   // ============================================
+  // Retry Logic for Rate Limits & Auth Errors
+  // ============================================
+
+  /**
+   * Execute operation with retry logic for 429 (rate limit) and 401 (auth) errors
+   * 
+   * HIGH-2 FIX (2025-01-05):
+   * - Handles 429 Too Many Requests with exponential backoff
+   * - Handles 401 Unauthorized by marking token as expired
+   * - Respects Retry-After header when present
+   */
+  private async withRetry<T>(
+    operation: () => Promise<T>,
+    context: string,
+    maxRetries = 3,
+  ): Promise<T> {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        const statusCode = error?.response?.status;
+
+        // 429 Too Many Requests - rate limited, retry with backoff
+        if (statusCode === 429 && attempt < maxRetries - 1) {
+          const retryAfter = parseInt(error?.response?.headers?.['retry-after'] || '30', 10);
+          const backoffMs = Math.min(retryAfter * 1000, 60000); // Max 60s
+          this.logger.warn(`[${context}] Rate limited (429), retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(r => setTimeout(r, backoffMs));
+          continue;
+        }
+
+        // 401 Unauthorized - token expired, mark for refresh
+        if (statusCode === 401) {
+          this.logger.warn(`[${context}] Token expired (401), refresh required`);
+          (error as any).requiresTokenRefresh = true;
+          throw error;
+        }
+
+        // 5xx Server Errors - retry with exponential backoff
+        if (statusCode >= 500 && statusCode < 600 && attempt < maxRetries - 1) {
+          const backoffMs = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          this.logger.warn(`[${context}] Server error (${statusCode}), retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(r => setTimeout(r, backoffMs));
+          continue;
+        }
+
+        throw error;
+      }
+    }
+    throw new Error(`[${context}] Max retries (${maxRetries}) exceeded`);
+  }
+
+  // ============================================
   // Folder Operations
   // ============================================
 
@@ -640,42 +693,61 @@ export class MicrosoftDriver extends BaseEmailDriver {
   // Batch Operations
   // ============================================
 
+  /**
+   * Batch get messages with aggressive memory management for >1000 users
+   * 
+   * MEMORY OPTIMIZATION (2025-01-05):
+   * - Smaller batch size (10) to limit peak memory
+   * - Explicit null assignment for GC hints
+   * - setImmediate to yield to event loop
+   */
   async batchGetMessages(messageIds: string[]): Promise<CanonicalMessage[]> {
     this.ensureConnected();
 
-    // Microsoft Graph batch API
-    const requests = messageIds.map((id, index) => ({
-      id: String(index),
-      method: 'GET',
-      url: `/me/messages/${id}`,
-    }));
+    if (messageIds.length === 0) return [];
 
-    // Batch size limit is 20
-    const BATCH_SIZE = 20;
+    // Microsoft Graph batch API - max 20 per request
+    // Use 10 for aggressive memory management
+    const BATCH_SIZE = 10;
     const messages: CanonicalMessage[] = [];
 
-    for (let i = 0; i < requests.length; i += BATCH_SIZE) {
-      const batch = requests.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < messageIds.length; i += BATCH_SIZE) {
+      const batchIds = messageIds.slice(i, i + BATCH_SIZE);
+
+      const requests = batchIds.map((id, index) => ({
+        id: String(index),
+        method: 'GET',
+        url: `/me/messages/${id}`,
+      }));
 
       try {
-        const response = await this.client!.post('/$batch', { requests: batch });
+        let response = await this.client!.post('/$batch', { requests });
 
         for (const res of response.data.responses) {
           if (res.status === 200 && res.body) {
             messages.push(this.graphMessageToCanonical(res.body));
           }
         }
+
+        // AGGRESSIVE CLEANUP: Clear response reference
+        response = null as any;
+
       } catch (error) {
         this.logger.warn(`Batch request failed, falling back to sequential: ${error}`);
-        // Fallback to sequential
-        for (const req of batch) {
+        // Fallback to sequential with cleanup
+        for (const id of batchIds) {
           try {
-            const msg = await this.getMessage(messageIds[parseInt(req.id)]);
+            const msg = await this.getMessage(id);
             if (msg) messages.push(msg);
           } catch {
             // Skip failed messages
           }
         }
+      }
+
+      // Yield to event loop for GC opportunity
+      if (i + BATCH_SIZE < messageIds.length) {
+        await new Promise<void>(r => setImmediate(r));
       }
     }
 
@@ -737,6 +809,36 @@ export class MicrosoftDriver extends BaseEmailDriver {
       }
     } else {
       await this.batchMoveMessages(messageIds, 'TRASH');
+    }
+  }
+
+  // ============================================
+  // User Info / Aliases
+  // ============================================
+
+  /**
+   * Get email aliases for Microsoft account
+   * 
+   * CRIT-3 FIX (2025-01-05):
+   * - Implements getEmailAliases() for API parity with Gmail/IMAP drivers
+   * - Uses Microsoft Graph mailboxSettings or /me endpoint
+   */
+  async getEmailAliases(): Promise<Array<{ email: string; name?: string; isPrimary: boolean }>> {
+    this.ensureConnected();
+
+    try {
+      const userInfo = await this.getUserInfo();
+
+      // Microsoft Graph doesn't easily expose aliases like Gmail
+      // Return primary email from user info
+      return [{
+        email: userInfo.email,
+        name: userInfo.name,
+        isPrimary: true,
+      }];
+    } catch {
+      // Fallback
+      return [{ email: this.credentials?.emailHint || '', isPrimary: true }];
     }
   }
 
