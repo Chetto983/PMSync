@@ -2,6 +2,8 @@
 
 ## 🚨 CRITICAL: CONCURRENT EXECUTION & FILE MANAGEMENT
 
+## be  critical and sincere, don't please me, be cynical'!!!!!!'
+
 **ABSOLUTE RULES**:
 1. ALL operations MUST be concurrent/parallel in a single message
 2. **NEVER save working files, text/mds and tests to the root folder**
@@ -811,6 +813,118 @@ font-size: 0.8125rem; /* 13px subject */
 | Padding | 12px | 8px |
 | Checkbox | Show on hover | Always show |
 | Action bar | Floating on hover | Bottom sheet |
+
+## 🔧 BACKEND DEVELOPMENT PROCEDURE (Email Modules)
+
+### ⚠️ CRITICAL: Email Module Consolidation Rules
+
+**Entry Point**: `backend/docs/EMAIL_CONSOLIDATION_ENTRY.md`
+
+**BEFORE any email module changes:**
+1. Read the entry point document
+2. Check current phase status
+3. Run phase test BEFORE proceeding
+
+### 📋 Phase Execution Rules
+
+```
+PHASE 1 ──> PHASE 2 ──> PHASE 3 ──> ... ──> PHASE 9
+   │           │           │                   │
+   ▼           ▼           ▼                   ▼
+  TEST       TEST        TEST              PRODUCTION
+                                           STRESS TEST
+```
+
+**ABSOLUTE RULE**: Never proceed to next phase until current phase test PASSES.
+
+### 🧪 Real Tests Only (No Mocks, No Jest)
+
+| Phase | Test Command |
+|-------|--------------|
+| Prisma Retry | `npx ts-node backend/scripts/test-prisma-retry.ts` |
+| IMAP Utils | `npx ts-node backend/scripts/test-imap-sync.ts` |
+| Folder Utils | `npx ts-node backend/scripts/stress-test-atomic-sync.ts` |
+| Error Utils | `npm run type-check` |
+| Race Conditions | `npx ts-node backend/scripts/stress-test-multi-tenant.ts` |
+| Production | `npx ts-node backend/scripts/stress-test-production-scenarios.ts` |
+
+### 🚨 Production Stress Test Scenarios
+
+**Current tests pass but production fails!** Phase 9 TRIGGERS actual failures:
+
+1. **Multi-tenant concurrent sync** - 10 syncs at same second
+2. **Folder rename during sync** - Race between sync and folder ops
+3. **P2034 deadlock recovery** - Actual deadlock creation
+4. **System folder protection** - isSystem flag enforcement
+5. **Redis lock contention** - 20 workers compete for lock
+6. **Large batch operation** - 1000+ emails at once
+7. **Token expiry mid-sync** - OAuth expires during sync
+
+### 📁 Common Utils Location
+
+**All shared utilities go in `backend/src/common/`:**
+
+```
+common/
+├── utils/
+│   ├── imap-utils.ts      → parseImapExternalId
+│   ├── folder-utils.ts    → normalizeFolderName
+│   ├── error.utils.ts     → isNotFoundError, isRateLimitError
+│   └── format.utils.ts    → truncateText
+├── services/
+│   ├── prisma-retry.service.ts  → P2002/P2034 retry (TO CREATE)
+│   ├── redis-lock.service.ts    → Distributed locks
+│   └── retry.service.ts         → HTTP 429/5xx retry
+└── errors/
+    └── driver-error.ts          → StandardizedError class
+```
+
+### 🔒 Prisma Best Practices (v7.2)
+
+**Retry on these error codes:**
+- **P2002**: Unique constraint violation
+- **P2034**: Deadlock/write conflict (CURRENTLY MISSING!)
+
+**Pattern:**
+```typescript
+const isRetryable = error.code === 'P2002' || error.code === 'P2034';
+const delay = Math.min(100 * Math.pow(2, attempt), 2000); // Exponential backoff
+```
+
+### 🔐 Race Condition Fixes Required
+
+| Issue | File | Fix |
+|-------|------|-----|
+| RC-A1 | folder-sync.service.ts | Add Redis lock to syncProviderFolders |
+| RC-A8 | folder-sync.service.ts | Add Redis lock to folder CRUD |
+
+### ❌ Dead Code to Delete
+
+| File | Lines | Code |
+|------|-------|------|
+| base-email-sync.service.ts | 1314-1346 | extractPlainText (never called) |
+
+### 📚 Documentation Index
+
+| Document | Purpose |
+|----------|---------|
+| `EMAIL_CONSOLIDATION_ENTRY.md` | START HERE - Phase timeline |
+| `EMAIL_CONSOLIDATION_ROADMAP.md` | Detailed implementation |
+| `EMAIL_MODULES_CONSOLIDATION_MASTER.md` | Audit + Prisma 7.2 |
+| `EMAIL_SYNC_REFACTOR_PLAN.md` | Driver split (AFTER consolidation) |
+
+### 🧠 Memory Keys (ReasoningBank)
+
+```bash
+# Query email consolidation memory
+npx claude-flow@alpha memory query "email-consolidation" --namespace mailagent
+
+# Key memories stored:
+# - email-consolidation-roadmap-2025-01-04
+# - email-module-audit-2025-01-04
+# - email-duplication-map-2025-01-04
+# - prisma-7-features-2025-01-04
+```
 
 ## Support
 

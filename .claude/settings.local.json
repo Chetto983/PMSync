@@ -144,7 +144,12 @@
       "Bash(for section in \"commandPalette\" \"calendar.invitation\" \"calendar.ai\" \"contacts.tabs\" \"contacts.activity\" \"contacts.notes\")",
       "Bash(grep -n \"_selected\\\\|_search\\\\|_setSearch\" d:/MailAgent/frontend/components/dashboard/*.tsx)",
       "Bash(npm info:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(npx claude-flow:*)",
+      "Bash(npx claude-flow@alpha memory list:*)",
+      "Bash(npx claude-flow@alpha memory query:*)",
+      "Bash(npx madge:*)",
+      "Bash(wc -l \"D:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email\\\\services\"/*.ts)"
     ],
     "deny": []
   }
