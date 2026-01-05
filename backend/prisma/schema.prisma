@@ -111,14 +111,14 @@ model UserPreferences {
 }
 
 model DashboardPreference {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Active layout configuration
   // Stores array of { i: string, x: number, y: number, w: number, h: number }
-  layout    Json
-  
+  layout Json
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -320,7 +320,7 @@ model ProviderConfig {
 }
 
 model Email {
-  id                   String                  @id @default(cuid())
+  id                   String   @id @default(cuid())
   tenantId             String
   providerId           String
   externalId           String
@@ -330,31 +330,31 @@ model Email {
   references           String?
   from                 String
   to                   String[]
-  cc                   String[]                @default([])
-  bcc                  String[]                @default([])
+  cc                   String[] @default([])
+  bcc                  String[] @default([])
   replyTo              String?
   subject              String
   bodyText             String?
   bodyHtml             String?
   snippet              String?
-  folder               String                  @default("INBOX")
-  labels               String[]                @default([])
-  isRead               Boolean                 @default(false)
-  isStarred            Boolean                 @default(false)
-  isFlagged            Boolean                 @default(false)
-  isDraft              Boolean                 @default(false)
-  isDeleted            Boolean                 @default(false)
-  isArchived           Boolean                 @default(false)
+  folder               String   @default("INBOX")
+  labels               String[] @default([])
+  isRead               Boolean  @default(false)
+  isStarred            Boolean  @default(false)
+  isFlagged            Boolean  @default(false)
+  isDraft              Boolean  @default(false)
+  isDeleted            Boolean  @default(false)
+  isArchived           Boolean  @default(false)
   sentAt               DateTime
   receivedAt           DateTime
-  createdAt            DateTime                @default(now())
-  updatedAt            DateTime                @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
   size                 Int?
   headers              Json?
   metadata             Json?
   crossProviderLinkId  String?
   // Calendar invitation fields
-  hasCalendarInvite    Boolean                 @default(false)
+  hasCalendarInvite    Boolean  @default(false)
   calendarInviteData   Json? // ParsedCalendarInvite JSON
   calendarInviteStatus String? // pending | accepted | declined | tentative
   calendarEventId      String? // Link to created CalendarEvent
@@ -363,18 +363,18 @@ model Email {
   // Incremented on each update to detect concurrent modifications
   // User mutations (mark read, star, move) increment version
   // Sync operations check version before overwriting user changes
-  version              Int                     @default(1)
+  version Int @default(1)
 
   // RACE CONDITION FIX RC-2: Track last user modification
   // Sync skips overwriting fields if userModifiedAt > lastSyncedAt
-  userModifiedAt       DateTime?
+  userModifiedAt DateTime?
 
-  attachments          EmailAttachment[]
-  emailLabels          EmailLabel[]
-  crossProviderLink    EmailCrossProviderLink? @relation(fields: [crossProviderLinkId], references: [id])
-  provider             ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  followUp             EmailFollowUp?
+  attachments       EmailAttachment[]
+  emailLabels       EmailLabel[]
+  crossProviderLink EmailCrossProviderLink? @relation(fields: [crossProviderLinkId], references: [id])
+  provider          ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  followUp          EmailFollowUp?
 
   @@unique([providerId, externalId, folder]) // UIDs are unique per-folder, not globally
   @@unique([tenantId, messageId, folder]) // Allow same messageId in different folders
@@ -388,6 +388,14 @@ model Email {
   @@index([tenantId, providerId, folder, receivedAt]) // Provider-specific folder listing
   @@index([tenantId, isStarred, receivedAt]) // Starred emails listing
   @@index([tenantId, providerId, isDeleted]) // Provider deletion queries
+  // HIGH-4 FIX (2025-01-05): Composite index for count queries (unread count per folder)
+  @@index([providerId, folder, isRead])
+  // Search optimization indexes (avoid embedding costs)
+  @@index([tenantId, from]) // "email from Mario"
+  @@index([tenantId, isFlagged]) // Flagged email listing
+  // GIN trigram indexes for partial text search (LIKE '%keyword%')
+  @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin) // Subject search
+  @@index([from(ops: raw("gin_trgm_ops"))], type: Gin) // Sender search with partial match
   @@map("emails")
 }
 
@@ -602,6 +610,10 @@ model CalendarEvent {
   @@index([tenantId, calendarId, startTime])
   @@index([tenantId, providerId, startTime])
   @@index([iCalUID])
+  // Search optimization (avoid embedding costs)
+  @@index([tenantId, title]) // "call with Mario"
+  // GIN trigram index for partial title search
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("calendar_events")
 }
 
@@ -753,6 +765,8 @@ model Contact {
   // P1.7 CRM Intelligence indexes
   @@index([tenantId, lastInteractedAt])
   @@index([tenantId, relationshipScore])
+  // GIN trigram index for partial name search (avoid embedding costs)
+  @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin) // "find Mario"
   @@map("unified_contacts")
 }
 
@@ -1122,11 +1136,11 @@ model MemoryChangeLog {
   id            String   @id @default(cuid())
   tenantId      String
   userId        String
-  memoryId      String   // Reference to UserProfileEmbedding.id
-  action        String   // CREATE, UPDATE, DELETE
+  memoryId      String // Reference to UserProfileEmbedding.id
+  action        String // CREATE, UPDATE, DELETE
   previousValue String?  @db.Text // Old content (for UPDATE/DELETE)
   newValue      String?  @db.Text // New content (for CREATE/UPDATE)
-  metadata      Json?    // Additional context (trigger, confidence change, etc.)
+  metadata      Json? // Additional context (trigger, confidence change, etc.)
   createdAt     DateTime @default(now())
 
   @@index([tenantId, userId])
@@ -1138,28 +1152,28 @@ model MemoryChangeLog {
 /// Procedural Pattern for task learning (2025 Memp/PRAXIS inspired)
 /// Stores successful action sequences that can be retrieved for similar tasks
 model ProceduralPattern {
-  id          String                @id @default(cuid())
-  tenantId    String
-  userId      String
-  
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+
   // Pattern identification
-  taskType    String   // "email_reply", "schedule_meeting", "follow_up", etc.
-  trigger     String   @db.Text // What triggered this pattern (user request summary)
-  
+  taskType String // "email_reply", "schedule_meeting", "follow_up", etc.
+  trigger  String @db.Text // What triggered this pattern (user request summary)
+
   // The learned procedure
-  steps       Json     // Array of action steps: [{tool, args, result}]
-  context     String?  @db.Text // Relevant context that led to success
-  
+  steps   Json // Array of action steps: [{tool, args, result}]
+  context String? @db.Text // Relevant context that led to success
+
   // Effectiveness tracking
-  successCount Int     @default(1) // Times this pattern succeeded
-  failureCount Int     @default(0) // Times this pattern failed
+  successCount Int       @default(1) // Times this pattern succeeded
+  failureCount Int       @default(0) // Times this pattern failed
   lastUsedAt   DateTime?
-  
+
   // Vector for semantic matching
-  vector      Unsupported("vector")? // Embedding of trigger for similarity search
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  vector Unsupported("vector")? // Embedding of trigger for similarity search
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   user User @relation("ProceduralPatternsToUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -1427,7 +1441,7 @@ model EmailFollowUp {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  email     Email    @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  email Email @relation(fields: [emailId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId])
   @@index([tenantId, userId, status])
@@ -1484,8 +1498,6 @@ enum ContactInteractionType {
   CALL
   NOTE
 }
-
-
 
 /// Tracks deadlines extracted from emails and calendar
 model AiDeadline {

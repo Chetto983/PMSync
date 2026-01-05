@@ -399,34 +399,43 @@ async function scenario7_TokenExpiryDuringSync(): Promise<{ passed: boolean; det
   let allValid = true;
 
   for (const provider of providers) {
-    const hasAccessToken = !!provider.accessToken;
     const hasRefreshToken = !!provider.refreshToken;
     const hasExpiry = !!provider.tokenExpiresAt;
+    const isImap = provider.providerType.toLowerCase() === 'imap';
+
+    // IMAP uses password auth, not tokens - always OK
+    if (isImap) {
+      providerStatus.push(`${provider.providerType}:${provider.email} - OK (password auth)`);
+      continue;
+    }
 
     // OAuth providers (google, microsoft) should have refresh tokens
-    if (provider.providerType !== 'imap') {
-      if (!hasRefreshToken) {
-        allValid = false;
-        providerStatus.push(`${provider.providerType}:${provider.email} - NO REFRESH TOKEN`);
-      } else if (!hasExpiry) {
-        allValid = false;
-        providerStatus.push(`${provider.providerType}:${provider.email} - NO EXPIRY`);
-      } else {
-        providerStatus.push(`${provider.providerType}:${provider.email} - OK`);
-      }
+    if (!hasRefreshToken) {
+      allValid = false;
+      providerStatus.push(`${provider.providerType}:${provider.email} - NO REFRESH TOKEN`);
+    } else if (!hasExpiry) {
+      allValid = false;
+      providerStatus.push(`${provider.providerType}:${provider.email} - NO EXPIRY`);
     } else {
-      // IMAP uses password auth, not tokens
-      providerStatus.push(`${provider.providerType}:${provider.email} - OK (password auth)`);
+      providerStatus.push(`${provider.providerType}:${provider.email} - OK`);
     }
   }
 
+  // Only show OAuth providers in details (not hundreds of IMAP password auth)
+  const oauthStatus = providerStatus.filter(s => !s.includes('password auth'));
+  const imapCount = providerStatus.filter(s => s.includes('password auth')).length;
+
   if (!allValid) {
-    return { passed: false, details: providerStatus.join(', ') };
+    return { passed: false, details: oauthStatus.join(', ') };
   }
+
+  const summary = oauthStatus.length > 0
+    ? `${oauthStatus.join(', ')}${imapCount > 0 ? ` + ${imapCount} IMAP (password auth)` : ''}`
+    : `${imapCount} IMAP providers (all password auth)`;
 
   return {
     passed: true,
-    details: `${providers.length} providers have valid token configuration`,
+    details: `${providers.length} providers verified: ${summary}`,
   };
 }
 

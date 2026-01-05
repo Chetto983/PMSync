@@ -371,11 +371,12 @@ export class AttachmentStorageService {
     let dedupMissCount = 0;
     let totalBytes = 0;
 
-    // Process with concurrency limit
-    const inFlight: Promise<void>[] = [];
+    // HIGH-7 FIX (2025-01-05): Fixed concurrency bug - old code could exceed limit by 2x
+    // because each worker in the initial batch spawned another worker on completion.
+    // New implementation uses a proper worker pool pattern.
     let index = 0;
 
-    const processNext = async () => {
+    const processNext = async (): Promise<void> => {
       const currentIndex = index++;
       if (currentIndex >= attachments.length) return;
 
@@ -403,22 +404,21 @@ export class AttachmentStorageService {
       }
     };
 
-    // Start initial batch up to concurrency limit
+    // HIGH-7 FIX: Proper worker pool - each worker loops until all items processed
+    const createWorker = async (): Promise<void> => {
+      while (index < attachments.length) {
+        await processNext();
+      }
+    };
+
+    // Start exactly 'concurrency' workers, each processing items until done
+    const workers: Promise<void>[] = [];
     for (let i = 0; i < Math.min(concurrency, attachments.length); i++) {
-      const promise = processNext().then(() => {
-        // When done, process next if available
-        return processNext();
-      });
-      inFlight.push(promise);
+      workers.push(createWorker());
     }
 
-    // Wait for all to complete
-    await Promise.all(inFlight);
-
-    // Process any remaining items
-    while (index < attachments.length) {
-      await processNext();
-    }
+    // Wait for all workers to complete
+    await Promise.all(workers);
 
     const durationMs = Date.now() - startTime;
 

@@ -321,9 +321,13 @@ export class ProviderTokenService {
   /**
    * Wait for a lock to be released by another instance
    * Uses RedisLockService.isLocked for checking lock status
+   * HIGH-6 FIX (2025-01-05): Use exponential backoff instead of constant polling
+   * to reduce CPU waste during lock contention
    */
   private async waitForLockRelease(key: string): Promise<void> {
     const startTime = Date.now();
+    let currentInterval = this.POLL_INTERVAL_MS; // Start at 100ms
+    const MAX_INTERVAL = 1000; // Cap at 1 second
 
     while (Date.now() - startTime < this.MAX_WAIT_MS) {
       const lockInfo = await this.redisLock.isLocked(key);
@@ -331,7 +335,9 @@ export class ProviderTokenService {
         return; // Lock released
       }
 
-      await new Promise((resolve) => setTimeout(resolve, this.POLL_INTERVAL_MS));
+      // HIGH-6 FIX: Exponential backoff (100ms -> 200ms -> 400ms -> 800ms -> 1000ms cap)
+      await new Promise((resolve) => setTimeout(resolve, currentInterval));
+      currentInterval = Math.min(currentInterval * 2, MAX_INTERVAL);
     }
 
     this.logger.warn(`Lock wait timeout for ${key}`);

@@ -388,10 +388,19 @@ export class IMAPDriver extends BaseEmailDriver {
 
   /**
    * Stop the IDLE subscription and close the dedicated connection
+   * HIGH-3 FIX (2025-01-05): Explicitly remove event listeners to prevent memory accumulation
    */
   private async stopIdleSubscription(): Promise<void> {
     if (this.idleConnection) {
       try {
+        // HIGH-3 FIX: Remove all event listeners before closing to prevent memory leaks
+        // These listeners hold references to callback functions and 'this' context
+        this.idleConnection.removeAllListeners('exists');
+        this.idleConnection.removeAllListeners('expunge');
+        this.idleConnection.removeAllListeners('flags');
+        this.idleConnection.removeAllListeners('error');
+        this.idleConnection.removeAllListeners('close');
+
         if (this.idleConnection.usable) {
           await this.idleConnection.logout();
         }

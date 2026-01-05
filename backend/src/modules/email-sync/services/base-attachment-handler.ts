@@ -133,26 +133,49 @@ export abstract class BaseAttachmentHandler {
       for (const attachment of attachments) {
         try {
           // Calendar detection (side effect: updates email record)
+          // HIGH-5 FIX (2025-01-05): Add structured error logging for calendar invite parsing
           if (
             this.icsParser.isCalendarAttachment(
               attachment.mimeType,
               attachment.filename,
             )
           ) {
-            const data = await downloadFn(attachment.id);
+            try {
+              const data = await downloadFn(attachment.id);
 
-            if (data) {
-              const parsed = await this.icsParser.parseIcs(
-                data.toString('utf-8'),
-              );
-              if (parsed) {
-                await this.saveCalendarInvite(
-                  emailId,
-                  tenantId,
-                  providerId,
-                  parsed,
+              if (data) {
+                const parsed = await this.icsParser.parseIcs(
+                  data.toString('utf-8'),
+                );
+                if (parsed) {
+                  await this.saveCalendarInvite(
+                    emailId,
+                    tenantId,
+                    providerId,
+                    parsed,
+                  );
+                } else {
+                  // HIGH-5 FIX: Log when ICS parsing returns null (invalid/empty calendar)
+                  this.logger.warn(
+                    `Calendar invite parsing returned null for ${attachment.filename} ` +
+                    `(email: ${emailId}, size: ${attachment.size} bytes)`,
+                  );
+                }
+              } else {
+                // HIGH-5 FIX: Log when calendar attachment download fails
+                this.logger.warn(
+                  `Failed to download calendar attachment ${attachment.filename} ` +
+                  `(email: ${emailId}, attachmentId: ${attachment.id})`,
                 );
               }
+            } catch (calendarErr) {
+              // HIGH-5 FIX: Log calendar parsing errors with full context (don't swallow!)
+              const errMsg = calendarErr instanceof Error ? calendarErr.message : String(calendarErr);
+              this.logger.error(
+                `Calendar invite parsing failed for ${attachment.filename} ` +
+                `(email: ${emailId}, provider: ${this.providerType}): ${errMsg}`,
+              );
+              // Continue processing other attachments - don't fail the whole email
             }
           }
 
