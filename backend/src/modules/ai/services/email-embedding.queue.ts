@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { KnowledgeBaseService } from './knowledge-base.service';
 import { DeadLetterQueueService } from '../../../common/services/dead-letter-queue.service';
 import { AlertingService } from '../../../common/services/alerting.service';
+import { isRateLimitError } from '../../../common/utils/error.utils';
 import {
   getRedisConnectionOptions,
   getDefaultJobOptions,
@@ -97,7 +98,7 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
         try {
           return await this.knowledgeBaseService.createEmbeddingForEmail(job.data);
         } catch (error) {
-          if (this.isRateLimitError(error)) {
+          if (isRateLimitError(error)) {
             const delayMs = this.computeBackoffDelay(job.attemptsMade, error);
             this.logger.warn(
               `Rate limit hit for email embedding job ${job.id}. Retry ${job.attemptsMade + 1}/${job.opts.attempts} in ${Math.round(delayMs / 1000)}s`,
@@ -179,6 +180,14 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
 
   async enqueueMany(jobs: EmailEmbeddingJob[]): Promise<void> {
     if (!jobs.length) return;
+
+    // Check if embeddings are disabled (for stress testing)
+    const embeddingsEnabled = this.config.get<boolean>('ai.features.embeddingsEnabled');
+    const aiEnabled = this.config.get<boolean>('ai.features.aiEnabled');
+    if (embeddingsEnabled === false || aiEnabled === false) {
+      this.logger.debug(`Embeddings disabled (DISABLE_EMBEDDINGS=${!embeddingsEnabled}, DISABLE_AI=${!aiEnabled}), skipping ${jobs.length} jobs`);
+      return;
+    }
 
     // Prevent memory leak: clear seenIds if it grows too large
     if (this.seenIds.size > this.MAX_SEEN_IDS) {
@@ -304,39 +313,8 @@ export class EmailEmbeddingQueueService implements OnModuleInit, OnModuleDestroy
     return removed;
   }
 
-  private isRateLimitError(error: unknown): boolean {
-    if (!error) {
-      return false;
-    }
-
-    // Type guard for error objects with potential status codes
-    const err = error as Record<string, unknown>;
-    const response = err.response as Record<string, unknown> | undefined;
-
-    // Check HTTP status codes
-    const possibleStatus =
-      err.status ??
-      err.statusCode ??
-      response?.status ??
-      response?.statusCode;
-
-    if (typeof possibleStatus === 'number' && possibleStatus === 429) {
-      return true;
-    }
-
-    // Check error message for rate limit indicators
-    if (error instanceof Error && typeof error.message === 'string') {
-      const msg = error.message.toLowerCase();
-      return (
-        msg.includes('429') ||
-        msg.includes('rate limit') ||
-        msg.includes('too many requests') ||
-        msg.includes('quota exceeded')
-      );
-    }
-
-    return false;
-  }
+  // NOTE: isRateLimitError DELETED - use import from common/utils/error.utils
+  // Consolidated in Phase 4 (2025-01-05)
 
   /**
    * Extract Retry-After value from error response (in seconds)

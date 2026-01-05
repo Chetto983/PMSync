@@ -29,7 +29,7 @@ import { CryptoService } from '../../../common/services/crypto.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { QUEUE_NAMES } from '../../../common/config';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
-import { parseImapExternalId as parseImapExternalIdShared } from '../utils/imap.utils';
+import { parseImapExternalId as parseImapExternalIdShared } from '../../../common/utils/imap-utils';
 
 @Injectable()
 export class SyncBackWorker extends BaseWorker<SyncBackJobData, SyncBackJobResult> {

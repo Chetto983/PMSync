@@ -149,7 +149,9 @@
       "Bash(npx claude-flow@alpha memory list:*)",
       "Bash(npx claude-flow@alpha memory query:*)",
       "Bash(npx madge:*)",
-      "Bash(wc -l \"D:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email\\\\services\"/*.ts)"
+      "Bash(wc -l \"D:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\email\\\\services\"/*.ts)",
+      "Bash(source:*)",
+      "Bash(DISABLE_EMBEDDINGS=true npx ts-node:*)"
     ],
     "deny": []
   }

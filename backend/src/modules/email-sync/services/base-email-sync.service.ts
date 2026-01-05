@@ -1,7 +1,5 @@
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as cheerio from 'cheerio';
-import { decode } from 'he';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { SyncJobData, SyncJobResult } from '../interfaces/sync-job.interface';
@@ -1054,9 +1052,10 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       });
     });
 
-    // Execute all upserts in a single transaction with P2002 retry logic
-    // Per Prisma best practices: handle P2002 (unique constraint) and retry
+    // Execute all upserts in a single transaction with P2002/P2034 retry logic
+    // Per Prisma best practices: handle P2002 (unique constraint) and P2034 (deadlock) and retry
     // See: https://github.com/prisma/prisma/issues/3242
+    // P2034: Transaction failed due to a write conflict or deadlock
     const MAX_RETRIES = 3;
     let retryCount = 0;
     let results: Awaited<ReturnType<typeof this.prisma.email.upsert>>[];
@@ -1067,12 +1066,14 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         break; // Success - exit retry loop
       } catch (error: unknown) {
         const isPrismaError = error && typeof error === 'object' && 'code' in error;
-        const isP2002 = isPrismaError && (error as { code: string }).code === 'P2002';
+        const errorCode = isPrismaError ? (error as { code: string }).code : null;
+        const isRetryable = errorCode === 'P2002' || errorCode === 'P2034';
 
-        if (isP2002 && retryCount < MAX_RETRIES) {
+        if (isRetryable && retryCount < MAX_RETRIES) {
           retryCount++;
+          const errorType = errorCode === 'P2002' ? 'unique constraint' : 'deadlock/write conflict';
           this.logger.warn(
-            `P2002 unique constraint error on batch upsert (attempt ${retryCount}/${MAX_RETRIES}). ` +
+            `${errorCode} ${errorType} error on batch upsert (attempt ${retryCount}/${MAX_RETRIES}). ` +
               `Retrying in ${100 * retryCount}ms...`,
           );
           // Exponential backoff: 100ms, 200ms, 300ms
@@ -1162,188 +1163,15 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
   // Folder Name Normalization
   // ============================================
 
-  /**
-   * Normalize folder name to standard mailbox folders
-   * Supports internationalization (English, Italian, German)
-   * Returns UPPERCASE folder names to match database conventions
-   *
-   * @param folderName - The raw folder name from the provider
-   * @returns Normalized folder name in UPPERCASE (e.g., 'INBOX', 'SENT', 'TRASH')
-   */
-  protected normalizeFolderName(folderName: string): string {
-    const lowerName = folderName.toLowerCase().trim();
-
-    // INBOX variations (English, Italian, German)
-    if (lowerName === 'inbox' || lowerName === 'posta in arrivo' || lowerName === 'posteingang') {
-      return 'INBOX';
-    }
-
-    // SENT variations
-    if (
-      lowerName === 'sent items' ||
-      lowerName === 'sentitems' ||
-      lowerName === 'sent' ||
-      lowerName === 'sent mail' ||
-      lowerName === 'posta inviata' ||
-      lowerName === 'inviata' ||
-      lowerName === 'elementi inviati'
-    ) {
-      return 'SENT';
-    }
-
-    // TRASH/DELETED variations
-    if (
-      lowerName === 'deleted items' ||
-      lowerName === 'deleteditems' ||
-      lowerName === 'trash' ||
-      lowerName === 'deleted' ||
-      lowerName === 'posta eliminata' ||
-      lowerName === 'cestino' ||
-      lowerName === 'eliminata'
-    ) {
-      return 'TRASH';
-    }
-
-    // DRAFTS variations
-    if (lowerName === 'drafts' || lowerName === 'bozze' || lowerName === 'draft') {
-      return 'DRAFTS';
-    }
-
-    // SPAM/JUNK variations
-    if (
-      lowerName === 'junk email' ||
-      lowerName === 'junk' ||
-      lowerName === 'spam' ||
-      lowerName === 'posta indesiderata' ||
-      lowerName === 'post indiserata'
-    ) {
-      return 'SPAM';
-    }
-
-    // ARCHIVE variations
-    if (
-      lowerName === 'archive' ||
-      lowerName === 'archivia' ||
-      lowerName === 'archivio' ||
-      lowerName === 'archived' ||
-      lowerName === 'all mail'
-    ) {
-      return 'ARCHIVE';
-    }
-
-    // IMPORTANT/STARRED variations
-    if (lowerName === 'important' || lowerName === 'starred') {
-      return 'IMPORTANT';
-    }
-
-    // Return original name in uppercase if no match
-    return folderName.toUpperCase();
-  }
+  // NOTE: normalizeFolderName DELETED - use folderNameToCanonical from canonical.types.ts
+  // Consolidated in Phase 3 (2025-01-05) - canonical version has 75+ folder names in 5 languages
 
 
 
 
-
-
-
-  /**
-   * Check if an error is a "not found" error (404, resource not found, etc.)
-   *
-   * @param error - The error to check
-   * @returns True if the error indicates a resource was not found
-   */
-  protected isNotFoundError(error: unknown): boolean {
-    if (error instanceof Error) {
-      const message = error.message.toLowerCase();
-      return (
-        message.includes('not found') ||
-        message.includes('404') ||
-        message.includes('does not exist') ||
-        message.includes('deleted')
-      );
-    }
-
-    // Check for HTTP status codes in error object
-    const errorObj = error as any;
-    const status = errorObj?.response?.status ?? errorObj?.status ?? errorObj?.statusCode;
-    if (status === 404 || status === 410) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Check if an error is a rate limit error (429)
-   *
-   * @param error - The error to check
-   * @returns True if the error indicates rate limiting
-   */
-  protected isRateLimitError(error: unknown): boolean {
-    if (error instanceof Error) {
-      const message = error.message.toLowerCase();
-      if (message.includes('rate limit') || message.includes('429')) {
-        return true;
-      }
-    }
-
-    const errorObj = error as any;
-    const status = errorObj?.response?.status ?? errorObj?.status ?? errorObj?.statusCode;
-    return status === 429;
-  }
-
-  /**
-   * Check if an error is a server error (5xx)
-   *
-   * @param error - The error to check
-   * @returns True if the error is a server error
-   */
-  protected isServerError(error: unknown): boolean {
-    const errorObj = error as any;
-    const status = errorObj?.response?.status ?? errorObj?.status ?? errorObj?.statusCode;
-    return typeof status === 'number' && status >= 500 && status < 600;
-  }
-
-  /**
-   * Extract plain text from HTML content
-   * Uses cheerio for robust HTML parsing and 'he' for proper entity decoding
-   *
-   * @param html - The HTML content to convert
-   * @returns Plain text with normalized whitespace
-   */
-  protected extractPlainText(html: string | undefined): string {
-    if (!html) return '';
-
-    try {
-      // Load HTML into cheerio
-      const $ = cheerio.load(html);
-
-      // Remove script and style tags
-      $('script, style').remove();
-
-      // Extract text content
-      let text = $.text();
-
-      // Decode HTML entities
-      text = decode(text);
-
-      // Normalize whitespace
-      text = text.replace(/\s+/g, ' ').trim();
-
-      return text;
-    } catch (error) {
-      // Fallback to basic regex if cheerio fails
-      this.logger.warn(
-        `Failed to parse HTML with cheerio, using fallback: ${this.extractErrorMessage(error)}`,
-      );
-
-      let text = html.replace(/<[^>]*>/g, ' ');
-      text = decode(text);
-      text = text.replace(/\s+/g, ' ').trim();
-
-      return text;
-    }
-  }
+  // NOTE: isNotFoundError, isRateLimitError, isServerError DELETED
+  // Use imports from common/utils/error.utils if needed
+  // Consolidated in Phase 4 (2025-01-05) - these were DEAD CODE (never called)
 
   /**
    * Truncate text to a maximum length

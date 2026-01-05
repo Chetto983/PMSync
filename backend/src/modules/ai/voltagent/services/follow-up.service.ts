@@ -413,7 +413,7 @@ Return JSON ONLY:
     // If LLM says FALSE, check if Regex was SUPER confident? No, that defeats "don't be stupid".
     // If LLM is unavailable (error caught), we should fallback to regex.
 
-    let finalDecision = llmResult;
+    const finalDecision = llmResult;
 
     // If LLM returned false/null BUT it was an error case (implicit in our implementation catch block?) 
     // Our implementation returns { needsFollowUp: false } on error.

@@ -90,6 +90,10 @@ export default registerAs('ai', () => ({
   // Feature Flags
   // ===========================================
   features: {
+    /** Master kill switch - disables ALL AI operations (use for stress testing) */
+    aiEnabled: process.env.DISABLE_AI !== 'true',
+    /** Disable only embeddings (use for stress testing) */
+    embeddingsEnabled: process.env.DISABLE_EMBEDDINGS !== 'true',
     smartRepliesEnabled: process.env.AI_SMART_REPLIES !== 'false',
     summarizationEnabled: process.env.AI_SUMMARIZATION !== 'false',
     schedulingEnabled: process.env.AI_SCHEDULING !== 'false',

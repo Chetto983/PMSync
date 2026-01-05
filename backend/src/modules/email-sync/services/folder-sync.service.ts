@@ -7,6 +7,7 @@ import { google } from 'googleapis';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { ProviderTokenService } from './provider-token.service';
 import { GmailFolderService } from './gmail/gmail-folder.service';
+import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { folderNameToCanonical, isSystemFolder, CORE_SYSTEM_FOLDERS } from '../drivers/interfaces/canonical.types';
 
 export interface FolderInfo {
@@ -49,29 +50,36 @@ export class FolderSyncService {
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly providerTokenService: ProviderTokenService,
     private readonly gmailFolderService: GmailFolderService,
+    private readonly redisLock: RedisLockService,
   ) { }
 
   /**
    * Sync folders for any provider type
+   * RC-A1: Protected by Redis lock to prevent concurrent folder syncs
    */
   async syncProviderFolders(tenantId: string, providerId: string): Promise<void> {
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
+    const lockKey = `folder-sync:${providerId}`;
+    const lockTtl = 60000; // 60 seconds - folder sync should complete within this time
+
+    await this.redisLock.withLock(lockKey, lockTtl, async () => {
+      const provider = await this.prisma.providerConfig.findUnique({
+        where: { id: providerId },
+      });
+
+      if (!provider) {
+        throw new Error(`Provider ${providerId} not found`);
+      }
+
+      if (provider.providerType === 'imap') {
+        await this.syncImapFolders(tenantId, providerId);
+      } else if (provider.providerType === 'google') {
+        await this.syncGmailFolders(tenantId, providerId);
+      } else if (provider.providerType === 'microsoft') {
+        await this.syncMicrosoftFolders(tenantId, providerId);
+      } else {
+        throw new Error(`Unsupported provider type: ${provider.providerType}`);
+      }
     });
-
-    if (!provider) {
-      throw new Error(`Provider ${providerId} not found`);
-    }
-
-    if (provider.providerType === 'imap') {
-      await this.syncImapFolders(tenantId, providerId);
-    } else if (provider.providerType === 'google') {
-      await this.syncGmailFolders(tenantId, providerId);
-    } else if (provider.providerType === 'microsoft') {
-      await this.syncMicrosoftFolders(tenantId, providerId);
-    } else {
-      throw new Error(`Unsupported provider type: ${provider.providerType}`);
-    }
   }
 
   /**
@@ -399,6 +407,9 @@ export class FolderSyncService {
       const newPaths = new Set<string>(
         labels
           .filter((l): l is { id: string; name: string } => !!l.id && !!l.name)
+          // Only skip CATEGORY_PERSONAL - it maps to 'INBOX' path and conflicts with INBOX label
+          // Other CATEGORY_ labels (SOCIAL, PROMOTIONS, etc.) are useful for frontend filtering
+          .filter((l) => l.id !== 'CATEGORY_PERSONAL')
           .map((label) => this.gmailFolderService.getFolderPathForLabel(label.id, label.name)),
       );
 
@@ -418,6 +429,13 @@ export class FolderSyncService {
 
       for (const label of labels) {
         if (!label.id || !label.name) continue;
+
+        // CRITICAL: Only skip CATEGORY_PERSONAL - it maps to 'INBOX' path and conflicts with INBOX label
+        // Keep other CATEGORY_ labels (SOCIAL, PROMOTIONS, etc.) for frontend filtering
+        if (label.id === 'CATEGORY_PERSONAL') {
+          this.logger.debug(`Skipping CATEGORY_PERSONAL label (conflicts with INBOX path)`);
+          continue;
+        }
 
         const folderPath = this.gmailFolderService.getFolderPathForLabel(label.id, label.name);
         const folderName = folderPath;
@@ -847,47 +865,11 @@ export class FolderSyncService {
     }
 
     // Also include the normalized version of the folder name
-    const normalized = this.normalizeFolderName(folder.name);
+    // Uses folderNameToCanonical from canonical.types.ts (75+ folder names, 5 languages)
+    const normalized = folderNameToCanonical(folder.name);
     keys.add(normalized);
 
     return Array.from(keys);
-  }
-
-  private normalizeFolderName(name: string): string {
-    const lowerName = name.toLowerCase().trim();
-
-    if (lowerName === 'inbox' || lowerName === 'posta in arrivo' || lowerName === 'posteingang') return 'INBOX';
-    if (
-      lowerName === 'sent items' ||
-      lowerName === 'sentitems' ||
-      lowerName === 'sent' ||
-      lowerName === 'posta inviata' ||
-      lowerName === 'inviata' ||
-      lowerName === 'elementi inviati'
-    )
-      return 'SENT';
-    if (
-      lowerName === 'deleted items' ||
-      lowerName === 'deleteditems' ||
-      lowerName === 'trash' ||
-      lowerName === 'posta eliminata' ||
-      lowerName === 'cestino' ||
-      lowerName === 'eliminata'
-    )
-      return 'TRASH';
-    if (lowerName === 'drafts' || lowerName === 'bozze' || lowerName === 'draft') return 'DRAFTS';
-    if (
-      lowerName === 'junk email' ||
-      lowerName === 'junk' ||
-      lowerName === 'spam' ||
-      lowerName === 'posta indesiderata' ||
-      lowerName === 'post indiserata'
-    )
-      return 'SPAM';
-    if (lowerName === 'archive' || lowerName === 'archivia' || lowerName === 'archivio' || lowerName === 'all mail')
-      return 'ARCHIVE';
-
-    return name.toUpperCase();
   }
 
   // ========== FOLDER AUDIT ==========
@@ -1035,9 +1017,11 @@ export class FolderSyncService {
   }
 
   // ========== FOLDER CRUD OPERATIONS ==========
+  // RC-A8: All CRUD operations protected by Redis locks
 
   /**
    * Create a new folder on the mail server and in database
+   * RC-A8: Protected by Redis lock to prevent concurrent folder operations
    */
   async createFolder(
     tenantId: string,
@@ -1045,48 +1029,54 @@ export class FolderSyncService {
     name: string,
     parentPath?: string,
   ): Promise<{ id: string; path: string; name: string }> {
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
+    const lockKey = `folder-crud:${providerId}`;
+    const lockTtl = 30000; // 30 seconds
+
+    return this.redisLock.withLock(lockKey, lockTtl, async () => {
+      const provider = await this.prisma.providerConfig.findUnique({
+        where: { id: providerId },
+      });
+
+      if (!provider) {
+        throw new Error(`Provider ${providerId} not found`);
+      }
+
+      this.logger.log(`Creating folder "${name}" for provider ${providerId} (type: ${provider.providerType})`);
+
+      let result: { externalId: string; path: string };
+
+      if (provider.providerType === 'imap') {
+        result = await this.createImapFolder(providerId, name, parentPath);
+      } else if (provider.providerType === 'google') {
+        result = await this.createGmailLabel(providerId, name);
+      } else if (provider.providerType === 'microsoft') {
+        result = await this.createMicrosoftFolder(providerId, name, parentPath);
+      } else {
+        throw new Error(`Unsupported provider type: ${provider.providerType}`);
+      }
+
+      // Save to database
+      const folder = await this.prisma.folder.create({
+        data: {
+          tenantId,
+          providerId,
+          externalId: result.externalId,
+          path: result.path,
+          name,
+          delimiter: '/',
+          isSelectable: true,
+          level: parentPath ? 1 : 0,
+        },
+      });
+
+      this.logger.log(`Created folder "${name}" with id ${folder.id}`);
+      return { id: folder.id, path: result.path, name };
     });
-
-    if (!provider) {
-      throw new Error(`Provider ${providerId} not found`);
-    }
-
-    this.logger.log(`Creating folder "${name}" for provider ${providerId} (type: ${provider.providerType})`);
-
-    let result: { externalId: string; path: string };
-
-    if (provider.providerType === 'imap') {
-      result = await this.createImapFolder(providerId, name, parentPath);
-    } else if (provider.providerType === 'google') {
-      result = await this.createGmailLabel(providerId, name);
-    } else if (provider.providerType === 'microsoft') {
-      result = await this.createMicrosoftFolder(providerId, name, parentPath);
-    } else {
-      throw new Error(`Unsupported provider type: ${provider.providerType}`);
-    }
-
-    // Save to database
-    const folder = await this.prisma.folder.create({
-      data: {
-        tenantId,
-        providerId,
-        externalId: result.externalId,
-        path: result.path,
-        name,
-        delimiter: '/',
-        isSelectable: true,
-        level: parentPath ? 1 : 0,
-      },
-    });
-
-    this.logger.log(`Created folder "${name}" with id ${folder.id}`);
-    return { id: folder.id, path: result.path, name };
   }
 
   /**
    * Rename a folder on the mail server and in database
+   * RC-A8: Protected by Redis lock to prevent concurrent folder operations
    */
   async renameFolder(
     tenantId: string,
@@ -1094,49 +1084,54 @@ export class FolderSyncService {
     folderPath: string,
     newName: string,
   ): Promise<{ id: string; path: string; name: string }> {
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
+    const lockKey = `folder-crud:${providerId}`;
+    const lockTtl = 30000; // 30 seconds
+
+    return this.redisLock.withLock(lockKey, lockTtl, async () => {
+      const provider = await this.prisma.providerConfig.findUnique({
+        where: { id: providerId },
+      });
+
+      if (!provider) {
+        throw new Error(`Provider ${providerId} not found`);
+      }
+
+      const folder = await this.prisma.folder.findUnique({
+        where: { providerId_path: { providerId, path: folderPath } },
+      });
+
+      if (!folder) {
+        throw new Error(`Folder not found: ${folderPath}`);
+      }
+
+      this.logger.log(`Renaming folder "${folder.name}" to "${newName}" for provider ${providerId}`);
+
+      let newPath: string;
+
+      if (provider.providerType === 'imap') {
+        newPath = await this.renameImapFolder(providerId, folderPath, newName);
+      } else if (provider.providerType === 'google') {
+        await this.renameGmailLabel(providerId, folder.externalId || folderPath, newName);
+        newPath = folder.path; // Gmail label IDs don't change on rename
+      } else if (provider.providerType === 'microsoft') {
+        await this.renameMicrosoftFolder(providerId, folder.externalId || folderPath, newName);
+        newPath = folder.path; // Microsoft folder IDs don't change on rename
+      } else {
+        throw new Error(`Unsupported provider type: ${provider.providerType}`);
+      }
+
+      // Update database
+      const updatedFolder = await this.prisma.folder.update({
+        where: { id: folder.id },
+        data: {
+          name: newName,
+          path: newPath,
+        },
+      });
+
+      this.logger.log(`Renamed folder to "${newName}" with path ${newPath}`);
+      return { id: updatedFolder.id, path: newPath, name: newName };
     });
-
-    if (!provider) {
-      throw new Error(`Provider ${providerId} not found`);
-    }
-
-    const folder = await this.prisma.folder.findUnique({
-      where: { providerId_path: { providerId, path: folderPath } },
-    });
-
-    if (!folder) {
-      throw new Error(`Folder not found: ${folderPath}`);
-    }
-
-    this.logger.log(`Renaming folder "${folder.name}" to "${newName}" for provider ${providerId}`);
-
-    let newPath: string;
-
-    if (provider.providerType === 'imap') {
-      newPath = await this.renameImapFolder(providerId, folderPath, newName);
-    } else if (provider.providerType === 'google') {
-      await this.renameGmailLabel(providerId, folder.externalId || folderPath, newName);
-      newPath = folder.path; // Gmail label IDs don't change on rename
-    } else if (provider.providerType === 'microsoft') {
-      await this.renameMicrosoftFolder(providerId, folder.externalId || folderPath, newName);
-      newPath = folder.path; // Microsoft folder IDs don't change on rename
-    } else {
-      throw new Error(`Unsupported provider type: ${provider.providerType}`);
-    }
-
-    // Update database
-    const updatedFolder = await this.prisma.folder.update({
-      where: { id: folder.id },
-      data: {
-        name: newName,
-        path: newPath,
-      },
-    });
-
-    this.logger.log(`Renamed folder to "${newName}" with path ${newPath}`);
-    return { id: updatedFolder.id, path: newPath, name: newName };
   }
 
   /**
@@ -1144,67 +1139,73 @@ export class FolderSyncService {
    *
    * FIX 1.1: Added safeguard to move emails to INBOX before deletion
    * to prevent orphaned emails (emails.folder pointing to non-existent folder)
+   * RC-A8: Protected by Redis lock to prevent concurrent folder operations
    */
   async deleteFolder(
     tenantId: string,
     providerId: string,
     folderPath: string,
   ): Promise<void> {
-    const provider = await this.prisma.providerConfig.findUnique({
-      where: { id: providerId },
-    });
+    const lockKey = `folder-crud:${providerId}`;
+    const lockTtl = 30000; // 30 seconds
 
-    if (!provider) {
-      throw new Error(`Provider ${providerId} not found`);
-    }
-
-    const folder = await this.prisma.folder.findUnique({
-      where: { providerId_path: { providerId, path: folderPath } },
-    });
-
-    if (!folder) {
-      throw new Error(`Folder not found: ${folderPath}`);
-    }
-
-    // Prevent deletion of system folders
-    // FIX 3.6: Use CORE_SYSTEM_FOLDERS constant for consistency
-    if (folder.specialUse && CORE_SYSTEM_FOLDERS.includes(folder.specialUse)) {
-      throw new Error(`Cannot delete system folder: ${folder.specialUse}`);
-    }
-
-    this.logger.log(`Deleting folder "${folder.name}" for provider ${providerId}`);
-
-    // FIX 1.1: Move all emails from this folder to INBOX before deletion
-    // This prevents orphaned emails with folder paths that don't exist
-    const emailsInFolder = await this.prisma.email.count({
-      where: { providerId, folder: folderPath },
-    });
-
-    if (emailsInFolder > 0) {
-      this.logger.log(
-        `Moving ${emailsInFolder} emails from folder "${folder.name}" to INBOX before deletion`,
-      );
-      await this.prisma.email.updateMany({
-        where: { providerId, folder: folderPath },
-        data: { folder: 'INBOX' },
+    await this.redisLock.withLock(lockKey, lockTtl, async () => {
+      const provider = await this.prisma.providerConfig.findUnique({
+        where: { id: providerId },
       });
-      this.logger.log(`Moved ${emailsInFolder} emails to INBOX`);
-    }
 
-    if (provider.providerType === 'imap') {
-      await this.deleteImapFolder(providerId, folderPath);
-    } else if (provider.providerType === 'google') {
-      await this.deleteGmailLabel(providerId, folder.externalId || folderPath);
-    } else if (provider.providerType === 'microsoft') {
-      await this.deleteMicrosoftFolder(providerId, folder.externalId || folderPath);
-    } else {
-      throw new Error(`Unsupported provider type: ${provider.providerType}`);
-    }
+      if (!provider) {
+        throw new Error(`Provider ${providerId} not found`);
+      }
 
-    // Delete from database
-    await this.prisma.folder.delete({ where: { id: folder.id } });
+      const folder = await this.prisma.folder.findUnique({
+        where: { providerId_path: { providerId, path: folderPath } },
+      });
 
-    this.logger.log(`Deleted folder "${folder.name}"`);
+      if (!folder) {
+        throw new Error(`Folder not found: ${folderPath}`);
+      }
+
+      // Prevent deletion of system folders
+      // FIX 3.6: Use CORE_SYSTEM_FOLDERS constant for consistency
+      if (folder.specialUse && CORE_SYSTEM_FOLDERS.includes(folder.specialUse)) {
+        throw new Error(`Cannot delete system folder: ${folder.specialUse}`);
+      }
+
+      this.logger.log(`Deleting folder "${folder.name}" for provider ${providerId}`);
+
+      // FIX 1.1: Move all emails from this folder to INBOX before deletion
+      // This prevents orphaned emails with folder paths that don't exist
+      const emailsInFolder = await this.prisma.email.count({
+        where: { providerId, folder: folderPath },
+      });
+
+      if (emailsInFolder > 0) {
+        this.logger.log(
+          `Moving ${emailsInFolder} emails from folder "${folder.name}" to INBOX before deletion`,
+        );
+        await this.prisma.email.updateMany({
+          where: { providerId, folder: folderPath },
+          data: { folder: 'INBOX' },
+        });
+        this.logger.log(`Moved ${emailsInFolder} emails to INBOX`);
+      }
+
+      if (provider.providerType === 'imap') {
+        await this.deleteImapFolder(providerId, folderPath);
+      } else if (provider.providerType === 'google') {
+        await this.deleteGmailLabel(providerId, folder.externalId || folderPath);
+      } else if (provider.providerType === 'microsoft') {
+        await this.deleteMicrosoftFolder(providerId, folder.externalId || folderPath);
+      } else {
+        throw new Error(`Unsupported provider type: ${provider.providerType}`);
+      }
+
+      // Delete from database
+      await this.prisma.folder.delete({ where: { id: folder.id } });
+
+      this.logger.log(`Deleted folder "${folder.name}"`);
+    });
   }
 
   // ========== IMAP FOLDER OPERATIONS ==========

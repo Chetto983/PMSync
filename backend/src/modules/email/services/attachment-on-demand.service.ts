@@ -10,6 +10,7 @@ import { CryptoService } from '../../../common/services/crypto.service';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { AttachmentMetricsService, AttachmentLogContext } from './attachment-metrics.service';
 import { formatBytes } from '../../../common/utils';
+import { parseImapExternalId } from '../../../common/utils/imap-utils';
 
 /**
  * AttachmentOnDemandService - Downloads attachments lazily when requested
@@ -358,7 +359,7 @@ export class AttachmentOnDemandService {
       await client.connect();
       this.logger.debug(`Connected to IMAP server for attachment download: ${provider.email}`);
 
-      const { folderPath, uid: rawUid } = this.parseImapExternalMessageId(externalMessageId);
+      const { folderPath, uid: rawUid } = parseImapExternalId(externalMessageId);
 
       // Select the actual mailbox that contains the message
       await client.mailboxOpen(folderPath);
@@ -448,19 +449,6 @@ export class AttachmentOnDemandService {
         }
       }
     }
-  }
-
-  private parseImapExternalMessageId(
-    externalMessageId: string,
-  ): { folderPath: string; uid: string } {
-    const lastColon = externalMessageId.lastIndexOf(':');
-    if (lastColon > 0) {
-      return {
-        folderPath: externalMessageId.substring(0, lastColon),
-        uid: externalMessageId.substring(lastColon + 1),
-      };
-    }
-    return { folderPath: 'INBOX', uid: externalMessageId };
   }
 
   /**

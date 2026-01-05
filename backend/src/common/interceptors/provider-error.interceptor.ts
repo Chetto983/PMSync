@@ -19,6 +19,7 @@ import {
 } from '@nestjs/common';
 import { Observable, catchError } from 'rxjs';
 import { PrismaService } from '../../prisma/prisma.service';
+import { isRateLimitError } from '../utils/error.utils';
 
 /**
  * Standardized Provider Error extending base Error
@@ -142,7 +143,7 @@ export class ProviderErrorInterceptor implements NestInterceptor {
     }
 
     // Handle rate limit errors
-    if (this.isRateLimitError(error)) {
+    if (isRateLimitError(error)) {
       throw this.createRateLimitError(error);
     }
 
@@ -199,13 +200,8 @@ export class ProviderErrorInterceptor implements NestInterceptor {
     );
   }
 
-  private isRateLimitError(error: any): boolean {
-    return (
-      error.status === 429 ||
-      error.code === 'rate_limit_exceeded' ||
-      error.message?.toLowerCase().includes('rate limit')
-    );
-  }
+  // NOTE: isRateLimitError DELETED - use import from common/utils/error.utils
+  // Consolidated in Phase 4 (2025-01-05)
 
   private isQuotaExceededError(error: any): boolean {
     const message = error.message?.toLowerCase() || '';

@@ -662,7 +662,7 @@ export class EmailInsightsService {
     const bodyMatch = raw.match(/"body"\s*:\s*"([\s\S]*?)(?:"\s*[,}]|"$)/);
     if (bodyMatch) {
       // Unescape and clean the body
-      let body = bodyMatch[1]
+      const body = bodyMatch[1]
         .replace(/\\n/g, '\n')
         .replace(/\\"/g, '"')
         .replace(/\\\\/g, '\\');
@@ -670,7 +670,7 @@ export class EmailInsightsService {
     }
 
     // Ultimate fallback: strip JSON markers and return as plain text
-    let plainText = raw
+    const plainText = raw
       .replace(/```json\s*/g, '')
       .replace(/```\s*/g, '')
       .replace(/\{[\s\S]*?"body"\s*:\s*"/g, '')

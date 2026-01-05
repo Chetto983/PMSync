@@ -8,10 +8,10 @@
 
 | Phase | Status | Test Required |
 |-------|--------|---------------|
-| Phase 1: Prisma Retry | NOT STARTED | `test-prisma-retry.ts` |
-| Phase 2: IMAP Utils | NOT STARTED | `test-imap-sync.ts` |
-| Phase 3: Folder Utils | NOT STARTED | `stress-test-atomic-sync.ts` |
-| Phase 4: Error Utils | NOT STARTED | `npm run type-check` |
+| Phase 1: Prisma Retry | COMPLETE | `test-prisma-retry.ts` |
+| Phase 2: IMAP Utils | COMPLETE | `test-imap-utils.ts` + `test-imap-sync.ts` |
+| Phase 3: Folder Utils | COMPLETE | `stress-test-atomic-sync.ts` |
+| Phase 4: Error Utils | COMPLETE | `npm run type-check` |
 | Phase 5: Dead Code | NOT STARTED | `npm run type-check` |
 | Phase 6: Race Conditions | NOT STARTED | `stress-test-atomic-sync.ts` |
 | Phase 7: P2034 Handling | NOT STARTED | `test-prisma-retry.ts` |
@@ -65,47 +65,88 @@ npx ts-node backend/scripts/test-prisma-retry.ts
 
 ### Phase 2: IMAP Utils Consolidation (1 hour)
 
-**Goal**: Single source for `parseImapExternalId`
+**Goal**: Single source for simple `parseImapExternalId` (folder:uid parsing)
 
-**Create**:
-- `backend/src/common/utils/imap-utils.ts`
+**AUDIT RESULT** (2025-01-05): Found 5 implementations, only 3 can be consolidated:
+
+| File | Function | Can Consolidate? | Reason |
+|------|----------|-----------------|--------|
+| `email-sync/utils/imap.utils.ts` | `parseImapExternalId` | MOVE to common | Canonical source |
+| `email-fetch.service.ts:246` | `parseImapExternalId` | YES - delete | Duplicate |
+| `attachment-on-demand.service.ts:453` | `parseImapExternalMessageId` | YES - delete | Duplicate |
+| `sync-back.worker.ts:32` | imports from imap.utils | YES - update import | Uses canonical |
+| `base-email-sync.service.ts:588` | `parseImapExternalId` | **NO** | Has special markers (__NEW__, __EXPUNGE__, __FLAGS__) |
+| `imap.driver.ts:1810` | `parseMessageId` | **NO** | Returns tuple, validates, driver-specific |
+
+**Move**:
+- `email-sync/utils/imap.utils.ts` → `common/utils/imap-utils.ts`
 
 **Update** (3 files):
-- `email/services/email-fetch.service.ts`
-- `email/services/attachment-on-demand.service.ts`
-- `email-sync/services/base-email-sync.service.ts`
+- `email/services/email-fetch.service.ts` - delete private method, import common
+- `email/services/attachment-on-demand.service.ts` - delete private method, import common
+- `email-sync/workers/sync-back.worker.ts` - update import path
+
+**DO NOT TOUCH** (different functionality):
+- `base-email-sync.service.ts` - has special markers for IMAP events
+- `imap.driver.ts` - has parseMessageId returning [string, number] tuple
 
 **Test**:
 ```bash
+# Unit test for parseImapExternalId consolidation
+npx ts-node backend/scripts/test-imap-utils.ts
+
+# Integration test - verify IMAP still works
 npx ts-node backend/scripts/test-imap-sync.ts
+
+# Type check - no broken imports
+npm run type-check
 ```
 
 **Pass Criteria**:
-- IMAP connection works
-- parseImapExternalId works
-- No duplicate function definitions
+- `parseImapExternalId` unit tests pass
+- IMAP connection works (test-imap-sync.ts)
+- 0 type errors
+- No duplicate function definitions (grep should find only 2: common + base-email-sync special)
 
 ---
 
-### Phase 3: Folder Utils Consolidation (1 hour)
+### Phase 3: Folder Utils Consolidation (30 min)
 
-**Goal**: Single source for `normalizeFolderName`
+**Goal**: Remove duplicate `normalizeFolderName` - use existing `folderNameToCanonical`
 
-**Create**:
-- `backend/src/common/utils/folder-utils.ts`
+**AUDIT RESULT** (2025-01-05): `folderNameToCanonical` ALREADY EXISTS in canonical.types.ts!
 
-**Update** (2 files):
-- `base-email-sync.service.ts`
-- `folder-sync.service.ts`
+| File | Function | Action |
+|------|----------|--------|
+| `canonical.types.ts:499` | `folderNameToCanonical` | **CANONICAL** - 75+ names, 5 languages |
+| `base-email-sync.service.ts:1173` | `normalizeFolderName` | **DELETE** - 68 lines duplicate |
+| `folder-sync.service.ts:856` | `normalizeFolderName` | **DELETE** - 35 lines duplicate |
+
+**NO NEW FILE NEEDED** - canonical.types.ts has:
+- `IMAP_NAME_HEURISTICS` - 75+ folder name mappings
+- `folderNameToCanonical()` - uses IMAP_NAME_HEURISTICS
+- English, Italian, German, French, Spanish support
+
+**Delete** (2 methods):
+- `base-email-sync.service.ts:1173-1241` - delete normalizeFolderName
+- `folder-sync.service.ts:856-891` - delete normalizeFolderName
+
+**Update imports**:
+- Both files import `folderNameToCanonical` from `canonical.types.ts`
 
 **Test**:
 ```bash
+# Type check - no broken imports
+npx tsc --noEmit
+
+# Integration test - verify folder sync works
 npx ts-node backend/scripts/stress-test-atomic-sync.ts
 ```
 
 **Pass Criteria**:
-- No duplicate emails
-- Folder mapping correct
+- 0 type errors
+- No duplicate `normalizeFolderName` definitions (grep finds 0)
+- Folder sync works correctly
 
 ---
 
@@ -236,6 +277,8 @@ npx ts-node backend/scripts/stress-test-production-scenarios.ts
 
 ## Document Index
 
+### Consolidation Docs
+
 | Document | Purpose |
 |----------|---------|
 | **EMAIL_CONSOLIDATION_ENTRY.md** | THIS FILE - Start here |
@@ -243,6 +286,43 @@ npx ts-node backend/scripts/stress-test-production-scenarios.ts
 | [EMAIL_MODULES_CONSOLIDATION_MASTER.md](./EMAIL_MODULES_CONSOLIDATION_MASTER.md) | Audit + Prisma 7.2 |
 | [EMAIL_SYNC_MASTER_INDEX.md](./EMAIL_SYNC_MASTER_INDEX.md) | Architecture overview |
 | [EMAIL_SYNC_REFACTOR_PLAN.md](./EMAIL_SYNC_REFACTOR_PLAN.md) | Driver split (AFTER consolidation) |
+
+### Driver Implementation Docs (READ BEFORE CODING!)
+
+| Document | Purpose |
+|----------|---------|
+| [DRIVER_IMPLEMENTATION_SPEC.md](./DRIVER_IMPLEMENTATION_SPEC.md) | **10/10 SPEC** - All methods mapped, errors, DB, tests |
+| [IMPLEMENTATION_CHECKLIST.md](./IMPLEMENTATION_CHECKLIST.md) | **Mandatory** - Check before PR |
+| [GMAIL_API_COMPREHENSIVE_REFERENCE.md](./GMAIL_API_COMPREHENSIVE_REFERENCE.md) | Gmail API reference |
+| [MICROSOFT_GRAPH_API_COMPREHENSIVE_GUIDE.md](./MICROSOFT_GRAPH_API_COMPREHENSIVE_GUIDE.md) | Microsoft Graph reference |
+| [IMAP_PROTOCOL_COMPREHENSIVE_GUIDE.md](./IMAP_PROTOCOL_COMPREHENSIVE_GUIDE.md) | IMAP protocol reference |
+| [EMAIL_API_COMPARISON_MATRIX.md](./EMAIL_API_COMPARISON_MATRIX.md) | Side-by-side comparison |
+
+### Critical Driver Issues (Fix BEFORE Coding)
+
+| Issue | File | Fix |
+|-------|------|-----|
+| **Missing ImmutableId header** | microsoft.driver.ts:50-58 | Add `Prefer: IdType="ImmutableId"` |
+| **Missing P2034 retry** | base-email-sync.service.ts | Add P2034 to retry codes |
+| **No Redis lock on folder ops** | folder-sync.service.ts | Add distributed lock |
+| **UIDVALIDITY not checked** | imap.driver.ts | Check UIDVALIDITY on folder open (RFC 3501) |
+
+### IMAP UIDVALIDITY Bug (Found 2025-01-05)
+
+**Problem:** Current `folder:uid` format ignores UIDVALIDITY. Per [RFC 3501](https://datatracker.ietf.org/doc/html/rfc3501), if UIDVALIDITY changes, all UIDs become invalid.
+
+**Current state:**
+- `uidValidity` stored in folders table ✅
+- `uidValidity` checked in imap.driver.ts ❌
+- `uidValidity` in external ID format ❌
+
+**Risk:** If user deletes/recreates IMAP folder, old `folder:uid` references return wrong emails.
+
+**Fix options (choose ONE after consolidation):**
+1. Check UIDVALIDITY on every folder open, invalidate emails if changed
+2. Change format to `folder:uidValidity:uid` (breaking change)
+
+**Priority:** AFTER Phase 9 - separate fix, not part of consolidation
 
 ---
 
@@ -264,12 +344,13 @@ git checkout main
 
 ## Completion Checklist
 
-- [ ] Phase 1 complete + test passes
-- [ ] Phase 2 complete + test passes
-- [ ] Phase 3 complete + test passes
-- [ ] Phase 4 complete + test passes
-- [ ] Phase 5 complete + test passes
-- [ ] Phase 6 complete + test passes
+- [x] Phase 1 complete + test passes (REAL DB: P2002/P2034 retry, 100 workers stress @ 465 ops/sec)
+- [x] Phase 2 complete + test passes (29/29 unit tests, IMAP integration, 0 type errors, 2 definitions remain: common + base-email-sync special)
+- [x] Phase 3 complete + test passes (7/7 stress tests, 0 type errors, deleted 103 lines of duplicate code)
+- [x] Phase 4 complete + test passes (0 type errors, 0 lint errors, 3 duplicates removed, canonical in error.utils.ts)
+- [x] Phase 3+4 REAL integration test passes (9/9 tests, 3 providers: IMAP/Gmail/Microsoft, 28 folders validated)
+- [x] Phase 5 complete + test passes (extractPlainText + cheerio/he imports deleted, 0 type errors)
+- [x] Phase 6 complete + test passes (27/27: atomic 7/7, race conditions 10/10, multi-tenant 10/10)
 - [ ] Phase 7 complete + test passes
 - [ ] Phase 8 complete + ALL tests pass
 - [ ] Phase 9 complete + production stress passes

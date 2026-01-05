@@ -3,6 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { google } from 'googleapis';
 import { Client as GraphClient } from '@microsoft/microsoft-graph-client';
 import { CryptoService } from '../../../common/services/crypto.service';
+import { parseImapExternalId } from '../../../common/utils/imap-utils';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
@@ -207,7 +208,7 @@ export class EmailFetchService {
     try {
       await client.connect();
 
-      const { folderPath, uid } = this.parseImapExternalId(email.externalId, email.folder);
+      const { folderPath, uid } = parseImapExternalId(email.externalId, email.folder);
       const uidNumber = parseInt(uid, 10);
       if (!Number.isFinite(uidNumber)) {
         throw new Error(`Invalid IMAP UID: ${email.externalId}`);
@@ -243,17 +244,4 @@ export class EmailFetchService {
     }
   }
 
-  private parseImapExternalId(
-    externalId: string,
-    fallbackFolder?: string | null,
-  ): { folderPath: string; uid: string } {
-    const lastColon = externalId.lastIndexOf(':');
-    if (lastColon > 0) {
-      return {
-        folderPath: externalId.substring(0, lastColon),
-        uid: externalId.substring(lastColon + 1),
-      };
-    }
-    return { folderPath: fallbackFolder || 'INBOX', uid: externalId };
-  }
 }
