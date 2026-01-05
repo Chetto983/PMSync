@@ -28,37 +28,43 @@ model Tenant {
   webhookSubscriptions WebhookSubscription[]
   userLabels           UserLabel[]
 
+  // AI Refactor v2.0 relations
+  emailAnalyses EmailAnalysis[]
+  actionQueue   ActionQueue[]
+  deals         Deal[]
+  subscription  Subscription?
+
   @@map("tenants")
 }
 
 model User {
-  id                    String                 @id @default(cuid())
-  tenantId              String
-  email                 String
-  passwordHash          String
-  firstName             String?
-  lastName              String?
-  role                  String                 @default("user")
-  isActive              Boolean                @default(true)
-  isMfaEnabled          Boolean                @default(true)
-  lastLogin             DateTime?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  deletedAt             DateTime?
-  auditLogs             AuditLog[]
-  mfaSecret             MfaSecret?
-  mfaBackupCodes        MfaBackupCode[]
-  trustedDevices        TrustedDevice[]
-  webauthnCredentials   WebAuthnCredential[]
-  sessions              Session[]
-  userPreferences       UserPreferences?
-  writingStyleProfile   WritingStyleProfile?
-  agentPendingActions   AgentPendingAction[]   @relation("AgentPendingActionsToUser")
-  agentActionFeedback   AgentActionFeedback[]  @relation("AgentActionFeedbackToUser")
-  userProfileEmbeddings UserProfileEmbedding[] @relation("UserProfileEmbeddingsToUser")
-  proceduralPatterns    ProceduralPattern[]    @relation("ProceduralPatternsToUser")
-  dashboardPreference   DashboardPreference?
-  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                  String               @id @default(cuid())
+  tenantId            String
+  email               String
+  passwordHash        String
+  firstName           String?
+  lastName            String?
+  role                String               @default("user")
+  isActive            Boolean              @default(true)
+  isMfaEnabled        Boolean              @default(true)
+  lastLogin           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  auditLogs           AuditLog[]
+  mfaSecret           MfaSecret?
+  mfaBackupCodes      MfaBackupCode[]
+  trustedDevices      TrustedDevice[]
+  webauthnCredentials WebAuthnCredential[]
+  sessions            Session[]
+  userPreferences     UserPreferences?
+  writingStyleProfile WritingStyleProfile?
+  dashboardPreference DashboardPreference?
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // AI Refactor v2.0 relations (replaces AgentPendingAction, etc.)
+  actionQueue ActionQueue[]
+  deals       Deal[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -377,6 +383,10 @@ model Email {
   followUp          EmailFollowUp?
   embeddings        Embedding[]
 
+  // AI Refactor v2.0 relations
+  analysis    EmailAnalysis?
+  actionQueue ActionQueue[]
+
   @@unique([providerId, externalId, folder]) // UIDs are unique per-folder, not globally
   @@unique([tenantId, messageId, folder]) // Allow same messageId in different folders
   @@index([tenantId, folder, receivedAt])
@@ -565,13 +575,13 @@ model Embedding {
   vector         Unsupported("vector")?
   embeddingModel String                 @default("mistral-embed")
   metadata       Json?
-  
+
   // Hard Links (Polymorphic-style but with FKs)
-  emailId        String?
-  email          Email?                 @relation(fields: [emailId], references: [id], onDelete: Cascade)
-  
-  createdAt      DateTime               @default(now())
-  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  emailId String?
+  email   Email?  @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([emailId])
@@ -764,6 +774,9 @@ model Contact {
   contactInteractions ContactInteraction[] // P1.7: Interaction history
   tenant              Tenant               @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
+  // AI Refactor v2.0 CRM
+  deals Deal[]
+
   @@index([tenantId, displayName])
   @@index([tenantId, lastName, firstName])
   @@index([tenantId, company])
@@ -921,275 +934,13 @@ model HealthCheck {
 // ============================================
 
 // Pending actions proposed by agents awaiting HITL approval
-model AgentPendingAction {
-  id                 String  @id @default(cuid())
-  sessionId          String? // ChatSession reference (optional)
-  tenantId           String
-  userId             String
-  agentName          String // Which agent proposed (EmailAgent, CalendarAgent, etc)
-  actionType         String // SEND_EMAIL, CREATE_EVENT, MERGE_CONTACTS, etc
-  payload            Json // Action-specific data
-  confidence         Float // 0.0 - 1.0 original confidence
-  adjustedConfidence Float? // After learning boost applied
-  severity           String  @default("MEDIUM") // LOW, MEDIUM, HIGH
-  status             String  @default("PENDING") // PENDING, APPROVED, EXECUTED, REJECTED, EXPIRED
-  reasoningSteps     String? // LLM reasoning explanation
-  actionHash         String? // Idempotency key: hash(tenantId+sessionId+actionType+payload)
-
-  // Timestamps
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  expiresAt       DateTime? // Auto-expire if not actioned
-  approvedAt      DateTime?
-  approvedBy      String? // User who approved
-  executedAt      DateTime?
-  rejectedAt      DateTime?
-  rejectedBy      String?
-  rejectionReason String?
-
-  // Relations
-  feedback AgentActionFeedback[]
-  user     User                  @relation("AgentPendingActionsToUser", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, actionHash]) // Idempotency: prevent duplicate actions
-  @@index([tenantId, status])
-  @@index([tenantId, userId, status])
-  @@index([sessionId])
-  @@index([createdAt])
-  @@index([expiresAt])
-  @@map("agent_pending_actions")
-}
-
-// Feedback recorded for agent actions (for learning loop)
-model AgentActionFeedback {
-  id                 String   @id @default(cuid())
-  actionId           String
-  tenantId           String
-  userId             String
-  agentName          String
-  actionType         String
-  wasApproved        Boolean
-  wasExecuted        Boolean
-  wasSuccessful      Boolean?
-  originalConfidence Float
-  adjustedConfidence Float?
-  userFeedback       String? // Optional text feedback
-  userRating         Int? // 1-5 stars (optional)
-  executionTimeMs    Int?
-  errorMessage       String?
-  contextSnapshot    Json? // Snapshot of context for analysis
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  // Relations
-  action AgentPendingAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  user   User               @relation("AgentActionFeedbackToUser", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, agentName])
-  @@index([userId, actionType])
-  @@index([wasApproved])
-  @@index([createdAt])
-  @@index([actionId])
-  @@map("agent_action_feedback")
-}
-
-// Learning profiles for confidence adjustment over time
-model AgentLearningProfile {
-  id                    String    @id @default(cuid())
-  tenantId              String
-  userId                String? // NULL = tenant-wide profile
-  agentName             String
-  actionType            String
-  totalAttempts         Int       @default(0)
-  approvedCount         Int       @default(0)
-  rejectedCount         Int       @default(0)
-  autoExecutedCount     Int       @default(0)
-  avgOriginalConfidence Float     @default(0.5)
-  avgAdjustedConfidence Float     @default(0.5)
-  successRate           Float     @default(0.0)
-  lastLearningAt        DateTime?
-  confidenceBoost       Float     @default(0.0) // -0.3 to +0.3 adjustment
-  metadata              Json?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  @@unique([tenantId, userId, agentName, actionType])
-  @@index([tenantId])
-  @@index([agentName, actionType])
-  @@map("agent_learning_profiles")
-}
-
 // ============================================
-// Prompt Registry - Versioned prompt templates
+// BLOAT REMOVED (2025-01-05): AI Refactor v2.0
+// Deleted: AgentPendingAction, AgentActionFeedback, AgentLearningProfile
+// Deleted: PromptTemplate, LlmUsageLog
+// Deleted: UserProfileEmbedding, MemoryChangeLog, ProceduralPattern
+// Replaced by: ActionQueue, EmailAnalysis (unified classifier)
 // ============================================
-
-model PromptTemplate {
-  id       String  @id @default(cuid())
-  tenantId String? // NULL = system default template
-  name     String // e.g., "router.classify", "email.compose", "calendar.schedule"
-  version  Int     @default(1)
-  locale   String  @default("en") // en, it, es, fr, de, pt
-  bucket   String? // A/B test bucket identifier
-
-  // Prompt content
-  body      String @db.Text // The actual prompt template with {variables}
-  variables Json? // Expected variables schema: { "userMessage": "string", "history": "array" }
-
-  // Configuration
-  metadata Json? // { "temperature": 0.3, "maxTokens": 500, "model": "mistral-small-latest" }
-
-  // Status
-  isActive  Boolean @default(true)
-  isDefault Boolean @default(false) // Default for this name+locale combination
-
-  // Audit
-  createdBy String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([tenantId, name, version, locale, bucket])
-  @@index([tenantId, name, isActive])
-  @@index([name, locale, isActive])
-  @@map("prompt_templates")
-}
-
-// ============================================
-// LLM Telemetry - Track AI usage and costs
-// ============================================
-
-model LlmUsageLog {
-  id       String  @id @default(cuid())
-  tenantId String
-  userId   String?
-
-  // Request info
-  operation  String // "compose", "classify", "summarize", "smart_reply"
-  promptId   String? // Reference to PromptTemplate.id
-  promptName String? // "email.compose", "router.classify"
-  model      String // "mistral-small-latest"
-
-  // Usage metrics
-  inputTokens  Int
-  outputTokens Int
-  totalTokens  Int
-  latencyMs    Int // Response time in milliseconds
-
-  // Cost tracking (optional, calculated)
-  estimatedCost Float? // In USD or credits
-
-  // Status
-  success      Boolean @default(true)
-  errorType    String? // "rate_limit", "timeout", "invalid_response"
-  errorMessage String?
-
-  // Context
-  agentName String? // Which agent made the call
-  sessionId String? // ChatSession reference
-
-  createdAt DateTime @default(now())
-
-  @@index([tenantId, createdAt])
-  @@index([tenantId, operation])
-  @@index([agentName, createdAt])
-  @@index([promptName, createdAt])
-  @@map("llm_usage_logs")
-}
-
-// ============================================
-// User Personalization - Semantic Memory
-// ============================================
-
-// Stores embeddings of user preferences, facts, and patterns for semantic retrieval
-model UserProfileEmbedding {
-  id       String @id @default(cuid())
-  tenantId String
-  userId   String
-
-  // What type of memory this is
-  memoryType String @default("PREFERENCE") // PREFERENCE, FACT, PATTERN, INTERACTION, CONTACT_NOTE
-
-  // The content being embedded
-  content String // "User prefers morning meetings before 10am"
-  vector  Unsupported("vector")? // pgvector embedding
-
-  // Source of this memory
-  source     String @default("INFERRED") // EXPLICIT (user said), INFERRED (learned), BEHAVIOR (observed)
-  confidence Float  @default(0.5) // 0-1 how confident are we in this memory
-
-  // Metadata
-  category  String? // "scheduling", "email", "communication", "contacts"
-  expiresAt DateTime? // Some memories should expire
-
-  // Usage tracking
-  usageCount Int       @default(0) // How often this memory is used
-  lastUsedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  user User @relation("UserProfileEmbeddingsToUser", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, userId])
-  @@index([tenantId, userId, memoryType])
-  @@index([tenantId, userId, category])
-  @@index([expiresAt])
-  @@map("user_profile_embeddings")
-}
-
-/// Memory Change Log for audit trail (2025 Best Practice: Selective Logging)
-/// Tracks CREATE, UPDATE, DELETE operations for compliance and rollback
-model MemoryChangeLog {
-  id            String   @id @default(cuid())
-  tenantId      String
-  userId        String
-  memoryId      String // Reference to UserProfileEmbedding.id
-  action        String // CREATE, UPDATE, DELETE
-  previousValue String?  @db.Text // Old content (for UPDATE/DELETE)
-  newValue      String?  @db.Text // New content (for CREATE/UPDATE)
-  metadata      Json? // Additional context (trigger, confidence change, etc.)
-  createdAt     DateTime @default(now())
-
-  @@index([tenantId, userId])
-  @@index([memoryId])
-  @@index([createdAt])
-  @@map("memory_change_logs")
-}
-
-/// Procedural Pattern for task learning (2025 Memp/PRAXIS inspired)
-/// Stores successful action sequences that can be retrieved for similar tasks
-model ProceduralPattern {
-  id       String @id @default(cuid())
-  tenantId String
-  userId   String
-
-  // Pattern identification
-  taskType String // "email_reply", "schedule_meeting", "follow_up", etc.
-  trigger  String @db.Text // What triggered this pattern (user request summary)
-
-  // The learned procedure
-  steps   Json // Array of action steps: [{tool, args, result}]
-  context String? @db.Text // Relevant context that led to success
-
-  // Effectiveness tracking
-  successCount Int       @default(1) // Times this pattern succeeded
-  failureCount Int       @default(0) // Times this pattern failed
-  lastUsedAt   DateTime?
-
-  // Vector for semantic matching
-  vector Unsupported("vector")? // Embedding of trigger for similarity search
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  user User @relation("ProceduralPatternsToUser", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, userId])
-  @@index([tenantId, userId, taskType])
-  @@index([lastUsedAt])
-  @@map("procedural_patterns")
-}
 
 // Writing Style Profile - Learned from user's sent emails
 model WritingStyleProfile {
@@ -1242,187 +993,11 @@ model WritingStyleProfile {
 }
 
 // ============================================
-// VoltAgent Memory System - 2025 Best Practices
+// BLOAT REMOVED (2025-01-05): VoltAgent Memory System
+// Deleted: VoltAgentConversation, VoltAgentMessage, ConversationSummary
+// Deleted: AiTask, AiTaskReminder, AiTaskSource, AiTaskStatus
+// Replaced by: ActionQueue (unified HITL), EmailAnalysis
 // ============================================
-
-// VoltAgent Conversation - Enhanced session management
-// Replaces/extends ChatSession with better memory features
-model VoltAgentConversation {
-  id       String @id @default(cuid())
-  tenantId String
-  userId   String
-
-  // Conversation metadata
-  title        String?
-  locale       String   @default("en")
-  lastActiveAt DateTime @default(now())
-  messageCount Int      @default(0)
-
-  // Memory management
-  isSummarized     Boolean @default(false) // Has this conversation been compressed?
-  summaryUpToIndex Int? // Messages summarized up to this index
-
-  // Status
-  isArchived Boolean @default(false)
-  isDeleted  Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  messages  VoltAgentMessage[]
-  summaries ConversationSummary[]
-
-  @@index([tenantId, userId, lastActiveAt])
-  @@index([tenantId, userId, isDeleted])
-  @@map("voltagent_conversations")
-}
-
-// VoltAgent Message - Individual messages with semantic search support
-// Enables hybrid search: vector similarity + recency decay
-model VoltAgentMessage {
-  id             String @id @default(cuid())
-  conversationId String
-  tenantId       String
-  userId         String
-
-  // Message content
-  role    String // "user" | "assistant" | "system"
-  content String @db.Text
-
-  // Semantic search support (pgvector)
-  vector Unsupported("vector")? // 1024-dim embedding for semantic search
-
-  // Tool execution metadata
-  toolCalls   Json? // Array of tool invocations
-  toolResults Json? // Array of tool results
-
-  // Ordering and recency
-  messageIndex Int // Sequential index within conversation
-
-  // Metadata
-  tokenCount Int? // Token count for context management
-  metadata   Json?
-
-  createdAt DateTime @default(now())
-
-  // Relations
-  conversation VoltAgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId, messageIndex])
-  @@index([tenantId, userId, createdAt])
-  @@index([tenantId, createdAt]) // For recency queries
-  @@map("voltagent_messages")
-}
-
-// Conversation Summary - Memory compression for long conversations
-// 2025 Best Practice: Summarize older messages to save context window
-model ConversationSummary {
-  id             String @id @default(cuid())
-  conversationId String
-  tenantId       String
-  userId         String
-
-  // Summary content
-  summary String @db.Text // Compressed summary of messages
-
-  // Semantic search support
-  vector Unsupported("vector")? // Embedding for summary retrieval
-
-  // What was summarized
-  startMessageIndex   Int // First message in this summary
-  endMessageIndex     Int // Last message in this summary
-  messageCountCovered Int // Number of messages summarized
-
-  // Key facts extracted (for structured retrieval)
-  keyFacts Json? // Array of { fact: string, importance: number }
-  topics   String[] @default([]) // Main topics discussed
-
-  // Quality metrics
-  summaryTokens Int? // Token count of summary
-
-  createdAt DateTime @default(now())
-
-  // Relations
-  conversation VoltAgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId])
-  @@index([tenantId, userId])
-  @@map("conversation_summaries")
-}
-
-// =============================================================================
-// AI SECRETARY TASK TRACKING
-// =============================================================================
-
-/// Tracks action items extracted from emails, meetings, and conversations
-model AiTask {
-  id       String @id @default(cuid())
-  tenantId String
-  userId   String
-
-  // Task content
-  title       String
-  description String? @db.Text
-
-  // Source tracking
-  sourceType AiTaskSource // EMAIL, CALENDAR, CONVERSATION, MANUAL
-  sourceId   String? // Reference to email.id, calendarEvent.id, etc.
-
-  // Status and priority
-  status   AiTaskStatus @default(TODO)
-  priority Int          @default(5) // 1 (highest) to 10 (lowest)
-
-  // Timing
-  dueDate     DateTime?
-  reminderAt  DateTime?
-  completedAt DateTime?
-
-  // AI metadata
-  confidence  Float? // AI confidence in extraction (0-1)
-  aiExtracted Boolean @default(false) // Was this auto-extracted by AI?
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  reminders AiTaskReminder[]
-
-  @@index([tenantId, userId])
-  @@index([tenantId, userId, status])
-  @@index([tenantId, userId, dueDate])
-  @@index([sourceType, sourceId])
-  @@map("ai_tasks")
-}
-
-enum AiTaskSource {
-  EMAIL
-  CALENDAR
-  CONVERSATION
-  MANUAL
-}
-
-enum AiTaskStatus {
-  TODO
-  IN_PROGRESS
-  WAITING
-  DONE
-  CANCELLED
-}
-
-/// Tracks reminders sent for tasks
-model AiTaskReminder {
-  id      String   @id @default(cuid())
-  taskId  String
-  sentAt  DateTime @default(now())
-  channel String // EMAIL, PUSH, IN_APP
-
-  task AiTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@index([taskId])
-  @@map("ai_task_reminders")
-}
 
 /// Tracks emails that need follow-up
 model EmailFollowUp {
@@ -1506,48 +1081,7 @@ enum ContactInteractionType {
   NOTE
 }
 
-/// Tracks deadlines extracted from emails and calendar
-model AiDeadline {
-  id       String @id @default(cuid())
-  tenantId String
-  userId   String
-
-  // Deadline details
-  title       String
-  description String?  @db.Text
-  deadline    DateTime
-
-  // Source tracking
-  sourceType String // EMAIL, CALENDAR
-  sourceId   String?
-
-  // Status
-  status         DeadlineStatus @default(UPCOMING)
-  acknowledgedAt DateTime?
-
-  // Reminder tracking
-  remindBefore   Int[]     @default([1440, 60]) // Minutes before deadline (default: 1 day, 1 hour)
-  lastRemindedAt DateTime?
-
-  // AI metadata
-  confidence Float? // AI confidence in extraction
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tenantId, userId])
-  @@index([tenantId, userId, status])
-  @@index([deadline])
-  @@map("ai_deadlines")
-}
-
-enum DeadlineStatus {
-  UPCOMING
-  DUE_SOON
-  OVERDUE
-  COMPLETED
-  DISMISSED
-}
+// AiDeadline REMOVED (2025-01-05): Replaced by EmailAnalysis.hasDeadline, .deadlineDate
 
 // ============================================
 // Document Library - Mistral RAG Integration
@@ -1613,4 +1147,285 @@ model LibraryDocument {
   @@index([status])
   @@index([mistralDocumentId])
   @@map("library_documents")
+}
+
+// ============================================
+// AI REFACTOR v2.0 - CRM & UNIFIED CLASSIFIER
+// Added: 2025-01-05
+// ============================================
+
+/// Unified email analysis from single LLM call (replaces 11 agents)
+model EmailAnalysis {
+  id       String @id @default(cuid())
+  emailId  String @unique
+  tenantId String
+
+  // Classification (1 LLM call output)
+  priority  EmailPriority @default(NORMAL)
+  category  EmailCategory @default(OTHER)
+  sentiment Sentiment     @default(NEUTRAL)
+
+  // Extracted Data
+  hasDeadline   Boolean   @default(false)
+  deadlineDate  DateTime?
+  needsFollowUp Boolean   @default(false)
+  followUpDate  DateTime?
+
+  // CRM Signals
+  isSalesLead  Boolean     @default(false)
+  dealSignal   DealSignal?
+  buyingIntent Float? // 0-1 score
+
+  // Actions Suggested
+  suggestedActions Json @default("[]") // ActionSuggestion[]
+
+  // Summary
+  summary   String?  @db.Text
+  keyPoints String[] @default([])
+
+  // Processing Metadata
+  processedAt DateTime @default(now())
+  modelUsed   String   @default("gpt-4o-mini")
+  tokensUsed  Int      @default(0)
+  latencyMs   Int      @default(0)
+
+  // Relations
+  email  Email  @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, processedAt])
+  @@index([tenantId, priority])
+  @@index([tenantId, needsFollowUp])
+  @@map("email_analyses")
+}
+
+enum EmailPriority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum EmailCategory {
+  SALES_INQUIRY
+  SUPPORT_REQUEST
+  MEETING_REQUEST
+  FOLLOW_UP
+  NEWSLETTER
+  AUTOMATED
+  PERSONAL
+  OTHER
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  URGENT
+}
+
+enum DealSignal {
+  NEW_LEAD
+  INTEREST_SHOWN
+  OBJECTION
+  NEGOTIATION
+  READY_TO_BUY
+  CHURNING
+}
+
+/// HITL Action Queue - AI suggested actions awaiting approval
+model ActionQueue {
+  id       String  @id @default(cuid())
+  tenantId String
+  userId   String
+  emailId  String?
+
+  // Action Details
+  actionType    ActionType
+  actionPayload Json // Type-specific payload
+
+  // AI Confidence
+  confidence Float   @default(0)
+  reasoning  String? @db.Text
+
+  // HITL Status
+  status         ActionStatus @default(PENDING_APPROVAL)
+  approvedBy     String?
+  approvedAt     DateTime?
+  rejectedReason String?
+
+  // Execution
+  executedAt      DateTime?
+  executionResult Json?
+  executionError  String?
+  retryCount      Int       @default(0)
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expiresAt DateTime?
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email  Email? @relation(fields: [emailId], references: [id], onDelete: SetNull)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, userId, status])
+  @@index([expiresAt])
+  @@map("action_queue")
+}
+
+enum ActionType {
+  SEND_EMAIL
+  SCHEDULE_MEETING
+  CREATE_TASK
+  UPDATE_CONTACT
+  UPDATE_DEAL
+  ADD_LABEL
+  ARCHIVE_EMAIL
+  SNOOZE_EMAIL
+}
+
+enum ActionStatus {
+  PENDING_APPROVAL
+  APPROVED
+  AUTO_APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+  EXPIRED
+}
+
+/// CRM Deal pipeline for sellers
+model Deal {
+  id        String @id @default(cuid())
+  tenantId  String
+  userId    String
+  contactId String
+
+  // Deal Info
+  name        String
+  value       Float  @default(0)
+  currency    String @default("USD")
+  stage       String @default("LEAD")
+  probability Float  @default(0)
+
+  // Dates
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+
+  // Source
+  sourceEmailId String?
+  sourceChannel String  @default("email")
+
+  // Status
+  status     DealStatus @default(OPEN)
+  lostReason String?
+
+  // Metadata
+  notes        String? @db.Text
+  customFields Json    @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  contact    Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  activities DealActivity[]
+
+  @@index([tenantId, userId])
+  @@index([tenantId, stage])
+  @@index([tenantId, status])
+  @@map("deals")
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+/// Deal activity log
+model DealActivity {
+  id      String  @id @default(cuid())
+  dealId  String
+  emailId String?
+
+  activityType DealActivityType
+  description  String?
+  metadata     Json             @default("{}")
+
+  createdAt DateTime @default(now())
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@map("deal_activities")
+}
+
+enum DealActivityType {
+  EMAIL_RECEIVED
+  EMAIL_SENT
+  CALL_LOGGED
+  MEETING_SCHEDULED
+  STAGE_CHANGED
+  NOTE_ADDED
+  DEAL_CREATED
+  DEAL_WON
+  DEAL_LOST
+}
+
+/// Subscription management (Autumn integration)
+model Subscription {
+  id       String @id @default(cuid())
+  tenantId String @unique
+
+  // Autumn Integration
+  autumnCustomerId     String? @unique
+  autumnSubscriptionId String? @unique
+
+  // Plan
+  plan   SubscriptionPlan   @default(FREE)
+  status SubscriptionStatus @default(ACTIVE)
+
+  // Limits
+  monthlyEmailLimit  Int @default(100)
+  monthlyAICallLimit Int @default(50)
+  maxUsers           Int @default(1)
+
+  // Usage This Month
+  emailsProcessed Int      @default(0)
+  aiCallsUsed     Int      @default(0)
+  usageResetAt    DateTime @default(now())
+
+  // Billing Period
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAt           DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
 }
