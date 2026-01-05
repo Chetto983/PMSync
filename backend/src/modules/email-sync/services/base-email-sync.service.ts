@@ -1089,7 +1089,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
           const errorType = errorCode === 'P2002' ? 'unique constraint' : 'deadlock/write conflict';
           this.logger.warn(
             `${errorCode} ${errorType} error on batch upsert (attempt ${retryCount}/${MAX_RETRIES}). ` +
-              `Retrying in ${100 * retryCount}ms...`,
+            `Retrying in ${100 * retryCount}ms...`,
           );
           // Exponential backoff: 100ms, 200ms, 300ms
           await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));

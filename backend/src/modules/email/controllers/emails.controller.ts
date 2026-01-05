@@ -23,7 +23,7 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
@@ -111,9 +111,9 @@ export class EmailsController {
 
   /**
    * GET /emails - List emails with pagination and filters
+   * SECURITY FIX (2025-01-05): Removed @SkipThrottle - was enumeration attack vector
    */
   @Get()
-  @SkipThrottle()
   @ApiOperation({ summary: 'List emails', description: 'Get paginated list of emails with optional filters' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 50, max: 1000)' })
@@ -229,9 +229,9 @@ export class EmailsController {
 
   /**
    * GET /emails/stats - Get email statistics
+   * SECURITY FIX (2025-01-05): Removed @SkipThrottle - was enumeration attack vector
    */
   @Get('stats')
-  @SkipThrottle()
   async getStats(@Req() req: AuthenticatedRequest, @Query('providerId') providerId?: string) {
     const tenantId = req.user.tenantId;
     return this.emailsService.getStats(tenantId, providerId);
@@ -240,9 +240,9 @@ export class EmailsController {
   /**
    * GET /emails/search - Search emails
    * Default limit: 20, Max limit: 100 (prevents large result sets)
+   * SECURITY FIX (2025-01-05): Removed @SkipThrottle - was enumeration attack vector
    */
   @Get('search')
-  @SkipThrottle()
   async searchEmails(
     @Req() req: AuthenticatedRequest,
     @Query('q') query: string,

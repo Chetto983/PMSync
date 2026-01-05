@@ -19,6 +19,7 @@ import {
   CanonicalFolderType,
   ProviderChange,
 } from '../interfaces/canonical.types';
+import { withRetry, RetryOptions } from '../../../../common/utils';
 
 /**
  * Google Gmail Driver
@@ -71,52 +72,27 @@ export class GoogleDriver extends BaseEmailDriver {
   // ============================================
 
   /**
-   * Execute operation with retry logic for 429 (rate limit) and 401 (auth) errors
-   * 
-   * HIGH-1 & HIGH-3 FIX (2025-01-05):
+   * Execute Gmail API operation with retry logic
+   * Uses consolidated common/utils/retry.utils.ts
+   *
+   * FIXED (2025-01-05): Dead code replaced with actual wiring
    * - Handles 429 Too Many Requests with exponential backoff
    * - Handles 401 Unauthorized by marking token as expired
-   * - Respects Retry-After header when present
+   * - Uses circuit breaker to prevent cascade failures
    */
-  private async withRetry<T>(
+  private executeWithRetry<T>(
     operation: () => Promise<T>,
-    context: string,
-    maxRetries = 3,
+    operationName: string,
+    options?: Partial<RetryOptions>,
   ): Promise<T> {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        return await operation();
-      } catch (error: any) {
-        const statusCode = error?.code || error?.response?.status;
-
-        // 429 Too Many Requests - rate limited, retry with backoff
-        if (statusCode === 429 && attempt < maxRetries - 1) {
-          const retryAfter = parseInt(error?.response?.headers?.['retry-after'] || '30', 10);
-          const backoffMs = Math.min(retryAfter * 1000, 60000); // Max 60s
-          this.logger.warn(`[${context}] Rate limited (429), retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries})`);
-          await new Promise(r => setTimeout(r, backoffMs));
-          continue;
-        }
-
-        // 401 Unauthorized - token expired, mark for refresh
-        if (statusCode === 401) {
-          this.logger.warn(`[${context}] Token expired (401), refresh required`);
-          (error as any).requiresTokenRefresh = true;
-          throw error;
-        }
-
-        // 5xx Server Errors - retry with exponential backoff
-        if (statusCode >= 500 && statusCode < 600 && attempt < maxRetries - 1) {
-          const backoffMs = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-          this.logger.warn(`[${context}] Server error (${statusCode}), retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries})`);
-          await new Promise(r => setTimeout(r, backoffMs));
-          continue;
-        }
-
-        throw error;
-      }
-    }
-    throw new Error(`[${context}] Max retries (${maxRetries}) exceeded`);
+    return withRetry(operation, {
+      provider: 'google',
+      operationName,
+      logger: this.logger,
+      maxRetries: 3,
+      useCircuitBreaker: true,
+      ...options,
+    });
   }
 
   // ============================================
@@ -126,7 +102,10 @@ export class GoogleDriver extends BaseEmailDriver {
   async listFolders(): Promise<CanonicalFolder[]> {
     this.ensureConnected();
 
-    const response = await this.gmail!.users.labels.list({ userId: 'me' });
+    const response = await this.executeWithRetry(
+      () => this.gmail!.users.labels.list({ userId: 'me' }),
+      'listFolders',
+    );
     const labels = response.data.labels || [];
 
     return labels
@@ -139,22 +118,28 @@ export class GoogleDriver extends BaseEmailDriver {
 
     try {
       // Try to get by label ID first
-      const response = await this.gmail!.users.labels.get({
-        userId: 'me',
-        id: folderIdOrPath,
-      });
+      const response = await this.executeWithRetry(
+        () => this.gmail!.users.labels.get({
+          userId: 'me',
+          id: folderIdOrPath,
+        }),
+        'getFolder',
+      );
 
       if (response.data) {
         return this.labelToCanonicalFolder(response.data);
       }
     } catch (error: any) {
-      this.logger.debug(`Folder not found by ID ${folderIdOrPath}, searching by name: ${error.message}`);
-      // If not found by ID, search by name
-      const allLabels = await this.listFolders();
-      return allLabels.find(
-        (f) => f.name.toLowerCase() === folderIdOrPath.toLowerCase() ||
-          f.type.toLowerCase() === folderIdOrPath.toLowerCase()
-      ) || null;
+      if (error.code === 404) {
+        // Not found by ID, search by name (already uses retry via listFolders)
+        this.logger.debug(`Folder not found by ID ${folderIdOrPath}, searching by name`);
+        const allLabels = await this.listFolders();
+        return allLabels.find(
+          (f) => f.name.toLowerCase() === folderIdOrPath.toLowerCase() ||
+            f.type.toLowerCase() === folderIdOrPath.toLowerCase()
+        ) || null;
+      }
+      throw error;
     }
 
     return null;
@@ -163,14 +148,17 @@ export class GoogleDriver extends BaseEmailDriver {
   async createFolder(name: string, _parentId?: string): Promise<CanonicalFolder> {
     this.ensureConnected();
 
-    const response = await this.gmail!.users.labels.create({
-      userId: 'me',
-      requestBody: {
-        name,
-        labelListVisibility: 'labelShow',
-        messageListVisibility: 'show',
-      },
-    });
+    const response = await this.executeWithRetry(
+      () => this.gmail!.users.labels.create({
+        userId: 'me',
+        requestBody: {
+          name,
+          labelListVisibility: 'labelShow',
+          messageListVisibility: 'show',
+        },
+      }),
+      'createFolder',
+    );
 
     return this.labelToCanonicalFolder(response.data);
   }
@@ -178,20 +166,26 @@ export class GoogleDriver extends BaseEmailDriver {
   async deleteFolder(folderId: string): Promise<void> {
     this.ensureConnected();
 
-    await this.gmail!.users.labels.delete({
-      userId: 'me',
-      id: folderId,
-    });
+    await this.executeWithRetry(
+      () => this.gmail!.users.labels.delete({
+        userId: 'me',
+        id: folderId,
+      }),
+      'deleteFolder',
+    );
   }
 
   async renameFolder(folderId: string, newName: string): Promise<void> {
     this.ensureConnected();
 
-    await this.gmail!.users.labels.patch({
-      userId: 'me',
-      id: folderId,
-      requestBody: { name: newName },
-    });
+    await this.executeWithRetry(
+      () => this.gmail!.users.labels.patch({
+        userId: 'me',
+        id: folderId,
+        requestBody: { name: newName },
+      }),
+      'renameFolder',
+    );
   }
 
   // ============================================
@@ -204,13 +198,16 @@ export class GoogleDriver extends BaseEmailDriver {
     const labelId = this.canonicalToGmailLabel(options.folder);
     const query = this.buildSearchQuery(options);
 
-    const response = await this.gmail!.users.messages.list({
-      userId: 'me',
-      labelIds: labelId ? [labelId] : undefined,
-      maxResults: options.pageSize || 50,
-      pageToken: options.pageToken,
-      q: query || undefined,
-    });
+    const response = await this.executeWithRetry(
+      () => this.gmail!.users.messages.list({
+        userId: 'me',
+        labelIds: labelId ? [labelId] : undefined,
+        maxResults: options.pageSize || 50,
+        pageToken: options.pageToken,
+        q: query || undefined,
+      }),
+      'listMessages',
+    );
 
     const messageRefs = response.data.messages || [];
     const messageIds = messageRefs
@@ -238,11 +235,14 @@ export class GoogleDriver extends BaseEmailDriver {
 
     try {
       const format = options?.format || 'full';
-      const response = await this.gmail!.users.messages.get({
-        userId: 'me',
-        id: messageId,
-        format,
-      });
+      const response = await this.executeWithRetry(
+        () => this.gmail!.users.messages.get({
+          userId: 'me',
+          id: messageId,
+          format,
+        }),
+        'getMessage',
+      );
 
       return this.gmailMessageToCanonical(response.data);
     } catch (error: any) {
@@ -256,11 +256,14 @@ export class GoogleDriver extends BaseEmailDriver {
   async getMessageRaw(messageId: string): Promise<string> {
     this.ensureConnected();
 
-    const response = await this.gmail!.users.messages.get({
-      userId: 'me',
-      id: messageId,
-      format: 'raw',
-    });
+    const response = await this.executeWithRetry(
+      () => this.gmail!.users.messages.get({
+        userId: 'me',
+        id: messageId,
+        format: 'raw',
+      }),
+      'getMessageRaw',
+    );
 
     return response.data.raw || '';
   }
@@ -274,13 +277,16 @@ export class GoogleDriver extends BaseEmailDriver {
 
     const raw = this.composeToRaw(message);
 
-    const response = await this.gmail!.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw,
-        threadId: message.threadId,
-      },
-    });
+    const response = await this.executeWithRetry(
+      () => this.gmail!.users.messages.send({
+        userId: 'me',
+        requestBody: {
+          raw,
+          threadId: message.threadId,
+        },
+      }),
+      'sendMessage',
+    );
 
     return response.data.id || '';
   }
@@ -291,22 +297,28 @@ export class GoogleDriver extends BaseEmailDriver {
     const raw = this.composeToRaw(message);
 
     if (existingDraftId) {
-      const response = await this.gmail!.users.drafts.update({
-        userId: 'me',
-        id: existingDraftId,
-        requestBody: {
-          message: { raw, threadId: message.threadId },
-        },
-      });
+      const response = await this.executeWithRetry(
+        () => this.gmail!.users.drafts.update({
+          userId: 'me',
+          id: existingDraftId,
+          requestBody: {
+            message: { raw, threadId: message.threadId },
+          },
+        }),
+        'updateDraft',
+      );
       return response.data.id || existingDraftId;
     }
 
-    const response = await this.gmail!.users.drafts.create({
-      userId: 'me',
-      requestBody: {
-        message: { raw, threadId: message.threadId },
-      },
-    });
+    const response = await this.executeWithRetry(
+      () => this.gmail!.users.drafts.create({
+        userId: 'me',
+        requestBody: {
+          message: { raw, threadId: message.threadId },
+        },
+      }),
+      'createDraft',
+    );
 
     return response.data.id || '';
   }
@@ -314,10 +326,13 @@ export class GoogleDriver extends BaseEmailDriver {
   async sendDraft(draftId: string): Promise<void> {
     this.ensureConnected();
 
-    await this.gmail!.users.drafts.send({
-      userId: 'me',
-      requestBody: { id: draftId },
-    });
+    await this.executeWithRetry(
+      () => this.gmail!.users.drafts.send({
+        userId: 'me',
+        requestBody: { id: draftId },
+      }),
+      'sendDraft',
+    );
   }
 
   async moveMessage(messageId: string, targetFolder: string): Promise<void> {
@@ -685,7 +700,10 @@ export class GoogleDriver extends BaseEmailDriver {
     const startHistoryId = syncToken;
 
     // Get current historyId to check if there are changes
-    const profile = await this.gmail!.users.getProfile({ userId: 'me' });
+    const profile = await this.executeWithRetry(
+      () => this.gmail!.users.getProfile({ userId: 'me' }),
+      'getProfile',
+    );
     const currentHistoryId = profile.data.historyId!;
 
     if (currentHistoryId === startHistoryId) {
@@ -705,13 +723,16 @@ export class GoogleDriver extends BaseEmailDriver {
 
     try {
       do {
-        const historyResponse = await this.gmail!.users.history.list({
-          userId: 'me',
-          startHistoryId,
-          pageToken,
-          historyTypes: ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved'],
-          maxResults: 500,
-        });
+        const historyResponse = await this.executeWithRetry(
+          () => this.gmail!.users.history.list({
+            userId: 'me',
+            startHistoryId,
+            pageToken,
+            historyTypes: ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved'],
+            maxResults: 500,
+          }),
+          'getHistory',
+        );
 
         const history = historyResponse.data.history || [];
 

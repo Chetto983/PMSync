@@ -21,6 +21,7 @@ import {
   EmailAddress,
   folderNameToCanonical,
 } from '../interfaces/canonical.types';
+import { withRetry, RetryOptions } from '../../../../common/utils';
 
 /**
  * Microsoft Outlook Driver
@@ -107,52 +108,27 @@ export class MicrosoftDriver extends BaseEmailDriver {
   // ============================================
 
   /**
-   * Execute operation with retry logic for 429 (rate limit) and 401 (auth) errors
-   * 
-   * HIGH-2 FIX (2025-01-05):
+   * Execute Microsoft Graph API operation with retry logic
+   * Uses consolidated common/utils/retry.utils.ts
+   *
+   * FIXED (2025-01-05): Dead code replaced with actual wiring
    * - Handles 429 Too Many Requests with exponential backoff
    * - Handles 401 Unauthorized by marking token as expired
-   * - Respects Retry-After header when present
+   * - Uses circuit breaker to prevent cascade failures
    */
-  private async withRetry<T>(
+  private executeWithRetry<T>(
     operation: () => Promise<T>,
-    context: string,
-    maxRetries = 3,
+    operationName: string,
+    options?: Partial<RetryOptions>,
   ): Promise<T> {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        return await operation();
-      } catch (error: any) {
-        const statusCode = error?.response?.status;
-
-        // 429 Too Many Requests - rate limited, retry with backoff
-        if (statusCode === 429 && attempt < maxRetries - 1) {
-          const retryAfter = parseInt(error?.response?.headers?.['retry-after'] || '30', 10);
-          const backoffMs = Math.min(retryAfter * 1000, 60000); // Max 60s
-          this.logger.warn(`[${context}] Rate limited (429), retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries})`);
-          await new Promise(r => setTimeout(r, backoffMs));
-          continue;
-        }
-
-        // 401 Unauthorized - token expired, mark for refresh
-        if (statusCode === 401) {
-          this.logger.warn(`[${context}] Token expired (401), refresh required`);
-          (error as any).requiresTokenRefresh = true;
-          throw error;
-        }
-
-        // 5xx Server Errors - retry with exponential backoff
-        if (statusCode >= 500 && statusCode < 600 && attempt < maxRetries - 1) {
-          const backoffMs = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-          this.logger.warn(`[${context}] Server error (${statusCode}), retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries})`);
-          await new Promise(r => setTimeout(r, backoffMs));
-          continue;
-        }
-
-        throw error;
-      }
-    }
-    throw new Error(`[${context}] Max retries (${maxRetries}) exceeded`);
+    return withRetry(operation, {
+      provider: 'microsoft',
+      operationName,
+      logger: this.logger,
+      maxRetries: 3,
+      useCircuitBreaker: true,
+      ...options,
+    });
   }
 
   // ============================================
@@ -224,12 +200,18 @@ export class MicrosoftDriver extends BaseEmailDriver {
       // Try wellKnownName first (inbox, sentitems, etc.)
       const wellKnownName = CANONICAL_TO_MICROSOFT[folderIdOrPath.toUpperCase()];
       if (wellKnownName) {
-        const response = await this.client!.get(`/me/mailFolders/${wellKnownName}`);
+        const response = await this.executeWithRetry(
+          () => this.client!.get(`/me/mailFolders/${wellKnownName}`),
+          'getFolder:wellKnown',
+        );
         return this.graphFolderToCanonical(response.data);
       }
 
       // Try by ID
-      const response = await this.client!.get(`/me/mailFolders/${folderIdOrPath}`);
+      const response = await this.executeWithRetry(
+        () => this.client!.get(`/me/mailFolders/${folderIdOrPath}`),
+        'getFolder:byId',
+      );
       return this.graphFolderToCanonical(response.data);
     } catch (error: any) {
       if (error.response?.status === 404) {
@@ -246,7 +228,10 @@ export class MicrosoftDriver extends BaseEmailDriver {
       ? `/me/mailFolders/${parentId}/childFolders`
       : '/me/mailFolders';
 
-    const response = await this.client!.post(endpoint, { displayName: name });
+    const response = await this.executeWithRetry(
+      () => this.client!.post(endpoint, { displayName: name }),
+      'createFolder',
+    );
     const newFolder = this.graphFolderToCanonical(response.data);
 
     // MED-6 FIX: Update cache
@@ -260,17 +245,23 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
   async deleteFolder(folderId: string): Promise<void> {
     this.ensureConnected();
-    await this.client!.delete(`/me/mailFolders/${folderId}`);
+    await this.executeWithRetry(
+      () => this.client!.delete(`/me/mailFolders/${folderId}`),
+      'deleteFolder',
+    );
 
     // MED-6 FIX: Invalidate cache
     this.folderPathCache.delete(folderId);
-    // Note: We can't easily remove from folderIdCache without iterating, 
+    // Note: We can't easily remove from folderIdCache without iterating,
     // but stale IDs will just fail and be re-fetched next time.
   }
 
   async renameFolder(folderId: string, newName: string): Promise<void> {
     this.ensureConnected();
-    await this.client!.patch(`/me/mailFolders/${folderId}`, { displayName: newName });
+    await this.executeWithRetry(
+      () => this.client!.patch(`/me/mailFolders/${folderId}`, { displayName: newName }),
+      'renameFolder',
+    );
 
     // MED-6 FIX: Update cache
     this.folderPathCache.set(folderId, newName);
@@ -317,11 +308,17 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     if (options.pageToken) {
       // Microsoft uses @odata.nextLink for pagination
-      const response = await this.client!.get(options.pageToken);
+      const response = await this.executeWithRetry(
+        () => this.client!.get(options.pageToken!),
+        'listMessages:pagination',
+      );
       return this.parseMessagesResponse(response.data);
     }
 
-    const response = await this.client!.get(endpoint, { params });
+    const response = await this.executeWithRetry(
+      () => this.client!.get(endpoint, { params }),
+      'listMessages',
+    );
     return this.parseMessagesResponse(response.data);
   }
 
@@ -338,9 +335,12 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
       const expand = options?.includeAttachments ? 'attachments' : undefined;
 
-      const response = await this.client!.get(`/me/messages/${messageId}`, {
-        params: { $select: select, $expand: expand },
-      });
+      const response = await this.executeWithRetry(
+        () => this.client!.get(`/me/messages/${messageId}`, {
+          params: { $select: select, $expand: expand },
+        }),
+        'getMessage',
+      );
 
       return this.graphMessageToCanonical(response.data);
     } catch (error: any) {
@@ -354,10 +354,13 @@ export class MicrosoftDriver extends BaseEmailDriver {
   async getMessageRaw(messageId: string): Promise<string> {
     this.ensureConnected();
 
-    const response = await this.client!.get(`/me/messages/${messageId}/$value`, {
-      headers: { Accept: 'message/rfc822' },
-      responseType: 'text',
-    });
+    const response = await this.executeWithRetry(
+      () => this.client!.get(`/me/messages/${messageId}/$value`, {
+        headers: { Accept: 'message/rfc822' },
+        responseType: 'text',
+      }),
+      'getMessageRaw',
+    );
 
     return response.data;
   }
@@ -375,11 +378,17 @@ export class MicrosoftDriver extends BaseEmailDriver {
     // Use save-then-send pattern to get the message ID:
     // 1. Create draft in Drafts folder (returns message ID)
     // 2. Send the draft (moves to Sent Items)
-    const draftResponse = await this.client!.post('/me/messages', graphMessage);
+    const draftResponse = await this.executeWithRetry(
+      () => this.client!.post('/me/messages', graphMessage),
+      'sendMessage:createDraft',
+    );
     const messageId = draftResponse.data.id;
 
     // Send the draft
-    await this.client!.post(`/me/messages/${messageId}/send`);
+    await this.executeWithRetry(
+      () => this.client!.post(`/me/messages/${messageId}/send`),
+      'sendMessage:send',
+    );
 
     return messageId;
   }
@@ -390,11 +399,17 @@ export class MicrosoftDriver extends BaseEmailDriver {
     const graphMessage = this.composeToGraphMessage(message);
 
     if (existingDraftId) {
-      await this.client!.patch(`/me/messages/${existingDraftId}`, graphMessage);
+      await this.executeWithRetry(
+        () => this.client!.patch(`/me/messages/${existingDraftId}`, graphMessage),
+        'saveDraft:update',
+      );
       return existingDraftId;
     }
 
-    const response = await this.client!.post('/me/messages', graphMessage);
+    const response = await this.executeWithRetry(
+      () => this.client!.post('/me/messages', graphMessage),
+      'saveDraft:create',
+    );
     return response.data.id;
   }
 
@@ -919,10 +934,18 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     for (let page = 0; nextUrl && page < MAX_PAGES; page += 1) {
       const isAbsolute = /^https?:/i.test(nextUrl);
-      const response: AxiosResponse<any> = await this.client!.get(
-        nextUrl,
-        isAbsolute ? { baseURL: '' } : { params: nextParams },
+      const currentUrl = nextUrl;
+      const currentParams = nextParams;
+
+      // FIXED (2025-01-05): Wrap API call with retry
+      const response: AxiosResponse<any> = await this.executeWithRetry(
+        () => this.client!.get(
+          currentUrl,
+          isAbsolute ? { baseURL: '' } : { params: currentParams },
+        ),
+        `fetchAllPages:${initialUrl.split('/').pop() || 'unknown'}`,
       );
+
       items.push(...(response.data.value || []));
       nextUrl = response.data['@odata.nextLink'] || null;
       nextParams = undefined;

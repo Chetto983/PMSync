@@ -342,8 +342,7 @@ export class EmailCleanupService implements OnModuleInit {
 
     if (staleEmails.length) {
       this.logger.log(
-        `Purged ${staleEmails.length} deleted emails${
-          tenantId ? ` for tenant ${tenantId}` : ''
+        `Purged ${staleEmails.length} deleted emails${tenantId ? ` for tenant ${tenantId}` : ''
         }`,
       );
     }
@@ -385,8 +384,7 @@ export class EmailCleanupService implements OnModuleInit {
 
     if (duplicates.length) {
       this.logger.warn(
-        `Removed ${duplicates.length} duplicate emails${
-          tenantId ? ` for tenant ${tenantId}` : ''
+        `Removed ${duplicates.length} duplicate emails${tenantId ? ` for tenant ${tenantId}` : ''
         }`,
       );
     }
