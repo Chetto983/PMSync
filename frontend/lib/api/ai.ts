@@ -15,6 +15,172 @@ function getAuthToken(): string {
   return '';
 }
 
+// ============ Personalization Types (migrated from deleted personalization.ts) ============
+
+export type JobRole = string;
+export type CommunicationStyle = 'FORMAL' | 'CASUAL' | 'TECHNICAL' | 'CREATIVE';
+export type ResponseLength = 'BRIEF' | 'MODERATE' | 'DETAILED';
+export type ProactivityLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export type UserProfile = {
+  jobRole: JobRole;
+  jobTitle?: string;
+  department?: string;
+  industry?: string;
+  companySize?: string;
+  communicationStyle: CommunicationStyle;
+  responseLength: ResponseLength;
+  proactivityLevel: ProactivityLevel;
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  workingDays?: string[];
+  timezone: string;
+  language: string;
+};
+
+export type MemoryType = 'PREFERENCE' | 'FACT' | 'PATTERN' | 'INTERACTION' | 'CONTACT_NOTE';
+export type MemorySource = 'EXPLICIT' | 'INFERRED' | 'BEHAVIOR';
+
+export type Memory = {
+  id: string;
+  tenantId: string;
+  userId: string;
+  type: MemoryType;
+  content: string;
+  metadata?: Record<string, unknown>;
+  embedding?: number[];
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string;
+};
+
+export type StoreMemoryPayload = {
+  type: MemoryType;
+  content: string;
+  category?: string;
+  source?: MemorySource;
+  confidence?: number;
+  metadata?: Record<string, unknown>;
+};
+
+export type LearnInteractionPayload = {
+  action: string;
+  context: string;
+  outcome: 'positive' | 'negative' | 'neutral';
+};
+
+export type WorkingHoursResponse = {
+  success: boolean;
+  withinWorkingHours: boolean;
+  reason?: string;
+  workingHours?: {
+    start?: string;
+    end?: string;
+    days?: string[];
+  };
+};
+
+// ============ Personalization API (stub - backend removed in AI refactor v2.0) ============
+
+const DEFAULT_PROFILE: UserProfile = {
+  jobRole: 'IC',
+  communicationStyle: 'CASUAL',
+  responseLength: 'MODERATE',
+  proactivityLevel: 'MEDIUM',
+  timezone: 'UTC',
+  language: 'en',
+};
+
+export const personalizationApi = {
+  // Get user profile - returns defaults (backend removed)
+  getProfile() {
+    return Promise.resolve({ data: { success: true, profile: DEFAULT_PROFILE } });
+  },
+
+  // Update user profile - no-op (backend removed)
+  updateProfile(_profile: Partial<UserProfile>) {
+    return Promise.resolve({ data: { success: true, profile: DEFAULT_PROFILE } });
+  },
+
+  // Get personalization context - no-op (backend removed)
+  getContext(_body?: { query?: string }) {
+    return Promise.resolve({ data: { success: true, context: {} } });
+  },
+
+  // Get memories by type - use voltAgentApi.listMemories instead
+  getMemories(_params: { type: MemoryType; limit?: number }) {
+    return Promise.resolve({ data: { success: true, memories: [] as Memory[] } });
+  },
+
+  // Search memories - use voltAgentApi.searchMemories instead
+  searchMemories(_payload: { query: string; limit?: number }) {
+    return Promise.resolve({ data: { success: true, memories: [] as Memory[] } });
+  },
+
+  // Store a memory - use voltAgentApi.addMemoryFact instead
+  storeMemory(_memory: StoreMemoryPayload) {
+    return Promise.resolve({ data: { success: false, memoryId: '' } });
+  },
+
+  // Delete a memory - use voltAgentApi.deleteMemory instead
+  deleteMemory(_memoryId: string) {
+    return Promise.resolve({ data: { success: true } });
+  },
+
+  // Clear all memories - stub (backend removed in AI refactor v2.0)
+  clearAllMemories() {
+    return Promise.resolve({ data: { success: true, deletedCount: 0 } });
+  },
+
+  // Learn from user interaction - no-op (backend removed)
+  learnFromInteraction(_payload: LearnInteractionPayload) {
+    return Promise.resolve({ data: { success: true } });
+  },
+
+  // Check working hours - returns default (backend removed)
+  getWorkingHours() {
+    return Promise.resolve({
+      data: {
+        success: true,
+        withinWorkingHours: true,
+        workingHours: { start: '09:00', end: '18:00', days: ['MON', 'TUE', 'WED', 'THU', 'FRI'] },
+      } as WorkingHoursResponse,
+    });
+  },
+
+  // Get memory history - no-op (backend removed)
+  getMemoryHistory(_memoryId: string) {
+    return Promise.resolve({
+      data: {
+        success: true,
+        history: [] as Array<{
+          action: string;
+          previousValue?: string;
+          newValue?: string;
+          createdAt: string;
+        }>,
+      },
+    });
+  },
+
+  // Get procedural patterns - no-op (backend removed)
+  getPatterns() {
+    return Promise.resolve({
+      data: {
+        success: true,
+        patterns: [] as Array<{
+          id: string;
+          taskType: string;
+          trigger: string;
+          steps: unknown;
+          successRate: number;
+          lastUsedAt: string;
+        }>,
+      },
+    });
+  },
+};
+
 // ============ Types ============
 
 export type ChatMessage = {

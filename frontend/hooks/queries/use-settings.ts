@@ -22,7 +22,7 @@ import {
   type Memory,
   type LearnInteractionPayload,
   type WorkingHoursResponse,
-} from '@/lib/api/personalization';
+} from '@/lib/api/ai';
 
 // ============================================================================
 // Types

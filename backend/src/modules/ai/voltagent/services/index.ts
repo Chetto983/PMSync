@@ -2,11 +2,11 @@
  * VoltAgent Services
  *
  * Core services for the VoltAgent system including HITL,
- * feedback/learning, action execution, CRM intelligence,
- * and P2 Smart Scheduling features.
+ * action execution, CRM intelligence, and P2 Smart Scheduling features.
+ * FeedbackService removed - AI refactor v2.0
  */
 export * from './hitl.service';
-export * from './feedback.service';
+// FeedbackService removed - AI refactor v2.0
 export * from './action-executor.service';
 export * from './relationship-intelligence.service';
 

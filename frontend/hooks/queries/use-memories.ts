@@ -18,7 +18,7 @@ import {
   type Memory,
   type MemoryType,
   type StoreMemoryPayload,
-} from '@/lib/api/personalization';
+} from '@/lib/api/ai';
 
 // ============================================================================
 // Types

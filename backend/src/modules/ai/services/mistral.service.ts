@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Mistral } from '@mistralai/mistralai';
 import type { Messages as MistralChatMessage } from '@mistralai/mistralai/models/components/chatcompletionrequest.js';
@@ -11,10 +11,7 @@ import {
   getTranslations,
   type SupportedLocale,
 } from '../voltagent/locales';
-import {
-  LlmTelemetryService,
-  type LlmCallContext,
-} from '../voltagent/observability/telemetry';
+// Telemetry removed - AI module refactor v2.0
 
 import { PromptGuardService } from '../guards/prompt-guard.service';
 import { getAiCircuitBreaker, withRetry, embeddingRateLimiter } from '../utils';
@@ -39,7 +36,6 @@ export class MistralService {
     private configService: ConfigService,
     private embeddingsService: EmbeddingsService,
     private promptGuard: PromptGuardService,
-    @Optional() private telemetry?: LlmTelemetryService,
   ) {
     // Configure rate limiting from env (defaults: 3 concurrent)
     this.maxConcurrentEmbeddings = parseInt(
@@ -212,21 +208,6 @@ export class MistralService {
 
         return withRetry(
           async () => {
-            // Use telemetry tracking if available and context provided
-            if (this.telemetry && telemetryContext?.tenantId) {
-              const context: LlmCallContext = {
-                tenantId: telemetryContext.tenantId,
-                userId: telemetryContext.userId,
-                operation: 'completion',
-                promptName: telemetryContext.promptName,
-                model,
-              };
-
-              const { result } = await this.telemetry.trackCall(context, executeCall);
-              return result.text;
-            }
-
-            // Fallback: execute without telemetry
             const result = await executeCall();
             return result.text;
           },
@@ -417,20 +398,6 @@ export class MistralService {
 
         return withRetry(
           async () => {
-            // Use telemetry tracking if available and context provided
-            if (this.telemetry && telemetryContext?.tenantId) {
-              const context: LlmCallContext = {
-                tenantId: telemetryContext.tenantId,
-                userId: telemetryContext.userId,
-                operation: 'embedding',
-                model: this.embeddingModel,
-              };
-
-              const { result } = await this.telemetry.trackCall(context, executeCall);
-              return result.embedding;
-            }
-
-            // Fallback: execute without telemetry
             const result = await executeCall();
             return result.embedding;
           },
@@ -505,19 +472,6 @@ export class MistralService {
 
         return withRetry(
           async () => {
-            if (this.telemetry && telemetryContext?.tenantId) {
-              const context: LlmCallContext = {
-                tenantId: telemetryContext.tenantId,
-                userId: telemetryContext.userId,
-                operation: 'bulk_embedding',
-                model: this.embeddingModel,
-              };
-
-              const { result } = await this.telemetry.trackCall(context, executeCall);
-              return result.embeddings;
-            }
-
-            // Fallback: execute without telemetry
             const result = await executeCall();
             return result.embeddings;
           },
@@ -649,17 +603,6 @@ export class MistralService {
         };
 
         const result = await withRetry(async () => {
-          if (this.telemetry) {
-            const context: LlmCallContext = {
-              tenantId,
-              userId,
-              operation: 'chat',
-              model,
-              sessionId: options?.conversationId,
-            };
-            const { result } = await this.telemetry.trackCall(context, executeCall);
-            return result;
-          }
           return await executeCall();
         }, {
           maxRetries: 3,

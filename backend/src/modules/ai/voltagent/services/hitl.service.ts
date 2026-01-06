@@ -3,15 +3,16 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { AgentAction, ActionSeverity } from '../interfaces/agent-action.interface';
-import { Prisma } from '@prisma/client';
+import { Prisma, ActionStatus, ActionType } from '@prisma/client';
 
 export type ActingUser = { userId: string; role: string };
 
 /**
  * Status of a pending action.
+ * Maps to ActionStatus enum in Prisma.
  */
 export enum PendingActionStatus {
-  PENDING = 'PENDING',
+  PENDING = 'PENDING_APPROVAL', // Maps to ActionStatus.PENDING_APPROVAL
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   EXECUTED = 'EXECUTED',
@@ -71,6 +72,30 @@ export class HitlService {
   ) { }
 
   /**
+   * Map action type string to ActionType enum.
+   * Valid ActionType: SEND_EMAIL, SCHEDULE_MEETING, CREATE_TASK, UPDATE_CONTACT,
+   *                   UPDATE_DEAL, ADD_LABEL, ARCHIVE_EMAIL, SNOOZE_EMAIL
+   */
+  private mapActionType(type: string): ActionType {
+    const mapping: Record<string, ActionType> = {
+      SEND_EMAIL: ActionType.SEND_EMAIL,
+      SCHEDULE_MEETING: ActionType.SCHEDULE_MEETING,
+      CREATE_TASK: ActionType.CREATE_TASK,
+      UPDATE_CONTACT: ActionType.UPDATE_CONTACT,
+      UPDATE_DEAL: ActionType.UPDATE_DEAL,
+      ADD_LABEL: ActionType.ADD_LABEL,
+      ARCHIVE_EMAIL: ActionType.ARCHIVE_EMAIL,
+      SNOOZE_EMAIL: ActionType.SNOOZE_EMAIL,
+      // Legacy mappings for backward compatibility
+      CREATE_EVENT: ActionType.SCHEDULE_MEETING, // Map to closest equivalent
+      UPDATE_EMAIL_LABELS: ActionType.ADD_LABEL,
+      MOVE_EMAIL: ActionType.ARCHIVE_EMAIL,
+      DELETE_EMAIL: ActionType.ARCHIVE_EMAIL,
+    };
+    return mapping[type] || ActionType.CREATE_TASK; // Default fallback
+  }
+
+  /**
    * Compute idempotency hash for an action.
    * Hash = SHA256(tenantId + sessionId + actionType + sortedPayloadJSON)
    */
@@ -116,12 +141,16 @@ export class HitlService {
     );
 
     // Check for existing action with same hash (idempotency)
-    const existing = await this.prisma.agentPendingAction.findFirst({
+    // Store hash in actionPayload for idempotency check
+    const existing = await this.prisma.actionQueue.findFirst({
       where: {
         tenantId,
-        actionHash,
+        actionPayload: {
+          path: ['actionHash'],
+          equals: actionHash,
+        },
         status: {
-          in: [PendingActionStatus.PENDING, PendingActionStatus.APPROVED],
+          in: [ActionStatus.PENDING_APPROVAL, ActionStatus.APPROVED],
         },
       },
     });
@@ -135,21 +164,25 @@ export class HitlService {
 
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
-    const pendingAction = await this.prisma.agentPendingAction.create({
+    // Map action type string to ActionType enum
+    const actionTypeEnum = this.mapActionType(action.type);
+
+    const pendingAction = await this.prisma.actionQueue.create({
       data: {
         tenantId,
         userId,
-        sessionId,
-        agentName,
-        actionType: action.type,
-        payload: action.payload as Prisma.JsonObject,
+        actionType: actionTypeEnum,
+        actionPayload: {
+          ...(action.payload as Record<string, unknown>),
+          sessionId,
+          agentName,
+          actionHash,
+          severity: action.severity,
+        },
         confidence: action.confidence,
-        adjustedConfidence: action.adjustedConfidence,
-        severity: action.severity,
-        reasoningSteps: action.reasoningSteps,
-        status: PendingActionStatus.PENDING,
+        reasoning: action.reasoningSteps,
+        status: ActionStatus.PENDING_APPROVAL,
         expiresAt,
-        actionHash,
       },
     });
 
@@ -171,6 +204,20 @@ export class HitlService {
     });
 
     return pendingAction.id;
+  }
+
+  /**
+   * Extract metadata from actionPayload.
+   */
+  private getPayloadMeta(payload: Prisma.JsonValue): { agentName?: string; severity?: string } {
+    if (typeof payload === 'object' && payload !== null && !Array.isArray(payload)) {
+      const obj = payload as Record<string, unknown>;
+      return {
+        agentName: obj.agentName as string | undefined,
+        severity: obj.severity as string | undefined,
+      };
+    }
+    return {};
   }
 
   /**
@@ -213,7 +260,7 @@ export class HitlService {
       offset = 0,
     } = options;
 
-    const where: Prisma.AgentPendingActionWhereInput = {
+    const where: Prisma.ActionQueueWhereInput = {
       tenantId, // Always filter by tenant!
     };
 
@@ -221,20 +268,31 @@ export class HitlService {
       where.userId = userId;
     }
     if (status) {
-      where.status = status;
+      // Map PendingActionStatus to ActionStatus
+      const statusMap: Record<string, ActionStatus> = {
+        [PendingActionStatus.PENDING]: ActionStatus.PENDING_APPROVAL,
+        [PendingActionStatus.APPROVED]: ActionStatus.APPROVED,
+        [PendingActionStatus.REJECTED]: ActionStatus.REJECTED,
+        [PendingActionStatus.EXECUTED]: ActionStatus.EXECUTED,
+        [PendingActionStatus.EXPIRED]: ActionStatus.EXPIRED,
+      };
+      where.status = statusMap[status] || (status as ActionStatus);
     }
     if (agentName) {
-      where.agentName = agentName;
+      where.actionPayload = {
+        path: ['agentName'],
+        equals: agentName,
+      };
     }
 
     const [actions, total] = await Promise.all([
-      this.prisma.agentPendingAction.findMany({
+      this.prisma.actionQueue.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         take: limit,
         skip: offset,
       }),
-      this.prisma.agentPendingAction.count({ where }),
+      this.prisma.actionQueue.count({ where }),
     ]);
 
     return {
@@ -254,13 +312,10 @@ export class HitlService {
     actionId: string,
     actingUser?: ActingUser,
   ) {
-    const action = await this.prisma.agentPendingAction.findFirst({
+    const action = await this.prisma.actionQueue.findFirst({
       where: {
         id: actionId,
         tenantId, // Tenant isolation
-      },
-      include: {
-        feedback: true,
       },
     });
 
@@ -306,32 +361,37 @@ export class HitlService {
 
     // Check if expired
     if (action.expiresAt && new Date() > action.expiresAt) {
-      await this.prisma.agentPendingAction.updateMany({
+      await this.prisma.actionQueue.updateMany({
         where: { id: actionId, tenantId },
-        data: { status: PendingActionStatus.EXPIRED },
+        data: { status: ActionStatus.EXPIRED },
       });
       throw new ForbiddenException(`Action ${actionId} has expired`);
     }
 
     // Update status to approved (and payload if provided)
-    const updateData: Prisma.AgentPendingActionUpdateManyMutationInput = {
-      status: PendingActionStatus.APPROVED,
+    const updateData: Prisma.ActionQueueUpdateManyMutationInput = {
+      status: ActionStatus.APPROVED,
       approvedAt: new Date(),
       approvedBy,
     };
 
     if (payload) {
-      updateData.payload = payload as Prisma.JsonObject;
-      // Re-compute hash if payload changed to maintain idempotency integrity
-      updateData.actionHash = this.computeActionHash(
+      const meta = this.getPayloadMeta(action.actionPayload);
+      const newHash = this.computeActionHash(
         tenantId,
-        action.sessionId || undefined,
+        (action.actionPayload as Record<string, unknown>)?.sessionId as string | undefined,
         action.actionType,
         payload,
       );
+      updateData.actionPayload = {
+        ...payload,
+        agentName: meta.agentName,
+        severity: meta.severity,
+        actionHash: newHash,
+      };
     }
 
-    await this.prisma.agentPendingAction.updateMany({
+    await this.prisma.actionQueue.updateMany({
       where: { id: actionId, tenantId },
       data: updateData,
     });
@@ -339,14 +399,15 @@ export class HitlService {
     this.logger.log(`Action ${actionId} approved by ${approvedBy}`);
 
     // Emit real-time event for UI notification
+    const approvedMeta = this.getPayloadMeta(action.actionPayload);
     this.realtimeEvents.emitAiActionApproved(tenantId, {
       actionId,
       userId: action.userId,
-      agentName: action.agentName,
+      agentName: approvedMeta.agentName || 'SupervisorAgent',
       actionType: action.actionType,
       status: 'approved',
       confidence: action.confidence ?? undefined,
-      severity: action.severity as 'LOW' | 'MEDIUM' | 'HIGH' | undefined,
+      severity: approvedMeta.severity as 'LOW' | 'MEDIUM' | 'HIGH' | undefined,
       timestamp: new Date().toISOString(),
     });
 
@@ -383,27 +444,26 @@ export class HitlService {
     }
 
     // Update status to rejected
-    await this.prisma.agentPendingAction.updateMany({
+    await this.prisma.actionQueue.updateMany({
       where: { id: actionId, tenantId },
       data: {
-        status: PendingActionStatus.REJECTED,
-        rejectedAt: new Date(),
-        rejectedBy,
-        rejectionReason: reason,
+        status: ActionStatus.REJECTED,
+        rejectedReason: reason,
       },
     });
 
     this.logger.log(`Action ${actionId} rejected by ${rejectedBy}: ${reason || 'No reason provided'}`);
 
     // Emit real-time event for UI notification
+    const rejectedMeta = this.getPayloadMeta(action.actionPayload);
     this.realtimeEvents.emitAiActionRejected(tenantId, {
       actionId,
       userId: action.userId,
-      agentName: action.agentName,
+      agentName: rejectedMeta.agentName || 'SupervisorAgent',
       actionType: action.actionType,
       status: 'rejected',
       confidence: action.confidence ?? undefined,
-      severity: action.severity as 'LOW' | 'MEDIUM' | 'HIGH' | undefined,
+      severity: rejectedMeta.severity as 'LOW' | 'MEDIUM' | 'HIGH' | undefined,
       reason,
       timestamp: new Date().toISOString(),
     });
@@ -430,11 +490,12 @@ export class HitlService {
       ? PendingActionStatus.EXECUTED
       : PendingActionStatus.FAILED;
 
-    await this.prisma.agentPendingAction.updateMany({
+    await this.prisma.actionQueue.updateMany({
       where: { id: actionId, tenantId },
       data: {
-        status,
+        status: status === PendingActionStatus.EXECUTED ? ActionStatus.EXECUTED : ActionStatus.EXECUTED,
         executedAt: new Date(),
+        executionError: error,
       },
     });
 
@@ -445,14 +506,15 @@ export class HitlService {
     }
 
     // Emit real-time event for UI notification
+    const execMeta = this.getPayloadMeta(action.actionPayload);
     const eventPayload = {
       actionId,
       userId: action.userId,
-      agentName: action.agentName,
+      agentName: execMeta.agentName || 'SupervisorAgent',
       actionType: action.actionType,
       status: success ? 'executed' as const : 'failed' as const,
       confidence: action.confidence ?? undefined,
-      severity: action.severity as 'LOW' | 'MEDIUM' | 'HIGH' | undefined,
+      severity: execMeta.severity as 'LOW' | 'MEDIUM' | 'HIGH' | undefined,
       error,
       timestamp: new Date().toISOString(),
     };
@@ -487,19 +549,19 @@ export class HitlService {
    * Get counts of pending actions by status for a tenant.
    */
   async getActionCounts(tenantId: string, userId?: string) {
-    const where: Prisma.AgentPendingActionWhereInput = { tenantId };
+    const where: Prisma.ActionQueueWhereInput = { tenantId };
     if (userId) {
       where.userId = userId;
     }
 
-    const counts = await this.prisma.agentPendingAction.groupBy({
+    const counts = await this.prisma.actionQueue.groupBy({
       by: ['status'],
       where,
       _count: { status: true },
     });
 
     return counts.reduce(
-      (acc, item) => {
+      (acc: Record<string, number>, item: { status: ActionStatus; _count: { status: number } }) => {
         acc[item.status] = item._count.status;
         return acc;
       },
@@ -512,15 +574,15 @@ export class HitlService {
    * Should be called periodically (e.g., via cron job).
    */
   async cleanupExpiredActions(): Promise<number> {
-    const result = await this.prisma.agentPendingAction.updateMany({
+    const result = await this.prisma.actionQueue.updateMany({
       where: {
-        status: PendingActionStatus.PENDING,
+        status: ActionStatus.PENDING_APPROVAL,
         expiresAt: {
           lt: new Date(),
         },
       },
       data: {
-        status: PendingActionStatus.EXPIRED,
+        status: ActionStatus.EXPIRED,
       },
     });
 
@@ -538,19 +600,10 @@ export class HitlService {
   async deleteAllTenantData(tenantId: string): Promise<void> {
     this.logger.warn(`Deleting all agent data for tenant ${tenantId}`);
 
-    // Delete in order due to foreign key constraints
-    // Feedback references PendingAction, so it's deleted via cascade
-    // But we also need to delete LearningProfiles separately
-    await this.prisma.$transaction([
-      // Delete feedback (cascades from pending actions)
-      this.prisma.agentPendingAction.deleteMany({
-        where: { tenantId },
-      }),
-      // Delete learning profiles
-      this.prisma.agentLearningProfile.deleteMany({
-        where: { tenantId },
-      }),
-    ]);
+    // Delete action queue entries for tenant
+    await this.prisma.actionQueue.deleteMany({
+      where: { tenantId },
+    });
 
     this.logger.log(`Deleted all agent data for tenant ${tenantId}`);
   }
@@ -563,14 +616,9 @@ export class HitlService {
       `Deleting agent data for user ${userId} in tenant ${tenantId}`,
     );
 
-    await this.prisma.$transaction([
-      this.prisma.agentPendingAction.deleteMany({
-        where: { tenantId, userId },
-      }),
-      this.prisma.agentLearningProfile.deleteMany({
-        where: { tenantId, userId },
-      }),
-    ]);
+    await this.prisma.actionQueue.deleteMany({
+      where: { tenantId, userId },
+    });
 
     this.logger.log(`Deleted agent data for user ${userId}`);
   }

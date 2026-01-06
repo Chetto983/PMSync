@@ -23,11 +23,8 @@ import { createKnowledgeAgent } from './knowledge.agent';
 import { createWebSearchAgent } from './websearch.agent';
 import { createDocumentLibraryAgent } from './document-library.agent';
 import { createAnalyticsAgent } from './analytics.agent';
-import { createUnifiedKnowledgeAgent } from './unified-knowledge.agent';
-import type { LongTermMemoryService } from '../memory/long-term-memory.service';
-import type { DeadlineExtractorService } from '../services/deadline-extractor.service';
+// createUnifiedKnowledgeAgent, LongTermMemoryService, DeadlineExtractorService, ActionItemService removed - AI refactor v2.0
 import type { FollowUpService } from '../services/follow-up.service';
-import type { ActionItemService } from '../services/action-item.service';
 
 export interface SupervisorAgentOptions {
   model: LanguageModel;
@@ -52,11 +49,8 @@ export interface SupervisorAgentOptions {
   cacheService?: CacheService;
   /** Optional: DocumentLibraryService for document RAG */
   documentLibraryService?: DocumentLibraryService;
-  /** Optional: UnifiedKnowledgeAgent dependencies */
-  longTermMemoryService?: LongTermMemoryService;
-  deadlineService?: DeadlineExtractorService;
+  /** Optional: UnifiedKnowledgeAgent dependencies (simplified in AI refactor v2.0) */
   followUpService?: FollowUpService;
-  actionItemService?: ActionItemService;
 }
 
 /**
@@ -270,10 +264,8 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     userId,
     cacheService,
     documentLibraryService,
-    longTermMemoryService,
-    deadlineService,
+    // longTermMemoryService, deadlineService, actionItemService removed - AI refactor v2.0
     followUpService,
-    actionItemService,
   } = options;
   const t = getAgentTranslations(locale);
 
@@ -375,48 +367,9 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     subAgents.push(analyticsAgent);
   }
 
-  // UnifiedKnowledgeAgent - only create if long-term memory service is enabled
-  // RAG services (mistralService, embeddingsService) are optional - agent will work with basic tools
-  const memoryEnabled = longTermMemoryService?.isEnabled?.() ?? false;
-  console.log('[UnifiedKnowledgeAgent] Check: memoryEnabled=' + memoryEnabled + ', userId=' + !!userId + ', mistral=' + !!mistralService + ', embeddings=' + !!embeddingsService);
-
-  // FIX: Only require userId and memoryEnabled - RAG services are optional
-  if (userId && memoryEnabled) {
-    // Create placeholder services if not provided (graceful degradation)
-    const safeDeadlineService = deadlineService ?? {
-      getUpcomingDeadlines: async () => [],
-      extractDeadlines: async () => [],
-    };
-    const safeFollowUpService = followUpService ?? {
-      getPendingFollowUps: async () => [],
-      getOverdueFollowUps: async () => [],
-    };
-    const safeActionItemService = actionItemService ?? {
-      getOpenActionItems: async () => [],
-      getActionItems: async () => [],
-      getPending: async () => [],
-    };
-
-    const unifiedKnowledgeAgent = createUnifiedKnowledgeAgent({
-      model,
-      prisma,
-      locale,
-      tenantId,
-      userId,
-      hooks,
-      longTermMemory: longTermMemoryService!,
-      deadlineService: (deadlineService ?? safeDeadlineService) as DeadlineExtractorService,
-      followUpService: (followUpService ?? safeFollowUpService) as FollowUpService,
-      actionItemService: (actionItemService ?? safeActionItemService) as ActionItemService,
-      // RAG services are optional - agent works without them using basic tools
-      mistralService,
-      embeddingsService,
-    });
-    subAgents.push(unifiedKnowledgeAgent);
-    console.log('[UnifiedKnowledgeAgent] Created successfully with ' + (mistralService ? 'full RAG' : 'basic tools'));
-  } else {
-    console.warn('[UnifiedKnowledgeAgent] Not created - memoryEnabled=' + memoryEnabled + ', userId=' + !!userId);
-  }
+  // UnifiedKnowledgeAgent disabled - AI refactor v2.0 removed LongTermMemoryService dependencies
+  // Future: Re-implement using EmailAnalysis and ActionQueue models
+  console.log('[UnifiedKnowledgeAgent] Disabled - AI refactor v2.0');
 
   // Create the supervisor agent with all sub-agents
   // Memory is shared - tenant isolation is handled via userId format: tenantId:userId

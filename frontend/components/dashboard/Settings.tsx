@@ -29,7 +29,7 @@ import {
   type CommunicationStyle,
   type ResponseLength,
   type ProactivityLevel,
-} from '@/lib/api/personalization';
+} from '@/lib/api/ai';
 import { multiAgentApi } from '@/lib/api/ai';
 import { useAuth } from '@/lib/hooks/use-auth';
 import {

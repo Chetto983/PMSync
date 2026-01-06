@@ -39,23 +39,14 @@ import { RealtimeModule } from '../../realtime/realtime.module';
 import { VoltAgentController } from './voltagent.controller';
 import { VoltAgentService } from './voltagent.service';
 import { HitlService } from './services/hitl.service';
-import { FeedbackService } from './services/feedback.service';
+// FeedbackService removed - AI refactor v2.0
 import { ActionExecutorService } from './services/action-executor.service';
 import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
-// Memory services (2025 Best Practices)
-import {
-  VoltAgentMemoryService,
-  SessionBridgeService,
-  SummarizationQueueService,
-  LongTermMemoryService,
-} from './memory';
-// PgVector memory service (replaces mem0ai - no external dependencies)
+// Memory services removed - AI refactor v2.0 (simplified to EmailAnalysis + ActionQueue)
 
 // Consolidated AI services
-import { PersonalizationService } from './services/personalization.service';
 import { WritingStyleService } from './services/writing-style.service';
-import { PromptRegistryService } from './prompts/prompt-registry.service';
 // Performance Optimization services (2025)
 import { SemanticCacheService } from './services/semantic-cache.service';
 import { ModelRouterService } from './services/model-router.service';
@@ -65,12 +56,10 @@ import { RateLimiterService } from './services/rate-limiter.service';
 import { MistralBatchService } from './services/mistral-batch.service';
 // Daily briefing (pre-computed summaries)
 import { DailyBriefingService } from './services/daily-briefing.service';
-// Deadline extraction (chrono-node NLP)
-import { DeadlineExtractorService } from './services/deadline-extractor.service';
+// DeadlineExtractorService removed - AI refactor v2.0 (deadlines in EmailAnalysis)
 // Follow-up tracking (P0 critical feature)
 import { FollowUpService } from './services/follow-up.service';
-// Action item extraction (P1 feature)
-import { ActionItemService } from './services/action-item.service';
+// ActionItemService removed - AI refactor v2.0 (actions in ActionQueue)
 // Analytics (P1.5 - Mistral code_interpreter)
 import { AnalyticsService } from './services/analytics.service';
 // Unified Knowledge (P1.6 - Memory-First RAG)
@@ -85,8 +74,7 @@ import { MeetingPrepService } from './services/meeting-prep.service';
 // Document Library (P2.5 - Mistral document_library RAG)
 import { DocumentLibraryService } from './services/document-library.service';
 import { DocumentLibraryController } from './controllers/document-library.controller';
-// Observability (OpenTelemetry-aligned)
-import { LlmTelemetryService } from './observability/telemetry';
+// LlmTelemetryService removed - AI refactor v2.0
 // Security guards (OWASP LLM Top 10 2025)
 import { PromptGuardService, PiiDetectionService } from '../guards';
 import { EpisodicMemoryService } from './services/episodic-memory.service';
@@ -108,21 +96,15 @@ import { AlertingService } from '../../../common/services/alerting.service';
   providers: [
     VoltAgentService,
     HitlService,
-    FeedbackService,
+    // FeedbackService removed - AI refactor v2.0
     ActionExecutorService,
     // RAG services for HybridRetriever
     MistralService,
     EmbeddingsService,
-    // Memory services (2025 Best Practices)
-    VoltAgentMemoryService,
-    SessionBridgeService,
-    SummarizationQueueService,
-    LongTermMemoryService,
+    // Memory services removed - AI refactor v2.0
 
     // Consolidated AI services (Step 8)
-    PersonalizationService,
     WritingStyleService,
-    PromptRegistryService,
     // Performance Optimization services (2025)
     SemanticCacheService,
     ModelRouterService,
@@ -132,12 +114,10 @@ import { AlertingService } from '../../../common/services/alerting.service';
     MistralBatchService,
     // Daily briefing (pre-computed summaries)
     DailyBriefingService,
-    // Deadline extraction (chrono-node NLP + BullMQ)
-    DeadlineExtractorService,
+    // DeadlineExtractorService removed - AI refactor v2.0
     // Follow-up tracking (P0 critical feature)
     FollowUpService,
-    // Action item extraction (P1 feature)
-    ActionItemService,
+    // ActionItemService removed - AI refactor v2.0
     // Analytics (P1.5 - Mistral code_interpreter)
     AnalyticsService,
     // Unified Knowledge (P1.6 - Memory-First RAG)
@@ -152,9 +132,7 @@ import { AlertingService } from '../../../common/services/alerting.service';
     MeetingPrepService,
     // Document Library (P2.5 - Mistral document_library RAG)
     DocumentLibraryService,
-    // Observability
-    LlmTelemetryService,
-    // Security guards (OWASP LLM Top 10 2025)
+    // LlmTelemetryService removed - AI refactor v2.0
     // Security guards (OWASP LLM Top 10 2025)
     PromptGuardService,
     PiiDetectionService,
@@ -166,30 +144,22 @@ import { AlertingService } from '../../../common/services/alerting.service';
   exports: [
     VoltAgentService,
     HitlService,
-    FeedbackService,
+    // FeedbackService removed - AI refactor v2.0
     ActionExecutorService,
-    // Memory services
-    VoltAgentMemoryService,
-    SessionBridgeService,
-    SummarizationQueueService,
-    LongTermMemoryService,
+    // Memory services removed - AI refactor v2.0
 
     // Consolidated AI services
-    PersonalizationService,
     WritingStyleService,
-    PromptRegistryService,
     // Performance Optimization services
     SemanticCacheService,
     ModelRouterService,
     AiQueueService,
     // Daily briefing
     DailyBriefingService,
-    // Deadline extraction
-    DeadlineExtractorService,
+    // DeadlineExtractorService removed - AI refactor v2.0
     // Follow-up tracking
     FollowUpService,
-    // Action item extraction
-    ActionItemService,
+    // ActionItemService removed - AI refactor v2.0
     // Analytics
     AnalyticsService,
     // Unified Knowledge (P1.6)
@@ -204,8 +174,7 @@ import { AlertingService } from '../../../common/services/alerting.service';
     MeetingPrepService,
     // Document Library (P2.5)
     DocumentLibraryService,
-    // Observability
-    LlmTelemetryService,
+    // LlmTelemetryService removed - AI refactor v2.0
     // Security guards (OWASP LLM Top 10 2025)
     PromptGuardService,
     PiiDetectionService,

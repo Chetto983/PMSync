@@ -21,7 +21,7 @@ import {
 import { Search, Plus, Trash2, Brain, Lightbulb, TrendingUp, MessageSquare, Users } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useAllMemories, useStoreMemory, useDeleteMemory, useClearAllMemories } from '@/hooks/queries';
-import type { MemoryType, StoreMemoryPayload } from '@/lib/api/personalization';
+import type { MemoryType, StoreMemoryPayload } from '@/lib/api/ai';
 import { MemoryList } from './MemoryList';
 import { PatternsTab } from './PatternsTab';
 import { MemoryHistoryDialog } from './MemoryHistoryDialog';

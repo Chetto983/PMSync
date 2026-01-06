@@ -37,7 +37,7 @@ import { createSupervisorAgent, SupervisorAgentOptions, UserContext } from './ag
 import { createWebSearchAgent } from './agents/websearch.agent';
 import { createDocumentLibraryAgent } from './agents/document-library.agent';
 import { createAnalyticsAgent } from './agents/analytics.agent';
-import { createUnifiedKnowledgeAgent } from './agents/unified-knowledge.agent';
+// createUnifiedKnowledgeAgent removed - AI refactor v2.0
 import { AiQueueService, type AiJobData } from './services/ai-queue.service';
 import { RateLimiterService } from './services/rate-limiter.service';
 import { AiError, AiErrorCode } from '../errors';
@@ -46,14 +46,14 @@ import { AgentAction, AgentActionType, ActionSeverity } from './interfaces/agent
 import { AgentContext } from './interfaces/agent-context.interface';
 import { type ConnectedProvider } from './agents';
 import { getLocale, getTranslations, type SupportedLocale } from './locales';
-import { VoltAgentMemoryService, LongTermMemoryService } from './memory';
+// VoltAgentMemoryService, LongTermMemoryService removed - AI refactor v2.0
 import { DocumentLibraryService } from './services/document-library.service';
 import { PromptGuardService, PiiDetectionService } from '../guards';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import type { AiAgentType } from '../../realtime/types/realtime.types';
-import { DeadlineExtractorService } from './services/deadline-extractor.service';
+// DeadlineExtractorService removed - AI refactor v2.0 (deadlines in EmailAnalysis)
 import { FollowUpService } from './services/follow-up.service';
-import { ActionItemService } from './services/action-item.service';
+// ActionItemService removed - AI refactor v2.0 (actions in ActionQueue)
 import { createObservabilityHooks, type AgentMetrics, type DisposableHooks } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import { EpisodicMemoryService } from './services/episodic-memory.service';
@@ -145,6 +145,27 @@ interface CachedAgent {
   lastUsed: number; // For LRU eviction
 }
 
+/**
+ * Extract properties stored in ActionQueue.actionPayload JSON field.
+ * AI refactor v2.0: agentName, sessionId, severity, payload moved to JSON.
+ */
+function extractActionPayload(actionPayload: unknown): {
+  agentName: string;
+  sessionId: string | undefined;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  payload: Record<string, unknown>;
+} {
+  const data = (typeof actionPayload === 'object' && actionPayload !== null)
+    ? actionPayload as Record<string, unknown>
+    : {};
+  return {
+    agentName: (data.agentName as string) || 'SupervisorAgent',
+    sessionId: data.sessionId as string | undefined,
+    severity: (data.severity as 'LOW' | 'MEDIUM' | 'HIGH') || 'LOW',
+    payload: data,
+  };
+}
+
 @Injectable()
 export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(VoltAgentService.name);
@@ -188,16 +209,16 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly aiQueueService?: AiQueueService,
     @Optional() private readonly rateLimiterService?: RateLimiterService,
     @Optional() private readonly mistralBatchService?: MistralBatchService,
-    @Optional() private readonly voltAgentMemoryService?: VoltAgentMemoryService,
-    @Optional() private readonly longTermMemoryService?: LongTermMemoryService,
+    // VoltAgentMemoryService removed - AI refactor v2.0
+    // LongTermMemoryService removed - AI refactor v2.0
     @Optional() private readonly episodicMemoryService?: EpisodicMemoryService,
     @Optional() private readonly documentLibraryService?: DocumentLibraryService,
     @Optional() private readonly promptGuardService?: PromptGuardService,
     @Optional() private readonly piiDetectionService?: PiiDetectionService,
     @Optional() private readonly realtimeEventsService?: RealtimeEventsService,
-    @Optional() private readonly deadlineService?: DeadlineExtractorService,
+    // DeadlineExtractorService removed - AI refactor v2.0
     @Optional() private readonly followUpService?: FollowUpService,
-    @Optional() private readonly actionItemService?: ActionItemService,
+    // ActionItemService removed - AI refactor v2.0
     @Optional() private readonly writingStyleService?: WritingStyleService,
   ) { }
 
@@ -521,11 +542,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   ): Agent {
     // Cache key includes userId if userContext is provided (personalized agents)
     // Fall back to locale+model for anonymous/system calls
-    // Include memoryEnabled state to recreate agents when LongTermMemoryService enables
     const userKey = userContext?.email ?? 'anonymous';
-    const memoryKey = this.longTermMemoryService?.isEnabled() ? 'mem' : 'nomem';
     // Use agentType in cache key to separate Supervisors from specialized agents
-    const cacheKey = `${tenantId}:${userKey}:${locale}:${modelType}:${memoryKey}:${agentType}`;
+    const cacheKey = `${tenantId}:${userKey}:${locale}:${modelType}:${agentType}`;
     const now = Date.now();
 
     // Check if cached agent exists and is not expired
@@ -601,11 +620,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           configService: this.configService,
           // Document Library agent for document RAG
           documentLibraryService: this.documentLibraryService,
-          // UnifiedKnowledgeAgent dependencies
-          longTermMemoryService: this.longTermMemoryService,
-          deadlineService: this.deadlineService,
+          // UnifiedKnowledgeAgent dependencies removed - AI refactor v2.0
           followUpService: this.followUpService,
-          actionItemService: this.actionItemService,
         });
         break;
     }
@@ -773,101 +789,12 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // NOTE: tenantUserId was previously used for VoltAgent's native memory (disabled due to bug)
     // Tenant isolation is now handled by our Prisma-based VoltAgentMemoryService
 
-    // 3. Enforce token budget before LLM call (P2 Memory Optimization)
-    // CRITICAL: This retrieves AND injects conversation history for context continuity
-    let contextTruncated = false;
-    let conversationHistoryContext = '';
-    if (this.voltAgentMemoryService) {
-      // Determine budget based on model tier (large models get extended budget)
-      const budgetType = selectedModel === 'large' || selectedModel === 'medium' ? 'extended' : 'default';
+    // VoltAgentMemoryService removed - AI refactor v2.0
+    // Conversations are now stateless (no history persistence)
+    const contextTruncated = false;
 
-      this.logger.debug(`${logPrefix} [DEBUG] About to call getContextWithBudget`);
-      let budgetResult;
-      try {
-        budgetResult = await this.voltAgentMemoryService.getContextWithBudget(
-          {
-            tenantId: options.tenantId,
-            userId: options.userId,
-            conversationId: options.conversationId,
-            locale: options.locale,
-          },
-          budgetType,
-          processedMessage,
-        );
-      } catch (budgetError) {
-        this.logger.error(`${logPrefix} [DEBUG] getContextWithBudget FAILED: ${budgetError instanceof Error ? budgetError.message : String(budgetError)}`);
-        this.logger.error(`${logPrefix} [DEBUG] getContextWithBudget Stack: ${budgetError instanceof Error ? budgetError.stack : 'no stack'}`);
-        throw budgetError;
-      }
-      this.logger.debug(`${logPrefix} [DEBUG] budgetResult type: ${typeof budgetResult}, keys: ${budgetResult ? Object.keys(budgetResult).join(', ') : 'null'}`);
-      this.logger.debug(`${logPrefix} [DEBUG] budgetResult.messages type: ${typeof budgetResult?.messages}, isArray: ${Array.isArray(budgetResult?.messages)}`);
-
-      contextTruncated = budgetResult.wasTruncated;
-
-      // FIX: Inject conversation history into agent context
-      // Without this, the agent loses memory between messages!
-      // Defensive: ensure arrays exist (edge case protection for 1000+ concurrent users)
-      const messages = Array.isArray(budgetResult.messages) ? budgetResult.messages : [];
-      const summaries = Array.isArray(budgetResult.summaries) ? budgetResult.summaries : [];
-      this.logger.debug(`${logPrefix} [DEBUG] After defensive check - messages length: ${messages.length}`);
-
-      if (messages.length > 0 || summaries.length > 0) {
-        const historyParts: string[] = [];
-
-        // Include summaries first (older context)
-        if (summaries.length > 0) {
-          historyParts.push(`[Conversation Summary]\n${summaries.join('\n')}`);
-        }
-
-        // Include recent messages (chronological order)
-        if (messages.length > 0) {
-          const formattedMessages = messages.map((m) => {
-            const roleLabel = m.role === 'user' ? 'User' : m.role === 'assistant' ? 'Assistant' : 'System';
-            return `${roleLabel}: ${m.content}`;
-          });
-          historyParts.push(`[Recent Conversation]\n${formattedMessages.join('\n\n')}`);
-        }
-
-        conversationHistoryContext = historyParts.join('\n\n---\n\n');
-        if (this.piiDetectionService) {
-          conversationHistoryContext = this.piiDetectionService.redact(conversationHistoryContext);
-        }
-        this.logger.debug(
-          `${logPrefix} Conversation history injected: ${messages.length} messages, ${summaries.length} summaries`,
-        );
-      }
-
-      if (budgetResult.wasTruncated) {
-        this.logger.debug(
-          `${logPrefix} Token budget enforced: ${budgetResult.totalTokens}/${budgetResult.budgetLimit} tokens, ` +
-          `dropped ${budgetResult.messagesDropped} messages, summarization=${budgetResult.summarizationTriggered}`,
-        );
-      }
-    }
-
-    // 3.5. Inject long-term memory context (26% accuracy improvement)
+    // LongTermMemoryService removed - AI refactor v2.0
     let enhancedMessage = processedMessage;
-    if (this.longTermMemoryService?.isEnabled()) {
-      try {
-        const memoryContext = await this.longTermMemoryService.getContextForPrompt(
-          options.tenantId,
-          options.userId,
-          processedMessage,
-          { limit: 5, minImportance: 0.3 },
-        );
-        if (memoryContext) {
-          const safeMemoryContext = this.piiDetectionService
-            ? this.piiDetectionService.redact(memoryContext)
-            : memoryContext;
-          // Prepend memory context to the message for the agent
-          enhancedMessage = `${safeMemoryContext}\n\n---\n\n${enhancedMessage}`;
-          this.logger.debug(`${logPrefix} Long-term memory context injected`);
-        }
-      } catch (error) {
-        const errMsg = AiError.fromError(error).message;
-        this.logger.warn(`${logPrefix} Failed to get long-term memory context: ${errMsg}`);
-      }
-    }
 
     // 3.6. Inject episodic learning (rejection lessons)
     // Fetch global lessons (agentName undefined) to apply constraints across all agents
@@ -894,11 +821,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 3.7. CRITICAL: Inject conversation history for context continuity
-    // This ensures the agent remembers prior messages in the conversation
-    if (conversationHistoryContext) {
-      enhancedMessage = `${conversationHistoryContext}\n\n---\n\n[Current Message]\n${enhancedMessage}`;
-    }
+    // Conversation history injection removed - AI refactor v2.0
 
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     // Format: "tenantId:userId" allows hooks to extract both values
@@ -987,50 +910,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       throw new Error('Agent failed to generate a response after multiple attempts.');
     }
 
-    // 4. Persist messages to Prisma-based memory (conversation history)
-    let persistedConversationId: string | undefined;
-    if (this.voltAgentMemoryService) {
-      const memoryContext = {
-        tenantId: options.tenantId,
-        userId: options.userId,
-        conversationId: options.conversationId,
-        locale: options.locale,
-      };
+    // VoltAgentMemoryService removed - AI refactor v2.0
+    // Conversations are now stateless (no persistence)
+    const persistedConversationId: string | undefined = options.conversationId;
 
-      // Save user message (returns the conversationId)
-      persistedConversationId = await this.voltAgentMemoryService.addMessage(memoryContext, {
-        role: 'user',
-        content: message,
-      });
-
-      // Update context with the persisted conversationId for subsequent calls
-      memoryContext.conversationId = persistedConversationId;
-
-      // Save assistant response
-      await this.voltAgentMemoryService.addMessage(memoryContext, {
-        role: 'assistant',
-        content: result.text,
-      });
-
-      this.logger.debug(`${logPrefix} Messages persisted to conversation ${persistedConversationId}`);
-    }
-
-    // 5. Store to long-term memory (async, non-blocking)
-    if (this.longTermMemoryService?.isEnabled()) {
-      // Fire-and-forget: don't block the response
-      this.longTermMemoryService.addMemory(
-        options.tenantId,
-        options.userId,
-        [
-          { role: 'user', content: message },
-          { role: 'assistant', content: result.text },
-        ],
-        { sourceType: 'CONVERSATION', sourceId: options.conversationId },
-      ).catch((err) => {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        this.logger.warn(`${logPrefix} Failed to store long-term memory: ${errMsg}`);
-      });
-    }
+    // LongTermMemoryService removed - AI refactor v2.0
 
     // Record latency for model router accuracy
     if (this.modelRouterService && selectedModel) {
@@ -1233,68 +1117,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId, suggestedAgent);
     this.logger.log(`${logPrefix} Agent Creation took ${Date.now() - agentStart}ms`);
 
-    // 2.5. Load conversation history for context continuity
-    let conversationHistoryContext = '';
-    if (this.voltAgentMemoryService) {
-      const budgetType = selectedModel === 'large' || selectedModel === 'medium' ? 'extended' : 'default';
-      const budgetResult = await this.voltAgentMemoryService.getContextWithBudget(
-        {
-          tenantId: options.tenantId,
-          userId: options.userId,
-          conversationId: options.conversationId,
-          locale: options.locale,
-        },
-        budgetType,
-        processedMessage,
-      );
+    // VoltAgentMemoryService removed - AI refactor v2.0
+    // Conversations are now stateless
 
-      // CRITICAL: Inject conversation history so agent remembers prior messages
-      // Defensive: ensure arrays exist (edge case protection for 1000+ concurrent users)
-      const messages = Array.isArray(budgetResult.messages) ? budgetResult.messages : [];
-      const summaries = Array.isArray(budgetResult.summaries) ? budgetResult.summaries : [];
-
-      if (messages.length > 0 || summaries.length > 0) {
-        const historyParts: string[] = [];
-        if (summaries.length > 0) {
-          historyParts.push(`[Conversation Summary]\n${summaries.join('\n')}`);
-        }
-        if (messages.length > 0) {
-          const formattedMessages = messages.map((m) => {
-            const roleLabel = m.role === 'user' ? 'User' : m.role === 'assistant' ? 'Assistant' : 'System';
-            return `${roleLabel}: ${m.content}`;
-          });
-          historyParts.push(`[Recent Conversation]\n${formattedMessages.join('\n\n')}`);
-        }
-        conversationHistoryContext = historyParts.join('\n\n---\n\n');
-        if (this.piiDetectionService) {
-          conversationHistoryContext = this.piiDetectionService.redact(conversationHistoryContext);
-        }
-        this.logger.debug(`${logPrefix} Conversation history injected: ${messages.length} messages`);
-      }
-    }
-
-    // 2.6. Inject long-term memory context
+    // LongTermMemoryService removed - AI refactor v2.0
     let enhancedMessage = processedMessage;
-    if (this.longTermMemoryService?.isEnabled()) {
-      try {
-        const memoryContext = await this.longTermMemoryService.getContextForPrompt(
-          options.tenantId,
-          options.userId,
-          processedMessage,
-          { limit: 5, minImportance: 0.3 },
-        );
-        if (memoryContext) {
-          const safeMemoryContext = this.piiDetectionService
-            ? this.piiDetectionService.redact(memoryContext)
-            : memoryContext;
-          enhancedMessage = `${safeMemoryContext}\n\n---\n\n${enhancedMessage}`;
-          this.logger.debug(`${logPrefix} Long-term memory context injected`);
-        }
-      } catch (error) {
-        const errMsg = AiError.fromError(error).message;
-        this.logger.warn(`${logPrefix} Failed to get long-term memory context: ${errMsg}`);
-      }
-    }
 
     // 2.7. Inject episodic learning (rejection lessons)
     if (this.episodicMemoryService) {
@@ -1319,11 +1146,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 2.8. CRITICAL: Prepend conversation history for context continuity
-    if (conversationHistoryContext) {
-      enhancedMessage = `${conversationHistoryContext}\n\n---\n\n[Current Message]\n${enhancedMessage}`;
-    }
-    this.logger.log(`${logPrefix} Context Injection (History/Memory) took ${Date.now() - contextStart}ms`);
+    // Conversation history injection removed - AI refactor v2.0
+    this.logger.log(`${logPrefix} Context Injection took ${Date.now() - contextStart}ms`);
 
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     const tenantUserId = `${options.tenantId}:${options.userId}`;
@@ -1362,46 +1186,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       ).catch((err) => this.logger.warn(`${logPrefix} Cache set failed: ${err.message}`));
     }
 
-    // 4. Persist messages to Prisma-based memory after streaming completes
-    if (this.voltAgentMemoryService) {
-      const memoryContext = {
-        tenantId: options.tenantId,
-        userId: options.userId,
-        conversationId: options.conversationId,
-        locale: options.locale,
-      };
+    // VoltAgentMemoryService removed - AI refactor v2.0
 
-      // Save user message (returns the conversationId)
-      const convId = await this.voltAgentMemoryService.addMessage(memoryContext, {
-        role: 'user',
-        content: message,
-      });
-
-      // Update context with the persisted conversationId for subsequent calls
-      memoryContext.conversationId = convId;
-
-      // Save assistant response
-      await this.voltAgentMemoryService.addMessage(memoryContext, {
-        role: 'assistant',
-        content: fullResponse,
-      });
-    }
-
-    // 5. Store to long-term memory (async, non-blocking)
-    if (this.longTermMemoryService?.isEnabled() && fullResponse.length > 0) {
-      this.longTermMemoryService.addMemory(
-        options.tenantId,
-        options.userId,
-        [
-          { role: 'user', content: message },
-          { role: 'assistant', content: fullResponse },
-        ],
-        { sourceType: 'CONVERSATION', sourceId: options.conversationId },
-      ).catch((err) => {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        this.logger.warn(`${logPrefix} Failed to store long-term memory: ${errMsg}`);
-      });
-    }
+    // LongTermMemoryService removed - AI refactor v2.0
   }
 
   /**
@@ -1515,6 +1302,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       this.logger.debug(`Suspended workflow not in Redis, checking HitlService: ${executionId}`);
       try {
         const action = await this.hitlService.getPendingAction(tenantId, executionId);
+        // Extract properties from actionPayload JSON (AI refactor v2.0)
+        const payloadData = extractActionPayload(action.actionPayload);
         suspended = {
           executionId: action.id,
           tenantId: action.tenantId,
@@ -1522,11 +1311,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           action: {
             tenantId: action.tenantId,
             userId: action.userId,
-            agentName: action.agentName,
+            agentName: payloadData.agentName,
             actionType: action.actionType,
-            payload: action.payload as Record<string, unknown>,
-            summary: action.reasoningSteps || '',
-            severity: action.severity as 'LOW' | 'MEDIUM' | 'HIGH',
+            payload: payloadData.payload,
+            summary: action.reasoning || '',
+            severity: payloadData.severity,
             confidence: action.confidence ?? undefined,
           },
           suspendReason: 'Approval required',
@@ -1660,25 +1449,29 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       status: PendingActionStatus.PENDING,
     });
 
-    return result.actions.map((action) => ({
-      executionId: action.id,
-      tenantId: action.tenantId,
-      userId: action.userId,
-      sessionId: action.sessionId ?? undefined, // ConversationId for linking to chat messages
-      action: {
+    return result.actions.map((action) => {
+      // Extract properties from actionPayload JSON (AI refactor v2.0)
+      const payloadData = extractActionPayload(action.actionPayload);
+      return {
+        executionId: action.id,
         tenantId: action.tenantId,
         userId: action.userId,
-        agentName: action.agentName,
-        actionType: action.actionType,
-        payload: action.payload as Record<string, unknown>,
-        summary: action.reasoningSteps || '',
-        severity: action.severity as 'LOW' | 'MEDIUM' | 'HIGH',
-        confidence: action.confidence,
-      },
-      suspendReason: 'Approval required',
-      suspendedAt: action.createdAt,
-      workflowResult: null as unknown as ApprovalWorkflowResult, // Not available from DB
-    }));
+        sessionId: payloadData.sessionId, // ConversationId for linking to chat messages
+        action: {
+          tenantId: action.tenantId,
+          userId: action.userId,
+          agentName: payloadData.agentName,
+          actionType: action.actionType,
+          payload: payloadData.payload,
+          summary: action.reasoning || '',
+          severity: payloadData.severity,
+          confidence: action.confidence,
+        },
+        suspendReason: 'Approval required',
+        suspendedAt: action.createdAt,
+        workflowResult: null as unknown as ApprovalWorkflowResult, // Not available from DB
+      };
+    });
   }
 
   /**
@@ -1707,6 +1500,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     if (this.hitlService && tenantId) {
       try {
         const action = await this.hitlService.getPendingAction(tenantId, executionId);
+        // Extract properties from actionPayload JSON (AI refactor v2.0)
+        const payloadData = extractActionPayload(action.actionPayload);
         return {
           executionId: action.id,
           tenantId: action.tenantId,
@@ -1714,11 +1509,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           action: {
             tenantId: action.tenantId,
             userId: action.userId,
-            agentName: action.agentName,
+            agentName: payloadData.agentName,
             actionType: action.actionType,
-            payload: action.payload as Record<string, unknown>,
-            summary: action.reasoningSteps || '',
-            severity: action.severity as 'LOW' | 'MEDIUM' | 'HIGH',
+            payload: payloadData.payload,
+            summary: action.reasoning || '',
+            severity: payloadData.severity,
             confidence: action.confidence,
           },
           suspendReason: 'Approval required',

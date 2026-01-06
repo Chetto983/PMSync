@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { PendingActionStatus } from './hitl.service';
+import { ActionStatus, Prisma } from '@prisma/client';
 
 export interface AgentLesson {
     actionType: string;
@@ -17,6 +17,7 @@ export class EpisodicMemoryService {
     /**
      * Retrieve recent lessons (rejections) for a specific agent.
      * "Episodic Learning" - remembering past mistakes.
+     * Uses ActionQueue model (AI refactor v2.0).
      */
     async getRecentLessons(
         tenantId: string,
@@ -25,36 +26,40 @@ export class EpisodicMemoryService {
         limit: number = 5,
     ): Promise<AgentLesson[]> {
         try {
-            const whereClause: any = {
+            const whereClause: Prisma.ActionQueueWhereInput = {
                 tenantId,
                 userId,
-                status: PendingActionStatus.REJECTED,
-                rejectionReason: {
+                status: ActionStatus.REJECTED,
+                rejectedReason: {
                     not: null,
                 },
             };
 
+            // Filter by agentName stored in actionPayload JSON
             if (agentName) {
-                whereClause.agentName = agentName;
+                whereClause.actionPayload = {
+                    path: ['agentName'],
+                    equals: agentName,
+                };
             }
 
-            const rejections = await this.prisma.agentPendingAction.findMany({
+            const rejections = await this.prisma.actionQueue.findMany({
                 where: whereClause,
                 orderBy: {
-                    rejectedAt: 'desc',
+                    updatedAt: 'desc', // Use updatedAt since rejectedAt doesn't exist
                 },
                 take: limit,
                 select: {
                     actionType: true,
-                    rejectionReason: true,
-                    rejectedAt: true,
+                    rejectedReason: true,
+                    updatedAt: true,
                 },
             });
 
-            return rejections.map((r) => ({
+            return rejections.map((r: { actionType: string; rejectedReason: string | null; updatedAt: Date }) => ({
                 actionType: r.actionType,
-                rejectionReason: r.rejectionReason || '',
-                timestamp: r.rejectedAt || new Date(),
+                rejectionReason: r.rejectedReason || '',
+                timestamp: r.updatedAt,
             }));
         } catch (error) {
             this.logger.warn(`Failed to fetch episodic memory: ${error}`);

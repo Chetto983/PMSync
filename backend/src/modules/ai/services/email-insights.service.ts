@@ -7,7 +7,7 @@ import {
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
 import { WritingStyleService } from '../voltagent/services/writing-style.service';
-import { PersonalizationService } from '../voltagent/services/personalization.service';
+// PersonalizationService removed - AI refactor v2.0
 import { parseArrayFromAiPayload } from '../utils/ai-output.utils';
 import { sanitizeForLLM, wrapUserContent, validatePromptLength } from '../utils/prompt-sanitizer';
 import {
@@ -48,7 +48,7 @@ export class EmailInsightsService {
     private readonly prisma: PrismaService,
     private readonly mistral: MistralService,
     private readonly writingStyle: WritingStyleService,
-    private readonly personalization: PersonalizationService,
+    // PersonalizationService removed - AI refactor v2.0
   ) {}
 
   async summarizeEmail(tenantId: string, emailId: string, locale?: string) {
@@ -148,33 +148,8 @@ export class EmailInsightsService {
       }
     }
 
-    // Fetch relevant memories from semantic search (RAG)
-    let memoryContext = '';
-    if (userId && payload.prompt) {
-      try {
-        const memories = await this.personalization.getRelevantMemories(
-          tenantId,
-          userId,
-          payload.prompt,
-          3, // Limit to top 3 relevant memories
-        );
-
-        if (memories.length > 0) {
-          const relevantMemories = memories
-            .filter((m) => m.relevance > 0.5) // Only high-relevance memories
-            .map((m) => `- ${m.content}`)
-            .join('\n');
-
-          if (relevantMemories) {
-            memoryContext = lang === 'it'
-              ? `<contesto_utente>\nInformazioni rilevanti dalla memoria:\n${relevantMemories}\n</contesto_utente>`
-              : `<user_context>\nRelevant information from memory:\n${relevantMemories}\n</user_context>`;
-          }
-        }
-      } catch (error) {
-        this.logger.debug(`No memories found for compose: ${this.getErrorMessage(error)}`);
-      }
-    }
+    // Memory context removed - PersonalizationService removed in AI refactor v2.0
+    const memoryContext = '';
 
     const toneInstruction = t.insights.tones[toneKey];
     const systemPrompt = t.insights.compose.systemPrompt(toneInstruction);

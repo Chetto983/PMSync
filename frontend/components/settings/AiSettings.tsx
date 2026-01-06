@@ -17,7 +17,7 @@ import {
 import { MessageSquare, FileText, Calendar, Trash2, RotateCcw, ExternalLink } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import { SettingRow } from './SettingRow';
-import type { CommunicationStyle, ResponseLength, ProactivityLevel } from '@/lib/api/personalization';
+import type { CommunicationStyle, ResponseLength, ProactivityLevel } from '@/lib/api/ai';
 
 export interface AiSettingsProps {
   loading: boolean;

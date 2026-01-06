@@ -108,16 +108,13 @@ export class UsersService {
 
   /**
    * Get user's VoltAgent messages
+   * VoltAgentMessage model removed - AI refactor v2.0
+   * Returns empty array until feature is restored
    */
-  async getUserMessages(userId: string, tenantId: string, limit: number = 100) {
-    return this.prisma.voltAgentMessage.findMany({
-      where: {
-        userId,
-        tenantId,
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
+  async getUserMessages(_userId: string, _tenantId: string, _limit: number = 100) {
+    // VoltAgentMessage model removed - AI refactor v2.0
+    // Conversations are now stateless
+    return [];
   }
 
   /**

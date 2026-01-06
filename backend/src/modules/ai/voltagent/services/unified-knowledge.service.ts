@@ -4,21 +4,24 @@
  * NestJS service that provides unified search across all knowledge sources.
  * Used by VoltAgentController for API endpoints.
  *
+ * AI refactor v2.0: Simplified - removed deleted service dependencies.
+ * Memory services archived at archive/memory/ folder.
+ *
  * @see docs/AI_SECRETARY_IMPLEMENTATION_PLAN.md P1.6
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../prisma/prisma.service';
-import { LongTermMemoryService } from '../memory/long-term-memory.service';
+// LongTermMemoryService removed - AI refactor v2.0
+// DeadlineExtractorService removed - AI refactor v2.0
+// ActionItemService removed - AI refactor v2.0
+// These services are archived at archive/memory/ folder
 
 import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
-import { DeadlineExtractorService } from './deadline-extractor.service';
 import { FollowUpService } from './follow-up.service';
-import { ActionItemService } from './action-item.service';
 import { UnifiedRetriever, SearchSource } from '../rag/unified-retriever';
 import { getLocale } from '../locales';
-import { MemoryCategory } from '../memory';
 
 export interface UnifiedSearchOptions {
   sources?: SearchSource[];
@@ -47,13 +50,12 @@ export class UnifiedKnowledgeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    private readonly longTermMemory: LongTermMemoryService,
-
+    // LongTermMemoryService removed - AI refactor v2.0
     private readonly mistralService: MistralService,
     private readonly embeddingsService: EmbeddingsService,
-    private readonly deadlineService: DeadlineExtractorService,
+    // DeadlineExtractorService removed - AI refactor v2.0
     private readonly followUpService: FollowUpService,
-    private readonly actionItemService: ActionItemService,
+    // ActionItemService removed - AI refactor v2.0
   ) {
     this.enabled = this.config.get<string>('UNIFIED_KNOWLEDGE_ENABLED', 'true') === 'true';
   }
@@ -84,8 +86,7 @@ export class UnifiedKnowledgeService {
         userId,
         locale,
         prisma: this.prisma,
-        longTermMemory: this.longTermMemory,
-
+        // longTermMemory removed - AI refactor v2.0
         mistralService: this.mistralService,
         embeddingsService: this.embeddingsService,
         emailLimit: options.limit ?? 5,
@@ -127,39 +128,24 @@ export class UnifiedKnowledgeService {
 
   /**
    * Store information in long-term memory
+   * LongTermMemoryService removed - AI refactor v2.0
+   * Returns stub response until service is restored from archive
    */
   async remember(
-    tenantId: string,
-    userId: string,
-    content: string,
-    options: RememberOptions = {},
+    _tenantId: string,
+    _userId: string,
+    _content: string,
+    _options: RememberOptions = {},
   ): Promise<{ success: boolean; memoryId?: string }> {
-    if (!this.enabled) {
-      return { success: false };
-    }
-
-    try {
-      const categoryMap: Record<string, string> = {
-        preference: 'PREFERENCE',
-        fact: 'FACT',
-        contact: 'CONTACT',
-        project: 'PROJECT',
-        general: 'GENERAL',
-      };
-
-      const memoryId = await this.longTermMemory.addFact(tenantId, userId, content, {
-        category: (categoryMap[options.category ?? 'general'] ?? 'GENERAL') as MemoryCategory,
-      });
-
-      return { success: true, memoryId: memoryId ?? undefined };
-    } catch (error) {
-      this.logger.error(`Remember failed: ${error}`);
-      return { success: false };
-    }
+    // LongTermMemoryService removed - AI refactor v2.0
+    // This functionality can be restored from archive/memory folder
+    this.logger.warn('remember() not available - LongTermMemoryService removed in AI refactor v2.0');
+    return { success: false };
   }
 
   /**
    * Get knowledge base statistics
+   * Simplified in AI refactor v2.0 - only follow-ups available
    */
   async getStats(tenantId: string, userId: string): Promise<{
     memoryCount: number;
@@ -167,18 +153,13 @@ export class UnifiedKnowledgeService {
     followupCount: number;
     actionCount: number;
   }> {
-    const [memoryStats, deadlineStats, followupStats, actionStats] = await Promise.all([
-      this.longTermMemory.getStats(tenantId, userId).catch(() => ({ totalMemories: 0 })),
-      this.deadlineService.getDeadlineStats(tenantId, userId).catch(() => ({ upcoming: 0, dueSoon: 0 })),
-      this.followUpService.getStats(tenantId, userId).catch(() => ({ pending: 0, overdue: 0 })),
-      this.actionItemService.getStats(tenantId, userId).catch(() => ({ total: 0, done: 0 })),
-    ]);
+    const followupStats = await this.followUpService.getStats(tenantId, userId).catch(() => ({ pending: 0, overdue: 0 }));
 
     return {
-      memoryCount: memoryStats.totalMemories,
-      deadlineCount: deadlineStats.upcoming + deadlineStats.dueSoon,
+      memoryCount: 0, // LongTermMemoryService removed
+      deadlineCount: 0, // DeadlineExtractorService removed
       followupCount: followupStats.pending + followupStats.overdue,
-      actionCount: actionStats.total - actionStats.done,
+      actionCount: 0, // ActionItemService removed
     };
   }
 }

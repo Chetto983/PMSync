@@ -12,7 +12,7 @@
 import { Logger } from '@nestjs/common';
 import { BaseRetriever, type BaseMessage } from '@voltagent/core';
 import type { PrismaService } from '../../../../prisma/prisma.service';
-import type { LongTermMemoryService } from '../memory/long-term-memory.service';
+// LongTermMemoryService removed - AI module refactor v2.0
 
 import type { MistralService } from '../../services/mistral.service';
 import type { EmbeddingsService } from '../../services/embeddings.service';
@@ -53,7 +53,6 @@ export interface UnifiedRetrieverOptions {
   userId: string;
   locale: SupportedLocale;
   prisma: PrismaService;
-  longTermMemory: LongTermMemoryService;
 
   // RAG services (optional - will use basic text search if not available)
   mistralService?: MistralService;
@@ -79,7 +78,6 @@ export class UnifiedRetriever extends BaseRetriever {
   private readonly userId: string;
   private readonly locale: SupportedLocale;
   private readonly prisma: PrismaService;
-  private readonly longTermMemory: LongTermMemoryService;
 
   private readonly mistralService?: MistralService;
   private readonly embeddingsService?: EmbeddingsService;
@@ -99,7 +97,6 @@ export class UnifiedRetriever extends BaseRetriever {
     this.userId = options.userId;
     this.locale = options.locale;
     this.prisma = options.prisma;
-    this.longTermMemory = options.longTermMemory;
 
     this.mistralService = options.mistralService;
     this.embeddingsService = options.embeddingsService;
@@ -173,39 +170,17 @@ export class UnifiedRetriever extends BaseRetriever {
 
   /**
    * Memory-First: Get user's personal context
+   * NOTE: LongTermMemory removed in AI refactor v2.0 - returns empty context
    */
-  async getMemoryContext(query: string): Promise<MemoryContext> {
-
-    const emptyContext: MemoryContext = {
+  async getMemoryContext(_query: string): Promise<MemoryContext> {
+    // Memory retrieval disabled - LongTermMemoryService removed in AI refactor v2.0
+    // Future: use EmailAnalysis patterns for user preferences
+    return {
       facts: [],
       preferences: [],
       contacts: [],
       history: [],
     };
-
-    try {
-      // Cast searchMemories result to LongTermMemoryRecord[]
-      const longTermMemories = (await this.longTermMemory.searchMemories(this.tenantId, this.userId, query, {
-        limit: this.memoryLimit,
-      })) as unknown as LongTermMemoryRecord[];
-
-      return {
-        facts: longTermMemories
-          .filter((m) => m.category === 'FACT' || m.category === 'GENERAL')
-          .map((m) => ({ id: m.id, content: m.content, category: m.category, score: m.score ?? 0.5 })),
-        preferences: longTermMemories
-          .filter((m) => m.category === 'PREFERENCE' || m.category === 'HABIT')
-          .map((m) => ({ id: m.id, content: m.content, category: m.category, score: m.score ?? 0.5 })),
-        contacts: longTermMemories
-          .filter((m) => m.category === 'CONTACT' || m.category === 'RELATIONSHIP')
-          .map((m) => ({ id: m.id, content: m.content, category: m.category, score: m.score ?? 0.5 })),
-        history: [],
-      };
-    } catch (error) {
-      this.nestLogger.warn(`Memory retrieval failed: ${error instanceof Error ? error.message : String(error)}`);
-      return emptyContext;
-    }
-
   }
 
   /**
@@ -345,39 +320,46 @@ export class UnifiedRetriever extends BaseRetriever {
   }
 
   /**
-   * Search deadlines
+   * Search deadlines from EmailAnalysis
    */
-  private async searchDeadlines(query: string): Promise<SourceResult> {
+  private async searchDeadlines(_query: string): Promise<SourceResult> {
     try {
-      const deadlines = await this.prisma.aiDeadline.findMany({
+      // Use EmailAnalysis model (AI refactor v2.0)
+      // First get user's provider IDs
+      const providers = await this.prisma.providerConfig.findMany({
+        where: { tenantId: this.tenantId, userId: this.userId, isActive: true },
+        select: { id: true },
+      });
+      const providerIds = providers.map((p) => p.id);
+
+      if (providerIds.length === 0) {
+        return { source: 'deadlines', items: [] };
+      }
+
+      const analyses = await this.prisma.emailAnalysis.findMany({
         where: {
           tenantId: this.tenantId,
-          userId: this.userId,
-          status: { in: ['UPCOMING', 'DUE_SOON'] },
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { description: { contains: query, mode: 'insensitive' } },
-          ],
+          email: { providerId: { in: providerIds } },
+          hasDeadline: true,
+          deadlineDate: { gte: new Date() },
         },
         take: this.deadlineLimit,
-        orderBy: { deadline: 'asc' },
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          deadline: true,
-          status: true,
-          confidence: true,
+        orderBy: { deadlineDate: 'asc' },
+        include: {
+          email: { select: { subject: true, snippet: true } },
         },
       });
 
+      // Type assertion for included relation
+      type AnalysisWithEmail = typeof analyses[number] & { email: { subject: string | null; snippet: string | null } | null };
+
       return {
         source: 'deadlines',
-        items: deadlines.map((d) => ({
-          id: d.id,
-          content: `Deadline: ${d.title}\nDue: ${d.deadline.toLocaleDateString()}\nStatus: ${d.status}\n${d.description || ''}`,
+        items: (analyses as AnalysisWithEmail[]).map((a) => ({
+          id: a.id,
+          content: `Deadline: ${a.email?.subject || 'Untitled'}\nDue: ${a.deadlineDate?.toLocaleDateString() || 'N/A'}\nPriority: ${a.priority}\n${a.summary || ''}`,
           score: 0.7,
-          metadata: { type: 'deadline', dueDate: d.deadline, status: d.status },
+          metadata: { type: 'deadline', dueDate: a.deadlineDate, priority: a.priority },
         })),
       };
     } catch (error) {
@@ -440,29 +422,21 @@ export class UnifiedRetriever extends BaseRetriever {
   }
 
   /**
-   * Search action items
+   * Search action items from ActionQueue
    */
   private async searchActionItems(query: string): Promise<SourceResult> {
     try {
-      const actions = await this.prisma.aiTask.findMany({
+      // Use ActionQueue model (AI refactor v2.0)
+      const actions = await this.prisma.actionQueue.findMany({
         where: {
           tenantId: this.tenantId,
           userId: this.userId,
-          status: { in: ['TODO', 'IN_PROGRESS', 'WAITING'] },
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { description: { contains: query, mode: 'insensitive' } },
-          ],
+          status: { in: ['PENDING_APPROVAL', 'APPROVED'] },
         },
         take: this.actionLimit,
-        orderBy: [{ priority: 'asc' }, { dueDate: 'asc' }],
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          priority: true,
-          dueDate: true,
-          status: true,
+        orderBy: [{ createdAt: 'desc' }],
+        include: {
+          email: { select: { subject: true } },
         },
       });
 
@@ -470,9 +444,9 @@ export class UnifiedRetriever extends BaseRetriever {
         source: 'actions',
         items: actions.map((a) => ({
           id: a.id,
-          content: `Task: ${a.title}\nPriority: ${this.priorityToLabel(a.priority)}\nStatus: ${a.status}${a.dueDate ? `\nDue: ${a.dueDate.toLocaleDateString()}` : ''}\n${a.description || ''}`,
-          score: 0.7,
-          metadata: { type: 'action', priority: a.priority, status: a.status, dueDate: a.dueDate },
+          content: `Action: ${a.actionType}\nConfidence: ${(a.confidence * 100).toFixed(0)}%\nStatus: ${a.status}\nEmail: ${a.email?.subject || 'N/A'}`,
+          score: a.confidence,
+          metadata: { type: 'action', actionType: a.actionType, status: a.status },
         })),
       };
     } catch (error) {

@@ -16,7 +16,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
-import { LongTermMemoryService } from '../memory';
+// LongTermMemoryService removed - AI refactor v2.0
+// Service archived at archive/memory/long-term-memory.service.ts.archived
 import { subDays } from 'date-fns';
 
 // ============================================================================
@@ -101,7 +102,7 @@ export class MeetingPrepService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cacheService: CacheService,
-    private readonly memoryService: LongTermMemoryService,
+    // LongTermMemoryService removed - AI refactor v2.0
   ) {}
 
   /**
@@ -449,35 +450,18 @@ export class MeetingPrepService {
 
   /**
    * Get relevant memories about meeting topic or attendees
+   * LongTermMemoryService removed - AI refactor v2.0
+   * Returns empty data until service is restored from archive
    */
   private async getRelevantMemories(
-    tenantId: string,
-    userId: string,
-    meetingTitle: string,
-    attendeeEmails: string[],
+    _tenantId: string,
+    _userId: string,
+    _meetingTitle: string,
+    _attendeeEmails: string[],
   ): Promise<{ userMemories: string[]; importantNotes: string[] }> {
-    try {
-      // Search memories related to meeting using searchMemories method
-      const memories = await this.memoryService.searchMemories(
-        tenantId,
-        userId,
-        `${meetingTitle} ${attendeeEmails.join(' ')}`,
-        { limit: 5 },
-      );
-
-      const userMemories = memories
-        .filter((m) => m.category === 'CONTACT')
-        .map((m) => m.memory);
-
-      const importantNotes = memories
-        .filter((m) => m.category !== 'CONTACT')
-        .map((m) => m.memory);
-
-      return { userMemories, importantNotes };
-    } catch (error) {
-      this.logger.warn('Failed to fetch memories for meeting prep', error);
-      return { userMemories: [], importantNotes: [] };
-    }
+    // LongTermMemoryService removed - AI refactor v2.0
+    // Service can be restored from archive/memory folder when needed
+    return { userMemories: [], importantNotes: [] };
   }
 
   /**

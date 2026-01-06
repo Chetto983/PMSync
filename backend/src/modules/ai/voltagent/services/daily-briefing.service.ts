@@ -27,9 +27,17 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { MistralService } from '../../services/mistral.service';
 import { FollowUpService } from './follow-up.service';
-import { DeadlineExtractorService, type CachedDeadline } from './deadline-extractor.service';
-import { ActionItemService } from './action-item.service';
+// DeadlineExtractorService and ActionItemService removed - AI refactor v2.0
+// These services can be restored from archive/memory folder
 import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
+
+/** Cached deadline type (simplified for v2.0) */
+export interface CachedDeadline {
+  id: string;
+  deadline: string;
+  emailSubject: string;
+  priority: string;
+}
 
 /** Cache namespace for daily briefings */
 const BRIEFING_NAMESPACE = 'briefing:daily' as CacheNamespace;
@@ -152,8 +160,8 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
     private readonly configService: ConfigService,
     // AI Secretary services for enhanced briefing
     private readonly followUpService: FollowUpService,
-    private readonly deadlineExtractorService: DeadlineExtractorService,
-    private readonly actionItemService: ActionItemService,
+    // DeadlineExtractorService removed - AI refactor v2.0
+    // ActionItemService removed - AI refactor v2.0
   ) {
     this.ENABLED =
       (this.configService.get<string>('DAILY_BRIEFING_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -469,106 +477,36 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Get deadline alerts data for briefing
+   * DeadlineExtractorService removed - AI refactor v2.0
+   * Returns empty data until service is restored from archive
    */
-  private async getDeadlinesData(tenantId: string, userId: string): Promise<DailyBriefing['deadlines']> {
-    try {
-      const [upcoming, stats] = await Promise.all([
-        this.deadlineExtractorService.getUpcomingDeadlines(tenantId, userId, 7),
-        this.deadlineExtractorService.getDeadlineStats(tenantId, userId),
-      ]);
-
-      const now = new Date();
-      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-
-      const today = upcoming.filter((d) => new Date(d.deadline) < todayEnd);
-      const thisWeek = upcoming.filter((d) => new Date(d.deadline) >= todayEnd);
-
-      let message = '';
-      if (stats.overdue > 0) {
-        message = `⚠️ ${stats.overdue} overdue deadline${stats.overdue > 1 ? 's' : ''}!`;
-      } else if (today.length > 0) {
-        message = `📅 ${today.length} deadline${today.length > 1 ? 's' : ''} due today.`;
-      } else if (thisWeek.length > 0) {
-        message = `📅 ${thisWeek.length} deadline${thisWeek.length > 1 ? 's' : ''} this week.`;
-      } else {
-        message = '✓ No upcoming deadlines.';
-      }
-
-      return {
-        today,
-        thisWeek,
-        overdue: stats.overdue,
-        message,
-      };
-    } catch (error) {
-      this.logger.warn(`Failed to get deadlines data: ${error}`);
-      return {
-        today: [],
-        thisWeek: [],
-        overdue: 0,
-        message: 'Deadline data unavailable.',
-      };
-    }
+  private async getDeadlinesData(_tenantId: string, _userId: string): Promise<DailyBriefing['deadlines']> {
+    // DeadlineExtractorService removed - AI refactor v2.0
+    // Service can be restored from archive/memory folder when needed
+    return {
+      today: [],
+      thisWeek: [],
+      overdue: 0,
+      message: '✓ Deadline tracking available in future update.',
+    };
   }
 
   /**
    * Get action items data for briefing
+   * ActionItemService removed - AI refactor v2.0
+   * Returns empty data until service is restored from archive
    */
-  private async getActionItemsData(tenantId: string, userId: string): Promise<DailyBriefing['actionItems']> {
-    try {
-      const [stats, pending] = await Promise.all([
-        this.actionItemService.getStats(tenantId, userId),
-        this.actionItemService.getPending(tenantId, userId),
-      ]);
-
-      // Get items due today
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-
-      const dueToday = pending
-        .filter((item) => item.dueDate && item.dueDate >= todayStart && item.dueDate < todayEnd)
-        .slice(0, 5)
-        .map((item) => ({
-          id: item.id,
-          title: item.title,
-          priority: item.priority,
-          dueDate: item.dueDate?.toISOString() || null,
-          sourceType: item.sourceType,
-        }));
-
-      let message = '';
-      if (stats.overdue > 0) {
-        message = `⚠️ ${stats.overdue} overdue action item${stats.overdue > 1 ? 's' : ''}!`;
-      } else if (stats.dueToday > 0) {
-        message = `📝 ${stats.dueToday} action item${stats.dueToday > 1 ? 's' : ''} due today.`;
-      } else if (stats.highPriority > 0) {
-        message = `📝 ${stats.highPriority} high-priority item${stats.highPriority > 1 ? 's' : ''} pending.`;
-      } else if (stats.todo > 0) {
-        message = `✓ ${stats.todo} action item${stats.todo > 1 ? 's' : ''} in your queue.`;
-      } else {
-        message = '✓ No pending action items.';
-      }
-
-      return {
-        todo: stats.todo,
-        inProgress: stats.inProgress,
-        overdue: stats.overdue,
-        highPriority: stats.highPriority,
-        dueToday,
-        message,
-      };
-    } catch (error) {
-      this.logger.warn(`Failed to get action items data: ${error}`);
-      return {
-        todo: 0,
-        inProgress: 0,
-        overdue: 0,
-        highPriority: 0,
-        dueToday: [],
-        message: 'Action items data unavailable.',
-      };
-    }
+  private async getActionItemsData(_tenantId: string, _userId: string): Promise<DailyBriefing['actionItems']> {
+    // ActionItemService removed - AI refactor v2.0
+    // Service can be restored from archive/memory folder when needed
+    return {
+      todo: 0,
+      inProgress: 0,
+      overdue: 0,
+      highPriority: 0,
+      dueToday: [],
+      message: '✓ Action items tracking available in future update.',
+    };
   }
 
   /**

@@ -6,7 +6,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { EmbeddingsService } from './services/embeddings.service';
 import { KnowledgeBaseService } from './services/knowledge-base.service';
 import { KnowledgeBaseController } from './controllers/knowledge-base.controller';
-import { PersonalizationController } from './controllers/personalization.controller';
+// PersonalizationController removed - AI refactor v2.0
 import { EmailEmbeddingQueueService } from './services/email-embedding.queue';
 import { EmailInsightsService } from './services/email-insights.service';
 import { QueryEmbeddingCacheService } from './services/query-embedding-cache.service';
@@ -39,7 +39,7 @@ import { VoltAgentModule } from './voltagent/voltagent.module';
     FeedbackQueueService,
     AlertingService, // Required by EmailEmbeddingQueueService for critical failure alerts
   ],
-  controllers: [AiController, AiHealthController, KnowledgeBaseController, PersonalizationController],
+  controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [
     // Core AI services
     MistralService,
