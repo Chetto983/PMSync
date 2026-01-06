@@ -265,7 +265,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     cacheService,
     documentLibraryService,
     // longTermMemoryService, deadlineService, actionItemService removed - AI refactor v2.0
-    followUpService,
+    followUpService: _followUpService,
   } = options;
   const t = getAgentTranslations(locale);
 

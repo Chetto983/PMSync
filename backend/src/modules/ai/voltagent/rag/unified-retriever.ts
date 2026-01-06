@@ -21,8 +21,8 @@ import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
 
 export type SearchSource = 'emails' | 'deadlines' | 'followups' | 'actions' | 'memories';
 
-/** Memory record returned from LongTermMemoryService */
-interface LongTermMemoryRecord {
+/** Memory record returned from LongTermMemoryService (preserved for future use) */
+interface _LongTermMemoryRecord {
   id: string;
   content: string;
   category: string;
@@ -424,7 +424,7 @@ export class UnifiedRetriever extends BaseRetriever {
   /**
    * Search action items from ActionQueue
    */
-  private async searchActionItems(query: string): Promise<SourceResult> {
+  private async searchActionItems(_query: string): Promise<SourceResult> {
     try {
       // Use ActionQueue model (AI refactor v2.0)
       const actions = await this.prisma.actionQueue.findMany({

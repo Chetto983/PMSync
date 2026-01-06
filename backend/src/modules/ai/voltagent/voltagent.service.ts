@@ -33,10 +33,10 @@ import { createCalendarAgent } from './agents/calendar.agent';
 import { createContactsAgent } from './agents/contacts.agent';
 import { createEmailAgent } from './agents/email.agent';
 import { createGeneralAgent } from './agents/general.agent';
-import { createSupervisorAgent, SupervisorAgentOptions, UserContext } from './agents/supervisor.agent';
-import { createWebSearchAgent } from './agents/websearch.agent';
-import { createDocumentLibraryAgent } from './agents/document-library.agent';
-import { createAnalyticsAgent } from './agents/analytics.agent';
+import { createSupervisorAgent, type SupervisorAgentOptions as _SupervisorAgentOptions, UserContext } from './agents/supervisor.agent';
+import { createWebSearchAgent as _createWebSearchAgent } from './agents/websearch.agent';
+import { createDocumentLibraryAgent as _createDocumentLibraryAgent } from './agents/document-library.agent';
+import { createAnalyticsAgent as _createAnalyticsAgent } from './agents/analytics.agent';
 // createUnifiedKnowledgeAgent removed - AI refactor v2.0
 import { AiQueueService, type AiJobData } from './services/ai-queue.service';
 import { RateLimiterService } from './services/rate-limiter.service';

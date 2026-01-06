@@ -145,7 +145,7 @@ export class MistralService {
     /** Enable JSON mode for guaranteed valid JSON output */
     jsonMode?: boolean;
   }): Promise<string> {
-    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000, telemetryContext, modelTier, jsonMode = false } = options;
+    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000, telemetryContext: _telemetryContext, modelTier, jsonMode = false } = options;
     // Model routing: use AI_MODEL_SIMPLE for 'fast' tier (3-4x faster, cost-effective for scoring tasks)
     const fastModel = this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
     const model = modelTier === 'fast' ? fastModel : this.getModel();
@@ -374,7 +374,7 @@ export class MistralService {
   async generateEmbedding(
     text: string,
     client?: Mistral,
-    telemetryContext?: { tenantId: string; userId?: string },
+    _telemetryContext?: { tenantId: string; userId?: string },
   ): Promise<number[]> {
     const cb = getAiCircuitBreaker('mistral', 'embedding');
 
@@ -427,7 +427,7 @@ export class MistralService {
   async generateBulkEmbeddings(
     texts: string[],
     client?: Mistral,
-    telemetryContext?: { tenantId: string; userId?: string },
+    _telemetryContext?: { tenantId: string; userId?: string },
   ): Promise<number[][]> {
     if (!texts || texts.length === 0) {
       return [];

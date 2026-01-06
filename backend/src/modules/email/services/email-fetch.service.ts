@@ -199,7 +199,7 @@ export class EmailFetchService {
       port: provider.imapPort || 993,
       secure: provider.imapUseTls ?? true,
       auth: {
-        user: provider.imapUsername!, // Validated above
+        user: provider.imapUsername, // Validated above
         pass: imapPassword,
       },
       logger: false,

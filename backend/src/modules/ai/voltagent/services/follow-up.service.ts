@@ -383,7 +383,7 @@ Return JSON ONLY:
 
     // 1. FAST: Regex Filter (Reject obvious noise)
     // If it matches "NO_FOLLOW_UP_PATTERNS", we skip it immediately to save LLM cost.
-    const { needsFollowUp: isJunk } = this.analyzeForFollowUp(body, subject); // Wait, analyzeForFollowUp returns needsFollowUp: false for junk.
+    const { needsFollowUp: _isJunk } = this.analyzeForFollowUp(body, subject); // Wait, analyzeForFollowUp returns needsFollowUp: false for junk.
     // Let's check specifically for NEGATIVE patterns first. (analyzeForFollowUp combines logic)
 
     let isObviousJunk = false;

@@ -78,7 +78,7 @@ export class EmailSyncBackService {
       }
     }
 
-    throw lastError;
+    throw lastError ?? new Error('All retry attempts failed');
   }
 
   private async sleep(ms: number) {

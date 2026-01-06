@@ -156,7 +156,9 @@
       "Bash(npx prisma validate:*)",
       "Bash(git -C /d/MailAgent log:*)",
       "Bash(git -C /d/MailAgent show HEAD:backend/src/modules/ai/voltagent/memory/)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git push:*)",
+      "Bash(timeout 20 npm run start:dev:*)"
     ],
     "deny": []
   }
