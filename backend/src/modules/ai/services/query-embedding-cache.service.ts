@@ -7,10 +7,13 @@ import { getRedisConnectionOptions } from '../../../common/config';
 /**
  * Cache service for query embeddings to reduce Mistral API calls.
  *
+ * GDPR COMPLIANT: Cache keys include tenantId for complete data isolation.
+ * Each tenant has their own cache namespace - no cross-tenant data sharing.
+ *
  * When users search for the same or similar queries, we can reuse
  * the cached embeddings instead of generating new ones.
  *
- * Expected cache hit rate: 40-60% in production
+ * Expected cache hit rate: 40-60% in production (per tenant)
  * Cost savings: 50-70% reduction in Mistral API calls
  * Latency improvement: 2-3x faster (cache ~5ms vs API ~200ms)
  */

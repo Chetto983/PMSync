@@ -48,7 +48,7 @@ import { EmbeddingsService } from '../services/embeddings.service';
 // Consolidated AI services
 import { WritingStyleService } from './services/writing-style.service';
 // Performance Optimization services (2025)
-import { SemanticCacheService } from './services/semantic-cache.service';
+// SemanticCacheService REMOVED - caused cross-tenant data leakage, hallucination persistence
 import { ModelRouterService } from './services/model-router.service';
 import { AiQueueService } from './services/ai-queue.service';
 // Scalability services (1000+ users)
@@ -106,7 +106,7 @@ import { AlertingService } from '../../../common/services/alerting.service';
     // Consolidated AI services (Step 8)
     WritingStyleService,
     // Performance Optimization services (2025)
-    SemanticCacheService,
+    // SemanticCacheService REMOVED - security issue
     ModelRouterService,
     AiQueueService,
     // Scalability services (1000+ users)
@@ -151,7 +151,7 @@ import { AlertingService } from '../../../common/services/alerting.service';
     // Consolidated AI services
     WritingStyleService,
     // Performance Optimization services
-    SemanticCacheService,
+    // SemanticCacheService REMOVED - security issue
     ModelRouterService,
     AiQueueService,
     // Daily briefing

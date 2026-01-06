@@ -18,6 +18,10 @@ import { AlertingService } from '../../common/services/alerting.service';
 // VoltAgent module provides consolidated AI agent services
 // DeadLetterQueueService is available globally from CacheModule
 import { VoltAgentModule } from './voltagent/voltagent.module';
+// Unified embedding provider (consolidates caching, rate limiting, provider abstraction)
+import { EmbeddingProviderService } from './services/embedding';
+import { BatchIndexingService } from './services/batch-indexing.service';
+import { CachePrewarmingService } from './services/cache-prewarming.service';
 
 @Module({
   imports: [
@@ -38,6 +42,9 @@ import { VoltAgentModule } from './voltagent/voltagent.module';
     EmbeddingBackfillSchedulerService,
     FeedbackQueueService,
     AlertingService, // Required by EmailEmbeddingQueueService for critical failure alerts
+    EmbeddingProviderService, // Unified embedding with caching + rate limiting
+    BatchIndexingService, // Batch API for large-scale email indexing (1000+ emails)
+    CachePrewarmingService, // Pre-warm query cache for common searches
   ],
   controllers: [AiController, AiHealthController, KnowledgeBaseController],
   exports: [
@@ -51,6 +58,8 @@ import { VoltAgentModule } from './voltagent/voltagent.module';
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,
     FeedbackQueueService,
+    EmbeddingProviderService, // Unified embedding with caching + rate limiting
+    BatchIndexingService, // Batch API for large-scale email indexing
     // VoltAgent module (re-exports PersonalizationService, WritingStyleService, etc.)
     VoltAgentModule,
   ],

@@ -26,7 +26,7 @@ import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
 import { HitlService, PendingActionStatus } from './services/hitl.service';
 import { ActionExecutorService, ActionExecutionResult } from './services/action-executor.service';
-import { SemanticCacheService } from './services/semantic-cache.service';
+// SemanticCacheService REMOVED - caused cross-tenant data leakage (security issue)
 import { WritingStyleService } from './services/writing-style.service';
 import { ModelRouterService } from './services/model-router.service';
 import { createCalendarAgent } from './agents/calendar.agent';
@@ -204,7 +204,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly actionExecutorService?: ActionExecutorService,
     @Optional() private readonly mistralService?: MistralService,
     @Optional() private readonly embeddingsService?: EmbeddingsService,
-    @Optional() private readonly semanticCacheService?: SemanticCacheService,
+    // SemanticCacheService REMOVED - cross-tenant security issue
     @Optional() private readonly modelRouterService?: ModelRouterService,
     @Optional() private readonly aiQueueService?: AiQueueService,
     @Optional() private readonly rateLimiterService?: RateLimiterService,
@@ -582,18 +582,20 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           mistral: this.mistralService,
           embeddingsService: this.embeddingsService,
           writingStyle: this.writingStyleService,
+          memory: this.memory ?? undefined,
         });
         break;
       case 'Calendar':
         agent = createCalendarAgent({
           ...commonOptions,
           calendarService: this.calendarService,
+          memory: this.memory ?? undefined,
         });
         break;
       case 'Contacts':
         agent = createContactsAgent({
           ...commonOptions,
-          // Contacts agent options
+          memory: this.memory ?? undefined,
         });
         break;
       case 'General':
@@ -601,6 +603,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           model,
           locale,
           hooks: commonOptions.hooks,
+          memory: this.memory ?? undefined,
         });
         break;
       case 'Supervisor':
@@ -749,34 +752,25 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 1. Check semantic cache first (50-60% cost reduction)
-    if (!options.skipCache && this.semanticCacheService?.isEnabled()) {
-      const cacheResult = await this.semanticCacheService.get(
-        options.tenantId,
-        processedMessage,
-        options.model,
-      );
+    // 1. Semantic cache REMOVED - caused cross-tenant data leakage (security issue)
+    // All responses are now generated fresh for each tenant
 
-      if (cacheResult.hit && cacheResult.response) {
-        this.logger.debug(`${logPrefix} Semantic cache hit: similarity=${cacheResult.similarity?.toFixed(3)}`);
-        return {
-          text: cacheResult.response,
-          fromCache: true,
-          cacheSimilarity: cacheResult.similarity,
-        };
-      }
-    }
-
-    // 2. Route to optimal model based on task complexity (40-60% cost savings)
+    // 2. Route to optimal model AND agent based on task complexity (40-60% cost savings)
     let selectedModel = options.model;
-    if (!selectedModel && this.modelRouterService) {
+    let suggestedAgent: 'Supervisor' | 'Email' | 'Calendar' | 'Contacts' | 'General' = 'Supervisor';
+    if (this.modelRouterService) {
       const routing = this.modelRouterService.routeMessage(processedMessage, {
         preferSpeed: options.preferSpeed,
         preferQuality: options.preferQuality,
       });
-      selectedModel = routing.recommendedModel;
+      if (!selectedModel) {
+        selectedModel = routing.recommendedModel;
+      }
+      if (routing.suggestedAgent) {
+        suggestedAgent = routing.suggestedAgent;
+      }
       this.logger.debug(
-        `${logPrefix} Model router: ${routing.recommendedModel} (${routing.complexity}, confidence=${routing.confidence.toFixed(2)})`,
+        `${logPrefix} Model router: ${routing.recommendedModel} -> ${suggestedAgent} (${routing.complexity}, confidence=${routing.confidence.toFixed(2)})`,
       );
     }
 
@@ -784,7 +778,18 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Fetch user context for personalized agent instructions
     const userContext = await this.getUserContext(options.userId, options.tenantId);
-    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId);
+
+    // OPTIMIZATION: Direct routing for specialized intents (skip supervisor overhead)
+    // For Email/Calendar/Contacts/General intents, route directly to specialist agent
+    // This reduces latency by ~70-90% for single-domain queries
+    let agent: Agent;
+    if (suggestedAgent !== 'Supervisor') {
+      this.logger.debug(`${logPrefix} Direct routing to ${suggestedAgent}Agent (skipping supervisor)`);
+      agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId, suggestedAgent);
+    } else {
+      // Use supervisor for complex multi-agent coordination (cross-domain queries)
+      agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId, 'Supervisor');
+    }
 
     // NOTE: tenantUserId was previously used for VoltAgent's native memory (disabled due to bug)
     // Tenant isolation is now handled by our Prisma-based VoltAgentMemoryService
@@ -821,18 +826,48 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Conversation history injection removed - AI refactor v2.0
-
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     // Format: "tenantId:userId" allows hooks to extract both values
     const tenantUserId = `${options.tenantId}:${options.userId}`;
-    // Use persistent conversationId or generate fallback for new conversations
-    const fallbackSessionId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // Generate tenant-isolated fallback sessionId for new conversations
+    // Format: tenantId:timestamp:random ensures uniqueness and tenant isolation
+    const fallbackSessionId = `${options.tenantId}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const sessionId = options.conversationId || fallbackSessionId;
+
+    // 3.7. Inject conversation history from VoltAgent Memory (RE-ADDED after AI refactor v2.0)
+    // This ensures agents remember previous conversation context within the same session
+    if (this.memory && options.conversationId) {
+      try {
+        const history = await this.memory.getMessages(tenantUserId, options.conversationId, { limit: 10 });
+        if (history && history.length > 0) {
+          const historyContext = history
+            .map((msg) => {
+              const role = msg.role === 'user' ? 'User' : 'Assistant';
+              // UIMessage uses 'parts' array, not 'content'
+              const content = msg.parts
+                ?.map((part) => (part as { type: string; text?: string }).text || '')
+                .filter(Boolean)
+                .join(' ') || '';
+              return `${role}: ${content}`;
+            })
+            .join('\n\n');
+
+          // Redact PII from history if service available
+          const safeHistoryContext = this.piiDetectionService
+            ? this.piiDetectionService.redact(historyContext)
+            : historyContext;
+
+          enhancedMessage = `[Conversation History]\n${safeHistoryContext}\n\n[Current Message]\n${enhancedMessage}`;
+          this.logger.debug(`${logPrefix} Conversation history injected: ${history.length} messages`);
+        }
+      } catch (error) {
+        this.logger.warn(`${logPrefix} Failed to fetch conversation history: ${error}`);
+      }
+    }
 
     this.logger.debug(`${logPrefix} [DEBUG] About to call agent.generateText`);
 
     // Emit real-time agent step: Intent analysis started
-    const sessionId = options.conversationId || fallbackSessionId;
     this.emitAgentStep(options.tenantId, sessionId, options.userId, 'intent', 'started', 'Analyzing your request...');
 
     let result;
@@ -910,11 +945,52 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       throw new Error('Agent failed to generate a response after multiple attempts.');
     }
 
-    // VoltAgentMemoryService removed - AI refactor v2.0
-    // Conversations are now stateless (no persistence)
-    const persistedConversationId: string | undefined = options.conversationId;
+    // FIX: Return the sessionId to frontend so conversations persist across messages
+    // The sessionId is either the provided conversationId or a newly generated one
+    // Format includes tenantId for multi-tenant isolation
+    const persistedConversationId: string = sessionId;
 
-    // LongTermMemoryService removed - AI refactor v2.0
+    // 4. Persist messages to VoltAgent Memory (RE-ADDED after AI refactor v2.0)
+    // This ensures conversation history is available for future requests
+    if (this.memory && result?.text) {
+      try {
+        // Create conversation if it doesn't exist (for new sessions)
+        const existingConversation = await this.memory.getConversation(persistedConversationId);
+        if (!existingConversation) {
+          await this.memory.createConversation({
+            id: persistedConversationId,
+            userId: tenantUserId,
+            resourceId: `agent:${options.tenantId}`,
+            title: processedMessage.substring(0, 100),
+            metadata: { tenantId: options.tenantId, createdAt: new Date().toISOString() },
+          });
+          this.logger.debug(`${logPrefix} Created new conversation: ${persistedConversationId}`);
+        }
+
+        // Save user message
+        const userMessage = {
+          id: `msg-user-${Date.now()}`,
+          role: 'user' as const,
+          parts: [{ type: 'text' as const, text: processedMessage }],
+          metadata: { timestamp: new Date().toISOString() },
+        };
+        await this.memory.addMessage(userMessage, tenantUserId, persistedConversationId);
+
+        // Save assistant response
+        const assistantMessage = {
+          id: `msg-assistant-${Date.now()}`,
+          role: 'assistant' as const,
+          parts: [{ type: 'text' as const, text: result.text }],
+          metadata: { timestamp: new Date().toISOString(), model: selectedModel },
+        };
+        await this.memory.addMessage(assistantMessage, tenantUserId, persistedConversationId);
+
+        this.logger.debug(`${logPrefix} Persisted conversation messages to VoltAgent Memory`);
+      } catch (error) {
+        // Non-critical: log but don't fail the request
+        this.logger.warn(`${logPrefix} Failed to persist messages to memory: ${error}`);
+      }
+    }
 
     // Record latency for model router accuracy
     if (this.modelRouterService && selectedModel) {
@@ -978,19 +1054,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 3. Cache the response for future similar queries
-    if (!options.skipCache && this.semanticCacheService?.isEnabled() && pendingActions.length === 0) {
-      // Only cache responses without pending actions (those are deterministic)
-      const estimatedTokens =
-        this.modelRouterService?.routeMessage(processedMessage).estimatedTokens ?? 500;
-      await this.semanticCacheService.set(
-        options.tenantId,
-        processedMessage,
-        result.text,
-        selectedModel || 'small',
-        estimatedTokens,
-      );
-    }
+    // 3. Semantic cache REMOVED - cross-tenant security issue
+    // Responses are never cached to prevent data leakage between tenants
 
     // Emit final response event with the correct persistedConversationId
     // This ensures the frontend can match events even for new conversations
@@ -1074,21 +1139,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 1. Check semantic cache (50-60% cost reduction) - return cached if hit
-    if (!options.skipCache && this.semanticCacheService?.isEnabled()) {
-      const cacheResult = await this.semanticCacheService.get(
-        options.tenantId,
-        processedMessage,
-        options.model,
-      );
-
-      if (cacheResult.hit && cacheResult.response) {
-        this.logger.debug(`${logPrefix} Cache hit, returning cached response. Took ${Date.now() - startTimeResult}ms`);
-        yield cacheResult.response;
-        return;
-      }
-    }
-    this.logger.log(`${logPrefix} Cache Check took ${Date.now() - startTimeResult}ms`);
+    // 1. Semantic cache REMOVED - cross-tenant security issue
+    // All responses generated fresh to prevent data leakage
 
     // 2. Route to optimal model and agent
     let selectedModel = options.model;
@@ -1117,9 +1169,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId, suggestedAgent);
     this.logger.log(`${logPrefix} Agent Creation took ${Date.now() - agentStart}ms`);
 
-    // VoltAgentMemoryService removed - AI refactor v2.0
-    // Conversations are now stateless
-
     // LongTermMemoryService removed - AI refactor v2.0
     let enhancedMessage = processedMessage;
 
@@ -1146,12 +1195,43 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Conversation history injection removed - AI refactor v2.0
-    this.logger.log(`${logPrefix} Context Injection took ${Date.now() - contextStart}ms`);
-
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     const tenantUserId = `${options.tenantId}:${options.userId}`;
-    const sessionId = options.conversationId || `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // Generate tenant-isolated fallback sessionId for new conversations
+    const sessionId = options.conversationId || `${options.tenantId}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    // 3.7. Inject conversation history from VoltAgent Memory (RE-ADDED after AI refactor v2.0)
+    // This ensures agents remember previous conversation context within the same session
+    if (this.memory && options.conversationId) {
+      try {
+        const history = await this.memory.getMessages(tenantUserId, options.conversationId, { limit: 10 });
+        if (history && history.length > 0) {
+          const historyContext = history
+            .map((msg) => {
+              const role = msg.role === 'user' ? 'User' : 'Assistant';
+              // UIMessage uses 'parts' array, not 'content'
+              const content = msg.parts
+                ?.map((part) => (part as { type: string; text?: string }).text || '')
+                .filter(Boolean)
+                .join(' ') || '';
+              return `${role}: ${content}`;
+            })
+            .join('\n\n');
+
+          // Redact PII from history if service available
+          const safeHistoryContext = this.piiDetectionService
+            ? this.piiDetectionService.redact(historyContext)
+            : historyContext;
+
+          enhancedMessage = `[Conversation History]\n${safeHistoryContext}\n\n[Current Message]\n${enhancedMessage}`;
+          this.logger.debug(`${logPrefix} Conversation history injected: ${history.length} messages`);
+        }
+      } catch (error) {
+        this.logger.warn(`${logPrefix} Failed to fetch conversation history: ${error}`);
+      }
+    }
+
+    this.logger.log(`${logPrefix} Context Injection took ${Date.now() - contextStart}ms`);
 
     const result = await agent.streamText(enhancedMessage, {
       userId: tenantUserId,
@@ -1173,22 +1253,49 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       yield chunk;
     }
 
-    // 3. Cache response for future similar queries
-    if (!options.skipCache && this.semanticCacheService?.isEnabled() && fullResponse.length > 0) {
-      const estimatedTokens =
-        this.modelRouterService?.routeMessage(processedMessage).estimatedTokens ?? 500;
-      await this.semanticCacheService.set(
-        options.tenantId,
-        processedMessage,
-        fullResponse,
-        selectedModel || 'small',
-        estimatedTokens,
-      ).catch((err) => this.logger.warn(`${logPrefix} Cache set failed: ${err.message}`));
+    // 3. Semantic cache REMOVED - cross-tenant security issue
+
+    // 4. Persist messages to VoltAgent Memory (RE-ADDED after AI refactor v2.0)
+    // This ensures conversation history is available for future requests
+    if (this.memory && fullResponse.length > 0) {
+      try {
+        // Create conversation if it doesn't exist (for new sessions)
+        const existingConversation = await this.memory.getConversation(sessionId);
+        if (!existingConversation) {
+          await this.memory.createConversation({
+            id: sessionId,
+            userId: tenantUserId,
+            resourceId: `agent:${options.tenantId}`,
+            title: processedMessage.substring(0, 100),
+            metadata: { tenantId: options.tenantId, createdAt: new Date().toISOString() },
+          });
+          this.logger.debug(`${logPrefix} Created new conversation: ${sessionId}`);
+        }
+
+        // Save user message
+        const userMessage = {
+          id: `msg-user-${Date.now()}`,
+          role: 'user' as const,
+          parts: [{ type: 'text' as const, text: processedMessage }],
+          metadata: { timestamp: new Date().toISOString() },
+        };
+        await this.memory.addMessage(userMessage, tenantUserId, sessionId);
+
+        // Save assistant response
+        const assistantMessage = {
+          id: `msg-assistant-${Date.now()}`,
+          role: 'assistant' as const,
+          parts: [{ type: 'text' as const, text: fullResponse }],
+          metadata: { timestamp: new Date().toISOString(), model: selectedModel },
+        };
+        await this.memory.addMessage(assistantMessage, tenantUserId, sessionId);
+
+        this.logger.debug(`${logPrefix} Persisted conversation messages to VoltAgent Memory`);
+      } catch (error) {
+        // Non-critical: log but don't fail the request
+        this.logger.warn(`${logPrefix} Failed to persist messages to memory: ${error}`);
+      }
     }
-
-    // VoltAgentMemoryService removed - AI refactor v2.0
-
-    // LongTermMemoryService removed - AI refactor v2.0
   }
 
   /**
@@ -1599,9 +1706,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Get comprehensive optimization statistics.
-   * Includes semantic cache, model routing, and queue metrics.
+   * Includes model routing and queue metrics.
+   * NOTE: Semantic cache was REMOVED due to cross-tenant security issues.
    */
-  async getOptimizationStats(tenantId: string): Promise<{
+  async getOptimizationStats(_tenantId: string): Promise<{
     semanticCache: {
       enabled: boolean;
       entries: number;
@@ -1632,11 +1740,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       totalTokens: number;
     };
   }> {
-    // Semantic cache stats
-    const semanticCacheEnabled = this.semanticCacheService?.isEnabled() ?? false;
-    const cacheStats = semanticCacheEnabled
-      ? await this.semanticCacheService!.getStats(tenantId)
-      : { entries: 0, totalHits: 0, avgSimilarity: 0, estimatedSavings: 0 };
+    // Semantic cache REMOVED - cross-tenant security issue
+    const semanticCacheEnabled = false;
+    const cacheStats = { entries: 0, totalHits: 0, avgSimilarity: 0, estimatedSavings: 0 };
 
     // Model routing stats
     const modelRoutingEnabled = !!this.modelRouterService;
@@ -1676,14 +1782,12 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Invalidate semantic cache for a tenant.
-   * Useful when context changes significantly.
+   * NOTE: Semantic cache was REMOVED due to cross-tenant security issues.
+   * This method now does nothing but is kept for API compatibility.
    */
-  async invalidateCache(tenantId: string, pattern?: string): Promise<number> {
-    if (!this.semanticCacheService?.isEnabled()) {
-      return 0;
-    }
-
-    return this.semanticCacheService.invalidate(tenantId, pattern);
+  async invalidateCache(_tenantId: string, _pattern?: string): Promise<number> {
+    // Semantic cache REMOVED - cross-tenant security issue
+    return 0;
   }
 
   /**

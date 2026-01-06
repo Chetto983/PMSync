@@ -234,14 +234,42 @@ export class UnifiedRetriever extends BaseRetriever {
   }
 
   /**
-   * Search emails using hybrid retriever logic (vector + keyword)
+   * Search emails using hybrid retriever logic (vector + keyword with RRF fusion)
+   *
+   * 2025 Best Practice: Reciprocal Rank Fusion (RRF)
+   * - Items found by BOTH vector AND keyword get boosted
+   * - Vector results prioritized for semantic understanding
+   * - Keyword helps with exact matches (IDs, names)
    */
   private async searchEmails(query: string): Promise<SourceResult> {
-    const items: SourceResult['items'] = [];
-    const seenIds = new Set<string>();
+    const RRF_K = 60; // Standard RRF constant
+    const rrfScores = new Map<string, { score: number; content: string; metadata: Record<string, unknown> }>();
 
+    // Helper to add RRF score
+    const addRrfScore = (
+      id: string,
+      rank: number,
+      content: string,
+      metadata: Record<string, unknown>,
+      source: 'vector' | 'keyword'
+    ) => {
+      const rrfContribution = 1 / (RRF_K + rank);
+      const existing = rrfScores.get(id);
+      if (existing) {
+        // Item found by both sources - boost it!
+        existing.score += rrfContribution;
+        existing.metadata.sources = [...((existing.metadata.sources as string[]) || []), source];
+      } else {
+        rrfScores.set(id, {
+          score: rrfContribution,
+          content,
+          metadata: { ...metadata, type: 'email', sources: [source] },
+        });
+      }
+    };
+
+    // 1. Vector search for semantic similarity
     try {
-      // Vector search for semantic similarity (only if RAG services are available)
       if (this.mistralService && this.embeddingsService) {
         const embedding = await this.mistralService.generateEmbedding(query);
         if (embedding && embedding.length > 0) {
@@ -251,70 +279,74 @@ export class UnifiedRetriever extends BaseRetriever {
             documentName: string | null;
             metadata: Record<string, unknown> | null;
             distance?: number;
-          }>(this.tenantId, embedding, this.emailLimit);
+          }>(this.tenantId, embedding, this.emailLimit * 2); // Fetch more for fusion
 
-          for (const vr of vectorResults) {
-            if (!seenIds.has(vr.id)) {
-              seenIds.add(vr.id);
-              // Convert distance (0-2) to score (1-0)
-              const score = vr.distance !== undefined ? 1 - vr.distance / 2 : 0.5;
-              items.push({
-                id: vr.id,
-                content: vr.content,
-                score,
-                metadata: { type: 'email', source: 'vector', ...vr.metadata },
-              });
-            }
-          }
+          vectorResults.forEach((vr, idx) => {
+            addRrfScore(vr.id, idx + 1, vr.content, vr.metadata || {}, 'vector');
+          });
         }
       }
     } catch (error) {
       this.nestLogger.warn(`Vector search failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
+    // 2. Keyword search for exact matches
     try {
-      // Keyword search fallback
-      const keywordResults = await this.prisma.email.findMany({
-        where: {
-          tenantId: this.tenantId,
-          folder: EXCLUDE_JUNK_FOLDERS,
-          OR: [
-            { subject: { contains: query, mode: 'insensitive' } },
-            { snippet: { contains: query, mode: 'insensitive' } },
-            { from: { contains: query, mode: 'insensitive' } },
-          ],
-        },
-        take: this.emailLimit,
-        orderBy: { receivedAt: 'desc' },
-        select: {
-          id: true,
-          subject: true,
-          snippet: true,
-          from: true,
-          receivedAt: true,
-        },
-      });
+      // Split query into keywords for better matching
+      const keywords = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 2);
 
-      for (const kr of keywordResults) {
-        if (!seenIds.has(kr.id)) {
-          seenIds.add(kr.id);
-          items.push({
-            id: kr.id,
-            content: `Email: ${kr.subject || 'No subject'}\nFrom: ${kr.from || 'Unknown'}\n${kr.snippet || ''}`,
-            score: 0.3, // Lower score for keyword matches
-            metadata: {
-              type: 'email',
-              source: 'keyword',
-              from: kr.from,
-              subject: kr.subject,
-              receivedAt: kr.receivedAt,
-            },
-          });
-        }
+      if (keywords.length > 0) {
+        const keywordResults = await this.prisma.email.findMany({
+          where: {
+            tenantId: this.tenantId,
+            folder: EXCLUDE_JUNK_FOLDERS,
+            OR: [
+              { subject: { contains: query, mode: 'insensitive' } },
+              { snippet: { contains: query, mode: 'insensitive' } },
+              { from: { contains: query, mode: 'insensitive' } },
+              // Also search for individual keywords
+              ...keywords.slice(0, 3).map((kw) => ({ subject: { contains: kw, mode: 'insensitive' as const } })),
+            ],
+          },
+          take: this.emailLimit * 2,
+          orderBy: { receivedAt: 'desc' },
+          select: {
+            id: true,
+            subject: true,
+            snippet: true,
+            from: true,
+            receivedAt: true,
+          },
+        });
+
+        keywordResults.forEach((kr, idx) => {
+          const content = `Email: ${kr.subject || 'No subject'}\nFrom: ${kr.from || 'Unknown'}\n${kr.snippet || ''}`;
+          addRrfScore(kr.id, idx + 1, content, { from: kr.from, subject: kr.subject, receivedAt: kr.receivedAt }, 'keyword');
+        });
       }
     } catch (error) {
       this.nestLogger.warn(`Keyword search failed: ${error instanceof Error ? error.message : String(error)}`);
     }
+
+    // 3. Convert to sorted items array
+    const items: SourceResult['items'] = Array.from(rrfScores.entries())
+      .map(([id, data]) => ({
+        id,
+        content: data.content,
+        score: data.score,
+        metadata: data.metadata,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, this.emailLimit);
+
+    // Log hybrid search stats
+    const vectorOnly = items.filter((i) => (i.metadata?.sources as string[])?.length === 1 && (i.metadata?.sources as string[])[0] === 'vector').length;
+    const keywordOnly = items.filter((i) => (i.metadata?.sources as string[])?.length === 1 && (i.metadata?.sources as string[])[0] === 'keyword').length;
+    const both = items.filter((i) => (i.metadata?.sources as string[])?.length === 2).length;
+    this.nestLogger.debug(`Hybrid search: ${vectorOnly} vector-only, ${keywordOnly} keyword-only, ${both} both`);
 
     return { source: 'emails', items };
   }

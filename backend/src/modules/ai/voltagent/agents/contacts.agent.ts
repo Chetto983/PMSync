@@ -4,7 +4,7 @@
  * Specialized agent for contact management operations.
  * Uses centralized locale system for instructions.
  */
-import { Agent, type AgentHooks } from '@voltagent/core';
+import { Agent, type AgentHooks, type Memory } from '@voltagent/core';
 import type { LanguageModel } from 'ai';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
@@ -18,13 +18,15 @@ export interface ContactsAgentOptions {
   locale: SupportedLocale;
   tenantId: string;
   hooks?: AgentHooks;
+  /** VoltAgent memory for conversation persistence */
+  memory?: Memory;
 }
 
 /**
  * Creates a Contacts Agent with all contact tools.
  */
 export function createContactsAgent(options: ContactsAgentOptions): Agent {
-  const { model, prisma, cacheService, locale, tenantId, hooks } = options;
+  const { model, prisma, cacheService, locale, tenantId, hooks, memory } = options;
   const t = getAgentTranslations(locale);
 
   return new Agent({
@@ -34,6 +36,7 @@ export function createContactsAgent(options: ContactsAgentOptions): Agent {
     instructions: t.contacts.instructions,
     tools: createContactsTools(prisma, locale, tenantId, cacheService),
     hooks,
+    memory,
     maxSteps: 5,
   });
 }

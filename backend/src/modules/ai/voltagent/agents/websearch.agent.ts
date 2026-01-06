@@ -9,7 +9,7 @@
  * - Automatic source citation
  * - Cache for repeated queries
  */
-import { Agent, type AgentHooks } from '@voltagent/core';
+import { Agent, type AgentHooks, type Memory } from '@voltagent/core';
 import type { LanguageModel } from 'ai';
 import { ConfigService } from '@nestjs/config';
 import { getAgentTranslations, type SupportedLocale } from '../locales';
@@ -25,6 +25,8 @@ export interface WebSearchAgentOptions {
   hooks?: AgentHooks;
   /** Optional: CacheService for Redis-based caching (multi-instance support) */
   cacheService?: CacheService;
+  /** VoltAgent memory for conversation persistence */
+  memory?: Memory;
 }
 
 /**
@@ -34,7 +36,7 @@ export interface WebSearchAgentOptions {
  * to retrieve up-to-date information from the web.
  */
 export function createWebSearchAgent(options: WebSearchAgentOptions): Agent {
-  const { model, configService, locale, tenantId, userId, hooks, cacheService } = options;
+  const { model, configService, locale, tenantId, userId, hooks, cacheService, memory } = options;
   const t = getAgentTranslations(locale);
 
   // Create web search tool with Redis caching
@@ -53,6 +55,7 @@ export function createWebSearchAgent(options: WebSearchAgentOptions): Agent {
     instructions: t.webSearch.instructions,
     tools: [webSearchTool],
     hooks,
+    memory,
     maxSteps: 3,
   });
 }

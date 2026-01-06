@@ -6,7 +6,6 @@ import { MistralService } from './mistral.service';
 import { EmbeddingsService } from './embeddings.service';
 import { EmailEmbeddingQueueService } from './email-embedding.queue';
 import { HtmlContentExtractor } from './html-content-extractor';
-import { QueryEmbeddingCacheService } from './query-embedding-cache.service';
 import { AttachmentContentExtractorService } from './attachment-content-extractor.service';
 import { AiError } from '../errors';
 
@@ -82,7 +81,6 @@ export class KnowledgeBaseService {
     private readonly embeddingsService: EmbeddingsService,
     @Inject(forwardRef(() => EmailEmbeddingQueueService))
     private readonly emailEmbeddingQueue: EmailEmbeddingQueueService,
-    private readonly queryEmbeddingCache: QueryEmbeddingCacheService,
     private readonly attachmentContentExtractor: AttachmentContentExtractorService,
     private readonly configService: ConfigService,
   ) {
@@ -578,25 +576,9 @@ export class KnowledgeBaseService {
       );
     }
 
-    // Try to get cached embedding first (HIGH IMPACT: 50-70% cost reduction)
-    let embedding = await this.queryEmbeddingCache.getCachedEmbedding(searchText);
-
-    if (!embedding) {
-      // Cache miss - generate new embedding
-      const startTime = Date.now();
-      const client = await this.mistralService.createMistralClient();
-      embedding = await this.mistralService.generateEmbedding(searchText, client);
-      const duration = Date.now() - startTime;
-
-      // Cache the embedding for future queries
-      await this.queryEmbeddingCache.setCachedEmbedding(searchText, embedding);
-
-      this.logger.debug(
-        `Generated new query embedding (${duration}ms) and cached for future use`,
-      );
-    } else {
-      this.logger.verbose('Using cached query embedding - saved Mistral API call');
-    }
+    // Generate embedding (caching is now handled internally by MistralService)
+    const client = await this.mistralService.createMistralClient();
+    const embedding = await this.mistralService.generateEmbedding(searchText, client);
 
     const matches = await this.embeddingsService.findSimilarContent(
       options.tenantId,

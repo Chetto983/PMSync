@@ -14,26 +14,38 @@
  * @author AI Refactor v2.0
  */
 
-import { PrismaClient, ActionStatus, EmailPriority, EmailCategory, Sentiment, DealSignal, FollowUpStatus, ContactInteractionType } from '@prisma/client';
+/// <reference types="node" />
+import 'dotenv/config';
+import { PrismaClient, ActionStatus, FollowUpStatus, ContactInteractionType } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { Mistral } from '@mistralai/mistralai';
 import { nanoid } from 'nanoid';
-import * as crypto from 'crypto';
-import * as dotenv from 'dotenv';
+import { createHash } from 'node:crypto';
+import { ALL_SCENARIOS, generateEmailsFromScenarios, type EmailScenario } from './email-scenarios';
 
-dotenv.config();
+// === Prisma Client Factory (with pg adapter) ===
+function createPrismaClient() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error('DATABASE_URL is not set');
+  }
+  const adapter = new PrismaPg({ connectionString });
+  return new PrismaClient({ adapter }) as unknown as PrismaClient;
+}
 
 // === Configuration ===
 const CONFIG = {
   testTenantSlug: 'ai-validation-test',
   testTenantName: 'AI Validation Test Tenant',
-  emailCount: 100, // Total emails to generate
+  emailCount: parseInt(process.argv.find(a => a.startsWith('--emails='))?.split('=')[1] || '100', 10),
   threadCount: 20, // Number of email threads
   contactCount: 15, // Unique contacts
   embeddingBatchSize: 20,
   embeddingModel: 'mistral-embed',
+  verbose: process.argv.includes('--verbose'),
 };
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 let mistral: Mistral;
 
 // === Test Data IDs (for cleanup) ===
@@ -60,440 +72,9 @@ const PERSONAS = [
   { name: 'Davide Barbieri', email: 'd.barbieri@logistics.it', company: 'LogisTech', role: 'Operations Lead' },
 ];
 
-// === Email Thread Templates (Realistic Business Scenarios) ===
-interface EmailTemplate {
-  scenario: string;
-  expectedAnalysis: {
-    priority: EmailPriority;
-    category: EmailCategory;
-    sentiment: Sentiment;
-    hasDeadline: boolean;
-    needsFollowUp: boolean;
-    isSalesLead: boolean;
-    dealSignal?: DealSignal;
-  };
-  thread: Array<{
-    direction: 'incoming' | 'outgoing';
-    subject: string;
-    body: string;
-    dayOffset: number;
-    needsResponse?: boolean;
-  }>;
-}
-
-const THREAD_TEMPLATES: EmailTemplate[] = [
-  // 1. Sales Lead - New Opportunity
-  {
-    scenario: 'Sales Lead - Budget Request',
-    expectedAnalysis: {
-      priority: EmailPriority.HIGH,
-      category: EmailCategory.SALES_INQUIRY,
-      sentiment: Sentiment.POSITIVE,
-      hasDeadline: true,
-      needsFollowUp: true,
-      isSalesLead: true,
-      dealSignal: DealSignal.INTEREST_SHOWN,
-    },
-    thread: [
-      {
-        direction: 'incoming',
-        subject: 'Richiesta preventivo per progetto ERP',
-        body: `Buongiorno,
-
-Sono Roberto Conti di Acme Italia. Siamo interessati alla vostra soluzione ERP enterprise.
-
-Il nostro budget è di circa €150.000 e vorremmo procedere entro fine Q2 (30 giugno).
-Potete inviarci un preventivo dettagliato?
-
-Abbiamo bisogno di:
-- Modulo Contabilità
-- Modulo HR
-- Integrazione con SAP esistente
-
-Grazie per il riscontro.
-
-Roberto Conti
-Procurement Manager
-Acme Italia`,
-        dayOffset: -5,
-        needsResponse: true,
-      },
-      {
-        direction: 'outgoing',
-        subject: 'Re: Richiesta preventivo per progetto ERP',
-        body: `Gentile Roberto,
-
-Grazie per l'interesse verso la nostra soluzione.
-
-Ho preparato una proposta preliminare per €135.000 che include tutti i moduli richiesti.
-Allego il documento dettagliato.
-
-Possiamo organizzare una demo la prossima settimana?
-
-Cordiali saluti`,
-        dayOffset: -4,
-      },
-      {
-        direction: 'incoming',
-        subject: 'Re: Re: Richiesta preventivo per progetto ERP',
-        body: `Ottimo, la proposta sembra in linea con il nostro budget.
-
-Possiamo fare la demo giovedì 15 alle 10:00?
-Parteciperanno anche il CTO e il CFO.
-
-Inoltre, vorremmo capire i tempi di implementazione.
-La deadline del 30 giugno è tassativa per il nostro progetto.
-
-Grazie,
-Roberto`,
-        dayOffset: -2,
-        needsResponse: true,
-      },
-    ],
-  },
-
-  // 2. Urgent Contract Deadline
-  {
-    scenario: 'Contract - Urgent Deadline',
-    expectedAnalysis: {
-      priority: EmailPriority.URGENT,
-      category: EmailCategory.OTHER,
-      sentiment: Sentiment.URGENT,
-      hasDeadline: true,
-      needsFollowUp: true,
-      isSalesLead: false,
-    },
-    thread: [
-      {
-        direction: 'incoming',
-        subject: 'URGENTE: Contratto in scadenza - Azione richiesta entro 48h',
-        body: `ATTENZIONE URGENTE
-
-Il contratto con Globex Corp scade il 15 gennaio (tra 2 giorni).
-
-Se non riceviamo la firma entro 48 ore, perderemo le condizioni preferenziali.
-
-Azioni richieste:
-1. Revisione clausola 5.2 (penali)
-2. Approvazione del CFO
-3. Firma digitale
-
-DEADLINE: 15 gennaio ore 18:00
-
-Marco Ferrari
-Studio Legale`,
-        dayOffset: -1,
-        needsResponse: true,
-      },
-    ],
-  },
-
-  // 3. Meeting Request
-  {
-    scenario: 'Meeting - Board Presentation',
-    expectedAnalysis: {
-      priority: EmailPriority.HIGH,
-      category: EmailCategory.MEETING_REQUEST,
-      sentiment: Sentiment.NEUTRAL,
-      hasDeadline: true,
-      needsFollowUp: false,
-      isSalesLead: false,
-    },
-    thread: [
-      {
-        direction: 'incoming',
-        subject: 'Convocazione CdA - Presentazione Q4',
-        body: `Gentili,
-
-Vi convoco per la riunione del Consiglio di Amministrazione.
-
-Data: Mercoledì 20 gennaio
-Ora: 14:00 - 17:00
-Luogo: Sala Boardroom, 3° piano
-
-Agenda:
-1. Risultati Q4 2024
-2. Budget 2025
-3. Piano strategico triennale
-4. Varie ed eventuali
-
-Confermare presenza entro lunedì 18.
-
-Valentina Costa
-Managing Director`,
-        dayOffset: -7,
-        needsResponse: true,
-      },
-      {
-        direction: 'outgoing',
-        subject: 'Re: Convocazione CdA - Presentazione Q4',
-        body: `Confermo la mia presenza.
-
-Ho preparato le slide sui risultati finanziari.
-Allego draft per review.
-
-Saluti`,
-        dayOffset: -6,
-      },
-    ],
-  },
-
-  // 4. Support Request - Negative Sentiment
-  {
-    scenario: 'Support - Complaint',
-    expectedAnalysis: {
-      priority: EmailPriority.HIGH,
-      category: EmailCategory.SUPPORT_REQUEST,
-      sentiment: Sentiment.NEGATIVE,
-      hasDeadline: false,
-      needsFollowUp: true,
-      isSalesLead: false,
-      dealSignal: DealSignal.CHURNING,
-    },
-    thread: [
-      {
-        direction: 'incoming',
-        subject: 'Problema critico con il sistema - URGENTE',
-        body: `Buongiorno,
-
-È la TERZA volta che segnalo questo problema e nessuno risponde!
-
-Il sistema è completamente bloccato da 2 giorni e stiamo perdendo ordini.
-I nostri clienti sono furiosi e stiamo valutando di passare alla concorrenza.
-
-Abbiamo bisogno di una soluzione IMMEDIATA o dovremo rivedere il contratto.
-
-Attendo risposta urgente.
-
-Paolo Fontana
-StartupMilano`,
-        dayOffset: -1,
-        needsResponse: true,
-      },
-    ],
-  },
-
-  // 5. Newsletter - Low Priority
-  {
-    scenario: 'Newsletter - Marketing',
-    expectedAnalysis: {
-      priority: EmailPriority.LOW,
-      category: EmailCategory.NEWSLETTER,
-      sentiment: Sentiment.NEUTRAL,
-      hasDeadline: false,
-      needsFollowUp: false,
-      isSalesLead: false,
-    },
-    thread: [
-      {
-        direction: 'incoming',
-        subject: 'Newsletter Gennaio - Novità e Promozioni',
-        body: `Ciao,
-
-Ecco le novità di gennaio!
-
-🎉 Nuove funzionalità:
-- Dashboard migliorata
-- Report automatici
-- Integrazione WhatsApp
-
-💰 Promozione:
-Sconto 20% su tutti i piani annuali fino al 31 gennaio.
-
-Clicca qui per approfondire.
-
-Il Team Marketing`,
-        dayOffset: -3,
-        needsResponse: false,
-      },
-    ],
-  },
-
-  // 6. Follow-up Required - No Response
-  {
-    scenario: 'Follow-up - Awaiting Response',
-    expectedAnalysis: {
-      priority: EmailPriority.NORMAL,
-      category: EmailCategory.FOLLOW_UP,
-      sentiment: Sentiment.NEUTRAL,
-      hasDeadline: false,
-      needsFollowUp: true,
-      isSalesLead: true,
-      dealSignal: DealSignal.INTEREST_SHOWN,
-    },
-    thread: [
-      {
-        direction: 'outgoing',
-        subject: 'Proposta commerciale - Globex Corp',
-        body: `Gentile Elena,
-
-Come discusso al telefono, allego la proposta commerciale per la fornitura annuale.
-
-Valore totale: €75.000
-Condizioni: 30gg FM
-Validità: 30 giorni
-
-Resto a disposizione per chiarimenti.
-
-Cordiali saluti`,
-        dayOffset: -10,
-      },
-      {
-        direction: 'outgoing',
-        subject: 'Re: Proposta commerciale - Globex Corp - Follow-up',
-        body: `Gentile Elena,
-
-Non ho ricevuto riscontro alla proposta inviata la scorsa settimana.
-
-Avete avuto modo di valutarla? Posso fornire ulteriori informazioni?
-
-Grazie,
-Cordiali saluti`,
-        dayOffset: -3,
-        needsResponse: true,
-      },
-    ],
-  },
-
-  // 7. HR - Interview Scheduling
-  {
-    scenario: 'HR - Candidate Interview',
-    expectedAnalysis: {
-      priority: EmailPriority.NORMAL,
-      category: EmailCategory.MEETING_REQUEST,
-      sentiment: Sentiment.POSITIVE,
-      hasDeadline: true,
-      needsFollowUp: false,
-      isSalesLead: false,
-    },
-    thread: [
-      {
-        direction: 'incoming',
-        subject: 'Candidatura Senior Developer - Colloquio',
-        body: `Buongiorno,
-
-Abbiamo selezionato 3 candidati per la posizione di Senior Developer.
-
-Vi propongo i seguenti slot per i colloqui:
-- Lunedì 22/01: 10:00, 14:00, 16:00
-- Martedì 23/01: 09:00, 11:00, 15:00
-
-Potete confermare disponibilità entro venerdì?
-
-Sofia Romano
-HR Solutions`,
-        dayOffset: -4,
-        needsResponse: true,
-      },
-    ],
-  },
-
-  // 8. Personal Email
-  {
-    scenario: 'Personal - Event Invitation',
-    expectedAnalysis: {
-      priority: EmailPriority.LOW,
-      category: EmailCategory.PERSONAL,
-      sentiment: Sentiment.POSITIVE,
-      hasDeadline: true,
-      needsFollowUp: false,
-      isSalesLead: false,
-    },
-    thread: [
-      {
-        direction: 'incoming',
-        subject: 'Cena di Natale aziendale - Save the date!',
-        body: `Cari colleghi,
-
-Siete tutti invitati alla cena di Natale!
-
-📅 Data: Venerdì 20 dicembre
-🕖 Ora: 20:00
-📍 Luogo: Ristorante Da Mario, Via Roma 123
-
-Menu fisso con opzione vegetariana disponibile.
-Confermare partecipazione entro il 15 dicembre.
-
-A presto!
-Francesca`,
-        dayOffset: -15,
-        needsResponse: false,
-      },
-    ],
-  },
-
-  // 9. Automated System Email
-  {
-    scenario: 'Automated - System Alert',
-    expectedAnalysis: {
-      priority: EmailPriority.NORMAL,
-      category: EmailCategory.AUTOMATED,
-      sentiment: Sentiment.NEUTRAL,
-      hasDeadline: false,
-      needsFollowUp: false,
-      isSalesLead: false,
-    },
-    thread: [
-      {
-        direction: 'incoming',
-        subject: '[JIRA] TECH-1234: Deploy completato in produzione',
-        body: `Sistema automatico - Non rispondere
-
-Il deploy #1234 è stato completato con successo.
-
-Ambiente: Produzione
-Versione: v2.5.3
-Timestamp: 2024-01-15 14:30:00 UTC
-
-Verifiche:
-✅ Unit tests: PASSED
-✅ Integration tests: PASSED
-✅ Health check: OK
-
----
-Questo messaggio è stato generato automaticamente.
-JIRA Automation`,
-        dayOffset: -1,
-        needsResponse: false,
-      },
-    ],
-  },
-
-  // 10. Sales Objection
-  {
-    scenario: 'Sales - Price Objection',
-    expectedAnalysis: {
-      priority: EmailPriority.HIGH,
-      category: EmailCategory.SALES_INQUIRY,
-      sentiment: Sentiment.NEGATIVE,
-      hasDeadline: false,
-      needsFollowUp: true,
-      isSalesLead: true,
-      dealSignal: DealSignal.OBJECTION,
-    },
-    thread: [
-      {
-        direction: 'incoming',
-        subject: 'Re: Proposta progetto - Dubbi sul prezzo',
-        body: `Buongiorno,
-
-Ho ricevuto la vostra proposta ma devo essere onesto: il prezzo è molto più alto rispetto alla concorrenza.
-
-Competitor X ci ha offerto la stessa soluzione a €80.000 contro i vostri €120.000.
-
-Come possiamo giustificare questa differenza? Avete margine di trattativa?
-
-Se non riuscite a scendere almeno del 20%, temo dovremo orientarci altrove.
-
-Grazie,
-Laura Santoro
-Banca Centrale`,
-        dayOffset: -2,
-        needsResponse: true,
-      },
-    ],
-  },
-];
+// === Email Thread Templates imported from email-scenarios.ts ===
+// Includes: CEO_SCENARIOS, SALES_PIPELINE_SCENARIOS (8 stages), SUPPORT_SCENARIOS, AUTOMATED_SCENARIOS
+// Total: 14 realistic Italian business email scenarios with complete B2B sales pipeline
 
 // === Test Tenant Setup ===
 async function setupTestTenant(): Promise<void> {
@@ -526,7 +107,7 @@ async function setupTestTenant(): Promise<void> {
       id: nanoid(),
       tenantId: testTenantId,
       email: 'test.user@aivalidation.it',
-      passwordHash: crypto.createHash('sha256').update('test123').digest('hex'),
+      passwordHash: createHash('sha256').update('test123').digest('hex'),
       firstName: 'Test',
       lastName: 'User',
       role: 'admin',
@@ -605,13 +186,15 @@ interface GeneratedEmail {
   bodyText: string;
   threadId: string;
   receivedAt: Date;
-  expectedAnalysis: EmailTemplate['expectedAnalysis'];
+  expectedAnalysis: EmailScenario['expectedAnalysis'];
   needsFollowUp: boolean;
   direction: 'incoming' | 'outgoing';
+  scenarioId: string;
+  pipelineStage?: string;
 }
 
-async function generateEmails(contactMap: Map<string, string>): Promise<GeneratedEmail[]> {
-  console.log('\n📧 Generating email threads...');
+async function generateEmails(_contactMap: Map<string, string>): Promise<GeneratedEmail[]> {
+  console.log('\n📧 Generating realistic email threads from scenarios...');
 
   const emails: GeneratedEmail[] = [];
   const now = Date.now();
@@ -619,52 +202,50 @@ async function generateEmails(contactMap: Map<string, string>): Promise<Generate
 
   const userEmail = 'test.user@aivalidation.it';
 
-  // Generate threads based on templates
-  for (const template of THREAD_TEMPLATES) {
-    const threadId = `thread-${nanoid(8)}`;
-    const persona = PERSONAS[Math.floor(Math.random() * PERSONAS.length)];
+  // Use the new scenario-based generation
+  const scenarios = generateEmailsFromScenarios(CONFIG.emailCount);
 
-    for (const emailData of template.thread) {
+  console.log(`  📊 Scenario distribution:`);
+  const scenarioCounts: Record<string, number> = {};
+  for (const scenario of scenarios) {
+    const type = scenario.id.split('-')[0];
+    scenarioCounts[type] = (scenarioCounts[type] || 0) + 1;
+  }
+  for (const [type, count] of Object.entries(scenarioCounts)) {
+    console.log(`     ${type}: ${count}`);
+  }
+
+  // Convert scenarios to emails
+  for (const scenario of scenarios) {
+    const threadId = `thread-${nanoid(8)}`;
+
+    for (const emailData of scenario.thread) {
       const email: GeneratedEmail = {
         id: nanoid(),
         externalId: `external-${nanoid(8)}`,
-        from: emailData.direction === 'incoming' ? `${persona.name} <${persona.email}>` : userEmail,
-        to: emailData.direction === 'incoming' ? [userEmail] : [persona.email],
+        from: emailData.direction === 'incoming'
+          ? `${scenario.actors.sender.name} <${scenario.actors.sender.email}>`
+          : userEmail,
+        to: emailData.direction === 'incoming'
+          ? [userEmail]
+          : [scenario.actors.recipient.email],
         subject: emailData.subject,
         bodyText: emailData.body,
         threadId,
         receivedAt: new Date(now + emailData.dayOffset * dayMs),
-        expectedAnalysis: template.expectedAnalysis,
-        needsFollowUp: emailData.needsResponse || false,
+        expectedAnalysis: scenario.expectedAnalysis,
+        needsFollowUp: emailData.metadata?.needsResponse || false,
         direction: emailData.direction,
+        scenarioId: scenario.id,
+        pipelineStage: scenario.pipelineStage,
       };
 
       emails.push(email);
     }
   }
 
-  // Add more random emails to reach target count
-  while (emails.length < CONFIG.emailCount) {
-    const persona = PERSONAS[Math.floor(Math.random() * PERSONAS.length)];
-    const template = THREAD_TEMPLATES[Math.floor(Math.random() * THREAD_TEMPLATES.length)];
-    const isIncoming = Math.random() > 0.4;
-
-    emails.push({
-      id: nanoid(),
-      externalId: `external-${nanoid(8)}`,
-      from: isIncoming ? `${persona.name} <${persona.email}>` : userEmail,
-      to: isIncoming ? [userEmail] : [persona.email],
-      subject: `[Random] ${template.thread[0].subject} - ${nanoid(4)}`,
-      bodyText: template.thread[0].body,
-      threadId: `thread-${nanoid(8)}`,
-      receivedAt: new Date(now - Math.random() * 30 * dayMs),
-      expectedAnalysis: template.expectedAnalysis,
-      needsFollowUp: Math.random() > 0.7,
-      direction: isIncoming ? 'incoming' : 'outgoing',
-    });
-  }
-
-  console.log(`  Generated ${emails.length} emails in ${THREAD_TEMPLATES.length} scenarios`);
+  console.log(`  ✅ Generated ${emails.length} emails from ${scenarios.length} scenarios`);
+  console.log(`  📈 Includes: CEO comms, B2B sales pipeline (8 stages), support escalations, newsletters`);
   return emails;
 }
 
@@ -741,7 +322,8 @@ async function generateEmbeddings(texts: string[]): Promise<number[][]> {
 
   return response.data
     .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
-    .map(item => item.embedding);
+    .map(item => item.embedding!)
+    .filter((e): e is number[] => e !== undefined);
 }
 
 async function indexEmails(emails: GeneratedEmail[]): Promise<void> {

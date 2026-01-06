@@ -568,12 +568,13 @@ model EmailCrossProviderLink {
 }
 
 model Embedding {
-  id             String                 @id @default(cuid())
+  id             String                      @id @default(cuid())
   tenantId       String
   documentName   String?
   content        String
-  vector         Unsupported("vector")?
-  embeddingModel String                 @default("mistral-embed")
+  /// Mistral-embed produces 1024-dimensional vectors
+  vector         Unsupported("vector(1024)")?
+  embeddingModel String                      @default("mistral-embed")
   metadata       Json?
 
   // Hard Links (Polymorphic-style but with FKs)
@@ -585,6 +586,7 @@ model Embedding {
 
   @@index([tenantId])
   @@index([emailId])
+  // HNSW index created in migration: 20250106_hnsw_vector_index
   @@map("embeddings")
 }
 

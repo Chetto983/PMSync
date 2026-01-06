@@ -13,7 +13,7 @@
  * - Pooled Mistral agents (cached for 1 hour)
  * - VoltAgent tool integration
  */
-import { Agent, type AgentHooks } from '@voltagent/core';
+import { Agent, type AgentHooks, type Memory } from '@voltagent/core';
 import type { LanguageModel } from 'ai';
 import { ConfigService } from '@nestjs/config';
 import { getAgentTranslations, type SupportedLocale } from '../locales';
@@ -29,6 +29,8 @@ export interface AnalyticsAgentOptions {
   hooks?: AgentHooks;
   /** Optional: CacheService for Redis-based caching (multi-instance support) */
   cacheService?: CacheService;
+  /** VoltAgent memory for conversation persistence */
+  memory?: Memory;
 }
 
 /**
@@ -38,7 +40,7 @@ export interface AnalyticsAgentOptions {
  * to analyze data and generate visualizations.
  */
 export function createAnalyticsAgent(options: AnalyticsAgentOptions): Agent {
-  const { model, configService, locale, tenantId, userId, hooks, cacheService } = options;
+  const { model, configService, locale, tenantId, userId, hooks, cacheService, memory } = options;
   const t = getAgentTranslations(locale);
 
   // Create analytics tool with Redis caching
@@ -57,6 +59,7 @@ export function createAnalyticsAgent(options: AnalyticsAgentOptions): Agent {
     instructions: t.analytics.instructions,
     tools: [analyticsTool],
     hooks,
+    memory,
     maxSteps: 5, // Allow more steps for complex analyses
   });
 }

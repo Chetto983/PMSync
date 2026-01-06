@@ -110,6 +110,14 @@ export class EmbeddingsService {
     tenantId: string,
     embedding: number[],
     limit: number,
+    options?: {
+      /**
+       * Maximum cosine distance threshold (0.0 = identical, 2.0 = opposite)
+       * Recommended: 0.3-0.5 for semantic similarity
+       * Default: no threshold (returns all results up to limit)
+       */
+      maxDistance?: number;
+    },
   ): Promise<T[]> {
     // SECURITY: Validate embedding vector before using in raw SQL
     let validatedEmbedding: number[];
@@ -126,19 +134,38 @@ export class EmbeddingsService {
     try {
       // Use CTE to force PostgreSQL to filter by tenantId FIRST
       // This ensures tenant isolation and prevents scanning vectors from other tenants
-      const results = await this.prisma.$queryRaw<T[]>(
-        Prisma.sql`
-          WITH tenant_embeddings AS (
-            SELECT "id", "content", "documentName", "metadata", "vector"
-            FROM "embeddings"
-            WHERE "tenantId" = ${tenantId}
+      const maxDistance = options?.maxDistance;
+
+      // Build query with optional distance threshold
+      // Note: Using HAVING instead of WHERE on distance alias since it's a calculated column
+      const results = maxDistance !== undefined
+        ? await this.prisma.$queryRaw<T[]>(
+            Prisma.sql`
+              WITH tenant_embeddings AS (
+                SELECT "id", "content", "documentName", "metadata", "vector"
+                FROM "embeddings"
+                WHERE "tenantId" = ${tenantId}
+              )
+              SELECT "id", "content", "documentName", "metadata", ("vector" <-> ${vectorLiteral}) AS "distance"
+              FROM tenant_embeddings
+              WHERE ("vector" <-> ${vectorLiteral}) <= ${maxDistance}
+              ORDER BY "vector" <-> ${vectorLiteral}
+              LIMIT ${limit};
+            `,
           )
-          SELECT "id", "content", "documentName", "metadata", ("vector" <-> ${vectorLiteral}) AS "distance"
-          FROM tenant_embeddings
-          ORDER BY "vector" <-> ${vectorLiteral}
-          LIMIT ${limit};
-        `,
-      );
+        : await this.prisma.$queryRaw<T[]>(
+            Prisma.sql`
+              WITH tenant_embeddings AS (
+                SELECT "id", "content", "documentName", "metadata", "vector"
+                FROM "embeddings"
+                WHERE "tenantId" = ${tenantId}
+              )
+              SELECT "id", "content", "documentName", "metadata", ("vector" <-> ${vectorLiteral}) AS "distance"
+              FROM tenant_embeddings
+              ORDER BY "vector" <-> ${vectorLiteral}
+              LIMIT ${limit};
+            `,
+          );
 
       return results;
     } catch (error) {

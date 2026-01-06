@@ -27,7 +27,7 @@ import { VoltAgentService, type ChatOptions } from './voltagent.service';
 // FeedbackService removed - AI refactor v2.0
 import { HitlService } from './services/hitl.service';
 import { DailyBriefingService } from './services/daily-briefing.service';
-import { SemanticCacheService } from './services/semantic-cache.service';
+// SemanticCacheService REMOVED - cross-tenant security issue
 // DeadlineExtractorService removed - AI refactor v2.0
 import { FollowUpService } from './services/follow-up.service';
 import { WritingStyleService } from './services/writing-style.service';
@@ -126,7 +126,7 @@ export class VoltAgentController {
     // FeedbackService removed - AI refactor v2.0
     private readonly hitlService: HitlService,
     private readonly dailyBriefingService: DailyBriefingService,
-    private readonly semanticCacheService: SemanticCacheService,
+    // SemanticCacheService REMOVED - cross-tenant security issue
     // DeadlineExtractorService removed - AI refactor v2.0
     private readonly followUpService: FollowUpService,
     // ActionItemService removed - AI refactor v2.0
@@ -524,11 +524,14 @@ export class VoltAgentController {
     res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
     res.flushHeaders();
 
+    // Generate tenant-isolated conversationId if not provided
+    const conversationId = body.conversationId || body.sessionId
+      || `${req.user.tenantId}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
     const options: ChatOptions = {
       userId: req.user.userId,
       tenantId: req.user.tenantId,
-      // Support both conversationId and sessionId (backwards compatibility)
-      conversationId: body.conversationId || body.sessionId,
+      conversationId,
       locale: body.locale,
       model: body.model,
     };
@@ -544,6 +547,9 @@ export class VoltAgentController {
     });
 
     try {
+      // Send metadata event with conversationId FIRST (before streaming content)
+      res.write(`data: ${JSON.stringify({ type: 'metadata', conversationId })}\n\n`);
+
       // Stream chunks from VoltAgent
       for await (const chunk of this.voltAgentService.streamChat(body.message, options)) {
         // Check if client disconnected (abort)
@@ -558,7 +564,7 @@ export class VoltAgentController {
 
       // Send completion event only if still connected
       if (!isConnectionClosed) {
-        res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'done', conversationId })}\n\n`);
       }
     } catch (error) {
       // Send error event only if still connected
@@ -574,89 +580,55 @@ export class VoltAgentController {
   }
 
   // ============ Semantic Cache Analytics Endpoints ============
+  // NOTE: Semantic cache was REMOVED due to cross-tenant security issues.
+  // These endpoints are kept for API compatibility but return disabled status.
 
   /**
-   * Get detailed semantic cache analytics.
-   * Includes hit rate, category breakdown, and tuning recommendations.
+   * Get semantic cache analytics - REMOVED for security.
    */
   @Get('cache/analytics')
-  @ApiOperation({ summary: 'Get semantic cache analytics and recommendations' })
-  async getCacheAnalytics(@Req() req: AuthenticatedRequest) {
-    const analytics = await this.semanticCacheService.getDetailedAnalytics(req.user.tenantId);
+  @ApiOperation({ summary: 'Semantic cache removed - returns disabled status' })
+  async getCacheAnalytics(@Req() _req: AuthenticatedRequest) {
     return {
       success: true,
+      message: 'Semantic cache was removed due to cross-tenant security issues.',
       analytics: {
-        enabled: this.semanticCacheService.isEnabled(),
-        lookups: analytics.analytics.lookups,
-        hits: analytics.analytics.hits,
-        misses: analytics.analytics.misses,
-        hitRate: analytics.analytics.lookups > 0
-          ? `${((analytics.analytics.hits / analytics.analytics.lookups) * 100).toFixed(1)}%`
-          : '0%',
-        avgHitSimilarity: analytics.analytics.avgHitSimilarity.toFixed(3),
-        adaptiveThreshold: analytics.analytics.adaptiveThreshold.toFixed(3),
-        lastThresholdAdjustment: new Date(analytics.analytics.lastThresholdAdjustment).toISOString(),
-        thresholdHistory: analytics.analytics.thresholdHistory.map(h => ({
-          threshold: h.threshold.toFixed(3),
-          hitRate: `${(h.hitRate * 100).toFixed(1)}%`,
-          timestamp: new Date(h.timestamp).toISOString(),
-        })),
-        categoryStats: Object.entries(analytics.analytics.categoryStats).map(([category, stats]) => ({
-          category,
-          lookups: stats.lookups,
-          hits: stats.hits,
-          hitRate: stats.lookups > 0 ? `${((stats.hits / stats.lookups) * 100).toFixed(1)}%` : '0%',
-          threshold: analytics.categoryThresholds[category as keyof typeof analytics.categoryThresholds]?.toFixed(3) || '0.920',
-        })),
+        enabled: false,
+        lookups: 0,
+        hits: 0,
+        misses: 0,
+        hitRate: '0%',
       },
-      config: {
-        baseThreshold: analytics.config.similarityThreshold,
-        adaptiveEnabled: analytics.config.adaptiveThreshold,
-        categoryThresholdsEnabled: analytics.config.categoryThresholds,
-        targetHitRate: `${(analytics.config.targetHitRate * 100).toFixed(0)}%`,
-        minLookupsForTuning: analytics.config.minLookupsForTuning,
-      },
-      recommendations: analytics.recommendations,
+      recommendations: ['Semantic cache disabled for tenant isolation security.'],
     };
   }
 
   /**
-   * Reset semantic cache analytics for current tenant.
-   * Useful for recalibrating adaptive threshold after major changes.
+   * Reset semantic cache analytics - REMOVED for security.
    */
   @Post('cache/analytics/reset')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset cache analytics for recalibration' })
-  async resetCacheAnalytics(@Req() req: AuthenticatedRequest) {
-    await this.semanticCacheService.resetAnalytics(req.user.tenantId);
+  @ApiOperation({ summary: 'Semantic cache removed - no-op' })
+  async resetCacheAnalytics(@Req() _req: AuthenticatedRequest) {
     return {
       success: true,
-      message: 'Cache analytics reset. Adaptive threshold will recalibrate based on new data.',
+      message: 'Semantic cache was removed. No analytics to reset.',
     };
   }
 
   /**
-   * Manually set adaptive threshold for current tenant (admin override).
+   * Set adaptive threshold - REMOVED for security.
    */
   @Post('cache/threshold')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Manually set adaptive threshold (admin)' })
+  @ApiOperation({ summary: 'Semantic cache removed - no-op' })
   async setAdaptiveThreshold(
-    @Req() req: AuthenticatedRequest,
-    @Body() body: { threshold: number },
+    @Req() _req: AuthenticatedRequest,
+    @Body() _body: { threshold: number },
   ) {
-    if (body.threshold < 0.80 || body.threshold > 0.98) {
-      return {
-        success: false,
-        error: 'Threshold must be between 0.80 and 0.98',
-      };
-    }
-
-    this.semanticCacheService.setAdaptiveThreshold(req.user.tenantId, body.threshold);
     return {
-      success: true,
-      message: `Adaptive threshold set to ${body.threshold.toFixed(3)}`,
-      newThreshold: body.threshold,
+      success: false,
+      message: 'Semantic cache was removed due to cross-tenant security issues.',
     };
   }
 

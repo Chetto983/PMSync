@@ -5,7 +5,7 @@
  * Uses HybridRetriever for advanced RAG when available, falls back to basic search.
  * Uses centralized locale system for instructions.
  */
-import { Agent, createTool, type AgentHooks, type BaseRetriever } from '@voltagent/core';
+import { Agent, createTool, type AgentHooks, type BaseRetriever, type Memory } from '@voltagent/core';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import { PrismaService } from '../../../../prisma/prisma.service';
@@ -25,6 +25,8 @@ export interface KnowledgeAgentOptions {
   mistralService?: MistralService;
   /** Optional: EmbeddingsService for RAG vector search */
   embeddingsService?: EmbeddingsService;
+  /** VoltAgent memory for conversation persistence */
+  memory?: Memory;
 }
 
 /**
@@ -111,7 +113,7 @@ function createRetriever(options: KnowledgeAgentOptions): BaseRetriever | undefi
  * Uses HybridRetriever for RAG when MistralService and EmbeddingsService are available.
  */
 export function createKnowledgeAgent(options: KnowledgeAgentOptions): Agent {
-  const { model, prisma, locale, tenantId, hooks } = options;
+  const { model, prisma, locale, tenantId, hooks, memory } = options;
   const t = getAgentTranslations(locale);
 
   // Create retriever for RAG (optional - falls back to tool-based search)
@@ -124,6 +126,7 @@ export function createKnowledgeAgent(options: KnowledgeAgentOptions): Agent {
     instructions: t.knowledge.instructions,
     tools: createKnowledgeTools(prisma, locale, tenantId),
     hooks,
+    memory,
     maxSteps: 3,
     // Use HybridRetriever for automatic RAG context injection
     retriever,

@@ -382,6 +382,6 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     subAgents,
     memory,
     hooks,
-    maxSteps: 10,
+    maxSteps: 5, // Reduced from 10 - faster responses, less LLM calls
   });
 }

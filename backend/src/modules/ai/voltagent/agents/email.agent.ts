@@ -5,7 +5,7 @@
  * and AI-powered email insights (summarization, sentiment, smart replies).
  * Uses centralized locale system for instructions.
  */
-import { Agent, type AgentHooks } from '@voltagent/core';
+import { Agent, type AgentHooks, type Memory } from '@voltagent/core';
 import type { LanguageModel } from 'ai';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
@@ -31,6 +31,8 @@ export interface EmailAgentOptions {
   tenantId: string;
   userId?: string;
   hooks?: AgentHooks;
+  /** VoltAgent memory for conversation persistence */
+  memory?: Memory;
 }
 
 /**
@@ -38,7 +40,7 @@ export interface EmailAgentOptions {
  * Includes semantic email search when MistralService and EmbeddingsService are available.
  */
 export function createEmailAgent(options: EmailAgentOptions): Agent {
-  const { model, prisma, emailSendService, mistral, embeddingsService, writingStyle, cacheService, locale, tenantId, userId, hooks } = options;
+  const { model, prisma, emailSendService, mistral, embeddingsService, writingStyle, cacheService, locale, tenantId, userId, hooks, memory } = options;
   const t = getAgentTranslations(locale);
 
   // Combine email tools, folder tools, and insight tools
@@ -67,6 +69,7 @@ export function createEmailAgent(options: EmailAgentOptions): Agent {
     instructions: t.email.instructions,
     tools: [...emailTools, ...folderTools, ...insightTools],
     hooks,
-    maxSteps: 5,
+    memory,
+    maxSteps: 3, // Reduced from 5 - most email ops need 2-3 steps max
   });
 }

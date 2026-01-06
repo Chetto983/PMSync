@@ -15,7 +15,7 @@
  * - Service handles caching, tenant isolation, and API calls
  * - VoltAgent tool integration
  */
-import { Agent, type AgentHooks } from '@voltagent/core';
+import { Agent, type AgentHooks, type Memory } from '@voltagent/core';
 import type { LanguageModel } from 'ai';
 import { getAgentTranslations, type SupportedLocale } from '../locales';
 import { createDocumentLibraryTools } from '../tools/document-library.tools';
@@ -28,6 +28,8 @@ export interface DocumentLibraryAgentOptions {
   tenantId: string;
   userId?: string;
   hooks?: AgentHooks;
+  /** VoltAgent memory for conversation persistence */
+  memory?: Memory;
 }
 
 /**
@@ -37,7 +39,7 @@ export interface DocumentLibraryAgentOptions {
  * to search documents and answer questions with citations.
  */
 export function createDocumentLibraryAgent(options: DocumentLibraryAgentOptions): Agent {
-  const { model, documentLibraryService, locale, tenantId, userId, hooks } = options;
+  const { model, documentLibraryService, locale, tenantId, userId, hooks, memory } = options;
   const t = getAgentTranslations(locale);
 
   // Create document library tools - delegates to DocumentLibraryService
@@ -67,6 +69,7 @@ Guidelines:
 - Provide document names as sources for your answers`,
     tools: documentLibraryTools,
     hooks,
+    memory,
     maxSteps: 5, // Allow more steps for complex document searches
   });
 }

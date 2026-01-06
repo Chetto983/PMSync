@@ -220,9 +220,15 @@ export class EmailFetchService {
       const parsed = await simpleParser(messageStream.content);
 
       const headers: Record<string, string> = {};
-      parsed.headers.forEach((value: string | string[] | undefined, key: string) => {
-        headers[key] = Array.isArray(value) ? value.join(', ') : String(value);
-      });
+      for (const [key, value] of parsed.headers) {
+        if (value instanceof Date) {
+          headers[key] = value.toISOString();
+        } else if (Array.isArray(value)) {
+          headers[key] = value.map(v => String(v)).join(', ');
+        } else {
+          headers[key] = String(value ?? '');
+        }
+      }
 
       return {
         bodyText: parsed.text,

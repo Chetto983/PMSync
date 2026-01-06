@@ -4,7 +4,7 @@
  * Specialized agent for calendar operations.
  * Uses centralized locale system for instructions.
  */
-import { Agent, type AgentHooks } from '@voltagent/core';
+import { Agent, type AgentHooks, type Memory } from '@voltagent/core';
 import type { LanguageModel } from 'ai';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
@@ -20,13 +20,15 @@ export interface CalendarAgentOptions {
   locale: SupportedLocale;
   tenantId: string;
   hooks?: AgentHooks;
+  /** VoltAgent memory for conversation persistence */
+  memory?: Memory;
 }
 
 /**
  * Creates a Calendar Agent with all calendar tools.
  */
 export function createCalendarAgent(options: CalendarAgentOptions): Agent {
-  const { model, prisma, calendarService, cacheService, locale, tenantId, hooks } = options;
+  const { model, prisma, calendarService, cacheService, locale, tenantId, hooks, memory } = options;
   const t = getAgentTranslations(locale);
 
   return new Agent({
@@ -36,6 +38,7 @@ export function createCalendarAgent(options: CalendarAgentOptions): Agent {
     instructions: t.calendar.instructions,
     tools: createCalendarTools(prisma, calendarService, locale, tenantId, cacheService),
     hooks,
+    memory,
     maxSteps: 5,
   });
 }
