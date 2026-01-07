@@ -236,7 +236,15 @@ export class GoogleDriver extends BaseEmailDriver {
     this.ensureConnected();
 
     const labelId = this.canonicalToGmailLabel(options.folder);
-    const query = this.buildSearchQuery(options);
+    let query = this.buildSearchQuery(options);
+
+    // FIX: ARCHIVE folder requires special handling - Gmail doesn't have an 'all' label
+    // Archive = emails not in INBOX, TRASH, or SPAM
+    const isArchiveFolder = options.folder.toUpperCase() === 'ARCHIVE' || options.folder.toUpperCase() === 'ALL';
+    if (isArchiveFolder) {
+      const archiveQuery = '-in:inbox -in:trash -in:spam';
+      query = query ? `${query} ${archiveQuery}` : archiveQuery;
+    }
 
     // FIX Phase 2.3: Cap pageSize to prevent excessive queries (Gmail max is 500)
     const MAX_PAGE_SIZE = 500;
@@ -246,7 +254,8 @@ export class GoogleDriver extends BaseEmailDriver {
     const response = await this.executeWithRetry(
       () => this.gmail!.users.messages.list({
         userId: 'me',
-        labelIds: labelId ? [labelId] : undefined,
+        // Don't use labelIds for ARCHIVE - use query instead
+        labelIds: (labelId && !isArchiveFolder) ? [labelId] : undefined,
         maxResults: effectivePageSize,
         pageToken: options.pageToken,
         q: query || undefined,
@@ -383,7 +392,18 @@ export class GoogleDriver extends BaseEmailDriver {
   async moveMessage(messageId: string, targetFolder: string): Promise<void> {
     this.ensureConnected();
 
-    const targetLabelId = this.canonicalToGmailLabel(targetFolder);
+    const upperTarget = targetFolder.toUpperCase();
+
+    // FIX: SENT cannot be a move target - Gmail applies SENT label automatically when sending
+    if (upperTarget === 'SENT') {
+      this.logger.warn(`Cannot move message to SENT folder - Gmail applies this label automatically`);
+      return; // Skip silently - this is expected behavior
+    }
+
+    // FIX: ARCHIVE in Gmail = remove INBOX label (not add a label)
+    const isArchiveTarget = upperTarget === 'ARCHIVE' || upperTarget === 'ALL';
+
+    const targetLabelId = isArchiveTarget ? null : this.canonicalToGmailLabel(targetFolder);
 
     // FIX HIGH-4 (2025-01-05): Add retry wrapper - was missing
     // Get current labels
@@ -401,21 +421,35 @@ export class GoogleDriver extends BaseEmailDriver {
     // Labels that cannot be removed (Gmail system labels that are immutable)
     // SENT, DRAFT labels are assigned by Gmail and cannot be removed
     const immutableLabels = ['UNREAD', 'STARRED', 'IMPORTANT', 'SENT', 'DRAFT'];
-    const labelsToRemove = currentLabels.filter(
-      (l) => !immutableLabels.includes(l) && l !== targetLabelId
-    );
+    let labelsToRemove: string[];
+    let labelsToAdd: string[];
 
-    await this.executeWithRetry(
-      () => this.gmail!.users.messages.modify({
-        userId: 'me',
-        id: messageId,
-        requestBody: {
-          addLabelIds: targetLabelId ? [targetLabelId] : [],
-          removeLabelIds: labelsToRemove,
-        },
-      }),
-      'moveMessage:modify',
-    );
+    if (isArchiveTarget) {
+      // Archive = remove INBOX label, keep other labels
+      labelsToRemove = currentLabels.includes('INBOX') ? ['INBOX'] : [];
+      labelsToAdd = [];
+    } else {
+      // Normal move = remove folder labels, add target label
+      labelsToRemove = currentLabels.filter(
+        (l) => !immutableLabels.includes(l) && l !== targetLabelId
+      );
+      labelsToAdd = targetLabelId ? [targetLabelId] : [];
+    }
+
+    // Only modify if there are changes to make
+    if (labelsToRemove.length > 0 || labelsToAdd.length > 0) {
+      await this.executeWithRetry(
+        () => this.gmail!.users.messages.modify({
+          userId: 'me',
+          id: messageId,
+          requestBody: {
+            addLabelIds: labelsToAdd,
+            removeLabelIds: labelsToRemove,
+          },
+        }),
+        'moveMessage:modify',
+      );
+    }
   }
 
   async copyMessage(messageId: string, targetFolder: string): Promise<string> {

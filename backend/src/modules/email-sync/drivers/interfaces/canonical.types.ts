@@ -185,8 +185,12 @@ export const CANONICAL_TO_GMAIL: Record<string, string> = {
   'SPAM': 'SPAM',
   'STARRED': 'STARRED',
   'IMPORTANT': 'IMPORTANT',
-  'ARCHIVE': 'all',           // Gmail uses 'all' for archive
-  'ALL': 'all',
+  // Gmail doesn't have an 'all' labelId - ARCHIVE requires special handling:
+  // - For listing: Use query '-in:inbox -in:trash -in:spam' instead of labelIds
+  // - For moving TO archive: Remove INBOX label (Gmail's archive = no INBOX label)
+  // Mapping to empty string signals special handling in driver
+  'ARCHIVE': '',
+  'ALL': '',
   'FLAGGED': 'STARRED',
   'JUNK': 'SPAM',
   'UNREAD': 'UNREAD',

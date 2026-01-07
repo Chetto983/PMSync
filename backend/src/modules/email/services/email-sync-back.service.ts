@@ -345,7 +345,17 @@ export class EmailSyncBackService {
         if (!operation.folder) {
           throw new Error('Target folder not specified for move operation');
         }
-        const labelToAdd = operation.folder;
+        const upperFolder = operation.folder.toUpperCase();
+
+        // FIX: SENT cannot be a move target - Gmail applies SENT label automatically when sending
+        if (upperFolder === 'SENT') {
+          this.logger.warn(`Skipping move to SENT - Gmail applies this label automatically`);
+          break;
+        }
+
+        // FIX: ARCHIVE in Gmail = remove INBOX label (not add a label)
+        const isArchive = upperFolder === 'ARCHIVE' || upperFolder === 'ALL';
+
         // Get current labels to properly remove folder labels
         const moveMsg = await this.executeWithRetry(
           () =>
@@ -358,23 +368,40 @@ export class EmailSyncBackService {
         );
         const currentLabels = moveMsg.data.labelIds || [];
         // These labels should NOT be removed during moves (state labels, not folder labels)
-        const immutableLabels = ['UNREAD', 'STARRED', 'IMPORTANT'];
-        // Remove all folder labels except immutable ones and the target label
-        const labelsToRemove = currentLabels.filter(
-          (l) => !immutableLabels.includes(l) && l !== labelToAdd,
-        );
-        await this.executeWithRetry(
-          () =>
-            gmail.users.messages.modify({
-              userId: 'me',
-              id: operation.externalId,
-              requestBody: {
-                addLabelIds: [labelToAdd],
-                removeLabelIds: labelsToRemove,
-              },
-            }),
-          `gmail moveToFolder ${operation.externalId}`,
-        );
+        // SENT and DRAFT are also immutable - assigned by Gmail
+        const immutableLabels = ['UNREAD', 'STARRED', 'IMPORTANT', 'SENT', 'DRAFT'];
+
+        let moveLabelsToAdd: string[];
+        let moveLabelsToRemove: string[];
+
+        if (isArchive) {
+          // Archive = remove INBOX label only
+          moveLabelsToAdd = [];
+          moveLabelsToRemove = currentLabels.includes('INBOX') ? ['INBOX'] : [];
+        } else {
+          // Normal move = remove folder labels, add target label
+          const labelToAdd = operation.folder;
+          moveLabelsToRemove = currentLabels.filter(
+            (l) => !immutableLabels.includes(l) && l !== labelToAdd,
+          );
+          moveLabelsToAdd = [labelToAdd];
+        }
+
+        // Only modify if there are changes
+        if (moveLabelsToAdd.length > 0 || moveLabelsToRemove.length > 0) {
+          await this.executeWithRetry(
+            () =>
+              gmail.users.messages.modify({
+                userId: 'me',
+                id: operation.externalId,
+                requestBody: {
+                  addLabelIds: moveLabelsToAdd,
+                  removeLabelIds: moveLabelsToRemove,
+                },
+              }),
+            `gmail moveToFolder ${operation.externalId}`,
+          );
+        }
         break;
 
       case 'markRead':

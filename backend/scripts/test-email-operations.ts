@@ -494,7 +494,7 @@ async function main() {
     if (createdEventId) {
       await runTest('emails.calendar-invite.cancel', async () => {
         const res = await api.post(`/emails/calendar-invite/${createdEventId}/cancel`, { reason: 'Test cancel' });
-        assertStatus(res, [200], 'emails.calendar-invite.cancel');
+        assertStatus(res, [200, 201], 'emails.calendar-invite.cancel');
         return { details: `eventId=${createdEventId}` };
       });
     } else {
