@@ -43,42 +43,57 @@ export class CachePrewarmingService implements OnModuleInit {
   }
 
   /**
-   * Warm cache with common queries (runs at 6 AM daily)
-   * Early morning to have cache ready for workday
+   * Warm cache with common queries for each active tenant (runs at 6 AM daily)
+   * GDPR COMPLIANT: Warms common queries PER TENANT (no cross-tenant caching)
    */
   @Cron('0 6 * * *')
   async warmCommonQueries(): Promise<{ warmed: number; skipped: number }> {
     if (!this.enabled) return { warmed: 0, skipped: 0 };
 
-    this.logger.log('Starting cache pre-warming for common queries...');
+    this.logger.log('Starting cache pre-warming for common queries (GDPR: per-tenant)...');
     let warmed = 0;
     let skipped = 0;
 
+    // Get active tenants to warm their caches
+    const activeTenants = await this.prisma.tenant.findMany({
+      where: {
+        emails: {
+          some: {
+            receivedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          },
+        },
+      },
+      select: { id: true },
+      take: 100, // Limit to prevent overload
+    });
+
     const commonQueries = getAllQueries();
-    for (const query of commonQueries) {
-      try {
-        // Check if already cached
-        const cached = await this.cacheService.getCachedEmbedding(query);
-        if (cached) {
-          skipped++;
-          continue;
-        }
+    for (const tenant of activeTenants) {
+      for (const query of commonQueries) {
+        try {
+          // Check if already cached for this tenant
+          const cached = await this.cacheService.getCachedEmbedding(tenant.id, query);
+          if (cached) {
+            skipped++;
+            continue;
+          }
 
-        // Generate embedding
-        const embedding = await this.mistralService.generateEmbedding(query);
-        if (embedding && embedding.length > 0) {
-          await this.cacheService.setCachedEmbedding(query, embedding);
-          warmed++;
-        }
+          // Generate embedding with tenantId for GDPR-compliant caching
+          const embedding = await this.mistralService.generateEmbedding(query, undefined, { tenantId: tenant.id });
+          if (embedding && embedding.length > 0) {
+            await this.cacheService.setCachedEmbedding(tenant.id, query, embedding);
+            warmed++;
+          }
 
-        // Rate limit: 100ms between calls to avoid hitting API limits
-        await this.delay(100);
-      } catch (error) {
-        this.logger.warn(`Failed to warm cache for "${query}": ${error}`);
+          // Rate limit: 100ms between calls
+          await this.delay(100);
+        } catch (error) {
+          this.logger.warn(`Failed to warm cache for "${query}" (tenant=${tenant.id}): ${error}`);
+        }
       }
     }
 
-    this.logger.log(`Cache pre-warming complete: ${warmed} warmed, ${skipped} already cached`);
+    this.logger.log(`Cache pre-warming complete: ${warmed} warmed, ${skipped} skipped for ${activeTenants.length} tenants`);
     return { warmed, skipped };
   }
 
@@ -124,7 +139,7 @@ export class CachePrewarmingService implements OnModuleInit {
   }
 
   /**
-   * Warm cache with queries specific to a tenant
+   * Warm cache with queries specific to a tenant (GDPR: tenant-isolated)
    * Extracts common senders, subjects, and terms from their emails
    */
   private async warmTenantSpecificQueries(tenantId: string): Promise<number> {
@@ -143,7 +158,7 @@ export class CachePrewarmingService implements OnModuleInit {
         take: 10,
       });
 
-      // Pre-warm sender queries
+      // Pre-warm sender queries for THIS TENANT (GDPR compliant)
       for (const sender of frequentSenders) {
         if (!sender.from) continue;
 
@@ -151,11 +166,11 @@ export class CachePrewarmingService implements OnModuleInit {
         const senderQuery = this.extractSenderQuery(sender.from);
         if (!senderQuery) continue;
 
-        const cached = await this.cacheService.getCachedEmbedding(senderQuery);
+        const cached = await this.cacheService.getCachedEmbedding(tenantId, senderQuery);
         if (!cached) {
-          const embedding = await this.mistralService.generateEmbedding(senderQuery);
+          const embedding = await this.mistralService.generateEmbedding(senderQuery, undefined, { tenantId });
           if (embedding && embedding.length > 0) {
-            await this.cacheService.setCachedEmbedding(senderQuery, embedding);
+            await this.cacheService.setCachedEmbedding(tenantId, senderQuery, embedding);
             warmed++;
           }
           await this.delay(100);
@@ -193,14 +208,15 @@ export class CachePrewarmingService implements OnModuleInit {
   }
 
   /**
-   * Get cache warming statistics
+   * Get cache warming statistics for a specific tenant (GDPR)
+   * @param tenantId - Tenant ID to get stats for
    */
-  async getWarmingStats(): Promise<{
+  async getWarmingStats(tenantId: string): Promise<{
     enabled: boolean;
     commonQueries: number;
     cacheStats: { totalKeys: number; memoryUsed: string };
   }> {
-    const cacheStats = await this.cacheService.getCacheStats();
+    const cacheStats = await this.cacheService.getCacheStats(tenantId);
     return {
       enabled: this.enabled,
       commonQueries: getAllQueries().length,

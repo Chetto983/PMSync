@@ -377,6 +377,8 @@ export class MistralService {
   /**
    * Generate embeddings for RAG (rate-limited with circuit breaker + Redis cache)
    *
+   * GDPR COMPLIANT: Cache is tenant-isolated. tenantId is REQUIRED for caching.
+   *
    * Cache provides:
    * - 50-70% reduction in Mistral API calls
    * - 2-3x faster (cache ~5ms vs API ~200ms)
@@ -385,15 +387,19 @@ export class MistralService {
   async generateEmbedding(
     text: string,
     client?: Mistral,
-    _telemetryContext?: { tenantId: string; userId?: string },
+    telemetryContext?: { tenantId: string; userId?: string },
   ): Promise<number[]> {
-    // Check cache first (HIGH IMPACT for scale)
-    if (this.queryEmbeddingCache) {
-      const cached = await this.queryEmbeddingCache.getCachedEmbedding(text);
+    const tenantId = telemetryContext?.tenantId;
+
+    // Check cache first (HIGH IMPACT for scale) - GDPR: requires tenantId
+    if (this.queryEmbeddingCache && tenantId) {
+      const cached = await this.queryEmbeddingCache.getCachedEmbedding(tenantId, text);
       if (cached) {
-        this.logger.debug('Query embedding cache HIT - saved Mistral API call');
+        this.logger.debug(`Query embedding cache HIT for tenant=${tenantId}`);
         return cached;
       }
+    } else if (this.queryEmbeddingCache && !tenantId) {
+      this.logger.warn('Query embedding cache SKIPPED - no tenantId provided (GDPR requirement)');
     }
 
     const cb = getAiCircuitBreaker('mistral', 'embedding');
@@ -435,9 +441,9 @@ export class MistralService {
       }
     });
 
-    // Cache the result for future queries
-    if (this.queryEmbeddingCache && embedding) {
-      await this.queryEmbeddingCache.setCachedEmbedding(text, embedding);
+    // Cache the result for future queries - GDPR: requires tenantId
+    if (this.queryEmbeddingCache && embedding && tenantId) {
+      await this.queryEmbeddingCache.setCachedEmbedding(tenantId, text, embedding);
     }
 
     return embedding;

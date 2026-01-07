@@ -271,7 +271,7 @@ export class UnifiedRetriever extends BaseRetriever {
     // 1. Vector search for semantic similarity
     try {
       if (this.mistralService && this.embeddingsService) {
-        const embedding = await this.mistralService.generateEmbedding(query);
+        const embedding = await this.mistralService.generateEmbedding(query, undefined, { tenantId: this.tenantId });
         if (embedding && embedding.length > 0) {
           const vectorResults = await this.embeddingsService.findSimilarContent<{
             id: string;

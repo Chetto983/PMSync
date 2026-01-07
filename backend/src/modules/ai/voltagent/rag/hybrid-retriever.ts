@@ -170,7 +170,7 @@ export class HybridRetriever extends BaseRetriever {
 
     for (const query of queries) {
       try {
-        const embedding = await this.mistralService.generateEmbedding(query);
+        const embedding = await this.mistralService.generateEmbedding(query, undefined, { tenantId: this.tenantId });
         if (!embedding || embedding.length === 0) continue;
 
         const results = await this.embeddingsService.findSimilarContent<EmbeddingResult>(
@@ -342,7 +342,7 @@ export class HybridRetriever extends BaseRetriever {
 
     try {
       // OPTIMIZED: Generate all embeddings in a single bulk API call (was N+1)
-      const queryEmbedding = await this.mistralService.generateEmbedding(query);
+      const queryEmbedding = await this.mistralService.generateEmbedding(query, undefined, { tenantId: this.tenantId });
       if (!queryEmbedding) {
         return candidates.slice(0, this.finalLimit);
       }

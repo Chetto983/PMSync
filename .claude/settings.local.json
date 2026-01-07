@@ -158,7 +158,12 @@
       "Bash(git -C /d/MailAgent show HEAD:backend/src/modules/ai/voltagent/memory/)",
       "Bash(rm:*)",
       "Bash(git push:*)",
-      "Bash(timeout 20 npm run start:dev:*)"
+      "Bash(timeout 20 npm run start:dev:*)",
+      "Bash(powershell -Command \"cd D:\\\\MailAgent\\\\backend; npx tsc --noEmit 2>&1 | Select-Object -First 40\")",
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npm run type-check 2>&1 | Select-Object -First 100\")",
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npx tsc --noEmit 2>&1 | Select-Object -First 100\")",
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npx ts-node scripts/test-tenant-isolation.ts 2>&1\")",
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npx ts-node scripts/test-embedding-with-cache.ts 2>&1\")"
     ],
     "deny": []
   }

@@ -1044,8 +1044,8 @@ function createSemanticSearchEmailsTool(options: InsightsToolOptions) {
       }
 
       try {
-        // Generate embedding for query
-        const queryEmbedding = await mistral.generateEmbedding(query);
+        // Generate embedding for query (GDPR: tenant-isolated caching)
+        const queryEmbedding = await mistral.generateEmbedding(query, undefined, { tenantId });
         if (!queryEmbedding || queryEmbedding.length === 0) {
           return { success: false, error: 'Failed to generate query embedding' };
         }

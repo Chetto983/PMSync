@@ -106,28 +106,34 @@ export class EmbeddingProviderService implements OnModuleInit {
   }
 
   /**
-   * Generate single embedding with caching
+   * Generate single embedding with caching (GDPR: tenant-isolated)
    *
    * Use for: User search queries (benefits from cache)
-   * Cache hit rate: ~50-70% in production
+   * Cache hit rate: ~50-70% in production (per tenant)
    *
-   * Note: Cache is text-based (same query = same embedding),
-   * not tenant-specific. This is correct because embeddings
-   * are deterministic - same input always produces same output.
+   * GDPR COMPLIANT: Cache is tenant-isolated. Each tenant has own namespace.
+   * @param text - Text to generate embedding for
+   * @param tenantId - Tenant ID for GDPR-compliant cache isolation
    */
-  async generateEmbedding(text: string): Promise<number[]> {
-    // Check cache first (HIGH IMPACT for scale)
-    const cached = await this.queryEmbeddingCache.getCachedEmbedding(text);
-    if (cached) {
-      this.logger.debug('Embedding cache HIT - saved API call');
-      return cached;
+  async generateEmbedding(text: string, tenantId?: string): Promise<number[]> {
+    // Check cache first (HIGH IMPACT for scale) - GDPR: requires tenantId
+    if (tenantId) {
+      const cached = await this.queryEmbeddingCache.getCachedEmbedding(tenantId, text);
+      if (cached) {
+        this.logger.debug(`Embedding cache HIT for tenant=${tenantId}`);
+        return cached;
+      }
+    } else {
+      this.logger.warn('Embedding cache SKIPPED - no tenantId (GDPR requirement)');
     }
 
     // Generate new embedding with resilience
     const embedding = await this.generateWithResilience(text);
 
-    // Cache for future queries
-    await this.queryEmbeddingCache.setCachedEmbedding(text, embedding);
+    // Cache for future queries - GDPR: requires tenantId
+    if (tenantId) {
+      await this.queryEmbeddingCache.setCachedEmbedding(tenantId, text, embedding);
+    }
 
     return embedding;
   }
@@ -201,18 +207,19 @@ export class EmbeddingProviderService implements OnModuleInit {
     const startTime = Date.now();
 
     try {
-      // Quick test embedding
+      // Quick test embedding (no cache for health check - no tenant context)
       const testEmbedding = await this.generateEmbedding('health check');
       const latencyMs = Date.now() - startTime;
 
-      const cacheStats = await this.queryEmbeddingCache.getCacheStats();
+      // Note: Cache stats require tenantId for GDPR. Health check shows 0.
+      // Use tenant-specific endpoints for actual cache stats.
 
       return {
         status: testEmbedding.length === this.dimensions ? 'ok' : 'error',
         provider: this.providerType,
         model: this.embeddingModel,
         dimensions: this.dimensions,
-        cached: cacheStats.totalKeys,
+        cached: 0, // GDPR: tenant-specific stats not available in health check
         latencyMs,
       };
     } catch {

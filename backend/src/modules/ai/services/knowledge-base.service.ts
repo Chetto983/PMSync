@@ -409,7 +409,7 @@ export class KnowledgeBaseService {
         // Fallback: process chunks individually
         for (const chunk of chunks) {
           try {
-            const embedding = await this.mistralService.generateEmbedding(chunk.content, client);
+            const embedding = await this.mistralService.generateEmbedding(chunk.content, client, { tenantId: options.tenantId });
 
             await this.embeddingsService.saveEmbedding({
               tenantId: options.tenantId,
@@ -576,9 +576,9 @@ export class KnowledgeBaseService {
       );
     }
 
-    // Generate embedding (caching is now handled internally by MistralService)
+    // Generate embedding (caching is now handled internally by MistralService) - GDPR: tenant-isolated
     const client = await this.mistralService.createMistralClient();
-    const embedding = await this.mistralService.generateEmbedding(searchText, client);
+    const embedding = await this.mistralService.generateEmbedding(searchText, client, { tenantId: options.tenantId });
 
     const matches = await this.embeddingsService.findSimilarContent(
       options.tenantId,
