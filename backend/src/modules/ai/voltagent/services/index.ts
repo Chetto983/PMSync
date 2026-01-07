@@ -35,3 +35,4 @@ export * from './unified-knowledge.service';
 export * from './document-library.service';
 export * from './episodic-memory.service';
 export * from './mistral-batch.service';
+export * from './memory-intelligence.service';

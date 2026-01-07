@@ -46,6 +46,7 @@ import { AIMemoryService } from './services/ai-memory.service';
 import { EpisodicMemoryService } from './services/episodic-memory.service';
 import { ConversationCompactionService } from './services/conversation-compaction.service';
 import { ConversationManagementService } from './services/conversation-management.service';
+import { MemoryIntelligenceService } from './services/memory-intelligence.service';
 import { AlertingService } from '../../../common/services/alerting.service';
 
 @Module({
@@ -91,6 +92,7 @@ import { AlertingService } from '../../../common/services/alerting.service';
     EpisodicMemoryService,
     ConversationCompactionService,
     ConversationManagementService,
+    MemoryIntelligenceService,
     AlertingService,
   ],
   exports: [
@@ -117,6 +119,7 @@ import { AlertingService } from '../../../common/services/alerting.service';
     EpisodicMemoryService,
     ConversationCompactionService,
     ConversationManagementService,
+    MemoryIntelligenceService,
   ],
 })
-export class VoltAgentModule {}
+export class VoltAgentModule { }

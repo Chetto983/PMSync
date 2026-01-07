@@ -60,6 +60,7 @@ import {
   type ApprovalResult,
   type ApprovalResumeData,
 } from './workflows';
+import { MemoryIntelligenceService } from './services/memory-intelligence.service';
 
 export interface ChatOptions {
   userId: string;
@@ -214,6 +215,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly writingStyleService?: WritingStyleService,
     @Optional() private readonly compactionService?: ConversationCompactionService,
     @Optional() private readonly conversationService?: ConversationManagementService,
+    @Optional() private readonly memoryIntelligenceService?: MemoryIntelligenceService,
   ) { }
 
   async onModuleInit() {
@@ -794,6 +796,18 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
 
     let enhancedMessage = processedMessage;
+
+    // 3.5. Trigger Memory Intelligence (Async/Fire-and-forget)
+    // Extracts long-term memories from user message
+    if (this.memoryIntelligenceService && options.userId) { // Ensure userId is present for memory
+      this.memoryIntelligenceService.processMemoryFromMessage(
+        options.tenantId,
+        options.userId,
+        processedMessage
+      ).catch(err => {
+        this.logger.error(`${logPrefix} Memory extraction failed:`, err);
+      });
+    }
 
     // 3.6. Inject episodic learning (rejection lessons)
     // Fetch global lessons (agentName undefined) to apply constraints across all agents

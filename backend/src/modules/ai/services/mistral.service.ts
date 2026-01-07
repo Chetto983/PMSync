@@ -146,15 +146,20 @@ export class MistralService {
     timeoutMs?: number;
     /** Telemetry context for tracking */
     telemetryContext?: { tenantId: string; userId?: string; promptName?: string };
-    /** Model override: 'fast' for mistral-small, 'default' for configured model */
-    modelTier?: 'fast' | 'default';
+    /** Model override: 'fast' for simple, 'medium' for extraction, 'default' for configured */
+    modelTier?: 'fast' | 'medium' | 'default';
     /** Enable JSON mode for guaranteed valid JSON output */
     jsonMode?: boolean;
   }): Promise<string> {
     const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000, telemetryContext: _telemetryContext, modelTier, jsonMode = false } = options;
-    // Model routing: use AI_MODEL_SIMPLE for 'fast' tier (3-4x faster, cost-effective for scoring tasks)
-    const fastModel = this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
-    const model = modelTier === 'fast' ? fastModel : this.getModel();
+
+    // Model routing
+    let model = this.getModel();
+    if (modelTier === 'fast') {
+      model = this.configService.get<string>('AI_MODEL_SIMPLE') || 'mistral-small-latest';
+    } else if (modelTier === 'medium') {
+      model = this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-latest';
+    }
 
     // Validate inputs before processing (includes security check)
     this.validatePromptInputs(userPrompt, systemPrompt);
