@@ -771,7 +771,7 @@ export class GoogleDriver extends BaseEmailDriver {
       // Low failure rate = log warning but continue (messages may have been deleted)
       this.logger.warn(
         `batchGetMessages: ${failedIds.length}/${messageIds.length} messages failed to fetch. ` +
-          `Continuing with ${messages.length} successful. Failed IDs: ${failedIds.map((f) => f.id).join(', ')}`,
+        `Continuing with ${messages.length} successful. Failed IDs: ${failedIds.map((f) => f.id).join(', ')}`,
       );
     }
 
@@ -1220,10 +1220,19 @@ export class GoogleDriver extends BaseEmailDriver {
       return { email: '' };
     }
 
-    const match = address.match(/^(?:"?([^"<]*)"?\s*)?<?([^>]+)>?$/);
+    // FIX (2025-01-07): parsing regex to prevent truncation of email addresses
+    // Previous regex /^(?:"?([^"<]*)"?\s*)?<?([^>]+)>?$/ was too greedy for name part
+    // and caused "email@domain.com" to be parsed as Name="email@domain.co", Email="m"
+    const match = address.match(/^(.*?)\s*<?([^>]+)>?$/);
+
     if (match) {
-      const name = match[1]?.trim() || undefined;
+      let name = match[1]?.trim() || undefined;
       const email = match[2]?.trim() || '';
+
+      // Clean quotes from name if present
+      if (name && name.startsWith('"') && name.endsWith('"')) {
+        name = name.slice(1, -1).trim();
+      }
 
       // Validate that email contains @ symbol - otherwise it's likely a malformed header
       if (email && email.includes('@')) {

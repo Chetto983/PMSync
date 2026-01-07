@@ -2473,6 +2473,7 @@ export interface AppTranslations {
     threadUnflagged: string;
     folderPickerComingSoon: string;
     labelPickerComingSoon: string;
+    print: string;
   };
   // Thread View (reading pane) - New Outlook Style
   threadView?: {
@@ -2489,6 +2490,7 @@ export interface AppTranslations {
   };
   // Thread Message (individual email in thread)
   threadMessage?: {
+    from: string;
     to: string;
     cc: string;
     bcc: string;
@@ -2496,6 +2498,7 @@ export interface AppTranslations {
     reply: string;
     forward: string;
     replyAll: string;
+    download: string;
   };
 }
 

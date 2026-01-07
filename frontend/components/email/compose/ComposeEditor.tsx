@@ -25,6 +25,7 @@ import { aiApi } from '@/lib/api/ai';
 import EditorMenuControls from './EditorMenuControls';
 import useExtensions from './useExtensions';
 import logger from '@/lib/logger';
+import AiComposeMenu, { type AiActionType } from './AiComposeMenu';
 
 function fileListToImageFiles(fileList: FileList): File[] {
   return Array.from(fileList).filter((file) => {
@@ -159,47 +160,47 @@ export default function ComposeEditor({
     return text.trim() || null;
   }, []);
 
-  // Open AI panel - capture selection if any
-  const handleOpenAiPanel = useCallback(() => {
+  const [aiMenuAnchor, setAiMenuAnchor] = useState<HTMLElement | null>(null);
+
+  // Open AI Menu
+  const handleOpenAiMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
     const selection = getSelectedHtml();
     const hasSelection = selection && selection.length > 0;
 
     setSelectedText(selection);
     setIsModifyMode(hasSelection || false);
-    setShowAiPanel(true);
-    setAiContent(null);
-    setAiInstruction('');
-    setTimeout(() => inputRef.current?.focus(), 100);
+    setAiMenuAnchor(event.currentTarget);
   }, [getSelectedHtml]);
 
-  // Close AI panel
-  const handleCloseAiPanel = useCallback(() => {
-    setShowAiPanel(false);
-    setAiContent(null);
-    setAiInstruction('');
-    setSelectedText(null);
-    setIsModifyMode(false);
+  const handleCloseAiMenu = useCallback(() => {
+    setAiMenuAnchor(null);
   }, []);
 
-  // Send instruction to AI
-  const handleSendInstruction = useCallback(async () => {
-    if (!aiInstruction.trim()) return;
-
+  // Handle AI Composition from Menu
+  const handleAiCompose = useCallback(async (prompt: string, actionType: AiActionType) => {
+    handleCloseAiMenu();
+    setShowAiPanel(true); // Show the review panel
     setAiIsLoading(true);
+    setAiContent(null);
+    setAiInstruction(prompt); // Keep track of what we asked
 
     try {
-      // Build context-aware prompt
       let contextPrompt: string;
 
-      if (aiContent) {
-        // Iterative refinement - modify AI's previous output
-        contextPrompt = `Modify this email based on the instruction: "${aiInstruction}"\n\nCurrent email:\n${aiContent}`;
-      } else if (selectedText && isModifyMode) {
-        // Modify user's selected text
-        contextPrompt = `Modify the following text based on the instruction: "${aiInstruction}"\n\nSelected text to modify:\n${selectedText}\n\nKeep the same meaning but apply the requested changes. Return only the modified text.`;
+      // Construct Prompt based on Action & Selection
+      if (selectedText && isModifyMode) {
+        // Refinement Mode
+        let instruction = prompt;
+        if (actionType === 'fix_spelling') instruction = "Fix spelling and grammar. Maintain original tone.";
+        if (actionType === 'shorten') instruction = "Make this text shorter and more concise.";
+        if (actionType === 'expand') instruction = "Expand this text with more detail and polish.";
+        if (actionType === 'tone_professional') instruction = "Rewrite this in a strictly professional and formal tone.";
+        if (actionType === 'tone_friendly') instruction = "Rewrite this in a friendly and approachable tone.";
+
+        contextPrompt = `${instruction}\n\nSelected text to modify:\n${selectedText}\n\nReturn only the modified text.`;
       } else {
-        // New composition
-        contextPrompt = aiInstruction;
+        // Drafting Mode (New)
+        contextPrompt = prompt;
       }
 
       const response = await aiApi.composeEmail({
@@ -211,7 +212,6 @@ export default function ComposeEditor({
 
       if (response.data.success && response.data.body) {
         let formattedBody = response.data.body;
-        // Format as HTML paragraphs if plain text
         if (!formattedBody.includes('<p>') && !formattedBody.includes('<br')) {
           formattedBody = formattedBody
             .split('\n\n')
@@ -221,12 +221,23 @@ export default function ComposeEditor({
         setAiContent(formattedBody);
       }
     } catch (err) {
-      logger.error('AI compose error: ${err}');
+      logger.error('AI compose error', err instanceof Error ? err : new Error(String(err)));
+      setAiContent('<p style="color: red;">Error generating content. Please try again.</p>');
     } finally {
       setAiIsLoading(false);
-      setAiInstruction('');
     }
-  }, [aiInstruction, aiContent, selectedText, isModifyMode, recipients, subject, t.locale]);
+  }, [selectedText, isModifyMode, recipients, subject, t.locale, handleCloseAiMenu]);
+
+  // Close AI Result Panel
+  const handleCloseAiPanel = useCallback(() => {
+    setShowAiPanel(false);
+    setAiContent(null);
+    setAiInstruction('');
+    setSelectedText(null);
+    setIsModifyMode(false);
+  }, []);
+
+  // ... (rest of the file)
 
   // Accept AI content - replace selection or insert at cursor
   const handleAcceptAiContent = useCallback(() => {
@@ -235,7 +246,6 @@ export default function ComposeEditor({
 
       if (isModifyMode && selectedText) {
         // Replace the selected text with AI content
-        // The selection should still be active, so deleteSelection + insert works
         editor
           .chain()
           .focus()
@@ -254,18 +264,8 @@ export default function ComposeEditor({
     handleCloseAiPanel();
   }, [aiContent, isModifyMode, selectedText, onChange, handleCloseAiPanel]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendInstruction();
-    }
-    if (e.key === 'Escape') {
-      handleCloseAiPanel();
-    }
-  };
-
   return (
-    <Box sx={{ position: 'relative' }}>
+    <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1, height: '100%' }}>
       <RichTextEditor
         ref={rteRef}
         extensions={extensions}
@@ -282,21 +282,53 @@ export default function ComposeEditor({
           }
         }}
         renderControls={() => (
-          <EditorMenuControls onAiCompose={handleOpenAiPanel} onAttach={onAttach} />
+          <EditorMenuControls onAiCompose={handleOpenAiMenu} onAttach={onAttach} />
         )}
         RichTextFieldProps={{
           variant: 'outlined',
           MenuBarProps: {
             hide: false,
           },
+          sx: {
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            '& .MuiInputBase-root': {
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'stretch',
+            },
+            '& .MuiInputBase-input': {
+              flex: 1,
+              overflow: 'auto',
+              height: '100% !important',
+            }
+          }
         }}
         sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
           '& .ProseMirror': {
-            minHeight,
+            minHeight: typeof minHeight === 'number' ? minHeight : '100%',
+            height: '100%',
+            outline: 'none',
             '& h1, & h2, & h3, & h4, & h5, & h6': {
               scrollMarginTop: 50,
             },
+            padding: 2,
           },
+          // Ensure container takes full height
+          '& .MuiRichTextEditor-container': {
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+          },
+          '& .MuiRichTextEditor-content': {
+            flex: 1,
+            overflowY: 'auto',
+          }
         }}
       >
         {() => (
@@ -322,7 +354,16 @@ export default function ComposeEditor({
         )}
       </RichTextEditor>
 
-      {/* Inline AI Panel - appears below editor */}
+      <AiComposeMenu
+        anchorEl={aiMenuAnchor}
+        open={Boolean(aiMenuAnchor)}
+        onClose={handleCloseAiMenu}
+        onCompose={handleAiCompose}
+        isLoading={aiIsLoading}
+        hasSelection={Boolean(selectedText && isModifyMode)}
+      />
+
+      {/* Inline AI Result Panel - Review only */}
       <Collapse in={showAiPanel}>
         <Paper
           elevation={0}
@@ -348,149 +389,74 @@ export default function ComposeEditor({
           >
             <AutoAwesomeIcon fontSize="small" />
             <Typography variant="subtitle2" sx={{ flex: 1 }}>
-              {isModifyMode ? composer.aiModifyTitle : composer.aiComposeTitle}
+              {composer.aiComposeTitle}
             </Typography>
             <IconButton size="small" onClick={handleCloseAiPanel} sx={{ color: 'inherit' }}>
               <CloseIcon fontSize="small" />
             </IconButton>
           </Box>
 
-          {/* Show selected text preview when modifying */}
-          {isModifyMode && selectedText && !aiContent && !aiIsLoading && (
+          {/* AI Generated Content Preview */}
+          <Box
+            sx={{
+              maxHeight: 200,
+              overflow: 'auto',
+              px: 2,
+              py: 2,
+              bgcolor: 'grey.50',
+            }}
+          >
+            {aiIsLoading ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 2 }}>
+                <CircularProgress size={20} />
+                <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                  {composer.aiComposeGenerating}
+                </Typography>
+              </Box>
+            ) : (
+              <Typography
+                variant="body2"
+                component="div"
+                sx={{
+                  '& p': { mb: 1, '&:last-child': { mb: 0 } },
+                  lineHeight: 1.6,
+                }}
+                dangerouslySetInnerHTML={{ __html: aiContent || '' }}
+              />
+            )}
+          </Box>
+
+          {/* Action Buttons */}
+          {!aiIsLoading && aiContent && (
             <Box
               sx={{
-                px: 2,
-                py: 1,
-                bgcolor: 'action.hover',
-                borderBottom: 1,
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 1,
+                p: 1.5,
+                borderTop: 1,
                 borderColor: 'divider',
               }}
             >
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                {composer.aiModifySelectedText}
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  fontStyle: 'italic',
-                  maxHeight: 60,
-                  overflow: 'auto',
-                  whiteSpace: 'pre-wrap',
-                }}
+              <Button
+                size="small"
+                variant="outlined"
+                color="inherit"
+                onClick={handleCloseAiPanel}
+                startIcon={<CloseIcon fontSize="small" />}
               >
-                &ldquo;{selectedText}&rdquo;
-              </Typography>
+                {composer.aiComposeReject}
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                onClick={handleAcceptAiContent}
+                startIcon={<CheckIcon fontSize="small" />}
+              >
+                {composer.aiComposeAccept}
+              </Button>
             </Box>
-          )}
-
-          {/* Instruction Input */}
-          <Box sx={{ p: 1.5 }}>
-            <TextField
-              inputRef={inputRef}
-              fullWidth
-              size="small"
-              placeholder={
-                aiContent
-                  ? composer.aiChatPlaceholder
-                  : isModifyMode
-                    ? composer.aiModifyPlaceholder
-                    : composer.aiComposePlaceholderCompose
-              }
-              value={aiInstruction}
-              onChange={(e) => setAiInstruction(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={aiIsLoading}
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={handleSendInstruction}
-                        disabled={aiIsLoading || !aiInstruction.trim()}
-                        color="primary"
-                      >
-                        {aiIsLoading ? <CircularProgress size={18} /> : <SendIcon fontSize="small" />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                },
-              }}
-            />
-          </Box>
-
-          {/* AI Generated Content Preview */}
-          {(aiContent || aiIsLoading) && (
-            <>
-              <Box
-                sx={{
-                  maxHeight: 180,
-                  overflow: 'auto',
-                  px: 2,
-                  py: 1.5,
-                  bgcolor: 'grey.50',
-                  borderTop: 1,
-                  borderColor: 'divider',
-                }}
-              >
-                {aiIsLoading ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 3 }}>
-                    <CircularProgress size={20} />
-                    <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                      {composer.aiComposeGenerating}
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Typography
-                    variant="body2"
-                    component="div"
-                    sx={{
-                      '& p': { mb: 1, '&:last-child': { mb: 0 } },
-                      lineHeight: 1.6,
-                    }}
-                    dangerouslySetInnerHTML={{ __html: aiContent || '' }}
-                  />
-                )}
-              </Box>
-
-              {/* Action Buttons */}
-              {aiContent && !aiIsLoading && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    gap: 1,
-                    p: 1.5,
-                    borderTop: 1,
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="inherit"
-                    onClick={handleCloseAiPanel}
-                    startIcon={<CloseIcon fontSize="small" />}
-                  >
-                    {composer.aiComposeReject}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="primary"
-                    onClick={handleAcceptAiContent}
-                    startIcon={<CheckIcon fontSize="small" />}
-                  >
-                    {composer.aiComposeAccept}
-                  </Button>
-                </Box>
-              )}
-            </>
           )}
         </Paper>
       </Collapse>

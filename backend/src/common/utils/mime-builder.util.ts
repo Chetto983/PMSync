@@ -1,4 +1,5 @@
 import MailComposer from 'nodemailer/lib/mail-composer';
+import { Readable } from 'stream';
 import type {
   AttachmentData,
   ComposeMessage,
@@ -22,7 +23,7 @@ export class MimeBuilder {
 
   private static formatAttachments(attachments?: AttachmentData[]): Array<{
     filename: string;
-    content: Buffer | AttachmentData['contentStream'];
+    content: Buffer | Readable;
     contentType: string;
     cid?: string;
     contentDisposition?: 'inline' | 'attachment';
@@ -31,7 +32,9 @@ export class MimeBuilder {
 
     return attachments.map((att) => ({
       filename: att.filename,
-      content: att.content ? Buffer.from(att.content, 'base64') : att.contentStream,
+      content: att.content
+        ? Buffer.from(att.content, 'base64')
+        : (att.contentStream as Readable),
       contentType: att.mimeType,
       cid: att.contentId,
       contentDisposition: att.isInline ? 'inline' : 'attachment',

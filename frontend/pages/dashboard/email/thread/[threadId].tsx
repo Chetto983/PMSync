@@ -1,9 +1,11 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { Layout } from '@/components/layout/Layout';
 import { PageErrorBoundary } from '@/components/common/ErrorBoundary';
 import { EmailLayout } from '@/components/email';
 import { ThreadView } from '@/components/email/thread';
+import { FolderPickerDialog } from '@/components/email/folders/FolderPickerDialog';
+import { LabelPickerDialog } from '@/components/email/labels/LabelPickerDialog';
 import type { ThreadMessageData } from '@/components/email/thread';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -59,6 +61,10 @@ export default function ThreadDetailPage() {
 
   // Enable realtime updates for this thread
   useEmailRealtime({ enabled: !!threadId });
+
+  // Dialog state
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [labelPickerOpen, setLabelPickerOpen] = useState(false);
 
   // Fetch thread emails
   const { data: emails, isLoading, error, refetch } = useEmailThread(threadId);
@@ -177,9 +183,8 @@ export default function ThreadDetailPage() {
 
   // Move thread to folder
   const handleMoveThread = useCallback(() => {
-    // TODO: Show folder picker dialog
-    toast.info(t.threadActions?.folderPickerComingSoon || 'Folder picker coming soon');
-  }, [toast, t]);
+    setFolderPickerOpen(true);
+  }, []);
 
   // Archive entire thread
   const handleArchiveThread = useCallback(async () => {
@@ -242,10 +247,10 @@ export default function ThreadDetailPage() {
     }
   }, [emailIds, bulkFlag, toast, t]);
 
-  // Add labels - TODO: implement label picker
+  // Add labels
   const handleAddLabelsToThread = useCallback(() => {
-    toast.info(t.threadActions?.labelPickerComingSoon || 'Label picker coming soon');
-  }, [toast, t]);
+    setLabelPickerOpen(true);
+  }, []);
 
   // Loading state
   if (isLoading || !router.isReady) {
@@ -351,6 +356,22 @@ export default function ThreadDetailPage() {
             onAddLabelsToThread={handleAddLabelsToThread}
           />
           <toast.ToastContainer />
+
+          <FolderPickerDialog
+            open={folderPickerOpen}
+            onClose={() => setFolderPickerOpen(false)}
+            emailIds={emailIds}
+            onSuccess={() => {
+              // Optional: redirect to list if moved out of current context (e.g. Inbox)
+              // For now, we stay on thread but maybe show success toast (handled in dialog)
+            }}
+          />
+
+          <LabelPickerDialog
+            open={labelPickerOpen}
+            onClose={() => setLabelPickerOpen(false)}
+            emailIds={emailIds}
+          />
         </EmailLayout>
       </Layout>
     </PageErrorBoundary>

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MistralService } from '../../services/mistral.service';
-import { AIMemoryService, Memory } from './ai-memory.service';
+import { AIMemoryService, Memory, MemoryWithScore } from './ai-memory.service';
 import {
     FACT_RETRIEVAL_PROMPT,
     MEMORY_DEDUCTION_PROMPT,
@@ -21,6 +21,14 @@ interface MemoryAction {
 
 interface MemoryDeductionResult {
     actions: MemoryAction[];
+}
+
+interface MemoryRelevanceResult {
+    relevant_memories: Array<{
+        memory_id: string;
+        score: number;
+        reason: string;
+    }>;
 }
 
 @Injectable()
@@ -80,6 +88,7 @@ export class MemoryIntelligenceService {
 
     /**
      * Compare new facts with existing memories and decide on updates
+     * Uses semantic search to find related memories
      */
     async processFacts(
         tenantId: string,
@@ -87,13 +96,13 @@ export class MemoryIntelligenceService {
         facts: string[],
     ): Promise<void> {
         for (const fact of facts) {
-            // Find potentially relevant existing memories to provide context
-            // Using simple text search for now
-            const existingMemories = await this.memoryService.searchMemories(
+            // Find potentially relevant existing memories using semantic search
+            const existingMemories = await this.memoryService.searchMemoriesSemantic(
                 tenantId,
                 userId,
                 fact,
                 5,
+                0.8, // Only consider fairly similar memories (distance < 0.8)
             );
 
             const decision = await this.deduceMemoryAction(fact, existingMemories);
@@ -196,26 +205,165 @@ export class MemoryIntelligenceService {
 
     /**
      * Retrieve relevant context for a user query (RAG-lite)
+     * Uses semantic search with optional LLM re-ranking
+     *
+     * @param tenantId - Tenant isolation
+     * @param userId - User isolation
+     * @param query - User's current query/message
+     * @param options - Configuration options
+     * @returns Formatted string of relevant memories for context injection
      */
     async getRelevantContext(
         tenantId: string,
         userId: string,
         query: string,
+        options: {
+            limit?: number;
+            useReranking?: boolean;
+            minScore?: number;
+        } = {},
     ): Promise<string> {
-        const candidates = await this.memoryService.searchMemories(
-            tenantId,
-            userId,
-            query,
-            20 // Fetch a broader set
-        );
+        // minScore 0.55 filters out weak matches (score = 1 - distance/2)
+        // Score 0.5 = orthogonal/unrelated, 0.55+ = some semantic similarity
+        const { limit = 10, useReranking = false, minScore = 0.55 } = options;
 
-        if (candidates.length === 0) return '';
+        try {
+            // Use semantic search for better relevance
+            const candidates = await this.memoryService.searchMemoriesSemantic(
+                tenantId,
+                userId,
+                query,
+                useReranking ? 20 : limit, // Fetch more if re-ranking
+                1.4, // Max distance (1.4 = score 0.3)
+            );
 
-        // Optional: Rerank with LLM if needed, for now just returning them formatted
-        // If we wanted to use MEMORY_SEARCH_PROMPT we would do it here.
-        // For cost/latency, we might just return the top search results for now
-        // or implement the search prompt later.
+            if (candidates.length === 0) {
+                this.logger.debug('No relevant memories found for context');
+                return '';
+            }
 
-        return candidates.map(m => `- ${m.content}`).join('\n');
+            this.logger.debug(`Found ${candidates.length} candidate memories for context`);
+
+            // Filter by minimum score
+            let relevant = candidates.filter((m) => m.score >= minScore);
+
+            // Optional: Re-rank with LLM for better precision
+            if (useReranking && relevant.length > 3) {
+                relevant = await this.rerankWithLLM(query, relevant, limit);
+            }
+
+            // Take top results
+            const topMemories = relevant.slice(0, limit);
+
+            // Record usage for retrieved memories (async, fire-and-forget)
+            for (const memory of topMemories) {
+                this.memoryService.recordUsage(memory.id).catch(() => {
+                    // Ignore usage tracking errors
+                });
+            }
+
+            // Format for context injection with type labels
+            return this.formatMemoriesForContext(topMemories);
+        } catch (error) {
+            this.logger.error(`Failed to get relevant context: ${error}`);
+            return '';
+        }
+    }
+
+    /**
+     * Re-rank memories using LLM for better precision
+     * Uses MEMORY_SEARCH_PROMPT to evaluate relevance
+     */
+    private async rerankWithLLM(
+        query: string,
+        memories: MemoryWithScore[],
+        limit: number,
+    ): Promise<MemoryWithScore[]> {
+        try {
+            const memoriesContext = JSON.stringify(
+                memories.map((m) => ({
+                    memory_id: m.id,
+                    content: m.content,
+                    type: m.memoryType,
+                    vector_score: m.score.toFixed(2),
+                })),
+            );
+
+            const prompt = `${MEMORY_SEARCH_PROMPT}\n\nQuery:\n"${query}"\n\nMemories:\n${memoriesContext}`;
+
+            const response = await this.mistralService.completePrompt({
+                userPrompt: prompt,
+                temperature: 0,
+                jsonMode: true,
+                modelTier: 'fast', // Use fast model for re-ranking (cost optimization)
+            });
+
+            const parsed: MemoryRelevanceResult = JSON.parse(response);
+
+            if (!parsed.relevant_memories?.length) {
+                return memories.slice(0, limit);
+            }
+
+            // Merge LLM scores with vector scores
+            const reranked: MemoryWithScore[] = [];
+            for (const ranked of parsed.relevant_memories) {
+                const original = memories.find((m) => m.id === ranked.memory_id);
+                if (original && ranked.score >= 0.3) {
+                    reranked.push({
+                        ...original,
+                        // Combine vector score (70%) with LLM score (30%)
+                        score: original.score * 0.7 + ranked.score * 0.3,
+                    });
+                }
+            }
+
+            // Sort by combined score
+            reranked.sort((a, b) => b.score - a.score);
+
+            this.logger.debug(`Re-ranked ${reranked.length} memories with LLM`);
+            return reranked.slice(0, limit);
+        } catch (error) {
+            this.logger.warn(`LLM re-ranking failed, using vector scores: ${error}`);
+            return memories.slice(0, limit);
+        }
+    }
+
+    /**
+     * Format memories for injection into chat context
+     * Groups by type and includes relevance indicators
+     */
+    private formatMemoriesForContext(memories: MemoryWithScore[]): string {
+        if (memories.length === 0) return '';
+
+        // Group by type for better organization
+        const byType: Record<string, MemoryWithScore[]> = {};
+        for (const memory of memories) {
+            const type = memory.memoryType;
+            if (!byType[type]) byType[type] = [];
+            byType[type].push(memory);
+        }
+
+        const lines: string[] = [];
+
+        // Format each type group
+        const typeLabels: Record<string, string> = {
+            PREFERENCE: 'User Preferences',
+            FACT: 'Known Facts',
+            PATTERN: 'Behavioral Patterns',
+            INTERACTION: 'Past Interactions',
+            CONTACT_NOTE: 'Contact Notes',
+        };
+
+        for (const [type, typeMemories] of Object.entries(byType)) {
+            const label = typeLabels[type] || type;
+            lines.push(`**${label}:**`);
+            for (const m of typeMemories) {
+                // Include score indicator for high-confidence memories
+                const confidence = m.score >= 0.7 ? ' [high relevance]' : '';
+                lines.push(`- ${m.content}${confidence}`);
+            }
+        }
+
+        return lines.join('\n');
     }
 }

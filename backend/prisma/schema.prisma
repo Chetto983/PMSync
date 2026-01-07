@@ -387,7 +387,7 @@ model Email {
   analysis    EmailAnalysis?
   actionQueue ActionQueue[]
 
-  @@unique([providerId, externalId, folder]) // UIDs are unique per-folder, not globally
+  @@unique([providerId, externalId]) // externalId is globally unique per provider (Gmail message ID, etc.)
   @@unique([tenantId, messageId, folder]) // Allow same messageId in different folders
   @@index([tenantId, folder, receivedAt])
   @@index([tenantId, isRead])
@@ -1021,6 +1021,9 @@ model AIMemory {
 
   // Metadata
   metadata Json? // Additional structured data
+
+  /// Semantic vector for similarity search (mistral-embed: 1024 dimensions)
+  vector Unsupported("vector(1024)")?
 
   // Lifecycle
   expiresAt DateTime? // Optional expiration

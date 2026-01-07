@@ -2587,6 +2587,7 @@ export const en: AppTranslations = {
     threadUnflagged: 'All messages unflagged',
     folderPickerComingSoon: 'Folder picker coming soon',
     labelPickerComingSoon: 'Label picker coming soon',
+    print: 'Print',
   },
   // Thread View (reading pane) - New Outlook Style
   threadView: {
@@ -2603,6 +2604,7 @@ export const en: AppTranslations = {
   },
   // Thread Message (individual email in thread)
   threadMessage: {
+    from: 'From:',
     to: 'To:',
     cc: 'Cc:',
     bcc: 'Bcc:',
@@ -2610,5 +2612,6 @@ export const en: AppTranslations = {
     reply: 'Reply',
     forward: 'Forward',
     replyAll: 'Reply all',
+    download: 'Download',
   },
 };

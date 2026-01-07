@@ -6,6 +6,7 @@ import { EmailRetentionService } from './services/email-retention.service';
 import { EmailSendService } from './services/email-send.service';
 import { EmailSyncBackService } from './services/email-sync-back.service';
 import { EmailCleanupService } from './services/email-cleanup.service';
+import { EmailFolderService } from './services/email-folder.service';
 import { AttachmentStorageService } from './services/attachment.storage';
 import { AttachmentOnDemandService } from './services/attachment-on-demand.service';
 import { AttachmentMetricsService } from './services/attachment-metrics.service';
@@ -64,6 +65,7 @@ import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module
     // Shared utility services (Phase 3 consolidation)
     ProviderValidationService,
     FolderLookupService,
+    EmailFolderService,
   ],
   controllers: [EmailsController, AttachmentsController],
   exports: [
@@ -82,6 +84,7 @@ import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module
     // Shared utility services (Phase 3 consolidation)
     ProviderValidationService,
     FolderLookupService,
+    EmailFolderService,
   ],
 })
 export class EmailModule { }

@@ -22,6 +22,7 @@ import {
   IconButton,
   Chip,
   Fade,
+  Tooltip,
 } from '@mui/material';
 import { Flag, Paperclip, Archive, Trash2 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -100,11 +101,20 @@ export const ThreadListItem = memo(function ThreadListItem({
 
   // Get initials for avatar fallback
   const getInitials = (name: string) => {
-    const parts = name.trim().split(' ');
+    // Robustly handle "Name <email" format even if truncated
+    const cleanName = name.split('<')[0].trim().replace(/^"|"$/g, '');
+    const parts = cleanName.split(' ').filter(Boolean);
     if (parts.length >= 2) {
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
-    return name.slice(0, 2).toUpperCase();
+    return cleanName.slice(0, 2).toUpperCase();
+  };
+
+  // Format sender for display
+  const formatSender = (from: string) => {
+    const name = from.split('<')[0].trim().replace(/^"|"$/g, '');
+    if (name) return name;
+    return from;
   };
 
   return (
@@ -171,22 +181,21 @@ export const ThreadListItem = memo(function ThreadListItem({
             minWidth: 0,
           }}
         >
-          {/* Sender */}
-          <Typography
-            variant="body2"
-            component="span"
-            sx={{
-              fontWeight: thread.isUnread ? 600 : 400,
-              fontSize: '0.875rem',
-              flex: '1 1 auto',
-              minWidth: 40,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {thread.from}
-          </Typography>
+          <Tooltip title={thread.from} placement="right">
+            <Typography
+              variant="body2"
+              component="span"
+              sx={{
+                fontWeight: thread.isUnread ? 600 : 400,
+                fontSize: '0.875rem',
+                flex: '1 1 auto',
+                minWidth: 40,
+                wordBreak: 'break-all',
+              }}
+            >
+              {formatSender(thread.from)}
+            </Typography>
+          </Tooltip>
 
           {/* Labels */}
           {thread.labels && thread.labels.length > 0 && (

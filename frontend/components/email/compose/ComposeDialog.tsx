@@ -196,7 +196,7 @@ export default function ComposeDialog({
     if (!providerId && emailProviders.length > 0) {
       setProviderId(getDefaultProviderId());
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emailProviders]);
 
   // Reset state when mode/originalEmail changes
@@ -210,7 +210,7 @@ export default function ComposeDialog({
     setDraftId(initialDraftId);
     setLastSavedAt(null);
     isDirtyRef.current = false;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, originalEmail?.id, open]);
 
   // Autosave draft
@@ -242,7 +242,7 @@ export default function ComposeDialog({
     };
 
     saveCurrentDraft();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedBody, debouncedSubject, providerId]);
 
   // Mark as dirty when content changes
@@ -272,6 +272,11 @@ export default function ComposeDialog({
 
     try {
       // Prepare attachment files
+      // Generate plain text version
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = body;
+      const bodyText = tempDiv.innerText || tempDiv.textContent || '';
+
       const attachmentFiles = attachments.map((a) => a.file);
 
       if (mode === 'reply' || mode === 'replyAll') {
@@ -284,6 +289,7 @@ export default function ComposeDialog({
           emailId: originalEmail.id,
           dto: {
             bodyHtml: body,
+            bodyText,
             cc: cc.map((r) => r.email),
             bcc: bcc.map((r) => r.email),
             attachments: attachmentFiles,
@@ -302,6 +308,7 @@ export default function ComposeDialog({
             cc: cc.map((r) => r.email),
             bcc: bcc.map((r) => r.email),
             bodyHtml: body,
+            bodyText,
             attachments: attachmentFiles,
           },
         });
@@ -314,6 +321,7 @@ export default function ComposeDialog({
           bcc: bcc.map((r) => r.email),
           subject,
           bodyHtml: body,
+          bodyText,
           attachments: attachmentFiles,
           scheduledAt: scheduledAt?.toISOString(),
         });
@@ -406,11 +414,11 @@ export default function ComposeDialog({
           sx: isFullscreen
             ? { display: 'flex', flexDirection: 'column' }
             : {
-                height: '80vh',
-                maxHeight: 800,
-                display: 'flex',
-                flexDirection: 'column',
-              },
+              height: '80vh',
+              maxHeight: 800,
+              display: 'flex',
+              flexDirection: 'column',
+            },
         }}
       >
         {/* Hidden file input for toolbar attach button */}
@@ -540,13 +548,13 @@ export default function ComposeDialog({
           <Divider />
         </Box>
 
-        <DialogContent sx={{ flex: 1, p: 0, overflow: 'auto' }}>
-          <Box sx={{ p: 2 }}>
+        <DialogContent sx={{ flex: 1, p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ flex: 1, p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <ComposeEditor
               placeholder={t.email.composer.bodyPlaceholder}
               content={body}
               onChange={handleBodyChange}
-              minHeight={isFullscreen ? 500 : 300}
+              minHeight="100%"
               onAttach={handleAttachFromToolbar}
               recipients={to.map((r) => r.email)}
               subject={subject}
@@ -554,12 +562,15 @@ export default function ComposeDialog({
           </Box>
         </DialogContent>
 
-        <ComposeAttachments
-          attachments={attachments}
-          onAttachmentsChange={setAttachments}
-        />
-
-        <Divider />
+        {attachments.length > 0 && (
+          <>
+            <ComposeAttachments
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
+            />
+            <Divider />
+          </>
+        )}
 
         {/* Footer Actions */}
         <DialogActions sx={{ px: 2, py: 1.5 }}>

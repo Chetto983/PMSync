@@ -53,7 +53,8 @@ interface ExpandedMessageProps {
  * Get initials from email sender name
  */
 function getInitials(from: string): string {
-  const name = from.replace(/<.*>/, '').trim();
+  // Robustly handle "Name <email" format even if truncated
+  const name = from.split('<')[0].trim().replace(/^"|"$/g, '');
   const parts = name.split(' ').filter(Boolean);
   if (parts.length >= 2) {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -65,14 +66,8 @@ function getInitials(from: string): string {
  * Format sender name for display
  */
 function formatSender(from: string): string {
-  const match = from.match(/^([^<]+)</);
-  if (match) {
-    return match[1].trim();
-  }
-  const atIndex = from.indexOf('@');
-  if (atIndex > 0) {
-    return from.substring(0, atIndex);
-  }
+  const name = from.split('<')[0].trim().replace(/^"|"$/g, '');
+  if (name) return name;
   return from;
 }
 
@@ -80,11 +75,12 @@ function formatSender(from: string): string {
  * Format recipient for display
  */
 function formatRecipient(email: string): string {
-  const match = email.match(/^([^<]+)</);
-  if (match) {
-    return match[1].trim();
-  }
-  return email;
+  const name = email.split('<')[0].trim().replace(/^"|"$/g, '');
+  if (name && name !== email) return name;
+
+  // If no name part or name equals email, try to clean the email part
+  const addr = email.match(/<([^>]+)/)?.[1] || email;
+  return addr;
 }
 
 export const ExpandedMessage = memo(function ExpandedMessage({
@@ -118,6 +114,15 @@ export const ExpandedMessage = memo(function ExpandedMessage({
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
+      {/* Subject Line - Restored */}
+      <Box sx={{ px: 2, pt: 2, pb: 1 }}>
+        <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600, lineHeight: 1.3 }}>
+          {message.subject || '(No Subject)'}
+        </Typography>
+      </Box>
+
+      <Divider sx={{ opacity: 0.5 }} />
+
       {/* Header */}
       <Box
         sx={{
@@ -146,15 +151,19 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         {/* Sender Info */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* Sender Name */}
-          <Typography
-            variant="body1"
-            sx={{
-              fontWeight: 600,
-              fontSize: '0.9375rem',
-            }}
-          >
-            {formatSender(message.from)}
-          </Typography>
+          {/* Sender Name */}
+          <Tooltip title={message.from} placement="top-start">
+            <Typography
+              variant="body1"
+              sx={{
+                fontWeight: 600,
+                fontSize: '0.9375rem',
+                cursor: 'default'
+              }}
+            >
+              {formatSender(message.from)}
+            </Typography>
+          </Tooltip>
 
           {/* To Recipients */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25, flexWrap: 'wrap' }}>

@@ -2564,6 +2564,7 @@ export const it: AppTranslations = {
     threadUnflagged: 'Contrassegno rimosso da tutti i messaggi',
     folderPickerComingSoon: 'Selettore cartelle in arrivo',
     labelPickerComingSoon: 'Selettore etichette in arrivo',
+    print: 'Stampa',
   },
   // Thread View (reading pane) - New Outlook Style
   threadView: {
@@ -2580,6 +2581,7 @@ export const it: AppTranslations = {
   },
   // Thread Message (individual email in thread)
   threadMessage: {
+    from: 'Da:',
     to: 'A:',
     cc: 'Cc:',
     bcc: 'Ccn:',
@@ -2587,5 +2589,6 @@ export const it: AppTranslations = {
     reply: 'Rispondi',
     forward: 'Inoltra',
     replyAll: 'Rispondi a tutti',
+    download: 'Scarica',
   },
 };

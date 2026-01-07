@@ -6,30 +6,10 @@ import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { StorageService } from './storage.service';
-import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
-import { RedisLockService } from '../../../common/services/redis-lock.service';
+import { EmailFolderService, EmailListFilters, EmailWhereResult } from './email-folder.service';
 
-export interface EmailListFilters {
-  folder?: string;
-  /** Filter by folder specialUse type (INBOX, SENT, TRASH, etc.) - for aggregation queries */
-  specialUse?: string;
-  isRead?: boolean;
-  isStarred?: boolean;
-  /** Filter by flagged/important status */
-  isFlagged?: boolean;
-  /** Filter emails that are starred OR flagged (combines both) */
-  isImportant?: boolean;
-  hasAttachments?: boolean;
-  search?: string;
-  from?: string;
-  to?: string;
-  subject?: string;
-  labelIds?: string[];
-  startDate?: Date;
-  endDate?: Date;
-  /** SECURITY: Exclude emails in TRASH, SPAM, and JUNK folders (for smart filters) */
-  excludeTrashSpam?: boolean;
-}
+// Re-export interfaces for backward compatibility
+export type { EmailListFilters } from './email-folder.service';
 
 export interface EmailListParams {
   tenantId: string;
@@ -50,16 +30,11 @@ export class EmailsService {
     private knowledgeBaseService: KnowledgeBaseService,
     private realtimeEvents: RealtimeEventsService,
     private storageService: StorageService,
-    private cacheService: CacheService,
-    private redisLock: RedisLockService,
-  ) { }
+    private folderService: EmailFolderService,
+  ) {}
 
   /** Maximum emails per bulk operation to prevent DoS */
   private readonly MAX_BULK_EMAILS = 1000;
-
-  /** Redis-based distributed debounce config */
-  private readonly FOLDER_UPDATE_DEBOUNCE_MS = 5000;
-
 
   /**
    * Validate bulk operation input size
@@ -73,224 +48,6 @@ export class EmailsService {
       throw new BadRequestException(
         `${operationName}: Maximum ${this.MAX_BULK_EMAILS} items per operation (received ${ids.length})`,
       );
-    }
-  }
-
-  /**
-   * Get folder paths/names by their RFC 6154 specialUse type.
-   * This is used to filter emails by folder type regardless of localized folder names.
-   */
-  private async getFolderPathsBySpecialUse(
-    tenantId: string,
-    specialUseTypes: string[],
-    providerId?: string,
-  ): Promise<string[]> {
-    const cacheKey = `special-use:${tenantId}:${specialUseTypes.sort().join(',')}:${providerId || 'all'}`;
-
-    // Try cache first
-    const cached = await this.cacheService.get<string[]>(cacheKey, {
-      namespace: CacheNamespace.FOLDER_STRUCTURE
-    });
-    if (cached) return cached;
-
-    const folders = await this.prisma.folder.findMany({
-      where: {
-        tenantId,
-        ...(providerId && { providerId }),
-        specialUse: { in: specialUseTypes, mode: 'insensitive' },
-      },
-      select: { path: true, name: true, specialUse: true },
-    });
-    const paths = new Set<string>();
-    folders.forEach((folder) => {
-      if (folder.path) paths.add(folder.path);
-      if (folder.name) paths.add(folder.name);
-      if (folder.specialUse) paths.add(folder.specialUse);
-    });
-
-    const result = Array.from(paths);
-
-    // Cache for 5 minutes
-    await this.cacheService.set(cacheKey, result, {
-      namespace: CacheNamespace.FOLDER_STRUCTURE,
-      ttl: 300
-    });
-
-    return result;
-  }
-
-  /**
-   * Check if a folder path has a specific specialUse type
-   */
-  private async isFolderSpecialUse(
-    providerId: string,
-    folderPath: string,
-    specialUseType: string,
-  ): Promise<boolean> {
-    const folder = await this.prisma.folder.findFirst({
-      where: {
-        providerId,
-        path: { equals: folderPath, mode: 'insensitive' },
-        specialUse: { equals: specialUseType, mode: 'insensitive' },
-      },
-      select: { id: true },
-    });
-    return !!folder;
-  }
-
-  /**
-   * Recalculate and emit folder counts for affected folders
-   * Only calculates if tenant has active WebSocket connections to avoid wasting resources
-   */
-  /**
-   * Queue folder counts for update (distributed debounce via Redis)
-   */
-  private async updateFolderCounts(
-    tenantId: string,
-    providerId: string,
-    folders: string[],
-  ) {
-    const listKey = `folder_updates:${tenantId}:${providerId}`;
-    const debounceLockKey = `folder_debounce:${tenantId}:${providerId}`;
-
-    // 1. Push folders to Redis List
-    // We use a list to accumulate all changed folders during the debounce window
-    await this.cacheService.lpush(listKey, folders, { namespace: CacheNamespace.FOLDER_METADATA });
-
-    // 2. Try to acquire execution lock
-    // If we acquire it, we are responsible for triggering the update after the debounce time.
-    // If we don't, someone else is already waiting to trigger it.
-    const lockId = await this.redisLock.acquireLock(debounceLockKey, this.FOLDER_UPDATE_DEBOUNCE_MS);
-
-    if (lockId) {
-      this.logger.debug(`Acquired folder update lock for ${tenantId}:${providerId}, scheduling run in ${this.FOLDER_UPDATE_DEBOUNCE_MS}ms`);
-
-      // We are the coordinator. Wait for the debounce window, then execute.
-      setTimeout(async () => {
-        try {
-          // Release lock first so next batch can start accumulating immediately if needed? 
-          // Actually, lock TTL expires automatically roughly now.
-          // We don't manually release here because we WANT it to block others during the wait.
-          // We proceed to process.
-          await this.executeFolderCountsUpdate(tenantId, providerId, listKey);
-        } catch (e) {
-          this.logger.error(`Error in scheduled folder update: ${e instanceof Error ? e.message : String(e)}`);
-        }
-      }, this.FOLDER_UPDATE_DEBOUNCE_MS);
-    }
-  }
-
-  /**
-   * Execute the actual folder count update (drains Redis list)
-   */
-  private async executeFolderCountsUpdate(
-    tenantId: string,
-    providerId: string,
-    listKey: string
-  ) {
-    // 1. Fetch all pending folders from Redis
-    // Range 0 to -1 gets all elements
-    const folders = await this.cacheService.lrange<string>(listKey, 0, -1, { namespace: CacheNamespace.FOLDER_METADATA });
-
-    // 2. Clear the list 
-    // (Note: Small race condition possible here if new items added between lrange and del,
-    // but acceptable for eventual consistency of folder counts)
-    await this.cacheService.del(listKey, { namespace: CacheNamespace.FOLDER_METADATA });
-
-    if (!folders || folders.length === 0) return;
-
-    // 3. Deduplicate
-    const uniqueFolders = Array.from(new Set(folders));
-
-    this.logger.debug(`Processing folder counts for ${uniqueFolders.length} folders (Tenant: ${tenantId})`);
-
-    try {
-      // Skip calculation if no active WebSocket connections for this tenant
-      // This avoids wasting resources on inactive tenants
-      if (!this.realtimeEvents.hasTenantConnections(tenantId)) {
-        this.logger.debug(`Skipping folder count update for inactive tenant: ${tenantId}`);
-        return;
-      }
-
-      // Get folder records to map path -> id (include specialUse for trash detection)
-      const folderRecords = await this.prisma.folder.findMany({
-        where: {
-          providerId,
-          OR: [
-            { path: { in: uniqueFolders, mode: 'insensitive' } },
-            { name: { in: uniqueFolders, mode: 'insensitive' } },
-            { specialUse: { in: uniqueFolders, mode: 'insensitive' } },
-          ],
-        },
-        select: { id: true, path: true, name: true, specialUse: true },
-      });
-
-      // Create a map for quick lookup: path/name/specialUse -> folder record
-      const folderMap = new Map<string, (typeof folderRecords)[number]>();
-      const registerFolderKey = (
-        record: (typeof folderRecords)[number],
-        value?: string | null,
-      ) => {
-        if (!value) return;
-        folderMap.set(value.toUpperCase(), record);
-      };
-      for (const folderRecord of folderRecords) {
-        registerFolderKey(folderRecord, folderRecord.path);
-        registerFolderKey(folderRecord, folderRecord.name);
-        registerFolderKey(folderRecord, folderRecord.specialUse);
-      }
-
-      // OPTIMIZATION: Run all folder count queries in parallel instead of sequentially
-      const countPromises = uniqueFolders.map(async (folder) => {
-        const folderKey = folder.toUpperCase();
-        const folderRecord = folderMap.get(folderKey);
-        const queryFolder = folderRecord?.path || folderRecord?.name || folder;
-        // Check if folder is TRASH by specialUse attribute (locale-independent)
-        const isTrashFolder =
-          folderRecord?.specialUse?.toUpperCase() === 'TRASH' || folderKey === 'TRASH';
-
-        // Count total and unread emails in this folder
-        const [totalCount, unreadCount] = await Promise.all([
-          this.prisma.email.count({
-            where: {
-              tenantId,
-              providerId,
-              folder: { equals: queryFolder, mode: 'insensitive' },
-              isDeleted: isTrashFolder ? undefined : false,
-            },
-          }),
-          this.prisma.email.count({
-            where: {
-              tenantId,
-              providerId,
-              folder: { equals: queryFolder, mode: 'insensitive' },
-              isDeleted: isTrashFolder ? undefined : false,
-              isRead: false,
-            },
-          }),
-        ]);
-
-        return { folder, folderRecord, totalCount, unreadCount };
-      });
-
-      // Wait for all folder counts in parallel
-      const results = await Promise.all(countPromises);
-
-      // Emit websocket events for each folder
-      const timestamp = new Date().toISOString();
-      for (const { folder, folderRecord, totalCount, unreadCount } of results) {
-        this.realtimeEvents.emitFolderCountsUpdate(tenantId, {
-          providerId,
-          folderId: folderRecord?.id || folder,
-          folderName: folderRecord?.name || folder,
-          totalCount,
-          unreadCount,
-          timestamp,
-        });
-      }
-    } catch (error: unknown) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to update folder counts: ${errMsg}`);
     }
   }
 
@@ -319,146 +76,14 @@ export class EmailsService {
 
     const skip = (page - 1) * limit;
 
-    // Build folder filter - supports both direct folder path and specialUse aggregation
-    let folderFilter: Prisma.EmailWhereInput = {};
-    let isTrashView = false;
-
-    if (filters.specialUse) {
-      const specialUseUpper = filters.specialUse.toUpperCase();
-      // Aggregation query: find all folders with this specialUse type across providers
-      const foldersWithSpecialUse = await this.prisma.folder.findMany({
-        where: {
-          tenantId,
-          ...(providerId && { providerId }),
-          specialUse: { equals: specialUseUpper, mode: 'insensitive' },
-        },
-        select: { path: true, name: true, specialUse: true },
-      });
-
-      const folderPaths = new Set<string>();
-      foldersWithSpecialUse.forEach((f) => {
-        if (f.path) folderPaths.add(f.path);
-        if (f.name) folderPaths.add(f.name);
-        if (f.specialUse) folderPaths.add(f.specialUse);
-      });
-      folderPaths.add(specialUseUpper);
-      folderFilter = { folder: { in: Array.from(folderPaths), mode: 'insensitive' } };
-      isTrashView = specialUseUpper === 'TRASH';
-    } else if (filters.folder) {
-      // RFC 6154: Check if folder is a canonical specialUse value (INBOX, SENT, TRASH, etc.)
-      // Frontend sends specialUse values directly for folders that have them
-      const canonicalSpecialUse = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'JUNK', 'ARCHIVE', 'STARRED', 'IMPORTANT'];
-      const folderUpper = filters.folder.toUpperCase();
-      const isCanonicalFolder = canonicalSpecialUse.includes(folderUpper);
-
-      this.logger.debug(`[listEmails] folder filter: ${filters.folder}, isCanonical: ${isCanonicalFolder}, providerId: ${providerId}`);
-
-      if (isCanonicalFolder) {
-        // Query by specialUse to get all localized folder names for this type
-        const foldersWithSpecialUse = await this.prisma.folder.findMany({
-          where: {
-            tenantId,
-            ...(providerId && { providerId }),
-            specialUse: { equals: folderUpper, mode: 'insensitive' },
-          },
-          select: { path: true, name: true },
-        });
-
-        this.logger.debug(`[listEmails] foldersWithSpecialUse: ${JSON.stringify(foldersWithSpecialUse)}`);
-
-        if (foldersWithSpecialUse.length > 0) {
-          // Match emails by their localized folder names (path or name)
-          const folderPaths = new Set<string>();
-          foldersWithSpecialUse.forEach((f) => {
-            if (f.path) folderPaths.add(f.path);
-            if (f.name) folderPaths.add(f.name);
-          });
-          folderPaths.add(folderUpper);
-          const folderPathList = Array.from(folderPaths);
-          folderFilter = { folder: { in: folderPathList, mode: 'insensitive' } };
-          this.logger.debug(`[listEmails] folderFilter paths: ${JSON.stringify(folderPathList)}`);
-        } else {
-          // Fallback: direct match (for custom folders named like specialUse)
-          folderFilter = { folder: { equals: filters.folder, mode: 'insensitive' } };
-        }
-        isTrashView = folderUpper === 'TRASH';
-        this.logger.debug(`[listEmails] isTrashView: ${isTrashView}`);
-      } else {
-        // Non-canonical folder: match by path/name and check specialUse
-        folderFilter = { folder: { equals: filters.folder, mode: 'insensitive' } };
-
-        // Check folder's specialUse attribute to detect trash folders
-        // This handles localized folder names (e.g., "Posta eliminata", "Papierkorb")
-        const folderRecord = await this.prisma.folder.findFirst({
-          where: {
-            tenantId,
-            ...(providerId && { providerId }),
-            OR: [
-              { path: { equals: filters.folder, mode: 'insensitive' } },
-              { name: { equals: filters.folder, mode: 'insensitive' } },
-            ],
-          },
-          select: { specialUse: true },
-        });
-        isTrashView = folderRecord?.specialUse?.toUpperCase() === 'TRASH';
-      }
-    }
-
-    // SECURITY FIX: Get folders to exclude for excludeTrashSpam filter
-    let excludedFolders: string[] = [];
-    if (filters.excludeTrashSpam) {
-      excludedFolders = await this.getFolderPathsBySpecialUse(
-        tenantId,
-        ['TRASH', 'SPAM', 'JUNK'],
-        providerId,
-      );
-      this.logger.debug(`[listEmails] excludeTrashSpam: excluding folders: ${JSON.stringify(excludedFolders)}`);
-    }
-
-    // Build where clause
-    const where: Prisma.EmailWhereInput = {
+    const { where } = await this.folderService.buildEmailWhere({
       tenantId,
-      ...(providerId && { providerId }),
-      ...folderFilter,
-      // Only show deleted emails if we're viewing the TRASH folder
-      ...(!isTrashView ? { isDeleted: false } : {}),
-      // SECURITY: Exclude TRASH/SPAM/JUNK folders when excludeTrashSpam is set
-      ...(filters.excludeTrashSpam && excludedFolders.length > 0 && {
-        folder: { notIn: excludedFolders, mode: 'insensitive' },
-      }),
-      ...(filters.isRead !== undefined && { isRead: filters.isRead }),
-      ...(filters.isStarred !== undefined && { isStarred: filters.isStarred }),
-      ...(filters.isFlagged !== undefined && { isFlagged: filters.isFlagged }),
-      // isImportant = starred OR flagged (provider-agnostic "important" concept)
-      ...(filters.isImportant !== undefined && {
-        OR: [{ isStarred: filters.isImportant }, { isFlagged: filters.isImportant }],
-      }),
-      ...(filters.hasAttachments
-        ? { attachments: { some: {} } }
-        : undefined),
-      ...(filters.from && { from: { contains: filters.from, mode: 'insensitive' } }),
-      ...(filters.to && { to: { has: filters.to } }),
-      ...(filters.subject && { subject: { contains: filters.subject, mode: 'insensitive' } }),
-      ...(filters.labelIds && filters.labelIds.length > 0 && {
-        emailLabels: { some: { labelId: { in: filters.labelIds } } },
-      }),
-      ...(filters.search && {
-        OR: [
-          { subject: { contains: filters.search, mode: 'insensitive' } },
-          { from: { contains: filters.search, mode: 'insensitive' } },
-          { bodyText: { contains: filters.search, mode: 'insensitive' } },
-        ],
-      }),
-      // Date range filters - combine both conditions in single receivedAt object
-      ...(filters.startDate || filters.endDate
-        ? {
-          receivedAt: {
-            ...(filters.startDate && { gte: filters.startDate }),
-            ...(filters.endDate && { lte: filters.endDate }),
-          },
-        }
-        : {}),
-    };
+      providerId,
+      folder: filters.folder,
+      specialUse: filters.specialUse,
+      filters,
+      excludeTrashSpam: filters.excludeTrashSpam,
+    });
 
     // Get total count and emails
     const [total, emails] = await Promise.all([
@@ -478,8 +103,9 @@ export class EmailsService {
           cc: true,
           bcc: true,
           subject: true,
-          bodyHtml: true,
-          bodyText: true,
+          // PERFORMANCE: bodyHtml/bodyText removed from list - use getEmailById for full content
+          // bodyHtml: true,  // Can be 100KB+ per email - fetch on detail view only
+          // bodyText: true,  // Can be large - fetch on detail view only
           snippet: true,
           folder: true,
           labels: true,
@@ -696,7 +322,7 @@ export class EmailsService {
       }
 
       // Update folder counts (async, don't wait)
-      this.updateFolderCounts(tenantId, updated.providerId, affectedFolders).catch((error) => {
+      this.folderService.updateFolderCounts(tenantId, updated.providerId, affectedFolders).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
       });
     }
@@ -813,7 +439,7 @@ export class EmailsService {
       }
 
       // Get trash folder path for this provider (locale-aware)
-      const trashFolder = await this.getTrashFolderPath(email.providerId);
+      const trashFolder = await this.folderService.getTrashFolderPath(email.providerId);
 
       // Soft delete: Mark deleted and move to trash folder
       await tx.email.update({
@@ -850,7 +476,7 @@ export class EmailsService {
         reason: 'message-deleted',
       });
 
-      this.updateFolderCounts(tenantId, email.providerId, [email.folder]).catch((error) => {
+      this.folderService.updateFolderCounts(tenantId, email.providerId, [email.folder]).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
       });
     } else {
@@ -877,7 +503,7 @@ export class EmailsService {
         reason: 'message-deleted',
       });
 
-      this.updateFolderCounts(tenantId, email.providerId, [originalFolder, trashFolder]).catch((error) => {
+      this.folderService.updateFolderCounts(tenantId, email.providerId, [originalFolder, trashFolder]).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
       });
     }
@@ -891,26 +517,10 @@ export class EmailsService {
    * IMPORTANT: Unread count excludes TRASH and SPAM folders (RFC 6154 specialUse)
    */
   async getStats(tenantId: string, providerId?: string) {
-    // Get TRASH and SPAM folder paths to exclude from unread count
-    const excludedFolderPaths = await this.getFolderPathsBySpecialUse(
-      tenantId,
-      ['TRASH', 'SPAM', 'JUNK'],
-      providerId,
-    );
-
-    const where: Prisma.EmailWhereInput = {
-      tenantId,
-      isDeleted: false,
-      ...(providerId && { providerId }),
-    };
-
-    // Where clause excluding TRASH/SPAM for unread count
-    const whereExcludingTrashSpam: Prisma.EmailWhereInput = {
-      ...where,
-      ...(excludedFolderPaths.length > 0 && {
-        folder: { notIn: excludedFolderPaths, mode: 'insensitive' },
-      }),
-    };
+    const [{ where }, { where: whereExcludingTrashSpam }] = await Promise.all([
+      this.folderService.buildEmailWhere({ tenantId, providerId }),
+      this.folderService.buildEmailWhere({ tenantId, providerId, excludeTrashSpam: true }),
+    ]);
 
     // Calculate date ranges for smart filters
     const now = new Date();
@@ -1012,7 +622,7 @@ export class EmailsService {
     }
 
     const draftAttachments = dto.attachments ?? [];
-    const draftsFolder = await this.getDraftsFolderPath(provider.id);
+    const draftsFolder = await this.folderService.getDraftsFolderPath(provider.id);
     // RACE CONDITION FIX RC-6: Use UUID instead of Date.now() to prevent collisions
     // Date.now() can produce same value for concurrent requests in same millisecond
     const draftExternalId = dto.id ?? `draft-${randomUUID()}`;
@@ -1181,7 +791,7 @@ export class EmailsService {
 
     // Update folder counts (async, don't wait - unread count changes)
     for (const [providerId, folders] of affectedFolders.entries()) {
-      this.updateFolderCounts(tenantId, providerId, Array.from(folders)).catch((error) => {
+      this.folderService.updateFolderCounts(tenantId, providerId, Array.from(folders)).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
       });
     }
@@ -1227,27 +837,15 @@ export class EmailsService {
     providerId?: string,
     limit: number = 20,
   ) {
-    // Get folder paths for TRASH and SPAM by their specialUse type (locale-independent)
-    const excludedFolderPaths = await this.getFolderPathsBySpecialUse(
+    // Use buildEmailWhere with excludeTrashSpam=true for cached folder lookup
+    const { where: baseWhere } = await this.folderService.buildEmailWhere({
       tenantId,
-      ['TRASH', 'SPAM', 'JUNK'],
       providerId,
-    );
+      excludeTrashSpam: true,
+      filters: { search: query },
+    });
 
-    const where: Prisma.EmailWhereInput = {
-      tenantId,
-      ...(providerId && { providerId }),
-      isDeleted: false,
-      // Exclude TRASH/SPAM folders by their actual paths (e.g., "Cestino", "Spam")
-      ...(excludedFolderPaths.length > 0 && {
-        folder: { notIn: excludedFolderPaths, mode: 'insensitive' },
-      }),
-      OR: [
-        { subject: { contains: query, mode: 'insensitive' } },
-        { from: { contains: query, mode: 'insensitive' } },
-        { bodyText: { contains: query, mode: 'insensitive' } },
-      ],
-    };
+    const where = baseWhere;
 
     const emails = await this.prisma.email.findMany({
       where,
@@ -1281,89 +879,94 @@ export class EmailsService {
     const { tenantId, providerId, folder, page = 1, limit = 50 } = params;
     const skip = (page - 1) * limit;
 
-    // RFC 6154 FOLDER ARCHITECTURE:
-    // Emails have localized folder names (e.g., 'Posta eliminata' for Italian trash)
-    // We use specialUse attribute to map canonical names to localized folder paths
-
-    // RFC 6154: Check if folder is a canonical specialUse value
-    const canonicalSpecialUse = ['INBOX', 'SENT', 'DRAFTS', 'TRASH', 'JUNK', 'SPAM', 'ARCHIVE', 'STARRED', 'IMPORTANT'];
-    const folderUpper = folder?.toUpperCase() || '';
-    const isCanonicalFolder = folder && canonicalSpecialUse.includes(folderUpper);
-    const isTrashView = folderUpper === 'TRASH';
-
-    // Build folder filter based on whether folder is canonical or localized
-    let folderFilter: Prisma.EmailWhereInput = {};
-
-    if (folder) {
-      if (isCanonicalFolder) {
-        // Query by specialUse to get all localized folder names for this type
-        const foldersWithSpecialUse = await this.prisma.folder.findMany({
-          where: {
-            tenantId,
-            ...(providerId && { providerId }),
-            specialUse: { equals: folderUpper, mode: 'insensitive' },
-          },
-          select: { path: true, name: true },
-        });
-
-        if (foldersWithSpecialUse.length > 0) {
-          // Match emails by their localized folder names (path or name)
-          // ALSO include the canonical folder name since some providers (e.g., Microsoft)
-          // store emails with the canonical name directly (e.g., 'INBOX' not 'Posta in arrivo')
-          const folderPaths = foldersWithSpecialUse.flatMap(f => [f.path, f.name].filter(Boolean));
-          folderPaths.push(folderUpper); // Add canonical name for providers that use it
-          folderFilter = { folder: { in: folderPaths, mode: 'insensitive' } };
-        } else {
-          // Fallback: direct match (for custom folders named like specialUse)
-          folderFilter = { folder: { equals: folderUpper, mode: 'insensitive' } };
-        }
-      } else {
-        // Non-canonical folder: match by path/name directly
-        folderFilter = { folder: { equals: folder, mode: 'insensitive' } };
-      }
-    } else {
-      // No folder specified: exclude TRASH and SPAM using specialUse lookup
-      const excludeFolders = await this.prisma.folder.findMany({
-        where: {
-          tenantId,
-          ...(providerId && { providerId }),
-          specialUse: { in: ['TRASH', 'SPAM', 'JUNK'], mode: 'insensitive' },
-        },
-        select: { path: true, name: true, specialUse: true },
-      });
-      const excludePaths = excludeFolders.flatMap((f) =>
-        [f.path, f.name, f.specialUse].filter((v): v is string => !!v),
-      );
-      if (excludePaths.length > 0) {
-        folderFilter = { folder: { notIn: excludePaths, mode: 'insensitive' } };
-      }
-    }
-
-    // Build the WHERE clause
-    const where: Prisma.EmailWhereInput = {
+    const { isTrashView, folderValues, excludedFolderPaths } = await this.folderService.buildEmailWhere({
       tenantId,
-      ...(providerId && { providerId }),
-      // Only show deleted emails if we're viewing the TRASH folder
-      ...(!isTrashView ? { isDeleted: false } : {}),
-      ...folderFilter,
-    };
+      providerId,
+      folder,
+      defaultExcludeTrashSpam: true,
+    });
 
-    // CRITICAL FIX: Check email count first to prevent memory bomb
-    // Loading all emails into memory will crash on large mailboxes
-    const MAX_EMAILS_FOR_GROUPING = 10000;
-    const emailCount = await this.prisma.email.count({ where });
+    const whereSql = this.folderService.buildConversationWhereSql({
+      tenantId,
+      providerId,
+      isTrashView,
+      folderValues,
+      excludedFolderPaths,
+    });
 
-    if (emailCount > MAX_EMAILS_FOR_GROUPING) {
-      throw new BadRequestException(
-        `Too many emails (${emailCount}) to group into conversations. ` +
-        `Please use folder filters to narrow down the results. Maximum: ${MAX_EMAILS_FOR_GROUPING}`,
-      );
+    const [conversationGroups, totalRows] = await Promise.all([
+      this.prisma.$queryRaw<
+        Array<{
+          threadKey: string;
+          latestReceivedAt: Date;
+          emailCount: number;
+          hasUnread: boolean;
+          hasStarred: boolean;
+          hasFlagged: boolean;
+        }>
+      >`
+        SELECT
+          COALESCE("threadId", id::text) AS "threadKey",
+          MAX("receivedAt") AS "latestReceivedAt",
+          COUNT(*)::int AS "emailCount",
+          BOOL_OR(NOT "isRead") AS "hasUnread",
+          BOOL_OR("isStarred") AS "hasStarred",
+          BOOL_OR("isFlagged") AS "hasFlagged"
+        FROM "emails"
+        WHERE ${whereSql}
+        GROUP BY "threadKey"
+        ORDER BY "latestReceivedAt" DESC
+        LIMIT ${limit} OFFSET ${skip}
+      `,
+      this.prisma.$queryRaw<Array<{ total: number }>>`
+        SELECT COUNT(*)::int AS total
+        FROM (
+          SELECT COALESCE("threadId", id::text) AS "threadKey"
+          FROM "emails"
+          WHERE ${whereSql}
+          GROUP BY "threadKey"
+        ) grouped
+      `,
+    ]);
+
+    const total = totalRows[0]?.total ?? 0;
+    if (conversationGroups.length === 0) {
+      return {
+        conversations: [],
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
     }
 
-    // Get emails grouped by thread - find the latest email in each thread
-    const emails = await this.prisma.email.findMany({
-      where,
-      orderBy: { receivedAt: 'desc' },
+    const threadKeys = conversationGroups.map((row) => row.threadKey);
+    const latestEmailsByThread = await this.prisma.$queryRaw<
+      Array<{ threadKey: string; emailId: string }>
+    >`
+      SELECT DISTINCT ON (COALESCE("threadId", id::text))
+        COALESCE("threadId", id::text) AS "threadKey",
+        id AS "emailId"
+      FROM "emails"
+      WHERE ${whereSql}
+        AND COALESCE("threadId", id::text) IN (${Prisma.join(threadKeys)})
+      ORDER BY COALESCE("threadId", id::text), "receivedAt" DESC, id DESC
+    `;
+
+    const latestByThread = new Map(
+      latestEmailsByThread.map((row) => [row.threadKey, row.emailId]),
+    );
+    const latestEmailIds = Array.from(
+      new Set(latestEmailsByThread.map((row) => row.emailId)),
+    );
+
+    const latestEmails = await this.prisma.email.findMany({
+      where: {
+        tenantId,
+        id: { in: latestEmailIds },
+      },
       select: {
         id: true,
         externalId: true,
@@ -1393,27 +996,18 @@ export class EmailsService {
       },
     });
 
-    // Group by threadId or messageId (for emails without threadId)
-    const threadsMap = new Map<string, any[]>();
-    for (const email of emails) {
-      const key = email.threadId || email.id;
-      if (!threadsMap.has(key)) {
-        threadsMap.set(key, []);
+    const latestEmailMap = new Map(latestEmails.map((email) => [email.id, email]));
+
+    const conversations = conversationGroups.flatMap((group) => {
+      const latestEmailId = latestByThread.get(group.threadKey);
+      const latestEmail = latestEmailId ? latestEmailMap.get(latestEmailId) : undefined;
+      if (!latestEmail) {
+        return [];
       }
-      threadsMap.get(key)!.push(email);
-    }
 
-    // Convert to array of conversations, sorted by most recent email
-    const conversations = Array.from(threadsMap.values())
-      .map((thread) => {
-        // Sort emails in thread by date
-        thread.sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime());
-
-        const latestEmail = thread[0];
-        const hasUnread = thread.some((e) => !e.isRead);
-
-        return {
-          threadId: latestEmail.threadId || latestEmail.id,
+      return [
+        {
+          threadId: group.threadKey,
           subject: latestEmail.subject,
           from: latestEmail.from,
           to: latestEmail.to,
@@ -1421,23 +1015,19 @@ export class EmailsService {
           folder: latestEmail.folder,
           labels: latestEmail.labels,
           emailLabels: latestEmail.emailLabels,
-          isRead: !hasUnread,
-          isStarred: thread.some((e) => e.isStarred),
-          isFlagged: thread.some((e) => e.isFlagged),
+          isRead: !group.hasUnread,
+          isStarred: group.hasStarred,
+          isFlagged: group.hasFlagged,
           receivedAt: latestEmail.receivedAt,
           sentAt: latestEmail.sentAt,
-          emailCount: thread.length,
+          emailCount: group.emailCount,
           latestEmailId: latestEmail.id,
-        };
-      })
-      .sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime());
-
-    // Paginate
-    const total = conversations.length;
-    const paginatedConversations = conversations.slice(skip, skip + limit);
+        },
+      ];
+    });
 
     return {
-      conversations: paginatedConversations,
+      conversations,
       pagination: {
         page,
         limit,
@@ -1563,7 +1153,7 @@ export class EmailsService {
     const providerTrashFolders = new Map<string, string>();
     const uniqueProviderIds = Array.from(new Set(toSoftDelete.map((e) => e.providerId)));
     for (const providerId of uniqueProviderIds) {
-      const trashFolder = await this.getTrashFolderPath(providerId);
+      const trashFolder = await this.folderService.getTrashFolderPath(providerId);
       providerTrashFolders.set(providerId, trashFolder);
     }
 
@@ -1613,7 +1203,7 @@ export class EmailsService {
     }
 
     for (const [providerId, folders] of affectedFolders.entries()) {
-      this.updateFolderCounts(tenantId, providerId, Array.from(folders)).catch((error) => {
+      this.folderService.updateFolderCounts(tenantId, providerId, Array.from(folders)).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
       });
     }
@@ -1855,7 +1445,7 @@ export class EmailsService {
 
     // Update folder counts (async, don't wait)
     for (const [providerId, folders] of affectedFolders.entries()) {
-      this.updateFolderCounts(tenantId, providerId, Array.from(folders)).catch((error) => {
+      this.folderService.updateFolderCounts(tenantId, providerId, Array.from(folders)).catch((error) => {
         this.logger.error(`Failed to update folder counts: ${error.message}`);
       });
     }
@@ -2048,34 +1638,5 @@ export class EmailsService {
     if (providers.length !== uniqueIds.length) {
       throw new NotFoundException('Provider not found or inactive');
     }
-  }
-
-  /**
-   * Get the actual drafts folder path for a provider
-   */
-  private async getDraftsFolderPath(providerId: string): Promise<string> {
-    const folder = await this.prisma.folder.findFirst({
-      where: {
-        providerId,
-        specialUse: 'DRAFTS',
-      },
-      select: { path: true, name: true },
-    });
-    return folder?.path || folder?.name || 'DRAFTS';
-  }
-
-  /**
-   * Get the trash folder path for a provider
-   * Uses specialUse='TRASH' to find the correct localized folder name
-   */
-  private async getTrashFolderPath(providerId: string): Promise<string> {
-    const folder = await this.prisma.folder.findFirst({
-      where: {
-        providerId,
-        specialUse: { equals: 'TRASH', mode: 'insensitive' },
-      },
-      select: { path: true, name: true },
-    });
-    return folder?.path || folder?.name || 'TRASH';
   }
 }

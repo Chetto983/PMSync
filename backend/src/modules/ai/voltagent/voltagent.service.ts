@@ -834,6 +834,30 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // 3.65. Inject long-term memory context (semantic search)
+    // Retrieves relevant user memories to personalize the response
+    if (this.memoryIntelligenceService && options.userId) {
+      try {
+        const memoryContext = await this.memoryIntelligenceService.getRelevantContext(
+          options.tenantId,
+          options.userId,
+          processedMessage,
+          { limit: 5, useReranking: false }, // Fast mode, no LLM re-ranking
+        );
+
+        if (memoryContext) {
+          const safeMemoryContext = this.piiDetectionService
+            ? this.piiDetectionService.redact(memoryContext)
+            : memoryContext;
+
+          enhancedMessage = `[User Memory]\n${safeMemoryContext}\n\n---\n\n${enhancedMessage}`;
+          this.logger.debug(`${logPrefix} Long-term memory context injected`);
+        }
+      } catch (error) {
+        this.logger.warn(`${logPrefix} Failed to fetch memory context: ${error}`);
+      }
+    }
+
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     // Format: "tenantId:userId" allows hooks to extract both values
     const tenantUserId = `${options.tenantId}:${options.userId}`;
@@ -1226,6 +1250,30 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         }
       } catch (error) {
         this.logger.warn(`${logPrefix} Failed to fetch episodic lessons: ${error}`);
+      }
+    }
+
+    // 2.75. Inject long-term memory context (semantic search)
+    // Retrieves relevant user memories to personalize the response
+    if (this.memoryIntelligenceService && options.userId) {
+      try {
+        const memoryContext = await this.memoryIntelligenceService.getRelevantContext(
+          options.tenantId,
+          options.userId,
+          processedMessage,
+          { limit: 5, useReranking: false }, // Fast mode, no LLM re-ranking
+        );
+
+        if (memoryContext) {
+          const safeMemoryContext = this.piiDetectionService
+            ? this.piiDetectionService.redact(memoryContext)
+            : memoryContext;
+
+          enhancedMessage = `[User Memory]\n${safeMemoryContext}\n\n---\n\n${enhancedMessage}`;
+          this.logger.debug(`${logPrefix} Long-term memory context injected`);
+        }
+      } catch (error) {
+        this.logger.warn(`${logPrefix} Failed to fetch memory context: ${error}`);
       }
     }
 

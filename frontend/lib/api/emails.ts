@@ -279,6 +279,21 @@ export interface SendEmailResponse {
   messageId: string;
 }
 
+// Helper: Convert File to Base64
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      // Result is like "data:mime/type;base64,....."
+      // We return the full string, the backend handles stripping the prefix if needed
+      // or we can strip it here. Backend decodeAttachments handles "data:..." prefix.
+      resolve(reader.result as string);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+}
+
 // =============================================================================
 // API Methods
 // =============================================================================
@@ -331,64 +346,86 @@ export const emailsApi = {
   // Send / Reply / Forward
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // Send / Reply / Forward
+  // -------------------------------------------------------------------------
+
   async sendEmail(dto: SendEmailDto): Promise<SendEmailResponse> {
-    const formData = new FormData();
-    formData.append('providerId', dto.providerId);
-    formData.append('to', JSON.stringify(dto.to));
-    formData.append('subject', dto.subject);
-    formData.append('bodyHtml', dto.bodyHtml);
+    const attachments = await Promise.all(
+      (dto.attachments || []).map(async (file) => ({
+        filename: file.name,
+        contentType: file.type,
+        contentBase64: await fileToBase64(file),
+        size: file.size,
+      }))
+    );
 
-    if (dto.cc?.length) formData.append('cc', JSON.stringify(dto.cc));
-    if (dto.bcc?.length) formData.append('bcc', JSON.stringify(dto.bcc));
-    if (dto.bodyText) formData.append('bodyText', dto.bodyText);
-    if (dto.replyToMessageId) formData.append('replyToMessageId', dto.replyToMessageId);
-    if (dto.threadId) formData.append('threadId', dto.threadId);
-    if (dto.scheduledAt) formData.append('scheduledAt', dto.scheduledAt);
-    if (dto.attachments?.length) {
-      dto.attachments.forEach((file) => formData.append('attachments', file));
+    const payload = {
+      providerId: dto.providerId,
+      to: dto.to,
+      cc: dto.cc,
+      bcc: dto.bcc,
+      subject: dto.subject,
+      bodyHtml: dto.bodyHtml,
+      bodyText: dto.bodyText,
+      replyToMessageId: dto.replyToMessageId,
+      threadId: dto.threadId,
+      scheduledAt: dto.scheduledAt,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    };
+
+    try {
+      const response = await apiClient.post('/emails/send', payload);
+      return response.data;
+    } catch (error: any) {
+      console.error('Send Email Error Payload:', JSON.stringify(payload, null, 2));
+      console.error('Send Email Error Response:', JSON.stringify(error.response?.data, null, 2));
+      throw error;
     }
-
-    const response = await apiClient.post('/emails/send', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    // Backend returns { success: boolean; messageId: string }
-    return response.data;
   },
 
   async replyToEmail(emailId: string, dto: ReplyEmailDto): Promise<SendEmailResponse> {
-    const formData = new FormData();
-    formData.append('bodyHtml', dto.bodyHtml);
+    const attachments = await Promise.all(
+      (dto.attachments || []).map(async (file) => ({
+        filename: file.name,
+        contentType: file.type,
+        contentBase64: await fileToBase64(file),
+        size: file.size,
+      }))
+    );
 
-    if (dto.bodyText) formData.append('bodyText', dto.bodyText);
-    if (dto.cc?.length) formData.append('cc', JSON.stringify(dto.cc));
-    if (dto.bcc?.length) formData.append('bcc', JSON.stringify(dto.bcc));
-    if (dto.attachments?.length) {
-      dto.attachments.forEach((file) => formData.append('attachments', file));
-    }
+    const payload = {
+      bodyHtml: dto.bodyHtml,
+      bodyText: dto.bodyText,
+      cc: dto.cc,
+      bcc: dto.bcc,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    };
 
-    const response = await apiClient.post(`/emails/${emailId}/reply`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    // Backend returns { success: boolean; messageId: string }
+    const response = await apiClient.post(`/emails/${emailId}/reply`, payload);
     return response.data;
   },
 
   async forwardEmail(emailId: string, dto: ForwardEmailDto): Promise<SendEmailResponse> {
-    const formData = new FormData();
-    formData.append('to', JSON.stringify(dto.to));
+    const attachments = await Promise.all(
+      (dto.attachments || []).map(async (file) => ({
+        filename: file.name,
+        contentType: file.type,
+        contentBase64: await fileToBase64(file),
+        size: file.size,
+      }))
+    );
 
-    if (dto.cc?.length) formData.append('cc', JSON.stringify(dto.cc));
-    if (dto.bcc?.length) formData.append('bcc', JSON.stringify(dto.bcc));
-    if (dto.bodyHtml) formData.append('bodyHtml', dto.bodyHtml);
-    if (dto.bodyText) formData.append('bodyText', dto.bodyText);
-    if (dto.attachments?.length) {
-      dto.attachments.forEach((file) => formData.append('attachments', file));
-    }
+    const payload = {
+      to: dto.to,
+      cc: dto.cc,
+      bcc: dto.bcc,
+      bodyHtml: dto.bodyHtml,
+      bodyText: dto.bodyText,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    };
 
-    const response = await apiClient.post(`/emails/${emailId}/forward`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    // Backend returns { success: boolean; messageId: string }
+    const response = await apiClient.post(`/emails/${emailId}/forward`, payload);
     return response.data;
   },
 

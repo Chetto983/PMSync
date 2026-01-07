@@ -18,7 +18,7 @@ export interface SendEmailDto {
   bcc?: string[];
   subject: string;
   bodyHtml: string;
-  bodyText: string;
+  bodyText?: string;
   inReplyTo?: string;
   references?: string;
   attachments?: {

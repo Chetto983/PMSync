@@ -22,6 +22,7 @@ import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { useEmailFilters } from '@/stores/email-ui-store';
 import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
 import { Pencil } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 import type { Email } from '@/lib/api/emails';
 
 /**
@@ -243,6 +244,49 @@ export default function EmailPage() {
     setLabelPickerOpen(true);
   }, []);
 
+  // Download attachment
+  const handleDownloadAttachment = useCallback(async (messageId: string, attachmentId: string) => {
+    try {
+      // Use direct API client (axios) to get blob with auth headers
+      const response = await apiClient.get<Blob>(`/email/attachments/${attachmentId}/download`, {
+        responseType: 'blob',
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Attempt to get filename from content-disposition
+      const disposition = response.headers['content-disposition'];
+      let filename = 'attachment';
+      if (disposition && disposition.indexOf('attachment') !== -1) {
+        // Simple regex for filename*=UTF-8''... or filename="..."
+        const matches = /filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/.exec(disposition);
+        if (matches) {
+          filename = decodeURIComponent(matches[1] || matches[2]);
+        }
+      }
+
+      // Fallback to known filename from metadata if header parsing fails or isn't present
+      if (filename === 'attachment' && selectedEmailData) {
+        const att = selectedEmailData.attachments?.find(a => a.id === attachmentId);
+        if (att) filename = att.name;
+      }
+
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed', error);
+      toast.error(t.common.genericError || 'Download failed');
+    }
+  }, [selectedEmailData, toast, t]);
+
   // Reading pane component for 3-panel desktop view (single email, not thread)
   const readingPane = useMemo(() => {
     if (!selectedThreadId || !isDesktop) return undefined;
@@ -281,6 +325,7 @@ export default function EmailPage() {
           onForward={handleForward}
           onFlag={handleFlagMessage}
           onLabels={handleLabelsMessage}
+          onDownloadAttachment={handleDownloadAttachment}
         />
       </Box>
     );
@@ -295,6 +340,7 @@ export default function EmailPage() {
     handleForward,
     handleFlagMessage,
     handleLabelsMessage,
+    handleDownloadAttachment,
     t.threadView?.loading,
   ]);
 
@@ -494,8 +540,8 @@ export default function EmailPage() {
         emailIds.length === 1
           ? t.emailList.emailMoved.replace('{folder}', folderName)
           : t.emailList.emailsMoved
-              .replace('{count}', emailIds.length.toString())
-              .replace('{folder}', folderName);
+            .replace('{count}', emailIds.length.toString())
+            .replace('{folder}', folderName);
 
       toast.success(message);
     } catch {

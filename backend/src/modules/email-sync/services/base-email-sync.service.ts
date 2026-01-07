@@ -722,19 +722,19 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
     tenantId: string,
     userId?: string,
   ): Promise<{ wasNew: boolean; conflictDetected?: boolean }> {
-    // RC-1 FIX: Create unique lock key for this message
-    const lockKey = `email:upsert:${providerId}:${canonicalMsg.id}:${canonicalMsg.folder}`;
+    // RC-1 FIX: Create unique lock key for this message (folder-independent - externalId is globally unique)
+    const lockKey = `email:upsert:${providerId}:${canonicalMsg.id}`;
     const lockTtlMs = 5000; // 5 second timeout
 
     // Execute upsert with distributed lock (if available)
     const executeUpsert = async (): Promise<{ wasNew: boolean; conflictDetected?: boolean }> => {
       // RC-2 FIX: Check for recent user modifications before overwriting
+      // FIX 2025-01-07: Use providerId_externalId (not folder) to find email regardless of current folder
       const existing = await this.prisma.email.findUnique({
         where: {
-          providerId_externalId_folder: {
+          providerId_externalId: {
             providerId,
             externalId: canonicalMsg.id,
-            folder: canonicalMsg.folder,
           },
         },
         select: {
@@ -1043,15 +1043,15 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
           labels: msg.labels || [],
         };
 
+      // FIX 2025-01-07: Use providerId_externalId (not folder) to properly handle folder moves
       return this.prisma.email.upsert({
         where: {
-          providerId_externalId_folder: {
+          providerId_externalId: {
             providerId,
             externalId: msg.id,
-            folder: msg.folder,
           },
         },
-        update: { ...updateData, folder: msg.folder },
+        update: { ...updateData, folder: msg.folder }, // Update folder to new location
         create: {
           tenantId,
           providerId,

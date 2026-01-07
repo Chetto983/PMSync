@@ -53,18 +53,7 @@ export default function ComposeAttachments({
     onAttachmentsChange(attachments.filter((a) => a.id !== id));
   };
 
-  const handleAttachClick = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.onchange = (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (files) {
-        onDrop(Array.from(files));
-      }
-    };
-    input.click();
-  };
+
 
   return (
     <Box {...getRootProps()} sx={{ position: 'relative' }}>
@@ -100,11 +89,7 @@ export default function ComposeAttachments({
           borderColor: 'divider',
         }}
       >
-        <IconButton size="small" onClick={handleAttachClick}>
-          <AttachFileIcon fontSize="small" />
-        </IconButton>
-
-        {attachments.length > 0 ? (
+        {attachments.length > 0 && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
             {attachments.map((attachment) => (
               <Chip
@@ -116,10 +101,6 @@ export default function ComposeAttachments({
               />
             ))}
           </Box>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            {t.email.composer.attachFiles}
-          </Typography>
         )}
       </Box>
     </Box>

@@ -3,12 +3,14 @@
  *
  * Simplified implementation inspired by mem0 (https://github.com/mem0ai/mem0)
  * Provides CRUD operations for user memories with history tracking.
+ * Supports semantic vector search using mistral-embed (1024 dimensions).
  *
  * @see https://docs.mem0.ai/overview
  */
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { MemoryType, Prisma } from '@prisma/client';
+import { MistralService } from '../../services/mistral.service';
 
 // ============================================================================
 // Types
@@ -68,6 +70,11 @@ export interface MemoryHistoryItem {
   createdAt: Date;
 }
 
+export interface MemoryWithScore extends Memory {
+  score: number; // Similarity score (0-1, higher = more similar)
+  distance: number; // Cosine distance (0-2, lower = more similar)
+}
+
 // ============================================================================
 // Service
 // ============================================================================
@@ -76,7 +83,10 @@ export interface MemoryHistoryItem {
 export class AIMemoryService {
   private readonly logger = new Logger(AIMemoryService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly mistralService?: MistralService,
+  ) {}
 
   /**
    * Store a new memory for a user
@@ -106,6 +116,11 @@ export class AIMemoryService {
 
     // Record history
     await this.recordHistory(memory.id, 'CREATE', null, input.content);
+
+    // Generate embedding async (fire-and-forget for speed)
+    this.generateAndStoreEmbedding(memory.id, input.content, tenantId).catch(
+      (err: Error) => this.logger.warn(`Failed to generate embedding for memory ${memory.id}: ${err.message}`),
+    );
 
     this.logger.log(
       `Stored memory ${memory.id} for user ${userId}: ${input.type}`,
@@ -190,6 +205,11 @@ export class AIMemoryService {
     // Record history if content changed
     if (input.content && input.content !== oldContent) {
       await this.recordHistory(memoryId, 'UPDATE', oldContent, input.content);
+
+      // Regenerate embedding for new content (async)
+      this.generateAndStoreEmbedding(memoryId, input.content, tenantId).catch(
+        (err: Error) => this.logger.warn(`Failed to update embedding for memory ${memoryId}: ${err.message}`),
+      );
     }
 
     this.logger.log(`Updated memory ${memoryId}`);
@@ -382,5 +402,174 @@ export class AIMemoryService {
         changedBy: 'user',
       },
     });
+  }
+
+  /**
+   * Generate embedding for content and store it in the memory record
+   * Uses mistral-embed model (1024 dimensions)
+   */
+  private async generateAndStoreEmbedding(
+    memoryId: string,
+    content: string,
+    tenantId: string,
+  ): Promise<void> {
+    if (!this.mistralService) {
+      this.logger.debug('MistralService not available, skipping embedding generation');
+      return;
+    }
+
+    try {
+      const embedding = await this.mistralService.generateEmbedding(content, undefined, { tenantId });
+
+      if (!embedding || embedding.length !== 1024) {
+        this.logger.warn(`Invalid embedding for memory ${memoryId}: expected 1024 dimensions, got ${embedding?.length}`);
+        return;
+      }
+
+      // Store embedding using raw SQL (Prisma doesn't support vector type directly)
+      const vectorLiteral = `[${embedding.join(',')}]`;
+      await this.prisma.$executeRaw`
+        UPDATE "ai_memories"
+        SET "vector" = ${Prisma.raw(`'${vectorLiteral}'::vector`)}
+        WHERE "id" = ${memoryId}
+      `;
+
+      this.logger.debug(`Generated embedding for memory ${memoryId}`);
+    } catch (error) {
+      this.logger.error(`Failed to generate embedding for memory ${memoryId}:`, error);
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // Semantic Search Methods
+  // ============================================================================
+
+  /**
+   * Semantic search for memories using vector similarity
+   * Uses cosine distance with HNSW index for fast retrieval
+   *
+   * @param tenantId - Tenant isolation
+   * @param userId - User isolation
+   * @param query - Search query (will be embedded)
+   * @param limit - Max results (default 10)
+   * @param maxDistance - Max cosine distance threshold (0-2, default 1.0)
+   * @returns Memories sorted by similarity score
+   */
+  async searchMemoriesSemantic(
+    tenantId: string,
+    userId: string,
+    query: string,
+    limit = 10,
+    maxDistance = 1.0,
+  ): Promise<MemoryWithScore[]> {
+    if (!this.mistralService) {
+      this.logger.warn('MistralService not available, falling back to text search');
+      const textResults = await this.searchMemories(tenantId, userId, query, limit);
+      return textResults.map((m) => ({ ...m, score: 0.5, distance: 1.0 }));
+    }
+
+    try {
+      // Generate query embedding
+      const queryEmbedding = await this.mistralService.generateEmbedding(query, undefined, { tenantId });
+
+      if (!queryEmbedding || queryEmbedding.length !== 1024) {
+        this.logger.warn(`Invalid query embedding: expected 1024 dimensions, got ${queryEmbedding?.length}`);
+        return [];
+      }
+
+      const vectorLiteral = `[${queryEmbedding.join(',')}]`;
+
+      // Semantic search with tenant + user isolation using CTE
+      // Cosine distance: 0 = identical, 2 = opposite
+      const results = await this.prisma.$queryRaw<
+        Array<Memory & { distance: number }>
+      >`
+        WITH user_memories AS (
+          SELECT *
+          FROM "ai_memories"
+          WHERE "tenantId" = ${tenantId}
+            AND "userId" = ${userId}
+            AND "vector" IS NOT NULL
+        )
+        SELECT
+          "id",
+          "tenantId",
+          "userId",
+          "content",
+          "memoryType",
+          "source",
+          "confidence",
+          "usageCount",
+          "lastUsedAt",
+          "category",
+          "tags",
+          "metadata",
+          "createdAt",
+          "updatedAt",
+          ("vector" <-> ${Prisma.raw(`'${vectorLiteral}'::vector`)}) AS distance
+        FROM user_memories
+        WHERE ("vector" <-> ${Prisma.raw(`'${vectorLiteral}'::vector`)}) < ${maxDistance}
+        ORDER BY distance ASC
+        LIMIT ${limit}
+      `;
+
+      // Convert distance to score (0-1, higher = more similar)
+      return results.map((r) => ({
+        ...r,
+        distance: Number(r.distance),
+        score: 1 - Number(r.distance) / 2,
+      }));
+    } catch (error) {
+      this.logger.error('Semantic search failed, falling back to text search:', error);
+      const textResults = await this.searchMemories(tenantId, userId, query, limit);
+      return textResults.map((m) => ({ ...m, score: 0.5, distance: 1.0 }));
+    }
+  }
+
+  /**
+   * Check if semantic search is available
+   */
+  isSemanticSearchAvailable(): boolean {
+    return !!this.mistralService;
+  }
+
+  /**
+   * Backfill embeddings for existing memories without vectors
+   * Useful for migrating existing data to semantic search
+   */
+  async backfillEmbeddings(
+    tenantId: string,
+    userId: string,
+    batchSize = 10,
+  ): Promise<{ processed: number; failed: number }> {
+    if (!this.mistralService) {
+      return { processed: 0, failed: 0 };
+    }
+
+    // Find memories without embeddings
+    const memoriesWithoutVectors = await this.prisma.$queryRaw<Array<{ id: string; content: string }>>`
+      SELECT "id", "content"
+      FROM "ai_memories"
+      WHERE "tenantId" = ${tenantId}
+        AND "userId" = ${userId}
+        AND "vector" IS NULL
+      LIMIT ${batchSize}
+    `;
+
+    let processed = 0;
+    let failed = 0;
+
+    for (const memory of memoriesWithoutVectors) {
+      try {
+        await this.generateAndStoreEmbedding(memory.id, memory.content, tenantId);
+        processed++;
+      } catch {
+        failed++;
+      }
+    }
+
+    this.logger.log(`Backfilled ${processed} embeddings, ${failed} failed`);
+    return { processed, failed };
   }
 }

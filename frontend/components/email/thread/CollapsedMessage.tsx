@@ -6,7 +6,7 @@
  */
 
 import { memo } from 'react';
-import { Box, Typography, Avatar } from '@mui/material';
+import { Box, Typography, Avatar, Tooltip } from '@mui/material';
 import { Flag, Paperclip } from 'lucide-react';
 
 interface CollapsedMessageProps {
@@ -26,8 +26,11 @@ interface CollapsedMessageProps {
 /**
  * Get initials from email sender name
  */
+/**
+ * Get initials from email sender name
+ */
 function getInitials(from: string): string {
-  const name = from.replace(/<.*>/, '').trim();
+  const name = from.split('<')[0].trim().replace(/^"|"$/g, '');
   const parts = name.split(' ').filter(Boolean);
   if (parts.length >= 2) {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -39,14 +42,8 @@ function getInitials(from: string): string {
  * Format sender name for display
  */
 function formatSender(from: string): string {
-  const match = from.match(/^([^<]+)</);
-  if (match) {
-    return match[1].trim();
-  }
-  const atIndex = from.indexOf('@');
-  if (atIndex > 0) {
-    return from.substring(0, atIndex);
-  }
+  const name = from.split('<')[0].trim().replace(/^"|"$/g, '');
+  if (name) return name;
   return from;
 }
 
@@ -122,20 +119,22 @@ export const CollapsedMessage = memo(function CollapsedMessage({
       </Avatar>
 
       {/* Sender Name */}
-      <Typography
-        variant="body2"
-        sx={{
-          fontWeight: message.isUnread ? 600 : 400,
-          fontSize: '0.875rem',
-          flexShrink: 0,
-          maxWidth: 150,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {formatSender(message.from)}
-      </Typography>
+      <Tooltip title={message.from} placement="bottom-start">
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: message.isUnread ? 600 : 400,
+            fontSize: '0.875rem',
+            flexShrink: 0,
+            maxWidth: 150,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {formatSender(message.from)}
+        </Typography>
+      </Tooltip>
 
       {/* Indicators */}
       {message.isFlagged && (

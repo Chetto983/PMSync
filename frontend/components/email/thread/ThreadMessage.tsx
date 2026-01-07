@@ -20,6 +20,7 @@ import {
   Button,
   IconButton,
   Chip,
+  Tooltip,
 } from '@mui/material';
 import { ChevronDown, Flag, Reply, ReplyAll, Forward, MoreVertical, Paperclip, Download } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -153,35 +154,41 @@ export const ThreadMessage = memo(function ThreadMessage({
 
         {/* Message summary */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 0.5 }}>
             {/* Sender */}
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: message.isUnread ? 600 : 400,
-                fontSize: '0.875rem',
-              }}
-            >
-              {message.from}
-            </Typography>
+            <Tooltip title={message.from} placement="right">
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: message.isUnread ? 600 : 400,
+                  fontSize: '0.875rem',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                {message.from}
+              </Typography>
+            </Tooltip>
 
-            {/* Indicators */}
-            {message.hasAttachments && (
-              <Paperclip size={14} style={{ color: 'var(--mui-palette-text-secondary)' }} />
-            )}
-            {message.isFlagged && (
-              <Flag
-                size={14}
-                fill="currentColor"
-                style={{ color: 'var(--mui-palette-error-main)' }}
-              />
-            )}
+            {/* Indicators - pushed to right or next to name */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {message.hasAttachments && (
+                <Paperclip size={14} style={{ color: 'var(--mui-palette-text-secondary)' }} />
+              )}
+              {message.isFlagged && (
+                <Flag
+                  size={14}
+                  fill="currentColor"
+                  style={{ color: 'var(--mui-palette-error-main)' }}
+                />
+              )}
+            </Box>
 
             {/* Date */}
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ ml: 'auto', fontSize: '0.75rem', flexShrink: 0 }}
+              sx={{ ml: 'auto', fontSize: '0.75rem', flexShrink: 0, whiteSpace: 'nowrap' }}
             >
               {message.date}
             </Typography>
@@ -245,11 +252,14 @@ export const ThreadMessage = memo(function ThreadMessage({
       <AccordionDetails sx={{ px: 2, py: 2 }}>
         {/* Recipients */}
         <Box sx={{ mb: 2 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+            {t.threadMessage?.from || 'From:'} {message.from}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
             {t.threadMessage?.to || 'To:'} {message.to.join(', ')}
           </Typography>
           {message.cc && message.cc.length > 0 && (
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
               {t.threadMessage?.cc || 'Cc:'} {message.cc.join(', ')}
             </Typography>
           )}
@@ -265,7 +275,7 @@ export const ThreadMessage = memo(function ThreadMessage({
           <Box sx={{ mt: 2 }}>
             <Typography variant="caption" color="text.secondary" gutterBottom>
               {t.threadMessage?.attachments?.replace('{count}', String(message.attachments.length)) ||
-               `Attachments (${message.attachments.length})`}
+                `Attachments (${message.attachments.length})`}
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
               {message.attachments.map((attachment) => (

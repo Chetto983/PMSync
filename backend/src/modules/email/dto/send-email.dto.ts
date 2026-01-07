@@ -60,9 +60,10 @@ class BaseComposeEmailDto {
   @MaxLength(10000000, { message: 'HTML body exceeds 10MB limit' })
   bodyHtml!: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(10000000, { message: 'Text body exceeds 10MB limit' })
-  bodyText!: string;
+  bodyText?: string;
 
   @IsOptional()
   @IsString()

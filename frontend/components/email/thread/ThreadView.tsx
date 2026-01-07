@@ -33,6 +33,7 @@ import {
   MailOpen,
   Flag,
   MoreVertical,
+  Printer,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ThreadMessage, ThreadMessageData } from './ThreadMessage';
@@ -119,6 +120,11 @@ export function ThreadView({
   const handleAction = (action: () => void | undefined) => {
     handleMenuClose();
     action?.();
+  };
+
+  const handlePrint = () => {
+    handleMenuClose();
+    window.print();
   };
 
   // State: expanded message IDs (most recent expanded by default)
@@ -374,6 +380,12 @@ export function ThreadView({
               {t.threadActions.addLabelsThread}
             </MenuItem>
           )}
+
+          {/* Print */}
+          <MenuItem onClick={handlePrint}>
+            <Printer size={16} style={{ marginRight: 8 }} />
+            {t.threadActions.print || 'Print'}
+          </MenuItem>
 
           <Divider />
 
