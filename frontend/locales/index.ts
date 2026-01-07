@@ -778,6 +778,22 @@ export interface AppTranslations {
       aiComposeGenerating: string;
       aiComposeReject: string;
       aiComposeAccept: string;
+      aiMenu: {
+        titleRefine: string;
+        titleDraft: string;
+        placeholderRefine: string;
+        placeholderDraft: string;
+        fixSpelling: string;
+        makeShorter: string;
+        makeLonger: string;
+        makeProfessional: string;
+        makeFriendly: string;
+        draftProjectUpdate: string;
+        draftProjectUpdateSecondary: string;
+        draftFollowUp: string;
+        draftFollowUpSecondary: string;
+        draftMeetingRequest: string;
+      };
       aiModifyTitle: string;
       aiModifyPlaceholder: string;
       aiModifySelectedText: string;

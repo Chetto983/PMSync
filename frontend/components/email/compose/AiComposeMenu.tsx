@@ -1,23 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import {
     Box,
-    Paper,
     Typography,
     TextField,
     InputAdornment,
     IconButton,
     List,
-    ListItem,
     ListItemButton,
     ListItemIcon,
     ListItemText,
     Divider,
     CircularProgress,
-    Chip,
-    MenuItem,
-    Select,
-    Popover,
-    Button
+    Popover
 } from '@mui/material';
 import {
     AutoAwesome as AiIcon,
@@ -28,9 +22,9 @@ import {
     UnfoldMore as ExpandIcon,
     SentimentSatisfied as FriendlyIcon,
     Business as ProfessionalIcon,
-    Bolt as UrgentIcon,
-    FormatListBulleted as ListIcon,
-    Translate as TranslateIcon,
+    Bolt as _UrgentIcon,
+    FormatListBulleted as _ListIcon,
+    Translate as _TranslateIcon,
     Create as DraftIcon
 } from '@mui/icons-material';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -76,7 +70,7 @@ export default function AiComposeMenu({
 
     const handleQuickAction = (action: AiActionType, promptLabel: string) => {
         // Construct a specific prompt based on the action
-        let fullPrompt = promptLabel;
+        const fullPrompt = promptLabel;
 
         // We pass the "intent" label to the parent, which will construct the final prompt context
         onCompose(fullPrompt, action);
@@ -99,31 +93,31 @@ export default function AiComposeMenu({
     const actions = [
         {
             id: 'fix_spelling',
-            label: 'Fix spelling & grammar',
+            label: t.email.composer.aiMenu.fixSpelling,
             icon: <SpellcheckIcon fontSize="small" />,
             type: 'refine'
         },
         {
             id: 'shorten',
-            label: 'Make shorter',
+            label: t.email.composer.aiMenu.makeShorter,
             icon: <CompressIcon fontSize="small" />,
             type: 'refine'
         },
         {
             id: 'expand',
-            label: 'Make longer',
+            label: t.email.composer.aiMenu.makeLonger,
             icon: <ExpandIcon fontSize="small" />,
             type: 'refine'
         },
         {
             id: 'tone_professional',
-            label: 'Make professional',
+            label: t.email.composer.aiMenu.makeProfessional,
             icon: <ProfessionalIcon fontSize="small" />,
             type: 'tone'
         },
         {
             id: 'tone_friendly',
-            label: 'Make friendly',
+            label: t.email.composer.aiMenu.makeFriendly,
             icon: <FriendlyIcon fontSize="small" />,
             type: 'tone'
         },
@@ -145,6 +139,7 @@ export default function AiComposeMenu({
             PaperProps={{
                 sx: {
                     width: 320,
+                    maxWidth: 'calc(100vw - 32px)',
                     borderRadius: 3,
                     mt: 1,
                     overflow: 'hidden',
@@ -166,7 +161,7 @@ export default function AiComposeMenu({
                 >
                     <AiIcon fontSize="small" />
                     <Typography variant="subtitle2" fontWeight={600}>
-                        {hasSelection ? 'AI Refine' : 'AI Draft'}
+                        {hasSelection ? t.email.composer.aiMenu.titleRefine : t.email.composer.aiMenu.titleDraft}
                     </Typography>
                     <Box sx={{ flex: 1 }} />
                     <IconButton size="small" onClick={onClose} sx={{ color: 'white' }}>
@@ -181,7 +176,7 @@ export default function AiComposeMenu({
                         fullWidth
                         multiline
                         maxRows={3}
-                        placeholder={hasSelection ? "Ask AI to edit selection..." : "Draft an email about..."}
+                        placeholder={hasSelection ? t.email.composer.aiMenu.placeholderRefine : t.email.composer.aiMenu.placeholderDraft}
                         value={customPrompt}
                         onChange={(e) => setCustomPrompt(e.target.value)}
                         onKeyDown={handleKeyDown}
@@ -227,17 +222,23 @@ export default function AiComposeMenu({
                     ) : (
                         // Actions relevant to new drafts
                         <>
-                            <ListItemButton onClick={() => handleQuickAction('custom', 'Draft a professional email about project updates')}>
+                            <ListItemButton onClick={() => handleQuickAction('custom', t.email.composer.aiMenu.draftProjectUpdate)}>
                                 <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon fontSize="small" /></ListItemIcon>
-                                <ListItemText primary="Draft: Project Update" secondary="Professional tone" />
+                                <ListItemText
+                                    primary={t.email.composer.aiMenu.draftProjectUpdate}
+                                    secondary={t.email.composer.aiMenu.draftProjectUpdateSecondary}
+                                />
                             </ListItemButton>
-                            <ListItemButton onClick={() => handleQuickAction('custom', 'Draft a polite follow-up email')}>
+                            <ListItemButton onClick={() => handleQuickAction('custom', t.email.composer.aiMenu.draftFollowUp)}>
                                 <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon fontSize="small" /></ListItemIcon>
-                                <ListItemText primary="Draft: Follow-up" secondary="Polite tone" />
+                                <ListItemText
+                                    primary={t.email.composer.aiMenu.draftFollowUp}
+                                    secondary={t.email.composer.aiMenu.draftFollowUpSecondary}
+                                />
                             </ListItemButton>
-                            <ListItemButton onClick={() => handleQuickAction('custom', 'Draft a meeting request')}>
+                            <ListItemButton onClick={() => handleQuickAction('custom', t.email.composer.aiMenu.draftMeetingRequest)}>
                                 <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon fontSize="small" /></ListItemIcon>
-                                <ListItemText primary="Draft: Meeting Request" />
+                                <ListItemText primary={t.email.composer.aiMenu.draftMeetingRequest} />
                             </ListItemButton>
                         </>
                     )}

@@ -41,7 +41,7 @@ export class AttachmentsController {
 
   constructor(
     private readonly attachmentOnDemandService: AttachmentOnDemandService,
-  ) {}
+  ) { }
 
   /**
    * Download an attachment
@@ -125,31 +125,10 @@ export class AttachmentsController {
 
       // Stream the file from S3 to client (efficient memory usage)
       if (s3Response.body) {
-        const nodeStream = Readable.from(s3Response.body);
-
-        // Handle stream errors gracefully
-        nodeStream.on('error', (streamError) => {
-          this.logger.error(
-            `Stream error during attachment download ${id}: ${streamError.message}`,
-            streamError.stack,
-          );
-          // Only destroy response if headers haven't been sent
-          if (!res.headersSent) {
-            res.status(500).json({ error: 'Download interrupted' });
-          } else {
-            res.destroy();
-          }
-        });
-
-        // Handle client disconnect
-        res.on('close', () => {
-          if (!res.writableEnded) {
-            this.logger.debug(`Client disconnected during download of attachment ${id}`);
-            nodeStream.destroy();
-          }
-        });
-
-        nodeStream.pipe(res);
+        // DEBUG: Buffer the whole response to avoid streaming issues and guarantee integrity
+        const arrayBuffer = await s3Response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        res.send(buffer);
       } else {
         throw new Error('No response body from S3');
       }

@@ -1,9 +1,7 @@
 import { useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { useDropzone } from 'react-dropzone';
 import { useTranslations } from '@/lib/hooks/use-translations';
 

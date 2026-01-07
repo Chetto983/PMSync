@@ -1,17 +1,15 @@
 import type { EditorOptions } from '@tiptap/core';
 import { useCallback, useRef, useState } from 'react';
+import { useRouter } from 'next/router';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
-import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
-import InputAdornment from '@mui/material/InputAdornment';
 import Collapse from '@mui/material/Collapse';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckIcon from '@mui/icons-material/Check';
-import SendIcon from '@mui/icons-material/Send';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import {
   LinkBubbleMenu,
@@ -58,17 +56,15 @@ export default function ComposeEditor({
   subject = '',
 }: ComposeEditorProps) {
   const t = useTranslations();
+  const { locale } = useRouter();
   const composer = t.email.composer;
 
   const extensions = useExtensions({
     placeholder,
   });
   const rteRef = useRef<RichTextEditorRef>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
   // Inline AI state
   const [showAiPanel, setShowAiPanel] = useState(false);
-  const [aiInstruction, setAiInstruction] = useState('');
   const [aiContent, setAiContent] = useState<string | null>(null);
   const [aiIsLoading, setAiIsLoading] = useState(false);
   // Track selected text for modification
@@ -182,10 +178,11 @@ export default function ComposeEditor({
     setShowAiPanel(true); // Show the review panel
     setAiIsLoading(true);
     setAiContent(null);
-    setAiInstruction(prompt); // Keep track of what we asked
+    // setAiInstruction(prompt); // Removed unused state
 
     try {
       let contextPrompt: string;
+      const targetLanguage = locale?.startsWith('it') ? 'Italian' : 'English';
 
       // Construct Prompt based on Action & Selection
       if (selectedText && isModifyMode) {
@@ -197,17 +194,17 @@ export default function ComposeEditor({
         if (actionType === 'tone_professional') instruction = "Rewrite this in a strictly professional and formal tone.";
         if (actionType === 'tone_friendly') instruction = "Rewrite this in a friendly and approachable tone.";
 
-        contextPrompt = `${instruction}\n\nSelected text to modify:\n${selectedText}\n\nReturn only the modified text.`;
+        contextPrompt = `${instruction}\n\nSelected text to modify:\n${selectedText}\n\nReturn only the modified text in ${targetLanguage}.`;
       } else {
         // Drafting Mode (New)
-        contextPrompt = prompt;
+        contextPrompt = `${prompt}\n\nWrite the email in ${targetLanguage}.`;
       }
 
       const response = await aiApi.composeEmail({
         prompt: contextPrompt,
         to: recipients,
         subject: subject || undefined,
-        locale: t.locale,
+        locale: locale || 'en',
       });
 
       if (response.data.success && response.data.body) {
@@ -226,13 +223,12 @@ export default function ComposeEditor({
     } finally {
       setAiIsLoading(false);
     }
-  }, [selectedText, isModifyMode, recipients, subject, t.locale, handleCloseAiMenu]);
+  }, [selectedText, isModifyMode, recipients, subject, locale, handleCloseAiMenu]);
 
   // Close AI Result Panel
   const handleCloseAiPanel = useCallback(() => {
     setShowAiPanel(false);
     setAiContent(null);
-    setAiInstruction('');
     setSelectedText(null);
     setIsModifyMode(false);
   }, []);

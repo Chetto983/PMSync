@@ -377,9 +377,11 @@ export const emailsApi = {
     try {
       const response = await apiClient.post('/emails/send', payload);
       return response.data;
-    } catch (error: any) {
+    } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Send Email Error Payload:', JSON.stringify(payload, null, 2));
-      console.error('Send Email Error Response:', JSON.stringify(error.response?.data, null, 2));
+      // eslint-disable-next-line no-console
+      console.error('Send Email Error Response:', JSON.stringify((error as any).response?.data, null, 2)); // eslint-disable-line @typescript-eslint/no-explicit-any
       throw error;
     }
   },

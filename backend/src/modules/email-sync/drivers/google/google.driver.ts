@@ -288,7 +288,9 @@ export class GoogleDriver extends BaseEmailDriver {
     this.ensureConnected();
 
     try {
-      const format = options?.format || 'full';
+      // HYBRID SYNC: Default to metadata for scalability
+      // Body is fetched lazily on-demand via getMessageWithBody()
+      const format = options?.format || 'metadata';
       const response = await this.executeWithRetry(
         () => this.gmail!.users.messages.get({
           userId: 'me',
@@ -305,6 +307,15 @@ export class GoogleDriver extends BaseEmailDriver {
       }
       throw error;
     }
+  }
+
+  /**
+   * HYBRID SYNC: Explicit full message fetch with body content
+   * Use this for on-demand body loading (user views email)
+   * Always uses format: 'full' regardless of options
+   */
+  async getMessageWithBody(messageId: string): Promise<CanonicalMessage | null> {
+    return this.getMessage(messageId, { format: 'full', includeBody: true });
   }
 
   async getMessageRaw(messageId: string): Promise<string> {

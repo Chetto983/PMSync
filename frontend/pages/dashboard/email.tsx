@@ -245,15 +245,22 @@ export default function EmailPage() {
   }, []);
 
   // Download attachment
-  const handleDownloadAttachment = useCallback(async (messageId: string, attachmentId: string) => {
+  const handleDownloadAttachment = useCallback(async (_messageId: string, attachmentId: string) => {
     try {
       // Use direct API client (axios) to get blob with auth headers
       const response = await apiClient.get<Blob>(`/email/attachments/${attachmentId}/download`, {
         responseType: 'blob',
       });
 
+      if (response.status !== 200) {
+        throw new Error(`Download failed with status: ${response.status}`);
+      }
+
+      const blob = response.data;
+      console.log('Downloaded attachment blob:', blob.type, blob.size); // eslint-disable-line no-console
+
       // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
 
@@ -282,6 +289,7 @@ export default function EmailPage() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Download failed', error);
       toast.error(t.common.genericError || 'Download failed');
     }

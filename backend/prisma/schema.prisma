@@ -15,24 +15,22 @@ model Tenant {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   deletedAt            DateTime?
+  actionQueue          ActionQueue[]
   auditLogs            AuditLog[]
   calendarEvents       CalendarEvent[]
-  contacts             Contact[]             @relation("ContactToTenant")
-  providerContacts     ProviderContact[]     @relation("ProviderContactToTenant")
+  deals                Deal[]
+  emailAnalyses        EmailAnalysis[]
   emails               Email[]
   embeddings           Embedding[]
   folders              Folder[]
   providerConfigs      ProviderConfig[]
+  providerContacts     ProviderContact[]     @relation("ProviderContactToTenant")
   scheduledEmails      ScheduledEmail[]
+  subscription         Subscription?
+  contacts             Contact[]             @relation("ContactToTenant")
+  userLabels           UserLabel[]
   users                User[]
   webhookSubscriptions WebhookSubscription[]
-  userLabels           UserLabel[]
-
-  // AI Refactor v2.0 relations
-  emailAnalyses EmailAnalysis[]
-  actionQueue   ActionQueue[]
-  deals         Deal[]
-  subscription  Subscription?
 
   @@map("tenants")
 }
@@ -51,20 +49,18 @@ model User {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?
+  actionQueue         ActionQueue[]
   auditLogs           AuditLog[]
-  mfaSecret           MfaSecret?
-  mfaBackupCodes      MfaBackupCode[]
-  trustedDevices      TrustedDevice[]
-  webauthnCredentials WebAuthnCredential[]
-  sessions            Session[]
-  userPreferences     UserPreferences?
-  writingStyleProfile WritingStyleProfile?
   dashboardPreference DashboardPreference?
+  deals               Deal[]
+  mfaBackupCodes      MfaBackupCode[]
+  mfaSecret           MfaSecret?
+  sessions            Session[]
+  trustedDevices      TrustedDevice[]
+  userPreferences     UserPreferences?
   tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  // AI Refactor v2.0 relations (replaces AgentPendingAction, etc.)
-  actionQueue ActionQueue[]
-  deals       Deal[]
+  webauthnCredentials WebAuthnCredential[]
+  writingStyleProfile WritingStyleProfile?
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -72,85 +68,61 @@ model User {
 }
 
 model UserPreferences {
-  id                          String  @id @default(cuid())
-  userId                      String  @unique
+  id                          String   @id @default(cuid())
+  userId                      String   @unique
   folderOrders                Json?
-  sidebarSmartFiltersExpanded Boolean @default(true)
-  sidebarLabelsExpanded       Boolean @default(true)
-  theme                       String? @default("light")
-  language                    String? @default("en")
-  timezone                    String? @default("UTC")
-  emailDensity                String? @default("comfortable")
-
-  // AI Agent Preferences
-  aiSmartRepliesEnabled  Boolean @default(true)
-  aiSummarizationEnabled Boolean @default(true)
-  aiSchedulingEnabled    Boolean @default(true)
-  aiAutoApproveThreshold Float?  @default(0.9) // 0-1 confidence threshold for auto-approval
-
-  // Personalization - Job/Role
-  jobTitle    String? // "Marketing Manager", "Software Engineer"
-  jobRole     String? @default("OTHER") // EXECUTIVE, MANAGER, IC, FREELANCER, STUDENT, OTHER
-  department  String? // "Engineering", "Sales", "HR"
-  industry    String? // "Technology", "Healthcare", "Finance"
-  companySize String? @default("SMB") // SOLO, STARTUP, SMB, ENTERPRISE
-
-  // Personalization - Communication Style
-  communicationStyle String? @default("CASUAL") // FORMAL, CASUAL, TECHNICAL, CREATIVE
-  responseLength     String? @default("MODERATE") // BRIEF, MODERATE, DETAILED
-
-  // Personalization - Work Patterns
-  workingHoursStart String?  @default("09:00")
-  workingHoursEnd   String?  @default("18:00")
-  workingDays       String[] @default(["MON", "TUE", "WED", "THU", "FRI"])
-
-  // Personalization - AI Behavior
-  proactivityLevel      String? @default("MEDIUM") // LOW, MEDIUM, HIGH
-  notificationFrequency String? @default("DIGEST") // IMMEDIATE, DIGEST, MINIMAL
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sidebarSmartFiltersExpanded Boolean  @default(true)
+  sidebarLabelsExpanded       Boolean  @default(true)
+  theme                       String?  @default("light")
+  language                    String?  @default("en")
+  timezone                    String?  @default("UTC")
+  emailDensity                String?  @default("comfortable")
+  aiSmartRepliesEnabled       Boolean  @default(true)
+  aiSummarizationEnabled      Boolean  @default(true)
+  aiSchedulingEnabled         Boolean  @default(true)
+  aiAutoApproveThreshold      Float?   @default(0.9)
+  jobTitle                    String?
+  jobRole                     String?  @default("OTHER")
+  department                  String?
+  industry                    String?
+  companySize                 String?  @default("SMB")
+  communicationStyle          String?  @default("CASUAL")
+  responseLength              String?  @default("MODERATE")
+  workingHoursStart           String?  @default("09:00")
+  workingHoursEnd             String?  @default("18:00")
+  workingDays                 String[] @default(["MON", "TUE", "WED", "THU", "FRI"])
+  proactivityLevel            String?  @default("MEDIUM")
+  notificationFrequency       String?  @default("DIGEST")
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("user_preferences")
 }
 
 model DashboardPreference {
-  id     String @id @default(cuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Active layout configuration
-  // Stores array of { i: string, x: number, y: number, w: number, h: number }
-  layout Json
-
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  layout    Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("dashboard_preferences")
 }
 
-// ============================================
-// MFA Models - TOTP, Backup Codes, Trusted Devices
-// ============================================
-
 /// TOTP secrets for authenticator apps (Google Authenticator, Authy, etc.)
 model MfaSecret {
-  id     String @id @default(cuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // TOTP secret (encrypted with AES-256-GCM)
-  secret       String // Encrypted Base32 secret
-  encryptionIv String // IV for decryption
-
-  // Status
-  isEnabled  Boolean   @default(false) // Only true after first successful verification
-  verifiedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  secret       String
+  encryptionIv String
+  isEnabled    Boolean   @default(false)
+  verifiedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("mfa_secrets")
@@ -158,18 +130,13 @@ model MfaSecret {
 
 /// Backup/recovery codes for MFA emergency access
 model MfaBackupCode {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Code storage (hashed with HMAC-SHA256)
-  codeHash String // HMAC-SHA256 hash of the code
-
-  // Status
-  isUsed Boolean   @default(false)
-  usedAt DateTime?
-
-  createdAt DateTime @default(now())
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  isUsed    Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isUsed])
   @@map("mfa_backup_codes")
@@ -177,24 +144,17 @@ model MfaBackupCode {
 
 /// Trusted devices for "Keep me signed in" feature
 model TrustedDevice {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Device identification
-  deviceToken String  @unique // UUID token stored in cookie
-  deviceName  String? // "Chrome on Windows", "Safari on iPhone"
-  deviceHash  String // Hash of user-agent + IP for validation
-
-  // Location info (optional)
-  ipAddress String?
-  location  String? // "Rome, Italy"
-
-  // Expiration
-  expiresAt  DateTime // 30 days from creation
-  lastUsedAt DateTime @default(now())
-
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      String
+  deviceToken String   @unique
+  deviceName  String?
+  deviceHash  String
+  ipAddress   String?
+  location    String?
+  expiresAt   DateTime
+  lastUsedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([deviceToken])
@@ -205,30 +165,19 @@ model TrustedDevice {
 /// WebAuthn/Passkey credentials for passwordless authentication
 /// Supports Face ID, Touch ID, Windows Hello, and security keys (YubiKey)
 model WebAuthnCredential {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Credential data (W3C WebAuthn Level 3 spec)
-  credentialId        String @unique // Base64URL encoded credential ID
-  credentialPublicKey String // Base64URL encoded public key (COSE format)
-  counter             Int    @default(0) // Signature counter for replay attack protection
-
-  // Device type
-  credentialDeviceType String  @default("singleDevice") // "singleDevice" | "multiDevice" (synced passkey)
-  credentialBackedUp   Boolean @default(false) // True if passkey is synced across devices
-
-  // Transports for optimizing re-authentication
-  transports String[] @default([]) // "usb" | "nfc" | "ble" | "internal" | "hybrid"
-
-  // Authenticator info
-  aaguid     String? // Authenticator Attestation GUID (identifies authenticator model)
-  deviceName String? // User-friendly name: "MacBook Pro Touch ID", "iPhone 15 Face ID"
-
-  // Usage tracking
-  lastUsedAt DateTime @default(now())
-
-  createdAt DateTime @default(now())
+  id                   String   @id @default(cuid())
+  userId               String
+  credentialId         String   @unique
+  credentialPublicKey  String
+  counter              Int      @default(0)
+  credentialDeviceType String   @default("singleDevice")
+  credentialBackedUp   Boolean  @default(false)
+  transports           String[] @default([])
+  aaguid               String?
+  deviceName           String?
+  lastUsedAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("webauthn_credentials")
@@ -267,7 +216,6 @@ model ProviderConfig {
   providerType             String
   email                    String
   displayName              String?
-  scope                    String? // Purpose/category: WORK, PERSONAL, LEGAL, INFO, etc.
   supportsEmail            Boolean               @default(true)
   supportsCalendar         Boolean               @default(false)
   supportsContacts         Boolean               @default(false)
@@ -308,13 +256,14 @@ model ProviderConfig {
   errorStreak              Int?                  @default(0)
   lastActivityCheck        DateTime?
   refreshTokenEncryptionIv String?
+  scope                    String?
   calendarEvents           CalendarEvent[]
   calendarSyncStates       CalendarSyncState[]
-  providerContacts         ProviderContact[]     @relation("ProviderContactToProvider")
   emails                   Email[]
   folders                  Folder[]
-  scheduledEmails          ScheduledEmail[]
   tenant                   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  providerContacts         ProviderContact[]     @relation("ProviderContactToProvider")
+  scheduledEmails          ScheduledEmail[]
   webhookSubscriptions     WebhookSubscription[]
 
   @@unique([tenantId, email, providerType])
@@ -325,8 +274,9 @@ model ProviderConfig {
   @@map("provider_configs")
 }
 
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model Email {
-  id                   String   @id @default(cuid())
+  id                   String                  @id @default(cuid())
   tenantId             String
   providerId           String
   externalId           String
@@ -336,77 +286,64 @@ model Email {
   references           String?
   from                 String
   to                   String[]
-  cc                   String[] @default([])
-  bcc                  String[] @default([])
+  cc                   String[]                @default([])
+  bcc                  String[]                @default([])
   replyTo              String?
   subject              String
   bodyText             String?
   bodyHtml             String?
   snippet              String?
-  folder               String   @default("INBOX")
-  labels               String[] @default([])
-  isRead               Boolean  @default(false)
-  isStarred            Boolean  @default(false)
-  isFlagged            Boolean  @default(false)
-  isDraft              Boolean  @default(false)
-  isDeleted            Boolean  @default(false)
-  isArchived           Boolean  @default(false)
+  folder               String                  @default("INBOX")
+  labels               String[]                @default([])
+  isRead               Boolean                 @default(false)
+  isStarred            Boolean                 @default(false)
+  isFlagged            Boolean                 @default(false)
+  isDraft              Boolean                 @default(false)
+  isDeleted            Boolean                 @default(false)
+  isArchived           Boolean                 @default(false)
   sentAt               DateTime
   receivedAt           DateTime
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
   size                 Int?
   headers              Json?
   metadata             Json?
   crossProviderLinkId  String?
-  // Calendar invitation fields
-  hasCalendarInvite    Boolean  @default(false)
-  calendarInviteData   Json? // ParsedCalendarInvite JSON
-  calendarInviteStatus String? // pending | accepted | declined | tentative
-  calendarEventId      String? // Link to created CalendarEvent
+  hasCalendarInvite    Boolean                 @default(false)
+  calendarInviteData   Json?
+  calendarInviteStatus String?
+  calendarEventId      String?
+  userModifiedAt       DateTime?
+  version              Int                     @default(1)
+  isBodyFetched        Boolean                 @default(false)
+  actionQueue          ActionQueue[]
+  analysis             EmailAnalysis?
+  attachments          EmailAttachment[]
+  followUp             EmailFollowUp?
+  emailLabels          EmailLabel[]
+  crossProviderLink    EmailCrossProviderLink? @relation(fields: [crossProviderLinkId], references: [id])
+  provider             ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant               Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  embeddings           Embedding[]
 
-  // RACE CONDITION FIX RC-2: Optimistic locking version field
-  // Incremented on each update to detect concurrent modifications
-  // User mutations (mark read, star, move) increment version
-  // Sync operations check version before overwriting user changes
-  version Int @default(1)
-
-  // RACE CONDITION FIX RC-2: Track last user modification
-  // Sync skips overwriting fields if userModifiedAt > lastSyncedAt
-  userModifiedAt DateTime?
-
-  attachments       EmailAttachment[]
-  emailLabels       EmailLabel[]
-  crossProviderLink EmailCrossProviderLink? @relation(fields: [crossProviderLinkId], references: [id])
-  provider          ProviderConfig          @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  followUp          EmailFollowUp?
-  embeddings        Embedding[]
-
-  // AI Refactor v2.0 relations
-  analysis    EmailAnalysis?
-  actionQueue ActionQueue[]
-
-  @@unique([providerId, externalId]) // externalId is globally unique per provider (Gmail message ID, etc.)
-  @@unique([tenantId, messageId, folder]) // Allow same messageId in different folders
+  @@unique([tenantId, messageId, folder])
+  @@unique([providerId, externalId]) // Required for upsert operations
   @@index([tenantId, folder, receivedAt])
   @@index([tenantId, isRead])
   @@index([tenantId, threadId])
   @@index([sentAt])
   @@index([crossProviderLinkId])
   @@index([tenantId, hasCalendarInvite])
-  // P2 Optimization: Additional composite indexes for common query patterns
-  @@index([tenantId, providerId, folder, receivedAt]) // Provider-specific folder listing
-  @@index([tenantId, isStarred, receivedAt]) // Starred emails listing
-  @@index([tenantId, providerId, isDeleted]) // Provider deletion queries
-  // HIGH-4 FIX (2025-01-05): Composite index for count queries (unread count per folder)
+  @@index([tenantId, providerId, folder, receivedAt])
+  @@index([tenantId, isStarred, receivedAt])
+  @@index([tenantId, providerId, isDeleted])
   @@index([providerId, folder, isRead])
-  // Search optimization indexes (avoid embedding costs)
-  @@index([tenantId, from]) // "email from Mario"
-  @@index([tenantId, isFlagged]) // Flagged email listing
-  // GIN trigram indexes for partial text search (LIKE '%keyword%')
-  @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin) // Subject search
-  @@index([from(ops: raw("gin_trgm_ops"))], type: Gin) // Sender search with partial match
+  @@index([tenantId, from])
+  @@index([tenantId, isBodyFetched])
+  @@index([tenantId, isFlagged])
+  @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([from(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([providerId, folder, isRead, isDeleted])
   @@map("emails")
 }
 
@@ -422,9 +359,9 @@ model ScheduledEmail {
   bodyText     String
   inReplyTo    String?
   references   String?
-  attachments  Json? // Store attachment data as JSON
+  attachments  Json?
   scheduledAt  DateTime
-  status       String         @default("pending") // pending, processing, sent, failed
+  status       String         @default("pending")
   errorMessage String?
   retryCount   Int            @default(0)
   sentAt       DateTime?
@@ -450,10 +387,6 @@ model Folder {
   level        Int            @default(0)
   isSelectable Boolean        @default(true)
   specialUse   String?
-  // Explicit system folder flag - set during sync based on provider detection
-  // TRUE = system folder (INBOX, SENT, etc.) - cannot edit/delete
-  // FALSE = user folder - can edit/delete
-  isSystem     Boolean        @default(false)
   attributes   String[]       @default([])
   totalCount   Int            @default(0)
   unreadCount  Int            @default(0)
@@ -465,6 +398,7 @@ model Folder {
   lastSyncedAt DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+  isSystem     Boolean        @default(false)
   parent       Folder?        @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children     Folder[]       @relation("FolderHierarchy")
   provider     ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
@@ -478,11 +412,6 @@ model Folder {
   @@index([providerId, parentId])
   @@index([lastSyncedAt])
   @@map("folders")
-}
-
-enum LabelType {
-  SYSTEM
-  USER
 }
 
 model UserLabel {
@@ -499,10 +428,10 @@ model UserLabel {
   isArchived  Boolean      @default(false)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  emailLabels EmailLabel[]
   parent      UserLabel?   @relation("LabelHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children    UserLabel[]  @relation("LabelHierarchy")
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  emailLabels EmailLabel[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, type])
@@ -568,25 +497,21 @@ model EmailCrossProviderLink {
 }
 
 model Embedding {
-  id             String                      @id @default(cuid())
+  id             String                 @id @default(cuid())
   tenantId       String
   documentName   String?
   content        String
   /// Mistral-embed produces 1024-dimensional vectors
-  vector         Unsupported("vector(1024)")?
-  embeddingModel String                      @default("mistral-embed")
+  vector         Unsupported("vector")?
+  embeddingModel String                 @default("mistral-embed")
   metadata       Json?
-
-  // Hard Links (Polymorphic-style but with FKs)
-  emailId String?
-  email   Email?  @relation(fields: [emailId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime               @default(now())
+  emailId        String?
+  email          Email?                 @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([emailId])
-  // HNSW index created in migration: 20250106_hnsw_vector_index
   @@map("embeddings")
 }
 
@@ -620,18 +545,16 @@ model CalendarEvent {
   lastSyncedAt     DateTime                  @default(now())
   syncVersion      Int                       @default(1)
   calendarName     String?
+  attachments      CalendarEventAttachment[]
   provider         ProviderConfig            @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant           Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  attachments      CalendarEventAttachment[]
 
   @@unique([providerId, externalId])
   @@index([tenantId, startTime])
   @@index([tenantId, calendarId, startTime])
   @@index([tenantId, providerId, startTime])
   @@index([iCalUID])
-  // Search optimization (avoid embedding costs)
-  @@index([tenantId, title]) // "call with Mario"
-  // GIN trigram index for partial title search
+  @@index([tenantId, title])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("calendar_events")
 }
@@ -659,18 +582,15 @@ model CalendarEventAttachment {
 /// CalendarPreference - User preferences for calendars (color, visibility)
 /// Stores UI preferences that persist across sessions
 model CalendarPreference {
-  id         String @id @default(cuid())
-  tenantId   String
-  providerId String
-  calendarId String // External calendar ID (Google/Microsoft/custom)
-
-  // Preferences
-  color       String? // Hex color code (e.g., "#FF5722")
-  isVisible   Boolean @default(true) // Show/hide in calendar view
-  displayName String? // Custom display name (overrides provider name)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  tenantId    String
+  providerId  String
+  calendarId  String
+  color       String?
+  isVisible   Boolean  @default(true)
+  displayName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([tenantId, providerId, calendarId])
   @@index([tenantId])
@@ -682,29 +602,21 @@ model CalendarPreference {
 /// Stores Google syncToken and Microsoft deltaLink for efficient calendar syncing
 /// Reduces API calls by ~95% after initial full sync
 model CalendarSyncState {
-  id           String  @id @default(cuid())
-  providerId   String
-  calendarId   String // External calendar ID (Google/Microsoft)
-  calendarName String? // Human-readable name for debugging
-
-  // Sync tokens (provider-specific)
-  syncToken String? // Google Calendar syncToken
-  deltaLink String? // Microsoft Graph deltaLink (full URL)
-
-  // Sync metadata
-  lastFullSyncAt    DateTime? // When we last did a full sync
-  lastIncrementalAt DateTime? // When we last did an incremental sync
-  fullSyncRequired  Boolean   @default(true) // Force full sync on next run
-
-  // Error tracking for resilience
-  consecutiveErrors Int       @default(0)
+  id                String         @id @default(cuid())
+  providerId        String
+  calendarId        String
+  calendarName      String?
+  syncToken         String?
+  deltaLink         String?
+  lastFullSyncAt    DateTime?
+  lastIncrementalAt DateTime?
+  fullSyncRequired  Boolean        @default(true)
+  consecutiveErrors Int            @default(0)
   lastError         String?
   lastErrorAt       DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  provider ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  provider          ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, calendarId])
   @@index([providerId])
@@ -712,98 +624,65 @@ model CalendarSyncState {
   @@map("calendar_sync_states")
 }
 
-// Unified Contact - Single source of truth for each person
-// Can be enriched by user, aggregates data from multiple providers
 model Contact {
-  id       String @id @default(cuid())
-  tenantId String
-
-  // User-enriched fields (can override provider data)
-  displayName String?
-  firstName   String?
-  lastName    String?
-  middleName  String?
-  nickname    String?
-  prefix      String?
-  suffix      String?
-
-  // Aggregated data (merged from all provider contacts)
-  emails       Json? // Array of all emails from all providers
-  phoneNumbers Json? // Array of all phone numbers
-  addresses    Json? // Array of all addresses
-
-  // Work info
-  company    String?
-  jobTitle   String?
-  department String?
-
-  // Personal info
-  birthday    DateTime?
-  anniversary DateTime?
-
-  // Social
-  websites       Json?
-  socialProfiles Json?
-
-  // User customization
-  notes     String? // User's personal notes
-  tags      String[] @default([]) // User-defined tags
-  photoUrl  String?
-  photoEtag String?
-
-  // Flags
-  isDeleted  Boolean @default(false)
-  isStarred  Boolean @default(false)
-  isFavorite Boolean @default(false)
-
-  // === P1.7 CRM Intelligence Fields ===
-  lastInteractedAt    DateTime? // Last email sent/received with this contact
-  totalInteractions   Int       @default(0) // Total email count
-  sentCount           Int       @default(0) // Emails sent to contact
-  receivedCount       Int       @default(0) // Emails received from contact
-  relationshipScore   Float? // 0-100 computed score
-  reconnectRemindedAt DateTime? // Last reconnect reminder sent
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Metadata
-  metadata Json?
-
-  // Relations
-  providerContacts    ProviderContact[] // Links to provider sources
-  contactInteractions ContactInteraction[] // P1.7: Interaction history
+  id                  String               @id @default(cuid())
+  tenantId            String
+  displayName         String?
+  firstName           String?
+  lastName            String?
+  middleName          String?
+  nickname            String?
+  prefix              String?
+  suffix              String?
+  emails              Json?
+  phoneNumbers        Json?
+  addresses           Json?
+  company             String?
+  jobTitle            String?
+  department          String?
+  birthday            DateTime?
+  anniversary         DateTime?
+  websites            Json?
+  socialProfiles      Json?
+  notes               String?
+  tags                String[]             @default([])
+  photoUrl            String?
+  photoEtag           String?
+  isDeleted           Boolean              @default(false)
+  isStarred           Boolean              @default(false)
+  isFavorite          Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  metadata            Json?
+  lastInteractedAt    DateTime?
+  receivedCount       Int                  @default(0)
+  reconnectRemindedAt DateTime?
+  relationshipScore   Float?
+  sentCount           Int                  @default(0)
+  totalInteractions   Int                  @default(0)
+  contactInteractions ContactInteraction[]
+  deals               Deal[]
+  providerContacts    ProviderContact[]
   tenant              Tenant               @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
-
-  // AI Refactor v2.0 CRM
-  deals Deal[]
 
   @@index([tenantId, displayName])
   @@index([tenantId, lastName, firstName])
   @@index([tenantId, company])
-  // Composite index for OR search across multiple fields (perf optimization)
   @@index([tenantId, displayName, firstName, lastName, company])
-  // P1.7 CRM Intelligence indexes
   @@index([tenantId, lastInteractedAt])
   @@index([tenantId, relationshipScore])
-  // GIN trigram index for partial name search (avoid embedding costs)
-  @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin) // "find Mario"
+  @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("unified_contacts")
 }
 
-// Provider Contact - Reference to external provider contact
-// Stores raw data as-is from provider (Google, Microsoft, etc)
 model ProviderContact {
-  id           String  @id @default(cuid())
-  contactId    String // Foreign key to unified Contact
-  tenantId     String
-  providerId   String
-  externalId   String // Provider's contact ID
-  contactGroup String?
-
-  // Raw provider data (as-is from provider API)
-  rawData        Json? // Full provider response for reference
+  id             String         @id @default(cuid())
+  contactId      String
+  tenantId       String
+  providerId     String
+  externalId     String
+  contactGroup   String?
+  rawData        Json?
   firstName      String?
   lastName       String?
   middleName     String?
@@ -824,24 +703,16 @@ model ProviderContact {
   notes          String?
   photoUrl       String?
   photoEtag      String?
-
-  // Provider sync metadata
-  vCardVersion String?  @default("4.0")
-  lastSyncedAt DateTime @default(now())
-  syncVersion  Int      @default(1)
-  eTag         String?
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Metadata
-  metadata Json?
-
-  // Relations
-  contact  Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  provider ProviderConfig @relation("ProviderContactToProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  tenant   Tenant         @relation("ProviderContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  vCardVersion   String?        @default("4.0")
+  lastSyncedAt   DateTime       @default(now())
+  syncVersion    Int            @default(1)
+  eTag           String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  metadata       Json?
+  contact        Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  provider       ProviderConfig @relation("ProviderContactToProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  tenant         Tenant         @relation("ProviderContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, externalId])
   @@index([contactId])
@@ -931,134 +802,79 @@ model HealthCheck {
   @@map("health_checks")
 }
 
-// ============================================
-// Multi-Agent System Models
-// ============================================
-
-// Pending actions proposed by agents awaiting HITL approval
-// ============================================
-// BLOAT REMOVED (2025-01-05): AI Refactor v2.0
-// Deleted: AgentPendingAction, AgentActionFeedback, AgentLearningProfile
-// Deleted: PromptTemplate, LlmUsageLog
-// Deleted: UserProfileEmbedding, MemoryChangeLog, ProceduralPattern
-// Replaced by: ActionQueue, EmailAnalysis (unified classifier)
-// ============================================
-
-// Writing Style Profile - Learned from user's sent emails
 model WritingStyleProfile {
-  id       String @id @default(cuid())
-  tenantId String
-  userId   String @unique
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Structure metrics
-  avgSentenceLength Float @default(15) // Average words per sentence
-  avgParagraphLines Float @default(3) // Average lines per paragraph
-  avgWordsPerEmail  Int   @default(100)
-  bulletListRate    Float @default(0) // Usage rate of bullet lists (0-1)
-
-  // Vocabulary metrics
-  formalityScore  Float @default(0.5) // 0=very casual, 1=very formal
-  contractionRate Float @default(0.3) // Rate of contractions used (0-1)
-  emojiRate       Float @default(0) // Emoji usage rate (0-1)
-  typeTokenRatio  Float @default(0.5) // Vocabulary diversity
-
-  // Punctuation habits
-  exclamationRate Float @default(0) // Rate of sentences with !
-  questionRate    Float @default(0) // Rate of sentences with ?
-  ellipsisRate    Float @default(0) // Usage of ...
-
-  // Greeting/Sign-off patterns (stored as JSON arrays)
-  greetingPresent    Boolean  @default(true)
-  preferredGreetings String[] @default([])
-  signOffPresent     Boolean  @default(true)
-  preferredSignOffs  String[] @default([])
-
-  // Tone metrics
-  sentimentPolarity Float @default(0) // -1 (negative) to 1 (positive)
-  empathyPhraseRate Float @default(0) // Rate of empathy phrases
-  hedgeRate         Float @default(0) // Uncertainty markers ("perhaps", "maybe")
-
-  // Learning metadata
-  sampleCount         Int      @default(0) // Number of emails analyzed
-  lastAnalyzedEmailId String? // Track last processed email
+  id                  String   @id @default(cuid())
+  tenantId            String
+  userId              String   @unique
+  avgSentenceLength   Float    @default(15)
+  avgParagraphLines   Float    @default(3)
+  avgWordsPerEmail    Int      @default(100)
+  bulletListRate      Float    @default(0)
+  formalityScore      Float    @default(0.5)
+  contractionRate     Float    @default(0.3)
+  emojiRate           Float    @default(0)
+  typeTokenRatio      Float    @default(0.5)
+  exclamationRate     Float    @default(0)
+  questionRate        Float    @default(0)
+  ellipsisRate        Float    @default(0)
+  greetingPresent     Boolean  @default(true)
+  preferredGreetings  String[] @default([])
+  signOffPresent      Boolean  @default(true)
+  preferredSignOffs   String[] @default([])
+  sentimentPolarity   Float    @default(0)
+  empathyPhraseRate   Float    @default(0)
+  hedgeRate           Float    @default(0)
+  sampleCount         Int      @default(0)
+  lastAnalyzedEmailId String?
   lastAnalyzed        DateTime @default(now())
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, userId])
   @@index([tenantId, userId])
   @@map("writing_style_profiles")
 }
 
-// ============================================
-// AI LONG-TERM MEMORY (Restored 2025-01-07)
-// Simplified from original mem0 implementation
-// ============================================
-
 /// User AI memories - facts, preferences, patterns learned from conversations
 model AIMemory {
-  id       String @id @default(cuid())
-  tenantId String
-  userId   String
-
-  // Memory content
-  content    String     @db.Text
-  memoryType MemoryType @default(FACT)
-  source     String?    // EXPLICIT (user added), INFERRED (AI extracted), CONVERSATION
-
-  // Importance and usage tracking
-  confidence Float    @default(0.5) // 0-1 confidence score
-  usageCount Int      @default(0)   // How often this memory was used
+  id         String                 @id @default(cuid())
+  tenantId   String
+  userId     String
+  content    String
+  memoryType MemoryType             @default(FACT)
+  source     String?
+  confidence Float                  @default(0.5)
+  usageCount Int                    @default(0)
   lastUsedAt DateTime?
-
-  // Categorization
-  category String? // User-defined or auto-detected category
-  tags     String? // Comma-separated tags
-
-  // Metadata
-  metadata Json? // Additional structured data
-
+  category   String?
+  tags       String?
+  metadata   Json?
+  expiresAt  DateTime?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
   /// Semantic vector for similarity search (mistral-embed: 1024 dimensions)
-  vector Unsupported("vector(1024)")?
-
-  // Lifecycle
-  expiresAt DateTime? // Optional expiration
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  // History tracking
-  history AIMemoryHistory[]
+  vector     Unsupported("vector")?
+  history    AIMemoryHistory[]
 
   @@index([tenantId, userId])
   @@index([tenantId, userId, memoryType])
   @@index([tenantId, userId, category])
+  @@index([content(ops: raw("gin_trgm_ops"))], map: "ai_memories_content_gin_idx", type: Gin)
+  @@index([vector], map: "ai_memories_vector_hnsw_idx")
   @@map("ai_memories")
-}
-
-/// Memory type categories
-enum MemoryType {
-  PREFERENCE    // User preferences (e.g., "prefers brief emails")
-  FACT          // Facts about user (e.g., "works at Acme Corp")
-  PATTERN       // Behavioral patterns (e.g., "usually replies in morning")
-  INTERACTION   // Important past interactions
-  CONTACT_NOTE  // Notes about contacts
 }
 
 /// Change history for memories (audit trail)
 model AIMemoryHistory {
   id        String   @id @default(cuid())
   memoryId  String
-  action    String   // CREATE, UPDATE, DELETE
-  oldValue  String?  @db.Text
-  newValue  String?  @db.Text
-  changedBy String?  // Who/what made the change
+  action    String
+  oldValue  String?
+  newValue  String?
+  changedBy String?
   createdAt DateTime @default(now())
-
-  memory AIMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  memory    AIMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
 
   @@index([memoryId])
   @@map("ai_memory_history")
@@ -1066,29 +882,20 @@ model AIMemoryHistory {
 
 /// Tracks emails that need follow-up
 model EmailFollowUp {
-  id       String @id @default(cuid())
-  tenantId String
-  userId   String
-  emailId  String @unique // Reference to email.id
-
-  // Follow-up details
-  status  FollowUpStatus @default(PENDING)
-  reason  String? // Why follow-up is needed
-  dueDate DateTime // When to remind
-
-  // Reminder tracking
-  remindCount    Int       @default(0)
+  id             String         @id @default(cuid())
+  tenantId       String
+  userId         String
+  emailId        String         @unique
+  status         FollowUpStatus @default(PENDING)
+  reason         String?
+  dueDate        DateTime
+  remindCount    Int            @default(0)
   lastRemindedAt DateTime?
-
-  // Resolution
-  resolvedAt DateTime?
-  resolvedBy String? // "REPLY_RECEIVED", "MANUAL", "AUTO_EXPIRED"
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  email Email @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  resolvedAt     DateTime?
+  resolvedBy     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  email          Email          @relation(fields: [emailId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId])
   @@index([tenantId, userId, status])
@@ -1096,39 +903,23 @@ model EmailFollowUp {
   @@map("email_follow_ups")
 }
 
-enum FollowUpStatus {
-  PENDING
-  REMINDED
-  RESOLVED
-  EXPIRED
-}
-
 /// Tracks contact interaction history for relationship intelligence (P1.7)
 model ContactInteraction {
-  id        String @id @default(cuid())
-  tenantId  String
-  contactId String // Reference to unified_contacts.id
-  userId    String // User who had the interaction
-
-  // Interaction details
-  type      ContactInteractionType
-  date      DateTime
-  summary   String?                @db.Text
-  sentiment String? // POSITIVE, NEUTRAL, NEGATIVE
-
-  // Source tracking
-  sourceType String? // EMAIL, CALENDAR, MANUAL
-  sourceId   String? // Reference to source record
-  emailId    String? @unique // Direct link to email (prevents duplicates)
-
-  // Denormalized for faster queries
-  contactEmail String? // Email address used in interaction
-  contactName  String? // Display name at time of interaction
-
-  createdAt DateTime @default(now())
-
-  // Relations
-  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  id           String                 @id @default(cuid())
+  tenantId     String
+  contactId    String
+  type         ContactInteractionType
+  date         DateTime
+  summary      String?
+  sentiment    String?
+  sourceType   String?
+  sourceId     String?
+  createdAt    DateTime               @default(now())
+  contactEmail String?
+  contactName  String?
+  emailId      String?                @unique
+  userId       String
+  contact      Contact                @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, contactId])
   @@index([tenantId, contactId, date])
@@ -1138,44 +929,19 @@ model ContactInteraction {
   @@map("contact_interactions")
 }
 
-enum ContactInteractionType {
-  EMAIL_SENT
-  EMAIL_RECEIVED
-  MEETING
-  CALL
-  NOTE
-}
-
-// AiDeadline REMOVED (2025-01-05): Replaced by EmailAnalysis.hasDeadline, .deadlineDate
-
-// ============================================
-// Document Library - Mistral RAG Integration
-// ============================================
-
 /// User document libraries for RAG queries
 model DocumentLibrary {
-  id       String @id @default(cuid())
-  tenantId String
-
-  // Mistral Libraries API reference
-  mistralLibraryId String? // Mistral library ID after creation
-
-  // Library info
-  name        String
-  description String?
-
-  // Stats
-  documentCount Int @default(0)
-  totalSize     Int @default(0) // bytes
-
-  // Soft delete
-  isDeleted Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  documents LibraryDocument[]
+  id               String            @id @default(cuid())
+  tenantId         String
+  name             String
+  description      String?
+  documentCount    Int               @default(0)
+  totalSize        Int               @default(0)
+  isDeleted        Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  mistralLibraryId String?
+  documents        LibraryDocument[]
 
   @@unique([tenantId, name])
   @@index([tenantId, isDeleted])
@@ -1185,28 +951,17 @@ model DocumentLibrary {
 
 /// Documents within a library (stored in Mistral Libraries API)
 model LibraryDocument {
-  id        String @id @default(cuid())
-  libraryId String
-
-  // Mistral Libraries API reference
-  mistralDocumentId String? // Mistral document ID after upload
-
-  // Document info
-  filename String
-  mimeType String?
-  size     Int // bytes
-
-  // Processing status
-  status String @default("processing") // processing, ready, failed
-
-  // Soft delete
-  isDeleted Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  library DocumentLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  libraryId         String
+  filename          String
+  mimeType          String?
+  size              Int
+  status            String          @default("processing")
+  isDeleted         Boolean         @default(false)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  mistralDocumentId String?
+  library           DocumentLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
 
   @@index([libraryId, isDeleted])
   @@index([status])
@@ -1214,55 +969,247 @@ model LibraryDocument {
   @@map("library_documents")
 }
 
-// ============================================
-// AI REFACTOR v2.0 - CRM & UNIFIED CLASSIFIER
-// Added: 2025-01-05
-// ============================================
-
 /// Unified email analysis from single LLM call (replaces 11 agents)
 model EmailAnalysis {
-  id       String @id @default(cuid())
-  emailId  String @unique
-  tenantId String
-
-  // Classification (1 LLM call output)
-  priority  EmailPriority @default(NORMAL)
-  category  EmailCategory @default(OTHER)
-  sentiment Sentiment     @default(NEUTRAL)
-
-  // Extracted Data
-  hasDeadline   Boolean   @default(false)
-  deadlineDate  DateTime?
-  needsFollowUp Boolean   @default(false)
-  followUpDate  DateTime?
-
-  // CRM Signals
-  isSalesLead  Boolean     @default(false)
-  dealSignal   DealSignal?
-  buyingIntent Float? // 0-1 score
-
-  // Actions Suggested
-  suggestedActions Json @default("[]") // ActionSuggestion[]
-
-  // Summary
-  summary   String?  @db.Text
-  keyPoints String[] @default([])
-
-  // Processing Metadata
-  processedAt DateTime @default(now())
-  modelUsed   String   @default("gpt-4o-mini")
-  tokensUsed  Int      @default(0)
-  latencyMs   Int      @default(0)
-
-  // Relations
-  email  Email  @relation(fields: [emailId], references: [id], onDelete: Cascade)
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id               String        @id @default(cuid())
+  emailId          String        @unique
+  tenantId         String
+  priority         EmailPriority @default(NORMAL)
+  category         EmailCategory @default(OTHER)
+  sentiment        Sentiment     @default(NEUTRAL)
+  hasDeadline      Boolean       @default(false)
+  deadlineDate     DateTime?
+  needsFollowUp    Boolean       @default(false)
+  followUpDate     DateTime?
+  isSalesLead      Boolean       @default(false)
+  dealSignal       DealSignal?
+  buyingIntent     Float?
+  suggestedActions Json          @default("[]")
+  summary          String?
+  keyPoints        String[]      @default([])
+  processedAt      DateTime      @default(now())
+  modelUsed        String        @default("gpt-4o-mini")
+  tokensUsed       Int           @default(0)
+  latencyMs        Int           @default(0)
+  email            Email         @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([tenantId, processedAt])
   @@index([tenantId, priority])
   @@index([tenantId, needsFollowUp])
   @@map("email_analyses")
+}
+
+/// HITL Action Queue - AI suggested actions awaiting approval
+model ActionQueue {
+  id              String       @id @default(cuid())
+  tenantId        String
+  userId          String
+  emailId         String?
+  actionType      ActionType
+  actionPayload   Json
+  confidence      Float        @default(0)
+  reasoning       String?
+  status          ActionStatus @default(PENDING_APPROVAL)
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedReason  String?
+  executedAt      DateTime?
+  executionResult Json?
+  executionError  String?
+  retryCount      Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  expiresAt       DateTime?
+  email           Email?       @relation(fields: [emailId], references: [id])
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, userId, status])
+  @@index([expiresAt])
+  @@map("action_queue")
+}
+
+/// CRM Deal pipeline for sellers
+model Deal {
+  id                String         @id @default(cuid())
+  tenantId          String
+  userId            String
+  contactId         String
+  name              String
+  value             Float          @default(0)
+  currency          String         @default("USD")
+  stage             String         @default("LEAD")
+  probability       Float          @default(0)
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+  sourceEmailId     String?
+  sourceChannel     String         @default("email")
+  status            DealStatus     @default(OPEN)
+  lostReason        String?
+  notes             String?
+  customFields      Json           @default("{}")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  activities        DealActivity[]
+  contact           Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, stage])
+  @@index([tenantId, status])
+  @@map("deals")
+}
+
+/// Deal activity log
+model DealActivity {
+  id           String           @id @default(cuid())
+  dealId       String
+  emailId      String?
+  activityType DealActivityType
+  description  String?
+  metadata     Json             @default("{}")
+  createdAt    DateTime         @default(now())
+  deal         Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@map("deal_activities")
+}
+
+/// Subscription management (Autumn integration)
+model Subscription {
+  id                   String             @id @default(cuid())
+  tenantId             String             @unique
+  autumnCustomerId     String?            @unique
+  autumnSubscriptionId String?            @unique
+  plan                 SubscriptionPlan   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  monthlyEmailLimit    Int                @default(100)
+  monthlyAICallLimit   Int                @default(50)
+  maxUsers             Int                @default(1)
+  emailsProcessed      Int                @default(0)
+  aiCallsUsed          Int                @default(0)
+  usageResetAt         DateTime           @default(now())
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAt             DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model voltagent_memory_conversations {
+  id                        String                      @id
+  resource_id               String
+  user_id                   String
+  title                     String
+  metadata                  Json
+  created_at                DateTime                    @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  voltagent_memory_messages voltagent_memory_messages[]
+  voltagent_memory_steps    voltagent_memory_steps[]
+
+  @@index([resource_id], map: "idx_voltagent_memory_conversations_resource_id")
+  @@index([user_id], map: "idx_voltagent_memory_conversations_user_id")
+}
+
+model voltagent_memory_messages {
+  conversation_id                String
+  message_id                     String
+  user_id                        String
+  role                           String
+  parts                          Json?
+  metadata                       Json?
+  format_version                 Int?                           @default(2)
+  created_at                     DateTime                       @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  voltagent_memory_conversations voltagent_memory_conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([conversation_id, message_id])
+  @@index([conversation_id], map: "idx_voltagent_memory_messages_conversation_id")
+  @@index([created_at], map: "idx_voltagent_memory_messages_created_at")
+}
+
+model voltagent_memory_steps {
+  id                             String                         @id
+  conversation_id                String
+  user_id                        String
+  agent_id                       String
+  agent_name                     String?
+  operation_id                   String?
+  step_index                     Int
+  type                           String
+  role                           String
+  content                        String?
+  arguments                      Json?
+  result                         Json?
+  usage                          Json?
+  sub_agent_id                   String?
+  sub_agent_name                 String?
+  created_at                     DateTime                       @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  voltagent_memory_conversations voltagent_memory_conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([conversation_id, step_index], map: "idx_voltagent_memory_steps_conversation")
+  @@index([conversation_id, operation_id], map: "idx_voltagent_memory_steps_operation")
+}
+
+model voltagent_memory_users {
+  id         String   @id
+  metadata   Json?
+  created_at DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+}
+
+model voltagent_memory_workflow_states {
+  id              String   @id
+  workflow_id     String
+  workflow_name   String
+  status          String
+  suspension      Json?
+  events          Json?
+  output          Json?
+  cancellation    Json?
+  user_id         String?
+  conversation_id String?
+  metadata        Json?
+  created_at      DateTime @db.Timestamptz(6)
+  updated_at      DateTime @db.Timestamptz(6)
+
+  @@index([status], map: "idx_voltagent_memory_workflow_states_status")
+  @@index([workflow_id], map: "idx_voltagent_memory_workflow_states_workflow_id")
+}
+
+enum LabelType {
+  SYSTEM
+  USER
+}
+
+/// Memory type categories
+enum MemoryType {
+  PREFERENCE
+  FACT
+  PATTERN
+  INTERACTION
+  CONTACT_NOTE
+}
+
+enum FollowUpStatus {
+  PENDING
+  REMINDED
+  RESOLVED
+  EXPIRED
+}
+
+enum ContactInteractionType {
+  EMAIL_SENT
+  EMAIL_RECEIVED
+  MEETING
+  CALL
+  NOTE
 }
 
 enum EmailPriority {
@@ -1299,49 +1246,6 @@ enum DealSignal {
   CHURNING
 }
 
-/// HITL Action Queue - AI suggested actions awaiting approval
-model ActionQueue {
-  id       String  @id @default(cuid())
-  tenantId String
-  userId   String
-  emailId  String?
-
-  // Action Details
-  actionType    ActionType
-  actionPayload Json // Type-specific payload
-
-  // AI Confidence
-  confidence Float   @default(0)
-  reasoning  String? @db.Text
-
-  // HITL Status
-  status         ActionStatus @default(PENDING_APPROVAL)
-  approvedBy     String?
-  approvedAt     DateTime?
-  rejectedReason String?
-
-  // Execution
-  executedAt      DateTime?
-  executionResult Json?
-  executionError  String?
-  retryCount      Int       @default(0)
-
-  // Metadata
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  expiresAt DateTime?
-
-  // Relations
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  email  Email? @relation(fields: [emailId], references: [id], onDelete: SetNull)
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, status])
-  @@index([tenantId, userId, status])
-  @@index([expiresAt])
-  @@map("action_queue")
-}
-
 enum ActionType {
   SEND_EMAIL
   SCHEDULE_MEETING
@@ -1363,73 +1267,10 @@ enum ActionStatus {
   EXPIRED
 }
 
-/// CRM Deal pipeline for sellers
-model Deal {
-  id        String @id @default(cuid())
-  tenantId  String
-  userId    String
-  contactId String
-
-  // Deal Info
-  name        String
-  value       Float  @default(0)
-  currency    String @default("USD")
-  stage       String @default("LEAD")
-  probability Float  @default(0)
-
-  // Dates
-  expectedCloseDate DateTime?
-  actualCloseDate   DateTime?
-
-  // Source
-  sourceEmailId String?
-  sourceChannel String  @default("email")
-
-  // Status
-  status     DealStatus @default(OPEN)
-  lostReason String?
-
-  // Metadata
-  notes        String? @db.Text
-  customFields Json    @default("{}")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  contact    Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  activities DealActivity[]
-
-  @@index([tenantId, userId])
-  @@index([tenantId, stage])
-  @@index([tenantId, status])
-  @@map("deals")
-}
-
 enum DealStatus {
   OPEN
   WON
   LOST
-}
-
-/// Deal activity log
-model DealActivity {
-  id      String  @id @default(cuid())
-  dealId  String
-  emailId String?
-
-  activityType DealActivityType
-  description  String?
-  metadata     Json             @default("{}")
-
-  createdAt DateTime @default(now())
-
-  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
-
-  @@index([dealId])
-  @@map("deal_activities")
 }
 
 enum DealActivityType {
@@ -1442,43 +1283,6 @@ enum DealActivityType {
   DEAL_CREATED
   DEAL_WON
   DEAL_LOST
-}
-
-/// Subscription management (Autumn integration)
-model Subscription {
-  id       String @id @default(cuid())
-  tenantId String @unique
-
-  // Autumn Integration
-  autumnCustomerId     String? @unique
-  autumnSubscriptionId String? @unique
-
-  // Plan
-  plan   SubscriptionPlan   @default(FREE)
-  status SubscriptionStatus @default(ACTIVE)
-
-  // Limits
-  monthlyEmailLimit  Int @default(100)
-  monthlyAICallLimit Int @default(50)
-  maxUsers           Int @default(1)
-
-  // Usage This Month
-  emailsProcessed Int      @default(0)
-  aiCallsUsed     Int      @default(0)
-  usageResetAt    DateTime @default(now())
-
-  // Billing Period
-  currentPeriodStart DateTime?
-  currentPeriodEnd   DateTime?
-  cancelAt           DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@map("subscriptions")
 }
 
 enum SubscriptionPlan {

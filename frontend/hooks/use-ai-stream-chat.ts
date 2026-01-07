@@ -15,6 +15,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { voltAgentApi, ChatMessage, ConversationMessage } from '@/lib/api/ai';
+import logger from '@/lib/logger';
 
 export interface StreamChatMessage extends ChatMessage {
   id: string;
@@ -135,7 +136,7 @@ export function useAiStreamChat(
         setMessages(loadedMessages);
       }
     } catch (err) {
-      console.error('[useAiStreamChat] Failed to load conversation history:', err);
+      logger.error('[useAiStreamChat] Failed to load conversation history:', err instanceof Error ? err : new Error(String(err)));
       setError('Failed to load conversation history');
     } finally {
       setStatus('idle');

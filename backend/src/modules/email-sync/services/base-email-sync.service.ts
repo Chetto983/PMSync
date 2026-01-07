@@ -749,6 +749,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         },
       });
 
+      // HYBRID SYNC: Determine if body was actually fetched (has content)
+      const hasBody = Boolean(canonicalMsg.bodyText || canonicalMsg.bodyHtml);
+
       // Common data for both create and update
       const baseUpdateData = {
         subject: canonicalMsg.subject || '(No Subject)',
@@ -760,6 +763,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         bodyHtml: canonicalMsg.bodyHtml || '',
         snippet: canonicalMsg.snippet || '',
         receivedAt: canonicalMsg.receivedAt,
+        // HYBRID SYNC: Explicit body fetch status
+        isBodyFetched: hasBody,
       };
 
       // RC-2 FIX: If user recently modified the email, preserve their changes
@@ -819,6 +824,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
               "bodyHtml" = ${updateData.bodyHtml},
               "snippet" = ${updateData.snippet},
               "receivedAt" = ${updateData.receivedAt},
+              "isBodyFetched" = ${updateData.isBodyFetched},
               "isRead" = ${(updateData as any).isRead ?? existing.isRead},
               "isStarred" = ${(updateData as any).isStarred ?? existing.isStarred},
               "isFlagged" = ${(updateData as any).isFlagged ?? existing.isFlagged},

@@ -314,10 +314,14 @@ export class EmailsController {
     // Always include deleted emails - if user has thread ID, they can access it (trash view)
     const emails = await this.emailsService.getThread(threadId, tenantId, true);
 
-    const emailsMissingBody = emails.filter((email) => !email.bodyHtml && !email.bodyText);
+    // HYBRID SYNC: Use isBodyFetched flag for explicit body status check
+    // This is more robust than checking bodyHtml/bodyText which could be empty strings
+    const emailsMissingBody = emails.filter((email) => !email.isBodyFetched);
     if (emailsMissingBody.length === 0) {
       return emails;
     }
+
+    this.logger.debug(`Lazy loading body for ${emailsMissingBody.length}/${emails.length} emails in thread`);
 
     const fetchedEmails = await Promise.all(
       emailsMissingBody.map(async (email) => {

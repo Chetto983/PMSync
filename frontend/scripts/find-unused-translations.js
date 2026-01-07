@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable */
 /**
  * Find unused translations in the frontend codebase
  * This script extracts all translation keys from en.ts and searches for their usage
@@ -23,8 +24,8 @@ function extractTranslationKeys(content) {
 
     // Skip comments, imports, types
     if (line.startsWith('//') || line.startsWith('/*') || line.startsWith('*') ||
-        line.startsWith('import') || line.startsWith('export') || line.startsWith('type') ||
-        line.startsWith('interface')) {
+      line.startsWith('import') || line.startsWith('export') || line.startsWith('type') ||
+      line.startsWith('interface')) {
       continue;
     }
 

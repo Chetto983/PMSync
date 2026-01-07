@@ -285,7 +285,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
     const params: any = {
       $top: effectivePageSize,
       // Include 'body' to get full HTML/text content (uses Prefer: outlook.body-content-type="html" header)
-      $select: 'id,conversationId,subject,body,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId',
+      $select: 'id,conversationId,subject,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId',
     };
 
     if (!options.query) {
@@ -336,7 +336,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
     try {
       const select = options?.format === 'minimal'
         ? 'id,subject,from,receivedDateTime,isRead'
-        : 'id,conversationId,subject,body,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId,attachments';
+        : 'id,conversationId,subject,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId,attachments';
 
       const expand = options?.includeAttachments ? 'attachments' : undefined;
 

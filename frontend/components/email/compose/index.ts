@@ -25,8 +25,5 @@ export type { UseExtensionsOptions } from './useExtensions';
 
 export { default as EditorMenuControls } from './EditorMenuControls';
 
-export { default as AIComposeDialog } from './AIComposeDialog';
-export type { AIComposeDialogProps } from './AIComposeDialog';
-
 export { default as AIInlineMenu, ContentPreview } from './AIInlineMenu';
 export type { AIInlineMenuProps, ContentPreviewProps } from './AIInlineMenu';

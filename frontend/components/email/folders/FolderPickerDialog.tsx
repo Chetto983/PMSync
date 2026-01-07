@@ -50,8 +50,9 @@ export function FolderPickerDialog({
 
     // Fetch folders
     const { data, isLoading: isLoadingFolders } = useFolders();
-    const foldersByProvider = data?.foldersByProvider || {};
     const providers = data?.providers || [];
+
+    const foldersByProvider = useMemo(() => data?.foldersByProvider || {}, [data]);
 
     // Selected folder to move to
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);

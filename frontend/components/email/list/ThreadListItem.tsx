@@ -185,12 +185,12 @@ export const ThreadListItem = memo(function ThreadListItem({
             <Typography
               variant="body2"
               component="span"
+              noWrap
               sx={{
                 fontWeight: thread.isUnread ? 600 : 400,
                 fontSize: '0.875rem',
                 flex: '1 1 auto',
-                minWidth: 40,
-                wordBreak: 'break-all',
+                minWidth: 0,
               }}
             >
               {formatSender(thread.from)}

@@ -174,7 +174,8 @@
       "Bash(powershell -Command \"\\(Get-Content ''D:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\ai\\\\voltagent\\\\voltagent.service.ts''\\).Count\")",
       "Bash(MAIL_TEST_ALLOW_LABEL_MUTATIONS=true MAIL_TEST_ALLOW_FOLDER_MUTATIONS=true MAIL_TEST_ALLOW_WEBHOOK_OPS=true MAIL_TEST_ALLOW_SYNC_ALL=true MAIL_TEST_ALLOW_CLEANUP=true MAIL_TEST_ALLOW_RETENTION_RUN=true MAIL_TEST_ALLOW_CALENDAR_INVITE=true npx ts-node:*)",
       "Bash(timeout 60 npx ts-node:*)",
-      "Bash(timeout 30 npx ts-node:*)"
+      "Bash(timeout 30 npx ts-node:*)",
+      "Bash(wmic process where \"CommandLine like ''%nest%'' and CommandLine like ''%start%''\" get ProcessId,CommandLine)"
     ],
     "deny": []
   }

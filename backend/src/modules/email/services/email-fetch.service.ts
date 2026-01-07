@@ -70,6 +70,7 @@ export class EmailFetchService {
       }
 
       // Update email with fetched content
+      // HYBRID SYNC: Mark as having body fetched
       const updatedEmail = await this.prisma.email.update({
         where: { id: emailId },
         data: {
@@ -77,6 +78,7 @@ export class EmailFetchService {
           bodyHtml: fetchedContent.bodyHtml,
           headers: fetchedContent.headers as Record<string, string>,
           isArchived: false, // No longer archived since we restored content
+          isBodyFetched: true, // HYBRID SYNC: Body has been explicitly fetched
         },
         include: {
           attachments: true,
