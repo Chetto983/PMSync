@@ -129,6 +129,8 @@ export class EmailInsightsService {
       tone?: string;
       locale?: string;
       threadContext?: Array<{ subject?: string; body?: string }>;
+      senderName?: string;
+      signature?: string;
     },
     userId?: string,
   ) {
@@ -152,7 +154,9 @@ export class EmailInsightsService {
     const memoryContext = '';
 
     const toneInstruction = t.insights.tones[toneKey];
-    const systemPrompt = t.insights.compose.systemPrompt(toneInstruction);
+    // Get language name for the system prompt (e.g., "English", "Italian")
+    const languageName = t.insights.compose.languageNames?.[lang] || (lang === 'it' ? 'Italian' : 'English');
+    const systemPrompt = t.insights.compose.systemPrompt(toneInstruction, languageName);
 
     const userPrompt = this.buildComposePrompt(
       payload,
@@ -499,6 +503,8 @@ export class EmailInsightsService {
       subject?: string;
       tone?: string;
       threadContext?: Array<{ subject?: string; body?: string }>;
+      senderName?: string;
+      signature?: string;
     },
     _locale: LocaleKey,
     tone: ToneKey,
@@ -515,6 +521,14 @@ export class EmailInsightsService {
       ? `${t.insights.compose.subjectHint}: ${payload.subject}`
       : '';
     const toneLine = `${t.insights.compose.requestedTone}: ${tone}.`;
+    // Include sender name for signature personalization
+    const senderLine = payload.senderName
+      ? `${t.insights.compose.senderName}: ${payload.senderName}`
+      : '';
+    // Include custom signature if provided
+    const signatureLine = payload.signature
+      ? `${t.insights.compose.signatureInstruction}: ${payload.signature}`
+      : '';
     const threadLines =
       payload.threadContext && payload.threadContext.length
         ? t.insights.compose.threadContext +
@@ -531,6 +545,8 @@ export class EmailInsightsService {
     return [
       t.insights.compose.draftInstruction,
       toneLine,
+      senderLine,  // Include sender name in prompt
+      signatureLine, // Include signature instruction
       toLine,
       subjectLine,
       threadLines,

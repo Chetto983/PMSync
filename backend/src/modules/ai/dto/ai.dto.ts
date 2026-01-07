@@ -199,6 +199,22 @@ export class ComposeEmailDto {
   @IsOptional()
   @IsArray()
   threadContext?: Array<{ subject?: string; body?: string }>;
+
+  @ApiPropertyOptional({
+    description: 'Sender name for signature personalization',
+    example: 'Mario Rossi',
+  })
+  @IsOptional()
+  @IsString()
+  senderName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Custom email signature to append (e.g., name, title, company)',
+    example: 'Best regards,\nMario Rossi\nSoftware Engineer | Acme Corp\n+39 123 456 7890',
+  })
+  @IsOptional()
+  @IsString()
+  signature?: string;
 }
 
 export class ComposeEmailResponseDto {

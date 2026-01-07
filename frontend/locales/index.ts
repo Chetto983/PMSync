@@ -744,6 +744,31 @@ export interface AppTranslations {
       validationTo: string;
       validationSubject: string;
       sendError: string;
+      missingOriginalReply: string;
+      missingOriginalForward: string;
+      defaultBadge: string;
+      addEmailPrefix: string;
+      // Font family labels
+      fontSansSerif: string;
+      fontSerif: string;
+      fontMonospace: string;
+      fontCursive: string;
+      // Color labels
+      colorBlack: string;
+      colorWhite: string;
+      colorGrey: string;
+      colorRed: string;
+      colorOrange: string;
+      colorYellow: string;
+      colorGreen: string;
+      colorBlue: string;
+      colorDarkGrey: string;
+      colorLightGrey: string;
+      colorLightRed: string;
+      colorLightOrange: string;
+      colorLightGreen: string;
+      colorLightBlue: string;
+      colorLightPurple: string;
       uploadError: string;
       fileTooLarge: string;
       fileTypeNotAllowed: string;
@@ -793,6 +818,25 @@ export interface AppTranslations {
         draftFollowUp: string;
         draftFollowUpSecondary: string;
         draftMeetingRequest: string;
+        // Tone options for new drafts
+        toneSection: string;
+        toneProfessional: string;
+        toneFriendly: string;
+        toneCasual: string;
+        // Personalization
+        personalizationSection: string;
+        useWritingStyle: string;
+        writingStyleActive: string;
+        writingStyleLearn: string;
+        // AI instruction prompts
+        fixSpellingInstruction: string;
+        shortenInstruction: string;
+        expandInstruction: string;
+        professionalInstruction: string;
+        friendlyInstruction: string;
+        modifySelectedText: string;
+        returnModifiedText: string;
+        writeEmailIn: string;
       };
       aiModifyTitle: string;
       aiModifyPlaceholder: string;

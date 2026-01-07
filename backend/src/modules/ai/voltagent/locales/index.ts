@@ -141,18 +141,25 @@ export interface ToolTranslations {
     };
     compose: {
       description: string;
-      systemPrompt: (toneInstruction: string) => string;
+      systemPrompt: (toneInstruction: string, language: string) => string;
       originalEmail: string;
       replyInstructions: string;
       // Compose prompt strings
       recipients: string;
       subjectHint: string;
       requestedTone: string;
+      senderName: string;
+      signatureInstruction: string;
       threadContext: string;
       message: string;
       draftInstruction: string;
       userPrompt: string;
       jsonInstruction: string;
+      // Language names for AI prompt
+      languageNames?: {
+        en: string;
+        it: string;
+      };
     };
     actionItems: {
       description: string;

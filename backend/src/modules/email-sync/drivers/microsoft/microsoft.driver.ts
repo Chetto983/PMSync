@@ -284,8 +284,9 @@ export class MicrosoftDriver extends BaseEmailDriver {
 
     const params: any = {
       $top: effectivePageSize,
-      // Include 'body' to get full HTML/text content (uses Prefer: outlook.body-content-type="html" header)
-      $select: 'id,conversationId,subject,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId',
+      // AI REQUIREMENT: Include 'body' to get full content for embeddings
+      // Uses Prefer: outlook.body-content-type="html" header for HTML content
+      $select: 'id,conversationId,subject,body,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId',
     };
 
     if (!options.query) {
@@ -336,7 +337,7 @@ export class MicrosoftDriver extends BaseEmailDriver {
     try {
       const select = options?.format === 'minimal'
         ? 'id,subject,from,receivedDateTime,isRead'
-        : 'id,conversationId,subject,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId,attachments';
+        : 'id,conversationId,subject,body,bodyPreview,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,flag,importance,isDraft,hasAttachments,parentFolderId,categories,internetMessageId,attachments';
 
       const expand = options?.includeAttachments ? 'attachments' : undefined;
 
@@ -354,6 +355,15 @@ export class MicrosoftDriver extends BaseEmailDriver {
       }
       throw error;
     }
+  }
+
+  /**
+   * HYBRID SYNC: Explicit full message fetch with body content
+   * Use this for on-demand body loading (user views email)
+   * Always fetches body regardless of options
+   */
+  async getMessageWithBody(messageId: string): Promise<CanonicalMessage | null> {
+    return this.getMessage(messageId, { format: 'full', includeAttachments: true });
   }
 
   async getMessageRaw(messageId: string): Promise<string> {

@@ -69,11 +69,13 @@ function RecipientField({
   recipients,
   onChange,
   placeholder,
+  addPrefix,
 }: {
   label: string;
   recipients: Recipient[];
   onChange: (recipients: Recipient[]) => void;
   placeholder?: string;
+  addPrefix: string;
 }) {
   const [inputValue, setInputValue] = useState('');
 
@@ -238,7 +240,7 @@ function RecipientField({
                   <PersonIcon fontSize="small" />
                 </Avatar>
                 <Typography variant="body2">
-                  Add: {option.email}
+                  {addPrefix} {option.email}
                 </Typography>
               </Box>
             );
@@ -301,6 +303,7 @@ export default function ComposeRecipients({
             recipients={to}
             onChange={onToChange}
             placeholder={t.email.composer.addRecipients}
+            addPrefix={t.email.composer.addEmailPrefix}
           />
         </Box>
         <IconButton
@@ -317,12 +320,14 @@ export default function ComposeRecipients({
           recipients={cc}
           onChange={onCcChange}
           placeholder={t.email.composer.addRecipients}
+          addPrefix={t.email.composer.addEmailPrefix}
         />
         <RecipientField
           label={t.email.composer.bcc}
           recipients={bcc}
           onChange={onBccChange}
           placeholder={t.email.composer.addRecipients}
+          addPrefix={t.email.composer.addEmailPrefix}
         />
       </Collapse>
     </Box>

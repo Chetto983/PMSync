@@ -175,7 +175,8 @@
       "Bash(MAIL_TEST_ALLOW_LABEL_MUTATIONS=true MAIL_TEST_ALLOW_FOLDER_MUTATIONS=true MAIL_TEST_ALLOW_WEBHOOK_OPS=true MAIL_TEST_ALLOW_SYNC_ALL=true MAIL_TEST_ALLOW_CLEANUP=true MAIL_TEST_ALLOW_RETENTION_RUN=true MAIL_TEST_ALLOW_CALENDAR_INVITE=true npx ts-node:*)",
       "Bash(timeout 60 npx ts-node:*)",
       "Bash(timeout 30 npx ts-node:*)",
-      "Bash(wmic process where \"CommandLine like ''%nest%'' and CommandLine like ''%start%''\" get ProcessId,CommandLine)"
+      "Bash(wmic process where \"CommandLine like ''%nest%'' and CommandLine like ''%start%''\" get ProcessId,CommandLine)",
+      "Bash(timeout 15 npm run start:dev:*)"
     ],
     "deny": []
   }

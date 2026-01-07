@@ -178,19 +178,26 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
       },
       compose: {
         description: "Compose an intelligent reply to an email based on context and user writing style",
-        systemPrompt: (toneInstruction) =>
-          `You are an assistant that drafts clear, professional email replies. ${toneInstruction} Reply ONLY in JSON: {"body":"...", "subject":"Re: ..."}. Avoid markdown.`,
+        systemPrompt: (toneInstruction: string, language: string) =>
+          `You are an email drafting assistant. ${toneInstruction} CRITICAL: Write the email body ENTIRELY in ${language}. Use natural ${language} greetings, phrasing, and sign-offs appropriate for ${language} speakers. Reply ONLY in JSON: {"body":"...", "subject":"..."}. The body MUST be in ${language}. Avoid markdown.`,
         originalEmail: 'Original email:',
         replyInstructions: 'Reply instructions:',
         // Compose prompt strings
         recipients: 'Recipients',
         subjectHint: 'Subject hint',
         requestedTone: 'Requested tone',
+        senderName: 'Sender name (sign the email with this name)',
+        signatureInstruction: 'Use exactly this signature at the end of the email',
         threadContext: 'Thread context:',
         message: 'Message',
         draftInstruction: 'Draft a ready-to-send email.',
         userPrompt: 'User prompt',
         jsonInstruction: 'Return JSON with body and subject fields. No markdown.',
+        // Language names for AI prompt
+        languageNames: {
+          en: 'English',
+          it: 'Italian',
+        },
       },
       actionItems: {
         description: 'Extract action items and tasks to complete from an email',

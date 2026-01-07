@@ -427,7 +427,9 @@ export function createComposeReplyTool(options: InsightsToolOptions) {
 
       // Get tone instruction from locale
       const toneInstruction = t.insights.tones[tone];
-      const systemPrompt = t.insights.compose.systemPrompt(toneInstruction);
+      // Get language name for AI (e.g., "English", "Italian")
+      const languageName = t.insights.compose.languageNames?.[locale] || (locale === 'it' ? 'Italian' : 'English');
+      const systemPrompt = t.insights.compose.systemPrompt(toneInstruction, languageName);
 
       const originalContext = buildEmailPrompt(email, locale, t);
       const userPrompt = [

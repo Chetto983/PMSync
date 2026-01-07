@@ -314,8 +314,7 @@ export class EmailsController {
     // Always include deleted emails - if user has thread ID, they can access it (trash view)
     const emails = await this.emailsService.getThread(threadId, tenantId, true);
 
-    // HYBRID SYNC: Use isBodyFetched flag for explicit body status check
-    // This is more robust than checking bodyHtml/bodyText which could be empty strings
+    // Fetch body for archived/missing emails
     const emailsMissingBody = emails.filter((email) => !email.isBodyFetched);
     if (emailsMissingBody.length === 0) {
       return emails;
@@ -547,6 +546,7 @@ export class EmailsController {
     // Always include deleted emails - if user has ID, they can access it (trash view)
     const email = await this.emailsService.getEmailById(id, tenantId, true);
 
+    // Fetch body for archived/missing emails
     if (!email.bodyHtml && !email.bodyText) {
       try {
         return await this.fetchService.fetchArchivedEmail(id, tenantId);

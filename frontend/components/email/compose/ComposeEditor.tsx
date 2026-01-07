@@ -20,6 +20,7 @@ import {
 } from 'mui-tiptap';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { aiApi } from '@/lib/api/ai';
+import { useAuthStore } from '@/stores/auth-store';
 import EditorMenuControls from './EditorMenuControls';
 import useExtensions from './useExtensions';
 import logger from '@/lib/logger';
@@ -45,7 +46,7 @@ export type ComposeEditorProps = {
 };
 
 export default function ComposeEditor({
-  placeholder = 'Write your message...',
+  placeholder,
   content = '',
   onChange,
   editable = true,
@@ -58,9 +59,16 @@ export default function ComposeEditor({
   const t = useTranslations();
   const { locale } = useRouter();
   const composer = t.email.composer;
+  const user = useAuthStore((state) => state.user);
+
+  // Build sender name from user info
+  const senderName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || undefined;
+
+  // Use provided placeholder or fallback to translation
+  const editorPlaceholder = placeholder || composer.bodyPlaceholder;
 
   const extensions = useExtensions({
-    placeholder,
+    placeholder: editorPlaceholder,
   });
   const rteRef = useRef<RichTextEditorRef>(null);
   // Inline AI state
@@ -178,26 +186,28 @@ export default function ComposeEditor({
     setShowAiPanel(true); // Show the review panel
     setAiIsLoading(true);
     setAiContent(null);
-    // setAiInstruction(prompt); // Removed unused state
+
+    const aiMenu = composer.aiMenu;
+    // Target language name in user's locale for clear AI instruction
+    const targetLanguage = locale?.startsWith('it') ? 'italiano' : 'English';
 
     try {
       let contextPrompt: string;
-      const targetLanguage = locale?.startsWith('it') ? 'Italian' : 'English';
 
-      // Construct Prompt based on Action & Selection
+      // Construct Prompt based on Action & Selection - using localized instructions
       if (selectedText && isModifyMode) {
-        // Refinement Mode
+        // Refinement Mode - use localized instructions
         let instruction = prompt;
-        if (actionType === 'fix_spelling') instruction = "Fix spelling and grammar. Maintain original tone.";
-        if (actionType === 'shorten') instruction = "Make this text shorter and more concise.";
-        if (actionType === 'expand') instruction = "Expand this text with more detail and polish.";
-        if (actionType === 'tone_professional') instruction = "Rewrite this in a strictly professional and formal tone.";
-        if (actionType === 'tone_friendly') instruction = "Rewrite this in a friendly and approachable tone.";
+        if (actionType === 'fix_spelling') instruction = aiMenu.fixSpellingInstruction;
+        if (actionType === 'shorten') instruction = aiMenu.shortenInstruction;
+        if (actionType === 'expand') instruction = aiMenu.expandInstruction;
+        if (actionType === 'tone_professional') instruction = aiMenu.professionalInstruction;
+        if (actionType === 'tone_friendly') instruction = aiMenu.friendlyInstruction;
 
-        contextPrompt = `${instruction}\n\nSelected text to modify:\n${selectedText}\n\nReturn only the modified text in ${targetLanguage}.`;
+        contextPrompt = `${instruction}\n\n${aiMenu.modifySelectedText}\n${selectedText}\n\n${aiMenu.returnModifiedText} ${targetLanguage}.`;
       } else {
         // Drafting Mode (New)
-        contextPrompt = `${prompt}\n\nWrite the email in ${targetLanguage}.`;
+        contextPrompt = `${prompt}\n\n${aiMenu.writeEmailIn} ${targetLanguage}.`;
       }
 
       const response = await aiApi.composeEmail({
@@ -205,6 +215,8 @@ export default function ComposeEditor({
         to: recipients,
         subject: subject || undefined,
         locale: locale || 'en',
+        senderName,
+        // TODO: signature will come from user settings once signature editor is implemented
       });
 
       if (response.data.success && response.data.body) {
@@ -219,11 +231,11 @@ export default function ComposeEditor({
       }
     } catch (err) {
       logger.error('AI compose error', err instanceof Error ? err : new Error(String(err)));
-      setAiContent('<p style="color: red;">Error generating content. Please try again.</p>');
+      setAiContent(`<p style="color: red;">${composer.aiComposeError}</p>`);
     } finally {
       setAiIsLoading(false);
     }
-  }, [selectedText, isModifyMode, recipients, subject, locale, handleCloseAiMenu]);
+  }, [selectedText, isModifyMode, recipients, subject, locale, senderName, handleCloseAiMenu, composer]);
 
   // Close AI Result Panel
   const handleCloseAiPanel = useCallback(() => {

@@ -749,7 +749,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         },
       });
 
-      // HYBRID SYNC: Determine if body was actually fetched (has content)
+      // Full body sync: Store both bodyText and bodyHtml
+      // This ensures AI embeddings work and UI displays properly
       const hasBody = Boolean(canonicalMsg.bodyText || canonicalMsg.bodyHtml);
 
       // Common data for both create and update
@@ -763,7 +764,6 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         bodyHtml: canonicalMsg.bodyHtml || '',
         snippet: canonicalMsg.snippet || '',
         receivedAt: canonicalMsg.receivedAt,
-        // HYBRID SYNC: Explicit body fetch status
         isBodyFetched: hasBody,
       };
 
@@ -900,12 +900,18 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       // Only queue embeddings and emit events for new messages
       if (wasNew) {
         // Queue for embeddings (skip SPAM/TRASH - they're junk)
+        // Body is always fetched during sync for AI embeddings to work
         if (!isJunkFolder(result.folder)) {
           await this.getEmbeddingQueue().enqueue({
             emailId: result.id,
             tenantId,
+            providerId,
             subject: result.subject,
             snippet: result.snippet || '',
+            bodyText: result.bodyText || '',
+            bodyHtml: result.bodyHtml || '',
+            from: result.from || '',
+            receivedAt: result.receivedAt || new Date(),
           });
         }
 
@@ -1025,6 +1031,9 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
       const userModifiedAt = userModifiedMap.get(`${msg.id}:${msg.folder}`);
       const userModifiedRecently = userModifiedAt && (now - userModifiedAt.getTime()) < FIVE_MINUTES;
 
+      // Full body sync for AI and UI
+      const hasBody = Boolean(msg.bodyText || msg.bodyHtml);
+
       // Base update data (content fields only)
       const baseUpdateData = {
         subject: msg.subject || '(No Subject)',
@@ -1036,6 +1045,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         bodyHtml: msg.bodyHtml || '',
         snippet: msg.snippet || '',
         receivedAt: msg.receivedAt,
+        isBodyFetched: hasBody,
       };
 
       // Only include state fields if user didn't modify recently
@@ -1139,12 +1149,18 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         newCount++;
 
         // Queue for embeddings (skip SPAM/TRASH)
+        // Body is always fetched during sync for AI embeddings to work
         if (!isJunkFolder(result.folder)) {
           await this.getEmbeddingQueue().enqueue({
             emailId: result.id,
             tenantId,
+            providerId,
             subject: result.subject,
             snippet: result.snippet || '',
+            bodyText: result.bodyText || '',
+            bodyHtml: result.bodyHtml || '',
+            from: result.from || '',
+            receivedAt: result.receivedAt || new Date(),
           });
         }
 

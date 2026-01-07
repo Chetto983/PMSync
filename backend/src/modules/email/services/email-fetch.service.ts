@@ -5,6 +5,7 @@ import { Client as GraphClient } from '@microsoft/microsoft-graph-client';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { parseImapExternalId } from '../../../common/utils/imap-utils';
 import { ProviderTokenService } from '../../email-sync/services/provider-token.service';
+import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import type { Email, ProviderConfig } from '@prisma/client';
@@ -20,6 +21,7 @@ export class EmailFetchService {
     private prisma: PrismaService,
     private crypto: CryptoService,
     private providerTokenService: ProviderTokenService,
+    private emailEmbeddingQueue: EmailEmbeddingQueueService,
   ) { }
 
   /**
@@ -104,6 +106,26 @@ export class EmailFetchService {
       });
 
       this.logger.log(`Successfully restored archived email ${emailId}`);
+
+      // HYBRID SYNC: Queue for embedding now that we have full body content
+      // This is the moment when AI can properly index the email
+      if (fetchedContent.bodyText || fetchedContent.bodyHtml) {
+        await this.emailEmbeddingQueue.enqueue({
+          emailId: updatedEmail.id,
+          tenantId,
+          providerId: email.providerId,
+          subject: updatedEmail.subject || '',
+          snippet: updatedEmail.snippet || '',
+          bodyText: fetchedContent.bodyText || '',
+          bodyHtml: fetchedContent.bodyHtml || '',
+          from: updatedEmail.from || '',
+          receivedAt: updatedEmail.receivedAt || new Date(),
+        }).catch((err) => {
+          // Non-blocking: Embedding failure shouldn't break body fetch
+          this.logger.warn(`Failed to queue embedding for email ${emailId}: ${err.message}`);
+        });
+        this.logger.log(`Queued embedding for email ${emailId} after body fetch`);
+      }
 
       return updatedEmail;
     } catch (error) {

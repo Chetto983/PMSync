@@ -282,7 +282,7 @@ export default function ComposeDialog({
       if (mode === 'reply' || mode === 'replyAll') {
         // Reply mode
         if (!originalEmail?.id) {
-          setError('Missing original email for reply');
+          setError(composer.missingOriginalReply);
           return;
         }
         await replyToEmail.mutateAsync({
@@ -298,7 +298,7 @@ export default function ComposeDialog({
       } else if (mode === 'forward') {
         // Forward mode
         if (!originalEmail?.id) {
-          setError('Missing original email for forward');
+          setError(composer.missingOriginalForward);
           return;
         }
         await forwardEmail.mutateAsync({
@@ -507,7 +507,7 @@ export default function ComposeDialog({
                             )}
                             {provider.isDefault && (
                               <Typography variant="caption" color="primary">
-                                • Default
+                                • {composer.defaultBadge}
                               </Typography>
                             )}
                           </Box>

@@ -268,10 +268,10 @@ export class GoogleDriver extends BaseEmailDriver {
       .filter((ref) => ref.id)
       .map((ref) => ref.id!);
 
-    // MEMORY OPTIMIZATION for >1000 users:
-    // Only fetch full body when explicitly requested
-    // Default to metadata-only for massive memory savings
-    const messages = await this.batchGetMessages(messageIds, options.includeBody === true);
+    // AI REQUIREMENT: Fetch full body for embeddings to work
+    // Without body, AI queries will fail to find email content
+    // Memory optimization is sacrificed for AI functionality
+    const messages = await this.batchGetMessages(messageIds, true);
 
     return {
       messages,
@@ -288,9 +288,9 @@ export class GoogleDriver extends BaseEmailDriver {
     this.ensureConnected();
 
     try {
-      // HYBRID SYNC: Default to metadata for scalability
-      // Body is fetched lazily on-demand via getMessageWithBody()
-      const format = options?.format || 'metadata';
+      // AI REQUIREMENT: Default to full format for embeddings
+      // Metadata-only breaks AI queries - always fetch body
+      const format = options?.format || 'full';
       const response = await this.executeWithRetry(
         () => this.gmail!.users.messages.get({
           userId: 'me',

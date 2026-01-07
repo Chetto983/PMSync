@@ -22,10 +22,9 @@ import {
     UnfoldMore as ExpandIcon,
     SentimentSatisfied as FriendlyIcon,
     Business as ProfessionalIcon,
-    Bolt as _UrgentIcon,
-    FormatListBulleted as _ListIcon,
-    Translate as _TranslateIcon,
-    Create as DraftIcon
+    Create as DraftIcon,
+    Psychology as StyleIcon,
+    EmojiEmotions as CasualIcon
 } from '@mui/icons-material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -222,6 +221,7 @@ export default function AiComposeMenu({
                     ) : (
                         // Actions relevant to new drafts
                         <>
+                            {/* Draft templates */}
                             <ListItemButton onClick={() => handleQuickAction('custom', t.email.composer.aiMenu.draftProjectUpdate)}>
                                 <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon fontSize="small" /></ListItemIcon>
                                 <ListItemText
@@ -240,6 +240,37 @@ export default function AiComposeMenu({
                                 <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><DraftIcon fontSize="small" /></ListItemIcon>
                                 <ListItemText primary={t.email.composer.aiMenu.draftMeetingRequest} />
                             </ListItemButton>
+
+                            <Divider sx={{ my: 1 }} />
+
+                            {/* Tone section header */}
+                            <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 0.5, display: 'block' }}>
+                                {t.email.composer.aiMenu.toneSection}
+                            </Typography>
+
+                            {/* Tone options for new drafts */}
+                            <ListItemButton onClick={() => handleQuickAction('tone_professional', t.email.composer.aiMenu.toneProfessional)}>
+                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><ProfessionalIcon fontSize="small" /></ListItemIcon>
+                                <ListItemText primary={t.email.composer.aiMenu.toneProfessional} />
+                            </ListItemButton>
+                            <ListItemButton onClick={() => handleQuickAction('tone_friendly', t.email.composer.aiMenu.toneFriendly)}>
+                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><FriendlyIcon fontSize="small" /></ListItemIcon>
+                                <ListItemText primary={t.email.composer.aiMenu.toneFriendly} />
+                            </ListItemButton>
+                            <ListItemButton onClick={() => handleQuickAction('custom', t.email.composer.aiMenu.toneCasual)}>
+                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><CasualIcon fontSize="small" /></ListItemIcon>
+                                <ListItemText primary={t.email.composer.aiMenu.toneCasual} />
+                            </ListItemButton>
+
+                            <Divider sx={{ my: 1 }} />
+
+                            {/* Personalization indicator */}
+                            <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <StyleIcon fontSize="small" color="primary" />
+                                <Typography variant="caption" color="text.secondary">
+                                    {t.email.composer.aiMenu.writingStyleActive}
+                                </Typography>
+                            </Box>
                         </>
                     )}
                 </List>

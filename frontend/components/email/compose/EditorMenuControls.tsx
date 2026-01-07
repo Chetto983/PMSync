@@ -5,6 +5,10 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import {
   MenuButtonAddTable,
+  MenuButtonAlignCenter,
+  MenuButtonAlignJustify,
+  MenuButtonAlignLeft,
+  MenuButtonAlignRight,
   MenuButtonBlockquote,
   MenuButtonBold,
   MenuButtonBulletedList,
@@ -32,7 +36,6 @@ import {
   MenuSelectFontFamily,
   MenuSelectFontSize,
   MenuSelectHeading,
-  MenuSelectTextAlign,
   isTouchDevice,
 } from 'mui-tiptap';
 import { useTranslations } from '@/lib/hooks/use-translations';
@@ -73,10 +76,10 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
 
       <MenuSelectFontFamily
         options={[
-          { label: 'Sans Serif', value: 'Arial, sans-serif' },
-          { label: 'Serif', value: 'Georgia, serif' },
-          { label: 'Monospace', value: 'monospace' },
-          { label: 'Cursive', value: 'cursive' },
+          { label: composer.fontSansSerif, value: 'Arial, sans-serif' },
+          { label: composer.fontSerif, value: 'Georgia, serif' },
+          { label: composer.fontMonospace, value: 'monospace' },
+          { label: composer.fontCursive, value: 'cursive' },
         ]}
       />
 
@@ -120,14 +123,14 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
         tooltipLabel={composer.textColor}
         defaultTextColor={theme.palette.text.primary}
         swatchColors={[
-          { value: '#000000', label: 'Black' },
-          { value: '#ffffff', label: 'White' },
-          { value: '#888888', label: 'Grey' },
-          { value: '#ff0000', label: 'Red' },
-          { value: '#ff9900', label: 'Orange' },
-          { value: '#ffff00', label: 'Yellow' },
-          { value: '#00d000', label: 'Green' },
-          { value: '#0000ff', label: 'Blue' },
+          { value: '#000000', label: composer.colorBlack },
+          { value: '#ffffff', label: composer.colorWhite },
+          { value: '#888888', label: composer.colorGrey },
+          { value: '#ff0000', label: composer.colorRed },
+          { value: '#ff9900', label: composer.colorOrange },
+          { value: '#ffff00', label: composer.colorYellow },
+          { value: '#00d000', label: composer.colorGreen },
+          { value: '#0000ff', label: composer.colorBlue },
         ]}
         labels={{
           cancelButton: composer.colorPickerCancel,
@@ -141,14 +144,14 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
       <MenuButtonHighlightColor
         tooltipLabel={composer.highlight}
         swatchColors={[
-          { value: '#595959', label: 'Dark grey' },
-          { value: '#dddddd', label: 'Light grey' },
-          { value: '#ffa6a6', label: 'Light red' },
-          { value: '#ffd699', label: 'Light orange' },
-          { value: '#ffff00', label: 'Yellow' },
-          { value: '#99cc99', label: 'Light green' },
-          { value: '#90c6ff', label: 'Light blue' },
-          { value: '#8085e9', label: 'Light purple' },
+          { value: '#595959', label: composer.colorDarkGrey },
+          { value: '#dddddd', label: composer.colorLightGrey },
+          { value: '#ffa6a6', label: composer.colorLightRed },
+          { value: '#ffd699', label: composer.colorLightOrange },
+          { value: '#ffff00', label: composer.colorYellow },
+          { value: '#99cc99', label: composer.colorLightGreen },
+          { value: '#90c6ff', label: composer.colorLightBlue },
+          { value: '#8085e9', label: composer.colorLightPurple },
         ]}
         labels={{
           cancelButton: composer.colorPickerCancel,
@@ -165,7 +168,13 @@ export default function EditorMenuControls({ onAiCompose, onAttach }: EditorMenu
 
       <MenuDivider />
 
-      <MenuSelectTextAlign />
+      <MenuButtonAlignLeft tooltipLabel={composer.alignLeft} />
+
+      <MenuButtonAlignCenter tooltipLabel={composer.alignCenter} />
+
+      <MenuButtonAlignRight tooltipLabel={composer.alignRight} />
+
+      <MenuButtonAlignJustify tooltipLabel={composer.alignJustify} />
 
       <MenuDivider />
 
