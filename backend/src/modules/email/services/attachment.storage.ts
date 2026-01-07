@@ -200,6 +200,12 @@ export class AttachmentStorageService {
    * Parse pending storage path to extract provider reference
    * Format: "providerId/externalMessageId/externalAttachmentId"
    *
+   * Note: externalMessageId can contain "/" for IMAP nested folders
+   * (e.g., "My/Nested/Folder:12345"), so we take:
+   * - First part = providerId
+   * - Last part = externalAttachmentId
+   * - Everything in between = externalMessageId
+   *
    * @param storagePath - Storage path from database
    * @returns Parsed reference or null if invalid
    */
@@ -209,15 +215,23 @@ export class AttachmentStorageService {
     externalAttachmentId: string;
   } | null {
     const parts = storagePath.split('/');
-    if (parts.length !== 3) {
+    // Need at least 3 parts: providerId, externalMessageId (1+ parts), externalAttachmentId
+    if (parts.length < 3) {
       this.logger.warn(`Invalid pending storage path format: ${storagePath}`);
       return null;
     }
 
+    // First part is providerId
+    const providerId = parts[0];
+    // Last part is externalAttachmentId
+    const externalAttachmentId = parts[parts.length - 1];
+    // Everything in between is externalMessageId (handles nested folders with /)
+    const externalMessageId = parts.slice(1, -1).join('/');
+
     return {
-      providerId: parts[0],
-      externalMessageId: parts[1],
-      externalAttachmentId: parts[2],
+      providerId,
+      externalMessageId,
+      externalAttachmentId,
     };
   }
 

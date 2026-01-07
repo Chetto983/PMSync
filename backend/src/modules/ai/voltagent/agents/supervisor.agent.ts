@@ -130,10 +130,12 @@ function formatCurrentDateTime(timezone?: string): string {
 /**
  * Builds dynamic instructions with user context injected.
  * Includes current datetime in the user's timezone for temporal awareness.
+ * Adds locale instruction to force response language.
  */
 export function buildDynamicInstructions(
   baseInstructions: string,
   userContext?: UserContext,
+  locale?: string,
 ): string {
   // Always add current datetime section (even without user context)
   const currentDateTime = formatCurrentDateTime(userContext?.timezone);
@@ -143,8 +145,14 @@ The current date and time is: ${currentDateTime}
 Use this information when answering questions about "today", "tomorrow", "this week", scheduling, or any time-relative queries.
 `;
 
+  // Add locale instruction for response language
+  const localeInstruction = locale && locale !== 'en' ? `
+## Response Language
+IMPORTANT: You MUST respond in ${locale === 'it' ? 'Italian (italiano)' : locale}. All your messages to the user must be in this language.
+` : '';
+
   if (!userContext) {
-    return `${baseInstructions}\n${dateTimeSection}`;
+    return `${baseInstructions}\n${dateTimeSection}${localeInstruction}`;
   }
 
   // Build user profile section
@@ -224,7 +232,7 @@ Use this information when the user asks about their email accounts, mentions spe
   }
 
   if (userInfo.length === 0 && !providersSection) {
-    return `${baseInstructions}\n${dateTimeSection}`;
+    return `${baseInstructions}\n${dateTimeSection}${localeInstruction}`;
   }
 
   // Inject user context into instructions
@@ -236,7 +244,7 @@ ${userInfo.join('\n')}
 IMPORTANT: Remember and use this information throughout the conversation. Address the user by name when appropriate.
 ` : '';
 
-  return `${baseInstructions}\n${dateTimeSection}${userContextSection}${providersSection}`;
+  return `${baseInstructions}\n${dateTimeSection}${userContextSection}${providersSection}${localeInstruction}`;
 }
 
 /**
@@ -267,10 +275,11 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     // longTermMemoryService, deadlineService, actionItemService removed - AI refactor v2.0
     followUpService: _followUpService,
   } = options;
-  const t = getAgentTranslations(locale);
+  // Always use English prompts, locale only affects response language
+  const t = getAgentTranslations('en');
 
-  // Build dynamic instructions with user context
-  const dynamicInstructions = buildDynamicInstructions(t.supervisor.instructions, userContext);
+  // Build dynamic instructions with user context + locale for response language
+  const dynamicInstructions = buildDynamicInstructions(t.supervisor.instructions, userContext, locale);
 
   // Create all specialist agents with shared hooks for per-agent metrics
   // Pass cacheService for Redis-based metadata caching (multi-instance support)

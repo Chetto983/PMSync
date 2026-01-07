@@ -382,8 +382,9 @@ export type MultiAgentResponse = ChatResult & {
 
 // SSE Stream Event Types
 export type StreamEvent =
+  | { type: 'metadata'; conversationId: string }
   | { type: 'chunk'; content: string }
-  | { type: 'done' }
+  | { type: 'done'; conversationId?: string }
   | { type: 'error'; message: string };
 
 // ============ VoltAgent (AI Secretary) Types ============
@@ -569,6 +570,8 @@ export const voltAgentApi = {
     onChunk: (chunk: string) => void,
     onDone?: () => void,
     onError?: (error: string) => void,
+    /** Callback when conversationId is received (for new conversations) */
+    onConversationId?: (conversationId: string) => void,
   ): AbortController {
     const controller = new AbortController();
 
@@ -607,9 +610,16 @@ export const voltAgentApi = {
           if (line.startsWith('data: ')) {
             try {
               const event: StreamEvent = JSON.parse(line.slice(6));
-              if (event.type === 'chunk') {
+              if (event.type === 'metadata') {
+                // Capture conversationId early (before streaming starts)
+                onConversationId?.(event.conversationId);
+              } else if (event.type === 'chunk') {
                 onChunk(event.content);
               } else if (event.type === 'done') {
+                // Also capture conversationId in done event (fallback)
+                if (event.conversationId) {
+                  onConversationId?.(event.conversationId);
+                }
                 onDone?.();
               } else if (event.type === 'error') {
                 onError?.(event.message);

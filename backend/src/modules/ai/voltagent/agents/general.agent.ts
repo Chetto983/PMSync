@@ -21,13 +21,15 @@ export interface GeneralAgentOptions {
  */
 export function createGeneralAgent(options: GeneralAgentOptions): Agent {
   const { model, locale, hooks, memory } = options;
-  const t = getAgentTranslations(locale);
+  // Always use English prompts - locale only affects response language
+  const t = getAgentTranslations('en');
+  const localeInstruction = locale !== 'en' ? `\n\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian' : locale}.` : '';
 
   return new Agent({
     name: 'GeneralAgent',
     purpose: 'Handle general questions, greetings, small talk, and non-specialized conversation ONLY when no other agent applies. Fallback agent.',
     model,
-    instructions: t.general.instructions,
+    instructions: t.general.instructions + localeInstruction,
     tools: [],
     hooks,
     memory,

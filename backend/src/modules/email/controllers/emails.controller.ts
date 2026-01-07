@@ -7,6 +7,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   NotFoundException,
   Param,
   Patch,
@@ -92,6 +93,7 @@ const decodeAttachments = (attachments?: EmailAttachmentDto[]): DecodedAttachmen
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class EmailsController {
   private readonly maxEmailListLimit: number;
+  private readonly logger = new Logger(EmailsController.name);
 
   constructor(
     private emailsService: EmailsService,
@@ -310,7 +312,28 @@ export class EmailsController {
   async getThread(@Req() req: AuthenticatedRequest, @Param('threadId') threadId: string) {
     const tenantId = req.user.tenantId;
     // Always include deleted emails - if user has thread ID, they can access it (trash view)
-    return this.emailsService.getThread(threadId, tenantId, true);
+    const emails = await this.emailsService.getThread(threadId, tenantId, true);
+
+    const emailsMissingBody = emails.filter((email) => !email.bodyHtml && !email.bodyText);
+    if (emailsMissingBody.length === 0) {
+      return emails;
+    }
+
+    const fetchedEmails = await Promise.all(
+      emailsMissingBody.map(async (email) => {
+        try {
+          return await this.fetchService.fetchArchivedEmail(email.id, tenantId);
+        } catch (error) {
+          this.logger.warn(
+            `Failed to fetch missing body for thread email ${email.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return email;
+        }
+      }),
+    );
+
+    const fetchedMap = new Map(fetchedEmails.map((email) => [email.id, email]));
+    return emails.map((email) => fetchedMap.get(email.id) ?? email);
   }
 
   /**
@@ -440,7 +463,7 @@ export class EmailsController {
         // Check for existing event with lock to prevent race condition
         const existingEvents = await tx.$queryRaw<Array<{ id: string; timeZone: string; metadata: unknown }>>`
           SELECT id, "timeZone", metadata
-          FROM "CalendarEvent"
+          FROM "calendar_events"
           WHERE "tenantId" = ${tenantId}
             AND "providerId" = ${email.providerId}
             AND "iCalUID" = ${invite.uid}
@@ -518,7 +541,19 @@ export class EmailsController {
   async getEmail(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     // Always include deleted emails - if user has ID, they can access it (trash view)
-    return this.emailsService.getEmailById(id, tenantId, true);
+    const email = await this.emailsService.getEmailById(id, tenantId, true);
+
+    if (!email.bodyHtml && !email.bodyText) {
+      try {
+        return await this.fetchService.fetchArchivedEmail(id, tenantId);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to fetch missing body for email ${id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return email;
   }
 
   /**

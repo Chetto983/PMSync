@@ -483,6 +483,71 @@ export function createEmailTools(
       },
     }),
 
+    // ========== GET EMAIL CONTENT ==========
+    createTool({
+      name: 'get_email_content',
+      description:
+        'Get the full content/body of a specific email. Use this to read, summarize, or analyze an email. IMPORTANT: Call this BEFORE trying to summarize or answer questions about a specific email.',
+      parameters: z.object({
+        emailId: z.string().describe('The ID of the email to read'),
+      }),
+      execute: async ({ emailId }) => {
+        const email = await prisma.email.findFirst({
+          where: { id: emailId, tenantId },
+          select: {
+            id: true,
+            subject: true,
+            from: true,
+            to: true,
+            cc: true,
+            bodyText: true,
+            bodyHtml: true,
+            snippet: true,
+            receivedAt: true,
+            isRead: true,
+            isStarred: true,
+            folder: true,
+          },
+          // Note: attachments is a separate relation, fetched below if needed
+        });
+
+        if (!email) {
+          return {
+            success: false,
+            error: t.email.notFound,
+          };
+        }
+
+        // Fetch attachments separately (relation)
+        const attachments = await prisma.emailAttachment.findMany({
+          where: { emailId },
+          select: { filename: true, size: true },
+        });
+
+        // Get email body - prefer text, fallback to HTML stripped, then snippet
+        const body = email.bodyText || email.bodyHtml || email.snippet || '';
+
+        return {
+          success: true,
+          data: {
+            id: email.id,
+            subject: email.subject,
+            from: email.from,
+            to: email.to,
+            cc: email.cc,
+            body,
+            receivedAt: email.receivedAt?.toISOString() ?? null,
+            isRead: email.isRead,
+            isStarred: email.isStarred,
+            folder: email.folder ?? 'INBOX',
+            hasAttachments: attachments.length > 0,
+            attachments: attachments.map((a) => a.filename),
+          },
+          summary: `Email from ${email.from}: "${email.subject}"`,
+        };
+      },
+    }),
+
     // ========== COUNT EMAILS ==========
     createTool({
       name: 'count_emails',

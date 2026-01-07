@@ -218,7 +218,7 @@ export async function withEventLock<T>(
         async (tx) => {
             // Lock the row with SELECT FOR UPDATE
             const event = await tx.$queryRaw`
-        SELECT id, "syncVersion" FROM "CalendarEvent" 
+        SELECT id, "syncVersion" FROM "calendar_events" 
         WHERE id = ${eventId} 
         FOR UPDATE NOWAIT
       `;

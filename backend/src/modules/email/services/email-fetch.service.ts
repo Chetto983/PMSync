@@ -43,7 +43,7 @@ export class EmailFetchService {
     }
 
     // Check if body content is already present
-    if (email.bodyHtml && email.bodyText && !email.isArchived) {
+    if ((email.bodyHtml || email.bodyText) && !email.isArchived) {
       this.logger.log(`Email ${emailId} already has body content, returning existing data`);
       return email;
     }
@@ -80,6 +80,24 @@ export class EmailFetchService {
         },
         include: {
           attachments: true,
+          provider: {
+            select: {
+              id: true,
+              email: true,
+              providerType: true,
+            },
+          },
+          emailLabels: {
+            select: {
+              label: {
+                select: {
+                  id: true,
+                  name: true,
+                  color: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -117,9 +135,9 @@ export class EmailFetchService {
 
     const extractBody = (part: gmail_v1.Schema$MessagePart) => {
       if (part.mimeType === 'text/plain' && part.body?.data) {
-        bodyText = Buffer.from(part.body.data, 'base64').toString('utf8');
+        bodyText += this.decodeBase64Url(part.body.data);
       } else if (part.mimeType === 'text/html' && part.body?.data) {
-        bodyHtml = Buffer.from(part.body.data, 'base64').toString('utf8');
+        bodyHtml += this.decodeBase64Url(part.body.data);
       } else if (part.parts) {
         part.parts.forEach(extractBody);
       }
@@ -248,6 +266,16 @@ export class EmailFetchService {
         );
       }
     }
+  }
+
+  private decodeBase64Url(data: string): string {
+    if (!data) return '';
+    let normalized = data.replace(/-/g, '+').replace(/_/g, '/');
+    const padLength = normalized.length % 4;
+    if (padLength !== 0) {
+      normalized += '='.repeat(4 - padLength);
+    }
+    return Buffer.from(normalized, 'base64').toString('utf8');
   }
 
 }

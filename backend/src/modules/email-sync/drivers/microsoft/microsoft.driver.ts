@@ -580,6 +580,9 @@ export class MicrosoftDriver extends BaseEmailDriver {
     const response = await this.executeWithRetry(
       () => this.client!.get(
         `/me/messages/${messageId}/attachments/${attachmentId}`,
+        {
+          params: { $select: 'id,name,contentType,size,isInline,contentId' },
+        },
       ),
       'getAttachment',
     );
@@ -848,9 +851,20 @@ export class MicrosoftDriver extends BaseEmailDriver {
       try {
         let response = await this.client!.post('/$batch', { requests });
 
+        const batchMessages: Array<CanonicalMessage | null> = new Array(batchIds.length).fill(null);
         for (const res of response.data.responses) {
+          const index = Number(res.id);
+          if (!Number.isInteger(index) || index < 0 || index >= batchIds.length) {
+            continue;
+          }
           if (res.status === 200 && res.body) {
-            messages.push(this.graphMessageToCanonical(res.body));
+            batchMessages[index] = this.graphMessageToCanonical(res.body);
+          }
+        }
+
+        for (const msg of batchMessages) {
+          if (msg) {
+            messages.push(msg);
           }
         }
 
@@ -1142,6 +1156,27 @@ export class MicrosoftDriver extends BaseEmailDriver {
     }
   }
 
+  private async lookupFolderIdByDisplayName(displayName: string): Promise<string | null> {
+    const escapedName = displayName.replace(/'/g, "''");
+    const response = await this.executeWithRetry(
+      () => this.client!.get('/me/mailFolders', {
+        params: {
+          $top: 1,
+          $filter: `displayName eq '${escapedName}'`,
+        },
+      }),
+      'resolveFolderId:displayName',
+    );
+
+    const folder = response.data?.value?.[0];
+    if (!folder?.id) {
+      return null;
+    }
+
+    this.folderPathCache.set(folder.id, folder.displayName || displayName);
+    return folder.id;
+  }
+
   private async resolveFolderId(folderOrCanonical: string): Promise<string> {
     // Check cache first
     const cached = this.folderIdCache.get(folderOrCanonical.toUpperCase());
@@ -1159,6 +1194,17 @@ export class MicrosoftDriver extends BaseEmailDriver {
       } catch {
         // Folder doesn't exist
       }
+    }
+
+    // Lookup by displayName for custom folders
+    try {
+      const folderId = await this.lookupFolderIdByDisplayName(folderOrCanonical);
+      if (folderId) {
+        this.folderIdCache.set(folderOrCanonical.toUpperCase(), folderId);
+        return folderId;
+      }
+    } catch (error: any) {
+      this.logger.warn(`resolveFolderId: displayName lookup failed for ${folderOrCanonical}: ${error.message}`);
     }
 
     // Assume it's already a folder ID

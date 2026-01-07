@@ -37,7 +37,9 @@ export interface WebSearchAgentOptions {
  */
 export function createWebSearchAgent(options: WebSearchAgentOptions): Agent {
   const { model, configService, locale, tenantId, userId, hooks, cacheService, memory } = options;
-  const t = getAgentTranslations(locale);
+  // Always use English prompts - locale only affects response language
+  const t = getAgentTranslations('en');
+  const localeInstruction = locale !== 'en' ? `\n\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian' : locale}.` : '';
 
   // Create web search tool with Redis caching
   const webSearchTool = createWebSearchTool({
@@ -52,7 +54,7 @@ export function createWebSearchAgent(options: WebSearchAgentOptions): Agent {
     name: 'WebSearchAgent',
     purpose: 'Search CURRENT/REAL-TIME information from the web. Use ONLY for: news, weather, live data, public facts. NEVER use for people names (Borello, Mario, etc.) - those are email correspondents, use EmailAgent instead!',
     model,
-    instructions: t.webSearch.instructions,
+    instructions: t.webSearch.instructions + localeInstruction,
     tools: [webSearchTool],
     hooks,
     memory,

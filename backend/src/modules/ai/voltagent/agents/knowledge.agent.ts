@@ -114,7 +114,9 @@ function createRetriever(options: KnowledgeAgentOptions): BaseRetriever | undefi
  */
 export function createKnowledgeAgent(options: KnowledgeAgentOptions): Agent {
   const { model, prisma, locale, tenantId, hooks, memory } = options;
-  const t = getAgentTranslations(locale);
+  // Always use English prompts - locale only affects response language
+  const t = getAgentTranslations('en');
+  const localeInstruction = locale !== 'en' ? `\n\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian' : locale}.` : '';
 
   // Create retriever for RAG (optional - falls back to tool-based search)
   const retriever = createRetriever(options);
@@ -123,7 +125,7 @@ export function createKnowledgeAgent(options: KnowledgeAgentOptions): Agent {
     name: 'KnowledgeAgent',
     purpose: 'Search saved emails and documents in knowledge base. Use for: finding past emails, searching archived content.',
     model,
-    instructions: t.knowledge.instructions,
+    instructions: t.knowledge.instructions + localeInstruction,
     tools: createKnowledgeTools(prisma, locale, tenantId),
     hooks,
     memory,

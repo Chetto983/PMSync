@@ -444,14 +444,37 @@ export class FolderSyncService {
         where: { providerId, tenantId },
       });
 
+      const SYSTEM_FOLDER_LABEL_IDS = new Set(['INBOX', 'SENT', 'DRAFT', 'TRASH', 'SPAM']);
+      const SKIP_LABEL_IDS = new Set([
+        'CATEGORY_PERSONAL',
+        'UNREAD',
+        'STARRED',
+        'IMPORTANT',
+        'CHAT',
+        'MUTED',
+        'YELLOW_STAR',
+        'BLUE_STAR',
+        'GREEN_STAR',
+        'RED_STAR',
+        'ORANGE_STAR',
+        'PURPLE_STAR',
+      ]);
+
+      const shouldSyncLabel = (label: { id?: string | null; name?: string | null; type?: string | null }) => {
+        if (!label.id || !label.name) return false;
+        if (SKIP_LABEL_IDS.has(label.id)) return false;
+        const isCategory = label.id.startsWith('CATEGORY_');
+        if (label.type === 'system' && !SYSTEM_FOLDER_LABEL_IDS.has(label.id) && !isCategory) {
+          return false;
+        }
+        return true;
+      };
+
       const existingPaths = new Set<string>(existingFolders.map((f: any) => f.path as string));
       const newPaths = new Set<string>(
         labels
-          .filter((l): l is { id: string; name: string } => !!l.id && !!l.name)
-          // Only skip CATEGORY_PERSONAL - it maps to 'INBOX' path and conflicts with INBOX label
-          // Other CATEGORY_ labels (SOCIAL, PROMOTIONS, etc.) are useful for frontend filtering
-          .filter((l) => l.id !== 'CATEGORY_PERSONAL')
-          .map((label) => this.gmailFolderService.getFolderPathForLabel(label.id, label.name)),
+          .filter((l) => shouldSyncLabel(l as any))
+          .map((label) => this.gmailFolderService.getFolderPathForLabel(label.id!, label.name!)),
       );
 
       const deletedPaths: string[] = [];
@@ -469,19 +492,13 @@ export class FolderSyncService {
       }
 
       for (const label of labels) {
-        if (!label.id || !label.name) continue;
+        if (!shouldSyncLabel(label)) continue;
 
-        // CRITICAL: Only skip CATEGORY_PERSONAL - it maps to 'INBOX' path and conflicts with INBOX label
-        // Keep other CATEGORY_ labels (SOCIAL, PROMOTIONS, etc.) for frontend filtering
-        if (label.id === 'CATEGORY_PERSONAL') {
-          this.logger.debug(`Skipping CATEGORY_PERSONAL label (conflicts with INBOX path)`);
-          continue;
-        }
-
-        const folderPath = this.gmailFolderService.getFolderPathForLabel(label.id, label.name);
+        const folderPath = this.gmailFolderService.getFolderPathForLabel(label.id!, label.name!);
         const folderName = folderPath;
-        const specialUse = this.gmailFolderService.getSpecialUseForLabel(label.id);
+        const specialUse = this.gmailFolderService.getSpecialUseForLabel(label.id!);
         const isSelectable = label.type !== 'system' || specialUse !== undefined;
+        const isSystem = isSystemFolder(specialUse ?? '');
 
         // FIX: Add P2002/P2034 retry for Gmail label upserts
         let retryCount = 0;
@@ -493,11 +510,12 @@ export class FolderSyncService {
               create: {
                 tenantId,
                 providerId,
-                externalId: label.id,
+                externalId: label.id!,
                 path: folderPath,
                 name: folderName,
                 delimiter: '/',
                 specialUse,
+                isSystem,
                 isSelectable,
                 totalCount: label.messagesTotal || 0,
                 unreadCount: label.messagesUnread || 0,
@@ -507,7 +525,8 @@ export class FolderSyncService {
               update: {
                 name: folderName,
                 specialUse,
-                externalId: label.id,
+                externalId: label.id!,
+                isSystem,
                 isSelectable,
                 totalCount: label.messagesTotal || 0,
                 unreadCount: label.messagesUnread || 0,

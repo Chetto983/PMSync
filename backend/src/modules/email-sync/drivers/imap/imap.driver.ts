@@ -26,6 +26,7 @@ import {
   folderNameToCanonical,
 } from '../interfaces/canonical.types';
 import { ChangeCallback } from '../interfaces/email-driver.interface';
+import { MimeBuilder } from '../../../../common/utils';
 
 /**
  * IMAP Connection Pool Configuration
@@ -52,6 +53,10 @@ const POOL_CONFIG = {
   maxMessageBodySize: parseInt(process.env.IMAP_MAX_MESSAGE_BODY_SIZE || String(5 * 1024 * 1024), 10), // Reduced from 10MB
   bodyDownloadTimeout: parseInt(process.env.IMAP_BODY_DOWNLOAD_TIMEOUT_MS || '15000', 10),
 };
+
+const IDLE_RECONNECT_MAX_ATTEMPTS = 5;
+const IDLE_RECONNECT_BASE_DELAY_MS = 1000;
+const IDLE_RECONNECT_MAX_DELAY_MS = 30000;
 
 /**
  * IMAP Email Driver
@@ -111,6 +116,9 @@ export class IMAPDriver extends BaseEmailDriver {
   private idleCallback?: ChangeCallback;
   private idleFolder?: string;
   private idleActive = false;
+  private idleReconnectAttempts = 0;
+  private idleReconnectTimer?: NodeJS.Timeout;
+  private idleShouldReconnect = false;
 
   // Server capabilities detected at connection time (Phase 5: API Compliance)
   private serverCapabilities: {
@@ -232,6 +240,31 @@ export class IMAPDriver extends BaseEmailDriver {
     const folderPath = await this.resolveFolder(folder);
     this.idleFolder = folderPath;
     this.idleCallback = callback;
+    this.idleShouldReconnect = true;
+    this.idleReconnectAttempts = 0;
+
+    await this.startIdleConnection();
+
+    // Return subscription handle
+    return {
+      unsubscribe: async (): Promise<void> => {
+        await this.stopIdleSubscription();
+      },
+      isActive: (): boolean => {
+        return this.idleActive && (this.idleConnection?.usable ?? false);
+      },
+    };
+  }
+
+  private async startIdleConnection(): Promise<void> {
+    if (!this.imapConfig || !this.idleFolder || !this.idleCallback) {
+      throw new Error('IDLE subscription not initialized');
+    }
+
+    if (this.idleReconnectTimer) {
+      clearTimeout(this.idleReconnectTimer);
+      this.idleReconnectTimer = undefined;
+    }
 
     // Create dedicated IDLE connection (separate from pool)
     // IDLE blocks the connection, so it can't be shared
@@ -254,19 +287,58 @@ export class IMAPDriver extends BaseEmailDriver {
 
     // Select the folder to start IDLE monitoring
     // ImapFlow automatically enters IDLE when the mailbox is opened
-    await this.idleConnection.mailboxOpen(folderPath);
+    await this.idleConnection.mailboxOpen(this.idleFolder);
 
-    this.logger.log(`IDLE subscription started for folder: ${folderPath}`);
+    this.idleReconnectAttempts = 0;
+    this.logger.log(`IDLE subscription started for folder: ${this.idleFolder}`);
+  }
 
-    // Return subscription handle
-    return {
-      unsubscribe: async (): Promise<void> => {
-        await this.stopIdleSubscription();
-      },
-      isActive: (): boolean => {
-        return this.idleActive && (this.idleConnection?.usable ?? false);
-      },
-    };
+  private cleanupIdleConnection(): void {
+    if (!this.idleConnection) return;
+    this.idleConnection.removeAllListeners('exists');
+    this.idleConnection.removeAllListeners('expunge');
+    this.idleConnection.removeAllListeners('flags');
+    this.idleConnection.removeAllListeners('error');
+    this.idleConnection.removeAllListeners('close');
+    this.idleConnection.logout().catch(() => undefined);
+    this.idleConnection = undefined;
+  }
+
+  private scheduleIdleReconnect(reason: string, error?: Error): void {
+    if (!this.idleShouldReconnect || !this.idleCallback || !this.idleFolder) {
+      return;
+    }
+
+    if (this.idleReconnectAttempts >= IDLE_RECONNECT_MAX_ATTEMPTS) {
+      this.logger.warn(
+        `IDLE reconnect stopped after ${IDLE_RECONNECT_MAX_ATTEMPTS} attempts (last reason: ${reason}).`,
+      );
+      this.idleShouldReconnect = false;
+      return;
+    }
+
+    this.idleReconnectAttempts += 1;
+    const delayMs = Math.min(
+      IDLE_RECONNECT_BASE_DELAY_MS * Math.pow(2, this.idleReconnectAttempts - 1),
+      IDLE_RECONNECT_MAX_DELAY_MS,
+    );
+
+    const errorSuffix = error ? `: ${error.message}` : '';
+    this.logger.warn(
+      `IDLE connection lost (${reason})${errorSuffix}. Reconnecting in ${delayMs}ms ` +
+      `(attempt ${this.idleReconnectAttempts}/${IDLE_RECONNECT_MAX_ATTEMPTS}).`,
+    );
+
+    if (this.idleReconnectTimer) {
+      clearTimeout(this.idleReconnectTimer);
+    }
+
+    this.idleReconnectTimer = setTimeout(() => {
+      if (!this.idleShouldReconnect) return;
+      this.startIdleConnection().catch((reconnectError) => {
+        this.scheduleIdleReconnect('reconnect_failed', reconnectError as Error);
+      });
+    }, delayMs);
   }
 
   /**
@@ -369,20 +441,16 @@ export class IMAPDriver extends BaseEmailDriver {
     this.idleConnection.on('error', (error: Error) => {
       this.logger.error('IDLE connection error:', error);
       this.idleActive = false;
-      // Clean up the stale connection reference to prevent resource leak
-      this.idleConnection = undefined;
-      this.idleCallback = undefined;
-      this.idleFolder = undefined;
+      this.cleanupIdleConnection();
+      this.scheduleIdleReconnect('error', error);
     });
 
     // Q-5 FIX: Connection close handling - clean up resources to prevent leak
     this.idleConnection.on('close', () => {
       this.logger.warn('IDLE connection closed');
       this.idleActive = false;
-      // Clean up the stale connection reference to prevent resource leak
-      this.idleConnection = undefined;
-      this.idleCallback = undefined;
-      this.idleFolder = undefined;
+      this.cleanupIdleConnection();
+      this.scheduleIdleReconnect('close');
     });
   }
 
@@ -391,6 +459,13 @@ export class IMAPDriver extends BaseEmailDriver {
    * HIGH-3 FIX (2025-01-05): Explicitly remove event listeners to prevent memory accumulation
    */
   private async stopIdleSubscription(): Promise<void> {
+    this.idleShouldReconnect = false;
+    this.idleReconnectAttempts = 0;
+    if (this.idleReconnectTimer) {
+      clearTimeout(this.idleReconnectTimer);
+      this.idleReconnectTimer = undefined;
+    }
+
     if (this.idleConnection) {
       try {
         // HIGH-3 FIX: Remove all event listeners before closing to prevent memory leaks
@@ -469,6 +544,11 @@ export class IMAPDriver extends BaseEmailDriver {
       [_semaphoreValue, semaphoreRelease] = await this.poolSemaphore.acquire();
     } catch {
       // E_TIMEOUT error from async-mutex means timeout waiting for slot
+      this.logger.warn(
+        `IMAP connection pool timeout after ${POOL_CONFIG.connectionAcquireTimeout}ms ` +
+        `(maxConnectionsPerUser=${POOL_CONFIG.maxConnectionsPerUser}). ` +
+        `Consider increasing IMAP_MAX_CONNECTIONS_PER_USER if this persists.`,
+      );
       throw new Error('Timeout waiting for available IMAP connection');
     }
 
@@ -872,19 +952,21 @@ export class IMAPDriver extends BaseEmailDriver {
         const searchCriteria = this.buildSearchCriteria(options);
 
         // Search for messages
-        let uids: number[];
+        let uids: number[] = [];
         try {
           const searchResult = await client.search(searchCriteria, { uid: true });
           uids = searchResult || [];
         } catch (searchError: unknown) {
-          // FIX Phase 2.5: Log search failure before fallback - helps debug filter issues
+          // FIX Phase 2.5: Log search failure to avoid "fetch all" fallback on errors
           const errMsg = searchError instanceof Error ? searchError.message : String(searchError);
           this.logger.warn(
-            `[listMessages] Search with criteria failed for ${folderPath}, falling back to all messages: ${errMsg}`,
+            `[listMessages] Search with criteria failed for ${folderPath}: ${errMsg}`,
           );
-          // Fallback to all messages if search fails
-          const fallbackResult = await client.search({}, { uid: true });
-          uids = fallbackResult || [];
+          return {
+            messages: [],
+            hasMore: false,
+            totalEstimate: 0,
+          };
         }
 
         // Sort by UID descending (newest first) and paginate
@@ -1173,7 +1255,10 @@ export class IMAPDriver extends BaseEmailDriver {
       }
 
       // Build RFC 822 message
-      const rfc822 = this.buildRfc822Message(message);
+      const messageWithFrom = message.fromEmail
+        ? message
+        : { ...message, fromEmail: this.userEmail };
+      const rfc822 = await this.buildRfc822Message(messageWithFrom);
 
       // Append to Drafts folder with \Draft flag
       const result = await client.append(draftsFolder, rfc822, ['\\Draft', '\\Seen']);
@@ -2118,7 +2203,10 @@ export class IMAPDriver extends BaseEmailDriver {
     return this.withConnection(async (client) => {
       try {
         const sentFolder = await this.resolveFolder('SENT');
-        const rfc822 = this.buildRfc822Message(message);
+        const messageWithFrom = message.fromEmail
+          ? message
+          : { ...message, fromEmail: this.userEmail };
+        const rfc822 = await this.buildRfc822Message(messageWithFrom);
         await client.append(sentFolder, rfc822, ['\\Seen']);
       } catch (error) {
         this.logger.warn('Failed to save sent message to Sent folder', error);
@@ -2129,43 +2217,9 @@ export class IMAPDriver extends BaseEmailDriver {
 
   /**
    * Build RFC 822 message from ComposeMessage
-   * Applies RFC 2047 encoding for non-ASCII characters in headers
    */
-  private buildRfc822Message(message: ComposeMessage): string {
-    const lines: string[] = [];
-
-    // Headers
-    lines.push(`From: ${message.fromEmail || this.userEmail}`);
-    lines.push(`To: ${message.to.map((a) => this.formatEmailAddress(a)).join(', ')}`);
-
-    if (message.cc && message.cc.length > 0) {
-      lines.push(`Cc: ${message.cc.map((a) => this.formatEmailAddress(a)).join(', ')}`);
-    }
-    if (message.bcc && message.bcc.length > 0) {
-      lines.push(`Bcc: ${message.bcc.map((a) => this.formatEmailAddress(a)).join(', ')}`);
-    }
-
-    // Subject needs RFC 2047 encoding for non-ASCII characters
-    lines.push(`Subject: ${this.encodeRfc2047(message.subject)}`);
-    lines.push(`Date: ${new Date().toUTCString()}`);
-    lines.push(`Message-ID: <${Date.now()}.${Math.random().toString(36)}@${this.userEmail?.split('@')[1] || 'local'}>`);
-    lines.push('MIME-Version: 1.0');
-    lines.push('Content-Type: text/html; charset=utf-8');
-
-    if (message.inReplyTo) {
-      lines.push(`In-Reply-To: ${message.inReplyTo}`);
-    }
-    if (message.references) {
-      lines.push(`References: ${message.references}`);
-    }
-
-    // Empty line separating headers from body
-    lines.push('');
-
-    // Body
-    lines.push(message.bodyHtml);
-
-    return lines.join('\r\n');
+  private async buildRfc822Message(message: ComposeMessage): Promise<Buffer> {
+    return MimeBuilder.build(message);
   }
 
   /**

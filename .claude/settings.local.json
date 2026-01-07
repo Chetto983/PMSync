@@ -163,7 +163,16 @@
       "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npm run type-check 2>&1 | Select-Object -First 100\")",
       "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npx tsc --noEmit 2>&1 | Select-Object -First 100\")",
       "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npx ts-node scripts/test-tenant-isolation.ts 2>&1\")",
-      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npx ts-node scripts/test-embedding-with-cache.ts 2>&1\")"
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npx ts-node scripts/test-embedding-with-cache.ts 2>&1\")",
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npx tsc --noEmit 2>&1 | Select-Object -First 50\")",
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npx tsc --noEmit 2>&1 | Select-Object -First 30\")",
+      "Bash(powershell -Command \"Set-Location ''D:\\\\MailAgent\\\\backend''; npx tsc --noEmit 2>&1\")",
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\frontend''; npx tsc --noEmit 2>&1 | Select-Object -First 100\")",
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npm run type-check 2>&1\")",
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\backend''; npx tsc --noEmit 2>&1\")",
+      "Bash(powershell -Command \"cd ''D:\\\\MailAgent\\\\frontend''; npx tsc --noEmit 2>&1\")",
+      "Bash(powershell -Command \"\\(Get-Content ''D:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\ai\\\\voltagent\\\\voltagent.service.ts''\\).Count\")",
+      "Bash(MAIL_TEST_ALLOW_LABEL_MUTATIONS=true MAIL_TEST_ALLOW_FOLDER_MUTATIONS=true MAIL_TEST_ALLOW_WEBHOOK_OPS=true MAIL_TEST_ALLOW_SYNC_ALL=true MAIL_TEST_ALLOW_CLEANUP=true MAIL_TEST_ALLOW_RETENTION_RUN=true MAIL_TEST_ALLOW_CALENDAR_INVITE=true npx ts-node:*)"
     ],
     "deny": []
   }

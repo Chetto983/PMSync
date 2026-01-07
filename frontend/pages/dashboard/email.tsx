@@ -11,6 +11,7 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import {
   useEmails,
   useEmail,
+  useFolders,
   useBulkMoveEmails,
   useBulkMarkRead,
   useBulkDeleteEmails,
@@ -96,8 +97,20 @@ export default function EmailPage() {
   // Get folder filters from store (sidebar sets these)
   const filters = useEmailFilters();
 
+  const { data: foldersData } = useFolders();
+
+  const selectedFolderPath = useMemo(() => {
+    if (!filters.folderId || !filters.providerId) return undefined;
+    const providerFolders = foldersData?.foldersByProvider?.[filters.providerId] || [];
+    const selected = providerFolders.find((folder) => folder.id === filters.folderId);
+    return selected?.path || selected?.name;
+  }, [filters.folderId, filters.providerId, foldersData?.foldersByProvider]);
+
   // Enable realtime updates via WebSocket
-  useEmailRealtime({ folder: filters.specialUse || 'INBOX', enabled: true });
+  useEmailRealtime({
+    folder: selectedFolderPath || filters.specialUse || 'INBOX',
+    enabled: true,
+  });
 
   // Map special folder to API-supported values
   const getApiSpecialUse = (
@@ -107,14 +120,16 @@ export default function EmailPage() {
     if (folder && supported.includes(folder)) {
       return folder as 'INBOX' | 'SENT' | 'DRAFTS' | 'TRASH' | 'SPAM' | 'ARCHIVE';
     }
-    return 'INBOX'; // Default to INBOX
+    return undefined;
   };
 
   // Fetch email data from API based on current folder filters
   const { data: emailsData, isLoading, refetch } = useEmails({
-    specialUse: filters.labelId ? undefined : getApiSpecialUse(filters.specialUse), // Don't filter by folder when filtering by label
+    specialUse: filters.labelId || filters.folderId
+      ? undefined
+      : getApiSpecialUse(filters.specialUse), // Avoid overriding folder/label filters
     providerId: filters.providerId,
-    folder: filters.folderId, // API uses 'folder' for folder path/ID
+    folder: selectedFolderPath,
     isRead: filters.isRead,
     isImportant: filters.isImportant,
     hasAttachments: filters.hasAttachments,

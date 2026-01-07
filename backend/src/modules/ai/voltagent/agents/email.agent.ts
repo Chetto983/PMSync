@@ -41,7 +41,9 @@ export interface EmailAgentOptions {
  */
 export function createEmailAgent(options: EmailAgentOptions): Agent {
   const { model, prisma, emailSendService, mistral, embeddingsService, writingStyle, cacheService, locale, tenantId, userId, hooks, memory } = options;
-  const t = getAgentTranslations(locale);
+  // Always use English prompts - locale only affects response language
+  const t = getAgentTranslations('en');
+  const localeInstruction = locale !== 'en' ? `\n\n## Response Language\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian (italiano)' : locale}.` : '';
 
   // Combine email tools, folder tools, and insight tools
   const emailTools = createEmailTools(prisma, emailSendService, locale, tenantId, cacheService);
@@ -66,7 +68,7 @@ export function createEmailAgent(options: EmailAgentOptions): Agent {
     name: 'EmailAgent',
     purpose: 'Send, search, organize, reply, forward emails. SEARCH HERE for info about PEOPLE by name (e.g., Borello, Mario) - they are email correspondents! NOTE: For SENDING, recipient must be verified by ContactsAgent FIRST.',
     model,
-    instructions: t.email.instructions,
+    instructions: t.email.instructions + localeInstruction,
     tools: [...emailTools, ...folderTools, ...insightTools],
     hooks,
     memory,

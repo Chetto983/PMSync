@@ -26,7 +26,6 @@ import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
 import { HitlService, PendingActionStatus } from './services/hitl.service';
 import { ActionExecutorService, ActionExecutionResult } from './services/action-executor.service';
-// SemanticCacheService REMOVED - caused cross-tenant data leakage (security issue)
 import { WritingStyleService } from './services/writing-style.service';
 import { ModelRouterService } from './services/model-router.service';
 import { createCalendarAgent } from './agents/calendar.agent';
@@ -37,7 +36,6 @@ import { createSupervisorAgent, type SupervisorAgentOptions as _SupervisorAgentO
 import { createWebSearchAgent as _createWebSearchAgent } from './agents/websearch.agent';
 import { createDocumentLibraryAgent as _createDocumentLibraryAgent } from './agents/document-library.agent';
 import { createAnalyticsAgent as _createAnalyticsAgent } from './agents/analytics.agent';
-// createUnifiedKnowledgeAgent removed - AI refactor v2.0
 import { AiQueueService, type AiJobData } from './services/ai-queue.service';
 import { RateLimiterService } from './services/rate-limiter.service';
 import { AiError, AiErrorCode } from '../errors';
@@ -46,17 +44,16 @@ import { AgentAction, AgentActionType, ActionSeverity } from './interfaces/agent
 import { AgentContext } from './interfaces/agent-context.interface';
 import { type ConnectedProvider } from './agents';
 import { getLocale, getTranslations, type SupportedLocale } from './locales';
-// VoltAgentMemoryService, LongTermMemoryService removed - AI refactor v2.0
 import { DocumentLibraryService } from './services/document-library.service';
 import { PromptGuardService, PiiDetectionService } from '../guards';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import type { AiAgentType } from '../../realtime/types/realtime.types';
-// DeadlineExtractorService removed - AI refactor v2.0 (deadlines in EmailAnalysis)
 import { FollowUpService } from './services/follow-up.service';
-// ActionItemService removed - AI refactor v2.0 (actions in ActionQueue)
 import { createObservabilityHooks, type AgentMetrics, type DisposableHooks } from './observability';
 import { getMistralModel, type MistralModel } from './providers/mistral.provider';
 import { EpisodicMemoryService } from './services/episodic-memory.service';
+import { ConversationCompactionService, type ConversationMessage } from './services/conversation-compaction.service';
+import { ConversationManagementService } from './services/conversation-management.service';
 import {
   createApprovalWorkflow,
   type ApprovalInput,
@@ -204,22 +201,19 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly actionExecutorService?: ActionExecutorService,
     @Optional() private readonly mistralService?: MistralService,
     @Optional() private readonly embeddingsService?: EmbeddingsService,
-    // SemanticCacheService REMOVED - cross-tenant security issue
     @Optional() private readonly modelRouterService?: ModelRouterService,
     @Optional() private readonly aiQueueService?: AiQueueService,
     @Optional() private readonly rateLimiterService?: RateLimiterService,
     @Optional() private readonly mistralBatchService?: MistralBatchService,
-    // VoltAgentMemoryService removed - AI refactor v2.0
-    // LongTermMemoryService removed - AI refactor v2.0
     @Optional() private readonly episodicMemoryService?: EpisodicMemoryService,
     @Optional() private readonly documentLibraryService?: DocumentLibraryService,
     @Optional() private readonly promptGuardService?: PromptGuardService,
     @Optional() private readonly piiDetectionService?: PiiDetectionService,
     @Optional() private readonly realtimeEventsService?: RealtimeEventsService,
-    // DeadlineExtractorService removed - AI refactor v2.0
     @Optional() private readonly followUpService?: FollowUpService,
-    // ActionItemService removed - AI refactor v2.0
     @Optional() private readonly writingStyleService?: WritingStyleService,
+    @Optional() private readonly compactionService?: ConversationCompactionService,
+    @Optional() private readonly conversationService?: ConversationManagementService,
   ) { }
 
   async onModuleInit() {
@@ -431,7 +425,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     this.agents.clear();
   }
 
-  // NOTE: getTenantUserId was removed - VoltAgent native memory disabled due to upstream bug
+
   // Tenant isolation is now handled by Prisma-based VoltAgentMemoryService
 
   /**
@@ -623,7 +617,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           configService: this.configService,
           // Document Library agent for document RAG
           documentLibraryService: this.documentLibraryService,
-          // UnifiedKnowledgeAgent dependencies removed - AI refactor v2.0
+
           followUpService: this.followUpService,
         });
         break;
@@ -752,7 +746,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 1. Semantic cache REMOVED - caused cross-tenant data leakage (security issue)
+
     // All responses are now generated fresh for each tenant
 
     // 2. Route to optimal model AND agent based on task complexity (40-60% cost savings)
@@ -794,11 +788,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // NOTE: tenantUserId was previously used for VoltAgent's native memory (disabled due to bug)
     // Tenant isolation is now handled by our Prisma-based VoltAgentMemoryService
 
-    // VoltAgentMemoryService removed - AI refactor v2.0
+
     // Conversations are now stateless (no history persistence)
     const contextTruncated = false;
 
-    // LongTermMemoryService removed - AI refactor v2.0
+
     let enhancedMessage = processedMessage;
 
     // 3.6. Inject episodic learning (rejection lessons)
@@ -834,23 +828,49 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const fallbackSessionId = `${options.tenantId}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const sessionId = options.conversationId || fallbackSessionId;
 
-    // 3.7. Inject conversation history from VoltAgent Memory (RE-ADDED after AI refactor v2.0)
-    // This ensures agents remember previous conversation context within the same session
+    // 3.7. Inject conversation history with compaction (2025 context engineering)
+    // Fetches more messages (50) and summarizes older ones to preserve context without bloating tokens
     if (this.memory && options.conversationId) {
       try {
-        const history = await this.memory.getMessages(tenantUserId, options.conversationId, { limit: 10 });
+        // Fetch up to 50 messages for better context (was 10)
+        const history = await this.memory.getMessages(tenantUserId, options.conversationId, { limit: 50 });
         if (history && history.length > 0) {
-          const historyContext = history
-            .map((msg) => {
-              const role = msg.role === 'user' ? 'User' : 'Assistant';
-              // UIMessage uses 'parts' array, not 'content'
-              const content = msg.parts
-                ?.map((part) => (part as { type: string; text?: string }).text || '')
-                .filter(Boolean)
-                .join(' ') || '';
-              return `${role}: ${content}`;
-            })
-            .join('\n\n');
+          // Convert to compaction format
+          const messages: ConversationMessage[] = history.map((msg, idx) => {
+            const content = msg.parts
+              ?.map((part) => (part as { type: string; text?: string }).text || '')
+              .filter(Boolean)
+              .join(' ') || '';
+            return {
+              id: `msg-${idx}`,
+              role: msg.role as 'user' | 'assistant',
+              content,
+              timestamp: (msg as unknown as { createdAt?: Date }).createdAt?.toISOString?.() || new Date().toISOString(),
+            };
+          });
+
+          let historyContext: string;
+
+          // Use compaction service if available and conversation is long
+          if (this.compactionService && messages.length > 10) {
+            const compacted = await this.compactionService.compactConversation(
+              options.tenantId,
+              options.conversationId,
+              messages,
+              { recentWindowSize: 6, compactionThreshold: 10 },
+            );
+            historyContext = this.compactionService.formatForPrompt(compacted);
+            if (compacted.wasCompacted) {
+              this.logger.debug(
+                `${logPrefix} Conversation compacted: ${messages.length} msgs → ${compacted.recentMessages.length} recent + summary (${compacted.tokenReduction}% reduction)`,
+              );
+            }
+          } else {
+            // Fallback: Use raw history for short conversations
+            historyContext = messages
+              .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+              .join('\n\n');
+          }
 
           // Redact PII from history if service available
           const safeHistoryContext = this.piiDetectionService
@@ -1054,7 +1074,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 3. Semantic cache REMOVED - cross-tenant security issue
+
     // Responses are never cached to prevent data leakage between tenants
 
     // Emit final response event with the correct persistedConversationId
@@ -1139,7 +1159,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 1. Semantic cache REMOVED - cross-tenant security issue
+
     // All responses generated fresh to prevent data leakage
 
     // 2. Route to optimal model and agent
@@ -1169,7 +1189,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId, suggestedAgent);
     this.logger.log(`${logPrefix} Agent Creation took ${Date.now() - agentStart}ms`);
 
-    // LongTermMemoryService removed - AI refactor v2.0
+
     let enhancedMessage = processedMessage;
 
     // 2.7. Inject episodic learning (rejection lessons)
@@ -1200,23 +1220,49 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Generate tenant-isolated fallback sessionId for new conversations
     const sessionId = options.conversationId || `${options.tenantId}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    // 3.7. Inject conversation history from VoltAgent Memory (RE-ADDED after AI refactor v2.0)
-    // This ensures agents remember previous conversation context within the same session
+    // 3.7. Inject conversation history with compaction (2025 context engineering)
+    // Fetches more messages (50) and summarizes older ones to preserve context without bloating tokens
     if (this.memory && options.conversationId) {
       try {
-        const history = await this.memory.getMessages(tenantUserId, options.conversationId, { limit: 10 });
+        // Fetch up to 50 messages for better context (was 10)
+        const history = await this.memory.getMessages(tenantUserId, options.conversationId, { limit: 50 });
         if (history && history.length > 0) {
-          const historyContext = history
-            .map((msg) => {
-              const role = msg.role === 'user' ? 'User' : 'Assistant';
-              // UIMessage uses 'parts' array, not 'content'
-              const content = msg.parts
-                ?.map((part) => (part as { type: string; text?: string }).text || '')
-                .filter(Boolean)
-                .join(' ') || '';
-              return `${role}: ${content}`;
-            })
-            .join('\n\n');
+          // Convert to compaction format
+          const messages: ConversationMessage[] = history.map((msg, idx) => {
+            const content = msg.parts
+              ?.map((part) => (part as { type: string; text?: string }).text || '')
+              .filter(Boolean)
+              .join(' ') || '';
+            return {
+              id: `msg-${idx}`,
+              role: msg.role as 'user' | 'assistant',
+              content,
+              timestamp: (msg as unknown as { createdAt?: Date }).createdAt?.toISOString?.() || new Date().toISOString(),
+            };
+          });
+
+          let historyContext: string;
+
+          // Use compaction service if available and conversation is long
+          if (this.compactionService && messages.length > 10) {
+            const compacted = await this.compactionService.compactConversation(
+              options.tenantId,
+              options.conversationId,
+              messages,
+              { recentWindowSize: 6, compactionThreshold: 10 },
+            );
+            historyContext = this.compactionService.formatForPrompt(compacted);
+            if (compacted.wasCompacted) {
+              this.logger.debug(
+                `${logPrefix} Conversation compacted: ${messages.length} msgs → ${compacted.recentMessages.length} recent + summary (${compacted.tokenReduction}% reduction)`,
+              );
+            }
+          } else {
+            // Fallback: Use raw history for short conversations
+            historyContext = messages
+              .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+              .join('\n\n');
+          }
 
           // Redact PII from history if service available
           const safeHistoryContext = this.piiDetectionService
@@ -1253,7 +1299,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       yield chunk;
     }
 
-    // 3. Semantic cache REMOVED - cross-tenant security issue
+
 
     // 4. Persist messages to VoltAgent Memory (RE-ADDED after AI refactor v2.0)
     // This ensures conversation history is available for future requests
@@ -1740,7 +1786,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       totalTokens: number;
     };
   }> {
-    // Semantic cache REMOVED - cross-tenant security issue
+
     const semanticCacheEnabled = false;
     const cacheStats = { entries: 0, totalHits: 0, avgSimilarity: 0, estimatedSavings: 0 };
 
@@ -1786,7 +1832,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    * This method now does nothing but is kept for API compatibility.
    */
   async invalidateCache(_tenantId: string, _pattern?: string): Promise<number> {
-    // Semantic cache REMOVED - cross-tenant security issue
+
     return 0;
   }
 
@@ -1871,5 +1917,63 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    */
   async resetRateLimits(tenantId: string): Promise<void> {
     await this.rateLimiterService?.resetLimits(tenantId);
+  }
+
+  // ========================================================================
+  // Conversation Management (Chat Sessions)
+  // Delegates to ConversationManagementService for separation of concerns
+  // ========================================================================
+
+  /** List conversations for a user. */
+  async listConversations(tenantId: string, userId: string, limit = 50) {
+    if (!this.conversationService) return [];
+    return this.conversationService.listConversations(this.memory, tenantId, userId, limit);
+  }
+
+  /** Get a conversation with its messages. */
+  async getConversationWithMessages(
+    tenantId: string,
+    userId: string,
+    conversationId: string,
+    messageLimit = 50,
+  ) {
+    if (!this.conversationService) return null;
+    return this.conversationService.getConversationWithMessages(
+      this.memory, tenantId, userId, conversationId, messageLimit,
+    );
+  }
+
+  /** Update conversation metadata (title, archived status). */
+  async updateConversation(
+    _tenantId: string,
+    _userId: string,
+    conversationId: string,
+    updates: { title?: string; isArchived?: boolean },
+  ): Promise<boolean> {
+    if (!this.conversationService) return false;
+    return this.conversationService.updateConversation(this.memory, conversationId, updates);
+  }
+
+  /** Delete a conversation and its messages. */
+  async deleteConversation(
+    _tenantId: string,
+    _userId: string,
+    conversationId: string,
+  ): Promise<boolean> {
+    if (!this.conversationService) return false;
+    return this.conversationService.deleteConversation(this.memory, conversationId);
+  }
+
+  /** Generate a title for a conversation using AI. */
+  async generateConversationTitle(
+    tenantId: string,
+    userId: string,
+    conversationId: string,
+    locale = 'en',
+  ): Promise<string | null> {
+    if (!this.conversationService) return null;
+    return this.conversationService.generateConversationTitle(
+      this.memory, tenantId, userId, conversationId, locale,
+    );
   }
 }

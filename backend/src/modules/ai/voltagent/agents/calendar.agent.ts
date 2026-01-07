@@ -29,13 +29,15 @@ export interface CalendarAgentOptions {
  */
 export function createCalendarAgent(options: CalendarAgentOptions): Agent {
   const { model, prisma, calendarService, cacheService, locale, tenantId, hooks, memory } = options;
-  const t = getAgentTranslations(locale);
+  // Always use English prompts - locale only affects response language
+  const t = getAgentTranslations('en');
+  const localeInstruction = locale !== 'en' ? `\n\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian' : locale}.` : '';
 
   return new Agent({
     name: 'CalendarAgent',
     purpose: 'Handle calendar operations including events, scheduling, and availability. NOTE: For events WITH ATTENDEES, verify via ContactsAgent FIRST.',
     model,
-    instructions: t.calendar.instructions,
+    instructions: t.calendar.instructions + localeInstruction,
     tools: createCalendarTools(prisma, calendarService, locale, tenantId, cacheService),
     hooks,
     memory,

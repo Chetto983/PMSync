@@ -40,7 +40,9 @@ export interface DocumentLibraryAgentOptions {
  */
 export function createDocumentLibraryAgent(options: DocumentLibraryAgentOptions): Agent {
   const { model, documentLibraryService, locale, tenantId, userId, hooks, memory } = options;
-  const t = getAgentTranslations(locale);
+  // Always use English prompts - locale only affects response language
+  const t = getAgentTranslations('en');
+  const localeInstruction = locale !== 'en' ? `\n\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian' : locale}.` : '';
 
   // Create document library tools - delegates to DocumentLibraryService
   const documentLibraryTools = createDocumentLibraryTools({
@@ -50,11 +52,7 @@ export function createDocumentLibraryAgent(options: DocumentLibraryAgentOptions)
     userId,
   });
 
-  return new Agent({
-    name: 'DocumentLibraryAgent',
-    purpose: 'Search uploaded PDFs/documents and answer questions with citations. Use for: document Q&A, file search, uploaded content.',
-    model,
-    instructions: t.documentLibrary?.instructions || `You are a document assistant with access to the user's document libraries.
+  const baseInstructions = t.documentLibrary?.instructions || `You are a document assistant with access to the user's document libraries.
 
 Your capabilities:
 - Search documents for relevant information
@@ -66,7 +64,13 @@ Guidelines:
 - Be accurate and only state what is in the documents
 - Quote relevant passages when helpful
 - If asked about something not in the documents, say so clearly
-- Provide document names as sources for your answers`,
+- Provide document names as sources for your answers`;
+
+  return new Agent({
+    name: 'DocumentLibraryAgent',
+    purpose: 'Search uploaded PDFs/documents and answer questions with citations. Use for: document Q&A, file search, uploaded content.',
+    model,
+    instructions: baseInstructions + localeInstruction,
     tools: documentLibraryTools,
     hooks,
     memory,

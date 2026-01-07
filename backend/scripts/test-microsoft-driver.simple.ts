@@ -5,10 +5,11 @@
  * without loading the full NestJS application context.
  *
  * Usage:
- *   npx ts-node --skipProject src/modules/email-sync/drivers/test-microsoft-driver.simple.ts
+ *   npx ts-node scripts/test-microsoft-driver.simple.ts
  */
 
-import { MicrosoftDriver } from './microsoft/microsoft.driver';
+import { MicrosoftDriver } from '../src/modules/email-sync/drivers/microsoft/microsoft.driver';
+import type { CanonicalMessage, ProviderChange } from '../src/modules/email-sync/drivers/interfaces/canonical.types';
 
 async function testMicrosoftDriver() {
   console.log('🚀 Microsoft Driver Test - Delta Query\n');
@@ -56,8 +57,9 @@ async function testMicrosoftDriver() {
     console.log();
 
     if (changesResult.changes.length > 0) {
+      const changes = changesResult.changes as ProviderChange[];
       console.log('Sample changes:');
-      changesResult.changes.slice(0, 3).forEach((change, i) => {
+      changes.slice(0, 3).forEach((change, i) => {
         console.log(`  ${i + 1}. Type: ${change.type}, Message ID: ${change.messageId}`);
       });
       console.log();
@@ -78,8 +80,9 @@ async function testMicrosoftDriver() {
     console.log();
 
     if (listResult.messages.length > 0) {
+      const messages = listResult.messages as CanonicalMessage[];
       console.log('Sample messages:');
-      listResult.messages.slice(0, 3).forEach((msg, i) => {
+      messages.slice(0, 3).forEach((msg, i) => {
         console.log(`  ${i + 1}. ${msg.subject || '(No Subject)'}`);
         console.log(`     From: ${msg.from.email}`);
         console.log(`     Date: ${msg.receivedAt.toISOString()}`);
@@ -92,13 +95,13 @@ async function testMicrosoftDriver() {
       console.log('TEST 5: Get Single Message');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-      const firstMessageId = listResult.messages[0].id;
+      const firstMessageId = (listResult.messages as CanonicalMessage[])[0].id;
       const message = await driver.getMessage(firstMessageId);
 
       if (message) {
         console.log(`✅ Message retrieved: ${message.subject || '(No Subject)'}`);
         console.log(`   From: ${message.from.email}`);
-        console.log(`   To: ${message.to?.map(r => r.email).join(', ')}`);
+        console.log(`   To: ${message.to?.map((r) => r.email).join(', ')}`);
         console.log(`   Snippet: ${message.snippet?.substring(0, 100)}...`);
         console.log(`   Folder: ${message.folder}`);
         console.log(`   Labels: ${message.labels?.join(', ') || 'None'}`);

@@ -4,15 +4,16 @@
  *
  * This script tests the new getChangesSince() method with a real Gmail account.
  *
- * Run: npx ts-node --transpile-only -r tsconfig-paths/register src/modules/email-sync/drivers/test-google-changes.script.ts
+ * Run: npx ts-node scripts/test-google-changes.script.ts
  */
 
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../../../app.module';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { EmailDriverFactory } from './driver.factory';
-import { GoogleDriver } from './google/google.driver';
-import { ProviderTokenService } from '../services/provider-token.service';
+import { AppModule } from '../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { EmailDriverFactory } from '../src/modules/email-sync/drivers/driver.factory';
+import { GoogleDriver } from '../src/modules/email-sync/drivers/google/google.driver';
+import { ProviderTokenService } from '../src/modules/email-sync/services/provider-token.service';
+import type { ProviderChange } from '../src/modules/email-sync/drivers/interfaces/canonical.types';
 
 async function testGoogleDriverChanges() {
   console.log('🧪 Testing GoogleDriver.getChangesSince() with real Gmail provider\n');
@@ -105,16 +106,17 @@ async function testGoogleDriverChanges() {
       console.log(`Has more: ${changesResult.hasMore}\n`);
 
       if (changesResult.changes.length > 0) {
+        const changes = changesResult.changes as ProviderChange[];
         console.log('Sample changes (first 5):');
-        changesResult.changes.slice(0, 5).forEach((change, idx) => {
+        changes.slice(0, 5).forEach((change, idx) => {
           console.log(`  ${idx + 1}. Type: ${change.type}, MessageId: ${change.messageId.substring(0, 20)}...`);
         });
         console.log('');
 
         // Count by type
-        const added = changesResult.changes.filter(c => c.type === 'added').length;
-        const modified = changesResult.changes.filter(c => c.type === 'modified').length;
-        const deleted = changesResult.changes.filter(c => c.type === 'deleted').length;
+        const added = changes.filter((c) => c.type === 'added').length;
+        const modified = changes.filter((c) => c.type === 'modified').length;
+        const deleted = changes.filter((c) => c.type === 'deleted').length;
 
         console.log('Changes by type:');
         console.log(`  Added: ${added}`);

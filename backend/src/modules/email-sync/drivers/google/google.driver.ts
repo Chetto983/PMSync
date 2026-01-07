@@ -19,7 +19,7 @@ import {
   CanonicalFolderType,
   ProviderChange,
 } from '../interfaces/canonical.types';
-import { withRetry, RetryOptions } from '../../../../common/utils';
+import { MimeBuilder, withRetry, RetryOptions } from '../../../../common/utils';
 
 /**
  * Google Gmail Driver
@@ -320,7 +320,7 @@ export class GoogleDriver extends BaseEmailDriver {
   async sendMessage(message: ComposeMessage): Promise<string> {
     this.ensureConnected();
 
-    const raw = this.composeToRaw(message);
+    const raw = await this.composeToRaw(message);
 
     const response = await this.executeWithRetry(
       () => this.gmail!.users.messages.send({
@@ -339,7 +339,7 @@ export class GoogleDriver extends BaseEmailDriver {
   async saveDraft(message: ComposeMessage, existingDraftId?: string): Promise<string> {
     this.ensureConnected();
 
-    const raw = this.composeToRaw(message);
+    const raw = await this.composeToRaw(message);
 
     if (existingDraftId) {
       const response = await this.executeWithRetry(
@@ -1085,9 +1085,9 @@ export class GoogleDriver extends BaseEmailDriver {
 
     const extractParts = (part: gmail_v1.Schema$MessagePart) => {
       if (part.mimeType === 'text/plain' && part.body?.data) {
-        bodyText = this.decodeBase64Url(part.body.data);
+        bodyText += this.decodeBase64Url(part.body.data);
       } else if (part.mimeType === 'text/html' && part.body?.data) {
-        bodyHtml = this.decodeBase64Url(part.body.data);
+        bodyHtml += this.decodeBase64Url(part.body.data);
       }
 
       // Extract attachment metadata
@@ -1231,18 +1231,25 @@ export class GoogleDriver extends BaseEmailDriver {
     }
 
     if (options.since) {
-      // LOW-3: Use YYYY/MM/DD format for better readability
-      const sinceStr = options.since.toISOString().split('T')[0].replace(/-/g, '/');
+      // Use local date to avoid UTC day shifts in Gmail search
+      const sinceStr = this.formatSearchDate(options.since);
       parts.push(`after:${sinceStr}`);
     }
 
     if (options.before) {
-      // LOW-3: Use YYYY/MM/DD format for better readability
-      const beforeStr = options.before.toISOString().split('T')[0].replace(/-/g, '/');
+      // Use local date to avoid UTC day shifts in Gmail search
+      const beforeStr = this.formatSearchDate(options.before);
       parts.push(`before:${beforeStr}`);
     }
 
     return parts.length > 0 ? parts.join(' ') : null;
+  }
+
+  private formatSearchDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day}`;
   }
 
   private normalizeBase64Url(data: string): string {
@@ -1259,123 +1266,9 @@ export class GoogleDriver extends BaseEmailDriver {
     return Buffer.from(this.normalizeBase64Url(data), 'base64').toString('utf8');
   }
 
-  /**
-   * Encode a string using RFC 2047 if it contains non-ASCII characters.
-   * Used for display names in email headers (To, Cc, Bcc, From).
-   * Source: https://www.rfc-editor.org/rfc/rfc2047
-   */
-  private encodeRfc2047(text: string): string {
-    if (!/[^\x00-\x7F]/.test(text)) {
-      return text; // ASCII only, no encoding needed
-    }
-    return `=?UTF-8?B?${Buffer.from(text).toString('base64')}?=`;
-  }
-
-  /**
-   * Format an email address for MIME headers with RFC 2047 encoding for non-ASCII names.
-   */
-  private formatEmailAddress(addr: { name?: string; email: string }): string {
-    if (addr.name) {
-      const encodedName = this.encodeRfc2047(addr.name);
-      // If encoded, don't quote (RFC 2047 encoded-words replace 'word' in 'phrase')
-      if (encodedName.startsWith('=?')) {
-        return `${encodedName} <${addr.email}>`;
-      }
-      return `"${addr.name}" <${addr.email}>`;
-    }
-    return addr.email;
-  }
-
-  private composeToRaw(message: ComposeMessage): string {
-    const lines: string[] = [];
-    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-    const hasAttachments = message.attachments && message.attachments.length > 0;
-
-    // MIME-Version header (required for proper MIME parsing)
-    lines.push('MIME-Version: 1.0');
-    // LOW-6: Add explicit Date header
-    lines.push(`Date: ${new Date().toUTCString()}`);
-
-    // From header (with RFC 2047 encoding for non-ASCII names)
-    if (message.fromEmail) {
-      lines.push(`From: ${message.fromEmail}`);
-    }
-
-    // To header (with RFC 2047 encoding for non-ASCII names)
-    const toAddrs = message.to.map((addr) => this.formatEmailAddress(addr));
-    lines.push(`To: ${toAddrs.join(', ')}`);
-
-    // CC header (with RFC 2047 encoding for non-ASCII names)
-    if (message.cc?.length) {
-      const ccAddrs = message.cc.map((addr) => this.formatEmailAddress(addr));
-      lines.push(`Cc: ${ccAddrs.join(', ')}`);
-    }
-
-    // BCC header (with RFC 2047 encoding for non-ASCII names)
-    if (message.bcc?.length) {
-      const bccAddrs = message.bcc.map((addr) => this.formatEmailAddress(addr));
-      lines.push(`Bcc: ${bccAddrs.join(', ')}`);
-    }
-
-    // Subject (encode if non-ASCII)
-    const subject = message.subject;
-    if (/[^\x00-\x7F]/.test(subject)) {
-      lines.push(`Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`);
-    } else {
-      lines.push(`Subject: ${subject}`);
-    }
-
-    // Threading headers
-    if (message.inReplyTo) {
-      lines.push(`In-Reply-To: ${message.inReplyTo}`);
-    }
-    if (message.references) {
-      lines.push(`References: ${message.references}`);
-    }
-
-    if (hasAttachments) {
-      // Multipart MIME message with attachments
-      lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
-      lines.push('');
-
-      // Body part
-      lines.push(`--${boundary}`);
-      lines.push('Content-Type: text/html; charset=utf-8');
-      lines.push('Content-Transfer-Encoding: quoted-printable');
-      lines.push('');
-      lines.push(message.bodyHtml);
-      lines.push('');
-
-      // Attachment parts
-      for (const att of message.attachments!) {
-        lines.push(`--${boundary}`);
-        lines.push(`Content-Type: ${att.mimeType}; name="${att.filename}"`);
-        lines.push('Content-Transfer-Encoding: base64');
-        lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
-        if (att.contentId) {
-          lines.push(`Content-ID: <${att.contentId}>`);
-        }
-        lines.push('');
-        // Break base64 content into 76-character lines (RFC 2045)
-        const base64Content = att.content || '';
-        const chunkSize = 76;
-        for (let i = 0; i < base64Content.length; i += chunkSize) {
-          lines.push(base64Content.substring(i, i + chunkSize));
-        }
-        lines.push('');
-      }
-
-      // End boundary
-      lines.push(`--${boundary}--`);
-    } else {
-      // Simple message without attachments
-      lines.push('Content-Type: text/html; charset=utf-8');
-      lines.push('');
-      lines.push(message.bodyHtml);
-    }
-
-    const rawMessage = lines.join('\r\n');
-    return Buffer.from(rawMessage).toString('base64url');
+  private async composeToRaw(message: ComposeMessage): Promise<string> {
+    const rawMessage = await MimeBuilder.build(message);
+    return rawMessage.toString('base64url');
   }
 
   private findAttachmentMeta(

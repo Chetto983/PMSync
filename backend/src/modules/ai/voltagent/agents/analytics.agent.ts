@@ -41,7 +41,9 @@ export interface AnalyticsAgentOptions {
  */
 export function createAnalyticsAgent(options: AnalyticsAgentOptions): Agent {
   const { model, configService, locale, tenantId, userId, hooks, cacheService, memory } = options;
-  const t = getAgentTranslations(locale);
+  // Always use English prompts - locale only affects response language
+  const t = getAgentTranslations('en');
+  const localeInstruction = locale !== 'en' ? `\n\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian' : locale}.` : '';
 
   // Create analytics tool with Redis caching
   const analyticsTool = createAnalyticsTool({
@@ -56,7 +58,7 @@ export function createAnalyticsAgent(options: AnalyticsAgentOptions): Agent {
     name: 'AnalyticsAgent',
     purpose: 'Analyze data, generate charts/visualizations, compute statistics. Use for: trends, graphs, data summaries, numerical analysis.',
     model,
-    instructions: t.analytics.instructions,
+    instructions: t.analytics.instructions + localeInstruction,
     tools: [analyticsTool],
     hooks,
     memory,

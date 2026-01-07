@@ -414,13 +414,27 @@ export class AttachmentOnDemandService {
         throw new Error(`No attachments found in IMAP message UID ${uid}`);
       }
 
+      const normalizedAttachmentId = externalAttachmentId
+        .replace(/^cid:/i, '')
+        .replace(/^<|>$/g, '');
+
       // Match attachment by filename or contentId
-      const attachment = parsed.attachments.find(
+      let attachment = parsed.attachments.find(
         (att: { filename?: string; contentId?: string }) =>
           att.filename === externalAttachmentId ||
+          att.filename === normalizedAttachmentId ||
           att.contentId === externalAttachmentId ||
-          att.contentId === `<${externalAttachmentId}>`,
+          att.contentId === normalizedAttachmentId ||
+          att.contentId === `<${externalAttachmentId}>` ||
+          att.contentId === `<${normalizedAttachmentId}>`,
       );
+
+      if (!attachment && /^att_\d+$/i.test(externalAttachmentId)) {
+        const index = parseInt(externalAttachmentId.replace(/^att_/i, ''), 10);
+        if (!isNaN(index) && parsed.attachments[index]) {
+          attachment = parsed.attachments[index];
+        }
+      }
 
       if (!attachment) {
         this.logger.warn(

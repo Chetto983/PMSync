@@ -27,13 +27,15 @@ export interface ContactsAgentOptions {
  */
 export function createContactsAgent(options: ContactsAgentOptions): Agent {
   const { model, prisma, cacheService, locale, tenantId, hooks, memory } = options;
-  const t = getAgentTranslations(locale);
+  // Always use English prompts - locale only affects response language
+  const t = getAgentTranslations('en');
+  const localeInstruction = locale !== 'en' ? `\n\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian' : locale}.` : '';
 
   return new Agent({
     name: 'ContactsAgent',
     purpose: 'VERIFY recipient emails exist before sending. Search, create, update, delete contacts. ALWAYS check here first when sending email or creating calendar events with attendees.',
     model,
-    instructions: t.contacts.instructions,
+    instructions: t.contacts.instructions + localeInstruction,
     tools: createContactsTools(prisma, locale, tenantId, cacheService),
     hooks,
     memory,
