@@ -60,10 +60,10 @@ export function MemoryCard({ memory, onDelete, isDeleting, onShowHistory }: Memo
     }
   };
 
-  // Handle missing or invalid memory type
-  const memoryType = memory.type && MEMORY_TYPE_ICONS[memory.type] ? memory.type : 'PREFERENCE';
-  const categoryLabel = t.ai.memoryBrowser.categories[memoryType] || memoryType;
-  const colorKey = MEMORY_TYPE_COLORS[memoryType] as 'primary' | 'info' | 'success' | 'warning' | 'secondary';
+  // Handle missing or invalid memory type (backend uses memoryType field)
+  const memType = memory.memoryType && MEMORY_TYPE_ICONS[memory.memoryType] ? memory.memoryType : 'PREFERENCE';
+  const categoryLabel = t.ai.memoryBrowser.categories[memType] || memType;
+  const colorKey = MEMORY_TYPE_COLORS[memType] as 'primary' | 'info' | 'success' | 'warning' | 'secondary';
   const color = theme.palette[colorKey]?.main || theme.palette.primary.main;
 
   // Handle missing or invalid date
@@ -102,7 +102,7 @@ export function MemoryCard({ memory, onDelete, isDeleting, onShowHistory }: Memo
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Chip
               size="small"
-              icon={<Box sx={{ display: 'flex', color: 'inherit' }}>{MEMORY_TYPE_ICONS[memoryType]}</Box>}
+              icon={<Box sx={{ display: 'flex', color: 'inherit' }}>{MEMORY_TYPE_ICONS[memType]}</Box>}
               label={categoryLabel}
               sx={{
                 bgcolor: alpha(color, 0.1),

@@ -43,15 +43,20 @@ export type MemorySource = 'EXPLICIT' | 'INFERRED' | 'BEHAVIOR';
 
 export type Memory = {
   id: string;
-  tenantId: string;
-  userId: string;
-  type: MemoryType;
+  tenantId?: string;
+  userId?: string;
+  memoryType: MemoryType; // Backend uses memoryType (Prisma model field)
   content: string;
-  metadata?: Record<string, unknown>;
-  embedding?: number[];
+  source?: string | null;
+  confidence?: number;
+  usageCount?: number;
+  lastUsedAt?: string | null;
+  category?: string | null;
+  tags?: string | null;
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
-  expiresAt?: string;
+  expiresAt?: string | null;
 };
 
 export type StoreMemoryPayload = {
@@ -80,7 +85,7 @@ export type WorkingHoursResponse = {
   };
 };
 
-// ============ Personalization API (stub - backend removed in AI refactor v2.0) ============
+// ============ Personalization API (Restored 2025-01-07) ============
 
 const DEFAULT_PROFILE: UserProfile = {
   jobRole: 'IC',
@@ -92,52 +97,65 @@ const DEFAULT_PROFILE: UserProfile = {
 };
 
 export const personalizationApi = {
-  // Get user profile - returns defaults (backend removed)
+  // Get user profile - returns defaults (profile service not yet implemented)
   getProfile() {
     return Promise.resolve({ data: { success: true, profile: DEFAULT_PROFILE } });
   },
 
-  // Update user profile - no-op (backend removed)
+  // Update user profile - not yet implemented
   updateProfile(_profile: Partial<UserProfile>) {
     return Promise.resolve({ data: { success: true, profile: DEFAULT_PROFILE } });
   },
 
-  // Get personalization context - no-op (backend removed)
+  // Get personalization context - not yet implemented
   getContext(_body?: { query?: string }) {
     return Promise.resolve({ data: { success: true, context: {} } });
   },
 
-  // Get memories by type - use voltAgentApi.listMemories instead
-  getMemories(_params: { type: MemoryType; limit?: number }) {
-    return Promise.resolve({ data: { success: true, memories: [] as Memory[] } });
+  // Get memories by type - RESTORED
+  getMemories(params: { type?: MemoryType; limit?: number }) {
+    return apiClient.get<{ success: boolean; memories: Memory[]; total: number }>(
+      '/api/v1/voltagent/memory',
+      { params: { type: params.type, limit: params.limit } }
+    );
   },
 
-  // Search memories - use voltAgentApi.searchMemories instead
-  searchMemories(_payload: { query: string; limit?: number }) {
-    return Promise.resolve({ data: { success: true, memories: [] as Memory[] } });
+  // Search memories - RESTORED
+  searchMemories(payload: { query: string; limit?: number }) {
+    return apiClient.get<{ success: boolean; memories: Memory[]; total: number }>(
+      '/api/v1/voltagent/memory/search',
+      { params: payload }
+    );
   },
 
-  // Store a memory - use voltAgentApi.addMemoryFact instead
-  storeMemory(_memory: StoreMemoryPayload) {
-    return Promise.resolve({ data: { success: false, memoryId: '' } });
+  // Store a memory - RESTORED
+  storeMemory(memory: StoreMemoryPayload) {
+    return apiClient.post<{ success: boolean; memory: Memory }>(
+      '/api/v1/voltagent/memory',
+      memory
+    );
   },
 
-  // Delete a memory - use voltAgentApi.deleteMemory instead
-  deleteMemory(_memoryId: string) {
-    return Promise.resolve({ data: { success: true } });
+  // Delete a memory - RESTORED
+  deleteMemory(memoryId: string) {
+    return apiClient.delete<{ success: boolean; message: string }>(
+      `/api/v1/voltagent/memory/${memoryId}`
+    );
   },
 
-  // Clear all memories - stub (backend removed in AI refactor v2.0)
+  // Clear all memories - RESTORED
   clearAllMemories() {
-    return Promise.resolve({ data: { success: true, deletedCount: 0 } });
+    return apiClient.delete<{ success: boolean; message: string; count: number }>(
+      '/api/v1/voltagent/memory'
+    );
   },
 
-  // Learn from user interaction - no-op (backend removed)
+  // Learn from user interaction - not yet implemented
   learnFromInteraction(_payload: LearnInteractionPayload) {
     return Promise.resolve({ data: { success: true } });
   },
 
-  // Check working hours - returns default (backend removed)
+  // Check working hours - returns default (not yet implemented)
   getWorkingHours() {
     return Promise.resolve({
       data: {
@@ -148,36 +166,32 @@ export const personalizationApi = {
     });
   },
 
-  // Get memory history - no-op (backend removed)
-  getMemoryHistory(_memoryId: string) {
-    return Promise.resolve({
-      data: {
-        success: true,
-        history: [] as Array<{
-          action: string;
-          previousValue?: string;
-          newValue?: string;
-          createdAt: string;
-        }>,
-      },
-    });
+  // Get memory history - RESTORED
+  getMemoryHistory(memoryId: string) {
+    return apiClient.get<{
+      success: boolean;
+      history: Array<{
+        action: string;
+        previousValue?: string;
+        newValue?: string;
+        createdAt: string;
+      }>;
+    }>(`/api/v1/voltagent/memory/${memoryId}/history`);
   },
 
-  // Get procedural patterns - no-op (backend removed)
+  // Get procedural patterns - RESTORED
   getPatterns() {
-    return Promise.resolve({
-      data: {
-        success: true,
-        patterns: [] as Array<{
-          id: string;
-          taskType: string;
-          trigger: string;
-          steps: unknown;
-          successRate: number;
-          lastUsedAt: string;
-        }>,
-      },
-    });
+    return apiClient.get<{
+      success: boolean;
+      patterns: Array<{
+        id: string;
+        taskType: string;
+        trigger: string;
+        steps: unknown;
+        successRate: number;
+        lastUsedAt: string;
+      }>;
+    }>('/api/v1/voltagent/memory/patterns');
   },
 };
 

@@ -995,11 +995,71 @@ model WritingStyleProfile {
 }
 
 // ============================================
-// BLOAT REMOVED (2025-01-05): VoltAgent Memory System
-// Deleted: VoltAgentConversation, VoltAgentMessage, ConversationSummary
-// Deleted: AiTask, AiTaskReminder, AiTaskSource, AiTaskStatus
-// Replaced by: ActionQueue (unified HITL), EmailAnalysis
+// AI LONG-TERM MEMORY (Restored 2025-01-07)
+// Simplified from original mem0 implementation
 // ============================================
+
+/// User AI memories - facts, preferences, patterns learned from conversations
+model AIMemory {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+
+  // Memory content
+  content    String     @db.Text
+  memoryType MemoryType @default(FACT)
+  source     String?    // EXPLICIT (user added), INFERRED (AI extracted), CONVERSATION
+
+  // Importance and usage tracking
+  confidence Float    @default(0.5) // 0-1 confidence score
+  usageCount Int      @default(0)   // How often this memory was used
+  lastUsedAt DateTime?
+
+  // Categorization
+  category String? // User-defined or auto-detected category
+  tags     String? // Comma-separated tags
+
+  // Metadata
+  metadata Json? // Additional structured data
+
+  // Lifecycle
+  expiresAt DateTime? // Optional expiration
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // History tracking
+  history AIMemoryHistory[]
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, memoryType])
+  @@index([tenantId, userId, category])
+  @@map("ai_memories")
+}
+
+/// Memory type categories
+enum MemoryType {
+  PREFERENCE    // User preferences (e.g., "prefers brief emails")
+  FACT          // Facts about user (e.g., "works at Acme Corp")
+  PATTERN       // Behavioral patterns (e.g., "usually replies in morning")
+  INTERACTION   // Important past interactions
+  CONTACT_NOTE  // Notes about contacts
+}
+
+/// Change history for memories (audit trail)
+model AIMemoryHistory {
+  id        String   @id @default(cuid())
+  memoryId  String
+  action    String   // CREATE, UPDATE, DELETE
+  oldValue  String?  @db.Text
+  newValue  String?  @db.Text
+  changedBy String?  // Who/what made the change
+  createdAt DateTime @default(now())
+
+  memory AIMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  @@index([memoryId])
+  @@map("ai_memory_history")
+}
 
 /// Tracks emails that need follow-up
 model EmailFollowUp {
