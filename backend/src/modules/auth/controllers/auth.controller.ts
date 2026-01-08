@@ -194,7 +194,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   async logout(@Request() req: AuthenticatedRequest) {
-    await this.authService.logout(req.user.sessionId);
+    // SECURITY: Pass tenantId and userId for proper tenant-isolated cache invalidation
+    await this.authService.logout(req.user.sessionId, req.user.tenantId, req.user.id);
     return { message: 'Successfully logged out' };
   }
 

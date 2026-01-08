@@ -1,36 +1,105 @@
-
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 @Injectable()
 export class AnalyticsService {
   constructor(private prisma: PrismaService) {}
 
-  async getEmailAnalytics(tenantId: string) {
-    // This is a placeholder implementation.
-    // In a real application, you would have a more complex query to calculate the analytics data.
-    const _sent = await this.prisma.email.count({
-      where: {
-        tenantId,
-        folder: 'SENT'
-      }
-    });
+  /**
+   * Get email analytics for the last N months with REAL data
+   * Returns: { name: 'Jan', emails: total, sent: sentCount, received: receivedCount }[]
+   */
+  async getEmailAnalytics(tenantId: string, months = 7) {
+    const now = new Date();
+    const results: { name: string; emails: number; sent: number; received: number }[] = [];
 
-    const _received = await this.prisma.email.count({
-      where: {
-        tenantId,
-        folder: 'INBOX'
-      }
-    });
+    // Get data for each of the last N months
+    for (let i = months - 1; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999);
 
-    return [
-      { name: 'Jan', emails: 4000, sent: 2400, received: 1600 },
-      { name: 'Feb', emails: 3000, sent: 1398, received: 1602 },
-      { name: 'Mar', emails: 2000, sent: 9800, received: 200 },
-      { name: 'Apr', emails: 2780, sent: 3908, received: 1872 },
-      { name: 'May', emails: 1890, sent: 4800, received: -2910 },
-      { name: 'Jun', emails: 2390, sent: 3800, received: -1410 },
-      { name: 'Jul', emails: 3490, sent: 4300, received: -810 },
-    ];
+      // Query REAL data from database
+      const [sent, received] = await Promise.all([
+        this.prisma.email.count({
+          where: {
+            tenantId,
+            folder: 'SENT',
+            receivedAt: { gte: monthStart, lte: monthEnd },
+          },
+        }),
+        this.prisma.email.count({
+          where: {
+            tenantId,
+            folder: 'INBOX',
+            receivedAt: { gte: monthStart, lte: monthEnd },
+          },
+        }),
+      ]);
+
+      results.push({
+        name: MONTH_NAMES[monthStart.getMonth()],
+        emails: sent + received,
+        sent,
+        received,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Get total email counts for a tenant
+   */
+  async getEmailTotals(tenantId: string) {
+    const [totalSent, totalReceived, totalDrafts, totalTrash] = await Promise.all([
+      this.prisma.email.count({ where: { tenantId, folder: 'SENT' } }),
+      this.prisma.email.count({ where: { tenantId, folder: 'INBOX' } }),
+      this.prisma.email.count({ where: { tenantId, folder: 'DRAFTS' } }),
+      this.prisma.email.count({ where: { tenantId, folder: 'TRASH' } }),
+    ]);
+
+    return {
+      totalSent,
+      totalReceived,
+      totalDrafts,
+      totalTrash,
+      total: totalSent + totalReceived + totalDrafts + totalTrash,
+    };
+  }
+
+  /**
+   * Get email stats for a specific period (day/week/month)
+   */
+  async getEmailStats(tenantId: string, period: 'day' | 'week' | 'month' = 'week') {
+    const now = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'day':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+    }
+
+    const [sent, received, unread] = await Promise.all([
+      this.prisma.email.count({
+        where: { tenantId, folder: 'SENT', receivedAt: { gte: startDate } },
+      }),
+      this.prisma.email.count({
+        where: { tenantId, folder: 'INBOX', receivedAt: { gte: startDate } },
+      }),
+      this.prisma.email.count({
+        where: { tenantId, folder: 'INBOX', isRead: false },
+      }),
+    ]);
+
+    return { period, sent, received, unread, total: sent + received };
   }
 }

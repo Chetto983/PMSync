@@ -27,7 +27,7 @@ import {
   MenuButtonStrikethrough,
   MenuDivider,
   MenuControlsContainer,
-  MenuButtonAddLink,
+  MenuButtonEditLink,
   type RichTextEditorRef,
 } from 'mui-tiptap';
 import { SectionCard } from './SectionCard';
@@ -78,7 +78,7 @@ function SignatureEditorControls() {
       <MenuButtonUnderline />
       <MenuButtonStrikethrough />
       <MenuDivider />
-      <MenuButtonAddLink />
+      <MenuButtonEditLink />
     </MenuControlsContainer>
   );
 }

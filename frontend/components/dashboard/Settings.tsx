@@ -30,7 +30,7 @@ import {
   type ResponseLength,
   type ProactivityLevel,
 } from '@/lib/api/ai';
-import { multiAgentApi } from '@/lib/api/ai';
+// NOTE: multiAgentApi removed - resetLearning endpoint doesn't exist
 import { useAuth } from '@/lib/hooks/use-auth';
 import {
   useAiProfile,
@@ -292,18 +292,7 @@ export function Settings() {
     }
   }, [settingsCopy]);
 
-  const handleResetAiLearning = useCallback(async () => {
-    if (!confirm(settingsCopy.aiPanel?.resetLearning || 'Reset AI learning?')) return;
-    try {
-      setAiDataLoading(true);
-      await multiAgentApi.resetLearning();
-      setAiSuccess(settingsCopy.aiPanel?.resetLearning || 'Learning reset');
-    } catch {
-      setAiError(settingsCopy.generalPanel?.saveError || 'Failed');
-    } finally {
-      setAiDataLoading(false);
-    }
-  }, [settingsCopy]);
+  // NOTE: handleResetAiLearning removed - backend has no endpoint (learning is in-memory only)
 
   const handleSaveNotifications = useCallback(async () => {
     try {
@@ -383,7 +372,7 @@ export function Settings() {
     dataManagementTitle: settingsCopy.aiPanel?.dataManagementTitle || 'Data',
     dataManagementDescription: settingsCopy.aiPanel?.dataManagementDescription || '',
     clearMemory: settingsCopy.aiPanel?.clearMemory || 'Clear',
-    resetLearning: settingsCopy.aiPanel?.resetLearning || 'Reset',
+    // NOTE: resetLearning removed - backend has no endpoint
     // Working hours labels
     workingHoursLabel: settingsCopy.aiPanel?.workingHoursLabel || 'Working Hours',
     workingHoursDescription: settingsCopy.aiPanel?.workingHoursDescription || 'AI will adjust behavior based on your schedule',
@@ -513,7 +502,7 @@ export function Settings() {
             )}
             {selectedSection === 'security' && <MfaSettings />}
             {selectedSection === 'ai' && (
-              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} workingHoursStart={workingHoursStart} setWorkingHoursStart={setWorkingHoursStart} workingHoursEnd={workingHoursEnd} setWorkingHoursEnd={setWorkingHoursEnd} workingDays={workingDays} setWorkingDays={setWorkingDays} jobTitle={jobTitle} setJobTitle={setJobTitle} department={department} setDepartment={setDepartment} industry={industry} setIndustry={setIndustry} companySize={companySize} setCompanySize={setCompanySize} notificationFrequency={notificationFrequency} setNotificationFrequency={setNotificationFrequency} emailDensity={emailDensity} setEmailDensity={setEmailDensity} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onResetLearning={handleResetAiLearning} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
+              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} workingHoursStart={workingHoursStart} setWorkingHoursStart={setWorkingHoursStart} workingHoursEnd={workingHoursEnd} setWorkingHoursEnd={setWorkingHoursEnd} workingDays={workingDays} setWorkingDays={setWorkingDays} jobTitle={jobTitle} setJobTitle={setJobTitle} department={department} setDepartment={setDepartment} industry={industry} setIndustry={setIndustry} companySize={companySize} setCompanySize={setCompanySize} notificationFrequency={notificationFrequency} setNotificationFrequency={setNotificationFrequency} emailDensity={emailDensity} setEmailDensity={setEmailDensity} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
             )}
             {selectedSection === 'accounts' && (
               <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={handleProviderInitiated} onProviderConnected={handleProviderConnected} onProviderDeleted={handleProviderDeleted} copy={accountsCopy} />

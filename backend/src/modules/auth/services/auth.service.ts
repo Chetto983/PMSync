@@ -17,6 +17,7 @@ import { BackupCodesService } from './backup-codes.service';
 import { TrustedDeviceService } from './trusted-device.service';
 import { WebAuthnService } from './webauthn.service';
 import { RedisRateLimiterService } from '../../../common/services/redis-rate-limiter.service';
+import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
 import { nanoid } from 'nanoid';
 import { Request as ExpressRequest } from 'express';
 
@@ -54,6 +55,7 @@ export class AuthService {
     private trustedDeviceService: TrustedDeviceService,
     private webauthnService: WebAuthnService,
     private rateLimiter: RedisRateLimiterService,
+    private cacheService: CacheService,
   ) {
     // Get password reset secret (must be different from JWT secret)
     const resetSecret = process.env.PASSWORD_RESET_SECRET;
@@ -1084,6 +1086,24 @@ export class AuthService {
     });
 
     // Step 8: SECURITY - Invalidate all existing sessions (force re-login everywhere)
+    // First, get all session IDs to invalidate from cache
+    const sessionsToInvalidate = await this.prisma.session.findMany({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+
+    // SECURITY: Invalidate all session caches in parallel with tenant-isolated keys
+    // Cache key format: {tenantId}:{sessionId} for tenant isolation
+    await Promise.all(
+      sessionsToInvalidate.map((s) =>
+        this.cacheService.del(`${user.tenantId}:${s.id}`, { namespace: CacheNamespace.USER_SESSION }),
+      ),
+    );
+
+    // Also invalidate user-level cache with tenant isolation
+    await this.cacheService.del(`${user.tenantId}:user:${user.id}`, { namespace: CacheNamespace.USER_SESSION });
+
+    // Now delete sessions from DB
     const deletedSessions = await this.prisma.session.deleteMany({
       where: { userId: user.id },
     });
@@ -1094,6 +1114,7 @@ export class AuthService {
         userId: user.id,
         email: this.redactEmail(user.email),
         sessionsInvalidated: deletedSessions.count,
+        cacheEntriesInvalidated: sessionsToInvalidate.length + 1,
       }),
     );
 
@@ -1105,11 +1126,29 @@ export class AuthService {
 
   /**
    * Logout user
+   *
+   * PERFORMANCE: Invalidates Redis session cache to ensure
+   * immediate session termination (no stale cache hits)
+   *
+   * SECURITY: Cache key includes tenantId for tenant isolation
    */
-  async logout(sessionId?: string | null) {
+  async logout(sessionId?: string | null, tenantId?: string | null, userId?: string | null) {
     if (!sessionId) {
       this.logger.warn('Logout called without a valid sessionId');
       return;
+    }
+
+    // SECURITY: Invalidate session cache BEFORE deleting from DB
+    // Cache key format: {tenantId}:{sessionId} for tenant isolation
+    if (tenantId) {
+      await this.cacheService.del(`${tenantId}:${sessionId}`, { namespace: CacheNamespace.USER_SESSION });
+      // Also invalidate user-level cache if userId provided
+      if (userId) {
+        await this.cacheService.del(`${tenantId}:user:${userId}`, { namespace: CacheNamespace.USER_SESSION });
+      }
+    } else {
+      // Fallback: Try without tenant prefix (backwards compatibility during migration)
+      await this.cacheService.del(sessionId, { namespace: CacheNamespace.USER_SESSION });
     }
 
     await this.prisma.session.delete({

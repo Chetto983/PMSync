@@ -487,6 +487,11 @@ export class MicrosoftOAuthService {
 
   /**
    * Get provider config and decrypt tokens
+   *
+   * PERFORMANCE OPTIMIZATION:
+   * - Background refresh when token expires in < 5 minutes
+   * - Returns current valid token immediately (non-blocking)
+   * - Blocking refresh only when token already expired
    */
   private async getProviderWithTokens(tenantId: string, providerId: string) {
     const provider = await this.prisma.providerConfig.findFirst({
@@ -514,14 +519,20 @@ export class MicrosoftOAuthService {
       throw new UnauthorizedException('Invalid token format. Please reconnect this provider.');
     }
 
-    const needsRefresh =
-      !provider.tokenExpiresAt ||
-      provider.tokenExpiresAt.getTime() <= Date.now() + 60 * 1000;
+    const now = Date.now();
+    const expiresAt = provider.tokenExpiresAt?.getTime() || 0;
 
-    this.logger.debug(`Needs refresh: ${needsRefresh}`);
+    // Token already expired - must refresh synchronously
+    const isExpired = expiresAt <= now;
 
-    if (needsRefresh && provider.refreshToken && provider.refreshTokenEncryptionIv) {
-      this.logger.log(`Attempting to refresh Microsoft token for provider ${provider.id}...`);
+    // Token expires within 5 minutes - trigger background refresh
+    const needsBackgroundRefresh = !isExpired && expiresAt <= now + 5 * 60 * 1000;
+
+    this.logger.debug(`Is expired: ${isExpired}, Needs background refresh: ${needsBackgroundRefresh}`);
+
+    if (isExpired && provider.refreshToken && provider.refreshTokenEncryptionIv) {
+      // BLOCKING: Token expired, must refresh before returning
+      this.logger.log(`Attempting to refresh Microsoft token (blocking) for provider ${provider.id}...`);
 
       try {
         let refreshToken = this.cryptoService.decrypt(
@@ -534,7 +545,7 @@ export class MicrosoftOAuthService {
         const refreshed = await this.refreshAccessToken(refreshToken);
         accessToken = refreshed.accessToken;
 
-        this.logger.log(`✅ Token refreshed successfully, new expiry: ${refreshed.expiresAt}`);
+        this.logger.log(`✅ Token refreshed successfully (blocking), new expiry: ${refreshed.expiresAt}`);
 
         // Validate new token before saving
         if (!this.validateJWT(accessToken, 'refreshed access token')) {
@@ -575,9 +586,66 @@ export class MicrosoftOAuthService {
           'Failed to refresh access token. Please reconnect this provider.'
         );
       }
+    } else if (needsBackgroundRefresh && provider.refreshToken && provider.refreshTokenEncryptionIv) {
+      // NON-BLOCKING: Trigger background refresh, return current valid token
+      this.refreshTokenInBackground(provider).catch((error) => {
+        this.logger.warn(
+          `Background Microsoft token refresh failed for provider ${provider.id}: ${error instanceof Error ? error.message : error}`,
+        );
+      });
     }
 
     return { provider, accessToken };
+  }
+
+  /**
+   * Refresh token in background (non-blocking)
+   * Updates DB for next request, doesn't affect current request
+   */
+  private async refreshTokenInBackground(provider: {
+    id: string;
+    refreshToken: string | null;
+    refreshTokenEncryptionIv: string | null;
+  }) {
+    if (!provider.refreshToken || !provider.refreshTokenEncryptionIv) {
+      return;
+    }
+
+    this.logger.log(`Starting background token refresh for Microsoft provider ${provider.id}...`);
+
+    let refreshToken = this.cryptoService.decrypt(
+      provider.refreshToken,
+      provider.refreshTokenEncryptionIv,
+    );
+
+    const refreshed = await this.refreshAccessToken(refreshToken);
+
+    // Validate new token before saving
+    if (!this.validateJWT(refreshed.accessToken, 'background refreshed access token')) {
+      throw new Error('Background refreshed token is not a valid JWT');
+    }
+
+    const encryptedAccess = this.cryptoService.encrypt(refreshed.accessToken);
+    const updateData: any = {
+      accessToken: encryptedAccess.encrypted,
+      tokenEncryptionIv: encryptedAccess.iv,
+      tokenExpiresAt: refreshed.expiresAt,
+    };
+
+    if (refreshed.refreshToken && refreshed.refreshToken.length >= 10) {
+      this.logger.log('Microsoft issued a new refresh token during background refresh.');
+      refreshToken = refreshed.refreshToken;
+      const encryptedRefresh = this.cryptoService.encrypt(refreshToken);
+      updateData.refreshToken = encryptedRefresh.encrypted;
+      updateData.refreshTokenEncryptionIv = encryptedRefresh.iv;
+    }
+
+    await this.prisma.providerConfig.update({
+      where: { id: provider.id },
+      data: updateData,
+    });
+
+    this.logger.log(`✅ Microsoft token refreshed (background) for provider ${provider.id}`);
   }
 
   /**

@@ -49,6 +49,7 @@
 | **5: Compose** | Draft autosave, attachments, recipients | Templates, scheduling | 12h |
 | **8: AI Integration** | Summarize button, smart reply chips | Sentiment badges, priority icons | 8h |
 | **6: Search** | Basic search + global command palette | Date pickers | 4h |
+| **7: Subscription** | Add useautumn | create subscrition and sensated limit | 8h |
 | **Total** | | | **24h** |
 
 ### WEEK 3: Connect Orphan Code
@@ -823,6 +824,11 @@ Verify all prompts use centralized locale system:
 
 ## Implementation Priority Order (FINAL)
 
+### 🔥 Priority 0: Auth Performance (CRITICAL - 100ms→5ms per request)
+1. Add Redis session cache to JwtStrategy
+2. Cache invalidation on logout/password reset
+3. Background OAuth token refresh (Google + Microsoft)
+
 ### 🔴 Priority 1: Fix Broken Features
 1. Remove `getLearningStats()` 404 call from frontend
 2. Remove Reset Learning button (no backend)
@@ -849,6 +855,62 @@ Verify all prompts use centralized locale system:
 1. Validate all VoltAgent agents
 2. Validate all tools
 3. Run end-to-end tests
+
+---
+
+## ⚠️ MANDATORY VALIDATION PROTOCOL
+
+**RULE: STOP AND VALIDATE AT EVERY STEP. NO EXCEPTIONS.**
+
+### Validation Commands by Phase
+
+| Phase | Validation Command | Pass Criteria |
+|-------|-------------------|---------------|
+| Auth Cache (Priority 0) | `npm run type-check` + Redis test | 0 errors + cache hit logs |
+| OAuth Refresh | `npx ts-node scripts/test-oauth-refresh.ts` | Token refreshes in background |
+| Broken Features Fix | `npm run type-check && npm run lint` | 0 errors |
+| Signature Backend | `npm run type-check && npm run test:signatures` | API responds 200 |
+| Signature Frontend | Visual test + browser console | No errors in console |
+| HITL Wiring | `npx ts-node scripts/test-hitl-learning.ts` | Learning profile updates |
+| Auto-Triage | `npx ts-node scripts/test-auto-triage.ts` | Labels applied to new email |
+| Full System | `npm run test:e2e` | All tests pass |
+
+### Per-Task Validation Checklist
+
+**Before marking ANY task complete:**
+1. ✅ TypeScript compiles: `npm run type-check`
+2. ✅ No lint errors: `npm run lint`
+3. ✅ Manual test of changed functionality
+4. ✅ Check browser console for errors (frontend)
+5. ✅ Check backend logs for errors
+
+### GDPR & Tenant Isolation Validation
+
+| Check | How to Validate | Required |
+|-------|-----------------|----------|
+| Data never crosses tenants | Audit all Prisma queries have `tenantId` filter | ✅ |
+| PII is redacted in logs | Grep logs for email/name patterns | ✅ |
+| Session cache is tenant-scoped | Cache key includes tenantId | ✅ |
+| OAuth tokens encrypted at rest | Check `accessToken` is ciphertext | ✅ |
+| Password hashing uses bcrypt 12+ | Check `bcrypt.hash(pw, 12)` calls | ✅ |
+| No PII in error responses | Test 4xx/5xx responses | ✅ |
+
+### Auth Cache Validation (Priority 0 - COMPLETED)
+
+```bash
+# 1. Type check passes
+cd backend && npm run type-check
+
+# 2. Start backend and make authenticated request
+# First request: cache miss, 2 DB queries
+# Second request: cache hit, 0 DB queries
+
+# 3. Test logout invalidates cache
+# After logout, next request should hit DB again
+
+# 4. Test password reset invalidates all sessions
+# All user sessions should be removed from cache
+```
 
 ---
 
@@ -1151,12 +1213,128 @@ Framework: Playwright (already in devDependencies)
 
 ---
 
+## PART L: Auth Performance Optimization (CRITICAL - Priority 0)
+
+### The Problem: 2 DB Queries Per Request
+
+**Comparison with Zero-staging (reference implementation):**
+
+| Aspect | Zero (FAST) | MailAgent (SLOW) |
+|--------|-------------|------------------|
+| Auth Library | `better-auth` | Passport.js + JWT |
+| Session Cache | Redis `secondaryStorage` (30 days) | **NO CACHE - DB hit every request** |
+| Cookie Cache | `cookieCache.enabled: true` | None |
+| Session Expiry | 30 days | 24 hours |
+| DB Queries/Request | 0 (from cache) | **2 queries EVERY request** |
+| Token Refresh | Middleware pattern (async) | Synchronous blocking |
+
+### Root Cause: `jwt.strategy.ts` Lines 98-143
+
+Every authenticated request executes **2 database queries**:
+
+```typescript
+// Query 1: Session lookup - EVERY REQUEST
+const session = await this.prisma.session.findUnique({
+  where: { id: payload.sessionId },
+});
+
+// Query 2: User + Tenant lookup - EVERY REQUEST
+const user = await this.prisma.user.findUnique({
+  where: { id: payload.userId },
+  include: { tenant: true },
+});
+```
+
+**Impact**: With 50ms average per query, that's **100ms overhead per request** before any business logic runs.
+
+### Zero's Solution: Redis Session Cache
+
+```typescript
+// Zero's auth.ts - Sessions cached in Redis
+secondaryStorage: {
+  get: async (key: string) => await redis.get(key),
+  set: async (key: string, value: string, ttl?: number) =>
+    await redis.set(key, value, { ex: ttl }),
+  delete: async (key: string) => await redis.del(key),
+},
+session: {
+  cookieCache: { enabled: true, maxAge: 60 * 60 * 24 * 30 }, // 30 days
+  expiresIn: 60 * 60 * 24 * 30, // 30 days
+}
+```
+
+### Fix: Add Redis Cache to Existing JwtStrategy (4h)
+
+**File:** `backend/src/modules/auth/strategies/jwt.strategy.ts`
+
+1. Inject `CacheService` (already uses Redis)
+2. Cache session + user data for 5 minutes
+3. Invalidate cache on logout/role change
+
+```typescript
+async validate(payload: any) {
+  const cacheKey = `session:${payload.sessionId}`;
+
+  // Try cache first
+  const cached = await this.cacheService.get(cacheKey);
+  if (cached) return JSON.parse(cached);
+
+  // Existing DB queries...
+  const session = await this.prisma.session.findUnique({...});
+  const user = await this.prisma.user.findUnique({...});
+
+  // Cache result for 5 minutes
+  const result = { id: user.id, tenantId: user.tenantId, ... };
+  await this.cacheService.set(cacheKey, JSON.stringify(result), 300);
+
+  return result;
+}
+```
+
+**Cache Invalidation Points:**
+
+- `auth.service.ts:logout()` → Delete `session:{id}` from cache
+- `auth.service.ts:resetPassword()` → Delete all user sessions from cache
+- User role change → Delete user's session cache
+
+### OAuth Token Refresh Optimization (2h)
+
+**Problem:** Token refresh blocks the request in `getProviderWithTokens()`.
+
+**Fix:** Background refresh when token is near expiry (5 min buffer instead of 60s).
+
+**Files:**
+
+- `backend/src/modules/providers/services/google-oauth.service.ts`
+- `backend/src/modules/providers/services/microsoft-oauth.service.ts`
+
+### Implementation Plan (6h total)
+
+| Task | Hours | File |
+|------|-------|------|
+| Add session cache to JwtStrategy | 2h | `jwt.strategy.ts` |
+| Add cache invalidation to logout | 0.5h | `auth.service.ts` |
+| Add cache invalidation on password reset | 0.5h | `auth.service.ts` |
+| Background token refresh (Google) | 1h | `google-oauth.service.ts` |
+| Background token refresh (Microsoft) | 1h | `microsoft-oauth.service.ts` |
+| Test auth performance improvement | 1h | Manual testing |
+
+### Expected Performance Improvement
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Auth overhead per request | ~100ms | ~5ms (cache hit) |
+| OAuth token refresh | Blocks request | Background |
+| Session validation | 2 DB queries | 0 DB queries (cached) |
+
+---
+
 ## UPDATED: 4-Week Execution Summary
 
 | Week | Focus | Hours | Deliverable |
 |------|-------|-------|-------------|
-| 1 | Fix broken + Signatures | 11h | Working signature feature |
-| 2 | Email Compose + AI | 24h | Draft, attachments, summarize, smart-reply |
+| 1 | **Auth Cache** + Fix broken + Signatures | 17h | **Fast auth** + working signature |
+| 2 | Email Compose + AI + Subscription | 32h | Draft, attachments, smart-reply, pricing |
 | 3 | Dashboard + Search + Memory | 16h | Trend graphs, search command, memory cleanup |
 | 4 | E2E Tests + Polish | 10h | Full test coverage, follow-ups improvements |
-| **Total** | | **61h** | MVP polished with tests |
+| **Total** | | **75h** | MVP polished with **fast auth** |

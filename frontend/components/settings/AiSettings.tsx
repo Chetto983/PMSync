@@ -14,7 +14,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { MessageSquare, FileText, Calendar, Trash2, RotateCcw, ExternalLink } from 'lucide-react';
+import { MessageSquare, FileText, Calendar, Trash2, ExternalLink } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import { SettingRow } from './SettingRow';
 import type { CommunicationStyle, ResponseLength, ProactivityLevel } from '@/lib/api/ai';
@@ -69,7 +69,7 @@ export interface AiSettingsProps {
   // Actions
   onSave: () => void;
   onClearMemory: () => void;
-  onResetLearning: () => void;
+  // NOTE: onResetLearning removed - backend has no endpoint (learning is in-memory only)
   onOpenAssistant: () => void;
   // Copy
   copy: {
@@ -97,7 +97,7 @@ export interface AiSettingsProps {
     dataManagementTitle: string;
     dataManagementDescription: string;
     clearMemory: string;
-    resetLearning: string;
+    // NOTE: resetLearning removed - backend has no endpoint
     // Working hours labels
     workingHoursLabel?: string;
     workingHoursDescription?: string;
@@ -178,7 +178,7 @@ export function AiSettings({
   setEmailDensity,
   onSave,
   onClearMemory,
-  onResetLearning,
+  // NOTE: onResetLearning removed - backend has no endpoint
   onOpenAssistant,
   copy,
 }: AiSettingsProps) {
@@ -502,15 +502,7 @@ export function AiSettings({
               >
                 {copy.clearMemory}
               </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<RotateCcw size={16} />}
-                onClick={onResetLearning}
-                disabled={dataLoading}
-              >
-                {copy.resetLearning}
-              </Button>
+{/* NOTE: Reset Learning button removed - backend has no endpoint (learning is in-memory only) */}
             </Stack>
           </SectionCard>
         </>

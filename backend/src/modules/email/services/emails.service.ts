@@ -671,7 +671,8 @@ export class EmailsService {
       if (result.count === 0) {
         throw new NotFoundException('Draft not found');
       }
-      return this.prisma.email.findUnique({ where: { id: dto.id } });
+      // Defense-in-depth: Include tenantId filter even though updateMany validated it
+      return this.prisma.email.findFirst({ where: { id: dto.id, tenantId } });
     }
 
     return this.prisma.email.create({ data: createData });

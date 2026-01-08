@@ -2,42 +2,18 @@
 
 import React from 'react';
 import { Box, Typography, LinearProgress, Skeleton, alpha, useTheme } from '@mui/material';
-import { Brain, TrendingUp, MessageSquare } from 'lucide-react';
-import { useQuery, queryOptions } from '@tanstack/react-query';
+import { Brain, MessageSquare } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { multiAgentApi } from '@/lib/api/ai';
 import { CollapsibleWidget } from './CollapsibleWidget';
 
-function learningStatsOptions() {
-  return queryOptions({
-    queryKey: ['ai', 'learningStats'],
-    queryFn: async () => {
-      const response = await multiAgentApi.getLearningStats();
-      const stats = response.data?.stats || [];
-
-      const totalAttempts = stats.reduce((sum: number, s) => sum + s.totalAttempts, 0);
-      const successfulAttempts = stats.reduce((sum: number, s) => sum + Math.round(s.successRate * s.totalAttempts), 0);
-      const learningProgress = Math.min(100, totalAttempts);
-      const successRate = totalAttempts > 0 ? Math.round((successfulAttempts / totalAttempts) * 100) : 0;
-
-      return {
-        totalAttempts,
-        successfulAttempts,
-        learningProgress,
-        successRate,
-        stats,
-      };
-    },
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
-    retry: 1,
-  });
-}
+// NOTE: getLearningStats endpoint removed - learning is in-memory only with no API
+// Writing style profile is the only persisted learning data available
 
 export function LearningWidget() {
   const theme = useTheme();
   const t = useTranslations();
-  const { data: learningStats } = useQuery(learningStatsOptions());
 
   // New: Fetch writing style profile
   const { data: writingStyleData, isLoading } = useQuery({
@@ -52,8 +28,9 @@ export function LearningWidget() {
   const sampleCount = writingStyleData?.sampleCount || 0;
   const learningProgress = Math.min(100, Math.round((sampleCount / 50) * 100)); // Cap at 100%
 
-  const successRate = learningStats?.successRate ?? 0; // Keep success rate from feedback loop if available
-  const totalAttempts = sampleCount; // Use analyzed emails as "interactions" count for this context
+  // NOTE: successRate removed - learning stats endpoint doesn't exist (in-memory only)
+  // We only show writing style progress now
+  const totalAttempts = sampleCount;
 
   const getLearningMessage = () => {
     if (learningProgress < 20) return t.ai?.writingStyleLearningLow || 'Analysing your style...';
@@ -123,18 +100,12 @@ export function LearningWidget() {
           />
         </Box>
 
-        {/* Compact Stats */}
-        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'space-between' }}>
+        {/* Compact Stats - only emails analyzed (success rate removed - no backend) */}
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <MessageSquare size={14} style={{ color: theme.palette.primary.main }} />
             <Typography variant="caption">
               <strong>{totalAttempts}</strong> {t.ai?.learning?.interactions || 'emails analyzed'}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TrendingUp size={14} style={{ color: theme.palette.success.main }} />
-            <Typography variant="caption">
-              <strong>{successRate}%</strong> {t.ai?.learning?.successRate || 'success'}
             </Typography>
           </Box>
         </Box>

@@ -234,6 +234,11 @@ export class GoogleOAuthService {
 
   /**
    * Get provider config and decrypt tokens
+   *
+   * PERFORMANCE OPTIMIZATION:
+   * - Background refresh when token expires in < 5 minutes
+   * - Returns current valid token immediately (non-blocking)
+   * - Blocking refresh only when token already expired
    */
   private async getProviderWithTokens(tenantId: string, providerId: string) {
     const provider = await this.prisma.providerConfig.findFirst({
@@ -250,11 +255,17 @@ export class GoogleOAuthService {
       provider.tokenEncryptionIv!,
     );
 
-    const needsRefresh =
-      !provider.tokenExpiresAt ||
-      provider.tokenExpiresAt.getTime() <= Date.now() + 60 * 1000;
+    const now = Date.now();
+    const expiresAt = provider.tokenExpiresAt?.getTime() || 0;
 
-    if (needsRefresh && provider.refreshToken && provider.refreshTokenEncryptionIv) {
+    // Token already expired - must refresh synchronously
+    const isExpired = expiresAt <= now;
+
+    // Token expires within 5 minutes - trigger background refresh
+    const needsBackgroundRefresh = !isExpired && expiresAt <= now + 5 * 60 * 1000;
+
+    if (isExpired && provider.refreshToken && provider.refreshTokenEncryptionIv) {
+      // BLOCKING: Token expired, must refresh before returning
       try {
         const refreshToken = this.cryptoService.decrypt(
           provider.refreshToken,
@@ -274,14 +285,56 @@ export class GoogleOAuthService {
             tokenExpiresAt: refreshed.expiresAt,
           },
         });
+
+        this.logger.log(`✅ Google token refreshed (blocking) for provider ${provider.id}`);
       } catch (error) {
         this.logger.warn(
           `Failed to refresh Google access token for provider ${provider.id}: ${error instanceof Error ? error.message : error}`,
         );
       }
+    } else if (needsBackgroundRefresh && provider.refreshToken && provider.refreshTokenEncryptionIv) {
+      // NON-BLOCKING: Trigger background refresh, return current valid token
+      this.refreshTokenInBackground(provider).catch((error) => {
+        this.logger.warn(
+          `Background Google token refresh failed for provider ${provider.id}: ${error instanceof Error ? error.message : error}`,
+        );
+      });
     }
 
     return { provider, accessToken };
+  }
+
+  /**
+   * Refresh token in background (non-blocking)
+   * Updates DB for next request, doesn't affect current request
+   */
+  private async refreshTokenInBackground(provider: {
+    id: string;
+    refreshToken: string | null;
+    refreshTokenEncryptionIv: string | null;
+  }) {
+    if (!provider.refreshToken || !provider.refreshTokenEncryptionIv) {
+      return;
+    }
+
+    const refreshToken = this.cryptoService.decrypt(
+      provider.refreshToken,
+      provider.refreshTokenEncryptionIv,
+    );
+
+    const refreshed = await this.refreshAccessToken(refreshToken);
+    const encryptedAccess = this.cryptoService.encrypt(refreshed.accessToken);
+
+    await this.prisma.providerConfig.update({
+      where: { id: provider.id },
+      data: {
+        accessToken: encryptedAccess.encrypted,
+        tokenEncryptionIv: encryptedAccess.iv,
+        tokenExpiresAt: refreshed.expiresAt,
+      },
+    });
+
+    this.logger.log(`✅ Google token refreshed (background) for provider ${provider.id}`);
   }
 
   /**

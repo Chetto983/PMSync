@@ -123,17 +123,8 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
     staleTime,
   });
 
-  // Learning Stats Query
-  const learningQuery = useQuery({
-    queryKey: aiActionsKeys.learning(),
-    queryFn: async () => {
-      const response = await voltAgentApi.getLearningStats();
-      if (!response.data.success) throw new Error('Failed to get learning stats');
-      return response.data.stats;
-    },
-    enabled: autoFetch,
-    staleTime: 60 * 1000, // 1 minute
-  });
+  // NOTE: Learning Stats Query REMOVED - endpoint returns 404 (in-memory only, no persistence)
+  // See CONSOLIDATION-PLAN.md for details
 
   // Aggregate Stats Query
   const aggregateQuery = useQuery({
@@ -257,7 +248,6 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
   const isLoading =
     pendingQuery.isLoading ||
     countsQuery.isLoading ||
-    learningQuery.isLoading ||
     aggregateQuery.isLoading;
 
   return {
@@ -283,10 +273,10 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
     countsLoading: countsQuery.isLoading,
     refetchCounts: () => queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() }),
 
-    // Learning Stats
-    learningStats: learningQuery.data ?? [],
-    learningLoading: learningQuery.isLoading,
-    refetchLearning: () => queryClient.invalidateQueries({ queryKey: aiActionsKeys.learning() }),
+    // NOTE: Learning Stats REMOVED - endpoint returns 404 (in-memory only)
+    learningStats: [], // Always empty - learning is in-memory only
+    learningLoading: false,
+    refetchLearning: () => {}, // No-op
 
     // Aggregate Stats
     aggregateStats: aggregateQuery.data ?? null,
