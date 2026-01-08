@@ -31,6 +31,7 @@ model Tenant {
   userLabels           UserLabel[]
   users                User[]
   webhookSubscriptions WebhookSubscription[]
+  emailSignatures      EmailSignature[]
 
   @@map("tenants")
 }
@@ -61,6 +62,7 @@ model User {
   tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   webauthnCredentials WebAuthnCredential[]
   writingStyleProfile WritingStyleProfile?
+  emailSignatures     EmailSignature[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -265,6 +267,7 @@ model ProviderConfig {
   providerContacts         ProviderContact[]     @relation("ProviderContactToProvider")
   scheduledEmails          ScheduledEmail[]
   webhookSubscriptions     WebhookSubscription[]
+  emailSignatures          EmailSignature[]
 
   @@unique([tenantId, email, providerType])
   @@index([tenantId, isDefault])
@@ -834,6 +837,27 @@ model WritingStyleProfile {
   @@unique([tenantId, userId])
   @@index([tenantId, userId])
   @@map("writing_style_profiles")
+}
+
+/// Email signatures - per-provider signatures with default support
+model EmailSignature {
+  id         String          @id @default(cuid())
+  tenantId   String
+  userId     String
+  providerId String?         // null = applies to all providers
+  name       String
+  content    String          // HTML content
+  isDefault  Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider   ProviderConfig? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, providerId])
+  @@index([providerId])
+  @@map("email_signatures")
 }
 
 /// User AI memories - facts, preferences, patterns learned from conversations
