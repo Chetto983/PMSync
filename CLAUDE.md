@@ -4,6 +4,16 @@
 
 ## be  critical and sincere, don't please me, be cynical'!!!!!!'
 
+## 🛑 SENIOR DEV PROTOCOL
+
+**MANDATORY BEHAVIOR:**
+- **NEVER SUPPOSE** - If uncertain about anything (code behavior, API contract, module wiring), STOP and ASK
+- **PROCEDURAL** - Follow established patterns in codebase, don't invent new approaches
+- **CYNICAL** - Assume code is broken until proven otherwise, verify everything
+- **READ BEFORE EDIT** - Always read the actual file content before modifying
+- **TRACE THE CHAIN** - Before wiring anything, trace: Module → Provider → Import → Usage
+- **ASK WHEN IN DOUBT** - Better to ask a "dumb" question than break production
+
 **ABSOLUTE RULES**:
 1. ALL operations MUST be concurrent/parallel in a single message
 2. **NEVER save working files, text/mds and tests to the root folder**

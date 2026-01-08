@@ -176,7 +176,8 @@
       "Bash(timeout 60 npx ts-node:*)",
       "Bash(timeout 30 npx ts-node:*)",
       "Bash(wmic process where \"CommandLine like ''%nest%'' and CommandLine like ''%start%''\" get ProcessId,CommandLine)",
-      "Bash(timeout 15 npm run start:dev:*)"
+      "Bash(timeout 15 npm run start:dev:*)",
+      "Bash(del \"d:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\ai\\\\services\\\\contact-embedding.service.ts\")"
     ],
     "deny": []
   }

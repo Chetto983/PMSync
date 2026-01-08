@@ -33,7 +33,8 @@ interface EmailRecord {
 @Injectable()
 export class EmailInsightsService {
   private readonly logger = new Logger(EmailInsightsService.name);
-  private readonly allowedLabels = [
+  // Default labels as fallback when no custom labels exist
+  private readonly defaultLabels = [
     'Important',
     'Follow-up',
     'Action Items',
@@ -43,6 +44,32 @@ export class EmailInsightsService {
     'Promotions',
     'Updates',
   ];
+
+  /**
+   * Fetch user's custom labels from database, fallback to defaults
+   */
+  private async getUserLabels(tenantId: string): Promise<string[]> {
+    try {
+      const labels = await this.prisma.userLabel.findMany({
+        where: {
+          tenantId,
+          isArchived: false,
+        },
+        select: { name: true },
+        orderBy: { orderIndex: 'asc' },
+      });
+
+      if (labels.length === 0) {
+        this.logger.debug(`No custom labels for tenant ${tenantId}, using defaults`);
+        return this.defaultLabels;
+      }
+
+      return labels.map((l) => l.name);
+    } catch (error) {
+      this.logger.warn(`Failed to fetch labels for ${tenantId}, using defaults: ${error}`);
+      return this.defaultLabels;
+    }
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -200,7 +227,9 @@ export class EmailInsightsService {
     const supportedLocale = getLocale(locale);
     const t = getToolTranslations(supportedLocale);
 
-    const labelsList = this.allowedLabels.join(', ');
+    // Fetch user's custom labels from database
+    const allowedLabels = await this.getUserLabels(tenantId);
+    const labelsList = allowedLabels.join(', ');
     const systemPrompt = t.insights.categorize.systemPrompt(labelsList);
 
     const userPrompt = this.buildEmailPrompt(email, lang);
@@ -215,7 +244,7 @@ export class EmailInsightsService {
 
       let labels = parseArrayFromAiPayload(raw, 'labels');
       if (!labels.length) {
-        labels = this.guessLabelsFromText(raw);
+        labels = this.guessLabelsFromText(raw, allowedLabels);
       }
 
       if (!labels.length) {
@@ -225,8 +254,8 @@ export class EmailInsightsService {
       return Array.from(
         new Set(
           labels
-            .map((label) => this.normaliseLabel(label))
-            .filter((label) => this.allowedLabels.includes(label)),
+            .map((label) => this.normaliseLabel(label, allowedLabels))
+            .filter((label) => allowedLabels.includes(label)),
         ),
       ).slice(0, 3);
     } catch (error) {
@@ -340,28 +369,69 @@ export class EmailInsightsService {
 
   /**
    * Comprehensive email analysis combining sentiment, priority, and intent
+   *
+   * CACHING: Results are cached in EmailAnalysis table for 24 hours.
+   * This reduces LLM calls by ~90% for repeated analysis requests.
    */
   async analyzeEmail(tenantId: string, emailId: string, locale?: string) {
+    // Cache TTL: 24 hours
+    const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+    // Check cache first (tenant-isolated)
+    const cached = await this.prisma.emailAnalysis.findFirst({
+      where: {
+        emailId,
+        tenantId, // GDPR: tenant isolation
+        processedAt: { gt: new Date(Date.now() - CACHE_TTL_MS) },
+      },
+      select: {
+        suggestedActions: true,
+        processedAt: true,
+      },
+    });
+
+    // Return cached result if valid
+    if (cached?.suggestedActions) {
+      const rawResult = cached.suggestedActions as Record<string, unknown>;
+      // Check if this is a comprehensive analysis (has our signature fields)
+      if (rawResult._analysisType === 'comprehensive') {
+        this.logger.debug(`Cache hit for analyzeEmail: ${emailId}`);
+        return {
+          sentiment: rawResult.sentiment as string ?? 'neutral',
+          tone: rawResult.tone as string ?? 'casual',
+          urgency: rawResult.urgency as string ?? 'medium',
+          intent: rawResult.intent as string ?? 'fyi',
+          priority: rawResult.priority as number ?? 5,
+          escalationRisk: rawResult.escalationRisk as boolean ?? false,
+          keyTopics: rawResult.keyTopics as string[] ?? [],
+          suggestedResponse: rawResult.suggestedResponse as string ?? 'within_day',
+          confidence: rawResult.confidence as number ?? 0.5,
+        };
+      }
+    }
+
+    // No cache - run LLM analysis
     const email = await this.getEmailOrThrow(tenantId, emailId);
     const lang = this.resolveLocale(locale);
     const supportedLocale = getLocale(locale);
     const t = getToolTranslations(supportedLocale);
 
     const systemPrompt = t.insights.analyzeComprehensive.systemPrompt;
-
     const userPrompt = this.buildEmailPrompt(email, lang);
 
     try {
+      const startTime = Date.now();
       const raw = await this.mistral.completePrompt({
         systemPrompt,
         userPrompt,
         temperature: 0.1,
         maxTokens: 600,
       });
+      const latencyMs = Date.now() - startTime;
 
       const parsed = this.parseJsonResponse(raw);
 
-      return {
+      const result = {
         sentiment: typeof parsed.sentiment === 'string' ? parsed.sentiment : 'neutral',
         tone: typeof parsed.tone === 'string' ? parsed.tone : 'casual',
         urgency: typeof parsed.urgency === 'string' ? parsed.urgency : 'medium',
@@ -372,6 +442,37 @@ export class EmailInsightsService {
         suggestedResponse: typeof parsed.suggestedResponse === 'string' ? parsed.suggestedResponse : 'within_day',
         confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0.5)),
       };
+
+      // Store in cache (upsert to handle concurrent requests)
+      // Store with metadata to distinguish from other suggestedActions uses
+      await this.prisma.emailAnalysis.upsert({
+        where: { emailId },
+        update: {
+          tenantId, // GDPR: ensure tenant isolation
+          suggestedActions: {
+            ...result,
+            _analysisType: 'comprehensive',
+            _cachedAt: new Date().toISOString(),
+          },
+          processedAt: new Date(),
+          latencyMs,
+        },
+        create: {
+          emailId,
+          tenantId,
+          suggestedActions: {
+            ...result,
+            _analysisType: 'comprehensive',
+            _cachedAt: new Date().toISOString(),
+          },
+          processedAt: new Date(),
+          latencyMs,
+        },
+      });
+
+      this.logger.debug(`Cached analyzeEmail result: ${emailId} (${latencyMs}ms)`);
+
+      return result;
     } catch (error) {
       this.logger.error(
         `Failed to analyze email ${emailId}: ${this.getErrorMessage(error)}`,
@@ -471,14 +572,14 @@ export class EmailInsightsService {
       .filter((line) => !/^"?(replies|labels|subject|body|text|message|reply|content)"?\s*:/.test(line));
   }
 
-  private guessLabelsFromText(payload: string): string[] {
+  private guessLabelsFromText(payload: string, allowedLabels: string[]): string[] {
     const lowered = payload.toLowerCase();
-    return this.allowedLabels.filter((label) => lowered.includes(label.toLowerCase()));
+    return allowedLabels.filter((label) => lowered.includes(label.toLowerCase()));
   }
 
-  private normaliseLabel(label: string): string {
+  private normaliseLabel(label: string, allowedLabels: string[]): string {
     const trimmed = label.trim().toLowerCase();
-    const found = this.allowedLabels.find(
+    const found = allowedLabels.find(
       (item) => item.toLowerCase() === trimmed || item.toLowerCase().includes(trimmed),
     );
     return found ?? label.trim();

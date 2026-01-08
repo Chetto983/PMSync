@@ -86,6 +86,14 @@ export class SendEmailRequestDto extends BaseComposeEmailDto {
   @IsOptional()
   @IsString()
   scheduledAt?: string;
+
+  /**
+   * Signature ID to append. If not provided, uses default signature for provider.
+   * Pass explicitly null to send without signature.
+   */
+  @IsOptional()
+  @IsString()
+  signatureId?: string | null;
 }
 
 export class ReplyForwardEmailRequestDto extends BaseComposeEmailDto { }

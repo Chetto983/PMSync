@@ -13,11 +13,13 @@ import { AttachmentMetricsService } from './services/attachment-metrics.service'
 import { ScheduledEmailService } from './services/scheduled-email.service';
 import { ProviderValidationService } from './services/provider-validation.service';
 import { FolderLookupService } from './services/folder-lookup.service';
+import { EmailSignatureService } from './services/email-signature.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { AiModule } from '../ai/ai.module';
 import { EmailsController } from './controllers/emails.controller';
 import { AttachmentsController } from './controllers/attachments.controller';
+import { SignaturesController } from './controllers/signatures.controller';
 import { EmailSyncModule } from '../email-sync/email-sync.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageService } from './services/storage.service';
@@ -66,8 +68,10 @@ import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module
     ProviderValidationService,
     FolderLookupService,
     EmailFolderService,
+    // Signature service
+    EmailSignatureService,
   ],
-  controllers: [EmailsController, AttachmentsController],
+  controllers: [EmailsController, AttachmentsController, SignaturesController],
   exports: [
     EmailService,
     EmailsService,
@@ -85,6 +89,8 @@ import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module
     ProviderValidationService,
     FolderLookupService,
     EmailFolderService,
+    // Signature service
+    EmailSignatureService,
   ],
 })
 export class EmailModule { }

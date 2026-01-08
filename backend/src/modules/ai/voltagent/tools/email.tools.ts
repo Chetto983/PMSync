@@ -7,15 +7,25 @@
  * Performance optimizations (2025-12-14):
  * - Redis caching for email metadata lookups (tenant-scoped)
  * - Memory fallback when Redis unavailable
+ *
+ * RAG Enhancement (2025-01):
+ * - search_emails now uses UnifiedRetriever (hybrid vector+keyword with RRF fusion)
+ * - Falls back to Prisma text search if RAG services unavailable
  */
 import { createTool } from '@voltagent/core';
 import { z } from 'zod';
+import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { EmailSendService } from '../../../email/services/email-send.service';
+import type { MistralService } from '../../services/mistral.service';
+import type { EmbeddingsService } from '../../services/embeddings.service';
+import { UnifiedRetriever } from '../rag/unified-retriever';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
+
+const logger = new Logger('EmailTools');
 
 /**
  * Email metadata for caching
@@ -76,6 +86,15 @@ async function getEmailMetadata(
 }
 
 /**
+ * RAG options for email search enhancement
+ */
+export interface EmailToolsRagOptions {
+  userId?: string;
+  mistralService?: MistralService;
+  embeddingsService?: EmbeddingsService;
+}
+
+/**
  * Creates all email-related tools for VoltAgent.
  *
  * @param prisma - Prisma service for database access
@@ -83,6 +102,7 @@ async function getEmailMetadata(
  * @param locale - User's locale for translations
  * @param tenantId - Tenant ID for data isolation
  * @param cacheService - Optional cache service for Redis caching
+ * @param ragOptions - Optional RAG services for semantic search (hybrid vector+keyword)
  */
 export function createEmailTools(
   prisma: PrismaService,
@@ -90,6 +110,7 @@ export function createEmailTools(
   locale: SupportedLocale = 'en',
   tenantId: string,
   cacheService?: CacheService,
+  ragOptions?: EmailToolsRagOptions,
 ) {
   const t = getToolTranslations(locale);
 
@@ -238,13 +259,92 @@ export function createEmailTools(
     // ========== SEARCH EMAILS ==========
     createTool({
       name: 'search_emails',
-      description: 'Search emails by query. Returns matching emails from the inbox.',
+      description: `Search emails by query. Returns matching emails.
+
+For EXACT matches (sender, subject keywords): Uses text search.
+For MEANING-based queries (concepts, topics): Uses semantic RAG when available.
+
+Examples:
+- "from:john subject:invoice" → exact text search
+- "emails about payment problems" → semantic search (finds invoices, billing issues)
+- "meeting agenda" → searches subject/body for keywords`,
       parameters: z.object({
-        query: z.string().describe('Search query (searches subject and body)'),
+        query: z.string().describe('Search query (searches subject, body, sender semantically when RAG available)'),
         limit: z.number().optional().describe('Maximum results (default 10)'),
         folder: z.string().optional().describe('Folder to search in (inbox, sent, etc.)'),
       }),
       execute: async ({ query, limit, folder }) => {
+        const maxResults = limit ?? 10;
+
+        // Try RAG search first if services are available
+        if (ragOptions?.userId && ragOptions.mistralService && ragOptions.embeddingsService) {
+          try {
+            logger.debug(`[${tenantId}] RAG search: "${query.substring(0, 50)}..."`);
+
+            const retriever = new UnifiedRetriever({
+              tenantId,
+              userId: ragOptions.userId,
+              locale,
+              prisma,
+              mistralService: ragOptions.mistralService,
+              embeddingsService: ragOptions.embeddingsService,
+              emailLimit: maxResults * 2, // Fetch more for fusion, then limit
+            });
+
+            // Search emails with hybrid RAG (vector + keyword + RRF fusion)
+            const results = await retriever.searchSources(query, ['emails']);
+            const emailResults = results.find((r) => r.source === 'emails');
+
+            if (emailResults && emailResults.items.length > 0) {
+              // Fetch full email details for the top results
+              const emailIds = emailResults.items.slice(0, maxResults).map((item) => item.id);
+              const emails = await prisma.email.findMany({
+                where: {
+                  id: { in: emailIds },
+                  tenantId,
+                  ...(folder ? { folder: { contains: folder, mode: 'insensitive' as const } } : {}),
+                },
+                select: {
+                  id: true,
+                  subject: true,
+                  from: true,
+                  snippet: true,
+                  receivedAt: true,
+                  isRead: true,
+                  isStarred: true,
+                },
+              });
+
+              // Preserve RAG ranking order
+              const emailMap = new Map(emails.map((e) => [e.id, e]));
+              const orderedEmails = emailIds
+                .map((id) => emailMap.get(id))
+                .filter((e): e is NonNullable<typeof e> => e !== undefined);
+
+              // Convert Date objects to ISO strings for AI SDK JSON schema compatibility
+              const serializedEmails = orderedEmails.map((e) => ({
+                ...e,
+                receivedAt: e.receivedAt?.toISOString() ?? null,
+              }));
+
+              logger.debug(`[${tenantId}] RAG search found ${serializedEmails.length} emails`);
+
+              return {
+                success: true,
+                data: serializedEmails,
+                summary: t.email.searched(serializedEmails.length, query) + ' (semantic)',
+                searchType: 'rag',
+              };
+            }
+          } catch (error) {
+            logger.warn(`RAG search failed, falling back to text search: ${error instanceof Error ? error.message : String(error)}`);
+            // Fall through to text search
+          }
+        }
+
+        // Fallback: Prisma text search
+        logger.debug(`[${tenantId}] Text search: "${query.substring(0, 50)}..."`);
+
         const emails = await prisma.email.findMany({
           where: {
             tenantId,
@@ -255,7 +355,7 @@ export function createEmailTools(
               { from: { contains: query, mode: 'insensitive' as const } },
             ],
           },
-          take: limit ?? 10,
+          take: maxResults,
           orderBy: { receivedAt: 'desc' },
           select: {
             id: true,
@@ -278,6 +378,7 @@ export function createEmailTools(
           success: true,
           data: serializedEmails,
           summary: t.email.searched(emails.length, query),
+          searchType: 'text',
         };
       },
     }),

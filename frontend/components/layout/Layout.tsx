@@ -3,6 +3,7 @@ import { Box, ThemeProvider, CssBaseline, Snackbar, Alert } from '@mui/material'
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CookieConsent } from '@/components/ui/cookie-consent';
+import { CommandPalette } from '@/components/ai/CommandPalette';
 import { darkTheme, lightTheme } from '@/theme/appTheme';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -122,6 +123,7 @@ export function Layout({ children }: LayoutProps) {
           </Snackbar>
         )}
         <CookieConsent />
+        <CommandPalette />
       </Box>
     </ThemeProvider>
   );

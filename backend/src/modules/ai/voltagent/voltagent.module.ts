@@ -48,6 +48,7 @@ import { ConversationCompactionService } from './services/conversation-compactio
 import { ConversationManagementService } from './services/conversation-management.service';
 import { MemoryIntelligenceService } from './services/memory-intelligence.service';
 import { AlertingService } from '../../../common/services/alerting.service';
+import { LearningService } from './services/learning.service';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { AlertingService } from '../../../common/services/alerting.service';
     ConversationManagementService,
     MemoryIntelligenceService,
     AlertingService,
+    LearningService,
   ],
   exports: [
     VoltAgentService,
@@ -120,6 +122,7 @@ import { AlertingService } from '../../../common/services/alerting.service';
     ConversationCompactionService,
     ConversationManagementService,
     MemoryIntelligenceService,
+    LearningService,
   ],
 })
 export class VoltAgentModule { }

@@ -35,6 +35,7 @@ import { EmailSendService } from '../services/email-send.service';
 import { EmailCleanupService } from '../services/email-cleanup.service';
 import { StorageService } from '../services/storage.service';
 import { AttachmentOnDemandService } from '../services/attachment-on-demand.service';
+import { EmailSignatureService } from '../services/email-signature.service';
 import {
   ReplyForwardEmailRequestDto,
   SendEmailRequestDto,
@@ -107,6 +108,7 @@ export class EmailsController {
     private icsGenerator: IcsGeneratorService,
     private calendarService: CalendarService,
     private configService: ConfigService,
+    private signatureService: EmailSignatureService,
   ) {
     this.maxEmailListLimit = this.configService.get<number>('EMAIL_LIST_MAX_LIMIT') || 1000;
   }
@@ -758,12 +760,26 @@ export class EmailsController {
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   async sendEmail(@Req() req: AuthenticatedRequest, @Body() body: SendEmailRequestDto) {
     const tenantId = req.user.tenantId;
-    const { providerId, attachments, ...rest } = body;
+    const userId = req.user.id;
+    const { providerId, attachments, signatureId, ...rest } = body;
+
+    // Append signature to body if available
+    let bodyHtml = rest.bodyHtml;
+    const signature = await this.signatureService.getSignatureForSend(
+      tenantId,
+      userId,
+      signatureId,
+      providerId,
+    );
+    if (signature) {
+      bodyHtml = `${bodyHtml}<br><br>${signature}`;
+    }
 
     return this.emailSendService.sendEmail({
       tenantId,
       providerId,
       ...rest,
+      bodyHtml,
       attachments: decodeAttachments(attachments),
     });
   }

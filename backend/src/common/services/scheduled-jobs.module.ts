@@ -1,6 +1,8 @@
 import { Global, Module } from '@nestjs/common';
 import { ScheduledJobsQueueService } from './scheduled-jobs.queue';
 import { RedisLockService } from './redis-lock.service';
+import { DataCleanupService } from './data-cleanup.service';
+import { PrismaModule } from '../../prisma/prisma.module';
 
 /**
  * Global module for BullMQ-based scheduled jobs and distributed locking
@@ -8,10 +10,13 @@ import { RedisLockService } from './redis-lock.service';
  *
  * PHASE 4 CONSOLIDATION: Removed CronLockService (redundant with RedisLockService)
  * RedisLockService provides distributed locking for all use cases
+ *
+ * DataCleanupService: Daily cleanup of expired data (AIMemory, Learning, Actions)
  */
 @Global()
 @Module({
-  providers: [ScheduledJobsQueueService, RedisLockService],
-  exports: [ScheduledJobsQueueService, RedisLockService],
+  imports: [PrismaModule],
+  providers: [ScheduledJobsQueueService, RedisLockService, DataCleanupService],
+  exports: [ScheduledJobsQueueService, RedisLockService, DataCleanupService],
 })
 export class ScheduledJobsModule {}

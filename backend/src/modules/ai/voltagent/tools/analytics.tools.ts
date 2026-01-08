@@ -72,15 +72,26 @@ const AGENT_TTL_SEC = 60 * 60;
 
 /**
  * Fallback in-memory cache when Redis is unavailable
+ * Keys include tenantId for GDPR isolation
  */
 const fallbackAnalyticsCache = new Map<string, { result: AnalyticsResult; timestamp: number }>();
-const fallbackAgentPool = new Map<SupportedLocale, { agentId: string; createdAt: number }>();
+/** Agent pool keyed by locale:tenantId for tenant isolation */
+const fallbackAgentPool = new Map<string, { agentId: string; createdAt: number }>();
 
 /**
- * Generate cache key for analytics query
+ * Generate GDPR-compliant cache key for analytics query
+ * Includes tenantId for tenant data isolation
  */
-function getCacheKey(query: string, dataHash: string): string {
-  return `${query.toLowerCase().trim().slice(0, 100)}:${dataHash}`;
+function getCacheKey(tenantId: string, query: string, dataHash: string): string {
+  return `${tenantId}:${query.toLowerCase().trim().slice(0, 100)}:${dataHash}`;
+}
+
+/**
+ * Build agent pool key with tenant isolation
+ * GDPR: Each tenant gets their own agent to prevent cross-tenant context leakage
+ */
+function buildAgentPoolKey(locale: SupportedLocale, tenantId: string): string {
+  return `${locale}:${tenantId}`;
 }
 
 /**
@@ -99,13 +110,15 @@ function hashData(data: Record<string, unknown>): string {
 
 /**
  * Get cached analytics result (Redis-first, fallback to memory)
+ * GDPR: Cache keys include tenantId for data isolation
  */
 async function getCachedAnalytics(
+  tenantId: string,
   query: string,
   dataHash: string,
   cacheService?: CacheService,
 ): Promise<AnalyticsResult | null> {
-  const key = getCacheKey(query, dataHash);
+  const key = getCacheKey(tenantId, query, dataHash);
 
   // Try Redis first
   if (cacheService?.isHealthy()) {
@@ -130,14 +143,16 @@ async function getCachedAnalytics(
 
 /**
  * Cache analytics result (Redis + memory fallback)
+ * GDPR: Cache keys include tenantId for data isolation
  */
 async function setCachedAnalytics(
+  tenantId: string,
   query: string,
   dataHash: string,
   result: AnalyticsResult,
   cacheService?: CacheService,
 ): Promise<void> {
-  const key = getCacheKey(query, dataHash);
+  const key = getCacheKey(tenantId, query, dataHash);
 
   // Store in Redis
   if (cacheService?.isHealthy()) {
@@ -176,17 +191,18 @@ function createMistralClient(configService: ConfigService): Mistral {
 }
 
 /**
- * Get or create a reusable Mistral analytics agent for the given locale.
+ * Get or create a reusable Mistral analytics agent for the given locale and tenant.
  * Agents are cached for 1 hour (Redis + memory fallback) to avoid creation overhead.
- * This enables serving 1000+ users efficiently with shared agents across instances.
+ * GDPR: Agents are isolated per tenant to prevent cross-tenant context leakage.
  */
 async function getOrCreateAnalyticsAgent(
   client: Mistral,
   locale: SupportedLocale,
+  tenantId: string,
   configService: ConfigService,
   cacheService?: CacheService,
 ): Promise<string> {
-  const cacheKey = `analytics-agent:${locale}`;
+  const cacheKey = buildAgentPoolKey(locale, tenantId);
   const now = Date.now();
 
   // Try Redis first
@@ -195,20 +211,20 @@ async function getOrCreateAnalyticsAgent(
       namespace: CacheNamespace.AI_ANALYTICS,
     });
     if (cached) {
-      logger.debug(`Redis cache hit for analytics agent: ${locale}`);
+      logger.debug(`Redis cache hit for analytics agent: ${locale}:${tenantId}`);
       return cached.agentId;
     }
   }
 
   // Try memory fallback
-  const memCached = fallbackAgentPool.get(locale);
+  const memCached = fallbackAgentPool.get(cacheKey);
   if (memCached && now - memCached.createdAt < AGENT_TTL_SEC * 1000) {
-    logger.debug(`Memory cache hit for analytics agent: ${locale}`);
+    logger.debug(`Memory cache hit for analytics agent: ${locale}:${tenantId}`);
     return memCached.agentId;
   }
 
   // Create new agent
-  logger.log(`Creating new analytics agent for locale: ${locale}`);
+  logger.log(`Creating new analytics agent for locale: ${locale}, tenant: ${tenantId}`);
   const startTime = Date.now();
 
   // Get model from env (AI_MODEL_MEDIUM for analytics tasks)
@@ -250,7 +266,7 @@ Always provide both numerical analysis and insights in natural language.`,
   }
 
   // Cache in memory fallback
-  fallbackAgentPool.set(locale, {
+  fallbackAgentPool.set(cacheKey, {
     agentId: agent.id,
     createdAt: now,
   });
@@ -260,13 +276,15 @@ Always provide both numerical analysis and insights in natural language.`,
 
 /**
  * Clear agent from cache (Redis + memory)
+ * GDPR: Uses tenant-isolated cache key
  */
 async function clearAgentFromCache(
   locale: SupportedLocale,
+  tenantId: string,
   cacheService?: CacheService,
 ): Promise<void> {
-  const cacheKey = `analytics-agent:${locale}`;
-  fallbackAgentPool.delete(locale);
+  const cacheKey = buildAgentPoolKey(locale, tenantId);
+  fallbackAgentPool.delete(cacheKey);
   if (cacheService?.isHealthy()) {
     await cacheService.del(cacheKey, { namespace: CacheNamespace.AI_ANALYTICS });
   }
@@ -281,18 +299,20 @@ async function clearAgentFromCache(
  *
  * Uses a pooled Mistral agent with code_interpreter tool for data analysis.
  * Agents are reused across requests for performance.
+ * GDPR: Agent pool is tenant-isolated.
  */
 async function executeAnalytics(
   client: Mistral,
   query: string,
   data: Record<string, unknown>,
   locale: SupportedLocale,
+  tenantId: string,
   configService: ConfigService,
   cacheService?: CacheService,
 ): Promise<AnalyticsResult> {
   try {
-    // Get or create reusable agent (cached for 1 hour)
-    const agentId = await getOrCreateAnalyticsAgent(client, locale, configService, cacheService);
+    // Get or create reusable agent (cached for 1 hour, tenant-isolated)
+    const agentId = await getOrCreateAnalyticsAgent(client, locale, tenantId, configService, cacheService);
 
     // Build prompt with data context
     const dataContext = JSON.stringify(data, null, 2);
@@ -324,8 +344,8 @@ Please:
 
     // If agent expired or invalid, clear cache and retry once
     if (errorMsg.includes('agent') && errorMsg.includes('not found')) {
-      logger.warn(`Agent expired, clearing cache for locale: ${locale}`);
-      await clearAgentFromCache(locale, cacheService);
+      logger.warn(`Agent expired, clearing cache for locale: ${locale}, tenant: ${tenantId}`);
+      await clearAgentFromCache(locale, tenantId, cacheService);
     }
 
     throw AiError.fromError(error);
@@ -440,8 +460,8 @@ export function createAnalyticsTool(options: AnalyticsToolOptions) {
       const analysisData = data || {};
       const dataHash = hashData(analysisData);
 
-      // Check cache first (Redis + memory fallback)
-      const cached = await getCachedAnalytics(query, dataHash, cacheService);
+      // Check cache first (Redis + memory fallback) - GDPR: tenant isolated
+      const cached = await getCachedAnalytics(tenantId, query, dataHash, cacheService);
       if (cached) {
         return {
           success: true,
@@ -452,10 +472,11 @@ export function createAnalyticsTool(options: AnalyticsToolOptions) {
 
       try {
         const client = createMistralClient(configService);
-        const result = await executeAnalytics(client, query, analysisData, locale, configService, cacheService);
+        // GDPR: Pass tenantId for agent pool isolation
+        const result = await executeAnalytics(client, query, analysisData, locale, tenantId, configService, cacheService);
 
-        // Cache successful result (Redis + memory)
-        await setCachedAnalytics(query, dataHash, result, cacheService);
+        // Cache successful result (Redis + memory) - GDPR: tenant isolated
+        await setCachedAnalytics(tenantId, query, dataHash, result, cacheService);
 
         return {
           success: true,

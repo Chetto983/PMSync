@@ -53,18 +53,32 @@ const AGENT_TTL_SEC = 60 * 60;
 
 /**
  * Fallback in-memory cache when Redis is unavailable
+ * Keys include tenantId:userId for GDPR isolation
  */
 const fallbackSearchCache = new Map<string, { result: WebSearchResult; timestamp: number }>();
-const fallbackAgentPool = new Map<SupportedLocale, { agentId: string; createdAt: number }>();
+/** Agent pool keyed by locale:tenantId for tenant isolation */
+const fallbackAgentPool = new Map<string, { agentId: string; createdAt: number }>();
+
+/**
+ * Build GDPR-compliant cache key with tenant and user isolation
+ */
+function buildSearchCacheKey(tenantId: string, userId: string | undefined, query: string): string {
+  // Include userId when available for user-level isolation
+  const userPart = userId || 'anonymous';
+  return `${tenantId}:${userPart}:${query.toLowerCase().trim()}`;
+}
 
 /**
  * Get cached search result (Redis-first, fallback to memory)
+ * GDPR: Cache keys include tenantId:userId for data isolation
  */
 async function getCachedSearch(
+  tenantId: string,
+  userId: string | undefined,
   query: string,
   cacheService?: CacheService,
 ): Promise<WebSearchResult | null> {
-  const key = query.toLowerCase().trim();
+  const key = buildSearchCacheKey(tenantId, userId, query);
 
   // Try Redis first
   if (cacheService?.isHealthy()) {
@@ -89,13 +103,16 @@ async function getCachedSearch(
 
 /**
  * Cache search result (Redis + memory fallback)
+ * GDPR: Cache keys include tenantId:userId for data isolation
  */
 async function setCachedSearch(
+  tenantId: string,
+  userId: string | undefined,
   query: string,
   result: WebSearchResult,
   cacheService?: CacheService,
 ): Promise<void> {
-  const key = query.toLowerCase().trim();
+  const key = buildSearchCacheKey(tenantId, userId, query);
 
   // Store in Redis
   if (cacheService?.isHealthy()) {
@@ -130,17 +147,26 @@ function createMistralClient(configService: ConfigService): Mistral {
 }
 
 /**
- * Get or create a reusable Mistral web search agent for the given locale.
+ * Build agent pool key with tenant isolation
+ * GDPR: Each tenant gets their own agent to prevent cross-tenant context leakage
+ */
+function buildAgentPoolKey(locale: SupportedLocale, tenantId: string): string {
+  return `${locale}:${tenantId}`;
+}
+
+/**
+ * Get or create a reusable Mistral web search agent for the given locale and tenant.
  * Agents are cached for 1 hour (Redis + memory fallback) to avoid creation overhead.
- * This enables serving 1000+ users efficiently with shared agents across instances.
+ * GDPR: Agents are isolated per tenant to prevent cross-tenant context leakage.
  */
 async function getOrCreateWebSearchAgent(
   client: Mistral,
   locale: SupportedLocale,
+  tenantId: string,
   configService: ConfigService,
   cacheService?: CacheService,
 ): Promise<string> {
-  const cacheKey = `agent:${locale}`;
+  const cacheKey = buildAgentPoolKey(locale, tenantId);
   const now = Date.now();
 
   // Try Redis first
@@ -149,20 +175,20 @@ async function getOrCreateWebSearchAgent(
       namespace: CacheNamespace.WEB_SEARCH_AGENT,
     });
     if (cached) {
-      logger.debug(`Redis cache hit for web search agent: ${locale}`);
+      logger.debug(`Redis cache hit for web search agent: ${locale}:${tenantId}`);
       return cached.agentId;
     }
   }
 
   // Try memory fallback
-  const memCached = fallbackAgentPool.get(locale);
+  const memCached = fallbackAgentPool.get(cacheKey);
   if (memCached && now - memCached.createdAt < AGENT_TTL_SEC * 1000) {
-    logger.debug(`Memory cache hit for web search agent: ${locale}`);
+    logger.debug(`Memory cache hit for web search agent: ${locale}:${tenantId}`);
     return memCached.agentId;
   }
 
   // Create new agent
-  logger.log(`Creating new web search agent for locale: ${locale}`);
+  logger.log(`Creating new web search agent for locale: ${locale}, tenant: ${tenantId}`);
   const startTime = Date.now();
 
   // Get model from env (AI_MODEL_MEDIUM for web search tasks)
@@ -197,7 +223,7 @@ async function getOrCreateWebSearchAgent(
   }
 
   // Cache in memory fallback
-  fallbackAgentPool.set(locale, {
+  fallbackAgentPool.set(cacheKey, {
     agentId: agent.id,
     createdAt: now,
   });
@@ -207,13 +233,15 @@ async function getOrCreateWebSearchAgent(
 
 /**
  * Clear agent from cache (Redis + memory)
+ * GDPR: Uses tenant-isolated cache key
  */
 async function clearAgentFromCache(
   locale: SupportedLocale,
+  tenantId: string,
   cacheService?: CacheService,
 ): Promise<void> {
-  const cacheKey = `agent:${locale}`;
-  fallbackAgentPool.delete(locale);
+  const cacheKey = buildAgentPoolKey(locale, tenantId);
+  fallbackAgentPool.delete(cacheKey);
   if (cacheService?.isHealthy()) {
     await cacheService.del(cacheKey, { namespace: CacheNamespace.WEB_SEARCH_AGENT });
   }
@@ -224,17 +252,19 @@ async function clearAgentFromCache(
  *
  * Uses a pooled Mistral agent with web_search tool for real-time web information.
  * Agents are reused across requests for performance (~8s vs ~11s per request).
+ * GDPR: Agent pool is tenant-isolated.
  */
 async function executeWebSearch(
   client: Mistral,
   query: string,
   locale: SupportedLocale,
+  tenantId: string,
   configService: ConfigService,
   cacheService?: CacheService,
 ): Promise<WebSearchResult> {
   try {
-    // Get or create reusable agent (cached for 1 hour)
-    const agentId = await getOrCreateWebSearchAgent(client, locale, configService, cacheService);
+    // Get or create reusable agent (cached for 1 hour, tenant-isolated)
+    const agentId = await getOrCreateWebSearchAgent(client, locale, tenantId, configService, cacheService);
 
     // Start conversation with the reusable agent
     const response = await client.beta.conversations.start({
@@ -252,8 +282,8 @@ async function executeWebSearch(
 
     // If agent expired or invalid, clear cache and retry once
     if (errorMsg.includes('agent') && errorMsg.includes('not found')) {
-      logger.warn(`Agent expired, clearing cache for locale: ${locale}`);
-      await clearAgentFromCache(locale, cacheService);
+      logger.warn(`Agent expired, clearing cache for locale: ${locale}, tenant: ${tenantId}`);
+      await clearAgentFromCache(locale, tenantId, cacheService);
     }
 
     throw AiError.fromError(error);
@@ -340,9 +370,10 @@ function formatCitations(
  * Create web search tool for VoltAgent
  *
  * Enables searching the web for current information using Mistral's Agents API.
+ * GDPR: All caches are tenant/user isolated.
  */
 export function createWebSearchTool(options: WebSearchToolOptions) {
-  const { configService, locale, tenantId, cacheService } = options;
+  const { configService, locale, tenantId, userId, cacheService } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -358,8 +389,8 @@ export function createWebSearchTool(options: WebSearchToolOptions) {
     execute: async ({ query }) => {
       logger.log(`[${tenantId}] Web search: "${query.substring(0, 50)}..."`);
 
-      // Check cache first (Redis + memory fallback)
-      const cached = await getCachedSearch(query, cacheService);
+      // Check cache first (Redis + memory fallback) - GDPR: tenant/user isolated
+      const cached = await getCachedSearch(tenantId, userId, query, cacheService);
       if (cached) {
         return {
           success: true,
@@ -371,10 +402,11 @@ export function createWebSearchTool(options: WebSearchToolOptions) {
 
       try {
         const client = createMistralClient(configService);
-        const result = await executeWebSearch(client, query, locale, configService, cacheService);
+        // GDPR: Pass tenantId for agent pool isolation
+        const result = await executeWebSearch(client, query, locale, tenantId, configService, cacheService);
 
-        // Cache successful result (Redis + memory)
-        await setCachedSearch(query, result, cacheService);
+        // Cache successful result (Redis + memory) - GDPR: tenant/user isolated
+        await setCachedSearch(tenantId, userId, query, result, cacheService);
 
         // Format response with citations
         const formattedAnswer = result.answer + formatCitations(result.citations, t.webSearch.sources);

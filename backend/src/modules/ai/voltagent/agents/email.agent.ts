@@ -46,7 +46,12 @@ export function createEmailAgent(options: EmailAgentOptions): Agent {
   const localeInstruction = locale !== 'en' ? `\n\n## Response Language\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian (italiano)' : locale}.` : '';
 
   // Combine email tools, folder tools, and insight tools
-  const emailTools = createEmailTools(prisma, emailSendService, locale, tenantId, cacheService);
+  // Pass RAG services for semantic search in search_emails
+  const emailTools = createEmailTools(prisma, emailSendService, locale, tenantId, cacheService, {
+    userId,
+    mistralService: mistral ?? undefined,
+    embeddingsService: embeddingsService ?? undefined,
+  });
   const folderTools = createFolderTools(prisma, locale, tenantId, cacheService);
 
   // Only add insight tools if mistral service is available

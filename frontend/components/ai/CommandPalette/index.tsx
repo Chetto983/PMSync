@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { Command } from 'cmdk';
+import { useDebounce } from 'use-debounce';
 import {
   Mail,
   Calendar,
@@ -24,9 +25,13 @@ import {
   Archive,
   Star,
   Trash2,
+  User,
+  Loader2,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { emailsApi } from '@/lib/api/emails';
+import { contactsApi } from '@/lib/api/contacts';
 
 interface CommandItem {
   id: string;
@@ -38,8 +43,21 @@ interface CommandItem {
   keywords?: string[];
 }
 
+interface SearchResult {
+  id: string;
+  type: 'email' | 'contact' | 'event';
+  title: string;
+  subtitle: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  action: () => void;
+}
+
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebounce(search, 300);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
   const logout = useAuthStore((state) => state.logout);
   const t = useTranslations();
@@ -51,7 +69,6 @@ export function CommandPalette() {
         e.preventDefault();
         setOpen((prev) => !prev);
       }
-      // Also open with Escape to close
       if (e.key === 'Escape') {
         setOpen(false);
       }
@@ -61,8 +78,62 @@ export function CommandPalette() {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
+  // Real-time search when user types
+  useEffect(() => {
+    if (!debouncedSearch || debouncedSearch.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    const performSearch = async () => {
+      setIsSearching(true);
+      try {
+        const results: SearchResult[] = [];
+
+        // Search emails
+        const emailResponse = await emailsApi.list({ search: debouncedSearch, limit: 5 });
+        if (emailResponse.data?.emails) {
+          results.push(
+            ...emailResponse.data.emails.map((email) => ({
+              id: `email-${email.id}`,
+              type: 'email' as const,
+              title: email.subject || '(No subject)',
+              subtitle: `${email.from} • ${new Date(email.receivedAt).toLocaleDateString()}`,
+              icon: Mail,
+              action: () => router.push(`/dashboard/email?id=${email.id}`),
+            })),
+          );
+        }
+
+        // Search contacts
+        const contactResponse = await contactsApi.list({ search: debouncedSearch, limit: 5 });
+        if (contactResponse.data?.contacts) {
+          results.push(
+            ...contactResponse.data.contacts.map((contact) => ({
+              id: `contact-${contact.id}`,
+              type: 'contact' as const,
+              title: contact.name || contact.email,
+              subtitle: contact.company || contact.email,
+              icon: User,
+              action: () => router.push(`/dashboard/contacts?id=${contact.id}`),
+            })),
+          );
+        }
+
+        setSearchResults(results);
+      } catch (error) {
+        console.error('Search failed:', error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    performSearch();
+  }, [debouncedSearch, router]);
+
   const runCommand = useCallback((command: () => void) => {
     setOpen(false);
+    setSearch('');
     command();
   }, []);
 
@@ -84,7 +155,7 @@ export function CommandPalette() {
       icon: Mail,
       action: () => router.push('/dashboard/email'),
       group: 'navigation',
-      keywords: ['mail', 'email', 'inbox', 'messages'],
+      keywords: ['email', 'inbox', 'mail'],
     },
     {
       id: 'calendar',
@@ -102,25 +173,16 @@ export function CommandPalette() {
       icon: Users,
       action: () => router.push('/dashboard/contacts'),
       group: 'navigation',
-      keywords: ['contacts', 'people', 'crm'],
+      keywords: ['contacts', 'people', 'address'],
     },
     {
-      id: 'ai-assistant',
-      name: t.commandPalette.commands.goToAiAssistant,
+      id: 'ai',
+      name: t.commandPalette.commands.goToAI,
       shortcut: '⌘5',
       icon: Sparkles,
       action: () => router.push('/dashboard/ai'),
       group: 'navigation',
-      keywords: ['ai', 'assistant', 'chat', 'help'],
-    },
-    {
-      id: 'analytics',
-      name: t.commandPalette.commands.goToAnalytics,
-      shortcut: '⌘6',
-      icon: BarChart3,
-      action: () => router.push('/dashboard/analytics'),
-      group: 'navigation',
-      keywords: ['analytics', 'stats', 'reports'],
+      keywords: ['ai', 'assistant', 'smart'],
     },
     {
       id: 'settings',
@@ -131,6 +193,14 @@ export function CommandPalette() {
       group: 'navigation',
       keywords: ['settings', 'preferences', 'config'],
     },
+    {
+      id: 'analytics',
+      name: t.commandPalette.commands.goToAnalytics,
+      icon: BarChart3,
+      action: () => router.push('/dashboard/analytics'),
+      group: 'navigation',
+      keywords: ['analytics', 'stats', 'metrics'],
+    },
 
     // Actions
     {
@@ -138,59 +208,21 @@ export function CommandPalette() {
       name: t.commandPalette.commands.composeEmail,
       shortcut: '⌘N',
       icon: PenSquare,
-      action: () => {
-        router.push('/dashboard/email?compose=true');
-      },
+      action: () => router.push('/dashboard/email?compose=true'),
       group: 'actions',
       keywords: ['compose', 'new', 'write', 'email'],
     },
     {
       id: 'search',
-      name: t.commandPalette.commands.searchEmails,
-      shortcut: '⌘F',
+      name: t.commandPalette.commands.searchAll,
+      shortcut: '/',
       icon: Search,
-      action: () => {
-        router.push('/dashboard/email?search=true');
-      },
+      action: () => router.push('/dashboard/email?focus=search'),
       group: 'actions',
-      keywords: ['search', 'find', 'query'],
-    },
-    {
-      id: 'archive',
-      name: t.commandPalette.commands.archiveSelected,
-      shortcut: 'E',
-      icon: Archive,
-      action: () => {
-        // Emit custom event for email page to handle
-        window.dispatchEvent(new CustomEvent('command:archive'));
-      },
-      group: 'actions',
-      keywords: ['archive', 'move'],
-    },
-    {
-      id: 'star',
-      name: t.commandPalette.commands.toggleStar,
-      shortcut: 'S',
-      icon: Star,
-      action: () => {
-        window.dispatchEvent(new CustomEvent('command:star'));
-      },
-      group: 'actions',
-      keywords: ['star', 'favorite', 'important'],
-    },
-    {
-      id: 'delete',
-      name: t.commandPalette.commands.deleteSelected,
-      shortcut: '#',
-      icon: Trash2,
-      action: () => {
-        window.dispatchEvent(new CustomEvent('command:delete'));
-      },
-      group: 'actions',
-      keywords: ['delete', 'trash', 'remove'],
+      keywords: ['search', 'find', 'look'],
     },
 
-    // AI Actions
+    // AI Features
     {
       id: 'ai-summarize',
       name: t.commandPalette.commands.aiSummarize,
@@ -302,6 +334,10 @@ export function CommandPalette() {
     {} as Record<string, CommandItem[]>,
   );
 
+  // Show search results when searching, commands otherwise
+  const hasSearchResults = searchResults.length > 0;
+  const showCommands = !search || search.length < 2;
+
   if (!open) return null;
 
   return (
@@ -317,19 +353,56 @@ export function CommandPalette() {
         <Command
           className="rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900"
           loop
+          shouldFilter={showCommands}
         >
           <Command.Input
             placeholder={t.commandPalette.searchPlaceholder}
             className="w-full border-b border-gray-200 bg-transparent px-4 py-4 text-lg outline-none placeholder:text-gray-400 dark:border-gray-700 dark:text-white dark:placeholder:text-gray-500"
+            value={search}
+            onValueChange={setSearch}
             autoFocus
           />
 
           <Command.List className="max-h-80 overflow-y-auto p-2">
-            <Command.Empty className="px-4 py-8 text-center text-sm text-gray-500">
-              {t.commandPalette.noResults}
-            </Command.Empty>
+            {isSearching && (
+              <div className="flex items-center justify-center py-8 text-gray-500">
+                <Loader2 size={20} className="animate-spin mr-2" />
+                {t.common.searching || 'Searching...'}
+              </div>
+            )}
 
-            {Object.entries(groupedCommands).map(([group, items]) => (
+            {!isSearching && search.length >= 2 && searchResults.length === 0 && (
+              <Command.Empty className="px-4 py-8 text-center text-sm text-gray-500">
+                {t.commandPalette.noResults}
+              </Command.Empty>
+            )}
+
+            {/* Search Results */}
+            {hasSearchResults && !isSearching && (
+              <Command.Group heading="Search Results" className="mb-2">
+                <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  {t.common.searchResults || 'Search Results'}
+                </div>
+                {searchResults.map((result) => (
+                  <Command.Item
+                    key={result.id}
+                    value={result.id}
+                    onSelect={() => runCommand(result.action)}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-100 aria-selected:bg-blue-50 aria-selected:text-blue-700 dark:text-gray-200 dark:hover:bg-gray-800 dark:aria-selected:bg-blue-900/30 dark:aria-selected:text-blue-400"
+                  >
+                    <result.icon size={18} className="shrink-0 opacity-60" />
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate">{result.title}</div>
+                      <div className="truncate text-xs text-gray-400">{result.subtitle}</div>
+                    </div>
+                    <span className="text-xs text-gray-400 capitalize">{result.type}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {/* Commands - shown when not searching or no search results */}
+            {showCommands && Object.entries(groupedCommands).map(([group, items]) => (
               <Command.Group
                 key={group}
                 heading={groupLabels[group]}

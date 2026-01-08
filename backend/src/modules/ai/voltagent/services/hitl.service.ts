@@ -4,6 +4,7 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { AgentAction, ActionSeverity } from '../interfaces/agent-action.interface';
 import { Prisma, ActionStatus, ActionType } from '@prisma/client';
+import { LearningService } from './learning.service';
 
 export type ActingUser = { userId: string; role: string };
 
@@ -69,6 +70,7 @@ export class HitlService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
+    private readonly learningService: LearningService,
   ) { }
 
   /**
@@ -411,6 +413,20 @@ export class HitlService {
       timestamp: new Date().toISOString(),
     });
 
+    // Record feedback for learning system
+    const approvedPayloadMeta = this.getPayloadMeta(action.actionPayload);
+    await this.learningService.recordFeedback({
+      actionId,
+      tenantId,
+      userId: action.userId,
+      agentName: approvedPayloadMeta.agentName || 'UnknownAgent',
+      actionType: action.actionType,
+      wasApproved: true,
+      wasExecuted: false, // Will be updated after execution
+      originalConfidence: action.confidence ?? 0,
+      timestamp: Date.now(),
+    });
+
     return {
       actionId,
       status: PendingActionStatus.APPROVED,
@@ -466,6 +482,21 @@ export class HitlService {
       severity: rejectedMeta.severity as 'LOW' | 'MEDIUM' | 'HIGH' | undefined,
       reason,
       timestamp: new Date().toISOString(),
+    });
+
+    // Record feedback for learning system (rejection)
+    const rejectedPayloadMeta = this.getPayloadMeta(action.actionPayload);
+    await this.learningService.recordFeedback({
+      actionId,
+      tenantId,
+      userId: action.userId,
+      agentName: rejectedPayloadMeta.agentName || 'UnknownAgent',
+      actionType: action.actionType,
+      wasApproved: false,
+      wasExecuted: false,
+      userFeedback: reason,
+      originalConfidence: action.confidence ?? 0,
+      timestamp: Date.now(),
     });
 
     return {
