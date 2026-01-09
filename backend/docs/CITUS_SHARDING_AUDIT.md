@@ -1,6 +1,6 @@
 # Citus Sharding Audit - MailAgent
 
-## Current Status: ✅ PHASE 2 COMPLETE (2026-01-09)
+## Current Status: ✅ PHASE 3 COMPLETE - 100% CITUS-READY (2026-01-09)
 
 | Component | Status | Version |
 |-----------|--------|---------|
@@ -8,9 +8,10 @@
 | Citus Extension | ✅ | 13.2.0 |
 | pgvector Extension | ✅ | 0.5.1 |
 | Composite PKs | ✅ | Applied (5 tables) |
-| tenantId Columns | ✅ | Added to 8 child tables |
+| tenantId Columns | ✅ | **All tables complete** |
 | **Raw SQL Audit** | ✅ | **All 18 files verified** |
 | **JSONB → Direct Fields** | ✅ | **3 files fixed** |
+| **Schema Blockers** | ✅ | **6 tables fixed (Phase 3)** |
 | Stress Tests | ✅ | 15/15 passing |
 | RAG Isolation | ✅ | 6/6 passing |
 
@@ -32,6 +33,29 @@ mailagent-postgres:citus-pgvector (built from database/Dockerfile.postgres)
 - `sync.worker.ts` (lines 371-387): Added tenantId to folder count UPDATE + subqueries
 
 **Auth Cache:** Already implemented with tenant-isolated Redis keys (`${tenantId}:${sessionId}`)
+
+### Phase 3 Fixes (2026-01-09) - SCHEMA BLOCKERS COMPLETE
+
+**6 Tables Now Have tenantId:**
+
+| Table | Changes | Files Updated |
+|-------|---------|---------------|
+| `Session` | `tenantId` + `@@unique([tenantId, token])` | `auth.service.ts` |
+| `TrustedDevice` | `tenantId` + `@@unique([tenantId, deviceToken])` | `trusted-device.service.ts` |
+| `WebAuthnCredential` | `tenantId` + `@@unique([tenantId, credentialId])` | `webauthn.service.ts`, `mfa.controller.ts` |
+| `AIMemoryHistory` | `tenantId` + `@@index([tenantId])` | `ai-memory.service.ts` |
+| `LibraryDocument` | `tenantId` + `@@index([tenantId])` | `document-library.service.ts` |
+| `DealActivity` | `tenantId` + `@@index([tenantId])` | (no service changes needed) |
+
+**Service Fixes:**
+- `auth.service.ts`: Added `tenantId` to 2 Session creates
+- `trusted-device.service.ts`: Updated `trustDevice()` signature, changed `findUnique` → `findFirst`
+- `webauthn.service.ts`: Updated `verifyRegistration()` signature, changed 2 `findUnique` → `findFirst`
+- `mfa.controller.ts`: Updated calls to pass `tenantId`
+- `ai-memory.service.ts`: Updated `recordHistory()` to include `tenantId`
+- `document-library.service.ts`: Added `tenantId` to document create
+
+**Migration:** `20250109_citus_tenantid_remaining/migration.sql` (backfills from parent tables)
 
 ### Next Step
 Run `distribute-citus-tables.sql` when ready to shard (after adding worker nodes).

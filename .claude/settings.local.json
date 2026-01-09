@@ -178,7 +178,12 @@
       "Bash(wmic process where \"CommandLine like ''%nest%'' and CommandLine like ''%start%''\" get ProcessId,CommandLine)",
       "Bash(timeout 15 npm run start:dev:*)",
       "Bash(del \"d:\\\\MailAgent\\\\backend\\\\src\\\\modules\\\\ai\\\\services\\\\contact-embedding.service.ts\")",
-      "mcp__plugin_episodic-memory_episodic-memory__search"
+      "mcp__plugin_episodic-memory_episodic-memory__search",
+      "Bash(docker-compose:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker search:*)",
+      "Bash(docker restart:*)"
     ],
     "deny": []
   }

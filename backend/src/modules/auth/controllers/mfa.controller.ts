@@ -354,8 +354,9 @@ export class MfaController {
     @Request() req: AuthenticatedRequest,
     @Req() expressReq: ExpressRequest,
   ): Promise<{ deviceToken: string; expiresAt: Date }> {
+    const tenantId = req.user.tenantId;
     const userId = req.user.userId;
-    const token = await this.trustedDeviceService.trustDevice(userId, expressReq);
+    const token = await this.trustedDeviceService.trustDevice(tenantId, userId, expressReq);
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     return {
@@ -394,11 +395,13 @@ export class MfaController {
     @Request() req: AuthenticatedRequest,
     @Body() body: WebAuthnRegistrationVerifyDto,
   ): Promise<{ success: boolean; credentialId?: string; error?: string }> {
+    const tenantId = req.user.tenantId;
     const userId = req.user.userId;
 
     const result = await this.webauthnService.verifyRegistration(
+      tenantId,
       userId,
-      body.response as unknown as Parameters<typeof this.webauthnService.verifyRegistration>[1],
+      body.response as unknown as Parameters<typeof this.webauthnService.verifyRegistration>[2],
       body.deviceName,
     );
 

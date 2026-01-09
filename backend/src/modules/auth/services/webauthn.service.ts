@@ -214,11 +214,13 @@ export class WebAuthnService implements OnModuleInit, OnModuleDestroy {
   /**
    * Verify registration response and save the credential
    *
+   * @param tenantId - Tenant ID for multi-tenant isolation
    * @param userId - User ID
    * @param response - Registration response from browser
    * @param deviceName - Optional user-friendly name for the credential
    */
   async verifyRegistration(
+    tenantId: string,
     userId: string,
     response: RegistrationResponseJSON,
     deviceName?: string,
@@ -287,6 +289,7 @@ export class WebAuthnService implements OnModuleInit, OnModuleDestroy {
       // Store credential in database
       const savedCredential = await this.prisma.webAuthnCredential.create({
         data: {
+          tenantId,
           userId,
           credentialId: credentialIdBase64,
           credentialPublicKey: publicKeyBase64,
@@ -403,7 +406,7 @@ export class WebAuthnService implements OnModuleInit, OnModuleDestroy {
   ): Promise<{ success: boolean; userId?: string; error?: string }> {
     // Look up credential to get user
     const credentialIdBase64 = response.id;
-    const credential = await this.prisma.webAuthnCredential.findUnique({
+    const credential = await this.prisma.webAuthnCredential.findFirst({
       where: { credentialId: credentialIdBase64 },
       include: { user: { select: { id: true, email: true } } },
     });
@@ -707,7 +710,7 @@ export class WebAuthnService implements OnModuleInit, OnModuleDestroy {
   }> {
     // Look up credential to get user
     const credentialIdBase64 = response.id;
-    const credential = await this.prisma.webAuthnCredential.findUnique({
+    const credential = await this.prisma.webAuthnCredential.findFirst({
       where: { credentialId: credentialIdBase64 },
     });
 

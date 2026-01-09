@@ -6,7 +6,7 @@ import { EmailSyncBackService } from './email-sync-back.service';
 import { KnowledgeBaseService } from '../../ai/services/knowledge-base.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import { StorageService } from './storage.service';
-import { EmailFolderService, EmailListFilters, EmailWhereResult } from './email-folder.service';
+import { EmailFolderService, EmailListFilters } from './email-folder.service';
 
 // Re-export interfaces for backward compatibility
 export type { EmailListFilters } from './email-folder.service';

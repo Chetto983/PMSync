@@ -1175,7 +1175,7 @@ export class KnowledgeBaseService {
             );
           }
         }
-      } catch (bulkError) {
+      } catch (_bulkError) {
         // Fallback to individual processing
         for (const chunk of chunks) {
           try {

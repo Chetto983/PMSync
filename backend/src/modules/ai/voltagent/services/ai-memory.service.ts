@@ -115,7 +115,7 @@ export class AIMemoryService {
     });
 
     // Record history
-    await this.recordHistory(memory.id, 'CREATE', null, input.content);
+    await this.recordHistory(tenantId, memory.id, 'CREATE', null, input.content);
 
     // Generate embedding async (fire-and-forget for speed)
     this.generateAndStoreEmbedding(memory.id, input.content, tenantId).catch(
@@ -204,7 +204,7 @@ export class AIMemoryService {
 
     // Record history if content changed
     if (input.content && input.content !== oldContent) {
-      await this.recordHistory(memoryId, 'UPDATE', oldContent, input.content);
+      await this.recordHistory(tenantId, memoryId, 'UPDATE', oldContent, input.content);
 
       // Regenerate embedding for new content (async)
       this.generateAndStoreEmbedding(memoryId, input.content, tenantId).catch(
@@ -231,7 +231,7 @@ export class AIMemoryService {
     }
 
     // Record history before deletion
-    await this.recordHistory(memoryId, 'DELETE', existing.content, null);
+    await this.recordHistory(tenantId, memoryId, 'DELETE', existing.content, null);
 
     await this.prisma.aIMemory.delete({
       where: { id: memoryId },
@@ -388,6 +388,7 @@ export class AIMemoryService {
   // ============================================================================
 
   private async recordHistory(
+    tenantId: string,
     memoryId: string,
     action: string,
     oldValue: string | null,
@@ -395,6 +396,7 @@ export class AIMemoryService {
   ): Promise<void> {
     await this.prisma.aIMemoryHistory.create({
       data: {
+        tenantId,
         memoryId,
         action,
         oldValue,

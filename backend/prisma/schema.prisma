@@ -42,6 +42,12 @@ model Tenant {
   emailAttachments           EmailAttachment[]            @relation("EmailAttachmentToTenant")
   calendarEventAttachments   CalendarEventAttachment[]    @relation("CalendarEventAttachmentToTenant")
   calendarSyncStates         CalendarSyncState[]          @relation("CalendarSyncStateToTenant")
+  sessions                   Session[]
+  trustedDevices             TrustedDevice[]
+  webauthnCredentials        WebAuthnCredential[]
+  aiMemoryHistory            AIMemoryHistory[]
+  libraryDocuments           LibraryDocument[]
+  dealActivities             DealActivity[]
 
   @@map("tenants")
 }
@@ -171,8 +177,9 @@ model MfaBackupCode {
 /// Trusted devices for "Keep me signed in" feature
 model TrustedDevice {
   id          String   @id @default(cuid())
+  tenantId    String
   userId      String
-  deviceToken String   @unique
+  deviceToken String
   deviceName  String?
   deviceHash  String
   ipAddress   String?
@@ -180,8 +187,11 @@ model TrustedDevice {
   expiresAt   DateTime
   lastUsedAt  DateTime @default(now())
   createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, deviceToken])
+  @@index([tenantId])
   @@index([userId])
   @@index([deviceToken])
   @@index([expiresAt])
@@ -192,8 +202,9 @@ model TrustedDevice {
 /// Supports Face ID, Touch ID, Windows Hello, and security keys (YubiKey)
 model WebAuthnCredential {
   id                   String   @id @default(cuid())
+  tenantId             String
   userId               String
-  credentialId         String   @unique
+  credentialId         String
   credentialPublicKey  String
   counter              Int      @default(0)
   credentialDeviceType String   @default("singleDevice")
@@ -203,22 +214,29 @@ model WebAuthnCredential {
   deviceName           String?
   lastUsedAt           DateTime @default(now())
   createdAt            DateTime @default(now())
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, credentialId])
+  @@index([tenantId])
   @@index([userId])
   @@map("webauthn_credentials")
 }
 
 model Session {
   id        String   @id @default(cuid())
+  tenantId  String
   userId    String
-  token     String   @unique
+  token     String
   expiresAt DateTime
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, token])
+  @@index([tenantId])
   @@index([userId, token])
   @@map("sessions")
 }
@@ -942,14 +960,17 @@ model AIMemory {
 /// Change history for memories (audit trail)
 model AIMemoryHistory {
   id        String   @id @default(cuid())
+  tenantId  String
   memoryId  String
   action    String
   oldValue  String?
   newValue  String?
   changedBy String?
   createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   memory    AIMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@index([memoryId])
   @@map("ai_memory_history")
 }
@@ -1027,6 +1048,7 @@ model DocumentLibrary {
 /// Documents within a library (stored in Mistral Libraries API)
 model LibraryDocument {
   id                String          @id @default(cuid())
+  tenantId          String
   libraryId         String
   filename          String
   mimeType          String?
@@ -1036,8 +1058,10 @@ model LibraryDocument {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   mistralDocumentId String?
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   library           DocumentLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@index([libraryId, isDeleted])
   @@index([status])
   @@index([mistralDocumentId])
@@ -1201,14 +1225,17 @@ model Deal {
 /// Deal activity log
 model DealActivity {
   id           String           @id @default(cuid())
+  tenantId     String
   dealId       String
   emailId      String?
   activityType DealActivityType
   description  String?
   metadata     Json             @default("{}")
   createdAt    DateTime         @default(now())
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   deal         Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@index([dealId])
   @@map("deal_activities")
 }

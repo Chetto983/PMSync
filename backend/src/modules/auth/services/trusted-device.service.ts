@@ -49,11 +49,12 @@ export class TrustedDeviceService {
   /**
    * Trust a device and generate a token
    *
+   * @param tenantId - Tenant ID for multi-tenant isolation
    * @param userId - User ID
    * @param request - Express request (for device info)
    * @returns Device token to store in cookie
    */
-  async trustDevice(userId: string, request: Request): Promise<string> {
+  async trustDevice(tenantId: string, userId: string, request: Request): Promise<string> {
     // Generate unique device token
     const deviceToken = crypto.randomUUID();
 
@@ -97,6 +98,7 @@ export class TrustedDeviceService {
     // Create trusted device record
     await this.prisma.trustedDevice.create({
       data: {
+        tenantId,
         userId,
         deviceToken,
         deviceName,
@@ -129,7 +131,7 @@ export class TrustedDeviceService {
   async verifyDevice(userId: string, token: string, request: Request): Promise<boolean> {
     if (!token) return false;
 
-    const device = await this.prisma.trustedDevice.findUnique({
+    const device = await this.prisma.trustedDevice.findFirst({
       where: { deviceToken: token },
     });
 

@@ -418,6 +418,7 @@ export class AuthService {
     const session = await this.prisma.session.create({
       data: {
         id: sessionId,
+        tenantId: tenant.id,
         userId: user.id,
         token,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
@@ -636,6 +637,7 @@ export class AuthService {
     const session = await this.prisma.session.create({
       data: {
         id: sessionId,
+        tenantId: tenant.id,
         userId: user.id,
         token,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -854,7 +856,7 @@ export class AuthService {
     // Trust device if requested
     let deviceTokenResult: string | undefined;
     if (trustDevice && request) {
-      deviceTokenResult = await this.trustedDeviceService.trustDevice(user.id, request);
+      deviceTokenResult = await this.trustedDeviceService.trustDevice(tenant.id, user.id, request);
     }
 
     return {

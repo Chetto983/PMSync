@@ -16,7 +16,6 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { Response } from 'express';
-import { Readable } from 'stream';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
 import { AttachmentOnDemandService } from '../services/attachment-on-demand.service';

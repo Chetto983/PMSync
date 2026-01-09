@@ -421,6 +421,7 @@ export class DocumentLibraryService {
     // Store document metadata in our database
     const document = await this.prisma.libraryDocument.create({
       data: {
+        tenantId,
         libraryId: dto.libraryId,
         mistralDocumentId: mistralDocument.id,
         filename: dto.filename,
