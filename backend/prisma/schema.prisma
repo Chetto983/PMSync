@@ -7,66 +7,66 @@ datasource db {
 }
 
 model Tenant {
-  id                   String                @id @default(cuid())
+  id                   String                 @id @default(cuid())
   name                 String
-  slug                 String                @unique
+  slug                 String                 @unique
   description          String?
-  isActive             Boolean               @default(true)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  isActive             Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
   deletedAt            DateTime?
   actionQueue          ActionQueue[]
+  actionFeedback       AgentActionFeedback[]
+  learningProfiles     AgentLearningProfile[]
   auditLogs            AuditLog[]
   calendarEvents       CalendarEvent[]
   deals                Deal[]
   emailAnalyses        EmailAnalysis[]
+  emailSignatures      EmailSignature[]
   emails               Email[]
   embeddings           Embedding[]
   folders              Folder[]
   providerConfigs      ProviderConfig[]
-  providerContacts     ProviderContact[]     @relation("ProviderContactToTenant")
+  providerContacts     ProviderContact[]      @relation("ProviderContactToTenant")
   scheduledEmails      ScheduledEmail[]
   subscription         Subscription?
-  contacts             Contact[]             @relation("ContactToTenant")
+  contacts             Contact[]              @relation("ContactToTenant")
   userLabels           UserLabel[]
   users                User[]
   webhookSubscriptions WebhookSubscription[]
-  emailSignatures      EmailSignature[]
-  learningProfiles     AgentLearningProfile[]
-  actionFeedback       AgentActionFeedback[]
 
   @@map("tenants")
 }
 
 model User {
-  id                  String               @id @default(cuid())
+  id                  String                 @id @default(cuid())
   tenantId            String
   email               String
   passwordHash        String
   firstName           String?
   lastName            String?
-  role                String               @default("user")
-  isActive            Boolean              @default(true)
-  isMfaEnabled        Boolean              @default(true)
+  role                String                 @default("user")
+  isActive            Boolean                @default(true)
+  isMfaEnabled        Boolean                @default(true)
   lastLogin           DateTime?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
   deletedAt           DateTime?
   actionQueue         ActionQueue[]
+  actionFeedback      AgentActionFeedback[]
+  learningProfiles    AgentLearningProfile[]
   auditLogs           AuditLog[]
   dashboardPreference DashboardPreference?
   deals               Deal[]
+  emailSignatures     EmailSignature[]
   mfaBackupCodes      MfaBackupCode[]
   mfaSecret           MfaSecret?
   sessions            Session[]
   trustedDevices      TrustedDevice[]
   userPreferences     UserPreferences?
-  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant              Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   webauthnCredentials WebAuthnCredential[]
   writingStyleProfile WritingStyleProfile?
-  emailSignatures     EmailSignature[]
-  learningProfiles    AgentLearningProfile[]
-  actionFeedback      AgentActionFeedback[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -265,13 +265,13 @@ model ProviderConfig {
   scope                    String?
   calendarEvents           CalendarEvent[]
   calendarSyncStates       CalendarSyncState[]
+  emailSignatures          EmailSignature[]
   emails                   Email[]
   folders                  Folder[]
   tenant                   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   providerContacts         ProviderContact[]     @relation("ProviderContactToProvider")
   scheduledEmails          ScheduledEmail[]
   webhookSubscriptions     WebhookSubscription[]
-  emailSignatures          EmailSignature[]
 
   @@unique([tenantId, email, providerType])
   @@index([tenantId, isDefault])
@@ -334,7 +334,7 @@ model Email {
   embeddings           Embedding[]
 
   @@unique([tenantId, messageId, folder])
-  @@unique([providerId, externalId]) // Required for upsert operations
+  @@unique([providerId, externalId])
   @@index([tenantId, folder, receivedAt])
   @@index([tenantId, isRead])
   @@index([tenantId, threadId])
@@ -848,15 +848,15 @@ model EmailSignature {
   id         String          @id @default(cuid())
   tenantId   String
   userId     String
-  providerId String?         // null = applies to all providers
+  providerId String?
   name       String
-  content    String          // HTML content
+  content    String
   isDefault  Boolean         @default(false)
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
+  provider   ProviderConfig? @relation(fields: [providerId], references: [id])
   tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider   ProviderConfig? @relation(fields: [providerId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, userId])
   @@index([tenantId, userId, providerId])
@@ -1062,25 +1062,25 @@ model ActionQueue {
 
 /// Learning profile for agent confidence adjustment
 model AgentLearningProfile {
-  id                    String   @id @default(cuid())
+  id                    String    @id @default(cuid())
   tenantId              String
   userId                String
   agentName             String
   actionType            String
-  totalAttempts         Int      @default(0)
-  approvedCount         Int      @default(0)
-  rejectedCount         Int      @default(0)
-  autoExecutedCount     Int      @default(0)
-  avgOriginalConfidence Float    @default(0)
-  avgAdjustedConfidence Float    @default(0)
-  successRate           Float    @default(0)
-  confidenceBoost       Float    @default(0)
-  lastLearningAt        DateTime @default(now())
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  expiresAt             DateTime? // 90 days retention
-  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalAttempts         Int       @default(0)
+  approvedCount         Int       @default(0)
+  rejectedCount         Int       @default(0)
+  autoExecutedCount     Int       @default(0)
+  avgOriginalConfidence Float     @default(0)
+  avgAdjustedConfidence Float     @default(0)
+  successRate           Float     @default(0)
+  confidenceBoost       Float     @default(0)
+  lastLearningAt        DateTime  @default(now())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  expiresAt             DateTime?
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, userId, agentName, actionType])
   @@index([tenantId, userId])
@@ -1090,7 +1090,7 @@ model AgentLearningProfile {
 
 /// Feedback records for HITL actions
 model AgentActionFeedback {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   tenantId           String
   userId             String
   actionId           String
@@ -1102,14 +1102,14 @@ model AgentActionFeedback {
   originalConfidence Float
   adjustedConfidence Float?
   userFeedback       String?
-  userRating         Int?     // 1-5 stars
+  userRating         Int?
   executionTimeMs    Int?
   errorMessage       String?
   contextSnapshot    Json?
-  createdAt          DateTime @default(now())
-  expiresAt          DateTime? // 30 days retention
-  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt          DateTime  @default(now())
+  expiresAt          DateTime?
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId])
   @@index([tenantId, agentName, actionType])

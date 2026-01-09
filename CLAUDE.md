@@ -824,6 +824,76 @@ font-size: 0.8125rem; /* 13px subject */
 | Checkbox | Show on hover | Always show |
 | Action bar | Floating on hover | Bottom sheet |
 
+## 🧠 RAG & EMBEDDINGS ARCHITECTURE
+
+### Embedding Storage (pgvector)
+
+**Model**: `Embedding` in `schema.prisma`
+
+- Uses pgvector for similarity search
+- **CRITICAL**: Always use indexed fields, NOT JSONB metadata queries!
+
+| Field       | Type    | Usage                                           |
+| ----------- | ------- | ----------------------------------------------- |
+| `emailId`   | String? | Direct indexed FK - use for email lookups       |
+| `contactId` | String? | Direct indexed FK - use for contact lookups     |
+| `metadata`  | Json?   | Extra data only - NEVER query by metadata paths |
+
+**⚠️ JSONB ANTI-PATTERN (O(n) full scan)**:
+
+```typescript
+// ❌ WRONG - Full table scan
+where: { metadata: { path: ['emailId'], equals: id } }
+
+// ✅ CORRECT - Indexed O(log n)
+where: { emailId: id }
+```
+
+### Contact Embeddings (2025-01-09)
+
+**Queue**: `ContactEmbeddingQueueService` in `ai/services/contact-embedding.queue.ts`
+
+- BullMQ with batching (50 items, 200ms flush)
+- Rate limiting: 2 req/s for Mistral API
+- DLQ integration after 6 retries
+
+**Trigger Points**:
+
+- `ContactsService.createContact()` → enqueue embedding
+- `ContactsService.updateContact()` → enqueue re-embedding
+
+**Content Template** (`KnowledgeBaseService.composeContactEmbeddingContent()`):
+
+```text
+Name: {displayName}
+Company: {company}
+Role: {jobTitle}
+Department: {department}
+Notes: {notes}
+Tags: {tags}
+Email: {emails}
+Phone: {phoneNumbers}
+```
+
+### UnifiedRetriever (Hybrid RAG)
+
+**Location**: `voltagent/rag/unified-retriever.ts`
+
+**Search Sources**: `emails | contacts | deadlines | followups | actions | memories`
+
+**Hybrid Search Pattern (RRF Fusion)**:
+
+1. Vector search (semantic) via `embeddingsService.findSimilarContent()`
+2. Keyword search (exact) via Prisma `contains`
+3. RRF fusion with K=60: `score = 1/(K + rank_vector) + 1/(K + rank_keyword)`
+4. Items found by BOTH get boosted scores
+
+**Contact Query Detection**:
+
+```typescript
+/contact|person|who|from|sender|colleague|client|customer|contatto|persona|chi|da|mittente|collega|cliente/
+```
+
 ## 🔧 BACKEND DEVELOPMENT PROCEDURE (Email Modules)
 
 ### ⚠️ CRITICAL: Email Module Consolidation Rules

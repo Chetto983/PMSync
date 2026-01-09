@@ -24,6 +24,7 @@ import { MicrosoftContactsSyncService } from './microsoft-contacts-sync.service'
 import { ContactsCacheService } from './contacts-cache.service';
 import { ContactsImportService } from './contacts-import.service';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
+import { ContactEmbeddingQueueService } from '../../ai/services/contact-embedding.queue';
 import { CONTACTS_DEFAULTS } from '../contacts.constants';
 import type {
   ContactWithProviders,
@@ -58,6 +59,7 @@ export class ContactsService {
     private readonly importService: ContactsImportService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly configService: ConfigService,
+    private readonly contactEmbeddingQueue: ContactEmbeddingQueueService,
   ) {
     this.maxContactsLimit = this.configService.get<number>(
       'CONTACTS_LIST_MAX_LIMIT',
@@ -359,6 +361,21 @@ export class ContactsService {
     // Emit updated counts
     void this.updateContactCounts(tenantId);
 
+    // Queue contact embedding for RAG search
+    void this.contactEmbeddingQueue.enqueue({
+      tenantId,
+      contactId: contact.id,
+      displayName: contact.displayName,
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      company: contact.company,
+      jobTitle: contact.jobTitle,
+      notes: contact.notes,
+      tags: contact.tags,
+      emails: data.emails as { value: string; type?: string }[] | undefined,
+      phoneNumbers: data.phoneNumbers as { value: string; type?: string }[] | undefined,
+    });
+
     // Return with provider info
     return this.getContact(tenantId, contact.id);
   }
@@ -451,6 +468,21 @@ export class ContactsService {
 
     // Emit updated counts (in case company/email/phone changed)
     void this.updateContactCounts(tenantId);
+
+    // Queue contact embedding update for RAG search
+    void this.contactEmbeddingQueue.enqueue({
+      tenantId,
+      contactId: updated.id,
+      displayName: updated.displayName,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      company: updated.company,
+      jobTitle: updated.jobTitle,
+      notes: updated.notes,
+      tags: updated.tags,
+      emails: updated.emails as { value: string; type?: string }[] | null,
+      phoneNumbers: updated.phoneNumbers as { value: string; type?: string }[] | null,
+    });
 
     return updated;
   }

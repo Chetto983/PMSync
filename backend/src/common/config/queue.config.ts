@@ -396,6 +396,7 @@ export const QUEUE_NAMES = {
 
   // AI/Embedding queues
   EMAIL_EMBEDDING: 'email-embedding',
+  CONTACT_EMBEDDING: 'contact-embedding',
   AI_PROCESSING: 'ai-processing',
   AI_SUMMARIZATION: 'ai-summarization',
 

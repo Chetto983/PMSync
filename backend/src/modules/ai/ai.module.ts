@@ -8,6 +8,7 @@ import { KnowledgeBaseService } from './services/knowledge-base.service';
 import { KnowledgeBaseController } from './controllers/knowledge-base.controller';
 // PersonalizationController removed - AI refactor v2.0
 import { EmailEmbeddingQueueService } from './services/email-embedding.queue';
+import { ContactEmbeddingQueueService } from './services/contact-embedding.queue';
 import { EmailInsightsService } from './services/email-insights.service';
 import { QueryEmbeddingCacheService } from './services/query-embedding-cache.service';
 import { AttachmentContentExtractorService } from './services/attachment-content-extractor.service';
@@ -36,6 +37,7 @@ import { CachePrewarmingService } from './services/cache-prewarming.service';
     EmbeddingsService,
     KnowledgeBaseService,
     EmailEmbeddingQueueService,
+    ContactEmbeddingQueueService,
     EmailInsightsService,
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
@@ -53,6 +55,7 @@ import { CachePrewarmingService } from './services/cache-prewarming.service';
     EmbeddingsService,
     KnowledgeBaseService,
     EmailEmbeddingQueueService,
+    ContactEmbeddingQueueService,
     EmailInsightsService,
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,

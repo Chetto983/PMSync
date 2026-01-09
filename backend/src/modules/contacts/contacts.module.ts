@@ -16,6 +16,7 @@ import { ProvidersModule } from '../providers/providers.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { EmailSyncModule } from '../email-sync/email-sync.module'; // Import for SyncAuthService
 import { VoltAgentModule } from '../ai/voltagent/voltagent.module';
+import { AiModule } from '../ai/ai.module';
 import { AlertingService } from '../../common/services/alerting.service';
 // DeadLetterQueueService is available globally from CacheModule
 
@@ -26,6 +27,7 @@ import { AlertingService } from '../../common/services/alerting.service';
     RealtimeModule, // WebSocket events
     EmailSyncModule, // Import for SyncAuthService (webhook authentication)
     VoltAgentModule, // CRM Relationship Intelligence
+    forwardRef(() => AiModule), // ContactEmbeddingQueueService for RAG
   ],
   controllers: [
     ContactsController,

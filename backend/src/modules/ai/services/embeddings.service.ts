@@ -10,6 +10,10 @@ interface SaveEmbeddingOptions {
   model: string;
   documentName?: string | null;
   metadata?: Record<string, any>;
+  /** Direct indexed field - DO NOT store only in metadata */
+  emailId?: string | null;
+  /** Direct indexed field - DO NOT store only in metadata */
+  contactId?: string | null;
 }
 
 /**
@@ -62,6 +66,8 @@ export class EmbeddingsService {
       model,
       documentName = null,
       metadata,
+      emailId = null,
+      contactId = null,
     } = options;
 
     // SECURITY: Validate embedding vector before using in raw SQL
@@ -81,12 +87,15 @@ export class EmbeddingsService {
       : Prisma.sql`NULL::jsonb`;
 
     try {
+      // ✅ FIXED: Include emailId and contactId as direct indexed columns
+      // These fields have @@index in schema for O(log n) lookups
+      // DO NOT rely only on metadata JSONB - it's O(n) full table scan!
       await this.prisma.$executeRaw(
         Prisma.sql`
           INSERT INTO "embeddings"
-            ("id", "tenantId", "documentName", "content", "vector", "embeddingModel", "metadata", "createdAt")
+            ("id", "tenantId", "documentName", "content", "vector", "embeddingModel", "metadata", "createdAt", "emailId", "contactId")
           VALUES
-            (${nanoid()}, ${tenantId}, ${documentName}, ${content}, ${vectorLiteral}, ${model}, ${metadataFragment}, NOW());
+            (${nanoid()}, ${tenantId}, ${documentName}, ${content}, ${vectorLiteral}, ${model}, ${metadataFragment}, NOW(), ${emailId}, ${contactId});
         `,
       );
     } catch (error) {
@@ -174,18 +183,42 @@ export class EmbeddingsService {
     }
   }
 
+  /**
+   * Check if an embedding already exists for an email.
+   * Uses direct indexed `emailId` field for O(log n) lookup.
+   * DO NOT use JSONB metadata queries - they are O(n) full table scans!
+   */
   async hasEmbeddingForEmail(tenantId: string, emailId: string): Promise<boolean> {
     if (!emailId) {
+      return false;
+    }
+
+    // ✅ FIXED: Use indexed emailId field instead of slow JSONB metadata path
+    // Before: metadata.path['emailId'] = O(n) full scan
+    // After:  emailId field with @@index = O(log n)
+    const count = await this.prisma.embedding.count({
+      where: {
+        tenantId,
+        emailId,
+      },
+    });
+
+    return count > 0;
+  }
+
+  /**
+   * Check if an embedding already exists for a contact.
+   * Uses direct indexed `contactId` field for O(log n) lookup.
+   */
+  async hasEmbeddingForContact(tenantId: string, contactId: string): Promise<boolean> {
+    if (!contactId) {
       return false;
     }
 
     const count = await this.prisma.embedding.count({
       where: {
         tenantId,
-        metadata: {
-          path: ['emailId'],
-          equals: emailId,
-        },
+        contactId,
       },
     });
 

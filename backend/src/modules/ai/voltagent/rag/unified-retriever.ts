@@ -19,7 +19,7 @@ import type { EmbeddingsService } from '../../services/embeddings.service';
 import type { SupportedLocale } from '../locales';
 import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
 
-export type SearchSource = 'emails' | 'deadlines' | 'followups' | 'actions' | 'memories';
+export type SearchSource = 'emails' | 'contacts' | 'deadlines' | 'followups' | 'actions' | 'memories';
 
 /** Memory record returned from LongTermMemoryService (preserved for future use) */
 interface _LongTermMemoryRecord {
@@ -60,6 +60,7 @@ export interface UnifiedRetrieverOptions {
   // Limits
   memoryLimit?: number;
   emailLimit?: number;
+  contactLimit?: number;
   deadlineLimit?: number;
   followupLimit?: number;
   actionLimit?: number;
@@ -85,6 +86,7 @@ export class UnifiedRetriever extends BaseRetriever {
   // Limits
   private readonly memoryLimit: number;
   private readonly emailLimit: number;
+  private readonly contactLimit: number;
   private readonly deadlineLimit: number;
   private readonly followupLimit: number;
   private readonly actionLimit: number;
@@ -104,6 +106,7 @@ export class UnifiedRetriever extends BaseRetriever {
     // Defaults
     this.memoryLimit = options.memoryLimit ?? 5;
     this.emailLimit = options.emailLimit ?? 10;
+    this.contactLimit = options.contactLimit ?? 10;
     this.deadlineLimit = options.deadlineLimit ?? 5;
     this.followupLimit = options.followupLimit ?? 5;
     this.actionLimit = options.actionLimit ?? 5;
@@ -208,6 +211,11 @@ export class UnifiedRetriever extends BaseRetriever {
       sources.push('actions');
     }
 
+    // Contact-related queries (en + it)
+    if (/contact|person|who|from|sender|colleague|client|customer|contatto|persona|chi|da|mittente|collega|cliente/.test(lowerQuery)) {
+      sources.push('contacts');
+    }
+
     return sources;
   }
 
@@ -219,6 +227,9 @@ export class UnifiedRetriever extends BaseRetriever {
 
     if (sources.includes('emails')) {
       searchPromises.push(this.searchEmails(query));
+    }
+    if (sources.includes('contacts')) {
+      searchPromises.push(this.searchContacts(query));
     }
     if (sources.includes('deadlines')) {
       searchPromises.push(this.searchDeadlines(query));
@@ -346,9 +357,162 @@ export class UnifiedRetriever extends BaseRetriever {
     const vectorOnly = items.filter((i) => (i.metadata?.sources as string[])?.length === 1 && (i.metadata?.sources as string[])[0] === 'vector').length;
     const keywordOnly = items.filter((i) => (i.metadata?.sources as string[])?.length === 1 && (i.metadata?.sources as string[])[0] === 'keyword').length;
     const both = items.filter((i) => (i.metadata?.sources as string[])?.length === 2).length;
-    this.nestLogger.debug(`Hybrid search: ${vectorOnly} vector-only, ${keywordOnly} keyword-only, ${both} both`);
+    this.nestLogger.debug(`Hybrid email search: ${vectorOnly} vector-only, ${keywordOnly} keyword-only, ${both} both`);
 
     return { source: 'emails', items };
+  }
+
+  /**
+   * Search contacts using hybrid retriever logic (vector + keyword with RRF fusion)
+   *
+   * 2025 Best Practice: Same RRF pattern as emails
+   * - Vector search for semantic similarity (job title, notes, company context)
+   * - Keyword search for exact name/email/company matches
+   */
+  private async searchContacts(query: string): Promise<SourceResult> {
+    const RRF_K = 60;
+    const rrfScores = new Map<string, { score: number; content: string; metadata: Record<string, unknown> }>();
+
+    const addRrfScore = (
+      id: string,
+      rank: number,
+      content: string,
+      metadata: Record<string, unknown>,
+      source: 'vector' | 'keyword'
+    ) => {
+      const rrfContribution = 1 / (RRF_K + rank);
+      const existing = rrfScores.get(id);
+      if (existing) {
+        existing.score += rrfContribution;
+        existing.metadata.sources = [...((existing.metadata.sources as string[]) || []), source];
+      } else {
+        rrfScores.set(id, {
+          score: rrfContribution,
+          content,
+          metadata: { ...metadata, type: 'contact', sources: [source] },
+        });
+      }
+    };
+
+    // 1. Vector search for semantic similarity (uses contactId indexed field)
+    try {
+      if (this.mistralService && this.embeddingsService) {
+        const embedding = await this.mistralService.generateEmbedding(query, undefined, { tenantId: this.tenantId });
+        if (embedding && embedding.length > 0) {
+          // Query embeddings where contactId is not null (contact embeddings only)
+          const vectorResults = await this.embeddingsService.findSimilarContent<{
+            id: string;
+            content: string;
+            documentName: string | null;
+            metadata: Record<string, unknown> | null;
+            distance?: number;
+          }>(this.tenantId, embedding, this.contactLimit * 2, { maxDistance: 0.5 });
+
+          // Filter to only contact embeddings and fetch contact details
+          const contactEmbeddings = vectorResults.filter(
+            (vr) => vr.metadata?.source === 'contact'
+          );
+
+          for (let idx = 0; idx < contactEmbeddings.length; idx++) {
+            const vr = contactEmbeddings[idx];
+            const contactId = (vr.metadata as Record<string, unknown>)?.contactId as string | undefined;
+            addRrfScore(
+              contactId || vr.id,
+              idx + 1,
+              vr.content,
+              vr.metadata || {},
+              'vector'
+            );
+          }
+        }
+      }
+    } catch (error) {
+      this.nestLogger.warn(`Contact vector search failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    // 2. Keyword search for exact matches on name, email, company
+    try {
+      const keywords = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 2);
+
+      if (keywords.length > 0) {
+        const keywordResults = await this.prisma.contact.findMany({
+          where: {
+            tenantId: this.tenantId,
+            OR: [
+              { displayName: { contains: query, mode: 'insensitive' } },
+              { firstName: { contains: query, mode: 'insensitive' } },
+              { lastName: { contains: query, mode: 'insensitive' } },
+              { company: { contains: query, mode: 'insensitive' } },
+              { jobTitle: { contains: query, mode: 'insensitive' } },
+              { notes: { contains: query, mode: 'insensitive' } },
+              // Search individual keywords in name/company
+              ...keywords.slice(0, 3).flatMap((kw) => [
+                { displayName: { contains: kw, mode: 'insensitive' as const } },
+                { company: { contains: kw, mode: 'insensitive' as const } },
+              ]),
+            ],
+          },
+          take: this.contactLimit * 2,
+          orderBy: { updatedAt: 'desc' },
+          select: {
+            id: true,
+            displayName: true,
+            firstName: true,
+            lastName: true,
+            company: true,
+            jobTitle: true,
+            department: true,
+            notes: true,
+            emails: true,
+            phoneNumbers: true,
+          },
+        });
+
+        keywordResults.forEach((kr, idx) => {
+          const name = kr.displayName || `${kr.firstName || ''} ${kr.lastName || ''}`.trim() || 'Unknown';
+          const emailList = (kr.emails as Array<{ value: string }> | null)?.map((e) => e.value).join(', ') || '';
+          const content = [
+            `Contact: ${name}`,
+            kr.company && `Company: ${kr.company}`,
+            kr.jobTitle && `Role: ${kr.jobTitle}`,
+            kr.department && `Department: ${kr.department}`,
+            emailList && `Email: ${emailList}`,
+            kr.notes && `Notes: ${kr.notes}`,
+          ].filter(Boolean).join('\n');
+
+          addRrfScore(kr.id, idx + 1, content, {
+            name,
+            company: kr.company,
+            jobTitle: kr.jobTitle,
+            emails: kr.emails,
+          }, 'keyword');
+        });
+      }
+    } catch (error) {
+      this.nestLogger.warn(`Contact keyword search failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    // 3. Convert to sorted items array
+    const items: SourceResult['items'] = Array.from(rrfScores.entries())
+      .map(([id, data]) => ({
+        id,
+        content: data.content,
+        score: data.score,
+        metadata: data.metadata,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, this.contactLimit);
+
+    // Log hybrid search stats
+    const vectorOnly = items.filter((i) => (i.metadata?.sources as string[])?.length === 1 && (i.metadata?.sources as string[])[0] === 'vector').length;
+    const keywordOnly = items.filter((i) => (i.metadata?.sources as string[])?.length === 1 && (i.metadata?.sources as string[])[0] === 'keyword').length;
+    const both = items.filter((i) => (i.metadata?.sources as string[])?.length === 2).length;
+    this.nestLogger.debug(`Hybrid contact search: ${vectorOnly} vector-only, ${keywordOnly} keyword-only, ${both} both`);
+
+    return { source: 'contacts', items };
   }
 
   /**
@@ -601,6 +765,7 @@ export class UnifiedRetriever extends BaseRetriever {
 
     const sourceLabels: Record<SearchSource, { en: string; it: string }> = {
       emails: { en: 'Relevant Emails', it: 'Email Rilevanti' },
+      contacts: { en: 'Relevant Contacts', it: 'Contatti Rilevanti' },
       deadlines: { en: 'Upcoming Deadlines', it: 'Scadenze Imminenti' },
       followups: { en: 'Pending Follow-ups', it: 'Follow-up in Sospeso' },
       actions: { en: 'Action Items', it: 'Azioni da Completare' },

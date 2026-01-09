@@ -262,9 +262,10 @@ export class KnowledgeBaseService {
             embedding,
             model: this.mistralService.getEmbeddingModel(),
             documentName: chunkData.subject,
+            emailId: chunkData.emailId, // ✅ Direct indexed field
             metadata: {
               source: 'email',
-              emailId: chunkData.emailId,
+              emailId: chunkData.emailId, // Keep for backward compat
               subject: chunkData.subject,
               from: chunkData.from,
               receivedAt: chunkData.receivedAt ?? null,
@@ -380,9 +381,10 @@ export class KnowledgeBaseService {
               embedding,
               model: this.mistralService.getEmbeddingModel(),
               documentName: options.subject,
+              emailId: options.emailId, // ✅ Direct indexed field
               metadata: {
                 source: 'email',
-                emailId: options.emailId,
+                emailId: options.emailId, // Keep for backward compat
                 subject: options.subject,
                 from: options.from ?? null,
                 receivedAt: receivedAtIso ?? null,
@@ -417,9 +419,10 @@ export class KnowledgeBaseService {
               embedding,
               model: this.mistralService.getEmbeddingModel(),
               documentName: options.subject,
+              emailId: options.emailId, // ✅ Direct indexed field
               metadata: {
                 source: 'email',
-                emailId: options.emailId,
+                emailId: options.emailId, // Keep for backward compat
                 subject: options.subject,
                 from: options.from ?? null,
                 receivedAt: receivedAtIso ?? null,
@@ -520,17 +523,13 @@ export class KnowledgeBaseService {
         continue;
       }
 
-      const conditions = batch.map((emailId) => ({
-        metadata: {
-          path: ['emailId'],
-          equals: emailId,
-        },
-      }));
-
+      // ✅ FIXED: Use indexed emailId field instead of slow JSONB metadata path
+      // Before: metadata.path['emailId'] = O(n) full scan
+      // After:  emailId field with @@index = O(log n)
       const result = await this.prisma.embedding.deleteMany({
         where: {
           tenantId,
-          OR: conditions,
+          emailId: { in: batch },
         },
       });
 
@@ -1072,12 +1071,9 @@ export class KnowledgeBaseService {
       const batch = emailIds.slice(i, i + batchSize).filter(Boolean);
       if (batch.length === 0) continue;
 
-      const conditions = batch.map((emailId) => ({
-        metadata: { path: ['emailId'], equals: emailId },
-      }));
-
+      // ✅ FIXED: Use indexed emailId field instead of slow JSONB metadata path
       const result = await this.prisma.embedding.deleteMany({
-        where: { tenantId, OR: conditions },
+        where: { tenantId, emailId: { in: batch } },
       });
 
       totalDeleted += result.count;
@@ -1086,6 +1082,252 @@ export class KnowledgeBaseService {
     if (totalDeleted > 0) {
       this.logger.log(
         `Bulk deleted ${totalDeleted} embeddings for ${emailIds.length} emails (tenant: ${tenantId})`,
+      );
+    }
+
+    return totalDeleted;
+  }
+
+  // ============================================================================
+  // CONTACT EMBEDDINGS
+  // ============================================================================
+
+  /**
+   * Create embedding for a contact.
+   * Content includes: displayName, company, jobTitle, notes, tags, emails, phones.
+   */
+  async createEmbeddingForContact(options: {
+    tenantId: string;
+    contactId: string;
+    displayName?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    company?: string | null;
+    jobTitle?: string | null;
+    department?: string | null;
+    notes?: string | null;
+    tags?: string[];
+    emails?: { value: string; type?: string }[] | null;
+    phoneNumbers?: { value: string; type?: string }[] | null;
+  }): Promise<boolean> {
+    // Check if embedding already exists
+    if (await this.embeddingsService.hasEmbeddingForContact(options.tenantId, options.contactId)) {
+      this.logger.verbose(
+        `Embedding already exists for contact ${options.contactId} (tenant ${options.tenantId}), skipping.`,
+      );
+      return false;
+    }
+
+    const content = this.composeContactEmbeddingContent(options);
+
+    if (!content) {
+      this.logger.debug(
+        `Skipping embedding for contact ${options.contactId} (tenant ${options.tenantId}): empty content`,
+      );
+      return false;
+    }
+
+    try {
+      const chunks = this.chunkContentForEmbedding(content);
+
+      if (chunks.length > 1) {
+        this.logger.debug(
+          `Contact ${options.contactId} split into ${chunks.length} chunks for embedding.`,
+        );
+      }
+
+      const client = await this.mistralService.createMistralClient();
+      await this.deleteEmbeddingsForContact(options.tenantId, options.contactId);
+
+      let successfulChunks = 0;
+
+      try {
+        const chunkContents = chunks.map((chunk) => chunk.content);
+        const embeddings = await this.mistralService.generateBulkEmbeddings(chunkContents, client);
+
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i];
+          const embedding = embeddings[i];
+
+          try {
+            await this.embeddingsService.saveEmbedding({
+              tenantId: options.tenantId,
+              content: chunk.content,
+              embedding,
+              model: this.mistralService.getEmbeddingModel(),
+              documentName: options.displayName || `Contact ${options.contactId}`,
+              contactId: options.contactId, // ✅ Direct indexed field
+              metadata: {
+                source: 'contact',
+                contactId: options.contactId,
+                displayName: options.displayName ?? null,
+                company: options.company ?? null,
+                chunkIndex: chunk.index,
+                chunkCount: chunks.length,
+              },
+            });
+
+            successfulChunks += 1;
+          } catch (saveError) {
+            const message = saveError instanceof Error ? saveError.message : String(saveError);
+            this.logger.warn(
+              `Failed to save embedding for contact chunk ${chunk.index + 1}/${chunks.length}: ${message}`,
+            );
+          }
+        }
+      } catch (bulkError) {
+        // Fallback to individual processing
+        for (const chunk of chunks) {
+          try {
+            const embedding = await this.mistralService.generateEmbedding(
+              chunk.content,
+              client,
+              { tenantId: options.tenantId },
+            );
+
+            await this.embeddingsService.saveEmbedding({
+              tenantId: options.tenantId,
+              content: chunk.content,
+              embedding,
+              model: this.mistralService.getEmbeddingModel(),
+              documentName: options.displayName || `Contact ${options.contactId}`,
+              contactId: options.contactId,
+              metadata: {
+                source: 'contact',
+                contactId: options.contactId,
+                displayName: options.displayName ?? null,
+                company: options.company ?? null,
+                chunkIndex: chunk.index,
+                chunkCount: chunks.length,
+              },
+            });
+
+            successfulChunks += 1;
+          } catch (chunkError) {
+            const chunkMessage = chunkError instanceof Error ? chunkError.message : String(chunkError);
+            this.logger.warn(`Failed embedding chunk for contact: ${chunkMessage}`);
+          }
+        }
+      }
+
+      return successfulChunks > 0;
+    } catch (error) {
+      const message = AiError.fromError(error).message;
+      this.logger.warn(`Failed to create embedding for contact ${options.contactId}: ${message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Compose content string for contact embedding.
+   * Prioritizes: name, company, job, notes, tags, contact info.
+   */
+  private composeContactEmbeddingContent(options: {
+    displayName?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    company?: string | null;
+    jobTitle?: string | null;
+    department?: string | null;
+    notes?: string | null;
+    tags?: string[];
+    emails?: { value: string; type?: string }[] | null;
+    phoneNumbers?: { value: string; type?: string }[] | null;
+  }): string {
+    const parts: string[] = [];
+
+    // Name (most important for semantic search)
+    const name = options.displayName
+      || [options.firstName, options.lastName].filter(Boolean).join(' ')
+      || null;
+    if (name) {
+      parts.push(`Name: ${name}`);
+    }
+
+    // Professional context
+    if (options.company) {
+      parts.push(`Company: ${options.company}`);
+    }
+    if (options.jobTitle) {
+      parts.push(`Job Title: ${options.jobTitle}`);
+    }
+    if (options.department) {
+      parts.push(`Department: ${options.department}`);
+    }
+
+    // Notes (rich context for semantic search)
+    if (options.notes) {
+      parts.push(`Notes: ${options.notes}`);
+    }
+
+    // Tags (categorical context)
+    if (options.tags && options.tags.length > 0) {
+      parts.push(`Tags: ${options.tags.join(', ')}`);
+    }
+
+    // Contact info (for exact matching)
+    if (options.emails && Array.isArray(options.emails)) {
+      const emailList = options.emails.map((e) => e.value).filter(Boolean).join(', ');
+      if (emailList) {
+        parts.push(`Emails: ${emailList}`);
+      }
+    }
+
+    if (options.phoneNumbers && Array.isArray(options.phoneNumbers)) {
+      const phoneList = options.phoneNumbers.map((p) => p.value).filter(Boolean).join(', ');
+      if (phoneList) {
+        parts.push(`Phones: ${phoneList}`);
+      }
+    }
+
+    return parts.join('\n').trim();
+  }
+
+  /**
+   * Delete embeddings for a single contact.
+   */
+  async deleteEmbeddingsForContact(tenantId: string, contactId: string): Promise<number> {
+    if (!contactId) {
+      return 0;
+    }
+
+    // ✅ Use indexed contactId field
+    const result = await this.prisma.embedding.deleteMany({
+      where: { tenantId, contactId },
+    });
+
+    return result.count;
+  }
+
+  /**
+   * Bulk delete embeddings by contact IDs with batching.
+   */
+  async bulkDeleteEmbeddingsByContactIds(
+    tenantId: string,
+    contactIds: string[],
+    batchSize: number = 100,
+  ): Promise<number> {
+    if (!contactIds || contactIds.length === 0) {
+      return 0;
+    }
+
+    let totalDeleted = 0;
+
+    for (let i = 0; i < contactIds.length; i += batchSize) {
+      const batch = contactIds.slice(i, i + batchSize).filter(Boolean);
+      if (batch.length === 0) continue;
+
+      // ✅ Use indexed contactId field
+      const result = await this.prisma.embedding.deleteMany({
+        where: { tenantId, contactId: { in: batch } },
+      });
+
+      totalDeleted += result.count;
+    }
+
+    if (totalDeleted > 0) {
+      this.logger.log(
+        `Bulk deleted ${totalDeleted} embeddings for ${contactIds.length} contacts (tenant: ${tenantId})`,
       );
     }
 
