@@ -1,6 +1,9 @@
 services:
   postgres:
-    image: ankane/pgvector:latest
+    build:
+      context: ./database
+      dockerfile: Dockerfile.postgres
+    image: mailagent-postgres:citus-pgvector
     container_name: mailagent-postgres
     environment:
       POSTGRES_USER: ${DB_USER:-mailuser}
