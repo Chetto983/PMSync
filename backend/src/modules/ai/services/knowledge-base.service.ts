@@ -757,7 +757,7 @@ export class KnowledgeBaseService {
           e."receivedAt"
         FROM "emails" e
         LEFT JOIN "embeddings" emb
-          ON emb.metadata ->> 'emailId' = e."id"
+          ON emb."emailId" = e."id" AND emb."tenantId" = e."tenantId"
         WHERE emb."id" IS NULL
           AND e."tenantId" = ${tenantId}
           AND ${deletedCondition}
@@ -779,7 +779,7 @@ export class KnowledgeBaseService {
         SELECT COUNT(*)::bigint AS remaining
         FROM "emails" e
         LEFT JOIN "embeddings" emb
-          ON emb.metadata ->> 'emailId' = e."id"
+          ON emb."emailId" = e."id" AND emb."tenantId" = e."tenantId"
         WHERE emb."id" IS NULL
           AND e."tenantId" = ${tenantId}
           AND ${deletedCondition};

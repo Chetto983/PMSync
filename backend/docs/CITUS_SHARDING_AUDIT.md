@@ -1,6 +1,6 @@
 # Citus Sharding Audit - MailAgent
 
-## Current Status: ✅ PHASE 1 COMPLETE (2026-01-09)
+## Current Status: ✅ PHASE 2 COMPLETE (2026-01-09)
 
 | Component | Status | Version |
 |-----------|--------|---------|
@@ -9,6 +9,8 @@
 | pgvector Extension | ✅ | 0.5.1 |
 | Composite PKs | ✅ | Applied (5 tables) |
 | tenantId Columns | ✅ | Added to 8 child tables |
+| **Raw SQL Audit** | ✅ | **All 18 files verified** |
+| **JSONB → Direct Fields** | ✅ | **3 files fixed** |
 | Stress Tests | ✅ | 15/15 passing |
 | RAG Isolation | ✅ | 6/6 passing |
 
@@ -16,6 +18,20 @@
 ```
 mailagent-postgres:citus-pgvector (built from database/Dockerfile.postgres)
 ```
+
+### Phase 2 Fixes (2026-01-09)
+
+**JSONB → Direct Field Migration:**
+- `knowledge-base.service.ts` (lines 760, 782): Changed `emb.metadata ->> 'emailId'` to `emb."emailId"`
+- `embedding-backfill-scheduler.service.ts` (2 occurrences): Same fix
+
+**Raw SQL tenantId Fixes:**
+- `base-email-sync.service.ts` (line 835): Added `AND "tenantId" = ${tenantId}` to UPDATE
+- `ai-memory.service.ts` (line 435): Added `AND "tenantId" = ${tenantId}` to UPDATE
+- `base-contacts-sync.service.ts` (line 389): Added `WHERE "tenantId" = ${provider.tenantId}` to UPDATE
+- `sync.worker.ts` (lines 371-387): Added tenantId to folder count UPDATE + subqueries
+
+**Auth Cache:** Already implemented with tenant-isolated Redis keys (`${tenantId}:${sessionId}`)
 
 ### Next Step
 Run `distribute-citus-tables.sql` when ready to shard (after adding worker nodes).

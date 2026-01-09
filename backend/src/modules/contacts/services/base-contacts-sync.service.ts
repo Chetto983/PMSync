@@ -377,6 +377,7 @@ export abstract class BaseContactsSyncService {
         }
 
         // 3. Bulk update existing provider contacts using raw SQL
+        // CITUS: tenantId MUST be in WHERE clause for shard routing
         if (updateProviderContacts.length > 0) {
           const now = new Date();
           const externalIds = updateProviderContacts.map((pc) => pc.externalId);
@@ -385,7 +386,8 @@ export abstract class BaseContactsSyncService {
             UPDATE "provider_contacts"
             SET "lastSyncedAt" = ${now},
                 "syncVersion" = "syncVersion" + 1
-            WHERE "providerId" = ${provider.id}
+            WHERE "tenantId" = ${provider.tenantId}
+              AND "providerId" = ${provider.id}
               AND "externalId" = ANY(${externalIds}::text[])
           `;
 

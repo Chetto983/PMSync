@@ -427,11 +427,12 @@ export class AIMemoryService {
       }
 
       // Store embedding using raw SQL (Prisma doesn't support vector type directly)
+      // CITUS: tenantId MUST be in WHERE clause for shard routing
       const vectorLiteral = `[${embedding.join(',')}]`;
       await this.prisma.$executeRaw`
         UPDATE "ai_memories"
         SET "vector" = ${Prisma.raw(`'${vectorLiteral}'::vector`)}
-        WHERE "id" = ${memoryId}
+        WHERE "id" = ${memoryId} AND "tenantId" = ${tenantId}
       `;
 
       this.logger.debug(`Generated embedding for memory ${memoryId}`);

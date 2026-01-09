@@ -289,7 +289,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
           e."receivedAt"
         FROM "emails" e
         LEFT JOIN "embeddings" emb
-          ON emb.metadata ->> 'emailId' = e."id"
+          ON emb."emailId" = e."id" AND emb."tenantId" = e."tenantId"
         LEFT JOIN "folders" f
           ON f."providerId" = e."providerId"
           AND (f."path" = e."folder" OR f."name" = e."folder" OR f."externalId" = e."folder")
@@ -331,7 +331,7 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
         SELECT COUNT(*)::bigint AS count
         FROM "emails" e
         LEFT JOIN "embeddings" emb
-          ON emb.metadata ->> 'emailId' = e."id"
+          ON emb."emailId" = e."id" AND emb."tenantId" = e."tenantId"
         LEFT JOIN "folders" f
           ON f."providerId" = e."providerId"
           AND (f."path" = e."folder" OR f."name" = e."folder" OR f."externalId" = e."folder")

@@ -832,7 +832,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
               "folder" = ${(updateData as any).folder ?? existing.folder},
               "version" = "version" + 1,
               "updatedAt" = NOW()
-            WHERE "id" = ${existing.id}
+            WHERE "id" = ${existing.id} AND "tenantId" = ${tenantId}
               AND (
                 "userModifiedAt" IS NULL
                 OR "userModifiedAt" = ${originalUserModifiedAt}

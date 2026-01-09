@@ -331,7 +331,7 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
    */
   private async applyAllPostSyncUpdates(
     providerId: string,
-    _tenantId: string, // Kept for potential future use (e.g., tenant-specific logic)
+    tenantId: string, // CITUS: Required for shard routing
     metadataUpdates: Record<string, any>,
   ): Promise<void> {
     const shouldUpdateMetadata = Object.keys(metadataUpdates).length > 0;
@@ -361,7 +361,7 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
       });
 
       // 3. Update folder counts atomically using raw SQL for efficiency
-      // This updates all folders for this provider in a single query
+      // CITUS: tenantId in WHERE clause for shard routing
       await tx.$executeRaw`
         UPDATE "folders"
         SET
@@ -369,6 +369,7 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
             SELECT COUNT(*)
             FROM "emails"
             WHERE "emails"."providerId" = "folders"."providerId"
+              AND "emails"."tenantId" = "folders"."tenantId"
               AND "emails"."folder" = "folders"."name"
               AND "emails"."isDeleted" = false
           ),
@@ -376,12 +377,14 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
             SELECT COUNT(*)
             FROM "emails"
             WHERE "emails"."providerId" = "folders"."providerId"
+              AND "emails"."tenantId" = "folders"."tenantId"
               AND "emails"."folder" = "folders"."name"
               AND "emails"."isDeleted" = false
               AND "emails"."isRead" = false
           ),
           "updatedAt" = NOW()
-        WHERE "folders"."providerId" = ${providerId}
+        WHERE "folders"."tenantId" = ${tenantId}
+          AND "folders"."providerId" = ${providerId}
       `;
     });
 
