@@ -207,7 +207,7 @@ export abstract class AbstractCalendarSyncService {
           this.logger.warn(
             `Failed to sync calendar ${cal.id}: ${calError instanceof Error ? calError.message : String(calError)}`,
           );
-          await this.recordSyncError(providerId, cal.id, calError);
+          await this.recordSyncError(provider.tenantId, providerId, cal.id, calError);
         }
       }
 
@@ -256,7 +256,7 @@ export abstract class AbstractCalendarSyncService {
     // Get or create sync state for this calendar
     const syncState = await this.prisma.calendarSyncState.findUnique({
       where: {
-        providerId_calendarId: { providerId, calendarId },
+        tenantId_providerId_calendarId: { tenantId, providerId, calendarId },
       },
     });
 
@@ -294,7 +294,7 @@ export abstract class AbstractCalendarSyncService {
         this.logger.warn(`Sync token expired for calendar ${calendarId}, falling back to full sync`);
         // Invalidate the sync token
         await this.prisma.calendarSyncState.update({
-          where: { providerId_calendarId: { providerId, calendarId } },
+          where: { tenantId_providerId_calendarId: { tenantId, providerId, calendarId } },
           data: {
             [this.syncTokenField]: null,
             fullSyncRequired: true,
@@ -338,9 +338,10 @@ export abstract class AbstractCalendarSyncService {
     // Save sync state with new sync token
     await this.prisma.calendarSyncState.upsert({
       where: {
-        providerId_calendarId: { providerId, calendarId },
+        tenantId_providerId_calendarId: { tenantId, providerId, calendarId },
       },
       create: {
+        tenantId,
         providerId,
         calendarId,
         calendarName,
@@ -404,7 +405,7 @@ export abstract class AbstractCalendarSyncService {
     // Update sync state with new sync token
     await this.prisma.calendarSyncState.update({
       where: {
-        providerId_calendarId: { providerId, calendarId },
+        tenantId_providerId_calendarId: { tenantId, providerId, calendarId },
       },
       data: {
         [this.syncTokenField]: nextSyncToken,
@@ -508,7 +509,7 @@ export abstract class AbstractCalendarSyncService {
         if (eventsToUpdate.length > 0) {
           for (const update of eventsToUpdate) {
             await tx.calendarEvent.update({
-              where: { id: update.id },
+              where: { id_tenantId: { id: update.id, tenantId } },
               data: {
                 ...(update.data as Prisma.CalendarEventUpdateInput),
                 syncVersion: { increment: 1 },
@@ -574,6 +575,7 @@ export abstract class AbstractCalendarSyncService {
    * Record sync error for a calendar
    */
   protected async recordSyncError(
+    tenantId: string,
     providerId: string,
     calendarId: string,
     error: unknown,
@@ -582,9 +584,10 @@ export abstract class AbstractCalendarSyncService {
 
     await this.prisma.calendarSyncState.upsert({
       where: {
-        providerId_calendarId: { providerId, calendarId },
+        tenantId_providerId_calendarId: { tenantId, providerId, calendarId },
       },
       create: {
+        tenantId,
         providerId,
         calendarId,
         fullSyncRequired: true,

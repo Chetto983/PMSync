@@ -74,7 +74,7 @@ export class EmailFetchService {
       // Update email with fetched content
       // HYBRID SYNC: Mark as having body fetched
       const updatedEmail = await this.prisma.email.update({
-        where: { id: emailId },
+        where: { id_tenantId: { id: emailId, tenantId } },
         data: {
           bodyText: fetchedContent.bodyText,
           bodyHtml: fetchedContent.bodyHtml,

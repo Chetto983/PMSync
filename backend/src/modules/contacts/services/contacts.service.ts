@@ -430,7 +430,7 @@ export class ContactsService {
 
     // Update unified contact locally
     const updated = await this.prisma.contact.update({
-      where: { id: contactId },
+      where: { id_tenantId: { id: contactId, tenantId } },
       data: {
         firstName: data.firstName,
         lastName: data.lastName,
@@ -529,7 +529,7 @@ export class ContactsService {
     // Soft delete unified contact and update provider contacts atomically
     await this.prisma.$transaction([
       this.prisma.contact.update({
-        where: { id: contactId },
+        where: { id_tenantId: { id: contactId, tenantId } },
         data: {
           isDeleted: true,
           updatedAt: new Date(),

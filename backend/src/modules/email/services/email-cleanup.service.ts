@@ -198,8 +198,9 @@ export class EmailCleanupService implements OnModuleInit {
     const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
 
     // Get emails that would be purged (using cursor pagination)
+    // CITUS: Cursor-based pagination with composite PK requires both id and tenantId
     let hasMore = true;
-    let cursor: string | undefined;
+    let cursorData: { id: string; tenantId: string } | undefined;
     const staleEmails: Array<{
       id: string;
       tenantId: string;
@@ -225,8 +226,8 @@ export class EmailCleanupService implements OnModuleInit {
           },
         },
         take: this.BATCH_SIZE,
-        skip: cursor ? 1 : 0,
-        cursor: cursor ? { id: cursor } : undefined,
+        skip: cursorData ? 1 : 0,
+        cursor: cursorData ? { id_tenantId: { id: cursorData.id, tenantId: cursorData.tenantId } } : undefined,
         orderBy: { id: 'asc' }, // Consistent ordering is required for cursor pagination
       });
 
@@ -234,7 +235,8 @@ export class EmailCleanupService implements OnModuleInit {
         hasMore = false;
       } else {
         staleEmails.push(...batch);
-        cursor = batch[batch.length - 1].id;
+        const lastItem = batch[batch.length - 1];
+        cursorData = { id: lastItem.id, tenantId: lastItem.tenantId };
 
         // Safety break for extremely large sets in dry run to avoid memory pressure even with batching
         // Since we are accumulating into `staleEmails` array, we ARE still loading everything into memory eventually.
@@ -251,8 +253,9 @@ export class EmailCleanupService implements OnModuleInit {
     let totalBytes = 0;
 
     // Reset cursor for the actual processing loop which replaces the array iteration
+    // CITUS: Cursor-based pagination with composite PK requires both id and tenantId
     let processHasMore = true;
-    let processCursor: string | undefined;
+    let processCursorData: { id: string; tenantId: string } | undefined;
 
     while (processHasMore) {
       const batch = await this.prisma.email.findMany({
@@ -273,8 +276,8 @@ export class EmailCleanupService implements OnModuleInit {
           },
         },
         take: this.BATCH_SIZE,
-        skip: processCursor ? 1 : 0,
-        cursor: processCursor ? { id: processCursor } : undefined,
+        skip: processCursorData ? 1 : 0,
+        cursor: processCursorData ? { id_tenantId: { id: processCursorData.id, tenantId: processCursorData.tenantId } } : undefined,
         orderBy: { id: 'asc' },
       });
 
@@ -303,7 +306,8 @@ export class EmailCleanupService implements OnModuleInit {
         }
       }
 
-      processCursor = batch[batch.length - 1].id;
+      const lastBatchItem = batch[batch.length - 1];
+      processCursorData = { id: lastBatchItem.id, tenantId: lastBatchItem.tenantId };
     }
 
     const result: DryRunResult = {

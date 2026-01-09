@@ -157,8 +157,8 @@ export class BatchIndexingService implements OnModuleInit {
       for (const result of results) {
         if (result.embedding && !result.error) {
           // Find original email for metadata
-          const email = await this.prisma.email.findUnique({
-            where: { id: result.customId },
+          const email = await this.prisma.email.findFirst({
+            where: { id: result.customId, tenantId: job.tenantId },
             select: { subject: true, from: true, receivedAt: true },
           });
 

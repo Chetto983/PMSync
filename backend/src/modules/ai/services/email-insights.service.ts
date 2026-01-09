@@ -446,7 +446,7 @@ export class EmailInsightsService {
       // Store in cache (upsert to handle concurrent requests)
       // Store with metadata to distinguish from other suggestedActions uses
       await this.prisma.emailAnalysis.upsert({
-        where: { emailId },
+        where: { emailId_tenantId: { emailId, tenantId } },
         update: {
           tenantId, // GDPR: ensure tenant isolation
           suggestedActions: {

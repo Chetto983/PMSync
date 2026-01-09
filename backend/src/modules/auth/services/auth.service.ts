@@ -575,7 +575,7 @@ export class AuthService {
 
       // Check if TOTP is enabled
       const totpEnabled = await this.totpService.isEnabled(user.id);
-      const backupCodesRemaining = await this.backupCodesService.getRemainingCount(user.id);
+      const backupCodesRemaining = await this.backupCodesService.getRemainingCount(tenant.id, user.id);
 
       if (totpEnabled) {
         // Generate MFA token for TOTP verification
@@ -808,7 +808,7 @@ export class AuthService {
       }
 
       case 'backup': {
-        const result = await this.backupCodesService.verify(user.id, code);
+        const result = await this.backupCodesService.verify(tenant.id, user.id, code);
         verificationSuccess = result.success;
         if (!verificationSuccess) {
           throw new UnauthorizedException(

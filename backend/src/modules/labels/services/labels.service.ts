@@ -234,6 +234,7 @@ export class LabelsService {
 
     await this.prisma.emailLabel.createMany({
       data: validEmails.map((email) => ({
+        tenantId,
         emailId: email.id,
         labelId,
       })),
@@ -307,9 +308,11 @@ export class LabelsService {
 
     // Get updated email with emailLabels relationship
     // FIX: Use Prisma directly instead of emailsService to ensure correct data retrieval
-    const updatedEmail = await this.prisma.email.findUnique({
+    // CITUS: Use findFirst instead of findUnique since we need tenantId filter
+    const updatedEmail = await this.prisma.email.findFirst({
       where: {
         id: emailId,
+        tenantId,
       },
       include: {
         provider: {

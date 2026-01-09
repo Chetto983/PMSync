@@ -57,7 +57,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get user preferences' })
   @ApiResponse({ status: 200, description: 'Returns user preferences' })
   async getMyPreferences(@Request() req: AuthenticatedRequest) {
-    return this.usersService.getUserPreferences(req.user.userId);
+    return this.usersService.getUserPreferences(req.user.tenantId, req.user.userId);
   }
 
   /**
@@ -71,7 +71,7 @@ export class UsersController {
     @Request() req: AuthenticatedRequest,
     @Body() body: UpdatePreferencesDto,
   ) {
-    return this.usersService.updateUserPreferences(req.user.userId, body);
+    return this.usersService.updateUserPreferences(req.user.tenantId, req.user.userId, body);
   }
   /**
    * Get dashboard preferences
@@ -81,7 +81,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get dashboard layout preferences' })
   @ApiResponse({ status: 200, description: 'Returns dashboard preferences' })
   async getMyDashboardPreferences(@Request() req: AuthenticatedRequest) {
-    return this.usersService.getDashboardPreferences(req.user.userId);
+    return this.usersService.getDashboardPreferences(req.user.tenantId, req.user.userId);
   }
 
   /**
@@ -92,6 +92,6 @@ export class UsersController {
   @ApiOperation({ summary: 'Update dashboard layout preferences' })
   @ApiResponse({ status: 200, description: 'Dashboard preferences updated' })
   async updateMyDashboardPreferences(@Request() req: AuthenticatedRequest, @Body() body: { layout: any[] }) {
-    return this.usersService.updateDashboardPreferences(req.user.userId, body.layout);
+    return this.usersService.updateDashboardPreferences(req.user.tenantId, req.user.userId, body.layout);
   }
 }

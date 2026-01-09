@@ -229,7 +229,7 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
     let dbFolder;
     if (existing) {
       dbFolder = await this.prisma.folder.update({
-        where: { id: existing.id },
+        where: { id_tenantId: { id: existing.id, tenantId: existing.tenantId } },
         data: {
           externalId: createdFolder.id,
           name: createdFolder.name,
@@ -315,7 +315,7 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
 
     // Update database
     const updatedFolder = await this.prisma.folder.update({
-      where: { id: folder.id },
+      where: { id_tenantId: { id: folder.id, tenantId: folder.tenantId } },
       data: {
         name: newName,
         path: newPath,
@@ -371,7 +371,7 @@ export class FolderOperationsWorker extends BaseWorker<FolderJobData, FolderJobR
     await driver.deleteFolder(idToUse);
 
     // Delete from database
-    await this.prisma.folder.delete({ where: { id: folder.id } });
+    await this.prisma.folder.delete({ where: { id_tenantId: { id: folder.id, tenantId: folder.tenantId } } });
 
     this.logger.log(`Deleted folder "${folder.name}"`);
 

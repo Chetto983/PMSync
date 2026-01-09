@@ -56,17 +56,18 @@ export class BackupCodesService {
   /**
    * Generate new backup codes for a user
    *
+   * @param tenantId - Tenant ID for multi-tenant isolation
    * @param userId - User ID
    * @returns Array of plaintext codes (show only once!)
    */
-  async generate(userId: string): Promise<string[]> {
+  async generate(tenantId: string, userId: string): Promise<string[]> {
     // Delete any existing codes first
     await this.prisma.mfaBackupCode.deleteMany({
-      where: { userId },
+      where: { tenantId, userId },
     });
 
     const codes: string[] = [];
-    const codeRecords: { userId: string; codeHash: string }[] = [];
+    const codeRecords: { tenantId: string; userId: string; codeHash: string }[] = [];
 
     // Generate codes
     for (let i = 0; i < this.codeCount; i++) {
@@ -75,7 +76,7 @@ export class BackupCodesService {
       const hash = this.hashCode(code);
 
       codes.push(formattedCode);
-      codeRecords.push({ userId, codeHash: hash });
+      codeRecords.push({ tenantId, userId, codeHash: hash });
     }
 
     // Store hashed codes
@@ -97,28 +98,31 @@ export class BackupCodesService {
   /**
    * Regenerate backup codes (invalidates old ones)
    *
+   * @param tenantId - Tenant ID for multi-tenant isolation
    * @param userId - User ID
    * @returns New array of plaintext codes
    */
-  async regenerate(userId: string): Promise<string[]> {
+  async regenerate(tenantId: string, userId: string): Promise<string[]> {
     this.logger.log(
       JSON.stringify({
         event: 'backup_codes_regenerating',
+        tenantId,
         userId,
       }),
     );
 
-    return this.generate(userId);
+    return this.generate(tenantId, userId);
   }
 
   /**
    * Verify and consume a backup code
    *
+   * @param tenantId - Tenant ID for multi-tenant isolation
    * @param userId - User ID
    * @param code - Backup code (with or without dash)
    * @returns Verification result
    */
-  async verify(userId: string, code: string): Promise<BackupCodeVerifyResult> {
+  async verify(tenantId: string, userId: string, code: string): Promise<BackupCodeVerifyResult> {
     // Normalize code (remove dashes, uppercase)
     const normalizedCode = code.replace(/-/g, '').toUpperCase();
     const hash = this.hashCode(normalizedCode);
@@ -126,6 +130,7 @@ export class BackupCodesService {
     // Find matching unused code
     const backupCode = await this.prisma.mfaBackupCode.findFirst({
       where: {
+        tenantId,
         userId,
         codeHash: hash,
       },
@@ -134,7 +139,7 @@ export class BackupCodesService {
     if (!backupCode) {
       // Check if user has any codes at all
       const hasAnyCodes = await this.prisma.mfaBackupCode.count({
-        where: { userId },
+        where: { tenantId, userId },
       });
 
       if (hasAnyCodes === 0) {
@@ -175,6 +180,7 @@ export class BackupCodesService {
     // Get remaining count
     const remainingCount = await this.prisma.mfaBackupCode.count({
       where: {
+        tenantId,
         userId,
         isUsed: false,
       },
@@ -183,6 +189,7 @@ export class BackupCodesService {
     this.logger.log(
       JSON.stringify({
         event: 'backup_code_used',
+        tenantId,
         userId,
         remainingCount,
       }),
@@ -198,12 +205,14 @@ export class BackupCodesService {
   /**
    * Get remaining unused backup codes count
    *
+   * @param tenantId - Tenant ID for multi-tenant isolation
    * @param userId - User ID
    * @returns Number of remaining unused codes
    */
-  async getRemainingCount(userId: string): Promise<number> {
+  async getRemainingCount(tenantId: string, userId: string): Promise<number> {
     return this.prisma.mfaBackupCode.count({
       where: {
+        tenantId,
         userId,
         isUsed: false,
       },

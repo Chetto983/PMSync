@@ -31,9 +31,17 @@ model Tenant {
   scheduledEmails      ScheduledEmail[]
   subscription         Subscription?
   contacts             Contact[]              @relation("ContactToTenant")
-  userLabels           UserLabel[]
-  users                User[]
-  webhookSubscriptions WebhookSubscription[]
+  userLabels                 UserLabel[]
+  users                      User[]
+  webhookSubscriptions       WebhookSubscription[]
+  userPreferences            UserPreferences[]            @relation("UserPreferencesToTenant")
+  dashboardPreferences       DashboardPreference[]        @relation("DashboardPreferenceToTenant")
+  mfaSecrets                 MfaSecret[]                  @relation("MfaSecretToTenant")
+  mfaBackupCodes             MfaBackupCode[]              @relation("MfaBackupCodeToTenant")
+  emailLabels                EmailLabel[]                 @relation("EmailLabelToTenant")
+  emailAttachments           EmailAttachment[]            @relation("EmailAttachmentToTenant")
+  calendarEventAttachments   CalendarEventAttachment[]    @relation("CalendarEventAttachmentToTenant")
+  calendarSyncStates         CalendarSyncState[]          @relation("CalendarSyncStateToTenant")
 
   @@map("tenants")
 }
@@ -75,6 +83,7 @@ model User {
 
 model UserPreferences {
   id                          String   @id @default(cuid())
+  tenantId                    String
   userId                      String   @unique
   folderOrders                Json?
   sidebarSmartFiltersExpanded Boolean  @default(true)
@@ -102,25 +111,31 @@ model UserPreferences {
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
   user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant                      Tenant   @relation("UserPreferencesToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([tenantId])
   @@map("user_preferences")
 }
 
 model DashboardPreference {
   id        String   @id @default(cuid())
+  tenantId  String
   userId    String   @unique
   layout    Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation("DashboardPreferenceToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
   @@map("dashboard_preferences")
 }
 
 /// TOTP secrets for authenticator apps (Google Authenticator, Authy, etc.)
 model MfaSecret {
   id           String    @id @default(cuid())
+  tenantId     String
   userId       String    @unique
   secret       String
   encryptionIv String
@@ -129,22 +144,27 @@ model MfaSecret {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant       Tenant    @relation("MfaSecretToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([tenantId])
   @@map("mfa_secrets")
 }
 
 /// Backup/recovery codes for MFA emergency access
 model MfaBackupCode {
   id        String    @id @default(cuid())
+  tenantId  String
   userId    String
   codeHash  String
   isUsed    Boolean   @default(false)
   usedAt    DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation("MfaBackupCodeToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([userId, isUsed])
+  @@index([tenantId])
   @@map("mfa_backup_codes")
 }
 
@@ -282,8 +302,9 @@ model ProviderConfig {
 }
 
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+/// Citus distributed table - composite PK for horizontal sharding
 model Email {
-  id                   String                  @id @default(cuid())
+  id                   String                  @default(cuid())
   tenantId             String
   providerId           String
   externalId           String
@@ -351,6 +372,7 @@ model Email {
   @@index([subject(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([from(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([providerId, folder, isRead, isDeleted])
+  @@id([id, tenantId])
   @@map("emails")
 }
 
@@ -382,8 +404,9 @@ model ScheduledEmail {
   @@map("scheduled_emails")
 }
 
+/// Citus distributed table - composite PK for horizontal sharding
 model Folder {
-  id           String         @id @default(cuid())
+  id           String         @default(cuid())
   tenantId     String
   providerId   String
   name         String
@@ -406,7 +429,7 @@ model Folder {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   isSystem     Boolean        @default(false)
-  parent       Folder?        @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  parent       Folder?        @relation("FolderHierarchy", fields: [parentId, tenantId], references: [id, tenantId], onDelete: Cascade)
   children     Folder[]       @relation("FolderHierarchy")
   provider     ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
   tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -418,6 +441,7 @@ model Folder {
   @@index([tenantId, isSystem])
   @@index([providerId, parentId])
   @@index([lastSyncedAt])
+  @@id([id, tenantId])
   @@map("folders")
 }
 
@@ -449,21 +473,25 @@ model UserLabel {
 
 model EmailLabel {
   id        String    @id @default(cuid())
+  tenantId  String
   emailId   String
   labelId   String
   createdAt DateTime  @default(now())
-  email     Email     @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  email     Email     @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
   label     UserLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation("EmailLabelToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([emailId, labelId])
+  @@unique([tenantId, emailId, labelId])
   @@index([emailId])
   @@index([labelId])
+  @@index([tenantId])
   @@index([createdAt])
   @@map("email_labels")
 }
 
 model EmailAttachment {
   id          String   @id @default(cuid())
+  tenantId    String
   emailId     String
   filename    String
   mimeType    String
@@ -474,9 +502,11 @@ model EmailAttachment {
   contentHash String?
   isInline    Boolean  @default(false)
   createdAt   DateTime @default(now())
-  email       Email    @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  email       Email    @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant      Tenant   @relation("EmailAttachmentToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([emailId])
+  @@index([tenantId])
   @@map("email_attachments")
 }
 
@@ -503,8 +533,9 @@ model EmailCrossProviderLink {
   @@map("email_cross_provider_links")
 }
 
+/// Citus distributed table - composite PK for horizontal sharding
 model Embedding {
-  id             String                 @id @default(cuid())
+  id             String                 @default(cuid())
   tenantId       String
   documentName   String?
   content        String
@@ -514,16 +545,21 @@ model Embedding {
   metadata       Json?
   createdAt      DateTime               @default(now())
   emailId        String?
-  email          Email?                 @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  contactId      String?
+  email          Email?                 @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  contact        Contact?               @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
   tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([emailId])
+  @@index([contactId])
+  @@id([id, tenantId])
   @@map("embeddings")
 }
 
+/// Citus distributed table - composite PK for horizontal sharding
 model CalendarEvent {
-  id               String                    @id @default(cuid())
+  id               String                    @default(cuid())
   tenantId         String
   providerId       String
   externalId       String
@@ -563,11 +599,13 @@ model CalendarEvent {
   @@index([iCalUID])
   @@index([tenantId, title])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@id([id, tenantId])
   @@map("calendar_events")
 }
 
 model CalendarEventAttachment {
   id            String        @id @default(cuid())
+  tenantId      String
   eventId       String
   filename      String
   mimeType      String
@@ -580,9 +618,11 @@ model CalendarEventAttachment {
   isGoogleDrive Boolean       @default(false)
   isOneDrive    Boolean       @default(false)
   createdAt     DateTime      @default(now())
-  event         CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event         CalendarEvent @relation(fields: [eventId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant        Tenant        @relation("CalendarEventAttachmentToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
+  @@index([tenantId])
   @@map("calendar_event_attachments")
 }
 
@@ -610,6 +650,7 @@ model CalendarPreference {
 /// Reduces API calls by ~95% after initial full sync
 model CalendarSyncState {
   id                String         @id @default(cuid())
+  tenantId          String
   providerId        String
   calendarId        String
   calendarName      String?
@@ -624,15 +665,18 @@ model CalendarSyncState {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   provider          ProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  tenant            Tenant         @relation("CalendarSyncStateToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([providerId, calendarId])
+  @@unique([tenantId, providerId, calendarId])
   @@index([providerId])
+  @@index([tenantId])
   @@index([fullSyncRequired])
   @@map("calendar_sync_states")
 }
 
+/// Citus distributed table - composite PK for horizontal sharding
 model Contact {
-  id                  String               @id @default(cuid())
+  id                  String               @default(cuid())
   tenantId            String
   displayName         String?
   firstName           String?
@@ -670,6 +714,7 @@ model Contact {
   contactInteractions ContactInteraction[]
   deals               Deal[]
   providerContacts    ProviderContact[]
+  embeddings          Embedding[]
   tenant              Tenant               @relation("ContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, displayName])
@@ -679,6 +724,7 @@ model Contact {
   @@index([tenantId, lastInteractedAt])
   @@index([tenantId, relationshipScore])
   @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@id([id, tenantId])
   @@map("unified_contacts")
 }
 
@@ -717,7 +763,7 @@ model ProviderContact {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   metadata       Json?
-  contact        Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact        Contact        @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
   provider       ProviderConfig @relation("ProviderContactToProvider", fields: [providerId], references: [id], onDelete: Cascade)
   tenant         Tenant         @relation("ProviderContactToTenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -913,7 +959,7 @@ model EmailFollowUp {
   id             String         @id @default(cuid())
   tenantId       String
   userId         String
-  emailId        String         @unique
+  emailId        String
   status         FollowUpStatus @default(PENDING)
   reason         String?
   dueDate        DateTime
@@ -923,8 +969,9 @@ model EmailFollowUp {
   resolvedBy     String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  email          Email          @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  email          Email          @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
 
+  @@unique([emailId, tenantId])
   @@index([tenantId, userId])
   @@index([tenantId, userId, status])
   @@index([dueDate])
@@ -947,7 +994,7 @@ model ContactInteraction {
   contactName  String?
   emailId      String?                @unique
   userId       String
-  contact      Contact                @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact      Contact                @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
 
   @@index([tenantId, contactId])
   @@index([tenantId, contactId, date])
@@ -1000,7 +1047,7 @@ model LibraryDocument {
 /// Unified email analysis from single LLM call (replaces 11 agents)
 model EmailAnalysis {
   id               String        @id @default(cuid())
-  emailId          String        @unique
+  emailId          String
   tenantId         String
   priority         EmailPriority @default(NORMAL)
   category         EmailCategory @default(OTHER)
@@ -1019,9 +1066,10 @@ model EmailAnalysis {
   modelUsed        String        @default("gpt-4o-mini")
   tokensUsed       Int           @default(0)
   latencyMs        Int           @default(0)
-  email            Email         @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  email            Email         @relation(fields: [emailId, tenantId], references: [id, tenantId], onDelete: Cascade)
   tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([emailId, tenantId])
   @@index([tenantId])
   @@index([tenantId, processedAt])
   @@index([tenantId, priority])
@@ -1050,7 +1098,7 @@ model ActionQueue {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   expiresAt       DateTime?
-  email           Email?       @relation(fields: [emailId], references: [id])
+  email           Email?       @relation(fields: [emailId, tenantId], references: [id, tenantId])
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1140,7 +1188,7 @@ model Deal {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   activities        DealActivity[]
-  contact           Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact           Contact        @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
   tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 

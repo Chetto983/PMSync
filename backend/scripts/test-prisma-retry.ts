@@ -161,10 +161,9 @@ async function testP2002RealConcurrentUpserts(): Promise<void> {
         // Upsert should succeed (update existing record)
         return await prisma.email.upsert({
           where: {
-            providerId_externalId_folder: {
+            providerId_externalId: {
               providerId,
               externalId: testExternalId,
-              folder,
             },
           },
           update: {
@@ -174,7 +173,7 @@ async function testP2002RealConcurrentUpserts(): Promise<void> {
             tenantId,
             providerId,
             externalId: testExternalId,
-            folder,
+            folder: 'INBOX',
             subject: 'Created via retry',
             from: 'test@example.com',
             to: ['recipient@example.com'],
@@ -241,10 +240,9 @@ async function testP2002MassiveConcurrentUpserts(): Promise<void> {
       async () => {
         return await prisma.email.upsert({
           where: {
-            providerId_externalId_folder: {
+            providerId_externalId: {
               providerId,
               externalId: testExternalId,
-              folder: 'INBOX',
             },
           },
           update: {
@@ -352,10 +350,9 @@ async function testP2034WriteConflict(): Promise<void> {
             // Read current state
             const email = await tx.email.findUnique({
               where: {
-                providerId_externalId_folder: {
+                providerId_externalId: {
                   providerId,
                   externalId: testExternalId,
-                  folder: 'INBOX',
                 },
               },
             });
@@ -367,7 +364,7 @@ async function testP2034WriteConflict(): Promise<void> {
 
             // Update based on read (serializable violation if another tx modified)
             const updated = await tx.email.update({
-              where: { id: email.id },
+              where: { id_tenantId: { id: email.id, tenantId: email.tenantId } },
               data: {
                 subject: `Updated attempt ${retryAttempts} at ${Date.now()}`,
                 version: { increment: 1 },
@@ -406,10 +403,9 @@ async function testP2034WriteConflict(): Promise<void> {
           async (tx) => {
             const email = await tx.email.findUnique({
               where: {
-                providerId_externalId_folder: {
+                providerId_externalId: {
                   providerId,
                   externalId: testExternalId,
-                  folder: 'INBOX',
                 },
               },
             });
@@ -419,7 +415,7 @@ async function testP2034WriteConflict(): Promise<void> {
             await new Promise((r) => setTimeout(r, 20 + Math.random() * 30));
 
             return await tx.email.update({
-              where: { id: email.id },
+              where: { id_tenantId: { id: email.id, tenantId: email.tenantId } },
               data: {
                 subject: `Concurrent ${i} at ${Date.now()}`,
                 version: { increment: 1 },
@@ -515,10 +511,9 @@ async function testStress100Workers(): Promise<void> {
             async () => {
               return await prisma.email.upsert({
                 where: {
-                  providerId_externalId_folder: {
+                  providerId_externalId: {
                     providerId,
                     externalId,
-                    folder: 'INBOX',
                   },
                 },
                 update: {

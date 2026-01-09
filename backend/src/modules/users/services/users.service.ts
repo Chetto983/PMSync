@@ -120,7 +120,7 @@ export class UsersService {
   /**
    * Get user preferences
    */
-  async getUserPreferences(userId: string) {
+  async getUserPreferences(tenantId: string, userId: string) {
     let preferences = await this.prisma.userPreferences.findUnique({
       where: { userId },
     });
@@ -129,6 +129,7 @@ export class UsersService {
     if (!preferences) {
       preferences = await this.prisma.userPreferences.create({
         data: {
+          tenantId,
           userId,
           folderOrders: {},
           sidebarSmartFiltersExpanded: true,
@@ -147,7 +148,7 @@ export class UsersService {
    * Update user preferences
    * Accepts all fields from UpdatePreferencesDto including AI settings
    */
-  async updateUserPreferences(userId: string, data: UpdatePreferencesDto) {
+  async updateUserPreferences(tenantId: string, userId: string, data: UpdatePreferencesDto) {
     // Check if preferences exist
     const existing = await this.prisma.userPreferences.findUnique({
       where: { userId },
@@ -163,6 +164,7 @@ export class UsersService {
       // Create new preferences with provided data
       return this.prisma.userPreferences.create({
         data: {
+          tenantId,
           userId,
           ...data,
         },
@@ -172,7 +174,7 @@ export class UsersService {
   /**
    * Get dashboard preferences
    */
-  async getDashboardPreferences(userId: string) {
+  async getDashboardPreferences(tenantId: string, userId: string) {
     const prefs = await this.prisma.dashboardPreference.findUnique({
       where: { userId },
     });
@@ -188,13 +190,14 @@ export class UsersService {
   /**
    * Update dashboard preferences
    */
-  async updateDashboardPreferences(userId: string, layout: any[]) {
+  async updateDashboardPreferences(tenantId: string, userId: string, layout: any[]) {
     return this.prisma.dashboardPreference.upsert({
       where: { userId },
       update: {
         layout: layout as any,
       },
       create: {
+        tenantId,
         userId,
         layout: layout as any,
       },

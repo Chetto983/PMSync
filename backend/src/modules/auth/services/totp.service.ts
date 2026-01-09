@@ -123,11 +123,12 @@ export class TotpService implements OnModuleInit, OnModuleDestroy {
   /**
    * Generate TOTP secret and QR code for setup
    *
+   * @param tenantId - Tenant ID for multi-tenant isolation
    * @param userId - User ID to generate secret for
    * @param email - User email (displayed in authenticator app)
    * @returns Secret, QR code data URL, and otpauth URL
    */
-  async generateSecret(userId: string, email: string): Promise<TotpSetupResult> {
+  async generateSecret(tenantId: string, userId: string, email: string): Promise<TotpSetupResult> {
     // Generate random secret (Base32 encoded)
     const secret = authenticator.generateSecret(20); // 160 bits
 
@@ -156,6 +157,7 @@ export class TotpService implements OnModuleInit, OnModuleDestroy {
         updatedAt: new Date(),
       },
       create: {
+        tenantId,
         userId,
         secret: encrypted,
         encryptionIv: iv,

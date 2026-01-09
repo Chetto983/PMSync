@@ -38,8 +38,9 @@ const DEFAULT_OPTIONS: OptimisticLockOptions = {
 
 /**
  * Update a calendar event with optimistic locking
- * 
+ *
  * @param prisma - PrismaService instance
+ * @param tenantId - The tenant ID (REQUIRED for Citus sharding)
  * @param eventId - The event ID to update
  * @param expectedVersion - The version the client expects
  * @param updateData - The data to update
@@ -48,6 +49,7 @@ const DEFAULT_OPTIONS: OptimisticLockOptions = {
  */
 export async function updateEventWithLock(
     prisma: PrismaService,
+    tenantId: string,
     eventId: string,
     expectedVersion: number,
     updateData: Record<string, unknown>,
@@ -57,9 +59,11 @@ export async function updateEventWithLock(
 
     for (let attempt = 0; attempt <= (opts.maxRetries ?? 3); attempt++) {
         // Use updateMany with version check to implement optimistic locking
+        // CITUS: tenantId MUST be in WHERE clause for shard routing
         const result = await prisma.calendarEvent.updateMany({
             where: {
                 id: eventId,
+                tenantId, // CITUS: Required for tenant isolation
                 syncVersion: expectedVersion,
             },
             data: {
@@ -71,8 +75,9 @@ export async function updateEventWithLock(
 
         if (result.count > 0) {
             // Success - fetch the updated record
-            const updated = await prisma.calendarEvent.findUnique({
-                where: { id: eventId },
+            // CITUS: Use findFirst with tenantId for shard routing
+            const updated = await prisma.calendarEvent.findFirst({
+                where: { id: eventId, tenantId },
             });
 
             return {
@@ -84,8 +89,9 @@ export async function updateEventWithLock(
         }
 
         // Check if record exists but version mismatched
-        const current = await prisma.calendarEvent.findUnique({
-            where: { id: eventId },
+        // CITUS: Use findFirst with tenantId for shard routing
+        const current = await prisma.calendarEvent.findFirst({
+            where: { id: eventId, tenantId },
             select: { id: true, syncVersion: true },
         });
 
@@ -133,9 +139,16 @@ export async function updateEventWithLock(
 
 /**
  * Delete a calendar event with optimistic locking
+ *
+ * @param prisma - PrismaService instance
+ * @param tenantId - The tenant ID (REQUIRED for Citus sharding)
+ * @param eventId - The event ID to delete
+ * @param expectedVersion - The version the client expects
+ * @param options - Retry options
  */
 export async function deleteEventWithLock(
     prisma: PrismaService,
+    tenantId: string,
     eventId: string,
     expectedVersion: number,
     options?: OptimisticLockOptions,
@@ -143,9 +156,11 @@ export async function deleteEventWithLock(
     const opts = { ...DEFAULT_OPTIONS, ...options };
 
     // Use updateMany with version check
+    // CITUS: tenantId MUST be in WHERE clause for shard routing
     const result = await prisma.calendarEvent.updateMany({
         where: {
             id: eventId,
+            tenantId, // CITUS: Required for tenant isolation
             syncVersion: expectedVersion,
         },
         data: {
@@ -164,8 +179,9 @@ export async function deleteEventWithLock(
     }
 
     // Check current state
-    const current = await prisma.calendarEvent.findUnique({
-        where: { id: eventId },
+    // CITUS: Use findFirst with tenantId for shard routing
+    const current = await prisma.calendarEvent.findFirst({
+        where: { id: eventId, tenantId },
         select: { id: true, syncVersion: true, isDeleted: true },
     });
 
@@ -204,9 +220,16 @@ export async function deleteEventWithLock(
 /**
  * Acquire a distributed lock for a resource
  * Uses Redis if available, falls back to database locking
+ *
+ * @param prisma - PrismaService instance
+ * @param tenantId - The tenant ID (REQUIRED for Citus sharding)
+ * @param eventId - The event ID to lock
+ * @param fn - Function to execute while holding the lock
+ * @param timeoutMs - Transaction timeout in milliseconds
  */
 export async function withEventLock<T>(
     prisma: PrismaService,
+    tenantId: string,
     eventId: string,
     fn: () => Promise<T>,
     timeoutMs: number = 5000,
@@ -217,9 +240,10 @@ export async function withEventLock<T>(
     return prisma.$transaction(
         async (tx) => {
             // Lock the row with SELECT FOR UPDATE
+            // CITUS: tenantId MUST be in WHERE clause for shard routing and tenant isolation
             const event = await tx.$queryRaw`
-        SELECT id, "syncVersion" FROM "calendar_events" 
-        WHERE id = ${eventId} 
+        SELECT id, "syncVersion" FROM "calendar_events"
+        WHERE id = ${eventId} AND "tenantId" = ${tenantId}
         FOR UPDATE NOWAIT
       `;
 

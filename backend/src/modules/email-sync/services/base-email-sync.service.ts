@@ -682,7 +682,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
 
     // Mark as deleted or move to trash
     await this.prisma.email.update({
-      where: { id: existing.id },
+      where: { id_tenantId: { id: existing.id, tenantId } },
       data: {
         isDeleted: true,
         folder: 'TRASH',
@@ -800,7 +800,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
         if (userModifiedRecently) {
           // User modified recently - only update content fields (already handled in updateData)
           result = await this.prisma.email.update({
-            where: { id: existing.id },
+            where: { id_tenantId: { id: existing.id, tenantId } },
             data: {
               ...updateData,
               version: { increment: 1 },
@@ -846,7 +846,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
             );
             // Re-fetch to return current state
             result = await this.prisma.email.findUnique({
-              where: { id: existing.id },
+              where: { id_tenantId: { id: existing.id, tenantId } },
             });
             if (!result) {
               throw new Error(`Email ${existing.id} was deleted during sync`);
@@ -856,7 +856,7 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
 
           // Update succeeded - fetch the updated record
           result = await this.prisma.email.findUnique({
-            where: { id: existing.id },
+            where: { id_tenantId: { id: existing.id, tenantId } },
           });
           if (!result) {
             throw new Error(`Email ${existing.id} was deleted during sync`);

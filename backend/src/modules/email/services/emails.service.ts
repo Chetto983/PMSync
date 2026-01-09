@@ -274,7 +274,7 @@ export class EmailsService {
 
       // Update within the same transaction
       const updatedEmail = await tx.email.update({
-        where: { id },
+        where: { id_tenantId: { id, tenantId } },
         data,
         include: {
           provider: {
@@ -434,7 +434,7 @@ export class EmailsService {
       // If already deleted, permanent delete (within same transaction)
       if (email.isDeleted) {
         await this.knowledgeBaseService.deleteEmbeddingsForEmail(tenantId, id);
-        await tx.email.delete({ where: { id } });
+        await tx.email.delete({ where: { id_tenantId: { id, tenantId } } });
         return { action: 'hard_delete' as const, email };
       }
 
@@ -443,7 +443,7 @@ export class EmailsService {
 
       // Soft delete: Mark deleted and move to trash folder
       await tx.email.update({
-        where: { id },
+        where: { id_tenantId: { id, tenantId } },
         data: { isDeleted: true, folder: trashFolder },
       });
 
@@ -719,7 +719,7 @@ export class EmailsService {
 
     // Delete email from database (cascades to attachments table)
     await this.prisma.email.delete({
-      where: { id },
+      where: { id_tenantId: { id, tenantId } },
     });
 
     // Clean up S3 files after DB deletion (best effort - orphans tracked by cleanup service)
@@ -1530,10 +1530,11 @@ export class EmailsService {
     );
 
     // Create email-label associations
-    // BUG FIX B-3: EmailLabel schema has no tenantId field - removed from createMany data
+    // CITUS: EmailLabel now requires tenantId for horizontal sharding
     // BUG FIX B-4: Use validatedEmailIds (tenant-safe) instead of original emailIds
     const emailLabelPairs = validatedEmailIds.flatMap((emailId) =>
       labelIds.map((labelId) => ({
+        tenantId,
         emailId,
         labelId,
       }))

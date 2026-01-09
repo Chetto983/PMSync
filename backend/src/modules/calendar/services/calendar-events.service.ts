@@ -341,7 +341,7 @@ export class CalendarEventsService {
     if (updateResult.count === 0) {
       // Version mismatch - concurrent modification detected
       const currentEvent = await this.prisma.calendarEvent.findUnique({
-        where: { id: eventId },
+        where: { id_tenantId: { id: eventId, tenantId } },
         select: { syncVersion: true },
       });
 
@@ -363,7 +363,7 @@ export class CalendarEventsService {
 
     // Fetch updated event
     const updatedEvent = await this.prisma.calendarEvent.findUnique({
-      where: { id: eventId },
+      where: { id_tenantId: { id: eventId, tenantId } },
     });
 
     if (!updatedEvent) {
@@ -435,7 +435,7 @@ export class CalendarEventsService {
 
     // Mark event as deleted in database (soft delete)
     const deletedEvent = await this.prisma.calendarEvent.update({
-      where: { id: eventId },
+      where: { id_tenantId: { id: eventId, tenantId } },
       data: {
         isDeleted: true,
         isCancelled: true,
@@ -506,7 +506,7 @@ export class CalendarEventsService {
     }
 
     await this.prisma.calendarEvent.update({
-      where: { id: event.id },
+      where: { id_tenantId: { id: event.id, tenantId: event.tenantId } },
       data: { isCancelled: true, status: 'cancelled' },
     });
   }
@@ -517,7 +517,7 @@ export class CalendarEventsService {
   async listEventAttachments(tenantId: string, eventId: string) {
     // Verify event belongs to tenant
     const event = await this.prisma.calendarEvent.findUnique({
-      where: { id: eventId },
+      where: { id_tenantId: { id: eventId, tenantId } },
       select: { tenantId: true },
     });
 
@@ -544,7 +544,7 @@ export class CalendarEventsService {
   async getEventAttachment(tenantId: string, eventId: string, attachmentId: string) {
     // Verify event belongs to tenant
     const event = await this.prisma.calendarEvent.findUnique({
-      where: { id: eventId },
+      where: { id_tenantId: { id: eventId, tenantId } },
       select: { tenantId: true },
     });
 

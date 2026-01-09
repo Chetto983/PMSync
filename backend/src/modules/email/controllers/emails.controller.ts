@@ -478,7 +478,7 @@ export class EmailsController {
         if (existingEvents.length > 0) {
           const existingEvent = existingEvents[0];
           const updated = await tx.calendarEvent.update({
-            where: { id: existingEvent.id },
+            where: { id_tenantId: { id: existingEvent.id, tenantId } },
             data: {
               title: invite.summary,
               description: invite.description,
@@ -514,7 +514,7 @@ export class EmailsController {
         });
 
         await tx.calendarEvent.update({
-          where: { id: created.id },
+          where: { id_tenantId: { id: created.id, tenantId } },
           data: {
             iCalUID: invite.uid,
             recurrence: invite.recurrence ?? [],
@@ -527,7 +527,7 @@ export class EmailsController {
     }
 
     await this.prisma.email.update({
-      where: { id },
+      where: { id_tenantId: { id, tenantId } },
       data: {
         calendarInviteStatus: inviteStatusMap[response],
         hasCalendarInvite: true,
@@ -646,7 +646,7 @@ export class EmailsController {
     });
 
     await this.prisma.calendarEvent.update({
-      where: { id: createdEvent.id },
+      where: { id_tenantId: { id: createdEvent.id, tenantId } },
       data: {
         iCalUID: uid,
         recurrence: body.recurrence ?? [],
@@ -734,7 +734,7 @@ export class EmailsController {
     });
 
     await this.prisma.calendarEvent.update({
-      where: { id: event.id },
+      where: { id_tenantId: { id: event.id, tenantId } },
       data: {
         isCancelled: true,
         status: 'cancelled',

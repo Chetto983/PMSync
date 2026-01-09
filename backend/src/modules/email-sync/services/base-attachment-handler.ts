@@ -37,8 +37,10 @@ export interface AttachmentMeta {
 
 /**
  * Internal record structure for batch DB operations
+ * CITUS: Includes tenantId for horizontal sharding
  */
 export interface AttachmentRecord {
+  tenantId: string;
   emailId: string;
   filename: string;
   mimeType: string;
@@ -215,7 +217,7 @@ export abstract class BaseAttachmentHandler {
                 metadata,
               );
               attachmentRecords.push(
-                this.createAttachmentRecord(emailId, stored, attachment),
+                this.createAttachmentRecord(tenantId, emailId, stored, attachment),
               );
               continue;
             }
@@ -233,6 +235,7 @@ export abstract class BaseAttachmentHandler {
             );
 
             attachmentRecords.push({
+              tenantId,
               emailId,
               filename: uploaded.filename,
               mimeType: uploaded.mimeType,
@@ -258,7 +261,7 @@ export abstract class BaseAttachmentHandler {
             );
 
             attachmentRecords.push(
-              this.createAttachmentRecord(emailId, stored, attachment),
+              this.createAttachmentRecord(tenantId, emailId, stored, attachment),
             );
 
             this.logger.debug(
@@ -276,7 +279,7 @@ export abstract class BaseAttachmentHandler {
 
       // PHASE 2: Atomic DB operation - delete old + create new in transaction
       // This ensures we don't lose attachment records if something fails mid-way
-      await this.persistAttachmentRecords(emailId, attachmentRecords);
+      await this.persistAttachmentRecords(emailId, tenantId, attachmentRecords);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       this.logger.error(
@@ -298,7 +301,7 @@ export abstract class BaseAttachmentHandler {
   ): Promise<void> {
     try {
       await this.prisma.email.update({
-        where: { id: emailId },
+        where: { id_tenantId: { id: emailId, tenantId } },
         data: {
           hasCalendarInvite: true,
           calendarInviteStatus:
@@ -373,14 +376,14 @@ export abstract class BaseAttachmentHandler {
 
     if (invite.method === 'CANCEL') {
       await this.prisma.calendarEvent.update({
-        where: { id: existing.id },
+        where: { id_tenantId: { id: existing.id, tenantId } },
         data: { isCancelled: true, status: 'cancelled' },
       });
       return;
     }
 
     await this.prisma.calendarEvent.update({
-      where: { id: existing.id },
+      where: { id_tenantId: { id: existing.id, tenantId } },
       data: {
         title: invite.summary,
         description: invite.description,
@@ -435,7 +438,7 @@ export abstract class BaseAttachmentHandler {
     }
 
     await this.prisma.calendarEvent.update({
-      where: { id: existing.id },
+      where: { id_tenantId: { id: existing.id, tenantId: existing.tenantId } },
       data: { attendees },
     });
   }
@@ -444,13 +447,16 @@ export abstract class BaseAttachmentHandler {
 
   /**
    * Create attachment record for database from stored metadata
+   * CITUS: Includes tenantId for horizontal sharding
    */
   protected createAttachmentRecord(
+    tenantId: string,
     emailId: string,
     stored: any,
     attachment: AttachmentMeta,
   ): AttachmentRecord {
     return {
+      tenantId,
       emailId,
       filename: stored.filename,
       mimeType: stored.mimeType,
@@ -467,9 +473,11 @@ export abstract class BaseAttachmentHandler {
    * Persist attachment records to database atomically
    * RACE CONDITION FIX RC-5: Uses distributed Redis lock to prevent race conditions
    * and verifies email still exists before inserting attachments (prevents orphans)
+   * CITUS: Requires tenantId for composite key lookups
    */
   protected async persistAttachmentRecords(
     emailId: string,
+    tenantId: string,
     attachmentRecords: AttachmentRecord[],
   ): Promise<void> {
     // Core persistence logic - atomic transaction with email existence check
@@ -479,7 +487,7 @@ export abstract class BaseAttachmentHandler {
           // RC-5 FIX: Verify email still exists before inserting attachments
           // This prevents orphan attachments if email was deleted during processing
           const emailExists = await tx.email.findUnique({
-            where: { id: emailId },
+            where: { id_tenantId: { id: emailId, tenantId } },
             select: { id: true },
           });
 
@@ -507,13 +515,13 @@ export abstract class BaseAttachmentHandler {
       } else {
         // No new attachments to create - check if we should delete existing ones
         const emailExists = await this.prisma.email.findUnique({
-          where: { id: emailId },
+          where: { id_tenantId: { id: emailId, tenantId } },
           select: { id: true },
         });
 
         if (emailExists) {
           await this.prisma.emailAttachment.deleteMany({
-            where: { emailId },
+            where: { emailId, tenantId },
           });
         }
       }

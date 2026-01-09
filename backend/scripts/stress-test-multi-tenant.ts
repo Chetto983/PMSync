@@ -1,5 +1,22 @@
 #!/usr/bin/env ts-node
 /**
+ * @deprecated DEPRECATED - 2025-01-09
+ *
+ * This test file is OBSOLETE and will not run.
+ *
+ * REASON: The multi-agent architecture was completely replaced with VoltAgent.
+ * - Old architecture: class-based agents (RouterAgent, GeneralAgent, etc.)
+ * - New architecture: factory functions (createSupervisorAgent, createEmailAgent, etc.)
+ * - Module path changed: src/modules/ai/multi-agent -> src/modules/ai/voltagent
+ *
+ * For stress testing, use these alternatives:
+ * - test-prisma-retry.ts - Tests database retry under concurrent load
+ * - test-contact-rag-isolation.ts - Tests tenant isolation in RAG
+ * - stress-test-atomic-sync.ts - Tests folder sync under concurrent load
+ *
+ * TODO: Create new stress test using VoltAgent architecture if needed.
+ *
+ * Original description:
  * Multi-Tenant Stress Test for Multi-Agent System
  *
  * Tests scalability and robustness under load:
@@ -13,6 +30,10 @@
  *   npx ts-node scripts/stress-test-multi-tenant.ts
  *   npx ts-node scripts/stress-test-multi-tenant.ts --tenants=20 --users=50 --concurrency=50
  */
+
+console.log('DEPRECATED: This test uses obsolete multi-agent architecture.');
+console.log('The VoltAgent architecture replaced it. See file header for alternatives.');
+process.exit(0);
 
 import * as dotenv from 'dotenv';
 import * as path from 'path';

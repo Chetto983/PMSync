@@ -390,7 +390,7 @@ export class FolderSyncService {
           while (retryCount < MAX_UPSERT_RETRIES) {
             try {
               await this.prisma.folder.update({
-                where: { id: folderId },
+                where: { id_tenantId: { id: folderId, tenantId } },
                 data: { parentId },
               });
               break;
@@ -792,7 +792,7 @@ export class FolderSyncService {
     }
 
     await this.prisma.folder.update({
-      where: { id: folder.id },
+      where: { id_tenantId: { id: folder.id, tenantId: folder.tenantId } },
       data: {
         totalCount,
         unreadCount,
@@ -890,7 +890,7 @@ export class FolderSyncService {
     }
 
     // Batch update all folders that changed
-    const updates: { id: string; totalCount: number; unreadCount: number }[] = [];
+    const updates: { id: string; tenantId: string; totalCount: number; unreadCount: number }[] = [];
     const changedFolders: typeof folders = [];
 
     for (const folder of folders) {
@@ -898,6 +898,7 @@ export class FolderSyncService {
       if (folder.totalCount !== counts.total || folder.unreadCount !== counts.unread) {
         updates.push({
           id: folder.id,
+          tenantId: folder.tenantId,
           totalCount: counts.total,
           unreadCount: counts.unread,
         });
@@ -916,7 +917,7 @@ export class FolderSyncService {
         await this.prisma.$transaction(
           batch.map((u) =>
             this.prisma.folder.update({
-              where: { id: u.id },
+              where: { id_tenantId: { id: u.id, tenantId: u.tenantId } },
               data: { totalCount: u.totalCount, unreadCount: u.unreadCount },
             }),
           ),
@@ -1227,7 +1228,7 @@ export class FolderSyncService {
 
       // Update database
       const updatedFolder = await this.prisma.folder.update({
-        where: { id: folder.id },
+        where: { id_tenantId: { id: folder.id, tenantId: folder.tenantId } },
         data: {
           name: newName,
           path: newPath,
@@ -1308,7 +1309,7 @@ export class FolderSyncService {
       }
 
       // Delete from database
-      await this.prisma.folder.delete({ where: { id: folder.id } });
+      await this.prisma.folder.delete({ where: { id_tenantId: { id: folder.id, tenantId: folder.tenantId } } });
 
       this.logger.log(`Deleted folder "${folder.name}"`);
     });

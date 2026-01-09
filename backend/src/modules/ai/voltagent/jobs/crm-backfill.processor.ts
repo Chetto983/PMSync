@@ -192,7 +192,7 @@ export class CrmBackfillProcessor implements OnModuleInit, OnModuleDestroy {
     let processed = 0;
     let interactions = 0;
     let errors = 0;
-    let cursor: string | undefined;
+    let cursorId: string | undefined;
 
     // Get user's providers to find emails
     const providers = await this.prisma.providerConfig.findMany({
@@ -225,8 +225,8 @@ export class CrmBackfillProcessor implements OnModuleInit, OnModuleDestroy {
         },
         orderBy: { receivedAt: 'asc' },
         take: batchSize,
-        skip: cursor ? 1 : 0,
-        cursor: cursor ? { id: cursor } : undefined,
+        skip: cursorId ? 1 : 0,
+        cursor: cursorId ? { id_tenantId: { id: cursorId, tenantId } } : undefined,
       });
 
       if (emails.length === 0) break;
@@ -255,7 +255,7 @@ export class CrmBackfillProcessor implements OnModuleInit, OnModuleDestroy {
         processed++;
       }
 
-      cursor = emails[emails.length - 1].id;
+      cursorId = emails[emails.length - 1].id;
 
       // Update progress
       const progress = Math.round((processed / 1000) * 100); // Estimate

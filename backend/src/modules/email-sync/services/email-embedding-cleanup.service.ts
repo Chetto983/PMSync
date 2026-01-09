@@ -107,7 +107,7 @@ export class EmailEmbeddingCleanupService implements OnModuleInit {
       };
 
       await this.prisma.email.update({
-        where: { id: email.id },
+        where: { id_tenantId: { id: email.id, tenantId: email.tenantId } },
         data: {
           metadata: updatedMetadata,
         },
@@ -135,7 +135,7 @@ export class EmailEmbeddingCleanupService implements OnModuleInit {
 
       try {
         await this.prisma.email.update({
-          where: { id: email.id },
+          where: { id_tenantId: { id: email.id, tenantId: email.tenantId } },
           data: {
             metadata: updatedMetadata,
           },

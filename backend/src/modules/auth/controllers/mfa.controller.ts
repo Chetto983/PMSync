@@ -76,10 +76,11 @@ export class MfaController {
   @ApiResponse({ status: 200, description: 'MFA status', type: MfaStatusResponseDto })
   async getStatus(@Request() req: AuthenticatedRequest): Promise<MfaStatusResponseDto & { webauthnEnabled: boolean; webauthnCredentialsCount: number }> {
     const userId = req.user.userId;
+    const tenantId = req.user.tenantId;
 
     const [totpEnabled, backupCodesRemaining, trustedDevicesCount, webauthnCredentials] = await Promise.all([
       this.totpService.isEnabled(userId),
-      this.backupCodesService.getRemainingCount(userId),
+      this.backupCodesService.getRemainingCount(tenantId, userId),
       this.trustedDeviceService.listDevices(userId).then((devices) => devices.length),
       this.webauthnService.listCredentials(userId),
     ]);
@@ -105,6 +106,7 @@ export class MfaController {
   @ApiResponse({ status: 400, description: 'TOTP already enabled' })
   async setupTotp(@Request() req: AuthenticatedRequest): Promise<TotpSetupResponseDto> {
     const userId = req.user.userId;
+    const tenantId = req.user.tenantId;
     const email = req.user.email;
 
     // Check if already enabled
@@ -113,7 +115,7 @@ export class MfaController {
       throw new BadRequestException('TOTP is already enabled. Disable it first to set up again.');
     }
 
-    return this.totpService.generateSecret(userId, email);
+    return this.totpService.generateSecret(tenantId, userId, email);
   }
 
   /**
@@ -131,6 +133,7 @@ export class MfaController {
     @Body() body: TotpVerifyDto,
   ): Promise<{ success: boolean; message: string; backupCodes?: string[] }> {
     const userId = req.user.userId;
+    const tenantId = req.user.tenantId;
 
     const result = await this.totpService.verifyAndActivate(userId, body.code);
 
@@ -142,7 +145,7 @@ export class MfaController {
     }
 
     // Generate backup codes on first activation
-    const backupCodes = await this.backupCodesService.generate(userId);
+    const backupCodes = await this.backupCodesService.generate(tenantId, userId);
 
     return {
       success: true,
@@ -211,6 +214,7 @@ export class MfaController {
     @Request() req: AuthenticatedRequest,
   ): Promise<BackupCodesResponseDto> {
     const userId = req.user.userId;
+    const tenantId = req.user.tenantId;
 
     // Verify TOTP is enabled first
     const totpEnabled = await this.totpService.isEnabled(userId);
@@ -218,7 +222,7 @@ export class MfaController {
       throw new BadRequestException('Enable TOTP first before generating backup codes.');
     }
 
-    const codes = await this.backupCodesService.generate(userId);
+    const codes = await this.backupCodesService.generate(tenantId, userId);
 
     return {
       codes,
@@ -234,7 +238,7 @@ export class MfaController {
   @ApiOperation({ summary: 'Get remaining backup codes count' })
   @ApiResponse({ status: 200, description: 'Remaining count' })
   async getBackupCodesCount(@Request() req: AuthenticatedRequest): Promise<{ remaining: number }> {
-    const remaining = await this.backupCodesService.getRemainingCount(req.user.userId);
+    const remaining = await this.backupCodesService.getRemainingCount(req.user.tenantId, req.user.userId);
     return { remaining };
   }
 
@@ -253,8 +257,9 @@ export class MfaController {
     @Body() body: BackupCodeVerifyDto,
   ): Promise<{ success: boolean; remaining: number }> {
     const userId = req.user.userId;
+    const tenantId = req.user.tenantId;
 
-    const result = await this.backupCodesService.verify(userId, body.code);
+    const result = await this.backupCodesService.verify(tenantId, userId, body.code);
 
     if (!result.success) {
       throw new BadRequestException(
@@ -264,7 +269,7 @@ export class MfaController {
       );
     }
 
-    const remaining = await this.backupCodesService.getRemainingCount(userId);
+    const remaining = await this.backupCodesService.getRemainingCount(tenantId, userId);
 
     return {
       success: true,

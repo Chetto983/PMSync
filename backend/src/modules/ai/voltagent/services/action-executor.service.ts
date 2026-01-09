@@ -356,7 +356,7 @@ export class ActionExecutorService {
 
     // Get the original email to reply to
     const originalEmail = await this.prisma.email.findUnique({
-      where: { id: emailId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
     });
 
     if (!originalEmail) {
@@ -401,7 +401,7 @@ export class ActionExecutorService {
 
     // Get the original email to forward
     const originalEmail = await this.prisma.email.findUnique({
-      where: { id: emailId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
     });
 
     if (!originalEmail) {
@@ -458,7 +458,7 @@ export class ActionExecutorService {
 
     // Update local database (soft delete)
     await this.prisma.email.update({
-      where: { id: emailId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
       data: { isDeleted: true, folder: 'TRASH' },
     });
 
@@ -510,7 +510,7 @@ export class ActionExecutorService {
 
     // Update local database - move to archive folder
     await this.prisma.email.update({
-      where: { id: emailId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
       data: { folder: 'ARCHIVE' },
     });
 
@@ -564,7 +564,7 @@ export class ActionExecutorService {
 
     // Update local database
     await this.prisma.email.update({
-      where: { id: emailId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
       data: { isRead },
     });
 
@@ -616,7 +616,7 @@ export class ActionExecutorService {
 
     // Update local database
     await this.prisma.email.update({
-      where: { id: emailId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
       data: { isStarred },
     });
 
@@ -700,7 +700,7 @@ export class ActionExecutorService {
 
     // Get current email labels
     const email = await this.prisma.email.findUnique({
-      where: { id: emailId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
       select: { labels: true },
     });
 
@@ -727,7 +727,7 @@ export class ActionExecutorService {
 
     // Update email labels
     await this.prisma.email.update({
-      where: { id: emailId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
       data: { labels: newLabels },
     });
 
@@ -993,7 +993,7 @@ export class ActionExecutorService {
     });
 
     await this.prisma.contact.update({
-      where: { id: contactId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: contactId, tenantId: context.tenantId } },
       data: {
         displayName: updates.name,
         firstName: updates.firstName,
@@ -1030,7 +1030,7 @@ export class ActionExecutorService {
     });
 
     await this.prisma.contact.delete({
-      where: { id: contactId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: contactId, tenantId: context.tenantId } },
     });
 
     const lang = getLocale(context.preferences?.language);
@@ -1134,7 +1134,7 @@ export class ActionExecutorService {
 
     // Update primary contact with merged data
     const updatedContact = await this.prisma.contact.update({
-      where: { id: primaryContactId, tenantId: context.tenantId },
+      where: { id_tenantId: { id: primaryContactId, tenantId: context.tenantId } },
       data: {
         emails: Array.from(mergedEmails),
         phoneNumbers: Array.from(mergedPhones),
