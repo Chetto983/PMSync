@@ -1026,9 +1026,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // This ensures conversation history is available for future requests
     if (this.memory && result?.text) {
       try {
-        // Create conversation if it doesn't exist (for new sessions)
-        const existingConversation = await this.memory.getConversation(persistedConversationId);
-        if (!existingConversation) {
+        // FIX Bug #4: Atomic conversation creation (create-if-not-exists pattern)
+        // Instead of check-then-create (race condition), we try to create first
+        // and catch the "already exists" error gracefully
+        try {
           await this.memory.createConversation({
             id: persistedConversationId,
             userId: tenantUserId,
@@ -1037,6 +1038,18 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
             metadata: { tenantId: options.tenantId, createdAt: new Date().toISOString() },
           });
           this.logger.debug(`${logPrefix} Created new conversation: ${persistedConversationId}`);
+        } catch (createError) {
+          // Conversation may already exist (race condition or subsequent request)
+          // Check if it's a duplicate key/unique constraint error - those are expected
+          const errorMsg = String(createError).toLowerCase();
+          const isDuplicateError = errorMsg.includes('unique') ||
+            errorMsg.includes('duplicate') ||
+            errorMsg.includes('already exists') ||
+            errorMsg.includes('p2002'); // Prisma unique constraint code
+          if (!isDuplicateError) {
+            throw createError; // Re-throw unexpected errors
+          }
+          this.logger.debug(`${logPrefix} Conversation already exists: ${persistedConversationId}`);
         }
 
         // Save user message
