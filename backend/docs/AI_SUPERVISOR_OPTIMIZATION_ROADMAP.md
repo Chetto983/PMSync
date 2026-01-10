@@ -52,7 +52,57 @@
 
 ---
 
-## Phase 2: Embedding Cache Optimization (TODO)
+## Phase 2: Tool Consolidation (COMPLETED 2026-01-10)
+
+### 2.1 Problem
+- 44 tools created too much confusion for LLM
+- Redundant analysis tools (summarize, sentiment, intent all separate)
+- Duplicated CRUD patterns across contacts/calendar/folders
+
+### 2.2 Solution: Consolidate 44 → 17 Tools (61% Reduction)
+
+| File | Before | After | Status |
+|------|--------|-------|--------|
+| `email.tools.ts` | 14 | 5 | ✅ DONE |
+| `insights.tools.ts` | 10 | 3 | ✅ DONE |
+| `folder.tools.ts` | 5 | 2 | ✅ DONE |
+| `contacts.tools.ts` | 5 | 2 | ✅ DONE |
+| `calendar.tools.ts` | 5 | 2 | ✅ DONE |
+| `document-library.tools.ts` | 3 | 1 | ✅ DONE |
+| `web-search.tools.ts` | 1 | 1 | Unchanged |
+| `analytics.tools.ts` | 1 | 1 | Unchanged |
+| **TOTAL** | **44** | **17** | **✅ 61% reduction** |
+
+### 2.3 Consolidated Tools Summary
+
+| Tool | Actions | File |
+|------|---------|------|
+| `analyze_email` | summary, sentiment, intent, priority, actions, labels | insights.tools.ts |
+| `compose_reply` | mode='full' \| 'suggestions' | insights.tools.ts |
+| `semantic_search_emails` | RAG-based search | insights.tools.ts |
+| `list_emails` | mode='accounts' \| 'unread' \| 'content' | email.tools.ts |
+| `manage_email` | send, reply, forward, delete, archive, mark_read/unread, star/unstar | email.tools.ts |
+| `search_emails` | Hybrid RAG + Prisma | email.tools.ts |
+| `count_emails` | Flexible period parsing | email.tools.ts |
+| `bulk_email_actions` | delete, empty_folder, archive, mark_read | email.tools.ts |
+| `list_folders` | Read-only | folder.tools.ts |
+| `manage_folder` | create, rename, delete, move_email | folder.tools.ts |
+| `search_contacts` | Read-only search | contacts.tools.ts |
+| `manage_contact` | get, create, update, delete | contacts.tools.ts |
+| `get_events` | Read-only | calendar.tools.ts |
+| `manage_event` | create, update, delete, check_availability | calendar.tools.ts |
+| `manage_document_library` | query, list, create | document-library.tools.ts |
+
+### 2.4 Benefits
+- **Better LLM Performance**: Fewer tools = better reasoning accuracy
+- **Cost Reduction**: Single `analyze_email` vs 5 separate LLM calls (80% reduction)
+- **Latency**: Batch operations reduce round-trips
+- **Maintainability**: Fewer files, less code duplication
+- **HITL Pattern**: All write operations require approval
+
+---
+
+## Phase 3: Embedding Cache Optimization (TODO)
 
 ### 2.1 Verify Cache Integration
 **Current Status**: MistralService has cache at lines 391-441, BUT:
@@ -312,3 +362,4 @@ const CONTEXT_WINDOW_SIZE = 10;
 | 2025-01-06 | Extend direct routing to Email/Calendar/Contacts | voltagent.service.ts |
 | 2025-01-06 | Add VoltAgent Memory to all agents | email.agent.ts, calendar.agent.ts, contacts.agent.ts, general.agent.ts, knowledge.agent.ts, websearch.agent.ts, analytics.agent.ts, document-library.agent.ts |
 | 2025-01-06 | Pass memory in getOrCreateAgent switch | voltagent.service.ts |
+| 2026-01-10 | Tool consolidation 44→17 (61% reduction) | email.tools.ts, insights.tools.ts, folder.tools.ts, contacts.tools.ts, calendar.tools.ts, document-library.tools.ts |
