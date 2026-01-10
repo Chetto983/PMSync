@@ -102,6 +102,7 @@ model UserPreferences {
   aiSummarizationEnabled      Boolean  @default(true)
   aiSchedulingEnabled         Boolean  @default(true)
   aiAutoApproveThreshold      Float?   @default(0.9)
+  aiAutoTriageEnabled         Boolean  @default(false) // Auto-label and prioritize new emails
   jobTitle                    String?
   jobRole                     String?  @default("OTHER")
   department                  String?
@@ -362,6 +363,12 @@ model Email {
   userModifiedAt       DateTime?
   version              Int                     @default(1)
   isBodyFetched        Boolean                 @default(false)
+  // Auto-Triage fields (Superhuman-like feature)
+  aiPriority           Int?                    // AI-calculated priority 1-5 (1=highest)
+  aiPriorityReason     String?                 // Explanation for priority
+  aiLabels             String[]                @default([]) // AI-suggested labels
+  isAutoTriaged        Boolean                 @default(false) // Flag if auto-triaged
+  autoTriagedAt        DateTime?               // When auto-triage ran
   actionQueue          ActionQueue[]
   analysis             EmailAnalysis?
   attachments          EmailAttachment[]

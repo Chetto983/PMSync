@@ -10,6 +10,7 @@ import { KnowledgeBaseController } from './controllers/knowledge-base.controller
 import { EmailEmbeddingQueueService } from './services/email-embedding.queue';
 import { ContactEmbeddingQueueService } from './services/contact-embedding.queue';
 import { EmailInsightsService } from './services/email-insights.service';
+import { EmailTriageService } from './services/email-triage.service';
 import { QueryEmbeddingCacheService } from './services/query-embedding-cache.service';
 import { AttachmentContentExtractorService } from './services/attachment-content-extractor.service';
 import { EmbeddingBackfillSchedulerService } from './services/embedding-backfill-scheduler.service';
@@ -39,6 +40,7 @@ import { CachePrewarmingService } from './services/cache-prewarming.service';
     EmailEmbeddingQueueService,
     ContactEmbeddingQueueService,
     EmailInsightsService,
+    EmailTriageService, // Auto-triage new emails (Superhuman-like feature)
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,
@@ -57,6 +59,7 @@ import { CachePrewarmingService } from './services/cache-prewarming.service';
     EmailEmbeddingQueueService,
     ContactEmbeddingQueueService,
     EmailInsightsService,
+    EmailTriageService, // Auto-triage new emails (Superhuman-like feature)
     QueryEmbeddingCacheService,
     AttachmentContentExtractorService,
     EmbeddingBackfillSchedulerService,

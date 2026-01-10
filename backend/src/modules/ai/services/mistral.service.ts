@@ -688,5 +688,203 @@ export class MistralService {
     };
   }
 
+  // ============================================================================
+  // BATCH API - 50% COST SAVINGS
+  // https://docs.mistral.ai/capabilities/batch
+  // ============================================================================
 
+  /**
+   * Create a batch job for async processing (50% cheaper than sync API)
+   *
+   * @param requests Array of {customId, systemPrompt, userPrompt}
+   * @param model Model to use (default: mistral-small-latest)
+   * @returns Batch job info with jobId for tracking
+   */
+  async createBatchJob(
+    requests: Array<{
+      customId: string;
+      systemPrompt: string;
+      userPrompt: string;
+      maxTokens?: number;
+    }>,
+    model?: string,
+  ): Promise<{ jobId: string; inputFileId: string; status: string }> {
+    const apiKey = this.getApiKey();
+    if (!apiKey) {
+      throw new AiError('Mistral API key not configured', AiErrorCode.AUTH_FAILED);
+    }
+
+    const mistralClient = this.createClient(apiKey);
+    const modelToUse = model || 'mistral-small-latest';
+
+    // Format requests as JSONL
+    const jsonlContent = requests
+      .map((req) =>
+        JSON.stringify({
+          custom_id: req.customId,
+          body: {
+            model: modelToUse,
+            max_tokens: req.maxTokens || 500,
+            messages: [
+              { role: 'system', content: req.systemPrompt },
+              { role: 'user', content: req.userPrompt },
+            ],
+          },
+        }),
+      )
+      .join('\n');
+
+    try {
+      // Upload batch file
+      const fileBlob = new Blob([jsonlContent], { type: 'application/jsonl' });
+      const uploadResponse = await mistralClient.files.upload({
+        file: {
+          fileName: `batch_${Date.now()}.jsonl`,
+          content: fileBlob,
+        },
+        purpose: 'batch',
+      });
+
+      this.logger.log(`Batch file uploaded: ${uploadResponse.id} (${requests.length} requests)`);
+
+      // Create batch job
+      const jobResponse = await mistralClient.batch.jobs.create({
+        inputFiles: [uploadResponse.id],
+        model: modelToUse,
+        endpoint: '/v1/chat/completions',
+        metadata: {
+          source: 'mailagent',
+          requestCount: String(requests.length),
+        },
+      });
+
+      this.logger.log(`Batch job created: ${jobResponse.id} (status: ${jobResponse.status})`);
+
+      return {
+        jobId: jobResponse.id,
+        inputFileId: uploadResponse.id,
+        status: jobResponse.status,
+      };
+    } catch (error) {
+      const aiError = AiError.fromError(error);
+      this.logger.error(`Failed to create batch job: ${aiError.message}`);
+      throw aiError;
+    }
+  }
+
+  /**
+   * Get batch job status
+   */
+  async getBatchJobStatus(jobId: string): Promise<{
+    status: string;
+    outputFileId?: string;
+    totalRequests?: number;
+    completedRequests?: number;
+    failedRequests?: number;
+  }> {
+    const apiKey = this.getApiKey();
+    if (!apiKey) {
+      throw new AiError('Mistral API key not configured', AiErrorCode.AUTH_FAILED);
+    }
+
+    const mistralClient = this.createClient(apiKey);
+
+    try {
+      const job = await mistralClient.batch.jobs.get({ jobId });
+
+      return {
+        status: job.status,
+        outputFileId: job.outputFile ?? undefined,
+        totalRequests: job.totalRequests ?? undefined,
+        completedRequests: job.completedRequests ?? undefined,
+        failedRequests: job.failedRequests ?? undefined,
+      };
+    } catch (error) {
+      const aiError = AiError.fromError(error);
+      this.logger.error(`Failed to get batch job status: ${aiError.message}`);
+      throw aiError;
+    }
+  }
+
+  /**
+   * Download batch results when job is complete
+   */
+  async downloadBatchResults(
+    outputFileId: string,
+  ): Promise<Map<string, { content: string; error?: string }>> {
+    const apiKey = this.getApiKey();
+    if (!apiKey) {
+      throw new AiError('Mistral API key not configured', AiErrorCode.AUTH_FAILED);
+    }
+
+    const mistralClient = this.createClient(apiKey);
+
+    try {
+      const fileStream = await mistralClient.files.download({ fileId: outputFileId });
+
+      // Read stream to string
+      const chunks: Uint8Array[] = [];
+      const reader = fileStream.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      const content = new TextDecoder().decode(
+        chunks.reduce((acc, chunk) => new Uint8Array([...acc, ...chunk]), new Uint8Array()),
+      );
+
+      // Parse JSONL results
+      const results = new Map<string, { content: string; error?: string }>();
+      const lines = content.split('\n').filter((line) => line.trim());
+
+      for (const line of lines) {
+        try {
+          const result = JSON.parse(line);
+          const customId = result.custom_id;
+
+          if (result.error) {
+            results.set(customId, { content: '', error: result.error.message || 'Unknown error' });
+          } else if (result.response?.body?.choices?.[0]?.message?.content) {
+            results.set(customId, {
+              content: result.response.body.choices[0].message.content,
+            });
+          } else {
+            results.set(customId, { content: '', error: 'No content in response' });
+          }
+        } catch (parseError) {
+          this.logger.warn(`Failed to parse batch result line: ${parseError}`);
+        }
+      }
+
+      this.logger.log(`Downloaded batch results: ${results.size} items`);
+      return results;
+    } catch (error) {
+      const aiError = AiError.fromError(error);
+      this.logger.error(`Failed to download batch results: ${aiError.message}`);
+      throw aiError;
+    }
+  }
+
+  /**
+   * Cancel a running batch job
+   */
+  async cancelBatchJob(jobId: string): Promise<{ status: string }> {
+    const apiKey = this.getApiKey();
+    if (!apiKey) {
+      throw new AiError('Mistral API key not configured', AiErrorCode.AUTH_FAILED);
+    }
+
+    const mistralClient = this.createClient(apiKey);
+
+    try {
+      const job = await mistralClient.batch.jobs.cancel({ jobId });
+      this.logger.log(`Batch job cancelled: ${jobId} (status: ${job.status})`);
+      return { status: job.status };
+    } catch (error) {
+      const aiError = AiError.fromError(error);
+      this.logger.error(`Failed to cancel batch job: ${aiError.message}`);
+      throw aiError;
+    }
+  }
 }
