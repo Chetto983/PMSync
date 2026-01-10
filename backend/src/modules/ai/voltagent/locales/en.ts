@@ -23,9 +23,9 @@ export const en: VoltAgentTranslations = {
       labeled: (subject, label) => `Label "${label}" added to "${subject}"`,
       unlabeled: (subject, label) => `Label "${label}" removed from "${subject}"`,
       noSubject: '(No subject)',
-      serviceUnavailable: 'Email service is not available',
-      notFound: 'Email not found',
-      requiresApproval: 'This action requires approval',
+      serviceUnavailable: 'Email service is temporarily unavailable. Please try again in a moment, or check your email provider connection in Settings → Connected Accounts.',
+      notFound: 'Email not found. It may have been deleted or moved. Try searching for it or refresh your inbox.',
+      requiresApproval: 'This action requires your approval. Check the Pending Actions panel to approve or reject it.',
     },
     calendar: {
       eventsFound: (count) => `${count} events found`,
@@ -34,9 +34,9 @@ export const en: VoltAgentTranslations = {
       eventDeleted: (title) => `Event "${title}" deleted`,
       slotAvailable: 'The time slot is available',
       slotConflict: (count) => `There are ${count} conflicting events`,
-      serviceUnavailable: 'Calendar service is not available',
-      notFound: 'Event not found',
-      requiresApproval: 'This action requires approval',
+      serviceUnavailable: 'Calendar service is temporarily unavailable. Please try again, or check your calendar provider connection in Settings → Connected Accounts.',
+      notFound: 'Event not found. It may have been deleted or rescheduled. Try checking your calendar directly.',
+      requiresApproval: 'This calendar action requires your approval. Check the Pending Actions panel to approve or reject it.',
     },
     contacts: {
       found: (count, query) => `Found ${count} contacts for "${query}"`,
@@ -44,9 +44,9 @@ export const en: VoltAgentTranslations = {
       created: (name) => `Contact "${name}" created`,
       updated: (name) => `Contact "${name}" updated`,
       deleted: (name) => `Contact "${name}" deleted`,
-      alreadyExists: (email) => `Contact with email ${email} already exists`,
-      notFound: 'Contact not found',
-      requiresApproval: 'This action requires approval',
+      alreadyExists: (email) => `Contact with email ${email} already exists. Search for the existing contact to update it.`,
+      notFound: 'Contact not found. It may have been deleted. Try searching for similar contacts.',
+      requiresApproval: 'This contact action requires your approval. Check the Pending Actions panel to approve or reject it.',
     },
     knowledge: {
       found: (count) => `Found ${count} relevant documents`,
@@ -582,10 +582,27 @@ All my actions require HITL (Human-in-the-Loop) approval before execution.
 <MY_TOOLS>
 WRITE Operations Only:
 - manage_email: send, reply, forward, delete, archive, mark_read, mark_unread, star, unstar
+  Examples:
+  • "Send email to john@example.com" → manage_email(action: 'send', to: 'john@example.com', ...)
+  • "Reply to this email" → manage_email(action: 'reply', emailId: 'xxx', body: '...')
+  • "Delete this email" → manage_email(action: 'delete', emailId: 'xxx')
+  • "Star this message" → manage_email(action: 'star', emailId: 'xxx')
 - bulk_email_actions: bulk delete, archive, mark_read, move operations
+  Examples:
+  • "Delete all selected" → bulk_email_actions(action: 'delete', emailIds: [...])
+  • "Mark all as read" → bulk_email_actions(action: 'mark_read', emailIds: [...])
 - manage_folder: create, rename, delete folders, move emails
+  Examples:
+  • "Create folder Projects" → manage_folder(action: 'create', name: 'Projects')
+  • "Move email to Archive" → manage_folder(action: 'move_email', emailId: 'xxx', targetFolderId: 'yyy')
 - manage_contact: create, update, delete contacts
+  Examples:
+  • "Add John as a contact" → manage_contact(action: 'create', displayName: 'John', email: 'john@...')
+  • "Update John's phone" → manage_contact(action: 'update', contactId: 'xxx', phone: '...')
 - manage_event: create, update, delete calendar events
+  Examples:
+  • "Schedule meeting tomorrow at 2pm" → manage_event(action: 'create', title: '...', startTime: '...')
+  • "Cancel the meeting" → manage_event(action: 'delete', eventId: 'xxx')
 </MY_TOOLS>
 
 <HITL_WORKFLOW>
@@ -644,19 +661,51 @@ My operations are non-destructive and do not require HITL approval.
 <MY_TOOLS>
 READ Operations:
 - list_emails: List accounts, unread, or email content
+  Examples:
+  • "Show my accounts" → list_emails(mode: 'accounts')
+  • "Get my unread emails" → list_emails(mode: 'unread', limit: 10)
+  • "Show this email" → list_emails(mode: 'content', emailId: 'xxx')
 - search_emails: Hybrid RAG search (semantic + keyword)
+  Examples:
+  • "Find emails from John" → search_emails(query: 'from:john')
+  • "Emails about budget report" → search_emails(query: 'budget report')
+  • "This week's unread" → search_emails(query: 'is:unread', dateRange: 'week')
 - count_emails: Email statistics by period
+  Examples:
+  • "How many emails today?" → count_emails(period: 'today')
+  • "Unread count" → count_emails(countType: 'unread')
 - list_folders: View folder structure
+  Examples:
+  • "Show all folders" → list_folders(providerId: 'xxx')
 - search_contacts: Find contacts by name, email, or company
+  Examples:
+  • "Find John" → search_contacts(query: 'John')
+  • "Contacts at Acme Inc" → search_contacts(query: 'Acme Inc')
 - get_events: View calendar events in date range and check availability
+  Examples:
+  • "My meetings today" → get_events(startDate: today, endDate: today)
+  • "Am I free at 3pm?" → get_events(startDate: '3pm', endDate: '4pm')
 
-ANALYSIS Operations:
+ANALYSIS Operations (require LLM):
 - analyze_email: Comprehensive analysis (summary, sentiment, intent, priority, actions, category)
+  Examples:
+  • "Summarize this email" → analyze_email(emailId: 'xxx', analysisType: 'summary')
+  • "What's the intent?" → analyze_email(emailId: 'xxx', analysisType: 'comprehensive')
 - compose_reply: Generate replies (full or suggestions)
+  Examples:
+  • "Draft a reply" → compose_reply(emailId: 'xxx', mode: 'full')
+  • "Give me reply options" → compose_reply(emailId: 'xxx', mode: 'suggestions')
 - semantic_search_emails: Deep semantic search across emails
+  Use for MEANING-based searches, not exact matches.
+  Examples:
+  • "Emails about payment issues" → semantic_search_emails(query: 'payment problems invoices')
+  • "Similar to this email" → semantic_search_emails(similarTo: 'xxx')
 
 EXTERNAL (loaded on-demand):
 - web_search: Current information from the web
+  Examples:
+  • "What's the weather?" → web_search(query: 'weather today')
+  • "Latest news about AI" → web_search(query: 'AI news 2026')
 - analyze_data: Email statistics and metrics
 - query_documents: Search document libraries
 </MY_TOOLS>

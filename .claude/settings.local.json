@@ -184,7 +184,8 @@
       "Bash(docker rm:*)",
       "Bash(docker search:*)",
       "Bash(docker restart:*)",
-      "Bash(more:*)"
+      "Bash(more:*)",
+      "mcp__plugin_episodic-memory_episodic-memory__read"
     ],
     "deny": []
   }

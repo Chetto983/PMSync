@@ -129,12 +129,40 @@ function formatCurrentDateTime(timezone?: string): string {
  * Builds dynamic instructions with user context injected.
  * Includes current datetime in the user's timezone for temporal awareness.
  * Adds locale instruction to force response language.
+ * Replaces {{userContext.XXX}} template placeholders with actual values.
  */
 export function buildDynamicInstructions(
   baseInstructions: string,
   userContext?: UserContext,
   locale?: string,
 ): string {
+  // FIX Issue #3: Replace {{userContext.XXX}} template placeholders
+  let instructions = baseInstructions;
+  if (userContext) {
+    instructions = instructions
+      .replace(/\{\{userContext\.jobRole\}\}/g, userContext.jobRole || userContext.jobTitle || 'professional')
+      .replace(/\{\{userContext\.jobTitle\}\}/g, userContext.jobTitle || 'professional')
+      .replace(/\{\{userContext\.industry\}\}/g, userContext.industry || 'business')
+      .replace(/\{\{userContext\.department\}\}/g, userContext.department || 'general')
+      .replace(/\{\{userContext\.firstName\}\}/g, userContext.firstName || '')
+      .replace(/\{\{userContext\.lastName\}\}/g, userContext.lastName || '')
+      .replace(/\{\{userContext\.email\}\}/g, userContext.email || '')
+      .replace(/\{\{userContext\.timezone\}\}/g, userContext.timezone || 'UTC')
+      .replace(/\{\{userContext\.communicationStyle\}\}/g, userContext.communicationStyle || 'BALANCED');
+  } else {
+    // Replace with sensible defaults when no user context
+    instructions = instructions
+      .replace(/\{\{userContext\.jobRole\}\}/g, 'professional')
+      .replace(/\{\{userContext\.jobTitle\}\}/g, 'professional')
+      .replace(/\{\{userContext\.industry\}\}/g, 'business')
+      .replace(/\{\{userContext\.department\}\}/g, 'general')
+      .replace(/\{\{userContext\.firstName\}\}/g, '')
+      .replace(/\{\{userContext\.lastName\}\}/g, '')
+      .replace(/\{\{userContext\.email\}\}/g, '')
+      .replace(/\{\{userContext\.timezone\}\}/g, 'UTC')
+      .replace(/\{\{userContext\.communicationStyle\}\}/g, 'BALANCED');
+  }
+
   // Always add current datetime section (even without user context)
   const currentDateTime = formatCurrentDateTime(userContext?.timezone);
   const dateTimeSection = `
@@ -150,7 +178,7 @@ IMPORTANT: You MUST respond in ${locale === 'it' ? 'Italian (italiano)' : locale
 ` : '';
 
   if (!userContext) {
-    return `${baseInstructions}\n${dateTimeSection}${localeInstruction}`;
+    return `${instructions}\n${dateTimeSection}${localeInstruction}`;
   }
 
   // Build user profile section
@@ -230,7 +258,7 @@ Use this information when the user asks about their email accounts, mentions spe
   }
 
   if (userInfo.length === 0 && !providersSection) {
-    return `${baseInstructions}\n${dateTimeSection}${localeInstruction}`;
+    return `${instructions}\n${dateTimeSection}${localeInstruction}`;
   }
 
   // Inject user context into instructions
@@ -242,7 +270,7 @@ ${userInfo.join('\n')}
 IMPORTANT: Remember and use this information throughout the conversation. Address the user by name when appropriate.
 ` : '';
 
-  return `${baseInstructions}\n${dateTimeSection}${userContextSection}${providersSection}${localeInstruction}`;
+  return `${instructions}\n${dateTimeSection}${userContextSection}${providersSection}${localeInstruction}`;
 }
 
 /**
