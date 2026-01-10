@@ -1,17 +1,25 @@
 /**
  * VoltAgent Agents Export
  *
- * Exports all agent factory functions and their option types.
+ * Phase 3 Agent Consolidation (10 → 3):
+ * - ActionsAgent: ALL WRITE operations (email, calendar, contacts, folders)
+ * - IntelligenceAgent: ALL READ and ANALYSIS operations
+ * - Optional: WebSearchAgent, DocumentLibraryAgent, AnalyticsAgent (lazy-loaded)
  */
 
-export { createEmailAgent, type EmailAgentOptions } from './email.agent';
-export { createCalendarAgent, type CalendarAgentOptions } from './calendar.agent';
-export { createContactsAgent, type ContactsAgentOptions } from './contacts.agent';
-export { createKnowledgeAgent, type KnowledgeAgentOptions } from './knowledge.agent';
-export { createGeneralAgent, type GeneralAgentOptions } from './general.agent';
+// Core consolidated agents
+export { createActionsAgent, type ActionsAgentOptions } from './actions.agent';
+export { createIntelligenceAgent, type IntelligenceAgentOptions } from './intelligence.agent';
+
+// Optional lazy-loaded agents
 export { createWebSearchAgent, type WebSearchAgentOptions } from './websearch.agent';
 export { createAnalyticsAgent, type AnalyticsAgentOptions } from './analytics.agent';
-// unified-knowledge.agent removed - AI refactor v2.0
+export {
+  createDocumentLibraryAgent,
+  type DocumentLibraryAgentOptions,
+} from './document-library.agent';
+
+// Supervisor agent (orchestrator)
 export {
   createSupervisorAgent,
   buildDynamicInstructions,
@@ -19,7 +27,3 @@ export {
   type UserContext,
   type ConnectedProvider,
 } from './supervisor.agent';
-export {
-  createDocumentLibraryAgent,
-  type DocumentLibraryAgentOptions,
-} from './document-library.agent';

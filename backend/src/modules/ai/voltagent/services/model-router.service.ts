@@ -22,7 +22,13 @@ import type { MistralModel } from '../providers/mistral.provider';
 
 export type TaskComplexity = 'simple' | 'moderate' | 'complex';
 
-export type AgentType = 'Supervisor' | 'Email' | 'Calendar' | 'Contacts' | 'General';
+/**
+ * Phase 3 Agent Consolidation (10 → 3):
+ * - Supervisor: Orchestrates sub-agents, handles complex multi-domain queries
+ * - Actions: ALL WRITE operations (email send/reply/delete, calendar CRUD, contacts CRUD)
+ * - Intelligence: ALL READ and ANALYSIS operations (search, list, count, analyze)
+ */
+export type AgentType = 'Supervisor' | 'Actions' | 'Intelligence';
 
 export interface TaskClassification {
   complexity: TaskComplexity;
@@ -144,22 +150,33 @@ const TOOL_COMPLEXITY: Record<string, TaskComplexity> = {
   merge_contacts: 'complex',
 };
 
-// Intent patterns for direct agent routing
+/**
+ * Intent patterns for direct agent routing (Phase 3 Consolidation).
+ *
+ * WRITE_OPS → ActionsAgent: Destructive/mutating operations requiring HITL
+ * READ_OPS → IntelligenceAgent: Search, list, analyze operations (non-destructive)
+ * COMPLEX → Supervisor: Multi-domain queries requiring coordination
+ */
 const INTENT_PATTERNS = {
-  EMAIL: [
-    /email|inbox|mail|message|reply|forward|send/i,
-    /unread|read|mark as/i,
-    /draft|compose/i,
+  // WRITE operations → ActionsAgent
+  WRITE_OPS: [
+    /send|reply|forward|compose|draft/i,
+    /delete|remove|trash|archive/i,
+    /create|add|new|schedule/i,
+    /update|edit|modify|change|rename/i,
+    /move|star|unstar|mark as/i,
   ],
-  CALENDAR: [
-    /calendar|schedule|meeting|appointment|event/i,
-    /availability|free|busy/i,
-    /meet|reschedule/i,
+  // READ operations → IntelligenceAgent
+  READ_OPS: [
+    /search|find|look|show|list|get/i,
+    /email|inbox|mail|message|unread/i,
+    /calendar|schedule|meeting|appointment|event|availability/i,
+    /contact|address|phone|who is|person/i,
+    /analyze|summarize|sentiment|priority/i,
+    /how many|count/i,
   ],
-  CONTACTS: [
-    /contact|address|phone|who is/i,
-  ],
-  GENERAL: [
+  // Simple queries that don't need agents → handled directly by Supervisor
+  SIMPLE: [
     /^(hi|hello|hey|thanks|thank you|ok|okay)\b/i,
     /^what (is|are|was|were) /i,
     /^how (to|do|can) /i,
@@ -196,12 +213,11 @@ export class ModelRouterService {
     const messageComplexity = this.classifyMessageComplexity(message);
     const intent = this.classifyIntent(message);
 
-    // Determine suggested agent based on intent
-    let suggestedAgent: AgentType = 'Supervisor'; // Default to Supervisor
-    if (intent === 'EMAIL') suggestedAgent = 'Email';
-    else if (intent === 'CALENDAR') suggestedAgent = 'Calendar';
-    else if (intent === 'CONTACTS') suggestedAgent = 'Contacts';
-    else if (intent === 'GENERAL') suggestedAgent = 'General';
+    // Determine suggested agent based on intent (Phase 3 Consolidation)
+    let suggestedAgent: AgentType = 'Supervisor'; // Default to Supervisor for complex queries
+    if (intent === 'WRITE_OPS') suggestedAgent = 'Actions';
+    else if (intent === 'READ_OPS') suggestedAgent = 'Intelligence';
+    // SIMPLE intents stay with Supervisor (small model, direct response)
 
     // Honor forced model (after intent classification)
     if (options?.forceModel) {
@@ -233,12 +249,14 @@ export class ModelRouterService {
       recommendedModel = complexity === 'simple' ? 'medium' : 'large';
     }
 
-    // Force 'medium' or 'large' if using specialized agents (Email/Calendar often need tools)
-    if (suggestedAgent === 'Email' || suggestedAgent === 'Calendar') {
+    // Force 'medium' or 'large' for specialized agents (tool calls need reasoning)
+    // ActionsAgent: Always needs at least medium for HITL decisions
+    // IntelligenceAgent: Needs medium for semantic search and analysis
+    if (suggestedAgent === 'Actions' || suggestedAgent === 'Intelligence') {
       if (recommendedModel === 'small') recommendedModel = 'medium';
     }
-    // General chat can stay small
-    if (suggestedAgent === 'General') {
+    // Supervisor with SIMPLE intent can stay small (direct responses)
+    if (suggestedAgent === 'Supervisor' && intent === 'SIMPLE') {
       recommendedModel = 'small';
     }
 

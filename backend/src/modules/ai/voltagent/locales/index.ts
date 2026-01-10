@@ -236,6 +236,13 @@ export interface AgentTranslations {
   documentLibrary: {
     instructions: string;
   };
+  // Phase 3: Consolidated agents (10 → 3)
+  actions: {
+    instructions: string;
+  };
+  intelligence: {
+    instructions: string;
+  };
 }
 
 /**
@@ -366,6 +373,18 @@ export interface DeadlineKeywordsTranslations {
 }
 
 /**
+ * Follow-up detection translations for RAG queries
+ */
+export interface FollowUpTranslations {
+  /** Semantic query for RAG follow-up detection */
+  ragQuery: string;
+  /** Reason text for high confidence detections */
+  highConfidenceReason: string;
+  /** Reason text for LLM-verified detections */
+  verifiedReason: string;
+}
+
+/**
  * Complete translation structure for VoltAgent
  */
 export interface VoltAgentTranslations {
@@ -375,6 +394,7 @@ export interface VoltAgentTranslations {
   observability: ObservabilityTranslations;
   mistral: MistralTranslations;
   deadline: DeadlineKeywordsTranslations;
+  followUp: FollowUpTranslations;
 }
 
 /**

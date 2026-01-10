@@ -233,11 +233,11 @@ export class EmbeddingBackfillSchedulerService implements OnModuleInit, OnModule
    * Folders to exclude from embedding (spam, trash, archive)
    * These are checked against both specialUse and folder name patterns
    */
-  private static readonly EXCLUDED_SPECIAL_USE = ['SPAM', 'TRASH', 'ARCHIVE', 'JUNK', 'DELETED'];
+  private static readonly EXCLUDED_SPECIAL_USE = ['SPAM', 'TRASH', 'ARCHIVE', 'JUNK', 'DELETED', 'DRAFTS'];
   private static readonly EXCLUDED_FOLDER_PATTERNS = [
-    'spam', 'junk', 'trash', 'deleted', 'archive',
-    'posta indesiderata', 'cestino', 'eliminat', 'archivi', // Italian (root forms)
-    '[gmail]/spam', '[gmail]/trash', '[gmail]/all mail',
+    'spam', 'junk', 'trash', 'deleted', 'archive', 'draft', 'drafts',
+    'posta indesiderata', 'cestino', 'eliminat', 'archivi', 'bozz', // Italian (root forms: bozze/bozza)
+    '[gmail]/spam', '[gmail]/trash', '[gmail]/all mail', '[gmail]/drafts',
     'deleted items', 'junk email', 'junk e-mail',
   ];
 

@@ -91,7 +91,9 @@ export function createFolderTools(
   const t = getToolTranslations(locale);
 
   return [
-    // ========== LIST FOLDERS ==========
+    // ========================================================================
+    // TOOL #1: list_folders (read-only, kept as-is)
+    // ========================================================================
     createTool({
       name: 'list_folders',
       description:
@@ -138,171 +140,168 @@ export function createFolderTools(
       },
     }),
 
-    // ========== CREATE FOLDER ==========
+    // ========================================================================
+    // CONSOLIDATED TOOL #2: manage_folder
+    // Combines: create_folder, rename_folder, delete_folder, move_email_to_folder
+    // All actions require HITL approval
+    // ========================================================================
     createTool({
-      name: 'create_folder',
-      description:
-        'Create a new email folder. Useful for organizing emails into categories.',
+      name: 'manage_folder',
+      description: `Manage email folders. CONSOLIDATED TOOL - handles create, rename, delete, and move operations.
+
+Actions:
+- "create": Create new folder (requires name, providerId; optional parentPath)
+- "rename": Rename folder (requires folderId, newName)
+- "delete": Delete folder (requires folderId; system folders protected)
+- "move_email": Move email to folder (requires emailId, folderId)
+
+All actions require user approval (HITL).`,
       parameters: z.object({
-        name: z
-          .string()
-          .min(1)
-          .max(100)
-          .describe('Name of the new folder'),
-        providerId: z
-          .string()
-          .describe('Provider ID (email account) where the folder will be created'),
-        parentPath: z
-          .string()
-          .optional()
-          .describe('Optional parent folder path for nested folders'),
+        action: z.enum(['create', 'rename', 'delete', 'move_email'])
+          .describe('Action to perform'),
+        // Folder identification
+        folderId: z.string().optional().describe('Folder ID (for rename/delete/move_email)'),
+        // Create params
+        name: z.string().optional().describe('Folder name (for create)'),
+        providerId: z.string().optional().describe('Provider ID (for create)'),
+        parentPath: z.string().optional().describe('Parent folder path (for create)'),
+        // Rename params
+        newName: z.string().optional().describe('New folder name (for rename)'),
+        // Move email params
+        emailId: z.string().optional().describe('Email ID (for move_email)'),
       }),
-      execute: async ({ name, providerId, parentPath }) => {
-        // Verify provider belongs to tenant
-        const provider = await prisma.providerConfig.findFirst({
-          where: { id: providerId, tenantId },
-        });
+      execute: async (params) => {
+        const { action, folderId, name, providerId, parentPath, newName, emailId } = params;
 
-        if (!provider) {
-          return {
-            success: false,
-            error: 'Provider not found or access denied',
-          };
+        switch (action) {
+          case 'create': {
+            if (!name || !providerId) {
+              return { success: false, error: 'create requires name and providerId' };
+            }
+
+            const provider = await prisma.providerConfig.findFirst({
+              where: { id: providerId, tenantId },
+            });
+
+            if (!provider) {
+              return { success: false, error: 'Provider not found or access denied' };
+            }
+
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'CREATE_FOLDER',
+              severity: 'LOW',
+              payload: { name: name.trim(), providerId, parentPath },
+              summary: t.folder.created(name),
+            };
+          }
+
+          case 'rename': {
+            if (!folderId || !newName) {
+              return { success: false, error: 'rename requires folderId and newName' };
+            }
+
+            const folder = await getFolderMetadata(prisma, tenantId, folderId, cacheService);
+            if (!folder) {
+              return { success: false, error: t.folder.notFound };
+            }
+
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'RENAME_FOLDER',
+              severity: 'LOW',
+              payload: {
+                folderId,
+                providerId: folder.providerId,
+                folderPath: folder.path,
+                oldName: folder.name,
+                newName: newName.trim(),
+              },
+              summary: t.folder.renamed(folder.name, newName),
+            };
+          }
+
+          case 'delete': {
+            if (!folderId) {
+              return { success: false, error: 'delete requires folderId' };
+            }
+
+            const folder = await getFolderMetadata(prisma, tenantId, folderId, cacheService);
+            if (!folder) {
+              return { success: false, error: t.folder.notFound };
+            }
+
+            // Check if it's a system folder
+            const systemFolders = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Spam', 'Junk'];
+            if (systemFolders.includes(folder.name)) {
+              return { success: false, error: `Cannot delete system folder "${folder.name}"` };
+            }
+
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'DELETE_FOLDER',
+              severity: 'HIGH',
+              payload: {
+                folderId,
+                providerId: folder.providerId,
+                folderPath: folder.path,
+                folderName: folder.name,
+                emailCount: folder.totalCount,
+              },
+              summary: t.folder.deleted(folder.name),
+            };
+          }
+
+          case 'move_email': {
+            if (!emailId || !folderId) {
+              return { success: false, error: 'move_email requires emailId and folderId' };
+            }
+
+            const email = await prisma.email.findFirst({
+              where: { id: emailId, tenantId },
+              select: { id: true, subject: true, providerId: true },
+            });
+
+            if (!email) {
+              return { success: false, error: 'Email not found' };
+            }
+
+            const folder = await getFolderMetadata(prisma, tenantId, folderId, cacheService);
+            if (!folder) {
+              return { success: false, error: t.folder.notFound };
+            }
+
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'MOVE_EMAIL',
+              severity: 'MEDIUM',
+              payload: {
+                emailId,
+                folderId,
+                folderPath: folder.path,
+                folderName: folder.name,
+                emailSubject: email.subject,
+              },
+              summary: t.folder.emailMoved(email.subject || '(No subject)', folder.name),
+            };
+          }
+
+          default:
+            return { success: false, error: `Unknown action: ${action}` };
         }
-
-        return {
-          success: true,
-          requiresApproval: true,
-          actionType: 'CREATE_FOLDER',
-          severity: 'LOW',
-          payload: {
-            name: name.trim(),
-            providerId,
-            parentPath,
-          },
-          summary: t.folder.created(name),
-        };
       },
     }),
 
-    // ========== RENAME FOLDER ==========
-    createTool({
-      name: 'rename_folder',
-      description:
-        'Rename an existing email folder. Use the folder ID or path to identify the folder.',
-      parameters: z.object({
-        folderId: z.string().describe('ID of the folder to rename'),
-        newName: z
-          .string()
-          .min(1)
-          .max(100)
-          .describe('New name for the folder'),
-      }),
-      execute: async ({ folderId, newName }) => {
-        const folder = await getFolderMetadata(prisma, tenantId, folderId, cacheService);
-
-        if (!folder) {
-          return { success: false, error: t.folder.notFound };
-        }
-
-        return {
-          success: true,
-          requiresApproval: true,
-          actionType: 'RENAME_FOLDER',
-          severity: 'LOW',
-          payload: {
-            folderId,
-            providerId: folder.providerId,
-            folderPath: folder.path,
-            oldName: folder.name,
-            newName: newName.trim(),
-          },
-          summary: t.folder.renamed(folder.name, newName),
-        };
-      },
-    }),
-
-    // ========== DELETE FOLDER ==========
-    createTool({
-      name: 'delete_folder',
-      description:
-        'Delete an email folder. WARNING: This may delete all emails in the folder. System folders cannot be deleted.',
-      parameters: z.object({
-        folderId: z.string().describe('ID of the folder to delete'),
-      }),
-      execute: async ({ folderId }) => {
-        const folder = await getFolderMetadata(prisma, tenantId, folderId, cacheService);
-
-        if (!folder) {
-          return { success: false, error: t.folder.notFound };
-        }
-
-        // Check if it's a system folder (INBOX, Sent, Drafts, etc.)
-        const systemFolders = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Spam', 'Junk'];
-        if (systemFolders.includes(folder.name)) {
-          return {
-            success: false,
-            error: `Cannot delete system folder "${folder.name}"`,
-          };
-        }
-
-        return {
-          success: true,
-          requiresApproval: true,
-          actionType: 'DELETE_FOLDER',
-          severity: 'HIGH',
-          payload: {
-            folderId,
-            providerId: folder.providerId,
-            folderPath: folder.path,
-            folderName: folder.name,
-            emailCount: folder.totalCount,
-          },
-          summary: t.folder.deleted(folder.name),
-        };
-      },
-    }),
-
-    // ========== MOVE EMAIL TO FOLDER ==========
-    createTool({
-      name: 'move_email_to_folder',
-      description:
-        'Move an email to a different folder. Use this to organize emails.',
-      parameters: z.object({
-        emailId: z.string().describe('ID of the email to move'),
-        folderId: z.string().describe('ID of the destination folder'),
-      }),
-      execute: async ({ emailId, folderId }) => {
-        const email = await prisma.email.findFirst({
-          where: { id: emailId, tenantId },
-          select: { id: true, subject: true, providerId: true },
-        });
-
-        if (!email) {
-          return { success: false, error: 'Email not found' };
-        }
-
-        const folder = await getFolderMetadata(prisma, tenantId, folderId, cacheService);
-
-        if (!folder) {
-          return { success: false, error: t.folder.notFound };
-        }
-
-        return {
-          success: true,
-          requiresApproval: true,
-          actionType: 'MOVE_EMAIL',
-          severity: 'MEDIUM',
-          payload: {
-            emailId,
-            folderId,
-            folderPath: folder.path,
-            folderName: folder.name,
-            emailSubject: email.subject,
-          },
-          summary: t.folder.emailMoved(email.subject || '(No subject)', folder.name),
-        };
-      },
-    }),
+    // ========================================================================
+    // DEPRECATED TOOLS - Now consolidated into manage_folder
+    // ========================================================================
+    // - create_folder → manage_folder(action='create')
+    // - rename_folder → manage_folder(action='rename')
+    // - delete_folder → manage_folder(action='delete')
+    // - move_email_to_folder → manage_folder(action='move_email')
   ];
 }

@@ -84,175 +84,174 @@ export interface DocumentLibraryToolOptions {
 // =============================================================================
 
 /**
- * Create document query tool for VoltAgent
+ * Create consolidated document library tool for VoltAgent
  *
- * Enables document Q&A using Mistral's Agents API with document_library tool.
- * Delegates to DocumentLibraryService which uses the correct Mistral Libraries API.
+ * CONSOLIDATED TOOL: Combines query_documents, list_document_libraries, create_document_library
+ * into a single tool with action modes.
  */
-export function createDocumentQueryTool(options: DocumentLibraryToolOptions) {
+export function createDocumentLibraryTool(options: DocumentLibraryToolOptions) {
   const { documentLibraryService, locale, tenantId } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
-    name: 'query_documents',
-    description: t.documentLibrary?.queryDescription || 'Search and query documents in your document libraries. Use this to find information from uploaded documents, PDFs, and text files.',
+    name: 'manage_document_library',
+    description: `Manage document libraries. CONSOLIDATED TOOL - handles query, list, and create operations.
+
+Actions:
+- "query": Search documents for information (requires query; optional libraryIds)
+- "list": List all available document libraries (no params required)
+- "create": Create new document library (requires name; optional description)
+
+Use "query" to find information in uploaded documents, PDFs, and text files.`,
     parameters: z.object({
-      query: z
-        .string()
-        .min(5)
-        .max(1000)
-        .describe('The question or search query to find information in documents'),
-      libraryIds: z
-        .array(z.string())
-        .optional()
-        .describe('Specific library IDs to search (searches all if not provided)'),
+      action: z.enum(['query', 'list', 'create']).describe('Action to perform'),
+      // Query params
+      query: z.string().optional().describe('Search query (for action="query")'),
+      libraryIds: z.array(z.string()).optional().describe('Library IDs to search (for action="query")'),
+      // Create params
+      name: z.string().optional().describe('Library name (for action="create")'),
+      description: z.string().optional().describe('Library description (for action="create")'),
     }),
-    execute: async ({ query, libraryIds }) => {
-      logger.log(`[${tenantId}] Document query: "${query.substring(0, 50)}..."`);
+    execute: async (params) => {
+      const { action, query, libraryIds, name, description } = params;
 
-      try {
-        // Delegate to service which uses correct Mistral Libraries API
-        const result = await documentLibraryService.queryDocuments(
-          tenantId,
-          query,
-          libraryIds,
-          locale,
-        );
+      switch (action) {
+        case 'query': {
+          if (!query || query.length < 5) {
+            return { success: false, error: 'query action requires query parameter (min 5 chars)' };
+          }
 
-        return {
-          success: true,
-          answer: result.answer,
-          sources: result.sources,
-          citations: result.citations,
-          fromCache: result.fromCache,
-        };
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error(`Document query failed for "${query}": ${errorMsg}`);
+          logger.log(`[${tenantId}] Document query: "${query.substring(0, 50)}..."`);
 
-        return {
-          success: false,
-          error: t.documentLibrary?.queryFailed?.(errorMsg) || `Document query failed: ${errorMsg}`,
-          answer: null,
-          sources: [],
-        };
+          try {
+            const result = await documentLibraryService.queryDocuments(
+              tenantId,
+              query,
+              libraryIds,
+              locale,
+            );
+
+            return {
+              success: true,
+              answer: result.answer,
+              sources: result.sources,
+              citations: result.citations,
+              fromCache: result.fromCache,
+            };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            logger.error(`Document query failed for "${query}": ${errorMsg}`);
+
+            return {
+              success: false,
+              error: t.documentLibrary?.queryFailed?.(errorMsg) || `Document query failed: ${errorMsg}`,
+              answer: null,
+              sources: [],
+            };
+          }
+        }
+
+        case 'list': {
+          logger.log(`[${tenantId}] Listing document libraries`);
+
+          try {
+            const libraries = await documentLibraryService.listLibraries(tenantId);
+
+            const mappedLibraries: DocumentLibrary[] = libraries.map(lib => ({
+              id: lib.id,
+              name: lib.name,
+              description: lib.description,
+              documentCount: lib.documentCount,
+              createdAt: lib.createdAt.toISOString(),
+              updatedAt: lib.updatedAt?.toISOString(),
+            }));
+
+            return {
+              success: true,
+              libraries: mappedLibraries,
+              count: mappedLibraries.length,
+            };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            logger.error(`List libraries failed: ${errorMsg}`);
+
+            return {
+              success: false,
+              error: t.documentLibrary?.listFailed?.(errorMsg) || `Failed to list libraries: ${errorMsg}`,
+              libraries: [],
+              count: 0,
+            };
+          }
+        }
+
+        case 'create': {
+          if (!name || name.length < 1) {
+            return { success: false, error: 'create action requires name parameter' };
+          }
+
+          logger.log(`[${tenantId}] Creating document library: "${name}"`);
+
+          try {
+            const library = await documentLibraryService.createLibrary(tenantId, {
+              name,
+              description,
+            });
+
+            return {
+              success: true,
+              library: {
+                id: library.id,
+                name: library.name,
+                description: library.description,
+                documentCount: library.documentCount,
+                createdAt: library.createdAt.toISOString(),
+              },
+              message: `Library "${name}" created successfully`,
+            };
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            logger.error(`Create library failed: ${errorMsg}`);
+
+            return {
+              success: false,
+              error: `Failed to create library: ${errorMsg}`,
+              library: null,
+            };
+          }
+        }
+
+        default:
+          return { success: false, error: `Unknown action: ${action}` };
       }
     },
   });
 }
 
-/**
- * Create document library list tool for VoltAgent
- */
-export function createListLibrariesTool(options: DocumentLibraryToolOptions) {
-  const { documentLibraryService, locale, tenantId } = options;
-  const t = getToolTranslations(locale);
+// ============================================================================
+// DEPRECATED: Individual tool creators (kept for backwards compatibility)
+// Now consolidated into manage_document_library
+// ============================================================================
+// - query_documents → manage_document_library(action='query')
+// - list_document_libraries → manage_document_library(action='list')
+// - create_document_library → manage_document_library(action='create')
 
-  return createTool({
-    name: 'list_document_libraries',
-    description: t.documentLibrary?.listDescription || 'List all available document libraries and their contents',
-    parameters: z.object({}),
-    execute: async () => {
-      logger.log(`[${tenantId}] Listing document libraries`);
+/** @deprecated Use createDocumentLibraryTool instead */
+export const createDocumentQueryTool = (options: DocumentLibraryToolOptions) =>
+  createDocumentLibraryTool(options);
 
-      try {
-        const libraries = await documentLibraryService.listLibraries(tenantId);
+/** @deprecated Use createDocumentLibraryTool instead */
+export const createListLibrariesTool = (options: DocumentLibraryToolOptions) =>
+  createDocumentLibraryTool(options);
 
-        // Map service type to tool type for compatibility
-        const mappedLibraries: DocumentLibrary[] = libraries.map(lib => ({
-          id: lib.id,
-          name: lib.name,
-          description: lib.description,
-          documentCount: lib.documentCount,
-          createdAt: lib.createdAt.toISOString(),
-          updatedAt: lib.updatedAt?.toISOString(),
-        }));
-
-        return {
-          success: true,
-          libraries: mappedLibraries,
-          count: mappedLibraries.length,
-        };
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error(`List libraries failed: ${errorMsg}`);
-
-        return {
-          success: false,
-          error: t.documentLibrary?.listFailed?.(errorMsg) || `Failed to list libraries: ${errorMsg}`,
-          libraries: [],
-          count: 0,
-        };
-      }
-    },
-  });
-}
+/** @deprecated Use createDocumentLibraryTool instead */
+export const createCreateLibraryTool = (options: DocumentLibraryToolOptions) =>
+  createDocumentLibraryTool(options);
 
 /**
- * Create document library create tool for VoltAgent
- */
-export function createCreateLibraryTool(options: DocumentLibraryToolOptions) {
-  const { documentLibraryService, locale, tenantId } = options;
-  const t = getToolTranslations(locale);
-
-  return createTool({
-    name: 'create_document_library',
-    description: t.documentLibrary?.createDescription || 'Create a new document library for organizing and searching documents',
-    parameters: z.object({
-      name: z
-        .string()
-        .min(1)
-        .max(100)
-        .describe('Name for the new document library'),
-      description: z
-        .string()
-        .max(500)
-        .optional()
-        .describe('Optional description of the library contents'),
-    }),
-    execute: async ({ name, description }) => {
-      logger.log(`[${tenantId}] Creating document library: "${name}"`);
-
-      try {
-        const library = await documentLibraryService.createLibrary(tenantId, {
-          name,
-          description,
-        });
-
-        return {
-          success: true,
-          library: {
-            id: library.id,
-            name: library.name,
-            description: library.description,
-            documentCount: library.documentCount,
-            createdAt: library.createdAt.toISOString(),
-          },
-          message: `Library "${name}" created successfully`,
-        };
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error(`Create library failed: ${errorMsg}`);
-
-        return {
-          success: false,
-          error: `Failed to create library: ${errorMsg}`,
-          library: null,
-        };
-      }
-    },
-  });
-}
-
-/**
- * Create all document library tools
+ * Create all document library tools (now returns single consolidated tool)
  */
 export function createDocumentLibraryTools(options: DocumentLibraryToolOptions) {
-  return [
-    createDocumentQueryTool(options),
-    createListLibrariesTool(options),
-    createCreateLibraryTool(options),
-  ];
+  return [createDocumentLibraryTool(options)];
 }
 
 /**

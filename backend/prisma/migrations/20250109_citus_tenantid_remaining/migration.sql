@@ -94,7 +94,17 @@ CREATE INDEX IF NOT EXISTS "library_documents_tenantId_idx" ON "library_document
 CREATE INDEX IF NOT EXISTS "deal_activities_tenantId_idx" ON "deal_activities"("tenantId");
 
 -- ============================================================================
--- STEP 7: Add FK constraints to tenants table
+-- STEP 7: Delete orphan records with non-existent tenants (test data cleanup)
+-- ============================================================================
+DELETE FROM "sessions" WHERE "tenantId" NOT IN (SELECT id FROM "tenants");
+DELETE FROM "trusted_devices" WHERE "tenantId" NOT IN (SELECT id FROM "tenants");
+DELETE FROM "webauthn_credentials" WHERE "tenantId" NOT IN (SELECT id FROM "tenants");
+DELETE FROM "ai_memory_history" WHERE "tenantId" NOT IN (SELECT id FROM "tenants");
+DELETE FROM "library_documents" WHERE "tenantId" NOT IN (SELECT id FROM "tenants");
+DELETE FROM "deal_activities" WHERE "tenantId" NOT IN (SELECT id FROM "tenants");
+
+-- ============================================================================
+-- STEP 8: Add FK constraints to tenants table
 -- ============================================================================
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_tenantId_fkey"
   FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;

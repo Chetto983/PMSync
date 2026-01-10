@@ -26,16 +26,20 @@ import { CacheService } from '../../../../common/services/cache.service';
 import { Queue, Worker, Job } from 'bullmq';
 import { FollowUpStatus, EmailFollowUp } from '@prisma/client';
 import { MistralService } from '../../services/mistral.service';
+import { EmbeddingsService } from '../../services/embeddings.service';
+import { UnifiedRetriever } from '../rag/unified-retriever';
+import { getLocale, getTranslations } from '../locales';
 //import { CorrelationContext } from '../../../../common/services/correlation-context.service';
 
 /**
- * Patterns that indicate an email needs follow-up
+ * Patterns that indicate an email needs follow-up (English + Italian)
  */
 const FOLLOW_UP_PATTERNS = [
-  // Questions
-  /\?$/m, // Ends with question mark
-  /\?\s*$/m, // Question mark at end of line
-  // Requests
+  // Questions (universal)
+  /\?$/m,
+  /\?\s*$/m,
+
+  // === ENGLISH ===
   /please\s+(let\s+me\s+know|respond|reply|confirm|send|provide|update)/i,
   /looking\s+forward\s+to\s+(hearing|your\s+response)/i,
   /can\s+you\s+(please\s+)?(confirm|send|provide|check)/i,
@@ -43,27 +47,62 @@ const FOLLOW_UP_PATTERNS = [
   /would\s+you\s+(please\s+)?(be\s+able|mind|kindly)/i,
   /waiting\s+for\s+your/i,
   /await(ing)?\s+(your|a)\s+response/i,
-  // Deadlines
   /by\s+(friday|monday|tuesday|wednesday|thursday|end\s+of\s+(week|day|month))/i,
   /before\s+(friday|monday|the\s+meeting)/i,
   /need\s+(this|it|a\s+response)\s+by/i,
-  // Follow-up indicators
   /get\s+back\s+to\s+(you|me)/i,
   /follow\s*up\s+on/i,
   /touch\s+base/i,
   /circle\s+back/i,
+
+  // === ITALIAN ===
+  // Requests
+  /per\s+favore\s+(fammi\s+sapere|rispondi|conferma|invia|mandami)/i,
+  /potresti\s+(per\s+favore\s+)?(confermare|inviarmi|mandarmi|farmi\s+sapere)/i,
+  /puoi\s+(per\s+favore\s+)?(confermare|inviarmi|mandarmi|controllare)/i,
+  /vorrei\s+(sapere|ricevere|avere\s+conferma)/i,
+  /ti\s+(chiedo|prego)\s+(di\s+)?(confermare|rispondere|inviarmi)/i,
+  /mi\s+fai\s+sapere/i,
+  /fammi\s+sapere/i,
+  /resto\s+in\s+attesa/i,
+  /attendo\s+(una\s+)?(tua\s+)?(risposta|conferma|riscontro)/i,
+  /in\s+attesa\s+di\s+(un\s+)?(tuo\s+)?(riscontro|feedback|risposta)/i,
+  /aspetto\s+(una\s+)?(tua\s+)?(risposta|conferma)/i,
+  // Deadlines
+  /entro\s+(venerd[ìi]|luned[ìi]|marted[ìi]|mercoled[ìi]|gioved[ìi]|fine\s+(settimana|mese|giornata))/i,
+  /prima\s+(di|del|della)\s+(venerd[ìi]|luned[ìi]|riunione|meeting)/i,
+  /ho\s+bisogno\s+(di\s+una\s+risposta\s+)?entro/i,
+  /mi\s+serve\s+entro/i,
+  // Follow-up indicators
+  /ti\s+ricontatto/i,
+  /ci\s+sentiamo/i,
+  /ci\s+aggiorniamo/i,
+  /rimango\s+in\s+attesa/i,
+  /sollecito/i,
+  /urgente/i,
 ];
 
 /**
  * Patterns that suggest this is an informational email (no follow-up needed)
  */
 const NO_FOLLOW_UP_PATTERNS = [
+  // === ENGLISH ===
   /fyi|for\s+your\s+information/i,
   /no\s+(response|reply|action)\s+(needed|required)/i,
   /just\s+(wanted\s+to\s+)?let\s+you\s+know/i,
   /auto(-|\s)?reply|out\s+of\s+office/i,
   /newsletter|unsubscribe/i,
   /do\s+not\s+reply/i,
+
+  // === ITALIAN ===
+  /per\s+(tua\s+)?informazione/i,
+  /non\s+(è\s+)?(necessaria|richiesta)\s+(una\s+)?(risposta|azione)/i,
+  /solo\s+per\s+(tua\s+)?informazione/i,
+  /risposta\s+automatica|fuori\s+ufficio/i,
+  /annulla\s+iscrizione|cancellati/i,
+  /non\s+rispondere/i,
+  /ti\s+informo\s+(solo\s+)?che/i,
+  /volevo\s+solo\s+(farti\s+sapere|informarti)/i,
 ];
 
 /**
@@ -129,6 +168,7 @@ export class FollowUpService implements OnModuleInit, OnModuleDestroy {
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
     private readonly mistralService: MistralService,
+    private readonly embeddingsService: EmbeddingsService,
   ) {
     this.enabled = this.configService.get<string>('AI_FOLLOW_UP_ENABLED', 'true') === 'true';
     this.defaultDueDays = this.configService.get<number>('AI_FOLLOW_UP_DUE_DAYS', 3);
@@ -870,6 +910,209 @@ Return JSON ONLY:
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.error(`Failed to process follow-up ${followUp.id}: ${msg}`);
       }
+    }
+  }
+
+  // ==========================================================================
+  // RAG-BASED FOLLOW-UP SCANNING
+  // ==========================================================================
+
+  /**
+   * Scan emails for follow-up candidates using RAG semantic search.
+   *
+   * This method uses vector similarity search to find emails semantically
+   * related to follow-up patterns, then applies confidence thresholds:
+   * - High confidence (score > 0.8): Create follow-up directly
+   * - Medium confidence (0.6-0.8): Verify with LLM
+   * - Low confidence (< 0.6): Skip
+   *
+   * Benefits over regex-based approach:
+   * - Semantic understanding of follow-up intent
+   * - Reduced LLM calls (only medium confidence needs verification)
+   * - Better accuracy for complex follow-up patterns
+   *
+   * @param tenantId - Tenant ID for isolation
+   * @param userId - User ID
+   * @param options - Optional configuration
+   */
+  async scanEmailsForFollowUps(
+    tenantId: string,
+    userId: string,
+    options: {
+      locale?: string;
+      maxCandidates?: number;
+      highConfidenceThreshold?: number;
+      mediumConfidenceThreshold?: number;
+    } = {},
+  ): Promise<{ created: number; skipped: number; errors: number }> {
+    if (!this.enabled) {
+      return { created: 0, skipped: 0, errors: 0 };
+    }
+
+    const {
+      locale = 'en',
+      maxCandidates = 50,
+      highConfidenceThreshold = 0.8,
+      mediumConfidenceThreshold = 0.6,
+    } = options;
+
+    const stats = { created: 0, skipped: 0, errors: 0 };
+
+    try {
+      // Create UnifiedRetriever for RAG-based search
+      const retriever = new UnifiedRetriever({
+        tenantId,
+        userId,
+        locale: getLocale(locale),
+        prisma: this.prisma,
+        mistralService: this.mistralService,
+        embeddingsService: this.embeddingsService,
+        emailLimit: maxCandidates,
+      });
+
+      // Semantic query for follow-up patterns (locale-aware)
+      const resolvedLocale = getLocale(locale);
+      const t = getTranslations(resolvedLocale);
+      const followUpQuery = t.followUp.ragQuery;
+
+      // Search for candidate emails using RAG
+      const results = await retriever.searchSources(followUpQuery, ['emails']);
+
+      // Find email source results
+      const emailSource = results.find((r) => r.source === 'emails');
+      if (!emailSource || !emailSource.items.length) {
+        this.logger.debug('No follow-up candidates found via RAG');
+        return stats;
+      }
+
+      // Get user's sent email addresses to filter for sent emails
+      const userProviders = await this.prisma.providerConfig.findMany({
+        where: { tenantId, userId },
+        select: { email: true },
+      });
+      const userEmails = new Set(userProviders.map((p) => p.email?.toLowerCase()).filter(Boolean));
+
+      // Process candidates
+      for (const item of emailSource.items) {
+        const emailId = item.metadata?.emailId as string;
+        if (!emailId) continue;
+
+        // Fetch full email to check if sent and has reply
+        const email = await this.prisma.email.findFirst({
+          where: { id: emailId, tenantId },
+          select: {
+            id: true,
+            from: true,
+            bodyText: true,
+            subject: true,
+            threadId: true,
+          },
+        });
+
+        if (!email) {
+          stats.skipped++;
+          continue;
+        }
+
+        // Check if this is a sent email (from user)
+        const fromLower = email.from?.toLowerCase() || '';
+        const isSentByUser = Array.from(userEmails).some((userEmail) =>
+          fromLower.includes(userEmail as string),
+        );
+
+        if (!isSentByUser) {
+          stats.skipped++;
+          continue;
+        }
+
+        // Check if already has follow-up
+        const existingFollowUp = await this.prisma.emailFollowUp.findFirst({
+          where: {
+            tenantId,
+            userId,
+            emailId,
+            status: { in: ['PENDING', 'REMINDED'] },
+          },
+        });
+
+        if (existingFollowUp) {
+          stats.skipped++;
+          continue;
+        }
+
+        // Check if thread has received a reply
+        if (email.threadId) {
+          const replyCount = await this.prisma.email.count({
+            where: {
+              tenantId,
+              threadId: email.threadId,
+              id: { not: emailId },
+              from: { not: { contains: fromLower.split('@')[0] } },
+            },
+          });
+
+          if (replyCount > 0) {
+            stats.skipped++;
+            continue;
+          }
+        }
+
+        // Apply confidence thresholds
+        const score = item.score ?? 0;
+
+        try {
+          if (score >= highConfidenceThreshold) {
+            // High confidence: create directly
+            await this.createFollowUp({
+              tenantId,
+              userId,
+              emailId,
+              reason: 'Detected via semantic search (high confidence)',
+            });
+            stats.created++;
+            this.logger.debug(`Created follow-up for email ${emailId} (score: ${score.toFixed(2)})`);
+          } else if (score >= mediumConfidenceThreshold) {
+            // Medium confidence: verify with LLM
+            const llmResult = await this.analyzeWithLlm(
+              tenantId,
+              userId,
+              email.bodyText || '',
+              email.subject || undefined,
+            );
+
+            if (llmResult.needsFollowUp) {
+              await this.createFollowUp({
+                tenantId,
+                userId,
+                emailId,
+                reason: llmResult.reason || 'Verified by AI analysis',
+                dueDate: llmResult.dueDate || undefined,
+              });
+              stats.created++;
+              this.logger.debug(`Created follow-up for email ${emailId} (LLM verified, score: ${score.toFixed(2)})`);
+            } else {
+              stats.skipped++;
+            }
+          } else {
+            // Low confidence: skip
+            stats.skipped++;
+          }
+        } catch (error) {
+          stats.errors++;
+          const msg = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Failed to process follow-up candidate ${emailId}: ${msg}`);
+        }
+      }
+
+      this.logger.log(
+        `Follow-up RAG scan complete: ${stats.created} created, ${stats.skipped} skipped, ${stats.errors} errors`,
+      );
+
+      return stats;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Follow-up RAG scan failed: ${msg}`);
+      throw error;
     }
   }
 

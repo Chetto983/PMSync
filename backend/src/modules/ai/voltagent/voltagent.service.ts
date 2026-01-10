@@ -28,10 +28,9 @@ import { HitlService, PendingActionStatus } from './services/hitl.service';
 import { ActionExecutorService, ActionExecutionResult } from './services/action-executor.service';
 import { WritingStyleService } from './services/writing-style.service';
 import { ModelRouterService } from './services/model-router.service';
-import { createCalendarAgent } from './agents/calendar.agent';
-import { createContactsAgent } from './agents/contacts.agent';
-import { createEmailAgent } from './agents/email.agent';
-import { createGeneralAgent } from './agents/general.agent';
+// Phase 3: Consolidated agents (10 → 3)
+import { createActionsAgent } from './agents/actions.agent';
+import { createIntelligenceAgent } from './agents/intelligence.agent';
 import { createSupervisorAgent, type SupervisorAgentOptions as _SupervisorAgentOptions, UserContext } from './agents/supervisor.agent';
 import { createWebSearchAgent as _createWebSearchAgent } from './agents/websearch.agent';
 import { createDocumentLibraryAgent as _createDocumentLibraryAgent } from './agents/document-library.agent';
@@ -223,20 +222,42 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Uses DATABASE_URL from environment for connection
     const databaseUrl = this.configService.get<string>('DATABASE_URL');
     if (databaseUrl) {
-      try {
-        const storage = new PostgreSQLMemoryAdapter({
-          connection: databaseUrl,
-          tablePrefix: 'voltagent_memory',
-          schema: 'public',
-          debug: process.env.NODE_ENV !== 'production',
-        });
-        this.memory = new Memory({ storage });
-        this.logger.log('VoltAgent PostgreSQL memory initialized for tenant isolation');
-      } catch (error) {
-        this.logger.warn('Failed to initialize VoltAgent memory, will use stateless mode', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        this.memory = null;
+      // FIX Bug #1: Retry memory initialization up to 3 times with exponential backoff
+      const MAX_RETRIES = 3;
+      const BASE_DELAY_MS = 1000;
+
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const storage = new PostgreSQLMemoryAdapter({
+            connection: databaseUrl,
+            tablePrefix: 'voltagent_memory',
+            schema: 'public',
+            debug: process.env.NODE_ENV !== 'production',
+          });
+          this.memory = new Memory({ storage });
+          this.logger.log('VoltAgent PostgreSQL memory initialized for tenant isolation');
+          break; // Success, exit retry loop
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          const isLastAttempt = attempt >= MAX_RETRIES;
+
+          if (isLastAttempt) {
+            // CRITICAL: Memory failed after all retries - agents will lose context
+            this.logger.error('CRITICAL: VoltAgent memory initialization FAILED after all retries', {
+              error: errorMsg,
+              attempts: attempt,
+              consequence: 'Agents will operate in stateless mode - no conversation history',
+            });
+            this.memory = null;
+          } else {
+            // Retry with exponential backoff
+            const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+            this.logger.warn(`VoltAgent memory init failed (attempt ${attempt}/${MAX_RETRIES}), retrying in ${delay}ms...`, {
+              error: errorMsg,
+            });
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
       }
     } else {
       this.logger.warn('DATABASE_URL not configured, VoltAgent memory disabled');
@@ -570,35 +591,25 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       cacheService: this.cacheService,
     };
 
+    // Phase 3: Agent Consolidation (10 → 3)
+    // - Actions: ALL WRITE operations (email, calendar, contacts CRUD)
+    // - Intelligence: ALL READ/ANALYSIS operations (search, list, analyze)
+    // - Supervisor: Orchestrates sub-agents for complex multi-domain queries
     switch (agentType) {
-      case 'Email':
-        agent = createEmailAgent({
+      case 'Actions':
+        agent = createActionsAgent({
           ...commonOptions,
           emailSendService: this.emailSendService,
-          mistral: this.mistralService,
-          embeddingsService: this.embeddingsService,
-          writingStyle: this.writingStyleService,
-          memory: this.memory ?? undefined,
-        });
-        break;
-      case 'Calendar':
-        agent = createCalendarAgent({
-          ...commonOptions,
           calendarService: this.calendarService,
           memory: this.memory ?? undefined,
         });
         break;
-      case 'Contacts':
-        agent = createContactsAgent({
+      case 'Intelligence':
+        agent = createIntelligenceAgent({
           ...commonOptions,
-          memory: this.memory ?? undefined,
-        });
-        break;
-      case 'General':
-        agent = createGeneralAgent({
-          model,
-          locale,
-          hooks: commonOptions.hooks,
+          mistral: this.mistralService ?? null,
+          embeddingsService: this.embeddingsService ?? null,
+          writingStyle: this.writingStyleService ?? null,
           memory: this.memory ?? undefined,
         });
         break;
@@ -753,7 +764,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // 2. Route to optimal model AND agent based on task complexity (40-60% cost savings)
     let selectedModel = options.model;
-    let suggestedAgent: 'Supervisor' | 'Email' | 'Calendar' | 'Contacts' | 'General' = 'Supervisor';
+    // Phase 3: Consolidated agent types (10 → 3)
+    let suggestedAgent: 'Supervisor' | 'Actions' | 'Intelligence' = 'Supervisor';
     if (this.modelRouterService) {
       const routing = this.modelRouterService.routeMessage(processedMessage, {
         preferSpeed: options.preferSpeed,
@@ -776,7 +788,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const userContext = await this.getUserContext(options.userId, options.tenantId);
 
     // OPTIMIZATION: Direct routing for specialized intents (skip supervisor overhead)
-    // For Email/Calendar/Contacts/General intents, route directly to specialist agent
+    // Phase 3: Actions/Intelligence agents handle direct routing, Supervisor for complex queries
     // This reduces latency by ~70-90% for single-domain queries
     let agent: Agent;
     if (suggestedAgent !== 'Supervisor') {
@@ -861,17 +873,19 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     // Format: "tenantId:userId" allows hooks to extract both values
     const tenantUserId = `${options.tenantId}:${options.userId}`;
-    // Generate tenant-isolated fallback sessionId for new conversations
-    // Format: tenantId:timestamp:random ensures uniqueness and tenant isolation
-    const fallbackSessionId = `${options.tenantId}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // FIX Bug #3: Use DETERMINISTIC fallback sessionId based on tenant+user
+    // This ensures users without explicit conversationId share a default conversation
+    // Format: tenantId:userId:default maintains tenant isolation + enables history lookup
+    const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
     const sessionId = options.conversationId || fallbackSessionId;
 
     // 3.7. Inject conversation history with compaction (2025 context engineering)
     // Fetches more messages (50) and summarizes older ones to preserve context without bloating tokens
-    if (this.memory && options.conversationId) {
+    // FIX Bug #3: Always try to fetch history using sessionId (explicit or deterministic fallback)
+    if (this.memory) {
       try {
         // Fetch up to 50 messages for better context (was 10)
-        const history = await this.memory.getMessages(tenantUserId, options.conversationId, { limit: 50 });
+        const history = await this.memory.getMessages(tenantUserId, sessionId, { limit: 50 });
         if (history && history.length > 0) {
           // Convert to compaction format
           const messages: ConversationMessage[] = history.map((msg, idx) => {
@@ -893,7 +907,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           if (this.compactionService && messages.length > 10) {
             const compacted = await this.compactionService.compactConversation(
               options.tenantId,
-              options.conversationId,
+              sessionId, // FIX: Use sessionId (always defined) instead of options.conversationId
               messages,
               { recentWindowSize: 6, compactionThreshold: 10 },
             );
@@ -1279,15 +1293,16 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     const tenantUserId = `${options.tenantId}:${options.userId}`;
-    // Generate tenant-isolated fallback sessionId for new conversations
-    const sessionId = options.conversationId || `${options.tenantId}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // FIX Bug #3: Use DETERMINISTIC fallback sessionId based on tenant+user
+    const sessionId = options.conversationId || `${options.tenantId}:${options.userId}:default`;
 
     // 3.7. Inject conversation history with compaction (2025 context engineering)
     // Fetches more messages (50) and summarizes older ones to preserve context without bloating tokens
-    if (this.memory && options.conversationId) {
+    // FIX Bug #3: Always try to fetch history using sessionId (explicit or deterministic fallback)
+    if (this.memory) {
       try {
         // Fetch up to 50 messages for better context (was 10)
-        const history = await this.memory.getMessages(tenantUserId, options.conversationId, { limit: 50 });
+        const history = await this.memory.getMessages(tenantUserId, sessionId, { limit: 50 });
         if (history && history.length > 0) {
           // Convert to compaction format
           const messages: ConversationMessage[] = history.map((msg, idx) => {
@@ -1309,7 +1324,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           if (this.compactionService && messages.length > 10) {
             const compacted = await this.compactionService.compactConversation(
               options.tenantId,
-              options.conversationId,
+              sessionId, // FIX: Use sessionId (always defined) instead of options.conversationId
               messages,
               { recentWindowSize: 6, compactionThreshold: 10 },
             );

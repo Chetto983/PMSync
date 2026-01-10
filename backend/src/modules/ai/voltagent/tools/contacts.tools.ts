@@ -89,7 +89,9 @@ export function createContactsTools(
   const t = getToolTranslations(locale);
 
   return [
-    // ========== SEARCH CONTACTS ==========
+    // ========================================================================
+    // TOOL #1: search_contacts (read-only, kept as-is with special search logic)
+    // ========================================================================
     createTool({
       name: 'search_contacts',
       description:
@@ -161,44 +163,27 @@ export function createContactsTools(
       },
     }),
 
-    // ========== GET CONTACT ==========
+    // ========================================================================
+    // CONSOLIDATED TOOL #2: manage_contact
+    // Combines: get_contact, create_contact, update_contact, delete_contact
+    // Create/update/delete require HITL approval
+    // ========================================================================
     createTool({
-      name: 'get_contact',
-      description: 'Get detailed information about a specific contact.',
+      name: 'manage_contact',
+      description: `Manage contacts. CONSOLIDATED TOOL - handles get, create, update, delete operations.
+
+Actions:
+- "get": Get contact details (requires contactId)
+- "create": Create new contact (requires email; optional name, phone, company, etc.)
+- "update": Update contact (requires contactId; optional fields to update)
+- "delete": Delete contact (requires contactId)
+
+Create/update/delete require user approval (HITL).`,
       parameters: z.object({
-        contactId: z.string().describe('ID of the contact'),
-      }),
-      execute: async ({ contactId }) => {
-        const contact = await prisma.contact.findFirst({
-          where: {
-            id: contactId,
-            tenantId,
-          },
-        });
-
-        if (!contact) {
-          return { success: false, error: t.contacts.notFound };
-        }
-
-        // Extract primary email from emails JSON array
-        const primaryEmail = Array.isArray(contact.emails) && contact.emails.length > 0
-          ? (contact.emails[0] as { value?: string })?.value
-          : null;
-
-        return {
-          success: true,
-          data: contact,
-          summary: `${t.contacts.contact}: ${contact.displayName || primaryEmail || 'Unknown'}`,
-        };
-      },
-    }),
-
-    // ========== CREATE CONTACT ==========
-    createTool({
-      name: 'create_contact',
-      description: 'Create a new contact.',
-      parameters: z.object({
-        email: z.string().email().describe('Primary email address'),
+        action: z.enum(['get', 'create', 'update', 'delete']).describe('Action to perform'),
+        contactId: z.string().optional().describe('Contact ID (for get/update/delete)'),
+        // Create/update params
+        email: z.string().optional().describe('Primary email'),
         displayName: z.string().optional().describe('Display name'),
         firstName: z.string().optional().describe('First name'),
         lastName: z.string().optional().describe('Last name'),
@@ -207,102 +192,129 @@ export function createContactsTools(
         jobTitle: z.string().optional().describe('Job title'),
         notes: z.string().optional().describe('Additional notes'),
       }),
-      execute: async ({ email, displayName, firstName, lastName, phone, company, jobTitle, notes }) => {
-        const name = displayName || `${firstName || ''} ${lastName || ''}`.trim() || email;
-        return {
-          success: true,
-          requiresApproval: true,
-          actionType: 'CREATE_CONTACT',
-          severity: 'LOW',
-          payload: {
-            emails: [{ value: email, type: 'primary' }],
-            displayName: name,
-            firstName,
-            lastName,
-            phoneNumbers: phone ? [{ value: phone, type: 'primary' }] : [],
-            company,
-            jobTitle,
-            notes,
-          },
-          summary: t.contacts.created(name),
-        };
-      },
-    }),
+      execute: async (params) => {
+        const { action, contactId, email, displayName, firstName, lastName, phone, company, jobTitle, notes } = params;
 
-    // ========== UPDATE CONTACT ==========
-    createTool({
-      name: 'update_contact',
-      description: 'Update an existing contact.',
-      parameters: z.object({
-        contactId: z.string().describe('ID of the contact to update'),
-        email: z.string().email().optional().describe('New primary email'),
-        displayName: z.string().optional().describe('New display name'),
-        firstName: z.string().optional().describe('New first name'),
-        lastName: z.string().optional().describe('New last name'),
-        phone: z.string().optional().describe('New phone number'),
-        company: z.string().optional().describe('New company'),
-        jobTitle: z.string().optional().describe('New job title'),
-        notes: z.string().optional().describe('New notes'),
-      }),
-      execute: async ({ contactId, email, displayName, firstName, lastName, phone, company, jobTitle, notes }) => {
-        const contact = await getContactMetadata(prisma, tenantId, contactId, cacheService);
+        switch (action) {
+          case 'get': {
+            if (!contactId) {
+              return { success: false, error: 'get requires contactId' };
+            }
 
-        if (!contact) {
-          return { success: false, error: t.contacts.notFound };
+            const contact = await prisma.contact.findFirst({
+              where: { id: contactId, tenantId },
+            });
+
+            if (!contact) {
+              return { success: false, error: t.contacts.notFound };
+            }
+
+            const primaryEmail = Array.isArray(contact.emails) && contact.emails.length > 0
+              ? (contact.emails[0] as { value?: string })?.value
+              : null;
+
+            return {
+              success: true,
+              data: contact,
+              summary: `${t.contacts.contact}: ${contact.displayName || primaryEmail || 'Unknown'}`,
+            };
+          }
+
+          case 'create': {
+            if (!email) {
+              return { success: false, error: 'create requires email' };
+            }
+
+            const name = displayName || `${firstName || ''} ${lastName || ''}`.trim() || email;
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'CREATE_CONTACT',
+              severity: 'LOW',
+              payload: {
+                emails: [{ value: email, type: 'primary' }],
+                displayName: name,
+                firstName,
+                lastName,
+                phoneNumbers: phone ? [{ value: phone, type: 'primary' }] : [],
+                company,
+                jobTitle,
+                notes,
+              },
+              summary: t.contacts.created(name),
+            };
+          }
+
+          case 'update': {
+            if (!contactId) {
+              return { success: false, error: 'update requires contactId' };
+            }
+
+            const contact = await getContactMetadata(prisma, tenantId, contactId, cacheService);
+            if (!contact) {
+              return { success: false, error: t.contacts.notFound };
+            }
+
+            const primaryEmail = Array.isArray(contact.emails) && contact.emails.length > 0
+              ? (contact.emails[0] as { value?: string })?.value
+              : null;
+
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'UPDATE_CONTACT',
+              severity: 'LOW',
+              payload: {
+                contactId,
+                ...(email ? { emails: [{ value: email, type: 'primary' }] } : {}),
+                displayName,
+                firstName,
+                lastName,
+                ...(phone ? { phoneNumbers: [{ value: phone, type: 'primary' }] } : {}),
+                company,
+                jobTitle,
+                notes,
+              },
+              summary: t.contacts.updated(contact.displayName || primaryEmail || 'Unknown'),
+            };
+          }
+
+          case 'delete': {
+            if (!contactId) {
+              return { success: false, error: 'delete requires contactId' };
+            }
+
+            const contact = await getContactMetadata(prisma, tenantId, contactId, cacheService);
+            if (!contact) {
+              return { success: false, error: t.contacts.notFound };
+            }
+
+            const primaryEmail = Array.isArray(contact.emails) && contact.emails.length > 0
+              ? (contact.emails[0] as { value?: string })?.value
+              : null;
+
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'DELETE_CONTACT',
+              severity: 'MEDIUM',
+              payload: { contactId },
+              summary: t.contacts.deleted(contact.displayName || primaryEmail || 'Unknown'),
+            };
+          }
+
+          default:
+            return { success: false, error: `Unknown action: ${action}` };
         }
-
-        const primaryEmail = Array.isArray(contact.emails) && contact.emails.length > 0
-          ? (contact.emails[0] as { value?: string })?.value
-          : null;
-
-        return {
-          success: true,
-          requiresApproval: true,
-          actionType: 'UPDATE_CONTACT',
-          severity: 'LOW',
-          payload: {
-            contactId,
-            ...(email ? { emails: [{ value: email, type: 'primary' }] } : {}),
-            displayName,
-            firstName,
-            lastName,
-            ...(phone ? { phoneNumbers: [{ value: phone, type: 'primary' }] } : {}),
-            company,
-            jobTitle,
-            notes,
-          },
-          summary: t.contacts.updated(contact.displayName || primaryEmail || 'Unknown'),
-        };
       },
     }),
 
-    // ========== DELETE CONTACT ==========
-    createTool({
-      name: 'delete_contact',
-      description: 'Delete a contact.',
-      parameters: z.object({
-        contactId: z.string().describe('ID of the contact to delete'),
-      }),
-      execute: async ({ contactId }) => {
-        const contact = await getContactMetadata(prisma, tenantId, contactId, cacheService);
-
-        if (!contact) {
-          return { success: false, error: t.contacts.notFound };
-        }
-
-        const primaryEmail = Array.isArray(contact.emails) && contact.emails.length > 0
-          ? (contact.emails[0] as { value?: string })?.value
-          : null;
-
-        return {
-          success: true,
-          requiresApproval: true,
-          actionType: 'DELETE_CONTACT',
-          severity: 'MEDIUM',
-          payload: { contactId },
-          summary: t.contacts.deleted(contact.displayName || primaryEmail || 'Unknown'),
-        };
-      },
-    }),
+    // ========================================================================
+    // DEPRECATED TOOLS - Now consolidated into manage_contact
+    // ========================================================================
+    // - get_contact → manage_contact(action='get')
+    // - create_contact → manage_contact(action='create')
+    // - update_contact → manage_contact(action='update')
+    // - delete_contact → manage_contact(action='delete')
   ];
 }

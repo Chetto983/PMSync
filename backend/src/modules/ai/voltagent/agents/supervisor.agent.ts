@@ -15,15 +15,13 @@ import { EmbeddingsService } from '../../services/embeddings.service';
 import { CacheService } from '../../../../common/services/cache.service';
 import { DocumentLibraryService } from '../services/document-library.service';
 import { getAgentTranslations, type SupportedLocale } from '../locales';
-import { createCalendarAgent } from './calendar.agent';
-import { createContactsAgent } from './contacts.agent';
-import { createEmailAgent } from './email.agent';
-import { createGeneralAgent } from './general.agent';
-import { createKnowledgeAgent } from './knowledge.agent';
+// Phase 3: Consolidated agents (10 → 3)
+import { createActionsAgent } from './actions.agent';
+import { createIntelligenceAgent } from './intelligence.agent';
+// Optional lazy-loaded agents (kept for specialized use cases)
 import { createWebSearchAgent } from './websearch.agent';
 import { createDocumentLibraryAgent } from './document-library.agent';
 import { createAnalyticsAgent } from './analytics.agent';
-// createUnifiedKnowledgeAgent, LongTermMemoryService, DeadlineExtractorService, ActionItemService removed - AI refactor v2.0
 import type { FollowUpService } from '../services/follow-up.service';
 
 export interface SupervisorAgentOptions {
@@ -281,59 +279,40 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
   // Build dynamic instructions with user context + locale for response language
   const dynamicInstructions = buildDynamicInstructions(t.supervisor.instructions, userContext, locale);
 
-  // Create all specialist agents with shared hooks for per-agent metrics
-  // Pass cacheService for Redis-based metadata caching (multi-instance support)
-  const emailAgent = createEmailAgent({
+  // Phase 3: Consolidated agents (10 → 3)
+  // ActionsAgent handles ALL WRITE operations (send, reply, delete, create, update)
+  // IntelligenceAgent handles ALL READ and ANALYSIS operations (search, list, analyze)
+  // Optional lazy-loaded agents kept for specialized use cases
+
+  // ActionsAgent - consolidated WRITE operations with HITL approval
+  const actionsAgent = createActionsAgent({
     model,
     prisma,
     emailSendService,
-    mistral: mistralService,
-    embeddingsService,  // Enable semantic email search via RAG
-    cacheService,
-    locale,
-    tenantId,
-    userId,
-    hooks,
-  });
-
-  const calendarAgent = createCalendarAgent({
-    model,
-    prisma,
     calendarService,
     cacheService,
     locale,
     tenantId,
     hooks,
+    memory,  // FIX Bug #2: Pass memory for conversation persistence
   });
 
-  const contactsAgent = createContactsAgent({
+  // IntelligenceAgent - consolidated READ and ANALYSIS operations
+  const intelligenceAgent = createIntelligenceAgent({
     model,
     prisma,
+    mistral: mistralService ?? null,
+    embeddingsService: embeddingsService ?? null,
     cacheService,
     locale,
     tenantId,
+    userId,
     hooks,
+    memory,  // FIX Bug #2: Pass memory for conversation persistence
   });
 
-  // Knowledge agent with optional RAG services for HybridRetriever
-  const knowledgeAgent = createKnowledgeAgent({
-    model,
-    prisma,
-    locale,
-    tenantId,
-    hooks,
-    mistralService,
-    embeddingsService,
-  });
-
-  const generalAgent = createGeneralAgent({
-    model,
-    locale,
-    hooks,
-  });
-
-  // Web Search agent - only create if configService is provided
-  const subAgents = [emailAgent, calendarAgent, contactsAgent, knowledgeAgent, generalAgent];
+  // Start with core consolidated agents
+  const subAgents = [actionsAgent, intelligenceAgent];
 
   if (configService) {
     const webSearchAgent = createWebSearchAgent({
@@ -344,9 +323,9 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
       userId,
       hooks,
       cacheService,
+      memory,  // FIX: Pass memory for conversation persistence
     });
     subAgents.push(webSearchAgent);
-
   }
 
   // Document Library agent - only create if documentLibraryService is provided
@@ -358,6 +337,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
       tenantId,
       userId,
       hooks,
+      memory,  // FIX: Pass memory for conversation persistence
     });
     subAgents.push(documentLibraryAgent);
   }
@@ -372,6 +352,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
       userId,
       hooks,
       cacheService,
+      memory,  // FIX: Pass memory for conversation persistence
     });
     subAgents.push(analyticsAgent);
   }

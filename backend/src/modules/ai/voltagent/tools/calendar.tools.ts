@@ -101,7 +101,9 @@ export function createCalendarTools(
     });
 
   return [
-    // ========== GET EVENTS ==========
+    // ========================================================================
+    // TOOL #1: get_events (read-only, kept as-is)
+    // ========================================================================
     createTool({
       name: 'get_events',
       description:
@@ -152,148 +154,163 @@ export function createCalendarTools(
       },
     }),
 
-    // ========== CREATE EVENT ==========
+    // ========================================================================
+    // CONSOLIDATED TOOL #2: manage_event
+    // Combines: create_event, update_event, delete_event, check_availability
+    // Create/update/delete require HITL approval
+    // ========================================================================
     createTool({
-      name: 'create_event',
-      description:
-        'Create a new calendar event. Use when user wants to schedule a meeting, appointment, or reminder.',
+      name: 'manage_event',
+      description: `Manage calendar events. CONSOLIDATED TOOL - handles create, update, delete, and check availability.
+
+Actions:
+- "create": Create new event (requires title, startTime, endTime)
+- "update": Update event (requires eventId; optional fields to update)
+- "delete": Delete event (requires eventId)
+- "check_availability": Check if time slot is free (requires startTime, endTime)
+
+Create/update/delete require user approval (HITL). Check_availability is read-only.`,
       parameters: z.object({
-        title: z.string().describe('Event title'),
-        startTime: z.string().describe('Start time in ISO format'),
-        endTime: z.string().describe('End time in ISO format'),
+        action: z.enum(['create', 'update', 'delete', 'check_availability']).describe('Action to perform'),
+        eventId: z.string().optional().describe('Event ID (for update/delete)'),
+        // Event params
+        title: z.string().optional().describe('Event title'),
+        startTime: z.string().optional().describe('Start time in ISO format'),
+        endTime: z.string().optional().describe('End time in ISO format'),
         description: z.string().optional().describe('Event description'),
         location: z.string().optional().describe('Event location'),
         attendees: z.array(z.string()).optional().describe('Email addresses of attendees'),
         isAllDay: z.boolean().optional().describe('All-day event'),
       }),
-      execute: async ({ title, startTime, endTime, description, location, attendees, isAllDay }) => {
-        if (!calendarService) {
-          return { success: false, error: t.calendar.serviceUnavailable };
-        }
+      execute: async (params) => {
+        const { action, eventId, title, startTime, endTime, description, location, attendees, isAllDay } = params;
 
-        return {
-          success: true,
-          requiresApproval: true,
-          actionType: 'CREATE_EVENT',
-          severity: 'MEDIUM',
-          payload: { title, startTime, endTime, description, location, attendees, isAllDay: isAllDay ?? false },
-          summary: t.calendar.eventCreated(title, formatDate(new Date(startTime))),
-        };
-      },
-    }),
+        switch (action) {
+          case 'create': {
+            if (!calendarService) {
+              return { success: false, error: t.calendar.serviceUnavailable };
+            }
 
-    // ========== UPDATE EVENT ==========
-    createTool({
-      name: 'update_event',
-      description: 'Update an existing calendar event.',
-      parameters: z.object({
-        eventId: z.string().describe('ID of the event to update'),
-        title: z.string().optional().describe('New title'),
-        startTime: z.string().optional().describe('New start time'),
-        endTime: z.string().optional().describe('New end time'),
-        description: z.string().optional().describe('New description'),
-        location: z.string().optional().describe('New location'),
-      }),
-      execute: async ({ eventId, title, startTime, endTime, description, location }) => {
-        if (!calendarService) {
-          return { success: false, error: t.calendar.serviceUnavailable };
-        }
+            if (!title || !startTime || !endTime) {
+              return { success: false, error: 'create requires title, startTime, and endTime' };
+            }
 
-        const event = await getEventMetadata(prisma, tenantId, eventId, cacheService);
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'CREATE_EVENT',
+              severity: 'MEDIUM',
+              payload: { title, startTime, endTime, description, location, attendees, isAllDay: isAllDay ?? false },
+              summary: t.calendar.eventCreated(title, formatDate(new Date(startTime))),
+            };
+          }
 
-        if (!event) {
-          return { success: false, error: t.calendar.notFound };
-        }
+          case 'update': {
+            if (!calendarService) {
+              return { success: false, error: t.calendar.serviceUnavailable };
+            }
 
-        return {
-          success: true,
-          requiresApproval: true,
-          actionType: 'UPDATE_EVENT',
-          severity: 'MEDIUM',
-          payload: { eventId, title, startTime, endTime, description, location },
-          summary: t.calendar.eventUpdated(event.title),
-        };
-      },
-    }),
+            if (!eventId) {
+              return { success: false, error: 'update requires eventId' };
+            }
 
-    // ========== DELETE EVENT ==========
-    createTool({
-      name: 'delete_event',
-      description: 'Delete a calendar event.',
-      parameters: z.object({
-        eventId: z.string().describe('ID of the event to delete'),
-      }),
-      execute: async ({ eventId }) => {
-        if (!calendarService) {
-          return { success: false, error: t.calendar.serviceUnavailable };
-        }
+            const event = await getEventMetadata(prisma, tenantId, eventId, cacheService);
+            if (!event) {
+              return { success: false, error: t.calendar.notFound };
+            }
 
-        const event = await getEventMetadata(prisma, tenantId, eventId, cacheService);
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'UPDATE_EVENT',
+              severity: 'MEDIUM',
+              payload: { eventId, title, startTime, endTime, description, location },
+              summary: t.calendar.eventUpdated(event.title),
+            };
+          }
 
-        if (!event) {
-          return { success: false, error: t.calendar.notFound };
-        }
+          case 'delete': {
+            if (!calendarService) {
+              return { success: false, error: t.calendar.serviceUnavailable };
+            }
 
-        return {
-          success: true,
-          requiresApproval: true,
-          actionType: 'DELETE_EVENT',
-          severity: 'HIGH',
-          payload: { eventId },
-          summary: t.calendar.eventDeleted(event.title),
-        };
-      },
-    }),
+            if (!eventId) {
+              return { success: false, error: 'delete requires eventId' };
+            }
 
-    // ========== CHECK AVAILABILITY ==========
-    createTool({
-      name: 'check_availability',
-      description: 'Check if a time slot is available (no conflicting events).',
-      parameters: z.object({
-        startTime: z.string().describe('Start time to check'),
-        endTime: z.string().describe('End time to check'),
-      }),
-      execute: async ({ startTime, endTime }) => {
-        const conflictingEvents = await prisma.calendarEvent.findMany({
-          where: {
-            tenantId,
-            isDeleted: false,
-            isCancelled: false,
-            OR: [
-              {
-                startTime: { lte: new Date(startTime) },
-                endTime: { gt: new Date(startTime) },
+            const event = await getEventMetadata(prisma, tenantId, eventId, cacheService);
+            if (!event) {
+              return { success: false, error: t.calendar.notFound };
+            }
+
+            return {
+              success: true,
+              requiresApproval: true,
+              actionType: 'DELETE_EVENT',
+              severity: 'HIGH',
+              payload: { eventId },
+              summary: t.calendar.eventDeleted(event.title),
+            };
+          }
+
+          case 'check_availability': {
+            if (!startTime || !endTime) {
+              return { success: false, error: 'check_availability requires startTime and endTime' };
+            }
+
+            const conflictingEvents = await prisma.calendarEvent.findMany({
+              where: {
+                tenantId,
+                isDeleted: false,
+                isCancelled: false,
+                OR: [
+                  {
+                    startTime: { lte: new Date(startTime) },
+                    endTime: { gt: new Date(startTime) },
+                  },
+                  {
+                    startTime: { lt: new Date(endTime) },
+                    endTime: { gte: new Date(endTime) },
+                  },
+                  {
+                    startTime: { gte: new Date(startTime) },
+                    endTime: { lte: new Date(endTime) },
+                  },
+                ],
               },
-              {
-                startTime: { lt: new Date(endTime) },
-                endTime: { gte: new Date(endTime) },
-              },
-              {
-                startTime: { gte: new Date(startTime) },
-                endTime: { lte: new Date(endTime) },
-              },
-            ],
-          },
-          select: { title: true, startTime: true, endTime: true },
-        });
+              select: { title: true, startTime: true, endTime: true },
+            });
 
-        const isAvailable = conflictingEvents.length === 0;
+            const isAvailable = conflictingEvents.length === 0;
 
-        return {
-          success: true,
-          data: {
-            isAvailable,
-            conflictingEvents: conflictingEvents.map((e) => ({
-              title: e.title,
-              startTime: e.startTime.toISOString(),
-              endTime: e.endTime.toISOString(),
-            })),
-          },
-          summary: isAvailable
-            ? t.calendar.slotAvailable
-            : t.calendar.slotConflict(conflictingEvents.length),
-        };
+            return {
+              success: true,
+              data: {
+                isAvailable,
+                conflictingEvents: conflictingEvents.map((e) => ({
+                  title: e.title,
+                  startTime: e.startTime.toISOString(),
+                  endTime: e.endTime.toISOString(),
+                })),
+              },
+              summary: isAvailable
+                ? t.calendar.slotAvailable
+                : t.calendar.slotConflict(conflictingEvents.length),
+            };
+          }
+
+          default:
+            return { success: false, error: `Unknown action: ${action}` };
+        }
       },
     }),
+
+    // ========================================================================
+    // DEPRECATED TOOLS - Now consolidated into manage_event
+    // ========================================================================
+    // - create_event → manage_event(action='create')
+    // - update_event → manage_event(action='update')
+    // - delete_event → manage_event(action='delete')
+    // - check_availability → manage_event(action='check_availability')
   ];
 }

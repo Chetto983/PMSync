@@ -229,4 +229,10 @@ export const it: VoltAgentTranslations = {
       /settimanale|mensile|giornaliero|annuale/i,
     ],
   },
+  followUp: {
+    // Semantic query for RAG - Italian intent patterns
+    ragQuery: 'in attesa di risposta, azione richiesta, per favore rispondi, follow up necessario, scadenza in avvicinamento, fammi sapere, conferma ricezione, ho bisogno del tuo input, risposta pendente, attendo conferma, richiesta di azione, aspetto riscontro',
+    highConfidenceReason: 'Rilevato tramite ricerca semantica (alta confidenza)',
+    verifiedReason: 'Verificato dall\'analisi AI',
+  },
 };

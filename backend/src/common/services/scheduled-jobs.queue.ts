@@ -102,7 +102,24 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy,
       },
     });
 
-    // Create worker to process scheduled jobs
+    // NOTE: Worker is created in onApplicationBootstrap() to ensure all handlers
+    // are registered first. This fixes race condition where jobs process before
+    // services register their handlers.
+
+    this.isInitialized = true;
+    this.logger.log('ScheduledJobsQueueService queue initialized (worker starts after all handlers registered)');
+  }
+
+  async onApplicationBootstrap() {
+    const jobsEnabled = (process.env.JOBS_ENABLED || 'true').toLowerCase() !== 'false';
+    if (!jobsEnabled) {
+      this.logger.warn('Scheduled jobs disabled via JOBS_ENABLED=false');
+      return;
+    }
+
+    // Create worker AFTER all modules have initialized (handlers registered)
+    // This fixes race condition where jobs were processed before handlers existed
+    const redisOptions = getRedisConnectionOptions();
     this.worker = new Worker<ScheduledJobData>(
       QUEUE_NAMES.SYNC_SCHEDULER,
       async (job) => this.processJob(job),
@@ -124,16 +141,7 @@ export class ScheduledJobsQueueService implements OnModuleInit, OnModuleDestroy,
       this.logger.debug(`Scheduled job ${job.data.jobType} completed`);
     });
 
-    this.isInitialized = true;
-    this.logger.log('ScheduledJobsQueueService initialized');
-  }
-
-  async onApplicationBootstrap() {
-    const jobsEnabled = (process.env.JOBS_ENABLED || 'true').toLowerCase() !== 'false';
-    if (!jobsEnabled) {
-      this.logger.warn('Scheduled jobs disabled via JOBS_ENABLED=false');
-      return;
-    }
+    this.logger.log(`Worker started with ${this.handlers.size} registered handlers`);
 
     try {
       await this.initializeRepeatableJobs();

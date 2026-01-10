@@ -83,7 +83,8 @@ export class MistralService {
   }
 
   private getModel(): string {
-    return this.configService.get<string>('MISTRAL_MODEL') || process.env.MISTRAL_MODEL || this.defaultModel;
+    // Use AI_DEFAULT_MODEL (MISTRAL_MODEL was dead code and has been removed)
+    return this.configService.get<string>('AI_DEFAULT_MODEL') || this.defaultModel;
   }
 
   getEmbeddingModel(): string {
