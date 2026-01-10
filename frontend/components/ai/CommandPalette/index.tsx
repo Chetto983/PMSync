@@ -22,16 +22,16 @@ import {
   BarChart3,
   LogOut,
   Wand2,
-  Archive,
-  Star,
-  Trash2,
   User,
   Loader2,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { createLogger } from '@/lib/logger';
 import { emailsApi } from '@/lib/api/emails';
 import { contactsApi } from '@/lib/api/contacts';
+
+const logger = createLogger('CommandPalette');
 
 interface CommandItem {
   id: string;
@@ -91,10 +91,10 @@ export function CommandPalette() {
         const results: SearchResult[] = [];
 
         // Search emails
-        const emailResponse = await emailsApi.list({ search: debouncedSearch, limit: 5 });
-        if (emailResponse.data?.emails) {
+        const emails = await emailsApi.searchEmails(debouncedSearch, 5);
+        if (emails.length > 0) {
           results.push(
-            ...emailResponse.data.emails.map((email) => ({
+            ...emails.map((email) => ({
               id: `email-${email.id}`,
               type: 'email' as const,
               title: email.subject || '(No subject)',
@@ -106,14 +106,14 @@ export function CommandPalette() {
         }
 
         // Search contacts
-        const contactResponse = await contactsApi.list({ search: debouncedSearch, limit: 5 });
-        if (contactResponse.data?.contacts) {
+        const contactResponse = await contactsApi.listContacts({ search: debouncedSearch, limit: 5 });
+        if (contactResponse.contacts.length > 0) {
           results.push(
-            ...contactResponse.data.contacts.map((contact) => ({
+            ...contactResponse.contacts.map((contact) => ({
               id: `contact-${contact.id}`,
               type: 'contact' as const,
-              title: contact.name || contact.email,
-              subtitle: contact.company || contact.email,
+              title: contact.displayName || contact.emails?.[0]?.value || 'Unknown',
+              subtitle: contact.company || contact.emails?.[0]?.value || '',
               icon: User,
               action: () => router.push(`/dashboard/contacts?id=${contact.id}`),
             })),
@@ -122,7 +122,7 @@ export function CommandPalette() {
 
         setSearchResults(results);
       } catch (error) {
-        console.error('Search failed:', error);
+        logger.error('Search failed', error instanceof Error ? error : { error });
       } finally {
         setIsSearching(false);
       }
@@ -177,7 +177,7 @@ export function CommandPalette() {
     },
     {
       id: 'ai',
-      name: t.commandPalette.commands.goToAI,
+      name: t.commandPalette.commands.goToAiAssistant,
       shortcut: '⌘5',
       icon: Sparkles,
       action: () => router.push('/dashboard/ai'),
@@ -214,7 +214,7 @@ export function CommandPalette() {
     },
     {
       id: 'search',
-      name: t.commandPalette.commands.searchAll,
+      name: t.commandPalette.commands.searchEmails,
       shortcut: '/',
       icon: Search,
       action: () => router.push('/dashboard/email?focus=search'),
@@ -367,7 +367,7 @@ export function CommandPalette() {
             {isSearching && (
               <div className="flex items-center justify-center py-8 text-gray-500">
                 <Loader2 size={20} className="animate-spin mr-2" />
-                {t.common.searching || 'Searching...'}
+                Searching...
               </div>
             )}
 
@@ -381,7 +381,7 @@ export function CommandPalette() {
             {hasSearchResults && !isSearching && (
               <Command.Group heading="Search Results" className="mb-2">
                 <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  {t.common.searchResults || 'Search Results'}
+                  Search Results
                 </div>
                 {searchResults.map((result) => (
                   <Command.Item
