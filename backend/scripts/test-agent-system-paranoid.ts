@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * 🔴 PARANOID Agent System Validation Test
  *
@@ -12,13 +13,14 @@
  * - A test tenant with data
  */
 
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import dotenv from 'dotenv';
-import path from 'path';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { performance } from 'perf_hooks';
 
-// Load env
-dotenv.config({ path: path.join(__dirname, '../.env') });
+// Create Prisma client with pg adapter
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter }) as unknown as PrismaClient;
 
 // ============================================================
 // CONFIGURATION - CYNICAL DEFAULTS
@@ -133,7 +135,7 @@ async function getTestData(prisma: PrismaClient, tenantId: string) {
   // Get a real contact
   const contact = await prisma.contact.findFirst({
     where: { tenantId },
-    select: { id: true, displayName: true, primaryEmail: true, tenantId: true },
+    select: { id: true, displayName: true, emails: true, tenantId: true },
   });
 
   // Get a real folder
@@ -512,8 +514,8 @@ async function testConversationPersistence(ctx: TestContext): Promise<Conversati
         orderBy: { createdAt: 'desc' },
       });
 
-      const pending = actions.filter((a) => a.status === 'PENDING').length;
-      const completed = actions.filter((a) => a.status === 'COMPLETED').length;
+      const pending = actions.filter((a) => a.status === 'PENDING_APPROVAL').length;
+      const completed = actions.filter((a) => a.status === 'EXECUTED').length;
 
       return {
         testName: 'Action Queue check',
@@ -576,7 +578,7 @@ async function measurePerformance(ctx: TestContext): Promise<PerformanceMetrics>
 
   // Count pending actions
   const actionQueuePending = await prisma.actionQueue.count({
-    where: { tenantId, status: 'PENDING' },
+    where: { tenantId, status: 'PENDING_APPROVAL' },
   });
 
   // Count pending follow-ups
@@ -602,8 +604,6 @@ async function main() {
   console.log(colorize('  🔴 PARANOID Agent System Validation Test', 'cyan'));
   console.log(colorize('  Testing ALL tools with REAL data + ENV audit', 'cyan'));
   console.log('='.repeat(70) + '\n');
-
-  const prisma = new PrismaClient();
 
   try {
     // 1. ENV AUDIT

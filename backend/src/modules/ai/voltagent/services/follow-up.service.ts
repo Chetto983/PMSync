@@ -1017,7 +1017,7 @@ Return JSON ONLY:
         // Check if this is a sent email (from user)
         const fromLower = email.from?.toLowerCase() || '';
         const isSentByUser = Array.from(userEmails).some((userEmail) =>
-          fromLower.includes(userEmail as string),
+          fromLower.includes(userEmail),
         );
 
         if (!isSentByUser) {
