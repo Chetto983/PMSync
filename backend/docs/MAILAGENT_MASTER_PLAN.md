@@ -4,7 +4,7 @@
 
 **User Decision:** ALL optimization tasks in steps
 
-### ✅ COMPLETED (Phase 1 + Phase 2 + Phase 3)
+### ✅ COMPLETED (Phase 1 + Phase 2 + Phase 3 + Part A)
 | Task | Status | Commit |
 |------|--------|--------|
 | Citus Docker Image | ✅ `mailagent-postgres:citus-pgvector` | a942b86 |
@@ -20,6 +20,7 @@
 | **Lint Cleanup** | ✅ 4 warnings fixed + ESLint config updated | 2026-01-09 |
 | **RAG for search_emails** | ✅ Already uses UnifiedRetriever | 2026-01-09 |
 | **Follow-up RAG Detection** | ✅ `scanEmailsForFollowUps()` implemented | 2026-01-09 |
+| **Tool Consolidation (Part A)** | ✅ **44 → 17 tools (61% reduction)** | 2026-01-10 |
 
 ### ✅ COMPLETED P1 (RAG Optimization)
 | Task | Time | Status |
@@ -27,27 +28,61 @@
 | RAG for `search_emails` tool | 0h | ✅ Already implemented with UnifiedRetriever |
 | Follow-up detection via RAG | 2h | ✅ `scanEmailsForFollowUps()` uses RAG + LLM |
 
-### 🔴 IN PROGRESS P2: VoltAgent Consolidation (2026-01-09)
+### ✅ COMPLETED P2: VoltAgent Tool Consolidation (2026-01-10)
 
 ## AUDIT SUMMARY: Tool + Agent + Memory Consolidation
 
-### Current State
+### Current State (Updated 2026-01-10)
 | Category | Count | Issues |
 |----------|-------|--------|
-| **Tools** | 44 | Redundant analysis tools, duplicated CRUD patterns |
+| **Tools** | **17** ✅ | Consolidated from 44 (61% reduction) |
 | **Agents** | 10 | Sub-agents don't share memory, too many specialists |
 | **Memory Bugs** | 6 | Context loss during delegation, race conditions |
 | **Embedding Rate** | 🚨 | `EMBEDDING_RATE_MAX=25` violates Mistral 6 RPS by 4.2x |
 
 ---
 
-## PART A: Tool Consolidation (44 → 17)
+## ✅ PART A: Tool Consolidation (44 → 17) - COMPLETED 2026-01-10
 
-### A.1 Current Tool Inventory
+### A.1 Final Tool Inventory
 
-| File | Tools | Target |
-|------|-------|--------|
-| `email.tools.ts` | 18 | 5 |
+| File | Before | After | Status |
+|------|--------|-------|--------|
+| `email.tools.ts` | 14 | 5 | ✅ DONE |
+| `insights.tools.ts` | 10 | 3 | ✅ DONE |
+| `folder.tools.ts` | 5 | 2 | ✅ DONE |
+| `contacts.tools.ts` | 5 | 2 | ✅ DONE |
+| `calendar.tools.ts` | 5 | 2 | ✅ DONE |
+| `document-library.tools.ts` | 3 | 1 | ✅ DONE |
+| `web-search.tools.ts` | 1 | 1 | ✅ Unchanged |
+| `analytics.tools.ts` | 1 | 1 | ✅ Unchanged |
+| **TOTAL** | **44** | **17** | **✅ 61% reduction** |
+
+### A.1.1 Consolidated Tools Summary
+
+| Tool | Actions | File |
+|------|---------|------|
+| `analyze_email` | summary, sentiment, intent, priority, actions, labels | insights.tools.ts |
+| `compose_reply` | mode='full' \| 'suggestions' | insights.tools.ts |
+| `semantic_search_emails` | RAG-based search | insights.tools.ts |
+| `list_emails` | mode='accounts' \| 'unread' \| 'content' | email.tools.ts |
+| `manage_email` | send, reply, forward, delete, archive, mark_read, mark_unread, star, unstar | email.tools.ts |
+| `search_emails` | Hybrid RAG + Prisma | email.tools.ts |
+| `count_emails` | Flexible period parsing | email.tools.ts |
+| `bulk_email_actions` | delete, empty_folder, archive, mark_read | email.tools.ts |
+| `list_folders` | Read-only | folder.tools.ts |
+| `manage_folder` | create, rename, delete, move_email | folder.tools.ts |
+| `search_contacts` | Read-only search | contacts.tools.ts |
+| `manage_contact` | get, create, update, delete | contacts.tools.ts |
+| `get_events` | Read-only | calendar.tools.ts |
+| `manage_event` | create, update, delete, check_availability | calendar.tools.ts |
+| `manage_document_library` | query, list, create | document-library.tools.ts |
+| `web_search` | Unchanged | web-search.tools.ts |
+| `analyze_data` | Unchanged | analytics.tools.ts |
+
+### A.2 Original Consolidation Map (Reference)
+
+#### insights.tools.ts (10 → 3)
 | `insights.tools.ts` | 10 | 3 |
 | `folder.tools.ts` | 5 | 2 |
 | `contacts.tools.ts` | 5 | 2 |
