@@ -352,6 +352,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
       hooks,
       cacheService,
       memory,  // FIX: Pass memory for conversation persistence
+      prisma,  // Required for persistent Mistral agent storage
     });
     subAgents.push(webSearchAgent);
   }
@@ -381,6 +382,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
       hooks,
       cacheService,
       memory,  // FIX: Pass memory for conversation persistence
+      prisma,  // Required for persistent Mistral agent storage
     });
     subAgents.push(analyticsAgent);
   }

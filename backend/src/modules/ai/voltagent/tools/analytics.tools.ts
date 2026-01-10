@@ -21,9 +21,11 @@ import { z } from 'zod';
 import { Mistral } from '@mistralai/mistralai';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { AiError, AiErrorCode } from '../../errors';
+import { MistralAgentType } from './agent-types';
 
 const logger = new Logger('AnalyticsTools');
 
@@ -55,6 +57,8 @@ export interface AnalyticsToolOptions {
   userId?: string;
   /** Optional: CacheService for Redis-based caching (multi-instance support) */
   cacheService?: CacheService;
+  /** Required: PrismaClient for persistent agent storage */
+  prisma: PrismaClient;
 }
 
 // =============================================================================
@@ -63,8 +67,6 @@ export interface AnalyticsToolOptions {
 
 /** TTL for analytics results: 30 minutes */
 const ANALYTICS_CACHE_TTL_SEC = 30 * 60;
-/** TTL for Mistral agents: 1 hour */
-const AGENT_TTL_SEC = 60 * 60;
 
 // =============================================================================
 // Caching (Redis + memory fallback)
@@ -191,39 +193,77 @@ function createMistralClient(configService: ConfigService): Mistral {
 }
 
 /**
+ * Verify an agent still exists in Mistral.
+ * Returns true if valid, false if not found or error.
+ */
+async function verifyAgentExists(client: Mistral, agentId: string): Promise<boolean> {
+  try {
+    await client.beta.agents.get({ agentId });
+    return true;
+  } catch (error) {
+    // Agent doesn't exist (404) or other error - need to create new
+    logger.debug(`Agent ${agentId} no longer exists in Mistral, will create new`);
+    return false;
+  }
+}
+
+/**
  * Get or create a reusable Mistral analytics agent for the given locale and tenant.
- * Agents are cached for 1 hour (Redis + memory fallback) to avoid creation overhead.
+ * Agents are PERSISTED in PostgreSQL (survives restarts) with verification.
  * GDPR: Agents are isolated per tenant to prevent cross-tenant context leakage.
+ *
+ * Storage hierarchy:
+ * 1. PostgreSQL (primary, persistent) - survives restarts
+ * 2. Memory cache (fast, per-instance) - avoids DB query on hot path
+ *
+ * IMPORTANT: This function VERIFIES cached agents still exist in Mistral before reusing.
+ * This prevents orphaned agent IDs and unnecessary agent creation.
  */
 async function getOrCreateAnalyticsAgent(
   client: Mistral,
   locale: SupportedLocale,
   tenantId: string,
   configService: ConfigService,
-  cacheService?: CacheService,
+  prisma: PrismaClient,
 ): Promise<string> {
   const cacheKey = buildAgentPoolKey(locale, tenantId);
-  const now = Date.now();
+  const agentType = MistralAgentType.ANALYTICS;
 
-  // Try Redis first
-  if (cacheService?.isHealthy()) {
-    const cached = await cacheService.get<{ agentId: string }>(cacheKey, {
-      namespace: CacheNamespace.AI_ANALYTICS,
-    });
-    if (cached) {
-      logger.debug(`Redis cache hit for analytics agent: ${locale}:${tenantId}`);
-      return cached.agentId;
-    }
-  }
-
-  // Try memory fallback
+  // 1. Check memory cache first (fast path)
   const memCached = fallbackAgentPool.get(cacheKey);
-  if (memCached && now - memCached.createdAt < AGENT_TTL_SEC * 1000) {
-    logger.debug(`Memory cache hit for analytics agent: ${locale}:${tenantId}`);
-    return memCached.agentId;
+  if (memCached) {
+    const exists = await verifyAgentExists(client, memCached.agentId);
+    if (exists) {
+      logger.debug(`Reusing memory-cached analytics agent: ${memCached.agentId}`);
+      return memCached.agentId;
+    }
+    // Agent gone from Mistral, clear memory cache
+    fallbackAgentPool.delete(cacheKey);
   }
 
-  // Create new agent
+  // 2. Check PostgreSQL (persistent storage)
+  const dbAgent = await prisma.mistralAgent.findUnique({
+    where: {
+      tenantId_agentType_locale: { tenantId, agentType, locale },
+    },
+  });
+
+  if (dbAgent) {
+    const exists = await verifyAgentExists(client, dbAgent.agentId);
+    if (exists) {
+      logger.debug(`Reusing DB-stored analytics agent: ${dbAgent.agentId} for ${locale}:${tenantId}`);
+      // Update memory cache
+      fallbackAgentPool.set(cacheKey, { agentId: dbAgent.agentId, createdAt: Date.now() });
+      return dbAgent.agentId;
+    }
+    // Agent gone from Mistral, delete from DB
+    logger.warn(`DB agent ${dbAgent.agentId} no longer exists in Mistral, deleting record`);
+    await prisma.mistralAgent.delete({
+      where: { id: dbAgent.id },
+    });
+  }
+
+  // 3. Create new agent in Mistral
   logger.log(`Creating new analytics agent for locale: ${locale}, tenant: ${tenantId}`);
   const startTime = Date.now();
 
@@ -234,19 +274,38 @@ async function getOrCreateAnalyticsAgent(
     model,
     name: `MailAgent Analytics (${locale})`,
     description: 'Agent for data analysis and visualization generation',
-    instructions: `You are a data analytics assistant. When asked to analyze data:
-1. Use the code_interpreter tool to write and execute Python code
-2. Use pandas for data manipulation and matplotlib/seaborn for visualizations
-3. Generate clear, actionable insights from the data
-4. Create visualizations when helpful (charts, graphs)
-5. Respond in ${locale === 'it' ? 'Italian' : 'English'}
+    instructions: `You are a data analytics specialist for MailAgent, an AI-powered email management application.
 
-For visualizations:
-- Use clear labels and titles
-- Choose appropriate chart types for the data
+<DATA_SCHEMA>
+Available email metrics:
+- Volume: emails sent/received by day/week/month
+- Response times: average time to reply to emails
+- Sender/recipient frequency: top contacts by volume
+- Label distribution: email categorization breakdown
+- Thread analysis: conversation length and patterns
+- Follow-up tracking: pending, resolved, expired rates
+- AI usage: compose, summarize, smart-reply statistics
+</DATA_SCHEMA>
+
+<ANALYSIS_GUIDELINES>
+1. Use code_interpreter to execute Python (pandas, matplotlib/seaborn)
+2. Focus on ACTIONABLE insights, not just statistics
+3. Compare current period vs previous for trends
+4. Highlight anomalies (unusual spikes, drops, patterns)
+5. Suggest productivity improvements based on data
+</ANALYSIS_GUIDELINES>
+
+<OUTPUT_FORMAT>
+- Tables: For comparison and ranking data
+- Line charts: For trends over time
+- Bar charts: For categorical comparisons
+- Pie charts: For distribution breakdowns
+- Numbers with context: "25% increase vs last week"
 - Save figures as PNG for display
+- Respond in ${locale === 'it' ? 'Italian' : 'English'}
+</OUTPUT_FORMAT>
 
-Always provide both numerical analysis and insights in natural language.`,
+Always provide both numerical analysis and natural language insights.`,
     tools: [{ type: 'code_interpreter' }],
     completionArgs: {
       temperature: 0.2,
@@ -255,21 +314,29 @@ Always provide both numerical analysis and insights in natural language.`,
   });
 
   const createTime = Date.now() - startTime;
-  logger.log(`Analytics agent created in ${createTime}ms for locale: ${locale}`);
+  logger.log(`Analytics agent created in ${createTime}ms: ${agent.id} for locale: ${locale}`);
 
-  // Cache in Redis
-  if (cacheService?.isHealthy()) {
-    await cacheService.set(cacheKey, { agentId: agent.id }, {
-      ttl: AGENT_TTL_SEC,
-      namespace: CacheNamespace.AI_ANALYTICS,
-    });
-  }
-
-  // Cache in memory fallback
-  fallbackAgentPool.set(cacheKey, {
-    agentId: agent.id,
-    createdAt: now,
+  // 4. Save to PostgreSQL (persistent) with upsert for safety
+  await prisma.mistralAgent.upsert({
+    where: {
+      tenantId_agentType_locale: { tenantId, agentType, locale },
+    },
+    update: {
+      agentId: agent.id,
+      model,
+      updatedAt: new Date(),
+    },
+    create: {
+      tenantId,
+      agentType,
+      locale,
+      agentId: agent.id,
+      model,
+    },
   });
+
+  // 5. Update memory cache
+  fallbackAgentPool.set(cacheKey, { agentId: agent.id, createdAt: Date.now() });
 
   return agent.id;
 }
@@ -299,7 +366,7 @@ async function clearAgentFromCache(
  *
  * Uses a pooled Mistral agent with code_interpreter tool for data analysis.
  * Agents are reused across requests for performance.
- * GDPR: Agent pool is tenant-isolated.
+ * GDPR: Agent pool is tenant-isolated and agents are deleted on subscription cancellation.
  */
 async function executeAnalytics(
   client: Mistral,
@@ -308,11 +375,12 @@ async function executeAnalytics(
   locale: SupportedLocale,
   tenantId: string,
   configService: ConfigService,
+  prisma: PrismaClient,
   cacheService?: CacheService,
 ): Promise<AnalyticsResult> {
   try {
-    // Get or create reusable agent (cached for 1 hour, tenant-isolated)
-    const agentId = await getOrCreateAnalyticsAgent(client, locale, tenantId, configService, cacheService);
+    // Get or create reusable agent (persisted in PostgreSQL, tenant-isolated)
+    const agentId = await getOrCreateAnalyticsAgent(client, locale, tenantId, configService, prisma);
 
     // Build prompt with data context
     const dataContext = JSON.stringify(data, null, 2);
@@ -437,7 +505,7 @@ function parseAnalyticsResponse(response: unknown): AnalyticsResult {
  * Enables data analysis using Mistral's Agents API with code_interpreter.
  */
 export function createAnalyticsTool(options: AnalyticsToolOptions) {
-  const { configService, locale, tenantId, cacheService } = options;
+  const { configService, locale, tenantId, cacheService, prisma } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -472,8 +540,8 @@ export function createAnalyticsTool(options: AnalyticsToolOptions) {
 
       try {
         const client = createMistralClient(configService);
-        // GDPR: Pass tenantId for agent pool isolation
-        const result = await executeAnalytics(client, query, analysisData, locale, tenantId, configService, cacheService);
+        // GDPR: Pass tenantId for agent pool isolation, prisma for persistent storage
+        const result = await executeAnalytics(client, query, analysisData, locale, tenantId, configService, prisma, cacheService);
 
         // Cache successful result (Redis + memory) - GDPR: tenant isolated
         await setCachedAnalytics(tenantId, query, dataHash, result, cacheService);
@@ -517,4 +585,59 @@ export function clearAnalyticsCache(): void {
  */
 export function clearAnalyticsAgentPool(): void {
   fallbackAgentPool.clear();
+}
+
+/**
+ * GDPR: Delete all Mistral analytics agents for a tenant
+ * Call this when subscription is cancelled or tenant is deleted.
+ * This deletes agents from both Mistral API and PostgreSQL.
+ */
+export async function deleteTenantAnalyticsAgents(
+  tenantId: string,
+  configService: ConfigService,
+  prisma: PrismaClient,
+): Promise<{ deleted: number; errors: string[] }> {
+  const errors: string[] = [];
+  let deleted = 0;
+
+  // 1. Get all analytics agents for this tenant from PostgreSQL
+  const agents = await prisma.mistralAgent.findMany({
+    where: { tenantId, agentType: MistralAgentType.ANALYTICS },
+  });
+
+  if (agents.length === 0) {
+    logger.log(`[GDPR] No analytics agents found for tenant ${tenantId}`);
+    return { deleted: 0, errors: [] };
+  }
+
+  // 2. Delete each agent from Mistral API
+  const client = createMistralClient(configService);
+  for (const agent of agents) {
+    try {
+      await client.beta.agents.delete({ agentId: agent.agentId });
+      deleted++;
+      logger.log(`[GDPR] Deleted Mistral analytics agent ${agent.agentId} for tenant ${tenantId}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      // 404 means already deleted - that's OK
+      if (!msg.includes('404') && !msg.includes('not found')) {
+        errors.push(`Failed to delete agent ${agent.agentId}: ${msg}`);
+        logger.error(`[GDPR] Failed to delete Mistral analytics agent ${agent.agentId}: ${msg}`);
+      } else {
+        deleted++; // Count as deleted if already gone
+      }
+    }
+
+    // Clear from memory cache
+    const cacheKey = buildAgentPoolKey(agent.locale as SupportedLocale, tenantId);
+    fallbackAgentPool.delete(cacheKey);
+  }
+
+  // 3. Delete all records from PostgreSQL (cascade will handle this if tenant is deleted)
+  await prisma.mistralAgent.deleteMany({
+    where: { tenantId, agentType: MistralAgentType.ANALYTICS },
+  });
+
+  logger.log(`[GDPR] Analytics cleanup complete for tenant ${tenantId}: ${deleted} agents deleted, ${errors.length} errors`);
+  return { deleted, errors };
 }

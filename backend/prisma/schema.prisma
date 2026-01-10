@@ -48,6 +48,7 @@ model Tenant {
   aiMemoryHistory            AIMemoryHistory[]
   libraryDocuments           LibraryDocument[]
   dealActivities             DealActivity[]
+  mistralAgents              MistralAgent[]
 
   @@map("tenants")
 }
@@ -980,6 +981,26 @@ model AIMemoryHistory {
   @@index([tenantId])
   @@index([memoryId])
   @@map("ai_memory_history")
+}
+
+/// Stores Mistral agent IDs for reuse across sessions
+/// GDPR: Tenant-isolated, cascades on tenant delete
+/// Citus: Uses tenantId in unique constraint for sharding
+model MistralAgent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  agentType String   // 'web-search' | 'analytics'
+  locale    String   // 'en' | 'it'
+  agentId   String   // Mistral's agent UUID
+  model     String?  // Model used (e.g., 'mistral-small-latest')
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, agentType, locale]) // One agent per tenant/type/locale
+  @@index([tenantId])
+  @@map("mistral_agents")
 }
 
 /// Tracks emails that need follow-up

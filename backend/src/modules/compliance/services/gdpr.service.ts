@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   DataSubjectRightDto,
@@ -8,6 +8,20 @@ import {
   GdprStatusDto,
   PendingActionDto,
 } from '../dto/gdpr-status.dto';
+import { MistralAgentCleanupService } from '../../ai/services/mistral-agent-cleanup.service';
+
+/**
+ * Result of a GDPR data purge operation
+ */
+export interface GdprPurgeResult {
+  tenantId: string;
+  success: boolean;
+  errors: string[];
+  deletedCounts: {
+    mistralAgents: number;
+    // Add more as needed when purging other data types
+  };
+}
 
 @Injectable()
 export class GdprService {
@@ -20,7 +34,10 @@ export class GdprService {
     email: 'privacy@pmsync.local',
   };
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly mistralAgentCleanup?: MistralAgentCleanupService,
+  ) {}
 
   /**
    * Get GDPR compliance status
@@ -140,5 +157,64 @@ export class GdprService {
     }
 
     return status;
+  }
+
+  /**
+   * GDPR: Purge all external service data for a tenant.
+   * This handles data stored outside PostgreSQL (Mistral agents, etc.)
+   *
+   * Call this when:
+   * - Tenant is permanently deleted
+   * - Subscription is cancelled
+   * - User requests full erasure (Right to Erasure / Right to be Forgotten)
+   *
+   * Note: PostgreSQL data is handled by Prisma cascade deletes.
+   * This method handles external service cleanup (Mistral API, etc.)
+   *
+   * @param tenantId - Tenant ID to purge
+   * @returns Purge result with counts and errors
+   */
+  async purgeExternalTenantData(tenantId: string): Promise<GdprPurgeResult> {
+    this.logger.log(`[GDPR] Starting external data purge for tenant ${tenantId}`);
+    const errors: string[] = [];
+    let mistralAgentsDeleted = 0;
+
+    // 1. Delete Mistral agents (web-search + analytics)
+    if (this.mistralAgentCleanup) {
+      try {
+        const result = await this.mistralAgentCleanup.deleteAllTenantAgents(tenantId);
+        mistralAgentsDeleted = result.totalDeleted;
+        if (result.totalErrors > 0) {
+          for (const r of result.results) {
+            errors.push(...r.errors);
+          }
+        }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        errors.push(`Mistral agent cleanup failed: ${msg}`);
+        this.logger.error(`[GDPR] Mistral agent cleanup failed for tenant ${tenantId}: ${msg}`);
+      }
+    } else {
+      this.logger.warn(`[GDPR] MistralAgentCleanupService not available, skipping agent cleanup`);
+    }
+
+    // 2. Add more external service cleanups here as needed
+    // e.g., S3 attachments, third-party integrations, etc.
+
+    const success = errors.length === 0;
+    if (success) {
+      this.logger.log(`[GDPR] External data purge complete for tenant ${tenantId}`);
+    } else {
+      this.logger.warn(`[GDPR] External data purge completed with ${errors.length} errors for tenant ${tenantId}`);
+    }
+
+    return {
+      tenantId,
+      success,
+      errors,
+      deletedCounts: {
+        mistralAgents: mistralAgentsDeleted,
+      },
+    };
   }
 }

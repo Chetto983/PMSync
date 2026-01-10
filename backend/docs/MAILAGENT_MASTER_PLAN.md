@@ -4,27 +4,56 @@
 
 **User Decision:** ALL optimization tasks in steps
 
-### ✅ COMPLETED (Phase 1 + Phase 2 + Phase 3 + Part A + Part B + Part C)
-
-| Task | Status | Date |
-|------|--------|------|
-| Citus Docker Image | ✅ `mailagent-postgres:citus-pgvector` | 2026-01-09 |
-| Composite PKs | ✅ 5 tables (emails, folders, calendar_events, unified_contacts, embeddings) | 2026-01-09 |
-| tenantId Columns | ✅ 8 child tables | 2026-01-09 |
-| **JSONB → Direct Field** | ✅ 3 files fixed (O(n) → O(log n)) | 2026-01-09 |
-| **Raw SQL Audit** | ✅ 18 files verified, 5 fixed | 2026-01-09 |
-| GDPR Web Search Cache | ✅ `tenantId:userId` + `locale:tenantId` isolation | 2026-01-09 |
-| analyzeEmail() Caching | ✅ 24h cache in EmailAnalysis | 2026-01-09 |
-| categorizeEmail() UserLabels | ✅ Fetches from DB | 2026-01-09 |
-| **Auth Performance Cache** | ✅ Redis session cache (`${tenantId}:${sessionId}`) | 2026-01-09 |
-| **Contact Embeddings** | ✅ Queue + KnowledgeBase + RAG search | 2026-01-09 |
+### ✅ COMPLETED (Phase 1 + Phase 2 + Phase 3 + Part A)
+| Task | Status | Commit |
+|------|--------|--------|
+| Citus Docker Image | ✅ `mailagent-postgres:citus-pgvector` | a942b86 |
+| Composite PKs | ✅ 5 tables (emails, folders, calendar_events, unified_contacts, embeddings) | a942b86 |
+| tenantId Columns | ✅ 8 child tables | a942b86 |
+| **JSONB → Direct Field** | ✅ 3 files fixed (O(n) → O(log n)) | 264c2ed |
+| **Raw SQL Audit** | ✅ 18 files verified, 5 fixed | 264c2ed |
+| GDPR Web Search Cache | ✅ `tenantId:userId` + `locale:tenantId` isolation | Verified |
+| analyzeEmail() Caching | ✅ 24h cache in EmailAnalysis | Verified |
+| categorizeEmail() UserLabels | ✅ Fetches from DB | Verified |
+| **Auth Performance Cache** | ✅ Redis session cache (`${tenantId}:${sessionId}`) | Verified |
+| **Contact Embeddings** | ✅ Queue + KnowledgeBase + RAG search | Verified |
 | **Lint Cleanup** | ✅ 4 warnings fixed + ESLint config updated | 2026-01-09 |
 | **RAG for search_emails** | ✅ Already uses UnifiedRetriever | 2026-01-09 |
 | **Follow-up RAG Detection** | ✅ `scanEmailsForFollowUps()` implemented | 2026-01-09 |
 | **Tool Consolidation (Part A)** | ✅ **44 → 17 tools (61% reduction)** | 2026-01-10 |
-| **Agent Consolidation (Part B)** | ✅ **10 → 3 agents (ActionsAgent + IntelligenceAgent)** | 2026-01-10 |
-| **Memory Bug Fixes (Part C)** | ✅ **4 critical bugs fixed** | 2026-01-10 |
-| **Embedding Rate Limit** | ✅ `EMBEDDING_RATE_MAX=2` (safe for Mistral) | 2026-01-10 |
+| **Mistral Agent Persistence** | ✅ PostgreSQL + GDPR deletion | 2026-01-10 |
+
+### ✅ COMPLETED P3: Mistral Agent PostgreSQL Persistence (2026-01-10)
+
+**Problem:** Mistral agent IDs were only cached in Redis/memory with 24h TTL, causing duplicate agent creation after restarts.
+
+**Solution:** PostgreSQL persistence with `MistralAgent` model + GDPR compliance.
+
+| Component | Status |
+|-----------|--------|
+| `MistralAgent` Prisma model | ✅ Citus-ready `@@unique([tenantId, agentType, locale])` |
+| Tenant cascade delete | ✅ GDPR: `onDelete: Cascade` |
+| `web-search.tools.ts` | ✅ Prisma persistence + `deleteTenantAgents()` |
+| `analytics.tools.ts` | ✅ Prisma persistence + `deleteTenantAnalyticsAgents()` |
+| `agent-types.ts` | ✅ Constants: `MistralAgentType.WEB_SEARCH`, `MistralAgentType.ANALYTICS` |
+| Type-check | ✅ Passed |
+
+**Architecture:**
+
+```text
+PostgreSQL (MistralAgent) → Primary, persistent
+         ↓
+Memory Cache (agentPool) → Fast path
+         ↓
+Mistral API (verify) → Check agent exists before reuse
+```
+
+**GDPR Functions:**
+
+- `deleteTenantAgents(tenantId, configService, prisma)` - web-search cleanup
+- `deleteTenantAnalyticsAgents(tenantId, configService, prisma)` - analytics cleanup
+
+Both delete from **Mistral API** AND **PostgreSQL** on subscription cancellation.
 
 ### ✅ COMPLETED P1 (RAG Optimization)
 | Task | Time | Status |
@@ -37,13 +66,12 @@
 ## AUDIT SUMMARY: Tool + Agent + Memory Consolidation
 
 ### Current State (Updated 2026-01-10)
-
-| Category | Count | Status |
+| Category | Count | Issues |
 |----------|-------|--------|
-| **Tools** | **17** | ✅ Consolidated from 44 (61% reduction) |
-| **Agents** | **3** | ✅ Consolidated from 10 (ActionsAgent + IntelligenceAgent + optional) |
-| **Memory Bugs** | **0** | ✅ All 4 critical bugs fixed |
-| **Embedding Rate** | **2** | ✅ Safe (Mistral 6 RPS limit) |
+| **Tools** | **17** ✅ | Consolidated from 44 (61% reduction) |
+| **Agents** | 10 | Sub-agents don't share memory, too many specialists |
+| **Memory Bugs** | 6 | Context loss during delegation, race conditions |
+| **Embedding Rate** | 🚨 | `EMBEDDING_RATE_MAX=25` violates Mistral 6 RPS by 4.2x |
 
 ---
 
@@ -150,9 +178,9 @@
 
 ---
 
-## ✅ PART B: Agent Consolidation (10 → 3) - COMPLETED 2026-01-10
+## PART B: Agent Consolidation (10 → 3)
 
-### B.1 Current Agent Architecture (BEFORE)
+### B.1 Current Agent Architecture
 
 ```
 SupervisorAgent (orchestrator)
@@ -203,18 +231,18 @@ SupervisorAgent (orchestrator)
 
 ---
 
-## ✅ PART C: Memory/Context Loss Fixes - COMPLETED 2026-01-10
+## PART C: Memory/Context Loss Fixes (6 Critical Bugs)
 
-### C.1 Bug Inventory (ALL FIXED)
+### C.1 Bug Inventory
 
-| # | Severity | Issue | Status |
-|---|----------|-------|--------|
-| 1 | ✅ FIXED | Memory disabled on DB error → Retry with exponential backoff | voltagent.service.ts:225-261 |
-| 2 | ✅ FIXED | Sub-agents don't receive memory → All agents receive memory option | supervisor.agent.ts:325,339,354,368,383 |
-| 3 | ✅ FIXED | History only injected if conversationId → Deterministic fallback | voltagent.service.ts:876-880 |
-| 4 | ✅ FIXED | Race condition → Create-first, catch-duplicate pattern | voltagent.service.ts:1030-1053 |
-| 5 | 🟡 DEFERRED | 4 unintegrated memory systems | Future consolidation |
-| 6 | 🟡 DEFERRED | Tenant:user namespace collision risk | Low priority |
+| # | Severity | Issue | File:Line |
+|---|----------|-------|-----------|
+| 1 | 🔴 CRITICAL | Memory disabled on DB error (silent fallback) | `voltagent.service.ts:235-244` |
+| 2 | 🔴 CRITICAL | Sub-agents don't receive memory | `supervisor.agent.ts:286-363` |
+| 3 | 🟠 HIGH | History only injected if conversationId provided | `voltagent.service.ts:871` |
+| 4 | 🟠 HIGH | Memory persistence race condition | `voltagent.service.ts:1011-1051` |
+| 5 | 🟡 MEDIUM | 4 unintegrated memory systems | `voltagent.service.ts:800-859` |
+| 6 | 🟡 MEDIUM | Tenant:user namespace collision risk | `voltagent.service.ts:861-867` |
 
 ### C.2 Fix Plan
 
@@ -282,37 +310,33 @@ await this.memory.upsertConversation({
 
 ---
 
-## ✅ PART D: Implementation Order - ALL PHASES COMPLETED
+## PART D: Implementation Order
 
-### ✅ Phase 0: Embedding Rate Limit - DONE
+### Phase 0: Fix Embedding Rate Limit (🔴 IMMEDIATE - 10min)
+1. Change `EMBEDDING_RATE_MAX` default from 25 → 5 in `email-embedding.queue.ts:67`
+2. Update `.env` to set `EMBEDDING_RATE_MAX=5`
+3. Verify with `grep -n "RATE_MAX" backend/src/modules/ai/services/email-embedding.queue.ts`
 
-- Default is `EMBEDDING_RATE_MAX=2` (safe for Mistral 6 RPS)
-- Verified at `email-embedding.queue.ts:67`
+### Phase 1: Fix Memory Bugs (2h)
+1. Pass memory to sub-agents in `supervisor.agent.ts`
+2. Generate conversationId if missing
+3. Add upsert for conversation creation
+4. Add retry logic for memory init
 
-### ✅ Phase 1: Memory Bugs - DONE (2026-01-10)
+### Phase 2: Create Consolidated Tools (4h)
+1. Create `email-consolidated.tools.ts`
+2. Create `crm-consolidated.tools.ts`
+3. Update tool exports
 
-- Memory passed to all sub-agents in `supervisor.agent.ts`
-- Deterministic conversationId fallback implemented
-- Atomic conversation creation (create-first pattern)
-- Retry logic with exponential backoff
+### Phase 3: Create Consolidated Agents (2h)
+1. Create `actions.agent.ts`
+2. Create `intelligence.agent.ts`
+3. Update `supervisor.agent.ts`
 
-### ✅ Phase 2: Tool Consolidation - DONE (2026-01-10)
-
-- 44 → 17 tools (61% reduction)
-- All tools consolidated in existing files
-- Updated tool exports in `tools/index.ts`
-
-### ✅ Phase 3: Agent Consolidation - DONE (2026-01-10)
-
-- `actions.agent.ts` created (ALL WRITE operations)
-- `intelligence.agent.ts` created (ALL READ + ANALYSIS)
-- `supervisor.agent.ts` updated to use consolidated agents
-
-### ✅ Phase 4: Cleanup - DONE
-
-- Old tool functions removed/consolidated
-- Old agent files deprecated
-- Type checking passes
+### Phase 4: Cleanup + Test (2h)
+1. Deprecate old tool files
+2. Delete old agent files
+3. Run e2e tests
 
 ---
 

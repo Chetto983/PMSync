@@ -16,6 +16,7 @@
 import { Agent, type AgentHooks, type Memory } from '@voltagent/core';
 import type { LanguageModel } from 'ai';
 import { ConfigService } from '@nestjs/config';
+import { PrismaClient } from '@prisma/client';
 import { getAgentTranslations, type SupportedLocale } from '../locales';
 import { createAnalyticsTool } from '../tools/analytics.tools';
 import { CacheService } from '../../../../common/services/cache.service';
@@ -31,6 +32,8 @@ export interface AnalyticsAgentOptions {
   cacheService?: CacheService;
   /** VoltAgent memory for conversation persistence */
   memory?: Memory;
+  /** Required: PrismaClient for persistent agent storage */
+  prisma: PrismaClient;
 }
 
 /**
@@ -40,18 +43,19 @@ export interface AnalyticsAgentOptions {
  * to analyze data and generate visualizations.
  */
 export function createAnalyticsAgent(options: AnalyticsAgentOptions): Agent {
-  const { model, configService, locale, tenantId, userId, hooks, cacheService, memory } = options;
+  const { model, configService, locale, tenantId, userId, hooks, cacheService, memory, prisma } = options;
   // Always use English prompts - locale only affects response language
   const t = getAgentTranslations('en');
   const localeInstruction = locale !== 'en' ? `\n\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian' : locale}.` : '';
 
-  // Create analytics tool with Redis caching
+  // Create analytics tool with Prisma persistence + Redis caching
   const analyticsTool = createAnalyticsTool({
     configService,
     locale,
     tenantId,
     userId,
     cacheService,
+    prisma,
   });
 
   return new Agent({

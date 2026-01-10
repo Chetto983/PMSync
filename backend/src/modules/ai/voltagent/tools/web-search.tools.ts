@@ -16,9 +16,11 @@ import { z } from 'zod';
 import { Mistral } from '@mistralai/mistralai';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { AiError, AiErrorCode } from '../../errors';
+import { MistralAgentType } from './agent-types';
 
 const logger = new Logger('WebSearchTools');
 
@@ -44,12 +46,12 @@ export interface WebSearchToolOptions {
   userId?: string;
   /** Optional: CacheService for Redis-based caching (multi-instance support) */
   cacheService?: CacheService;
+  /** Required: PrismaClient for persistent agent storage */
+  prisma: PrismaClient;
 }
 
 /** TTL for web search results: 15 minutes */
 const WEB_CACHE_TTL_SEC = 15 * 60;
-/** TTL for Mistral agents: 1 hour */
-const AGENT_TTL_SEC = 60 * 60;
 
 /**
  * Fallback in-memory cache when Redis is unavailable
@@ -155,55 +157,111 @@ function buildAgentPoolKey(locale: SupportedLocale, tenantId: string): string {
 }
 
 /**
+ * Verify an agent still exists in Mistral.
+ * Returns the agent ID if valid, null if not found or error.
+ */
+async function verifyAgentExists(client: Mistral, agentId: string): Promise<boolean> {
+  try {
+    await client.beta.agents.get({ agentId });
+    return true;
+  } catch (error) {
+    // Agent doesn't exist (404) or other error - need to create new
+    logger.debug(`Agent ${agentId} no longer exists in Mistral, will create new`);
+    return false;
+  }
+}
+
+/**
  * Get or create a reusable Mistral web search agent for the given locale and tenant.
- * Agents are cached for 1 hour (Redis + memory fallback) to avoid creation overhead.
+ * Agents are PERSISTED in PostgreSQL (survives restarts) with verification.
  * GDPR: Agents are isolated per tenant to prevent cross-tenant context leakage.
+ *
+ * Storage hierarchy:
+ * 1. PostgreSQL (primary, persistent) - survives restarts
+ * 2. Memory cache (fast, per-instance) - avoids DB query on hot path
+ *
+ * IMPORTANT: This function VERIFIES cached agents still exist in Mistral before reusing.
+ * This prevents orphaned agent IDs and unnecessary agent creation.
  */
 async function getOrCreateWebSearchAgent(
   client: Mistral,
   locale: SupportedLocale,
   tenantId: string,
   configService: ConfigService,
-  cacheService?: CacheService,
+  prisma: PrismaClient,
 ): Promise<string> {
   const cacheKey = buildAgentPoolKey(locale, tenantId);
-  const now = Date.now();
+  const agentType = MistralAgentType.WEB_SEARCH;
 
-  // Try Redis first
-  if (cacheService?.isHealthy()) {
-    const cached = await cacheService.get<{ agentId: string }>(cacheKey, {
-      namespace: CacheNamespace.WEB_SEARCH_AGENT,
-    });
-    if (cached) {
-      logger.debug(`Redis cache hit for web search agent: ${locale}:${tenantId}`);
-      return cached.agentId;
-    }
-  }
-
-  // Try memory fallback
+  // 1. Check memory cache first (fast path)
   const memCached = fallbackAgentPool.get(cacheKey);
-  if (memCached && now - memCached.createdAt < AGENT_TTL_SEC * 1000) {
-    logger.debug(`Memory cache hit for web search agent: ${locale}:${tenantId}`);
-    return memCached.agentId;
+  if (memCached) {
+    const exists = await verifyAgentExists(client, memCached.agentId);
+    if (exists) {
+      logger.debug(`Reusing memory-cached web search agent: ${memCached.agentId}`);
+      return memCached.agentId;
+    }
+    // Agent gone from Mistral, clear memory cache
+    fallbackAgentPool.delete(cacheKey);
   }
 
-  // Create new agent
+  // 2. Check PostgreSQL (persistent storage)
+  const dbAgent = await prisma.mistralAgent.findUnique({
+    where: {
+      tenantId_agentType_locale: { tenantId, agentType, locale },
+    },
+  });
+
+  if (dbAgent) {
+    const exists = await verifyAgentExists(client, dbAgent.agentId);
+    if (exists) {
+      logger.debug(`Reusing DB-stored web search agent: ${dbAgent.agentId} for ${locale}:${tenantId}`);
+      // Update memory cache
+      fallbackAgentPool.set(cacheKey, { agentId: dbAgent.agentId, createdAt: Date.now() });
+      return dbAgent.agentId;
+    }
+    // Agent gone from Mistral, delete from DB
+    logger.warn(`DB agent ${dbAgent.agentId} no longer exists in Mistral, deleting record`);
+    await prisma.mistralAgent.delete({
+      where: { id: dbAgent.id },
+    });
+  }
+
+  // 3. Create new agent in Mistral
   logger.log(`Creating new web search agent for locale: ${locale}, tenant: ${tenantId}`);
   const startTime = Date.now();
 
-  // Get model from env (AI_MODEL_MEDIUM for web search tasks)
   const model = configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-latest';
 
   const agent = await client.beta.agents.create({
     model,
     name: `MailAgent Web Search (${locale})`,
     description: 'Agent for searching current information from the web',
-    instructions: `You are a helpful search assistant. When asked a question:
-1. Search the web for relevant, current information
-2. Provide a clear, concise answer based on the search results
-3. Always cite your sources
-4. If the information is time-sensitive, mention when it was last updated
-5. Respond in ${locale === 'it' ? 'Italian' : 'English'}`,
+    instructions: `You are a web search specialist for MailAgent, an AI-powered email management application.
+
+<DOMAIN_CONTEXT>
+You help users find current information relevant to their email workflow:
+- Business contacts and company information
+- Professional etiquette and email best practices
+- Meeting scheduling, time zones, and calendar coordination
+- Industry news and trends relevant to business communications
+- Technical information for professional correspondence
+</DOMAIN_CONTEXT>
+
+<GROUNDING_RULES>
+1. ONLY provide information found in search results - never fabricate
+2. If no reliable source exists, explicitly state "I couldn't find verified information"
+3. Always provide source URLs for verification
+4. Indicate when information was published (if available)
+5. For time-sensitive topics, warn if data may be outdated
+</GROUNDING_RULES>
+
+<OUTPUT_FORMAT>
+- Keep answers concise and actionable
+- Use bullet points for multiple findings
+- Always cite sources with [Source: URL]
+- Respond in ${locale === 'it' ? 'Italian' : 'English'}
+</OUTPUT_FORMAT>`,
     tools: [{ type: 'web_search' }],
     completionArgs: {
       temperature: 0.3,
@@ -212,21 +270,29 @@ async function getOrCreateWebSearchAgent(
   });
 
   const createTime = Date.now() - startTime;
-  logger.log(`Web search agent created in ${createTime}ms for locale: ${locale}`);
+  logger.log(`Web search agent created in ${createTime}ms: ${agent.id} for locale: ${locale}`);
 
-  // Cache in Redis
-  if (cacheService?.isHealthy()) {
-    await cacheService.set(cacheKey, { agentId: agent.id }, {
-      ttl: AGENT_TTL_SEC,
-      namespace: CacheNamespace.WEB_SEARCH_AGENT,
-    });
-  }
-
-  // Cache in memory fallback
-  fallbackAgentPool.set(cacheKey, {
-    agentId: agent.id,
-    createdAt: now,
+  // 4. Save to PostgreSQL (persistent) with upsert for safety
+  await prisma.mistralAgent.upsert({
+    where: {
+      tenantId_agentType_locale: { tenantId, agentType, locale },
+    },
+    update: {
+      agentId: agent.id,
+      model,
+      updatedAt: new Date(),
+    },
+    create: {
+      tenantId,
+      agentType,
+      locale,
+      agentId: agent.id,
+      model,
+    },
   });
+
+  // 5. Update memory cache
+  fallbackAgentPool.set(cacheKey, { agentId: agent.id, createdAt: Date.now() });
 
   return agent.id;
 }
@@ -252,7 +318,7 @@ async function clearAgentFromCache(
  *
  * Uses a pooled Mistral agent with web_search tool for real-time web information.
  * Agents are reused across requests for performance (~8s vs ~11s per request).
- * GDPR: Agent pool is tenant-isolated.
+ * GDPR: Agent pool is tenant-isolated and agents are deleted on subscription cancellation.
  */
 async function executeWebSearch(
   client: Mistral,
@@ -260,11 +326,12 @@ async function executeWebSearch(
   locale: SupportedLocale,
   tenantId: string,
   configService: ConfigService,
+  prisma: PrismaClient,
   cacheService?: CacheService,
 ): Promise<WebSearchResult> {
   try {
-    // Get or create reusable agent (cached for 1 hour, tenant-isolated)
-    const agentId = await getOrCreateWebSearchAgent(client, locale, tenantId, configService, cacheService);
+    // Get or create reusable agent (persisted in PostgreSQL, tenant-isolated)
+    const agentId = await getOrCreateWebSearchAgent(client, locale, tenantId, configService, prisma);
 
     // Start conversation with the reusable agent
     const response = await client.beta.conversations.start({
@@ -373,7 +440,7 @@ function formatCitations(
  * GDPR: All caches are tenant/user isolated.
  */
 export function createWebSearchTool(options: WebSearchToolOptions) {
-  const { configService, locale, tenantId, userId, cacheService } = options;
+  const { configService, locale, tenantId, userId, cacheService, prisma } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -402,8 +469,8 @@ export function createWebSearchTool(options: WebSearchToolOptions) {
 
       try {
         const client = createMistralClient(configService);
-        // GDPR: Pass tenantId for agent pool isolation
-        const result = await executeWebSearch(client, query, locale, tenantId, configService, cacheService);
+        // GDPR: Pass tenantId for agent pool isolation, prisma for persistent storage
+        const result = await executeWebSearch(client, query, locale, tenantId, configService, prisma, cacheService);
 
         // Cache successful result (Redis + memory) - GDPR: tenant/user isolated
         await setCachedSearch(tenantId, userId, query, result, cacheService);
@@ -451,4 +518,59 @@ export function clearWebSearchCache(): void {
  */
 export function clearAgentPool(): void {
   fallbackAgentPool.clear();
+}
+
+/**
+ * GDPR: Delete all Mistral agents for a tenant
+ * Call this when subscription is cancelled or tenant is deleted.
+ * This deletes agents from both Mistral API and PostgreSQL.
+ */
+export async function deleteTenantAgents(
+  tenantId: string,
+  configService: ConfigService,
+  prisma: PrismaClient,
+): Promise<{ deleted: number; errors: string[] }> {
+  const errors: string[] = [];
+  let deleted = 0;
+
+  // 1. Get all agents for this tenant from PostgreSQL
+  const agents = await prisma.mistralAgent.findMany({
+    where: { tenantId, agentType: 'web-search' },
+  });
+
+  if (agents.length === 0) {
+    logger.log(`[GDPR] No web-search agents found for tenant ${tenantId}`);
+    return { deleted: 0, errors: [] };
+  }
+
+  // 2. Delete each agent from Mistral API
+  const client = createMistralClient(configService);
+  for (const agent of agents) {
+    try {
+      await client.beta.agents.delete({ agentId: agent.agentId });
+      deleted++;
+      logger.log(`[GDPR] Deleted Mistral agent ${agent.agentId} for tenant ${tenantId}`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      // 404 means already deleted - that's OK
+      if (!msg.includes('404') && !msg.includes('not found')) {
+        errors.push(`Failed to delete agent ${agent.agentId}: ${msg}`);
+        logger.error(`[GDPR] Failed to delete Mistral agent ${agent.agentId}: ${msg}`);
+      } else {
+        deleted++; // Count as deleted if already gone
+      }
+    }
+
+    // Clear from memory cache
+    const cacheKey = buildAgentPoolKey(agent.locale as SupportedLocale, tenantId);
+    fallbackAgentPool.delete(cacheKey);
+  }
+
+  // 3. Delete all records from PostgreSQL (cascade will handle this if tenant is deleted)
+  await prisma.mistralAgent.deleteMany({
+    where: { tenantId, agentType: 'web-search' },
+  });
+
+  logger.log(`[GDPR] Cleanup complete for tenant ${tenantId}: ${deleted} agents deleted, ${errors.length} errors`);
+  return { deleted, errors };
 }
