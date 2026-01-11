@@ -25,6 +25,39 @@
 | **GDPR Wiring** | ✅ Cleanup service + tenant deletion flow | 2026-01-10 |
 | **Agent Consolidation (Part B)** | ✅ **10 → 3 agents** (SupervisorAgent + ActionsAgent + IntelligenceAgent) | 2026-01-10 |
 | **Memory Bug Fixes (Part C)** | ✅ **6/6 bugs fixed** (retry, memory passing, fallback sessionId, atomic creation) | 2026-01-10 |
+| **Prompt Quality (FIX #5)** | ✅ **Calendar + Contacts agents updated** with `<MY_TOOLS>`, `<WORKFLOW>`, examples | 2026-01-11 |
+
+### ✅ COMPLETED P3: Mistral Agent PostgreSQL Persistence (2026-01-10)
+
+**Problem:** Mistral agent IDs were only cached in Redis/memory with 24h TTL, causing duplicate agent creation after restarts.
+
+**Solution:** PostgreSQL persistence with `MistralAgent` model + GDPR compliance.
+
+| Component | Status |
+|-----------|--------|
+| `MistralAgent` Prisma model | ✅ Citus-ready `@@unique([tenantId, agentType, locale])` |
+| Tenant cascade delete | ✅ GDPR: `onDelete: Cascade` |
+| `web-search.tools.ts` | ✅ Prisma persistence + `deleteTenantAgents()` |
+| `analytics.tools.ts` | ✅ Prisma persistence + `deleteTenantAnalyticsAgents()` |
+| `agent-types.ts` | ✅ Constants: `MistralAgentType.WEB_SEARCH`, `MistralAgentType.ANALYTICS` |
+| Type-check | ✅ Passed |
+
+**Architecture:**
+
+```text
+PostgreSQL (MistralAgent) → Primary, persistent
+         ↓
+Memory Cache (agentPool) → Fast path
+         ↓
+Mistral API (verify) → Check agent exists before reuse
+```
+
+**GDPR Functions:**
+
+- `deleteTenantAgents(tenantId, configService, prisma)` - web-search cleanup
+- `deleteTenantAnalyticsAgents(tenantId, configService, prisma)` - analytics cleanup
+
+Both delete from **Mistral API** AND **PostgreSQL** on subscription cancellation.
 
 ### ✅ COMPLETED P3.5: GDPR Wiring (2026-01-10)
 
@@ -64,38 +97,6 @@ For each agent type (web-search, analytics):
 - `ai/ai.module.ts` - Export MistralAgentCleanupService
 - `compliance/compliance.module.ts` - Import AiModule
 - `tenants/tenants.module.ts` - Import ComplianceModule
-
-### ✅ COMPLETED P3: Mistral Agent PostgreSQL Persistence (2026-01-10)
-
-**Problem:** Mistral agent IDs were only cached in Redis/memory with 24h TTL, causing duplicate agent creation after restarts.
-
-**Solution:** PostgreSQL persistence with `MistralAgent` model + GDPR compliance.
-
-| Component | Status |
-|-----------|--------|
-| `MistralAgent` Prisma model | ✅ Citus-ready `@@unique([tenantId, agentType, locale])` |
-| Tenant cascade delete | ✅ GDPR: `onDelete: Cascade` |
-| `web-search.tools.ts` | ✅ Prisma persistence + `deleteTenantAgents()` |
-| `analytics.tools.ts` | ✅ Prisma persistence + `deleteTenantAnalyticsAgents()` |
-| `agent-types.ts` | ✅ Constants: `MistralAgentType.WEB_SEARCH`, `MistralAgentType.ANALYTICS` |
-| Type-check | ✅ Passed |
-
-**Architecture:**
-
-```text
-PostgreSQL (MistralAgent) → Primary, persistent
-         ↓
-Memory Cache (agentPool) → Fast path
-         ↓
-Mistral API (verify) → Check agent exists before reuse
-```
-
-**GDPR Functions:**
-
-- `deleteTenantAgents(tenantId, configService, prisma)` - web-search cleanup
-- `deleteTenantAnalyticsAgents(tenantId, configService, prisma)` - analytics cleanup
-
-Both delete from **Mistral API** AND **PostgreSQL** on subscription cancellation.
 
 ### ✅ COMPLETED P1 (RAG Optimization)
 | Task | Time | Status |
@@ -1509,7 +1510,7 @@ npm run type-check
 | 3 | Create DataCleanupService (daily cron) | ✅ Done |
 | 4 | Add getUserLabels() to categorizeEmail() | ✅ Done |
 
-### 🔴 NEXT: FIX #3 (RAG + GDPR) + FIX #4 (Tool Consolidation) + FIX #5 (Prompts)
+### 🔴 NEXT: Remaining Items (FIX #3 RAG + GDPR already done, FIX #4 already done, FIX #5 ✅ DONE)
 
 | Step | Task | Time | Priority |
 |------|------|------|----------|
@@ -1526,10 +1527,12 @@ npm run type-check
 | 12 | Consolidate email.tools.ts: 14 → 5 | 2h | P2 |
 | 13 | Consolidate contacts/calendar/folder CRUD | 2h | P2 |
 | 14 | Consolidate document-library: 3 → 1 | 30m | P2 |
-| **P2 - Prompt Quality (FIX #5)** | | | |
-| 15 | Fix generic agent personas (web-search, analytics) | 1h | P2 |
-| 16 | Add examples to all tool descriptions | 1h | P2 |
-| 17 | Add tool selection guides to agents | 1h | P2 |
+| **P2 - Prompt Quality (FIX #5)** | | | ✅ DONE |
+| 15 | Fix generic agent personas (web-search, analytics) | ✅ | Already done |
+| 16 | Add examples to all tool descriptions | ✅ | Already done |
+| 17 | Add tool selection guides to agents | ✅ | Already done |
+| 18 | Calendar agent: `<MY_TOOLS>`, `<WORKFLOW>`, examples | ✅ | 2026-01-11 |
+| 19 | Contacts agent: `<MY_TOOLS>`, `<WORKFLOW>`, examples | ✅ | 2026-01-11 |
 | **Total** | | **~20h** | |
 
 ---
@@ -2264,7 +2267,7 @@ Single `documents` tool with action: `query` / `list` / `create`
 
 ---
 
-## 🔴 FIX #5: Prompt Quality Audit (CRITICAL - Agent Performance)
+## ✅ FIX #5: Prompt Quality Audit - COMPLETED (2026-01-11)
 
 ### Audit Summary
 
@@ -2272,10 +2275,10 @@ Single `documents` tool with action: `query` / `list` / `create`
 |----------|--------|--------|
 | Supervisor/Email agents | ✅ GOOD | Has `<GROUNDING_RULES>`, `<REASONING_REQUIRED>`, `<MY_TOOLS>` |
 | Knowledge agent | ✅ GOOD | Has explicit grounding rules and source citations |
-| Web Search agent | ❌ BAD | Generic "helpful search assistant" with no domain context |
-| Analytics agent | ❌ BAD | Generic "data analytics assistant" with no MailAgent data schema |
-| Calendar/Contacts agents | ⚠️ BASIC | Simple "You are a ... assistant" with no domain context |
-| Tool descriptions | ❌ BAD | Most lack examples, ambiguous parameters |
+| Web Search agent | ✅ DONE | Has `<DOMAIN_CONTEXT>`, `<GROUNDING_RULES>`, `<OUTPUT_FORMAT>` |
+| Analytics agent | ✅ DONE | Has `<DATA_SCHEMA>`, `<ANALYSIS_GUIDELINES>`, `<OUTPUT_FORMAT>` |
+| Calendar/Contacts agents | ✅ DONE | Has `<CORE_IDENTITY>`, `<MY_TOOLS>` with examples, `<WORKFLOW>` |
+| Tool descriptions | ✅ DONE | Examples in email.tools.ts, insights.tools.ts, consolidated tools |
 
 ### Problem 1: Generic Agent Personas (No Domain Context)
 
