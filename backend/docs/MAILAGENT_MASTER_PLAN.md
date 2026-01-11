@@ -35,6 +35,49 @@
 | **Week 3 Task 2: communicationStyle → tone** | ✅ AI compose now uses user's preferred communication style | 2026-01-11 |
 | **Week 3 Task 4: email-triage.listener** | ✅ Auto-triage wired into sync with scale protection (5 concurrent max) | 2026-01-11 |
 | **Week 3 Task 5: Memory cleanup (expiresAt)** | ✅ Auto-expiry set on create + refreshed on update/usage | 2026-01-11 |
+| **Week 3 Task 6: End-to-end HITL test** | ✅ Test script validates approve/reject → learning feedback loop | 2026-01-11 |
+
+### ✅ COMPLETED Week 3 Task 6: End-to-end HITL test (2026-01-11)
+
+**Problem**: HITL flow existed but was never tested end-to-end - approve/reject might not actually trigger learning.
+
+**Solution**: Created dedicated test script that validates the complete feedback loop.
+
+**Test Script**: `backend/scripts/test-hitl-learning.ts`
+
+**Test Cases**:
+
+| Test | Validates |
+| ---- | --------- |
+| Approve Action → Feedback Persisted | `AgentActionFeedback.wasApproved = true` |
+| Approve Action → Learning Profile Updated | `AgentLearningProfile.approvedCount++` |
+| Reject Action → Feedback with Reason | `AgentActionFeedback.userFeedback` contains rejection reason |
+| Reject Action → Profile Rejected Count | `AgentLearningProfile.rejectedCount++` |
+| Confidence Adjustment | `LearningService.getAdjustedConfidence()` returns adjusted value |
+
+**Flow Validated**:
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  HitlService.createPendingAction()                              │
+│       ↓                                                         │
+│  HitlService.approveAction() / rejectAction()                   │
+│       ↓                                                         │
+│  LearningService.recordFeedback()                               │
+│       ↓                                                         │
+│  persistFeedback() → AgentActionFeedback table                  │
+│       ↓                                                         │
+│  persistProfile() → AgentLearningProfile table (upsert)         │
+│       ↓                                                         │
+│  Future actions get adjusted confidence from learning history   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Run Test**:
+
+```bash
+cd backend && npx ts-node scripts/test-hitl-learning.ts
+```
 
 ### ✅ COMPLETED Week 3 Task 5: Memory cleanup (expiresAt) (2026-01-11)
 
