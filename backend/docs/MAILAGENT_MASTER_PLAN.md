@@ -34,6 +34,40 @@
 | **Week 2 Part C: Avatar Consistency** | ✅ Consistent colored initials + `stringToColor()` for both list & detail | 2026-01-11 |
 | **Week 3 Task 2: communicationStyle → tone** | ✅ AI compose now uses user's preferred communication style | 2026-01-11 |
 | **Week 3 Task 4: email-triage.listener** | ✅ Auto-triage wired into sync with scale protection (5 concurrent max) | 2026-01-11 |
+| **Week 3 Task 5: Memory cleanup (expiresAt)** | ✅ Auto-expiry set on create + refreshed on update/usage | 2026-01-11 |
+
+### ✅ COMPLETED Week 3 Task 5: Memory cleanup (expiresAt) (2026-01-11)
+
+**Problem**: Memories grew forever - no automatic expiration leading to DB bloat.
+
+**Solution**: Set default expiry on memory creation, refresh on update/usage.
+
+**Expiry Rules** (in `ai-memory.service.ts`):
+
+| Memory Type  | Expiry   | Rationale                                |
+| ------------ | -------- | ---------------------------------------- |
+| PREFERENCE   | 1 year   | User preferences rarely change           |
+| FACT         | 6 months | Facts may become stale                   |
+| PATTERN      | 1 year   | Behavioral patterns persist              |
+| INTERACTION  | 3 months | Conversation context has short relevance |
+| CONTACT_NOTE | 1 year   | Contact notes are long-term              |
+
+**Implementation**:
+
+- `storeMemory()`: Sets `expiresAt` based on memory type
+- `updateMemory()`: Refreshes expiry on update
+- `recordUsage()`: Refreshes expiry when memory is used (keeps active memories alive)
+- `DataCleanupService`: Daily cron at 3 AM deletes expired memories
+
+**Flow**:
+
+```text
+CREATE memory → expiresAt = now + type_days
+      ↓
+UPDATE/USE memory → expiresAt refreshed
+      ↓
+DataCleanupService (3 AM daily) → DELETE WHERE expiresAt < now
+```
 
 ### ✅ COMPLETED Week 3 Task 4: email-triage.listener (2026-01-11)
 

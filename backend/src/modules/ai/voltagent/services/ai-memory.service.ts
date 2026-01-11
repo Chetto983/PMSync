@@ -13,6 +13,32 @@ import { MemoryType, Prisma } from '@prisma/client';
 import { MistralService } from '../../services/mistral.service';
 
 // ============================================================================
+// Memory Expiry Configuration
+// ============================================================================
+
+/**
+ * Default expiry periods by memory type (prevents infinite memory growth)
+ * Cleanup handled by DataCleanupService cron job
+ */
+const MEMORY_EXPIRY_DAYS: Record<string, number> = {
+  PREFERENCE: 365,    // 1 year - user preferences rarely change
+  FACT: 180,          // 6 months - facts may become stale
+  PATTERN: 365,       // 1 year - behavioral patterns persist
+  INTERACTION: 90,    // 3 months - conversation context has short relevance
+  CONTACT_NOTE: 365,  // 1 year - contact notes are long-term
+};
+
+/**
+ * Calculate expiry date based on memory type
+ */
+function calculateExpiryDate(memoryType: string): Date {
+  const days = MEMORY_EXPIRY_DAYS[memoryType] || 180; // Default 6 months
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + days);
+  return expiresAt;
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -111,6 +137,8 @@ export class AIMemoryService {
         tags: input.tags?.join(','),
         confidence: input.confidence ?? 0.5,
         metadata: input.metadata as Prisma.InputJsonValue,
+        // Auto-expire based on memory type (cleanup by DataCleanupService)
+        expiresAt: calculateExpiryDate(input.type),
       },
     });
 
@@ -188,6 +216,9 @@ export class AIMemoryService {
 
     const oldContent = existing.content;
 
+    // Determine new expiry if type is changing
+    const newType = input.type || existing.memoryType;
+
     const updated = await this.prisma.aIMemory.update({
       where: { id: memoryId },
       data: {
@@ -199,6 +230,8 @@ export class AIMemoryService {
         ...(input.metadata !== undefined && {
           metadata: input.metadata as Prisma.InputJsonValue,
         }),
+        // Refresh expiry on update (extends memory lifetime)
+        expiresAt: calculateExpiryDate(newType),
       },
     });
 
@@ -352,13 +385,22 @@ export class AIMemoryService {
 
   /**
    * Increment usage count for a memory (call when memory is used in context)
+   * Also refreshes expiry to keep frequently-used memories alive longer
    */
   async recordUsage(memoryId: string): Promise<void> {
+    // Get memory type to calculate new expiry
+    const memory = await this.prisma.aIMemory.findUnique({
+      where: { id: memoryId },
+      select: { memoryType: true },
+    });
+
     await this.prisma.aIMemory.update({
       where: { id: memoryId },
       data: {
         usageCount: { increment: 1 },
         lastUsedAt: new Date(),
+        // Refresh expiry on usage (extends lifetime for active memories)
+        expiresAt: memory ? calculateExpiryDate(memory.memoryType) : undefined,
       },
     });
   }
