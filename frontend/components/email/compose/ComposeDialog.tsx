@@ -31,7 +31,9 @@ import {
   useForwardEmail,
   useSaveDraft,
   useDeleteDraft,
+  useEmailDraft,
 } from '@/hooks/queries/use-emails';
+import { fileToBase64, type DraftAttachmentDto } from '@/lib/api/emails';
 import ComposeEditor from './ComposeEditor';
 import ComposeRecipients, { type Recipient } from './ComposeRecipients';
 import ComposeAttachments, { type Attachment } from './ComposeAttachments';
@@ -129,6 +131,9 @@ export default function ComposeDialog({
   const forwardEmail = useForwardEmail();
   const saveDraft = useSaveDraft();
   const deleteDraft = useDeleteDraft();
+
+  // Fetch existing draft to restore attachments (only when editing a draft)
+  const { data: existingDraft } = useEmailDraft(initialDraftId || '');
 
   // Compute initial values based on mode and originalEmail
   const computeInitialTo = (): Recipient[] => {
@@ -241,17 +246,74 @@ export default function ComposeDialog({
     }
   }, [open, defaultSignature]);
 
-  // Autosave draft
+  // Restore attachments from draft when editing an existing draft
+  // Converts base64 data back to File objects for seamless UX
+  const draftAttachmentsRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!open || !existingDraft || draftAttachmentsRestoredRef.current) return;
+
+    // Check if draft has saved attachments in metadata
+    const draftAttachments = (existingDraft as { metadata?: { draftAttachments?: DraftAttachmentDto[] } })
+      ?.metadata?.draftAttachments;
+
+    if (draftAttachments && draftAttachments.length > 0) {
+      // Convert base64 attachments back to File objects
+      const restoredAttachments: Attachment[] = draftAttachments.map((att) => {
+        // Strip data URI prefix if present (e.g., "data:application/pdf;base64,...")
+        const base64Data = att.contentBase64.includes(',')
+          ? att.contentBase64.split(',')[1]
+          : att.contentBase64;
+
+        // Convert base64 to Blob then to File
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: att.contentType });
+        const file = new File([blob], att.filename, { type: att.contentType });
+
+        return {
+          file,
+          id: `restored-${att.filename}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        };
+      });
+
+      setAttachments(restoredAttachments);
+      draftAttachmentsRestoredRef.current = true;
+      logger.debug('Draft attachments restored', { count: restoredAttachments.length });
+    }
+  }, [open, existingDraft]);
+
+  // Reset draft attachments restored flag when dialog closes
+  useEffect(() => {
+    if (!open) {
+      draftAttachmentsRestoredRef.current = false;
+    }
+  }, [open]);
+
+  // Autosave draft (includes attachments for full persistence)
   useEffect(() => {
     if (!open || !providerId || !isDirtyRef.current) return;
     // Don't autosave in reply/forward mode for now (handled differently)
     if (mode !== 'new') return;
 
-    const shouldSave = debouncedBody.length > 10 || debouncedSubject.length > 0;
+    const shouldSave = debouncedBody.length > 10 || debouncedSubject.length > 0 || attachments.length > 0;
     if (!shouldSave) return;
 
     const saveCurrentDraft = async () => {
       try {
+        // Convert attachments to base64 for draft persistence
+        const attachmentDtos: DraftAttachmentDto[] = await Promise.all(
+          attachments.map(async (att) => ({
+            filename: att.file.name,
+            contentType: att.file.type,
+            contentBase64: await fileToBase64(att.file),
+            size: att.file.size,
+          }))
+        );
+
         const result = await saveDraft.mutateAsync({
           providerId,
           to: to.map((r) => r.email),
@@ -260,10 +322,11 @@ export default function ComposeDialog({
           subject: debouncedSubject,
           bodyHtml: debouncedBody,
           existingDraftId: draftId,
+          attachments: attachmentDtos.length > 0 ? attachmentDtos : undefined,
         });
         setDraftId(result.id);
         setLastSavedAt(new Date());
-        logger.debug('Draft autosaved', { draftId: result.id });
+        logger.debug('Draft autosaved', { draftId: result.id, attachmentCount: attachmentDtos.length });
       } catch (err) {
         logger.error('Draft autosave failed', err instanceof Error ? err : new Error(String(err)));
       }
@@ -271,7 +334,7 @@ export default function ComposeDialog({
 
     saveCurrentDraft();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedBody, debouncedSubject, providerId]);
+  }, [debouncedBody, debouncedSubject, providerId, attachments]);
 
   // Mark as dirty when content changes
   const handleBodyChange = useCallback((html: string) => {

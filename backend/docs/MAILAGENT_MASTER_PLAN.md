@@ -29,6 +29,7 @@
 | **Week 1 Part A: emailDensity Move** | ✅ Moved from AI Settings to General Settings (Appearance section) | 2026-01-11 |
 | **Week 1 Part B: Signature in Compose** | ✅ Frontend auto-appends default signature, visible in editor | 2026-01-11 |
 | **Week 1 Part B: Signature Reply/Forward** | ✅ Backend signature append for reply + forward endpoints | 2026-01-11 |
+| **Week 2 Part A: Draft Attachments** | ✅ Autosave includes attachments + restore from draft | 2026-01-11 |
 
 ### ✅ COMPLETED P3: Mistral Agent PostgreSQL Persistence (2026-01-10)
 
@@ -150,6 +151,34 @@ User can edit signature in editor
 handleSend() passes signatureId: null
        ↓
 Backend receives null → skips signature append (already in body)
+```
+
+### ✅ COMPLETED Week 2 Part A: Compose Draft Attachments (2026-01-11)
+
+**Problem**: Draft attachments were lost during autosave/reload - user adds files, closes dialog, reopens = files gone.
+
+**Solution**: Full attachment persistence in drafts.
+
+| File | Change |
+|------|--------|
+| `frontend/lib/api/emails.ts` | Added `DraftAttachmentDto` type, `attachments` field to `SaveDraftDto`, exported `fileToBase64` |
+| `frontend/components/email/compose/ComposeDialog.tsx` | Autosave converts attachments to base64, restore effect converts base64 back to File objects |
+
+**Architecture**:
+```text
+User adds attachments → autosave triggers
+       ↓
+fileToBase64() converts File[] to DraftAttachmentDto[]
+       ↓
+saveDraft API stores in metadata.draftAttachments
+       ↓
+User closes and reopens draft
+       ↓
+useEmailDraft fetches draft with metadata
+       ↓
+useEffect converts base64 back to File via atob + Blob + File constructor
+       ↓
+setAttachments() restores UI
 ```
 
 ### ✅ COMPLETED P2: VoltAgent Tool Consolidation (2026-01-10)

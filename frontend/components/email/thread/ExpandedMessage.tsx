@@ -11,18 +11,16 @@
  */
 
 import { memo, useState } from 'react';
-import { Box, Typography, Avatar, IconButton, Button, Chip, Tooltip, Divider } from '@mui/material';
-import {
-  Paperclip,
-  Reply,
-  Forward,
-  Users,
-  ChevronUp,
-  Tag,
-  Download,
-} from 'lucide-react';
+import { Box, Typography, Avatar, IconButton, Button, Tooltip, Divider } from '@mui/material';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import ReplyIcon from '@mui/icons-material/Reply';
+import ReplyAllIcon from '@mui/icons-material/ReplyAll';
+import ForwardIcon from '@mui/icons-material/Forward';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import LabelIcon from '@mui/icons-material/Label';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { EmailHtmlContent } from './EmailHtmlContent';
+import { AttachmentCard } from './AttachmentCard';
 
 interface ExpandedMessageProps {
   message: {
@@ -211,25 +209,25 @@ export const ExpandedMessage = memo(function ExpandedMessage({
             <Box sx={{ display: 'flex', gap: 0.25 }}>
               <Tooltip title={t.threadMessage?.reply || 'Reply'}>
                 <IconButton size="small" onClick={() => onReply(message.id)} sx={{ p: 0.5 }}>
-                  <Reply size={16} />
+                  <ReplyIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </Tooltip>
               {onReplyAll && (
                 <Tooltip title={t.threadMessage?.replyAll || 'Reply All'}>
                   <IconButton size="small" onClick={() => onReplyAll(message.id)} sx={{ p: 0.5 }}>
-                    <Users size={16} />
+                    <ReplyAllIcon sx={{ fontSize: 16 }} />
                   </IconButton>
                 </Tooltip>
               )}
               <Tooltip title={t.threadMessage?.forward || 'Forward'}>
                 <IconButton size="small" onClick={() => onForward(message.id)} sx={{ p: 0.5 }}>
-                  <Forward size={16} />
+                  <ForwardIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </Tooltip>
               {onLabels && (
                 <Tooltip title={t.email?.labels?.addLabels || 'Labels'}>
                   <IconButton size="small" onClick={() => onLabels(message.id)} sx={{ p: 0.5 }}>
-                    <Tag size={16} />
+                    <LabelIcon sx={{ fontSize: 16 }} />
                   </IconButton>
                 </Tooltip>
               )}
@@ -243,7 +241,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
 
           {/* Collapse button */}
           <IconButton size="small" onClick={onCollapse} sx={{ p: 0.5 }}>
-            <ChevronUp size={18} />
+            <ExpandLessIcon sx={{ fontSize: 18 }} />
           </IconButton>
         </Box>
       </Box>
@@ -253,23 +251,34 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         <EmailHtmlContent html={message.body} attachments={message.attachments} />
       </Box>
 
-      {/* Attachments */}
+      {/* Attachments - TailAdmin Style */}
       {message.attachments && message.attachments.length > 0 && (
         <Box sx={{ px: 2, pb: 2, pl: 7.5 }}>
           <Divider sx={{ mb: 1.5 }} />
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {/* Attachment Header */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
+            <AttachFileIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+              {t.threadMessage?.attachments?.replace('{count}', String(message.attachments.length)) ||
+                `${message.attachments.length} Attachments`}
+            </Typography>
+          </Box>
+          {/* Attachment Cards */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
             {message.attachments.map((attachment) => (
-              <Chip
+              <AttachmentCard
                 key={attachment.id}
-                icon={<Paperclip size={14} />}
-                label={`${attachment.name} (${Math.round(attachment.size / 1024)}KB)`}
-                size="small"
-                variant="outlined"
-                clickable={!!onDownloadAttachment}
-                onClick={onDownloadAttachment ? () => onDownloadAttachment(message.id, attachment.id) : undefined}
-                onDelete={onDownloadAttachment ? () => onDownloadAttachment(message.id, attachment.id) : undefined}
-                deleteIcon={<Download size={14} />}
-                sx={{ cursor: onDownloadAttachment ? 'pointer' : 'default' }}
+                attachment={{
+                  id: attachment.id,
+                  name: attachment.name,
+                  size: attachment.size,
+                  contentId: attachment.contentId,
+                }}
+                onDownload={
+                  onDownloadAttachment
+                    ? (attachmentId) => onDownloadAttachment(message.id, attachmentId)
+                    : undefined
+                }
               />
             ))}
           </Box>
@@ -291,7 +300,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         <Button
           size="small"
           variant="text"
-          startIcon={<Reply size={16} />}
+          startIcon={<ReplyIcon sx={{ fontSize: 16 }} />}
           onClick={() => onReply(message.id)}
           sx={{ textTransform: 'none', color: 'text.secondary' }}
         >
@@ -301,7 +310,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           <Button
             size="small"
             variant="text"
-            startIcon={<Users size={16} />}
+            startIcon={<ReplyAllIcon sx={{ fontSize: 16 }} />}
             onClick={() => onReplyAll(message.id)}
             sx={{ textTransform: 'none', color: 'text.secondary' }}
           >
@@ -311,7 +320,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         <Button
           size="small"
           variant="text"
-          startIcon={<Forward size={16} />}
+          startIcon={<ForwardIcon sx={{ fontSize: 16 }} />}
           onClick={() => onForward(message.id)}
           sx={{ textTransform: 'none', color: 'text.secondary' }}
         >
@@ -321,7 +330,7 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           <Button
             size="small"
             variant="text"
-            startIcon={<Tag size={16} />}
+            startIcon={<LabelIcon sx={{ fontSize: 16 }} />}
             onClick={() => onLabels(message.id)}
             sx={{ textTransform: 'none', color: 'text.secondary' }}
           >

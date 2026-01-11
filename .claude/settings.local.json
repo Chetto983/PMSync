@@ -185,7 +185,10 @@
       "Bash(docker search:*)",
       "Bash(docker restart:*)",
       "Bash(more:*)",
-      "mcp__plugin_episodic-memory_episodic-memory__read"
+      "mcp__plugin_episodic-memory_episodic-memory__read",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_close"
     ],
     "deny": []
   }

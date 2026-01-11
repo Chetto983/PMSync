@@ -233,6 +233,14 @@ export interface BulkLabelsDto extends BulkEmailIdsDto {
 // Types - Draft DTOs
 // =============================================================================
 
+/** Attachment DTO for draft saving (base64 encoded) */
+export interface DraftAttachmentDto {
+  filename: string;
+  contentType: string;
+  contentBase64: string;
+  size?: number;
+}
+
 export interface SaveDraftDto {
   providerId: string;
   to?: string[];
@@ -244,6 +252,8 @@ export interface SaveDraftDto {
   replyToMessageId?: string;
   threadId?: string;
   existingDraftId?: string;
+  /** Attachments as base64-encoded data (for draft persistence) */
+  attachments?: DraftAttachmentDto[];
 }
 
 export interface DraftResponse {
@@ -285,8 +295,8 @@ export interface SendEmailResponse {
   messageId: string;
 }
 
-// Helper: Convert File to Base64
-function fileToBase64(file: File): Promise<string> {
+// Helper: Convert File to Base64 (exported for use in components)
+export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
