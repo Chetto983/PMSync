@@ -19,8 +19,9 @@ import {
   type RichTextEditorRef,
 } from 'mui-tiptap';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { aiApi } from '@/lib/api/ai';
+import { aiApi, type CommunicationStyle } from '@/lib/api/ai';
 import { useAuthStore } from '@/stores/auth-store';
+import { useAiProfile } from '@/hooks/queries/use-settings';
 import EditorMenuControls from './EditorMenuControls';
 import useExtensions from './useExtensions';
 import logger from '@/lib/logger';
@@ -60,6 +61,18 @@ export default function ComposeEditor({
   const { locale } = useRouter();
   const composer = t.email.composer;
   const user = useAuthStore((state) => state.user);
+  const { data: aiProfile } = useAiProfile();
+
+  // Map CommunicationStyle → compose tone parameter
+  const mapCommunicationStyleToTone = (style?: CommunicationStyle): string => {
+    switch (style) {
+      case 'FORMAL': return 'formal';
+      case 'CASUAL': return 'casual';
+      case 'TECHNICAL': return 'professional';
+      case 'CREATIVE': return 'friendly';
+      default: return 'professional';
+    }
+  };
 
   // Build sender name from user info
   const senderName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || undefined;
@@ -214,6 +227,7 @@ export default function ComposeEditor({
         prompt: contextPrompt,
         to: recipients,
         subject: subject || undefined,
+        tone: mapCommunicationStyleToTone(aiProfile?.communicationStyle),
         locale: locale || 'en',
         senderName,
         // TODO: signature will come from user settings once signature editor is implemented
@@ -235,7 +249,7 @@ export default function ComposeEditor({
     } finally {
       setAiIsLoading(false);
     }
-  }, [selectedText, isModifyMode, recipients, subject, locale, senderName, handleCloseAiMenu, composer]);
+  }, [selectedText, isModifyMode, recipients, subject, locale, senderName, handleCloseAiMenu, composer, aiProfile, mapCommunicationStyleToTone]);
 
   // Close AI Result Panel
   const handleCloseAiPanel = useCallback(() => {

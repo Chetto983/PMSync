@@ -30,6 +30,72 @@
 | **Week 1 Part B: Signature in Compose** | ✅ Frontend auto-appends default signature, visible in editor | 2026-01-11 |
 | **Week 1 Part B: Signature Reply/Forward** | ✅ Backend signature append for reply + forward endpoints | 2026-01-11 |
 | **Week 2 Part A: Draft Attachments** | ✅ Autosave includes attachments + restore from draft | 2026-01-11 |
+| **Week 2 Part B: Contact Photos Email List** | ✅ Batch sender photo lookup + lazy-load from providers | 2026-01-11 |
+| **Week 2 Part C: Avatar Consistency** | ✅ Consistent colored initials + `stringToColor()` for both list & detail | 2026-01-11 |
+| **Week 3 Task 2: communicationStyle → tone** | ✅ AI compose now uses user's preferred communication style | 2026-01-11 |
+
+### ✅ COMPLETED Week 3 Task 2: communicationStyle → compose tone (2026-01-11)
+
+**Problem**: User's `communicationStyle` preference (FORMAL/CASUAL/TECHNICAL/CREATIVE) was stored in settings but NOT used when composing emails via AI.
+
+**Solution**: Wire `useAiProfile()` hook into `ComposeEditor.tsx` and map style to API `tone` parameter.
+
+| File | Change |
+|------|--------|
+| `frontend/components/email/compose/ComposeEditor.tsx` | Added `useAiProfile()` hook + `mapCommunicationStyleToTone()` mapping |
+
+**Mapping**:
+| CommunicationStyle | API tone |
+|--------------------|----------|
+| FORMAL | 'formal' |
+| CASUAL | 'casual' |
+| TECHNICAL | 'professional' |
+| CREATIVE | 'friendly' |
+| (default) | 'professional' |
+
+**Flow**:
+```text
+User sets communicationStyle in AI Settings
+       ↓
+useAiProfile() fetches from personalizationApi
+       ↓
+ComposeEditor maps style → tone
+       ↓
+aiApi.composeEmail({ tone: 'formal' | 'casual' | ... })
+       ↓
+Backend AI generates email with appropriate tone
+```
+
+### ✅ COMPLETED Week 2 Part C: Avatar Consistency (2026-01-11)
+
+**Problem**: Email list and detail view had inconsistent avatar behavior - gray Gravatar silhouettes vs colored initials.
+
+**Solution**: Removed Gravatar fallback, implemented consistent colored initials using `stringToColor()` hash function.
+
+| File | Change |
+|------|--------|
+| `frontend/lib/utils/gravatar.ts` | Added `stringToColor()` for consistent avatar colors based on sender name |
+| `frontend/pages/dashboard/email.tsx` | Pass `avatarUrl` to both list and detail views |
+| `frontend/components/email/list/ThreadListItem.tsx` | Use `stringToColor(thread.from)` for avatar bgcolor |
+| `frontend/components/email/thread/ExpandedMessage.tsx` | Use `stringToColor(message.from)` for avatar bgcolor |
+
+**Avatar Priority Chain**:
+
+```text
+1. Contact photo (from unified_contacts.photoUrl via lookupByEmails API)
+   ↓ (if null)
+2. Colored initials using stringToColor(sender) - consistent hue per sender
+```
+
+**Database Stats** (2026-01-11):
+- 4,981 contacts WITH photoUrl (90%)
+- 564 contacts WITHOUT photoUrl (10%)
+- Google URLs: `https://lh3.googleusercontent.com/cm/...`
+
+**Key Design Decisions**:
+- Removed Gravatar: Gray mystery person silhouettes looked worse than colored initials
+- Hash-based colors: Same sender = same color everywhere (list + detail)
+- HSL color space: `hsl(hash % 360, 65%, 45%)` for readable white text on colored background
 
 ### ✅ COMPLETED P3: Mistral Agent PostgreSQL Persistence (2026-01-10)
 
@@ -179,6 +245,56 @@ useEmailDraft fetches draft with metadata
 useEffect converts base64 back to File via atob + Blob + File constructor
        ↓
 setAttachments() restores UI
+```
+
+### ✅ COMPLETED Week 2 Part B: Contact Photos in Email List (2026-01-11)
+
+**Problem**: Email list showed sender initials but no photos - contact photo feature only worked in ContactDetail page, not for email list sender avatars.
+
+**Solution**: Batch email-to-contact lookup with efficient PostgreSQL JSONB query.
+
+| File | Change |
+|------|--------|
+| `backend/src/modules/contacts/services/contacts.service.ts` | Added `findContactsByEmails()` batch lookup, `getContactPhoto()` lazy-load |
+| `backend/src/modules/contacts/controllers/contacts.controller.ts` | Added `POST /contacts/lookup-by-emails`, `GET /contacts/:id/photo` endpoints |
+| `backend/src/modules/contacts/dto/contact.dto.ts` | Added `LookupContactsByEmailsDto` |
+| `backend/src/modules/contacts/services/google-contacts-sync.service.ts` | Added `getContactPhoto()` for Google People API |
+| `backend/src/modules/contacts/services/microsoft-contacts-sync.service.ts` | Added `getContactPhoto()` for Microsoft Graph API |
+| `frontend/lib/api/contacts.ts` | Added `lookupByEmails()`, `getContactPhoto()`, `SenderContactMap` types |
+| `frontend/hooks/queries/contacts-keys.ts` | Added `senderPhotos`, `photo` query keys |
+| `frontend/hooks/queries/use-contacts.ts` | Added `useSenderPhotos()`, `useContactPhoto()` hooks |
+| `frontend/pages/dashboard/email.tsx` | Extract sender emails, fetch photos, populate `avatarUrl` in ThreadListItem |
+| `frontend/components/contacts/ContactDetail.tsx` | Lazy-load photos with `useContactPhoto()` |
+
+**Architecture**:
+```text
+Email List Page
+       ↓
+Extract unique sender emails from threads
+       ↓
+useSenderPhotos(emails) → POST /contacts/lookup-by-emails
+       ↓
+PostgreSQL JSONB query: SELECT WHERE email IN (emails)
+       ↓
+Returns Map<email, { contactId, photoUrl, displayName }>
+       ↓
+formatEmailToThread() populates avatarUrl from map
+       ↓
+ThreadListItem displays Avatar with photo
+```
+
+**Contact Detail Page (Lazy Loading)**:
+
+```text
+ContactDetail receives contact prop
+       ↓
+useContactPhoto(id, hasProviderContacts, existingPhotoUrl)
+       ↓
+Only fetches if: ID exists + has provider contacts + no existing photoUrl
+       ↓
+GET /contacts/:id/photo → tries Google/Microsoft API
+       ↓
+Caches photo URL in unified_contacts.photoUrl for future requests
 ```
 
 ### ✅ COMPLETED P2: VoltAgent Tool Consolidation (2026-01-10)
