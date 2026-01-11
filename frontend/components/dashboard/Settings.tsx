@@ -126,6 +126,10 @@ export function Settings() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  // Avatar state
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   const logout = useAuthStore((state) => state.logout);
 
   const sections = useMemo(
@@ -181,6 +185,19 @@ export function Settings() {
     setTimezone(saved.timezone);
     setEmailNotifications(saved.emailNotifications);
     setHydrated(true);
+  }, []);
+
+  // Load avatar from user profile
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profile = await usersApi.getProfile();
+        setAvatarUrl(profile.avatarUrl);
+      } catch {
+        // Ignore errors, avatar is optional
+      }
+    };
+    loadProfile();
   }, []);
 
   // Handle URL section param
@@ -329,6 +346,44 @@ export function Settings() {
   const handleProviderDeleted = useCallback(() => { setProviderSuccess('Disconnected'); refetchProviders(); }, [refetchProviders]);
   const handleCloseDeleteDialog = useCallback(() => { setDeleteDialogOpen(false); setDeleteConfirmText(''); setDeleteError(''); }, []);
 
+  // Avatar handlers
+  const handleAvatarUpload = useCallback(async (file: File) => {
+    try {
+      setAvatarUploading(true);
+      // Convert file to base64 data URL
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataUrl = e.target?.result as string;
+        try {
+          const result = await usersApi.uploadAvatar(dataUrl);
+          setAvatarUrl(result.avatarUrl);
+        } catch {
+          logger.error('Failed to upload avatar');
+        } finally {
+          setAvatarUploading(false);
+        }
+      };
+      reader.onerror = () => {
+        setAvatarUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setAvatarUploading(false);
+    }
+  }, []);
+
+  const handleAvatarRemove = useCallback(async () => {
+    try {
+      setAvatarUploading(true);
+      await usersApi.deleteAvatar();
+      setAvatarUrl(null);
+    } catch {
+      logger.error('Failed to remove avatar');
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, []);
+
   const accountName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
 
   // Build copy objects for child components
@@ -433,6 +488,7 @@ export function Settings() {
     deleteDialogConfirm: settingsCopy.accountPanel?.deleteDialogConfirm || 'Delete',
     deleteDialogDeleting: settingsCopy.accountPanel?.deleteDialogDeleting || 'Deleting...',
     deleteDialogError: settingsCopy.accountPanel?.deleteDialogError || 'Error',
+    avatar: settingsCopy.accountPanel?.avatar,
   }), [settingsCopy]);
 
   const notifCopy = useMemo(() => ({
@@ -507,7 +563,7 @@ export function Settings() {
               <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={handleProviderInitiated} onProviderConnected={handleProviderConnected} onProviderDeleted={handleProviderDeleted} copy={accountsCopy} />
             )}
             {selectedSection === 'account' && (
-              <AccountSettings accountName={accountName} email={user?.email || ''} role={user?.role || ''} language={language} deleteDialogOpen={deleteDialogOpen} deleteConfirmText={deleteConfirmText} deleteLoading={deleteLoading} deleteError={deleteError} onOpenDeleteDialog={() => setDeleteDialogOpen(true)} onCloseDeleteDialog={handleCloseDeleteDialog} onDeleteConfirmTextChange={setDeleteConfirmText} onDeleteAccount={handleDeleteAccount} copy={accountCopy} />
+              <AccountSettings accountName={accountName} email={user?.email || ''} role={user?.role || ''} language={language} avatarUrl={avatarUrl} avatarUploading={avatarUploading} onAvatarUpload={handleAvatarUpload} onAvatarRemove={handleAvatarRemove} deleteDialogOpen={deleteDialogOpen} deleteConfirmText={deleteConfirmText} deleteLoading={deleteLoading} deleteError={deleteError} onOpenDeleteDialog={() => setDeleteDialogOpen(true)} onCloseDeleteDialog={handleCloseDeleteDialog} onDeleteConfirmTextChange={setDeleteConfirmText} onDeleteAccount={handleDeleteAccount} copy={accountCopy} />
             )}
             {selectedSection === 'notifications' && (
               <NotificationsSettings newEmailNotif={newEmailNotif} setNewEmailNotif={setNewEmailNotif} calendarNotif={calendarNotif} setCalendarNotif={setCalendarNotif} aiActionsNotif={aiActionsNotif} setAiActionsNotif={setAiActionsNotif} saveLoading={notifSaveLoading} onSave={handleSaveNotifications} success={notifSuccess} error={notifError} onClearSuccess={() => setNotifSuccess('')} onClearError={() => setNotifError('')} copy={notifCopy} />

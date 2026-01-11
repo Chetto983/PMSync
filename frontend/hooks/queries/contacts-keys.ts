@@ -38,4 +38,10 @@ export const contactsKeys = {
   // Sync status
   syncStatus: () => [...contactsKeys.all, 'sync-status'] as const,
   providerSync: (providerId: string) => [...contactsKeys.syncStatus(), providerId] as const,
+
+  // Contact photo (lazy-loaded from provider)
+  photo: (id: string) => [...contactsKeys.all, 'photo', id] as const,
+
+  // Sender photos lookup (batch)
+  senderPhotos: (emails: string[]) => [...contactsKeys.all, 'sender-photos', emails.sort().join(',')] as const,
 } as const;

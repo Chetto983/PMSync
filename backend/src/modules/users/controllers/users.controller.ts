@@ -27,8 +27,32 @@ export class UsersController {
    * PUT /users/me
    */
   @Put('me')
-  async updateMyProfile(@Request() req: AuthenticatedRequest, @Body() body: { firstName?: string; lastName?: string }) {
+  @ApiOperation({ summary: 'Update user profile (name, avatar)' })
+  async updateMyProfile(@Request() req: AuthenticatedRequest, @Body() body: { firstName?: string; lastName?: string; avatarUrl?: string }) {
     return this.usersService.updateUserProfile(req.user.userId, body);
+  }
+
+  /**
+   * Upload/update user avatar
+   * PUT /users/me/avatar
+   * Accepts base64 data URL in body
+   */
+  @Put('me/avatar')
+  @ApiOperation({ summary: 'Upload user avatar (base64 data URL)' })
+  @ApiResponse({ status: 200, description: 'Avatar updated successfully' })
+  async updateMyAvatar(@Request() req: AuthenticatedRequest, @Body() body: { avatarUrl: string }) {
+    return this.usersService.updateUserAvatar(req.user.userId, body.avatarUrl);
+  }
+
+  /**
+   * Delete user avatar
+   * DELETE /users/me/avatar
+   */
+  @Delete('me/avatar')
+  @ApiOperation({ summary: 'Delete user avatar' })
+  @ApiResponse({ status: 200, description: 'Avatar deleted successfully' })
+  async deleteMyAvatar(@Request() req: AuthenticatedRequest) {
+    return this.usersService.deleteUserAvatar(req.user.userId);
   }
 
   /**

@@ -60,6 +60,7 @@ model User {
   passwordHash        String
   firstName           String?
   lastName            String?
+  avatarUrl           String?
   role                String                 @default("user")
   isActive            Boolean                @default(true)
   isMfaEnabled        Boolean                @default(true)

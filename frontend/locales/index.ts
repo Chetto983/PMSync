@@ -1840,6 +1840,18 @@ export interface AppTranslations {
       email: string;
       role: string;
       readOnlyNotice: string;
+      avatar: {
+        title: string;
+        upload: string;
+        change: string;
+        remove: string;
+        dropHint: string;
+        sizeHint: string;
+        uploading: string;
+        uploadSuccess: string;
+        uploadError: string;
+        removeConfirm: string;
+      };
       dangerTitle: string;
       dangerDescription: string;
       deleteCta: string;

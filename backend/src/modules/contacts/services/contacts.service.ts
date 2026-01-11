@@ -561,6 +561,131 @@ export class ContactsService {
   // =============================================================================
 
   /**
+   * Get contact photo from provider
+   * Fetches photo from the appropriate provider (Google/Microsoft) based on provider contact
+   * Returns the photo URL (Google) or base64 data URL (Microsoft)
+   *
+   * @param tenantId - Tenant ID for authorization
+   * @param contactId - Unified contact ID
+   * @returns Photo URL or base64 data URL, null if no photo
+   */
+  async getContactPhoto(tenantId: string, contactId: string): Promise<string | null> {
+    // Get contact with provider links
+    const contact = await this.getContact(tenantId, contactId);
+
+    // First check if unified contact has a photoUrl (from sync)
+    if (contact.photoUrl) {
+      return contact.photoUrl;
+    }
+
+    // Try to fetch photo from provider contacts
+    if (contact.providerContacts && contact.providerContacts.length > 0) {
+      for (const providerContact of contact.providerContacts) {
+        try {
+          const provider = await this.prisma.providerConfig.findUnique({
+            where: { id: providerContact.providerId },
+          });
+
+          if (provider?.isActive) {
+            let photoUrl: string | null = null;
+
+            if (provider.providerType === 'google') {
+              photoUrl = await this.googleContactsSync.getContactPhoto(
+                provider.id,
+                providerContact.externalId,
+              );
+            } else if (provider.providerType === 'microsoft') {
+              photoUrl = await this.microsoftContactsSync.getContactPhoto(
+                provider.id,
+                providerContact.externalId,
+              );
+            }
+
+            // Return first successful photo
+            if (photoUrl) {
+              // Optionally cache the photo URL in unified contact for future requests
+              void this.prisma.contact.update({
+                where: { id_tenantId: { id: contactId, tenantId } },
+                data: { photoUrl },
+              }).catch((err) => {
+                this.logger.warn(`Failed to cache contact photo URL: ${err.message}`);
+              });
+
+              return photoUrl;
+            }
+          }
+        } catch (error: any) {
+          this.logger.warn(`Failed to fetch photo from provider: ${error.message}`);
+          // Continue trying other providers
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Batch lookup contacts by email addresses
+   * Returns a map of email address -> { contactId, photoUrl, displayName }
+   * Used for populating sender photos in email list
+   *
+   * @param tenantId - Tenant ID for authorization
+   * @param emails - Array of email addresses to look up
+   * @returns Map of email -> contact info (photo, name)
+   */
+  async findContactsByEmails(
+    tenantId: string,
+    emails: string[],
+  ): Promise<Record<string, { contactId: string; photoUrl: string | null; displayName: string | null }>> {
+    if (!emails.length) {
+      return {};
+    }
+
+    // Normalize emails and deduplicate
+    const normalizedEmails = [...new Set(emails.map((e) => e.toLowerCase()))];
+
+    // Batch query using PostgreSQL JSONB - efficient O(n) for n contacts
+    const contacts = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        displayName: string | null;
+        photoUrl: string | null;
+        emails: Array<{ value: string }>;
+      }>
+    >`
+      SELECT id, "displayName", "photoUrl", emails
+      FROM "unified_contacts"
+      WHERE "tenantId" = ${tenantId}
+      AND "isDeleted" = false
+      AND emails IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM jsonb_array_elements(emails) AS email_obj
+        WHERE LOWER(email_obj->>'value') = ANY(${normalizedEmails}::text[])
+      )
+    `;
+
+    // Build email -> contact info map
+    const result: Record<string, { contactId: string; photoUrl: string | null; displayName: string | null }> = {};
+
+    for (const contact of contacts) {
+      if (contact.emails) {
+        for (const emailObj of contact.emails) {
+          const normalizedEmail = emailObj.value.toLowerCase();
+          if (normalizedEmails.includes(normalizedEmail)) {
+            result[normalizedEmail] = {
+              contactId: contact.id,
+              photoUrl: contact.photoUrl,
+              displayName: contact.displayName,
+            };
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * Delete all contacts associated with a provider
    * Called when a provider is being deleted
    * @param providerId - Provider ID being deleted

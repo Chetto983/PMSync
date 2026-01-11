@@ -17,7 +17,9 @@ import {
   useBulkDeleteEmails,
   useUpdateEmail,
   useDeleteEmail,
+  useSenderPhotos,
 } from '@/hooks/queries';
+import type { SenderContactMap } from '@/lib/api/contacts';
 import { useEmailRealtime } from '@/hooks/use-email-realtime';
 import { useEmailFilters } from '@/stores/email-ui-store';
 import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Tooltip } from '@mui/material';
@@ -33,8 +35,21 @@ import type { Email } from '@/lib/api/emails';
  * Supports moving emails between folders with provider validation
  */
 
+/**
+ * Extract email address from "Name <email@domain.com>" format
+ */
+function extractEmailAddress(from: string): string {
+  const match = from.match(/<([^>]+)>/);
+  if (match) return match[1].toLowerCase();
+  // If no brackets, treat the whole string as email
+  return from.toLowerCase().trim();
+}
+
 // Helper to format email data from API to ThreadListItemData
-function formatEmailToThread(email: Email): ThreadListItemData {
+function formatEmailToThread(email: Email, senderPhotos?: SenderContactMap): ThreadListItemData {
+  const senderEmail = extractEmailAddress(email.from);
+  const senderInfo = senderPhotos?.[senderEmail];
+
   return {
     id: email.id,
     from: email.from,
@@ -45,6 +60,7 @@ function formatEmailToThread(email: Email): ThreadListItemData {
     isFlagged: email.isFlagged || email.isStarred,
     hasAttachments: (email.attachments?.length ?? 0) > 0,
     providerId: email.providerId, // Provider ID for drag-and-drop validation
+    avatarUrl: senderInfo?.photoUrl || undefined, // Sender photo from contacts
     // Map emailLabels to the format expected by ThreadListItem
     // Backend returns el.label.id, not el.labelId
     labels: email.emailLabels?.map((el) => ({
@@ -149,10 +165,20 @@ export default function EmailPage() {
   const updateEmail = useUpdateEmail();
   const deleteEmail = useDeleteEmail();
 
-  // Format emails to thread list format (no mock data - real API only)
+  // Extract unique sender emails for photo lookup
+  const senderEmails = useMemo(() => {
+    if (!emailsData?.emails?.length) return [];
+    const emails = emailsData.emails.map((e) => extractEmailAddress(e.from));
+    return [...new Set(emails)];
+  }, [emailsData?.emails]);
+
+  // Fetch sender photos from contacts (batch lookup)
+  const { data: senderPhotos } = useSenderPhotos(senderEmails);
+
+  // Format emails to thread list format with sender photos
   const threads = useMemo(
-    () => emailsData?.emails?.map(formatEmailToThread) ?? [],
-    [emailsData?.emails]
+    () => emailsData?.emails?.map((email) => formatEmailToThread(email, senderPhotos)) ?? [],
+    [emailsData?.emails, senderPhotos]
   );
 
   // Email click - mark as read and show in reading pane (single email, not thread)

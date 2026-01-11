@@ -248,4 +248,35 @@ export class GoogleContactsSyncService extends BaseContactsSyncService {
 
     return google.people({ version: 'v1', auth: oauth2Client });
   }
+
+  /**
+   * Fetch contact photo from Google People API
+   * Google returns photo URLs directly in contact object
+   * Returns the photo URL or null if no photo
+   */
+  async getContactPhoto(providerId: string, externalId: string): Promise<string | null> {
+    try {
+      const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+      const peopleService = this.createPeopleClient(accessToken);
+
+      // Fetch the contact with photo field
+      const response = await withRetry(() =>
+        peopleService.people.get({
+          resourceName: externalId,
+          personFields: 'photos',
+        })
+      );
+
+      const photoUrl = response.data.photos?.[0]?.url;
+      if (!photoUrl) {
+        return null;
+      }
+
+      // Google photo URLs are publicly accessible
+      return photoUrl;
+    } catch (error: any) {
+      this.logger.warn(`Failed to fetch Google contact photo: ${error.message}`);
+      return null;
+    }
+  }
 }

@@ -242,7 +242,44 @@ export const contactsApi = {
     const response = await apiClient.get(`/contacts/${id}/history`, { params: { limit } });
     return response.data;
   },
+
+  /**
+   * Fetch contact photo from provider (Microsoft/Google)
+   * For contacts without photoUrl, this fetches on-demand and caches the result
+   * @param id - Contact ID
+   * @returns Photo URL (base64 data URL or external URL) or null if no photo
+   */
+  async getContactPhoto(id: string): Promise<string | null> {
+    const response = await apiClient.get<{ photoUrl: string | null }>(`/contacts/${id}/photo`);
+    return response.data.photoUrl;
+  },
+
+  /**
+   * Batch lookup contacts by email addresses
+   * Used for populating sender photos in email list
+   * @param emails - Array of email addresses to lookup
+   * @returns Map of email -> { contactId, photoUrl, displayName }
+   */
+  async lookupByEmails(emails: string[]): Promise<SenderContactMap> {
+    const response = await apiClient.post<SenderContactMap>('/contacts/lookup-by-emails', { emails });
+    return response.data;
+  },
 };
+
+/**
+ * Contact info returned from email lookup
+ * Used for sender photos in email list
+ */
+export interface SenderContactInfo {
+  contactId: string;
+  photoUrl: string | null;
+  displayName: string | null;
+}
+
+/**
+ * Map of email address -> contact info
+ */
+export type SenderContactMap = Record<string, SenderContactInfo>;
 
 export interface ContactInteraction {
   id: string;

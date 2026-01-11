@@ -59,9 +59,49 @@ export interface UpdatePreferencesData {
   aiSchedulingEnabled?: boolean;
 }
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
+  role: string;
+  isMfaEnabled: boolean;
+  lastLogin: string | null;
+  createdAt: string;
+}
+
 export const usersApi = {
-  updateProfile: (data: { firstName?: string; lastName?: string }) => {
-    return apiClient.put('/users/me', data);
+  /**
+   * Get current user profile
+   */
+  getProfile: async (): Promise<UserProfile> => {
+    const response = await apiClient.get('/users/me');
+    return response.data;
+  },
+
+  /**
+   * Update user profile (name, avatar)
+   */
+  updateProfile: async (data: { firstName?: string; lastName?: string; avatarUrl?: string }): Promise<UserProfile> => {
+    const response = await apiClient.put('/users/me', data);
+    return response.data;
+  },
+
+  /**
+   * Upload user avatar (base64 data URL)
+   */
+  uploadAvatar: async (avatarUrl: string): Promise<{ id: string; avatarUrl: string }> => {
+    const response = await apiClient.put('/users/me/avatar', { avatarUrl });
+    return response.data;
+  },
+
+  /**
+   * Delete user avatar
+   */
+  deleteAvatar: async (): Promise<{ id: string; avatarUrl: null }> => {
+    const response = await apiClient.delete('/users/me/avatar');
+    return response.data;
   },
 
   /**

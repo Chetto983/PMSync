@@ -272,3 +272,14 @@ export class VCardImportBodyDto {
   @MaxLength(10 * 1024 * 1024) // 10MB max for raw vCard content
   content?: string;
 }
+
+/**
+ * DTO for batch lookup of contacts by email addresses
+ * Used for populating sender photos in email list
+ */
+export class LookupContactsByEmailsDto {
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(100) // Limit to 100 emails per request
+  emails!: string[];
+}

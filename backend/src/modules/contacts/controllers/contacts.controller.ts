@@ -32,6 +32,7 @@ import {
   CreateLocalContactDto,
   ExtractContactsDto,
   VCardImportBodyDto,
+  LookupContactsByEmailsDto,
 } from '../dto/contact.dto';
 
 @ApiTags('Contacts')
@@ -107,6 +108,49 @@ export class ContactsController {
     const tenantId = req.user.tenantId;
     const parsedLimit = limit ? parseInt(String(limit), 10) : 50;
     return this.relationshipService.getContactInteractionHistory(tenantId, contactId, { limit: parsedLimit });
+  }
+
+  /**
+   * Get contact photo
+   * GET /api/contacts/:id/photo
+   *
+   * Fetches the contact photo from the provider (Google/Microsoft).
+   * Returns the photo URL (Google) or base64 data URL (Microsoft).
+   *
+   * @see https://learn.microsoft.com/en-us/graph/api/profilephoto-get
+   */
+  @Get(':id/photo')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Get contact photo', description: 'Returns contact photo URL or base64 data' })
+  @ApiParam({ name: 'id', description: 'Contact ID' })
+  @ApiResponse({ status: 200, description: 'Photo returned successfully' })
+  @ApiResponse({ status: 404, description: 'Contact not found or no photo' })
+  async getContactPhoto(@Req() req: any, @Param('id') contactId: string) {
+    const tenantId = req.user.tenantId;
+    const photoUrl = await this.contactsService.getContactPhoto(tenantId, contactId);
+
+    return { photoUrl };
+  }
+
+  /**
+   * Batch lookup contacts by email addresses
+   * POST /api/contacts/lookup-by-emails
+   *
+   * Used for populating sender photos in email list.
+   * Returns a map of email address -> { contactId, photoUrl, displayName }
+   */
+  @Post('lookup-by-emails')
+  @HttpCode(HttpStatus.OK)
+  @SkipThrottle()
+  @ApiOperation({
+    summary: 'Lookup contacts by emails',
+    description: 'Batch lookup contacts by email addresses for sender photos',
+  })
+  @ApiBody({ type: LookupContactsByEmailsDto })
+  @ApiResponse({ status: 200, description: 'Contact lookup results' })
+  async lookupContactsByEmails(@Req() req: any, @Body() data: LookupContactsByEmailsDto) {
+    const tenantId = req.user.tenantId;
+    return this.contactsService.findContactsByEmails(tenantId, data.emails);
   }
 
   /**

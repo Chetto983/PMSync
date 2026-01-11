@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Box,
   Typography,
@@ -14,8 +14,10 @@ import {
   DialogActions,
   Alert,
   CircularProgress,
+  Avatar,
+  alpha,
 } from '@mui/material';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Camera, X } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 
 export interface AccountSettingsProps {
@@ -23,6 +25,11 @@ export interface AccountSettingsProps {
   email: string;
   role: string;
   language: string;
+  // Avatar
+  avatarUrl?: string | null;
+  avatarUploading?: boolean;
+  onAvatarUpload?: (file: File) => void;
+  onAvatarRemove?: () => void;
   // Delete dialog state
   deleteDialogOpen: boolean;
   deleteConfirmText: string;
@@ -50,7 +57,31 @@ export interface AccountSettingsProps {
     deleteDialogConfirm: string;
     deleteDialogDeleting: string;
     deleteDialogError: string;
+    avatar?: {
+      title: string;
+      upload: string;
+      change: string;
+      remove: string;
+      dropHint: string;
+      sizeHint: string;
+      uploading: string;
+      uploadSuccess: string;
+      uploadError: string;
+      removeConfirm: string;
+    };
   };
+}
+
+/**
+ * Get initials from name
+ */
+function getInitials(name: string): string {
+  if (!name) return '?';
+  const parts = name.split(' ').filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return parts[0].substring(0, 2).toUpperCase();
 }
 
 export function AccountSettings({
@@ -58,6 +89,10 @@ export function AccountSettings({
   email,
   role,
   language,
+  avatarUrl,
+  avatarUploading = false,
+  onAvatarUpload,
+  onAvatarRemove,
   deleteDialogOpen,
   deleteConfirmText,
   deleteLoading,
@@ -69,6 +104,36 @@ export function AccountSettings({
   copy,
 }: AccountSettingsProps) {
   const confirmWord = language === 'it' ? 'ELIMINA' : 'DELETE';
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onAvatarUpload) {
+      // Validate file type and size
+      if (!file.type.startsWith('image/')) {
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        // 2MB max
+        return;
+      }
+      onAvatarUpload(file);
+    }
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleRemoveConfirm = () => {
+    onAvatarRemove?.();
+    setRemoveDialogOpen(false);
+  };
 
   return (
     <Box>
@@ -78,6 +143,100 @@ export function AccountSettings({
       <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
         {copy.description}
       </Typography>
+
+      {/* Avatar Section */}
+      {copy.avatar && (
+        <SectionCard title={copy.avatar.title} sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            {/* Avatar with hover overlay */}
+            <Box
+              sx={{
+                position: 'relative',
+                cursor: 'pointer',
+                '&:hover .avatar-overlay': {
+                  opacity: 1,
+                },
+              }}
+              onClick={handleAvatarClick}
+            >
+              <Avatar
+                src={avatarUrl || undefined}
+                sx={{
+                  width: 96,
+                  height: 96,
+                  fontSize: '2rem',
+                  fontWeight: 600,
+                  bgcolor: 'primary.main',
+                }}
+              >
+                {getInitials(accountName)}
+              </Avatar>
+              <Box
+                className="avatar-overlay"
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  borderRadius: '50%',
+                  bgcolor: (theme) => alpha(theme.palette.common.black, 0.5),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: 0,
+                  transition: 'opacity 0.2s ease',
+                }}
+              >
+                {avatarUploading ? (
+                  <CircularProgress size={24} sx={{ color: 'white' }} />
+                ) : (
+                  <Camera size={24} color="white" />
+                )}
+              </Box>
+            </Box>
+
+            {/* Upload/Remove buttons */}
+            <Stack spacing={1}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleAvatarClick}
+                disabled={avatarUploading}
+                startIcon={avatarUploading ? <CircularProgress size={16} /> : <Camera size={16} />}
+              >
+                {avatarUploading
+                  ? copy.avatar.uploading
+                  : avatarUrl
+                    ? copy.avatar.change
+                    : copy.avatar.upload}
+              </Button>
+              {avatarUrl && onAvatarRemove && (
+                <Button
+                  variant="text"
+                  size="small"
+                  color="error"
+                  onClick={() => setRemoveDialogOpen(true)}
+                  startIcon={<X size={16} />}
+                >
+                  {copy.avatar.remove}
+                </Button>
+              )}
+              <Typography variant="caption" color="text.secondary">
+                {copy.avatar.sizeHint}
+              </Typography>
+            </Stack>
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              aria-label="Upload profile picture"
+              tabIndex={-1}
+              onChange={handleFileSelect}
+              hidden
+            />
+          </Box>
+        </SectionCard>
+      )}
 
       <SectionCard title={copy.profileTitle || 'Profile'}>
         <Stack spacing={2}>
@@ -109,6 +268,7 @@ export function AccountSettings({
         </CardContent>
       </Card>
 
+      {/* Delete Account Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={onCloseDeleteDialog}
@@ -152,6 +312,29 @@ export function AccountSettings({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Remove Avatar Confirmation Dialog */}
+      {copy.avatar && (
+        <Dialog
+          open={removeDialogOpen}
+          onClose={() => setRemoveDialogOpen(false)}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>{copy.avatar.remove}</DialogTitle>
+          <DialogContent>
+            <DialogContentText>{copy.avatar.removeConfirm}</DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setRemoveDialogOpen(false)}>
+              {copy.deleteDialogCancel}
+            </Button>
+            <Button onClick={handleRemoveConfirm} color="error" variant="contained">
+              {copy.avatar.remove}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 }

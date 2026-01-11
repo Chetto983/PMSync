@@ -290,4 +290,40 @@ export class MicrosoftContactsSyncService extends BaseContactsSyncService {
       { provider: 'microsoft', operationName: 'deleteContact', maxRetries: 2, logger: this.logger },
     );
   }
+
+  /**
+   * Fetch contact photo from Microsoft Graph API
+   * Returns base64 data URL or null if no photo
+   *
+   * @see https://learn.microsoft.com/en-us/graph/api/profilephoto-get
+   */
+  async getContactPhoto(providerId: string, externalId: string): Promise<string | null> {
+    try {
+      const { accessToken } = await this.providerTokenService.getProviderWithToken(providerId);
+
+      const circuitBreaker = getContactsCircuitBreaker('microsoft', 'getContactPhoto');
+
+      const response = await withRetry(
+        async () => circuitBreaker.execute(() =>
+          axios.get(`${this.GRAPH_API_BASE}/me/contacts/${externalId}/photo/$value`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            responseType: 'arraybuffer',
+          })
+        ),
+        { provider: 'microsoft', operationName: 'getContactPhoto', maxRetries: 2, logger: this.logger },
+      );
+
+      // Convert binary to base64 data URL
+      const contentType = response.headers['content-type'] || 'image/jpeg';
+      const base64 = Buffer.from(response.data).toString('base64');
+      return `data:${contentType};base64,${base64}`;
+    } catch (error: any) {
+      // 404 means no photo - not an error
+      if (error.response?.status === 404) {
+        return null;
+      }
+      this.logger.warn(`Failed to fetch contact photo: ${error.message}`);
+      return null;
+    }
+  }
 }

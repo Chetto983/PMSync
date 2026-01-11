@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { Contact, ContactInteraction } from '@/lib/api/contacts';
-import { useContactHistory } from '@/hooks/queries/use-contacts';
+import { useContactHistory, useContactPhoto } from '@/hooks/queries/use-contacts';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -319,6 +319,13 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
   const contactName = useMemo(() => getContactName(contact, t.common?.unnamedContact ?? 'Unnamed contact'), [contact, t.common?.unnamedContact]);
   const primaryEmail = useMemo(() => getPrimaryEmail(contact), [contact]);
 
+  // Lazy-load photo for contacts synced from providers (Microsoft/Google) that don't have photoUrl yet
+  const hasProviderContacts = !!(contact.providerContacts && contact.providerContacts.length > 0);
+  const { data: fetchedPhotoUrl } = useContactPhoto(contact.id, hasProviderContacts, contact.photoUrl);
+
+  // Use fetched photo URL if available, otherwise use existing photoUrl
+  const photoUrl = fetchedPhotoUrl || contact.photoUrl;
+
   // Use CRM Intelligence field if available, fallback to updatedAt/createdAt
   const lastInteraction = contact.lastInteractedAt || contact.updatedAt || contact.createdAt;
 
@@ -346,7 +353,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
           )}
 
           <Avatar
-            src={contact.photoUrl || undefined}
+            src={photoUrl || undefined}
             sx={{ width: 72, height: 72, bgcolor: 'primary.main', fontSize: '2rem' }}
           >
             {contactName[0]?.toUpperCase() || 'U'}

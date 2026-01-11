@@ -192,6 +192,75 @@ export function useContactHistory(id: string, limit: number = 50) {
   return useQuery(contactHistoryOptions(id, limit));
 }
 
+/**
+ * Query options for fetching contact photo on-demand
+ * Only fetches if contact has provider contacts (synced from Google/Microsoft)
+ */
+export function contactPhotoOptions(id: string, hasProviderContacts: boolean, existingPhotoUrl: string | null | undefined) {
+  return queryOptions({
+    queryKey: contactsKeys.photo(id),
+    queryFn: async () => {
+      return await contactsApi.getContactPhoto(id);
+    },
+    staleTime: 30 * 60 * 1000, // 30 minutes - photos rarely change
+    gcTime: 60 * 60 * 1000, // 1 hour
+    // Only fetch if:
+    // 1. Has a valid contact ID
+    // 2. Has provider contacts (synced from external provider)
+    // 3. Does NOT already have a photoUrl
+    enabled: !!id && hasProviderContacts && !existingPhotoUrl,
+  });
+}
+
+/**
+ * Hook for fetching contact photo on-demand
+ * Lazy-loads photos for contacts synced from Google/Microsoft that don't have photoUrl yet
+ *
+ * @example
+ * ```tsx
+ * const { data: photoUrl, isLoading } = useContactPhoto(
+ *   contact.id,
+ *   !!contact.providerContacts?.length,
+ *   contact.photoUrl
+ * );
+ * // Use photoUrl || contact.photoUrl for the Avatar src
+ * ```
+ */
+export function useContactPhoto(id: string, hasProviderContacts: boolean, existingPhotoUrl: string | null | undefined) {
+  return useQuery(contactPhotoOptions(id, hasProviderContacts, existingPhotoUrl));
+}
+
+/**
+ * Query options for batch lookup of sender photos by email
+ * Used for populating sender avatars in email list
+ */
+export function senderPhotosOptions(emails: string[]) {
+  return queryOptions({
+    queryKey: contactsKeys.senderPhotos(emails),
+    queryFn: async () => {
+      return await contactsApi.lookupByEmails(emails);
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes - sender photos rarely change
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    enabled: emails.length > 0,
+  });
+}
+
+/**
+ * Hook for batch lookup of sender photos by email addresses
+ * Used for populating sender avatars in email list
+ *
+ * @example
+ * ```tsx
+ * const emails = threads.map(t => extractEmail(t.from));
+ * const { data: senderPhotos } = useSenderPhotos(emails);
+ * // senderPhotos['john@example.com']?.photoUrl
+ * ```
+ */
+export function useSenderPhotos(emails: string[]) {
+  return useQuery(senderPhotosOptions(emails));
+}
+
 // ============================================================================
 // Mutation Hooks
 // ============================================================================

@@ -25,6 +25,7 @@ export class UsersService {
         email: true,
         firstName: true,
         lastName: true,
+        avatarUrl: true,
         role: true,
         isMfaEnabled: true,
         lastLogin: true,
@@ -36,10 +37,47 @@ export class UsersService {
   /**
    * Update user profile
    */
-  async updateUserProfile(userId: string, data: { firstName?: string; lastName?: string }) {
+  async updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; avatarUrl?: string }) {
     return this.prisma.user.update({
       where: { id: userId },
       data,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        role: true,
+      },
+    });
+  }
+
+  /**
+   * Update user avatar
+   * Accepts base64 data URL or null to remove
+   */
+  async updateUserAvatar(userId: string, avatarUrl: string | null) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl },
+      select: {
+        id: true,
+        avatarUrl: true,
+      },
+    });
+  }
+
+  /**
+   * Delete user avatar
+   */
+  async deleteUserAvatar(userId: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl: null },
+      select: {
+        id: true,
+        avatarUrl: true,
+      },
     });
   }
 
