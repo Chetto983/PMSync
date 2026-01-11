@@ -428,8 +428,9 @@ Examples:
         return { error: t.email.notFound };
       }
 
-      // Get tone instruction from locale
-      const toneInstruction = t.insights.tones[tone];
+      // Get tone instruction from locale with fallback for invalid tones
+      const validTone = ['formal', 'casual', 'technical'].includes(tone) ? tone : 'casual';
+      const toneInstruction = t.insights.tones[validTone as 'formal' | 'casual' | 'technical'];
 
       // SUGGESTIONS MODE: Generate 3 quick reply options (merged from generate_smart_replies)
       if (mode === 'suggestions') {
@@ -720,8 +721,9 @@ export function createSmartRepliesTool(options: InsightsToolOptions) {
         return { error: t.email.notFound };
       }
 
-      // Get tone instruction from locale
-      const toneInstruction = t.insights.tones[tone];
+      // Get tone instruction from locale with fallback for invalid tones
+      const validTone = ['formal', 'casual', 'technical'].includes(tone) ? tone : 'casual';
+      const toneInstruction = t.insights.tones[validTone as 'formal' | 'casual' | 'technical'];
       const systemPrompt = t.insights.smartReplies.systemPrompt(toneInstruction);
       const userPrompt = buildEmailPrompt(email, locale, t);
 

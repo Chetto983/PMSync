@@ -385,44 +385,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
     });
   });
 
-  describe('getLearningStats', () => {
-    it('should call correct endpoint without userId', async () => {
-      const mockResponse = {
-        data: {
-          success: true,
-          stats: [
-            {
-              agentName: 'EmailAgent',
-              actionType: 'SEND_EMAIL',
-              totalAttempts: 100,
-              approvalRate: 0.85,
-              successRate: 0.95,
-              confidenceBoost: 0.05,
-              avgOriginalConfidence: 0.8,
-              avgAdjustedConfidence: 0.85,
-            },
-          ],
-        },
-      };
-      (apiClient.get as jest.Mock).mockResolvedValue(mockResponse);
-
-      await voltAgentApi.getLearningStats();
-
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/voltagent/stats/learning', {
-        params: undefined,
-      });
-    });
-
-    it('should pass userId when provided', async () => {
-      (apiClient.get as jest.Mock).mockResolvedValue({ data: { success: true, stats: [] } });
-
-      await voltAgentApi.getLearningStats('user-123');
-
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/voltagent/stats/learning', {
-        params: { userId: 'user-123' },
-      });
-    });
-  });
+  // NOTE: getLearningStats tests removed - endpoint doesn't exist
 
   describe('getAggregateStats', () => {
     it('should call correct endpoint', async () => {

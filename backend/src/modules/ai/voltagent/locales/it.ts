@@ -104,6 +104,11 @@ export const it: VoltAgentTranslations = {
     },
     insights: {
       ...en.tools.insights, // Use English AI prompts
+      smartReplies: {
+        description: "Genera 2-3 risposte rapide e concise a un'email",
+        systemPrompt: (toneInstruction: string) =>
+          `Genera 2-3 risposte concise all'email in ITALIANO. ${toneInstruction} Rispondi in JSON: {"replies":["..."]}.`,
+      },
       tones: {
         formal: 'Tono formale e professionale.',
         casual: 'Tono amichevole e colloquiale.',

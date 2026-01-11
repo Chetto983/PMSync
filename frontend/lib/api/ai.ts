@@ -688,13 +688,7 @@ export const voltAgentApi = {
     );
   },
 
-  getLearningStats(userId?: string) {
-    const params = userId ? { userId } : undefined;
-    return apiClient.get<{ success: boolean; stats: LearningProfileStats[] }>(
-      '/api/v1/voltagent/stats/learning',
-      { params },
-    );
-  },
+  // NOTE: getLearningStats removed - endpoint doesn't exist (learning is in-memory only)
 
   getWritingStyle() {
     return apiClient.get<{ success: boolean; profile: WritingStyleProfile }>(
@@ -1407,7 +1401,6 @@ export const multiAgentApi = {
   approveAction: voltAgentApi.approveAction,
   rejectAction: voltAgentApi.rejectAction,
   getActionCounts: voltAgentApi.getActionCounts,
-  getLearningStats: voltAgentApi.getLearningStats,
   getAggregateStats: voltAgentApi.getAggregateStats,
   getFeedback: voltAgentApi.getFeedback,
   resetLearning: voltAgentApi.resetLearning,

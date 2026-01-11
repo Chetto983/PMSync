@@ -18,7 +18,6 @@ jest.mock('@/lib/api/ai', () => ({
     approveAction: jest.fn(),
     rejectAction: jest.fn(),
     getActionCounts: jest.fn(),
-    getLearningStats: jest.fn(),
     getAggregateStats: jest.fn(),
   },
 }));
@@ -112,9 +111,6 @@ describe('useAiActions', () => {
       (voltAgentApi.getActionCounts as jest.Mock).mockResolvedValueOnce({
         data: { success: true, counts: { PENDING: 2 } },
       });
-      (voltAgentApi.getLearningStats as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, stats: [] },
-      });
       (voltAgentApi.getAggregateStats as jest.Mock).mockResolvedValueOnce({
         data: { success: true, stats: { totalAttempts: 10, overallApprovalRate: 0.8, overallSuccessRate: 0.9, agentBreakdown: {} } },
       });
@@ -149,9 +145,6 @@ describe('useAiActions', () => {
       (voltAgentApi.getActionCounts as jest.Mock).mockResolvedValueOnce({
         data: { success: true, counts: {} },
       });
-      (voltAgentApi.getLearningStats as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, stats: [] },
-      });
       (voltAgentApi.getAggregateStats as jest.Mock).mockResolvedValueOnce({
         data: { success: true, stats: {} },
       });
@@ -174,9 +167,6 @@ describe('useAiActions', () => {
       });
       (voltAgentApi.getActionCounts as jest.Mock).mockResolvedValueOnce({
         data: { success: true, counts: {} },
-      });
-      (voltAgentApi.getLearningStats as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, stats: [] },
       });
       (voltAgentApi.getAggregateStats as jest.Mock).mockResolvedValueOnce({
         data: { success: true, stats: {} },
@@ -325,9 +315,6 @@ describe('useAiActions', () => {
       (voltAgentApi.getActionCounts as jest.Mock).mockResolvedValueOnce({
         data: { success: true, counts: mockCounts },
       });
-      (voltAgentApi.getLearningStats as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, stats: [] },
-      });
       (voltAgentApi.getAggregateStats as jest.Mock).mockResolvedValueOnce({
         data: { success: true, stats: {} },
       });
@@ -342,42 +329,7 @@ describe('useAiActions', () => {
     });
   });
 
-  describe('learning stats', () => {
-    it('should fetch learning stats', async () => {
-      const mockStats = [
-        {
-          agentName: 'email-agent',
-          actionType: 'SEND_EMAIL',
-          totalAttempts: 50,
-          approvalRate: 0.9,
-          successRate: 0.95,
-          confidenceBoost: 0.1,
-          avgOriginalConfidence: 0.7,
-          avgAdjustedConfidence: 0.8,
-        },
-      ];
-      (voltAgentApi.getPendingActions as jest.Mock).mockResolvedValueOnce({
-        data: { actions: [], total: 0 },
-      });
-      (voltAgentApi.getActionCounts as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, counts: {} },
-      });
-      (voltAgentApi.getLearningStats as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, stats: mockStats },
-      });
-      (voltAgentApi.getAggregateStats as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, stats: {} },
-      });
-
-      const { result } = renderHook(() => useAiActions({ autoFetch: true }), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(result.current.learningStats).toEqual(mockStats);
-      });
-    });
-  });
+  // NOTE: learning stats tests removed - getLearningStats endpoint doesn't exist
 
   describe('aggregate stats', () => {
     it('should fetch aggregate stats', async () => {
@@ -398,9 +350,6 @@ describe('useAiActions', () => {
       });
       (voltAgentApi.getActionCounts as jest.Mock).mockResolvedValueOnce({
         data: { success: true, counts: {} },
-      });
-      (voltAgentApi.getLearningStats as jest.Mock).mockResolvedValueOnce({
-        data: { success: true, stats: [] },
       });
       (voltAgentApi.getAggregateStats as jest.Mock).mockResolvedValueOnce({
         data: { success: true, stats: mockAggregateStats },

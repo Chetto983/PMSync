@@ -211,7 +211,7 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
       smartReplies: {
         description: 'Generate 2-3 quick, concise replies to an email',
         systemPrompt: (toneInstruction) =>
-          `Generate 2-3 concise replies to the email. ${toneInstruction} Respond in JSON: {"replies":["..."]}.`,
+          `Generate 2-3 concise replies to the email in ENGLISH. ${toneInstruction} Respond in JSON: {"replies":["..."]}.`,
       },
       // Enhanced 2025 tools
       analyze: {
