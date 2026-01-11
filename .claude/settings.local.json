@@ -188,7 +188,10 @@
       "mcp__plugin_episodic-memory_episodic-memory__read",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_take_screenshot",
-      "mcp__playwright__browser_close"
+      "mcp__playwright__browser_close",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_wait_for"
     ],
     "deny": []
   }
