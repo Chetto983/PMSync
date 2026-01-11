@@ -33,6 +33,43 @@
 | **Week 2 Part B: Contact Photos Email List** | ✅ Batch sender photo lookup + lazy-load from providers | 2026-01-11 |
 | **Week 2 Part C: Avatar Consistency** | ✅ Consistent colored initials + `stringToColor()` for both list & detail | 2026-01-11 |
 | **Week 3 Task 2: communicationStyle → tone** | ✅ AI compose now uses user's preferred communication style | 2026-01-11 |
+| **Week 3 Task 4: email-triage.listener** | ✅ Auto-triage wired into sync with scale protection (5 concurrent max) | 2026-01-11 |
+
+### ✅ COMPLETED Week 3 Task 4: email-triage.listener (2026-01-11)
+
+**Problem**: `EmailTriageService` existed but was NOT wired into sync flow - emails weren't being auto-triaged.
+
+**Solution**: Wire triage into `SyncWorker` with scale protection to prevent LLM API storms at 1000+ users.
+
+**Implementation**:
+
+1. **SyncWorker.ts** - Fire-and-forget call to `processUntriagedEmails()` after incremental sync
+2. **EmailTriageService.ts** - Added global concurrency semaphore (max 5 concurrent operations)
+
+**Scale Protection**:
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  1000 users sync simultaneously                                 │
+│     ↓                                                           │
+│  1000 fire-and-forget triage calls                              │
+│     ↓                                                           │
+│  Semaphore limits to 5 concurrent operations                    │
+│     ↓                                                           │
+│  Rest queued (max 50) or skipped with "retry next sync"         │
+│     ↓                                                           │
+│  Max 5 × 20 = 100 LLM calls at once (not 20000)                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Cost Controls**:
+
+- Auto-triage is opt-in (`aiAutoTriageEnabled` preference)
+- Max 20 emails per batch
+- Only emails < 24h old
+- Skip junk/spam/trash folders
+- 500ms delay between LLM calls
+- Global concurrency limit of 5
 
 ### ✅ COMPLETED Week 3 Task 2: communicationStyle → compose tone (2026-01-11)
 

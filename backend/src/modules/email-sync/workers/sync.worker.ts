@@ -29,6 +29,7 @@ import { ImapSyncService } from '../services/imap/imap-sync.service';
 import { QUEUE_NAMES } from '../../../common/config';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { BaseWorker, BaseWorkerConfig } from '../../../common/workers/base.worker';
+import { EmailTriageService } from '../../ai/services/email-triage.service';
 
 @Injectable()
 export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
@@ -59,6 +60,8 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
     private readonly imapSyncService: ImapSyncService,
     // RACE CONDITION FIX RC-4: Redis lock for folder sync coordination
     private readonly redisLock: RedisLockService,
+    // Week 3 Task 4: Auto-triage service for Superhuman-like priority/labels
+    private readonly emailTriageService: EmailTriageService,
   ) {
     super(configService);
     // CRIT-2 FIX: Initialize sync timeout from config (default 10 minutes)
@@ -138,9 +141,10 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
 
     // BUG FIX ES-7: Validate providerType from database, don't trust job data
     // This prevents malformed job data from dispatching the wrong driver
+    // Week 3 Task 4: Also fetch userId for auto-triage after sync
     const provider = await this.prisma.providerConfig.findUnique({
       where: { id: providerId },
-      select: { id: true, tenantId: true, providerType: true, email: true },
+      select: { id: true, tenantId: true, providerType: true, email: true, userId: true },
     });
 
     if (!provider) {
@@ -221,6 +225,28 @@ export class SyncWorker extends BaseWorker<SyncJobData, SyncJobResult> {
       }
 
       await this.applyAllPostSyncUpdates(providerId, tenantId, metadataUpdates);
+
+      // Week 3 Task 4: Trigger auto-triage for new emails (Superhuman-like feature)
+      // Fire-and-forget: don't block sync completion, let triage run in background
+      // Only for incremental syncs with new messages (avoid storm on full sync)
+      if (syncType === 'incremental' && result.newMessages > 0 && provider.userId) {
+        this.emailTriageService
+          .processUntriagedEmails({
+            tenantId,
+            userId: provider.userId,
+          })
+          .then((triageResult) => {
+            if (triageResult.processed > 0) {
+              this.logger.log(
+                `Auto-triage: ${triageResult.successful}/${triageResult.processed} emails triaged for ${email}`,
+              );
+            }
+          })
+          .catch((err) => {
+            // Fire-and-forget: log error but don't fail sync
+            this.logger.warn(`Auto-triage failed for ${email}: ${err.message}`);
+          });
+      }
 
       return {
         ...result,

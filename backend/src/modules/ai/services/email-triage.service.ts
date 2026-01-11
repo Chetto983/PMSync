@@ -19,6 +19,10 @@ const MAX_TRIAGE_PER_BATCH = 20; // Max emails to process per API call
 const TRIAGE_MAX_AGE_HOURS = 24; // Only triage emails from last 24h
 const SKIP_FOLDERS = ['spam', 'junk', 'trash', '[gmail]/spam', '[gmail]/trash'];
 
+// SCALE PROTECTION: Global concurrency limit for LLM API calls
+// Prevents 1000 users syncing = 20000 LLM calls storm
+const MAX_CONCURRENT_TRIAGE_OPERATIONS = 5; // Max 5 tenants triaging simultaneously
+
 interface TriageResult {
   emailId: string;
   success: boolean;
@@ -45,10 +49,61 @@ interface BatchTriageResult {
 export class EmailTriageService {
   private readonly logger = new Logger(EmailTriageService.name);
 
+  // SCALE PROTECTION: In-memory semaphore for global concurrency control
+  // For multi-instance deployments, use Redis-based locking instead
+  private static currentOperations = 0;
+  private static waitQueue: Array<() => void> = [];
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailInsights: EmailInsightsService,
   ) {}
+
+  /**
+   * SCALE PROTECTION: Acquire semaphore slot before processing
+   * Returns false if queue is full (>50 waiting), true when slot acquired
+   */
+  private async acquireSemaphore(): Promise<boolean> {
+    // If we have capacity, acquire immediately
+    if (EmailTriageService.currentOperations < MAX_CONCURRENT_TRIAGE_OPERATIONS) {
+      EmailTriageService.currentOperations++;
+      return true;
+    }
+
+    // Don't queue if too many already waiting (prevents memory issues)
+    if (EmailTriageService.waitQueue.length >= 50) {
+      this.logger.warn('Triage semaphore queue full, skipping operation');
+      return false;
+    }
+
+    // Wait for a slot
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        // Remove from queue if still there
+        const idx = EmailTriageService.waitQueue.indexOf(release);
+        if (idx >= 0) EmailTriageService.waitQueue.splice(idx, 1);
+        resolve(false); // Timeout
+      }, 30000); // 30s max wait
+
+      const release = () => {
+        clearTimeout(timeout);
+        EmailTriageService.currentOperations++;
+        resolve(true);
+      };
+
+      EmailTriageService.waitQueue.push(release);
+    });
+  }
+
+  /**
+   * SCALE PROTECTION: Release semaphore slot after processing
+   */
+  private releaseSemaphore(): void {
+    EmailTriageService.currentOperations--;
+    // Wake next waiter if any
+    const next = EmailTriageService.waitQueue.shift();
+    if (next) next();
+  }
 
   /**
    * Check if auto-triage is enabled for a user
@@ -162,6 +217,7 @@ export class EmailTriageService {
    * - Max 20 emails per call
    * - Only emails < 24h old
    * - Skips junk/spam/trash
+   * - SCALE PROTECTION: Global concurrency limit (max 5 concurrent operations)
    */
   async processUntriagedEmails(options: TriageOptions): Promise<BatchTriageResult> {
     // Check if auto-triage is enabled
@@ -189,31 +245,50 @@ export class EmailTriageService {
       };
     }
 
-    this.logger.log(`Processing ${emailIds.length} emails for triage (tenant: ${options.tenantId})`);
-
-    // Process sequentially with 500ms delay between calls (rate limit protection)
-    const results: TriageResult[] = [];
-    for (const emailId of emailIds) {
-      const result = await this.triageEmail(emailId, options);
-      results.push(result);
-
-      // Small delay to avoid overwhelming the LLM API
-      if (emailIds.indexOf(emailId) < emailIds.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
+    // SCALE PROTECTION: Acquire semaphore before LLM-intensive processing
+    // This prevents 1000 users syncing = 20000 LLM calls storm
+    const acquired = await this.acquireSemaphore();
+    if (!acquired) {
+      this.logger.warn(`Triage skipped for tenant ${options.tenantId}: concurrency limit reached`);
+      return {
+        processed: 0,
+        successful: 0,
+        failed: 0,
+        skipped: emailIds.length,
+        skippedReason: 'Concurrency limit reached, will retry on next sync',
+      };
     }
 
-    const successful = results.filter((r) => r.success).length;
-    const failed = results.filter((r) => !r.success).length;
+    try {
+      this.logger.log(`Processing ${emailIds.length} emails for triage (tenant: ${options.tenantId})`);
 
-    this.logger.log(`Triage complete: ${successful} successful, ${failed} failed`);
+      // Process sequentially with 500ms delay between calls (rate limit protection)
+      const results: TriageResult[] = [];
+      for (const emailId of emailIds) {
+        const result = await this.triageEmail(emailId, options);
+        results.push(result);
 
-    return {
-      processed: results.length,
-      successful,
-      failed,
-      skipped: 0,
-    };
+        // Small delay to avoid overwhelming the LLM API
+        if (emailIds.indexOf(emailId) < emailIds.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+
+      const successful = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+
+      this.logger.log(`Triage complete: ${successful} successful, ${failed} failed`);
+
+      return {
+        processed: results.length,
+        successful,
+        failed,
+        skipped: 0,
+      };
+    } finally {
+      // SCALE PROTECTION: Always release semaphore
+      this.releaseSemaphore();
+    }
   }
 
   /**
