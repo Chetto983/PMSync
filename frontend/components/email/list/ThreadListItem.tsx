@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import { Flag, Paperclip, Archive, Trash2 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { stringToColor } from '@/lib/utils/gravatar';
 
 export interface ThreadListItemData {
   id: string;
@@ -164,6 +165,7 @@ export const ThreadListItem = memo(function ThreadListItem({
           height: 28,
           fontSize: '0.75rem',
           flexShrink: 0,
+          bgcolor: thread.avatarUrl ? undefined : stringToColor(thread.from),
         }}
       >
         {getInitials(thread.from)}

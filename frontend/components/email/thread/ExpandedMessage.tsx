@@ -19,6 +19,7 @@ import ForwardIcon from '@mui/icons-material/Forward';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import LabelIcon from '@mui/icons-material/Label';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { stringToColor } from '@/lib/utils/gravatar';
 import { EmailHtmlContent } from './EmailHtmlContent';
 import { AttachmentCard } from './AttachmentCard';
 
@@ -138,9 +139,9 @@ export const ExpandedMessage = memo(function ExpandedMessage({
             width: 40,
             height: 40,
             fontSize: '0.9rem',
-            bgcolor: 'primary.main',
             flexShrink: 0,
             mt: 0.5,
+            bgcolor: message.avatarUrl ? undefined : stringToColor(message.from),
           }}
         >
           {getInitials(message.from)}

@@ -26,6 +26,7 @@ import { CircularProgress, Box, Typography, useMediaQuery, useTheme, Fab, Toolti
 import { Pencil } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import type { Email } from '@/lib/api/emails';
+import { getAvatarUrl } from '@/lib/utils/gravatar';
 
 /**
  * Email Page
@@ -49,6 +50,8 @@ function extractEmailAddress(from: string): string {
 function formatEmailToThread(email: Email, senderPhotos?: SenderContactMap): ThreadListItemData {
   const senderEmail = extractEmailAddress(email.from);
   const senderInfo = senderPhotos?.[senderEmail];
+  // Known contact = found in senderPhotos (even if no photo)
+  const isKnownContact = !!senderInfo;
 
   return {
     id: email.id,
@@ -60,7 +63,7 @@ function formatEmailToThread(email: Email, senderPhotos?: SenderContactMap): Thr
     isFlagged: email.isFlagged || email.isStarred,
     hasAttachments: (email.attachments?.length ?? 0) > 0,
     providerId: email.providerId, // Provider ID for drag-and-drop validation
-    avatarUrl: senderInfo?.photoUrl || undefined, // Sender photo from contacts
+    avatarUrl: getAvatarUrl(senderEmail, senderInfo?.photoUrl, isKnownContact), // Contact photo > initials > Gravatar
     // Map emailLabels to the format expected by ThreadListItem
     // Backend returns el.label.id, not el.labelId
     labels: email.emailLabels?.map((el) => ({
@@ -219,6 +222,11 @@ export default function EmailPage() {
   // Format single email for ExpandedMessage component
   const selectedEmailData = useMemo(() => {
     if (!selectedEmail) return null;
+    // Get avatar URL using same logic as thread list
+    const senderEmail = extractEmailAddress(selectedEmail.from);
+    const senderInfo = senderPhotos?.[senderEmail];
+    const isKnownContact = !!senderInfo;
+
     return {
       id: selectedEmail.id,
       from: selectedEmail.from,
@@ -236,8 +244,9 @@ export default function EmailPage() {
         size: att.size,
         contentId: att.contentId,
       })),
+      avatarUrl: getAvatarUrl(senderEmail, senderInfo?.photoUrl, isKnownContact),
     };
-  }, [selectedEmail]);
+  }, [selectedEmail, senderPhotos]);
 
   // Thread action handlers
   const handleReply = useCallback((messageId: string) => {
