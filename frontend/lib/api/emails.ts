@@ -172,6 +172,8 @@ export interface SendEmailDto {
   threadId?: string;
   /** ISO 8601 date string for scheduled send */
   scheduledAt?: string;
+  /** Signature ID to append. Pass null to prevent backend from appending default signature. */
+  signatureId?: string | null;
 }
 
 export interface ReplyEmailDto {
@@ -180,6 +182,8 @@ export interface ReplyEmailDto {
   cc?: string[];
   bcc?: string[];
   attachments?: File[];
+  /** Signature ID to append. Pass null to prevent backend from appending default signature. */
+  signatureId?: string | null;
 }
 
 export interface ForwardEmailDto {
@@ -189,6 +193,8 @@ export interface ForwardEmailDto {
   bodyHtml?: string;
   bodyText?: string;
   attachments?: File[];
+  /** Signature ID to append. Pass null to prevent backend from appending default signature. */
+  signatureId?: string | null;
 }
 
 // =============================================================================

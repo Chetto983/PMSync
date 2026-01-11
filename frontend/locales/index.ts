@@ -1620,6 +1620,13 @@ export interface AppTranslations {
         dark: string;
         system: string;
       };
+      emailDensityLabel?: string;
+      emailDensityDescription?: string;
+      emailDensities?: {
+        comfortable: string;
+        compact: string;
+        spacious: string;
+      };
       languageTitle: string;
       languageLabel: string;
       languageHint: string;
@@ -1818,14 +1825,6 @@ export interface AppTranslations {
         IMMEDIATE: string;
         DIGEST: string;
         MINIMAL: string;
-      };
-      // Email Density
-      emailDensityLabel: string;
-      emailDensityDescription: string;
-      emailDensities: {
-        comfortable: string;
-        compact: string;
-        spacious: string;
       };
     };
     accountPanel: {

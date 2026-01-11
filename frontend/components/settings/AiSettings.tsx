@@ -64,8 +64,6 @@ export interface AiSettingsProps {
   // Notification & Display
   notificationFrequency: string;
   setNotificationFrequency: (v: string) => void;
-  emailDensity: string;
-  setEmailDensity: (v: string) => void;
   // Actions
   onSave: () => void;
   onClearMemory: () => void;
@@ -125,10 +123,6 @@ export interface AiSettingsProps {
     notificationFrequencyLabel?: string;
     notificationFrequencyDescription?: string;
     notificationFrequencies?: { IMMEDIATE: string; DIGEST: string; MINIMAL: string };
-    // Email Density
-    emailDensityLabel?: string;
-    emailDensityDescription?: string;
-    emailDensities?: { comfortable: string; compact: string; spacious: string };
   };
 }
 
@@ -174,8 +168,6 @@ export function AiSettings({
   setCompanySize,
   notificationFrequency,
   setNotificationFrequency,
-  emailDensity,
-  setEmailDensity,
   onSave,
   onClearMemory,
   // NOTE: onResetLearning removed - backend has no endpoint
@@ -428,29 +420,10 @@ export function AiSettings({
                   onChange={(_, v) => v && setNotificationFrequency(v)}
                   fullWidth
                   size="small"
-                  sx={{ mb: 3 }}
                 >
                   <ToggleButton value="IMMEDIATE">{copy.notificationFrequencies?.IMMEDIATE || 'Immediate'}</ToggleButton>
                   <ToggleButton value="DIGEST">{copy.notificationFrequencies?.DIGEST || 'Daily Digest'}</ToggleButton>
                   <ToggleButton value="MINIMAL">{copy.notificationFrequencies?.MINIMAL || 'Minimal'}</ToggleButton>
-                </ToggleButtonGroup>
-
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                  {copy.emailDensityLabel || 'Email List Density'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                  {copy.emailDensityDescription || 'Adjust spacing in email lists'}
-                </Typography>
-                <ToggleButtonGroup
-                  value={emailDensity}
-                  exclusive
-                  onChange={(_, v) => v && setEmailDensity(v)}
-                  fullWidth
-                  size="small"
-                >
-                  <ToggleButton value="comfortable">{copy.emailDensities?.comfortable || 'Comfortable'}</ToggleButton>
-                  <ToggleButton value="compact">{copy.emailDensities?.compact || 'Compact'}</ToggleButton>
-                  <ToggleButton value="spacious">{copy.emailDensities?.spacious || 'Spacious'}</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
 

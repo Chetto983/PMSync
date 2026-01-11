@@ -96,6 +96,14 @@ export class SendEmailRequestDto extends BaseComposeEmailDto {
   signatureId?: string | null;
 }
 
-export class ReplyForwardEmailRequestDto extends BaseComposeEmailDto { }
+export class ReplyForwardEmailRequestDto extends BaseComposeEmailDto {
+  /**
+   * Signature ID to append. If not provided, uses default signature for provider.
+   * Pass explicitly null to send without signature.
+   */
+  @IsOptional()
+  @IsString()
+  signatureId?: string | null;
+}
 
 export type { EmailAttachmentDto };

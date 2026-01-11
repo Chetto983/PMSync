@@ -338,6 +338,9 @@ export function Settings() {
     appearanceTitle: settingsCopy.generalPanel?.appearanceTitle || 'Appearance',
     themeLabel: settingsCopy.generalPanel?.themeLabel || 'Theme',
     themeOptions: settingsCopy.generalPanel?.themeOptions || { light: 'Light', dark: 'Dark', system: 'System' },
+    emailDensityLabel: settingsCopy.generalPanel?.emailDensityLabel || 'Email List Density',
+    emailDensityDescription: settingsCopy.generalPanel?.emailDensityDescription || 'Adjust spacing in email lists',
+    emailDensities: settingsCopy.generalPanel?.emailDensities || { comfortable: 'Comfortable', compact: 'Compact', spacious: 'Spacious' },
     languageTitle: settingsCopy.generalPanel?.languageTitle || 'Language',
     languageLabel: settingsCopy.generalPanel?.languageLabel || 'Language',
     timezoneLabel: settingsCopy.generalPanel?.timezoneLabel || 'Timezone',
@@ -399,10 +402,6 @@ export function Settings() {
     notificationFrequencyLabel: settingsCopy.aiPanel?.notificationFrequencyLabel || 'AI Notification Frequency',
     notificationFrequencyDescription: settingsCopy.aiPanel?.notificationFrequencyDescription || 'How often should AI notify you about insights?',
     notificationFrequencies: settingsCopy.aiPanel?.notificationFrequencies || { IMMEDIATE: 'Immediate', DIGEST: 'Daily Digest', MINIMAL: 'Minimal' },
-    // Email Density
-    emailDensityLabel: settingsCopy.aiPanel?.emailDensityLabel || 'Email List Density',
-    emailDensityDescription: settingsCopy.aiPanel?.emailDensityDescription || 'Adjust spacing in email lists',
-    emailDensities: settingsCopy.aiPanel?.emailDensities || { comfortable: 'Comfortable', compact: 'Compact', spacious: 'Spacious' },
   }), [settingsCopy]);
 
   const accountsCopy = useMemo(() => ({
@@ -498,11 +497,11 @@ export function Settings() {
         <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, md: 3 } }}>
           <Box sx={{ maxWidth: 1200 }}>
             {selectedSection === 'general' && (
-              <GeneralSettings theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} timezone={timezone} setTimezone={setTimezone} saveLoading={saveLoading} onSave={handleSaveSettings} success={generalSuccess} error={generalError} onClearSuccess={() => setGeneralSuccess('')} onClearError={() => setGeneralError('')} copy={generalCopy} />
+              <GeneralSettings theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} timezone={timezone} setTimezone={setTimezone} emailDensity={emailDensity} setEmailDensity={setEmailDensity} saveLoading={saveLoading} onSave={handleSaveSettings} success={generalSuccess} error={generalError} onClearSuccess={() => setGeneralSuccess('')} onClearError={() => setGeneralError('')} copy={generalCopy} />
             )}
             {selectedSection === 'security' && <MfaSettings />}
             {selectedSection === 'ai' && (
-              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} workingHoursStart={workingHoursStart} setWorkingHoursStart={setWorkingHoursStart} workingHoursEnd={workingHoursEnd} setWorkingHoursEnd={setWorkingHoursEnd} workingDays={workingDays} setWorkingDays={setWorkingDays} jobTitle={jobTitle} setJobTitle={setJobTitle} department={department} setDepartment={setDepartment} industry={industry} setIndustry={setIndustry} companySize={companySize} setCompanySize={setCompanySize} notificationFrequency={notificationFrequency} setNotificationFrequency={setNotificationFrequency} emailDensity={emailDensity} setEmailDensity={setEmailDensity} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
+              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} workingHoursStart={workingHoursStart} setWorkingHoursStart={setWorkingHoursStart} workingHoursEnd={workingHoursEnd} setWorkingHoursEnd={setWorkingHoursEnd} workingDays={workingDays} setWorkingDays={setWorkingDays} jobTitle={jobTitle} setJobTitle={setJobTitle} department={department} setDepartment={setDepartment} industry={industry} setIndustry={setIndustry} companySize={companySize} setCompanySize={setCompanySize} notificationFrequency={notificationFrequency} setNotificationFrequency={setNotificationFrequency} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
             )}
             {selectedSection === 'accounts' && (
               <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={handleProviderInitiated} onProviderConnected={handleProviderConnected} onProviderDeleted={handleProviderDeleted} copy={accountsCopy} />

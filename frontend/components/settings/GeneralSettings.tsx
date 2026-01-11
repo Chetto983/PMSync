@@ -26,6 +26,8 @@ export interface GeneralSettingsProps {
   setLanguage: (lang: string) => void;
   timezone: string;
   setTimezone: (tz: string) => void;
+  emailDensity: string;
+  setEmailDensity: (density: string) => void;
   saveLoading: boolean;
   onSave: () => void;
   success: string;
@@ -38,6 +40,9 @@ export interface GeneralSettingsProps {
     appearanceTitle: string;
     themeLabel: string;
     themeOptions: { light: string; dark: string; system: string };
+    emailDensityLabel?: string;
+    emailDensityDescription?: string;
+    emailDensities?: { comfortable: string; compact: string; spacious: string };
     languageTitle: string;
     languageLabel: string;
     timezoneLabel: string;
@@ -55,6 +60,8 @@ export function GeneralSettings({
   setLanguage,
   timezone,
   setTimezone,
+  emailDensity,
+  setEmailDensity,
   saveLoading,
   onSave,
   success,
@@ -109,6 +116,33 @@ export function GeneralSettings({
             </ToggleButton>
             <ToggleButton value="system" sx={{ px: 3 }}>
               <Monitor size={16} style={{ marginRight: 8 }} /> {copy.themeOptions?.system || 'System'}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
+        {/* Email List Density */}
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+            {copy.emailDensityLabel || 'Email List Density'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+            {copy.emailDensityDescription || 'Adjust spacing in email lists'}
+          </Typography>
+          <ToggleButtonGroup
+            value={emailDensity}
+            exclusive
+            onChange={(_, v) => v && setEmailDensity(v)}
+            size="small"
+            fullWidth
+          >
+            <ToggleButton value="comfortable">
+              {copy.emailDensities?.comfortable || 'Comfortable'}
+            </ToggleButton>
+            <ToggleButton value="compact">
+              {copy.emailDensities?.compact || 'Compact'}
+            </ToggleButton>
+            <ToggleButton value="spacious">
+              {copy.emailDensities?.spacious || 'Spacious'}
             </ToggleButton>
           </ToggleButtonGroup>
         </Box>

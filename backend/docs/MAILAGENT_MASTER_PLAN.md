@@ -26,6 +26,9 @@
 | **Agent Consolidation (Part B)** | ✅ **10 → 3 agents** (SupervisorAgent + ActionsAgent + IntelligenceAgent) | 2026-01-10 |
 | **Memory Bug Fixes (Part C)** | ✅ **6/6 bugs fixed** (retry, memory passing, fallback sessionId, atomic creation) | 2026-01-10 |
 | **Prompt Quality (FIX #5)** | ✅ **Calendar + Contacts agents updated** with `<MY_TOOLS>`, `<WORKFLOW>`, examples | 2026-01-11 |
+| **Week 1 Part A: emailDensity Move** | ✅ Moved from AI Settings to General Settings (Appearance section) | 2026-01-11 |
+| **Week 1 Part B: Signature in Compose** | ✅ Frontend auto-appends default signature, visible in editor | 2026-01-11 |
+| **Week 1 Part B: Signature Reply/Forward** | ✅ Backend signature append for reply + forward endpoints | 2026-01-11 |
 
 ### ✅ COMPLETED P3: Mistral Agent PostgreSQL Persistence (2026-01-10)
 
@@ -103,6 +106,51 @@ For each agent type (web-search, analytics):
 |------|------|--------|
 | RAG for `search_emails` tool | 0h | ✅ Already implemented with UnifiedRetriever |
 | Follow-up detection via RAG | 2h | ✅ `scanEmailsForFollowUps()` uses RAG + LLM |
+
+### ✅ COMPLETED Week 1: Settings Cleanup + Email Signatures (2026-01-11)
+
+**Part A: Move emailDensity from AI Settings to Appearance**
+
+| File | Change |
+|------|--------|
+| `frontend/locales/en.ts` | Moved emailDensity strings to `generalPanel` |
+| `frontend/locales/it.ts` | Moved emailDensity strings to `generalPanel` |
+| `frontend/locales/index.ts` | Updated TypeScript types (added to generalPanel, removed from aiPanel) |
+| `frontend/components/settings/GeneralSettings.tsx` | Added emailDensity UI to Appearance section |
+| `frontend/components/settings/AiSettings.tsx` | Removed emailDensity UI |
+| `frontend/components/dashboard/Settings.tsx` | Rewired props from AI to General |
+
+**Part B: Email Signature in Compose (Visible to User)**
+
+**Frontend Pattern:** Frontend auto-appends default signature to editor so user can see/edit it. Passes `signatureId: null` to backend to prevent double-append.
+
+| File | Change |
+|------|--------|
+| `frontend/components/email/compose/ComposeDialog.tsx` | Auto-append signature with `useDefaultSignature()` hook |
+| `frontend/lib/api/emails.ts` | Added `signatureId` to SendEmailDto, ReplyEmailDto, ForwardEmailDto |
+
+**Backend Pattern:** Backend receives `signatureId` and appends only if NOT null (frontend handles visible signatures).
+
+| File | Change |
+|------|--------|
+| `backend/src/modules/email/dto/send-email.dto.ts` | Added `signatureId` to `ReplyForwardEmailRequestDto` |
+| `backend/src/modules/email/controllers/emails.controller.ts` | Signature append logic in `replyToEmail()` and `forwardEmail()` |
+| `backend/src/modules/email/services/email-send.service.ts` | Added `signatureContent` parameter to `forwardEmail()` |
+
+**Architecture:**
+```text
+ComposeDialog opens
+       ↓
+useDefaultSignature(providerId) fetches default signature
+       ↓
+useEffect auto-appends signature to editor (user sees it)
+       ↓
+User can edit signature in editor
+       ↓
+handleSend() passes signatureId: null
+       ↓
+Backend receives null → skips signature append (already in body)
+```
 
 ### ✅ COMPLETED P2: VoltAgent Tool Consolidation (2026-01-10)
 

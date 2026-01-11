@@ -1589,6 +1589,14 @@ export const en: AppTranslations = {
         dark: 'Dark',
         system: 'System',
       },
+      // Email Density (display preference, moved from AI settings)
+      emailDensityLabel: 'Email List Density',
+      emailDensityDescription: 'Adjust spacing in email lists',
+      emailDensities: {
+        comfortable: 'Comfortable',
+        compact: 'Compact',
+        spacious: 'Spacious',
+      },
       languageTitle: 'Language & Region',
       languageLabel: 'Language',
       languageHint: 'This only affects the PMSync interface, not email content.',
@@ -1787,14 +1795,6 @@ export const en: AppTranslations = {
         IMMEDIATE: 'Immediate',
         DIGEST: 'Daily Digest',
         MINIMAL: 'Minimal',
-      },
-      // Email Density
-      emailDensityLabel: 'Email List Density',
-      emailDensityDescription: 'Adjust spacing in email lists',
-      emailDensities: {
-        comfortable: 'Comfortable',
-        compact: 'Compact',
-        spacious: 'Spacious',
       },
     },
     accountPanel: {

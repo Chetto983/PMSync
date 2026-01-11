@@ -24,6 +24,7 @@ import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
 import { useDebounce } from 'use-debounce';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useProviders } from '@/hooks/queries/use-providers';
+import { useDefaultSignature } from '@/hooks/queries/use-signatures';
 import {
   useSendEmail,
   useReplyToEmail,
@@ -118,6 +119,10 @@ export default function ComposeDialog({
     [providers],
   );
 
+  // Get default signature for the selected provider
+  // Note: We append signature in frontend so user can see/edit it, then pass signatureId: null to backend
+  const { data: defaultSignature } = useDefaultSignature(initialProviderId);
+
   // Mutations
   const sendEmail = useSendEmail();
   const replyToEmail = useReplyToEmail();
@@ -186,6 +191,7 @@ export default function ComposeDialog({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isDirtyRef = useRef(false);
+  const signatureAppendedRef = useRef(false);
 
   // Debounced values for autosave
   const [debouncedBody] = useDebounce(body, AUTOSAVE_DELAY_MS);
@@ -210,8 +216,30 @@ export default function ComposeDialog({
     setDraftId(initialDraftId);
     setLastSavedAt(null);
     isDirtyRef.current = false;
+    // Reset signature flag when dialog closes or mode changes
+    if (!open) {
+      signatureAppendedRef.current = false;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, originalEmail?.id, open]);
+
+  // Auto-append default signature when dialog opens
+  // Signature is shown in editor so user can see/edit it
+  // We pass signatureId: null to backend to prevent double-append
+  useEffect(() => {
+    if (open && defaultSignature?.content && !signatureAppendedRef.current) {
+      // Append signature to body with a line break before it
+      setBody((prevBody) => {
+        // If body already has content (e.g., quoted reply), insert signature before it
+        if (prevBody && prevBody.trim()) {
+          return `<p><br></p>${defaultSignature.content}<p><br></p>${prevBody}`;
+        }
+        // For new emails, just add signature
+        return `<p><br></p>${defaultSignature.content}`;
+      });
+      signatureAppendedRef.current = true;
+    }
+  }, [open, defaultSignature]);
 
   // Autosave draft
   useEffect(() => {
@@ -293,6 +321,8 @@ export default function ComposeDialog({
             cc: cc.map((r) => r.email),
             bcc: bcc.map((r) => r.email),
             attachments: attachmentFiles,
+            // Signature already appended in editor, prevent backend double-append
+            signatureId: null,
           },
         });
       } else if (mode === 'forward') {
@@ -310,6 +340,8 @@ export default function ComposeDialog({
             bodyHtml: body,
             bodyText,
             attachments: attachmentFiles,
+            // Signature already appended in editor, prevent backend double-append
+            signatureId: null,
           },
         });
       } else {
@@ -324,6 +356,8 @@ export default function ComposeDialog({
           bodyText,
           attachments: attachmentFiles,
           scheduledAt: scheduledAt?.toISOString(),
+          // Signature already appended in editor, prevent backend double-append
+          signatureId: null,
         });
       }
 

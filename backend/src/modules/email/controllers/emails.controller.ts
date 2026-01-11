@@ -796,16 +796,41 @@ export class EmailsController {
     @Body() body: ReplyForwardEmailRequestDto,
   ) {
     const tenantId = req.user.tenantId;
+    const userId = req.user.id;
+    const { signatureId, ...rest } = body;
+
+    // Get original email to find providerId for signature lookup
+    const originalEmail = await this.prisma.email.findFirst({
+      where: { id, tenantId },
+      select: { providerId: true },
+    });
+
+    // Append signature to body if available
+    let bodyHtml = rest.bodyHtml;
+    if (originalEmail) {
+      const signature = await this.signatureService.getSignatureForSend(
+        tenantId,
+        userId,
+        signatureId,
+        originalEmail.providerId,
+      );
+      if (signature) {
+        bodyHtml = `${bodyHtml}<br><br>${signature}`;
+      }
+    }
 
     return this.emailSendService.replyToEmail(id, tenantId, {
-      ...body,
-      attachments: decodeAttachments(body.attachments),
+      ...rest,
+      bodyHtml,
+      attachments: decodeAttachments(rest.attachments),
     });
   }
 
   /**
    * POST /emails/:id/forward - Forward an email
    * Rate limited: 10 emails per minute per user to prevent spam/abuse
+   * NOTE: For compose-forward (user edits content), frontend uses /send endpoint.
+   * This endpoint is for quick API forwards. Signature is appended after forwarded content.
    */
   @Post(':id/forward')
   @Throttle({ default: { ttl: 60000, limit: 10 } })
@@ -815,11 +840,30 @@ export class EmailsController {
     @Body() body: ReplyForwardEmailRequestDto,
   ) {
     const tenantId = req.user.tenantId;
+    const userId = req.user.id;
+    const { signatureId, ...rest } = body;
+
+    // Get original email to find providerId for signature lookup
+    const originalEmail = await this.prisma.email.findFirst({
+      where: { id, tenantId },
+      select: { providerId: true },
+    });
+
+    // Get signature content to pass to service (will be appended after forwarded content)
+    let signatureContent: string | null = null;
+    if (originalEmail) {
+      signatureContent = await this.signatureService.getSignatureForSend(
+        tenantId,
+        userId,
+        signatureId,
+        originalEmail.providerId,
+      );
+    }
 
     return this.emailSendService.forwardEmail(id, tenantId, {
-      ...body,
-      attachments: decodeAttachments(body.attachments),
-    });
+      ...rest,
+      attachments: decodeAttachments(rest.attachments),
+    }, signatureContent);
   }
 
   /**

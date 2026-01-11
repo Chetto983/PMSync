@@ -372,11 +372,13 @@ export class EmailSendService {
 
   /**
    * Forward an email
+   * @param signatureContent - Optional signature HTML to append after forwarded content
    */
   async forwardEmail(
     emailId: string,
     tenantId: string,
     data: Omit<SendEmailDto, 'tenantId' | 'providerId' | 'subject' | 'bodyHtml' | 'bodyText'>,
+    signatureContent?: string | null,
   ): Promise<{ success: boolean; messageId: string }> {
     const originalEmail = await this.prisma.email.findFirst({
       where: { id: emailId, tenantId },
@@ -391,7 +393,8 @@ export class EmailSendService {
       ? originalEmail.subject
       : `Fwd: ${originalEmail.subject}`;
 
-    const bodyHtml = `
+    // Build HTML body with forwarded content and optional signature
+    let bodyHtml = `
       <p><br></p>
       <p>---------- Forwarded message ---------</p>
       <p><strong>From:</strong> ${originalEmail.from}</p>
@@ -401,6 +404,11 @@ export class EmailSendService {
       <p><br></p>
       ${originalEmail.bodyHtml || ''}
     `;
+
+    // Append signature if provided
+    if (signatureContent) {
+      bodyHtml = `${bodyHtml}<br><br>${signatureContent}`;
+    }
 
     const bodyText = `
 ---------- Forwarded message ---------

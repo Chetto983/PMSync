@@ -1577,6 +1577,14 @@ export const it: AppTranslations = {
         dark: 'Scuro',
         system: 'Sistema',
       },
+      // Email Density (display preference, moved from AI settings)
+      emailDensityLabel: 'Densità lista email',
+      emailDensityDescription: 'Regola la spaziatura nelle liste email',
+      emailDensities: {
+        comfortable: 'Comoda',
+        compact: 'Compatta',
+        spacious: 'Spaziosa',
+      },
       languageTitle: 'Lingua e regione',
       languageLabel: 'Lingua',
       languageHint: 'Questo influenza solo l\'interfaccia PMSync, non il contenuto delle email.',
@@ -1774,14 +1782,6 @@ export const it: AppTranslations = {
         IMMEDIATE: 'Immediata',
         DIGEST: 'Riepilogo giornaliero',
         MINIMAL: 'Minima',
-      },
-      // Email Density
-      emailDensityLabel: 'Densità lista email',
-      emailDensityDescription: 'Regola la spaziatura nelle liste email',
-      emailDensities: {
-        comfortable: 'Comoda',
-        compact: 'Compatta',
-        spacious: 'Spaziosa',
       },
     },
     accountPanel: {
