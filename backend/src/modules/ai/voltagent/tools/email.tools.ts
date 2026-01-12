@@ -533,15 +533,37 @@ Examples:
         // Fallback: Prisma text search
         logger.debug(`[${tenantId}] Text search: "${query.substring(0, 50)}..."`);
 
+        // Split multi-word queries and require all words to match (in any field)
+        // This handles queries like "ordine consegna" matching emails where
+        // "ordine" is in subject and "consegna" is in body
+        const queryWords = query.trim().split(/\s+/).filter(w => w.length > 2);
+
+        // Build AND condition: each word must match at least one field
+        const wordConditions = queryWords.length > 1
+          ? queryWords.map(word => ({
+              OR: [
+                { subject: { contains: word, mode: 'insensitive' as const } },
+                { snippet: { contains: word, mode: 'insensitive' as const } },
+                { from: { contains: word, mode: 'insensitive' as const } },
+              ],
+            }))
+          : []; // Single word uses original OR logic
+
         const emails = await prisma.email.findMany({
           where: {
             tenantId,
             ...(folder ? { folder: { contains: folder, mode: 'insensitive' as const } } : {}),
-            OR: [
-              { subject: { contains: query, mode: 'insensitive' as const } },
-              { snippet: { contains: query, mode: 'insensitive' as const } },
-              { from: { contains: query, mode: 'insensitive' as const } },
-            ],
+            // For multi-word: AND all words must match somewhere
+            // For single word: OR across fields
+            ...(queryWords.length > 1
+              ? { AND: wordConditions }
+              : {
+                  OR: [
+                    { subject: { contains: query, mode: 'insensitive' as const } },
+                    { snippet: { contains: query, mode: 'insensitive' as const } },
+                    { from: { contains: query, mode: 'insensitive' as const } },
+                  ],
+                }),
           },
           take: maxResults,
           orderBy: { receivedAt: 'desc' },

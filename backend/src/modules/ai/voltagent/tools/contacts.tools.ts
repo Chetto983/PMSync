@@ -113,6 +113,7 @@ export function createContactsTools(
               { firstName: { contains: query, mode: 'insensitive' as const } },
               { lastName: { contains: query, mode: 'insensitive' as const } },
               { company: { contains: query, mode: 'insensitive' as const } },
+              { jobTitle: { contains: query, mode: 'insensitive' as const } },
             ],
           },
           take: takeLimit * 3, // Fetch extra to account for filtering
