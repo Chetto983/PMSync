@@ -13,6 +13,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { mfaApi } from '@/lib/api/mfa';
 import { startAuthentication } from '@simplewebauthn/browser';
+import { getErrorMessage } from '@/lib/error-utils';
 
 type MfaMethod = 'totp' | 'email' | 'backup';
 
@@ -127,8 +128,7 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err) {
-      const errorResponse = err as { response?: { data?: { message?: string } } };
-      setError(errorResponse.response?.data?.message || translations.common.genericError);
+      setError(getErrorMessage(err, translations));
     } finally {
       setLoading(false);
     }
@@ -189,8 +189,7 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err) {
-      const errorResponse = err as { response?: { data?: { message?: string } } };
-      setError(errorResponse.response?.data?.message || translations.common.genericError);
+      setError(getErrorMessage(err, translations));
     } finally {
       setLoading(false);
     }
@@ -211,8 +210,7 @@ export default function LoginPage() {
         await apiClient.post('/auth/send-otp', { email: email.trim() });
         setStep('email-otp');
       } catch (err) {
-        const errorResponse = err as { response?: { data?: { message?: string } } };
-        setError(errorResponse.response?.data?.message || translations.common.genericError);
+        setError(getErrorMessage(err, translations));
       } finally {
         setLoading(false);
       }

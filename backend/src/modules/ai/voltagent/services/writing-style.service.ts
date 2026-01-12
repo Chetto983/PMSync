@@ -77,18 +77,36 @@ const HEDGE_WORDS = [
   'rather', 'sort of', 'kind of', 'i think', 'i believe', 'in my opinion',
 ];
 
-// Common greetings
-const GREETINGS = [
+// Common greetings (English)
+const GREETINGS_EN = [
   'hi', 'hello', 'hey', 'dear', 'good morning', 'good afternoon',
   'good evening', 'greetings', 'hi there', 'hello there',
 ];
 
-// Common sign-offs
-const SIGN_OFFS = [
+// Common greetings (Italian)
+const GREETINGS_IT = [
+  'ciao', 'salve', 'buongiorno', 'buonasera', 'gentile', 'gentilissimo',
+  'gentilissima', 'egregio', 'egregia', 'spettabile', 'carissimo', 'carissima',
+];
+
+// All greetings for detection
+const GREETINGS = [...GREETINGS_EN, ...GREETINGS_IT];
+
+// Common sign-offs (English)
+const SIGN_OFFS_EN = [
   'best', 'best regards', 'regards', 'kind regards', 'sincerely',
   'thanks', 'thank you', 'cheers', 'take care', 'warm regards',
   'yours', 'yours truly', 'respectfully', 'cordially',
 ];
+
+// Common sign-offs (Italian)
+const SIGN_OFFS_IT = [
+  'cordiali saluti', 'distinti saluti', 'cordialmente', 'a presto',
+  'grazie', 'un saluto', 'saluti', 'un caro saluto', 'con stima',
+];
+
+// All sign-offs for detection
+const SIGN_OFFS = [...SIGN_OFFS_EN, ...SIGN_OFFS_IT];
 
 @Injectable()
 export class WritingStyleService {
@@ -405,20 +423,36 @@ export class WritingStyleService {
       styleDescriptions.push(isIt ? 'evita le contrazioni' : 'avoids contractions');
     }
 
-    // Greetings
+    // Greetings - filter by locale to avoid mixing languages
     if (profile.greetingPresent && profile.preferredGreetings.length > 0) {
-      const greeting = profile.preferredGreetings[0];
-      styleDescriptions.push(
-        isIt ? `tipicamente inizia con "${greeting}"` : `typically starts with "${greeting}"`,
-      );
+      // Filter greetings to match target locale
+      const localeGreetings = isIt
+        ? profile.preferredGreetings.filter((g) => GREETINGS_IT.includes(g.toLowerCase()))
+        : profile.preferredGreetings.filter((g) => GREETINGS_EN.includes(g.toLowerCase()));
+
+      if (localeGreetings.length > 0) {
+        const greeting = localeGreetings[0];
+        styleDescriptions.push(
+          isIt ? `tipicamente inizia con "${greeting}"` : `typically starts with "${greeting}"`,
+        );
+      }
+      // If no matching locale greetings, skip - let the AI use locale-appropriate defaults
     }
 
-    // Sign-offs
+    // Sign-offs - filter by locale to avoid mixing languages
     if (profile.signOffPresent && profile.preferredSignOffs.length > 0) {
-      const signOff = profile.preferredSignOffs[0];
-      styleDescriptions.push(
-        isIt ? `tipicamente termina con "${signOff}"` : `typically ends with "${signOff}"`,
-      );
+      // Filter sign-offs to match target locale
+      const localeSignOffs = isIt
+        ? profile.preferredSignOffs.filter((s) => SIGN_OFFS_IT.includes(s.toLowerCase()))
+        : profile.preferredSignOffs.filter((s) => SIGN_OFFS_EN.includes(s.toLowerCase()));
+
+      if (localeSignOffs.length > 0) {
+        const signOff = localeSignOffs[0];
+        styleDescriptions.push(
+          isIt ? `tipicamente termina con "${signOff}"` : `typically ends with "${signOff}"`,
+        );
+      }
+      // If no matching locale sign-offs, skip - let the AI use locale-appropriate defaults
     }
 
     // Emoji usage

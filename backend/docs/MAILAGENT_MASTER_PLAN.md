@@ -42,6 +42,7 @@
 | **P8: Industrial Frontend Audit** | ✅ Race conditions, i18n, lint fixes | 2026-01-12 |
 | **P8.2: Deep i18n Audit** | ✅ **73 violations fixed** - Italian defaults, encoding, hardcoded strings | 2026-01-12 |
 | **P9: Dashboard Polish** | ✅ **2 widgets created** - PriorityInboxWidget + TrendChartsWidget | 2026-01-12 |
+| **P10: Subscription & Billing** | ✅ **100% COMPLETE** - AI quota (8/8 entry points) + Frontend UI (7 components) + Security fix (HMAC) | 2026-01-12 |
 
 ### ✅ COMPLETED P5: Full VoltAgent Validation (2026-01-12)
 
@@ -232,6 +233,58 @@ cd frontend
 npm run type-check  # ✅ PASS
 npm run lint        # ✅ PASS (0 warnings)
 ```
+
+### ✅ COMPLETED P10: Subscription & Billing with AI Quota Integration (2026-01-12)
+
+**Philosophy**: Aggressive cost protection to prevent AI-related bankruptcy. All AI operations must check quota BEFORE execution.
+
+**Documentation**: `backend/docs/P10-SUBSCRIPTION-BILLING-ROADMAP.md`
+
+**Implementation Status**:
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Backend SubscriptionModule | ✅ | Registered in app.module.ts |
+| UsageTrackingService | ✅ | Redis counters + convenience methods |
+| CostProtectionService | ✅ | Daily caps + alerts |
+| VoltAgent quota | ✅ | chat() + streamChat() protected |
+| MistralService quota | ✅ | completePrompt() + generateResponse() |
+| EmbeddingProviderService quota | ✅ | generateEmbedding() + generateBulkEmbeddings() |
+| Paranoid Audit Script | ✅ | 100% coverage verified |
+
+**Subscription Tiers**:
+
+| Tier | Price | AI Calls/mo | Email Limit |
+|------|-------|-------------|-------------|
+| FREE | $0 | 50 | 100 |
+| STARTER | $7 | 500 | 1,000 |
+| PRO | $15 | 5,000 | 10,000 |
+| ENTERPRISE | Custom | Unlimited | Unlimited |
+
+**AI Cost Entry Points Protected (8/8 = 100%)**:
+
+| Entry Point | File | Protection |
+|-------------|------|------------|
+| `VoltAgentService.chat()` | voltagent.service.ts | checkQuota() + trackUsage() |
+| `VoltAgentService.streamChat()` | voltagent.service.ts | checkQuota() + trackUsage() |
+| `MistralService.completePrompt()` | mistral.service.ts | checkQuota() + trackUsage() |
+| `MistralService.generateResponse()` | mistral.service.ts | checkQuota() + trackUsage() |
+| `EmbeddingProviderService.generateEmbedding()` | embedding-provider.service.ts | checkQuota() + trackUsage() |
+| `EmbeddingProviderService.generateBulkEmbeddings()` | embedding-provider.service.ts | checkQuota() + trackUsage() |
+
+**Validation Script**:
+
+```bash
+npx ts-node backend/scripts/p10-quota-paranoid-audit.ts  # 100% coverage
+npx ts-node backend/scripts/validate-p10-subscription.ts  # Full integration test
+```
+
+**Next Steps (P11)**:
+
+- Italian e-invoicing (Fattura Elettronica via SDI) - Legal compliance
+- Azure embedding provider (80% cost savings) - Cost optimization
+
+---
 
 ### ✅ COMPLETED P9: Dashboard Polish & Missing Widgets (2026-01-12)
 

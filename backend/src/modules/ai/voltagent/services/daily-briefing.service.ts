@@ -21,7 +21,7 @@
  * - Aggregated insights from all AI Secretary services
  */
 import { Job, Queue, Worker } from 'bullmq';
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
@@ -30,6 +30,8 @@ import { FollowUpService } from './follow-up.service';
 // DeadlineExtractorService and ActionItemService removed - AI refactor v2.0
 // These services can be restored from archive/memory folder
 import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
+import { UsageTrackingService } from '../../../subscription/services/usage-tracking.service';
+import { getLocale, getTranslations, SupportedLocale } from '../locales';
 
 /** Cached deadline type (simplified for v2.0) */
 export interface CachedDeadline {
@@ -162,6 +164,7 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
     private readonly followUpService: FollowUpService,
     // DeadlineExtractorService removed - AI refactor v2.0
     // ActionItemService removed - AI refactor v2.0
+    @Optional() private readonly usageTrackingService?: UsageTrackingService,
   ) {
     this.ENABLED =
       (this.configService.get<string>('DAILY_BRIEFING_ENABLED') || 'true').toLowerCase() !== 'false';
@@ -375,21 +378,49 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
   private async generateBriefingForUser(tenantId: string, userId: string): Promise<DailyBriefing> {
     this.logger.debug(`Generating enhanced briefing for user ${userId}`);
 
+    // Get user's language preference for locale-aware content
+    const userPrefs = await this.prisma.userPreferences.findUnique({
+      where: { userId },
+      select: { language: true },
+    });
+    const locale = getLocale(userPrefs?.language || undefined);
+
+    // Get translations for this locale
+    const t = getTranslations(locale);
+
+    // P10: Check subscription quota before AI call (prevents overage)
+    if (this.usageTrackingService) {
+      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
+      if (!canProceed) {
+        this.logger.warn(`[tenant:${tenantId}] AI quota exceeded for daily briefing - returning fallback`);
+        return {
+          userId,
+          tenantId,
+          generatedAt: new Date().toISOString(),
+          validUntil: new Date(Date.now() + 3600000).toISOString(), // 1 hour
+          summary: t.briefing.quotaExceeded,
+          highlights: [],
+          urgent: [],
+          stats: { totalUnread: 0, newToday: 0, requiresResponse: 0 },
+        };
+      }
+    }
+
     // Get user's email stats
     const stats = await this.getEmailStats(tenantId, userId);
 
     // Get recent unread emails for summarization
     const recentEmails = await this.getRecentUnreadEmails(tenantId, userId, 20);
 
-    // Generate AI summary
-    const aiSummary = await this.generateAISummary(tenantId, userId, recentEmails, stats);
+    // Generate AI summary (locale-aware)
+    const aiSummary = await this.generateAISummary(tenantId, userId, recentEmails, stats, locale);
 
-    // Get enhanced AI Secretary data (in parallel for performance)
+    // Get enhanced AI Secretary data (in parallel for performance, locale-aware)
     const [followUpsData, deadlinesData, actionItemsData, calendarData] = await Promise.all([
-      this.getFollowUpsData(tenantId, userId),
-      this.getDeadlinesData(tenantId, userId),
-      this.getActionItemsData(tenantId, userId),
-      this.getCalendarData(tenantId, userId),
+      this.getFollowUpsData(tenantId, userId, locale),
+      this.getDeadlinesData(tenantId, userId, locale),
+      this.getActionItemsData(tenantId, userId, locale),
+      this.getCalendarData(tenantId, userId, locale),
     ]);
 
     const now = new Date();
@@ -411,6 +442,13 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
       calendar: calendarData,
     };
 
+    // P10: Track successful AI call usage (after completion)
+    if (this.usageTrackingService) {
+      await this.usageTrackingService.trackUsage(tenantId, 'ai-calls', 1).catch((err: Error) => {
+        this.logger.warn(`[tenant:${tenantId}] Failed to track AI usage: ${err.message}`);
+      });
+    }
+
     // Cache the briefing
     const cacheKey = `${tenantId}:${userId}`;
     if (this.cacheService.isHealthy()) {
@@ -428,9 +466,10 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
   // ==========================================================================
 
   /**
-   * Get follow-up tracking data for briefing
+   * Get follow-up tracking data for briefing (locale-aware)
    */
-  private async getFollowUpsData(tenantId: string, userId: string): Promise<DailyBriefing['followUps']> {
+  private async getFollowUpsData(tenantId: string, userId: string, locale: SupportedLocale): Promise<DailyBriefing['followUps']> {
+    const t = getTranslations(locale);
     try {
       const [stats, pending] = await Promise.all([
         this.followUpService.getStats(tenantId, userId),
@@ -447,13 +486,13 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
 
       let message = '';
       if (stats.overdue > 0) {
-        message = `⚠️ You have ${stats.overdue} overdue follow-up${stats.overdue > 1 ? 's' : ''} requiring attention.`;
+        message = t.briefing.followUps.overdue(stats.overdue);
       } else if (stats.dueToday > 0) {
-        message = `📋 ${stats.dueToday} follow-up${stats.dueToday > 1 ? 's' : ''} due today.`;
+        message = t.briefing.followUps.dueToday(stats.dueToday);
       } else if (stats.pending > 0) {
-        message = `✓ ${stats.pending} pending follow-up${stats.pending > 1 ? 's' : ''}, none overdue.`;
+        message = t.briefing.followUps.pending(stats.pending);
       } else {
-        message = '✓ No pending follow-ups.';
+        message = t.briefing.followUps.none;
       }
 
       return {
@@ -470,33 +509,35 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
         overdue: 0,
         dueToday: 0,
         items: [],
-        message: 'Follow-up data unavailable.',
+        message: t.briefing.followUps.unavailable,
       };
     }
   }
 
   /**
-   * Get deadline alerts data for briefing
+   * Get deadline alerts data for briefing (locale-aware)
    * DeadlineExtractorService removed - AI refactor v2.0
    * Returns empty data until service is restored from archive
    */
-  private async getDeadlinesData(_tenantId: string, _userId: string): Promise<DailyBriefing['deadlines']> {
+  private async getDeadlinesData(_tenantId: string, _userId: string, locale: SupportedLocale): Promise<DailyBriefing['deadlines']> {
+    const t = getTranslations(locale);
     // DeadlineExtractorService removed - AI refactor v2.0
     // Service can be restored from archive/memory folder when needed
     return {
       today: [],
       thisWeek: [],
       overdue: 0,
-      message: '✓ Deadline tracking available in future update.',
+      message: t.briefing.deadlines.placeholder,
     };
   }
 
   /**
-   * Get action items data for briefing
+   * Get action items data for briefing (locale-aware)
    * ActionItemService removed - AI refactor v2.0
    * Returns empty data until service is restored from archive
    */
-  private async getActionItemsData(_tenantId: string, _userId: string): Promise<DailyBriefing['actionItems']> {
+  private async getActionItemsData(_tenantId: string, _userId: string, locale: SupportedLocale): Promise<DailyBriefing['actionItems']> {
+    const t = getTranslations(locale);
     // ActionItemService removed - AI refactor v2.0
     // Service can be restored from archive/memory folder when needed
     return {
@@ -505,15 +546,16 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
       overdue: 0,
       highPriority: 0,
       dueToday: [],
-      message: '✓ Action items tracking available in future update.',
+      message: t.briefing.actionItems.placeholder,
     };
   }
 
   /**
-   * Get today's calendar events for briefing
+   * Get today's calendar events for briefing (locale-aware)
    * Note: Calendar integration is optional - returns empty if not available
    */
-  private async getCalendarData(_tenantId: string, _userId: string): Promise<DailyBriefing['calendar']> {
+  private async getCalendarData(_tenantId: string, _userId: string, locale: SupportedLocale): Promise<DailyBriefing['calendar']> {
+    const t = getTranslations(locale);
     try {
       // Calendar events are fetched via CalendarModule if available
       // For now, return placeholder - can be enhanced with CalendarService injection
@@ -521,13 +563,13 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
 
       return {
         todaysMeetings: [],
-        message: '📆 Calendar sync available via /api/v1/calendar endpoints.',
+        message: t.briefing.calendar.available,
       };
     } catch (error) {
       this.logger.warn(`Failed to get calendar data: ${error}`);
       return {
         todaysMeetings: [],
-        message: 'Calendar data unavailable.',
+        message: t.briefing.calendar.unavailable,
       };
     }
   }
@@ -631,17 +673,20 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Generate AI summary from emails
+   * Generate AI summary from emails (locale-aware)
    */
   private async generateAISummary(
     tenantId: string,
     userId: string,
     emails: Array<{ subject: string | null; from: string | null; snippet: string | null }>,
     stats: DailyBriefing['stats'],
+    locale: SupportedLocale = 'en',
   ): Promise<{ summary: string; highlights: string[]; urgent: string[] }> {
+    const t = getTranslations(locale);
+
     if (emails.length === 0) {
       return {
-        summary: 'No new unread emails. Your inbox is clear!',
+        summary: t.briefing.emptyInbox,
         highlights: [],
         urgent: [],
       };
@@ -654,6 +699,8 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
       .join('\n');
 
     const prompt = `You are an email assistant. Analyze these unread emails and provide a brief daily briefing.
+
+${t.briefing.aiPromptLanguage}
 
 Stats:
 - Total unread: ${stats.totalUnread}
@@ -682,16 +729,15 @@ Respond ONLY with valid JSON, no markdown.`;
       // Parse JSON response
       const parsed = JSON.parse(response);
       return {
-        summary: parsed.summary || 'Unable to generate summary.',
+        summary: parsed.summary || t.briefing.fallbackSummary(stats.totalUnread, stats.newToday),
         highlights: Array.isArray(parsed.highlights) ? parsed.highlights : [],
         urgent: Array.isArray(parsed.urgent) ? parsed.urgent : [],
       };
     } catch (error) {
       this.logger.warn(`AI summary generation failed: ${error}`);
-      // Fallback to basic summary
       return {
-        summary: `You have ${stats.totalUnread} unread emails, ${stats.newToday} received today.`,
-        highlights: emails.slice(0, 3).map((e) => `Email from ${e.from}: ${e.subject}`),
+        summary: t.briefing.fallbackSummary(stats.totalUnread, stats.newToday),
+        highlights: emails.slice(0, 3).map((e) => `${t.briefing.emailFrom} ${e.from}: ${e.subject}`),
         urgent: [],
       };
     }

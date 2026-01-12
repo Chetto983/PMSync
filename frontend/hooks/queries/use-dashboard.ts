@@ -706,23 +706,30 @@ export function emailTrendsOptions() {
         throw new Error('Analytics endpoint unavailable');
       } catch {
         // Generate mock data from email stats for last 7 days
-        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        const today = new Date().getDay();
-        const trends: EmailTrendDataPoint[] = days.map((name, i) => {
+        // Use locale-aware day formatting
+        const locale = typeof navigator !== 'undefined' ? navigator.language : 'en';
+        const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+        const today = new Date();
+
+        // Generate trends for last 7 days with locale-aware day names
+        const trends: EmailTrendDataPoint[] = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          const dayName = formatter.format(date);
+          const dayOfWeek = date.getDay();
           // Simulate realistic email patterns - more on weekdays
-          const isWeekday = i < 5;
+          const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
           const baseReceived = isWeekday ? 15 + Math.floor(Math.random() * 10) : 5 + Math.floor(Math.random() * 5);
           const baseSent = isWeekday ? 8 + Math.floor(Math.random() * 6) : 2 + Math.floor(Math.random() * 3);
-          return {
-            name,
+          trends.push({
+            name: dayName,
             emails: baseReceived + baseSent,
             received: baseReceived,
             sent: baseSent,
-          };
-        });
-        // Rotate array so today is last
-        const rotated = [...trends.slice(today), ...trends.slice(0, today)];
-        return { trends: rotated };
+          });
+        }
+        return { trends };
       }
     },
     staleTime: 10 * 60 * 1000, // 10 minutes

@@ -3,6 +3,7 @@ import { MistralService } from './services/mistral.service';
 import { AiController } from './controllers/ai.controller';
 import { AiHealthController } from './controllers/ai-health.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { SubscriptionModule } from '../subscription/subscription.module';
 import { EmbeddingsService } from './services/embeddings.service';
 import { KnowledgeBaseService } from './services/knowledge-base.service';
 import { KnowledgeBaseController } from './controllers/knowledge-base.controller';
@@ -32,6 +33,7 @@ import { MistralAgentCleanupService } from './services/mistral-agent-cleanup.ser
     forwardRef(() => EmailModule), // For StorageService (attachment downloads)
     // VoltAgent module exports: PersonalizationService, WritingStyleService, PromptRegistryService
     forwardRef(() => VoltAgentModule),
+    SubscriptionModule, // P10: Provides UsageTrackingService for AI quota enforcement
   ],
   providers: [
     // Core AI services (not in VoltAgent)

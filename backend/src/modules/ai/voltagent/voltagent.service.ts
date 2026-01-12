@@ -60,6 +60,7 @@ import {
   type ApprovalResumeData,
 } from './workflows';
 import { MemoryIntelligenceService } from './services/memory-intelligence.service';
+import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 
 export interface ChatOptions {
   userId: string;
@@ -215,6 +216,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly compactionService?: ConversationCompactionService,
     @Optional() private readonly conversationService?: ConversationManagementService,
     @Optional() private readonly memoryIntelligenceService?: MemoryIntelligenceService,
+    @Optional() private readonly usageTrackingService?: UsageTrackingService,
   ) { }
 
   async onModuleInit() {
@@ -759,6 +761,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // 0d. P10: Check subscription quota before AI call (prevents overage)
+    if (this.usageTrackingService) {
+      const canProceed = await this.usageTrackingService.checkQuota(options.tenantId, 'ai-calls');
+      if (!canProceed) {
+        this.logger.warn(`${logPrefix} AI quota exceeded - subscription limit reached`);
+        return {
+          text: 'You have reached your monthly AI call limit. Please upgrade your plan to continue.',
+          fromCache: false,
+        };
+      }
+    }
 
     // All responses are now generated fresh for each tenant
 
@@ -1150,6 +1163,13 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       result: pendingActions.length > 0 ? 'Action requires approval' : 'Response generated',
     });
 
+    // P10: Track successful AI call usage (after completion, before return)
+    if (this.usageTrackingService) {
+      await this.usageTrackingService.trackUsage(options.tenantId, 'ai-calls', 1).catch((err: Error) => {
+        this.logger.warn(`${logPrefix} Failed to track AI usage: ${err.message}`);
+      });
+    }
+
     return {
       text: result.text,
       requiresApproval: pendingActions.length > 0,
@@ -1224,6 +1244,15 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // 0d. P10: Check subscription quota before AI call (prevents overage)
+    if (this.usageTrackingService) {
+      const canProceed = await this.usageTrackingService.checkQuota(options.tenantId, 'ai-calls');
+      if (!canProceed) {
+        this.logger.warn(`${logPrefix} AI quota exceeded - subscription limit reached`);
+        yield 'You have reached your monthly AI call limit. Please upgrade your plan to continue.';
+        return;
+      }
+    }
 
     // All responses generated fresh to prevent data leakage
 
@@ -1431,6 +1460,13 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         // Non-critical: log but don't fail the request
         this.logger.warn(`${logPrefix} Failed to persist messages to memory: ${error}`);
       }
+    }
+
+    // P10: Track successful AI call usage (after stream completion)
+    if (this.usageTrackingService) {
+      await this.usageTrackingService.trackUsage(options.tenantId, 'ai-calls', 1).catch((err: Error) => {
+        this.logger.warn(`${logPrefix} Failed to track AI usage: ${err.message}`);
+      });
     }
   }
 

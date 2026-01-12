@@ -385,6 +385,34 @@ export interface FollowUpTranslations {
 }
 
 /**
+ * Daily briefing translations
+ */
+export interface BriefingTranslations {
+  quotaExceeded: string;
+  emptyInbox: string;
+  fallbackSummary: (unread: number, today: number) => string;
+  emailFrom: string;
+  aiPromptLanguage: string;
+  followUps: {
+    overdue: (count: number) => string;
+    dueToday: (count: number) => string;
+    pending: (count: number) => string;
+    none: string;
+    unavailable: string;
+  };
+  deadlines: {
+    placeholder: string;
+  };
+  actionItems: {
+    placeholder: string;
+  };
+  calendar: {
+    available: string;
+    unavailable: string;
+  };
+}
+
+/**
  * Complete translation structure for VoltAgent
  */
 export interface VoltAgentTranslations {
@@ -395,6 +423,7 @@ export interface VoltAgentTranslations {
   mistral: MistralTranslations;
   deadline: DeadlineKeywordsTranslations;
   followUp: FollowUpTranslations;
+  briefing: BriefingTranslations;
 }
 
 /**

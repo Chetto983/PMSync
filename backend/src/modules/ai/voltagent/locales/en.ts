@@ -178,8 +178,12 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
       },
       compose: {
         description: "Compose an intelligent reply to an email based on context and user writing style",
-        systemPrompt: (toneInstruction: string, language: string) =>
-          `You are an email drafting assistant. ${toneInstruction} CRITICAL: Write the email body ENTIRELY in ${language}. Use natural ${language} greetings, phrasing, and sign-offs appropriate for ${language} speakers. Reply ONLY in JSON: {"body":"...", "subject":"..."}. The body MUST be in ${language}. Avoid markdown.`,
+        systemPrompt: (toneInstruction: string, language: string) => {
+          const languageExamples = language === 'Italian'
+            ? 'Use ONLY Italian greetings like "Ciao", "Salve", "Buongiorno", "Gentile". NEVER use English words like "Hi", "Hello", "Dear", "Best", "Regards". Sign off with Italian phrases like "Cordiali saluti", "A presto", "Grazie".'
+            : 'Use standard English greetings and sign-offs.';
+          return `You are an email drafting assistant. ${toneInstruction} CRITICAL: Write the ENTIRE email body in ${language} ONLY. Do NOT mix languages. ${languageExamples} Reply ONLY in JSON: {"body":"...", "subject":"..."}. Every word must be in ${language}. Avoid markdown.`;
+        },
         originalEmail: 'Original email:',
         replyInstructions: 'Reply instructions:',
         // Compose prompt strings
@@ -974,5 +978,29 @@ I understand at my core that:
     ragQuery: 'waiting for reply, action required, please respond, follow up needed, deadline approaching, let me know, confirm receipt, need your input, pending response, awaiting confirmation, request for action, need feedback',
     highConfidenceReason: 'Detected via semantic search (high confidence)',
     verifiedReason: 'Verified by AI analysis',
+  },
+  briefing: {
+    quotaExceeded: 'Daily briefing unavailable - AI quota limit reached. Please upgrade your plan.',
+    emptyInbox: 'No new unread emails. Your inbox is clear!',
+    fallbackSummary: (unread, today) => `You have ${unread} unread emails, ${today} received today.`,
+    emailFrom: 'Email from',
+    aiPromptLanguage: 'Your response should be in English.',
+    followUps: {
+      overdue: (count) => `⚠️ You have ${count} overdue follow-up${count > 1 ? 's' : ''} requiring attention.`,
+      dueToday: (count) => `📋 ${count} follow-up${count > 1 ? 's' : ''} due today.`,
+      pending: (count) => `✓ ${count} pending follow-up${count > 1 ? 's' : ''}, none overdue.`,
+      none: '✓ No pending follow-ups.',
+      unavailable: 'Follow-up data unavailable.',
+    },
+    deadlines: {
+      placeholder: '✓ Deadline tracking available in future update.',
+    },
+    actionItems: {
+      placeholder: '✓ Action items tracking available in future update.',
+    },
+    calendar: {
+      available: '📆 Calendar sync available via /api/v1/calendar endpoints.',
+      unavailable: 'Calendar data unavailable.',
+    },
   },
 };

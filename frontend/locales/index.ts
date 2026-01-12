@@ -1635,6 +1635,7 @@ export interface AppTranslations {
       accounts: string;
       account: string;
       notifications: string;
+      billing: string;
     };
     generalPanel: {
       title: string;
@@ -1674,11 +1675,14 @@ export interface AppTranslations {
       };
       notificationsTitle: string;
       notificationsDescription: string;
+      emailNotificationsTitle: string;
       notificationOptions: {
         newEmails: string;
         newEmailsDescription: string;
         calendarReminders: string;
         calendarRemindersDescription: string;
+        aiActions: string;
+        aiActionsDescription: string;
         taskDeadlines: string;
         taskDeadlinesDescription: string;
       };
@@ -2614,6 +2618,91 @@ export interface AppTranslations {
     forward: string;
     replyAll: string;
     download: string;
+  };
+  // Billing & Subscription (P10)
+  billing?: {
+    title: string;
+    description: string;
+    currentPlan: string;
+    plans: {
+      free: { name: string; description: string };
+      starter: { name: string; description: string };
+      professional: { name: string; description: string };
+      enterprise: { name: string; description: string };
+    };
+    usage: {
+      title: string;
+      emails: string;
+      aiCalls: string;
+      used: string;
+      remaining: string;
+      unlimited: string;
+      of: string;
+      percentUsed: string;
+      resetDate: string;
+    };
+    costProtection: {
+      title: string;
+      dailyCost: string;
+      dailyCap: string;
+      status: string;
+      statusOk: string;
+      statusWarning: string;
+      statusCritical: string;
+      statusBlocked: string;
+      blocked: string;
+      blockedDescription: string;
+    };
+    features: {
+      title: string;
+      basicEmail: string;
+      smartReplies: string;
+      summaries: string;
+      autoTriage: string;
+      briefings: string;
+      rag: string;
+      available: string;
+      notAvailable: string;
+    };
+    actions: {
+      upgrade: string;
+      downgrade: string;
+      cancel: string;
+      cancelConfirm: string;
+      cancelAtPeriodEnd: string;
+      manageBilling: string;
+      viewInvoices: string;
+    };
+    alerts: {
+      quotaWarning: string;
+      quotaExceeded: string;
+      costWarning: string;
+      costBlocked: string;
+      upgradeToUnlock: string;
+    };
+    pricing: {
+      perMonth: string;
+      perYear: string;
+      custom: string;
+      contactSales: string;
+      currentPlan: string;
+      mostPopular: string;
+      includes: string;
+    };
+    checkout: {
+      title: string;
+      processing: string;
+      success: string;
+      failed: string;
+      redirecting: string;
+    };
+    errors: {
+      loadFailed: string;
+      updateFailed: string;
+      cancelFailed: string;
+      quotaExceeded: string;
+      featureNotAvailable: string;
+    };
   };
 }
 

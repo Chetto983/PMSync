@@ -17,6 +17,7 @@ import {
 import { PromptGuardService } from '../guards/prompt-guard.service';
 import { getAiCircuitBreaker, withRetry, embeddingRateLimiter } from '../utils';
 import { AiError, AiErrorCode } from '../errors';
+import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 
 type ConversationMessage = {
   role: 'assistant' | 'user';
@@ -38,6 +39,7 @@ export class MistralService {
     private embeddingsService: EmbeddingsService,
     private promptGuard: PromptGuardService,
     @Optional() private queryEmbeddingCache?: QueryEmbeddingCacheService,
+    @Optional() private usageTrackingService?: UsageTrackingService,
   ) {
     // Configure rate limiting from env (defaults: 3 concurrent)
     this.maxConcurrentEmbeddings = parseInt(
@@ -165,6 +167,19 @@ export class MistralService {
     // Validate inputs before processing (includes security check)
     this.validatePromptInputs(userPrompt, systemPrompt);
 
+    // P10: Check subscription quota if tenantId is available (prevents overage)
+    const tenantId = _telemetryContext?.tenantId;
+    if (tenantId && this.usageTrackingService) {
+      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
+      if (!canProceed) {
+        this.logger.warn(`[tenant:${tenantId}] AI quota exceeded - subscription limit reached`);
+        throw new AiError('Monthly AI call limit reached. Please upgrade your plan.', AiErrorCode.QUOTA_EXCEEDED, {
+          retryable: false,
+          context: { tenantId },
+        });
+      }
+    }
+
     const cb = getAiCircuitBreaker('mistral', 'completion');
 
     return cb.execute(async () => {
@@ -218,7 +233,7 @@ export class MistralService {
           return { text, usage: completion.usage };
         };
 
-        return withRetry(
+        const text = await withRetry(
           async () => {
             const result = await executeCall();
             return result.text;
@@ -229,6 +244,15 @@ export class MistralService {
             isRetryable: (err: unknown) => AiError.fromError(err).retryable,
           }
         );
+
+        // P10: Track successful AI call usage (after completion)
+        if (tenantId && this.usageTrackingService) {
+          await this.usageTrackingService.trackUsage(tenantId, 'ai-calls', 1).catch((err: Error) => {
+            this.logger.warn(`[tenant:${tenantId}] Failed to track AI usage: ${err.message}`);
+          });
+        }
+
+        return text;
       } catch (error) {
         const corrId = CorrelationContext.getCorrelationId();
         const aiError = AiError.fromError(error);
@@ -568,6 +592,15 @@ export class MistralService {
       return fallbackResponse;
     }
 
+    // P10: Check subscription quota BEFORE expensive RAG + LLM call
+    if (tenantId && this.usageTrackingService) {
+      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
+      if (!canProceed) {
+        this.logger.warn(`[tenant:${tenantId}] AI quota exceeded - subscription limit reached`);
+        return 'Monthly AI call limit reached. Please upgrade your plan.';
+      }
+    }
+
     const cb = getAiCircuitBreaker('mistral', 'rag_completion');
 
     try {
@@ -651,6 +684,14 @@ export class MistralService {
 
         const corrId = CorrelationContext.getCorrelationId();
         this.logger.log(`[${corrId}] [tenant:${tenantId}] Generated response for user: ${userId}`);
+
+        // P10: Track successful AI usage (RAG response)
+        if (tenantId && this.usageTrackingService) {
+          await this.usageTrackingService.trackUsage(tenantId, 'ai-calls', 1).catch((err: Error) => {
+            this.logger.warn(`[tenant:${tenantId}] Failed to track RAG response usage: ${err.message}`);
+          });
+        }
+
         return result.response;
       });
     } catch (error) {

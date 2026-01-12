@@ -147,6 +147,19 @@ export function getErrorCode(error: unknown): ErrorCode {
 export function getErrorMessage(error: unknown, t?: AppTranslations): string {
   const translations = t ?? fallbackTranslations;
 
+  // Check status code first for errors we want to translate (not use backend message)
+  if (isAxiosError(error) && error.response?.status) {
+    const status = error.response.status;
+    // For rate limiting (429), always use translated message, not backend "ThrottlerException" text
+    if (status === 429) {
+      const tooManyRequestsMsg = translations.errors?.tooManyRequests;
+      if (typeof tooManyRequestsMsg === 'string') {
+        return tooManyRequestsMsg;
+      }
+      return fallbackTranslations.errors.tooManyRequests as string;
+    }
+  }
+
   // If it's an Axios error, try to use backend message
   if (isAxiosError(error) && error.response?.data) {
     const data = error.response.data;

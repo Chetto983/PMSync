@@ -27,6 +27,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { LabelsModule } from './modules/labels/labels.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
 // NOTE: AnalyticsModule removed - unused, voltagent analytics.service.ts is the active one
 
 const config = getConfiguration();
@@ -66,6 +67,7 @@ const config = getConfiguration();
     ContactsModule,
     RealtimeModule, // WebSocket Gateway per eventi realtime multi-tenant
     LabelsModule,
+    SubscriptionModule, // P10: Billing & subscription management with Autumn
   ],
   providers: [
     // Apply throttler globally to all routes

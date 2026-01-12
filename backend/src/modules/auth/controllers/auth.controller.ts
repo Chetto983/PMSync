@@ -52,11 +52,12 @@ export class AuthController {
   /**
    * Verify OTP code
    * POST /auth/verify-otp
-   * SECURITY: Rate limited to 3 attempts per 60 seconds to prevent brute force
-   * 6-digit OTP = 1M combinations, 3/min = too slow to brute force
+   * SECURITY: Rate limited to 10 attempts per 60 seconds
+   * 6-digit OTP = 1M combinations, 10/min = 100K min (~70 days) to brute force
+   * Increased from 3 to 10 for better UX (typo tolerance) while maintaining security
    */
   @Post('verify-otp')
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async verifyOtp(
     @Body() body: VerifyOtpDto,
     @Req() req: ExpressRequest,

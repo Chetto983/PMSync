@@ -57,6 +57,7 @@
     "@voltagent/postgres": "^1.1.4",
     "ai": "^5.0.116",
     "async-mutex": "^0.5.0",
+    "autumn-js": "^0.1.67",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.66.2",

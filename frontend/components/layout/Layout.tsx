@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useSyncStore } from '@/stores/sync-store';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { QuotaAlertBanner } from '@/components/billing';
 
 export interface LayoutProps {
   children: React.ReactNode;
@@ -89,6 +90,9 @@ export function Layout({ children }: LayoutProps) {
             onThemeToggle={toggleTheme}
             isDarkMode={isDarkMode}
           />
+
+          {/* Quota Alert Banner - shows when usage > 80% */}
+          <QuotaAlertBanner />
 
           {/* Page Content */}
           <Box

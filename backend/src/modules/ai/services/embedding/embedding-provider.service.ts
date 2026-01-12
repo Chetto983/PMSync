@@ -1,10 +1,11 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { QueryEmbeddingCacheService } from '../query-embedding-cache.service';
 import { getAiCircuitBreaker, withRetry, embeddingRateLimiter } from '../../utils';
 import { AiError, AiErrorCode } from '../../errors';
 import { IEmbeddingProvider, EmbeddingProviderType, EmbeddingHealthStatus } from './embedding-provider.types';
 import { MistralEmbeddingProvider } from './mistral-embedding.provider';
+import { UsageTrackingService } from '../../../subscription/services/usage-tracking.service';
 
 /**
  * Unified Embedding Provider Service
@@ -50,6 +51,7 @@ export class EmbeddingProviderService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly queryEmbeddingCache: QueryEmbeddingCacheService,
+    @Optional() private readonly usageTrackingService?: UsageTrackingService,
   ) {
     this.providerType = this.configService.get<EmbeddingProviderType>('AI_EMBEDDING_PROVIDER', 'mistral');
     this.embeddingModel = this.configService.get<string>('AI_EMBEDDING_MODEL', 'mistral-embed');
@@ -127,8 +129,27 @@ export class EmbeddingProviderService implements OnModuleInit {
       this.logger.warn('Embedding cache SKIPPED - no tenantId (GDPR requirement)');
     }
 
+    // P10: Check subscription quota BEFORE API call (prevents overage)
+    if (tenantId && this.usageTrackingService) {
+      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
+      if (!canProceed) {
+        this.logger.warn(`Embedding quota exceeded for tenant=${tenantId}`);
+        throw new AiError('Monthly AI call limit reached. Please upgrade your plan.', AiErrorCode.QUOTA_EXCEEDED, {
+          retryable: false,
+          context: { tenantId },
+        });
+      }
+    }
+
     // Generate new embedding with resilience
     const embedding = await this.generateWithResilience(text);
+
+    // P10: Track successful embedding usage AFTER generation
+    if (tenantId && this.usageTrackingService) {
+      await this.usageTrackingService.trackUsage(tenantId, 'ai-calls', 1).catch((err: Error) => {
+        this.logger.warn(`Failed to track embedding usage for tenant=${tenantId}: ${err.message}`);
+      });
+    }
 
     // Cache for future queries - GDPR: requires tenantId
     if (tenantId) {
@@ -143,13 +164,38 @@ export class EmbeddingProviderService implements OnModuleInit {
    *
    * Use for: Email indexing, document processing
    * NOT cached (content embeddings stored in DB)
+   * @param texts - Array of texts to embed
+   * @param tenantId - Optional tenant ID for quota enforcement (P10)
    */
-  async generateBulkEmbeddings(texts: string[]): Promise<number[][]> {
+  async generateBulkEmbeddings(texts: string[], tenantId?: string): Promise<number[][]> {
     if (!texts || texts.length === 0) {
       return [];
     }
 
-    return this.generateBulkWithResilience(texts);
+    // P10: Check subscription quota BEFORE API call (prevents overage)
+    // Count = number of texts being embedded
+    if (tenantId && this.usageTrackingService) {
+      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
+      if (!canProceed) {
+        this.logger.warn(`Bulk embedding quota exceeded for tenant=${tenantId}, texts=${texts.length}`);
+        throw new AiError('Monthly AI call limit reached. Please upgrade your plan.', AiErrorCode.QUOTA_EXCEEDED, {
+          retryable: false,
+          context: { tenantId, bulkCount: texts.length },
+        });
+      }
+    }
+
+    const embeddings = await this.generateBulkWithResilience(texts);
+
+    // P10: Track successful bulk embedding usage AFTER generation
+    // Note: Each text counts as one AI call for billing purposes
+    if (tenantId && this.usageTrackingService) {
+      await this.usageTrackingService.trackUsage(tenantId, 'ai-calls', texts.length).catch((err: Error) => {
+        this.logger.warn(`Failed to track bulk embedding usage for tenant=${tenantId}: ${err.message}`);
+      });
+    }
+
+    return embeddings;
   }
 
   /**

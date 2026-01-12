@@ -1,6 +1,5 @@
 import type { EditorOptions } from '@tiptap/core';
 import { useCallback, useRef, useState } from 'react';
-import { useRouter } from 'next/router';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
@@ -19,6 +18,7 @@ import {
   type RichTextEditorRef,
 } from 'mui-tiptap';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useLocale } from '@/lib/hooks/use-locale';
 import { aiApi, type CommunicationStyle } from '@/lib/api/ai';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAiProfile } from '@/hooks/queries/use-settings';
@@ -69,7 +69,7 @@ export default function ComposeEditor({
   subject = '',
 }: ComposeEditorProps) {
   const t = useTranslations();
-  const { locale } = useRouter();
+  const { locale } = useLocale();
   const composer = t.email.composer;
   const user = useAuthStore((state) => state.user);
   const { data: aiProfile } = useAiProfile();

@@ -20,6 +20,7 @@ import {
   Mail,
   Sparkles,
   Shield,
+  CreditCard,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useThemePersistence } from '@/hooks/use-theme-persistence';
@@ -56,8 +57,9 @@ import {
   AccountSettings,
   NotificationsSettings,
 } from '@/components/settings';
+import { BillingPanel } from '@/components/billing';
 
-type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'account' | 'notifications';
+type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'account' | 'notifications' | 'billing';
 
 export function Settings() {
   const router = useRouter();
@@ -140,6 +142,7 @@ export function Settings() {
       { id: 'accounts', label: settingsCopy.sections.accounts, icon: <Mail size={18} /> },
       { id: 'account', label: settingsCopy.sections.account, icon: <User size={18} /> },
       { id: 'notifications', label: settingsCopy.sections.notifications, icon: <Bell size={18} /> },
+      { id: 'billing', label: settingsCopy.sections.billing || 'Billing', icon: <CreditCard size={18} /> },
     ],
     [settingsCopy.sections],
   );
@@ -492,17 +495,17 @@ export function Settings() {
   }), [settingsCopy]);
 
   const notifCopy = useMemo(() => ({
-    title: 'Notifications',
-    description: 'Manage your notification preferences',
-    emailTitle: 'Email Notifications',
-    newEmailsTitle: 'New Emails',
-    newEmailsDesc: 'Get notified when new emails arrive',
-    calendarTitle: 'Calendar Reminders',
-    calendarDesc: 'Get reminders for upcoming events',
-    aiActionsTitle: 'AI Actions',
-    aiActionsDesc: 'Get notified when AI needs your approval',
-    save: 'Save',
-    saving: settingsCopy.aiPanel?.saving || 'Saving...',
+    title: settingsCopy.generalPanel?.notificationsTitle || 'Notifications',
+    description: settingsCopy.generalPanel?.notificationsDescription || 'Manage your notification preferences',
+    emailTitle: settingsCopy.generalPanel?.emailNotificationsTitle || 'Email Notifications',
+    newEmailsTitle: settingsCopy.generalPanel?.notificationOptions?.newEmails || 'New Emails',
+    newEmailsDesc: settingsCopy.generalPanel?.notificationOptions?.newEmailsDescription || 'Get notified when new emails arrive',
+    calendarTitle: settingsCopy.generalPanel?.notificationOptions?.calendarReminders || 'Calendar Reminders',
+    calendarDesc: settingsCopy.generalPanel?.notificationOptions?.calendarRemindersDescription || 'Get reminders for upcoming events',
+    aiActionsTitle: settingsCopy.generalPanel?.notificationOptions?.aiActions || 'AI Actions',
+    aiActionsDesc: settingsCopy.generalPanel?.notificationOptions?.aiActionsDescription || 'Get notified when AI needs your approval',
+    save: settingsCopy.generalPanel?.save || settingsCopy.saveChanges || 'Save',
+    saving: settingsCopy.generalPanel?.saving || settingsCopy.saving || 'Saving...',
   }), [settingsCopy]);
 
   if (!hydrated) {
@@ -568,6 +571,7 @@ export function Settings() {
             {selectedSection === 'notifications' && (
               <NotificationsSettings newEmailNotif={newEmailNotif} setNewEmailNotif={setNewEmailNotif} calendarNotif={calendarNotif} setCalendarNotif={setCalendarNotif} aiActionsNotif={aiActionsNotif} setAiActionsNotif={setAiActionsNotif} saveLoading={notifSaveLoading} onSave={handleSaveNotifications} success={notifSuccess} error={notifError} onClearSuccess={() => setNotifSuccess('')} onClearError={() => setNotifError('')} copy={notifCopy} />
             )}
+            {selectedSection === 'billing' && <BillingPanel />}
           </Box>
         </Box>
       </Box>

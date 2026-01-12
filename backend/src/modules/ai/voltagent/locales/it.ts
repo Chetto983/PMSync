@@ -240,4 +240,28 @@ export const it: VoltAgentTranslations = {
     highConfidenceReason: 'Rilevato tramite ricerca semantica (alta confidenza)',
     verifiedReason: 'Verificato dall\'analisi AI',
   },
+  briefing: {
+    quotaExceeded: 'Briefing giornaliero non disponibile - limite AI raggiunto. Aggiorna il tuo piano.',
+    emptyInbox: 'Nessuna nuova email non letta. La tua casella è vuota!',
+    fallbackSummary: (unread, today) => `Hai ${unread} email non lette, ${today} ricevute oggi.`,
+    emailFrom: 'Email da',
+    aiPromptLanguage: 'IMPORTANT: Your response MUST be in Italian (italiano). All text in summary, highlights, and urgent arrays must be written in Italian.',
+    followUps: {
+      overdue: (count) => `⚠️ Hai ${count} follow-up scadut${count > 1 ? 'i' : 'o'} che richied${count > 1 ? 'ono' : 'e'} attenzione.`,
+      dueToday: (count) => `📋 ${count} follow-up in scadenza oggi.`,
+      pending: (count) => `✓ ${count} follow-up in sospeso, nessuno scaduto.`,
+      none: '✓ Nessun follow-up in sospeso.',
+      unavailable: 'Dati follow-up non disponibili.',
+    },
+    deadlines: {
+      placeholder: '✓ Tracciamento scadenze disponibile in futuro aggiornamento.',
+    },
+    actionItems: {
+      placeholder: '✓ Tracciamento attività disponibile in futuro aggiornamento.',
+    },
+    calendar: {
+      available: '📆 Sincronizzazione calendario disponibile via /api/v1/calendar.',
+      unavailable: 'Dati calendario non disponibili.',
+    },
+  },
 };
