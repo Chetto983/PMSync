@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -147,15 +147,18 @@ export function Header({
     }
   };
 
+  // Fix race condition: use useRef instead of local variable for mounted check
+  const mountedRef = useRef(true);
+
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
 
     // Initial fetch with mount check
     const initFetch = async () => {
       fetchNotifications();
       try {
         const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
-        if (mounted) {
+        if (mountedRef.current) {
           const data = response.data;
           setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
         }
@@ -168,9 +171,10 @@ export function Header({
 
     // Refresh AI actions periodically
     const interval = setInterval(async () => {
+      if (!mountedRef.current) return;
       try {
         const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
-        if (mounted) {
+        if (mountedRef.current) {
           const data = response.data;
           setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
         }
@@ -180,7 +184,7 @@ export function Header({
     }, 60000);
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       clearInterval(interval);
     };
   }, [fetchNotifications]);

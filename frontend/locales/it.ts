@@ -1404,6 +1404,11 @@ export const it: AppTranslations = {
     newTask: 'Nuova attività',
     addTaskPlaceholder: 'Aggiungi un\'attività per Oggi, premi Invio per salvare',
     taskDetails: 'Dettagli attività',
+    priority: {
+      high: 'Alta',
+      medium: 'Media',
+      low: 'Bassa',
+    },
   },
   providers: {
     title: 'Provider e integrazioni',
@@ -1547,6 +1552,7 @@ export const it: AppTranslations = {
     saving: 'Salvataggio...',
     saveChanges: 'Salva modifiche',
     successMessage: 'Impostazioni aggiornate con successo',
+    errorMessage: 'Impossibile aggiornare le impostazioni. Riprova.',
     providersTitle: 'Provider email e calendario',
     providersDescription: 'Gestisci gli account che alimentano la tua casella di posta e la sincronizzazione calendario.',
     manageProviders: 'Gestisci provider',

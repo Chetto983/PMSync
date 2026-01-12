@@ -207,7 +207,7 @@ export function Tasks() {
                     <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                       <Chip
                         size="small"
-                        label={task.priority}
+                        label={tasksCopy.priority?.[task.priority] || task.priority}
                         color={getPriorityColor(task.priority) as 'default' | 'error' | 'warning'}
                         icon={<Flag size={12} />}
                       />

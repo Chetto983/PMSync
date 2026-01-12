@@ -34,6 +34,17 @@ function fileListToImageFiles(fileList: FileList): File[] {
   });
 }
 
+// Pure function - moved outside component to avoid useCallback dependency issues
+function mapCommunicationStyleToTone(style?: CommunicationStyle): string {
+  switch (style) {
+    case 'FORMAL': return 'formal';
+    case 'CASUAL': return 'casual';
+    case 'TECHNICAL': return 'professional';
+    case 'CREATIVE': return 'friendly';
+    default: return 'professional';
+  }
+}
+
 export type ComposeEditorProps = {
   placeholder?: string;
   content?: string;
@@ -62,17 +73,6 @@ export default function ComposeEditor({
   const composer = t.email.composer;
   const user = useAuthStore((state) => state.user);
   const { data: aiProfile } = useAiProfile();
-
-  // Map CommunicationStyle → compose tone parameter
-  const mapCommunicationStyleToTone = (style?: CommunicationStyle): string => {
-    switch (style) {
-      case 'FORMAL': return 'formal';
-      case 'CASUAL': return 'casual';
-      case 'TECHNICAL': return 'professional';
-      case 'CREATIVE': return 'friendly';
-      default: return 'professional';
-    }
-  };
 
   // Build sender name from user info
   const senderName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || undefined;
@@ -249,7 +249,7 @@ export default function ComposeEditor({
     } finally {
       setAiIsLoading(false);
     }
-  }, [selectedText, isModifyMode, recipients, subject, locale, senderName, handleCloseAiMenu, composer, aiProfile, mapCommunicationStyleToTone]);
+  }, [selectedText, isModifyMode, recipients, subject, locale, senderName, handleCloseAiMenu, composer, aiProfile]);
 
   // Close AI Result Panel
   const handleCloseAiPanel = useCallback(() => {

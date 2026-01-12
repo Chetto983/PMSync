@@ -7,6 +7,8 @@ import {
   Button,
   Stack,
   Box,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { usersApi } from '@/lib/api/users';
@@ -19,6 +21,10 @@ export function ProfileSettings() {
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; open: boolean }>({
+    type: 'success',
+    open: false,
+  });
 
   if (!user) {
     return null;
@@ -28,12 +34,17 @@ export function ProfileSettings() {
     setIsSaving(true);
     try {
       await usersApi.updateProfile({ firstName, lastName });
-      // TODO: Add success/error feedback using translations
+      setFeedback({ type: 'success', open: true });
     } catch (error) {
       logger.error('Failed to update profile', { error });
+      setFeedback({ type: 'error', open: true });
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleCloseFeedback = () => {
+    setFeedback((prev) => ({ ...prev, open: false }));
   };
 
   return (
@@ -68,6 +79,21 @@ export function ProfileSettings() {
           </Button>
         </Box>
       </Stack>
+      <Snackbar
+        open={feedback.open}
+        autoHideDuration={4000}
+        onClose={handleCloseFeedback}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseFeedback}
+          severity={feedback.type}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {feedback.type === 'success' ? settingsCopy.successMessage : settingsCopy.errorMessage}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 }

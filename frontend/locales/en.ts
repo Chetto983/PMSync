@@ -1416,6 +1416,11 @@ export const en: AppTranslations = {
     newTask: 'New Task',
     addTaskPlaceholder: 'Add a task for Today, press Enter to save',
     taskDetails: 'Task Details',
+    priority: {
+      high: 'High',
+      medium: 'Medium',
+      low: 'Low',
+    },
   },
   providers: {
     title: 'Providers & Integrations',
@@ -1559,6 +1564,7 @@ export const en: AppTranslations = {
     saving: 'Saving...',
     saveChanges: 'Save changes',
     successMessage: 'Settings updated successfully',
+    errorMessage: 'Failed to update settings. Please try again.',
     providersTitle: 'Email & Calendar Providers',
     providersDescription: 'Manage the accounts powering your inbox and calendar sync.',
     manageProviders: 'Manage Providers',

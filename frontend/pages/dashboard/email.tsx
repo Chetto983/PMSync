@@ -292,7 +292,6 @@ export default function EmailPage() {
       }
 
       const blob = response.data;
-      console.log('Downloaded attachment blob:', blob.type, blob.size); // eslint-disable-line no-console
 
       // Create download link
       const url = window.URL.createObjectURL(blob);

@@ -39,7 +39,8 @@ export function CookieConsent() {
     const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
     if (!consent) {
       // Show banner after a slight delay for better UX
-      setTimeout(() => setVisible(true), 1000);
+      const timeoutId = setTimeout(() => setVisible(true), 1000);
+      return () => clearTimeout(timeoutId);
     }
   }, []);
 

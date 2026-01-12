@@ -1316,6 +1316,11 @@ export interface AppTranslations {
     newTask: string;
     addTaskPlaceholder: string;
     taskDetails: string;
+    priority: {
+      high: string;
+      medium: string;
+      low: string;
+    };
   };
   contacts: {
     title: string;
@@ -1590,6 +1595,7 @@ export interface AppTranslations {
     saving: string;
     saveChanges: string;
     successMessage: string;
+    errorMessage: string;
     providersTitle: string;
     providersDescription: string;
     manageProviders: string;

@@ -63,6 +63,7 @@ interface ChatPanelProps {
     insert?: string;
     error?: string;
     thinking?: string;
+    sendTooltip?: string;
   };
 }
 
@@ -75,6 +76,7 @@ const DEFAULT_LABELS = {
   insert: 'Insert',
   error: 'An error occurred',
   thinking: 'Thinking...',
+  sendTooltip: 'Send (Enter)',
 };
 
 export function ChatPanel({
@@ -447,7 +449,7 @@ export function ChatPanel({
             </IconButton>
           </Tooltip>
         ) : (
-          <Tooltip title="Send (Enter)">
+          <Tooltip title={labels.sendTooltip}>
             <IconButton
               onClick={handleSend}
               disabled={!inputValue.trim()}
