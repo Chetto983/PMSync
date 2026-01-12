@@ -291,7 +291,7 @@ export function ThreadHeader({
               <Divider />
               <MenuItem onClick={() => handleAction(onPrint)}>
                 <Printer size={16} style={{ marginRight: 8 }} />
-                {'Print'}
+                {t.threadActions?.print || 'Print'}
               </MenuItem>
             </>
           )}

@@ -294,6 +294,7 @@ export const en: AppTranslations = {
         primary: { href: '/auth/register', label: 'Create an account' },
         secondary: { href: '/auth/forgot-password', label: 'Forgot password?' },
       },
+      capsLockWarning: 'Caps Lock is on',
     },
     otp: {
       title: 'Verify the one-time code',
@@ -1339,6 +1340,8 @@ export const en: AppTranslations = {
     openAiAssistant: 'Open AI Assistant',
     noEventsMessage: 'No events scheduled. Click on the calendar to create your first event!',
     failedToCreateEvent: 'Failed to create event. Please try again.',
+    failedToLoadEvents: 'Failed to load events',
+    eventCreated: 'Event created successfully',
     failedToCreateQuickEvent: 'Failed to create quick event. Please try again.',
     colorUpdated: 'Calendar color updated',
     failedToUpdateColor: 'Failed to update calendar color. Please try again.',
@@ -2397,6 +2400,23 @@ export const en: AppTranslations = {
     disableFailed: 'Failed to disable two-factor authentication.',
     notEnabled: 'Two-factor authentication is not enabled.',
     alreadyEnabled: 'Two-factor authentication is already enabled.',
+    // ErrorBoundary messages
+    somethingWentWrong: 'Something went wrong',
+    errorOccurred: 'An error occurred in the {name} section.',
+    unexpectedError: 'An unexpected error occurred.',
+    tryAgainOrReturn: 'Please try again or return to the dashboard.',
+    failedToLoad: 'Failed to load {sectionName}',
+    // Email errors
+    missingProviderInfo: 'Email provider information is missing',
+    moveFailed: 'Failed to move email(s). Please try again.',
+  },
+  buttons: {
+    tryAgain: 'Try Again',
+    goToDashboard: 'Go to Dashboard',
+    reload: 'Reload',
+    goHome: 'Go Back Home',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
   },
   contacts: {
     title: 'Contacts',

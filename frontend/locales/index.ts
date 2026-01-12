@@ -151,6 +151,7 @@ interface AuthScreenCopy {
     description: string;
     actionLabel: string;
   };
+  capsLockWarning?: string;
 }
 
 interface MfaTranslations {
@@ -1242,6 +1243,8 @@ export interface AppTranslations {
     openAiAssistant: string;
     noEventsMessage: string;
     failedToCreateEvent: string;
+    failedToLoadEvents: string;
+    eventCreated: string;
     failedToCreateQuickEvent: string;
     colorUpdated: string;
     failedToUpdateColor: string;
@@ -2415,6 +2418,23 @@ export interface AppTranslations {
     disableFailed: string;
     notEnabled: string;
     alreadyEnabled: string;
+    // ErrorBoundary messages
+    somethingWentWrong: string;
+    errorOccurred: string;
+    unexpectedError: string;
+    tryAgainOrReturn: string;
+    failedToLoad: string;
+    // Email errors
+    missingProviderInfo: string;
+    moveFailed: string;
+  };
+  buttons: {
+    tryAgain: string;
+    goToDashboard: string;
+    reload: string;
+    goHome: string;
+    confirm: string;
+    cancel: string;
   };
   folders: {
     title: string;

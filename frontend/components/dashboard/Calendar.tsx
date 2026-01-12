@@ -418,7 +418,7 @@ export function Calendar() {
           logger.error('Failed to load calendar events', { error: eventsError });
           setSnackbar({
             open: true,
-            message: 'Failed to load events',
+            message: calendarCopy.failedToLoadEvents || 'Failed to load events',
             severity: 'error',
           });
         }
@@ -426,7 +426,7 @@ export function Calendar() {
         setLoading(false);
       }
     },
-    [loadCalendars, selectedProvider, setLoading, setStoreEvents, setLastSyncAt, syncProviderMutation, queryClient]
+    [loadCalendars, selectedProvider, setLoading, setStoreEvents, setLastSyncAt, syncProviderMutation, queryClient, calendarCopy.failedToLoadEvents]
   );
 
   // Initial data load - intentionally run only once on mount
@@ -691,7 +691,7 @@ export function Calendar() {
       await createEventMutation.mutateAsync(createDto);
       setSnackbar({
         open: true,
-        message: 'Event created successfully',
+        message: calendarCopy.eventCreated || 'Event created successfully',
         severity: 'success',
       });
       setEventDialogOpen(false);

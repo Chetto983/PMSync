@@ -363,7 +363,7 @@ export default function LoginPage() {
                     >
                       <AlertTriangle size={16} />
                       <Typography variant="caption" color="warning.main">
-                        Caps Lock is on
+                        {loginCopy.capsLockWarning || 'Caps Lock is on'}
                       </Typography>
                     </Box>
                   )}

@@ -563,7 +563,7 @@ export default function EmailPage() {
     const emailProviderId = emails[0].providerId;
 
     if (!emailProviderId) {
-      toast.error('Email provider information is missing');
+      toast.error(t.errors?.missingProviderInfo || 'Email provider information is missing');
       return;
     }
 
@@ -588,7 +588,7 @@ export default function EmailPage() {
       toast.success(message);
     } catch {
       // Error handling - failed to move emails
-      toast.error('Failed to move email(s). Please try again.');
+      toast.error(t.errors?.moveFailed || 'Failed to move email(s). Please try again.');
     }
   };
 

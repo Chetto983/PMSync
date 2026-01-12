@@ -8,6 +8,18 @@ const logger = createLogger('ErrorBoundary');
 /**
  * Props for ErrorBoundary component
  */
+/**
+ * Labels for i18n support in ErrorBoundary
+ */
+interface ErrorBoundaryLabels {
+  somethingWentWrong?: string;
+  errorOccurred?: string;
+  unexpectedError?: string;
+  tryAgainOrReturn?: string;
+  tryAgain?: string;
+  goToDashboard?: string;
+}
+
 interface ErrorBoundaryProps {
   children: ReactNode;
   /**
@@ -32,6 +44,10 @@ interface ErrorBoundaryProps {
    * @default true
    */
   showHome?: boolean;
+  /**
+   * Labels for i18n support
+   */
+  labels?: ErrorBoundaryLabels;
 }
 
 interface ErrorBoundaryState {
@@ -154,14 +170,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </Box>
 
             <Typography variant="h5" gutterBottom fontWeight={600}>
-              Something went wrong
+              {this.props.labels?.somethingWentWrong || 'Something went wrong'}
             </Typography>
 
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
               {name
-                ? `An error occurred in the ${name} section.`
-                : 'An unexpected error occurred.'}
-              {' '}Please try again or return to the dashboard.
+                ? (this.props.labels?.errorOccurred || `An error occurred in the ${name} section.`).replace('{name}', name)
+                : (this.props.labels?.unexpectedError || 'An unexpected error occurred.')}
+              {' '}{this.props.labels?.tryAgainOrReturn || 'Please try again or return to the dashboard.'}
             </Typography>
 
             {process.env.NODE_ENV === 'development' && error && (
@@ -179,7 +195,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   startIcon={<RefreshCw size={18} />}
                   onClick={this.handleRetry}
                 >
-                  Try Again
+                  {this.props.labels?.tryAgain || 'Try Again'}
                 </Button>
               )}
               {showHome && (
@@ -188,7 +204,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   startIcon={<Home size={18} />}
                   onClick={this.handleGoHome}
                 >
-                  Go to Dashboard
+                  {this.props.labels?.goToDashboard || 'Go to Dashboard'}
                 </Button>
               )}
             </Box>
@@ -223,7 +239,15 @@ export const PageErrorBoundary: React.FC<{
 export const SectionErrorBoundary: React.FC<{
   children: ReactNode;
   sectionName: string;
-}> = ({ children, sectionName }) => {
+  labels?: {
+    failedToLoad?: string;
+    reload?: string;
+  };
+}> = ({ children, sectionName, labels }) => {
+  const failedText = labels?.failedToLoad
+    ? labels.failedToLoad.replace('{sectionName}', sectionName)
+    : `Failed to load ${sectionName}`;
+
   return (
     <ErrorBoundary
       name={sectionName}
@@ -240,7 +264,7 @@ export const SectionErrorBoundary: React.FC<{
           }}
         >
           <Typography variant="body2" color="error.contrastText">
-            Failed to load {sectionName}
+            {failedText}
           </Typography>
           <Button
             size="small"
@@ -248,7 +272,7 @@ export const SectionErrorBoundary: React.FC<{
             sx={{ color: 'error.contrastText', mt: 1 }}
             onClick={() => window.location.reload()}
           >
-            Reload
+            {labels?.reload || 'Reload'}
           </Button>
         </Box>
       }

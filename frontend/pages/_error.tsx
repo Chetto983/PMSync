@@ -2,6 +2,7 @@ import { NextPageContext } from 'next';
 import Link from 'next/link';
 import { Box, Typography, Button, useTheme, alpha } from '@mui/material';
 import { pmSyncColors } from '@/theme/appTheme';
+import { useTranslations } from '@/lib/hooks/use-translations';
 
 interface ErrorProps {
   statusCode?: number;
@@ -10,16 +11,17 @@ interface ErrorProps {
 function Error({ statusCode }: ErrorProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const t = useTranslations();
 
   const title = statusCode === 404
-    ? 'Page Not Found'
+    ? (t.errors.notFound?.subtitle || 'Page Not Found')
     : statusCode
-    ? `Server Error ${statusCode}`
-    : 'An error occurred';
+    ? (t.errors.serverError?.subtitle || 'Server Error') + ` ${statusCode}`
+    : (t.errors.unexpectedError || 'An error occurred');
 
   const message = statusCode === 404
-    ? "Sorry, we couldn't find the page you're looking for."
-    : 'Something went wrong on our end. Please try again later.';
+    ? (t.errors.notFound?.description || "Sorry, we couldn't find the page you're looking for.")
+    : (t.errors.serverError?.description || 'Something went wrong on our end. Please try again later.');
 
   return (
     <Box
@@ -67,7 +69,7 @@ function Error({ statusCode }: ErrorProps) {
             fontWeight: 500,
           }}
         >
-          Go Back Home
+          {t.buttons?.goHome || t.errors.notFound?.action || 'Go Back Home'}
         </Button>
       </Box>
     </Box>
