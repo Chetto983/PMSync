@@ -37,6 +37,8 @@ import {
   Bell,
   CheckCircle2,
   RotateCcw,
+  Star,
+  TrendingUp,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { ALL_WIDGETS } from '@/stores/dashboard-store';
@@ -60,12 +62,18 @@ const TodayEventsWidget = lazy(() =>
 const PredictiveInsightsWidget = lazy(() =>
   import('./widgets/PredictiveInsightsWidget').then((m) => ({ default: m.PredictiveInsightsWidget }))
 );
+const PriorityInboxWidget = lazy(() =>
+  import('./widgets/PriorityInboxWidget').then((m) => ({ default: m.PriorityInboxWidget }))
+);
+const TrendChartsWidget = lazy(() =>
+  import('./widgets/TrendChartsWidget').then((m) => ({ default: m.TrendChartsWidget }))
+);
 
 // ============================================================================
 // Widget Registry
 // ============================================================================
 
-type WidgetId = 'briefing' | 'insights' | 'events' | 'emails' | 'deadlines' | 'followups';
+type WidgetId = 'briefing' | 'insights' | 'events' | 'emails' | 'deadlines' | 'followups' | 'priority' | 'trends';
 
 interface WidgetConfig {
   id: WidgetId;
@@ -106,6 +114,16 @@ const WIDGETS: WidgetConfig[] = [
     icon: <Bell size={20} />,
     component: FollowUpWidget,
   },
+  {
+    id: 'priority',
+    icon: <Star size={20} />,
+    component: PriorityInboxWidget,
+  },
+  {
+    id: 'trends',
+    icon: <TrendingUp size={20} />,
+    component: TrendChartsWidget,
+  },
 ];
 
 // Widget names for display
@@ -117,6 +135,8 @@ const getWidgetName = (id: WidgetId, t: ReturnType<typeof useTranslations>): str
     emails: t.email?.title || 'Unread Emails',
     deadlines: t.dashboard?.widgets?.deadlines?.title || 'Deadlines',
     followups: t.dashboard?.widgets?.followUps?.title || 'Follow-ups',
+    priority: t.dashboard?.widgets?.priorityInbox?.title || 'Priority Inbox',
+    trends: t.dashboard?.widgets?.trendCharts?.title || 'Email Activity',
   };
   return names[id];
 };
@@ -129,6 +149,8 @@ const getWidgetDescription = (id: WidgetId): string => {
     emails: 'Your unread email count',
     deadlines: 'Upcoming deadlines',
     followups: 'Pending follow-ups',
+    priority: 'Starred and important emails',
+    trends: 'Email activity trends',
   };
   return descriptions[id];
 };

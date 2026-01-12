@@ -597,9 +597,27 @@ export const en: AppTranslations = {
         noSubject: '(No subject)',
         allCaughtUp: 'All caught up!',
       },
+      priorityInbox: {
+        title: 'Priority Inbox',
+        subtitle: '{count} important emails',
+        noSubject: '(No subject)',
+        empty: 'No priority emails',
+        emptyDescription: 'Star or flag important emails to see them here',
+        viewAll: 'View All Important',
+        urgent: 'Urgent',
+        important: 'Important',
+      },
       todayEvents: {
         title: "Today's Events",
         noEvents: 'No events scheduled for today',
+      },
+      trendCharts: {
+        title: 'Email Activity',
+        subtitle: 'Last 7 days',
+        received: 'Received',
+        sent: 'Sent',
+        total: 'Total',
+        noData: 'No trend data available',
       },
       common: {
         refreshWidget: 'Refresh widget',

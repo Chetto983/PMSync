@@ -590,9 +590,27 @@ export const it: AppTranslations = {
         noSubject: '(Nessun oggetto)',
         allCaughtUp: 'Tutto in pari!',
       },
+      priorityInbox: {
+        title: 'Posta Prioritaria',
+        subtitle: '{count} email importanti',
+        noSubject: '(Nessun oggetto)',
+        empty: 'Nessuna email prioritaria',
+        emptyDescription: 'Aggiungi una stella o contrassegna le email importanti per vederle qui',
+        viewAll: 'Vedi Tutte le Importanti',
+        urgent: 'Urgente',
+        important: 'Importante',
+      },
       todayEvents: {
         title: 'Eventi di Oggi',
         noEvents: 'Nessun evento programmato per oggi',
+      },
+      trendCharts: {
+        title: 'Attività Email',
+        subtitle: 'Ultimi 7 giorni',
+        received: 'Ricevute',
+        sent: 'Inviate',
+        total: 'Totale',
+        noData: 'Nessun dato disponibile',
       },
       common: {
         refreshWidget: 'Aggiorna widget',

@@ -14,4 +14,5 @@ export const dashboardKeys = {
   staleContacts: (params?: { limit?: number }) =>
     [...dashboardKeys.all, 'staleContacts', params] as const,
   stats: () => [...dashboardKeys.all, 'stats'] as const,
+  emailTrends: () => [...dashboardKeys.all, 'emailTrends'] as const,
 };

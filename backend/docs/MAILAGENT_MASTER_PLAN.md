@@ -41,6 +41,7 @@
 | **P7: E2E Feature Validation** | ✅ **12/12 tests** - Signatures, follow-ups, briefings, AI compose, triage | 2026-01-12 |
 | **P8: Industrial Frontend Audit** | ✅ Race conditions, i18n, lint fixes | 2026-01-12 |
 | **P8.2: Deep i18n Audit** | ✅ **73 violations fixed** - Italian defaults, encoding, hardcoded strings | 2026-01-12 |
+| **P9: Dashboard Polish** | ✅ **2 widgets created** - PriorityInboxWidget + TrendChartsWidget | 2026-01-12 |
 
 ### ✅ COMPLETED P5: Full VoltAgent Validation (2026-01-12)
 
@@ -230,6 +231,45 @@ npx ts-node scripts/test-p7-e2e-features.ts  # 12/12 PASS
 cd frontend
 npm run type-check  # ✅ PASS
 npm run lint        # ✅ PASS (0 warnings)
+```
+
+### ✅ COMPLETED P9: Dashboard Polish & Missing Widgets (2026-01-12)
+
+**Philosophy**: Audit actual code vs documented issues - many "BROKEN" items were already fixed.
+
+**Audit Results**:
+
+| Documented Issue | Actual Status |
+|------------------|---------------|
+| EMBEDDING_RATE_MAX default 25 | ✅ Already fixed (default 2) |
+| Token counting pre-check | ✅ Chunking at 6000 chars exists |
+| JSONB metadata.path queries | ✅ Code shows indexed fields used |
+| Priority Inbox widget | ❌ **GENUINELY MISSING** - Created P9 |
+| Trend Charts widget | ❌ **GENUINELY MISSING** - Created P9 |
+
+**Widgets Created**:
+
+| Widget | File | Description |
+|--------|------|-------------|
+| `PriorityInboxWidget` | `frontend/components/dashboard/widgets/PriorityInboxWidget.tsx` | Shows USER-starred/flagged emails (NOT AI-determined) |
+| `TrendChartsWidget` | `frontend/components/dashboard/widgets/TrendChartsWidget.tsx` | 7-day email activity with recharts AreaChart |
+
+**Files Modified**:
+
+- `frontend/locales/en.ts` - Added `priorityInbox` + `trendCharts` translations
+- `frontend/locales/it.ts` - Added Italian translations
+- `frontend/locales/index.ts` - Added TypeScript type definitions
+- `frontend/hooks/queries/dashboard-keys.ts` - Added `emailTrends` key
+- `frontend/hooks/queries/use-dashboard.ts` - Added `useEmailTrends()` hook
+- `frontend/components/dashboard/DashboardContainer.tsx` - Registered widgets (lazy imports)
+- `frontend/stores/dashboard-store.ts` - Added 'priority' + 'trends' to WidgetId type
+
+**Verification**:
+
+```bash
+cd frontend
+npm run type-check  # ✅ PASS
+npm run lint        # ✅ PASS
 ```
 
 ### ✅ COMPLETED Week 3 Task 6: End-to-end HITL test (2026-01-11)
@@ -978,8 +1018,8 @@ npm run test -- --grep "consolidated"
 
 | File | Line | Setting | Value | Limit | Violation |
 |------|------|---------|-------|-------|-----------|
-| `email-embedding.queue.ts` | 67 | `EMBEDDING_RATE_MAX` | **25** | 6 | **4.2x over limit!** |
-| `.env` | 231 | `EMBEDDING_RATE_MAX` | 2 | 6 | ✅ Safe (but queue overrides) |
+| `email-embedding.queue.ts` | 67 | `EMBEDDING_RATE_MAX` | **2** | 6 | ✅ **FIXED** (safe default) |
+| `.env` | 217 | `EMBEDDING_RATE_MAX` | 2 | 6 | ✅ Safe |
 
 ### G.2 What's Already Working ✅
 
@@ -988,39 +1028,28 @@ npm run test -- --grep "consolidated"
 | Batch embedding | ✅ Implemented | `mistral.service.ts:generateBulkEmbeddings()` |
 | Queue batching | ✅ Working | `email-embedding.queue.ts` (50 items, 200ms flush) |
 | Retry with backoff | ✅ Working | `email-embedding.queue.ts` (6 retries, exponential) |
-| Token counting | ❌ **MISSING** | No pre-check before API call |
+| Token counting | ✅ **FIXED** | Chunk splitting at 6000 chars (knowledge-base.service.ts:87) |
 
-### G.3 Critical Fixes Required
+### G.3 Critical Fixes ✅ ALL COMPLETE (Verified 2026-01-12)
 
-#### Fix #1: Rate Limit Correction (IMMEDIATE)
+#### Fix #1: Rate Limit Correction ✅ DONE
 ```typescript
 // File: backend/src/modules/ai/services/email-embedding.queue.ts line 67
-// BEFORE (4.2x over Mistral limit!)
-this.RATE_MAX = parseInt(this.configService.get('EMBEDDING_RATE_MAX', '25'), 10);
-
-// AFTER (within Mistral 6 RPS limit)
-this.RATE_MAX = parseInt(this.configService.get('EMBEDDING_RATE_MAX', '5'), 10);  // Safe margin
+// CURRENT (safe default):
+this.RATE_MAX = this.getPositiveNumber('EMBEDDING_RATE_MAX', 2);  // Within Mistral 6 RPS limit
 ```
 
-#### Fix #2: Environment Variable Update
+#### Fix #2: Environment Variable ✅ DONE
 ```env
-# File: .env (line 231)
-# BEFORE
-EMBEDDING_RATE_MAX=2  # This is ignored because queue defaults to 25!
-
-# AFTER
-EMBEDDING_RATE_MAX=5  # 83% of Mistral's 6 RPS limit (safety margin)
+# File: .env (line 217)
+EMBEDDING_RATE_MAX=2  # Safe default, within Mistral limit
 ```
 
-#### Fix #3: Token Counting (Optional - Prevents Truncation)
+#### Fix #3: Token Counting ✅ DONE (via chunking)
 ```typescript
-// File: backend/src/modules/ai/services/knowledge-base.service.ts
-// Add before generateBulkEmbeddings():
-const tokenCount = this.countTokens(chunkContents);
-if (tokenCount > 16000) {  // Mistral embed max context
-  this.logger.warn(`Chunk too large (${tokenCount} tokens), splitting...`);
-  // Split into smaller chunks
-}
+// File: backend/src/modules/ai/services/knowledge-base.service.ts line 87
+this.maxCharsPerChunk = this.configService.get<number>('AI_EMBEDDING_CHUNK_SIZE', 6000);
+// Content is split into chunks before embedding - prevents truncation
 ```
 
 ### G.4 Chunk Size Consistency
@@ -4006,9 +4035,9 @@ const [totalEmails, unreadEmails, sentToday, receivedToday] = await Promise.all(
 
 | Widget | Current | Needed |
 |--------|---------|--------|
-| **Trend Graphs** | ⚠️ Partial | Analytics backend exists, needs frontend chart components |
+| **Trend Graphs** | ✅ **FIXED P9** | `TrendChartsWidget` with recharts AreaChart - shows 7-day email activity |
 | **Stats Cards** | ✅ Working | Real data from `getDashboardAnalytics()` |
-| **Priority Inbox** | ❌ Missing | Top 5 urgent emails |
+| **Priority Inbox** | ✅ **FIXED P9** | `PriorityInboxWidget` shows USER-starred/flagged emails (NOT AI-determined) |
 | **Follow-ups** | ✅ **FIXED P6** | Snooze/dismiss fully wired to backend API |
 | **Analytics** | ✅ **FIXED P6** | Backend returns real Prisma data via Mistral code_interpreter |
 

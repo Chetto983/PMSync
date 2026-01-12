@@ -529,9 +529,27 @@ export interface AppTranslations {
         noSubject: string;
         allCaughtUp: string;
       };
+      priorityInbox: {
+        title: string;
+        subtitle: string;
+        noSubject: string;
+        empty: string;
+        emptyDescription: string;
+        viewAll: string;
+        urgent: string;
+        important: string;
+      };
       todayEvents: {
         title: string;
         noEvents: string;
+      };
+      trendCharts: {
+        title: string;
+        subtitle: string;
+        received: string;
+        sent: string;
+        total: string;
+        noData: string;
       };
       common: {
         refreshWidget: string;
