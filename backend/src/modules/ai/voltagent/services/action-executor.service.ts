@@ -946,14 +946,8 @@ export class ActionExecutorService {
   ): Promise<ActionExecutionResult> {
     const { name, firstName, lastName, email, phone, company, jobTitle, notes } = action.payload;
 
-    // Check if tenant has contacts provider
-    const provider = await this.prisma.providerConfig.findFirst({
-      where: { tenantId: context.tenantId, supportsContacts: true },
-    });
-
-    if (!provider) {
-      throw new Error('No provider available for contacts');
-    }
+    // Note: Provider check removed for consistency with update/delete (P6 fix)
+    // Contacts can be created locally; external sync happens separately
 
     const displayName = name || `${firstName || ''} ${lastName || ''}`.trim();
     const contact = await this.prisma.contact.create({

@@ -76,7 +76,8 @@ export class HitlService {
   /**
    * Map action type string to ActionType enum.
    * Valid ActionType: SEND_EMAIL, SCHEDULE_MEETING, CREATE_TASK, UPDATE_CONTACT,
-   *                   UPDATE_DEAL, ADD_LABEL, ARCHIVE_EMAIL, SNOOZE_EMAIL
+   *                   UPDATE_DEAL, ADD_LABEL, ARCHIVE_EMAIL, SNOOZE_EMAIL,
+   *                   CREATE_CONTACT, DELETE_CONTACT, DELETE_EMAIL, REPLY_EMAIL, FORWARD_EMAIL
    */
   private mapActionType(type: string): ActionType {
     const mapping: Record<string, ActionType> = {
@@ -88,11 +89,17 @@ export class HitlService {
       ADD_LABEL: ActionType.ADD_LABEL,
       ARCHIVE_EMAIL: ActionType.ARCHIVE_EMAIL,
       SNOOZE_EMAIL: ActionType.SNOOZE_EMAIL,
+      // Contact CRUD (P6 fix)
+      CREATE_CONTACT: ActionType.CREATE_CONTACT,
+      DELETE_CONTACT: ActionType.DELETE_CONTACT,
+      // Email CRUD (P6 fix)
+      DELETE_EMAIL: ActionType.DELETE_EMAIL,
+      REPLY_EMAIL: ActionType.REPLY_EMAIL,
+      FORWARD_EMAIL: ActionType.FORWARD_EMAIL,
       // Legacy mappings for backward compatibility
       CREATE_EVENT: ActionType.SCHEDULE_MEETING, // Map to closest equivalent
       UPDATE_EMAIL_LABELS: ActionType.ADD_LABEL,
       MOVE_EMAIL: ActionType.ARCHIVE_EMAIL,
-      DELETE_EMAIL: ActionType.ARCHIVE_EMAIL,
     };
     return mapping[type] || ActionType.CREATE_TASK; // Default fallback
   }

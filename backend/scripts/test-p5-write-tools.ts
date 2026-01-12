@@ -49,6 +49,7 @@ interface TestResult {
   duration: number;
   details: string;
   error?: string;
+  skipped?: boolean; // P6 fix: Track skipped tests separately from passed
 }
 
 interface ToolResult {
@@ -595,6 +596,7 @@ async function testManageFolderRename(tenantId: string, folderId: string | null)
     return {
       testName: 'manage_folder(rename)',
       passed: true,
+      skipped: true, // P6 fix
       duration: getElapsed(),
       details: 'No non-system folder found - skipped (valid empty state)',
     };
@@ -656,6 +658,7 @@ async function testManageFolderDelete(tenantId: string, folderId: string | null)
     return {
       testName: 'manage_folder(delete)',
       passed: true,
+      skipped: true, // P6 fix
       duration: getElapsed(),
       details: 'No non-system folder found - skipped (valid empty state)',
     };
@@ -768,6 +771,7 @@ async function testManageContactUpdate(tenantId: string, contactId: string | nul
     return {
       testName: 'manage_contact(update)',
       passed: true,
+      skipped: true, // P6 fix
       duration: getElapsed(),
       details: 'No contact found - skipped (valid empty state)',
     };
@@ -829,6 +833,7 @@ async function testManageContactDelete(tenantId: string, contactId: string | nul
     return {
       testName: 'manage_contact(delete)',
       passed: true,
+      skipped: true, // P6 fix
       duration: getElapsed(),
       details: 'No contact found - skipped (valid empty state)',
     };
@@ -962,6 +967,7 @@ async function testManageEventUpdate(tenantId: string, eventId: string | null): 
     return {
       testName: 'manage_event(update)',
       passed: true,
+      skipped: true, // P6 fix
       duration: getElapsed(),
       details: 'No event found - skipped (valid empty state)',
     };
@@ -1034,6 +1040,7 @@ async function testManageEventDelete(tenantId: string, eventId: string | null): 
     return {
       testName: 'manage_event(delete)',
       passed: true,
+      skipped: true, // P6 fix
       duration: getElapsed(),
       details: 'No event found - skipped (valid empty state)',
     };
@@ -1431,19 +1438,35 @@ async function runWriteToolsTests() {
   console.log('-'.repeat(60));
 
   let passed = 0;
+  let skipped = 0;
   const total = results.length;
 
   for (const result of results) {
-    const status = result.passed ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m';
+    // P6 fix: Show skipped tests with distinct color (yellow)
+    const status = result.skipped
+      ? '\x1b[33mSKIP\x1b[0m'
+      : result.passed
+        ? '\x1b[32mPASS\x1b[0m'
+        : '\x1b[31mFAIL\x1b[0m';
     console.log(`  ${status} ${result.testName} (${result.duration}ms)`);
     if (!result.passed && result.error) {
       console.log(`       └─ ${result.error}`);
     }
-    if (result.passed) passed++;
+    if (result.skipped) {
+      skipped++;
+      passed++; // Still counts toward overall pass
+    } else if (result.passed) {
+      passed++;
+    }
   }
 
   console.log('-'.repeat(60));
-  console.log(`Total: ${passed}/${total} tests passed`);
+  // P6 fix: Show skipped count separately for transparency
+  const validated = passed - skipped;
+  console.log(`Total: ${passed}/${total} tests passed (${validated} validated, ${skipped} skipped)`);
+  if (skipped > 0) {
+    console.log('\x1b[33m⚠ Skipped tests were not validated - no test data available\x1b[0m');
+  }
   console.log('');
 
   // Cleanup

@@ -1445,6 +1445,13 @@ enum ActionType {
   ADD_LABEL
   ARCHIVE_EMAIL
   SNOOZE_EMAIL
+  // Contact CRUD (P6 fix)
+  CREATE_CONTACT
+  DELETE_CONTACT
+  // Email CRUD (P6 fix)
+  DELETE_EMAIL
+  REPLY_EMAIL
+  FORWARD_EMAIL
 }
 
 enum ActionStatus {
