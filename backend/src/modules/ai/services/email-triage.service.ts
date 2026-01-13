@@ -10,9 +10,10 @@
  * Called on-demand via API or scheduled job, NOT during sync.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
+import { MistralBatchService, BatchResponse } from '../voltagent/services/mistral-batch.service';
 
 // Cost control constants
 const MAX_TRIAGE_PER_BATCH = 20; // Max emails to process per API call
@@ -23,12 +24,17 @@ const SKIP_FOLDERS = ['spam', 'junk', 'trash', '[gmail]/spam', '[gmail]/trash'];
 // Prevents 1000 users syncing = 20000 LLM calls storm
 const MAX_CONCURRENT_TRIAGE_OPERATIONS = 5; // Max 5 tenants triaging simultaneously
 
+// P11 Phase 3: Batch sentiment analysis threshold (50% cost savings)
+const BATCH_TRIAGE_THRESHOLD = 10; // Use batch API for 10+ emails
+
 interface TriageResult {
   emailId: string;
   success: boolean;
   aiPriority?: number;
   aiLabels?: string[];
   error?: string;
+  batchJobId?: string; // P11: Track batch job
+  mode?: 'realtime' | 'batch'; // P11: Indicate processing mode
 }
 
 interface TriageOptions {
@@ -57,6 +63,7 @@ export class EmailTriageService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailInsights: EmailInsightsService,
+    @Optional() private readonly mistralBatch?: MistralBatchService, // P11: Batch sentiment
   ) {}
 
   /**
@@ -245,6 +252,12 @@ export class EmailTriageService {
       };
     }
 
+    // P11 Phase 3: Batch path for 10+ emails (50% cost savings)
+    // Uses async Mistral Batch API with @Cron(EVERY_5_MINUTES) polling
+    if (emailIds.length >= BATCH_TRIAGE_THRESHOLD && this.mistralBatch?.isEnabled()) {
+      return this.processBatchTriage(options.tenantId, emailIds, options);
+    }
+
     // SCALE PROTECTION: Acquire semaphore before LLM-intensive processing
     // This prevents 1000 users syncing = 20000 LLM calls storm
     const acquired = await this.acquireSemaphore();
@@ -289,6 +302,199 @@ export class EmailTriageService {
       // SCALE PROTECTION: Always release semaphore
       this.releaseSemaphore();
     }
+  }
+
+  /**
+   * P11 Phase 3: Batch sentiment analysis for 10+ emails (50% cost savings)
+   * Uses MistralBatchService with @Cron(EVERY_5_MINUTES) polling
+   *
+   * @returns BatchTriageResult with mode='batch' and batchJobId
+   */
+  private async processBatchTriage(
+    tenantId: string,
+    emailIds: string[],
+    options: TriageOptions,
+  ): Promise<BatchTriageResult> {
+    // Fetch email content for batch processing
+    const emails = await this.prisma.email.findMany({
+      where: { id: { in: emailIds }, tenantId },
+      select: { id: true, subject: true, snippet: true },
+    });
+
+    if (emails.length === 0) {
+      return {
+        processed: 0,
+        successful: 0,
+        failed: 0,
+        skipped: emailIds.length,
+        skippedReason: 'No emails found for batch processing',
+      };
+    }
+
+    // Prepare batch request
+    const batchEmails = emails.map((e) => ({
+      id: e.id,
+      subject: e.subject || '',
+      body: e.snippet || '',
+    }));
+
+    // Create batch job
+    const jobId = await this.mistralBatch!.batchSentimentAnalysis(tenantId, batchEmails);
+
+    if (!jobId) {
+      this.logger.warn('Batch sentiment job creation failed, falling back to sequential');
+      // Fall back to sequential processing
+      return this.processSequentialTriage(emailIds, options);
+    }
+
+    // Track with completion handler (GDPR: tenant-isolated)
+    this.mistralBatch!.trackJob(jobId, tenantId, 'sentiment', async (results) => {
+      await this.processBatchSentimentResults(results, tenantId);
+    });
+
+    this.logger.log(
+      `P11 Batch triage job ${jobId} created for ${emails.length} emails (tenant: ${tenantId})`,
+    );
+
+    // Return async result - actual processing happens via @Cron polling
+    return {
+      processed: emails.length,
+      successful: 0, // Will be updated when batch completes
+      failed: 0,
+      skipped: 0,
+      skippedReason: `Batch job ${jobId} queued - results via @Cron(EVERY_5_MINUTES)`,
+    };
+  }
+
+  /**
+   * P11: Process completed batch sentiment results
+   * Called automatically by MistralBatchService via @Cron polling
+   */
+  private async processBatchSentimentResults(
+    results: BatchResponse[],
+    tenantId: string,
+  ): Promise<void> {
+    this.logger.log(
+      `Processing ${results.length} batch sentiment results for tenant ${tenantId}`,
+    );
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const result of results) {
+      if (result.error) {
+        this.logger.warn(`Sentiment failed for email ${result.customId}: ${result.error}`);
+        failCount++;
+        continue;
+      }
+
+      try {
+        // Parse sentiment response from batch API
+        const responseBody = result.response;
+        if (!responseBody) {
+          failCount++;
+          continue;
+        }
+
+        // Handle different response formats
+        let sentiment = 'neutral';
+        let confidence = 0.5;
+
+        // Format 1: Direct response object
+        if (responseBody.sentiment && typeof responseBody.sentiment === 'string') {
+          sentiment = responseBody.sentiment;
+          confidence = typeof responseBody.confidence === 'number'
+            ? responseBody.confidence
+            : 0.5;
+        }
+        // Format 2: Chat completion response
+        else if (responseBody.choices) {
+          const choices = responseBody.choices as Array<{
+            message?: { content?: string };
+          }>;
+          const content = choices[0]?.message?.content;
+          if (content) {
+            try {
+              const parsed = JSON.parse(content);
+              sentiment = parsed.sentiment || 'neutral';
+              confidence = parsed.confidence || 0.5;
+            } catch {
+              // If not JSON, try to extract sentiment from text
+              const lowerContent = content.toLowerCase();
+              if (lowerContent.includes('negative')) sentiment = 'negative';
+              else if (lowerContent.includes('positive')) sentiment = 'positive';
+            }
+          }
+        }
+
+        // Map sentiment to priority (1-5 scale)
+        const aiPriority = this.mapSentimentToPriority(sentiment, confidence);
+
+        // Update email with AI triage data
+        await this.prisma.email.updateMany({
+          where: { id: result.customId, tenantId },
+          data: {
+            aiPriority,
+            aiPriorityReason: `Batch sentiment: ${sentiment} (${Math.round(confidence * 100)}%)`,
+            isAutoTriaged: true,
+            autoTriagedAt: new Date(),
+          },
+        });
+
+        successCount++;
+      } catch (err) {
+        this.logger.error(`Failed to process sentiment for ${result.customId}: ${err}`);
+        failCount++;
+      }
+    }
+
+    this.logger.log(
+      `Batch sentiment processing complete: ${successCount} successful, ${failCount} failed`,
+    );
+  }
+
+  /**
+   * P11: Map sentiment to priority (1-5 scale)
+   * negative → high priority (1-2), neutral → medium (3), positive → low (4-5)
+   */
+  private mapSentimentToPriority(sentiment: string, confidence: number): number {
+    const normalizedSentiment = sentiment.toLowerCase();
+    if (normalizedSentiment === 'negative' || normalizedSentiment === 'urgent') {
+      return confidence > 0.7 ? 1 : 2;
+    }
+    if (normalizedSentiment === 'neutral' || normalizedSentiment === 'mixed') {
+      return 3;
+    }
+    if (normalizedSentiment === 'positive') {
+      return confidence > 0.7 ? 5 : 4;
+    }
+    return 3; // Default to medium priority
+  }
+
+  /**
+   * P11: Sequential triage fallback (for <10 emails or when batch fails)
+   */
+  private async processSequentialTriage(
+    emailIds: string[],
+    options: TriageOptions,
+  ): Promise<BatchTriageResult> {
+    const results: TriageResult[] = [];
+    for (const emailId of emailIds) {
+      const result = await this.triageEmail(emailId, options);
+      results.push(result);
+
+      // Small delay between calls
+      if (emailIds.indexOf(emailId) < emailIds.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    return {
+      processed: results.length,
+      successful: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      skipped: 0,
+    };
   }
 
   /**

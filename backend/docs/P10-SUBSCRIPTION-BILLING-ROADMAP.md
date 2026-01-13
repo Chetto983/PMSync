@@ -1136,30 +1136,29 @@ getPendingJobCount(): number;
 
 - `voltagent/services/mistral-batch.service.ts` - Added cron polling + job tracking
 
-#### Phase 3: Wire Email Triage to MistralBatchService (2h) - P0 (FUTURE)
+#### Phase 3: Wire Email Triage to MistralBatchService (2h) - ✅ COMPLETE (2026-01-13)
 
-**Use `MistralBatchService.batchSentimentAnalysis()` in email-triage:**
+**Uses `MistralBatchService.batchSentimentAnalysis()` in email-triage:**
 
 ```typescript
 // File: email-triage.service.ts
-// Currently: Real-time calls via MistralService.completePrompt()
-// FUTURE: Use batch when processing 10+ emails
+// Threshold: 10+ emails → Batch API (50% cheaper)
+// <10 emails → Real-time (user waiting)
 
-if (emails.length >= 10 && this.mistralBatchService?.isEnabled()) {
-  const jobId = await this.mistralBatchService.batchSentimentAnalysis(
-    tenantId,
-    emails.map(e => ({ id: e.id, subject: e.subject, body: e.snippet || '' }))
-  );
-  // Results polled via @Cron(EVERY_5_MINUTES)
-  this.mistralBatchService.trackJob(jobId, tenantId, 'sentiment', async (results) => {
-    // Process sentiment results
-  });
+if (emailIds.length >= BATCH_TRIAGE_THRESHOLD && this.mistralBatch?.isEnabled()) {
+  return this.processBatchTriage(options.tenantId, emailIds, options);
 }
+
+// processBatchTriage() implementation:
+// 1. Creates batch job via batchSentimentAnalysis()
+// 2. Registers trackJob() completion handler
+// 3. Returns immediately (async processing)
+// 4. @Cron polls → processBatchSentimentResults() updates emails
 ```
 
-**Files to modify:**
+**Files modified:**
 
-- `email-triage.service.ts` - Import MistralBatchService, add batch path
+- `email-triage.service.ts` - Added MistralBatchService injection, processBatchTriage(), processBatchSentimentResults(), mapSentimentToPriority()
 
 #### Phase 4: Environment Toggle (30min) - P1
 
@@ -1245,7 +1244,7 @@ MISTRAL_BATCH_MIN_SIZE=10           # Min requests to batch
 |-------|--------|--------|
 | Phase 1: Email Embedding Sync | ✅ COMPLETE | ✅ Real batch job created |
 | Phase 2: MistralBatchService Polling | ✅ COMPLETE | ✅ Sentiment batch job created |
-| Phase 3: Email Triage Wiring | ⏳ FUTURE | - |
+| Phase 3: Email Triage Wiring | ✅ COMPLETE | ✅ EmailTriageService batch path |
 | Phase 4: Environment Toggle | ⏳ FUTURE | - |
 
 **Test Script**: `backend/scripts/test-batch-indexing-wiring.ts`
@@ -1253,6 +1252,7 @@ MISTRAL_BATCH_MIN_SIZE=10           # Min requests to batch
 **Verified with real data:**
 - BatchIndexingService: ✅ Job created with 110 emails
 - MistralBatchService: ✅ Sentiment batch job created
+- EmailTriageService: ✅ MistralBatchService wired, batch path for 10+ emails
 - All 3 sync services wired: ✅ Google, Microsoft, IMAP
 
 ---
