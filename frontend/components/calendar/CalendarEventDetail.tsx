@@ -191,7 +191,7 @@ export function CalendarEventDetail({
         }}
       >
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          {isEditMode ? (calendarCopy.editEvent || 'Edit Event') : (calendarCopy.eventDetails || 'Event Details')}
+          {isEditMode ? calendarCopy.editEvent : calendarCopy.eventDetails}
         </Typography>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           {!isEditMode && (

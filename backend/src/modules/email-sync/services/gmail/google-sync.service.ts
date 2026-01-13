@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { EmailEmbeddingQueueService } from '../../../ai/services/email-embedding.queue';
+import { BatchIndexingService } from '../../../ai/services/batch-indexing.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
 import { ConfigService } from '@nestjs/config';
 import { ProviderTokenService } from '../provider-token.service';
@@ -31,6 +32,7 @@ export class GoogleSyncService extends BaseEmailSyncService {
     realtimeEvents: RealtimeEventsService,
     config: ConfigService,
     private emailEmbeddingQueue: EmailEmbeddingQueueService,
+    private batchIndexingService: BatchIndexingService, // P11: Batch API for 100+ emails
     private providerTokenService: ProviderTokenService,
     private driverFactory: EmailDriverFactory,
     private gmailAttachmentHandler: GmailAttachmentHandler,
@@ -63,6 +65,13 @@ export class GoogleSyncService extends BaseEmailSyncService {
    */
   protected getEmbeddingQueue(): EmailEmbeddingQueueService {
     return this.emailEmbeddingQueue;
+  }
+
+  /**
+   * P11: Provide the batch indexing service for 100+ emails (50% cheaper)
+   */
+  protected getBatchIndexingService(): BatchIndexingService {
+    return this.batchIndexingService;
   }
 
   /**

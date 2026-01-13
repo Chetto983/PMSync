@@ -1,6 +1,6 @@
 # P10: SUBSCRIPTION & BILLING - DEEP AUDIT
 
-## 🟢 STATUS: P10 100% COMPLETE | AI QUOTA + FRONTEND UI + SECURITY FIX (2026-01-12)
+## 🟢 STATUS: P10 100% COMPLETE | AI QUOTA + FRONTEND + SECURITY + i18n + SETTINGS CLEANUP (2026-01-13)
 
 ---
 
@@ -659,8 +659,13 @@ const MODEL_FALLBACKS = {
 - [x] PricingTable shows plan comparison
 - [x] UpgradeDialog modal for checkout
 - [x] QuotaAlertBanner added to Layout (shows at 80%+ usage)
+- [x] **i18n: BillingPanel tabs** (Panoramica/Utilizzo/Piani/Gestione)
+- [x] **i18n: BillingPanel manage descriptions**
+- [x] **i18n: PricingTable feature keys** (featureKeyMap for translation)
+- [x] **i18n: AnalyticsChart sent/received labels**
 - [ ] Manual: Verify QuotaAlertBanner shows at 80% usage
 - [ ] Manual: Verify billing portal opens correctly
+- [ ] Manual: Verify checkout flow (Autumn product IDs must match)
 
 ### Cost Protection
 
@@ -970,9 +975,251 @@ Coverage:                   100%
 
 ---
 
+## PART 12: AI SETTINGS CLEANUP (✅ COMPLETE 2026-01-13)
+
+### 12.1 Dead UI Removed
+
+Per MAILAGENT_MASTER_PLAN.md Phase A4, these "stored but NEVER used by AI" features were removed:
+
+| Removed Section | Reason | Status |
+|-----------------|--------|--------|
+| **Working Hours** (start, end, days) | Stored but NEVER used by AI | ✅ REMOVED |
+| **Work Context** (jobTitle, department, industry, companySize) | Stored but NEVER used by AI | ✅ REMOVED |
+| **AI Notification Frequency** | Never implemented | ✅ REMOVED |
+| **NotificationsSettings** section | Dead UI - no backend schema | ✅ REMOVED |
+
+### 12.2 Files Modified
+
+| File | Change |
+|------|--------|
+| `frontend/components/settings/AiSettings.tsx` | Removed 3 sections (~130 lines) |
+| `frontend/components/dashboard/Settings.tsx` | Removed state, handlers, props, copy |
+| `frontend/components/settings/index.ts` | Removed NotificationsSettings export |
+| `backend/docs/MAILAGENT_MASTER_PLAN.md` | Marked Phase A4/A5 complete |
+
+### 12.3 Verification
+
+```bash
+cd frontend && npm run type-check  # ✅ PASS
+cd frontend && npm run lint        # ✅ PASS
+```
+
+---
+
+## PART 13: P11 ROADMAP - MISTRAL BATCH API WIRING (50% COST SAVINGS)
+
+### 13.0 AI SDK Inventory
+
+**MailAgent uses 2 Mistral SDKs:**
+
+| SDK | Package | Version | Used For |
+|-----|---------|---------|----------|
+| **Vercel AI SDK** | `@ai-sdk/mistral` | ^2.0.25 | VoltAgent chat/streaming (real-time) |
+| **Mistral Direct** | `@mistralai/mistralai` | ^1.11.0 | Direct API calls, embeddings, **BATCH** |
+
+**Files using @ai-sdk/mistral (Vercel):**
+- `voltagent/providers/mistral.provider.ts` - `createMistral()` for streaming
+
+**Files using @mistralai/mistralai (Direct + Batch):**
+- `mistral.service.ts` - completePrompt(), generateResponse()
+- `mistral-embedding.provider.ts` - Real-time embeddings
+- `mistral-batch.provider.ts` - **Batch embeddings (50% off)**
+- `mistral-batch.service.ts` - **Batch service (50% off)**
+
+### 13.0.1 BATCH API ALREADY EXISTS! ✅
+
+| Component | File | Status |
+|-----------|------|--------|
+| **MistralBatchService** | `voltagent/services/mistral-batch.service.ts` | ✅ IMPLEMENTED |
+| **MistralBatchProvider** | `services/embedding/mistral-batch.provider.ts` | ✅ IMPLEMENTED |
+
+**Available Batch Methods:**
+- `batchEmbeddings(tenantId, items)` - Batch embed texts
+- `batchSentimentAnalysis(tenantId, emails)` - Batch analyze sentiment
+- `batchSummarize(tenantId, documents)` - Batch summarize
+- `createBatchJob()` / `getJobStatus()` / `getJobResults()` - Low-level API
+
+### 13.1 Opportunity (What's NOT Wired Yet)
+
+Mistral Batch API offers **50% discount** on all models for non-real-time operations:
+
+| Model | Standard | Batch API | Savings |
+|-------|----------|-----------|---------|
+| mistral-small-latest | $0.10/$0.30 | $0.05/$0.15 | **50%** |
+| mistral-medium-latest | $0.40/$2.00 | $0.20/$1.00 | **50%** |
+| mistral-embed | $0.10 | $0.05 | **50%** |
+
+**Source**: [mistral.ai/news/batch-jobs](https://mistral.ai/news/batch-jobs/)
+
+### 13.2 Batch-Eligible Operations in MailAgent
+
+| Operation | Current Cost | Batch Eligible | Priority |
+|-----------|--------------|----------------|----------|
+| **Email triage** (bulk) | HIGH | ✅ Yes | P0 |
+| **Contact embeddings** | MEDIUM | ✅ Yes | P1 |
+| **Email embeddings** (sync) | HIGH | ✅ Yes | P0 |
+| **Daily briefing generation** | LOW | ✅ Yes | P2 |
+| **Bulk summarization** | MEDIUM | ✅ Yes | P1 |
+| **Smart reply suggestions** | LOW | ❌ No (real-time) | N/A |
+| **Chat/streaming** | LOW | ❌ No (real-time) | N/A |
+
+### 13.3 Implementation Plan (VERIFIED via Code Audit 2026-01-13)
+
+**⚠️ AUDIT RESULTS - TWO BATCH IMPLEMENTATIONS EXIST:**
+
+| Component | File | Status | Has Polling? |
+|-----------|------|--------|--------------|
+| **MistralBatchService** | `voltagent/services/mistral-batch.service.ts` | ✅ COMPLETE | ❌ No |
+| **MistralBatchProvider** | `services/embedding/mistral-batch.provider.ts` | ✅ COMPLETE | ❌ No |
+| **BatchIndexingService** | `services/batch-indexing.service.ts` | ✅ COMPLETE | ✅ @Cron(EVERY_5_MINUTES) |
+
+**KEY DISCOVERY**: `BatchIndexingService` already has:
+- `queueBatchIndexing(tenantId, emailIds)` - ready to call!
+- `@Cron(CronExpression.EVERY_5_MINUTES)` polling - NO NEW PROCESSOR NEEDED!
+- Auto-saves embeddings to DB on completion
+
+**WHO CALLS WHAT:**
+- `VoltAgentService` → has `MistralBatchService` injected but **NOT USED**
+- `BatchIndexingService` → uses `MistralBatchProvider` directly **WORKING**
+
+#### Phase 1: Wire Email Embedding Sync (1h) - P0
+
+**Call existing `BatchIndexingService.queueBatchIndexing()` from email sync:**
+
+```typescript
+// File: email-sync.service.ts or folder-sync.service.ts
+// Currently: No batch indexing called
+// P11: Call BatchIndexingService when syncing 100+ emails
+
+if (newEmailIds.length >= 100 && this.batchIndexingService) {
+  await this.batchIndexingService.queueBatchIndexing(tenantId, newEmailIds);
+  this.logger.log(`Queued ${newEmailIds.length} emails for batch indexing`);
+}
+```
+
+**Files to modify:**
+- `email-sync.service.ts` or `folder-sync.service.ts` - Inject BatchIndexingService, call on large syncs
+
+#### Phase 2: Wire Email Triage to MistralBatchService (2h) - P0
+
+**Use `MistralBatchService.batchSentimentAnalysis()` in email-triage:**
+
+```typescript
+// File: email-triage.service.ts
+// Currently: Real-time calls via MistralService.completePrompt()
+// P11: Use batch when processing 10+ emails
+
+if (emails.length >= 10 && this.mistralBatchService?.isEnabled()) {
+  const jobId = await this.mistralBatchService.batchSentimentAnalysis(
+    tenantId,
+    emails.map(e => ({ id: e.id, subject: e.subject, body: e.snippet || '' }))
+  );
+  // Results polled via separate cron job (needs Phase 3)
+  return { batchJobId: jobId, count: emails.length };
+}
+```
+
+**Files to modify:**
+- `email-triage.service.ts` - Import MistralBatchService, add batch path
+- NOTE: MistralBatchService needs polling (unlike BatchIndexingService)
+
+#### Phase 3: Add Polling for MistralBatchService (1h) - P1
+
+**Option A: Reuse BatchIndexingService pattern (copy cron)**
+**Option B: Add cron to MistralBatchService directly**
+
+```typescript
+// Add to MistralBatchService
+@Cron(CronExpression.EVERY_5_MINUTES)
+async pollPendingJobs() {
+  // Similar to BatchIndexingService.pollPendingJobs()
+}
+```
+
+#### Phase 4: Environment Toggle (30min) - P1
+
+**Add to `ai.config.ts`:**
+
+```typescript
+export const BATCH_INDEXING_ENABLED = env.BATCH_INDEXING_ENABLED !== 'false'; // Already exists!
+export const MISTRAL_BATCH_MIN_SIZE = parseInt(env.MISTRAL_BATCH_MIN_SIZE || '10');
+```
+
+### 13.4 Cost Impact Estimate
+
+| Operation | Current/Month | With Batch | Savings |
+|-----------|---------------|------------|---------|
+| Email triage (10K emails) | $100 | $50 | **$50** |
+| Email embeddings (10K) | $10 | $5 | **$5** |
+| Contact embeddings (1K) | $1 | $0.50 | **$0.50** |
+| Daily briefings (30 users) | $3 | $1.50 | **$1.50** |
+| **TOTAL** | **$114** | **$57** | **$57 (50%)** |
+
+### 13.5 Batch API Constraints
+
+| Constraint | Value | Impact |
+|------------|-------|--------|
+| Max file size | 100MB | OK for our use |
+| Max requests/batch | 50,000 | OK for our use |
+| Processing time | 1-24h | Must be async |
+| Results retention | 24h | Must download quickly |
+
+### 13.6 When NOT to Use Batch
+
+| Feature | Why Real-Time Required |
+|---------|------------------------|
+| Smart replies | User waiting |
+| Chat/streaming | Interactive |
+| Email compose | User waiting |
+| Search queries | User waiting |
+
+### 13.7 Environment Variables (P11)
+
+```env
+# Mistral Batch API
+MISTRAL_BATCH_ENABLED=true
+MISTRAL_BATCH_POLL_INTERVAL=300000  # 5 minutes
+MISTRAL_BATCH_MIN_SIZE=10           # Min requests to batch
+```
+
+### 13.8 Estimated Time: 4.5h (VERIFIED - BatchIndexingService has polling!)
+
+| Phase | Time | Priority | Notes |
+|-------|------|----------|-------|
+| Phase 1: Wire Email Embedding Sync | 1h | P0 | Call `BatchIndexingService.queueBatchIndexing()` |
+| Phase 2: Wire Email Triage | 2h | P0 | Use `MistralBatchService.batchSentimentAnalysis()` |
+| Phase 3: Add Polling for Triage | 1h | P1 | Copy pattern from BatchIndexingService |
+| Phase 4: Env Toggle | 0.5h | P1 | Already partially exists! |
+
+**Time Saved**: 4.5h (BatchIndexingService already has @Cron polling + DB save!)
+
+**VERIFIED FILES (2026-01-13):**
+
+```text
+✅ BatchIndexingService - services/batch-indexing.service.ts
+   - queueBatchIndexing(tenantId, emailIds) → ready to call
+   - @Cron(EVERY_5_MINUTES) pollPendingJobs() → working
+   - processCompletedJob() → saves to DB
+   - BUT: Nobody calls queueBatchIndexing()!
+
+✅ MistralBatchService - voltagent/services/mistral-batch.service.ts
+   - batchSentimentAnalysis() → ready
+   - batchEmbeddings() → ready
+   - batchSummarize() → ready
+   - Injected into VoltAgentService but NOT USED
+   - Missing: cron polling (needs Phase 3)
+
+✅ MistralBatchProvider - services/embedding/mistral-batch.provider.ts
+   - Used by BatchIndexingService only
+   - Lower-level than MistralBatchService
+```
+
+---
+
 ## SOURCES
 
 - [Mistral AI Pricing](https://mistral.ai/pricing)
+- [Mistral Batch Jobs Announcement](https://mistral.ai/news/batch-jobs/)
 - [Azure OpenAI Pricing](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service/)
 - [Autumn Platform](https://useautumn.com/)
 - [Superhuman Alternatives](https://blog.superhuman.com/superhuman-alternatives/)

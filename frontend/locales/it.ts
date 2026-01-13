@@ -1356,6 +1356,7 @@ export const it: AppTranslations = {
     failedToUpdateEvent: 'Aggiornamento evento fallito. Riprova.',
     eventDeleted: 'Evento eliminato con successo',
     failedToDeleteEvent: 'Eliminazione evento fallita. Riprova.',
+    failedToLoadEventDetails: 'Caricamento dettagli evento fallito',
     validation: {
       titleRequired: 'Il titolo è obbligatorio',
       startRequired: 'La data/ora di inizio è obbligatoria',
@@ -2396,6 +2397,7 @@ export const it: AppTranslations = {
     badRequest: 'Richiesta non valida. Controlla i dati inseriti e riprova.',
     processingError: 'Errore durante l\'elaborazione. Riprova.',
     unknownError: 'Si è verificato un errore imprevisto. Riprova.',
+    invalidCredentials: 'Email o password non validi. Riprova.',
     setupFailed: 'Configurazione autenticazione a due fattori fallita. Riprova.',
     verifyFailed: 'Verifica fallita. Controlla il codice e riprova.',
     disableFailed: 'Disattivazione autenticazione a due fattori fallita.',
@@ -2753,6 +2755,7 @@ export const it: AppTranslations = {
       autoTriage: 'Auto-Triage',
       briefings: 'Briefing Giornaliero',
       rag: 'Ricerca AI (RAG)',
+      all: 'Tutte le Funzionalità',
       available: 'Disponibile',
       notAvailable: 'Non disponibile nel tuo piano',
     },
@@ -2764,6 +2767,16 @@ export const it: AppTranslations = {
       cancelAtPeriodEnd: 'Annulla a fine periodo',
       manageBilling: 'Gestisci Fatturazione',
       viewInvoices: 'Visualizza Fatture',
+    },
+    tabs: {
+      overview: 'Panoramica',
+      usage: 'Utilizzo',
+      plans: 'Piani',
+      manage: 'Gestione',
+    },
+    manage: {
+      billingDescription: 'Aggiorna metodo di pagamento, visualizza fatture, gestisci abbonamento',
+      invoicesDescription: 'Scarica e visualizza le fatture passate',
     },
     alerts: {
       quotaWarning: 'Hai utilizzato {percent}% della quota {type}',

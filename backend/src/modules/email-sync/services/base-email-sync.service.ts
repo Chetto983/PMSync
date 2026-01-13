@@ -6,6 +6,7 @@ import { SyncJobData, SyncJobResult } from '../interfaces/sync-job.interface';
 import { IEmailDriver } from '../drivers/interfaces/email-driver.interface';
 import { CanonicalMessage, AttachmentMeta } from '../drivers/interfaces/canonical.types';
 import { EmailEmbeddingQueueService } from '../../ai/services/email-embedding.queue';
+import { BatchIndexingService } from '../../ai/services/batch-indexing.service';
 import { isJunkFolder, isRecentEmail as isRecentEmailHelper } from '../../email/email.helpers';
 import { RedisLockService } from '../../../common/services/redis-lock.service';
 import { FollowUpService } from '../../ai/voltagent/services/follow-up.service';
@@ -555,6 +556,12 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
    * This allows the base class to queue new messages for embedding generation
    */
   protected abstract getEmbeddingQueue(): EmailEmbeddingQueueService;
+
+  /**
+   * Get the batch indexing service - must be provided by child classes
+   * P11: For 100+ emails, use Mistral Batch API (50% cheaper)
+   */
+  protected abstract getBatchIndexingService(): BatchIndexingService;
 
   /**
    * Process attachments for a message - must be implemented by each provider
@@ -1139,6 +1146,25 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
 
     // Track new messages and process post-upsert operations
     let newCount = 0;
+
+    // P11: Pre-determine if batch indexing should be used (100+ new emails = 50% cheaper)
+    // Calculate new non-junk emails BEFORE the loop to decide strategy
+    const newEmailIdsForEmbedding: string[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const result = results[i];
+      const wasNew = !existingEmailIds.has(msg.id);
+      if (wasNew && !isJunkFolder(result.folder)) {
+        newEmailIdsForEmbedding.push(result.id);
+      }
+    }
+    const useBatchIndexing = newEmailIdsForEmbedding.length >= 100;
+    if (useBatchIndexing) {
+      this.logger.log(
+        `P11 Batch Indexing: ${newEmailIdsForEmbedding.length} new emails, using Mistral Batch API (50% cheaper)`,
+      );
+    }
+
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       const msg = messages[i];
@@ -1150,7 +1176,8 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
 
         // Queue for embeddings (skip SPAM/TRASH)
         // Body is always fetched during sync for AI embeddings to work
-        if (!isJunkFolder(result.folder)) {
+        // P11: Skip individual enqueue if using batch indexing (will be processed at end)
+        if (!isJunkFolder(result.folder) && !useBatchIndexing) {
           await this.getEmbeddingQueue().enqueue({
             emailId: result.id,
             tenantId,
@@ -1216,6 +1243,41 @@ export abstract class BaseEmailSyncService implements OnModuleInit {
           msg.id,
           msg.attachments,
         );
+      }
+    }
+
+    // P11: Queue batch indexing for 100+ emails (50% cheaper via Mistral Batch API)
+    if (useBatchIndexing && newEmailIdsForEmbedding.length > 0) {
+      try {
+        const batchJobId = await this.getBatchIndexingService().queueBatchIndexing(
+          tenantId,
+          newEmailIdsForEmbedding,
+        );
+        this.logger.log(
+          `P11 Batch job ${batchJobId} created for ${newEmailIdsForEmbedding.length} emails ` +
+          `(will be polled by @Cron every 5 minutes)`,
+        );
+      } catch (err) {
+        // Fallback to real-time queue if batch indexing fails
+        this.logger.error(
+          `P11 Batch indexing failed, falling back to real-time queue: ${err instanceof Error ? err.message : err}`,
+        );
+        for (const emailId of newEmailIdsForEmbedding) {
+          const result = results.find(r => r.id === emailId);
+          if (result) {
+            await this.getEmbeddingQueue().enqueue({
+              emailId: result.id,
+              tenantId,
+              providerId,
+              subject: result.subject,
+              snippet: result.snippet || '',
+              bodyText: result.bodyText || '',
+              bodyHtml: result.bodyHtml || '',
+              from: result.from || '',
+              receivedAt: result.receivedAt || new Date(),
+            });
+          }
+        }
       }
     }
 

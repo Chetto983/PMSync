@@ -42,7 +42,7 @@
 | **P8: Industrial Frontend Audit** | ✅ Race conditions, i18n, lint fixes | 2026-01-12 |
 | **P8.2: Deep i18n Audit** | ✅ **73 violations fixed** - Italian defaults, encoding, hardcoded strings | 2026-01-12 |
 | **P9: Dashboard Polish** | ✅ **2 widgets created** - PriorityInboxWidget + TrendChartsWidget | 2026-01-12 |
-| **P10: Subscription & Billing** | ✅ **100% COMPLETE** - AI quota (8/8 entry points) + Frontend UI (7 components) + Security fix (HMAC) | 2026-01-12 |
+| **P10: Subscription & Billing** | ✅ **100% COMPLETE** - AI quota (8/8) + Frontend UI (7 components) + Security (HMAC) + i18n + Settings Cleanup | 2026-01-13 |
 
 ### ✅ COMPLETED P5: Full VoltAgent Validation (2026-01-12)
 
@@ -234,7 +234,7 @@ npm run type-check  # ✅ PASS
 npm run lint        # ✅ PASS (0 warnings)
 ```
 
-### ✅ COMPLETED P10: Subscription & Billing with AI Quota Integration (2026-01-12)
+### ✅ COMPLETED P10: Subscription & Billing with AI Quota Integration (2026-01-13)
 
 **Philosophy**: Aggressive cost protection to prevent AI-related bankruptcy. All AI operations must check quota BEFORE execution.
 
@@ -251,6 +251,7 @@ npm run lint        # ✅ PASS (0 warnings)
 | MistralService quota | ✅ | completePrompt() + generateResponse() |
 | EmbeddingProviderService quota | ✅ | generateEmbedding() + generateBulkEmbeddings() |
 | Paranoid Audit Script | ✅ | 100% coverage verified |
+| **Frontend i18n** | ✅ | BillingPanel tabs, PricingTable features, AnalyticsChart |
 
 **Subscription Tiers**:
 
@@ -281,8 +282,13 @@ npx ts-node backend/scripts/validate-p10-subscription.ts  # Full integration tes
 
 **Next Steps (P11)**:
 
-- Italian e-invoicing (Fattura Elettronica via SDI) - Legal compliance
-- Azure embedding provider (80% cost savings) - Cost optimization
+- **Mistral Batch API Wiring** (50% cost savings) - Infrastructure EXISTS, needs wiring into workflows
+  - Wire `MistralBatchService.batchSentimentAnalysis()` into email triage
+  - Wire `MistralBatchService.batchEmbeddings()` into embedding sync
+  - Create BullMQ job processor for batch job polling
+  - Add `MISTRAL_BATCH_ENABLED` environment toggle
+  - See: `P10-SUBSCRIPTION-BILLING-ROADMAP.md` Part 13 for full plan
+- Italian e-invoicing (Fattura Elettronica via SDI) - Legal compliance (deferred)
 
 ---
 
@@ -3157,83 +3163,61 @@ Add `<TOOL_SELECTION>` section to EmailAgent and SupervisorAgent:
 
 | Issue | Status | Action |
 |-------|--------|--------|
-| `GET /voltagent/stats/learning` returns 404 | Missing endpoint | Remove from frontend |
-| `POST /voltagent/learning/reset` missing | No implementation | Implement or remove button |
-| Email Density setting | Pure UI, not AI | Move to Appearance section |
-| Working Hours/Job Details | Stored but NEVER used by AI | Consider removing or implement usage |
-| `communicationStyle` not used in compose | Stored but not connected | Connect to compose tone parameter |
+| `GET /voltagent/stats/learning` returns 404 | ✅ DONE | Removed Reset Learning button (no backend) |
+| `POST /voltagent/learning/reset` missing | ✅ DONE | Button removed from UI |
+| Email Density setting | ✅ DONE | Moved to General/Appearance section |
+| Working Hours/Job Details | ✅ DONE (2026-01-13) | **REMOVED** - Stored but never used by AI |
+| AI Notification Frequency | ✅ DONE (2026-01-13) | **REMOVED** - Never implemented |
+| NotificationsSettings section | ✅ DONE (2026-01-13) | **REMOVED** - Dead UI (no backend) |
+| `communicationStyle` not used in compose | PENDING | Connect to compose tone parameter |
 
-### Phase A1: Remove Non-Existent Endpoints
+### Phase A1: Remove Non-Existent Endpoints ✅ DONE
 
-**Frontend API** (`frontend/lib/api/ai.ts`):
-- Remove `getLearningStats()` if it exists (calls non-existent endpoint)
-- Keep working endpoints only
+- Reset Learning button removed from AiSettings.tsx
+- getLearningStats() call removed (endpoint doesn't exist)
 
-**Frontend Settings Container** (`frontend/pages/dashboard/settings.tsx` or parent):
-- Remove `onResetLearning` functionality (no backend implementation)
-- OR implement backend endpoint if feature is wanted
+### Phase A2: Move Email Density to Appearance ✅ DONE
 
-### Phase A2: Move Email Density to Appearance
+Email Density moved to GeneralSettings.tsx (Appearance section)
 
-Email Density (`comfortable`, `compact`, `spacious`) is a **UI preference**, not AI:
-1. Remove from `AiSettings.tsx`
-2. Move to Appearance/Display settings section
-3. Update parent container to pass props correctly
-
-### Phase A3: Connect CommunicationStyle to Compose
+### Phase A3: Connect CommunicationStyle to Compose (PENDING)
 
 Currently `communicationStyle` (FORMAL, CASUAL, TECHNICAL, CREATIVE) is stored in UserPreferences but NOT used when composing emails.
 
-**Fix**: When calling `aiApi.composeEmail()`:
+**TODO**: When calling `aiApi.composeEmail()`:
 1. Fetch user's `communicationStyle` preference
-2. Map to compose `tone` parameter:
-   - FORMAL → 'formal'
-   - CASUAL → 'casual'
-   - TECHNICAL → 'technical'
-   - CREATIVE → 'casual' (or add support)
+2. Map to compose `tone` parameter
 
-**Files to modify**:
-- `frontend/components/email/compose/ComposeEditor.tsx` - get preference and pass to API
-- OR `frontend/hooks/queries/use-preferences.ts` - create hook if not exists
+### Phase A4: Working Hours/Job Details ✅ DONE (2026-01-13)
 
-### Phase A4: Decide on Working Hours/Job Details
+**Decision**: Option 1 - REMOVED from UI (stored data never used by AI)
 
-These settings (jobTitle, department, industry, companySize, workingHoursStart, workingHoursEnd, workingDays) are:
-- Stored in UserPreferences via `personalizationApi.updateProfile()`
-- NEVER read or used by any AI service
+**Removed from AiSettings.tsx**:
+- Working Hours (workingHoursStart, workingHoursEnd, workingDays)
+- Work Context (jobTitle, department, industry, companySize)
+- AI Notification Frequency
 
-**Options**:
-1. **Remove**: Delete from UI if not used
-2. **Implement**: Use in AI context (e.g., include in compose prompt for better personalization)
-3. **Keep for future**: Leave UI but mark as "beta" or future feature
+**Removed from Settings.tsx**:
+- All related state variables and handlers
+- All copy/locale references
+- Props passed to AiSettings
 
-**Recommendation**: Option 2 - Add to AI compose context for better email generation
+### Phase A5: NotificationsSettings Section ✅ DONE (2026-01-13)
 
-### Phase A5: Learning Validation
+**REMOVED** - Entire section was dead UI:
+- Toggles (newEmailNotif, calendarNotif, aiActionsNotif) had NO backend schema fields
+- Save handler did nothing (just showed "Saved" without persistence)
+- Section removed from sidebar navigation
 
-The backend has two learning systems that need validation:
+### Learning Validation Status
 
 #### 1. WritingStyleService (`writing-style.service.ts`)
-- Analyzes user email writing patterns (sentence length, formality, greetings, sign-offs)
-- Stores profile in `WritingStyleProfile` Prisma model
-- **Endpoint**: `GET /voltagent/stats/writing-style` - EXISTS and works
 - **Status**: ✅ IMPLEMENTED
+- Endpoint: `GET /voltagent/stats/writing-style` - EXISTS and works
 
 #### 2. Agent Learning System (`learning.ts`)
-- Tracks approval/rejection feedback to adjust confidence
-- Uses `LearningProfile` interface (NOT a Prisma model!)
-- Uses in-memory cache + optional persistence callbacks
-- **Endpoint**: `GET /voltagent/stats/learning` - DOES NOT EXIST (404)
-- **Status**: ❌ NO API ENDPOINT
-
-**Validation Tasks**:
-1. Check if `AgentLearningProfile` exists in Prisma schema → NO, it doesn't
-2. Check if learning persistence is wired up → Only in-memory, no DB persistence
-3. Either:
-   a. **Remove** Reset Learning button (no persistence = nothing to reset)
-   b. **Implement** full learning persistence (Prisma model + endpoints)
-
-**Recommendation**: Option A for now (remove button), add TODO for future full implementation.
+- **Status**: In-memory only (no persistence)
+- Reset button removed (nothing to reset without DB storage)
 
 ---
 

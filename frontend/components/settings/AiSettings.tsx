@@ -45,29 +45,9 @@ export interface AiSettingsProps {
   setProactivityLevel: (v: ProactivityLevel) => void;
   autoApproveThreshold: number;
   setAutoApproveThreshold: (v: number) => void;
-  // Working Hours
-  workingHoursStart: string;
-  setWorkingHoursStart: (v: string) => void;
-  workingHoursEnd: string;
-  setWorkingHoursEnd: (v: string) => void;
-  workingDays: string[];
-  setWorkingDays: (v: string[]) => void;
-  // Job Details
-  jobTitle: string;
-  setJobTitle: (v: string) => void;
-  department: string;
-  setDepartment: (v: string) => void;
-  industry: string;
-  setIndustry: (v: string) => void;
-  companySize: string;
-  setCompanySize: (v: string) => void;
-  // Notification & Display
-  notificationFrequency: string;
-  setNotificationFrequency: (v: string) => void;
   // Actions
   onSave: () => void;
   onClearMemory: () => void;
-  // NOTE: onResetLearning removed - backend has no endpoint (learning is in-memory only)
   onOpenAssistant: () => void;
   // Copy
   copy: {
@@ -95,38 +75,12 @@ export interface AiSettingsProps {
     dataManagementTitle: string;
     dataManagementDescription: string;
     clearMemory: string;
-    // NOTE: resetLearning removed - backend has no endpoint
-    // Working hours labels
-    workingHoursLabel?: string;
-    workingHoursDescription?: string;
-    startTimeLabel?: string;
-    endTimeLabel?: string;
-    workingDaysLabel?: string;
-    // Day abbreviations
-    days?: { MON: string; TUE: string; WED: string; THU: string; FRI: string; SAT: string; SUN: string };
     // Toggle button labels (must match backend enums)
     styles?: { FORMAL: string; CASUAL: string; TECHNICAL: string; CREATIVE: string };
     lengths?: { BRIEF: string; MODERATE: string; DETAILED: string };
     proactivityLevels?: { LOW: string; MEDIUM: string; HIGH: string };
-    // Job Details
-    jobDetailsTitle?: string;
-    jobDetailsDescription?: string;
-    jobTitleLabel?: string;
-    jobTitlePlaceholder?: string;
-    departmentLabel?: string;
-    departmentPlaceholder?: string;
-    industryLabel?: string;
-    industryPlaceholder?: string;
-    companySizeLabel?: string;
-    companySizes?: { SOLO: string; STARTUP: string; SMB: string; ENTERPRISE: string };
-    // Notification Frequency
-    notificationFrequencyLabel?: string;
-    notificationFrequencyDescription?: string;
-    notificationFrequencies?: { IMMEDIATE: string; DIGEST: string; MINIMAL: string };
   };
 }
-
-const ALL_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
 
 export function AiSettings({
   loading,
@@ -152,35 +106,11 @@ export function AiSettings({
   setProactivityLevel,
   autoApproveThreshold,
   setAutoApproveThreshold,
-  workingHoursStart,
-  setWorkingHoursStart,
-  workingHoursEnd,
-  setWorkingHoursEnd,
-  workingDays,
-  setWorkingDays,
-  jobTitle,
-  setJobTitle,
-  department,
-  setDepartment,
-  industry,
-  setIndustry,
-  companySize,
-  setCompanySize,
-  notificationFrequency,
-  setNotificationFrequency,
   onSave,
   onClearMemory,
-  // NOTE: onResetLearning removed - backend has no endpoint
   onOpenAssistant,
   copy,
 }: AiSettingsProps) {
-  const handleDayToggle = (day: string) => {
-    if (workingDays.includes(day)) {
-      setWorkingDays(workingDays.filter((d) => d !== day));
-    } else {
-      setWorkingDays([...workingDays, day]);
-    }
-  };
   return (
     <Box>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -296,138 +226,6 @@ export function AiSettings({
                   <ToggleButton value="HIGH">{copy.proactivityLevels?.HIGH || 'High'}</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
-
-              <Divider />
-
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
-                  {copy.workingHoursLabel || 'Working Hours'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-                  {copy.workingHoursDescription || 'AI will adjust behavior based on your schedule'}
-                </Typography>
-
-                <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-                  <TextField
-                    size="small"
-                    type="time"
-                    label={copy.startTimeLabel || 'Start'}
-                    value={workingHoursStart}
-                    onChange={(e) => setWorkingHoursStart(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    sx={{ flex: 1 }}
-                  />
-                  <TextField
-                    size="small"
-                    type="time"
-                    label={copy.endTimeLabel || 'End'}
-                    value={workingHoursEnd}
-                    onChange={(e) => setWorkingHoursEnd(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    sx={{ flex: 1 }}
-                  />
-                </Stack>
-
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                  {copy.workingDaysLabel || 'Working Days'}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                  {ALL_DAYS.map((day) => (
-                    <Chip
-                      key={day}
-                      label={copy.days?.[day] || day}
-                      size="small"
-                      variant={workingDays.includes(day) ? 'filled' : 'outlined'}
-                      color={workingDays.includes(day) ? 'primary' : 'default'}
-                      onClick={() => handleDayToggle(day)}
-                      sx={{ cursor: 'pointer' }}
-                    />
-                  ))}
-                </Box>
-              </Box>
-
-              <Divider />
-
-              {/* Work Context Section */}
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
-                  {copy.jobDetailsTitle || 'Work Context'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-                  {copy.jobDetailsDescription || 'Help AI understand your professional context'}
-                </Typography>
-
-                <Stack spacing={2}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label={copy.jobTitleLabel || 'Job Title'}
-                    value={jobTitle}
-                    onChange={(e) => setJobTitle(e.target.value)}
-                    placeholder={copy.jobTitlePlaceholder || 'e.g., Software Engineer, Product Manager'}
-                  />
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label={copy.departmentLabel || 'Department'}
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      placeholder={copy.departmentPlaceholder || 'e.g., Engineering, Marketing'}
-                    />
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label={copy.industryLabel || 'Industry'}
-                      value={industry}
-                      onChange={(e) => setIndustry(e.target.value)}
-                      placeholder={copy.industryPlaceholder || 'e.g., Technology, Healthcare'}
-                    />
-                  </Stack>
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                      {copy.companySizeLabel || 'Company Size'}
-                    </Typography>
-                    <ToggleButtonGroup
-                      value={companySize}
-                      exclusive
-                      onChange={(_, v) => v && setCompanySize(v)}
-                      fullWidth
-                      size="small"
-                    >
-                      <ToggleButton value="SOLO">{copy.companySizes?.SOLO || 'Solo'}</ToggleButton>
-                      <ToggleButton value="STARTUP">{copy.companySizes?.STARTUP || 'Startup'}</ToggleButton>
-                      <ToggleButton value="SMB">{copy.companySizes?.SMB || 'SMB'}</ToggleButton>
-                      <ToggleButton value="ENTERPRISE">{copy.companySizes?.ENTERPRISE || 'Enterprise'}</ToggleButton>
-                    </ToggleButtonGroup>
-                  </Box>
-                </Stack>
-              </Box>
-
-              <Divider />
-
-              {/* Notification & Display Section */}
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                  {copy.notificationFrequencyLabel || 'AI Notification Frequency'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                  {copy.notificationFrequencyDescription || 'How often should AI notify you about insights?'}
-                </Typography>
-                <ToggleButtonGroup
-                  value={notificationFrequency}
-                  exclusive
-                  onChange={(_, v) => v && setNotificationFrequency(v)}
-                  fullWidth
-                  size="small"
-                >
-                  <ToggleButton value="IMMEDIATE">{copy.notificationFrequencies?.IMMEDIATE || 'Immediate'}</ToggleButton>
-                  <ToggleButton value="DIGEST">{copy.notificationFrequencies?.DIGEST || 'Daily Digest'}</ToggleButton>
-                  <ToggleButton value="MINIMAL">{copy.notificationFrequencies?.MINIMAL || 'Minimal'}</ToggleButton>
-                </ToggleButtonGroup>
-              </Box>
-
-              <Divider />
 
               <Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>

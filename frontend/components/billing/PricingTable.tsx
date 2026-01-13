@@ -30,6 +30,17 @@ interface PricingTableProps {
 
 const recommendedPlan = 'professional';
 
+// Map API feature keys to locale keys
+const featureKeyMap: Record<string, string> = {
+  basic_email: 'basicEmail',
+  smart_replies: 'smartReplies',
+  summaries: 'summaries',
+  auto_triage: 'autoTriage',
+  briefings: 'briefings',
+  rag: 'rag',
+  all: 'all',
+};
+
 export function PricingTable({ currentPlan, onSelectPlan, isAttaching }: PricingTableProps) {
   const t = useTranslations();
   const { data: pricingData, isLoading } = usePricingTable(true);
@@ -145,14 +156,18 @@ function PlanCard({ plan, isCurrent, isRecommended, onSelect, isAttaching, t }: 
         </Typography>
 
         <List dense sx={{ flex: 1, mb: 2 }}>
-          {plan.features.slice(0, 5).map((feature, idx) => (
-            <ListItem key={idx} sx={{ px: 0, py: 0.25 }}>
-              <ListItemIcon sx={{ minWidth: 28 }}>
-                <Check size={16} color={theme.palette.success.main} />
-              </ListItemIcon>
-              <ListItemText primary={feature} slotProps={{ primary: { variant: 'body2' } }} />
-            </ListItem>
-          ))}
+          {plan.features.slice(0, 5).map((feature, idx) => {
+            const localeKey = featureKeyMap[feature] || feature;
+            const featureLabel = (t.billing?.features as Record<string, string>)?.[localeKey] || feature;
+            return (
+              <ListItem key={idx} sx={{ px: 0, py: 0.25 }}>
+                <ListItemIcon sx={{ minWidth: 28 }}>
+                  <Check size={16} color={theme.palette.success.main} />
+                </ListItemIcon>
+                <ListItemText primary={featureLabel} slotProps={{ primary: { variant: 'body2' } }} />
+              </ListItem>
+            );
+          })}
         </List>
 
         {isCurrent ? (

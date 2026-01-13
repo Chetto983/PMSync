@@ -47,9 +47,9 @@ export function CalendarColorPicker({
       selectedColor={selectedColor}
       onColorSelect={onColorSelect}
       presetColors={DEFAULT_PRESET_COLORS}
-      title={t.calendar?.colorPicker?.title || 'Colore calendario'}
-      presetLabel={t.calendar?.colorPicker?.presetColors || 'Colori predefiniti'}
-      customLabel={t.calendar?.colorPicker?.customColor || 'Colore personalizzato'}
+      title={t.calendar.colorPicker.title}
+      presetLabel={t.calendar.colorPicker.presetColors}
+      customLabel={t.calendar.colorPicker.customColor}
       showApplyButton={true}
     />
   );

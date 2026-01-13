@@ -78,12 +78,15 @@ export class SubscriptionService {
 
     if (!subscription) {
       this.logger.log(`Creating FREE subscription for tenant ${tenantId}`);
+      // Destructure to exclude 'features' which is used for runtime checks only
+      // (not stored in database - see hasFeature() method)
+      const { features: _features, ...freePlanLimits } = PLAN_LIMITS.FREE;
       subscription = await this.prisma.subscription.create({
         data: {
           tenantId,
           plan: SubscriptionPlan.FREE,
           status: SubscriptionStatus.ACTIVE,
-          ...PLAN_LIMITS.FREE,
+          ...freePlanLimits,
           usageResetAt: this.getNextResetDate(),
         },
       });

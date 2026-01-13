@@ -263,14 +263,14 @@ export function Calendar() {
         );
         setSnackbar({
           open: true,
-          message: calendarCopy.colorUpdated || 'Color updated',
+          message: calendarCopy.colorUpdated,
           severity: 'success',
         });
       } catch (error) {
         logger.error('Failed to update calendar color', { error });
         setSnackbar({
           open: true,
-          message: calendarCopy.failedToUpdateColor || 'Failed to update color',
+          message: calendarCopy.failedToUpdateColor,
           severity: 'error',
         });
       }
@@ -418,7 +418,7 @@ export function Calendar() {
           logger.error('Failed to load calendar events', { error: eventsError });
           setSnackbar({
             open: true,
-            message: calendarCopy.failedToLoadEvents || 'Failed to load events',
+            message: calendarCopy.failedToLoadEvents,
             severity: 'error',
           });
         }
@@ -638,12 +638,12 @@ export function Calendar() {
         logger.error('Failed to load event details', { error });
         setSnackbar({
           open: true,
-          message: 'Failed to load event details',
+          message: calendarCopy.failedToLoadEventDetails,
           severity: 'error',
         });
       }
     },
-    [queryClient]
+    [queryClient, calendarCopy.failedToLoadEventDetails]
   );
 
   // Create event handler
@@ -651,16 +651,16 @@ export function Calendar() {
     // Validation
     const errors: EventFormErrors = {};
     if (!newEvent.title.trim()) {
-      errors.title = calendarCopy.validation?.titleRequired || 'Title is required';
+      errors.title = calendarCopy.validation.titleRequired;
     }
     if (!newEvent.start) {
-      errors.start = calendarCopy.validation?.startRequired || 'Start time is required';
+      errors.start = calendarCopy.validation.startRequired;
     }
     if (!newEvent.end) {
-      errors.end = calendarCopy.validation?.endRequired || 'End time is required';
+      errors.end = calendarCopy.validation.endRequired;
     }
     if (newEvent.start && newEvent.end && new Date(newEvent.start) >= new Date(newEvent.end)) {
-      errors.end = calendarCopy.validation?.endAfterStart || 'End must be after start';
+      errors.end = calendarCopy.validation.endAfterStart;
     }
 
     if (Object.keys(errors).length > 0) {
@@ -673,7 +673,7 @@ export function Calendar() {
       if (!firstProvider) {
         setSnackbar({
           open: true,
-          message: calendarCopy.noProviderAlert || 'No calendar provider found',
+          message: calendarCopy.noProviderAlert,
           severity: 'error',
         });
         return;
@@ -691,7 +691,7 @@ export function Calendar() {
       await createEventMutation.mutateAsync(createDto);
       setSnackbar({
         open: true,
-        message: calendarCopy.eventCreated || 'Event created successfully',
+        message: calendarCopy.eventCreated,
         severity: 'success',
       });
       setEventDialogOpen(false);
@@ -704,7 +704,7 @@ export function Calendar() {
       logger.error('Failed to create event', { error });
       setSnackbar({
         open: true,
-        message: calendarCopy.failedToCreateEvent || 'Failed to create event',
+        message: calendarCopy.failedToCreateEvent,
         severity: 'error',
       });
     }
@@ -717,13 +717,13 @@ export function Calendar() {
     // Validation
     const errors: EditFormErrors = {};
     if (!editedEvent.title.trim()) {
-      errors.title = calendarCopy.validation?.titleRequired || 'Title is required';
+      errors.title = calendarCopy.validation.titleRequired;
     }
     if (!editedEvent.start) {
-      errors.start = calendarCopy.validation?.startRequired || 'Start time is required';
+      errors.start = calendarCopy.validation.startRequired;
     }
     if (!editedEvent.end) {
-      errors.end = calendarCopy.validation?.endRequired || 'End time is required';
+      errors.end = calendarCopy.validation.endRequired;
     }
 
     if (Object.keys(errors).length > 0) {
@@ -744,7 +744,7 @@ export function Calendar() {
       await updateEventMutation.mutateAsync({ id: selectedEvent.id, data: updateDto });
       setSnackbar({
         open: true,
-        message: calendarCopy.eventUpdated || 'Event updated',
+        message: calendarCopy.eventUpdated,
         severity: 'success',
       });
       setEventDetailsOpen(false);
@@ -757,7 +757,7 @@ export function Calendar() {
       logger.error('Failed to update event', { error });
       setSnackbar({
         open: true,
-        message: calendarCopy.failedToUpdateEvent || 'Failed to update event',
+        message: calendarCopy.failedToUpdateEvent,
         severity: 'error',
       });
     } finally {
@@ -774,7 +774,7 @@ export function Calendar() {
       await deleteEventMutation.mutateAsync(selectedEvent.id);
       setSnackbar({
         open: true,
-        message: calendarCopy.eventDeleted || 'Event deleted',
+        message: calendarCopy.eventDeleted,
         severity: 'success',
       });
       setEventDetailsOpen(false);
@@ -786,7 +786,7 @@ export function Calendar() {
       logger.error('Failed to delete event', { error });
       setSnackbar({
         open: true,
-        message: calendarCopy.failedToDeleteEvent || 'Failed to delete event',
+        message: calendarCopy.failedToDeleteEvent,
         severity: 'error',
       });
     } finally {
@@ -1000,7 +1000,7 @@ export function Calendar() {
               weekday: 'long',
             }}
             allDaySlot={true}
-            allDayText={calendarLocale === 'it' ? 'Tutto il giorno' : 'All day'}
+            allDayText={calendarCopy.allDay}
             dayMaxEventRows={3}
             moreLinkClick="popover"
           />

@@ -1367,6 +1367,7 @@ export const en: AppTranslations = {
     failedToUpdateEvent: 'Failed to update event. Please try again.',
     eventDeleted: 'Event deleted successfully',
     failedToDeleteEvent: 'Failed to delete event. Please try again.',
+    failedToLoadEventDetails: 'Failed to load event details',
     // Validation messages
     validation: {
       titleRequired: 'Title is required',
@@ -2417,6 +2418,7 @@ export const en: AppTranslations = {
     badRequest: 'Invalid request. Please check your input and try again.',
     processingError: 'Error processing your request. Please try again.',
     unknownError: 'An unexpected error occurred. Please try again.',
+    invalidCredentials: 'Invalid email or password. Please try again.',
     setupFailed: 'Failed to set up two-factor authentication. Please try again.',
     verifyFailed: 'Verification failed. Please check your code and try again.',
     disableFailed: 'Failed to disable two-factor authentication.',
@@ -2776,6 +2778,7 @@ export const en: AppTranslations = {
       autoTriage: 'Auto-Triage',
       briefings: 'Daily Briefings',
       rag: 'AI Search (RAG)',
+      all: 'All Features',
       available: 'Available',
       notAvailable: 'Not available on your plan',
     },
@@ -2787,6 +2790,16 @@ export const en: AppTranslations = {
       cancelAtPeriodEnd: 'Cancel at end of billing period',
       manageBilling: 'Manage Billing',
       viewInvoices: 'View Invoices',
+    },
+    tabs: {
+      overview: 'Overview',
+      usage: 'Usage',
+      plans: 'Plans',
+      manage: 'Manage',
+    },
+    manage: {
+      billingDescription: 'Update payment method, view invoices, manage subscription',
+      invoicesDescription: 'Download and view past invoices',
     },
     alerts: {
       quotaWarning: 'You\'ve used {percent}% of your {type} quota',

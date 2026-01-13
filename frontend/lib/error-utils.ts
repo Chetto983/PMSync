@@ -160,12 +160,20 @@ export function getErrorMessage(error: unknown, t?: AppTranslations): string {
     }
   }
 
-  // If it's an Axios error, try to use backend message
+  // If it's an Axios error, try to use backend message or translate known messages
   if (isAxiosError(error) && error.response?.data) {
     const data = error.response.data;
 
     // Backend returns { message: string } or { error: string }
     if (typeof data.message === 'string' && data.message.length > 0) {
+      // Map known backend error messages to i18n keys
+      const knownMessages: Record<string, string> = {
+        'Invalid credentials': 'invalidCredentials',
+      };
+      const i18nKey = knownMessages[data.message];
+      if (i18nKey && translations.errors && typeof (translations.errors as Record<string, unknown>)[i18nKey] === 'string') {
+        return (translations.errors as Record<string, unknown>)[i18nKey] as string;
+      }
       return data.message;
     }
     if (typeof data.error === 'string' && data.error.length > 0) {

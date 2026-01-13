@@ -110,10 +110,10 @@ export function BillingPanel() {
             },
           }}
         >
-          <Tab icon={<CreditCard size={18} />} iconPosition="start" label="Overview" sx={{ gap: 1 }} />
-          <Tab icon={<BarChart3 size={18} />} iconPosition="start" label="Usage" sx={{ gap: 1 }} />
-          <Tab icon={<Layers size={18} />} iconPosition="start" label="Plans" sx={{ gap: 1 }} />
-          <Tab icon={<Settings size={18} />} iconPosition="start" label="Manage" sx={{ gap: 1 }} />
+          <Tab icon={<CreditCard size={18} />} iconPosition="start" label={t.billing?.tabs?.overview || 'Overview'} sx={{ gap: 1 }} />
+          <Tab icon={<BarChart3 size={18} />} iconPosition="start" label={t.billing?.tabs?.usage || 'Usage'} sx={{ gap: 1 }} />
+          <Tab icon={<Layers size={18} />} iconPosition="start" label={t.billing?.tabs?.plans || 'Plans'} sx={{ gap: 1 }} />
+          <Tab icon={<Settings size={18} />} iconPosition="start" label={t.billing?.tabs?.manage || 'Manage'} sx={{ gap: 1 }} />
         </Tabs>
       </Box>
 
@@ -188,7 +188,7 @@ export function BillingPanel() {
           >
             <Box sx={{ fontWeight: 600, mb: 0.5 }}>{t.billing?.actions?.manageBilling || 'Manage Billing'}</Box>
             <Box sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-              Update payment method, view invoices, manage subscription
+              {t.billing?.manage?.billingDescription || 'Update payment method, view invoices, manage subscription'}
             </Box>
           </Box>
 
@@ -209,7 +209,7 @@ export function BillingPanel() {
           >
             <Box sx={{ fontWeight: 600, mb: 0.5 }}>{t.billing?.actions?.viewInvoices || 'View Invoices'}</Box>
             <Box sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-              Download and view past invoices
+              {t.billing?.manage?.invoicesDescription || 'Download and view past invoices'}
             </Box>
           </Box>
         </Box>

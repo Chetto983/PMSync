@@ -16,7 +16,6 @@ import {
 import {
   Settings as SettingsIcon,
   User,
-  Bell,
   Mail,
   Sparkles,
   Shield,
@@ -55,11 +54,10 @@ import {
   AiSettings,
   AccountsSettings,
   AccountSettings,
-  NotificationsSettings,
 } from '@/components/settings';
 import { BillingPanel } from '@/components/billing';
 
-type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'account' | 'notifications' | 'billing';
+type SettingsSection = 'general' | 'security' | 'ai' | 'accounts' | 'account' | 'billing';
 
 export function Settings() {
   const router = useRouter();
@@ -101,26 +99,8 @@ export function Settings() {
   const [smartRepliesEnabled, setSmartRepliesEnabled] = useState(true);
   const [summarizationEnabled, setSummarizationEnabled] = useState(true);
   const [schedulingEnabled, setSchedulingEnabled] = useState(true);
-  // Working hours state
-  const [workingHoursStart, setWorkingHoursStart] = useState<string>('09:00');
-  const [workingHoursEnd, setWorkingHoursEnd] = useState<string>('18:00');
-  const [workingDays, setWorkingDays] = useState<string[]>(['MON', 'TUE', 'WED', 'THU', 'FRI']);
-  // Job details state
-  const [jobTitle, setJobTitle] = useState<string>('');
-  const [department, setDepartment] = useState<string>('');
-  const [industry, setIndustry] = useState<string>('');
-  const [companySize, setCompanySize] = useState<string>('');
-  // Notification & Display state
-  const [notificationFrequency, setNotificationFrequency] = useState<string>('DIGEST');
+  // Display state (email density moved here per roadmap Phase A2)
   const [emailDensity, setEmailDensity] = useState<string>('comfortable');
-
-  // Notification state
-  const [newEmailNotif, setNewEmailNotif] = useState(true);
-  const [calendarNotif, setCalendarNotif] = useState(true);
-  const [aiActionsNotif, setAiActionsNotif] = useState(true);
-  const [notifSaveLoading, setNotifSaveLoading] = useState(false);
-  const [notifSuccess, setNotifSuccess] = useState('');
-  const [notifError, setNotifError] = useState('');
 
   // Delete account state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -141,7 +121,6 @@ export function Settings() {
       { id: 'ai', label: settingsCopy.sections.ai, icon: <Sparkles size={18} /> },
       { id: 'accounts', label: settingsCopy.sections.accounts, icon: <Mail size={18} /> },
       { id: 'account', label: settingsCopy.sections.account, icon: <User size={18} /> },
-      { id: 'notifications', label: settingsCopy.sections.notifications, icon: <Bell size={18} /> },
       { id: 'billing', label: settingsCopy.sections.billing || 'Billing', icon: <CreditCard size={18} /> },
     ],
     [settingsCopy.sections],
@@ -157,7 +136,7 @@ export function Settings() {
     }
   }, [aiProfileData]);
 
-  // Sync AI feature toggles and working hours from user preferences
+  // Sync AI feature toggles from user preferences
   useEffect(() => {
     if (userPrefsData) {
       // Load AI feature toggles from backend (with fallback to defaults)
@@ -166,17 +145,7 @@ export function Settings() {
       setSchedulingEnabled(userPrefsData.aiSchedulingEnabled ?? true);
       // Convert threshold from 0-1 to 0-100 for slider
       setAutoApproveThreshold((userPrefsData.aiAutoApproveThreshold ?? 0.85) * 100);
-      // Load working hours
-      setWorkingHoursStart(userPrefsData.workingHoursStart ?? '09:00');
-      setWorkingHoursEnd(userPrefsData.workingHoursEnd ?? '18:00');
-      setWorkingDays(userPrefsData.workingDays ?? ['MON', 'TUE', 'WED', 'THU', 'FRI']);
-      // Load job details
-      setJobTitle(userPrefsData.jobTitle ?? '');
-      setDepartment(userPrefsData.department ?? '');
-      setIndustry(userPrefsData.industry ?? '');
-      setCompanySize(userPrefsData.companySize ?? '');
-      // Load notification & display
-      setNotificationFrequency(userPrefsData.notificationFrequency ?? 'DIGEST');
+      // Load display preference
       setEmailDensity(userPrefsData.emailDensity ?? 'comfortable');
     }
   }, [userPrefsData]);
@@ -281,23 +250,12 @@ export function Settings() {
         aiSummarizationEnabled: summarizationEnabled,
         aiSchedulingEnabled: schedulingEnabled,
         aiAutoApproveThreshold: autoApproveThreshold / 100,
-        workingHoursStart,
-        workingHoursEnd,
-        workingDays,
-        // Job details
-        jobTitle,
-        department,
-        industry,
-        companySize,
-        // Notification & display
-        notificationFrequency: notificationFrequency as 'IMMEDIATE' | 'DIGEST' | 'MINIMAL',
-        emailDensity,
       });
       setAiSuccess(settingsCopy.aiPanel?.savePreferences || 'Saved');
     } catch {
       setAiError(settingsCopy.generalPanel?.saveError || 'Failed to save');
     }
-  }, [jobRole, communicationStyle, responseLength, proactivityLevel, smartRepliesEnabled, summarizationEnabled, schedulingEnabled, autoApproveThreshold, workingHoursStart, workingHoursEnd, workingDays, jobTitle, department, industry, companySize, notificationFrequency, emailDensity, updateAiProfileMutation, updatePreferencesMutation, settingsCopy]);
+  }, [jobRole, communicationStyle, responseLength, proactivityLevel, smartRepliesEnabled, summarizationEnabled, schedulingEnabled, autoApproveThreshold, updateAiProfileMutation, updatePreferencesMutation, settingsCopy]);
 
   const handleClearAiMemory = useCallback(async () => {
     if (!confirm(settingsCopy.aiPanel?.clearMemory || 'Clear AI memory?')) return;
@@ -309,21 +267,6 @@ export function Settings() {
       setAiError(settingsCopy.generalPanel?.saveError || 'Failed');
     } finally {
       setAiDataLoading(false);
-    }
-  }, [settingsCopy]);
-
-  // NOTE: handleResetAiLearning removed - backend has no endpoint (learning is in-memory only)
-
-  const handleSaveNotifications = useCallback(async () => {
-    try {
-      setNotifSaveLoading(true);
-      setNotifError('');
-      setNotifSuccess('');
-      setNotifSuccess('Saved');
-    } catch {
-      setNotifError(settingsCopy.generalPanel?.saveError || 'Failed');
-    } finally {
-      setNotifSaveLoading(false);
     }
   }, [settingsCopy]);
 
@@ -433,33 +376,10 @@ export function Settings() {
     dataManagementTitle: settingsCopy.aiPanel?.dataManagementTitle || 'Data',
     dataManagementDescription: settingsCopy.aiPanel?.dataManagementDescription || '',
     clearMemory: settingsCopy.aiPanel?.clearMemory || 'Clear',
-    // NOTE: resetLearning removed - backend has no endpoint
-    // Working hours labels
-    workingHoursLabel: settingsCopy.aiPanel?.workingHoursLabel || 'Working Hours',
-    workingHoursDescription: settingsCopy.aiPanel?.workingHoursDescription || 'AI will adjust behavior based on your schedule',
-    startTimeLabel: settingsCopy.aiPanel?.startTimeLabel || 'Start',
-    endTimeLabel: settingsCopy.aiPanel?.endTimeLabel || 'End',
-    workingDaysLabel: settingsCopy.aiPanel?.workingDaysLabel || 'Working Days',
-    days: settingsCopy.aiPanel?.days || { MON: 'Mon', TUE: 'Tue', WED: 'Wed', THU: 'Thu', FRI: 'Fri', SAT: 'Sat', SUN: 'Sun' },
     // Toggle button labels (must match backend enums)
     styles: settingsCopy.aiPanel?.personalization?.styles || { FORMAL: 'Formal', CASUAL: 'Casual', TECHNICAL: 'Technical', CREATIVE: 'Creative' },
     lengths: settingsCopy.aiPanel?.personalization?.lengths || { BRIEF: 'Brief', MODERATE: 'Moderate', DETAILED: 'Detailed' },
     proactivityLevels: settingsCopy.aiPanel?.personalization?.proactivityLevels || { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' },
-    // Job Details
-    jobDetailsTitle: settingsCopy.aiPanel?.jobDetailsTitle || 'Work Context',
-    jobDetailsDescription: settingsCopy.aiPanel?.jobDetailsDescription || 'Help AI understand your professional context',
-    jobTitleLabel: settingsCopy.aiPanel?.jobTitleLabel || 'Job Title',
-    jobTitlePlaceholder: settingsCopy.aiPanel?.jobTitlePlaceholder || 'e.g., Software Engineer, Product Manager',
-    departmentLabel: settingsCopy.aiPanel?.departmentLabel || 'Department',
-    departmentPlaceholder: settingsCopy.aiPanel?.departmentPlaceholder || 'e.g., Engineering, Marketing',
-    industryLabel: settingsCopy.aiPanel?.industryLabel || 'Industry',
-    industryPlaceholder: settingsCopy.aiPanel?.industryPlaceholder || 'e.g., Technology, Healthcare',
-    companySizeLabel: settingsCopy.aiPanel?.companySizeLabel || 'Company Size',
-    companySizes: settingsCopy.aiPanel?.companySizes || { SOLO: 'Solo', STARTUP: 'Startup', SMB: 'SMB', ENTERPRISE: 'Enterprise' },
-    // Notification Frequency
-    notificationFrequencyLabel: settingsCopy.aiPanel?.notificationFrequencyLabel || 'AI Notification Frequency',
-    notificationFrequencyDescription: settingsCopy.aiPanel?.notificationFrequencyDescription || 'How often should AI notify you about insights?',
-    notificationFrequencies: settingsCopy.aiPanel?.notificationFrequencies || { IMMEDIATE: 'Immediate', DIGEST: 'Daily Digest', MINIMAL: 'Minimal' },
   }), [settingsCopy]);
 
   const accountsCopy = useMemo(() => ({
@@ -492,20 +412,6 @@ export function Settings() {
     deleteDialogDeleting: settingsCopy.accountPanel?.deleteDialogDeleting || 'Deleting...',
     deleteDialogError: settingsCopy.accountPanel?.deleteDialogError || 'Error',
     avatar: settingsCopy.accountPanel?.avatar,
-  }), [settingsCopy]);
-
-  const notifCopy = useMemo(() => ({
-    title: settingsCopy.generalPanel?.notificationsTitle || 'Notifications',
-    description: settingsCopy.generalPanel?.notificationsDescription || 'Manage your notification preferences',
-    emailTitle: settingsCopy.generalPanel?.emailNotificationsTitle || 'Email Notifications',
-    newEmailsTitle: settingsCopy.generalPanel?.notificationOptions?.newEmails || 'New Emails',
-    newEmailsDesc: settingsCopy.generalPanel?.notificationOptions?.newEmailsDescription || 'Get notified when new emails arrive',
-    calendarTitle: settingsCopy.generalPanel?.notificationOptions?.calendarReminders || 'Calendar Reminders',
-    calendarDesc: settingsCopy.generalPanel?.notificationOptions?.calendarRemindersDescription || 'Get reminders for upcoming events',
-    aiActionsTitle: settingsCopy.generalPanel?.notificationOptions?.aiActions || 'AI Actions',
-    aiActionsDesc: settingsCopy.generalPanel?.notificationOptions?.aiActionsDescription || 'Get notified when AI needs your approval',
-    save: settingsCopy.generalPanel?.save || settingsCopy.saveChanges || 'Save',
-    saving: settingsCopy.generalPanel?.saving || settingsCopy.saving || 'Saving...',
   }), [settingsCopy]);
 
   if (!hydrated) {
@@ -560,16 +466,13 @@ export function Settings() {
             )}
             {selectedSection === 'security' && <MfaSettings />}
             {selectedSection === 'ai' && (
-              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} workingHoursStart={workingHoursStart} setWorkingHoursStart={setWorkingHoursStart} workingHoursEnd={workingHoursEnd} setWorkingHoursEnd={setWorkingHoursEnd} workingDays={workingDays} setWorkingDays={setWorkingDays} jobTitle={jobTitle} setJobTitle={setJobTitle} department={department} setDepartment={setDepartment} industry={industry} setIndustry={setIndustry} companySize={companySize} setCompanySize={setCompanySize} notificationFrequency={notificationFrequency} setNotificationFrequency={setNotificationFrequency} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
+              <AiSettings loading={aiProfileLoading} saveLoading={aiSaveLoading} dataLoading={aiDataLoading} success={aiSuccess} error={aiError} onClearSuccess={() => setAiSuccess('')} onClearError={() => setAiError('')} smartRepliesEnabled={smartRepliesEnabled} setSmartRepliesEnabled={setSmartRepliesEnabled} summarizationEnabled={summarizationEnabled} setSummarizationEnabled={setSummarizationEnabled} schedulingEnabled={schedulingEnabled} setSchedulingEnabled={setSchedulingEnabled} jobRole={jobRole} setJobRole={setJobRole} communicationStyle={communicationStyle} setCommunicationStyle={setCommunicationStyle} responseLength={responseLength} setResponseLength={setResponseLength} proactivityLevel={proactivityLevel} setProactivityLevel={setProactivityLevel} autoApproveThreshold={autoApproveThreshold} setAutoApproveThreshold={setAutoApproveThreshold} onSave={handleSaveAiProfile} onClearMemory={handleClearAiMemory} onOpenAssistant={() => router.push('/dashboard/ai')} copy={aiCopy} />
             )}
             {selectedSection === 'accounts' && (
               <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={handleProviderInitiated} onProviderConnected={handleProviderConnected} onProviderDeleted={handleProviderDeleted} copy={accountsCopy} />
             )}
             {selectedSection === 'account' && (
               <AccountSettings accountName={accountName} email={user?.email || ''} role={user?.role || ''} language={language} avatarUrl={avatarUrl} avatarUploading={avatarUploading} onAvatarUpload={handleAvatarUpload} onAvatarRemove={handleAvatarRemove} deleteDialogOpen={deleteDialogOpen} deleteConfirmText={deleteConfirmText} deleteLoading={deleteLoading} deleteError={deleteError} onOpenDeleteDialog={() => setDeleteDialogOpen(true)} onCloseDeleteDialog={handleCloseDeleteDialog} onDeleteConfirmTextChange={setDeleteConfirmText} onDeleteAccount={handleDeleteAccount} copy={accountCopy} />
-            )}
-            {selectedSection === 'notifications' && (
-              <NotificationsSettings newEmailNotif={newEmailNotif} setNewEmailNotif={setNewEmailNotif} calendarNotif={calendarNotif} setCalendarNotif={setCalendarNotif} aiActionsNotif={aiActionsNotif} setAiActionsNotif={setAiActionsNotif} saveLoading={notifSaveLoading} onSave={handleSaveNotifications} success={notifSuccess} error={notifError} onClearSuccess={() => setNotifSuccess('')} onClearError={() => setNotifError('')} copy={notifCopy} />
             )}
             {selectedSection === 'billing' && <BillingPanel />}
           </Box>

@@ -1270,6 +1270,7 @@ export interface AppTranslations {
     failedToUpdateEvent: string;
     eventDeleted: string;
     failedToDeleteEvent: string;
+    failedToLoadEventDetails: string;
     validation: {
       titleRequired: string;
       startRequired: string;
@@ -2435,6 +2436,7 @@ export interface AppTranslations {
     badRequest: string;
     processingError: string;
     unknownError: string;
+    invalidCredentials: string;
     setupFailed: string;
     verifyFailed: string;
     disableFailed: string;
@@ -2661,6 +2663,7 @@ export interface AppTranslations {
       autoTriage: string;
       briefings: string;
       rag: string;
+      all: string;
       available: string;
       notAvailable: string;
     };
@@ -2672,6 +2675,16 @@ export interface AppTranslations {
       cancelAtPeriodEnd: string;
       manageBilling: string;
       viewInvoices: string;
+    };
+    tabs: {
+      overview: string;
+      usage: string;
+      plans: string;
+      manage: string;
+    };
+    manage: {
+      billingDescription: string;
+      invoicesDescription: string;
     };
     alerts: {
       quotaWarning: string;
