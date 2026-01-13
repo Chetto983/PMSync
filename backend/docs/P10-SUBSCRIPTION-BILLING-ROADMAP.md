@@ -1176,6 +1176,7 @@ batch: {
 **Files modified:**
 
 - `config/ai.config.ts` - Added ai.batch config section
+- `app.module.ts` - Added `load: [aiConfig]` to ConfigModule.forRoot() (commit `85913a7`)
 - `.env.example` - Added MISTRAL_BATCH_* environment variables
 - `batch-indexing.service.ts` - Uses ConfigService for thresholds
 - `email-triage.service.ts` - Uses ConfigService for thresholds
