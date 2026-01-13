@@ -6,6 +6,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { getConfiguration } from './config/configuration';
 import { validate } from './config/env.validation';
+import aiConfig from './config/ai.config';
 import { pinoLoggerConfig } from './config/logger.config';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ResponseTimeInterceptor } from './common/interceptors/response-time.interceptor';
@@ -37,6 +38,7 @@ const config = getConfiguration();
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env', '../.env', '../../.env'],
+      load: [aiConfig], // P11: Load namespaced AI config (ai.batch.*, ai.mistral.*, etc.)
       validate, // Validate environment variables at startup
     }),
     // Pino Logger - Structured logging con rotazione FIFO 2 giorni
