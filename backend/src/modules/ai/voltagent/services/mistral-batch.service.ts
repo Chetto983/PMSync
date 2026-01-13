@@ -21,6 +21,7 @@
  */
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Mistral } from '@mistralai/mistralai';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 
@@ -69,11 +70,25 @@ export interface BatchResponse {
   error?: string;
 }
 
+// P11: Tracked job with result handler
+interface TrackedBatchJob {
+  jobId: string;
+  tenantId: string;
+  type: 'embeddings' | 'sentiment' | 'summarize' | 'custom';
+  status: BatchJobStatus;
+  createdAt: Date;
+  completedAt?: Date;
+  onComplete?: (results: BatchResponse[]) => Promise<void>;
+}
+
 @Injectable()
 export class MistralBatchService {
   private readonly logger = new Logger(MistralBatchService.name);
   private client: Mistral | null = null;
   private readonly enabled: boolean;
+
+  // P11: Track pending jobs for cron polling
+  private readonly pendingJobs: Map<string, TrackedBatchJob> = new Map();
 
   constructor(
     @Optional() private readonly configService?: ConfigService,
@@ -88,6 +103,81 @@ export class MistralBatchService {
     } else {
       this.logger.warn('Mistral Batch API disabled - no API key');
     }
+  }
+
+  /**
+   * P11: Poll pending batch jobs every 5 minutes
+   * Checks status and processes completed jobs
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async pollPendingJobs(): Promise<void> {
+    if (!this.enabled || this.pendingJobs.size === 0) return;
+
+    this.logger.debug(`Polling ${this.pendingJobs.size} pending batch jobs...`);
+
+    for (const [jobId, job] of this.pendingJobs) {
+      if (job.status !== 'QUEUED' && job.status !== 'RUNNING') continue;
+
+      try {
+        const status = await this.getJobStatus(jobId);
+        if (!status) continue;
+
+        job.status = status.status;
+
+        if (status.status === 'SUCCESS') {
+          job.completedAt = new Date();
+          this.logger.log(`Batch job ${jobId} completed (${job.type})`);
+
+          // Process results if handler provided
+          if (job.onComplete) {
+            const results = await this.getJobResults(jobId);
+            await job.onComplete(results);
+            this.logger.log(`Processed ${results.length} results for job ${jobId}`);
+          }
+        } else if (status.status === 'FAILED' || status.status === 'CANCELLED') {
+          job.completedAt = new Date();
+          this.logger.error(`Batch job ${jobId} ${status.status}`);
+        }
+      } catch (error) {
+        this.logger.error(`Error polling job ${jobId}: ${error}`);
+      }
+    }
+
+    // Cleanup old completed jobs (> 1 hour)
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    for (const [jobId, job] of this.pendingJobs) {
+      if (job.completedAt && job.completedAt.getTime() < oneHourAgo) {
+        this.pendingJobs.delete(jobId);
+      }
+    }
+  }
+
+  /**
+   * P11: Track a job for polling with optional completion handler
+   */
+  trackJob(
+    jobId: string,
+    tenantId: string,
+    type: TrackedBatchJob['type'],
+    onComplete?: (results: BatchResponse[]) => Promise<void>,
+  ): void {
+    this.pendingJobs.set(jobId, {
+      jobId,
+      tenantId,
+      type,
+      status: 'QUEUED',
+      createdAt: new Date(),
+      onComplete,
+    });
+  }
+
+  /**
+   * P11: Get count of pending jobs
+   */
+  getPendingJobCount(): number {
+    return Array.from(this.pendingJobs.values()).filter(
+      (j) => j.status === 'QUEUED' || j.status === 'RUNNING',
+    ).length;
   }
 
   /**

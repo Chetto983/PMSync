@@ -1069,8 +1069,8 @@ Mistral Batch API offers **50% discount** on all models for non-real-time operat
 
 | Component | File | Status | Has Polling? |
 |-----------|------|--------|--------------|
-| **MistralBatchService** | `voltagent/services/mistral-batch.service.ts` | ✅ COMPLETE | ❌ No |
-| **MistralBatchProvider** | `services/embedding/mistral-batch.provider.ts` | ✅ COMPLETE | ❌ No |
+| **MistralBatchService** | `voltagent/services/mistral-batch.service.ts` | ✅ COMPLETE | ✅ @Cron(EVERY_5_MINUTES) |
+| **MistralBatchProvider** | `services/embedding/mistral-batch.provider.ts` | ✅ COMPLETE | N/A (low-level) |
 | **BatchIndexingService** | `services/batch-indexing.service.ts` | ✅ COMPLETE | ✅ @Cron(EVERY_5_MINUTES) |
 
 **KEY DISCOVERY**: `BatchIndexingService` already has:
@@ -1082,59 +1082,84 @@ Mistral Batch API offers **50% discount** on all models for non-real-time operat
 - `VoltAgentService` → has `MistralBatchService` injected but **NOT USED**
 - `BatchIndexingService` → uses `MistralBatchProvider` directly **WORKING**
 
-#### Phase 1: Wire Email Embedding Sync (1h) - P0
+#### Phase 1: Wire Email Embedding Sync (1h) - P0 ✅ COMPLETE (2026-01-13)
 
-**Call existing `BatchIndexingService.queueBatchIndexing()` from email sync:**
+**Implemented in `base-email-sync.service.ts`:**
 
 ```typescript
-// File: email-sync.service.ts or folder-sync.service.ts
-// Currently: No batch indexing called
-// P11: Call BatchIndexingService when syncing 100+ emails
+// DONE: Added batch threshold logic to processMessagesBatch()
+// 100+ new non-junk emails → use BatchIndexingService (50% cheaper)
+// <100 emails → use real-time EmailEmbeddingQueueService
 
-if (newEmailIds.length >= 100 && this.batchIndexingService) {
-  await this.batchIndexingService.queueBatchIndexing(tenantId, newEmailIds);
-  this.logger.log(`Queued ${newEmailIds.length} emails for batch indexing`);
+const useBatchIndexing = newEmailIdsForEmbedding.length >= 100;
+if (useBatchIndexing && newEmailIdsForEmbedding.length > 0) {
+  const batchJobId = await this.getBatchIndexingService().queueBatchIndexing(
+    tenantId, newEmailIdsForEmbedding,
+  );
+  // Graceful fallback to real-time queue if batch fails
 }
 ```
 
-**Files to modify:**
-- `email-sync.service.ts` or `folder-sync.service.ts` - Inject BatchIndexingService, call on large syncs
+**Files modified:**
+- `base-email-sync.service.ts` - Added batch threshold logic (100+ emails)
+- `google-sync.service.ts` - Injected BatchIndexingService
+- `microsoft-sync.service.ts` - Injected BatchIndexingService
+- `imap-sync.service.ts` - Injected BatchIndexingService
 
-#### Phase 2: Wire Email Triage to MistralBatchService (2h) - P0
+#### Phase 2: Add Cron Polling to MistralBatchService (1h) - P1 ✅ COMPLETE (2026-01-13)
+
+**Added @Cron polling directly to MistralBatchService:**
+
+```typescript
+// DONE: Added to mistral-batch.service.ts
+private readonly pendingJobs: Map<string, TrackedBatchJob> = new Map();
+
+@Cron(CronExpression.EVERY_5_MINUTES)
+async pollPendingJobs(): Promise<void> {
+  if (!this.enabled || this.pendingJobs.size === 0) return;
+  for (const [jobId, job] of this.pendingJobs) {
+    const status = await this.getJobStatus(jobId);
+    if (status.status === 'SUCCESS' && job.onComplete) {
+      const results = await this.getJobResults(jobId);
+      await job.onComplete(results);
+    }
+  }
+}
+
+trackJob(jobId: string, tenantId: string, type: TrackedBatchJob['type'],
+  onComplete?: (results: BatchResponse[]) => Promise<void>): void;
+
+getPendingJobCount(): number;
+```
+
+**Files modified:**
+
+- `voltagent/services/mistral-batch.service.ts` - Added cron polling + job tracking
+
+#### Phase 3: Wire Email Triage to MistralBatchService (2h) - P0 (FUTURE)
 
 **Use `MistralBatchService.batchSentimentAnalysis()` in email-triage:**
 
 ```typescript
 // File: email-triage.service.ts
 // Currently: Real-time calls via MistralService.completePrompt()
-// P11: Use batch when processing 10+ emails
+// FUTURE: Use batch when processing 10+ emails
 
 if (emails.length >= 10 && this.mistralBatchService?.isEnabled()) {
   const jobId = await this.mistralBatchService.batchSentimentAnalysis(
     tenantId,
     emails.map(e => ({ id: e.id, subject: e.subject, body: e.snippet || '' }))
   );
-  // Results polled via separate cron job (needs Phase 3)
-  return { batchJobId: jobId, count: emails.length };
+  // Results polled via @Cron(EVERY_5_MINUTES)
+  this.mistralBatchService.trackJob(jobId, tenantId, 'sentiment', async (results) => {
+    // Process sentiment results
+  });
 }
 ```
 
 **Files to modify:**
+
 - `email-triage.service.ts` - Import MistralBatchService, add batch path
-- NOTE: MistralBatchService needs polling (unlike BatchIndexingService)
-
-#### Phase 3: Add Polling for MistralBatchService (1h) - P1
-
-**Option A: Reuse BatchIndexingService pattern (copy cron)**
-**Option B: Add cron to MistralBatchService directly**
-
-```typescript
-// Add to MistralBatchService
-@Cron(CronExpression.EVERY_5_MINUTES)
-async pollPendingJobs() {
-  // Similar to BatchIndexingService.pollPendingJobs()
-}
-```
 
 #### Phase 4: Environment Toggle (30min) - P1
 
@@ -1197,22 +1222,38 @@ MISTRAL_BATCH_MIN_SIZE=10           # Min requests to batch
 
 ```text
 ✅ BatchIndexingService - services/batch-indexing.service.ts
-   - queueBatchIndexing(tenantId, emailIds) → ready to call
+   - queueBatchIndexing(tenantId, emailIds) → ✅ WIRED (2026-01-13)
    - @Cron(EVERY_5_MINUTES) pollPendingJobs() → working
    - processCompletedJob() → saves to DB
-   - BUT: Nobody calls queueBatchIndexing()!
+   - Called from: base-email-sync.service.ts (100+ emails)
 
 ✅ MistralBatchService - voltagent/services/mistral-batch.service.ts
    - batchSentimentAnalysis() → ready
    - batchEmbeddings() → ready
    - batchSummarize() → ready
-   - Injected into VoltAgentService but NOT USED
-   - Missing: cron polling (needs Phase 3)
+   - @Cron(EVERY_5_MINUTES) pollPendingJobs() → ✅ ADDED (2026-01-13)
+   - trackJob() + getPendingJobCount() → ✅ ADDED (2026-01-13)
 
 ✅ MistralBatchProvider - services/embedding/mistral-batch.provider.ts
    - Used by BatchIndexingService only
    - Lower-level than MistralBatchService
 ```
+
+### 13.9 P11 COMPLETION STATUS (2026-01-13)
+
+| Phase | Status | Tested |
+|-------|--------|--------|
+| Phase 1: Email Embedding Sync | ✅ COMPLETE | ✅ Real batch job created |
+| Phase 2: MistralBatchService Polling | ✅ COMPLETE | ✅ Sentiment batch job created |
+| Phase 3: Email Triage Wiring | ⏳ FUTURE | - |
+| Phase 4: Environment Toggle | ⏳ FUTURE | - |
+
+**Test Script**: `backend/scripts/test-batch-indexing-wiring.ts`
+
+**Verified with real data:**
+- BatchIndexingService: ✅ Job created with 110 emails
+- MistralBatchService: ✅ Sentiment batch job created
+- All 3 sync services wired: ✅ Google, Microsoft, IMAP
 
 ---
 
