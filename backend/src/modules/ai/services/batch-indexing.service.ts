@@ -36,6 +36,7 @@ export class BatchIndexingService implements OnModuleInit {
   private readonly batchProvider: MistralBatchProvider;
   private readonly pendingJobs: Map<string, BatchIndexingJob> = new Map();
   private readonly enabled: boolean;
+  private readonly embeddingMinSize: number;
 
   constructor(
     private readonly config: ConfigService,
@@ -44,12 +45,16 @@ export class BatchIndexingService implements OnModuleInit {
   ) {
     const apiKey = this.config.get<string>('MISTRAL_API_KEY');
     this.batchProvider = new MistralBatchProvider(apiKey || '');
-    this.enabled = this.config.get<string>('BATCH_INDEXING_ENABLED', 'true') !== 'false';
+    // P11 Phase 4: Use centralized ai.batch config (fallback to legacy env var)
+    this.enabled =
+      this.config.get<boolean>('ai.batch.enabled') ??
+      this.config.get<string>('BATCH_INDEXING_ENABLED', 'true') !== 'false';
+    this.embeddingMinSize = this.config.get<number>('ai.batch.embeddingMinSize') ?? 100;
   }
 
   async onModuleInit() {
     if (!this.enabled) {
-      this.logger.warn('Batch indexing disabled via BATCH_INDEXING_ENABLED=false');
+      this.logger.warn('Batch indexing disabled via MISTRAL_BATCH_ENABLED=false');
       return;
     }
     await this.batchProvider.initialize();
@@ -58,15 +63,18 @@ export class BatchIndexingService implements OnModuleInit {
 
   /**
    * Queue emails for batch indexing
-   * Use when: Initial sync, reindexing, or 100+ emails
+   * Use when: Initial sync, reindexing, or N+ emails (configurable via MISTRAL_BATCH_EMBEDDING_MIN_SIZE)
    */
   async queueBatchIndexing(tenantId: string, emailIds: string[]): Promise<string> {
     if (!this.batchProvider.isReady()) {
       throw new Error('Batch provider not initialized');
     }
 
-    if (emailIds.length < 10) {
-      this.logger.warn('Batch indexing not efficient for <10 emails, use real-time instead');
+    // P11 Phase 4: Use configurable threshold
+    if (emailIds.length < this.embeddingMinSize) {
+      this.logger.warn(
+        `Batch indexing not efficient for <${this.embeddingMinSize} emails, use real-time instead`,
+      );
     }
 
     // Fetch email content
@@ -198,5 +206,15 @@ export class BatchIndexingService implements OnModuleInit {
   getPendingJobsForTenant(tenantId: string): BatchIndexingJob[] {
     return Array.from(this.pendingJobs.values())
       .filter(job => job.tenantId === tenantId);
+  }
+
+  /**
+   * P11 Phase 4: Expose config for testing
+   */
+  getConfig(): { enabled: boolean; embeddingMinSize: number } {
+    return {
+      enabled: this.enabled,
+      embeddingMinSize: this.embeddingMinSize,
+    };
   }
 }

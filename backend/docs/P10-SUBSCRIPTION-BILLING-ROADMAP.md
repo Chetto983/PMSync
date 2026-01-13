@@ -1160,14 +1160,26 @@ if (emailIds.length >= BATCH_TRIAGE_THRESHOLD && this.mistralBatch?.isEnabled())
 
 - `email-triage.service.ts` - Added MistralBatchService injection, processBatchTriage(), processBatchSentimentResults(), mapSentimentToPriority()
 
-#### Phase 4: Environment Toggle (30min) - P1
+#### Phase 4: Environment Toggle (30min) - ✅ COMPLETE (2026-01-13)
 
-**Add to `ai.config.ts`:**
+**Added to `ai.config.ts`:**
 
 ```typescript
-export const BATCH_INDEXING_ENABLED = env.BATCH_INDEXING_ENABLED !== 'false'; // Already exists!
-export const MISTRAL_BATCH_MIN_SIZE = parseInt(env.MISTRAL_BATCH_MIN_SIZE || '10');
+batch: {
+  enabled: process.env.MISTRAL_BATCH_ENABLED !== 'false',
+  embeddingMinSize: parseInt(process.env.MISTRAL_BATCH_EMBEDDING_MIN_SIZE || '100', 10),
+  triageMinSize: parseInt(process.env.MISTRAL_BATCH_TRIAGE_MIN_SIZE || '10', 10),
+  jobRetentionHours: parseInt(process.env.MISTRAL_BATCH_JOB_RETENTION_HOURS || '24', 10),
+}
 ```
+
+**Files modified:**
+
+- `config/ai.config.ts` - Added ai.batch config section
+- `.env.example` - Added MISTRAL_BATCH_* environment variables
+- `batch-indexing.service.ts` - Uses ConfigService for thresholds
+- `email-triage.service.ts` - Uses ConfigService for thresholds
+- `scripts/test-batch-config-integration.ts` - Real integration test (no mocks)
 
 ### 13.4 Cost Impact Estimate
 
@@ -1245,15 +1257,26 @@ MISTRAL_BATCH_MIN_SIZE=10           # Min requests to batch
 | Phase 1: Email Embedding Sync | ✅ COMPLETE | ✅ Real batch job created |
 | Phase 2: MistralBatchService Polling | ✅ COMPLETE | ✅ Sentiment batch job created |
 | Phase 3: Email Triage Wiring | ✅ COMPLETE | ✅ EmailTriageService batch path |
-| Phase 4: Environment Toggle | ⏳ FUTURE | - |
+| Phase 4: Environment Toggle | ✅ COMPLETE | ✅ ConfigService integration test |
 
-**Test Script**: `backend/scripts/test-batch-indexing-wiring.ts`
+**🎉 P11 100% COMPLETE - All Batch API features implemented!**
+
+**Test Scripts**:
+- `backend/scripts/test-batch-indexing-wiring.ts` - Batch wiring test
+- `backend/scripts/test-batch-config-integration.ts` - Config integration test (REAL, no mocks)
 
 **Verified with real data:**
 - BatchIndexingService: ✅ Job created with 110 emails
 - MistralBatchService: ✅ Sentiment batch job created
 - EmailTriageService: ✅ MistralBatchService wired, batch path for 10+ emails
+- ConfigService: ✅ ai.batch config loaded and used by services
 - All 3 sync services wired: ✅ Google, Microsoft, IMAP
+
+**Environment Variables (configurable):**
+- `MISTRAL_BATCH_ENABLED` - Master switch (default: true)
+- `MISTRAL_BATCH_EMBEDDING_MIN_SIZE` - Embedding threshold (default: 100)
+- `MISTRAL_BATCH_TRIAGE_MIN_SIZE` - Triage threshold (default: 10)
+- `MISTRAL_BATCH_JOB_RETENTION_HOURS` - Job cleanup (default: 24)
 
 ---
 

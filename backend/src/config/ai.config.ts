@@ -148,4 +148,20 @@ export default registerAs('ai', () => ({
     /** Cache TTL for query embeddings in seconds */
     queryCacheTTL: parseInt(process.env.AI_QUERY_CACHE_TTL || '3600', 10),
   },
+
+  // ===========================================
+  // P11: Batch API Configuration (50% cost savings)
+  // ===========================================
+  batch: {
+    /** Master switch for batch API operations */
+    enabled: process.env.MISTRAL_BATCH_ENABLED !== 'false',
+    /** Minimum emails to trigger batch embedding (vs real-time) */
+    embeddingMinSize: parseInt(process.env.MISTRAL_BATCH_EMBEDDING_MIN_SIZE || '100', 10),
+    /** Minimum emails to trigger batch triage (vs real-time) */
+    triageMinSize: parseInt(process.env.MISTRAL_BATCH_TRIAGE_MIN_SIZE || '10', 10),
+    /** Poll interval for batch job status (ms) - Note: @Cron uses EVERY_5_MINUTES */
+    pollIntervalMs: parseInt(process.env.MISTRAL_BATCH_POLL_INTERVAL_MS || '300000', 10),
+    /** Maximum batch job age before auto-cleanup (hours) */
+    jobRetentionHours: parseInt(process.env.MISTRAL_BATCH_JOB_RETENTION_HOURS || '24', 10),
+  },
 }));

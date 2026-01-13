@@ -11,6 +11,7 @@
  */
 
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmailInsightsService } from './email-insights.service';
 import { MistralBatchService, BatchResponse } from '../voltagent/services/mistral-batch.service';
@@ -24,8 +25,8 @@ const SKIP_FOLDERS = ['spam', 'junk', 'trash', '[gmail]/spam', '[gmail]/trash'];
 // Prevents 1000 users syncing = 20000 LLM calls storm
 const MAX_CONCURRENT_TRIAGE_OPERATIONS = 5; // Max 5 tenants triaging simultaneously
 
-// P11 Phase 3: Batch sentiment analysis threshold (50% cost savings)
-const BATCH_TRIAGE_THRESHOLD = 10; // Use batch API for 10+ emails
+// P11 Phase 4: Default threshold (overridden by MISTRAL_BATCH_TRIAGE_MIN_SIZE env var)
+const DEFAULT_BATCH_TRIAGE_THRESHOLD = 10;
 
 interface TriageResult {
   emailId: string;
@@ -60,11 +61,21 @@ export class EmailTriageService {
   private static currentOperations = 0;
   private static waitQueue: Array<() => void> = [];
 
+  // P11 Phase 4: Configurable thresholds
+  private readonly batchEnabled: boolean;
+  private readonly batchTriageMinSize: number;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailInsights: EmailInsightsService,
+    @Optional() private readonly configService?: ConfigService,
     @Optional() private readonly mistralBatch?: MistralBatchService, // P11: Batch sentiment
-  ) {}
+  ) {
+    // P11 Phase 4: Load batch config (with fallback defaults)
+    this.batchEnabled = this.configService?.get<boolean>('ai.batch.enabled') ?? true;
+    this.batchTriageMinSize =
+      this.configService?.get<number>('ai.batch.triageMinSize') ?? DEFAULT_BATCH_TRIAGE_THRESHOLD;
+  }
 
   /**
    * SCALE PROTECTION: Acquire semaphore slot before processing
@@ -252,9 +263,14 @@ export class EmailTriageService {
       };
     }
 
-    // P11 Phase 3: Batch path for 10+ emails (50% cost savings)
+    // P11 Phase 3+4: Batch path for N+ emails (50% cost savings)
     // Uses async Mistral Batch API with @Cron(EVERY_5_MINUTES) polling
-    if (emailIds.length >= BATCH_TRIAGE_THRESHOLD && this.mistralBatch?.isEnabled()) {
+    // Threshold configurable via MISTRAL_BATCH_TRIAGE_MIN_SIZE env var (default: 10)
+    if (
+      this.batchEnabled &&
+      emailIds.length >= this.batchTriageMinSize &&
+      this.mistralBatch?.isEnabled()
+    ) {
       return this.processBatchTriage(options.tenantId, emailIds, options);
     }
 
