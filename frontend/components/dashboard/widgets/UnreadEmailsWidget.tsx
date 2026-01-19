@@ -9,10 +9,17 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { BaseWidget } from './BaseWidget';
 import { Typography, List, ListItem, ListItemText } from '@mui/material';
 import { Mail } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export function UnreadEmailsWidget() {
     const t = useTranslations();
+    const router = useRouter();
     const { data, isLoading, error, refetch } = useRecentUnreadEmails({ limit: 5 });
+
+    const getSenderName = (from: { name?: string; email?: string } | string) => {
+        if (typeof from === 'string') return from.split('<')[0].trim() || from;
+        return from?.name || from?.email || '';
+    };
 
     return (
         <BaseWidget
@@ -27,15 +34,27 @@ export function UnreadEmailsWidget() {
             {data && data.emails.length > 0 ? (
                 <List dense disablePadding>
                     {data.emails.map((email) => (
-                        <ListItem key={email.id} disablePadding sx={{ mb: 1 }}>
+                        <ListItem
+                            key={email.id}
+                            disablePadding
+                            sx={{
+                                mb: 1,
+                                cursor: 'pointer',
+                                borderRadius: 1,
+                                '&:hover': { bgcolor: 'action.hover' },
+                                px: 1,
+                                py: 0.5,
+                            }}
+                            onClick={() => router.push(`/dashboard/email?id=${email.id}`)}
+                        >
                             <ListItemText
-                                primary={email.subject || t.dashboard.widgets.unreadEmails.noSubject}
-                                secondary={email.from?.name || email.from?.email}
+                                primary={getSenderName(email.from)}
+                                secondary={email.subject || t.dashboard.widgets.unreadEmails.noSubject}
                                 slotProps={{
                                     primary: {
                                         variant: 'body2',
                                         noWrap: true,
-                                        fontWeight: email.isRead ? 400 : 600,
+                                        fontWeight: 600,
                                     },
                                     secondary: {
                                         variant: 'caption',

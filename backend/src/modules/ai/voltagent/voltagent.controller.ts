@@ -957,6 +957,48 @@ export class VoltAgentController {
   // ==========================================================================
 
   // ==========================================================================
+  // DEADLINE ENDPOINTS (Stub - DeadlineExtractorService removed in AI refactor v2.0)
+  // ==========================================================================
+
+  @Get('deadlines')
+  @ApiOperation({ summary: 'Get upcoming deadlines (stub)' })
+  async getDeadlines(@Query('days') _days?: string) {
+    return { success: true, enabled: false, count: 0, deadlines: [] };
+  }
+
+  @Post('deadlines/extract')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Extract deadlines from text (stub)' })
+  async extractDeadlines(@Body() _body: { text: string; locale?: string }) {
+    return { success: true, enabled: false, count: 0, deadlines: [] };
+  }
+
+  @Post('deadlines/:id/complete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Mark deadline complete (stub)' })
+  async completeDeadline(@Param('id') _id: string) {
+    return { success: true, enabled: false };
+  }
+
+  @Post('deadlines/:id/dismiss')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Dismiss deadline (stub)' })
+  async dismissDeadline(@Param('id') _id: string) {
+    return { success: true, enabled: false };
+  }
+
+  @Get('deadlines/stats')
+  @ApiOperation({ summary: 'Get deadline stats (stub)' })
+  async getDeadlineStats() {
+    return { success: true, enabled: false, total: 0, today: 0, thisWeek: 0, overdue: 0 };
+  }
+
+  @Get('deadlines/queue')
+  @ApiOperation({ summary: 'Get deadline queue stats (stub)' })
+  async getDeadlineQueueStats() {
+    return { success: true, enabled: false, pending: 0, processed: 0 };
+  }
+
   // FOLLOW-UP TRACKING (P0 Critical Feature)
   // ==========================================================================
 

@@ -22,9 +22,11 @@ import {
 } from '@mui/material';
 import { formatDistanceToNow, addHours, startOfTomorrow, nextMonday } from 'date-fns';
 import { Clock, Bell, BellOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export function FollowUpWidget() {
   const t = useTranslations();
+  const router = useRouter();
   const { data, isLoading, error, refetch } = useFollowUps({ limit: 5 });
   const snoozeMutation = useSnoozeFollowUp();
 
@@ -92,7 +94,15 @@ export function FollowUpWidget() {
             <ListItem
               key={followUp.id}
               disablePadding
-              sx={{ mb: 1 }}
+              sx={{
+                mb: 1,
+                cursor: 'pointer',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'action.hover' },
+                px: 1,
+                py: 0.5,
+              }}
+              onClick={() => followUp.emailId && router.push(`/dashboard/email?id=${followUp.emailId}`)}
               secondaryAction={
                 <Tooltip title={snoozeText.title}>
                   <IconButton

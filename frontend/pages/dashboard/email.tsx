@@ -95,6 +95,20 @@ export default function EmailPage() {
     router.push('/dashboard/email/compose');
   }, [router]);
 
+  // Handle ?id= query param from dashboard widgets (open specific email)
+  useEffect(() => {
+    const emailId = router.query.id as string;
+    if (emailId) {
+      if (isDesktop) {
+        setSelectedThreadId(emailId);
+      } else {
+        router.replace(`/dashboard/email/thread/${emailId}`);
+      }
+      // Clear the query param to avoid re-triggering
+      router.replace('/dashboard/email', undefined, { shallow: true });
+    }
+  }, [router.query.id, isDesktop, router]);
+
   // Keyboard shortcut: 'C' to compose new email
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -697,12 +697,14 @@ export function emailTrendsOptions() {
     queryKey: dashboardKeys.emailTrends(),
     queryFn: async (): Promise<{ trends: EmailTrendDataPoint[] }> => {
       try {
-        // Try to fetch from analytics endpoint
-        const response = await apiClient.get('/analytics/emails');
-        if (response.data && Array.isArray(response.data)) {
-          return { trends: response.data };
+        // Try to fetch from voltagent analytics endpoint
+        const response = await apiClient.get('/api/v1/voltagent/analytics/email');
+        // Backend returns { success, analytics } with volumeTrends array
+        const analytics = response.data?.analytics;
+        if (analytics?.volumeTrends && Array.isArray(analytics.volumeTrends)) {
+          return { trends: analytics.volumeTrends };
         }
-        // If endpoint doesn't exist or returns unexpected format, use fallback
+        // If endpoint doesn't return expected format, use fallback
         throw new Error('Analytics endpoint unavailable');
       } catch {
         // Generate mock data from email stats for last 7 days

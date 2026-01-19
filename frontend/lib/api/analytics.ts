@@ -41,11 +41,16 @@ export interface ActivityTimelineResponse {
 export const analyticsApi = {
   /**
    * Get email analytics with historical data
-   * GET /analytics/emails
+   * GET /api/v1/voltagent/analytics/email
    */
   async getEmailAnalytics(): Promise<EmailAnalyticsDataPoint[]> {
-    const response = await apiClient.get('/analytics/emails');
-    return response.data;
+    const response = await apiClient.get('/api/v1/voltagent/analytics/email');
+    // Backend returns { success, analytics } - extract the data array
+    const analytics = response.data?.analytics;
+    if (analytics?.volumeTrends) {
+      return analytics.volumeTrends;
+    }
+    return response.data || [];
   },
 
   /**

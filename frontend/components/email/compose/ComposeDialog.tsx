@@ -16,11 +16,14 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Typography from '@mui/material/Typography';
+import Collapse from '@mui/material/Collapse';
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useDebounce } from 'use-debounce';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useProviders } from '@/hooks/queries/use-providers';
@@ -76,19 +79,18 @@ function formatReplySubject(subject: string | undefined, mode: ComposeMode): str
   return subject.startsWith('Re:') ? subject : `Re: ${subject}`;
 }
 
-function formatQuotedBody(originalEmail: OriginalEmail | undefined, mode: ComposeMode): string {
-  if (!originalEmail?.bodyHtml) return '';
-
+/** Get quote header text (On date, sender wrote:) */
+function getQuoteHeader(originalEmail: OriginalEmail | undefined, mode: ComposeMode): string {
+  if (!originalEmail) return '';
   const date = originalEmail.receivedAt
     ? new Date(originalEmail.receivedAt).toLocaleString()
     : '';
   const from = originalEmail.from?.name || originalEmail.from?.email || '';
 
   if (mode === 'forward') {
-    return `<br><br>---------- Forwarded message ----------<br>From: ${from}<br>Date: ${date}<br><br>${originalEmail.bodyHtml}`;
+    return `---------- Forwarded message ----------\nFrom: ${from}\nDate: ${date}`;
   }
-
-  return `<br><br>On ${date}, ${from} wrote:<br><blockquote>${originalEmail.bodyHtml}</blockquote>`;
+  return `On ${date}, ${from} wrote:`;
 }
 
 // Constants
@@ -164,9 +166,7 @@ export default function ComposeDialog({
 
   const computeInitialBody = (): string => {
     if (initialBody) return initialBody;
-    if (mode !== 'new' && originalEmail) {
-      return formatQuotedBody(originalEmail, mode);
-    }
+    // Don't include quoted content in editor - it's shown separately
     return '';
   };
 
@@ -189,6 +189,11 @@ export default function ComposeDialog({
   const [draftId, setDraftId] = useState<string | undefined>(initialDraftId);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+
+  // Quoted content - rendered separately from editor (like Gmail/Outlook)
+  const [showQuotedContent, setShowQuotedContent] = useState(true);
+  const quotedContent = mode !== 'new' && originalEmail?.bodyHtml ? originalEmail.bodyHtml : '';
+  const quoteHeader = getQuoteHeader(originalEmail, mode);
 
   // Error/success state
   const [error, setError] = useState<string | null>(null);
@@ -362,11 +367,20 @@ export default function ComposeDialog({
     setError(null);
 
     try {
-      // Prepare attachment files
+      // Build full body with quoted content for reply/forward
+      let fullBodyHtml = body;
+      let fullBodyText = '';
+
+      if (quotedContent && (mode === 'reply' || mode === 'replyAll' || mode === 'forward')) {
+        // Combine user's reply with quoted content
+        const quoteHeaderHtml = quoteHeader.split('\n').join('<br>');
+        fullBodyHtml = `${body}<br><br><div style="color:#666;border-left:2px solid #ccc;padding-left:10px;margin-left:0">${quoteHeaderHtml}<br><br>${quotedContent}</div>`;
+      }
+
       // Generate plain text version
       const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = body;
-      const bodyText = tempDiv.innerText || tempDiv.textContent || '';
+      tempDiv.innerHTML = fullBodyHtml;
+      fullBodyText = tempDiv.innerText || tempDiv.textContent || '';
 
       const attachmentFiles = attachments.map((a) => a.file);
 
@@ -379,8 +393,8 @@ export default function ComposeDialog({
         await replyToEmail.mutateAsync({
           emailId: originalEmail.id,
           dto: {
-            bodyHtml: body,
-            bodyText,
+            bodyHtml: fullBodyHtml,
+            bodyText: fullBodyText,
             cc: cc.map((r) => r.email),
             bcc: bcc.map((r) => r.email),
             attachments: attachmentFiles,
@@ -400,8 +414,8 @@ export default function ComposeDialog({
             to: to.map((r) => r.email),
             cc: cc.map((r) => r.email),
             bcc: bcc.map((r) => r.email),
-            bodyHtml: body,
-            bodyText,
+            bodyHtml: fullBodyHtml,
+            bodyText: fullBodyText,
             attachments: attachmentFiles,
             // Signature already appended in editor, prevent backend double-append
             signatureId: null,
@@ -416,7 +430,7 @@ export default function ComposeDialog({
           bcc: bcc.map((r) => r.email),
           subject,
           bodyHtml: body,
-          bodyText,
+          bodyText: fullBodyText,
           attachments: attachmentFiles,
           scheduledAt: scheduledAt?.toISOString(),
           // Signature already appended in editor, prevent backend double-append
@@ -442,7 +456,7 @@ export default function ComposeDialog({
   }, [
     providerId, to, cc, bcc, subject, body, attachments, mode, originalEmail,
     sendEmail, replyToEmail, forwardEmail, deleteDraft, draftId,
-    composer, t, onSent, onClose,
+    composer, t, onSent, onClose, quotedContent, quoteHeader,
   ]);
 
   const handleAttachFromToolbar = useCallback(() => {
@@ -646,17 +660,61 @@ export default function ComposeDialog({
         </Box>
 
         <DialogContent sx={{ flex: 1, p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ flex: 1, p: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Box sx={{ flex: quotedContent ? 'none' : 1, p: 2, display: 'flex', flexDirection: 'column', minHeight: quotedContent ? 150 : '100%' }}>
             <ComposeEditor
               placeholder={t.email.composer.bodyPlaceholder}
               content={body}
               onChange={handleBodyChange}
-              minHeight="100%"
+              minHeight={quotedContent ? '120px' : '100%'}
               onAttach={handleAttachFromToolbar}
               recipients={to.map((r) => r.email)}
               subject={subject}
             />
           </Box>
+
+          {/* Quoted content - rendered separately from editor (like Gmail/Outlook) */}
+          {quotedContent && (
+            <Box sx={{ flex: 1, overflow: 'auto', borderTop: 1, borderColor: 'divider' }}>
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  bgcolor: 'action.hover',
+                  '&:hover': { bgcolor: 'action.selected' },
+                }}
+                onClick={() => setShowQuotedContent((prev) => !prev)}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                  {quoteHeader}
+                </Typography>
+                <IconButton size="small">
+                  {showQuotedContent ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                </IconButton>
+              </Box>
+              <Collapse in={showQuotedContent}>
+                <Box
+                  sx={{
+                    px: 2,
+                    py: 1,
+                    borderLeft: 3,
+                    borderColor: 'primary.main',
+                    ml: 2,
+                    mr: 2,
+                    mb: 2,
+                    bgcolor: 'grey.50',
+                    maxHeight: 300,
+                    overflow: 'auto',
+                    '& img': { maxWidth: '100%', height: 'auto' },
+                    '& table': { maxWidth: '100%', fontSize: '0.875rem' },
+                  }}
+                  dangerouslySetInnerHTML={{ __html: quotedContent }}
+                />
+              </Collapse>
+            </Box>
+          )}
         </DialogContent>
 
         {attachments.length > 0 && (
