@@ -17,6 +17,7 @@ import {
 import { ApiOkResponse, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
+import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
 import {
@@ -29,7 +30,7 @@ import {
 @ApiTags('AI Knowledge Base')
 @ApiBearerAuth()
 @Controller('ai/knowledge-base')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard)
 @UsePipes(
   new ValidationPipe({
     transform: true,
@@ -145,6 +146,7 @@ export class KnowledgeBaseController {
 
   @Post('search')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Search the tenant knowledge base using semantic similarity (RAG memory)',
   })

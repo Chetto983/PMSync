@@ -399,6 +399,66 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Increment a numeric value by a specified integer amount (atomic INCRBY)
+   * Used for billing counters to prevent race conditions
+   */
+  async incrBy(
+    key: string,
+    amount: number,
+    options?: { namespace?: CacheNamespace; ttl?: number },
+  ): Promise<number> {
+    if (!this.isConnected) {
+      return 0;
+    }
+
+    try {
+      const fullKey = this.buildKey(key, options?.namespace);
+      const result = await this.client.incrBy(fullKey, Math.floor(amount));
+
+      // Set TTL if provided (for billing counters that reset monthly)
+      if (options?.ttl) {
+        await this.client.expire(fullKey, options.ttl);
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error(`Cache incrBy error for key ${key}:`, error);
+      this.stats.errors++;
+      return 0;
+    }
+  }
+
+  /**
+   * Increment a numeric value by a specified float amount (atomic INCRBYFLOAT)
+   * Used for cost tracking with decimal precision
+   */
+  async incrByFloat(
+    key: string,
+    amount: number,
+    options?: { namespace?: CacheNamespace; ttl?: number },
+  ): Promise<number> {
+    if (!this.isConnected) {
+      return 0;
+    }
+
+    try {
+      const fullKey = this.buildKey(key, options?.namespace);
+      const result = await this.client.incrByFloat(fullKey, amount);
+
+      // Set TTL if provided (for billing counters that reset monthly)
+      if (options?.ttl) {
+        await this.client.expire(fullKey, options.ttl);
+      }
+
+      return parseFloat(result);
+    } catch (error) {
+      this.logger.error(`Cache incrByFloat error for key ${key}:`, error);
+      this.stats.errors++;
+      return 0;
+    }
+  }
+
+  /**
    * Decrement a numeric value
    */
   async decr(key: string, options?: { namespace?: CacheNamespace }): Promise<number> {

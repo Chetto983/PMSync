@@ -24,6 +24,8 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Mistral } from '@mistralai/mistralai';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
+import { CostProtectionService } from '../../../subscription/services/cost-protection.service';
+import { UsageTrackingService } from '../../../subscription/services/usage-tracking.service';
 
 export type BatchEndpoint =
   | '/v1/chat/completions'
@@ -93,6 +95,8 @@ export class MistralBatchService {
   constructor(
     @Optional() private readonly configService?: ConfigService,
     @Optional() private readonly cacheService?: CacheService,
+    @Optional() private readonly costProtectionService?: CostProtectionService,
+    @Optional() private readonly usageTrackingService?: UsageTrackingService,
   ) {
     const apiKey = this.configService?.get<string>('MISTRAL_API_KEY') || process.env.MISTRAL_API_KEY;
     this.enabled = !!apiKey;
@@ -127,6 +131,13 @@ export class MistralBatchService {
         if (status.status === 'SUCCESS') {
           job.completedAt = new Date();
           this.logger.log(`Batch job ${jobId} completed (${job.type})`);
+
+          // P10: Track usage on successful completion (batch is 50% cheaper)
+          if (this.usageTrackingService && status.completedRequests > 0) {
+            await this.usageTrackingService.trackUsage(job.tenantId, 'ai-calls', status.completedRequests).catch((err: Error) => {
+              this.logger.warn(`[tenant:${job.tenantId}] Failed to track batch usage: ${err.message}`);
+            });
+          }
 
           // Process results if handler provided
           if (job.onComplete) {
@@ -183,11 +194,38 @@ export class MistralBatchService {
   /**
    * Create a batch job for bulk processing.
    * Returns job ID for tracking.
+   *
+   * P10: Includes quota and cost cap validation before submitting batch.
+   * Batch API operations count toward usage quotas at 50% cost (batch discount).
    */
   async createBatchJob(config: BatchJobConfig): Promise<string | null> {
     if (!this.client || !this.enabled) {
       this.logger.warn('Mistral Batch API not available');
       return null;
+    }
+
+    // P10: Pre-validate cost cap BEFORE submitting batch (prevents bankruptcy)
+    if (this.costProtectionService) {
+      // Estimate cost based on endpoint type (batch is 50% cheaper)
+      const operationType = config.endpoint === '/v1/embeddings' ? 'embedding' : 'smartReply';
+      const estimatedCost = this.costProtectionService.estimateCost(operationType, config.requests.length) * 0.5;
+
+      const costCheck = await this.costProtectionService.canProceed(config.tenantId, operationType);
+      if (!costCheck.allowed) {
+        this.logger.warn(
+          `[tenant:${config.tenantId}] Batch job blocked by cost cap: ${costCheck.reason} (estimated: $${estimatedCost.toFixed(4)})`,
+        );
+        return null;
+      }
+    }
+
+    // P10: Check subscription quota before batch submission
+    if (this.usageTrackingService) {
+      const canProceed = await this.usageTrackingService.checkQuota(config.tenantId, 'ai-calls');
+      if (!canProceed) {
+        this.logger.warn(`[tenant:${config.tenantId}] Batch job blocked by quota limit`);
+        return null;
+      }
     }
 
     try {

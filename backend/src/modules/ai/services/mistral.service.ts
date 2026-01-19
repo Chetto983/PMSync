@@ -18,6 +18,7 @@ import { PromptGuardService } from '../guards/prompt-guard.service';
 import { getAiCircuitBreaker, withRetry, embeddingRateLimiter } from '../utils';
 import { AiError, AiErrorCode } from '../errors';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
+import { CostProtectionService } from '../../subscription/services/cost-protection.service';
 
 type ConversationMessage = {
   role: 'assistant' | 'user';
@@ -40,6 +41,7 @@ export class MistralService {
     private promptGuard: PromptGuardService,
     @Optional() private queryEmbeddingCache?: QueryEmbeddingCacheService,
     @Optional() private usageTrackingService?: UsageTrackingService,
+    @Optional() private costProtectionService?: CostProtectionService,
   ) {
     // Configure rate limiting from env (defaults: 3 concurrent)
     this.maxConcurrentEmbeddings = parseInt(
@@ -174,6 +176,18 @@ export class MistralService {
       if (!canProceed) {
         this.logger.warn(`[tenant:${tenantId}] AI quota exceeded - subscription limit reached`);
         throw new AiError('Monthly AI call limit reached. Please upgrade your plan.', AiErrorCode.QUOTA_EXCEEDED, {
+          retryable: false,
+          context: { tenantId },
+        });
+      }
+    }
+
+    // P10: Check cost cap BEFORE making API call (prevents spending before validation)
+    if (tenantId && this.costProtectionService) {
+      const costCheck = await this.costProtectionService.canProceed(tenantId, 'smartReply');
+      if (!costCheck.allowed) {
+        this.logger.warn(`[tenant:${tenantId}] Cost cap reached: ${costCheck.reason}`);
+        throw new AiError(costCheck.reason || 'Daily cost limit reached', AiErrorCode.QUOTA_EXCEEDED, {
           retryable: false,
           context: { tenantId },
         });
@@ -421,6 +435,18 @@ export class MistralService {
   ): Promise<number[]> {
     const tenantId = telemetryContext?.tenantId;
 
+    // P10: Check cost cap BEFORE making embedding API call
+    if (tenantId && this.costProtectionService) {
+      const costCheck = await this.costProtectionService.canProceed(tenantId, 'embedding');
+      if (!costCheck.allowed) {
+        this.logger.warn(`[tenant:${tenantId}] Embedding cost cap reached: ${costCheck.reason}`);
+        throw new AiError(costCheck.reason || 'Daily cost limit reached', AiErrorCode.QUOTA_EXCEEDED, {
+          retryable: false,
+          context: { tenantId },
+        });
+      }
+    }
+
     // Check cache first (HIGH IMPACT for scale) - GDPR: requires tenantId
     if (this.queryEmbeddingCache && tenantId) {
       const cached = await this.queryEmbeddingCache.getCachedEmbedding(tenantId, text);
@@ -598,6 +624,15 @@ export class MistralService {
       if (!canProceed) {
         this.logger.warn(`[tenant:${tenantId}] AI quota exceeded - subscription limit reached`);
         return 'Monthly AI call limit reached. Please upgrade your plan.';
+      }
+    }
+
+    // P10: Check cost cap BEFORE making RAG + LLM call (prevents spending before validation)
+    if (tenantId && this.costProtectionService) {
+      const costCheck = await this.costProtectionService.canProceed(tenantId, 'smartReply');
+      if (!costCheck.allowed) {
+        this.logger.warn(`[tenant:${tenantId}] Cost cap reached: ${costCheck.reason}`);
+        return costCheck.reason || 'Daily cost limit reached. Please upgrade your plan.';
       }
     }
 

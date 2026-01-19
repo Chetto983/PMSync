@@ -20,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../modules/auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
+import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { MistralService } from '../services/mistral.service';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { EmailInsightsService } from '../services/email-insights.service';
@@ -57,7 +58,7 @@ import {
 @ApiTags('AI')
 @ApiBearerAuth()
 @Controller('ai')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class AiController {
   private readonly logger = new Logger(AiController.name);
@@ -73,6 +74,7 @@ export class AiController {
    */
   @Post('chat')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Chat completion',
     description: 'Send a message and receive an AI-generated response using Mistral',
@@ -99,6 +101,7 @@ export class AiController {
    */
   @Post('compose')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'AI-assisted email composition',
     description: 'Generate a ready-to-send email draft from a prompt, with optional tone and context',
@@ -125,6 +128,7 @@ export class AiController {
    */
   @Post('summarize/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Summarize email',
     description: 'Generate an AI-powered summary of a specific email',
@@ -151,6 +155,7 @@ export class AiController {
    */
   @Post('smart-reply/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Generate smart replies',
     description: 'Generate AI-powered reply suggestions for a specific email',
@@ -178,6 +183,7 @@ export class AiController {
    */
   @Post('categorize/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Categorize email',
     description: 'Generate AI-powered label suggestions for a specific email',
@@ -204,6 +210,7 @@ export class AiController {
    */
   @Post('memory/search')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Search knowledge base',
     description: 'Search the tenant knowledge base using semantic similarity (RAG)',
@@ -241,6 +248,7 @@ export class AiController {
    */
   @Post('sentiment/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Analyze email sentiment',
     description: 'Deep sentiment analysis with emotion detection, aspect-based analysis, and churn risk prediction',
@@ -277,6 +285,7 @@ export class AiController {
    */
   @Post('priority/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Calculate email priority',
     description: 'Multi-factor priority scoring based on urgency, importance, and sender context',
@@ -305,6 +314,7 @@ export class AiController {
    */
   @Post('analyze/:emailId')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Comprehensive email analysis',
     description: 'Full analysis including sentiment, tone, urgency, intent, priority, and escalation risk',

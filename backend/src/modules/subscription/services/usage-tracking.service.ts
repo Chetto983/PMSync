@@ -111,19 +111,15 @@ export class UsageTrackingService {
   }
 
   /**
-   * Track daily cost for cost protection
+   * Track daily cost for cost protection (atomic INCRBYFLOAT)
+   * Prevents race conditions when multiple API calls track costs concurrently
    */
   async trackDailyCost(tenantId: string, cost: number): Promise<number> {
     const today = new Date().toISOString().split('T')[0];
     const key = this.buildKey(tenantId, `cost:${today}`);
 
-    const currentCost = (await this.cache.get<number>(key)) || 0;
-    const newCost = currentCost + cost;
-
-    // 24-hour TTL for daily costs
-    await this.cache.set(key, newCost, { ttl: 86400 });
-
-    return newCost;
+    // Use atomic INCRBYFLOAT for precise cost tracking
+    return this.cache.incrByFloat(key, cost, { ttl: 86400 }); // 24-hour TTL
   }
 
   /**
@@ -192,7 +188,7 @@ export class UsageTrackingService {
   // ==========================================================================
 
   /**
-   * Track per-feature usage for analytics
+   * Track per-feature usage for analytics (atomic INCRBY)
    */
   async trackFeatureUsage(
     tenantId: string,
@@ -202,8 +198,8 @@ export class UsageTrackingService {
     const today = new Date().toISOString().split('T')[0];
     const key = this.buildKey(tenantId, `feature:${feature}:${today}`);
 
-    const current = (await this.cache.get<number>(key)) || 0;
-    await this.cache.set(key, current + count, { ttl: 86400 * 7 }); // 7-day retention
+    // Use atomic INCRBY for concurrent-safe tracking
+    await this.cache.incrBy(key, count, { ttl: 86400 * 7 }); // 7-day retention
   }
 
   /**
@@ -260,15 +256,12 @@ export class UsageTrackingService {
   }
 
   /**
-   * Increment a counter atomically
+   * Increment a counter atomically using Redis INCRBY
+   * Prevents race conditions in concurrent billing operations
    */
   private async incrementCounter(key: string, amount: number): Promise<number> {
-    // Note: Using incr for atomic increment
-    // For multi-increment, we use get + set (not perfectly atomic but acceptable for usage tracking)
-    const current = (await this.cache.get<number>(key)) || 0;
-    const newValue = current + amount;
-    await this.cache.set(key, newValue, { ttl: 86400 * 35 }); // 35-day retention
-    return newValue;
+    // Use atomic INCRBY to prevent race conditions
+    return this.cache.incrBy(key, amount, { ttl: 86400 * 35 }); // 35-day retention
   }
 
   /**

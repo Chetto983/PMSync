@@ -6,6 +6,7 @@ import { AiError, AiErrorCode } from '../../errors';
 import { IEmbeddingProvider, EmbeddingProviderType, EmbeddingHealthStatus } from './embedding-provider.types';
 import { MistralEmbeddingProvider } from './mistral-embedding.provider';
 import { UsageTrackingService } from '../../../subscription/services/usage-tracking.service';
+import { CostProtectionService } from '../../../subscription/services/cost-protection.service';
 
 /**
  * Unified Embedding Provider Service
@@ -52,6 +53,7 @@ export class EmbeddingProviderService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly queryEmbeddingCache: QueryEmbeddingCacheService,
     @Optional() private readonly usageTrackingService?: UsageTrackingService,
+    @Optional() private readonly costProtectionService?: CostProtectionService,
   ) {
     this.providerType = this.configService.get<EmbeddingProviderType>('AI_EMBEDDING_PROVIDER', 'mistral');
     this.embeddingModel = this.configService.get<string>('AI_EMBEDDING_MODEL', 'mistral-embed');
@@ -141,6 +143,18 @@ export class EmbeddingProviderService implements OnModuleInit {
       }
     }
 
+    // P10: Check cost cap BEFORE making embedding API call
+    if (tenantId && this.costProtectionService) {
+      const costCheck = await this.costProtectionService.canProceed(tenantId, 'embedding');
+      if (!costCheck.allowed) {
+        this.logger.warn(`Embedding cost cap reached for tenant=${tenantId}: ${costCheck.reason}`);
+        throw new AiError(costCheck.reason || 'Daily cost limit reached', AiErrorCode.QUOTA_EXCEEDED, {
+          retryable: false,
+          context: { tenantId },
+        });
+      }
+    }
+
     // Generate new embedding with resilience
     const embedding = await this.generateWithResilience(text);
 
@@ -179,6 +193,18 @@ export class EmbeddingProviderService implements OnModuleInit {
       if (!canProceed) {
         this.logger.warn(`Bulk embedding quota exceeded for tenant=${tenantId}, texts=${texts.length}`);
         throw new AiError('Monthly AI call limit reached. Please upgrade your plan.', AiErrorCode.QUOTA_EXCEEDED, {
+          retryable: false,
+          context: { tenantId, bulkCount: texts.length },
+        });
+      }
+    }
+
+    // P10: Check cost cap BEFORE making bulk embedding API call
+    if (tenantId && this.costProtectionService) {
+      const costCheck = await this.costProtectionService.canProceed(tenantId, 'embedding');
+      if (!costCheck.allowed) {
+        this.logger.warn(`Bulk embedding cost cap reached for tenant=${tenantId}: ${costCheck.reason}`);
+        throw new AiError(costCheck.reason || 'Daily cost limit reached', AiErrorCode.QUOTA_EXCEEDED, {
           retryable: false,
           context: { tenantId, bulkCount: texts.length },
         });

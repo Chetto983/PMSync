@@ -1,9 +1,11 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralBatchProvider } from './embedding/mistral-batch.provider';
 import { EmbeddingsService } from './embeddings.service';
+import { CostProtectionService } from '../../subscription/services/cost-protection.service';
+import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 import { nanoid } from 'nanoid';
 
 interface BatchIndexingJob {
@@ -42,6 +44,8 @@ export class BatchIndexingService implements OnModuleInit {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly embeddingsService: EmbeddingsService,
+    @Optional() private readonly costProtectionService?: CostProtectionService,
+    @Optional() private readonly usageTrackingService?: UsageTrackingService,
   ) {
     const apiKey = this.config.get<string>('MISTRAL_API_KEY');
     this.batchProvider = new MistralBatchProvider(apiKey || '');
@@ -64,10 +68,32 @@ export class BatchIndexingService implements OnModuleInit {
   /**
    * Queue emails for batch indexing
    * Use when: Initial sync, reindexing, or N+ emails (configurable via MISTRAL_BATCH_EMBEDDING_MIN_SIZE)
+   *
+   * P10: Includes quota and cost cap validation before submitting batch
    */
   async queueBatchIndexing(tenantId: string, emailIds: string[]): Promise<string> {
     if (!this.batchProvider.isReady()) {
       throw new Error('Batch provider not initialized');
+    }
+
+    // P10: Pre-validate cost cap BEFORE batch indexing (prevents bankruptcy)
+    if (this.costProtectionService) {
+      const costCheck = await this.costProtectionService.canProceed(tenantId, 'embedding');
+      if (!costCheck.allowed) {
+        this.logger.warn(
+          `[tenant:${tenantId}] Batch indexing blocked by cost cap: ${costCheck.reason}`,
+        );
+        throw new Error(costCheck.reason || 'Daily cost limit reached');
+      }
+    }
+
+    // P10: Check subscription quota before batch submission
+    if (this.usageTrackingService) {
+      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
+      if (!canProceed) {
+        this.logger.warn(`[tenant:${tenantId}] Batch indexing blocked by quota limit`);
+        throw new Error('Monthly AI call limit reached. Please upgrade your plan.');
+      }
     }
 
     // P11 Phase 4: Use configurable threshold
@@ -138,6 +164,14 @@ export class BatchIndexingService implements OnModuleInit {
         if (status.status === 'SUCCESS') {
           await this.processCompletedJob(job);
           job.completedAt = new Date();
+
+          // P10: Track usage on successful completion
+          if (this.usageTrackingService && job.emailIds.length > 0) {
+            await this.usageTrackingService.trackUsage(job.tenantId, 'ai-calls', job.emailIds.length).catch((err: Error) => {
+              this.logger.warn(`[tenant:${job.tenantId}] Failed to track batch indexing usage: ${err.message}`);
+            });
+          }
+
           this.logger.log(`Batch job ${job.batchJobId} completed successfully`);
         } else if (status.status === 'FAILED') {
           this.logger.error(`Batch job ${job.batchJobId} failed`);

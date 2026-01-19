@@ -25,6 +25,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiParam } from '@nestjs
 import { IsString, IsOptional, IsBoolean, IsNumber, IsIn, IsObject } from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../auth/guards/tenant.guard';
+import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { VoltAgentService, type ChatOptions } from './voltagent.service';
 // FeedbackService removed - AI refactor v2.0
 import { HitlService } from './services/hitl.service';
@@ -119,7 +120,7 @@ class SubmitActionDto {
 
 @ApiTags('VoltAgent')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, QuotaGuard)
 @Controller('api/v1/voltagent')
 export class VoltAgentController {
   private readonly logger = new Logger(VoltAgentController.name);
@@ -150,6 +151,7 @@ export class VoltAgentController {
    */
   @Post('chat')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({ summary: 'Send a chat message to VoltAgent' })
   @ApiBody({ type: ChatRequestDto })
   async chat(@Req() req: AuthenticatedRequest, @Body() body: ChatRequestDto) {
@@ -514,6 +516,7 @@ export class VoltAgentController {
    * Supports client abort via connection close.
    */
   @Post('chat/stream')
+  @RequiresQuota('ai')
   @ApiOperation({ summary: 'Stream chat response via SSE' })
   @ApiBody({ type: ChatRequestDto })
   async streamChat(
@@ -650,6 +653,7 @@ export class VoltAgentController {
    * Returns cached briefing if available, generates on-demand if not.
    */
   @Get('briefing')
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Get enhanced daily briefing',
     description: `Returns a comprehensive daily briefing aggregating all AI Secretary data:
@@ -1230,6 +1234,7 @@ export class VoltAgentController {
    */
   @Post('analytics/ai')
   @HttpCode(HttpStatus.OK)
+  @RequiresQuota('ai')
   @ApiOperation({
     summary: 'Run AI-powered analytics',
     description: `Execute AI-powered analytics using Mistral's code_interpreter tool.
