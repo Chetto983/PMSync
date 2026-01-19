@@ -6,7 +6,7 @@ import {
     MEMORY_DEDUCTION_PROMPT,
     MEMORY_SEARCH_PROMPT,
     inferMemoryType,
-} from './memory-prompts';
+} from '../prompts';
 import { MemoryType } from '@prisma/client';
 
 interface FactExtractionResult {

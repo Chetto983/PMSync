@@ -508,6 +508,20 @@ export class VoltAgentController {
     };
   }
 
+  /**
+   * Clear agent cache (forces prompt reload).
+   * Use after updating agent prompts to apply changes immediately.
+   */
+  @Post('cache/clear-agents')
+  @ApiOperation({ summary: 'Clear agent cache (reload prompts)' })
+  async clearAgentCache() {
+    this.voltAgentService.clearAgentCache();
+    return {
+      success: true,
+      message: 'Agent cache cleared. New prompts will be loaded on next request.',
+    };
+  }
+
   // ============ SSE Streaming Endpoint ============
 
   /**
