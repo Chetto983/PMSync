@@ -9,6 +9,7 @@ import { CalendarModule } from '../../calendar/calendar.module';
 import { EmailModule } from '../../email/email.module';
 import { EmailSyncModule } from '../../email-sync/email-sync.module';
 import { RealtimeModule } from '../../realtime/realtime.module';
+import { SubscriptionModule } from '../../subscription/subscription.module';
 
 // Controllers
 import { VoltAgentController } from './voltagent.controller';
@@ -59,6 +60,7 @@ import { LearningService } from './services/learning.service';
     forwardRef(() => EmailModule),
     forwardRef(() => CalendarModule),
     forwardRef(() => EmailSyncModule),
+    forwardRef(() => SubscriptionModule),
   ],
   controllers: [VoltAgentController, DocumentLibraryController],
   providers: [
