@@ -853,14 +853,14 @@ export const voltAgentApi = {
   },
 
   deleteMemory(memoryId: string) {
-    return apiClient.post<{ success: boolean }>(
-      `/api/v1/voltagent/memory/${encodeURIComponent(memoryId)}/delete`,
+    return apiClient.delete<{ success: boolean }>(
+      `/api/v1/voltagent/memory/${encodeURIComponent(memoryId)}`,
     );
   },
 
   deleteAllMemories() {
-    return apiClient.post<{ success: boolean; deletedCount: number }>(
-      '/api/v1/voltagent/memory/delete-all',
+    return apiClient.delete<{ success: boolean; deletedCount: number }>(
+      '/api/v1/voltagent/memory',
     );
   },
 
