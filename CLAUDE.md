@@ -16,7 +16,7 @@
 
 **ABSOLUTE RULES**:
 1. ALL operations MUST be concurrent/parallel in a single message
-2. **NEVER save working files, text/mds and tests to the root folder**
+2. **NEVER save working files, text/mds and tests to the root folder create a docs folder if not exist**
 3. ALWAYS organize files in appropriate subdirectories
 4. **USE CLAUDE CODE'S TASK TOOL** for spawning agents concurrently, not just MCP
 

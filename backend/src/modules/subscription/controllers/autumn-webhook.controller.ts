@@ -18,8 +18,10 @@ import {
   BadRequestException,
   RawBodyRequest,
   Req,
+  Optional,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
+import { randomUUID } from 'crypto';
 import {
   ApiTags,
   ApiExcludeEndpoint,
@@ -27,21 +29,11 @@ import {
 import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { SubscriptionService } from '../services/subscription.service';
+import { WebhookRetryService, AutumnEventType } from '../services/webhook-retry.service';
 import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 
-/**
- * Autumn webhook event types
- */
-type AutumnEventType =
-  | 'customer.subscription.created'
-  | 'customer.subscription.updated'
-  | 'customer.subscription.deleted'
-  | 'customer.subscription.paused'
-  | 'customer.subscription.resumed'
-  | 'invoice.payment_succeeded'
-  | 'invoice.payment_failed';
-
 interface AutumnWebhookEvent {
+  id?: string; // Event ID for idempotency
   type: AutumnEventType;
   data: {
     customer_id: string;
@@ -63,6 +55,7 @@ export class AutumnWebhookController {
   constructor(
     private readonly config: ConfigService,
     private readonly subscriptionService: SubscriptionService,
+    @Optional() private readonly webhookRetryService?: WebhookRetryService,
   ) {
     this.webhookSecret = this.config.get<string>('AUTUMN_WEBHOOK_SECRET') || '';
   }
@@ -81,14 +74,34 @@ export class AutumnWebhookController {
       throw new BadRequestException('Invalid signature');
     }
 
-    this.logger.log(`Received Autumn webhook: ${event.type}`);
+    const eventId = event.id || randomUUID();
+    this.logger.log(`Received Autumn webhook: ${event.type} (${eventId})`);
 
     try {
       await this.processEvent(event);
       return { received: true };
     } catch (error) {
-      this.logger.error(`Webhook processing failed: ${error}`);
-      throw error;
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Webhook processing failed: ${msg}`);
+
+      // Enqueue for retry if service available (don't throw - return success to Autumn)
+      if (this.webhookRetryService) {
+        try {
+          await this.webhookRetryService.enqueue({
+            eventId,
+            eventType: event.type,
+            tenantId: event.data.customer_id,
+            data: event.data,
+            receivedAt: new Date().toISOString(),
+          });
+          this.logger.log(`Webhook ${eventId} enqueued for retry`);
+          return { received: true }; // Acknowledge to prevent Autumn retries
+        } catch (queueError) {
+          this.logger.error(`Failed to enqueue webhook for retry: ${queueError}`);
+        }
+      }
+
+      throw error; // Re-throw if no retry service or queue failed
     }
   }
 

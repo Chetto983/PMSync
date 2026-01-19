@@ -10,10 +10,11 @@
  * @see backend/docs/P10-SUBSCRIPTION-BILLING-ROADMAP.md Part 6
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsageTrackingService, OPERATION_COSTS } from './usage-tracking.service';
 import { SubscriptionService } from './subscription.service';
+import { BillingAlertService } from './billing-alert.service';
 import { SubscriptionPlan } from '@prisma/client';
 
 /**
@@ -43,20 +44,17 @@ export class CostProtectionService {
   private readonly alertThreshold: number;
   private readonly criticalThreshold: number;
   private readonly globalDailyCap: number;
-  private readonly globalMonthlyCap: number;
-  private readonly alertEmail: string;
 
   constructor(
     private readonly config: ConfigService,
     private readonly usageTracking: UsageTrackingService,
     private readonly subscriptionService: SubscriptionService,
+    @Optional() private readonly billingAlertService?: BillingAlertService,
   ) {
     // Load configuration
     this.alertThreshold = this.config.get<number>('AI_COST_ALERT_THRESHOLD') || 0.8;
     this.criticalThreshold = 0.95;
     this.globalDailyCap = this.config.get<number>('AI_DAILY_COST_CAP') || 50.0;
-    this.globalMonthlyCap = this.config.get<number>('AI_MONTHLY_COST_CAP') || 1500.0;
-    this.alertEmail = this.config.get<string>('AI_COST_ALERT_EMAIL') || '';
   }
 
   // ==========================================================================
@@ -150,21 +148,22 @@ export class CostProtectionService {
   }
 
   /**
-   * Send cost alert
+   * Send cost alert via BillingAlertService
    */
   private async sendAlert(
     tenantId: string,
     level: 'warning' | 'critical' | 'blocked',
     status: CostProtectionStatus,
   ): Promise<void> {
+    // Use BillingAlertService if available (handles cooldown + email)
+    if (this.billingAlertService) {
+      await this.billingAlertService.sendAlertIfNeeded(tenantId, level, status);
+      return;
+    }
+
+    // Fallback: just log if BillingAlertService not injected
     const message = this.formatAlertMessage(tenantId, level, status);
     this.logger.warn(message);
-
-    // TODO: Implement actual alerting (email, Slack, PagerDuty)
-    // For now, just log
-    if (this.alertEmail) {
-      // await this.emailService.sendCostAlert(this.alertEmail, tenantId, level, status);
-    }
   }
 
   /**
