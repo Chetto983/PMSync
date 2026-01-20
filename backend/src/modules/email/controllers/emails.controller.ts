@@ -38,6 +38,7 @@ import { AttachmentOnDemandService } from '../services/attachment-on-demand.serv
 import { EmailSignatureService } from '../services/email-signature.service';
 import {
   ReplyForwardEmailRequestDto,
+  ForwardEmailRequestDto,
   SendEmailRequestDto,
   type EmailAttachmentDto,
 } from '../dto/send-email.dto';
@@ -837,7 +838,7 @@ export class EmailsController {
   async forwardEmail(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body() body: ReplyForwardEmailRequestDto,
+    @Body() body: ForwardEmailRequestDto,
   ) {
     const tenantId = req.user.tenantId;
     const userId = req.user.id;

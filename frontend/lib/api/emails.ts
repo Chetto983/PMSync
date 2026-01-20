@@ -196,8 +196,6 @@ export interface ForwardEmailDto {
   to: string[];
   cc?: string[];
   bcc?: string[];
-  bodyHtml?: string;
-  bodyText?: string;
   attachments?: File[];
   /** Signature ID to append. Pass null to prevent backend from appending default signature. */
   signatureId?: string | null;
@@ -444,9 +442,8 @@ export const emailsApi = {
       to: dto.to,
       cc: dto.cc,
       bcc: dto.bcc,
-      bodyHtml: dto.bodyHtml,
-      bodyText: dto.bodyText,
       attachments: attachments.length > 0 ? attachments : undefined,
+      signatureId: dto.signatureId,
     };
 
     const response = await apiClient.post(`/emails/${emailId}/forward`, payload);

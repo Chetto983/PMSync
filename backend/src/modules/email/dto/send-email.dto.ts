@@ -106,4 +106,40 @@ export class ReplyForwardEmailRequestDto extends BaseComposeEmailDto {
   signatureId?: string | null;
 }
 
+/**
+ * DTO for forwarding emails - doesn't require subject/body since those are generated
+ * from the original email by the service.
+ */
+export class ForwardEmailRequestDto {
+  @IsArray()
+  @IsEmail({}, { each: true, message: 'Invalid email address in "to" field' })
+  @ArrayMaxSize(50, { message: 'Maximum 50 recipients in "to" field' })
+  to!: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true, message: 'Invalid email address in "cc" field' })
+  @ArrayMaxSize(50, { message: 'Maximum 50 recipients in "cc" field' })
+  cc?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true, message: 'Invalid email address in "bcc" field' })
+  @ArrayMaxSize(50, { message: 'Maximum 50 recipients in "bcc" field' })
+  bcc?: string[];
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => EmailAttachmentDto)
+  attachments?: EmailAttachmentDto[];
+
+  /**
+   * Signature ID to append. If not provided, uses default signature for provider.
+   * Pass explicitly null to send without signature.
+   */
+  @IsOptional()
+  @IsString()
+  signatureId?: string | null;
+}
+
 export type { EmailAttachmentDto };
