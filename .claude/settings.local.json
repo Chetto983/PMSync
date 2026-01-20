@@ -193,7 +193,8 @@
       "mcp__playwright__browser_click",
       "mcp__playwright__browser_wait_for",
       "Bash(for dir in \"d:\\\\MailAgent\\\\frontend\\\\components\"/*/)",
-      "Bash(LOG_LEVEL=warn npx ts-node:*)"
+      "Bash(LOG_LEVEL=warn npx ts-node:*)",
+      "Bash(del \"C:\\\\Users\\\\Davide\\\\.claude\\\\plans\\\\sequential-plotting-frog.md\")"
     ],
     "deny": []
   }
