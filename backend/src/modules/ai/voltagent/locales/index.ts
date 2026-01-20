@@ -413,6 +413,72 @@ export interface BriefingTranslations {
 }
 
 /**
+ * HTTP and validation error translations
+ */
+export interface ErrorTranslations {
+  http: {
+    forbidden: {
+      admin: string;
+      crossTenant: string;
+    };
+    notFound: {
+      library: string;
+      document: string;
+      file: string;
+      email: string;
+      contact: string;
+    };
+    badRequest: {
+      noFile: string;
+      unsupportedFileType: (mimeType: string, supported: string) => string;
+      fileTooLarge: (limitMb: number) => string;
+      invalidInput: string;
+    };
+  };
+  validation: {
+    embedding: {
+      notArray: string;
+      empty: string;
+      tooLarge: (max: number) => string;
+      invalidValue: (index: number) => string;
+    };
+  };
+  ai: {
+    quotaExceeded: string;
+    costLimitDaily: string;
+    costLimitMonthly: string;
+    agentFailed: string;
+    providerNotConfigured: string;
+    approvalNotInitialized: string;
+  };
+  subscription: {
+    canceled: string;
+    pastDue: string;
+    featureNotAvailable: (feature: string) => string;
+    emailQuotaExceeded: (limit: number) => string;
+  };
+}
+
+/**
+ * Router intent patterns for model routing service (multilingual support)
+ * Patterns are strings that will be converted to RegExp at runtime
+ */
+export interface RouterPatternsTranslations {
+  /** WRITE operations → ActionsAgent (destructive/mutating operations requiring HITL) */
+  writeOps: string[];
+  /** READ operations → IntelligenceAgent (search, list, analyze - non-destructive) */
+  readOps: string[];
+  /** Simple queries → handled directly by Supervisor (greetings, basic questions) */
+  simple: string[];
+  /** Complexity: simple patterns */
+  complexitySimple: string[];
+  /** Complexity: moderate patterns */
+  complexityModerate: string[];
+  /** Complexity: complex patterns */
+  complexityComplex: string[];
+}
+
+/**
  * Complete translation structure for VoltAgent
  */
 export interface VoltAgentTranslations {
@@ -424,6 +490,8 @@ export interface VoltAgentTranslations {
   deadline: DeadlineKeywordsTranslations;
   followUp: FollowUpTranslations;
   briefing: BriefingTranslations;
+  errors: ErrorTranslations;
+  router: RouterPatternsTranslations;
 }
 
 /**
@@ -502,6 +570,43 @@ export function formatDateForLocale(date: Date, locale: SupportedLocale): string
  */
 export function getDeadlineKeywords(locale: SupportedLocale): DeadlineKeywordsTranslations {
   return (locales[locale] || locales.en).deadline;
+}
+
+/**
+ * Get error translations for a specific locale
+ */
+export function getErrorTranslations(locale: SupportedLocale): ErrorTranslations {
+  return (locales[locale] || locales.en).errors;
+}
+
+/**
+ * Get router patterns for a specific locale (combined with English fallback)
+ * Returns merged patterns from both locale and English for maximum coverage
+ */
+export function getRouterPatterns(locale: SupportedLocale): RouterPatternsTranslations {
+  const localePatterns = (locales[locale] || locales.en).router;
+  const enPatterns = locales.en.router;
+
+  // Merge locale-specific patterns with English for comprehensive coverage
+  if (locale === 'en') {
+    return localePatterns;
+  }
+
+  return {
+    writeOps: [...enPatterns.writeOps, ...localePatterns.writeOps],
+    readOps: [...enPatterns.readOps, ...localePatterns.readOps],
+    simple: [...enPatterns.simple, ...localePatterns.simple],
+    complexitySimple: [...enPatterns.complexitySimple, ...localePatterns.complexitySimple],
+    complexityModerate: [...enPatterns.complexityModerate, ...localePatterns.complexityModerate],
+    complexityComplex: [...enPatterns.complexityComplex, ...localePatterns.complexityComplex],
+  };
+}
+
+/**
+ * Convert string patterns to RegExp array
+ */
+export function patternsToRegex(patterns: string[]): RegExp[] {
+  return patterns.map((p) => new RegExp(p, 'i'));
 }
 
 // Legacy export for backward compatibility with action-executor.service.ts

@@ -264,4 +264,116 @@ export const it: VoltAgentTranslations = {
       unavailable: 'Dati calendario non disponibili.',
     },
   },
+  // Router patterns for intent classification (Italian)
+  router: {
+    // WRITE operations → ActionsAgent
+    writeOps: [
+      'scriv[aio]|invia|manda|spedisci', // write/send
+      'rispondi|inoltra', // reply/forward
+      'elimina|cancella|rimuovi|cestina|archivia|annulla', // delete/archive/cancel
+      'crea|aggiungi|nuov[ao]', // create/add/new
+      'modifica|aggiorna|cambia|rinomina', // update/edit
+      'sposta|segna|contrassegna', // move/mark
+      'fissa|pianifica|programma|metti|metter[eò]', // schedule/put (metti riunione = schedule meeting)
+    ],
+    // READ operations → IntelligenceAgent
+    readOps: [
+      'cerca|trova|mostra|elenca|leggi|vedi', // search/find/show/read
+      'posta|casella|messaggi?|non lett[aio]', // mail/inbox/messages/unread
+      'calendario|riunion[ei]|appuntament[oi]|event[oi]|disponibilità', // calendar/meeting/event
+      'contatt[oi]|indirizzo|telefono|chi è|persona', // contact/address/phone/who is
+      'analizza|riassumi|priorità', // analyze/summarize/priority
+      'quant[ei]|conteggio', // how many/count
+    ],
+    // Simple queries → Supervisor direct response
+    simple: [
+      '^(ciao|salve|buongiorno|buonasera|grazie)\\b',
+      "^(cos'?[eè]|cosa (è|sono)|quali? (è|sono))",
+      '^come (si fa|faccio|posso)',
+      '^traduci',
+      '^definisci',
+    ],
+    // Complexity: simple
+    complexitySimple: [
+      '^(ciao|salve|grazie|ok|sì|no)\\b',
+      "^(cos'?[eè]|cosa|quali?)",
+      '^riassumi',
+      '^(elenca|mostra|trova) (le? mie?|tutt[ei]|gli?)',
+      'email non lett[eio]',
+      'controlla (il )?calendario',
+      'segna (come )?(lett[ao]|non lett[ao])',
+      '^quant[ei]',
+      '^quando',
+    ],
+    // Complexity: moderate
+    complexityModerate: [
+      'scriv[aio]|manda|invia|spedisci', // write/send email
+      'rispondi|inoltra', // reply/forward
+      'bozza|componi', // draft/compose
+      'analizza|analisi',
+      'confronta',
+      'spiega|spiegazione',
+      'suggerisci|raccomanda|consiglia',
+      'pianifica|ripianifica|fissa',
+      'organizza|categorizza',
+      'traduci|traduzione',
+      'priorità',
+    ],
+    // Complexity: complex
+    complexityComplex: [
+      'crea (un[ao]? )?(dettagliat[ao]|complet[ao])',
+      'passo[- ]?per[- ]?passo',
+      'implementa|implementazione',
+      'piano|pianificazione',
+      'strategia|strategic[ao]',
+      'codice|programmazione',
+      'integra|integrazione',
+      'automatizza|automazione',
+      'flusso di lavoro',
+    ],
+  },
+  errors: {
+    http: {
+      forbidden: {
+        admin: 'Privilegi di amministratore richiesti per questa operazione.',
+        crossTenant: 'Non hai accesso a questa risorsa.',
+      },
+      notFound: {
+        library: 'Libreria non trovata.',
+        document: 'Documento non trovato.',
+        file: 'File non trovato.',
+        email: 'Email non trovata.',
+        contact: 'Contatto non trovato.',
+      },
+      badRequest: {
+        noFile: 'Nessun file fornito.',
+        unsupportedFileType: (mimeType, supported) =>
+          `Tipo di file non supportato: ${mimeType}. Tipi supportati: ${supported}`,
+        fileTooLarge: (limitMb) => `Il file supera il limite di ${limitMb}MB.`,
+        invalidInput: 'Input non valido.',
+      },
+    },
+    validation: {
+      embedding: {
+        notArray: "L'embedding deve essere un array.",
+        empty: "L'array di embedding non può essere vuoto.",
+        tooLarge: (max) => `L'array di embedding supera la dimensione massima (${max}).`,
+        invalidValue: (index) => `L'embedding contiene un valore non valido all'indice ${index}.`,
+      },
+    },
+    ai: {
+      quotaExceeded: 'Limite mensile di chiamate AI raggiunto. Aggiorna il tuo piano.',
+      costLimitDaily: 'Limite giornaliero di costo AI raggiunto. Il limite si resetta a mezzanotte.',
+      costLimitMonthly: 'Limite mensile di costo AI raggiunto. Aggiorna il tuo piano.',
+      agentFailed: "L'agente non è riuscito a generare una risposta. Riprova.",
+      providerNotConfigured: 'Provider AI non configurato.',
+      approvalNotInitialized: 'Workflow di approvazione non inizializzato.',
+    },
+    subscription: {
+      canceled: 'Il tuo abbonamento è stato cancellato. Riattivalo per continuare.',
+      pastDue: 'Il tuo pagamento è in ritardo. Aggiorna il metodo di pagamento.',
+      featureNotAvailable: (feature) => `Questa funzionalità richiede un piano superiore. Aggiorna per accedere a ${feature}.`,
+      emailQuotaExceeded: (limit) => `Hai raggiunto il limite mensile di ${limit} email. Aggiorna per maggiore capacità.`,
+    },
+  },
 };

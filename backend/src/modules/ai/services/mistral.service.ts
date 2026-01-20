@@ -169,18 +169,10 @@ export class MistralService {
     // Validate inputs before processing (includes security check)
     this.validatePromptInputs(userPrompt, systemPrompt);
 
-    // P10: Check subscription quota if tenantId is available (prevents overage)
+    // P10: Quota enforcement via QuotaGuard at controller level
+    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
+    // CostProtectionService.canProceed() below handles subscription-aware quota enforcement
     const tenantId = _telemetryContext?.tenantId;
-    if (tenantId && this.usageTrackingService) {
-      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
-      if (!canProceed) {
-        this.logger.warn(`[tenant:${tenantId}] AI quota exceeded - subscription limit reached`);
-        throw new AiError('Monthly AI call limit reached. Please upgrade your plan.', AiErrorCode.QUOTA_EXCEEDED, {
-          retryable: false,
-          context: { tenantId },
-        });
-      }
-    }
 
     // P10: Check cost cap BEFORE making API call (prevents spending before validation)
     if (tenantId && this.costProtectionService) {
@@ -618,14 +610,9 @@ export class MistralService {
       return fallbackResponse;
     }
 
-    // P10: Check subscription quota BEFORE expensive RAG + LLM call
-    if (tenantId && this.usageTrackingService) {
-      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
-      if (!canProceed) {
-        this.logger.warn(`[tenant:${tenantId}] AI quota exceeded - subscription limit reached`);
-        return 'Monthly AI call limit reached. Please upgrade your plan.';
-      }
-    }
+    // P10: Quota enforcement via QuotaGuard at controller level
+    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
+    // CostProtectionService.canProceed() below handles subscription-aware quota enforcement
 
     // P10: Check cost cap BEFORE making RAG + LLM call (prevents spending before validation)
     if (tenantId && this.costProtectionService) {

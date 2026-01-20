@@ -27,7 +27,8 @@ import { Reflector } from '@nestjs/core';
 import { SubscriptionService } from '../services/subscription.service';
 import { UsageTrackingService } from '../services/usage-tracking.service';
 import { CostProtectionService } from '../services/cost-protection.service';
-import { SubscriptionStatus } from '@prisma/client';
+import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
+import { getErrorTranslations, type SupportedLocale } from '../../ai/voltagent/locales';
 
 /**
  * Quota type metadata key
@@ -71,6 +72,9 @@ export class QuotaGuard implements CanActivate {
     }
 
     const tenantId = user.tenantId;
+    // Get locale from request header or default to 'en'
+    const locale: SupportedLocale = (request.headers?.['accept-language']?.startsWith('it') ? 'it' : 'en');
+    const t = getErrorTranslations(locale);
 
     // Get subscription
     const subscription = await this.subscriptionService.getOrCreateSubscription(
@@ -81,14 +85,14 @@ export class QuotaGuard implements CanActivate {
     if (subscription.status === SubscriptionStatus.CANCELED) {
       throw new ForbiddenException({
         code: 'SUBSCRIPTION_CANCELED',
-        message: 'Your subscription has been canceled. Please reactivate to continue.',
+        message: t.subscription?.canceled || 'Your subscription has been canceled. Please reactivate to continue.',
       });
     }
 
     if (subscription.status === SubscriptionStatus.PAST_DUE) {
       throw new ForbiddenException({
         code: 'PAYMENT_PAST_DUE',
-        message: 'Your payment is past due. Please update your payment method.',
+        message: t.subscription?.pastDue || 'Your payment is past due. Please update your payment method.',
       });
     }
 
@@ -107,7 +111,8 @@ export class QuotaGuard implements CanActivate {
       if (!hasFeature) {
         throw new ForbiddenException({
           code: 'FEATURE_NOT_AVAILABLE',
-          message: `This feature requires a higher plan. Please upgrade to access ${requiredFeature}.`,
+          message: t.subscription?.featureNotAvailable?.(requiredFeature) ||
+            `This feature requires a higher plan. Please upgrade to access ${requiredFeature}.`,
           feature: requiredFeature,
           currentPlan: subscription.plan,
         });
@@ -121,17 +126,18 @@ export class QuotaGuard implements CanActivate {
     );
 
     if (quotaType) {
-      await this.checkQuota(tenantId, quotaType, subscription);
+      await this.checkQuota(tenantId, quotaType, subscription, locale);
     }
 
     // Check cost protection (for AI operations)
-    if (quotaType === 'ai') {
+    // ENTERPRISE plans have no cost cap (dailyCap = null), so skip this check
+    if (quotaType === 'ai' && subscription.plan !== SubscriptionPlan.ENTERPRISE) {
       const costStatus = await this.costProtection.getStatus(tenantId);
 
-      if (costStatus.isBlocked) {
+      if (costStatus.isBlocked && costStatus.dailyCap !== null) {
         throw new ForbiddenException({
           code: 'DAILY_COST_LIMIT_REACHED',
-          message: `You've reached your daily AI budget of $${costStatus.dailyCap?.toFixed(2)}. Upgrade for more capacity or wait until tomorrow.`,
+          message: t.ai.costLimitDaily,
           dailyCost: costStatus.dailyCost,
           dailyCap: costStatus.dailyCap,
         });
@@ -143,13 +149,22 @@ export class QuotaGuard implements CanActivate {
 
   /**
    * Check specific quota type
+   * ENTERPRISE plans have unlimited quota (limit = -1), so check is skipped
    */
   private async checkQuota(
     tenantId: string,
     type: 'email' | 'ai',
     subscription: { monthlyEmailLimit: number; monthlyAICallLimit: number },
+    locale: SupportedLocale,
   ): Promise<void> {
+    const t = getErrorTranslations(locale);
+
     if (type === 'email') {
+      // ENTERPRISE: unlimited (-1) - skip check
+      if (subscription.monthlyEmailLimit === -1) {
+        return;
+      }
+
       const hasQuota = await this.usageTracking.checkEmailQuota(
         tenantId,
         subscription.monthlyEmailLimit,
@@ -158,13 +173,19 @@ export class QuotaGuard implements CanActivate {
       if (!hasQuota) {
         throw new ForbiddenException({
           code: 'EMAIL_QUOTA_EXCEEDED',
-          message: `You've reached your monthly email limit of ${subscription.monthlyEmailLimit}. Upgrade for more capacity.`,
+          message: t.subscription?.emailQuotaExceeded?.(subscription.monthlyEmailLimit) ||
+            `You've reached your monthly email limit. Upgrade for more capacity.`,
           limit: subscription.monthlyEmailLimit,
         });
       }
     }
 
     if (type === 'ai') {
+      // ENTERPRISE: unlimited (-1) - skip check
+      if (subscription.monthlyAICallLimit === -1) {
+        return;
+      }
+
       const hasQuota = await this.usageTracking.checkAIQuota(
         tenantId,
         subscription.monthlyAICallLimit,
@@ -173,7 +194,7 @@ export class QuotaGuard implements CanActivate {
       if (!hasQuota) {
         throw new ForbiddenException({
           code: 'AI_QUOTA_EXCEEDED',
-          message: `You've reached your monthly AI call limit of ${subscription.monthlyAICallLimit}. Upgrade for more capacity.`,
+          message: t.ai.quotaExceeded,
           limit: subscription.monthlyAICallLimit,
         });
       }

@@ -87,14 +87,8 @@ export class BatchIndexingService implements OnModuleInit {
       }
     }
 
-    // P10: Check subscription quota before batch submission
-    if (this.usageTrackingService) {
-      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
-      if (!canProceed) {
-        this.logger.warn(`[tenant:${tenantId}] Batch indexing blocked by quota limit`);
-        throw new Error('Monthly AI call limit reached. Please upgrade your plan.');
-      }
-    }
+    // P10: Quota enforcement via CostProtectionService.canProceed() above
+    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
 
     // P11 Phase 4: Use configurable threshold
     if (emailIds.length < this.embeddingMinSize) {

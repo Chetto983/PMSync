@@ -131,17 +131,9 @@ export class EmbeddingProviderService implements OnModuleInit {
       this.logger.warn('Embedding cache SKIPPED - no tenantId (GDPR requirement)');
     }
 
-    // P10: Check subscription quota BEFORE API call (prevents overage)
-    if (tenantId && this.usageTrackingService) {
-      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
-      if (!canProceed) {
-        this.logger.warn(`Embedding quota exceeded for tenant=${tenantId}`);
-        throw new AiError('Monthly AI call limit reached. Please upgrade your plan.', AiErrorCode.QUOTA_EXCEEDED, {
-          retryable: false,
-          context: { tenantId },
-        });
-      }
-    }
+    // P10: Quota enforcement via QuotaGuard at controller level
+    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
+    // CostProtectionService.canProceed() below handles subscription-aware quota enforcement
 
     // P10: Check cost cap BEFORE making embedding API call
     if (tenantId && this.costProtectionService) {
@@ -186,18 +178,9 @@ export class EmbeddingProviderService implements OnModuleInit {
       return [];
     }
 
-    // P10: Check subscription quota BEFORE API call (prevents overage)
-    // Count = number of texts being embedded
-    if (tenantId && this.usageTrackingService) {
-      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
-      if (!canProceed) {
-        this.logger.warn(`Bulk embedding quota exceeded for tenant=${tenantId}, texts=${texts.length}`);
-        throw new AiError('Monthly AI call limit reached. Please upgrade your plan.', AiErrorCode.QUOTA_EXCEEDED, {
-          retryable: false,
-          context: { tenantId, bulkCount: texts.length },
-        });
-      }
-    }
+    // P10: Quota enforcement via QuotaGuard at controller level
+    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
+    // CostProtectionService.canProceed() below handles subscription-aware quota enforcement
 
     // P10: Check cost cap BEFORE making bulk embedding API call
     if (tenantId && this.costProtectionService) {

@@ -20,6 +20,7 @@ import { TenantGuard } from '../../../modules/auth/guards/tenant.guard';
 import { QuotaGuard, RequiresQuota } from '../../subscription/guards/quota.guard';
 import { AuthenticatedRequest } from '../../../common/types/request.types';
 import { KnowledgeBaseService, type KnowledgeBaseSearchHit } from '../services/knowledge-base.service';
+import { getErrorTranslations } from '../voltagent/locales';
 import {
   BackfillEmailsDto,
   ListEmbeddingsQueryDto,
@@ -169,7 +170,8 @@ export class KnowledgeBaseController {
 
   private ensureAdmin(role: string) {
     if (role !== 'admin' && role !== 'super-admin') {
-      throw new ForbiddenException('Administrator privileges required for this operation.');
+      const t = getErrorTranslations('en');
+      throw new ForbiddenException(t.http.forbidden.admin);
     }
   }
 
@@ -179,7 +181,8 @@ export class KnowledgeBaseController {
     }
 
     if (req.user.role !== 'super-admin') {
-      throw new ForbiddenException('Cross-tenant operations require super-admin privileges.');
+      const t = getErrorTranslations('en');
+      throw new ForbiddenException(t.http.forbidden.crossTenant);
     }
 
     return requestedTenantId;

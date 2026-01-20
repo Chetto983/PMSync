@@ -20,9 +20,11 @@ import { createContactsTools } from '../tools/contacts.tools';
 import { createCalendarTools } from '../tools/calendar.tools';
 
 /**
- * Tool names that ActionsAgent uses (WRITE operations only)
+ * Tool names that ActionsAgent uses (WRITE operations + supporting READ tools)
  */
 const ACTIONS_TOOLS = [
+  // Email read operations (REQUIRED for getting providerId before send)
+  'list_emails', // Needed for mode="accounts" to find providerId
   // Email write operations
   'manage_email',
   'bulk_email_actions',

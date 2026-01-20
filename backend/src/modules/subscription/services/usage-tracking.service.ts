@@ -300,23 +300,23 @@ export class UsageTrackingService {
   // ==========================================================================
 
   /**
-   * Check if tenant can make AI call (uses FREE tier limit as baseline)
-   * For services that don't have subscription context loaded.
-   * This is a safety net - proper quota enforcement happens at subscription level.
+   * @deprecated Use CostProtectionService.canProceed() instead for subscription-aware checks.
    *
-   * @param tenantId - Tenant ID
-   * @param featureType - Feature type for context (currently unused, for future routing)
-   * @returns true if under FREE tier limit, false otherwise
+   * This method previously used hardcoded FREE tier limits as a safety net,
+   * but this incorrectly blocked ENTERPRISE users with unlimited plans.
+   *
+   * Proper quota enforcement happens via:
+   * - CostProtectionService.canProceed() - daily cost caps per plan
+   * - QuotaGuard - HTTP endpoint protection with @RequiresQuota()
+   *
+   * @param _tenantId - Tenant ID (unused)
+   * @param _featureType - Feature type (unused)
+   * @returns Always true - actual enforcement via CostProtectionService
    */
-  async checkQuota(tenantId: string, featureType: 'ai-calls' | 'email-processing'): Promise<boolean> {
-    // Use FREE tier limit as baseline safety check
-    // Actual per-plan limits are enforced via SubscriptionService
-    const freeTierLimit = featureType === 'ai-calls' ? 50 : 100;
-
-    if (featureType === 'ai-calls') {
-      return this.checkAIQuota(tenantId, freeTierLimit);
-    }
-    return this.checkEmailQuota(tenantId, freeTierLimit);
+  async checkQuota(_tenantId: string, _featureType: 'ai-calls' | 'email-processing'): Promise<boolean> {
+    // DEPRECATED: Always return true - proper enforcement via CostProtectionService.canProceed()
+    // which correctly handles ENTERPRISE plans with unlimited quota (dailyCap = null)
+    return true;
   }
 
   /**

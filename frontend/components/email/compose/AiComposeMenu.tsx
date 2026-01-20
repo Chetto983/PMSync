@@ -24,7 +24,8 @@ import {
     Business as ProfessionalIcon,
     Create as DraftIcon,
     Psychology as StyleIcon,
-    EmojiEmotions as CasualIcon
+    EmojiEmotions as CasualIcon,
+    Check as CheckIcon
 } from '@mui/icons-material';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -39,11 +40,13 @@ export type AiActionType =
     | 'summarize'
     | 'translate';
 
+export type ToneType = 'professional' | 'friendly' | 'casual' | null;
+
 export type AiComposeMenuProps = {
     anchorEl: HTMLElement | null;
     open: boolean;
     onClose: () => void;
-    onCompose: (prompt: string, actionType: AiActionType) => Promise<void>;
+    onCompose: (prompt: string, actionType: AiActionType, tone?: ToneType) => Promise<void>;
     isLoading: boolean;
     hasSelection: boolean; // Context: are we refining selection or drafting new?
 };
@@ -58,12 +61,20 @@ export default function AiComposeMenu({
 }: AiComposeMenuProps) {
     const t = useTranslations();
     const [customPrompt, setCustomPrompt] = useState('');
+    const [selectedTone, setSelectedTone] = useState<ToneType>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Focus input on open
     useEffect(() => {
         if (open) {
             setTimeout(() => inputRef.current?.focus(), 100);
+        }
+    }, [open]);
+
+    // Reset tone when menu closes
+    useEffect(() => {
+        if (!open) {
+            setSelectedTone(null);
         }
     }, [open]);
 
@@ -77,8 +88,14 @@ export default function AiComposeMenu({
 
     const handleCustomSubmit = () => {
         if (!customPrompt.trim()) return;
-        onCompose(customPrompt, 'custom');
+        onCompose(customPrompt, 'custom', selectedTone);
         setCustomPrompt('');
+        setSelectedTone(null);
+    };
+
+    // Tone selection only sets state - doesn't trigger generation
+    const handleToneSelect = (tone: ToneType) => {
+        setSelectedTone(prev => prev === tone ? null : tone); // Toggle if same
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -248,18 +265,39 @@ export default function AiComposeMenu({
                                 {t.email.composer.aiMenu.toneSection}
                             </Typography>
 
-                            {/* Tone options for new drafts */}
-                            <ListItemButton onClick={() => handleQuickAction('tone_professional', t.email.composer.aiMenu.toneProfessional)}>
-                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><ProfessionalIcon fontSize="small" /></ListItemIcon>
+                            {/* Tone options - selection only, no generation */}
+                            <ListItemButton
+                                onClick={() => handleToneSelect('professional')}
+                                selected={selectedTone === 'professional'}
+                                sx={{ bgcolor: selectedTone === 'professional' ? 'action.selected' : undefined }}
+                            >
+                                <ListItemIcon sx={{ minWidth: 36, color: selectedTone === 'professional' ? 'primary.main' : 'text.secondary' }}>
+                                    <ProfessionalIcon fontSize="small" />
+                                </ListItemIcon>
                                 <ListItemText primary={t.email.composer.aiMenu.toneProfessional} />
+                                {selectedTone === 'professional' && <CheckIcon fontSize="small" color="primary" />}
                             </ListItemButton>
-                            <ListItemButton onClick={() => handleQuickAction('tone_friendly', t.email.composer.aiMenu.toneFriendly)}>
-                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><FriendlyIcon fontSize="small" /></ListItemIcon>
+                            <ListItemButton
+                                onClick={() => handleToneSelect('friendly')}
+                                selected={selectedTone === 'friendly'}
+                                sx={{ bgcolor: selectedTone === 'friendly' ? 'action.selected' : undefined }}
+                            >
+                                <ListItemIcon sx={{ minWidth: 36, color: selectedTone === 'friendly' ? 'primary.main' : 'text.secondary' }}>
+                                    <FriendlyIcon fontSize="small" />
+                                </ListItemIcon>
                                 <ListItemText primary={t.email.composer.aiMenu.toneFriendly} />
+                                {selectedTone === 'friendly' && <CheckIcon fontSize="small" color="primary" />}
                             </ListItemButton>
-                            <ListItemButton onClick={() => handleQuickAction('custom', t.email.composer.aiMenu.toneCasual)}>
-                                <ListItemIcon sx={{ minWidth: 36, color: 'text.secondary' }}><CasualIcon fontSize="small" /></ListItemIcon>
+                            <ListItemButton
+                                onClick={() => handleToneSelect('casual')}
+                                selected={selectedTone === 'casual'}
+                                sx={{ bgcolor: selectedTone === 'casual' ? 'action.selected' : undefined }}
+                            >
+                                <ListItemIcon sx={{ minWidth: 36, color: selectedTone === 'casual' ? 'primary.main' : 'text.secondary' }}>
+                                    <CasualIcon fontSize="small" />
+                                </ListItemIcon>
                                 <ListItemText primary={t.email.composer.aiMenu.toneCasual} />
+                                {selectedTone === 'casual' && <CheckIcon fontSize="small" color="primary" />}
                             </ListItemButton>
 
                             <Divider sx={{ my: 1 }} />

@@ -388,23 +388,9 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
     // Get translations for this locale
     const t = getTranslations(locale);
 
-    // P10: Check subscription quota before AI call (prevents overage)
-    if (this.usageTrackingService) {
-      const canProceed = await this.usageTrackingService.checkQuota(tenantId, 'ai-calls');
-      if (!canProceed) {
-        this.logger.warn(`[tenant:${tenantId}] AI quota exceeded for daily briefing - returning fallback`);
-        return {
-          userId,
-          tenantId,
-          generatedAt: new Date().toISOString(),
-          validUntil: new Date(Date.now() + 3600000).toISOString(), // 1 hour
-          summary: t.briefing.quotaExceeded,
-          highlights: [],
-          urgent: [],
-          stats: { totalUnread: 0, newToday: 0, requiresResponse: 0 },
-        };
-      }
-    }
+    // P10: Quota enforcement via QuotaGuard at controller level
+    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
+    // The @RequiresQuota('ai') decorator on the controller handles subscription-aware enforcement
 
     // Get user's email stats
     const stats = await this.getEmailStats(tenantId, userId);

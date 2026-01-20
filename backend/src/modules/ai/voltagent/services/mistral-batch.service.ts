@@ -219,14 +219,8 @@ export class MistralBatchService {
       }
     }
 
-    // P10: Check subscription quota before batch submission
-    if (this.usageTrackingService) {
-      const canProceed = await this.usageTrackingService.checkQuota(config.tenantId, 'ai-calls');
-      if (!canProceed) {
-        this.logger.warn(`[tenant:${config.tenantId}] Batch job blocked by quota limit`);
-        return null;
-      }
-    }
+    // P10: Quota enforcement via CostProtectionService.canProceed() above
+    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
 
     try {
       // Convert requests to JSONL format

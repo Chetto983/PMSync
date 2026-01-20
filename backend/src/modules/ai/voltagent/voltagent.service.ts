@@ -42,7 +42,7 @@ import { MistralBatchService } from './services/mistral-batch.service';
 import { AgentAction, AgentActionType, ActionSeverity } from './interfaces/agent-action.interface';
 import { AgentContext } from './interfaces/agent-context.interface';
 import { type ConnectedProvider } from './agents';
-import { getLocale, getTranslations, type SupportedLocale } from './locales';
+import { getLocale, getTranslations, getErrorTranslations, type SupportedLocale } from './locales';
 import { DocumentLibraryService } from './services/document-library.service';
 import { PromptGuardService, PiiDetectionService } from '../guards';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
@@ -761,17 +761,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 0d. P10: Check subscription quota before AI call (prevents overage)
-    if (this.usageTrackingService) {
-      const canProceed = await this.usageTrackingService.checkQuota(options.tenantId, 'ai-calls');
-      if (!canProceed) {
-        this.logger.warn(`${logPrefix} AI quota exceeded - subscription limit reached`);
-        return {
-          text: 'You have reached your monthly AI call limit. Please upgrade your plan to continue.',
-          fromCache: false,
-        };
-      }
-    }
+    // 0d. P10: Quota enforcement via QuotaGuard + CostProtectionService.canProceed()
+    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
+    // Proper enforcement happens at controller level via @RequiresQuota('ai') decorator
 
     // All responses are now generated fresh for each tenant
 
@@ -1027,7 +1019,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (!result) {
-      throw new Error('Agent failed to generate a response after multiple attempts.');
+      const errorT = getErrorTranslations('en');
+      throw new Error(errorT.ai.agentFailed);
     }
 
     // FIX: Return the sessionId to frontend so conversations persist across messages
@@ -1244,15 +1237,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // 0d. P10: Check subscription quota before AI call (prevents overage)
-    if (this.usageTrackingService) {
-      const canProceed = await this.usageTrackingService.checkQuota(options.tenantId, 'ai-calls');
-      if (!canProceed) {
-        this.logger.warn(`${logPrefix} AI quota exceeded - subscription limit reached`);
-        yield 'You have reached your monthly AI call limit. Please upgrade your plan to continue.';
-        return;
-      }
-    }
+    // 0d. P10: Quota enforcement via QuotaGuard + CostProtectionService.canProceed()
+    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
+    // Proper enforcement happens at controller level via @RequiresQuota('ai') decorator
 
     // All responses generated fresh to prevent data leakage
 
@@ -1487,7 +1474,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     autoApproveThreshold = 0.9,
   ): Promise<ApprovalResult | SuspendedWorkflow> {
     if (!this.approvalWorkflow) {
-      throw new AiError('Approval workflow not initialized', AiErrorCode.INTERNAL_ERROR, {
+      const errorT = getErrorTranslations('en');
+      throw new AiError(errorT.ai.approvalNotInitialized, AiErrorCode.INTERNAL_ERROR, {
         retryable: false,
       });
     }

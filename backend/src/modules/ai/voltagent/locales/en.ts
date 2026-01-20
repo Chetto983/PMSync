@@ -734,4 +734,115 @@ GUIDELINES:
       unavailable: 'Calendar data unavailable.',
     },
   },
+  // Router patterns for intent classification (English)
+  router: {
+    // WRITE operations → ActionsAgent
+    writeOps: [
+      'send|reply|forward|compose|draft',
+      'delete|remove|trash|archive',
+      'create|add|new|schedule',
+      'update|edit|modify|change|rename',
+      'move|star|unstar|mark as',
+    ],
+    // READ operations → IntelligenceAgent
+    readOps: [
+      'search|find|look|show|list|get',
+      'email|inbox|mail|message|unread',
+      'calendar|schedule|meeting|appointment|event|availability',
+      'contact|address|phone|who is|person',
+      'analyze|summarize|sentiment|priority',
+      'how many|count',
+    ],
+    // Simple queries → Supervisor direct response
+    simple: [
+      '^(hi|hello|hey|thanks|thank you|ok|okay)\\b',
+      '^what (is|are|was|were) ',
+      '^how (to|do|can) ',
+      '^translate',
+      '^define',
+    ],
+    // Complexity: simple
+    complexitySimple: [
+      '^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)\\b',
+      '^what (is|are|was|were) ',
+      '^(summarize|summary of)',
+      '^(list|show|get|find) (my|the|all)',
+      'unread emails?',
+      'check (my )?calendar',
+      'mark (as )?(read|unread)',
+      '^how many',
+      '^when (is|was|will)',
+    ],
+    // Complexity: moderate
+    complexityModerate: [
+      'analyze|analysis',
+      'compare|comparison',
+      'explain|explanation',
+      'draft|write|compose',
+      'suggest|recommend',
+      'schedule|reschedule',
+      'organize|categorize',
+      'translate|translation',
+      'sentiment',
+      'priority',
+    ],
+    // Complexity: complex
+    complexityComplex: [
+      'create (a |an )?(detailed|comprehensive|full)',
+      'step[- ]by[- ]step',
+      'implement|implementation',
+      'refactor|restructure',
+      'multi[- ]?step',
+      'plan|planning',
+      'strategy|strategic',
+      'code|programming',
+      'integrate|integration',
+      'automate|automation',
+      'workflow',
+    ],
+  },
+  errors: {
+    http: {
+      forbidden: {
+        admin: 'Administrator privileges required for this operation.',
+        crossTenant: 'You do not have access to this resource.',
+      },
+      notFound: {
+        library: 'Library not found.',
+        document: 'Document not found.',
+        file: 'File not found.',
+        email: 'Email not found.',
+        contact: 'Contact not found.',
+      },
+      badRequest: {
+        noFile: 'No file provided.',
+        unsupportedFileType: (mimeType, supported) =>
+          `Unsupported file type: ${mimeType}. Supported types: ${supported}`,
+        fileTooLarge: (limitMb) => `File size exceeds the ${limitMb}MB limit.`,
+        invalidInput: 'Invalid input provided.',
+      },
+    },
+    validation: {
+      embedding: {
+        notArray: 'Embedding must be an array.',
+        empty: 'Embedding array cannot be empty.',
+        tooLarge: (max) => `Embedding array exceeds maximum dimension (${max}).`,
+        invalidValue: (index) => `Embedding contains invalid value at index ${index}.`,
+      },
+    },
+    ai: {
+      quotaExceeded: 'Monthly AI call limit reached. Please upgrade your plan.',
+      costLimitDaily: 'Daily AI cost limit reached. Limit resets at midnight.',
+      costLimitMonthly: 'Monthly AI cost limit reached. Please upgrade your plan.',
+      agentFailed: 'Agent failed to generate a response. Please try again.',
+      providerNotConfigured: 'AI provider not configured.',
+      approvalNotInitialized: 'Approval workflow not initialized.',
+    },
+    subscription: {
+      canceled: 'Your subscription has been canceled. Please reactivate to continue.',
+      pastDue: 'Your payment is past due. Please update your payment method.',
+      featureNotAvailable: (feature) => `This feature requires a higher plan. Please upgrade to access ${feature}.`,
+      emailQuotaExceeded: (limit) => `You've reached your monthly email limit of ${limit}. Upgrade for more capacity.`,
+    },
+  },
 };

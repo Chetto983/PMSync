@@ -25,7 +25,7 @@ import { useAiProfile } from '@/hooks/queries/use-settings';
 import EditorMenuControls from './EditorMenuControls';
 import useExtensions from './useExtensions';
 import logger from '@/lib/logger';
-import AiComposeMenu, { type AiActionType } from './AiComposeMenu';
+import AiComposeMenu, { type AiActionType, type ToneType } from './AiComposeMenu';
 
 function fileListToImageFiles(fileList: FileList): File[] {
   return Array.from(fileList).filter((file) => {
@@ -194,7 +194,7 @@ export default function ComposeEditor({
   }, []);
 
   // Handle AI Composition from Menu
-  const handleAiCompose = useCallback(async (prompt: string, actionType: AiActionType) => {
+  const handleAiCompose = useCallback(async (prompt: string, actionType: AiActionType, menuTone?: ToneType) => {
     handleCloseAiMenu();
     setShowAiPanel(true); // Show the review panel
     setAiIsLoading(true);
@@ -223,11 +223,14 @@ export default function ComposeEditor({
         contextPrompt = `${prompt}\n\n${aiMenu.writeEmailIn} ${targetLanguage}.`;
       }
 
+      // Use tone from menu selection, or fall back to profile style
+      const tone = menuTone || mapCommunicationStyleToTone(aiProfile?.communicationStyle);
+
       const response = await aiApi.composeEmail({
         prompt: contextPrompt,
         to: recipients,
         subject: subject || undefined,
-        tone: mapCommunicationStyleToTone(aiProfile?.communicationStyle),
+        tone,
         locale: locale || 'en',
         senderName,
         // TODO: signature will come from user settings once signature editor is implemented

@@ -14,9 +14,11 @@ if (!apiKey) {
 }
 
 // Model configuration from environment variables with defaults
+// CRITICAL: Medium must be smarter than small for supervisor delegation to work!
+// Using mistral-small for supervisor causes it to ignore tool calls and reply directly.
 const MISTRAL_MODEL_SMALL = process.env.AI_MODEL_SIMPLE || 'mistral-small-latest';
-const MISTRAL_MODEL_MEDIUM = process.env.AI_MODEL_MEDIUM || 'mistral-small-latest'; // Frugal: Medium -> Small
-const MISTRAL_MODEL_LARGE = process.env.AI_MODEL_COMPLEX || 'mistral-medium-latest'; // Frugal: Large -> Medium
+const MISTRAL_MODEL_MEDIUM = process.env.AI_MODEL_MEDIUM || 'mistral-medium-latest'; // Required for proper delegation
+const MISTRAL_MODEL_LARGE = process.env.AI_MODEL_COMPLEX || 'mistral-large-latest';
 
 // Create Mistral provider instance (lazy initialization to allow for missing API key)
 let _mistralProvider: ReturnType<typeof createMistral> | null = null;

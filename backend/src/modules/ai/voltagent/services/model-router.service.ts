@@ -16,9 +16,15 @@
  * - Historical performance data
  *
  * Cost Savings: 40-60% by routing simple queries to smaller models.
+ *
+ * Multilingual Support:
+ * - Patterns loaded from locale files (en.ts, it.ts, etc.)
+ * - Easy to add new languages by creating new locale file
+ * - Patterns merged for comprehensive coverage
  */
 import { Injectable, Logger } from '@nestjs/common';
 import type { MistralModel } from '../providers/mistral.provider';
+import { getRouterPatterns, patternsToRegex } from '../locales';
 
 export type TaskComplexity = 'simple' | 'moderate' | 'complex';
 
@@ -78,45 +84,8 @@ const MODEL_CONFIGS: Record<MistralModel, ModelConfig> = {
   },
 };
 
-// Keywords/patterns that indicate task complexity
-const COMPLEXITY_PATTERNS = {
-  simple: [
-    /^(hi|hello|hey|thanks|thank you|ok|okay|yes|no)\b/i,
-    /^what (is|are|was|were) /i,
-    /^(summarize|summary of)/i,
-    /^(list|show|get|find) (my|the|all)/i,
-    /unread emails?/i,
-    /check (my )?calendar/i,
-    /mark (as )?(read|unread)/i,
-    /^how many/i,
-    /^when (is|was|will)/i,
-  ],
-  moderate: [
-    /analyze|analysis/i,
-    /compare|comparison/i,
-    /explain|explanation/i,
-    /draft|write|compose/i,
-    /suggest|recommend/i,
-    /schedule|reschedule/i,
-    /organize|categorize/i,
-    /translate|translation/i,
-    /sentiment/i,
-    /priority/i,
-  ],
-  complex: [
-    /create (a |an )?(detailed|comprehensive|full)/i,
-    /step[- ]by[- ]step/i,
-    /implement|implementation/i,
-    /refactor|restructure/i,
-    /multi[- ]?step/i,
-    /plan|planning/i,
-    /strategy|strategic/i,
-    /code|programming/i,
-    /integrate|integration/i,
-    /automate|automation/i,
-    /workflow/i,
-  ],
-};
+// Complexity patterns are now loaded from locale files for multilingual support
+// See: locales/en.ts and locales/it.ts for pattern definitions
 
 // Tool calls that indicate complexity
 const TOOL_COMPLEXITY: Record<string, TaskComplexity> = {
@@ -150,44 +119,25 @@ const TOOL_COMPLEXITY: Record<string, TaskComplexity> = {
   merge_contacts: 'complex',
 };
 
+// Intent patterns now loaded from locale files for multilingual support
+// See: locales/en.ts and locales/it.ts for pattern definitions
+type IntentType = 'WRITE_OPS' | 'READ_OPS' | 'SIMPLE';
+
 /**
- * Intent patterns for direct agent routing (Phase 3 Consolidation).
- *
- * WRITE_OPS → ActionsAgent: Destructive/mutating operations requiring HITL
- * READ_OPS → IntelligenceAgent: Search, list, analyze operations (non-destructive)
- * COMPLEX → Supervisor: Multi-domain queries requiring coordination
+ * Cached compiled patterns for performance
+ * Patterns are loaded from locale files and compiled to RegExp once
  */
-const INTENT_PATTERNS = {
-  // WRITE operations → ActionsAgent
-  WRITE_OPS: [
-    /send|reply|forward|compose|draft/i,
-    /delete|remove|trash|archive/i,
-    /create|add|new|schedule/i,
-    /update|edit|modify|change|rename/i,
-    /move|star|unstar|mark as/i,
-  ],
-  // READ operations → IntelligenceAgent
-  READ_OPS: [
-    /search|find|look|show|list|get/i,
-    /email|inbox|mail|message|unread/i,
-    /calendar|schedule|meeting|appointment|event|availability/i,
-    /contact|address|phone|who is|person/i,
-    /analyze|summarize|sentiment|priority/i,
-    /how many|count/i,
-  ],
-  // Simple queries that don't need agents → handled directly by Supervisor
-  SIMPLE: [
-    /^(hi|hello|hey|thanks|thank you|ok|okay)\b/i,
-    /^what (is|are|was|were) /i,
-    /^how (to|do|can) /i,
-    /^translate/i,
-    /^define/i,
-  ],
-};
+interface CompiledPatterns {
+  intent: Record<IntentType, RegExp[]>;
+  complexity: Record<TaskComplexity, RegExp[]>;
+}
 
 @Injectable()
 export class ModelRouterService {
   private readonly logger = new Logger(ModelRouterService.name);
+
+  // Cached compiled patterns (loaded once, reused)
+  private compiledPatterns: CompiledPatterns | null = null;
 
   // Performance tracking
   private stats = {
@@ -196,6 +146,39 @@ export class ModelRouterService {
     totalTokens: { small: 0, medium: 0, large: 0 } as Record<MistralModel, number>,
     totalLatency: { small: 0, medium: 0, large: 0 } as Record<MistralModel, number>,
   };
+
+  /**
+   * Load and compile patterns from locale files (cached for performance).
+   * Combines English + Italian patterns for comprehensive coverage.
+   */
+  private getPatterns(): CompiledPatterns {
+    if (this.compiledPatterns) {
+      return this.compiledPatterns;
+    }
+
+    // Load patterns from both locales and merge
+    const enPatterns = getRouterPatterns('en');
+    const itPatterns = getRouterPatterns('it');
+
+    // Merge and deduplicate
+    const mergeUnique = (a: string[], b: string[]) => [...new Set([...a, ...b])];
+
+    this.compiledPatterns = {
+      intent: {
+        WRITE_OPS: patternsToRegex(mergeUnique(enPatterns.writeOps, itPatterns.writeOps)),
+        READ_OPS: patternsToRegex(mergeUnique(enPatterns.readOps, itPatterns.readOps)),
+        SIMPLE: patternsToRegex(mergeUnique(enPatterns.simple, itPatterns.simple)),
+      },
+      complexity: {
+        simple: patternsToRegex(mergeUnique(enPatterns.complexitySimple, itPatterns.complexitySimple)),
+        moderate: patternsToRegex(mergeUnique(enPatterns.complexityModerate, itPatterns.complexityModerate)),
+        complex: patternsToRegex(mergeUnique(enPatterns.complexityComplex, itPatterns.complexityComplex)),
+      },
+    };
+
+    this.logger.log('Loaded router patterns from locale files (en + it)');
+    return this.compiledPatterns;
+  }
 
   /**
    * Route a message to the appropriate model and agent based on complexity and intent.
@@ -282,13 +265,14 @@ export class ModelRouterService {
   }
 
   /**
-   * Classify intent based on regex patterns.
+   * Classify intent based on regex patterns (loaded from locale files).
    */
-  private classifyIntent(message: string): keyof typeof INTENT_PATTERNS | 'UNKNOWN' {
-    for (const [intent, patterns] of Object.entries(INTENT_PATTERNS)) {
-      for (const pattern of patterns) {
+  private classifyIntent(message: string): IntentType | 'UNKNOWN' {
+    const patterns = this.getPatterns();
+    for (const [intent, regexList] of Object.entries(patterns.intent)) {
+      for (const pattern of regexList) {
         if (pattern.test(message)) {
-          return intent as keyof typeof INTENT_PATTERNS;
+          return intent as IntentType;
         }
       }
     }
@@ -377,27 +361,28 @@ export class ModelRouterService {
   }
 
   /**
-   * Classify message complexity based on patterns.
+   * Classify message complexity based on patterns (loaded from locale files).
    */
   private classifyMessageComplexity(message: string): TaskComplexity {
     const normalizedMessage = message.toLowerCase().trim();
+    const patterns = this.getPatterns();
 
     // Check complex patterns first (highest priority)
-    for (const pattern of COMPLEXITY_PATTERNS.complex) {
+    for (const pattern of patterns.complexity.complex) {
       if (pattern.test(normalizedMessage)) {
         return 'complex';
       }
     }
 
     // Check moderate patterns
-    for (const pattern of COMPLEXITY_PATTERNS.moderate) {
+    for (const pattern of patterns.complexity.moderate) {
       if (pattern.test(normalizedMessage)) {
         return 'moderate';
       }
     }
 
     // Check simple patterns
-    for (const pattern of COMPLEXITY_PATTERNS.simple) {
+    for (const pattern of patterns.complexity.simple) {
       if (pattern.test(normalizedMessage)) {
         return 'simple';
       }
@@ -493,10 +478,11 @@ export class ModelRouterService {
   private calculateConfidence(message: string, complexity: TaskComplexity): number {
     // Higher confidence for shorter, clearer messages
     const wordCount = message.split(/\s+/).length;
+    const patterns = this.getPatterns();
 
     // Pattern match bonus
     let patternBonus = 0;
-    for (const pattern of COMPLEXITY_PATTERNS[complexity]) {
+    for (const pattern of patterns.complexity[complexity]) {
       if (pattern.test(message)) {
         patternBonus = 0.15;
         break;

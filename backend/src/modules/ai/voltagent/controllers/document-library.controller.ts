@@ -34,6 +34,7 @@ import { IsString, IsOptional, IsArray, MaxLength, MinLength } from 'class-valid
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../../../auth/guards/tenant.guard';
 import { DocumentLibraryService, type DocumentLibrary, type LibraryDocument, type DocumentQueryResult } from '../services/document-library.service';
+import { getErrorTranslations } from '../locales';
 
 interface AuthenticatedRequest {
   user: {
@@ -150,7 +151,8 @@ export class DocumentLibraryController {
     const library = await this.documentLibraryService.getLibrary(tenantId, libraryId);
 
     if (!library) {
-      throw new NotFoundException('Library not found');
+      const t = getErrorTranslations('en');
+      throw new NotFoundException(t.http.notFound.library);
     }
 
     return { success: true, library };
@@ -210,8 +212,10 @@ export class DocumentLibraryController {
   ): Promise<{ success: boolean; document: LibraryDocument }> {
     const { tenantId } = req.user;
 
+    const t = getErrorTranslations('en');
+
     if (!file) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException(t.http.badRequest.noFile);
     }
 
     // Validate file type
@@ -225,14 +229,15 @@ export class DocumentLibraryController {
 
     if (!allowedMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(
-        `Unsupported file type: ${file.mimetype}. Allowed: PDF, TXT, MD, DOC, DOCX`,
+        t.http.badRequest.unsupportedFileType(file.mimetype, 'PDF, TXT, MD, DOC, DOCX'),
       );
     }
 
     // Max file size: 10MB
-    const maxSize = 10 * 1024 * 1024;
+    const maxSizeMb = 10;
+    const maxSize = maxSizeMb * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException(`File too large. Maximum size: 10MB`);
+      throw new BadRequestException(t.http.badRequest.fileTooLarge(maxSizeMb));
     }
 
     this.logger.log(`Uploading document "${file.originalname}" to library ${libraryId}`);
