@@ -9,6 +9,7 @@ import { FolderSyncService } from '../../../email-sync/services/folder-sync.serv
 import { BulkOperationsQueueService } from '../../../email-sync/services/bulk-operations-queue.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { CorrelationContext } from '../../../../common/services/correlation-context.service';
+import { PiiResolutionService } from '../../guards';
 import {
   getLocale,
   actionSummaries as t,
@@ -51,6 +52,7 @@ export class ActionExecutorService {
     private readonly folderSyncService: FolderSyncService,
     @Optional() private readonly bulkOperationsQueue: BulkOperationsQueueService,
     @Optional() private readonly cacheService?: CacheService,
+    @Optional() private readonly piiResolutionService?: PiiResolutionService,
   ) { }
 
   /**
@@ -82,6 +84,20 @@ export class ActionExecutorService {
           `${logPrefix} Action ${action.type} skipped - idempotency key already executed`,
         );
         return existingResult;
+      }
+    }
+
+    // Resolve PII placeholders in action payload before execution
+    // Converts [EMAIL_REDACTED] back to actual email addresses
+    if (this.piiResolutionService && context.sessionId) {
+      const resolvedPayload = await this.piiResolutionService.resolvePayload(
+        context.tenantId,
+        context.sessionId,
+        action.payload,
+      );
+      if (resolvedPayload !== action.payload) {
+        this.logger.debug(`${logPrefix} Resolved PII placeholders in action payload`);
+        action.payload = resolvedPayload;
       }
     }
 

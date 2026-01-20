@@ -36,6 +36,8 @@ export enum CacheNamespace {
   DEADLINE_UPCOMING = 'deadline:upcoming',
   /** AI Analytics agents and results cache */
   AI_ANALYTICS = 'ai:analytics',
+  /** PII resolution mappings for agent tool execution (session-scoped) */
+  PII_RESOLUTION = 'pii:resolution',
 }
 
 /**

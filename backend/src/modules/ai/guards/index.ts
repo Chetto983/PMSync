@@ -16,3 +16,8 @@ export {
   type PiiMatch,
   type PiiType,
 } from './pii-detection.service';
+export {
+  PiiResolutionService,
+  type PiiMapping,
+  type SessionPiiStore,
+} from './pii-resolution.service';

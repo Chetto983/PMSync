@@ -42,7 +42,7 @@ import { FocusTimeService } from './services/focus-time.service';
 import { MeetingPrepService } from './services/meeting-prep.service';
 
 // Security & Memory
-import { PromptGuardService, PiiDetectionService } from '../guards';
+import { PromptGuardService, PiiDetectionService, PiiResolutionService } from '../guards';
 import { AIMemoryService } from './services/ai-memory.service';
 import { EpisodicMemoryService } from './services/episodic-memory.service';
 import { ConversationCompactionService } from './services/conversation-compaction.service';
@@ -91,6 +91,7 @@ import { LearningService } from './services/learning.service';
     // Security & Memory
     PromptGuardService,
     PiiDetectionService,
+    PiiResolutionService,
     AIMemoryService,
     EpisodicMemoryService,
     ConversationCompactionService,
@@ -119,6 +120,7 @@ import { LearningService } from './services/learning.service';
     DocumentLibraryService,
     PromptGuardService,
     PiiDetectionService,
+    PiiResolutionService,
     AIMemoryService,
     EpisodicMemoryService,
     ConversationCompactionService,

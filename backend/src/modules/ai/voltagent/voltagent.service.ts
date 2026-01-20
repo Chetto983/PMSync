@@ -44,7 +44,7 @@ import { AgentContext } from './interfaces/agent-context.interface';
 import { type ConnectedProvider } from './agents';
 import { getLocale, getTranslations, getErrorTranslations, type SupportedLocale } from './locales';
 import { DocumentLibraryService } from './services/document-library.service';
-import { PromptGuardService, PiiDetectionService } from '../guards';
+import { PromptGuardService, PiiDetectionService, PiiResolutionService } from '../guards';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import type { AiAgentType } from '../../realtime/types/realtime.types';
 import { FollowUpService } from './services/follow-up.service';
@@ -210,6 +210,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly documentLibraryService?: DocumentLibraryService,
     @Optional() private readonly promptGuardService?: PromptGuardService,
     @Optional() private readonly piiDetectionService?: PiiDetectionService,
+    @Optional() private readonly piiResolutionService?: PiiResolutionService,
     @Optional() private readonly realtimeEventsService?: RealtimeEventsService,
     @Optional() private readonly followUpService?: FollowUpService,
     @Optional() private readonly writingStyleService?: WritingStyleService,
@@ -734,7 +735,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     // 0b. Security: Detect and redact PII before sending to LLM
+    // Store mapping in Redis so tool execution can resolve placeholders back to real values
     let processedMessage = message;
+    const piiSessionId = options.conversationId || `pii:${options.tenantId}:${options.userId}`;
     if (this.piiDetectionService) {
       const piiResult = this.piiDetectionService.detect(message);
       if (piiResult.hasPii) {
@@ -742,6 +745,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           `${logPrefix} PII detected and redacted: types=${piiResult.detectedTypes.join(', ')}`,
         );
         processedMessage = piiResult.redactedText;
+
+        // Store PII mapping for tool execution resolution
+        if (this.piiResolutionService && piiResult.details.length > 0) {
+          this.piiResolutionService.storeMapping(
+            options.tenantId,
+            piiSessionId,
+            piiResult.details,
+          ).catch(err => {
+            this.logger.warn(`${logPrefix} Failed to store PII mapping: ${err}`);
+          });
+        }
       }
     }
 
@@ -816,11 +830,13 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // 3.5. Trigger Memory Intelligence (Async/Fire-and-forget)
     // Extracts long-term memories from user message
+    // NOTE: Uses ORIGINAL message (not redacted) so we store actual email addresses
+    // Long-term memory stores real PII for tool execution context
     if (this.memoryIntelligenceService && options.userId) { // Ensure userId is present for memory
       this.memoryIntelligenceService.processMemoryFromMessage(
         options.tenantId,
         options.userId,
-        processedMessage
+        message // Use original message with real PII for long-term storage
       ).catch(err => {
         this.logger.error(`${logPrefix} Memory extraction failed:`, err);
       });
@@ -1213,7 +1229,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
     // 0b. Security: Detect and redact PII before sending to LLM
+    // Store mapping in Redis so tool execution can resolve placeholders back to real values
     let processedMessage = message;
+    const piiSessionId = options.conversationId || `pii:${options.tenantId}:${options.userId}`;
     if (this.piiDetectionService) {
       const piiResult = this.piiDetectionService.detect(message);
       if (piiResult.hasPii) {
@@ -1221,6 +1239,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           `${logPrefix} PII detected and redacted: types=${piiResult.detectedTypes.join(', ')}`,
         );
         processedMessage = piiResult.redactedText;
+
+        // Store PII mapping for tool execution resolution
+        if (this.piiResolutionService && piiResult.details.length > 0) {
+          this.piiResolutionService.storeMapping(
+            options.tenantId,
+            piiSessionId,
+            piiResult.details,
+          ).catch(err => {
+            this.logger.warn(`${logPrefix} Failed to store PII mapping: ${err}`);
+          });
+        }
       }
     }
 
@@ -1644,10 +1673,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         };
 
         // Build minimal AgentContext for execution
+        // NOTE: sessionId uses pii:tenantId:userId format to match PII storage key
         const agentContext: AgentContext = {
           tenantId: suspended.tenantId,
           userId: suspended.userId,
-          sessionId: executionId,
+          sessionId: `pii:${suspended.tenantId}:${suspended.userId}`,
           correlationId: resumeCorrId,
           userMessage: '', // Not needed for execution
         };

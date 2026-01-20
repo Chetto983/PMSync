@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MistralService } from './mistral.service';
@@ -15,6 +16,7 @@ import {
   getToolTranslations,
   type SupportedLocale,
 } from '../voltagent/locales';
+import { PiiDetectionService } from '../guards/pii-detection.service';
 
 type LocaleKey = 'en' | 'it';
 type ToneKey = 'formal' | 'casual' | 'technical';
@@ -76,7 +78,28 @@ export class EmailInsightsService {
     private readonly mistral: MistralService,
     private readonly writingStyle: WritingStyleService,
     // PersonalizationService removed - AI refactor v2.0
+    @Optional() private readonly piiDetection?: PiiDetectionService,
   ) {}
+
+  /**
+   * Redact PII from text before sending to LLM.
+   * GDPR/CCPA compliance - ensures no personal data is sent to external AI.
+   */
+  private redactPii(text: string): string {
+    if (!this.piiDetection || !text) {
+      return text;
+    }
+    try {
+      const result = this.piiDetection.detect(text);
+      if (result.details.length > 0) {
+        this.logger.debug(`Redacted ${result.details.length} PII items from email content`);
+      }
+      return result.redactedText;
+    } catch (error) {
+      this.logger.warn(`PII detection failed, using original content: ${error}`);
+      return text;
+    }
+  }
 
   async summarizeEmail(tenantId: string, emailId: string, locale?: string) {
     const email = await this.getEmailOrThrow(tenantId, emailId);
@@ -523,15 +546,22 @@ export class EmailInsightsService {
     const t = getToolTranslations(supportedLocale);
     const toList = email.to.join(', ');
 
-    // Sanitize user-provided content to prevent prompt injection
-    const sanitizedSubject = sanitizeForLLM(email.subject || t.insights.noSubject, { maxLength: 500 });
-    const sanitizedFrom = sanitizeForLLM(email.from, { maxLength: 500 });
-    const sanitizedToList = sanitizeForLLM(toList, { maxLength: 2000 });
+    // Step 1: Redact PII (GDPR/CCPA compliance)
+    const piiRedactedSubject = this.redactPii(email.subject || t.insights.noSubject);
+    const piiRedactedFrom = this.redactPii(email.from);
+    const piiRedactedToList = this.redactPii(toList);
+
+    // Step 2: Sanitize for prompt injection (after PII redaction)
+    const sanitizedSubject = sanitizeForLLM(piiRedactedSubject, { maxLength: 500 });
+    const sanitizedFrom = sanitizeForLLM(piiRedactedFrom, { maxLength: 500 });
+    const sanitizedToList = sanitizeForLLM(piiRedactedToList, { maxLength: 2000 });
 
     const header = `${t.insights.subject}: ${sanitizedSubject}\n${t.insights.from}: ${sanitizedFrom}\n${t.insights.to}: ${sanitizedToList}`;
 
     const content = this.extractEmailContent(email, supportedLocale);
-    const sanitizedContent = sanitizeForLLM(content, { maxLength: 8000 });
+    // Step 3: Redact PII from body content, then sanitize
+    const piiRedactedContent = this.redactPii(content);
+    const sanitizedContent = sanitizeForLLM(piiRedactedContent, { maxLength: 8000 });
 
     // Wrap user content with clear delimiters
     const userContent = wrapUserContent(`${header}\n\n${t.insights.emailBody}\n${sanitizedContent}`);
@@ -614,27 +644,37 @@ export class EmailInsightsService {
     memoryContext?: string,
   ): string {
     const t = getToolTranslations(supportedLocale || 'en');
+
+    // PII redaction for user-provided content (GDPR/CCPA compliance)
+    const redactedTo = payload.to?.map((email) => this.redactPii(email)) ?? [];
+    const redactedSubject = payload.subject ? this.redactPii(payload.subject) : undefined;
+    const redactedPrompt = this.redactPii(payload.prompt);
+    const redactedThreadContext = payload.threadContext?.map((item) => ({
+      subject: item.subject ? this.redactPii(item.subject) : item.subject,
+      body: item.body ? this.redactPii(item.body) : item.body,
+    }));
+
     const toLine =
-      payload.to && payload.to.length
-        ? `${t.insights.compose.recipients}: ${payload.to.join(', ')}`
+      redactedTo.length
+        ? `${t.insights.compose.recipients}: ${redactedTo.join(', ')}`
         : '';
-    const subjectLine = payload.subject
-      ? `${t.insights.compose.subjectHint}: ${payload.subject}`
+    const subjectLine = redactedSubject
+      ? `${t.insights.compose.subjectHint}: ${redactedSubject}`
       : '';
     const toneLine = `${t.insights.compose.requestedTone}: ${tone}.`;
-    // Include sender name for signature personalization
+    // Include sender name for signature personalization (kept as-is for personalization)
     const senderLine = payload.senderName
       ? `${t.insights.compose.senderName}: ${payload.senderName}`
       : '';
-    // Include custom signature if provided
+    // Include custom signature if provided (kept as-is for signature generation)
     const signatureLine = payload.signature
       ? `${t.insights.compose.signatureInstruction}: ${payload.signature}`
       : '';
     const threadLines =
-      payload.threadContext && payload.threadContext.length
+      redactedThreadContext && redactedThreadContext.length
         ? t.insights.compose.threadContext +
           '\n' +
-          payload.threadContext
+          redactedThreadContext
             .slice(0, 3)
             .map((item, idx) => {
               const header = `${t.insights.compose.message} #${idx + 1}`;
@@ -653,7 +693,7 @@ export class EmailInsightsService {
       threadLines,
       memoryContext,  // Include semantic memory context
       styleSection,
-      `${t.insights.compose.userPrompt}: ${payload.prompt}`,
+      `${t.insights.compose.userPrompt}: ${redactedPrompt}`,
       t.insights.compose.jsonInstruction,
     ]
       .filter(Boolean)
