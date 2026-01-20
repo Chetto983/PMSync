@@ -15,4 +15,6 @@ export const dashboardKeys = {
     [...dashboardKeys.all, 'staleContacts', params] as const,
   stats: () => [...dashboardKeys.all, 'stats'] as const,
   emailTrends: () => [...dashboardKeys.all, 'emailTrends'] as const,
+  triagedEmails: (params?: { limit?: number; priority?: number }) =>
+    [...dashboardKeys.all, 'triagedEmails', params] as const,
 };

@@ -20,15 +20,26 @@ Types of Information to Remember:
 4. Remember Activity and Service Preferences: Recall preferences for activities, travel, food, and other services.
 5. Monitor Health and Wellness Preferences: Keep a record of health-related information and wellness preferences.
 6. Store Professional Details: Remember details about users' professional lives like job titles, projects, colleagues.
-7. Miscellaneous Information Management: Capture and store any other relevant information that doesn't fit into the above categories.
-8. Basic Facts: Remember basic facts about the user like their timezone, language, company, role.
+7. Basic Facts: Remember basic facts about the user like their timezone, language, company, role.
+
+⚠️ DO NOT REMEMBER:
+- Ephemeral actions like "User sent an email to X" or "User created an event"
+- Redacted content markers like [EMAIL_REDACTED], [CONTENT_REDACTED], [NAME_REDACTED]
+- Specific email contents or subjects (these are stored elsewhere)
+- One-time requests like "draft an email" or "schedule a meeting"
+- System actions or confirmations
+- Transient information that won't help in future conversations
+
+Only store DURABLE facts that will be useful for personalizing FUTURE interactions.
 
 Instructions:
-1. Extract only the relevant facts from the conversation.
+1. Extract only the relevant, durable facts from the conversation.
 2. Return the facts in a valid JSON format with a 'facts' key containing an array of fact strings.
 3. Detect the language of the user input and record the facts in the same language.
 4. Focus on extracting NEW information - things not already known.
 5. Be concise - each fact should be a single, clear statement.
+6. SKIP any facts about specific actions taken (emails sent, events created, etc.)
+7. SKIP any facts containing redacted markers like [EMAIL_REDACTED] or [CONTENT_REDACTED]
 
 Example output:
 {
@@ -59,23 +70,30 @@ export const MEMORY_DEDUCTION_PROMPT = `You are a memory management AI that anal
 
 Compare the retrieved facts against existing memories and determine the action:
 
-- ADD: If the fact contains NEW information not present in any existing memory
+- ADD: If the fact contains NEW, DURABLE information not present in any existing memory
 - UPDATE: If the fact contains information that supersedes or is more recent than an existing memory (include the memory_id to update)
 - DELETE: If the fact directly contradicts an existing memory making it invalid (include the memory_id to delete)
-- NONE: If the fact is already captured in existing memories, no action needed
+- NONE: If the fact is already captured in existing memories, OR if it's ephemeral/not useful
+
+⚠️ ALWAYS return NONE for:
+- Facts about specific actions (emails sent, events created, drafts made)
+- Facts containing [EMAIL_REDACTED], [CONTENT_REDACTED], or similar placeholders
+- Facts about one-time requests or transient activities
+- Facts that won't help personalize future interactions
 
 Rules:
 1. Return a valid JSON array of actions
 2. Each action has: action, content, and optionally memory_id (for UPDATE/DELETE)
 3. Be conservative - only UPDATE or DELETE when clearly necessary
-4. Prefer ADD for new nuances even if related memory exists
+4. Only ADD durable facts that will be useful in future conversations
+5. Return NONE for ephemeral or redacted content
 
 Example output:
 {
   "actions": [
     {"action": "ADD", "content": "User started new job at TechCo"},
     {"action": "UPDATE", "memory_id": "mem_123", "content": "User now prefers Slack over email"},
-    {"action": "NONE", "content": "User likes coffee"}
+    {"action": "NONE", "content": "User sent an email to [EMAIL_REDACTED]"}
   ]
 }
 

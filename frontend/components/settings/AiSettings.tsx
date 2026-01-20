@@ -14,7 +14,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { MessageSquare, FileText, Calendar, Trash2, ExternalLink } from 'lucide-react';
+import { MessageSquare, FileText, Calendar, Trash2, ExternalLink, ListFilter } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import { SettingRow } from './SettingRow';
 import type { CommunicationStyle, ResponseLength, ProactivityLevel } from '@/lib/api/ai';
@@ -34,6 +34,8 @@ export interface AiSettingsProps {
   setSummarizationEnabled: (v: boolean) => void;
   schedulingEnabled: boolean;
   setSchedulingEnabled: (v: boolean) => void;
+  triageEnabled: boolean;
+  setTriageEnabled: (v: boolean) => void;
   // Personalization
   jobRole: string;
   setJobRole: (v: string) => void;
@@ -61,6 +63,8 @@ export interface AiSettingsProps {
     summarizationDescription: string;
     schedulingTitle: string;
     schedulingDescription: string;
+    triageTitle: string;
+    triageDescription: string;
     personalizationTitle: string;
     personalizationDescription: string;
     roleLabel: string;
@@ -96,6 +100,8 @@ export function AiSettings({
   setSummarizationEnabled,
   schedulingEnabled,
   setSchedulingEnabled,
+  triageEnabled,
+  setTriageEnabled,
   jobRole,
   setJobRole,
   communicationStyle,
@@ -155,9 +161,16 @@ export function AiSettings({
               icon={<Calendar size={18} />}
               title={copy.schedulingTitle || 'Smart Scheduling'}
               description={copy.schedulingDescription || 'AI-assisted meeting scheduling'}
-              noBorder
             >
               <Switch checked={schedulingEnabled} onChange={(e) => setSchedulingEnabled(e.target.checked)} />
+            </SettingRow>
+            <SettingRow
+              icon={<ListFilter size={18} />}
+              title={copy.triageTitle || 'Auto-Triage'}
+              description={copy.triageDescription || 'Automatically prioritize and label incoming emails'}
+              noBorder
+            >
+              <Switch checked={triageEnabled} onChange={(e) => setTriageEnabled(e.target.checked)} />
             </SettingRow>
           </SectionCard>
 

@@ -539,6 +539,21 @@ export interface AppTranslations {
         urgent: string;
         important: string;
       };
+      aiTriage: {
+        title: string;
+        subtitle: string;
+        noSubject: string;
+        empty: string;
+        emptyDescription: string;
+        viewAll: string;
+        priority: {
+          critical: string;
+          high: string;
+          medium: string;
+          low: string;
+          minimal: string;
+        };
+      };
       todayEvents: {
         title: string;
         noEvents: string;
@@ -1754,6 +1769,7 @@ export interface AppTranslations {
       smartRepliesTitle: string;
       summarizationTitle: string;
       schedulingTitle: string;
+      triageTitle: string;
       personalizationTitle: string;
       personalizationDescription: string;
       roleLabel: string;
@@ -1766,6 +1782,8 @@ export interface AppTranslations {
       summarizationDescription: string;
       scheduling: string;
       schedulingDescription: string;
+      triage: string;
+      triageDescription: string;
       save: string;
       // Personalization
       personalization: {
@@ -2023,6 +2041,9 @@ export interface AppTranslations {
     noPendingActions: string;
     approve: string;
     reject: string;
+    needsReview: string;
+    pending: string;
+    viewAllActions: string;
     confidence: string;
     tips: string;
     rateLimitRetrying: string;

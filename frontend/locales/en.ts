@@ -607,6 +607,21 @@ export const en: AppTranslations = {
         urgent: 'Urgent',
         important: 'Important',
       },
+      aiTriage: {
+        title: 'AI Triage',
+        subtitle: '{count} triaged emails',
+        noSubject: '(No subject)',
+        empty: 'No triaged emails',
+        emptyDescription: 'Enable Auto-Triage in AI Settings to automatically prioritize incoming emails',
+        viewAll: 'View All Triaged',
+        priority: {
+          critical: 'Critical',
+          high: 'High',
+          medium: 'Medium',
+          low: 'Low',
+          minimal: 'Minimal',
+        },
+      },
       todayEvents: {
         title: "Today's Events",
         noEvents: 'No events scheduled for today',
@@ -1724,6 +1739,7 @@ export const en: AppTranslations = {
       smartRepliesTitle: 'Smart Replies',
       summarizationTitle: 'Email Summarization',
       schedulingTitle: 'Smart Scheduling',
+      triageTitle: 'Auto-Triage',
       personalizationTitle: 'Personalization',
       personalizationDescription: 'Customize AI behavior to match your work style',
       roleLabel: 'Your Role',
@@ -1736,6 +1752,8 @@ export const en: AppTranslations = {
       summarizationDescription: 'Automatic context for long threads.',
       scheduling: 'Smart scheduling',
       schedulingDescription: 'Suggest meeting times automatically.',
+      triage: 'Auto-Triage',
+      triageDescription: 'Automatically prioritize and label incoming emails.',
       save: 'Save changes',
       // Personalization
       personalization: {
@@ -1965,6 +1983,9 @@ export const en: AppTranslations = {
     noPendingActions: 'No pending actions',
     approve: 'Approve',
     reject: 'Reject',
+    needsReview: 'Needs Review',
+    pending: 'pending',
+    viewAllActions: 'View All in AI Assistant',
     confidence: 'confidence',
     tips: 'High severity actions require approval. Low severity actions may auto-execute based on confidence.',
     // P3: Rate limiting and reconnection

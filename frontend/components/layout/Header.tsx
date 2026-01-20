@@ -20,6 +20,7 @@ import {
   CircularProgress,
   alpha,
   Chip,
+  Button,
 } from '@mui/material';
 import {
   Search,
@@ -36,12 +37,15 @@ import {
   Calendar,
   Users,
   X,
+  Check,
+  XCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAuth } from '@/lib/hooks/use-auth';
 // Email notifications disabled during rebuild
-import { multiAgentApi } from '@/lib/api/ai';
+import { multiAgentApi, type PendingAction } from '@/lib/api/ai';
 import { useLocale } from '@/lib/hooks/use-locale';
 import { useTranslations } from '@/lib/hooks/use-translations';
 interface HeaderNotification {
@@ -75,10 +79,15 @@ export function Header({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationAnchor, setNotificationAnchor] = useState<null | HTMLElement>(null);
   const [languageAnchor, setLanguageAnchor] = useState<null | HTMLElement>(null);
+  const [aiActionsAnchor, setAiActionsAnchor] = useState<null | HTMLElement>(null);
   // Notifications disabled during email rebuild - static empty state
   const notifications: HeaderNotification[] = [];
   const notificationsLoading = false;
   const [pendingAiActions, setPendingAiActions] = useState(0);
+  const [pendingActionsList, setPendingActionsList] = useState<PendingAction[]>([]);
+  const [actionsLoading, setActionsLoading] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
   const { locale, changeLocale } = useLocale();
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -131,6 +140,65 @@ export function Header({
   const handleLanguageChange = (newLocale: string) => {
     changeLocale(newLocale);
     handleLanguageClose();
+  };
+
+  // AI Actions Menu handlers
+  const handleAiActionsOpen = async (event: React.MouseEvent<HTMLElement>) => {
+    setAiActionsAnchor(event.currentTarget);
+    setActionsLoading(true);
+    try {
+      const response = await multiAgentApi.getPendingActions({ status: 'PENDING' });
+      const data = response.data;
+      setPendingActionsList(data?.actions || []);
+      setPendingAiActions(data?.total ?? data?.actions?.length ?? 0);
+    } catch {
+      // Silently fail
+    } finally {
+      setActionsLoading(false);
+    }
+  };
+
+  const handleAiActionsClose = () => {
+    setAiActionsAnchor(null);
+  };
+
+  const handleApproveAction = async (executionId: string) => {
+    setApprovingId(executionId);
+    try {
+      await multiAgentApi.approveAction(executionId);
+      // Remove from list and update count
+      setPendingActionsList((prev) => prev.filter((a) => a.executionId !== executionId));
+      setPendingAiActions((prev) => Math.max(0, prev - 1));
+    } catch {
+      // Silently fail
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleRejectAction = async (executionId: string) => {
+    setRejectingId(executionId);
+    try {
+      await multiAgentApi.rejectAction(executionId);
+      // Remove from list and update count
+      setPendingActionsList((prev) => prev.filter((a) => a.executionId !== executionId));
+      setPendingAiActions((prev) => Math.max(0, prev - 1));
+    } catch {
+      // Silently fail
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'HIGH':
+        return 'error';
+      case 'MEDIUM':
+        return 'warning';
+      default:
+        return 'info';
+    }
   };
 
   const handleLogout = () => {
@@ -341,10 +409,10 @@ export function Header({
 
         {/* Right Side Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {/* AI Assistant Quick Access - New Feature */}
-          <Tooltip title={t.ai?.title || 'AI Assistant'}>
+          {/* AI Actions Quick Access - Shows pending HITL actions */}
+          <Tooltip title={pendingAiActions > 0 ? (t.ai?.pendingActions || 'Pending Actions') : (t.ai?.title || 'AI Assistant')}>
             <IconButton
-              onClick={() => router.push('/dashboard/ai')}
+              onClick={pendingAiActions > 0 ? handleAiActionsOpen : () => router.push('/dashboard/ai')}
               sx={{
                 position: 'relative',
                 background: pendingAiActions > 0
@@ -704,6 +772,131 @@ export function Header({
               <Typography variant="body2">Italiano</Typography>
             </Box>
           </MenuItem>
+        </Menu>
+
+        {/* AI Pending Actions Menu - HITL Review */}
+        <Menu
+          anchorEl={aiActionsAnchor}
+          open={Boolean(aiActionsAnchor)}
+          onClose={handleAiActionsClose}
+          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          PaperProps={{
+            sx: {
+              mt: 1.5,
+              minWidth: 380,
+              maxHeight: 480,
+              borderRadius: 2,
+              boxShadow: 3,
+            },
+          }}
+        >
+          {/* Header */}
+          <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <AlertTriangle size={18} color={theme.palette.warning.main} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                {t.ai?.needsReview || 'Needs Review'}
+              </Typography>
+            </Box>
+            {pendingAiActions > 0 && (
+              <Chip
+                size="small"
+                label={`${pendingAiActions} ${t.ai?.pending || 'pending'}`}
+                color="warning"
+                sx={{ height: 22, fontSize: '0.7rem' }}
+              />
+            )}
+          </Box>
+          <Divider />
+
+          {/* Content */}
+          {actionsLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+          {!actionsLoading && pendingActionsList.length === 0 && (
+            <Box sx={{ px: 2, py: 4, textAlign: 'center' }}>
+              <Sparkles size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+              <Typography variant="body2" color="text.secondary">
+                {t.ai?.noPendingActions || 'No pending actions'}
+              </Typography>
+            </Box>
+          )}
+          {!actionsLoading && pendingActionsList.slice(0, 5).map((action) => (
+            <Box
+              key={action.executionId}
+              sx={{
+                px: 2,
+                py: 1.5,
+                borderBottom: 1,
+                borderColor: 'divider',
+                '&:last-of-type': { borderBottom: 0 },
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+                <Chip
+                  size="small"
+                  label={action.severity}
+                  color={getSeverityColor(action.severity) as 'error' | 'warning' | 'info'}
+                  sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600 }}
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                  {action.actionType.replace(/_/g, ' ')}
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ mb: 1.5, lineHeight: 1.4 }}>
+                {action.summary.length > 100 ? action.summary.slice(0, 100) + '...' : action.summary}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<XCircle size={14} />}
+                  onClick={() => handleRejectAction(action.executionId)}
+                  disabled={rejectingId === action.executionId || approvingId === action.executionId}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.25 }}
+                >
+                  {rejectingId === action.executionId ? <CircularProgress size={12} /> : (t.ai?.reject || 'Reject')}
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  startIcon={<Check size={14} />}
+                  onClick={() => handleApproveAction(action.executionId)}
+                  disabled={approvingId === action.executionId || rejectingId === action.executionId}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem', py: 0.25 }}
+                >
+                  {approvingId === action.executionId ? <CircularProgress size={12} color="inherit" /> : (t.ai?.approve || 'Approve')}
+                </Button>
+              </Box>
+            </Box>
+          ))}
+
+          {/* Footer - View All */}
+          {pendingActionsList.length > 0 && (
+            <>
+              <Divider />
+              <MenuItem
+                onClick={() => {
+                  router.push('/dashboard/ai');
+                  handleAiActionsClose();
+                }}
+                sx={{
+                  justifyContent: 'center',
+                  py: 1.5,
+                  color: 'primary.main',
+                  fontWeight: 600,
+                }}
+              >
+                {t.ai?.viewAllActions || 'View All in AI Assistant'}
+              </MenuItem>
+            </>
+          )}
         </Menu>
       </Toolbar>
     </AppBar>

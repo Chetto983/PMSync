@@ -15,6 +15,7 @@ export interface UserPreferences {
   aiSmartRepliesEnabled?: boolean;
   aiSummarizationEnabled?: boolean;
   aiSchedulingEnabled?: boolean;
+  aiAutoTriageEnabled?: boolean;
   aiAutoApproveThreshold?: number;
   // AI Personalization
   jobTitle?: string;
@@ -57,6 +58,7 @@ export interface UpdatePreferencesData {
   aiSmartRepliesEnabled?: boolean;
   aiSummarizationEnabled?: boolean;
   aiSchedulingEnabled?: boolean;
+  aiAutoTriageEnabled?: boolean;
 }
 
 export interface UserProfile {

@@ -17,10 +17,13 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { HitlService } from '../src/modules/ai/voltagent/services/hitl.service';
+import { HitlService, PendingActionStatus } from '../src/modules/ai/voltagent/services/hitl.service';
 import { VoltAgentService } from '../src/modules/ai/voltagent/voltagent.service';
 
 const TEST_TENANT_ID = 'cmjgylxkg000054yhnjpkmzd9';
+
+// Unique conversation ID for fresh session (no memory of previous rejections)
+const TEST_CONVERSATION_ID = `hitl-test-${Date.now()}`;
 
 // ANSI colors
 const GREEN = '\x1b[32m';
@@ -241,17 +244,84 @@ async function runRealDataTests(): Promise<void> {
     const initialPendingResult = await hitlService.getPendingActions({ tenantId: TEST_TENANT_ID, userId: user.id });
     console.log(`  Initial pending actions: ${initialPendingResult.total}`);
 
-    // TEST 3.1: Reply to real email
-    if (realEmails.length > 0) {
-      console.log(`\n${BOLD}[3.1]${RESET} Test: Reply to real email...`);
-      const emailToReply = realEmails[0];
-      console.log(`  Email: "${emailToReply.subject}"`);
+    // TEST 3.0: Direct HITL service test (bypasses AI routing)
+    console.log(`\n${BOLD}[3.0]${RESET} Test: Direct HITL action creation (service-level validation)...`);
+    try {
+      const directActionId = await hitlService.createPendingAction({
+        tenantId: TEST_TENANT_ID,
+        userId: user.id,
+        sessionId: `test-session-${Date.now()}`,
+        agentName: 'TestAgent',
+        action: {
+          type: 'SEND_EMAIL' as unknown as import('../src/modules/ai/voltagent/interfaces/agent-action.interface').AgentActionType,
+          payload: {
+            to: ['test-hitl@example.com'],
+            subject: 'HITL Test - Direct Service Call',
+            body: 'This is a test action created directly via HitlService',
+          },
+          confidence: 0.9,
+          severity: 'HIGH' as import('../src/modules/ai/voltagent/interfaces/agent-action.interface').ActionSeverity,
+          reasoningSteps: 'Direct HITL test',
+        },
+      });
+      console.log(`  ${GREEN}[OK]${RESET} Direct HITL action created: ${directActionId}`);
 
+      // Verify it exists
+      const verifyResult = await hitlService.getPendingActions({
+        tenantId: TEST_TENANT_ID,
+        userId: user.id,
+        status: PendingActionStatus.PENDING,
+      });
+      const directAction = verifyResult.actions.find(a => a.id === directActionId);
+      if (directAction) {
+        console.log(`       Status: ${directAction.status}`);
+        console.log(`       Type: ${directAction.actionType}`);
+
+        // Reject it (cleanup)
+        await hitlService.rejectAction(
+          TEST_TENANT_ID,
+          directActionId,
+          user.id,
+          undefined,
+          'Direct HITL test cleanup'
+        );
+        console.log(`  ${YELLOW}[CLEANUP]${RESET} Action rejected`);
+
+        results.push({
+          name: 'HITL: Direct service test',
+          passed: true,
+          message: 'HITL action creation and rejection works',
+        });
+      } else {
+        results.push({
+          name: 'HITL: Direct service test',
+          passed: false,
+          message: 'Action created but not found in pending list',
+        });
+      }
+    } catch (err) {
+      console.log(`  ${RED}[FAIL]${RESET} Direct HITL test failed: ${(err as Error).message}`);
+      results.push({
+        name: 'HITL: Direct service test',
+        passed: false,
+        message: (err as Error).message,
+      });
+    }
+
+    // TEST 3.1: Reply to real email (using email ID)
+    if (realEmails.length > 0) {
+      console.log(`\n${BOLD}[3.1]${RESET} Test: Reply to real email (via AI)...`);
+      const emailToReply = realEmails[0];
+      console.log(`  Email ID: ${emailToReply.id}`);
+      console.log(`  Subject: "${emailToReply.subject}"`);
+
+      // Use explicit command with email ID for better accuracy
       const replyResult = await voltAgentService.chat(
-        `rispondi all'email "${emailToReply.subject}" dicendo grazie per il messaggio ci sentiamo presto`,
+        `invia una risposta all'email con ID ${emailToReply.id} con testo: "Grazie per il messaggio, ci sentiamo presto."`,
         {
           tenantId: TEST_TENANT_ID,
           userId: user.id,
+          conversationId: TEST_CONVERSATION_ID,
           locale: 'it',
           skipCache: true,
         }
@@ -261,6 +331,16 @@ async function runRealDataTests(): Promise<void> {
 
       // Check if HITL action was created
       const afterReplyResult = await hitlService.getPendingActions({ tenantId: TEST_TENANT_ID, userId: user.id });
+
+      // Debug: Show ALL recent actions
+      const recentActions = afterReplyResult.actions.filter(
+        (a) => new Date(a.createdAt) > new Date(Date.now() - 120000)
+      );
+      console.log(`  ${DIM}[DEBUG] Recent actions (2min): ${recentActions.length} total${RESET}`);
+      recentActions.forEach((a, i) => {
+        console.log(`         ${i + 1}. ${a.actionType} (${a.status}) at ${new Date(a.createdAt).toLocaleTimeString()}`);
+      });
+
       const replyAction = afterReplyResult.actions.find(
         (a) =>
           (a.actionType === 'SEND_EMAIL' || a.actionType === 'REPLY_EMAIL') &&
@@ -271,23 +351,28 @@ async function runRealDataTests(): Promise<void> {
         console.log(`  ${GREEN}[OK]${RESET} HITL action created!`);
         console.log(`       ID: ${replyAction.id}`);
         console.log(`       Type: ${replyAction.actionType}`);
-        console.log(`       Severity: ${replyAction.severity}`);
+        console.log(`       Status: ${replyAction.status}`);
+        console.log(`       Confidence: ${replyAction.confidence}`);
         results.push({
           name: 'HITL: Reply to email',
           passed: true,
           message: `Action ${replyAction.actionType} created`,
-          details: { actionId: replyAction.id, severity: replyAction.severity },
+          details: { actionId: replyAction.id, confidence: replyAction.confidence },
         });
 
-        // REJECT it (don't actually send)
-        console.log(`  ${YELLOW}[CLEANUP]${RESET} Rejecting test action...`);
-        await hitlService.rejectAction(
-          TEST_TENANT_ID,
-          replyAction.executionId || replyAction.id,
-          user.id,
-          undefined,
-          'Test validation - not actually sending'
-        );
+        // REJECT it only if still pending
+        if (replyAction.status === 'PENDING_APPROVAL') {
+          console.log(`  ${YELLOW}[CLEANUP]${RESET} Rejecting test action...`);
+          await hitlService.rejectAction(
+            TEST_TENANT_ID,
+            replyAction.id,
+            user.id,
+            undefined,
+            'Test validation - not actually sending'
+          );
+        } else {
+          console.log(`  ${DIM}[SKIP]${RESET} Action already in terminal state: ${replyAction.status}`);
+        }
       } else {
         console.log(`  ${RED}[FAIL]${RESET} No HITL action created for reply`);
         results.push({
@@ -301,10 +386,11 @@ async function runRealDataTests(): Promise<void> {
     // TEST 3.2: Create calendar event
     console.log(`\n${BOLD}[3.2]${RESET} Test: Create calendar event...`);
     const eventResult = await voltAgentService.chat(
-      'metti riunione domani alle 15 chiamata test validazione HITL',
+      'crea un evento nel calendario per domani alle 15:00 chiamato "Test HITL Validation" della durata di 30 minuti',
       {
         tenantId: TEST_TENANT_ID,
         userId: user.id,
+        conversationId: TEST_CONVERSATION_ID,
         locale: 'it',
         skipCache: true,
       }
@@ -313,31 +399,46 @@ async function runRealDataTests(): Promise<void> {
     console.log(`  Response: ${eventResult.text?.substring(0, 100)}...`);
 
     const afterEventResult = await hitlService.getPendingActions({ tenantId: TEST_TENANT_ID, userId: user.id });
+
+    // Debug: Show ALL recent actions
+    const recentEventActions = afterEventResult.actions.filter(
+      (a: { createdAt: Date }) => new Date(a.createdAt) > new Date(Date.now() - 120000)
+    );
+    console.log(`  ${DIM}[DEBUG] Recent actions (2min): ${recentEventActions.length} total${RESET}`);
+    recentEventActions.slice(0, 5).forEach((a: { actionType: string; status: string; createdAt: Date }, i: number) => {
+      console.log(`         ${i + 1}. ${a.actionType} (${a.status}) at ${new Date(a.createdAt).toLocaleTimeString()}`);
+    });
+
     const eventAction = afterEventResult.actions.find(
       (a: { actionType: string; createdAt: Date }) =>
-        a.actionType === 'CREATE_EVENT' &&
+        (a.actionType === 'SCHEDULE_MEETING' || a.actionType === 'CREATE_TASK') &&
         new Date(a.createdAt) > new Date(Date.now() - 60000)
     );
 
     if (eventAction) {
       console.log(`  ${GREEN}[OK]${RESET} HITL action created!`);
       console.log(`       ID: ${eventAction.id}`);
-      console.log(`       Summary: ${eventAction.summary}`);
+      console.log(`       Status: ${eventAction.status}`);
+      console.log(`       Summary: ${(eventAction.actionPayload as Record<string, unknown>)?.summary || 'N/A'}`);
       results.push({
         name: 'HITL: Create event',
         passed: true,
-        message: `Event action created`,
+        message: `Event action created (${eventAction.actionType})`,
       });
 
-      // REJECT it
-      console.log(`  ${YELLOW}[CLEANUP]${RESET} Rejecting test action...`);
-      await hitlService.rejectAction(
-        TEST_TENANT_ID,
-        eventAction.executionId || eventAction.id,
-        user.id,
-        undefined,
-        'Test validation - not actually creating'
-      );
+      // REJECT it only if still pending
+      if (eventAction.status === 'PENDING_APPROVAL') {
+        console.log(`  ${YELLOW}[CLEANUP]${RESET} Rejecting test action...`);
+        await hitlService.rejectAction(
+          TEST_TENANT_ID,
+          eventAction.id,
+          user.id,
+          undefined,
+          'Test validation - not actually creating'
+        );
+      } else {
+        console.log(`  ${DIM}[SKIP]${RESET} Action already in terminal state: ${eventAction.status}`);
+      }
     } else {
       console.log(`  ${RED}[FAIL]${RESET} No HITL action created for event`);
       results.push({
@@ -362,6 +463,16 @@ async function runRealDataTests(): Promise<void> {
     console.log(`  Response: ${sendResult.text?.substring(0, 100)}...`);
 
     const afterSendResult = await hitlService.getPendingActions({ tenantId: TEST_TENANT_ID, userId: user.id });
+
+    // Debug: Show ALL recent actions
+    const recentSendActions = afterSendResult.actions.filter(
+      (a: { createdAt: Date }) => new Date(a.createdAt) > new Date(Date.now() - 120000)
+    );
+    console.log(`  ${DIM}[DEBUG] Recent actions (2min): ${recentSendActions.length} total${RESET}`);
+    recentSendActions.slice(0, 5).forEach((a: { actionType: string; status: string; createdAt: Date }, i: number) => {
+      console.log(`         ${i + 1}. ${a.actionType} (${a.status}) at ${new Date(a.createdAt).toLocaleTimeString()}`);
+    });
+
     const sendAction = afterSendResult.actions.find(
       (a: { actionType: string; createdAt: Date }) =>
         a.actionType === 'SEND_EMAIL' &&
@@ -371,22 +482,27 @@ async function runRealDataTests(): Promise<void> {
     if (sendAction) {
       console.log(`  ${GREEN}[OK]${RESET} HITL action created!`);
       console.log(`       ID: ${sendAction.id}`);
-      console.log(`       Payload to: ${JSON.stringify((sendAction.payload as Record<string, unknown>)?.to || 'N/A')}`);
+      console.log(`       Status: ${sendAction.status}`);
+      console.log(`       Payload to: ${JSON.stringify((sendAction.actionPayload as Record<string, unknown>)?.to || 'N/A')}`);
       results.push({
         name: 'HITL: Send email',
         passed: true,
         message: `Send action created`,
       });
 
-      // REJECT it
-      console.log(`  ${YELLOW}[CLEANUP]${RESET} Rejecting test action...`);
-      await hitlService.rejectAction(
-        TEST_TENANT_ID,
-        sendAction.executionId || sendAction.id,
-        user.id,
-        undefined,
-        'Test validation - not actually sending'
-      );
+      // REJECT it only if still pending
+      if (sendAction.status === 'PENDING_APPROVAL') {
+        console.log(`  ${YELLOW}[CLEANUP]${RESET} Rejecting test action...`);
+        await hitlService.rejectAction(
+          TEST_TENANT_ID,
+          sendAction.id,
+          user.id,
+          undefined,
+          'Test validation - not actually sending'
+        );
+      } else {
+        console.log(`  ${DIM}[SKIP]${RESET} Action already in terminal state: ${sendAction.status}`);
+      }
     } else {
       console.log(`  ${RED}[FAIL]${RESET} No HITL action created for send`);
       results.push({
@@ -414,6 +530,7 @@ async function runRealDataTests(): Promise<void> {
         {
           tenantId: TEST_TENANT_ID,
           userId: user.id,
+          conversationId: TEST_CONVERSATION_ID,
           locale: 'it',
           skipCache: true,
         }
@@ -424,7 +541,7 @@ async function runRealDataTests(): Promise<void> {
       const afterMarkResult = await hitlService.getPendingActions({ tenantId: TEST_TENANT_ID, userId: user.id });
       const markAction = afterMarkResult.actions.find(
         (a: { actionType: string; createdAt: Date }) =>
-          (a.actionType === 'MARK_READ' || a.actionType === 'UPDATE_EMAIL') &&
+          (a.actionType === 'ADD_LABEL' || a.actionType === 'ARCHIVE_EMAIL') &&
           new Date(a.createdAt) > new Date(Date.now() - 60000)
       );
 
@@ -433,7 +550,7 @@ async function runRealDataTests(): Promise<void> {
 
         const approveResult = await hitlService.approveAction(
           TEST_TENANT_ID,
-          markAction.executionId || markAction.id,
+          markAction.id,
           user.id
         );
 
@@ -483,23 +600,32 @@ async function runRealDataTests(): Promise<void> {
       console.log(`      ${color}${c.status}: ${c._count.id}${RESET}`);
     });
 
-    // Final pending check
-    const finalPendingResult = await hitlService.getPendingActions({ tenantId: TEST_TENANT_ID, userId: user.id });
+    // Final pending check - ONLY PENDING status
+    const finalPendingResult = await hitlService.getPendingActions({
+      tenantId: TEST_TENANT_ID,
+      userId: user.id,
+      status: PendingActionStatus.PENDING,
+    });
     console.log(`\n${BOLD}[5.2]${RESET} Remaining pending actions: ${finalPendingResult.total}`);
 
     if (finalPendingResult.total > 0) {
       console.log(`  ${YELLOW}[WARN]${RESET} Some actions still pending - cleaning up...`);
+      let cleaned = 0;
       for (const action of finalPendingResult.actions) {
-        const execId = action.executionId || action.id;
-        await hitlService.rejectAction(
-          TEST_TENANT_ID,
-          execId,
-          user.id,
-          undefined,
-          'Test cleanup'
-        );
+        try {
+          await hitlService.rejectAction(
+            TEST_TENANT_ID,
+            action.id,
+            user.id,
+            undefined,
+            'Test cleanup'
+          );
+          cleaned++;
+        } catch (err) {
+          console.log(`  ${DIM}[SKIP]${RESET} Could not reject ${action.id}: ${(err as Error).message}`);
+        }
       }
-      console.log(`  ${GREEN}[OK]${RESET} Cleaned ${finalPendingResult.total} actions`);
+      console.log(`  ${GREEN}[OK]${RESET} Cleaned ${cleaned}/${finalPendingResult.total} actions`);
     }
 
     results.push({

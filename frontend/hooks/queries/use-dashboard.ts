@@ -746,3 +746,78 @@ export function emailTrendsOptions() {
 export function useEmailTrends() {
   return useQuery(emailTrendsOptions());
 }
+
+// ============================================================================
+// AI Triaged Emails
+// ============================================================================
+
+export interface TriagedEmail {
+  id: string;
+  subject: string;
+  from: string | { name?: string; email?: string };
+  aiPriority: number;
+  aiPriorityReason?: string;
+  aiLabels?: string[];
+  isRead: boolean;
+  receivedAt: string;
+  autoTriagedAt?: string;
+}
+
+/**
+ * Query options for AI-triaged emails
+ * Fetches emails that have been auto-triaged, ordered by priority
+ */
+export function triagedEmailsOptions(params?: { limit?: number; priority?: number }) {
+  return queryOptions({
+    queryKey: dashboardKeys.triagedEmails(params),
+    queryFn: async (): Promise<{ emails: TriagedEmail[]; total: number; byPriority: Record<number, number> }> => {
+      const limit = params?.limit || 10;
+      try {
+        // Fetch emails with isAutoTriaged=true
+        const response = await apiClient.get('/emails', {
+          params: {
+            limit,
+            isAutoTriaged: true,
+            ...(params?.priority && { aiPriority: params.priority }),
+          },
+        });
+
+        const emails: TriagedEmail[] = (response.data?.emails || []).map((e: Record<string, unknown>) => ({
+          id: e.id as string,
+          subject: (e.subject as string) || '(No subject)',
+          from: e.from as string | { name?: string; email?: string },
+          aiPriority: (e.aiPriority as number) || 3,
+          aiPriorityReason: e.aiPriorityReason as string | undefined,
+          aiLabels: (e.aiLabels as string[]) || [],
+          isRead: (e.isRead as boolean) || false,
+          receivedAt: (e.receivedAt as string) || '',
+          autoTriagedAt: e.autoTriagedAt as string | undefined,
+        }));
+
+        // Count emails by priority
+        const byPriority: Record<number, number> = {};
+        for (const email of emails) {
+          byPriority[email.aiPriority] = (byPriority[email.aiPriority] || 0) + 1;
+        }
+
+        return {
+          emails,
+          total: response.data?.pagination?.total || emails.length,
+          byPriority,
+        };
+      } catch {
+        return { emails: [], total: 0, byPriority: {} };
+      }
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+/**
+ * Hook for AI-triaged emails
+ */
+export function useTriagedEmails(params?: { limit?: number; priority?: number }) {
+  return useQuery(triagedEmailsOptions(params));
+}

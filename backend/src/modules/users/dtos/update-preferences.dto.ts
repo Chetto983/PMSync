@@ -212,4 +212,13 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsBoolean()
   aiSchedulingEnabled?: boolean;
+
+  @ApiProperty({
+    description: 'Enable AI auto-triage (auto-prioritize and label new emails)',
+    example: false,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  aiAutoTriageEnabled?: boolean;
 }

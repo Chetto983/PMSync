@@ -95,6 +95,12 @@ export interface Email {
   hasCalendarInvite?: boolean;
   calendarInviteStatus?: 'pending' | 'accepted' | 'declined' | 'tentative';
   calendarInviteData?: ParsedCalendarInvite | null;
+  // AI Auto-Triage fields
+  aiPriority?: number | null;
+  aiPriorityReason?: string | null;
+  aiLabels?: string[];
+  isAutoTriaged?: boolean;
+  autoTriagedAt?: string | null;
 }
 
 // =============================================================================
