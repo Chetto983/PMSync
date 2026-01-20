@@ -422,6 +422,7 @@ export const emailsApi = {
       cc: dto.cc,
       bcc: dto.bcc,
       attachments: attachments.length > 0 ? attachments : undefined,
+      signatureId: dto.signatureId,
     };
 
     const response = await apiClient.post(`/emails/${emailId}/reply`, payload);

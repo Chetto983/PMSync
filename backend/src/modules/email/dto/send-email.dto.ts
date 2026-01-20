@@ -10,6 +10,7 @@ import {
   IsInt,
   IsPositive,
   Max,
+  ValidateIf,
 } from 'class-validator';
 
 /**
@@ -92,16 +93,48 @@ export class SendEmailRequestDto extends BaseComposeEmailDto {
    * Pass explicitly null to send without signature.
    */
   @IsOptional()
+  @ValidateIf((o) => o.signatureId !== null)
   @IsString()
   signatureId?: string | null;
 }
 
-export class ReplyForwardEmailRequestDto extends BaseComposeEmailDto {
+/**
+ * DTO for replying to emails - only requires bodyHtml since to/subject are derived
+ * from the original email by the service.
+ */
+export class ReplyEmailRequestDto {
+  @IsString()
+  @MaxLength(10000000, { message: 'HTML body exceeds 10MB limit' })
+  bodyHtml!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000000, { message: 'Text body exceeds 10MB limit' })
+  bodyText?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true, message: 'Invalid email address in "cc" field' })
+  @ArrayMaxSize(50, { message: 'Maximum 50 recipients in "cc" field' })
+  cc?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true, message: 'Invalid email address in "bcc" field' })
+  @ArrayMaxSize(50, { message: 'Maximum 50 recipients in "bcc" field' })
+  bcc?: string[];
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => EmailAttachmentDto)
+  attachments?: EmailAttachmentDto[];
+
   /**
    * Signature ID to append. If not provided, uses default signature for provider.
    * Pass explicitly null to send without signature.
    */
   @IsOptional()
+  @ValidateIf((o) => o.signatureId !== null)
   @IsString()
   signatureId?: string | null;
 }
@@ -138,6 +171,7 @@ export class ForwardEmailRequestDto {
    * Pass explicitly null to send without signature.
    */
   @IsOptional()
+  @ValidateIf((o) => o.signatureId !== null)
   @IsString()
   signatureId?: string | null;
 }

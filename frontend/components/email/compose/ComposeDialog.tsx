@@ -414,10 +414,8 @@ export default function ComposeDialog({
             to: to.map((r) => r.email),
             cc: cc.map((r) => r.email),
             bcc: bcc.map((r) => r.email),
-            bodyHtml: fullBodyHtml,
-            bodyText: fullBodyText,
             attachments: attachmentFiles,
-            // Signature already appended in editor, prevent backend double-append
+            // Backend generates forward body from original email + appends signature
             signatureId: null,
           },
         });

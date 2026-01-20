@@ -345,7 +345,7 @@ export class EmailSendService {
   async replyToEmail(
     emailId: string,
     tenantId: string,
-    data: Omit<SendEmailDto, 'tenantId' | 'providerId' | 'inReplyTo' | 'references'>,
+    data: Omit<SendEmailDto, 'tenantId' | 'providerId' | 'inReplyTo' | 'references' | 'to' | 'subject'>,
   ): Promise<{ success: boolean; messageId: string }> {
     const originalEmail = await this.prisma.email.findFirst({
       where: { id: emailId, tenantId },
@@ -360,8 +360,18 @@ export class EmailSendService {
       ? `${originalEmail.references} ${originalEmail.messageId}`
       : originalEmail.messageId || '';
 
+    // Derive reply-to address from original email's from field
+    const to = [originalEmail.from];
+
+    // Derive subject with "Re: " prefix
+    const subject = originalEmail.subject.startsWith('Re:')
+      ? originalEmail.subject
+      : `Re: ${originalEmail.subject}`;
+
     return this.sendEmail({
       ...data,
+      to,
+      subject,
       tenantId,
       providerId: originalEmail.providerId,
       threadId: originalEmail.threadId ?? undefined,
