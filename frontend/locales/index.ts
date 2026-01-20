@@ -1901,6 +1901,18 @@ export interface AppTranslations {
         uploadSuccess: string;
         uploadError: string;
         removeConfirm: string;
+        editor: {
+          title: string;
+          uploadTab: string;
+          chooseTab: string;
+          zoom: string;
+          rotate: string;
+          randomize: string;
+          styleLabel: string;
+          cancel: string;
+          save: string;
+          saving: string;
+        };
       };
       dangerTitle: string;
       dangerDescription: string;

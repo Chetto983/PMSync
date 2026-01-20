@@ -6,4 +6,5 @@ export { GeneralSettings } from './GeneralSettings';
 export { AiSettings } from './AiSettings';
 export { AccountsSettings } from './AccountsSettings';
 export { AccountSettings } from './AccountSettings';
+export { AvatarEditorDialog } from './AvatarEditorDialog';
 // NotificationsSettings removed - was dead UI (no backend persistence)

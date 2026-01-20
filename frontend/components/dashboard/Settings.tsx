@@ -114,6 +114,7 @@ export function Settings() {
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const logout = useAuthStore((state) => state.logout);
+  const setUser = useAuthStore((state) => state.setUser);
 
   const sections = useMemo(
     () => [
@@ -355,24 +356,50 @@ export function Settings() {
       const resizedDataUrl = await resizeImage(file);
       const result = await usersApi.uploadAvatar(resizedDataUrl);
       setAvatarUrl(result.avatarUrl);
+      // Update auth store so Header shows new avatar
+      if (user) {
+        setUser({ ...user, avatarUrl: result.avatarUrl });
+      }
     } catch (error) {
       logger.error('Failed to upload avatar', { error });
     } finally {
       setAvatarUploading(false);
     }
-  }, [resizeImage]);
+  }, [resizeImage, user, setUser]);
 
   const handleAvatarRemove = useCallback(async () => {
     try {
       setAvatarUploading(true);
       await usersApi.deleteAvatar();
       setAvatarUrl(null);
+      // Update auth store so Header removes avatar
+      if (user) {
+        setUser({ ...user, avatarUrl: null });
+      }
     } catch (error) {
       logger.error('Failed to remove avatar', { error });
     } finally {
       setAvatarUploading(false);
     }
-  }, []);
+  }, [user, setUser]);
+
+  // New handler for avatar editor (accepts data URL directly)
+  const handleAvatarSave = useCallback(async (dataUrl: string) => {
+    try {
+      setAvatarUploading(true);
+      const result = await usersApi.uploadAvatar(dataUrl);
+      setAvatarUrl(result.avatarUrl);
+      // Update auth store so Header shows new avatar
+      if (user) {
+        setUser({ ...user, avatarUrl: result.avatarUrl });
+      }
+    } catch (error) {
+      logger.error('Failed to save avatar', { error });
+      throw error; // Re-throw so dialog knows save failed
+    } finally {
+      setAvatarUploading(false);
+    }
+  }, [user, setUser]);
 
   const accountName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || '';
 
@@ -518,7 +545,7 @@ export function Settings() {
               <AccountsSettings providers={providers} providersLoading={providersLoading} syncLoading={syncAllMutation.isPending} success={providerSuccess} error={providerError} onClearSuccess={() => setProviderSuccess('')} onClearError={() => setProviderError('')} onRefresh={() => refetchProviders()} onSyncAll={handleSyncAll} onProviderInitiated={handleProviderInitiated} onProviderConnected={handleProviderConnected} onProviderDeleted={handleProviderDeleted} copy={accountsCopy} />
             )}
             {selectedSection === 'account' && (
-              <AccountSettings accountName={accountName} email={user?.email || ''} role={user?.role || ''} language={language} avatarUrl={avatarUrl} avatarUploading={avatarUploading} onAvatarUpload={handleAvatarUpload} onAvatarRemove={handleAvatarRemove} deleteDialogOpen={deleteDialogOpen} deleteConfirmText={deleteConfirmText} deleteLoading={deleteLoading} deleteError={deleteError} onOpenDeleteDialog={() => setDeleteDialogOpen(true)} onCloseDeleteDialog={handleCloseDeleteDialog} onDeleteConfirmTextChange={setDeleteConfirmText} onDeleteAccount={handleDeleteAccount} copy={accountCopy} />
+              <AccountSettings accountName={accountName} email={user?.email || ''} role={user?.role || ''} language={language} avatarUrl={avatarUrl} avatarUploading={avatarUploading} onAvatarUpload={handleAvatarUpload} onAvatarSave={handleAvatarSave} onAvatarRemove={handleAvatarRemove} deleteDialogOpen={deleteDialogOpen} deleteConfirmText={deleteConfirmText} deleteLoading={deleteLoading} deleteError={deleteError} onOpenDeleteDialog={() => setDeleteDialogOpen(true)} onCloseDeleteDialog={handleCloseDeleteDialog} onDeleteConfirmTextChange={setDeleteConfirmText} onDeleteAccount={handleDeleteAccount} copy={accountCopy} />
             )}
             {selectedSection === 'billing' && <BillingPanel />}
           </Box>

@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import { Trash2, Camera, X } from 'lucide-react';
 import { SectionCard } from './SectionCard';
+import { AvatarEditorDialog } from './AvatarEditorDialog';
 
 export interface AccountSettingsProps {
   accountName: string;
@@ -29,6 +30,7 @@ export interface AccountSettingsProps {
   avatarUrl?: string | null;
   avatarUploading?: boolean;
   onAvatarUpload?: (file: File) => void;
+  onAvatarSave?: (avatarUrl: string) => Promise<void>;
   onAvatarRemove?: () => void;
   // Delete dialog state
   deleteDialogOpen: boolean;
@@ -68,6 +70,18 @@ export interface AccountSettingsProps {
       uploadSuccess: string;
       uploadError: string;
       removeConfirm: string;
+      editor?: {
+        title: string;
+        uploadTab: string;
+        chooseTab: string;
+        zoom: string;
+        rotate: string;
+        randomize: string;
+        styleLabel: string;
+        cancel: string;
+        save: string;
+        saving: string;
+      };
     };
   };
 }
@@ -92,6 +106,7 @@ export function AccountSettings({
   avatarUrl,
   avatarUploading = false,
   onAvatarUpload,
+  onAvatarSave,
   onAvatarRemove,
   deleteDialogOpen,
   deleteConfirmText,
@@ -106,6 +121,7 @@ export function AccountSettings({
   const confirmWord = language === 'it' ? 'ELIMINA' : 'DELETE';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [editorDialogOpen, setEditorDialogOpen] = useState(false);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -127,7 +143,12 @@ export function AccountSettings({
   };
 
   const handleAvatarClick = () => {
-    fileInputRef.current?.click();
+    // Open editor dialog if available, otherwise fallback to file input
+    if (onAvatarSave && copy.avatar?.editor) {
+      setEditorDialogOpen(true);
+    } else {
+      fileInputRef.current?.click();
+    }
   };
 
   const handleRemoveConfirm = () => {
@@ -334,6 +355,31 @@ export function AccountSettings({
             </Button>
           </DialogActions>
         </Dialog>
+      )}
+
+      {/* Avatar Editor Dialog */}
+      {copy.avatar?.editor && onAvatarSave && (
+        <AvatarEditorDialog
+          open={editorDialogOpen}
+          onClose={() => setEditorDialogOpen(false)}
+          onSave={onAvatarSave}
+          currentAvatar={avatarUrl}
+          userName={accountName}
+          userEmail={email}
+          copy={{
+            title: copy.avatar.editor.title,
+            uploadTab: copy.avatar.editor.uploadTab,
+            chooseTab: copy.avatar.editor.chooseTab,
+            zoom: copy.avatar.editor.zoom,
+            rotate: copy.avatar.editor.rotate,
+            dropHint: copy.avatar.dropHint,
+            randomize: copy.avatar.editor.randomize,
+            styleLabel: copy.avatar.editor.styleLabel,
+            cancel: copy.avatar.editor.cancel,
+            save: copy.avatar.editor.save,
+            saving: copy.avatar.editor.saving,
+          }}
+        />
       )}
     </Box>
   );
