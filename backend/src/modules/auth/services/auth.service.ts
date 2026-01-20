@@ -1163,6 +1163,36 @@ export class AuthService {
   }
 
   /**
+   * Get current user profile with full details (including avatarUrl)
+   * Used by /auth/me endpoint since JWT doesn't contain avatarUrl
+   */
+  async getCurrentUserProfile(userId: string, tenantId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        role: true,
+        isMfaEnabled: true,
+        lastLogin: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      ...user,
+      tenantId,
+    };
+  }
+
+  /**
    * Handle Google OAuth
    *
    * @deprecated Use /providers/google/auth-url and /providers/google/connect instead

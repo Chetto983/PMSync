@@ -1315,9 +1315,10 @@ export const it: AppTranslations = {
       clearSchedule: 'Cancella pianificazione',
       scheduledFor: 'Pianificato per',
       options: {
-        tomorrow9am: 'Domani alle 9:00',
-        tomorrowAfternoon: 'Domani alle 14:00',
-        monday9am: 'Lunedì prossimo alle 9:00',
+        laterToday: 'Più tardi oggi',
+        tomorrowMorning: 'Domani mattina',
+        tomorrowAfternoon: 'Domani pomeriggio',
+        nextMonday: 'Lunedì prossimo',
         custom: 'Scegli data e ora',
       },
     },

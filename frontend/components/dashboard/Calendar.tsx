@@ -17,18 +17,20 @@
  * @see https://fullcalendar.io/docs
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import {
   Box,
   Paper,
-  CircularProgress,
   Snackbar,
   Alert as MuiAlert,
   Drawer,
   alpha,
   useTheme,
+  Skeleton,
+  CircularProgress,
 } from '@mui/material';
-import FullCalendar from '@fullcalendar/react';
+// Lazy load FullCalendar for faster initial page load (~100KB bundle reduction)
+const FullCalendar = lazy(() => import('@fullcalendar/react'));
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
@@ -55,7 +57,8 @@ import {
   calendarEventDetailOptions,
   calendarEventAttachmentsOptions,
 } from '@/hooks/queries/use-calendar';
-import { providersApi, type ProviderConfig } from '@/lib/api/providers';
+import type { ProviderConfig } from '@/lib/api/providers';
+import { useProviders } from '@/hooks/queries/use-providers';
 import { allFullCalendarLocales, getFullCalendarLocale } from '@/locales';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { getStoredUserSettings } from '@/lib/utils/user-settings';
@@ -89,7 +92,8 @@ export function Calendar() {
   const theme = useTheme();
   const translations = useTranslations();
   const calendarCopy = translations.calendar;
-  const calendarRef = useRef<FullCalendar>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const calendarRef = useRef<any>(null);
   const [currentMonth, setCurrentMonth] = useState('');
   const [currentYear, setCurrentYear] = useState('');
   const [viewType, setViewType] = useState<CalendarViewType>('month');
@@ -344,22 +348,24 @@ export function Calendar() {
     };
   }, [refetchCalendars]);
 
-  // Load providers and events
+  // Use TanStack Query for providers (follows frontend rules)
+  const { data: providersData } = useProviders();
+
+  // Sync providers state from TanStack Query
+  useEffect(() => {
+    if (providersData) {
+      setProviders(providersData);
+    }
+  }, [providersData]);
+
+  // Load events (providers come from useProviders hook)
   const loadData = useCallback(
     async (triggerSync = false) => {
       try {
         setLoading(true);
 
-        // Load providers
-        let loadedProviders: ProviderConfig[] = [];
-        try {
-          const providersRes = await providersApi.getProviders();
-          loadedProviders = providersRes || [];
-          setProviders(loadedProviders);
-        } catch (providerError) {
-          logger.warn('Failed to load providers for calendar', { error: providerError });
-          setProviders([]);
-        }
+        // Get providers from state (populated by useProviders hook)
+        const loadedProviders = providers;
 
         // Trigger sync for all calendar providers if requested using TanStack Query mutation
         if (triggerSync && loadedProviders.length > 0) {
@@ -426,12 +432,13 @@ export function Calendar() {
         setLoading(false);
       }
     },
-    [loadCalendars, selectedProvider, setLoading, setStoreEvents, setLastSyncAt, syncProviderMutation, queryClient, calendarCopy.failedToLoadEvents]
+    [loadCalendars, selectedProvider, setLoading, setStoreEvents, setLastSyncAt, syncProviderMutation, queryClient, calendarCopy.failedToLoadEvents, providers]
   );
 
-  // Initial data load - intentionally run only once on mount
+  // Initial data load - load events without triggering sync (faster UX)
+  // Sync is triggered manually via refresh button
   useEffect(() => {
-    void loadData(true);
+    void loadData(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -946,64 +953,78 @@ export function Calendar() {
               <CircularProgress />
             </Box>
           )}
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            headerToolbar={false}
-            editable={true}
-            selectable={true}
-            selectMirror={true}
-            dayMaxEvents={true}
-            events={filteredEvents}
-            select={handleDateSelect}
-            eventClick={handleEventClick}
-            height="100%"
-            eventDisplay="block"
-            eventTimeFormat={{
-              hour: '2-digit',
-              minute: '2-digit',
-              meridiem: false,
-            }}
-            slotLabelFormat={{
-              hour: '2-digit',
-              minute: '2-digit',
-              meridiem: false,
-            }}
-            locales={calendarLocales}
-            locale={calendarLocale}
-            nowIndicator={true}
-            navLinks={true}
-            weekNumbers={true}
-            weekNumberCalculation="ISO"
-            slotMinTime="06:00:00"
-            slotMaxTime="22:00:00"
-            slotDuration="00:30:00"
-            businessHours={{
-              daysOfWeek: [1, 2, 3, 4, 5],
-              startTime: '09:00',
-              endTime: '18:00',
-            }}
-            eventResizableFromStart={true}
-            eventDurationEditable={true}
-            eventStartEditable={true}
-            firstDay={1}
-            weekends={true}
-            fixedWeekCount={false}
-            showNonCurrentDates={true}
-            listDayFormat={{
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-            }}
-            listDaySideFormat={{
-              weekday: 'long',
-            }}
-            allDaySlot={true}
-            allDayText={calendarCopy.allDay}
-            dayMaxEventRows={3}
-            moreLinkClick="popover"
-          />
+          <Suspense
+            fallback={
+              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {/* Calendar grid skeleton */}
+                <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5, flex: 1 }}>
+                  {Array.from({ length: 35 }).map((_, i) => (
+                    <Skeleton key={i} variant="rectangular" sx={{ borderRadius: 0.5, minHeight: 80 }} />
+                  ))}
+                </Box>
+              </Box>
+            }
+          >
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              headerToolbar={false}
+              editable={true}
+              selectable={true}
+              selectMirror={true}
+              dayMaxEvents={true}
+              events={filteredEvents}
+              select={handleDateSelect}
+              eventClick={handleEventClick}
+              height="100%"
+              eventDisplay="block"
+              eventTimeFormat={{
+                hour: '2-digit',
+                minute: '2-digit',
+                meridiem: false,
+              }}
+              slotLabelFormat={{
+                hour: '2-digit',
+                minute: '2-digit',
+                meridiem: false,
+              }}
+              locales={calendarLocales}
+              locale={calendarLocale}
+              nowIndicator={true}
+              navLinks={true}
+              weekNumbers={true}
+              weekNumberCalculation="ISO"
+              slotMinTime="06:00:00"
+              slotMaxTime="22:00:00"
+              slotDuration="00:30:00"
+              businessHours={{
+                daysOfWeek: [1, 2, 3, 4, 5],
+                startTime: '09:00',
+                endTime: '18:00',
+              }}
+              eventResizableFromStart={true}
+              eventDurationEditable={true}
+              eventStartEditable={true}
+              firstDay={1}
+              weekends={true}
+              fixedWeekCount={false}
+              showNonCurrentDates={true}
+              listDayFormat={{
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              }}
+              listDaySideFormat={{
+                weekday: 'long',
+              }}
+              allDaySlot={true}
+              allDayText={calendarCopy.allDay}
+              dayMaxEventRows={3}
+              moreLinkClick="popover"
+            />
+          </Suspense>
         </Box>
       </Box>
 

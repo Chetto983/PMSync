@@ -1325,9 +1325,10 @@ export const en: AppTranslations = {
       clearSchedule: 'Clear schedule',
       scheduledFor: 'Scheduled for',
       options: {
-        tomorrow9am: 'Tomorrow at 9:00 AM',
-        tomorrowAfternoon: 'Tomorrow at 2:00 PM',
-        monday9am: 'Next Monday at 9:00 AM',
+        laterToday: 'Later today',
+        tomorrowMorning: 'Tomorrow morning',
+        tomorrowAfternoon: 'Tomorrow afternoon',
+        nextMonday: 'Next Monday',
         custom: 'Pick date & time',
       },
     },

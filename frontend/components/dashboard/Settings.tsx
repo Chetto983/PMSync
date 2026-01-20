@@ -296,38 +296,79 @@ export function Settings() {
   const handleCloseDeleteDialog = useCallback(() => { setDeleteDialogOpen(false); setDeleteConfirmText(''); setDeleteError(''); }, []);
 
   // Avatar handlers
+  // Resize and compress image before upload (max 256x256, JPEG 85% quality)
+  const resizeImage = useCallback((file: File, maxSize = 256): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        // Calculate new dimensions maintaining aspect ratio
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+
+        // Draw with high quality
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Export as JPEG with 85% quality (good balance of size/quality)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        resolve(dataUrl);
+      };
+      img.onerror = reject;
+    });
+  }, []);
+
   const handleAvatarUpload = useCallback(async (file: File) => {
     try {
       setAvatarUploading(true);
-      // Convert file to base64 data URL
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const dataUrl = e.target?.result as string;
-        try {
-          const result = await usersApi.uploadAvatar(dataUrl);
-          setAvatarUrl(result.avatarUrl);
-        } catch {
-          logger.error('Failed to upload avatar');
-        } finally {
-          setAvatarUploading(false);
-        }
-      };
-      reader.onerror = () => {
-        setAvatarUploading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch {
+      // Resize and compress image before upload
+      const resizedDataUrl = await resizeImage(file);
+      const result = await usersApi.uploadAvatar(resizedDataUrl);
+      setAvatarUrl(result.avatarUrl);
+    } catch (error) {
+      logger.error('Failed to upload avatar', { error });
+    } finally {
       setAvatarUploading(false);
     }
-  }, []);
+  }, [resizeImage]);
 
   const handleAvatarRemove = useCallback(async () => {
     try {
       setAvatarUploading(true);
       await usersApi.deleteAvatar();
       setAvatarUrl(null);
-    } catch {
-      logger.error('Failed to remove avatar');
+    } catch (error) {
+      logger.error('Failed to remove avatar', { error });
     } finally {
       setAvatarUploading(false);
     }

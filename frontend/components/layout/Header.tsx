@@ -495,11 +495,12 @@ export function Header({
           <Tooltip title={t.nav.account}>
             <IconButton onClick={handleUserMenuOpen} sx={{ p: 0.5, ml: 0.5 }}>
               <Avatar
+                src={user?.avatarUrl || undefined}
                 sx={{
                   width: 36,
                   height: 36,
                   background: (theme) =>
-                    `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                    user?.avatarUrl ? 'transparent' : `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
                   fontSize: '0.875rem',
                   fontWeight: 600,
                 }}
@@ -530,11 +531,12 @@ export function Header({
           <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Avatar
+                src={user?.avatarUrl || undefined}
                 sx={{
                   width: 40,
                   height: 40,
                   background: (theme) =>
-                    `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                    user?.avatarUrl ? 'transparent' : `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
                 }}
               >
                 {avatarInitials}

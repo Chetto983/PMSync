@@ -177,14 +177,15 @@ export class AuthController {
   }
 
   /**
-   * Get current logged-in user
+   * Get current logged-in user with full profile
    * GET /auth/me
    */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   async getCurrentUser(@Request() req: AuthenticatedRequest) {
-    return req.user;
+    // Return full user profile including avatarUrl (not stored in JWT)
+    return this.authService.getCurrentUserProfile(req.user.userId, req.user.tenantId);
   }
 
   /**

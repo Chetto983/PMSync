@@ -87,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: response.data.email,
           firstName: response.data.firstName,
           lastName: response.data.lastName,
+          avatarUrl: response.data.avatarUrl,
           role: response.data.role,
           tenantId: response.data.tenantId,
         };
