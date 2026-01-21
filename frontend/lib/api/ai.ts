@@ -696,11 +696,8 @@ export const voltAgentApi = {
     );
   },
 
-  getAggregateStats() {
-    return apiClient.get<{ success: boolean; stats: AggregateStats }>(
-      '/api/v1/voltagent/stats/aggregate',
-    );
-  },
+  // NOTE: getAggregateStats REMOVED - endpoint doesn't exist on backend
+  // Use getActionCounts() + getFeedback() instead to compute aggregate stats
 
   getFeedback(params?: { limit?: number; offset?: number; agentName?: string }) {
     return apiClient.get<{ success: boolean; feedback: ActionFeedback[]; total: number }>(
@@ -1401,7 +1398,7 @@ export const multiAgentApi = {
   approveAction: voltAgentApi.approveAction,
   rejectAction: voltAgentApi.rejectAction,
   getActionCounts: voltAgentApi.getActionCounts,
-  getAggregateStats: voltAgentApi.getAggregateStats,
+  // getAggregateStats removed - use getActionCounts + getFeedback
   getFeedback: voltAgentApi.getFeedback,
   resetLearning: voltAgentApi.resetLearning,
   getWritingStyle: voltAgentApi.getWritingStyle,

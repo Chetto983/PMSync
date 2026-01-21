@@ -2157,11 +2157,26 @@ export const it: AppTranslations = {
     writingStyleLearningMedium: 'Apprendimento del tuo stile',
     writingStyleLearningHigh: 'L\'AI conosce bene il tuo stile',
     learning: {
-      title: 'Progresso apprendimento AI',
+      title: 'Apprendimento AI',
       actionsProcessed: 'azioni elaborate',
-      overallProgress: 'Progresso complessivo',
+      overallProgress: 'Punteggio apprendimento',
       interactions: 'Interazioni',
       successRate: 'Successo',
+      // New learning widget strings
+      noData: 'Inizia a chattare per addestrare l\'AI',
+      early: 'Sto imparando le tue preferenze...',
+      improving: 'Miglioro nel capire le tue esigenze',
+      good: 'Ben calibrato',
+      excellent: 'Altamente personalizzato',
+      approved: 'Approvate',
+      success: 'Successo',
+      actions: 'Azioni',
+      approvalTooltip: 'Quanto spesso approvi i suggerimenti AI',
+      successTooltip: 'Quanto spesso le azioni approvate hanno successo',
+      interactionsTooltip: 'Totale tentativi azioni AI',
+      noInteractions: 'Nessuna azione AI ancora. Usa la chat per addestrare l\'AI.',
+      writingStyle: 'Stile di scrittura',
+      emailsAnalyzed: 'email',
 
       activity: {
         title: 'Attività agente',
@@ -2533,6 +2548,8 @@ export const it: AppTranslations = {
       schedule: 'Programma',
       addNote: 'Aggiungi nota',
       aiInsights: 'Suggerimenti AI',
+      markVip: 'Segna come VIP',
+      removeVip: 'Rimuovi VIP',
     },
     details: {
       contactInformation: 'Informazioni contatto',
@@ -2566,6 +2583,43 @@ export const it: AppTranslations = {
       phoneType: 'Telefono',
       addressType: 'Indirizzo',
       websiteType: 'Sito web',
+      // Tabs
+      tabs: {
+        details: 'Dettagli',
+        activity: 'Attività',
+        notes: 'Note',
+      },
+      // Interactions
+      interactions: {
+        label: 'Interazione',
+        emailSent: 'Email inviata',
+        emailReceived: 'Email ricevuta',
+        meeting: 'Riunione',
+        call: 'Chiamata',
+        note: 'Nota',
+        to: 'A:',
+        from: 'Da:',
+        contact: 'Contatto',
+      },
+      // Activity section
+      activity: {
+        title: 'Attività',
+        loadError: 'Impossibile caricare la cronologia attività.',
+        noActivity: 'Nessuna attività recente trovata.',
+      },
+      // Notes section
+      notes: {
+        title: 'Note',
+        noNotes: 'Ancora nessuna nota',
+        addNote: 'Aggiungi nota',
+      },
+      // Additional fields
+      relationshipIntelligence: 'Intelligenza Relazionale',
+      totalInteractions: 'Interazioni Totali',
+      vip: 'VIP',
+      vipLabel: 'Contatto VIP',
+      vipHelper: 'Segna questo contatto come VIP per gestione prioritaria',
+      relationshipScore: 'Punteggio',
     },
     list: {
       emptyTitle: 'Nessun contatto',
@@ -2596,6 +2650,7 @@ export const it: AppTranslations = {
       noProviderSupportsContacts: 'Nessun provider collegato supporta i contatti.',
       syncCompleted: 'Sincronizzazione contatti completata in background',
       syncQueueFailed: 'Accodamento sincronizzazione fallito',
+      deletedCount: 'Eliminati {count} contatti',
     },
     createDialog: {
       title: 'Nuovo contatto',
@@ -2613,6 +2668,11 @@ export const it: AppTranslations = {
       displayNameHelper: 'Nome visualizzato (opzionale se fornito nome/cognome)',
       phoneNumber: 'Numero di telefono',
       websitePlaceholder: 'https://esempio.com',
+      firstName: 'Nome',
+      lastName: 'Cognome',
+      birthday: 'Compleanno',
+      website: 'Sito web',
+      department: 'Reparto',
     },
     editDialog: {
       title: 'Modifica contatto',

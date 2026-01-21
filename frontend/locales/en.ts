@@ -2174,11 +2174,26 @@ export const en: AppTranslations = {
     writingStyleLearningHigh: 'AI knows your style well',
     // Dashboard components
     learning: {
-      title: 'AI Learning Progress',
+      title: 'AI Learning',
       actionsProcessed: 'actions processed',
-      overallProgress: 'Overall progress',
+      overallProgress: 'Learning Score',
       interactions: 'Interactions',
       successRate: 'Success rate',
+      // New learning widget strings
+      noData: 'Start chatting to train AI',
+      early: 'Learning your preferences...',
+      improving: 'Getting better at helping you',
+      good: 'Well calibrated',
+      excellent: 'Highly personalized',
+      approved: 'Approved',
+      success: 'Success',
+      actions: 'Actions',
+      approvalTooltip: 'How often you approve AI suggestions',
+      successTooltip: 'How often approved actions succeed',
+      interactionsTooltip: 'Total AI action attempts',
+      noInteractions: 'No AI actions yet. Use chat to train the AI.',
+      writingStyle: 'Writing style',
+      emailsAnalyzed: 'emails',
 
       activity: {
         title: 'Agent Activity',
@@ -2554,6 +2569,8 @@ export const en: AppTranslations = {
       schedule: 'Schedule',
       addNote: 'Add Note',
       aiInsights: 'AI Insights',
+      markVip: 'Mark as VIP',
+      removeVip: 'Remove VIP',
     },
     details: {
       contactInformation: 'Contact Information',
@@ -2588,6 +2605,44 @@ export const en: AppTranslations = {
       phoneType: 'Phone',
       addressType: 'Address',
       websiteType: 'Website',
+      // ContactDetail tabs
+      tabs: {
+        details: 'Details',
+        activity: 'Activity',
+        notes: 'Notes',
+      },
+      // Interaction types
+      interactions: {
+        label: 'Interaction',
+        emailSent: 'Email Sent',
+        emailReceived: 'Email Received',
+        meeting: 'Meeting',
+        call: 'Call',
+        note: 'Note',
+        to: 'To:',
+        from: 'From:',
+        contact: 'Contact',
+      },
+      // Activity section
+      activity: {
+        title: 'Activity',
+        loadError: 'Failed to load activity history.',
+        noActivity: 'No recent activity found.',
+      },
+      // Notes section
+      notes: {
+        title: 'Notes',
+        noNotes: 'No notes yet',
+        addNote: 'Add Note',
+      },
+      // CRM Intelligence
+      relationshipIntelligence: 'Relationship Intelligence',
+      totalInteractions: 'Total Interactions',
+      // VIP
+      vip: 'VIP',
+      vipLabel: 'VIP Contact',
+      vipHelper: 'Mark this contact as VIP for priority handling',
+      relationshipScore: 'Score',
     },
     list: {
       emptyTitle: 'No contacts yet',
@@ -2618,6 +2673,7 @@ export const en: AppTranslations = {
       noProviderSupportsContacts: 'No connected providers support contacts.',
       syncCompleted: 'Contact sync completed in background',
       syncQueueFailed: 'Failed to queue sync',
+      deletedCount: 'Deleted {count} contacts',
     },
     createDialog: {
       title: 'New Contact',
@@ -2635,6 +2691,11 @@ export const en: AppTranslations = {
       displayNameHelper: 'Display name (optional if first/last name provided)',
       phoneNumber: 'Phone Number',
       websitePlaceholder: 'https://example.com',
+      firstName: 'First Name',
+      lastName: 'Last Name',
+      birthday: 'Birthday',
+      website: 'Website',
+      department: 'Department',
     },
     editDialog: {
       title: 'Edit Contact',

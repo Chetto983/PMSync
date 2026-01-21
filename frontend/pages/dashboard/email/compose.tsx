@@ -9,12 +9,14 @@
  */
 
 import { useRouter } from 'next/router';
+import { useMemo } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { Layout } from '@/components/layout/Layout';
 import { ComposeDialog } from '@/components/email/compose';
 import { useEmail } from '@/hooks/queries';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import type { ComposeDialogProps, ComposeMode } from '@/components/email/compose';
+import type { Recipient } from '@/components/email/compose/ComposeRecipients';
 
 export default function ComposePage() {
   const router = useRouter();
@@ -26,17 +28,25 @@ export default function ComposePage() {
     emailId,
     draftId,
     providerId,
+    to,
   } = router.query as {
     mode?: string;
     emailId?: string;
     draftId?: string;
     providerId?: string;
+    to?: string;
   };
 
   // Validate and cast mode
   const mode: ComposeMode = ['reply', 'replyAll', 'forward'].includes(queryMode || '')
     ? (queryMode as ComposeMode)
     : 'new';
+
+  // Parse initial recipients from query param
+  const initialTo = useMemo<Recipient[] | undefined>(() => {
+    if (!to) return undefined;
+    return [{ email: to }];
+  }, [to]);
 
   // Fetch original email if replying/forwarding
   // Note: useEmail is automatically disabled when emailId is empty
@@ -112,6 +122,7 @@ export default function ComposePage() {
         originalEmail={originalEmail}
         draftId={draftId}
         initialProviderId={providerId}
+        initialTo={initialTo}
         onSent={handleSent}
       />
     </Layout>

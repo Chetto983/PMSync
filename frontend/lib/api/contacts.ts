@@ -101,6 +101,7 @@ export interface CreateContactDto {
   company?: string;
   jobTitle?: string;
   notes?: string;
+  isVip?: boolean;
 }
 
 export interface UpdateContactDto {
@@ -113,6 +114,7 @@ export interface UpdateContactDto {
   jobTitle?: string;
   notes?: string;
   tags?: string[];
+  isVip?: boolean;
 }
 
 export interface CreateLocalContactDto {

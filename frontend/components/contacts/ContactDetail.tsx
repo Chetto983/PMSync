@@ -160,6 +160,8 @@ function formatDateTime(date?: Date | string | null): string {
 const InteractionList = ({ contactId }: { contactId: string }) => {
   const { data: history, isLoading, error } = useContactHistory(contactId);
   const theme = useTheme();
+  const t = useTranslations();
+  const detailsCopy = t.contacts?.details || {};
 
   if (isLoading) {
     return (
@@ -172,7 +174,7 @@ const InteractionList = ({ contactId }: { contactId: string }) => {
   if (error) {
     return (
       <Typography color="error" variant="body2" align="center">
-        Failed to load activity history.
+        {detailsCopy.activity?.loadError || 'Failed to load activity history.'}
       </Typography>
     );
   }
@@ -181,7 +183,7 @@ const InteractionList = ({ contactId }: { contactId: string }) => {
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
         <Typography variant="body2" color="text.secondary">
-          No recent activity found.
+          {detailsCopy.activity?.noActivity || 'No recent activity found.'}
         </Typography>
       </Box>
     );
@@ -192,33 +194,33 @@ const InteractionList = ({ contactId }: { contactId: string }) => {
       {history.map((interaction: ContactInteraction) => {
         let Icon = MessageSquare;
         let color = theme.palette.text.secondary;
-        let label = 'Interaction';
+        let label = detailsCopy.interactions?.label || 'Interaction';
 
         switch (interaction.type) {
           case 'EMAIL_SENT':
             Icon = ArrowUpRight;
             color = theme.palette.success.main;
-            label = 'Email Sent';
+            label = detailsCopy.interactions?.emailSent || 'Email Sent';
             break;
           case 'EMAIL_RECEIVED':
             Icon = ArrowDownLeft;
             color = theme.palette.info.main;
-            label = 'Email Received';
+            label = detailsCopy.interactions?.emailReceived || 'Email Received';
             break;
           case 'MEETING':
             Icon = Calendar;
             color = theme.palette.warning.main;
-            label = 'Meeting';
+            label = detailsCopy.interactions?.meeting || 'Meeting';
             break;
           case 'CALL':
             Icon = Phone;
             color = theme.palette.secondary.main;
-            label = 'Call';
+            label = detailsCopy.interactions?.call || 'Call';
             break;
           case 'NOTE':
             Icon = Edit;
             color = theme.palette.text.secondary;
-            label = 'Note';
+            label = detailsCopy.interactions?.note || 'Note';
             break;
         }
 
@@ -341,17 +343,31 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
     >
       {/* Header */}
       <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
-          {/* Back button for mobile */}
-          {onClose && (
+        {/* Mobile back button - separate row for better touch target */}
+        {onClose && (
+          <Box
+            sx={{
+              display: { xs: 'flex', md: 'none' },
+              mb: 2,
+            }}
+          >
             <IconButton
               onClick={onClose}
-              sx={{ display: { xs: 'flex', md: 'none' }, mr: 1 }}
+              aria-label={t.email?.view?.back || 'Back'}
+              edge="start"
+              sx={{
+                p: 1,
+                '&:active': {
+                  bgcolor: 'action.selected',
+                },
+              }}
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={24} />
             </IconButton>
-          )}
+          </Box>
+        )}
 
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
           <Avatar
             src={photoUrl || undefined}
             sx={{ width: 72, height: 72, bgcolor: 'primary.main', fontSize: '2rem' }}
@@ -414,9 +430,9 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
       {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-          <Tab label="Details" />
-          <Tab label="Activity" />
-          <Tab label="Notes" />
+          <Tab label={detailsCopy.tabs?.details || 'Details'} />
+          <Tab label={detailsCopy.tabs?.activity || 'Activity'} />
+          <Tab label={detailsCopy.tabs?.notes || 'Notes'} />
         </Tabs>
       </Box>
 
@@ -644,7 +660,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
           {contact.notes && (
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Notes
+                {detailsCopy.notes?.title || 'Notes'}
               </Typography>
               <Card variant="outlined" sx={glassCardSx}>
                 <CardContent>
@@ -657,7 +673,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
           {/* CRM Intelligence */}
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-              Relationship Intelligence
+              {detailsCopy.relationshipIntelligence || 'Relationship Intelligence'}
             </Typography>
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
               <Card variant="outlined" sx={glassCardSx}>
@@ -677,7 +693,7 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <MessageSquare size={18} color={theme.palette.text.secondary} />
                     <Typography variant="subtitle2" color="text.secondary">
-                      Total Interactions
+                      {detailsCopy.totalInteractions || 'Total Interactions'}
                     </Typography>
                   </Box>
                   <Typography variant="body1">{contact.totalInteractions ?? 0}</Typography>
@@ -689,21 +705,21 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
 
         <TabPanel value={tabValue} index={1}>
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-            Activity
+            {detailsCopy.activity?.title || 'Activity'}
           </Typography>
           <InteractionList contactId={contact.id} />
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-            Notes
+            {detailsCopy.notes?.title || 'Notes'}
           </Typography>
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="body2" color="text.secondary">
-              No notes yet
+              {detailsCopy.notes?.noNotes || 'No notes yet'}
             </Typography>
             <Button variant="contained" startIcon={<Plus size={18} />} sx={{ mt: 2 }}>
-              Add Note
+              {detailsCopy.notes?.addNote || 'Add Note'}
             </Button>
           </Box>
         </TabPanel>

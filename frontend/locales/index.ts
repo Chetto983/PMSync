@@ -1432,6 +1432,8 @@ export interface AppTranslations {
       schedule: string;
       addNote: string;
       aiInsights: string;
+      markVip: string;
+      removeVip: string;
     };
     details: {
       contactInformation: string;
@@ -1465,6 +1467,43 @@ export interface AppTranslations {
       phoneType?: string;
       addressType?: string;
       websiteType?: string;
+      // Tabs
+      tabs: {
+        details: string;
+        activity: string;
+        notes: string;
+      };
+      // Interactions
+      interactions: {
+        label: string;
+        emailSent: string;
+        emailReceived: string;
+        meeting: string;
+        call: string;
+        note: string;
+        to: string;
+        from: string;
+        contact: string;
+      };
+      // Activity section
+      activity: {
+        title: string;
+        loadError: string;
+        noActivity: string;
+      };
+      // Notes section
+      notes: {
+        title: string;
+        noNotes: string;
+        addNote: string;
+      };
+      // Additional fields
+      relationshipIntelligence: string;
+      totalInteractions: string;
+      vip: string;
+      vipLabel: string;
+      vipHelper: string;
+      relationshipScore: string;
     };
     list: {
       emptyTitle: string;
@@ -1495,6 +1534,7 @@ export interface AppTranslations {
       noProviderSupportsContacts: string;
       syncCompleted: string;
       syncQueueFailed: string;
+      deletedCount: string;
     };
     createDialog: {
       title: string;
@@ -1512,6 +1552,11 @@ export interface AppTranslations {
       displayNameHelper: string;
       phoneNumber: string;
       websitePlaceholder: string;
+      firstName: string;
+      lastName: string;
+      birthday: string;
+      website: string;
+      department: string;
     };
     editDialog: {
       title: string;
@@ -2194,6 +2239,21 @@ export interface AppTranslations {
       actionsProcessed: string;
       overallProgress: string;
       interactions: string;
+      // New learning widget strings
+      noData?: string;
+      early?: string;
+      improving?: string;
+      good?: string;
+      excellent?: string;
+      approved?: string;
+      success?: string;
+      actions?: string;
+      approvalTooltip?: string;
+      successTooltip?: string;
+      interactionsTooltip?: string;
+      noInteractions?: string;
+      writingStyle?: string;
+      emailsAnalyzed?: string;
       activity: {
         title: string;
         totalActions: string;
@@ -2206,12 +2266,10 @@ export interface AppTranslations {
         executed: string;
         rejected: string;
       };
-      // LearningProgressCard specific
+      // LearningProgressCard specific (legacy)
       approvalRate?: string;
       successRate?: string;
       totalActions?: string;
-      noData?: string;
-      actions?: string;
       more?: string;
       highSeverityRequiresReview?: string;
       awaitingApproval: string;

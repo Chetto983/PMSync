@@ -32,7 +32,6 @@ import { useAuth } from '@/lib/hooks/use-auth';
 const ChatMessages = lazy(() => import('./ChatMessages'));
 const QuickActions = lazy(() => import('./QuickActions'));
 const LearningWidget = lazy(() => import('./LearningWidget'));
-const AiMemoryWidget = lazy(() => import('./AiMemoryWidget'));
 const ChatSessionList = lazy(() => import('./ChatSessionList'));
 const MentionInput = lazy(() => import('./MentionInput'));
 
@@ -539,10 +538,6 @@ export function AiDashboard() {
           <Suspense fallback={<WidgetSkeleton height={60} />}>
             <LearningWidget />
           </Suspense>
-
-          <Suspense fallback={<WidgetSkeleton height={60} />}>
-            <AiMemoryWidget />
-          </Suspense>
         </Box>
       </Box>
 
@@ -643,11 +638,6 @@ export function AiDashboard() {
           {/* Learning Widget */}
           <Suspense fallback={<WidgetSkeleton height={60} />}>
             <LearningWidget />
-          </Suspense>
-
-          {/* AI Memory */}
-          <Suspense fallback={<WidgetSkeleton height={60} />}>
-            <AiMemoryWidget />
           </Suspense>
         </Box>
       </SwipeableDrawer>

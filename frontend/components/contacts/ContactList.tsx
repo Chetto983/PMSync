@@ -59,6 +59,11 @@ interface ContactListProps {
   onCall?: (phone: string) => void;
 
   /**
+   * Callback to toggle VIP status
+   */
+  onToggleVip?: (id: string, isVip: boolean) => void;
+
+  /**
    * Callback to load more contacts (infinite scroll)
    */
   onLoadMore?: () => void;
@@ -100,6 +105,7 @@ export const ContactList: React.FC<ContactListProps> = ({
   onDelete,
   onEmail,
   onCall,
+  onToggleVip,
   onLoadMore,
   hasMore = false,
   emptyTitle = 'No contacts',
@@ -232,6 +238,7 @@ export const ContactList: React.FC<ContactListProps> = ({
             onDelete={onDelete}
             onEmail={onEmail}
             onCall={onCall}
+            onToggleVip={onToggleVip}
             onClick={() => handleContactClick(contact)}
           />
         );

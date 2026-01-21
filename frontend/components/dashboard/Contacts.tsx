@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRouter } from 'next/router';
 import {
   Box,
   Button,
@@ -16,6 +17,8 @@ import {
   Alert as MuiAlert,
   DialogContentText,
   Typography,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import { Search } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -57,6 +60,7 @@ type ContactFormState = {
   website: string;
   notes: string;
   providerId?: string;
+  isVip: boolean;
 };
 
 const getPrimaryEmail = (contact?: Contact | null) =>
@@ -70,6 +74,7 @@ const getPrimaryPhone = (contact?: Contact | null) =>
   '';
 
 export function Contacts() {
+  const router = useRouter();
   const translations = useTranslations();
   const contactsCopy = translations.contacts;
 
@@ -121,6 +126,7 @@ export function Contacts() {
     website: '',
     notes: '',
     providerId: undefined,
+    isVip: false,
   });
   const [actionLoading, setActionLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -387,6 +393,7 @@ export function Contacts() {
       website: '',
       notes: '',
       providerId: providers[0]?.id,
+      isVip: false,
     });
     setContactDialogOpen(true);
   };
@@ -407,11 +414,12 @@ export function Contacts() {
       website: selectedContact.websites?.[0]?.url || '',
       notes: selectedContact.notes || '',
       providerId: selectedContact.providerContacts?.[0]?.providerId || providers[0]?.id,
+      isVip: selectedContact.isVip || false,
     });
     setContactDialogOpen(true);
   };
 
-  const handleContactFormChange = (field: keyof ContactFormState, value: string) => {
+  const handleContactFormChange = (field: keyof ContactFormState, value: string | boolean) => {
     setContactForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -439,6 +447,7 @@ export function Contacts() {
           company: contactForm.company || undefined,
           jobTitle: contactForm.jobTitle || undefined,
           notes: contactForm.notes || undefined,
+          isVip: contactForm.isVip,
           emails: contactForm.email
             ? [{ value: contactForm.email, primary: true }]
             : undefined,
@@ -459,6 +468,7 @@ export function Contacts() {
             company: contactForm.company || undefined,
             jobTitle: contactForm.jobTitle || undefined,
             notes: contactForm.notes || undefined,
+            isVip: contactForm.isVip,
             emails: contactForm.email
               ? [{ value: contactForm.email, primary: true }]
               : undefined,
@@ -537,7 +547,7 @@ export function Contacts() {
       await loadContacts();
       setSnackbar({
         open: true,
-        message: `Deleted ${idsToDelete.length} contacts`,
+        message: (contactsCopy.alerts?.deletedCount || 'Deleted {count} contacts').replace('{count}', String(idsToDelete.length)),
         severity: 'success',
       });
     } catch (error) {
@@ -619,9 +629,27 @@ export function Contacts() {
     setSelectedContact(contact);
   };
 
-  // Email handler - disabled during email rebuild
-  const handleEmail = (_email: string) => {
-    // Compose disabled during rebuild
+  // Email handler - opens internal compose
+  const handleEmail = (email: string) => {
+    if (email) {
+      router.push(`/dashboard/email/compose?to=${encodeURIComponent(email)}`);
+    }
+  };
+
+  // VIP toggle handler - quick toggle from list item action bar
+  const handleToggleVip = async (id: string, isVip: boolean) => {
+    // Optimistic update in Zustand store for instant UI feedback
+    useContactStore.getState().updateContact(id, { isVip });
+
+    try {
+      await updateContactMutation.mutateAsync({
+        id,
+        data: { isVip },
+      });
+    } catch {
+      // Rollback on error
+      useContactStore.getState().updateContact(id, { isVip: !isVip });
+    }
   };
 
   // Select all handler for bulk action bar
@@ -702,6 +730,7 @@ export function Contacts() {
             if (contact) openDeleteDialog(contact);
           }}
           onEmail={handleEmail}
+          onToggleVip={handleToggleVip}
           onLoadMore={loadMore}
           hasMore={pagination.hasMore}
           emptyTitle={contactsCopy.noContactsFound}
@@ -768,18 +797,18 @@ export function Contacts() {
             {/* Personal Information */}
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-                Personal Information
+                {contactsCopy.createDialog?.personalInformation || 'Personal Information'}
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)' }}>
                   <TextField
-                    label="First Name"
+                    label={contactsCopy.createDialog?.firstName || 'First Name'}
                     value={contactForm.firstName}
                     onChange={(event) => handleContactFormChange('firstName', event.target.value)}
                     fullWidth
                   />
                   <TextField
-                    label="Last Name"
+                    label={contactsCopy.createDialog?.lastName || 'Last Name'}
                     value={contactForm.lastName}
                     onChange={(event) => handleContactFormChange('lastName', event.target.value)}
                     fullWidth
@@ -793,12 +822,23 @@ export function Contacts() {
                   helperText={contactsCopy.createDialog?.displayNameHelper || 'Display name'}
                 />
                 <TextField
-                  label="Birthday"
+                  label={contactsCopy.createDialog?.birthday || 'Birthday'}
                   type="date"
                   value={contactForm.birthday}
                   onChange={(event) => handleContactFormChange('birthday', event.target.value)}
                   fullWidth
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+                {/* VIP Toggle */}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={contactForm.isVip}
+                      onChange={(event) => handleContactFormChange('isVip', event.target.checked)}
+                      color="warning"
+                    />
+                  }
+                  label={contactsCopy.details?.vipLabel || 'VIP Contact'}
                 />
               </Box>
             </Box>
@@ -806,7 +846,7 @@ export function Contacts() {
             {/* Contact Information */}
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-                Contact Information
+                {contactsCopy.createDialog?.contactInformation || 'Contact Information'}
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <TextField
@@ -818,19 +858,19 @@ export function Contacts() {
                   required
                 />
                 <TextField
-                  label="Phone Number"
+                  label={contactsCopy.createDialog?.phoneNumber || 'Phone Number'}
                   type="tel"
                   value={contactForm.phone}
                   onChange={(event) => handleContactFormChange('phone', event.target.value)}
                   fullWidth
                 />
                 <TextField
-                  label="Website"
+                  label={contactsCopy.createDialog?.website || 'Website'}
                   type="url"
                   value={contactForm.website}
                   onChange={(event) => handleContactFormChange('website', event.target.value)}
                   fullWidth
-                  placeholder="https://example.com"
+                  placeholder={contactsCopy.createDialog?.websitePlaceholder || 'https://example.com'}
                 />
               </Box>
             </Box>
@@ -838,7 +878,7 @@ export function Contacts() {
             {/* Professional Information */}
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-                Professional Information
+                {contactsCopy.createDialog?.professionalInformation || 'Professional Information'}
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <TextField
@@ -855,7 +895,7 @@ export function Contacts() {
                     fullWidth
                   />
                   <TextField
-                    label="Department"
+                    label={contactsCopy.createDialog?.department || 'Department'}
                     value={contactForm.department}
                     onChange={(event) => handleContactFormChange('department', event.target.value)}
                     fullWidth

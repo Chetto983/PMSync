@@ -19,7 +19,6 @@ import {
   PendingAction,
   ActionCounts,
   LearningProfileStats,
-  AggregateStats,
 } from '@/lib/api/ai';
 import { websocketClient } from '@/lib/websocket-client';
 import { useAuthStore } from '@/stores/auth-store';
@@ -31,7 +30,7 @@ export const aiActionsKeys = {
   action: (id: string) => [...aiActionsKeys.all, 'action', id] as const,
   counts: () => [...aiActionsKeys.all, 'counts'] as const,
   learning: (userId?: string) => [...aiActionsKeys.all, 'learning', userId] as const,
-  aggregate: () => [...aiActionsKeys.all, 'aggregate'] as const,
+  // NOTE: aggregate key removed - endpoint doesn't exist on backend
 };
 
 interface UseAiActionsOptions {
@@ -77,8 +76,8 @@ interface UseAiActionsReturn {
   learningLoading: boolean;
   refetchLearning: () => void;
 
-  // Aggregate Stats
-  aggregateStats: AggregateStats | null;
+  // NOTE: Aggregate Stats removed - endpoint doesn't exist
+  aggregateStats: null;
   aggregateLoading: boolean;
   refetchAggregate: () => void;
 
@@ -126,17 +125,8 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
   // NOTE: Learning Stats Query REMOVED - endpoint returns 404 (in-memory only, no persistence)
   // See CONSOLIDATION-PLAN.md for details
 
-  // Aggregate Stats Query
-  const aggregateQuery = useQuery({
-    queryKey: aiActionsKeys.aggregate(),
-    queryFn: async () => {
-      const response = await voltAgentApi.getAggregateStats();
-      if (!response.data.success) throw new Error('Failed to get aggregate stats');
-      return response.data.stats;
-    },
-    enabled: autoFetch,
-    staleTime: 60 * 1000, // 1 minute
-  });
+  // NOTE: Aggregate Stats Query REMOVED - endpoint /stats/aggregate doesn't exist
+  // Use LearningWidget's direct use of getActionCounts + getFeedback instead
 
   // Approve Mutation
   const approveMutation = useMutation({
@@ -196,7 +186,6 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
     const unsubExecuted = websocketClient.onAiActionExecuted(() => {
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.pending() });
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() });
-      queryClient.invalidateQueries({ queryKey: aiActionsKeys.aggregate() });
     });
 
     return () => {
@@ -247,8 +236,7 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
 
   const isLoading =
     pendingQuery.isLoading ||
-    countsQuery.isLoading ||
-    aggregateQuery.isLoading;
+    countsQuery.isLoading;
 
   return {
     // Pending Actions
@@ -278,10 +266,11 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
     learningLoading: false,
     refetchLearning: () => {}, // No-op
 
-    // Aggregate Stats
-    aggregateStats: aggregateQuery.data ?? null,
-    aggregateLoading: aggregateQuery.isLoading,
-    refetchAggregate: () => queryClient.invalidateQueries({ queryKey: aiActionsKeys.aggregate() }),
+    // NOTE: Aggregate Stats REMOVED - endpoint doesn't exist
+    // Use LearningWidget's direct queries for aggregate display
+    aggregateStats: null,
+    aggregateLoading: false,
+    refetchAggregate: () => {}, // No-op
 
     // Bulk
     isLoading,

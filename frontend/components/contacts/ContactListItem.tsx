@@ -11,7 +11,7 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { Mail, Phone, Edit, Trash2, Building } from 'lucide-react';
+import { Mail, Phone, Edit, Trash2, Building, Star } from 'lucide-react';
 import type { Contact } from '@/lib/api/contacts';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
@@ -63,6 +63,11 @@ interface ContactListItemProps {
    * Callback when clicked
    */
   onClick?: () => void;
+
+  /**
+   * Callback to toggle VIP status
+   */
+  onToggleVip?: (id: string, isVip: boolean) => void;
 }
 
 /**
@@ -126,6 +131,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
     onEmail,
     onCall,
     onClick,
+    onToggleVip,
   }) => {
     const theme = useTheme();
     const t = useTranslations();
@@ -169,6 +175,11 @@ export const ContactListItem = React.memo<ContactListItemProps>(
       if (primaryPhone) {
         onCall?.(primaryPhone);
       }
+    };
+
+    const handleToggleVip = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onToggleVip?.(contact.id, !contact.isVip);
     };
 
     return (
@@ -293,7 +304,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
           </ListItemButton>
 
           {/* Floating Action Bar - Glassmorphism */}
-          {(onEdit || onDelete || onEmail || onCall) && (
+          {(onEdit || onDelete || onEmail || onCall || onToggleVip) && (
             <Box
               className="contact-action-bar"
               sx={{
@@ -315,6 +326,19 @@ export const ContactListItem = React.memo<ContactListItemProps>(
                 p: 0.5,
               }}
             >
+              {onToggleVip && (
+                <Tooltip title={contact.isVip ? (t.contacts?.actions?.removeVip || 'Remove VIP') : (t.contacts?.actions?.markVip || 'Mark as VIP')}>
+                  <IconButton
+                    size="small"
+                    onClick={handleToggleVip}
+                    sx={{
+                      color: contact.isVip ? 'warning.main' : 'action.active',
+                    }}
+                  >
+                    <Star size={18} fill={contact.isVip ? 'currentColor' : 'none'} />
+                  </IconButton>
+                </Tooltip>
+              )}
               {primaryEmail && onEmail && (
                 <Tooltip title={t.contacts?.actions?.sendEmail || 'Send email'}>
                   <IconButton size="small" onClick={handleEmail}>
@@ -359,6 +383,7 @@ export const ContactListItem = React.memo<ContactListItemProps>(
       prevProps.contact.lastName === nextProps.contact.lastName &&
       prevProps.contact.company === nextProps.contact.company &&
       prevProps.contact.photoUrl === nextProps.contact.photoUrl &&
+      prevProps.contact.isVip === nextProps.contact.isVip &&
       prevProps.selected === nextProps.selected &&
       prevProps.multiSelected === nextProps.multiSelected
     );

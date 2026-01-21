@@ -386,27 +386,7 @@ describe('voltAgentApi (Multi-Agent Chat)', () => {
   });
 
   // NOTE: getLearningStats tests removed - endpoint doesn't exist
-
-  describe('getAggregateStats', () => {
-    it('should call correct endpoint', async () => {
-      const mockResponse = {
-        data: {
-          success: true,
-          stats: {
-            totalAttempts: 500,
-            overallApprovalRate: 0.88,
-            overallSuccessRate: 0.92,
-            agentBreakdown: {},
-          },
-        },
-      };
-      (apiClient.get as jest.Mock).mockResolvedValue(mockResponse);
-
-      await voltAgentApi.getAggregateStats();
-
-      expect(apiClient.get).toHaveBeenCalledWith('/api/v1/voltagent/stats/aggregate');
-    });
-  });
+  // NOTE: getAggregateStats tests removed - endpoint doesn't exist on backend
 
   describe('getFeedback', () => {
     it('should call correct endpoint with default params', async () => {

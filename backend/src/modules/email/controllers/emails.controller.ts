@@ -130,6 +130,7 @@ export class EmailsController {
   @ApiQuery({ name: 'isFlagged', required: false, type: Boolean, description: 'Filter by flagged/important status' })
   @ApiQuery({ name: 'isImportant', required: false, type: Boolean, description: 'Filter emails that are starred OR flagged (important)' })
   @ApiQuery({ name: 'hasAttachments', required: false, type: Boolean, description: 'Filter emails with attachments' })
+  @ApiQuery({ name: 'fromVip', required: false, type: Boolean, description: 'Filter emails from VIP contacts only' })
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search in subject, from, body' })
   @ApiQuery({ name: 'labelIds', required: false, type: String, description: 'Comma-separated label IDs' })
   @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Filter from date (ISO 8601)' })
@@ -149,6 +150,7 @@ export class EmailsController {
     @Query('isFlagged') isFlagged?: string,
     @Query('isImportant') isImportant?: string,
     @Query('hasAttachments') hasAttachments?: string,
+    @Query('fromVip') fromVip?: string,
     @Query('search') search?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -197,6 +199,7 @@ export class EmailsController {
     if (isFlagged !== undefined) filters.isFlagged = isFlagged === 'true';
     if (isImportant !== undefined) filters.isImportant = isImportant === 'true';
     if (hasAttachments !== undefined) filters.hasAttachments = hasAttachments === 'true';
+    if (fromVip !== undefined) filters.fromVip = fromVip === 'true';
     if (search) filters.search = search;
     if (from) filters.from = from;
     if (to) filters.to = to;
