@@ -33,7 +33,7 @@ import {
   Plus,
   Cake,
   Globe,
-  ArrowLeft,
+  X,
   ArrowUpRight,
   ArrowDownLeft,
   MessageSquare,
@@ -343,30 +343,6 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
     >
       {/* Header */}
       <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
-        {/* Mobile back button - separate row for better touch target */}
-        {onClose && (
-          <Box
-            sx={{
-              display: { xs: 'flex', md: 'none' },
-              mb: 2,
-            }}
-          >
-            <IconButton
-              onClick={onClose}
-              aria-label={t.email?.view?.back || 'Back'}
-              edge="start"
-              sx={{
-                p: 1,
-                '&:active': {
-                  bgcolor: 'action.selected',
-                },
-              }}
-            >
-              <ArrowLeft size={24} />
-            </IconButton>
-          </Box>
-        )}
-
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
           <Avatar
             src={photoUrl || undefined}
@@ -410,6 +386,17 @@ export const ContactDetail: React.FC<ContactDetailProps> = ({
                   <Trash2 size={18} />
                 </IconButton>
               </Tooltip>
+            )}
+            {/* Mobile close button */}
+            {onClose && (
+              <IconButton
+                size="small"
+                onClick={onClose}
+                aria-label={t.common?.close || 'Close'}
+                sx={{ display: { xs: 'inline-flex', md: 'none' } }}
+              >
+                <X size={18} />
+              </IconButton>
             )}
           </Box>
         </Box>

@@ -1,5 +1,23 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { List, Box, Typography, CircularProgress } from '@mui/material';
+/**
+ * Contact List Component
+ *
+ * Virtual scrolling contact list with @tanstack/react-virtual
+ * Handles 10,000+ contacts with 60 FPS performance
+ *
+ * Features:
+ * - Virtual scrolling (render only visible items)
+ * - Infinite scroll (automatic pagination)
+ * - Multi-selection support
+ * - Optimized with React.memo
+ *
+ * Performance targets:
+ * - 60 FPS scrolling
+ * - <500ms initial render
+ */
+
+import React, { useRef, useCallback, useEffect } from 'react';
+import { Box, Typography, CircularProgress } from '@mui/material';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Users } from 'lucide-react';
 import { ContactListItem } from './ContactListItem';
 import type { Contact } from '@/lib/api/contacts';
@@ -27,6 +45,11 @@ interface ContactListProps {
    * Whether data is loading
    */
   isLoading?: boolean;
+
+  /**
+   * Whether loading more (pagination)
+   */
+  isLoadingMore?: boolean;
 
   /**
    * Callback when contact is clicked
@@ -84,21 +107,21 @@ interface ContactListProps {
   emptySubtitle?: string;
 }
 
+// Estimated height of each contact item (for virtual scrolling)
+const ITEM_HEIGHT = 72;
+
 /**
- * ContactList - Contact list with infinite scroll and multi-selection
+ * ContactList - Virtualized contact list with infinite scroll
  *
- * Features:
- * - IntersectionObserver for infinite scroll
- * - Multi-selection support with checkboxes
- * - Loading states
- * - Empty states
- * - Optimized performance with React.memo
+ * Uses @tanstack/react-virtual for optimal performance
+ * with large contact lists (10,000+ items)
  */
 export const ContactList: React.FC<ContactListProps> = ({
   contacts,
   selectedId,
   selectedIds = new Set(),
   isLoading = false,
+  isLoadingMore = false,
   onContactClick,
   onToggleSelect,
   onEdit,
@@ -111,10 +134,16 @@ export const ContactList: React.FC<ContactListProps> = ({
   emptyTitle = 'No contacts',
   emptySubtitle = 'Add contacts or sync from providers',
 }) => {
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const loadingRef = useRef(false);
+  // Virtual scrolling setup
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: contacts.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ITEM_HEIGHT,
+    overscan: 5, // Render 5 extra items above/below viewport for smooth scrolling
+  });
 
-  // Handle contact click
+  // Handle contact click - memoized
   const handleContactClick = useCallback(
     (contact: Contact) => {
       onContactClick?.(contact);
@@ -122,39 +151,24 @@ export const ContactList: React.FC<ContactListProps> = ({
     [onContactClick]
   );
 
-  // Infinite scroll with IntersectionObserver
+  // Infinite scroll using virtualizer
+  const virtualItems = virtualizer.getVirtualItems();
+
   useEffect(() => {
-    if (!onLoadMore || !hasMore) return;
+    const lastItem = virtualItems[virtualItems.length - 1];
 
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        // Prevent multiple simultaneous loads
-        if (entry.isIntersecting && hasMore && !isLoading && !loadingRef.current) {
-          loadingRef.current = true;
-          onLoadMore();
-          // Reset loading ref after a short delay
-          setTimeout(() => {
-            loadingRef.current = false;
-          }, 500);
-        }
-      },
-      {
-        root: null,
-        rootMargin: '100px', // Start loading 100px before reaching the end
-        threshold: 0.1,
-      }
-    );
-
-    observer.observe(sentinel);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [onLoadMore, hasMore, isLoading]);
+    // Trigger load more when scrolled near bottom
+    if (
+      lastItem &&
+      lastItem.index >= contacts.length - 5 &&
+      hasMore &&
+      !isLoadingMore &&
+      !isLoading &&
+      onLoadMore
+    ) {
+      onLoadMore();
+    }
+  }, [virtualItems, contacts.length, hasMore, isLoadingMore, isLoading, onLoadMore]);
 
   const isEmpty = contacts.length === 0;
 
@@ -202,13 +216,12 @@ export const ContactList: React.FC<ContactListProps> = ({
   }
 
   return (
-    <List
+    <Box
+      ref={parentRef}
       sx={{
         width: '100%',
         height: '100%',
-        p: 0,
-        overflowY: 'auto',
-        overflowX: 'hidden',
+        overflow: 'auto',
         '&::-webkit-scrollbar': {
           width: 8,
         },
@@ -224,39 +237,52 @@ export const ContactList: React.FC<ContactListProps> = ({
         },
       }}
     >
-      {contacts.map((contact) => {
-        const isMultiSelected = selectedIds.has(contact.id);
+      {/* Virtual list container with total height */}
+      <Box
+        sx={{
+          height: virtualizer.getTotalSize(),
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {/* Render only visible items */}
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const contact = contacts[virtualRow.index];
+          if (!contact) return null;
 
-        return (
-          <ContactListItem
-            key={contact.id}
-            contact={contact}
-            selected={selectedId === contact.id}
-            multiSelected={isMultiSelected}
-            onToggleSelect={onToggleSelect}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onEmail={onEmail}
-            onCall={onCall}
-            onToggleVip={onToggleVip}
-            onClick={() => handleContactClick(contact)}
-          />
-        );
-      })}
+          const isMultiSelected = selectedIds.has(contact.id);
 
-      {/* Infinite scroll sentinel */}
-      {hasMore && (
-        <Box
-          ref={sentinelRef}
-          sx={{
-            height: 1,
-            width: '100%',
-          }}
-        />
-      )}
+          return (
+            <Box
+              key={contact.id}
+              data-index={virtualRow.index}
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <ContactListItem
+                contact={contact}
+                selected={selectedId === contact.id}
+                multiSelected={isMultiSelected}
+                onToggleSelect={onToggleSelect}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onEmail={onEmail}
+                onCall={onCall}
+                onToggleVip={onToggleVip}
+                onClick={() => handleContactClick(contact)}
+              />
+            </Box>
+          );
+        })}
+      </Box>
 
       {/* Loading indicator for infinite scroll */}
-      {hasMore && isLoading && contacts.length > 0 && (
+      {(isLoadingMore || (hasMore && isLoading && contacts.length > 0)) && (
         <Box
           sx={{
             display: 'flex',
@@ -268,7 +294,7 @@ export const ContactList: React.FC<ContactListProps> = ({
           <CircularProgress size={24} />
         </Box>
       )}
-    </List>
+    </Box>
   );
 };
 

@@ -19,8 +19,11 @@ import {
   Typography,
   Switch,
   FormControlLabel,
+  IconButton,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
-import { Search } from 'lucide-react';
+import { Search, Menu } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { type Contact, type ContactCounts } from '@/lib/api/contacts';
 import {
@@ -75,6 +78,8 @@ const getPrimaryPhone = (contact?: Contact | null) =>
 
 export function Contacts() {
   const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const translations = useTranslations();
   const contactsCopy = translations.contacts;
 
@@ -102,6 +107,7 @@ export function Contacts() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
@@ -219,27 +225,44 @@ export function Contacts() {
         return;
       }
 
+      // On mobile, don't auto-select first contact on initial load
+      // Only restore previous selection if it still exists
       const previouslySelectedId = selectedContactIdRef.current;
       const currentContactsForSelection = useContactStore.getState().contacts;
-      const updatedSelection =
-        (previouslySelectedId && (reset ? contactsData : currentContactsForSelection).find((c) => c.id === previouslySelectedId)) ||
-        (reset ? contactsData[0] : currentContactsForSelection[0] || contactsData[0]);
-      setSelectedContact(updatedSelection);
+
+      if (previouslySelectedId) {
+        // Restore previous selection if still exists
+        const previousContact = (reset ? contactsData : currentContactsForSelection).find(
+          (c) => c.id === previouslySelectedId
+        );
+        if (previousContact) {
+          setSelectedContact(previousContact);
+        } else if (!isMobile) {
+          // On desktop, select first contact if previous was deleted
+          setSelectedContact(reset ? contactsData[0] : currentContactsForSelection[0] || contactsData[0]);
+        }
+      } else if (!isMobile && reset) {
+        // On desktop, auto-select first contact on initial load
+        setSelectedContact(contactsData[0]);
+      }
     } catch (error) {
       logger.error('Failed to load contacts', { error });
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [debouncedSearchQuery, setStoreContacts, setPagination, queryClient]);
+  }, [debouncedSearchQuery, setStoreContacts, setPagination, queryClient, isMobile]);
 
   // Keep selection in sync with store updates
+  // Only auto-select if the selected contact was deleted/not found
+  // Don't auto-select when user manually closes the detail panel (selectedContact is null)
   useEffect(() => {
     if (!storeContacts.length) {
       setSelectedContact(null);
       return;
     }
-    if (!selectedContact || !storeContacts.find((c) => c.id === selectedContact.id)) {
+    // Only auto-select if contact exists but is no longer in the store (was deleted)
+    if (selectedContact && !storeContacts.find((c) => c.id === selectedContact.id)) {
       setSelectedContact(storeContacts[0]);
     }
   }, [storeContacts, selectedContact]);
@@ -629,6 +652,11 @@ export function Contacts() {
     setSelectedContact(contact);
   };
 
+  // Close detail panel handler (mobile back button)
+  const handleCloseDetail = () => {
+    setSelectedContact(null);
+  };
+
   // Email handler - opens internal compose
   const handleEmail = (email: string) => {
     if (email) {
@@ -678,8 +706,19 @@ export function Contacts() {
   // Render list
   const renderList = () => (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Search Header */}
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+      {/* Search Header with hamburger menu on mobile */}
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* Hamburger menu button - mobile only */}
+        {isMobile && (
+          <IconButton
+            size="small"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Menu"
+            sx={{ ml: -0.5 }}
+          >
+            <Menu size={20} />
+          </IconButton>
+        )}
         <TextField
           fullWidth
           size="small"
@@ -716,6 +755,7 @@ export function Contacts() {
           selectedId={selectedContact?.id}
           selectedIds={selectedIds}
           isLoading={loading}
+          isLoadingMore={loadingMore}
           onContactClick={handleContactClick}
           onToggleSelect={toggleSelection}
           onEdit={(id) => {
@@ -748,7 +788,7 @@ export function Contacts() {
         onEdit={openEditContactDialog}
         onDelete={() => openDeleteDialog(selectedContact)}
         onEmail={handleEmail}
-        onClose={() => setSelectedContact(null)}
+        onClose={handleCloseDetail}
       />
     ) : null
   );
@@ -761,6 +801,9 @@ export function Contacts() {
           list={renderList()}
           detail={renderDetail()}
           showDetail={!!selectedContact}
+          onDetailClose={handleCloseDetail}
+          sidebarOpen={mobileSidebarOpen}
+          onSidebarClose={() => setMobileSidebarOpen(false)}
         />
       </Box>
 

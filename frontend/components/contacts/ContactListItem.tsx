@@ -304,16 +304,18 @@ export const ContactListItem = React.memo<ContactListItemProps>(
           </ListItemButton>
 
           {/* Floating Action Bar - Glassmorphism */}
+          {/* Always visible on mobile (no hover), hover-reveal on desktop */}
           {(onEdit || onDelete || onEmail || onCall || onToggleVip) && (
             <Box
               className="contact-action-bar"
               sx={{
                 position: 'absolute',
-                right: 16,
+                right: { xs: 8, md: 16 },
                 top: '50%',
                 transform: 'translateY(-50%)',
-                opacity: 0,
-                visibility: 'hidden',
+                // Mobile: always visible, Desktop: hover reveal
+                opacity: { xs: 1, md: 0 },
+                visibility: { xs: 'visible', md: 'hidden' },
                 transition: 'opacity 0.2s ease, visibility 0.2s ease',
                 zIndex: 10,
                 display: 'flex',

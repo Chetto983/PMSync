@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Drawer, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Drawer, SwipeableDrawer, useMediaQuery, useTheme, alpha } from '@mui/material';
 
 /**
  * Props for ContactLayout component
@@ -24,6 +24,11 @@ interface ContactLayoutProps {
    * Whether to show the detail panel
    */
   showDetail?: boolean;
+
+  /**
+   * Callback to close detail panel (for mobile swipe dismiss)
+   */
+  onDetailClose?: () => void;
 
   /**
    * Whether sidebar is open on mobile
@@ -52,13 +57,14 @@ interface ContactLayoutProps {
  * Mobile (< md):
  * - Drawer sidebar (swipeable)
  * - Fullscreen contact list
- * - Fullscreen detail panel over list
+ * - Bottom sheet detail panel (swipeable, expandable card)
  */
 export const ContactLayout: React.FC<ContactLayoutProps> = ({
   sidebar,
   list,
   detail,
   showDetail = false,
+  onDetailClose,
   sidebarOpen = false,
   onSidebarClose,
   height = '100%',
@@ -66,6 +72,11 @@ export const ContactLayout: React.FC<ContactLayoutProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isVerySmallMobile = useMediaQuery('(max-width:360px)');
+
+  // Prevent body scroll when drawer is open
+  const handleOpen = () => {
+    // No-op, controlled by parent
+  };
 
   return (
     <Box
@@ -117,7 +128,7 @@ export const ContactLayout: React.FC<ContactLayoutProps> = ({
         </Drawer>
       )}
 
-      {/* Contact List - Hidden on mobile when detail shown */}
+      {/* Contact List - Always visible */}
       <Box
         sx={{
           width: showDetail && !isMobile ? 400 : 'auto',
@@ -125,7 +136,7 @@ export const ContactLayout: React.FC<ContactLayoutProps> = ({
           minWidth: showDetail && !isMobile ? 400 : 'auto',
           borderRight: { xs: 0, md: showDetail ? 1 : 0 },
           borderColor: 'divider',
-          display: isMobile && showDetail ? 'none' : 'flex',
+          display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
           bgcolor: 'background.default',
@@ -134,40 +145,83 @@ export const ContactLayout: React.FC<ContactLayoutProps> = ({
         {list}
       </Box>
 
-      {/* Contact Detail - Fullscreen on mobile, panel on desktop */}
-      {showDetail && detail && (
-        <Box
+      {/* Contact Detail - Bottom Sheet on mobile, panel on desktop */}
+      {isMobile ? (
+        <SwipeableDrawer
+          anchor="bottom"
+          open={showDetail && !!detail}
+          onClose={onDetailClose || (() => {})}
+          onOpen={handleOpen}
+          disableSwipeToOpen
+          swipeAreaWidth={0}
+          ModalProps={{
+            keepMounted: true,
+          }}
+          PaperProps={{
+            sx: {
+              height: 'calc(100% - 56px)',
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              overflow: 'hidden',
+              bgcolor: 'background.paper',
+              boxShadow: `0 -8px 32px ${alpha(theme.palette.common.black, 0.15)}`,
+            },
+          }}
           sx={{
-            flex: isMobile ? 'none' : '1 1 auto',
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            position: isMobile ? 'fixed' : 'relative',
-            top: isMobile ? 0 : 'auto',
-            left: isMobile ? 0 : 'auto',
-            right: isMobile ? 0 : 'auto',
-            bottom: isMobile ? 0 : 'auto',
-            width: isMobile ? '100%' : 'auto',
-            height: isMobile ? '100%' : 'auto',
-            zIndex: isMobile ? 1300 : 'auto',
-            bgcolor: 'background.paper',
-            transition: isMobile
-              ? 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-              : 'none',
-            animation: isMobile ? 'slideInRight 0.3s ease-out' : 'none',
-            '@keyframes slideInRight': {
-              '0%': {
-                transform: 'translateX(100%)',
-              },
-              '100%': {
-                transform: 'translateX(0)',
-              },
+            '& .MuiDrawer-paper': {
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+            },
+            '& .MuiBackdrop-root': {
+              bgcolor: alpha(theme.palette.common.black, 0.4),
             },
           }}
         >
-          {detail}
-        </Box>
+          {/* Drag Handle */}
+          <Box
+            sx={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              pt: 1.5,
+              pb: 1,
+              cursor: 'grab',
+              '&:active': {
+                cursor: 'grabbing',
+              },
+            }}
+          >
+            <Box
+              sx={{
+                width: 36,
+                height: 4,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.text.primary, 0.2),
+              }}
+            />
+          </Box>
+
+          {/* Detail Content */}
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
+            {detail}
+          </Box>
+        </SwipeableDrawer>
+      ) : (
+        // Desktop: Side panel
+        showDetail && detail && (
+          <Box
+            sx={{
+              flex: '1 1 auto',
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              bgcolor: 'background.paper',
+            }}
+          >
+            {detail}
+          </Box>
+        )
       )}
     </Box>
   );

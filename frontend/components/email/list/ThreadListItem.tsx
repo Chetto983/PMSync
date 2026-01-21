@@ -298,22 +298,26 @@ export const ThreadListItem = memo(function ThreadListItem({
         </Typography>
       </Box>
 
-      {/* Action buttons - show on hover (absolute positioned to not affect layout) */}
-      <Fade in={isHovered}>
-        <Box
-          sx={{
-            position: 'absolute',
-            right: 8,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            display: 'flex',
-            gap: 0.5,
-            bgcolor: 'background.paper',
-            borderRadius: 1,
-            boxShadow: 1,
-            p: 0.5,
-          }}
-        >
+      {/* Action buttons - always visible on mobile, hover reveal on desktop */}
+      <Box
+        className="thread-action-bar"
+        sx={{
+          position: 'absolute',
+          right: { xs: 8, md: 16 },
+          top: '50%',
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          gap: 0.5,
+          bgcolor: 'background.paper',
+          borderRadius: 1,
+          boxShadow: 1,
+          p: 0.5,
+          // Mobile: always visible, Desktop: hover reveal
+          opacity: { xs: 1, md: isHovered ? 1 : 0 },
+          visibility: { xs: 'visible', md: isHovered ? 'visible' : 'hidden' },
+          transition: 'opacity 0.2s ease, visibility 0.2s ease',
+        }}
+      >
           {/* Flag */}
           <IconButton
             size="small"
@@ -352,7 +356,6 @@ export const ThreadListItem = memo(function ThreadListItem({
             <Trash2 size={18} strokeWidth={2} />
           </IconButton>
         </Box>
-      </Fade>
     </Box>
   );
 });
