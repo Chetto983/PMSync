@@ -21,6 +21,7 @@ export * from './use-emails';
 export * from './use-labels';
 export * from './providers-keys';
 export * from './use-signatures';
+export * from './use-templates';
 export * from './billing-keys';
 export * from './use-billing';
 // Note: use-providers exports are NOT re-exported here because use-settings already

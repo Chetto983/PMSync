@@ -20,6 +20,8 @@ interface DraggableThreadListItemProps {
   thread: ThreadListItemData & { providerId: string };
   isSelected: boolean;
   isHovered: boolean;
+  /** Keyboard navigation focus state */
+  isFocused?: boolean;
   onSelect: (id: string, checked: boolean) => void;
   onClick: (id: string) => void;
   onFlag: (id: string) => void;
@@ -36,6 +38,7 @@ export function DraggableThreadListItem({
   thread,
   isSelected,
   isHovered,
+  isFocused = false,
   onSelect,
   onClick,
   onFlag,
@@ -75,6 +78,7 @@ export function DraggableThreadListItem({
         thread={thread}
         isSelected={isSelected}
         isHovered={isHovered}
+        isFocused={isFocused}
         onSelect={onSelect}
         onClick={onClick}
         onFlag={onFlag}

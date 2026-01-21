@@ -51,6 +51,7 @@ import {
   Plus,
   MoreHorizontal,
   RefreshCcw,
+  Crown,
 } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 import { useFolders, useSyncProviderComplete } from '@/hooks/queries/use-folders';
@@ -307,7 +308,7 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
             <Divider sx={{ my: 1 }} />
             <LabelsSidebar collapsed={collapsed} />
 
-            {/* Quick Filters - Important */}
+            {/* Quick Filters - Important & VIP */}
             <Divider sx={{ my: 1 }} />
             <List disablePadding>
               <FolderItem
@@ -318,6 +319,19 @@ export function FolderSidebar({ collapsed = false, width }: FolderSidebarProps) 
                 onClick={() => {
                   setFilters({
                     isImportant: filters.isImportant ? undefined : true,
+                    fromVip: undefined,
+                  });
+                }}
+              />
+              <FolderItem
+                icon={<Crown size={18} />}
+                label={t.email.quickFilters.vip}
+                collapsed={collapsed}
+                selected={filters.fromVip === true}
+                onClick={() => {
+                  setFilters({
+                    fromVip: filters.fromVip ? undefined : true,
+                    isImportant: undefined,
                   });
                 }}
               />

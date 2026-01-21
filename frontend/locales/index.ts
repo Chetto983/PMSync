@@ -335,6 +335,8 @@ export interface AppTranslations {
     delete: string;
     edit: string;
     close: string;
+    showMore: string;
+    showLess: string;
     fullscreen: string;
     exitFullscreen: string;
     confirm: string;
@@ -622,6 +624,7 @@ export interface AppTranslations {
       thisWeek: string;
       hasAttachments: string;
       important: string;
+      vip: string;
     };
     headerStats: {
       unreadCount: string;
@@ -1073,6 +1076,8 @@ export interface AppTranslations {
       archiveSubtitle: string;
       searchTitle: string;
       searchSubtitle: string;
+      vipTitle: string;
+      vipSubtitle: string;
     };
     view: {
       folderLabel: string;
@@ -1220,6 +1225,34 @@ export interface AppTranslations {
       subject: string;
       composeFirst: string;
       saveTemplate: string;
+      // CRUD operations (Phase 9)
+      create: string;
+      edit: string;
+      delete: string;
+      duplicate: string;
+      useTemplate: string;
+      noTemplatesHint: string;
+      name: string;
+      namePlaceholder: string;
+      subjectPlaceholder: string;
+      body: string;
+      bodyPlaceholder: string;
+      category: string;
+      categoryPlaceholder: string;
+      isDefault: string;
+      setDefault: string;
+      created: string;
+      updated: string;
+      deleted: string;
+      duplicated: string;
+      confirmDelete: string;
+      selectTemplate: string;
+      insertTemplate: string;
+      replaceContent: string;
+      manage: string;
+      categories: {
+        [key: string]: string;
+      };
       builtInTemplates: {
         [key: string]: { name: string; subject: string; body: string };
       };
@@ -1234,6 +1267,16 @@ export interface AppTranslations {
       options: {
         [key: string]: string;
       };
+    };
+    // Undo Send Feature (Phase 9)
+    undoSend: {
+      sending: string;
+      sent: string;
+      undo: string;
+      undoing: string;
+      cancelled: string;
+      secondsRemaining: string;
+      sendingIn: string;
     };
   };
   calendar: {
@@ -2604,6 +2647,15 @@ export interface AppTranslations {
     emailsMoved: string;
     cannotMoveCrossProvider: string;
     dropHereToMove: string;
+    // Keyboard navigation (Phase 9)
+    keyboard: {
+      nextEmail: string;
+      prevEmail: string;
+      openEmail: string;
+      closeEmail: string;
+      selectToggle: string;
+      compose: string;
+    };
   };
   // Thread Actions
   threadActions: {
@@ -2653,6 +2705,27 @@ export interface AppTranslations {
     forward: string;
     replyAll: string;
     download: string;
+    // AI Features (Phase 8)
+    ai?: {
+      summarize: string;
+      summarizing: string;
+      smartReply: string;
+      generatingReplies: string;
+      priority: string;
+      sentiment: string;
+      analyzing: string;
+      copyToClipboard: string;
+      copied: string;
+      useReply: string;
+      highPriority: string;
+      mediumPriority: string;
+      lowPriority: string;
+      positive: string;
+      negative: string;
+      neutral: string;
+      mixed: string;
+      error: string;
+    };
   };
   // Billing & Subscription (P10)
   billing?: {

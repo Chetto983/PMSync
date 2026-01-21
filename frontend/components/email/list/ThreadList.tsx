@@ -35,6 +35,7 @@ import { ThreadListHeader } from './ThreadListHeader';
 import { ThreadListItem, ThreadListItemData } from './ThreadListItem';
 import { DraggableThreadListItem } from './DraggableThreadListItem';
 import { EmptyState, EmptyStateVariant } from './EmptyState';
+import { ThreadListSkeleton } from './ThreadListSkeleton';
 
 // Drag and drop data types
 interface EmailDragData {
@@ -62,6 +63,8 @@ interface ThreadListProps {
   hasMore?: boolean;
   /** Empty state variant */
   emptyVariant?: EmptyStateVariant;
+  /** Keyboard navigation: currently focused item ID */
+  focusedId?: string | null;
   /** Callbacks */
   onThreadClick: (id: string) => void;
   onRefresh: () => void;
@@ -91,6 +94,7 @@ export function ThreadList({
   isLoadingMore = false,
   hasMore = false,
   emptyVariant = 'inbox',
+  focusedId,
   onThreadClick,
   onRefresh,
   onLoadMore,
@@ -271,23 +275,27 @@ export function ThreadList({
     }
   }, [virtualItems, threads.length, hasMore, isLoadingMore, onLoadMore]);
 
-  // Loading state
+  // Loading state - skeleton instead of spinner
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: 400,
-          gap: 2,
-        }}
-      >
-        <CircularProgress size={40} />
-        <Typography variant="body2" color="text.secondary">
-          {t.emailList.loading}
-        </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <ThreadListHeader
+          totalCount={0}
+          selectedCount={0}
+          allSelected={false}
+          someSelected={false}
+          isRefreshing={true}
+          onSelectAll={handleSelectAll}
+          onDeselectAll={handleDeselectAll}
+          onRefresh={handleRefresh}
+          onMarkAsRead={handleBulkMarkAsRead}
+          onMarkAsUnread={handleBulkMarkAsUnread}
+          onArchive={handleBulkArchive}
+          onDelete={handleBulkDelete}
+          onMoveToFolder={handleBulkMove}
+          onAddLabel={handleBulkLabel}
+        />
+        <ThreadListSkeleton count={8} animation="wave" />
       </Box>
     );
   }
@@ -373,6 +381,7 @@ export function ThreadList({
 
             const isSelected = selectedIds.has(thread.id);
             const isHovered = hoveredId === thread.id;
+            const isFocused = focusedId === thread.id;
 
             return (
               <Box
@@ -391,6 +400,7 @@ export function ThreadList({
                     thread={thread as ThreadListItemData & { providerId: string }}
                     isSelected={isSelected}
                     isHovered={isHovered}
+                    isFocused={isFocused}
                     onSelect={handleSelect}
                     onClick={onThreadClick}
                     onFlag={handleFlag}
@@ -404,6 +414,7 @@ export function ThreadList({
                     thread={thread}
                     isSelected={isSelected}
                     isHovered={isHovered}
+                    isFocused={isFocused}
                     onSelect={handleSelect}
                     onClick={onThreadClick}
                     onFlag={handleFlag}

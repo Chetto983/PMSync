@@ -557,6 +557,84 @@ export class ContactsService {
   }
 
   // =============================================================================
+  // VIP Operations
+  // =============================================================================
+
+  /**
+   * Toggle VIP status for a contact
+   */
+  async toggleVip(tenantId: string, contactId: string): Promise<ContactWithProviders> {
+    this.logger.log(`Toggling VIP status for contact ${contactId}`);
+
+    // Get existing contact
+    const contact = await this.getContact(tenantId, contactId);
+
+    // Toggle VIP status
+    const updated = await this.prisma.contact.update({
+      where: { id_tenantId: { id: contactId, tenantId } },
+      data: { isVip: !contact.isVip },
+      include: {
+        providerContacts: {
+          select: {
+            id: true,
+            providerId: true,
+            externalId: true,
+            provider: {
+              select: {
+                id: true,
+                email: true,
+                providerType: true,
+                displayName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    this.logger.log(`Contact ${contactId} VIP status set to ${updated.isVip}`);
+    return updated;
+  }
+
+  /**
+   * List all VIP contacts for a tenant
+   */
+  async listVipContacts(tenantId: string): Promise<{ contacts: ContactWithProviders[]; total: number }> {
+    const [contacts, total] = await Promise.all([
+      this.prisma.contact.findMany({
+        where: {
+          tenantId,
+          isVip: true,
+          isDeleted: false,
+        },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        include: {
+          providerContacts: {
+            select: {
+              id: true,
+              providerId: true,
+              externalId: true,
+              provider: {
+                select: {
+                  id: true,
+                  email: true,
+                  providerType: true,
+                  displayName: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.contact.count({
+        where: { tenantId, isVip: true, isDeleted: false },
+      }),
+    ]);
+
+    return { contacts, total };
+  }
+
+  // =============================================================================
   // Provider Operations
   // =============================================================================
 

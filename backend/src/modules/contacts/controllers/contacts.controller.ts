@@ -200,6 +200,32 @@ export class ContactsController {
   }
 
   /**
+   * Toggle VIP status for a contact
+   * POST /api/contacts/:id/vip
+   */
+  @Post(':id/vip')
+  @ApiOperation({ summary: 'Toggle VIP status', description: 'Toggles VIP status for a contact' })
+  @ApiParam({ name: 'id', description: 'Contact ID' })
+  @ApiResponse({ status: 200, description: 'VIP status toggled successfully' })
+  async toggleVip(@Req() req: any, @Param('id') contactId: string) {
+    const tenantId = req.user.tenantId;
+    return this.contactsService.toggleVip(tenantId, contactId);
+  }
+
+  /**
+   * List VIP contacts
+   * GET /api/contacts/vip
+   */
+  @Get('vip/list')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'List VIP contacts', description: 'Returns all VIP contacts' })
+  @ApiResponse({ status: 200, description: 'VIP contacts returned successfully' })
+  async listVipContacts(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+    return this.contactsService.listVipContacts(tenantId);
+  }
+
+  /**
    * Create a local-only contact (no provider sync)
    * POST /api/contacts/local
    */

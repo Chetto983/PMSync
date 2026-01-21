@@ -602,3 +602,83 @@ export function useImportFromVCard() {
     },
   });
 }
+
+// ============================================================================
+// VIP Contact Hooks
+// ============================================================================
+
+/**
+ * Query options for fetching VIP contacts
+ */
+export function vipContactsOptions() {
+  return queryOptions({
+    queryKey: contactsKeys.vip(),
+    queryFn: async () => {
+      return await contactsApi.listVipContacts();
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+/**
+ * Hook for fetching VIP contacts list
+ *
+ * @example
+ * ```tsx
+ * const { data, isPending } = useVipContacts();
+ * const vipContacts = data?.contacts ?? [];
+ * ```
+ */
+export function useVipContacts() {
+  return useQuery(vipContactsOptions());
+}
+
+/**
+ * Hook for toggling contact VIP status
+ *
+ * @example
+ * ```tsx
+ * const toggleVip = useToggleVip();
+ * await toggleVip.mutateAsync('contact-id');
+ * ```
+ */
+export function useToggleVip() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      return await contactsApi.toggleVip(id);
+    },
+    onMutate: async (id) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: contactsKeys.detail(id) });
+      await queryClient.cancelQueries({ queryKey: contactsKeys.vip() });
+
+      // Snapshot the previous value
+      const previousContact = queryClient.getQueryData<Contact>(contactsKeys.detail(id));
+
+      // Optimistically update
+      if (previousContact) {
+        queryClient.setQueryData<Contact>(contactsKeys.detail(id), {
+          ...previousContact,
+          isVip: !previousContact.isVip,
+        });
+      }
+
+      return { previousContact };
+    },
+    onError: (_, id, context) => {
+      // Rollback on error
+      if (context?.previousContact) {
+        queryClient.setQueryData(contactsKeys.detail(id), context.previousContact);
+      }
+    },
+    onSettled: (_, __, id) => {
+      // Always refetch after mutation
+      queryClient.invalidateQueries({ queryKey: contactsKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: contactsKeys.vip() });
+      queryClient.invalidateQueries({ queryKey: contactsKeys.list() });
+    },
+  });
+}

@@ -9,10 +9,10 @@
  */
 
 import { Box, Typography } from '@mui/material';
-import { Inbox, Folder, SearchX } from 'lucide-react';
+import { Inbox, Folder, SearchX, Crown } from 'lucide-react';
 import { useTranslations } from '@/lib/hooks/use-translations';
 
-export type EmptyStateVariant = 'inbox' | 'folder' | 'search';
+export type EmptyStateVariant = 'inbox' | 'folder' | 'search' | 'vip';
 
 interface EmptyStateProps {
   /** Type of empty state to display */
@@ -39,6 +39,7 @@ export function EmptyState({ variant = 'inbox', title, description }: EmptyState
     inbox: Inbox,
     folder: Folder,
     search: SearchX,
+    vip: Crown,
   };
 
   // Default text based on variant
@@ -46,12 +47,14 @@ export function EmptyState({ variant = 'inbox', title, description }: EmptyState
     inbox: t.emailList.emptyInbox,
     folder: t.emailList.emptyFolder,
     search: t.emailList.emptySearch,
+    vip: t.email.empty.vipTitle,
   };
 
   const defaultDescriptions = {
     inbox: t.emailList.emptyInboxDesc,
     folder: t.emailList.emptyFolderDesc,
     search: t.emailList.emptySearchDesc,
+    vip: t.email.empty.vipSubtitle,
   };
 
   const Icon = icons[variant];
@@ -60,6 +63,7 @@ export function EmptyState({ variant = 'inbox', title, description }: EmptyState
 
   return (
     <Box
+      data-testid="empty-state"
       sx={{
         display: 'flex',
         flexDirection: 'column',

@@ -8,6 +8,7 @@ import { ExpandedMessage } from '@/components/email/thread';
 import { LabelPickerDialog } from '@/components/email/labels';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslations } from '@/lib/hooks/use-translations';
+import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
 import {
   useEmails,
   useEmail,
@@ -109,25 +110,6 @@ export default function EmailPage() {
     }
   }, [router.query.id, isDesktop, router]);
 
-  // Keyboard shortcut: 'C' to compose new email
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if typing in an input field
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-        return;
-      }
-      // 'C' key to compose
-      if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        handleCompose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleCompose]);
-
   // Get folder filters from store (sidebar sets these)
   const filters = useEmailFilters();
 
@@ -169,6 +151,7 @@ export default function EmailPage() {
     hasAttachments: filters.hasAttachments,
     search: filters.search,
     labelIds: filters.labelId, // Filter by label ID
+    fromVip: filters.fromVip, // Filter emails from VIP contacts
     limit: 50,
   });
 
@@ -232,6 +215,17 @@ export default function EmailPage() {
   const handleCloseReadingPane = useCallback(() => {
     setSelectedThreadId(null);
   }, []);
+
+  // Keyboard navigation (Phase 9): j/k to navigate, Enter to open, Escape to close, c to compose
+  const { focusedId } = useKeyboardNavigation({
+    items: threads,
+    getItemId: (thread) => thread.id,
+    onOpen: handleThreadClick,
+    onEscape: handleCloseReadingPane,
+    onCompose: handleCompose,
+    enabled: !isLoading && threads.length > 0,
+    isReadingPaneOpen: !!selectedThreadId && isDesktop,
+  });
 
   // Format single email for ExpandedMessage component
   const selectedEmailData = useMemo(() => {
@@ -351,6 +345,7 @@ export default function EmailPage() {
     if (isEmailLoading) {
       return (
         <Box
+          data-testid="reading-pane"
           sx={{
             display: 'flex',
             flexDirection: 'column',
@@ -372,7 +367,7 @@ export default function EmailPage() {
     if (!selectedEmailData) return undefined;
 
     return (
-      <Box sx={{ height: '100%', overflow: 'auto', p: 2 }}>
+      <Box data-testid="reading-pane" sx={{ height: '100%', overflow: 'auto', p: 2 }}>
         <ExpandedMessage
           message={selectedEmailData}
           onCollapse={handleCloseReadingPane}
@@ -639,8 +634,9 @@ export default function EmailPage() {
         <EmailLayout readingPane={readingPane}>
           <ThreadList
             threads={threads}
-            emptyVariant={filters.search ? 'search' : 'inbox'}
+            emptyVariant={filters.search ? 'search' : filters.fromVip ? 'vip' : 'inbox'}
             isLoading={isLoading}
+            focusedId={focusedId}
             onThreadClick={handleThreadClick}
             onRefresh={handleRefresh}
             onBulkMarkAsRead={handleBulkMarkAsRead}

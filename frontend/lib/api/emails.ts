@@ -121,6 +121,7 @@ export interface ListEmailsParams {
   startDate?: string;
   endDate?: string;
   excludeTrashSpam?: boolean;
+  fromVip?: boolean; // Filter emails from VIP contacts only
 }
 
 /**

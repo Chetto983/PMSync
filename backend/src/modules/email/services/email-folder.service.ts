@@ -39,6 +39,8 @@ export interface EmailListFilters {
   endDate?: Date;
   /** SECURITY: Exclude emails in TRASH, SPAM, and JUNK folders (for smart filters) */
   excludeTrashSpam?: boolean;
+  /** Filter emails from VIP contacts only */
+  fromVip?: boolean;
 }
 
 /**
@@ -49,6 +51,8 @@ export interface EmailWhereResult {
   isTrashView: boolean;
   folderValues: string[];
   excludedFolderPaths: string[];
+  /** If true, service should filter to emails from VIP contacts */
+  fromVip?: boolean;
 }
 
 /**
@@ -309,6 +313,8 @@ export class EmailFolderService {
           ...(filters.endDate && { lte: filters.endDate }),
         };
       }
+      // VIP filter is handled in emails.service.ts via the fromVip return value
+      // since Email doesn't have a direct relation to Contact
     }
 
     return {
@@ -316,6 +322,7 @@ export class EmailFolderService {
       isTrashView,
       folderValues,
       excludedFolderPaths,
+      fromVip: filters?.fromVip,
     };
   }
 

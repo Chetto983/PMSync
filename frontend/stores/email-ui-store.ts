@@ -62,6 +62,8 @@ export interface EmailFilters {
   search?: string;
   startDate?: string;
   endDate?: string;
+  /** Filter emails from VIP contacts only */
+  fromVip?: boolean;
 }
 
 // Sidebar configuration

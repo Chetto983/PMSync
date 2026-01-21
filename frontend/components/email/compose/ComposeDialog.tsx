@@ -42,6 +42,8 @@ import ComposeRecipients, { type Recipient } from './ComposeRecipients';
 import ComposeAttachments, { type Attachment } from './ComposeAttachments';
 import ScheduleSendDialog from './ScheduleSendDialog';
 import logger from '@/lib/logger';
+import { useUndoSend } from '@/hooks/use-undo-send';
+import { UndoSendSnackbar } from './UndoSendSnackbar';
 
 export type ComposeMode = 'new' | 'reply' | 'replyAll' | 'forward';
 
@@ -133,6 +135,9 @@ export default function ComposeDialog({
   const forwardEmail = useForwardEmail();
   const saveDraft = useSaveDraft();
   const deleteDraft = useDeleteDraft();
+
+  // Undo send (30 second delay)
+  const { queueSend, cancelSend, pendingSend } = useUndoSend();
 
   // Fetch existing draft to restore attachments (only when editing a draft)
   const { data: existingDraft } = useEmailDraft(initialDraftId || '');
@@ -352,7 +357,83 @@ export default function ComposeDialog({
     isDirtyRef.current = true;
   }, []);
 
-  // Send email handler
+  // Actual send function (called after undo delay or immediately for scheduled)
+  const performSend = useCallback(async (scheduledAt?: Date) => {
+    // Build full body with quoted content for reply/forward
+    let fullBodyHtml = body;
+    let fullBodyText = '';
+
+    if (quotedContent && (mode === 'reply' || mode === 'replyAll' || mode === 'forward')) {
+      // Combine user's reply with quoted content
+      const quoteHeaderHtml = quoteHeader.split('\n').join('<br>');
+      fullBodyHtml = `${body}<br><br><div style="color:#666;border-left:2px solid #ccc;padding-left:10px;margin-left:0">${quoteHeaderHtml}<br><br>${quotedContent}</div>`;
+    }
+
+    // Generate plain text version
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = fullBodyHtml;
+    fullBodyText = tempDiv.innerText || tempDiv.textContent || '';
+
+    const attachmentFiles = attachments.map((a) => a.file);
+
+    if (mode === 'reply' || mode === 'replyAll') {
+      // Reply mode
+      if (!originalEmail?.id) {
+        throw new Error(composer.missingOriginalReply);
+      }
+      await replyToEmail.mutateAsync({
+        emailId: originalEmail.id,
+        dto: {
+          bodyHtml: fullBodyHtml,
+          bodyText: fullBodyText,
+          cc: cc.map((r) => r.email),
+          bcc: bcc.map((r) => r.email),
+          attachments: attachmentFiles,
+          signatureId: null,
+        },
+      });
+    } else if (mode === 'forward') {
+      // Forward mode
+      if (!originalEmail?.id) {
+        throw new Error(composer.missingOriginalForward);
+      }
+      await forwardEmail.mutateAsync({
+        emailId: originalEmail.id,
+        dto: {
+          to: to.map((r) => r.email),
+          cc: cc.map((r) => r.email),
+          bcc: bcc.map((r) => r.email),
+          attachments: attachmentFiles,
+          signatureId: null,
+        },
+      });
+    } else {
+      // New email mode
+      await sendEmail.mutateAsync({
+        providerId,
+        to: to.map((r) => r.email),
+        cc: cc.map((r) => r.email),
+        bcc: bcc.map((r) => r.email),
+        subject,
+        bodyHtml: body,
+        bodyText: fullBodyText,
+        attachments: attachmentFiles,
+        scheduledAt: scheduledAt?.toISOString(),
+        signatureId: null,
+      });
+    }
+
+    // Delete draft after successful send
+    if (draftId) {
+      await deleteDraft.mutateAsync(draftId);
+    }
+  }, [
+    body, attachments, mode, originalEmail, quotedContent, quoteHeader,
+    providerId, to, cc, bcc, subject, draftId,
+    sendEmail, replyToEmail, forwardEmail, deleteDraft, composer,
+  ]);
+
+  // Send email handler - validates then queues with undo delay
   const handleSend = useCallback(async (scheduledAt?: Date) => {
     if (!providerId) {
       setError(composer.noProvider);
@@ -366,95 +447,41 @@ export default function ComposeDialog({
 
     setError(null);
 
-    try {
-      // Build full body with quoted content for reply/forward
-      let fullBodyHtml = body;
-      let fullBodyText = '';
-
-      if (quotedContent && (mode === 'reply' || mode === 'replyAll' || mode === 'forward')) {
-        // Combine user's reply with quoted content
-        const quoteHeaderHtml = quoteHeader.split('\n').join('<br>');
-        fullBodyHtml = `${body}<br><br><div style="color:#666;border-left:2px solid #ccc;padding-left:10px;margin-left:0">${quoteHeaderHtml}<br><br>${quotedContent}</div>`;
+    // For scheduled emails, send immediately (no undo needed)
+    if (scheduledAt) {
+      try {
+        await performSend(scheduledAt);
+        setSuccessMessage(t.email.scheduleSend?.scheduledFor ?? 'Scheduled');
+        onSent?.();
+        onClose();
+      } catch (err) {
+        logger.error('Scheduled send failed', err instanceof Error ? err : new Error(String(err)));
+        setError(composer.sendError);
       }
-
-      // Generate plain text version
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = fullBodyHtml;
-      fullBodyText = tempDiv.innerText || tempDiv.textContent || '';
-
-      const attachmentFiles = attachments.map((a) => a.file);
-
-      if (mode === 'reply' || mode === 'replyAll') {
-        // Reply mode
-        if (!originalEmail?.id) {
-          setError(composer.missingOriginalReply);
-          return;
-        }
-        await replyToEmail.mutateAsync({
-          emailId: originalEmail.id,
-          dto: {
-            bodyHtml: fullBodyHtml,
-            bodyText: fullBodyText,
-            cc: cc.map((r) => r.email),
-            bcc: bcc.map((r) => r.email),
-            attachments: attachmentFiles,
-            // Signature already appended in editor, prevent backend double-append
-            signatureId: null,
-          },
-        });
-      } else if (mode === 'forward') {
-        // Forward mode
-        if (!originalEmail?.id) {
-          setError(composer.missingOriginalForward);
-          return;
-        }
-        await forwardEmail.mutateAsync({
-          emailId: originalEmail.id,
-          dto: {
-            to: to.map((r) => r.email),
-            cc: cc.map((r) => r.email),
-            bcc: bcc.map((r) => r.email),
-            attachments: attachmentFiles,
-            // Backend generates forward body from original email + appends signature
-            signatureId: null,
-          },
-        });
-      } else {
-        // New email mode
-        await sendEmail.mutateAsync({
-          providerId,
-          to: to.map((r) => r.email),
-          cc: cc.map((r) => r.email),
-          bcc: bcc.map((r) => r.email),
-          subject,
-          bodyHtml: body,
-          bodyText: fullBodyText,
-          attachments: attachmentFiles,
-          scheduledAt: scheduledAt?.toISOString(),
-          // Signature already appended in editor, prevent backend double-append
-          signatureId: null,
-        });
-      }
-
-      // Delete draft after successful send
-      if (draftId) {
-        await deleteDraft.mutateAsync(draftId);
-      }
-
-      const successMsg = scheduledAt
-        ? (t.email.scheduleSend?.scheduledFor ?? 'Scheduled')
-        : (t.common?.success ?? 'Success');
-      setSuccessMessage(successMsg);
-      onSent?.();
-      onClose();
-    } catch (err) {
-      logger.error('Send email failed', err instanceof Error ? err : new Error(String(err)));
-      setError(composer.sendError);
+      return;
     }
+
+    // Queue send with 30 second undo window
+    queueSend({
+      sendFn: async () => {
+        await performSend();
+      },
+      onSuccess: () => {
+        setSuccessMessage(t.email.undoSend.sent);
+        onSent?.();
+        onClose();
+      },
+      onCancel: () => {
+        // Email cancelled - show message but keep dialog open for editing
+        setSuccessMessage(t.email.undoSend.cancelled);
+      },
+      onError: (err) => {
+        logger.error('Send email failed', err instanceof Error ? err : new Error(String(err)));
+        setError(composer.sendError);
+      },
+    });
   }, [
-    providerId, to, cc, bcc, subject, body, attachments, mode, originalEmail,
-    sendEmail, replyToEmail, forwardEmail, deleteDraft, draftId,
-    composer, t, onSent, onClose, quotedContent, quoteHeader,
+    providerId, to, composer, t, onSent, onClose, performSend, queueSend,
   ]);
 
   const handleAttachFromToolbar = useCallback(() => {
@@ -480,6 +507,7 @@ export default function ComposeDialog({
 
   const canSend = to.length > 0 && providerId;
   const isSending = sendEmail.isPending || replyToEmail.isPending || forwardEmail.isPending;
+  const isPendingSend = pendingSend !== null;
   const isSavingDraft = saveDraft.isPending;
 
   const getTitle = (): string => {
@@ -735,7 +763,7 @@ export default function ComposeDialog({
               variant="outlined"
               startIcon={<ScheduleIcon />}
               onClick={() => setShowScheduleDialog(true)}
-              disabled={!canSend || isSending}
+              disabled={!canSend || isSending || isPendingSend}
             >
               {t.email.scheduleSend?.schedule || 'Schedule'}
             </Button>
@@ -744,11 +772,11 @@ export default function ComposeDialog({
           {/* Send Button */}
           <Button
             variant="contained"
-            startIcon={isSending ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
+            startIcon={isSending || isPendingSend ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
             onClick={() => handleSend()}
-            disabled={!canSend || isSending}
+            disabled={!canSend || isSending || isPendingSend}
           >
-            {isSending ? composer.sending : t.common.send}
+            {isSending || isPendingSend ? composer.sending : t.common.send}
           </Button>
         </DialogActions>
       </Dialog>
@@ -760,9 +788,15 @@ export default function ComposeDialog({
         onSchedule={handleScheduleSend}
       />
 
+      {/* Undo Send Snackbar - shows countdown during pending send */}
+      <UndoSendSnackbar
+        pendingSend={pendingSend}
+        onUndo={cancelSend}
+      />
+
       {/* Success Snackbar */}
       <Snackbar
-        open={!!successMessage}
+        open={!!successMessage && !isPendingSend}
         autoHideDuration={4000}
         onClose={() => setSuccessMessage(null)}
         message={successMessage}

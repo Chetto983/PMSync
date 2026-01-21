@@ -5,13 +5,20 @@
  * - Header: Avatar + Name + To/CC + Date + Actions
  * - Body: Full HTML content
  * - Attachments
- * - Footer: Reply, Reply All, Forward buttons
+ * - AI Actions: Summarize, Priority, Sentiment
  *
  * Matches Microsoft's New Outlook expanded message design.
  */
 
 import { memo, useState } from 'react';
-import { Box, Typography, Avatar, IconButton, Button, Tooltip, Divider } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Avatar,
+  IconButton,
+  Tooltip,
+  Divider,
+} from '@mui/material';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ReplyIcon from '@mui/icons-material/Reply';
 import ReplyAllIcon from '@mui/icons-material/ReplyAll';
@@ -22,6 +29,8 @@ import { useTranslations } from '@/lib/hooks/use-translations';
 import { stringToColor } from '@/lib/utils/gravatar';
 import { EmailHtmlContent } from './EmailHtmlContent';
 import { AttachmentCard } from './AttachmentCard';
+import { AiInsightsPanel } from './AiInsightsPanel';
+import { AiActionButtons } from './AiActionButtons';
 
 interface ExpandedMessageProps {
   message: {
@@ -95,6 +104,17 @@ export const ExpandedMessage = memo(function ExpandedMessage({
   void onFlag; // Reserved for future use
   const t = useTranslations();
   const [showActions, setShowActions] = useState(false);
+  const [showAllRecipients, setShowAllRecipients] = useState(false);
+
+  // AI Features State (Phase 8) - Summary only
+  const [showSummary, setShowSummary] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+
+  // AI callback handlers
+  const handleSummaryGenerated = (newSummary: string) => {
+    setSummary(newSummary);
+    setShowSummary(true);
+  };
 
   return (
     <Box
@@ -150,7 +170,6 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         {/* Sender Info */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* Sender Name */}
-          {/* Sender Name */}
           <Tooltip title={message.from} placement="top-start">
             <Typography
               variant="body1"
@@ -169,14 +188,28 @@ export const ExpandedMessage = memo(function ExpandedMessage({
             <Typography variant="caption" color="text.secondary">
               {t.threadMessage?.to || 'To:'}
             </Typography>
-            {message.to.slice(0, 3).map((recipient, idx) => (
+            {(showAllRecipients ? message.to : message.to.slice(0, 3)).map((recipient, idx, arr) => (
               <Typography key={idx} variant="caption" color="text.secondary">
                 {formatRecipient(recipient)}
-                {idx < Math.min(message.to.length, 3) - 1 && ','}
+                {idx < arr.length - 1 && ','}
               </Typography>
             ))}
-            {message.to.length > 3 && (
-              <Typography variant="caption" color="text.secondary">
+            {!showAllRecipients && message.to.length > 3 && (
+              <Typography
+                variant="caption"
+                component="button"
+                onClick={() => setShowAllRecipients(true)}
+                sx={{
+                  color: 'primary.main',
+                  cursor: 'pointer',
+                  border: 'none',
+                  background: 'none',
+                  p: 0,
+                  fontFamily: 'inherit',
+                  fontSize: 'inherit',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
                 +{message.to.length - 3}
               </Typography>
             )}
@@ -188,18 +221,54 @@ export const ExpandedMessage = memo(function ExpandedMessage({
               <Typography variant="caption" color="text.secondary">
                 {t.threadMessage?.cc || 'CC:'}
               </Typography>
-              {message.cc.slice(0, 2).map((recipient, idx) => (
+              {(showAllRecipients ? message.cc : message.cc.slice(0, 2)).map((recipient, idx, arr) => (
                 <Typography key={idx} variant="caption" color="text.secondary">
                   {formatRecipient(recipient)}
-                  {idx < Math.min(message.cc!.length, 2) - 1 && ','}
+                  {idx < arr.length - 1 && ','}
                 </Typography>
               ))}
-              {message.cc.length > 2 && (
-                <Typography variant="caption" color="text.secondary">
+              {!showAllRecipients && message.cc.length > 2 && (
+                <Typography
+                  variant="caption"
+                  component="button"
+                  onClick={() => setShowAllRecipients(true)}
+                  sx={{
+                    color: 'primary.main',
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: 'none',
+                    p: 0,
+                    fontFamily: 'inherit',
+                    fontSize: 'inherit',
+                    '&:hover': { textDecoration: 'underline' },
+                  }}
+                >
                   +{message.cc.length - 2}
                 </Typography>
               )}
             </Box>
+          )}
+
+          {/* Show less button when expanded */}
+          {showAllRecipients && (message.to.length > 3 || (message.cc && message.cc.length > 2)) && (
+            <Typography
+              variant="caption"
+              component="button"
+              onClick={() => setShowAllRecipients(false)}
+              sx={{
+                color: 'primary.main',
+                cursor: 'pointer',
+                border: 'none',
+                background: 'none',
+                p: 0,
+                mt: 0.25,
+                fontFamily: 'inherit',
+                fontSize: 'inherit',
+                '&:hover': { textDecoration: 'underline' },
+              }}
+            >
+              {t.common?.showLess || 'Show less'}
+            </Typography>
           )}
         </Box>
 
@@ -247,6 +316,34 @@ export const ExpandedMessage = memo(function ExpandedMessage({
         </Box>
       </Box>
 
+      {/* AI Action Toolbar - Top Position */}
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 1,
+          px: 2,
+          py: 1,
+          pl: 7.5,
+          borderBottom: 1,
+          borderColor: 'divider',
+          bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
+        }}
+      >
+        <AiActionButtons
+          emailId={message.id}
+          onSummaryGenerated={handleSummaryGenerated}
+          showSummary={showSummary}
+          onToggleSummary={() => setShowSummary(!showSummary)}
+          hasSummary={!!summary}
+        />
+      </Box>
+
+      {/* AI Summary Panel - TOP Position (Phase 8) */}
+      <AiInsightsPanel
+        showSummary={showSummary}
+        summary={summary}
+      />
+
       {/* Body */}
       <Box sx={{ px: 2, pb: 2, pl: 7.5 }}>
         <EmailHtmlContent html={message.body} attachments={message.attachments} />
@@ -285,60 +382,6 @@ export const ExpandedMessage = memo(function ExpandedMessage({
           </Box>
         </Box>
       )}
-
-      {/* Footer Action Bar */}
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 1,
-          px: 2,
-          py: 1.5,
-          borderTop: 1,
-          borderColor: 'divider',
-          bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
-        }}
-      >
-        <Button
-          size="small"
-          variant="text"
-          startIcon={<ReplyIcon sx={{ fontSize: 16 }} />}
-          onClick={() => onReply(message.id)}
-          sx={{ textTransform: 'none', color: 'text.secondary' }}
-        >
-          {t.threadMessage?.reply || 'Reply'}
-        </Button>
-        {onReplyAll && (
-          <Button
-            size="small"
-            variant="text"
-            startIcon={<ReplyAllIcon sx={{ fontSize: 16 }} />}
-            onClick={() => onReplyAll(message.id)}
-            sx={{ textTransform: 'none', color: 'text.secondary' }}
-          >
-            {t.threadMessage?.replyAll || 'Reply All'}
-          </Button>
-        )}
-        <Button
-          size="small"
-          variant="text"
-          startIcon={<ForwardIcon sx={{ fontSize: 16 }} />}
-          onClick={() => onForward(message.id)}
-          sx={{ textTransform: 'none', color: 'text.secondary' }}
-        >
-          {t.threadMessage?.forward || 'Forward'}
-        </Button>
-        {onLabels && (
-          <Button
-            size="small"
-            variant="text"
-            startIcon={<LabelIcon sx={{ fontSize: 16 }} />}
-            onClick={() => onLabels(message.id)}
-            sx={{ textTransform: 'none', color: 'text.secondary' }}
-          >
-            {t.email?.labels?.title || 'Labels'}
-          </Button>
-        )}
-      </Box>
     </Box>
   );
 });

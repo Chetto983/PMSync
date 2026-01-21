@@ -69,6 +69,7 @@ export interface Contact {
   isDeleted: boolean;
   isStarred: boolean;
   isFavorite: boolean;
+  isVip: boolean;
   tags?: string[];
   createdAt: string;
   updatedAt: string;
@@ -262,6 +263,25 @@ export const contactsApi = {
    */
   async lookupByEmails(emails: string[]): Promise<SenderContactMap> {
     const response = await apiClient.post<SenderContactMap>('/contacts/lookup-by-emails', { emails });
+    return response.data;
+  },
+
+  /**
+   * Toggle VIP status for a contact
+   * @param id - Contact ID
+   * @returns Updated contact
+   */
+  async toggleVip(id: string): Promise<Contact> {
+    const response = await apiClient.post<Contact>(`/contacts/${id}/vip`);
+    return response.data;
+  },
+
+  /**
+   * List all VIP contacts
+   * @returns VIP contacts list
+   */
+  async listVipContacts(): Promise<ListContactsResponse> {
+    const response = await apiClient.get<ListContactsResponse>('/contacts/vip/list');
     return response.data;
   },
 };

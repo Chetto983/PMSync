@@ -14,12 +14,14 @@ import { ScheduledEmailService } from './services/scheduled-email.service';
 import { ProviderValidationService } from './services/provider-validation.service';
 import { FolderLookupService } from './services/folder-lookup.service';
 import { EmailSignatureService } from './services/email-signature.service';
+import { EmailTemplateService } from './services/email-template.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { AiModule } from '../ai/ai.module';
 import { EmailsController } from './controllers/emails.controller';
 import { AttachmentsController } from './controllers/attachments.controller';
 import { SignaturesController } from './controllers/signatures.controller';
+import { TemplatesController } from './controllers/templates.controller';
 import { EmailSyncModule } from '../email-sync/email-sync.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { StorageService } from './services/storage.service';
@@ -70,8 +72,10 @@ import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module
     EmailFolderService,
     // Signature service
     EmailSignatureService,
+    // Template service
+    EmailTemplateService,
   ],
-  controllers: [EmailsController, AttachmentsController, SignaturesController],
+  controllers: [EmailsController, AttachmentsController, SignaturesController, TemplatesController],
   exports: [
     EmailService,
     EmailsService,
@@ -91,6 +95,8 @@ import { ScheduledJobsModule } from '../../common/services/scheduled-jobs.module
     EmailFolderService,
     // Signature service
     EmailSignatureService,
+    // Template service
+    EmailTemplateService,
   ],
 })
 export class EmailModule { }

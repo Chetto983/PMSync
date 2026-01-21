@@ -44,4 +44,7 @@ export const contactsKeys = {
 
   // Sender photos lookup (batch)
   senderPhotos: (emails: string[]) => [...contactsKeys.all, 'sender-photos', emails.sort().join(',')] as const,
+
+  // VIP contacts
+  vip: () => [...contactsKeys.all, 'vip'] as const,
 } as const;

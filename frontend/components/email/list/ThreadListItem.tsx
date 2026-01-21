@@ -47,6 +47,8 @@ interface ThreadListItemProps {
   thread: ThreadListItemData;
   isSelected: boolean;
   isHovered: boolean;
+  /** Keyboard navigation focus state */
+  isFocused?: boolean;
   onSelect: (id: string, checked: boolean) => void;
   onClick: (id: string) => void;
   onFlag: (id: string) => void;
@@ -66,6 +68,7 @@ export const ThreadListItem = memo(function ThreadListItem({
   thread,
   isSelected,
   isHovered,
+  isFocused = false,
   onSelect,
   onClick,
   onFlag,
@@ -120,6 +123,8 @@ export const ThreadListItem = memo(function ThreadListItem({
 
   return (
     <Box
+      data-testid="thread-list-item"
+      data-focused={isFocused ? 'true' : undefined}
       onClick={handleRowClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -136,10 +141,16 @@ export const ThreadListItem = memo(function ThreadListItem({
           ? 'rgba(25, 118, 210, 0.04)'
           : isSelected
             ? 'action.selected'
-            : 'transparent',
-        transition: 'background-color 0.15s ease',
+            : isFocused
+              ? 'action.focus'
+              : 'transparent',
+        transition: 'background-color 0.15s ease, outline 0.15s ease',
         borderBottom: 1,
         borderColor: 'divider',
+        // Keyboard focus indicator (Phase 9)
+        outline: isFocused ? 2 : 0,
+        outlineColor: 'primary.main',
+        outlineOffset: -2,
         '&:hover': {
           bgcolor: isSelected ? 'action.selected' : 'action.hover',
         },
@@ -223,6 +234,7 @@ export const ThreadListItem = memo(function ThreadListItem({
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
             {thread.hasAttachments && (
               <Paperclip
+                data-testid="attachment-icon"
                 size={14}
                 strokeWidth={2}
                 style={{ color: 'var(--mui-palette-text-secondary)' }}
@@ -310,6 +322,7 @@ export const ThreadListItem = memo(function ThreadListItem({
             aria-label={thread.isFlagged ? t.emailList.unflagged : t.emailList.flagged}
           >
             <Flag
+              data-testid="flag-icon"
               size={18}
               fill={thread.isFlagged ? 'currentColor' : 'none'}
               strokeWidth={2}

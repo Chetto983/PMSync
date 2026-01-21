@@ -103,11 +103,92 @@ export const it: VoltAgentTranslations = {
       executed: 'Eseguito',
     },
     insights: {
-      ...en.tools.insights, // Use English AI prompts
+      // Override AI prompts to respond in Italian
+      summarize: {
+        description: "Riassumi il contenuto dell'email evidenziando intento, richieste e prossimi passi",
+        systemPrompt:
+          'Sei un assistente che riassume email aziendali. Rispondi con un breve riassunto in ITALIANO e in TESTO SEMPLICE (max 5 frasi). Evidenzia intento, richieste e prossimi passi. NON usare markdown.',
+      },
+      sentiment: {
+        description: "Analizza il sentiment e il tono di un'email",
+        systemPrompt:
+          'Analizza il sentiment dell\'email. Rispondi in JSON: {"sentiment":"positive|negative|neutral", "tone":"formal|casual|urgent|friendly", "confidence":0.0-1.0, "reasoning":"..."}. Il campo reasoning deve essere in ITALIANO.',
+      },
+      sentimentDeep: {
+        description: 'Analisi approfondita del sentiment con rilevamento emozioni, analisi per aspetti e rischio churn',
+        systemPrompt: `Analizza il sentiment dell'email con analisi approfondita. Rispondi SOLO in JSON:
+{
+  "sentiment": "positive|negative|neutral|mixed",
+  "tone": "formal|casual|urgent|friendly|cold|assertive",
+  "emotion": "joy|gratitude|excitement|neutral|concern|frustration|anger|disappointment|sadness",
+  "emotionalIntensity": 0.0-1.0,
+  "churnRisk": true|false,
+  "aspects": {
+    "subject": "positive|negative|neutral",
+    "service": "positive|negative|neutral",
+    "timeline": "positive|negative|neutral"
+  },
+  "confidence": 0.0-1.0,
+  "reasoning": "..."
+}
+Il campo reasoning deve essere in ITALIANO. Considera: linguaggio usato, punteggiatura, contesto, sarcasmo/ironia, urgenza implicita.`,
+      },
+      priority: {
+        description: "Calcola la priorità dell'email con punteggio multi-fattore",
+        systemPrompt: `Calcola la priorità dell'email. Considera: urgenza, importanza, scadenza, sentiment. Rispondi in JSON:
+{
+  "urgencyScore": 1-10,
+  "importanceScore": 1-10,
+  "timeScore": 1-10,
+  "sentimentImpact": -2 to +2,
+  "urgency": "high|medium|low",
+  "factors": ["..."],
+  "recommendation": "handle_now|handle_today|handle_this_week|can_wait|archive"
+}
+Il campo factors deve contenere elementi in ITALIANO.`,
+      },
+      analyzeComprehensive: {
+        description: "Analisi completa dell'email combinando sentiment, priorità e intento",
+        systemPrompt: `Analizza l'email in modo completo. Rispondi in JSON:
+{
+  "sentiment": "positive|negative|neutral|mixed",
+  "tone": "formal|casual|urgent|friendly",
+  "urgency": "high|medium|low",
+  "intent": "action_required|fyi|question|meeting_request|follow_up|escalation|feedback|introduction|thank_you|complaint",
+  "priority": 1-10,
+  "escalationRisk": true|false,
+  "keyTopics": ["..."],
+  "suggestedResponse": "immediate|within_day|within_week|optional",
+  "confidence": 0.0-1.0
+}
+Il campo keyTopics deve contenere elementi in ITALIANO.`,
+      },
+      compose: {
+        ...en.tools.insights.compose, // Keep compose structure (it handles language via parameter)
+      },
+      actionItems: {
+        description: "Estrai attività e task da completare da un'email",
+        systemPrompt:
+          'Estrai le attività dall\'email. Rispondi in JSON: {"actionItems":[{"task":"...", "priority":"high|medium|low", "deadline":"...?", "assignee":"...?"}], "hasDeadlines":true|false}. I campi task e assignee devono essere in ITALIANO.',
+      },
+      categorize: {
+        description: "Suggerisci etichette appropriate per categorizzare un'email",
+        systemPrompt: (labels: string) => `Suggerisci fino a 3 etichette da [${labels}]. Rispondi in JSON: {"labels":["..."]}.`,
+      },
       smartReplies: {
         description: "Genera 2-3 risposte rapide e concise a un'email",
         systemPrompt: (toneInstruction: string) =>
           `Genera 2-3 risposte concise all'email in ITALIANO. ${toneInstruction} Rispondi in JSON: {"replies":["..."]}.`,
+      },
+      // Enhanced 2025 tools
+      analyze: {
+        description: "Analisi completa dell'email: sentiment, urgenza, intento, priorità e rischio escalation",
+      },
+      detectIntent: {
+        description: "Rileva l'intento dell'email (azione richiesta, informativa, domanda, richiesta riunione, escalation, ecc.)",
+      },
+      calculatePriority: {
+        description: "Calcola il punteggio di priorità dell'email basato su urgenza, importanza del mittente e analisi del contenuto",
       },
       tones: {
         formal: 'Tono formale e professionale.',

@@ -83,6 +83,7 @@ export function ThreadListHeader({
 
   return (
     <Box
+      data-testid="thread-list-header"
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -187,6 +188,7 @@ export function ThreadListHeader({
       {/* Refresh button - always visible */}
       <Tooltip title={t.emailList.refresh}>
         <IconButton
+          data-testid="refresh-button"
           size="small"
           onClick={onRefresh}
           disabled={isRefreshing}

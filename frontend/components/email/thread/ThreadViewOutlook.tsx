@@ -44,7 +44,7 @@ export interface ThreadMessageData {
   isUnread: boolean;
   isFlagged: boolean;
   hasAttachments: boolean;
-  attachments?: Array<{ id: string; name: string; size: number }>;
+  attachments?: Array<{ id: string; name: string; size: number; contentId?: string | null }>;
   avatarUrl?: string;
   isAutoReply?: boolean;
 }

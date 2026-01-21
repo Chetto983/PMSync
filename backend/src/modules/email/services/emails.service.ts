@@ -76,7 +76,7 @@ export class EmailsService {
 
     const skip = (page - 1) * limit;
 
-    const { where } = await this.folderService.buildEmailWhere({
+    const { where, fromVip } = await this.folderService.buildEmailWhere({
       tenantId,
       providerId,
       folder: filters.folder,
@@ -84,6 +84,41 @@ export class EmailsService {
       filters,
       excludeTrashSpam: filters.excludeTrashSpam,
     });
+
+    // VIP filter: Get emails from VIP contacts
+    if (fromVip) {
+      // Get all VIP contact emails for this tenant
+      const vipContacts = await this.prisma.contact.findMany({
+        where: { tenantId, isVip: true, isDeleted: false },
+        select: { emails: true },
+      });
+
+      // Extract email addresses from VIP contacts
+      const vipEmails: string[] = [];
+      for (const contact of vipContacts) {
+        if (contact.emails && Array.isArray(contact.emails)) {
+          for (const emailObj of contact.emails as Array<{ value?: string }>) {
+            if (emailObj.value) {
+              vipEmails.push(emailObj.value.toLowerCase());
+            }
+          }
+        }
+      }
+
+      // If no VIP emails, return empty result
+      if (vipEmails.length === 0) {
+        return {
+          emails: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+        };
+      }
+
+      // Add filter: email.from must contain one of the VIP emails
+      // Using OR conditions for each VIP email address
+      where.OR = vipEmails.map((vipEmail) => ({
+        from: { contains: vipEmail, mode: 'insensitive' as const },
+      }));
+    }
 
     // Get total count and emails
     const [total, emails] = await Promise.all([

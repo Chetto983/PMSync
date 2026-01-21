@@ -37,7 +37,7 @@ export interface ThreadMessageData {
   isUnread: boolean;
   isFlagged: boolean;
   hasAttachments: boolean;
-  attachments?: Array<{ id: string; name: string; size: number }>;
+  attachments?: Array<{ id: string; name: string; size: number; contentId?: string | null }>;
   avatarUrl?: string;
 }
 
@@ -265,9 +265,9 @@ export const ThreadMessage = memo(function ThreadMessage({
           )}
         </Box>
 
-        {/* Email body - FIXED: Use EmailHtmlContent for proper HTML rendering */}
+        {/* Email body - FIXED: Use EmailHtmlContent for proper HTML rendering with cid: resolution */}
         <Box sx={{ mb: 2 }}>
-          <EmailHtmlContent html={message.body} />
+          <EmailHtmlContent html={message.body} attachments={message.attachments} />
         </Box>
 
         {/* Attachments */}

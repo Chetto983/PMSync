@@ -155,6 +155,10 @@ export class UpdateContactDto {
   @IsString({ each: true })
   @ArrayMaxSize(50)
   tags?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isVip?: boolean;
 }
 
 /**

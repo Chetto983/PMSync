@@ -99,6 +99,7 @@ export function EmailSearchBar({ compact = true, placeholder }: EmailSearchBarPr
   return (
     <Box sx={{ flex: compact ? '0 1 280px' : '1 1 auto', minWidth: compact ? 180 : 200 }}>
       <TextField
+        data-testid="email-search"
         inputRef={inputRef}
         size="small"
         variant="outlined"

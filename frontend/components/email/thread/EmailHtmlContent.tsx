@@ -19,6 +19,10 @@ import DOMPurify from 'dompurify';
 interface InlineAttachment {
   id: string;
   contentId?: string | null;
+  /** Filename - can be 'filename' or 'name' depending on source */
+  filename?: string | null;
+  name?: string | null;
+  isInline?: boolean;
 }
 
 interface EmailHtmlContentProps {
@@ -32,30 +36,80 @@ interface EmailHtmlContentProps {
 
 /**
  * Replace cid: URLs with actual attachment download URLs
- * cid:agenda_icon → /api/v1/email/attachments/{id}/download
+ * cid:agenda_icon → /api/email/attachments/{id}/download (Next.js proxy route)
+ *
+ * Uses Next.js API route to proxy requests with authentication,
+ * since img src attributes cannot include Authorization headers.
+ *
+ * Matching strategy:
+ * 1. Exact contentId match (e.g., cid:image001.png@xxx)
+ * 2. Filename match without extension (e.g., cid:agenda_icon matches agenda_icon.png)
+ * 3. Partial contentId match (e.g., cid:agenda_icon matches <agenda_icon@mailserver>)
  */
 function replaceCidUrls(html: string, attachments?: InlineAttachment[]): string {
   if (!attachments || attachments.length === 0) return html;
 
-  // Build contentId → attachment URL map
-  const cidMap = new Map<string, string>();
+  // Build multiple lookup maps for flexible matching
+  const cidMap = new Map<string, string>(); // contentId → URL
+  const filenameMap = new Map<string, string>(); // filename without ext → URL
+  const inlineAttachments: InlineAttachment[] = []; // Fallback for inline attachments
+
   for (const att of attachments) {
+    const url = `/api/email/attachments/${att.id}/download`;
+
+    // Map by contentId (cleaned)
     if (att.contentId) {
       // contentId may include angle brackets like <image001.png@xxx>
       const cleanCid = att.contentId.replace(/^<|>$/g, '');
-      cidMap.set(cleanCid, `/api/v1/email/attachments/${att.id}/download`);
+      cidMap.set(cleanCid, url);
+
+      // Also map the part before @ for partial matching
+      const cidBeforeAt = cleanCid.split('@')[0];
+      if (cidBeforeAt && cidBeforeAt !== cleanCid) {
+        cidMap.set(cidBeforeAt, url);
+      }
+    }
+
+    // Map by filename (without extension) - support both 'filename' and 'name' props
+    const filename = att.filename || att.name;
+    if (filename) {
+      const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
+      filenameMap.set(nameWithoutExt.toLowerCase(), url);
+      // Also map full filename
+      filenameMap.set(filename.toLowerCase(), url);
+    }
+
+    // Track inline attachments for fallback
+    if (att.isInline) {
+      inlineAttachments.push(att);
     }
   }
 
-  if (cidMap.size === 0) return html;
+  if (cidMap.size === 0 && filenameMap.size === 0) return html;
 
   // Replace all cid: references in src attributes
   // Handles: src="cid:xxx", src='cid:xxx', src=cid:xxx
   return html.replace(/src=["']?cid:([^"'\s>]+)["']?/gi, (match, cid) => {
-    const url = cidMap.get(cid);
+    // Strategy 1: Exact contentId match
+    let url = cidMap.get(cid);
     if (url) {
       return `src="${url}"`;
     }
+
+    // Strategy 2: Match by filename (case-insensitive)
+    url = filenameMap.get(cid.toLowerCase());
+    if (url) {
+      return `src="${url}"`;
+    }
+
+    // Strategy 3: Partial match (cid might be part of contentId)
+    for (const [key, value] of cidMap.entries()) {
+      if (key.toLowerCase().includes(cid.toLowerCase()) ||
+          cid.toLowerCase().includes(key.toLowerCase())) {
+        return `src="${value}"`;
+      }
+    }
+
     // Keep original if no matching attachment
     return match;
   });

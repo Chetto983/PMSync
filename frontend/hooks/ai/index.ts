@@ -21,6 +21,17 @@ export { useAiActions, aiActionsKeys } from './use-ai-actions';
 // Agent activity streaming (real-time WebSocket)
 export { useAgentActivityStream, type AgentStep } from './use-agent-activity-stream';
 
+// Email AI analysis hooks (Phase 8)
+export {
+  useEmailSummarize,
+  useSmartReplies,
+  useEmailSentiment,
+  useEmailPriority,
+  useEmailSummarizeMutation,
+  useSmartRepliesMutation,
+  emailAiKeys,
+} from './use-email-ai';
+
 // Re-export types from API for convenience
 export type {
   ChatMessage,

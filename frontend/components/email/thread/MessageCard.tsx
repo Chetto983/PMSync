@@ -46,7 +46,7 @@ export interface MessageCardData {
   isUnread: boolean;
   isFlagged: boolean;
   hasAttachments: boolean;
-  attachments?: Array<{ id: string; name: string; size: number }>;
+  attachments?: Array<{ id: string; name: string; size: number; contentId?: string | null }>;
   avatarUrl?: string;
 }
 
@@ -278,9 +278,9 @@ export const MessageCard = memo(function MessageCard({
             )}
           </Box>
 
-          {/* Email body */}
+          {/* Email body - with cid: URL resolution for inline images */}
           <Box sx={{ mb: 2 }}>
-            <EmailHtmlContent html={message.body} />
+            <EmailHtmlContent html={message.body} attachments={message.attachments} />
           </Box>
 
           {/* Attachments */}

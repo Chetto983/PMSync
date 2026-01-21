@@ -23,6 +23,7 @@ model Tenant {
   deals                Deal[]
   emailAnalyses        EmailAnalysis[]
   emailSignatures      EmailSignature[]
+  emailTemplates       EmailTemplate[]
   emails               Email[]
   embeddings           Embedding[]
   folders              Folder[]
@@ -75,6 +76,7 @@ model User {
   dashboardPreference DashboardPreference?
   deals               Deal[]
   emailSignatures     EmailSignature[]
+  emailTemplates      EmailTemplate[]
   mfaBackupCodes      MfaBackupCode[]
   mfaSecret           MfaSecret?
   sessions            Session[]
@@ -729,6 +731,7 @@ model Contact {
   isDeleted           Boolean              @default(false)
   isStarred           Boolean              @default(false)
   isFavorite          Boolean              @default(false)
+  isVip               Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   metadata            Json?
@@ -750,6 +753,7 @@ model Contact {
   @@index([tenantId, displayName, firstName, lastName, company])
   @@index([tenantId, lastInteractedAt])
   @@index([tenantId, relationshipScore])
+  @@index([tenantId, isVip])
   @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin)
   @@id([id, tenantId])
   @@map("unified_contacts")
@@ -935,6 +939,26 @@ model EmailSignature {
   @@index([tenantId, userId, providerId])
   @@index([providerId])
   @@map("email_signatures")
+}
+
+/// Email templates - reusable email templates for quick composition
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  name      String
+  subject   String
+  bodyHtml  String
+  category  String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, category])
+  @@map("email_templates")
 }
 
 /// User AI memories - facts, preferences, patterns learned from conversations
