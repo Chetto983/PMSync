@@ -14,7 +14,7 @@ import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
 import { CacheService } from '../../../../common/services/cache.service';
 import { DocumentLibraryService } from '../services/document-library.service';
-import { getAgentTranslations, type SupportedLocale } from '../locales';
+import { getAgentTranslations, getLocaleInstruction, type SupportedLocale } from '../locales';
 // Phase 3: Consolidated agents (10 → 3)
 import { createActionsAgent } from './actions.agent';
 import { createIntelligenceAgent } from './intelligence.agent';
@@ -174,11 +174,8 @@ The current date and time is: ${currentDateTime}
 Use this information when answering questions about "today", "tomorrow", "this week", scheduling, or any time-relative queries.
 `;
 
-  // Add locale instruction for response language
-  const localeInstruction = locale && locale !== 'en' ? `
-## Response Language
-IMPORTANT: You MUST respond in ${locale === 'it' ? 'Italian (italiano)' : locale}. All your messages to the user must be in this language.
-` : '';
+  // Add locale instruction for response language (consolidated utility)
+  const localeInstruction = locale ? getLocaleInstruction(locale as SupportedLocale) : '';
 
   if (!userContext) {
     return `${instructions}\n${dateTimeSection}${localeInstruction}`;

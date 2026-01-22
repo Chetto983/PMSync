@@ -609,5 +609,21 @@ export function patternsToRegex(patterns: string[]): RegExp[] {
   return patterns.map((p) => new RegExp(p, 'i'));
 }
 
+/**
+ * Get locale instruction for agent prompts.
+ * Returns instruction string to append to agent instructions for non-English locales.
+ * Consolidates duplicated locale instruction pattern from agent files.
+ */
+export function getLocaleInstruction(locale: SupportedLocale): string {
+  if (locale === 'en') return '';
+
+  const languageNames: Record<SupportedLocale, string> = {
+    en: 'English',
+    it: 'Italian (italiano)',
+  };
+
+  return `\n\n## Response Language\nIMPORTANT: Respond in ${languageNames[locale]}.`;
+}
+
 // Legacy export for backward compatibility with action-executor.service.ts
 export { actionSummaries } from './action-summaries';

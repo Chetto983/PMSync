@@ -41,3 +41,12 @@ export * from './memory-intelligence.service';
 export * from './chat-request-processor.service';
 export * from './chat-context-builder.service';
 export * from './chat-response-processor.service';
+
+// Metrics (Refactored from VoltAgentService 2026-01-22)
+export * from './agent-metrics.service';
+
+// Agent Lifecycle (Refactored from VoltAgentService 2026-01-22)
+export * from './agent-pool.service';
+
+// Approval Workflow (Refactored from VoltAgentService 2026-01-22)
+export * from './approval-workflow.service';

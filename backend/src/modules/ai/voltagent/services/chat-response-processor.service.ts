@@ -17,6 +17,29 @@ import { HitlService } from './hitl.service';
 import { type ActionSeverity, type AgentActionType } from '../interfaces/agent-action.interface';
 import { sanitizeLlmResponse } from './chat-context-builder.service';
 
+/**
+ * Apply PII mappings to rehydrate placeholders with original values.
+ * Exported for use in streaming sanitizer (voltagent.service.ts).
+ *
+ * @param text - Text containing PII placeholders
+ * @param mappings - Array of placeholder-to-original mappings
+ * @returns Text with placeholders replaced by original values
+ */
+export function applyPiiMappings(text: string, mappings: PiiMapping[]): string {
+  if (!text || mappings.length === 0) {
+    return text;
+  }
+
+  let resolved = text;
+  for (const mapping of mappings) {
+    if (resolved.includes(mapping.placeholder)) {
+      resolved = resolved.replaceAll(mapping.placeholder, mapping.originalValue);
+    }
+  }
+
+  return resolved;
+}
+
 export interface PendingAction {
   id: string;
   actionType: string;
@@ -268,31 +291,13 @@ export class ChatResponseProcessorService {
     try {
       const mappings = await this.piiResolutionService.getMappings(tenantId, sessionId);
       if (mappings && mappings.length > 0) {
-        return this.applyPiiMappings(text, mappings);
+        return applyPiiMappings(text, mappings);
       }
     } catch (error) {
       this.logger.warn(`[tenant:${tenantId}] Failed to retrieve PII mappings: ${error}`);
     }
 
     return text;
-  }
-
-  /**
-   * Apply PII mappings to rehydrate placeholders with original values.
-   */
-  private applyPiiMappings(text: string, mappings: PiiMapping[]): string {
-    if (!text || mappings.length === 0) {
-      return text;
-    }
-
-    let resolved = text;
-    for (const mapping of mappings) {
-      if (resolved.includes(mapping.placeholder)) {
-        resolved = resolved.replaceAll(mapping.placeholder, mapping.originalValue);
-      }
-    }
-
-    return resolved;
   }
 
   /**

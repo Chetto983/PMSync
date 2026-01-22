@@ -17,96 +17,49 @@ import { ConfigService } from '@nestjs/config';
 import { Memory } from '@voltagent/core';
 import type { Agent } from '@voltagent/core';
 import { PostgreSQLMemoryAdapter } from '@voltagent/postgres';
-import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
+import { CacheService } from '../../../common/services/cache.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CalendarService } from '../../calendar/services/calendar.service';
 import { EmailSendService } from '../../email/services/email-send.service';
 import { MistralService } from '../services/mistral.service';
 import { EmbeddingsService } from '../services/embeddings.service';
-import { HitlService, PendingActionStatus } from './services/hitl.service';
-import { ActionExecutorService, ActionExecutionResult } from './services/action-executor.service';
+import { HitlService } from './services/hitl.service';
+import { ActionExecutorService } from './services/action-executor.service';
 import { WritingStyleService } from './services/writing-style.service';
 import { ModelRouterService } from './services/model-router.service';
-// Phase 3: Consolidated agents (10 → 3)
-import { createActionsAgent } from './agents/actions.agent';
-import { createIntelligenceAgent } from './agents/intelligence.agent';
-import { createSupervisorAgent, type SupervisorAgentOptions as _SupervisorAgentOptions, UserContext } from './agents/supervisor.agent';
-import { createWebSearchAgent as _createWebSearchAgent } from './agents/websearch.agent';
-import { createDocumentLibraryAgent as _createDocumentLibraryAgent } from './agents/document-library.agent';
-import { createAnalyticsAgent as _createAnalyticsAgent } from './agents/analytics.agent';
+// Phase 3: Consolidated agents (10 → 3) - now handled by AgentPoolService
+import { type UserContext } from './agents/supervisor.agent';
 import { AiQueueService, type AiJobData } from './services/ai-queue.service';
 import { RateLimiterService } from './services/rate-limiter.service';
 import { AiError, AiErrorCode } from '../errors';
 import { MistralBatchService } from './services/mistral-batch.service';
-import { AgentAction, AgentActionType, ActionSeverity } from './interfaces/agent-action.interface';
-import { AgentContext } from './interfaces/agent-context.interface';
+import { ActionSeverity } from './interfaces/agent-action.interface';
 import { type ConnectedProvider } from './agents';
-import { getLocale, getTranslations, getErrorTranslations, type SupportedLocale } from './locales';
+import { getLocale, getTranslations, getErrorTranslations } from './locales';
 import { DocumentLibraryService } from './services/document-library.service';
 import { PromptGuardService, PiiDetectionService, PiiResolutionService, type PiiMapping } from '../guards';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import type { AiAgentType } from '../../realtime/types/realtime.types';
 import { FollowUpService } from './services/follow-up.service';
 import { createObservabilityHooks, type AgentMetrics, type DisposableHooks } from './observability';
-import { getMistralModel, type MistralModel } from './providers/mistral.provider';
+import { type MistralModel } from './providers/mistral.provider';
 import { EpisodicMemoryService } from './services/episodic-memory.service';
-import { ConversationCompactionService, type ConversationMessage } from './services/conversation-compaction.service';
+import { ConversationCompactionService, /*type ConversationMessage*/ } from './services/conversation-compaction.service';
 import { ConversationManagementService } from './services/conversation-management.service';
 import {
-  createApprovalWorkflow,
   type ApprovalInput,
   type ApprovalResult,
   type ApprovalResumeData,
 } from './workflows';
+import { ApprovalWorkflowService, type SuspendedWorkflow as ApprovalSuspendedWorkflow } from './services/approval-workflow.service';
 import { MemoryIntelligenceService } from './services/memory-intelligence.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
-import { ChatResponseProcessorService } from './services/chat-response-processor.service';
-
-/**
- * Sanitize LLM response to remove accidentally echoed internal context markers.
- * These markers are injected for LLM context but should never appear in user-facing responses.
- *
- * @param text - Raw LLM response text
- * @returns Sanitized text with internal markers removed
- */
-function sanitizeLlmResponse(text: string): string {
-  if (!text) return text;
-
-  return text
-    // Remove [Conversation History]...[Current Message] blocks
-    .replace(/\[Conversation History\][\s\S]*?\[Current Message\]\s*/gi, '')
-    // Remove [Conversation Summary...] headers
-    .replace(/\[Conversation Summary[^\]]*\]\s*/gi, '')
-    // Remove [Key Context] sections
-    .replace(/\[Key Context\][\s\S]*?(?=\n\n|\[|$)/gi, '')
-    // Remove [Recent Messages] sections
-    .replace(/\[Recent Messages\][\s\S]*?(?=\n\n|\[|$)/gi, '')
-    // Remove [User Memory]...--- blocks
-    .replace(/\[User Memory\][\s\S]*?---\s*/gi, '')
-    // Remove ## Learned Constraints sections
-    .replace(/## Learned Constraints[\s\S]*?(?=\n\n## |$)/gi, '')
-    // Remove standalone internal markers
-    .replace(/\[(Conversation History|Current Message|Key Context|Recent Messages|User Memory)\]/gi, '')
-    // Clean up multiple newlines
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function applyPiiMappings(text: string, mappings: PiiMapping[]): string {
-  if (!text || mappings.length === 0) {
-    return text;
-  }
-
-  let resolved = text;
-  for (const mapping of mappings) {
-    if (resolved.includes(mapping.placeholder)) {
-      resolved = resolved.replaceAll(mapping.placeholder, mapping.originalValue);
-    }
-  }
-
-  return resolved;
-}
+import { ChatResponseProcessorService, applyPiiMappings } from './services/chat-response-processor.service';
+import { ChatRequestProcessorService } from './services/chat-request-processor.service';
+import { ChatContextBuilderService, sanitizeLlmResponse } from './services/chat-context-builder.service';
+import { AgentMetricsService } from './services/agent-metrics.service';
+import { AgentPoolService } from './services/agent-pool.service';
 
 function createStreamSanitizer(mappings: PiiMapping[]): {
   handleChunk: (chunk: string) => string;
@@ -209,97 +162,16 @@ export interface PendingAction {
 }
 
 /**
- * Workflow execution result type for approval workflow.
+ * Re-export SuspendedWorkflow from ApprovalWorkflowService for API compatibility.
+ * Other modules may import this type from voltagent.service.ts.
  */
-type ApprovalWorkflowResult = Awaited<
-  ReturnType<ReturnType<typeof createApprovalWorkflow>['run']>
->;
-
-/**
- * Workflow execution state for suspended workflows.
- */
-export interface SuspendedWorkflow {
-  executionId: string;
-  tenantId: string;
-  userId: string;
-  /** Conversation/session ID for linking to chat messages */
-  sessionId?: string;
-  action: ApprovalInput['action'];
-  suspendReason: string;
-  suspendedAt: Date;
-  /** The workflow result object (needed for resume) */
-  workflowResult: ApprovalWorkflowResult;
-}
-
-/**
- * Serializable workflow state for Redis storage.
- * Excludes non-serializable workflowResult (functions can't be stored in Redis).
- */
-interface SerializableSuspendedWorkflow {
-  executionId: string;
-  tenantId: string;
-  userId: string;
-  sessionId?: string;
-  action: ApprovalInput['action'];
-  suspendReason: string;
-  suspendedAt: string; // ISO string for JSON serialization
-}
-
-/** Cached agent with creation timestamp for TTL-based expiration */
-interface CachedAgent {
-  agent: Agent;
-  createdAt: number;
-  lastUsed: number; // For LRU eviction
-}
-
-/**
- * Extract properties stored in ActionQueue.actionPayload JSON field.
- * AI refactor v2.0: agentName, sessionId, severity, payload moved to JSON.
- */
-function extractActionPayload(actionPayload: unknown): {
-  agentName: string;
-  sessionId: string | undefined;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH';
-  payload: Record<string, unknown>;
-} {
-  const data = (typeof actionPayload === 'object' && actionPayload !== null)
-    ? actionPayload as Record<string, unknown>
-    : {};
-  return {
-    agentName: (data.agentName as string) || 'SupervisorAgent',
-    sessionId: data.sessionId as string | undefined,
-    severity: (data.severity as 'LOW' | 'MEDIUM' | 'HIGH') || 'LOW',
-    payload: data,
-  };
-}
+export type SuspendedWorkflow = ApprovalSuspendedWorkflow;
 
 @Injectable()
 export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(VoltAgentService.name);
-  private agents: Map<string, CachedAgent> = new Map();
   private memory: Memory | null = null;
-  private approvalWorkflow: ReturnType<typeof createApprovalWorkflow> | null = null;
   private observabilityHooks: DisposableHooks | null = null;
-
-  /** Redis key prefix for suspended workflows (horizontal scaling) */
-  private readonly SUSPENDED_WORKFLOW_PREFIX = 'voltagent:workflow:suspended:';
-  /** TTL for suspended workflows (24 hours) */
-  private readonly SUSPENDED_WORKFLOW_TTL = 86400;
-  /** TTL for cached agents (5 minutes) - balances memory vs code reload */
-  private readonly AGENT_CACHE_TTL_MS = 5 * 60 * 1000;
-  /**
-   * MEMORY OPTIMIZATION 2025: Reduced from 100 to 5 agents.
-   * Uses model-only cache key instead of per-tenant.
-   * 1000 tenants share 5 agents = ~25MB instead of 500MB.
-   * Tenant context is passed per-request, not cached.
-   */
-  private readonly MAX_CACHED_AGENTS = 5;
-
-  /** In-memory buffer for batch Redis writes */
-  private metricsBuffer: AgentMetrics[] = [];
-  private readonly maxMemoryBuffer = 50; // Batch size before Redis flush
-  private readonly maxRedisBuffer = 10000; // Max metrics per tenant in Redis (for >1000 tenants)
-  private flushInterval: NodeJS.Timeout | null = null;
 
   private async ensureConversationExists(params: {
     tenantUserId: string;
@@ -364,6 +236,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly memoryIntelligenceService?: MemoryIntelligenceService,
     @Optional() private readonly usageTrackingService?: UsageTrackingService,
     @Optional() private readonly chatResponseProcessor?: ChatResponseProcessorService,
+    @Optional() private readonly chatRequestProcessor?: ChatRequestProcessorService,
+    @Optional() private readonly chatContextBuilder?: ChatContextBuilderService,
+    @Optional() private readonly agentMetricsService?: AgentMetricsService,
+    @Optional() private readonly approvalWorkflowService?: ApprovalWorkflowService,
+    @Optional() private readonly agentPoolService?: AgentPoolService,
   ) { }
 
   async onModuleInit() {
@@ -425,7 +302,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       },
       logToolCalls: process.env.NODE_ENV !== 'production',
       trackUsage: true,
-      onMetrics: (metrics) => this.collectMetrics(metrics),
+      // Delegate metrics collection to AgentMetricsService (extracted 2026-01-22)
+      onMetrics: (metrics) => this.agentMetricsService?.collectMetrics(metrics),
       // Capture HITL pending actions from tool results (including sub-agents)
       onPendingAction: async (action) => {
         if (!this.hitlService) {
@@ -454,32 +332,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    // Initialize approval workflow
-    this.approvalWorkflow = createApprovalWorkflow();
+    // ApprovalWorkflowService is now injected and self-initializes via OnModuleInit
 
-    // Start periodic flush interval for metrics (every 5 seconds)
-    this.flushInterval = setInterval(() => {
-      this.flushMetricsToRedis().catch((err) =>
-        this.logger.error('Failed to flush metrics to Redis', err),
-      );
-    }, 5000);
+    // NOTE: Metrics flush interval is now handled by AgentMetricsService (extracted 2026-01-22)
 
-    this.logger.log('VoltAgent service initialized with Redis metrics and approval workflow');
-  }
-
-  /**
-   * Collect metrics from agent operations.
-   * Buffers in memory and bulk-writes to Redis for >1000 tenant scalability.
-   */
-  private collectMetrics(metrics: AgentMetrics): void {
-    this.metricsBuffer.push(metrics);
-
-    // Flush to Redis when buffer reaches threshold
-    if (this.metricsBuffer.length >= this.maxMemoryBuffer) {
-      this.flushMetricsToRedis().catch((err) =>
-        this.logger.error('Failed to flush metrics to Redis', err),
-      );
-    }
+    this.logger.log('VoltAgent service initialized (metrics delegated to AgentMetricsService)');
   }
 
   private async resolveUserVisibleText(
@@ -499,79 +356,16 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Flush metrics buffer to Redis using bulk operations.
-   * Uses per-agent keys for efficient querying.
-   */
-  private async flushMetricsToRedis(): Promise<void> {
-    if (this.metricsBuffer.length === 0) return;
-
-    const metricsToFlush = [...this.metricsBuffer];
-    this.metricsBuffer = [];
-
-    if (!this.cacheService) {
-      // Fallback: just log if no Redis
-      this.logger.debug(`Metrics collected (no Redis): ${metricsToFlush.length} entries`);
-      return;
-    }
-
-    // Group metrics by agent for efficient storage
-    const metricsByAgent = new Map<string, AgentMetrics[]>();
-    for (const metric of metricsToFlush) {
-      const key = metric.agentName;
-      if (!metricsByAgent.has(key)) {
-        metricsByAgent.set(key, []);
-      }
-      metricsByAgent.get(key)!.push(metric);
-    }
-
-    // Bulk write to Redis per agent (pipeline)
-    for (const [agentName, agentMetrics] of metricsByAgent) {
-      const redisKey = `agent:${agentName}`;
-      await this.cacheService.lpushAndTrim(
-        redisKey,
-        agentMetrics,
-        this.maxRedisBuffer,
-        { namespace: CacheNamespace.VOLTAGENT_METRICS },
-      );
-    }
-
-    this.logger.debug(`Flushed ${metricsToFlush.length} metrics to Redis`);
-  }
-
-  /**
    * Get recent agent metrics for monitoring.
-   * Retrieves from Redis for multi-instance support.
+   * Delegates to AgentMetricsService (extracted 2026-01-22).
    */
   async getRecentMetrics(agentName?: string, limit = 100): Promise<AgentMetrics[]> {
-    if (!this.cacheService) {
-      // Fallback to in-memory buffer
-      return [...this.metricsBuffer].slice(0, limit);
-    }
-
-    if (agentName) {
-      // Get metrics for specific agent
-      const redisKey = `agent:${agentName}`;
-      return this.cacheService.lrange<AgentMetrics>(
-        redisKey,
-        0,
-        limit - 1,
-        { namespace: CacheNamespace.VOLTAGENT_METRICS },
-      );
-    }
-
-    // Get metrics for all agents (SupervisorAgent is primary)
-    const supervisorMetrics = await this.cacheService.lrange<AgentMetrics>(
-      'agent:SupervisorAgent',
-      0,
-      limit - 1,
-      { namespace: CacheNamespace.VOLTAGENT_METRICS },
-    );
-
-    return supervisorMetrics;
+    return this.agentMetricsService?.getRecentMetrics(agentName, limit) ?? [];
   }
 
   /**
    * Get aggregated metrics stats per tenant.
+   * Delegates to AgentMetricsService (extracted 2026-01-22).
    */
   async getMetricsStats(agentName = 'SupervisorAgent'): Promise<{
     totalOperations: number;
@@ -579,29 +373,16 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     successRate: number;
     totalTokens: number;
   }> {
-    const metrics = await this.getRecentMetrics(agentName, 1000);
-
-    if (metrics.length === 0) {
-      return { totalOperations: 0, avgDuration: 0, successRate: 0, totalTokens: 0 };
-    }
-
-    const totalOperations = metrics.length;
-    const avgDuration = metrics.reduce((sum, m) => sum + m.duration, 0) / totalOperations;
-    const successRate = (metrics.filter((m) => m.success).length / totalOperations) * 100;
-    const totalTokens = metrics.reduce((sum, m) => sum + (m.totalTokens || 0), 0);
-
-    return { totalOperations, avgDuration, successRate, totalTokens };
+    return this.agentMetricsService?.getMetricsStats(agentName) ?? {
+      totalOperations: 0,
+      avgDuration: 0,
+      successRate: 0,
+      totalTokens: 0,
+    };
   }
 
   async onModuleDestroy() {
-    // Stop flush interval
-    if (this.flushInterval) {
-      clearInterval(this.flushInterval);
-      this.flushInterval = null;
-    }
-
-    // Flush remaining metrics to Redis
-    await this.flushMetricsToRedis();
+    // NOTE: Metrics flush is now handled by AgentMetricsService lifecycle (extracted 2026-01-22)
 
     // Cleanup observability hooks to prevent interval memory leaks during hot reload
     if (this.observabilityHooks) {
@@ -609,8 +390,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       this.observabilityHooks = null;
     }
 
-    // Cleanup agents on shutdown
-    this.agents.clear();
+    // Cleanup agents on shutdown (delegated to AgentPoolService)
+    this.agentPoolService?.clearAgentCache();
   }
 
 
@@ -709,129 +490,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Get or create an agent for the given context.
-   * Agents are cached per user+locale+model with TTL for personalized instructions.
-   * TTL ensures datetime in instructions stays fresh (refreshed every 5 minutes).
-   * Includes RAG services for HybridRetriever when available.
-   */
-  private getOrCreateAgent(
-    tenantId: string,
-    locale: SupportedLocale,
-    modelType: MistralModel = 'small',
-    userContext?: UserContext | null,
-    userId?: string,
-    agentType: import('./services/model-router.service').AgentType = 'Supervisor',
-  ): Agent {
-    // Cache key includes userId if userContext is provided (personalized agents)
-    // Fall back to locale+model for anonymous/system calls
-    const userKey = userContext?.email ?? 'anonymous';
-    // Use agentType in cache key to separate Supervisors from specialized agents
-    const cacheKey = `${tenantId}:${userKey}:${locale}:${modelType}:${agentType}`;
-    const now = Date.now();
-
-    // Check if cached agent exists and is not expired
-    const cached = this.agents.get(cacheKey);
-    if (cached && (now - cached.createdAt) < this.AGENT_CACHE_TTL_MS) {
-      // Update lastUsed for LRU tracking
-      cached.lastUsed = now;
-      return cached.agent;
-    }
-
-    // LRU eviction if at capacity
-    if (this.agents.size >= this.MAX_CACHED_AGENTS) {
-      this.evictLeastRecentlyUsedAgent();
-    }
-
-    // Create new agent (or replace expired one)
-    const model = getMistralModel(modelType);
-    let agent: Agent;
-
-    const commonOptions = {
-      model,
-      prisma: this.prisma,
-      locale,
-      tenantId,
-      hooks: this.observabilityHooks?.hooks ?? undefined,
-      userId,
-      cacheService: this.cacheService,
-    };
-
-    // Phase 3: Agent Consolidation (10 → 3)
-    // - Actions: ALL WRITE operations (email, calendar, contacts CRUD)
-    // - Intelligence: ALL READ/ANALYSIS operations (search, list, analyze)
-    // - Supervisor: Orchestrates sub-agents for complex multi-domain queries
-    switch (agentType) {
-      case 'Actions':
-        agent = createActionsAgent({
-          ...commonOptions,
-          emailSendService: this.emailSendService,
-          calendarService: this.calendarService,
-          memory: this.memory ?? undefined,
-        });
-        break;
-      case 'Intelligence':
-        agent = createIntelligenceAgent({
-          ...commonOptions,
-          mistral: this.mistralService ?? null,
-          embeddingsService: this.embeddingsService ?? null,
-          writingStyle: this.writingStyleService ?? null,
-          memory: this.memory ?? undefined,
-          piiDetectionService: this.piiDetectionService,
-        });
-        break;
-      case 'Supervisor':
-      default:
-        agent = createSupervisorAgent({
-          ...commonOptions,
-          emailSendService: this.emailSendService,
-          calendarService: this.calendarService,
-          // VoltAgent memory for conversation persistence (fixed in latest VoltAgent version)
-          memory: this.memory ?? undefined,
-          // RAG services for HybridRetriever (optional - gracefully degrades)
-          mistralService: this.mistralService,
-          embeddingsService: this.embeddingsService,
-          // User context for personalized instructions
-          userContext: userContext ?? undefined,
-          // Web search agent requires ConfigService + CacheService for Redis caching
-          configService: this.configService,
-          // Document Library agent for document RAG
-          documentLibraryService: this.documentLibraryService,
-
-          followUpService: this.followUpService,
-          piiDetectionService: this.piiDetectionService,
-        });
-        break;
-    }
-
-    // Cache with timestamps for TTL and LRU
-    this.agents.set(cacheKey, { agent, createdAt: now, lastUsed: now });
-
-    this.logger.debug(`Created ${agentType} agent for ${cacheKey}, cache size: ${this.agents.size}/${this.MAX_CACHED_AGENTS}`);
-
-    return agent;
-  }
-
-  /**
-   * Evict the least recently used agent from cache
-   */
-  private evictLeastRecentlyUsedAgent(): void {
-    let oldestKey: string | null = null;
-    let oldestTime = Infinity;
-
-    for (const [key, cached] of this.agents.entries()) {
-      if (cached.lastUsed < oldestTime) {
-        oldestTime = cached.lastUsed;
-        oldestKey = key;
-      }
-    }
-
-    if (oldestKey) {
-      this.agents.delete(oldestKey);
-      this.logger.debug(`Evicted LRU agent: ${oldestKey}`);
-    }
-  }
-
-  /**
    * Emit agent step event via WebSocket for real-time UI feedback.
    * Used to show live agent progress in the frontend.
    */
@@ -880,92 +538,48 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
     const sessionId = options.conversationId || fallbackSessionId;
 
-    // 0a. Security: Validate input for prompt injection (OWASP LLM01:2025)
-    if (this.promptGuardService) {
-      const validationResult = this.promptGuardService.validateInput(message);
-
-      if (!validationResult.isValid) {
-        this.logger.warn(
-          `${logPrefix} Prompt injection blocked: score=${validationResult.riskScore}, patterns=${validationResult.detectedPatterns.join(', ')}`,
-        );
-        return {
-          text: 'I cannot process this request. Please rephrase your message.',
-          fromCache: false,
-        };
-      }
-
-      if (validationResult.requiresHumanReview) {
-        this.logger.warn(
-          `${logPrefix} High-risk prompt flagged for review: score=${validationResult.riskScore}`,
-        );
-      }
-    }
-
-    // 0b. Security: Detect and redact PII before sending to LLM
-    // Store mapping in Redis so tool execution can resolve placeholders back to real values
+    // Process request: validate input, redact PII, check rate limits, route model
+    // Refactored 2026-01-22: Extracted to ChatRequestProcessorService
     let processedMessage = message;
-    const piiSessionId = sessionId;
-    if (this.piiDetectionService) {
-      const piiResult = this.piiDetectionService.detect(message);
-      if (piiResult.hasPii) {
-        this.logger.log(
-          `${logPrefix} PII detected and redacted: types=${piiResult.detectedTypes.join(', ')}`,
-        );
-        processedMessage = piiResult.redactedText;
-
-        // Store PII mapping for tool execution resolution
-        if (this.piiResolutionService && piiResult.details.length > 0) {
-          this.piiResolutionService.storeMapping(
-            options.tenantId,
-            piiSessionId,
-            piiResult.details,
-          ).catch(err => {
-            this.logger.warn(`${logPrefix} Failed to store PII mapping: ${err}`);
-          });
-        }
-      }
-    }
-
-    // 0c. Check rate limits (1000+ user scalability)
-    if (this.rateLimiterService) {
-      const estimatedTokens = this.modelRouterService?.routeMessage(processedMessage).estimatedTokens ?? 500;
-      const rateLimit = await this.rateLimiterService.checkLimit(options.tenantId, estimatedTokens);
-
-      if (!rateLimit.allowed) {
-        this.logger.warn(
-          `${logPrefix} Rate limit exceeded: ${rateLimit.reason}`,
-        );
-        return {
-          text: `Rate limit exceeded. Please try again in ${rateLimit.resetInSeconds} seconds.`,
-          fromCache: false,
-        };
-      }
-    }
-
-    // 0d. P10: Quota enforcement via QuotaGuard + CostProtectionService.canProceed()
-    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
-    // Proper enforcement happens at controller level via @RequiresQuota('ai') decorator
-
-    // All responses are now generated fresh for each tenant
-
-    // 2. Route to optimal model AND agent based on task complexity (40-60% cost savings)
     let selectedModel = options.model;
-    // Phase 3: Consolidated agent types (10 → 3)
     let suggestedAgent: 'Supervisor' | 'Actions' | 'Intelligence' = 'Supervisor';
-    if (this.modelRouterService) {
-      const routing = this.modelRouterService.routeMessage(processedMessage, {
-        preferSpeed: options.preferSpeed,
-        preferQuality: options.preferQuality,
-      });
-      if (!selectedModel) {
-        selectedModel = routing.recommendedModel;
+
+    if (this.chatRequestProcessor) {
+      try {
+        const processed = await this.chatRequestProcessor.process(message, {
+          tenantId: options.tenantId,
+          userId: options.userId,
+          sessionId,
+          model: options.model,
+          preferSpeed: options.preferSpeed,
+          preferQuality: options.preferQuality,
+        });
+        processedMessage = processed.processedMessage;
+        selectedModel = processed.selectedModel;
+        suggestedAgent = processed.suggestedAgent;
+
+        if (processed.hasPii) {
+          this.logger.log(`${logPrefix} PII detected and redacted`);
+        }
+        this.logger.debug(
+          `${logPrefix} Request processed: model=${selectedModel}, agent=${suggestedAgent}, tokens=${processed.estimatedTokens}`,
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        // Handle rate limit and validation errors gracefully
+        if (errorMsg.includes('Rate limit exceeded')) {
+          this.logger.warn(`${logPrefix} ${errorMsg}`);
+          return { text: errorMsg, fromCache: false };
+        }
+        if (errorMsg.includes('cannot process this request')) {
+          this.logger.warn(`${logPrefix} Prompt injection blocked`);
+          return { text: errorMsg, fromCache: false };
+        }
+        throw error;
       }
-      if (routing.suggestedAgent) {
-        suggestedAgent = routing.suggestedAgent;
-      }
-      this.logger.debug(
-        `${logPrefix} Model router: ${routing.recommendedModel} -> ${suggestedAgent} (${routing.complexity}, confidence=${routing.confidence.toFixed(2)})`,
-      );
+    } else {
+      // ChatRequestProcessorService not available - log warning and proceed with defaults
+      this.logger.warn(`${logPrefix} ChatRequestProcessorService not injected, using default processing`);
     }
 
     const locale = getLocale(options.locale);
@@ -976,91 +590,71 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // OPTIMIZATION: Direct routing for specialized intents (skip supervisor overhead)
     // Phase 3: Actions/Intelligence agents handle direct routing, Supervisor for complex queries
     // This reduces latency by ~70-90% for single-domain queries
+    if (!this.agentPoolService) {
+      throw new AiError('AgentPoolService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
+    }
+    const agentParams = {
+      tenantId: options.tenantId,
+      locale,
+      modelType: selectedModel,
+      userContext,
+      userId: options.userId,
+      agentType: suggestedAgent,
+      memory: this.memory,
+      hooks: this.observabilityHooks?.hooks,
+    };
     let agent: Agent;
     if (suggestedAgent !== 'Supervisor') {
       this.logger.debug(`${logPrefix} Direct routing to ${suggestedAgent}Agent (skipping supervisor)`);
-      agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId, suggestedAgent);
+      agent = this.agentPoolService.getOrCreateAgent(agentParams);
     } else {
       // Use supervisor for complex multi-agent coordination (cross-domain queries)
-      agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId, 'Supervisor');
+      agent = this.agentPoolService.getOrCreateAgent({ ...agentParams, agentType: 'Supervisor' });
     }
 
     // NOTE: tenantUserId was previously used for VoltAgent's native memory (disabled due to bug)
     // Tenant isolation is now handled by our Prisma-based VoltAgentMemoryService
 
 
-    // Conversations are now stateless (no history persistence)
-    const contextTruncated = false;
-
-
-    let enhancedMessage = processedMessage;
+    // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
+    // Format: "tenantId:userId" allows hooks to extract both values
+    const tenantUserId = `${options.tenantId}:${options.userId}`;
 
     // 3.5. Trigger Memory Intelligence (Async/Fire-and-forget)
-    // Extracts long-term memories from user message
-    // NOTE: MemoryIntelligence redacts before LLM calls, then rehydrates for storage
-    // to keep PII out of cloud providers while preserving functionality.
-    if (this.memoryIntelligenceService && options.userId) { // Ensure userId is present for memory
+    // Extracts long-term memories from user message for future retrieval
+    if (this.memoryIntelligenceService && options.userId) {
       this.memoryIntelligenceService.processMemoryFromMessage(
         options.tenantId,
         options.userId,
-        message // Use original message with real PII for long-term storage
+        message, // Use original message with real PII for long-term storage
       ).catch(err => {
         this.logger.error(`${logPrefix} Memory extraction failed:`, err);
       });
     }
 
-    // 3.6. Inject episodic learning (rejection lessons)
-    // Fetch global lessons (agentName undefined) to apply constraints across all agents
-    if (this.episodicMemoryService) {
-      try {
-        const lessons = await this.episodicMemoryService.getRecentLessons(
-          options.tenantId,
-          options.userId,
-          undefined, // Fetch all lessons regardless of agent
-          5
-        );
-        const lessonContext = this.episodicMemoryService.formatLessonsForPrompt(lessons);
+    // Build enhanced context: episodic lessons + long-term memory + conversation history
+    // Refactored 2026-01-22: Extracted to ChatContextBuilderService
+    let enhancedMessage = processedMessage;
+    let contextTruncated = false;
 
-        if (lessonContext) {
-          const safeLessonContext = this.piiDetectionService
-            ? this.piiDetectionService.redact(lessonContext)
-            : lessonContext;
-
-          enhancedMessage = `${safeLessonContext}\n\n---\n\n${enhancedMessage}`;
-          this.logger.debug(`${logPrefix} Episodic learning lessons injected: ${lessons.length}`);
-        }
-      } catch (error) {
-        this.logger.warn(`${logPrefix} Failed to fetch episodic lessons: ${error}`);
-      }
+    if (this.chatContextBuilder) {
+      const contextResult = await this.chatContextBuilder.build(processedMessage, {
+        tenantId: options.tenantId,
+        userId: options.userId,
+        sessionId,
+        tenantUserId,
+        memory: this.memory,
+        logPrefix,
+      });
+      enhancedMessage = contextResult.enhancedMessage;
+      contextTruncated = contextResult.contextTruncated;
+      this.logger.debug(`${logPrefix} Context built via ChatContextBuilderService`);
+    } else {
+      // ChatContextBuilderService not available - log warning and proceed without context enrichment
+      this.logger.warn(`${logPrefix} ChatContextBuilderService not injected, proceeding without context enrichment`);
     }
 
-    // 3.65. Inject long-term memory context (semantic search)
-    // Retrieves relevant user memories to personalize the response
-    if (this.memoryIntelligenceService && options.userId) {
-      try {
-        const memoryContext = await this.memoryIntelligenceService.getRelevantContext(
-          options.tenantId,
-          options.userId,
-          processedMessage,
-          { limit: 5, useReranking: false }, // Fast mode, no LLM re-ranking
-        );
-
-        if (memoryContext) {
-          const safeMemoryContext = this.piiDetectionService
-            ? this.piiDetectionService.redact(memoryContext)
-            : memoryContext;
-
-          enhancedMessage = `[User Memory]\n${safeMemoryContext}\n\n---\n\n${enhancedMessage}`;
-          this.logger.debug(`${logPrefix} Long-term memory context injected`);
-        }
-      } catch (error) {
-        this.logger.warn(`${logPrefix} Failed to fetch memory context: ${error}`);
-      }
-    }
-
-    // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
-    // Format: "tenantId:userId" allows hooks to extract both values
-    const tenantUserId = `${options.tenantId}:${options.userId}`;
+    // Ensure conversation exists in VoltAgent memory for persistence
     const conversationEnsured = await this.ensureConversationExists({
       tenantUserId,
       sessionId,
@@ -1068,65 +662,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       tenantId: options.tenantId,
       logPrefix,
     });
-
-    // 3.7. Inject conversation history with compaction (2025 context engineering)
-    // Fetches more messages (50) and summarizes older ones to preserve context without bloating tokens
-    // FIX Bug #3: Always try to fetch history using sessionId (explicit or deterministic fallback)
-    if (this.memory) {
-      try {
-        // Fetch up to 50 messages for better context (was 10)
-        const history = await this.memory.getMessages(tenantUserId, sessionId, { limit: 50 });
-        if (history && history.length > 0) {
-          // Convert to compaction format
-          const messages: ConversationMessage[] = history.map((msg, idx) => {
-            const rawContent = msg.parts
-              ?.map((part) => (part as { type: string; text?: string }).text || '')
-              .filter(Boolean)
-              .join(' ') || '';
-            const content = sanitizeLlmResponse(rawContent);
-            return {
-              id: `msg-${idx}`,
-              role: msg.role as 'user' | 'assistant',
-              content,
-              timestamp: (msg as unknown as { createdAt?: Date }).createdAt?.toISOString?.() || new Date().toISOString(),
-            };
-          });
-
-          let historyContext: string;
-
-          // Use compaction service if available and conversation is long
-          if (this.compactionService && messages.length > 10) {
-            const compacted = await this.compactionService.compactConversation(
-              options.tenantId,
-              sessionId, // FIX: Use sessionId (always defined) instead of options.conversationId
-              messages,
-              { recentWindowSize: 6, compactionThreshold: 10 },
-            );
-            historyContext = this.compactionService.formatForPrompt(compacted);
-            if (compacted.wasCompacted) {
-              this.logger.debug(
-                `${logPrefix} Conversation compacted: ${messages.length} msgs → ${compacted.recentMessages.length} recent + summary (${compacted.tokenReduction}% reduction)`,
-              );
-            }
-          } else {
-            // Fallback: Use raw history for short conversations
-            historyContext = messages
-              .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-              .join('\n\n');
-          }
-
-          // Redact PII from history if service available
-          const safeHistoryContext = this.piiDetectionService
-            ? this.piiDetectionService.redact(historyContext)
-            : historyContext;
-
-          enhancedMessage = `[Conversation History]\n${safeHistoryContext}\n\n[Current Message]\n${enhancedMessage}`;
-          this.logger.debug(`${logPrefix} Conversation history injected: ${history.length} messages`);
-        }
-      } catch (error) {
-        this.logger.warn(`${logPrefix} Failed to fetch conversation history: ${error}`);
-      }
-    }
 
     this.logger.debug(`${logPrefix} [DEBUG] About to call agent.generateText`);
 
@@ -1375,82 +910,35 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
     const sessionId = options.conversationId || fallbackSessionId;
 
-    // 0a. Security: Validate input for prompt injection (OWASP LLM01:2025)
-    if (this.promptGuardService) {
-      const validationResult = this.promptGuardService.validateInput(message);
-
-      if (!validationResult.isValid) {
-        this.logger.warn(
-          `${logPrefix} Prompt injection blocked: score=${validationResult.riskScore}, patterns=${validationResult.detectedPatterns.join(', ')}`,
-        );
-        yield 'I cannot process this request. Please rephrase your message.';
-        return;
-      }
-
-      if (validationResult.requiresHumanReview) {
-        this.logger.warn(
-          `${logPrefix} High-risk prompt flagged for review: score=${validationResult.riskScore}`,
-        );
-      }
-    }
-
-    // 0b. Security: Detect and redact PII before sending to LLM
-    // Store mapping in Redis so tool execution can resolve placeholders back to real values
+    // Process request: validate input, redact PII, check rate limits, route model
+    // Refactored 2026-01-22: Extracted to ChatRequestProcessorService
     let processedMessage = message;
-    const piiSessionId = sessionId;
-    if (this.piiDetectionService) {
-      const piiResult = this.piiDetectionService.detect(message);
-      if (piiResult.hasPii) {
-        this.logger.log(
-          `${logPrefix} PII detected and redacted: types=${piiResult.detectedTypes.join(', ')}`,
-        );
-        processedMessage = piiResult.redactedText;
+    let selectedModel = options.model;
+    let suggestedAgent: 'Supervisor' | 'Actions' | 'Intelligence' = 'Supervisor';
 
-        // Store PII mapping for tool execution resolution
-        if (this.piiResolutionService && piiResult.details.length > 0) {
-          this.piiResolutionService.storeMapping(
-            options.tenantId,
-            piiSessionId,
-            piiResult.details,
-          ).catch(err => {
-            this.logger.warn(`${logPrefix} Failed to store PII mapping: ${err}`);
-          });
-        }
-      }
-    }
-
-    // 0. Check rate limits (same as non-streaming)
-    if (this.rateLimiterService) {
-      const estimatedTokens =
-        this.modelRouterService?.routeMessage(processedMessage).estimatedTokens ?? 500;
-      const rateLimit = await this.rateLimiterService.checkLimit(options.tenantId, estimatedTokens);
-
-      if (!rateLimit.allowed) {
-        this.logger.warn(`${logPrefix} Rate limit exceeded`);
-        yield `Rate limit exceeded. Please try again in ${rateLimit.resetInSeconds} seconds.`;
+    if (this.chatRequestProcessor) {
+      try {
+        const processed = await this.chatRequestProcessor.process(message, {
+          tenantId: options.tenantId,
+          userId: options.userId,
+          sessionId,
+          model: options.model,
+          preferSpeed: options.preferSpeed,
+          preferQuality: options.preferQuality,
+        });
+        processedMessage = processed.processedMessage;
+        selectedModel = processed.selectedModel;
+        suggestedAgent = processed.suggestedAgent;
+        this.logger.log(`${logPrefix} Request processed: model=${selectedModel}, agent=${suggestedAgent}`);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`${logPrefix} Request processing failed: ${errorMsg}`);
+        yield errorMsg;
         return;
       }
-    }
-
-    // 0d. P10: Quota enforcement via QuotaGuard + CostProtectionService.canProceed()
-    // Note: usageTrackingService.checkQuota() is deprecated (always returns true)
-    // Proper enforcement happens at controller level via @RequiresQuota('ai') decorator
-
-    // All responses generated fresh to prevent data leakage
-
-    // 2. Route to optimal model and agent
-    let selectedModel = options.model;
-    let suggestedAgent: import('./services/model-router.service').AgentType = 'Supervisor';
-
-    if (this.modelRouterService) {
-      const routing = this.modelRouterService.routeMessage(processedMessage, {
-        preferSpeed: options.preferSpeed,
-        preferQuality: options.preferQuality,
-      });
-      if (!selectedModel) {
-        selectedModel = routing.recommendedModel;
-      }
-      suggestedAgent = routing.suggestedAgent || 'Supervisor';
+    } else {
+      // ChatRequestProcessorService not available - log warning and proceed with defaults
+      this.logger.warn(`${logPrefix} ChatRequestProcessorService not injected, using default processing`);
     }
     this.logger.log(`${logPrefix} Routing took ${Date.now() - startTimeResult}ms. Selected: ${selectedModel}, Agent: ${suggestedAgent}`);
 
@@ -1462,61 +950,46 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`${logPrefix} UserContext fetch took ${Date.now() - contextStart}ms`);
 
     const agentStart = Date.now();
-    const agent = this.getOrCreateAgent(options.tenantId, locale, selectedModel, userContext, options.userId, suggestedAgent);
+    if (!this.agentPoolService) {
+      throw new AiError('AgentPoolService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
+    }
+    const agent = this.agentPoolService.getOrCreateAgent({
+      tenantId: options.tenantId,
+      locale,
+      modelType: selectedModel,
+      userContext,
+      userId: options.userId,
+      agentType: suggestedAgent,
+      memory: this.memory,
+      hooks: this.observabilityHooks?.hooks,
+    });
     this.logger.log(`${logPrefix} Agent Creation took ${Date.now() - agentStart}ms`);
 
 
-    let enhancedMessage = processedMessage;
-
-    // 2.7. Inject episodic learning (rejection lessons)
-    if (this.episodicMemoryService) {
-      try {
-        const lessons = await this.episodicMemoryService.getRecentLessons(
-          options.tenantId,
-          options.userId,
-          undefined, // Fetch all lessons
-          5
-        );
-        const lessonContext = this.episodicMemoryService.formatLessonsForPrompt(lessons);
-
-        if (lessonContext) {
-          const safeLessonContext = this.piiDetectionService
-            ? this.piiDetectionService.redact(lessonContext)
-            : lessonContext;
-          enhancedMessage = `${safeLessonContext}\n\n---\n\n${enhancedMessage}`;
-          this.logger.debug(`${logPrefix} Episodic learning lessons injected: ${lessons.length}`);
-        }
-      } catch (error) {
-        this.logger.warn(`${logPrefix} Failed to fetch episodic lessons: ${error}`);
-      }
-    }
-
-    // 2.75. Inject long-term memory context (semantic search)
-    // Retrieves relevant user memories to personalize the response
-    if (this.memoryIntelligenceService && options.userId) {
-      try {
-        const memoryContext = await this.memoryIntelligenceService.getRelevantContext(
-          options.tenantId,
-          options.userId,
-          processedMessage,
-          { limit: 5, useReranking: false }, // Fast mode, no LLM re-ranking
-        );
-
-        if (memoryContext) {
-          const safeMemoryContext = this.piiDetectionService
-            ? this.piiDetectionService.redact(memoryContext)
-            : memoryContext;
-
-          enhancedMessage = `[User Memory]\n${safeMemoryContext}\n\n---\n\n${enhancedMessage}`;
-          this.logger.debug(`${logPrefix} Long-term memory context injected`);
-        }
-      } catch (error) {
-        this.logger.warn(`${logPrefix} Failed to fetch memory context: ${error}`);
-      }
-    }
-
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     const tenantUserId = `${options.tenantId}:${options.userId}`;
+
+    // Build enhanced context: episodic lessons + long-term memory + conversation history
+    // Refactored 2026-01-22: Extracted to ChatContextBuilderService
+    let enhancedMessage = processedMessage;
+
+    if (this.chatContextBuilder) {
+      const contextResult = await this.chatContextBuilder.build(processedMessage, {
+        tenantId: options.tenantId,
+        userId: options.userId,
+        sessionId,
+        tenantUserId,
+        memory: this.memory,
+        logPrefix,
+      });
+      enhancedMessage = contextResult.enhancedMessage;
+      this.logger.debug(`${logPrefix} Context built via ChatContextBuilderService`);
+    } else {
+      // ChatContextBuilderService not available - log warning and proceed without context enrichment
+      this.logger.warn(`${logPrefix} ChatContextBuilderService not injected, proceeding without context enrichment`);
+    }
+
+    // Ensure conversation exists in VoltAgent memory for persistence
     const conversationEnsured = await this.ensureConversationExists({
       tenantUserId,
       sessionId,
@@ -1524,65 +997,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       tenantId: options.tenantId,
       logPrefix,
     });
-
-    // 3.7. Inject conversation history with compaction (2025 context engineering)
-    // Fetches more messages (50) and summarizes older ones to preserve context without bloating tokens
-    // FIX Bug #3: Always try to fetch history using sessionId (explicit or deterministic fallback)
-    if (this.memory) {
-      try {
-        // Fetch up to 50 messages for better context (was 10)
-        const history = await this.memory.getMessages(tenantUserId, sessionId, { limit: 50 });
-        if (history && history.length > 0) {
-          // Convert to compaction format
-          const messages: ConversationMessage[] = history.map((msg, idx) => {
-            const rawContent = msg.parts
-              ?.map((part) => (part as { type: string; text?: string }).text || '')
-              .filter(Boolean)
-              .join(' ') || '';
-            const content = sanitizeLlmResponse(rawContent);
-            return {
-              id: `msg-${idx}`,
-              role: msg.role as 'user' | 'assistant',
-              content,
-              timestamp: (msg as unknown as { createdAt?: Date }).createdAt?.toISOString?.() || new Date().toISOString(),
-            };
-          });
-
-          let historyContext: string;
-
-          // Use compaction service if available and conversation is long
-          if (this.compactionService && messages.length > 10) {
-            const compacted = await this.compactionService.compactConversation(
-              options.tenantId,
-              sessionId, // FIX: Use sessionId (always defined) instead of options.conversationId
-              messages,
-              { recentWindowSize: 6, compactionThreshold: 10 },
-            );
-            historyContext = this.compactionService.formatForPrompt(compacted);
-            if (compacted.wasCompacted) {
-              this.logger.debug(
-                `${logPrefix} Conversation compacted: ${messages.length} msgs → ${compacted.recentMessages.length} recent + summary (${compacted.tokenReduction}% reduction)`,
-              );
-            }
-          } else {
-            // Fallback: Use raw history for short conversations
-            historyContext = messages
-              .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-              .join('\n\n');
-          }
-
-          // Redact PII from history if service available
-          const safeHistoryContext = this.piiDetectionService
-            ? this.piiDetectionService.redact(historyContext)
-            : historyContext;
-
-          enhancedMessage = `[Conversation History]\n${safeHistoryContext}\n\n[Current Message]\n${enhancedMessage}`;
-          this.logger.debug(`${logPrefix} Conversation history injected: ${history.length} messages`);
-        }
-      } catch (error) {
-        this.logger.warn(`${logPrefix} Failed to fetch conversation history: ${error}`);
-      }
-    }
 
     this.logger.log(`${logPrefix} Context Injection took ${Date.now() - contextStart}ms`);
 
@@ -1672,343 +1086,65 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Clear cached agents (useful for testing or config changes).
+   * Delegated to AgentPoolService.
    */
   clearAgentCache(): void {
-    this.agents.clear();
+    this.agentPoolService?.clearAgentCache();
   }
 
   /**
-   * Submit an action for approval using VoltAgent workflow.
-   * The workflow will auto-approve or suspend based on severity/confidence.
-   * Suspended workflows are stored in Redis for horizontal scaling.
+   * Submit an action for approval using ApprovalWorkflowService.
+   * Delegates to ApprovalWorkflowService for workflow management.
    */
   async submitActionForApproval(
     action: ApprovalInput['action'],
     autoApproveThreshold = 0.9,
   ): Promise<ApprovalResult | SuspendedWorkflow> {
-    if (!this.approvalWorkflow) {
-      const errorT = getErrorTranslations('en');
-      throw new AiError(errorT.ai.approvalNotInitialized, AiErrorCode.INTERNAL_ERROR, {
+    if (!this.approvalWorkflowService) {
+      throw new AiError('Approval workflow not available', AiErrorCode.INTERNAL_ERROR, {
         retryable: false,
       });
     }
-
-    const result = await this.approvalWorkflow.run({
-      action,
-      autoApproveThreshold,
-    });
-
-    // Check if workflow was suspended
-    if (result.status === 'suspended') {
-      const executionId = result.executionId;
-      const suspendedAt = result.suspension?.suspendedAt || new Date();
-
-      // Store serializable workflow state in Redis (for horizontal scaling)
-      const serializable: SerializableSuspendedWorkflow = {
-        executionId,
-        tenantId: action.tenantId,
-        userId: action.userId,
-        sessionId: (action as { sessionId?: string }).sessionId,
-        action,
-        suspendReason: result.suspension?.reason || 'Approval required',
-        suspendedAt: suspendedAt.toISOString(),
-      };
-
-      if (this.cacheService) {
-        // Store with tenant prefix for pattern matching: voltagent:workflow:suspended:tenantId:executionId
-        const cacheKey = `${this.SUSPENDED_WORKFLOW_PREFIX}${action.tenantId}:${executionId}`;
-        await this.cacheService.set(cacheKey, serializable, { ttl: this.SUSPENDED_WORKFLOW_TTL });
-      }
-
-      // Also persist to HitlService (database) if available
-      if (this.hitlService) {
-        await this.hitlService.createPendingAction({
-          tenantId: action.tenantId,
-          userId: action.userId,
-          sessionId: executionId,
-          agentName: action.agentName,
-          action: {
-            type: action.actionType as unknown as import('./interfaces/agent-action.interface').AgentActionType,
-            payload: action.payload,
-            confidence: action.confidence ?? 0.8,
-            severity: action.severity as ActionSeverity,
-            reasoningSteps: action.summary,
-          },
-        });
-      }
-
-      // Return full SuspendedWorkflow (with workflowResult for in-process resume if available)
-      const suspended: SuspendedWorkflow = {
-        executionId,
-        tenantId: action.tenantId,
-        userId: action.userId,
-        action,
-        suspendReason: serializable.suspendReason,
-        suspendedAt,
-        workflowResult: result,
-      };
-
-      const corrId = CorrelationContext.getCorrelationId();
-      this.logger.log(`[${corrId}] [tenant:${action.tenantId}] Action suspended for approval: ${executionId}`);
-      return suspended;
-    }
-
-    // Workflow completed (auto-approved or error)
-    const corrId = CorrelationContext.getCorrelationId();
-    this.logger.log(`[${corrId}] [tenant:${action.tenantId}] Action auto-approved: ${action.actionType}`);
-    return result.result as ApprovalResult;
+    return this.approvalWorkflowService.submitActionForApproval(action, autoApproveThreshold);
   }
 
   /**
    * Resume a suspended workflow with human decision.
-   * Uses Redis-stored workflow state for horizontal scaling.
-   * Falls back to HitlService database for action execution.
+   * Delegates to ApprovalWorkflowService for workflow management.
    */
   async resumeApproval(
     executionId: string,
     decision: ApprovalResumeData,
     tenantId?: string,
   ): Promise<ApprovalResult> {
-    // Try to get workflow from Redis - need to find by pattern if tenantId not provided
-    let suspended: SerializableSuspendedWorkflow | null = null;
-
-    if (this.cacheService && tenantId) {
-      const cacheKey = `${this.SUSPENDED_WORKFLOW_PREFIX}${tenantId}:${executionId}`;
-      suspended = await this.cacheService.get<SerializableSuspendedWorkflow>(cacheKey);
-    }
-
-    // Fallback to HitlService database if not in Redis
-    // This handles pending actions created via hooks (sub-agent tool results)
-    if (!suspended && this.hitlService && tenantId) {
-      this.logger.debug(`Suspended workflow not in Redis, checking HitlService: ${executionId}`);
-      try {
-        const action = await this.hitlService.getPendingAction(tenantId, executionId);
-        // Extract properties from actionPayload JSON (AI refactor v2.0)
-        const payloadData = extractActionPayload(action.actionPayload);
-        suspended = {
-          executionId: action.id,
-          tenantId: action.tenantId,
-          userId: action.userId,
-          action: {
-            tenantId: action.tenantId,
-            userId: action.userId,
-            agentName: payloadData.agentName,
-            actionType: action.actionType,
-            payload: payloadData.payload,
-            summary: action.reasoning || '',
-            severity: payloadData.severity,
-            confidence: action.confidence ?? undefined,
-          },
-          suspendReason: 'Approval required',
-          suspendedAt: action.createdAt.toISOString(),
-        };
-      } catch {
-        // Action not found in database either
-        this.logger.debug(`Pending action not found in HitlService: ${executionId}`);
-      }
-    }
-
-    if (!suspended) {
-      throw new AiError(`Suspended workflow not found: ${executionId}`, AiErrorCode.WORKFLOW_FAILED, {
+    if (!this.approvalWorkflowService) {
+      throw new AiError('Approval workflow not available', AiErrorCode.INTERNAL_ERROR, {
         retryable: false,
       });
     }
-
-    // Clean up Redis
-    if (this.cacheService) {
-      const cacheKey = `${this.SUSPENDED_WORKFLOW_PREFIX}${suspended.tenantId}:${executionId}`;
-      await this.cacheService.del(cacheKey);
-    }
-
-    // Update HitlService (database) with decision
-    if (this.hitlService) {
-      if (decision.approved) {
-        await this.hitlService.approveAction(
-          suspended.tenantId,
-          executionId,
-          decision.approvedBy,
-        );
-      } else {
-        await this.hitlService.rejectAction(
-          suspended.tenantId,
-          executionId,
-          decision.approvedBy,
-          undefined,
-          decision.rejectionReason,
-        );
-      }
-    }
-
-    const resumeCorrId = CorrelationContext.getCorrelationId();
-    this.logger.log(
-      `[${resumeCorrId}] [tenant:${suspended.tenantId}] Workflow resumed: ${executionId}, approved: ${decision.approved}`,
-    );
-
-    // Execute approved actions via ActionExecutorService
-    let executionResult: ActionExecutionResult | undefined;
-    if (decision.approved && this.actionExecutorService) {
-      try {
-        // Build AgentAction from suspended workflow data
-        const agentAction: AgentAction = {
-          type: suspended.action.actionType as AgentActionType,
-          payload: suspended.action.payload,
-          confidence: suspended.action.confidence ?? 0.8,
-          severity: (suspended.action.severity as ActionSeverity) ?? ActionSeverity.MEDIUM,
-          reasoningSteps: suspended.action.summary,
-        };
-
-        // Build minimal AgentContext for execution
-        const agentContext: AgentContext = {
-          tenantId: suspended.tenantId,
-          userId: suspended.userId,
-          sessionId: suspended.sessionId ?? `${suspended.tenantId}:${suspended.userId}:default`,
-          correlationId: resumeCorrId,
-          userMessage: '', // Not needed for execution
-        };
-
-        this.logger.log(
-          `[${resumeCorrId}] [tenant:${suspended.tenantId}] Executing approved action: ${agentAction.type}`,
-        );
-
-        executionResult = await this.actionExecutorService.execute(agentAction, agentContext);
-
-        // Mark action execution status in database
-        if (this.hitlService) {
-          await this.hitlService.markExecuted(
-            suspended.tenantId,
-            executionId,
-            executionResult.success,
-            executionResult.error,
-          );
-        }
-
-        if (executionResult.success) {
-          this.logger.log(
-            `[${resumeCorrId}] [tenant:${suspended.tenantId}] Action executed successfully: ${agentAction.type}`,
-          );
-        } else {
-          this.logger.error(
-            `[${resumeCorrId}] [tenant:${suspended.tenantId}] Action execution failed: ${executionResult.error}`,
-          );
-        }
-      } catch (error) {
-        this.logger.error(
-          `[${resumeCorrId}] [tenant:${suspended.tenantId}] Action execution error: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        executionResult = {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-          executionTimeMs: 0,
-        };
-      }
-    }
-
-    // Return result based on decision
-    return {
-      approved: decision.approved,
-      action: suspended.action,
-      approvedBy: decision.approvedBy,
-      approvedAt: new Date(),
-      rejectionReason: decision.rejectionReason,
-      executionResult, // Include execution result in response
-    } as ApprovalResult;
+    return this.approvalWorkflowService.resumeApproval(executionId, decision, tenantId);
   }
 
   /**
    * Get all suspended workflows for a tenant.
-   * Relies on HitlService (database) for listing since it's the source of truth.
-   * Redis is used only for fast lookup during resume.
+   * Delegates to ApprovalWorkflowService.
    */
   async getSuspendedWorkflows(tenantId: string): Promise<SuspendedWorkflow[]> {
-    // Use HitlService to get pending actions (source of truth)
-    if (!this.hitlService) {
+    if (!this.approvalWorkflowService) {
       return [];
     }
-
-    const result = await this.hitlService.getPendingActions({
-      tenantId,
-      status: PendingActionStatus.PENDING,
-    });
-
-    return result.actions.map((action) => {
-      // Extract properties from actionPayload JSON (AI refactor v2.0)
-      const payloadData = extractActionPayload(action.actionPayload);
-      return {
-        executionId: action.id,
-        tenantId: action.tenantId,
-        userId: action.userId,
-        sessionId: payloadData.sessionId, // ConversationId for linking to chat messages
-        action: {
-          tenantId: action.tenantId,
-          userId: action.userId,
-          agentName: payloadData.agentName,
-          actionType: action.actionType,
-          payload: payloadData.payload,
-          summary: action.reasoning || '',
-          severity: payloadData.severity,
-          confidence: action.confidence,
-        },
-        suspendReason: 'Approval required',
-        suspendedAt: action.createdAt,
-        workflowResult: null as unknown as ApprovalWorkflowResult, // Not available from DB
-      };
-    });
+    return this.approvalWorkflowService.getSuspendedWorkflows(tenantId);
   }
 
   /**
    * Get a specific suspended workflow by ID.
-   * Uses Redis for fast lookup, falls back to HitlService.
+   * Delegates to ApprovalWorkflowService.
    */
   async getSuspendedWorkflow(executionId: string, tenantId?: string): Promise<SuspendedWorkflow | undefined> {
-    // Try Redis first if tenantId provided
-    if (this.cacheService && tenantId) {
-      const cacheKey = `${this.SUSPENDED_WORKFLOW_PREFIX}${tenantId}:${executionId}`;
-      const data = await this.cacheService.get<SerializableSuspendedWorkflow>(cacheKey);
-      if (data) {
-        return {
-          executionId: data.executionId,
-          tenantId: data.tenantId,
-          userId: data.userId,
-          sessionId: data.sessionId,
-          action: data.action,
-          suspendReason: data.suspendReason,
-          suspendedAt: new Date(data.suspendedAt),
-          workflowResult: null as unknown as ApprovalWorkflowResult,
-        };
-      }
+    if (!this.approvalWorkflowService) {
+      return undefined;
     }
-
-    // Fallback to HitlService
-    if (this.hitlService && tenantId) {
-      try {
-        const action = await this.hitlService.getPendingAction(tenantId, executionId);
-        // Extract properties from actionPayload JSON (AI refactor v2.0)
-        const payloadData = extractActionPayload(action.actionPayload);
-        return {
-          executionId: action.id,
-          tenantId: action.tenantId,
-          userId: action.userId,
-          action: {
-            tenantId: action.tenantId,
-            userId: action.userId,
-            agentName: payloadData.agentName,
-            actionType: action.actionType,
-            payload: payloadData.payload,
-            summary: action.reasoning || '',
-            severity: payloadData.severity,
-            confidence: action.confidence,
-          },
-          suspendReason: 'Approval required',
-          suspendedAt: action.createdAt,
-          workflowResult: null as unknown as ApprovalWorkflowResult,
-        };
-      } catch {
-        // Action not found
-        return undefined;
-      }
-    }
-
-    return undefined;
+    return this.approvalWorkflowService.getSuspendedWorkflow(executionId, tenantId);
   }
 
   // ========================================================================

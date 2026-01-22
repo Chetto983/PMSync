@@ -11,6 +11,7 @@
  * @see https://voltagent.dev/docs/agents/hooks/
  */
 import { createHooks, type AgentHooks } from '@voltagent/core';
+import { sanitizeLlmResponse } from '../services/chat-context-builder.service';
 
 /**
  * HITL pending action data captured from tool results
@@ -101,25 +102,6 @@ function extractUserId(userId?: string): string | undefined {
 }
 
 /**
- * Strip internal context markers from LLM-bound messages while preserving content.
- * This prevents accidental leakage of system headers without removing useful text.
- */
-function stripInternalMarkers(text: string): string {
-  if (!text) return text;
-
-  return text
-    // Remove internal headers only (keep following content)
-    .replace(/\[Conversation Summary[^\]]*\]/gi, '')
-    .replace(/\[(Conversation History|Current Message|Key Context|Recent Messages|User Memory)\]/gi, '')
-    .replace(/^##\s*Learned Constraints.*$/gmi, '')
-    // Remove separator lines
-    .replace(/^---\s*$/gm, '')
-    // Clean up excess whitespace
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-/**
  * Operation tracking data for >1000 tenant scalability.
  * Uses operationId as key to prevent memory leaks.
  */
@@ -191,7 +173,7 @@ export function createObservabilityHooks(options: ObservabilityOptions = {}): Di
         if (!message.parts) return message;
         const parts = message.parts.map((part) => {
           if (part.type === 'text' && typeof part.text === 'string') {
-            return { ...part, text: stripInternalMarkers(part.text) };
+            return { ...part, text: sanitizeLlmResponse(part.text) };
           }
           return part;
         });

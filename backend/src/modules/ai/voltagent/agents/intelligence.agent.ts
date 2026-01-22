@@ -15,7 +15,7 @@ import { CacheService } from '../../../../common/services/cache.service';
 import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
 import { WritingStyleService } from '../services/writing-style.service';
-import { getAgentTranslations, type SupportedLocale } from '../locales';
+import { getAgentTranslations, getLocaleInstruction, type SupportedLocale } from '../locales';
 import { createEmailTools } from '../tools/email.tools';
 import { createFolderTools } from '../tools/folder.tools';
 import { createContactsTools } from '../tools/contacts.tools';
@@ -85,10 +85,7 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
 
   // Always use English prompts - locale only affects response language
   const t = getAgentTranslations('en');
-  const localeInstruction =
-    locale !== 'en'
-      ? `\n\n## Response Language\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian (italiano)' : locale}.`
-      : '';
+  const localeInstruction = getLocaleInstruction(locale);
 
   // Create tools from factories
   // Pass RAG services for semantic search in search_emails

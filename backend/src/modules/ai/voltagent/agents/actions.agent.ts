@@ -13,7 +13,7 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService } from '../../../../common/services/cache.service';
 import { EmailSendService } from '../../../email/services/email-send.service';
 import { CalendarService } from '../../../calendar/services/calendar.service';
-import { getAgentTranslations, type SupportedLocale } from '../locales';
+import { getAgentTranslations, getLocaleInstruction, type SupportedLocale } from '../locales';
 import { createEmailTools } from '../tools/email.tools';
 import { createFolderTools } from '../tools/folder.tools';
 import { createContactsTools } from '../tools/contacts.tools';
@@ -79,10 +79,7 @@ export function createActionsAgent(options: ActionsAgentOptions): Agent {
 
   // Always use English prompts - locale only affects response language
   const t = getAgentTranslations('en');
-  const localeInstruction =
-    locale !== 'en'
-      ? `\n\n## Response Language\nIMPORTANT: Respond in ${locale === 'it' ? 'Italian (italiano)' : locale}.`
-      : '';
+  const localeInstruction = getLocaleInstruction(locale);
 
   // Create tools from factories
   const emailTools = createEmailTools(prisma, emailSendService, locale, tenantId, cacheService);

@@ -56,6 +56,11 @@ import { ChatRequestProcessorService } from './services/chat-request-processor.s
 import { ChatContextBuilderService } from './services/chat-context-builder.service';
 import { ChatResponseProcessorService } from './services/chat-response-processor.service';
 
+// Phase 6: Extracted Services (VoltAgentService refactoring)
+import { AgentPoolService } from './services/agent-pool.service';
+import { AgentMetricsService } from './services/agent-metrics.service';
+import { ApprovalWorkflowService } from './services/approval-workflow.service';
+
 @Module({
   imports: [
     ConfigModule,
@@ -108,6 +113,10 @@ import { ChatResponseProcessorService } from './services/chat-response-processor
     ChatRequestProcessorService,
     ChatContextBuilderService,
     ChatResponseProcessorService,
+    // Phase 6: Extracted Services (VoltAgentService refactoring)
+    AgentPoolService,
+    AgentMetricsService,
+    ApprovalWorkflowService,
   ],
   exports: [
     VoltAgentService,
@@ -136,6 +145,10 @@ import { ChatResponseProcessorService } from './services/chat-response-processor
     ConversationManagementService,
     MemoryIntelligenceService,
     LearningService,
+    // Phase 6: Extracted Services
+    AgentPoolService,
+    AgentMetricsService,
+    ApprovalWorkflowService,
   ],
 })
 export class VoltAgentModule { }
