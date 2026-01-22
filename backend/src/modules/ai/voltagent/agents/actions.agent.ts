@@ -95,7 +95,8 @@ export function createActionsAgent(options: ActionsAgentOptions): Agent {
     instructions: t.actions.instructions + localeInstruction,
     tools: writeTools,
     hooks,
-    memory,
+    // Disable VoltAgent auto-memory writes to avoid duplicate persistence (we store manually)
+    memory: false,
     maxSteps: 3, // Most write ops need 1-2 steps max
   });
 }
