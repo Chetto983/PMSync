@@ -940,10 +940,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         if (history && history.length > 0) {
           // Convert to compaction format
           const messages: ConversationMessage[] = history.map((msg, idx) => {
-            const content = msg.parts
+            const rawContent = msg.parts
               ?.map((part) => (part as { type: string; text?: string }).text || '')
               .filter(Boolean)
               .join(' ') || '';
+            const content = sanitizeLlmResponse(rawContent);
             return {
               id: `msg-${idx}`,
               role: msg.role as 'user' | 'assistant',
@@ -1012,6 +1013,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           userId: tenantUserId,
           // Session/conversation ID for message threading
           conversationId: sessionId,
+          // Disable VoltAgent memory context + input auto-save (we manage memory manually)
+          contextLimit: 0,
           // CRITICAL: Disable parallel tool calls to ensure sequential delegation
           // (ContactsAgent → EmailAgent flow requires one tool at a time)
           providerOptions: {
@@ -1074,6 +1077,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Format includes tenantId for multi-tenant isolation
     const persistedConversationId: string = sessionId;
 
+    // Sanitize response to remove any accidentally echoed internal context markers
+    const sanitizedText = sanitizeLlmResponse(result.text);
+
     // 4. Persist messages to VoltAgent Memory (RE-ADDED after AI refactor v2.0)
     // This ensures conversation history is available for future requests
     if (this.memory && result?.text) {
@@ -1117,7 +1123,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         const assistantMessage = {
           id: `msg-assistant-${Date.now()}`,
           role: 'assistant' as const,
-          parts: [{ type: 'text' as const, text: result.text }],
+          parts: [{ type: 'text' as const, text: sanitizedText }],
           metadata: { timestamp: new Date().toISOString(), model: selectedModel },
         };
         await this.memory.addMessage(assistantMessage, tenantUserId, persistedConversationId);
@@ -1208,9 +1214,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn(`${logPrefix} Failed to track AI usage: ${err.message}`);
       });
     }
-
-    // Sanitize response to remove any accidentally echoed internal context markers
-    const sanitizedText = sanitizeLlmResponse(result.text);
 
     return {
       text: sanitizedText,
@@ -1397,10 +1400,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         if (history && history.length > 0) {
           // Convert to compaction format
           const messages: ConversationMessage[] = history.map((msg, idx) => {
-            const content = msg.parts
+            const rawContent = msg.parts
               ?.map((part) => (part as { type: string; text?: string }).text || '')
               .filter(Boolean)
               .join(' ') || '';
+            const content = sanitizeLlmResponse(rawContent);
             return {
               id: `msg-${idx}`,
               role: msg.role as 'user' | 'assistant',
@@ -1450,6 +1454,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const result = await agent.streamText(enhancedMessage, {
       userId: tenantUserId,
       conversationId: sessionId,
+      // Disable VoltAgent memory context + input auto-save (we manage memory manually)
+      contextLimit: 0,
       // CRITICAL: Disable parallel tool calls to ensure sequential delegation
       providerOptions: {
         mistral: {

@@ -163,7 +163,7 @@ export class ConversationManagementService {
         createdAt: new Date(),
         messages: messages.map((m: { role: string; parts?: Array<{ type: string; text?: string }>; createdAt?: Date }) => ({
           role: m.role as 'user' | 'assistant' | 'system',
-          content: this.extractMessageContent(m),
+          content: sanitizeMessageContent(this.extractMessageContent(m)),
           createdAt: m.createdAt || new Date(),
         })),
       };
