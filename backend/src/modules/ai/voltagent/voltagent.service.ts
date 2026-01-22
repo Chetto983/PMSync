@@ -300,6 +300,42 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   private readonly maxRedisBuffer = 10000; // Max metrics per tenant in Redis (for >1000 tenants)
   private flushInterval: NodeJS.Timeout | null = null;
 
+  private async ensureConversationExists(params: {
+    tenantUserId: string;
+    sessionId: string;
+    title: string;
+    tenantId: string;
+    logPrefix: string;
+  }): Promise<boolean> {
+    if (!this.memory) {
+      return false;
+    }
+
+    try {
+      await this.memory.createConversation({
+        id: params.sessionId,
+        userId: params.tenantUserId,
+        resourceId: `agent:${params.tenantId}`,
+        title: params.title,
+        metadata: { tenantId: params.tenantId, createdAt: new Date().toISOString() },
+      });
+      this.logger.debug(`${params.logPrefix} Created new conversation: ${params.sessionId}`);
+      return true;
+    } catch (error) {
+      const errorMsg = String(error).toLowerCase();
+      const isDuplicateError = errorMsg.includes('unique') ||
+        errorMsg.includes('duplicate') ||
+        errorMsg.includes('already exists') ||
+        errorMsg.includes('p2002');
+      if (isDuplicateError) {
+        this.logger.debug(`${params.logPrefix} Conversation already exists: ${params.sessionId}`);
+        return true;
+      }
+      this.logger.warn(`${params.logPrefix} Failed to ensure conversation exists: ${error}`);
+      return false;
+    }
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailSendService: EmailSendService,
@@ -1023,6 +1059,13 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     // Format: "tenantId:userId" allows hooks to extract both values
     const tenantUserId = `${options.tenantId}:${options.userId}`;
+    const conversationEnsured = await this.ensureConversationExists({
+      tenantUserId,
+      sessionId,
+      title: processedMessage.substring(0, 100),
+      tenantId: options.tenantId,
+      logPrefix,
+    });
 
     // 3.7. Inject conversation history with compaction (2025 context engineering)
     // Fetches more messages (50) and summarizes older ones to preserve context without bloating tokens
@@ -1178,30 +1221,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // This ensures conversation history is available for future requests
     if (this.memory && result?.text) {
       try {
-        // FIX Bug #4: Atomic conversation creation (create-if-not-exists pattern)
-        // Instead of check-then-create (race condition), we try to create first
-        // and catch the "already exists" error gracefully
-        try {
-          await this.memory.createConversation({
-            id: persistedConversationId,
-            userId: tenantUserId,
-            resourceId: `agent:${options.tenantId}`,
+        if (!conversationEnsured) {
+          await this.ensureConversationExists({
+            tenantUserId,
+            sessionId: persistedConversationId,
             title: processedMessage.substring(0, 100),
-            metadata: { tenantId: options.tenantId, createdAt: new Date().toISOString() },
+            tenantId: options.tenantId,
+            logPrefix,
           });
-          this.logger.debug(`${logPrefix} Created new conversation: ${persistedConversationId}`);
-        } catch (createError) {
-          // Conversation may already exist (race condition or subsequent request)
-          // Check if it's a duplicate key/unique constraint error - those are expected
-          const errorMsg = String(createError).toLowerCase();
-          const isDuplicateError = errorMsg.includes('unique') ||
-            errorMsg.includes('duplicate') ||
-            errorMsg.includes('already exists') ||
-            errorMsg.includes('p2002'); // Prisma unique constraint code
-          if (!isDuplicateError) {
-            throw createError; // Re-throw unexpected errors
-          }
-          this.logger.debug(`${logPrefix} Conversation already exists: ${persistedConversationId}`);
         }
 
         // Save user message
@@ -1484,6 +1511,13 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     const tenantUserId = `${options.tenantId}:${options.userId}`;
+    const conversationEnsured = await this.ensureConversationExists({
+      tenantUserId,
+      sessionId,
+      title: processedMessage.substring(0, 100),
+      tenantId: options.tenantId,
+      logPrefix,
+    });
 
     // 3.7. Inject conversation history with compaction (2025 context engineering)
     // Fetches more messages (50) and summarizes older ones to preserve context without bloating tokens
@@ -1586,17 +1620,14 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // This ensures conversation history is available for future requests
     if (this.memory && fullResponse.length > 0) {
       try {
-        // Create conversation if it doesn't exist (for new sessions)
-        const existingConversation = await this.memory.getConversation(sessionId);
-        if (!existingConversation) {
-          await this.memory.createConversation({
-            id: sessionId,
-            userId: tenantUserId,
-            resourceId: `agent:${options.tenantId}`,
+        if (!conversationEnsured) {
+          await this.ensureConversationExists({
+            tenantUserId,
+            sessionId,
             title: processedMessage.substring(0, 100),
-            metadata: { tenantId: options.tenantId, createdAt: new Date().toISOString() },
+            tenantId: options.tenantId,
+            logPrefix,
           });
-          this.logger.debug(`${logPrefix} Created new conversation: ${sessionId}`);
         }
 
         // Save user message
