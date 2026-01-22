@@ -23,6 +23,7 @@ import { createWebSearchAgent } from './websearch.agent';
 import { createDocumentLibraryAgent } from './document-library.agent';
 import { createAnalyticsAgent } from './analytics.agent';
 import type { FollowUpService } from '../services/follow-up.service';
+import { PiiDetectionService } from '../../guards';
 
 export interface SupervisorAgentOptions {
   model: LanguageModel;
@@ -49,6 +50,8 @@ export interface SupervisorAgentOptions {
   documentLibraryService?: DocumentLibraryService;
   /** Optional: UnifiedKnowledgeAgent dependencies (simplified in AI refactor v2.0) */
   followUpService?: FollowUpService;
+  /** Optional: PII detection for LLM redaction */
+  piiDetectionService?: PiiDetectionService;
 }
 
 /**
@@ -300,6 +303,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     documentLibraryService,
     // longTermMemoryService, deadlineService, actionItemService removed - AI refactor v2.0
     followUpService: _followUpService,
+    piiDetectionService,
   } = options;
   // Always use English prompts, locale only affects response language
   const t = getAgentTranslations('en');
@@ -337,6 +341,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     userId,
     hooks,
     memory,  // FIX Bug #2: Pass memory for conversation persistence
+    piiDetectionService,
   });
 
   // Start with core consolidated agents

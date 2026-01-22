@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MistralService } from '../../services/mistral.service';
 import { AIMemoryService, Memory, MemoryWithScore } from './ai-memory.service';
+import { PiiDetectionService, type PiiMatch } from '../../guards';
 import {
     FACT_RETRIEVAL_PROMPT,
     MEMORY_DEDUCTION_PROMPT,
@@ -38,6 +39,7 @@ export class MemoryIntelligenceService {
     constructor(
         private readonly mistralService: MistralService,
         private readonly memoryService: AIMemoryService,
+        private readonly piiDetectionService?: PiiDetectionService,
     ) { }
 
     /**
@@ -50,15 +52,19 @@ export class MemoryIntelligenceService {
         message: string,
     ): Promise<void> {
         try {
+            const piiResult = this.piiDetectionService?.detect(message);
+            const safeMessage = piiResult?.redactedText ?? message;
+            const piiMatches = piiResult?.details ?? [];
+
             // 1. Extract facts
-            const facts = await this.extractFacts(message);
+            const facts = await this.extractFacts(safeMessage);
             if (facts.length === 0) {
                 return;
             }
             this.logger.debug(`Extracted ${facts.length} facts from message`);
 
             // 2. Process each fact against existing memory
-            await this.processFacts(tenantId, userId, facts);
+            await this.processFacts(tenantId, userId, facts, piiMatches);
         } catch (error) {
             this.logger.error(`Failed to process memory from message: ${error}`);
         }
@@ -94,6 +100,7 @@ export class MemoryIntelligenceService {
         tenantId: string,
         userId: string,
         facts: string[],
+        piiMatches: PiiMatch[] = [],
     ): Promise<void> {
         for (const fact of facts) {
             // Find potentially relevant existing memories using semantic search
@@ -105,8 +112,33 @@ export class MemoryIntelligenceService {
                 0.8, // Only consider fairly similar memories (distance < 0.8)
             );
 
-            const decision = await this.deduceMemoryAction(fact, existingMemories);
-            await this.executeMemoryActions(tenantId, userId, decision);
+            let combinedMatches = piiMatches;
+            let safeMemories = existingMemories;
+
+            if (this.piiDetectionService) {
+                const collected: PiiMatch[] = [...piiMatches];
+                safeMemories = existingMemories.map((memory) => {
+                    const content = memory.content ?? '';
+                    if (content && this.piiDetectionService?.containsPii(content)) {
+                        const detected = this.piiDetectionService.detect(content);
+                        if (detected.details.length > 0) {
+                            collected.push(...detected.details);
+                        }
+                        return { ...memory, content: detected.redactedText };
+                    }
+                    return memory;
+                });
+                combinedMatches = collected;
+            }
+
+            const decision = await this.deduceMemoryAction(fact, safeMemories);
+            const resolvedActions = combinedMatches.length > 0 && this.piiDetectionService
+                ? decision.map((action) => ({
+                    ...action,
+                    content: this.piiDetectionService?.resolveFromMatches(action.content, combinedMatches) ?? action.content,
+                }))
+                : decision;
+            await this.executeMemoryActions(tenantId, userId, resolvedActions);
         }
     }
 
@@ -280,8 +312,18 @@ export class MemoryIntelligenceService {
         limit: number,
     ): Promise<MemoryWithScore[]> {
         try {
+            const safeQuery = this.piiDetectionService
+                ? this.piiDetectionService.redact(query)
+                : query;
+            const safeMemories = this.piiDetectionService
+                ? memories.map((m) => ({
+                    ...m,
+                    content: this.piiDetectionService?.redact(m.content ?? '') ?? m.content,
+                }))
+                : memories;
+
             const memoriesContext = JSON.stringify(
-                memories.map((m) => ({
+                safeMemories.map((m) => ({
                     memory_id: m.id,
                     content: m.content,
                     type: m.memoryType,
@@ -289,7 +331,7 @@ export class MemoryIntelligenceService {
                 })),
             );
 
-            const prompt = `${MEMORY_SEARCH_PROMPT}\n\nQuery:\n"${query}"\n\nMemories:\n${memoriesContext}`;
+            const prompt = `${MEMORY_SEARCH_PROMPT}\n\nQuery:\n"${safeQuery}"\n\nMemories:\n${memoriesContext}`;
 
             const response = await this.mistralService.completePrompt({
                 userPrompt: prompt,

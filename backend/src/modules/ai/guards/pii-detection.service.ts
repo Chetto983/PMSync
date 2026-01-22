@@ -43,7 +43,7 @@ export interface PiiDetectionConfig {
 const DEFAULT_CONFIG: PiiDetectionConfig = {
   detectTypes: ['EMAIL', 'PHONE', 'SSN', 'CREDIT_CARD', 'IP_ADDRESS', 'IBAN'],
   enableRedaction: true,
-  redactionStyle: 'TYPE_LABEL',
+  redactionStyle: 'HASH',
   enableLogging: true,
 };
 
@@ -133,6 +133,32 @@ export class PiiDetectionService {
     return this.detect(text).redactedText;
   }
 
+  /**
+   * Resolve redacted placeholders using detection matches.
+   * Useful for rehydrating LLM outputs without storing mappings in Redis.
+   */
+  resolveFromMatches(text: string, matches: PiiMatch[]): string {
+    if (!text || !matches || matches.length === 0) {
+      return text;
+    }
+
+    const unique = new Map<string, string>();
+    for (const match of matches) {
+      if (!unique.has(match.redactedValue)) {
+        unique.set(match.redactedValue, match.value);
+      }
+    }
+
+    let resolved = text;
+    for (const [placeholder, original] of unique.entries()) {
+      if (resolved.includes(placeholder)) {
+        resolved = resolved.replaceAll(placeholder, original);
+      }
+    }
+
+    return resolved;
+  }
+
   private redactValue(value: string, type: PiiType): string {
     switch (this.config.redactionStyle) {
       case 'MASK':
@@ -142,7 +168,7 @@ export class PiiDetectionService {
         return `[${type}_REDACTED]`;
       case 'HASH':
         const hash = this.simpleHash(value);
-        return `[${type}:${hash}]`;
+        return `[${type}_REDACTED:${hash}]`;
       default:
         return `[REDACTED]`;
     }

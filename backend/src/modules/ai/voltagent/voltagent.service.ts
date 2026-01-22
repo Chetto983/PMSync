@@ -44,7 +44,7 @@ import { AgentContext } from './interfaces/agent-context.interface';
 import { type ConnectedProvider } from './agents';
 import { getLocale, getTranslations, getErrorTranslations, type SupportedLocale } from './locales';
 import { DocumentLibraryService } from './services/document-library.service';
-import { PromptGuardService, PiiDetectionService, PiiResolutionService } from '../guards';
+import { PromptGuardService, PiiDetectionService, PiiResolutionService, type PiiMapping } from '../guards';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import type { AiAgentType } from '../../realtime/types/realtime.types';
 import { FollowUpService } from './services/follow-up.service';
@@ -90,6 +90,83 @@ function sanitizeLlmResponse(text: string): string {
     // Clean up multiple newlines
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function applyPiiMappings(text: string, mappings: PiiMapping[]): string {
+  if (!text || mappings.length === 0) {
+    return text;
+  }
+
+  let resolved = text;
+  for (const mapping of mappings) {
+    if (resolved.includes(mapping.placeholder)) {
+      resolved = resolved.replaceAll(mapping.placeholder, mapping.originalValue);
+    }
+  }
+
+  return resolved;
+}
+
+function createStreamSanitizer(mappings: PiiMapping[]): {
+  handleChunk: (chunk: string) => string;
+  flush: () => string;
+} {
+  let buffer = '';
+  let skipLearned = false;
+
+  const processLine = (line: string): string | null => {
+    const trimmed = line.trim();
+
+    if (skipLearned) {
+      if (trimmed.startsWith('## ') || trimmed.startsWith('[') || trimmed === '---') {
+        skipLearned = false;
+      } else {
+        return null;
+      }
+    }
+
+    if (/^##\s*Learned Constraints/i.test(trimmed)) {
+      skipLearned = true;
+      return null;
+    }
+
+    if (/^\[Conversation Summary/i.test(trimmed)) return null;
+    if (/^\[(Conversation History|Current Message|Key Context|Recent Messages|User Memory)\]/i.test(trimmed)) return null;
+    if (trimmed === '---') return null;
+
+    const cleaned = line
+      .replace(/\[(Conversation History|Current Message|Key Context|Recent Messages|User Memory)\]/gi, '')
+      .replace(/\[Conversation Summary[^\]]*\]/gi, '')
+      .replace(/##\s*Learned Constraints.*$/gi, '');
+
+    if (!cleaned.trim()) {
+      return null;
+    }
+
+    return applyPiiMappings(cleaned, mappings);
+  };
+
+  return {
+    handleChunk: (chunk: string) => {
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      let output = '';
+      for (const line of lines) {
+        const cleaned = processLine(line);
+        if (cleaned !== null) {
+          output += `${cleaned}\n`;
+        }
+      }
+      return output;
+    },
+    flush: () => {
+      if (!buffer) return '';
+      const cleaned = processLine(buffer);
+      buffer = '';
+      return cleaned ?? '';
+    },
+  };
 }
 
 export interface ChatOptions {
@@ -161,6 +238,7 @@ interface SerializableSuspendedWorkflow {
   executionId: string;
   tenantId: string;
   userId: string;
+  sessionId?: string;
   action: ApprovalInput['action'];
   suspendReason: string;
   suspendedAt: string; // ISO string for JSON serialization
@@ -364,6 +442,22 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         this.logger.error('Failed to flush metrics to Redis', err),
       );
     }
+  }
+
+  private async resolveUserVisibleText(
+    tenantId: string,
+    sessionId: string,
+    text: string,
+  ): Promise<string> {
+    if (!this.piiResolutionService || !text) {
+      return text;
+    }
+
+    if (!this.piiResolutionService.containsPlaceholders(text)) {
+      return text;
+    }
+
+    return this.piiResolutionService.resolveText(tenantId, sessionId, text);
   }
 
   /**
@@ -644,6 +738,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           embeddingsService: this.embeddingsService ?? null,
           writingStyle: this.writingStyleService ?? null,
           memory: this.memory ?? undefined,
+          piiDetectionService: this.piiDetectionService,
         });
         break;
       case 'Supervisor':
@@ -665,6 +760,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           documentLibraryService: this.documentLibraryService,
 
           followUpService: this.followUpService,
+          piiDetectionService: this.piiDetectionService,
         });
         break;
     }
@@ -742,6 +838,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Get or create correlation ID for this chat request
     const correlationId = CorrelationContext.getCorrelationId();
     const logPrefix = `[${correlationId}] [tenant:${options.tenantId}]`;
+    // Deterministic fallback sessionId for users without explicit conversationId
+    const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
+    const sessionId = options.conversationId || fallbackSessionId;
 
     // 0a. Security: Validate input for prompt injection (OWASP LLM01:2025)
     if (this.promptGuardService) {
@@ -767,7 +866,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // 0b. Security: Detect and redact PII before sending to LLM
     // Store mapping in Redis so tool execution can resolve placeholders back to real values
     let processedMessage = message;
-    const piiSessionId = options.conversationId || `pii:${options.tenantId}:${options.userId}`;
+    const piiSessionId = sessionId;
     if (this.piiDetectionService) {
       const piiResult = this.piiDetectionService.detect(message);
       if (piiResult.hasPii) {
@@ -860,8 +959,8 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // 3.5. Trigger Memory Intelligence (Async/Fire-and-forget)
     // Extracts long-term memories from user message
-    // NOTE: Uses ORIGINAL message (not redacted) so we store actual email addresses
-    // Long-term memory stores real PII for tool execution context
+    // NOTE: MemoryIntelligence redacts before LLM calls, then rehydrates for storage
+    // to keep PII out of cloud providers while preserving functionality.
     if (this.memoryIntelligenceService && options.userId) { // Ensure userId is present for memory
       this.memoryIntelligenceService.processMemoryFromMessage(
         options.tenantId,
@@ -924,11 +1023,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     // Format: "tenantId:userId" allows hooks to extract both values
     const tenantUserId = `${options.tenantId}:${options.userId}`;
-    // FIX Bug #3: Use DETERMINISTIC fallback sessionId based on tenant+user
-    // This ensures users without explicit conversationId share a default conversation
-    // Format: tenantId:userId:default maintains tenant isolation + enables history lookup
-    const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
-    const sessionId = options.conversationId || fallbackSessionId;
 
     // 3.7. Inject conversation history with compaction (2025 context engineering)
     // Fetches more messages (50) and summarizes older ones to preserve context without bloating tokens
@@ -1215,8 +1309,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
+    const userVisibleText = await this.resolveUserVisibleText(options.tenantId, sessionId, sanitizedText);
+
     return {
-      text: sanitizedText,
+      text: userVisibleText,
       requiresApproval: pendingActions.length > 0,
       pendingActions: pendingActions.length > 0 ? pendingActions : undefined,
       model: selectedModel,
@@ -1234,16 +1330,17 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
    * @security PII Handling:
    * - INPUT: PII is detected and redacted before sending to LLM
    * - CONTEXT: Conversation history and long-term memory are redacted before injection
-   * - OUTPUT: ⚠️ Streaming output from LLM is NOT filtered for PII.
-   *   The LLM may generate PII-like patterns (e.g., example emails, phone numbers).
-   *   For sensitive deployments, consider post-processing the stream or using
-   *   content moderation APIs on the client side.
+   * - OUTPUT: Streaming output is sanitized for internal markers and
+   *   PII placeholders are rehydrated before sending to the client.
    */
   async *streamChat(message: string, options: ChatOptions): AsyncGenerator<string> {
     const correlationId = CorrelationContext.getCorrelationId();
     const logPrefix = `[${correlationId}] [stream] [tenant:${options.tenantId}]`;
     const startTimeResult = Date.now();
     this.logger.log(`${logPrefix} START Request processing`);
+    // Deterministic fallback sessionId for users without explicit conversationId
+    const fallbackSessionId = `${options.tenantId}:${options.userId}:default`;
+    const sessionId = options.conversationId || fallbackSessionId;
 
     // 0a. Security: Validate input for prompt injection (OWASP LLM01:2025)
     if (this.promptGuardService) {
@@ -1267,7 +1364,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // 0b. Security: Detect and redact PII before sending to LLM
     // Store mapping in Redis so tool execution can resolve placeholders back to real values
     let processedMessage = message;
-    const piiSessionId = options.conversationId || `pii:${options.tenantId}:${options.userId}`;
+    const piiSessionId = sessionId;
     if (this.piiDetectionService) {
       const piiResult = this.piiDetectionService.detect(message);
       if (piiResult.hasPii) {
@@ -1387,8 +1484,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
     // Prepare tenant-isolated context for VoltAgent hooks (HITL, metrics, observability)
     const tenantUserId = `${options.tenantId}:${options.userId}`;
-    // FIX Bug #3: Use DETERMINISTIC fallback sessionId based on tenant+user
-    const sessionId = options.conversationId || `${options.tenantId}:${options.userId}:default`;
 
     // 3.7. Inject conversation history with compaction (2025 context engineering)
     // Fetches more messages (50) and summarizes older ones to preserve context without bloating tokens
@@ -1467,12 +1562,24 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`${logPrefix} Stream Setup took ${Date.now() - startTimeResult}ms. Starting stream...`);
 
     // Collect full response for memory persistence and caching
+    const piiMappings = this.piiResolutionService
+      ? await this.piiResolutionService.getMappings(options.tenantId, sessionId)
+      : [];
+    const streamSanitizer = createStreamSanitizer(piiMappings);
+
     let fullResponse = '';
     for await (const chunk of result.textStream) {
       fullResponse += chunk;
-      yield chunk;
+      const safeChunk = streamSanitizer.handleChunk(chunk);
+      if (safeChunk) {
+        yield safeChunk;
+      }
     }
 
+    const trailing = streamSanitizer.flush();
+    if (trailing) {
+      yield trailing;
+    }
 
 
     // 4. Persist messages to VoltAgent Memory (RE-ADDED after AI refactor v2.0)
@@ -1564,6 +1671,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         executionId,
         tenantId: action.tenantId,
         userId: action.userId,
+        sessionId: (action as { sessionId?: string }).sessionId,
         action,
         suspendReason: result.suspension?.reason || 'Approval required',
         suspendedAt: suspendedAt.toISOString(),
@@ -1713,11 +1821,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         };
 
         // Build minimal AgentContext for execution
-        // NOTE: sessionId uses pii:tenantId:userId format to match PII storage key
         const agentContext: AgentContext = {
           tenantId: suspended.tenantId,
           userId: suspended.userId,
-          sessionId: `pii:${suspended.tenantId}:${suspended.userId}`,
+          sessionId: suspended.sessionId ?? `${suspended.tenantId}:${suspended.userId}:default`,
           correlationId: resumeCorrId,
           userMessage: '', // Not needed for execution
         };
@@ -1825,6 +1932,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
           executionId: data.executionId,
           tenantId: data.tenantId,
           userId: data.userId,
+          sessionId: data.sessionId,
           action: data.action,
           suspendReason: data.suspendReason,
           suspendedAt: new Date(data.suspendedAt),

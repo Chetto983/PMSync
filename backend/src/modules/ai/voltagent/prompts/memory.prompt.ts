@@ -24,7 +24,7 @@ Types of Information to Remember:
 
 ⚠️ DO NOT REMEMBER:
 - Ephemeral actions like "User sent an email to X" or "User created an event"
-- Redacted content markers like [EMAIL_REDACTED], [CONTENT_REDACTED], [NAME_REDACTED]
+- Redacted content markers like [EMAIL_REDACTED], [EMAIL_REDACTED:abcd1234], [CONTENT_REDACTED], [NAME_REDACTED]
 - Specific email contents or subjects (these are stored elsewhere)
 - One-time requests like "draft an email" or "schedule a meeting"
 - System actions or confirmations
@@ -39,7 +39,7 @@ Instructions:
 4. Focus on extracting NEW information - things not already known.
 5. Be concise - each fact should be a single, clear statement.
 6. SKIP any facts about specific actions taken (emails sent, events created, etc.)
-7. SKIP any facts containing redacted markers like [EMAIL_REDACTED] or [CONTENT_REDACTED]
+7. SKIP any facts containing redacted markers like [EMAIL_REDACTED], [EMAIL_REDACTED:abcd1234], or [CONTENT_REDACTED]
 
 Example output:
 {
@@ -77,7 +77,7 @@ Compare the retrieved facts against existing memories and determine the action:
 
 ⚠️ ALWAYS return NONE for:
 - Facts about specific actions (emails sent, events created, drafts made)
-- Facts containing [EMAIL_REDACTED], [CONTENT_REDACTED], or similar placeholders
+- Facts containing [EMAIL_REDACTED], [EMAIL_REDACTED:abcd1234], [CONTENT_REDACTED], or similar placeholders
 - Facts about one-time requests or transient activities
 - Facts that won't help personalize future interactions
 
@@ -93,7 +93,7 @@ Example output:
   "actions": [
     {"action": "ADD", "content": "User started new job at TechCo"},
     {"action": "UPDATE", "memory_id": "mem_123", "content": "User now prefers Slack over email"},
-    {"action": "NONE", "content": "User sent an email to [EMAIL_REDACTED]"}
+    {"action": "NONE", "content": "User sent an email to [EMAIL_REDACTED:abcd1234]"}
   ]
 }
 

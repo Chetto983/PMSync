@@ -7,10 +7,10 @@
  *
  * Flow:
  * - User: "Send email to john@example.com"
- * - PII Detection: Redacts to "Send email to [EMAIL_REDACTED]"
- * - This Service: Stores mapping { "[EMAIL_REDACTED]": "john@example.com" }
- * - LLM: Sees redacted text, generates tool call with [EMAIL_REDACTED]
- * - Tool Execution: Resolves [EMAIL_REDACTED] → john@example.com
+ * - PII Detection: Redacts to "Send email to [EMAIL_REDACTED:abcd1234]"
+ * - This Service: Stores mapping { "[EMAIL_REDACTED:abcd1234]": "john@example.com" }
+ * - LLM: Sees redacted text, generates tool call with [EMAIL_REDACTED:abcd1234]
+ * - Tool Execution: Resolves [EMAIL_REDACTED:abcd1234] → john@example.com
  * - Action: Sends email to john@example.com
  *
  * @security Mappings are tenant-isolated and session-scoped
@@ -21,7 +21,7 @@ import { CacheService, CacheNamespace } from '../../../common/services/cache.ser
 import { PiiMatch, PiiType } from './pii-detection.service';
 
 export interface PiiMapping {
-  /** Redacted placeholder (e.g., "[EMAIL_REDACTED]") */
+  /** Redacted placeholder (e.g., "[EMAIL_REDACTED:abcd1234]") */
   placeholder: string;
   /** Original value (e.g., "john@example.com") */
   originalValue: string;
@@ -127,7 +127,7 @@ export class PiiResolutionService {
    *
    * @param tenantId - Tenant isolation
    * @param sessionId - Session/conversation ID
-   * @param placeholder - The redacted placeholder (e.g., "[EMAIL_REDACTED]")
+   * @param placeholder - The redacted placeholder (e.g., "[EMAIL_REDACTED:abcd1234]")
    * @returns Original value or null if not found
    */
   async resolveOne(
@@ -327,7 +327,28 @@ export class PiiResolutionService {
    */
   containsPlaceholders(text: string): boolean {
     if (!text) return false;
-    // Match patterns like [EMAIL_REDACTED], [PHONE_REDACTED], etc.
-    return /\[[A-Z_]+_REDACTED\]/.test(text);
+    // Match patterns like [EMAIL_REDACTED], [EMAIL_REDACTED:abcd1234], etc.
+    return /\[[A-Z_]+_REDACTED(?::[a-f0-9]+)?\]/.test(text);
+  }
+
+  /**
+   * Fetch mappings for a session (without resolving).
+   * Useful for streaming rehydration without repeated Redis calls.
+   */
+  async getMappings(
+    tenantId: string,
+    sessionId: string,
+  ): Promise<PiiMapping[]> {
+    const key = this.getStoreKey(tenantId, sessionId);
+
+    try {
+      const store = await this.cacheService.get<SessionPiiStore>(key, {
+        namespace: CacheNamespace.PII_RESOLUTION,
+      });
+      return store?.mappings ?? [];
+    } catch (error) {
+      this.logger.error(`Failed to load PII mappings: ${error}`);
+      return [];
+    }
   }
 }

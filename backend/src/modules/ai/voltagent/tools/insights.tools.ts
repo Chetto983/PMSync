@@ -26,11 +26,57 @@ import { MistralService } from '../../services/mistral.service';
 import { EmbeddingsService } from '../../services/embeddings.service';
 import { WritingStyleService } from '../services/writing-style.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
+import { PiiDetectionService, type PiiMatch } from '../../guards';
 
 /**
  * Default fallback labels when DB is empty
  */
 const DEFAULT_LABELS = ['Important', 'Follow-up', 'Info'];
+
+function redactForLlm(prompt: string, piiDetectionService?: PiiDetectionService): { safeText: string; matches: PiiMatch[] } {
+  if (!piiDetectionService) {
+    return { safeText: prompt, matches: [] };
+  }
+  const result = piiDetectionService.detect(prompt);
+  if (!result.hasPii) {
+    return { safeText: prompt, matches: [] };
+  }
+  return { safeText: result.redactedText, matches: result.details };
+}
+
+function rehydrateFromMatches(
+  output: string,
+  matches: PiiMatch[],
+  piiDetectionService?: PiiDetectionService,
+): string {
+  if (!piiDetectionService || matches.length === 0) {
+    return output;
+  }
+  return piiDetectionService.resolveFromMatches(output, matches);
+}
+
+async function completePromptWithRedaction(
+  mistral: MistralService,
+  piiDetectionService: PiiDetectionService | undefined,
+  params: {
+    systemPrompt?: string;
+    userPrompt: string;
+    temperature?: number;
+    jsonMode?: boolean;
+    maxTokens?: number;
+    modelTier?: 'fast' | 'medium' | 'high' | 'default';
+  },
+): Promise<string> {
+  const { safeText, matches } = redactForLlm(params.userPrompt, piiDetectionService);
+  const normalizedModelTier: 'fast' | 'medium' | 'default' | undefined =
+    params.modelTier === 'high' ? 'default' : params.modelTier;
+  const raw = await mistral.completePrompt({
+    ...params,
+    modelTier: normalizedModelTier,
+    userPrompt: safeText,
+  });
+  return rehydrateFromMatches(raw, matches, piiDetectionService);
+}
 
 /**
  * Helper to get available labels from database for tenant
@@ -77,6 +123,7 @@ export interface InsightsToolOptions {
   locale: SupportedLocale;
   tenantId: string;
   userId?: string;
+  piiDetectionService?: PiiDetectionService;
 }
 
 /**
@@ -298,7 +345,7 @@ function parseArrayFromPayload(payload: string, key: string): string[] {
  * Creates the summarize_email tool
  */
 export function createSummarizeEmailTool(options: InsightsToolOptions) {
-  const { prisma, mistral, cacheService, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId, piiDetectionService } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -315,7 +362,7 @@ export function createSummarizeEmailTool(options: InsightsToolOptions) {
 
       const userPrompt = buildEmailPrompt(email, locale, t);
 
-      const summary = await mistral.completePrompt({
+      const summary = await completePromptWithRedaction(mistral, piiDetectionService, {
         systemPrompt: t.insights.summarize.systemPrompt,
         userPrompt,
         temperature: 0.2,
@@ -336,7 +383,7 @@ export function createSummarizeEmailTool(options: InsightsToolOptions) {
  * Creates the analyze_sentiment tool
  */
 export function createAnalyzeSentimentTool(options: InsightsToolOptions) {
-  const { prisma, mistral, cacheService, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId, piiDetectionService } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -354,7 +401,7 @@ export function createAnalyzeSentimentTool(options: InsightsToolOptions) {
       const userPrompt = buildEmailPrompt(email, locale, t);
 
       // Performance optimization: use fast model for sentiment scoring (3-4x faster)
-      const raw = await mistral.completePrompt({
+      const raw = await completePromptWithRedaction(mistral, piiDetectionService, {
         systemPrompt: t.insights.sentiment.systemPrompt,
         userPrompt,
         temperature: 0.1,
@@ -403,7 +450,7 @@ export function createAnalyzeSentimentTool(options: InsightsToolOptions) {
  * Best practice 2025: Single tool with mode parameter instead of two separate tools.
  */
 export function createComposeReplyTool(options: InsightsToolOptions) {
-  const { prisma, mistral, writingStyle, cacheService, locale, tenantId, userId } = options;
+  const { prisma, mistral, writingStyle, cacheService, locale, tenantId, userId, piiDetectionService } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -437,7 +484,7 @@ Examples:
         const systemPrompt = t.insights.smartReplies.systemPrompt(toneInstruction);
         const userPrompt = buildEmailPrompt(email, locale, t);
 
-        const raw = await mistral.completePrompt({
+        const raw = await completePromptWithRedaction(mistral, piiDetectionService, {
           systemPrompt,
           userPrompt,
           temperature: 0.4,
@@ -504,7 +551,7 @@ Examples:
         .filter(Boolean)
         .join('\n');
 
-      const raw = await mistral.completePrompt({
+      const raw = await completePromptWithRedaction(mistral, piiDetectionService, {
         systemPrompt,
         userPrompt,
         temperature: 0.35,
@@ -568,7 +615,7 @@ function likelyHasActionItems(content: string, locale: string): boolean {
  * - Fast model for extraction
  */
 export function createExtractActionItemsTool(options: InsightsToolOptions) {
-  const { prisma, mistral, cacheService, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId, piiDetectionService } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -601,7 +648,7 @@ export function createExtractActionItemsTool(options: InsightsToolOptions) {
       const userPrompt = buildEmailPrompt(email, locale, t);
 
       // Performance optimization: use fast model for extraction
-      const raw = await mistral.completePrompt({
+      const raw = await completePromptWithRedaction(mistral, piiDetectionService, {
         systemPrompt: t.insights.actionItems.systemPrompt,
         userPrompt,
         temperature: 0.1,
@@ -643,7 +690,7 @@ export function createExtractActionItemsTool(options: InsightsToolOptions) {
  * Creates the categorize_email tool
  */
 export function createCategorizeEmailTool(options: InsightsToolOptions) {
-  const { prisma, mistral, cacheService, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId, piiDetectionService } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -665,7 +712,7 @@ export function createCategorizeEmailTool(options: InsightsToolOptions) {
       const systemPrompt = t.insights.categorize.systemPrompt(labelsList);
       const userPrompt = buildEmailPrompt(email, locale, t);
 
-      const raw = await mistral.completePrompt({
+      const raw = await completePromptWithRedaction(mistral, piiDetectionService, {
         systemPrompt,
         userPrompt,
         temperature: 0.1,
@@ -705,7 +752,7 @@ export function createCategorizeEmailTool(options: InsightsToolOptions) {
  * Creates the generate_smart_replies tool
  */
 export function createSmartRepliesTool(options: InsightsToolOptions) {
-  const { prisma, mistral, cacheService, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId, piiDetectionService } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -727,7 +774,7 @@ export function createSmartRepliesTool(options: InsightsToolOptions) {
       const systemPrompt = t.insights.smartReplies.systemPrompt(toneInstruction);
       const userPrompt = buildEmailPrompt(email, locale, t);
 
-      const raw = await mistral.completePrompt({
+      const raw = await completePromptWithRedaction(mistral, piiDetectionService, {
         systemPrompt,
         userPrompt,
         temperature: 0.4,
@@ -793,7 +840,7 @@ export type EmailIntent = (typeof EMAIL_INTENTS)[number];
  * Reduces token usage by ~80% and latency by ~85%.
  */
 export function createAnalyzeEmailTool(options: InsightsToolOptions) {
-  const { prisma, mistral, cacheService, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId, piiDetectionService } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -859,7 +906,7 @@ Examples:
   "reasoning": "Brief explanation of analysis"
 }`;
 
-      const raw = await mistral.completePrompt({
+      const raw = await completePromptWithRedaction(mistral, piiDetectionService, {
         systemPrompt,
         userPrompt,
         temperature: 0.1,
@@ -953,7 +1000,7 @@ Examples:
  * Best practice 2025: Intent-based routing for better handling.
  */
 export function createDetectIntentTool(options: InsightsToolOptions) {
-  const { prisma, mistral, cacheService, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId, piiDetectionService } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -993,7 +1040,7 @@ export function createDetectIntentTool(options: InsightsToolOptions) {
 }`;
 
       // Performance optimization: use fast model for intent classification (3-4x faster)
-      const raw = await mistral.completePrompt({
+      const raw = await completePromptWithRedaction(mistral, piiDetectionService, {
         systemPrompt,
         userPrompt,
         temperature: 0.1,
@@ -1043,7 +1090,7 @@ export function createDetectIntentTool(options: InsightsToolOptions) {
  * Best practice 2025: Multi-factor priority scoring.
  */
 export function createCalculatePriorityTool(options: InsightsToolOptions) {
-  const { prisma, mistral, cacheService, locale, tenantId } = options;
+  const { prisma, mistral, cacheService, locale, tenantId, piiDetectionService } = options;
   const t = getToolTranslations(locale);
 
   return createTool({
@@ -1083,7 +1130,7 @@ export function createCalculatePriorityTool(options: InsightsToolOptions) {
 }`;
 
       // Performance optimization: use fast model for scoring (3-4x faster)
-      const raw = await mistral.completePrompt({
+      const raw = await completePromptWithRedaction(mistral, piiDetectionService, {
         systemPrompt,
         userPrompt,
         temperature: 0.1,
@@ -1150,7 +1197,7 @@ export function createCalculatePriorityTool(options: InsightsToolOptions) {
  * Finds semantically similar emails based on meaning, not just keywords.
  */
 function createSemanticSearchEmailsTool(options: InsightsToolOptions) {
-  const { prisma, mistral, embeddingsService, tenantId } = options;
+  const { prisma, mistral, embeddingsService, tenantId, piiDetectionService } = options;
 
   return createTool({
     name: 'semantic_search_emails',
@@ -1171,7 +1218,8 @@ function createSemanticSearchEmailsTool(options: InsightsToolOptions) {
 
       try {
         // Generate embedding for query (GDPR: tenant-isolated caching)
-        const queryEmbedding = await mistral.generateEmbedding(query, undefined, { tenantId });
+        const { safeText } = redactForLlm(query, piiDetectionService);
+        const queryEmbedding = await mistral.generateEmbedding(safeText, undefined, { tenantId });
         if (!queryEmbedding || queryEmbedding.length === 0) {
           return { success: false, error: 'Failed to generate query embedding' };
         }

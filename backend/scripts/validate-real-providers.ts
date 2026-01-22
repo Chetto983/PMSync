@@ -8,8 +8,12 @@
  *   cd backend
  *   npx ts-node ./scripts/validate-real-providers.ts
  */
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 import { createPrismaClient } from '../src/prisma/prisma-client.factory';
 import Redis from 'ioredis';
+
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 const prisma = createPrismaClient();
 
@@ -21,6 +25,36 @@ interface ValidationResult {
 }
 
 const results: ValidationResult[] = [];
+const providerTypes = ['google', 'microsoft', 'imap'] as const;
+
+type ProviderType = (typeof providerTypes)[number];
+
+interface ProviderInfo {
+  id: string;
+  email: string;
+  providerType: ProviderType;
+  isActive: boolean;
+  tenantId: string;
+  lastSyncedAt: Date | null;
+  nextSyncAt: Date | null;
+}
+
+interface TenantSelection {
+  tenantId: string;
+  tenantName: string;
+  providers: ProviderInfo[];
+}
+
+const args = process.argv.slice(2);
+const argValue = (name: string): string | undefined => {
+  const direct = args.find((arg) => arg.startsWith(`${name}=`));
+  if (direct) return direct.split('=')[1];
+  const idx = args.indexOf(name);
+  return idx >= 0 ? args[idx + 1] : undefined;
+};
+
+const tenantIdArg = argValue('--tenant-id') || process.env.TENANT_ID;
+const tenantNameArg = argValue('--tenant');
 
 function getRedisConnection(): Redis {
   return new Redis({
@@ -31,35 +65,133 @@ function getRedisConnection(): Redis {
   });
 }
 
+function countByType(providers: ProviderInfo[]): Record<ProviderType, number> {
+  return {
+    google: providers.filter((p) => p.providerType === 'google').length,
+    microsoft: providers.filter((p) => p.providerType === 'microsoft').length,
+    imap: providers.filter((p) => p.providerType === 'imap').length,
+  };
+}
+
+async function selectTenant(): Promise<TenantSelection> {
+  const tenants = await prisma.tenant.findMany({
+    select: { id: true, name: true },
+  });
+
+  const providers = await prisma.providerConfig.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      email: true,
+      providerType: true,
+      isActive: true,
+      tenantId: true,
+      lastSyncedAt: true,
+      nextSyncAt: true,
+    },
+  });
+
+  const typedProviders = providers
+    .filter((p) => providerTypes.includes(p.providerType as ProviderType))
+    .map((p) => ({
+      id: p.id,
+      email: p.email,
+      providerType: p.providerType as ProviderType,
+      isActive: p.isActive,
+      tenantId: p.tenantId,
+      lastSyncedAt: p.lastSyncedAt,
+      nextSyncAt: p.nextSyncAt,
+    }));
+
+  if (tenantIdArg) {
+    const tenant = tenants.find((t) => t.id === tenantIdArg);
+    if (!tenant) {
+      throw new Error(`Tenant not found for id: ${tenantIdArg}`);
+    }
+    return {
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      providers: typedProviders.filter((p) => p.tenantId === tenant.id),
+    };
+  }
+
+  if (tenantNameArg) {
+    const matching = tenants.filter((t) =>
+      t.name.toLowerCase().includes(tenantNameArg.toLowerCase()),
+    );
+    if (matching.length === 0) {
+      throw new Error(`No tenant matching name: ${tenantNameArg}`);
+    }
+    if (matching.length > 1) {
+      const options = matching.map((t) => `${t.name} (${t.id})`).join(', ');
+      throw new Error(`Multiple tenants match "${tenantNameArg}": ${options}`);
+    }
+    const tenant = matching[0];
+    return {
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      providers: typedProviders.filter((p) => p.tenantId === tenant.id),
+    };
+  }
+
+  const tenantStats = tenants.map((tenant) => {
+    const tenantProviders = typedProviders.filter((p) => p.tenantId === tenant.id);
+    const byType = countByType(tenantProviders);
+    return {
+      tenant,
+      providers: tenantProviders,
+      byType,
+      total: tenantProviders.length,
+      hasAllTypes: providerTypes.every((type) => byType[type] > 0),
+    };
+  });
+
+  const candidates = tenantStats.filter((t) => t.hasAllTypes);
+  if (candidates.length === 1) {
+    const candidate = candidates[0];
+    return {
+      tenantId: candidate.tenant.id,
+      tenantName: candidate.tenant.name,
+      providers: candidate.providers,
+    };
+  }
+
+  const summary = tenantStats
+    .map((t) => `${t.tenant.name} (${t.tenant.id}) -> G=${t.byType.google}, M=${t.byType.microsoft}, I=${t.byType.imap}`)
+    .join('\n');
+
+  if (candidates.length === 0) {
+    throw new Error(
+      `No tenant has all 3 providers. Provide --tenant-id or --tenant.\n${summary}`,
+    );
+  }
+
+  throw new Error(
+    `Multiple tenants have all 3 providers. Provide --tenant-id or --tenant.\n${summary}`,
+  );
+}
+
+let selectedTenant: TenantSelection | null = null;
+
 // Test 1: Verify providers exist and are configured
 async function testProviderConfig(): Promise<void> {
   const start = Date.now();
   const testName = 'Provider Configuration';
 
   try {
-    const providers = await prisma.providerConfig.findMany({
-      select: {
-        id: true,
-        email: true,
-        providerType: true,
-        isActive: true,
-        tenantId: true,
-        lastSyncedAt: true,
-        nextSyncAt: true,
-      },
-    });
-
-    const activeProviders = providers.filter((p) => p.isActive);
+    selectedTenant = await selectTenant();
+    const activeProviders = selectedTenant.providers;
     const byType = {
       google: activeProviders.filter((p) => p.providerType === 'google').length,
       microsoft: activeProviders.filter((p) => p.providerType === 'microsoft').length,
       imap: activeProviders.filter((p) => p.providerType === 'imap').length,
     };
+    const hasAllTypes = providerTypes.every((type) => byType[type] > 0);
 
     results.push({
       name: testName,
-      passed: activeProviders.length > 0,
-      details: `Found ${activeProviders.length} active providers: Google=${byType.google}, Microsoft=${byType.microsoft}, IMAP=${byType.imap}`,
+      passed: activeProviders.length > 0 && hasAllTypes,
+      details: `Tenant=${selectedTenant.tenantName} (${selectedTenant.tenantId}). Providers: ${activeProviders.length}. Google=${byType.google}, Microsoft=${byType.microsoft}, IMAP=${byType.imap}`,
       duration: Date.now() - start,
     });
 
@@ -186,14 +318,21 @@ async function testEmailDataConsistency(): Promise<void> {
   const testName = 'Email Data Consistency';
 
   try {
+    if (!selectedTenant) {
+      throw new Error('Tenant selection missing (provider config test failed).');
+    }
+    const providerIds = selectedTenant.providers.map((p) => p.id);
+
     // Count emails per provider
     const emailCounts = await prisma.email.groupBy({
       by: ['providerId'],
+      where: providerIds.length > 0 ? { providerId: { in: providerIds } } : undefined,
       _count: { id: true },
     });
 
     // Get folder counts
     const folders = await prisma.folder.findMany({
+      where: providerIds.length > 0 ? { providerId: { in: providerIds } } : undefined,
       select: {
         providerId: true,
         name: true,

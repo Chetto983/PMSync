@@ -21,6 +21,7 @@ import { createFolderTools } from '../tools/folder.tools';
 import { createContactsTools } from '../tools/contacts.tools';
 import { createCalendarTools } from '../tools/calendar.tools';
 import { createInsightTools } from '../tools/insights.tools';
+import { PiiDetectionService } from '../../guards';
 
 /**
  * Tool names that IntelligenceAgent uses (READ operations only)
@@ -57,6 +58,8 @@ export interface IntelligenceAgentOptions {
   hooks?: AgentHooks;
   /** VoltAgent memory for conversation persistence */
   memory?: Memory;
+  /** Optional PII detection for LLM redaction */
+  piiDetectionService?: PiiDetectionService;
 }
 
 /**
@@ -77,6 +80,7 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
     userId,
     hooks,
     memory,
+    piiDetectionService,
   } = options;
 
   // Always use English prompts - locale only affects response language
@@ -108,6 +112,7 @@ export function createIntelligenceAgent(options: IntelligenceAgentOptions): Agen
         locale,
         tenantId,
         userId,
+        piiDetectionService,
       })
     : [];
 
