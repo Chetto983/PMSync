@@ -386,7 +386,7 @@ export class DailyBriefingService implements OnModuleInit, OnModuleDestroy {
     const locale = getLocale(userPrefs?.language || undefined);
 
     // Get translations for this locale
-    const t = getTranslations(locale);
+    const _t = getTranslations(locale);
 
     // P10: Quota enforcement via QuotaGuard at controller level
     // Note: usageTrackingService.checkQuota() is deprecated (always returns true)

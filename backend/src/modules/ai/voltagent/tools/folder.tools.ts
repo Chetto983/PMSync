@@ -242,10 +242,10 @@ All actions require user approval (HITL).`,
               folder.isSystem ||
               (normalizedSpecialUse
                 ? SYSTEM_FOLDERS.includes(normalizedSpecialUse as typeof SYSTEM_FOLDERS[number])
-                  || JUNK_FOLDERS.includes(normalizedSpecialUse as typeof JUNK_FOLDERS[number])
+                  || JUNK_FOLDERS.includes(normalizedSpecialUse)
                 : false)
               || SYSTEM_FOLDERS.includes(normalizedName as typeof SYSTEM_FOLDERS[number])
-              || JUNK_FOLDERS.includes(normalizedName as typeof JUNK_FOLDERS[number]);
+              || JUNK_FOLDERS.includes(normalizedName);
 
             if (isProtected) {
               return { success: false, error: `Cannot delete system folder "${folder.name}"` };
