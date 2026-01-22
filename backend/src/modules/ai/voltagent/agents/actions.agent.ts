@@ -21,6 +21,12 @@ import { createCalendarTools } from '../tools/calendar.tools';
 
 /**
  * Tool names that ActionsAgent uses (WRITE operations + supporting READ tools)
+ *
+ * IMPORTANT: ActionsAgent needs READ tools to resolve names/queries to IDs
+ * before calling write operations. Without search_contacts/get_events, the agent
+ * cannot fulfill requests like "Update contact John" (needs contactId).
+ *
+ * Bug fix 2026-01-22: Added search_contacts and get_events to enable name→ID resolution
  */
 const ACTIONS_TOOLS = [
   // Email read operations (REQUIRED for getting providerId before send)
@@ -30,9 +36,12 @@ const ACTIONS_TOOLS = [
   'bulk_email_actions',
   // Folder write operations
   'manage_folder',
-  // Contact write operations (includes get for validation before update/delete)
+  'list_folders', // Needed to find folderId by name
+  // Contact operations (search needed to resolve names to contactId)
+  'search_contacts', // REQUIRED: resolve "contact John" → contactId for update/delete
   'manage_contact',
-  // Calendar write operations (includes check_availability for scheduling)
+  // Calendar operations (get_events needed to resolve event titles to eventId)
+  'get_events', // REQUIRED: resolve "event Team Meeting" → eventId for update/delete
   'manage_event',
 ] as const;
 
@@ -97,6 +106,6 @@ export function createActionsAgent(options: ActionsAgentOptions): Agent {
     hooks,
     // Disable VoltAgent auto-memory writes to avoid duplicate persistence (we store manually)
     memory: false,
-    maxSteps: 3, // Most write ops need 1-2 steps max
+    maxSteps: 5, // Name-to-ID workflow needs: search → get result → manage → get result
   });
 }

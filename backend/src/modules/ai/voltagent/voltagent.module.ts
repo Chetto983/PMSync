@@ -51,6 +51,11 @@ import { MemoryIntelligenceService } from './services/memory-intelligence.servic
 import { AlertingService } from '../../../common/services/alerting.service';
 import { LearningService } from './services/learning.service';
 
+// Chat Processing (Refactored from VoltAgentService 2026-01-22)
+import { ChatRequestProcessorService } from './services/chat-request-processor.service';
+import { ChatContextBuilderService } from './services/chat-context-builder.service';
+import { ChatResponseProcessorService } from './services/chat-response-processor.service';
+
 @Module({
   imports: [
     ConfigModule,
@@ -99,6 +104,10 @@ import { LearningService } from './services/learning.service';
     MemoryIntelligenceService,
     AlertingService,
     LearningService,
+    // Chat Processing (Refactored from VoltAgentService)
+    ChatRequestProcessorService,
+    ChatContextBuilderService,
+    ChatResponseProcessorService,
   ],
   exports: [
     VoltAgentService,
