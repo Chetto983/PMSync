@@ -50,6 +50,8 @@ export interface ResponseProcessingOptions {
   piiMappings?: PiiMapping[];
   selectedModel?: string;
   logPrefix?: string;
+  /** Request start time for filtering hook-captured actions */
+  requestStartTime?: Date;
 }
 
 export interface ProcessedResponse {
@@ -91,15 +93,41 @@ export class ChatResponseProcessorService {
     // 1. Sanitize response to remove internal context markers
     const sanitizedText = sanitizeLlmResponse(result.text);
 
-    // 2. Extract pending actions from tool results
-    const pendingActions = await this.extractPendingActions(result.steps, {
+    // 2. Extract pending actions from top-level tool results
+    const topLevelActions = await this.extractPendingActions(result.steps, {
       tenantId: options.tenantId,
       userId: options.userId,
       sessionId: options.sessionId,
       logPrefix,
     });
 
-    // 3. Resolve user-visible text (rehydrate PII if needed)
+    // 3. Fetch hook-captured actions from database (for nested delegate_task results)
+    // CRITICAL FIX 2026-01-22: When Supervisor delegates to ActionsAgent via delegate_task,
+    // the sub-agent's tool results with requiresApproval are captured by onToolEnd hooks
+    // and stored to DB, but NOT visible in top-level result.steps. We must query both.
+    const hookCapturedActions = await this.fetchHookCapturedActions(
+      options.tenantId,
+      options.sessionId,
+      options.requestStartTime,
+    );
+
+    // 4. Merge and deduplicate actions (prefer top-level, they're more complete)
+    const seenIds = new Set(topLevelActions.map((a) => a.id));
+    const mergedActions = [...topLevelActions];
+    for (const action of hookCapturedActions) {
+      if (!seenIds.has(action.id)) {
+        mergedActions.push(action);
+        seenIds.add(action.id);
+      }
+    }
+
+    if (hookCapturedActions.length > 0) {
+      this.logger.debug(
+        `${logPrefix} Found ${hookCapturedActions.length} hook-captured HITL actions for session ${options.sessionId}`,
+      );
+    }
+
+    // 5. Resolve user-visible text (rehydrate PII if needed)
     const text = await this.resolveUserVisibleText(
       sanitizedText,
       options.tenantId,
@@ -108,9 +136,36 @@ export class ChatResponseProcessorService {
 
     return {
       text,
-      pendingActions,
-      requiresApproval: pendingActions.length > 0,
+      pendingActions: mergedActions,
+      requiresApproval: mergedActions.length > 0,
     };
+  }
+
+  /**
+   * Fetch pending actions captured by hooks during delegate_task execution.
+   * These are HITL actions from sub-agents that would otherwise be lost.
+   */
+  private async fetchHookCapturedActions(
+    tenantId: string,
+    sessionId: string,
+    requestStartTime?: Date,
+  ): Promise<PendingAction[]> {
+    if (!this.hitlService) {
+      return [];
+    }
+
+    try {
+      return await this.hitlService.getPendingActionsBySession(
+        tenantId,
+        sessionId,
+        requestStartTime,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[tenant:${tenantId}] Failed to fetch hook-captured actions: ${error}`,
+      );
+      return [];
+    }
   }
 
   /**
@@ -129,7 +184,7 @@ export class ChatResponseProcessorService {
     },
   ): Promise<PendingAction[]> {
     const pendingActions: PendingAction[] = [];
-    const { logPrefix } = options;
+    //const { logPrefix } = options;
 
     this.logger.debug(`[HITL DEBUG] result.steps count: ${steps?.length || 0}`);
 

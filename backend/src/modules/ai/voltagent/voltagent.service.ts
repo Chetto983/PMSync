@@ -61,6 +61,7 @@ import {
 } from './workflows';
 import { MemoryIntelligenceService } from './services/memory-intelligence.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
+import { ChatResponseProcessorService } from './services/chat-response-processor.service';
 
 /**
  * Sanitize LLM response to remove accidentally echoed internal context markers.
@@ -362,6 +363,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly conversationService?: ConversationManagementService,
     @Optional() private readonly memoryIntelligenceService?: MemoryIntelligenceService,
     @Optional() private readonly usageTrackingService?: UsageTrackingService,
+    @Optional() private readonly chatResponseProcessor?: ChatResponseProcessorService,
   ) { }
 
   async onModuleInit() {
@@ -1261,58 +1263,62 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       this.modelRouterService.recordLatency(selectedModel, Date.now() - startTime);
     }
 
-    // Extract any pending actions from tool results
-    const pendingActions: PendingAction[] = [];
-    this.logger.debug(`[HITL DEBUG] result.steps count: ${result.steps?.length || 0}`);
-    for (let i = 0; i < result.steps.length; i++) {
-      const step = result.steps[i];
-      // Log the full step structure for debugging
-      this.logger.debug(`[HITL DEBUG] Step ${i} keys: ${Object.keys(step).join(', ')}`);
-      this.logger.debug(`[HITL DEBUG] Step ${i} JSON (first 500 chars): ${JSON.stringify(step).substring(0, 500)}`);
-      // Access tool results from the step - AI SDK v5 uses 'output' property
-      const toolResults = (step as unknown as { toolResults?: Array<{ output?: unknown; toolName?: string }> }).toolResults;
-      this.logger.debug(`[HITL DEBUG] toolResults found: ${!!toolResults}, count: ${toolResults?.length || 0}`);
-      if (toolResults) {
-        for (const toolResult of toolResults) {
-          // AI SDK v5 uses 'output' not 'result' for tool execution results
-          const resultValue = toolResult.output as Record<string, unknown> | undefined;
-          this.logger.debug(`[HITL DEBUG] toolResult.output for ${toolResult.toolName}: ${JSON.stringify(resultValue)?.substring(0, 200)}`);
-          if (resultValue?.requiresApproval) {
-            const actionType = resultValue.actionType as string;
-            const severity = resultValue.severity as 'LOW' | 'MEDIUM' | 'HIGH';
-            const payload = resultValue.payload as Record<string, unknown>;
-            const summary = resultValue.summary as string;
+    // Extract pending actions from tool results + database (for delegated actions)
+    // CRITICAL FIX 2026-01-22: When Supervisor delegates to ActionsAgent via delegate_task,
+    // the sub-agent's tool results with requiresApproval are captured by onToolEnd hooks
+    // and stored to database, but NOT visible in top-level result.steps. We must query both.
+    const effectiveSessionId = persistedConversationId || options.conversationId || sessionId;
+    let pendingActions: PendingAction[] = [];
 
-            // Persist pending action to database via HitlService
-            // CRITICAL: Use persistedConversationId for new conversations (when options.conversationId is undefined)
-            const effectiveSessionId = persistedConversationId || options.conversationId;
-            let actionId: string;
-            this.logger.debug(`[HITL] Creating pending action with sessionId=${effectiveSessionId} for action=${actionType}`);
-            if (this.hitlService) {
-              actionId = await this.hitlService.createPendingAction({
-                tenantId: options.tenantId,
-                userId: options.userId,
-                sessionId: effectiveSessionId,
-                agentName: 'SupervisorAgent',
-                action: {
-                  type: actionType as unknown as import('./interfaces/agent-action.interface').AgentActionType,
-                  payload,
-                  confidence: (resultValue.confidence as number) ?? 0.8,
-                  severity: severity as ActionSeverity,
-                  reasoningSteps: summary,
-                },
-              });
-            } else {
-              actionId = crypto.randomUUID();
+    if (this.chatResponseProcessor) {
+      // Use the new service that handles both extraction methods
+      const processed = await this.chatResponseProcessor.process(
+        { text: result.text, steps: result.steps as Array<{ toolResults?: Array<{ output?: Record<string, unknown>; toolName?: string }> }> },
+        {
+          tenantId: options.tenantId,
+          userId: options.userId,
+          sessionId: effectiveSessionId,
+          requestStartTime: new Date(startTime),
+          logPrefix,
+        },
+      );
+      pendingActions = processed.pendingActions;
+    } else {
+      // Fallback: extract from top-level steps only (original behavior)
+      this.logger.debug(`[HITL DEBUG] result.steps count: ${result.steps?.length || 0}`);
+      for (let i = 0; i < result.steps.length; i++) {
+        const step = result.steps[i];
+        const toolResults = (step as unknown as { toolResults?: Array<{ output?: unknown; toolName?: string }> }).toolResults;
+        if (toolResults) {
+          for (const toolResult of toolResults) {
+            const resultValue = toolResult.output as Record<string, unknown> | undefined;
+            if (resultValue?.requiresApproval) {
+              const actionType = resultValue.actionType as string;
+              const severity = resultValue.severity as 'LOW' | 'MEDIUM' | 'HIGH';
+              const payload = resultValue.payload as Record<string, unknown>;
+              const summary = resultValue.summary as string;
+
+              let actionId: string;
+              if (this.hitlService) {
+                actionId = await this.hitlService.createPendingAction({
+                  tenantId: options.tenantId,
+                  userId: options.userId,
+                  sessionId: effectiveSessionId,
+                  agentName: 'SupervisorAgent',
+                  action: {
+                    type: actionType as unknown as import('./interfaces/agent-action.interface').AgentActionType,
+                    payload,
+                    confidence: (resultValue.confidence as number) ?? 0.8,
+                    severity: severity as ActionSeverity,
+                    reasoningSteps: summary,
+                  },
+                });
+              } else {
+                actionId = crypto.randomUUID();
+              }
+
+              pendingActions.push({ id: actionId, actionType, severity, payload, summary });
             }
-
-            pendingActions.push({
-              id: actionId,
-              actionType,
-              severity,
-              payload,
-              summary,
-            });
           }
         }
       }

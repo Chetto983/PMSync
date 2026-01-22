@@ -313,6 +313,65 @@ export class HitlService {
   }
 
   /**
+   * Get pending actions for a specific session.
+   * Used to retrieve HITL actions captured by hooks during delegate_task execution.
+   * Always enforces tenant isolation.
+   *
+   * @param tenantId - Tenant ID for isolation
+   * @param sessionId - Session/conversation ID
+   * @param createdAfter - Only return actions created after this timestamp (for request-scoping)
+   * @returns Array of pending actions for this session
+   */
+  async getPendingActionsBySession(
+    tenantId: string,
+    sessionId: string,
+    createdAfter?: Date,
+  ): Promise<Array<{
+    id: string;
+    actionType: string;
+    severity: 'LOW' | 'MEDIUM' | 'HIGH';
+    payload: Record<string, unknown>;
+    summary: string;
+  }>> {
+    const where: Prisma.ActionQueueWhereInput = {
+      tenantId,
+      status: ActionStatus.PENDING_APPROVAL,
+      actionPayload: {
+        path: ['sessionId'],
+        equals: sessionId,
+      },
+    };
+
+    // If createdAfter is provided, only fetch actions created during this request
+    if (createdAfter) {
+      where.createdAt = { gte: createdAfter };
+    }
+
+    const actions = await this.prisma.actionQueue.findMany({
+      where,
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return actions.map((action) => {
+      const payload = action.actionPayload as Record<string, unknown>;
+      return {
+        id: action.id,
+        actionType: action.actionType,
+        severity: (payload?.severity as 'LOW' | 'MEDIUM' | 'HIGH') || 'MEDIUM',
+        payload: {
+          ...payload,
+          // Remove internal fields
+          sessionId: undefined,
+          agentName: undefined,
+          actionHash: undefined,
+          severity: undefined,
+        },
+        summary: action.reasoning || `${action.actionType} action requires approval`,
+      };
+    });
+  }
+
+  /**
    * Get a single pending action by ID.
    * Enforces tenant isolation.
    */
