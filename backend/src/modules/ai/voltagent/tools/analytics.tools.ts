@@ -21,7 +21,7 @@ import { z } from 'zod';
 import { Mistral } from '@mistralai/mistralai';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { getToolTranslations, type SupportedLocale } from '../locales';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { AiError, AiErrorCode } from '../../errors';
@@ -192,6 +192,71 @@ function createMistralClient(configService: ConfigService): Mistral {
   return new Mistral({ apiKey });
 }
 
+function isPrismaUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+}
+
+function isNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { status?: number; statusCode?: number; response?: { status?: number }; message?: string };
+  const status = err.status ?? err.statusCode ?? err.response?.status;
+  if (status === 404) return true;
+  if (typeof err.message === 'string') {
+    const msg = err.message.toLowerCase();
+    return msg.includes('not found') || msg.includes('404');
+  }
+  return false;
+}
+
+async function safeDeleteRemoteAgent(client: Mistral, agentId: string, context: string): Promise<void> {
+  try {
+    await client.beta.agents.delete({ agentId });
+  } catch (error) {
+    if (!isNotFoundError(error)) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.warn(`[${context}] Failed to delete orphaned agent ${agentId}: ${msg}`);
+    }
+  }
+}
+
+async function persistAgentRecord(params: {
+  prisma: PrismaClient;
+  client: Mistral;
+  tenantId: string;
+  agentType: string;
+  locale: SupportedLocale;
+  agentId: string;
+  model: string;
+}): Promise<string> {
+  const { prisma, client, tenantId, agentType, locale, agentId, model } = params;
+  try {
+    await prisma.mistralAgent.create({
+      data: {
+        tenantId,
+        agentType,
+        locale,
+        agentId,
+        model,
+      },
+    });
+    return agentId;
+  } catch (error) {
+    if (isPrismaUniqueConstraintError(error)) {
+      const existing = await prisma.mistralAgent.findUnique({
+        where: {
+          tenantId_agentType_locale: { tenantId, agentType, locale },
+        },
+      });
+      if (existing) {
+        await safeDeleteRemoteAgent(client, agentId, 'analytics');
+        return existing.agentId;
+      }
+      await safeDeleteRemoteAgent(client, agentId, 'analytics');
+    }
+    throw error;
+  }
+}
+
 /**
  * Verify an agent still exists in Mistral.
  * Returns true if valid, false if not found or error.
@@ -201,9 +266,13 @@ async function verifyAgentExists(client: Mistral, agentId: string): Promise<bool
     await client.beta.agents.get({ agentId });
     return true;
   } catch (error) {
-    // Agent doesn't exist (404) or other error - need to create new
-    logger.debug(`Agent ${agentId} no longer exists in Mistral, will create new`);
-    return false;
+    if (isNotFoundError(error)) {
+      logger.debug(`Agent ${agentId} no longer exists in Mistral, will create new`);
+      return false;
+    }
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.warn(`Agent verification failed for ${agentId}, assuming it exists: ${msg}`);
+    return true;
   }
 }
 
@@ -316,29 +385,21 @@ Always provide both numerical analysis and natural language insights.`,
   const createTime = Date.now() - startTime;
   logger.log(`Analytics agent created in ${createTime}ms: ${agent.id} for locale: ${locale}`);
 
-  // 4. Save to PostgreSQL (persistent) with upsert for safety
-  await prisma.mistralAgent.upsert({
-    where: {
-      tenantId_agentType_locale: { tenantId, agentType, locale },
-    },
-    update: {
-      agentId: agent.id,
-      model,
-      updatedAt: new Date(),
-    },
-    create: {
-      tenantId,
-      agentType,
-      locale,
-      agentId: agent.id,
-      model,
-    },
+  // 4. Save to PostgreSQL (persistent) with concurrency-safe create
+  const persistedAgentId = await persistAgentRecord({
+    prisma,
+    client,
+    tenantId,
+    agentType,
+    locale,
+    agentId: agent.id,
+    model,
   });
 
   // 5. Update memory cache
-  fallbackAgentPool.set(cacheKey, { agentId: agent.id, createdAt: Date.now() });
+  fallbackAgentPool.set(cacheKey, { agentId: persistedAgentId, createdAt: Date.now() });
 
-  return agent.id;
+  return persistedAgentId;
 }
 
 /**
@@ -411,7 +472,7 @@ Please:
     logger.error(`Analytics failed: ${errorMsg}`);
 
     // If agent expired or invalid, clear cache and retry once
-    if (errorMsg.includes('agent') && errorMsg.includes('not found')) {
+    if (isNotFoundError(error)) {
       logger.warn(`Agent expired, clearing cache for locale: ${locale}, tenant: ${tenantId}`);
       await clearAgentFromCache(locale, tenantId, cacheService);
     }
@@ -599,6 +660,7 @@ export async function deleteTenantAnalyticsAgents(
 ): Promise<{ deleted: number; errors: string[] }> {
   const errors: string[] = [];
   let deleted = 0;
+  const deletedIds: string[] = [];
 
   // 1. Get all analytics agents for this tenant from PostgreSQL
   const agents = await prisma.mistralAgent.findMany({
@@ -616,6 +678,7 @@ export async function deleteTenantAnalyticsAgents(
     try {
       await client.beta.agents.delete({ agentId: agent.agentId });
       deleted++;
+      deletedIds.push(agent.id);
       logger.log(`[GDPR] Deleted Mistral analytics agent ${agent.agentId} for tenant ${tenantId}`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -625,6 +688,7 @@ export async function deleteTenantAnalyticsAgents(
         logger.error(`[GDPR] Failed to delete Mistral analytics agent ${agent.agentId}: ${msg}`);
       } else {
         deleted++; // Count as deleted if already gone
+        deletedIds.push(agent.id);
       }
     }
 
@@ -633,10 +697,12 @@ export async function deleteTenantAnalyticsAgents(
     fallbackAgentPool.delete(cacheKey);
   }
 
-  // 3. Delete all records from PostgreSQL (cascade will handle this if tenant is deleted)
-  await prisma.mistralAgent.deleteMany({
-    where: { tenantId, agentType: MistralAgentType.ANALYTICS },
-  });
+  // 3. Delete records from PostgreSQL for successfully deleted agents
+  if (deletedIds.length > 0) {
+    await prisma.mistralAgent.deleteMany({
+      where: { id: { in: deletedIds } },
+    });
+  }
 
   logger.log(`[GDPR] Analytics cleanup complete for tenant ${tenantId}: ${deleted} agents deleted, ${errors.length} errors`);
   return { deleted, errors };

@@ -191,7 +191,7 @@ Examples:
               return { success: false, error: t.email.notFound };
             }
             const attachments = await prisma.emailAttachment.findMany({
-              where: { emailId },
+              where: { emailId, tenantId },
               select: { filename: true, size: true },
             });
             const body = email.bodyText || email.bodyHtml || email.snippet || '';
@@ -789,6 +789,14 @@ All actions require user approval (HITL).`,
               select: { id: true },
               take: 1000,
             });
+            const selectedCount = emailsToDelete.length;
+            if (selectedCount === 0) {
+              return { success: true, data: { count: 0 }, summary: 'No emails found to delete' };
+            }
+
+            const truncationNote = count > selectedCount
+              ? ` (showing first ${selectedCount} of ${count}; refine filters to delete more)`
+              : '';
 
             return {
               success: true,
@@ -799,9 +807,9 @@ All actions require user approval (HITL).`,
                 emailIds: emailsToDelete.map((e) => e.id),
                 folder: folder?.toUpperCase(),
                 permanent: permanent ?? false,
-                count,
+                count: selectedCount,
               },
-              summary: `Delete ${count} email${count === 1 ? '' : 's'}`,
+              summary: `Delete ${selectedCount} email${selectedCount === 1 ? '' : 's'}${truncationNote}`,
             };
           }
 
@@ -833,6 +841,14 @@ All actions require user approval (HITL).`,
               select: { id: true },
               take: 5000,
             });
+            const selectedCount = emailsToDelete.length;
+            if (selectedCount === 0) {
+              return { success: true, data: { count: 0 }, summary: `${upperFolder} folder is already empty` };
+            }
+
+            const truncationNote = count > selectedCount
+              ? ` (showing first ${selectedCount} of ${count}; refine filters to delete more)`
+              : '';
 
             return {
               success: true,
@@ -843,9 +859,9 @@ All actions require user approval (HITL).`,
                 folder: upperFolder,
                 emailIds: emailsToDelete.map((e) => e.id),
                 permanent: permanent ?? (upperFolder === 'TRASH'),
-                count,
+                count: selectedCount,
               },
-              summary: `Empty ${upperFolder} folder (${count} email${count === 1 ? '' : 's'})`,
+              summary: `Empty ${upperFolder} folder (${selectedCount} email${selectedCount === 1 ? '' : 's'})${truncationNote}`,
             };
           }
 
@@ -854,8 +870,15 @@ All actions require user approval (HITL).`,
 
             if (emailIds?.length) {
               whereClause.id = { in: emailIds };
+            } else if (folder) {
+              const resolvedFolders = await resolveFolderNames(folder);
+              if (resolvedFolders.length > 0) {
+                whereClause.folder = { in: resolvedFolders };
+              } else {
+                whereClause.folder = { contains: folder, mode: 'insensitive' };
+              }
             } else {
-              whereClause.folder = folder?.toUpperCase() || 'INBOX';
+              whereClause.folder = 'INBOX';
             }
 
             if (onlyRead) {
@@ -878,6 +901,14 @@ All actions require user approval (HITL).`,
               select: { id: true },
               take: 1000,
             });
+            const selectedCount = emailsToArchive.length;
+            if (selectedCount === 0) {
+              return { success: true, data: { count: 0 }, summary: 'No emails found to archive' };
+            }
+
+            const truncationNote = count > selectedCount
+              ? ` (showing first ${selectedCount} of ${count}; refine filters to archive more)`
+              : '';
 
             return {
               success: true,
@@ -886,9 +917,9 @@ All actions require user approval (HITL).`,
               severity: 'MEDIUM',
               payload: {
                 emailIds: emailsToArchive.map((e) => e.id),
-                count,
+                count: selectedCount,
               },
-              summary: `Archive ${count} email${count === 1 ? '' : 's'}`,
+              summary: `Archive ${selectedCount} email${selectedCount === 1 ? '' : 's'}${truncationNote}`,
             };
           }
 
@@ -898,7 +929,12 @@ All actions require user approval (HITL).`,
             if (emailIds?.length) {
               whereClause.id = { in: emailIds };
             } else if (folder) {
-              whereClause.folder = folder.toUpperCase();
+              const resolvedFolders = await resolveFolderNames(folder);
+              if (resolvedFolders.length > 0) {
+                whereClause.folder = { in: resolvedFolders };
+              } else {
+                whereClause.folder = { contains: folder, mode: 'insensitive' };
+              }
             } else {
               whereClause.folder = { not: { in: ['SPAM', 'TRASH'] } };
             }
@@ -913,6 +949,14 @@ All actions require user approval (HITL).`,
               select: { id: true },
               take: 1000,
             });
+            const selectedCount = emailsToMark.length;
+            if (selectedCount === 0) {
+              return { success: true, data: { count: 0 }, summary: 'No unread emails found' };
+            }
+
+            const truncationNote = count > selectedCount
+              ? ` (showing first ${selectedCount} of ${count}; refine filters to mark more)`
+              : '';
 
             return {
               success: true,
@@ -921,9 +965,9 @@ All actions require user approval (HITL).`,
               severity: 'LOW',
               payload: {
                 emailIds: emailsToMark.map((e) => e.id),
-                count,
+                count: selectedCount,
               },
-              summary: `Mark ${count} email${count === 1 ? '' : 's'} as read`,
+              summary: `Mark ${selectedCount} email${selectedCount === 1 ? '' : 's'} as read${truncationNote}`,
             };
           }
 

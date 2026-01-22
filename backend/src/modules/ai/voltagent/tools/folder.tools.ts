@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { getToolTranslations, type SupportedLocale } from '../locales';
+import { JUNK_FOLDERS, SYSTEM_FOLDERS } from '../../../email/email.helpers';
 
 /**
  * Folder metadata for caching
@@ -23,6 +24,8 @@ interface FolderMetadata {
   path: string;
   providerId: string;
   totalCount: number;
+  isSystem: boolean;
+  specialUse: string | null;
 }
 
 /**
@@ -56,7 +59,7 @@ async function getFolderMetadata(
   // Query database
   const folder = await prisma.folder.findFirst({
     where: { id: folderId, tenantId },
-    select: { id: true, name: true, path: true, providerId: true, totalCount: true },
+    select: { id: true, name: true, path: true, providerId: true, totalCount: true, isSystem: true, specialUse: true },
   });
 
   // Cache the result
@@ -233,9 +236,18 @@ All actions require user approval (HITL).`,
               return { success: false, error: t.folder.notFound };
             }
 
-            // Check if it's a system folder
-            const systemFolders = ['INBOX', 'Sent', 'Drafts', 'Trash', 'Spam', 'Junk'];
-            if (systemFolders.includes(folder.name)) {
+            const normalizedName = folder.name.toUpperCase();
+            const normalizedSpecialUse = folder.specialUse?.toUpperCase();
+            const isProtected =
+              folder.isSystem ||
+              (normalizedSpecialUse
+                ? SYSTEM_FOLDERS.includes(normalizedSpecialUse as typeof SYSTEM_FOLDERS[number])
+                  || JUNK_FOLDERS.includes(normalizedSpecialUse as typeof JUNK_FOLDERS[number])
+                : false)
+              || SYSTEM_FOLDERS.includes(normalizedName as typeof SYSTEM_FOLDERS[number])
+              || JUNK_FOLDERS.includes(normalizedName as typeof JUNK_FOLDERS[number]);
+
+            if (isProtected) {
               return { success: false, error: `Cannot delete system folder "${folder.name}"` };
             }
 
