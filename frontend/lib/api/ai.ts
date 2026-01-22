@@ -269,6 +269,36 @@ export type ActionCounts = {
   EXPIRED?: number;
 };
 
+/**
+ * Execution result from HITL action approval/rejection.
+ * Contains success/error status and summary for user feedback.
+ */
+export type ActionExecutionResult = {
+  success: boolean;
+  error?: string;
+  summary?: string | string[];
+  data?: Record<string, unknown>;
+  executionTimeMs: number;
+};
+
+/**
+ * Full response from action approval/rejection endpoints.
+ * Includes execution result for user feedback.
+ */
+export type ApprovalResponse = {
+  status: 'approved' | 'rejected';
+  approved: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  executionResult?: ActionExecutionResult;
+  action?: {
+    actionType: string;
+    summary: string;
+    payload?: Record<string, unknown>;
+  };
+};
+
 export type LearningProfileStats = {
   agentName: string;
   actionType: string;
@@ -668,13 +698,13 @@ export const voltAgentApi = {
   },
 
   approveAction(executionId: string, payload?: Record<string, unknown>) {
-    return apiClient.post<{ status: 'approved' }>(`/api/v1/voltagent/actions/${executionId}/approve`, {
+    return apiClient.post<ApprovalResponse>(`/api/v1/voltagent/actions/${executionId}/approve`, {
       payload,
     });
   },
 
   rejectAction(executionId: string, rejectionReason?: string) {
-    return apiClient.post<{ status: 'rejected' }>(`/api/v1/voltagent/actions/${executionId}/reject`, {
+    return apiClient.post<ApprovalResponse>(`/api/v1/voltagent/actions/${executionId}/reject`, {
       approved: false,
       rejectionReason,
     });

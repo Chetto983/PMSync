@@ -62,6 +62,36 @@ import {
 import { MemoryIntelligenceService } from './services/memory-intelligence.service';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
 
+/**
+ * Sanitize LLM response to remove accidentally echoed internal context markers.
+ * These markers are injected for LLM context but should never appear in user-facing responses.
+ *
+ * @param text - Raw LLM response text
+ * @returns Sanitized text with internal markers removed
+ */
+function sanitizeLlmResponse(text: string): string {
+  if (!text) return text;
+
+  return text
+    // Remove [Conversation History]...[Current Message] blocks
+    .replace(/\[Conversation History\][\s\S]*?\[Current Message\]\s*/gi, '')
+    // Remove [Conversation Summary...] headers
+    .replace(/\[Conversation Summary[^\]]*\]\s*/gi, '')
+    // Remove [Key Context] sections
+    .replace(/\[Key Context\][\s\S]*?(?=\n\n|\[|$)/gi, '')
+    // Remove [Recent Messages] sections
+    .replace(/\[Recent Messages\][\s\S]*?(?=\n\n|\[|$)/gi, '')
+    // Remove [User Memory]...--- blocks
+    .replace(/\[User Memory\][\s\S]*?---\s*/gi, '')
+    // Remove ## Learned Constraints sections
+    .replace(/## Learned Constraints[\s\S]*?(?=\n\n## |$)/gi, '')
+    // Remove standalone internal markers
+    .replace(/\[(Conversation History|Current Message|Key Context|Recent Messages|User Memory)\]/gi, '')
+    // Clean up multiple newlines
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export interface ChatOptions {
   userId: string;
   conversationId?: string;
@@ -1179,8 +1209,11 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       });
     }
 
+    // Sanitize response to remove any accidentally echoed internal context markers
+    const sanitizedText = sanitizeLlmResponse(result.text);
+
     return {
-      text: result.text,
+      text: sanitizedText,
       requiresApproval: pendingActions.length > 0,
       pendingActions: pendingActions.length > 0 ? pendingActions : undefined,
       model: selectedModel,
@@ -1462,11 +1495,12 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         };
         await this.memory.addMessage(userMessage, tenantUserId, sessionId);
 
-        // Save assistant response
+        // Save assistant response (sanitized to remove any echoed internal markers)
+        const sanitizedResponse = sanitizeLlmResponse(fullResponse);
         const assistantMessage = {
           id: `msg-assistant-${Date.now()}`,
           role: 'assistant' as const,
-          parts: [{ type: 'text' as const, text: fullResponse }],
+          parts: [{ type: 'text' as const, text: sanitizedResponse }],
           metadata: { timestamp: new Date().toISOString(), model: selectedModel },
         };
         await this.memory.addMessage(assistantMessage, tenantUserId, sessionId);

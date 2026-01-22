@@ -10,6 +10,35 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { Memory } from '@voltagent/core';
 import { MistralService } from '../../services/mistral.service';
 
+/**
+ * Sanitize message content to remove internal context markers.
+ * These markers are used for LLM context but should never be shown to users.
+ */
+function sanitizeMessageContent(text: string): string {
+  if (!text) return text;
+
+  return text
+    // Remove [Conversation History]...[Current Message] blocks
+    .replace(/\[Conversation History\][\s\S]*?\[Current Message\]\s*/gi, '')
+    // Remove [Conversation Summary...] headers
+    .replace(/\[Conversation Summary[^\]]*\]\s*/gi, '')
+    // Remove [Key Context] sections
+    .replace(/\[Key Context\][\s\S]*?(?=\n\n|\[|$)/gi, '')
+    // Remove [Recent Messages] sections
+    .replace(/\[Recent Messages\][\s\S]*?(?=\n\n|\[|$)/gi, '')
+    // Remove [User Memory]...--- blocks
+    .replace(/\[User Memory\][\s\S]*?---\s*/gi, '')
+    // Remove ## Learned Constraints sections (including content until next ## or end)
+    .replace(/## Learned Constraints[\s\S]*?(?=\n\n## |\n\n---|\n\n\[|$)/gi, '')
+    // Remove standalone internal markers
+    .replace(/\[(Conversation History|Current Message|Key Context|Recent Messages|User Memory)\]/gi, '')
+    // Remove separator lines that were between context sections
+    .replace(/^---\s*$/gm, '')
+    // Clean up multiple newlines
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** Conversation summary for listing */
 export interface ConversationSummary {
   id: string;

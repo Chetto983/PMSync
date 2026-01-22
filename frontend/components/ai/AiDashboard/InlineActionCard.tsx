@@ -24,6 +24,7 @@ import {
   IconButton,
   Chip,
   CircularProgress,
+  Alert,
   alpha,
   useTheme,
 } from '@mui/material';
@@ -43,14 +44,14 @@ import {
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from '@/lib/hooks/use-translations';
-import { multiAgentApi, type PendingAction } from '@/lib/api/ai';
+import { multiAgentApi, type PendingAction, type ApprovalResponse } from '@/lib/api/ai';
 
 // Re-export for ChatMessages
 export type { PendingAction };
 
 interface InlineActionCardProps {
   action: PendingAction;
-  onStatusChange?: (newStatus: string) => void;
+  onStatusChange?: (newStatus: string, executionResult?: ApprovalResponse['executionResult']) => void;
 }
 
 // Action type icons
@@ -77,6 +78,11 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
   const [expanded, setExpanded] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editedPayload, setEditedPayload] = useState(action.payload);
+  // Execution result feedback
+  const [executionFeedback, setExecutionFeedback] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   // Get translated labels with fallbacks
   const inlineT = (t.ai as Record<string, unknown>)?.inlineAction as Record<string, unknown> | undefined;
@@ -98,22 +104,42 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
   // Default to PENDING if status is undefined
   const isPending = !action.status || action.status === 'PENDING';
 
-  // Approve mutation
+  // Approve mutation - now returns execution result for user feedback
   const approveMutation = useMutation({
     mutationFn: async () => {
       // Send the edited payload instead of the original one
-      await multiAgentApi.approveAction(action.id, editedPayload);
+      const response = await multiAgentApi.approveAction(action.id, editedPayload);
+      return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (result: ApprovalResponse) => {
       queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
-      onStatusChange?.('APPROVED');
+
+      // Show execution feedback to user
+      if (result.executionResult) {
+        const execResult = result.executionResult;
+        if (execResult.success) {
+          // Format success message from summary
+          const summary = Array.isArray(execResult.summary)
+            ? execResult.summary.join(', ')
+            : execResult.summary || ((inlineT?.executionSuccess as string) || 'Action completed successfully');
+          setExecutionFeedback({ success: true, message: summary });
+        } else {
+          setExecutionFeedback({
+            success: false,
+            message: execResult.error || ((inlineT?.executionFailed as string) || 'Action failed'),
+          });
+        }
+      }
+
+      onStatusChange?.('APPROVED', result.executionResult);
     },
   });
 
   // Reject mutation
   const rejectMutation = useMutation({
     mutationFn: async () => {
-      await multiAgentApi.rejectAction(action.id);
+      const response = await multiAgentApi.rejectAction(action.id);
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai', 'pendingActions'] });
@@ -346,8 +372,23 @@ export function InlineActionCard({ action, onStatusChange }: InlineActionCardPro
         </Box>
       </Collapse>
 
-      {/* Action Buttons - Only show for PENDING */}
-      {isPending && (
+      {/* Execution Feedback - Show after approval/rejection */}
+      {executionFeedback && (
+        <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: alpha(theme.palette.divider, 0.1) }}>
+          <Alert
+            severity={executionFeedback.success ? 'success' : 'error'}
+            sx={{
+              py: 0.5,
+              '& .MuiAlert-message': { fontSize: '0.85rem' },
+            }}
+          >
+            {executionFeedback.message}
+          </Alert>
+        </Box>
+      )}
+
+      {/* Action Buttons - Only show for PENDING (and no feedback yet) */}
+      {isPending && !executionFeedback && (
         <Box
           sx={{
             px: 2,

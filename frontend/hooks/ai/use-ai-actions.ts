@@ -19,6 +19,7 @@ import {
   PendingAction,
   ActionCounts,
   LearningProfileStats,
+  ActionExecutionResult,
 } from '@/lib/api/ai';
 import { websocketClient } from '@/lib/websocket-client';
 import { useAuthStore } from '@/stores/auth-store';
@@ -40,8 +41,8 @@ interface UseAiActionsOptions {
   enableRealtime?: boolean;
   /** Stale time in milliseconds */
   staleTime?: number;
-  /** Callback when action is approved */
-  onApprove?: (actionId: string) => void;
+  /** Callback when action is approved - includes execution result for user feedback */
+  onApprove?: (actionId: string, executionResult?: ActionExecutionResult) => void;
   /** Callback when action is rejected */
   onReject?: (actionId: string) => void;
   /** Callback on error */
@@ -128,17 +129,18 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
   // NOTE: Aggregate Stats Query REMOVED - endpoint /stats/aggregate doesn't exist
   // Use LearningWidget's direct use of getActionCounts + getFeedback instead
 
-  // Approve Mutation
+  // Approve Mutation - returns full response with execution result for user feedback
   const approveMutation = useMutation({
     mutationFn: async ({ executionId, payload }: { executionId: string; payload?: Record<string, unknown> }) => {
-      await voltAgentApi.approveAction(executionId, payload);
-      return executionId;
+      const response = await voltAgentApi.approveAction(executionId, payload);
+      return { executionId, ...response.data };
     },
-    onSuccess: (executionId) => {
+    onSuccess: (result) => {
       // Invalidate pending actions
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.pending() });
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() });
-      onApprove?.(executionId);
+      // Pass execution result to callback for user feedback (success/error message)
+      onApprove?.(result.executionId, result.executionResult);
     },
     onError: (error: Error) => {
       onError?.(error);
@@ -148,14 +150,14 @@ export function useAiActions(options: UseAiActionsOptions = {}): UseAiActionsRet
   // Reject Mutation
   const rejectMutation = useMutation({
     mutationFn: async ({ executionId, reason }: { executionId: string; reason?: string }) => {
-      await voltAgentApi.rejectAction(executionId, reason);
-      return executionId;
+      const response = await voltAgentApi.rejectAction(executionId, reason);
+      return { executionId, ...response.data };
     },
-    onSuccess: (executionId) => {
+    onSuccess: (result) => {
       // Invalidate pending actions
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.pending() });
       queryClient.invalidateQueries({ queryKey: aiActionsKeys.counts() });
-      onReject?.(executionId);
+      onReject?.(result.executionId);
     },
     onError: (error: Error) => {
       onError?.(error);
