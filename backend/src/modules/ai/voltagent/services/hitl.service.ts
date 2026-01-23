@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nest
 import { createHash } from 'crypto';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { RealtimeEventsService } from '../../../realtime/services/realtime-events.service';
+import { RedisLockService } from '../../../../common/services/redis-lock.service';
 import { AgentAction, ActionSeverity } from '../interfaces/agent-action.interface';
 import { Prisma, ActionStatus, ActionType } from '@prisma/client';
 import { LearningService } from './learning.service';
@@ -71,6 +72,7 @@ export class HitlService {
     private readonly prisma: PrismaService,
     private readonly realtimeEvents: RealtimeEventsService,
     private readonly learningService: LearningService,
+    private readonly redisLock: RedisLockService,
   ) { }
 
   /**
@@ -149,51 +151,69 @@ export class HitlService {
       action.payload as Record<string, unknown>,
     );
 
-    // Check for existing action with same hash (idempotency)
-    // Store hash in actionPayload for idempotency check
-    const existing = await this.prisma.actionQueue.findFirst({
-      where: {
-        tenantId,
-        actionPayload: {
-          path: ['actionHash'],
-          equals: actionHash,
-        },
-        status: {
-          in: [ActionStatus.PENDING_APPROVAL, ActionStatus.APPROVED],
-        },
-      },
-    });
+    // Phase 8 TOCTOU fix: Use Redis lock to prevent race condition between check and create
+    // Lock key is scoped to tenant + actionHash to prevent duplicate actions
+    const lockKey = `hitl:action:${tenantId}:${actionHash}`;
+    const lockTtlMs = 5000; // 5 seconds - plenty for DB operation
 
-    if (existing) {
-      this.logger.debug(
-        `Duplicate action detected (hash: ${actionHash}), returning existing action ${existing.id}`,
-      );
-      return existing.id;
+    const pendingAction = await this.redisLock.withLock(
+      lockKey,
+      lockTtlMs,
+      async () => {
+        // Check for existing action with same hash (idempotency)
+        // Store hash in actionPayload for idempotency check
+        const existing = await this.prisma.actionQueue.findFirst({
+          where: {
+            tenantId,
+            actionPayload: {
+              path: ['actionHash'],
+              equals: actionHash,
+            },
+            status: {
+              in: [ActionStatus.PENDING_APPROVAL, ActionStatus.APPROVED],
+            },
+          },
+        });
+
+        if (existing) {
+          this.logger.debug(
+            `Duplicate action detected (hash: ${actionHash}), returning existing action ${existing.id}`,
+          );
+          return { id: existing.id, isExisting: true };
+        }
+
+        const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+
+        // Map action type string to ActionType enum
+        const actionTypeEnum = this.mapActionType(action.type);
+
+        const created = await this.prisma.actionQueue.create({
+          data: {
+            tenantId,
+            userId,
+            actionType: actionTypeEnum,
+            actionPayload: {
+              ...(action.payload as Record<string, unknown>),
+              sessionId,
+              agentName,
+              actionHash,
+              severity: action.severity,
+            },
+            confidence: action.confidence,
+            reasoning: action.reasoningSteps,
+            status: ActionStatus.PENDING_APPROVAL,
+            expiresAt,
+          },
+        });
+
+        return { id: created.id, isExisting: false };
+      },
+    );
+
+    // If it was an existing action, return early (no events needed)
+    if (pendingAction.isExisting) {
+      return pendingAction.id;
     }
-
-    const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
-
-    // Map action type string to ActionType enum
-    const actionTypeEnum = this.mapActionType(action.type);
-
-    const pendingAction = await this.prisma.actionQueue.create({
-      data: {
-        tenantId,
-        userId,
-        actionType: actionTypeEnum,
-        actionPayload: {
-          ...(action.payload as Record<string, unknown>),
-          sessionId,
-          agentName,
-          actionHash,
-          severity: action.severity,
-        },
-        confidence: action.confidence,
-        reasoning: action.reasoningSteps,
-        status: ActionStatus.PENDING_APPROVAL,
-        expiresAt,
-      },
-    });
 
     this.logger.log(
       `Created pending action ${pendingAction.id} for tenant ${tenantId}`,
@@ -419,24 +439,8 @@ export class HitlService {
     // Verify action exists and belongs to tenant
     const action = await this.getPendingAction(tenantId, actionId, actingUser);
 
-    // Check if action is still pending
-    const status = action.status as PendingActionStatus;
-    if (status !== PendingActionStatus.PENDING) {
-      throw new ForbiddenException(
-        `Action ${actionId} is no longer pending (status: ${action.status})`,
-      );
-    }
-
-    // Check if expired
-    if (action.expiresAt && new Date() > action.expiresAt) {
-      await this.prisma.actionQueue.updateMany({
-        where: { id: actionId, tenantId },
-        data: { status: ActionStatus.EXPIRED },
-      });
-      throw new ForbiddenException(`Action ${actionId} has expired`);
-    }
-
-    // Update status to approved (and payload if provided)
+    // Phase 8 TOCTOU fix: Use compound WHERE with status check to prevent race condition
+    // This ensures the update only succeeds if the action is still PENDING_APPROVAL
     const updateData: Prisma.ActionQueueUpdateManyMutationInput = {
       status: ActionStatus.APPROVED,
       approvedAt: new Date(),
@@ -459,10 +463,44 @@ export class HitlService {
       };
     }
 
-    await this.prisma.actionQueue.updateMany({
-      where: { id: actionId, tenantId },
+    // Atomic check-and-update: only approve if still PENDING_APPROVAL and not expired
+    const result = await this.prisma.actionQueue.updateMany({
+      where: {
+        id: actionId,
+        tenantId,
+        status: ActionStatus.PENDING_APPROVAL,
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
+      },
       data: updateData,
     });
+
+    // If no rows updated, determine the reason
+    if (result.count === 0) {
+      // Re-fetch to provide accurate error message
+      const current = await this.prisma.actionQueue.findFirst({
+        where: { id: actionId, tenantId },
+      });
+
+      if (!current) {
+        throw new NotFoundException(`Action ${actionId} not found`);
+      }
+
+      if (current.expiresAt && new Date() > current.expiresAt) {
+        // Mark as expired and throw
+        await this.prisma.actionQueue.updateMany({
+          where: { id: actionId, tenantId },
+          data: { status: ActionStatus.EXPIRED },
+        });
+        throw new ForbiddenException(`Action ${actionId} has expired`);
+      }
+
+      throw new ForbiddenException(
+        `Action ${actionId} is no longer pending (status: ${current.status})`,
+      );
+    }
 
     this.logger.log(`Action ${actionId} approved by ${approvedBy}`);
 
@@ -517,22 +555,34 @@ export class HitlService {
     // Verify action exists and belongs to tenant
     const action = await this.getPendingAction(tenantId, actionId, actingUser);
 
-    // Check if action is still pending
-    const status = action.status as PendingActionStatus;
-    if (status !== PendingActionStatus.PENDING) {
-      throw new ForbiddenException(
-        `Action ${actionId} is no longer pending (status: ${action.status})`,
-      );
-    }
-
-    // Update status to rejected
-    await this.prisma.actionQueue.updateMany({
-      where: { id: actionId, tenantId },
+    // Phase 8 TOCTOU fix: Atomic check-and-update to prevent race condition
+    // Only reject if still PENDING_APPROVAL
+    const result = await this.prisma.actionQueue.updateMany({
+      where: {
+        id: actionId,
+        tenantId,
+        status: ActionStatus.PENDING_APPROVAL,
+      },
       data: {
         status: ActionStatus.REJECTED,
         rejectedReason: reason,
       },
     });
+
+    // If no rows updated, action was already processed by another request
+    if (result.count === 0) {
+      const current = await this.prisma.actionQueue.findFirst({
+        where: { id: actionId, tenantId },
+      });
+
+      if (!current) {
+        throw new NotFoundException(`Action ${actionId} not found`);
+      }
+
+      throw new ForbiddenException(
+        `Action ${actionId} is no longer pending (status: ${current.status})`,
+      );
+    }
 
     this.logger.log(`Action ${actionId} rejected by ${rejectedBy}: ${reason || 'No reason provided'}`);
 
@@ -590,7 +640,7 @@ export class HitlService {
     await this.prisma.actionQueue.updateMany({
       where: { id: actionId, tenantId },
       data: {
-        status: status === PendingActionStatus.EXECUTED ? ActionStatus.EXECUTED : ActionStatus.EXECUTED,
+        status: status === PendingActionStatus.EXECUTED ? ActionStatus.EXECUTED : ActionStatus.FAILED,
         executedAt: new Date(),
         executionError: error,
       },

@@ -10,13 +10,12 @@ import { BulkOperationsQueueService } from '../../../email-sync/services/bulk-op
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
 import { CorrelationContext } from '../../../../common/services/correlation-context.service';
 import { PiiResolutionService } from '../../guards';
-import {
-  getLocale,
-  actionSummaries as t,
-  formatDateForLocale,
-} from '../locales/action-summaries';
-import { EXCLUDE_JUNK_FOLDERS } from '../../../email/email.helpers';
 import { AiError, AiErrorCode } from '../../errors';
+import { FolderExecutor, FolderExecutorDeps } from './executors/folder-executor';
+import { CalendarExecutor, CalendarExecutorDeps } from './executors/calendar-executor';
+import { ContactExecutor, ContactExecutorDeps } from './executors/contact-executor';
+import { EmailExecutor, EmailExecutorDeps } from './executors/email-executor';
+import { BulkEmailExecutor, BulkEmailExecutorDeps } from './executors/bulk-email-executor';
 
 /** Default TTL for idempotency keys (5 minutes) */
 const IDEMPOTENCY_TTL_SECONDS = 300;
@@ -54,6 +53,87 @@ export class ActionExecutorService {
     @Optional() private readonly cacheService?: CacheService,
     @Optional() private readonly piiResolutionService?: PiiResolutionService,
   ) { }
+
+  /**
+   * Resolve provider ID - returns provided ID or finds default active provider.
+   * Consolidates repeated provider lookup pattern (audit 2.2).
+   */
+  private async resolveProviderId(
+    tenantId: string,
+    providerId: string | undefined,
+    type: 'email' | 'calendar',
+  ): Promise<string> {
+    if (providerId) return providerId;
+
+    const whereClause = type === 'email'
+      ? { tenantId, supportsEmail: true, isActive: true }
+      : { tenantId, supportsCalendar: true, isActive: true };
+
+    const provider = await this.prisma.providerConfig.findFirst({ where: whereClause });
+    if (!provider) {
+      throw new AiError(`No ${type} provider available`, AiErrorCode.PROVIDER_UNAVAILABLE);
+    }
+
+    return provider.id;
+  }
+
+  /**
+   * Get dependencies for FolderExecutor (Phase 9a extraction).
+   */
+  private getFolderDeps(): FolderExecutorDeps {
+    return {
+      folderSyncService: this.folderSyncService,
+      prisma: this.prisma,
+      logger: this.logger,
+      resolveProviderId: this.resolveProviderId.bind(this),
+    };
+  }
+
+  /**
+   * Get dependencies for CalendarExecutor (Phase 9b extraction).
+   */
+  private getCalendarDeps(): CalendarExecutorDeps {
+    return {
+      calendarService: this.calendarService,
+      prisma: this.prisma,
+      logger: this.logger,
+      resolveProviderId: this.resolveProviderId.bind(this),
+    };
+  }
+
+  /**
+   * Get dependencies for ContactExecutor (Phase 9c extraction).
+   */
+  private getContactDeps(): ContactExecutorDeps {
+    return {
+      prisma: this.prisma,
+      logger: this.logger,
+    };
+  }
+
+  /**
+   * Get dependencies for EmailExecutor (Phase 9d extraction).
+   */
+  private getEmailDeps(): EmailExecutorDeps {
+    return {
+      emailSendService: this.emailSendService,
+      emailSyncBackService: this.emailSyncBackService,
+      prisma: this.prisma,
+      logger: this.logger,
+      resolveProviderId: this.resolveProviderId.bind(this),
+    };
+  }
+
+  /**
+   * Get dependencies for BulkEmailExecutor (Phase 9d extraction).
+   */
+  private getBulkEmailDeps(): BulkEmailExecutorDeps {
+    return {
+      bulkOperationsQueue: this.bulkOperationsQueue,
+      prisma: this.prisma,
+      logger: this.logger,
+    };
+  }
 
   /**
    * Execute an action and return the result.
@@ -106,111 +186,111 @@ export class ActionExecutorService {
 
       // Route to appropriate executor based on action type
       switch (action.type) {
-        // Email actions
+        // Email actions (Phase 9d: delegated to EmailExecutor)
         case AgentActionType.SEND_EMAIL:
-          result = await this.executeSendEmail(action, context);
+          result = await EmailExecutor.executeSendEmail(action, context, this.getEmailDeps());
           break;
         case AgentActionType.REPLY_EMAIL:
-          result = await this.executeReplyEmail(action, context);
+          result = await EmailExecutor.executeReplyEmail(action, context, this.getEmailDeps());
           break;
         case AgentActionType.FORWARD_EMAIL:
-          result = await this.executeForwardEmail(action, context);
+          result = await EmailExecutor.executeForwardEmail(action, context, this.getEmailDeps());
           break;
         case AgentActionType.DELETE_EMAIL:
-          result = await this.executeDeleteEmail(action, context);
+          result = await EmailExecutor.executeDeleteEmail(action, context, this.getEmailDeps());
           break;
         case AgentActionType.ARCHIVE_EMAIL:
-          result = await this.executeArchiveEmail(action, context);
+          result = await EmailExecutor.executeArchiveEmail(action, context, this.getEmailDeps());
           break;
         case AgentActionType.MARK_READ:
         case AgentActionType.MARK_UNREAD:
-          result = await this.executeMarkEmail(action, context);
+          result = await EmailExecutor.executeMarkEmail(action, context, this.getEmailDeps());
           break;
         case AgentActionType.STAR_EMAIL:
         case AgentActionType.UNSTAR_EMAIL:
-          result = await this.executeStarEmail(action, context);
+          result = await EmailExecutor.executeStarEmail(action, context, this.getEmailDeps());
           break;
         case AgentActionType.SEARCH_EMAILS:
-          result = await this.executeSearchEmails(action, context);
+          result = await EmailExecutor.executeSearchEmails(action, context, this.getEmailDeps());
           break;
         case AgentActionType.LABEL_EMAIL:
-          result = await this.executeLabelEmail(action, context);
+          result = await EmailExecutor.executeLabelEmail(action, context, this.getEmailDeps());
           break;
 
-        // Calendar actions
+        // Calendar actions (Phase 9b: delegated to CalendarExecutor)
         case AgentActionType.CREATE_EVENT:
-          result = await this.executeCreateEvent(action, context);
+          result = await CalendarExecutor.executeCreateEvent(action, context, this.getCalendarDeps());
           break;
         case AgentActionType.UPDATE_EVENT:
-          result = await this.executeUpdateEvent(action, context);
+          result = await CalendarExecutor.executeUpdateEvent(action, context, this.getCalendarDeps());
           break;
         case AgentActionType.DELETE_EVENT:
-          result = await this.executeDeleteEvent(action, context);
+          result = await CalendarExecutor.executeDeleteEvent(action, context, this.getCalendarDeps());
           break;
         case AgentActionType.GET_EVENTS:
-          result = await this.executeGetEvents(action, context);
+          result = await CalendarExecutor.executeGetEvents(action, context, this.getCalendarDeps());
           break;
         case AgentActionType.CHECK_AVAILABILITY:
-          result = await this.executeCheckAvailability(action, context);
+          result = await CalendarExecutor.executeCheckAvailability(action, context, this.getCalendarDeps());
           break;
 
-        // Contact actions
+        // Contact actions (Phase 9c: delegated to ContactExecutor)
         case AgentActionType.CREATE_CONTACT:
-          result = await this.executeCreateContact(action, context);
+          result = await ContactExecutor.executeCreateContact(action, context, this.getContactDeps());
           break;
         case AgentActionType.UPDATE_CONTACT:
-          result = await this.executeUpdateContact(action, context);
+          result = await ContactExecutor.executeUpdateContact(action, context, this.getContactDeps());
           break;
         case AgentActionType.DELETE_CONTACT:
-          result = await this.executeDeleteContact(action, context);
+          result = await ContactExecutor.executeDeleteContact(action, context, this.getContactDeps());
           break;
         case AgentActionType.SEARCH_CONTACTS:
-          result = await this.executeSearchContacts(action, context);
+          result = await ContactExecutor.executeSearchContacts(action, context, this.getContactDeps());
           break;
         case AgentActionType.MERGE_CONTACTS:
-          result = await this.executeMergeContacts(action, context);
+          result = await ContactExecutor.executeMergeContacts(action, context, this.getContactDeps());
           break;
         case AgentActionType.GET_CONTACT:
-          result = await this.executeGetContact(action, context);
+          result = await ContactExecutor.executeGetContact(action, context, this.getContactDeps());
           break;
 
-        // Additional email actions
+        // Additional email actions (Phase 9d: delegated to EmailExecutor)
         case AgentActionType.GET_UNREAD:
-          result = await this.executeGetUnread(action, context);
+          result = await EmailExecutor.executeGetUnread(action, context, this.getEmailDeps());
           break;
         case AgentActionType.CATEGORIZE_EMAIL:
-          result = await this.executeCategorizeEmail(action, context);
+          result = await EmailExecutor.executeCategorizeEmail(action, context, this.getEmailDeps());
           break;
 
-        // Additional calendar actions
+        // Additional calendar actions (Phase 9b: delegated to CalendarExecutor)
         case AgentActionType.RESCHEDULE_EVENT:
-          result = await this.executeRescheduleEvent(action, context);
+          result = await CalendarExecutor.executeRescheduleEvent(action, context, this.getCalendarDeps());
           break;
 
-        // Folder actions
+        // Folder actions (Phase 9a: delegated to FolderExecutor)
         case AgentActionType.CREATE_FOLDER:
-          result = await this.executeCreateFolder(action, context);
+          result = await FolderExecutor.executeCreateFolder(action, context, this.getFolderDeps());
           break;
         case AgentActionType.RENAME_FOLDER:
-          result = await this.executeRenameFolder(action, context);
+          result = await FolderExecutor.executeRenameFolder(action, context, this.getFolderDeps());
           break;
         case AgentActionType.DELETE_FOLDER:
-          result = await this.executeDeleteFolder(action, context);
+          result = await FolderExecutor.executeDeleteFolder(action, context, this.getFolderDeps());
           break;
 
-        // Bulk email actions
+        // Bulk email actions (Phase 9d: delegated to BulkEmailExecutor)
         case AgentActionType.BULK_DELETE_EMAILS:
         case AgentActionType.EMPTY_FOLDER:
-          result = await this.executeBulkDeleteEmails(action, context);
+          result = await BulkEmailExecutor.executeBulkDeleteEmails(action, context, this.getBulkEmailDeps());
           break;
         case AgentActionType.BULK_ARCHIVE_EMAILS:
-          result = await this.executeBulkArchiveEmails(action, context);
+          result = await BulkEmailExecutor.executeBulkArchiveEmails(action, context, this.getBulkEmailDeps());
           break;
         case AgentActionType.BULK_MARK_READ:
-          result = await this.executeBulkMarkRead(action, context);
+          result = await BulkEmailExecutor.executeBulkMarkRead(action, context, this.getBulkEmailDeps());
           break;
         case AgentActionType.BULK_MOVE_EMAILS:
-          result = await this.executeBulkMoveEmails(action, context);
+          result = await BulkEmailExecutor.executeBulkMoveEmails(action, context, this.getBulkEmailDeps());
           break;
 
         default:
@@ -307,1533 +387,10 @@ export class ActionExecutorService {
   }
 
   // ===============================
-  // EMAIL ACTION EXECUTORS
+  // EMAIL ACTION EXECUTORS - Moved to executors/email-executor.ts (Phase 9d)
   // ===============================
 
-  private async executeSendEmail(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { to, cc, bcc, subject, body, providerId } = action.payload;
-
-    if (!this.emailSendService) {
-      this.logger.error('EmailSendService not available');
-      throw new AiError('Email service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    // Find provider if not specified
-    let actualProviderId = providerId;
-    if (!actualProviderId) {
-      const provider = await this.prisma.providerConfig.findFirst({
-        where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
-      });
-      if (!provider) {
-        throw new AiError('No email provider available', AiErrorCode.PROVIDER_UNAVAILABLE);
-      }
-      actualProviderId = provider.id;
-    }
-
-    // Send email via EmailSendService
-    const result = await this.emailSendService.sendEmail({
-      tenantId: context.tenantId,
-      providerId: actualProviderId,
-      to: Array.isArray(to) ? to : [to],
-      cc: cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
-      bcc: bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : undefined,
-      subject: subject || '(No subject)',
-      bodyHtml: body || '',
-      bodyText: body?.replace(/<[^>]*>/g, '') || '',
-    });
-
-    this.logger.log(`Email sent successfully, messageId: ${result.messageId}`);
-
-    const lang = getLocale(context.preferences?.language);
-    const recipientList = Array.isArray(to) ? to.join(', ') : to;
-    const subjectText = subject || t.emailSentNoSubject[lang];
-
-    return {
-      success: result.success,
-      data: { messageId: result.messageId, to, subject },
-      summary: t.emailSent[lang](recipientList, subjectText),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeReplyEmail(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailId, body } = action.payload;
-
-    if (!this.emailSendService) {
-      this.logger.error('EmailSendService not available');
-      throw new AiError('Email service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    // Get the original email to reply to
-    const originalEmail = await this.prisma.email.findUnique({
-      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
-    });
-
-    if (!originalEmail) {
-      throw new AiError('Original email not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Send reply
-    const result = await this.emailSendService.sendEmail({
-      tenantId: context.tenantId,
-      providerId: originalEmail.providerId,
-      threadId: originalEmail.threadId || undefined,
-      to: [originalEmail.from],
-      subject: originalEmail.subject?.startsWith('Re:')
-        ? originalEmail.subject
-        : `Re: ${originalEmail.subject || ''}`,
-      bodyHtml: body || '',
-      bodyText: body?.replace(/<[^>]*>/g, '') || '',
-      inReplyTo: originalEmail.messageId || undefined,
-      references: originalEmail.messageId || undefined,
-    });
-
-    const lang = getLocale(context.preferences?.language);
-
-    return {
-      success: result.success,
-      data: { messageId: result.messageId, emailId, replyTo: originalEmail.from },
-      summary: t.replySent[lang](originalEmail.from),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeForwardEmail(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailId, to, body } = action.payload;
-
-    if (!this.emailSendService) {
-      this.logger.error('EmailSendService not available');
-      throw new AiError('Email service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    // Get the original email to forward
-    const originalEmail = await this.prisma.email.findUnique({
-      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
-    });
-
-    if (!originalEmail) {
-      throw new AiError('Original email not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Build forwarded body with original email content
-    const forwardedBody = `
-      ${body || ''}
-      <br/><br/>
-      ---------- Forwarded message ----------<br/>
-      From: ${originalEmail.from}<br/>
-      Date: ${originalEmail.receivedAt}<br/>
-      Subject: ${originalEmail.subject}<br/>
-      <br/>
-      ${originalEmail.bodyHtml || originalEmail.snippet || ''}
-    `;
-
-    const result = await this.emailSendService.sendEmail({
-      tenantId: context.tenantId,
-      providerId: originalEmail.providerId,
-      to: Array.isArray(to) ? to : [to],
-      subject: `Fwd: ${originalEmail.subject || ''}`,
-      bodyHtml: forwardedBody,
-      bodyText: forwardedBody.replace(/<[^>]*>/g, ''),
-    });
-
-    const lang = getLocale(context.preferences?.language);
-    const recipientList = Array.isArray(to) ? to.join(', ') : to;
-
-    return {
-      success: result.success,
-      data: { messageId: result.messageId, emailId, forwardedTo: to },
-      summary: t.emailForwarded[lang](recipientList),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeDeleteEmail(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailId, permanent } = action.payload;
-
-    // Get email info for summary and sync
-    const email = await this.prisma.email.findFirst({
-      where: { id: emailId, tenantId: context.tenantId },
-      select: { id: true, subject: true, from: true, externalId: true, providerId: true, folder: true },
-    });
-
-    if (!email) {
-      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Update local database (soft delete)
-    await this.prisma.email.update({
-      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
-      data: { isDeleted: true, folder: 'TRASH' },
-    });
-
-    // Sync to email provider (Gmail/Microsoft/IMAP)
-    if (this.emailSyncBackService && email.externalId && email.providerId) {
-      try {
-        await this.emailSyncBackService.syncOperationToProvider({
-          emailId: email.id,
-          externalId: email.externalId,
-          providerId: email.providerId,
-          tenantId: context.tenantId,
-          operation: permanent ? 'hardDelete' : 'delete',
-          sourceFolder: email.folder || 'INBOX',
-        });
-      } catch (syncError) {
-        this.logger.warn(
-          `Failed to sync delete to provider: ${syncError instanceof Error ? syncError.message : syncError}`,
-        );
-        // Don't fail the action - local state is updated, sync can retry
-      }
-    }
-
-    const lang = getLocale(context.preferences?.language);
-    const subjectText = email.subject || t.noSubject[lang];
-
-    return {
-      success: true,
-      data: { emailId, deleted: true },
-      summary: t.emailDeleted[lang](subjectText),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeArchiveEmail(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailId } = action.payload;
-
-    // Get email info for summary and sync
-    const email = await this.prisma.email.findFirst({
-      where: { id: emailId, tenantId: context.tenantId },
-      select: { id: true, subject: true, from: true, externalId: true, providerId: true, folder: true },
-    });
-
-    if (!email) {
-      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Update local database - move to archive folder
-    await this.prisma.email.update({
-      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
-      data: { folder: 'ARCHIVE' },
-    });
-
-    // Sync to email provider (Gmail/Microsoft/IMAP)
-    if (this.emailSyncBackService && email.externalId && email.providerId) {
-      try {
-        await this.emailSyncBackService.syncOperationToProvider({
-          emailId: email.id,
-          externalId: email.externalId,
-          providerId: email.providerId,
-          tenantId: context.tenantId,
-          operation: 'moveToFolder',
-          folder: 'ARCHIVE',
-          sourceFolder: email.folder || 'INBOX',
-        });
-      } catch (syncError) {
-        this.logger.warn(
-          `Failed to sync archive to provider: ${syncError instanceof Error ? syncError.message : syncError}`,
-        );
-        // Don't fail the action - local state is updated, sync can retry
-      }
-    }
-
-    const lang = getLocale(context.preferences?.language);
-    const subjectText = email.subject || t.noSubject[lang];
-
-    return {
-      success: true,
-      data: { emailId, archived: true },
-      summary: t.emailArchived[lang](subjectText),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeMarkEmail(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailId } = action.payload;
-    const isRead = action.type === AgentActionType.MARK_READ;
-
-    // Get email info for sync
-    const email = await this.prisma.email.findFirst({
-      where: { id: emailId, tenantId: context.tenantId },
-      select: { id: true, externalId: true, providerId: true, folder: true },
-    });
-
-    if (!email) {
-      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Update local database
-    await this.prisma.email.update({
-      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
-      data: { isRead },
-    });
-
-    // Sync to email provider (Gmail/Microsoft/IMAP)
-    if (this.emailSyncBackService && email.externalId && email.providerId) {
-      try {
-        await this.emailSyncBackService.syncOperationToProvider({
-          emailId: email.id,
-          externalId: email.externalId,
-          providerId: email.providerId,
-          tenantId: context.tenantId,
-          operation: isRead ? 'markRead' : 'markUnread',
-          sourceFolder: email.folder || 'INBOX',
-        });
-      } catch (syncError) {
-        this.logger.warn(
-          `Failed to sync read status to provider: ${syncError instanceof Error ? syncError.message : syncError}`,
-        );
-        // Don't fail the action - local state is updated, sync can retry
-      }
-    }
-
-    const lang = getLocale(context.preferences?.language);
-
-    return {
-      success: true,
-      data: { emailId, isRead },
-      summary: isRead ? t.emailMarkedRead[lang] : t.emailMarkedUnread[lang],
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeStarEmail(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailId } = action.payload;
-    const isStarred = action.type === AgentActionType.STAR_EMAIL;
-
-    // Get email info for sync
-    const email = await this.prisma.email.findFirst({
-      where: { id: emailId, tenantId: context.tenantId },
-      select: { id: true, externalId: true, providerId: true, folder: true },
-    });
-
-    if (!email) {
-      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Update local database
-    await this.prisma.email.update({
-      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
-      data: { isStarred },
-    });
-
-    // Sync to email provider (Gmail/Microsoft/IMAP)
-    if (this.emailSyncBackService && email.externalId && email.providerId) {
-      try {
-        await this.emailSyncBackService.syncOperationToProvider({
-          emailId: email.id,
-          externalId: email.externalId,
-          providerId: email.providerId,
-          tenantId: context.tenantId,
-          operation: isStarred ? 'star' : 'unstar',
-          sourceFolder: email.folder || 'INBOX',
-        });
-      } catch (syncError) {
-        this.logger.warn(
-          `Failed to sync star status to provider: ${syncError instanceof Error ? syncError.message : syncError}`,
-        );
-        // Don't fail the action - local state is updated, sync can retry
-      }
-    }
-
-    const lang = getLocale(context.preferences?.language);
-
-    return {
-      success: true,
-      data: { emailId, isStarred },
-      summary: isStarred ? t.emailStarred[lang] : t.emailUnstarred[lang],
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeSearchEmails(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { query, limit = 20 } = action.payload;
-
-    // Exclude SPAM and TRASH from search results - they're junk
-    const emails = await this.prisma.email.findMany({
-      where: {
-        tenantId: context.tenantId,
-        folder: EXCLUDE_JUNK_FOLDERS,
-        OR: [
-          { subject: { contains: query, mode: 'insensitive' } },
-          { snippet: { contains: query, mode: 'insensitive' } },
-          { from: { contains: query, mode: 'insensitive' } },
-        ],
-      },
-      take: limit,
-      orderBy: { receivedAt: 'desc' },
-      select: {
-        id: true,
-        subject: true,
-        from: true,
-        snippet: true,
-        receivedAt: true,
-        isRead: true,
-        isStarred: true,
-      },
-    });
-
-    const lang = getLocale(context.preferences?.language);
-    const summary = emails.length === 0
-      ? t.emailsSearchNotFound[lang](query)
-      : t.emailsSearchFound[lang](emails.length, query);
-
-    return {
-      success: true,
-      data: { emails, count: emails.length },
-      summary,
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeLabelEmail(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailId, labelIds, addLabels, removeLabels } = action.payload;
-
-    // Get current email labels
-    const email = await this.prisma.email.findUnique({
-      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
-      select: { labels: true },
-    });
-
-    if (!email) {
-      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Determine labels to add/remove (labels is a String[] array)
-    const labelsToAdd: string[] = addLabels || labelIds || [];
-    const labelsToRemove: string[] = removeLabels || [];
-
-    // Calculate new labels array
-    let newLabels = [...(email.labels || [])];
-
-    // Add new labels
-    for (const label of labelsToAdd) {
-      if (!newLabels.includes(label)) {
-        newLabels.push(label);
-      }
-    }
-
-    // Remove labels
-    newLabels = newLabels.filter((l) => !labelsToRemove.includes(l));
-
-    // Update email labels
-    await this.prisma.email.update({
-      where: { id_tenantId: { id: emailId, tenantId: context.tenantId } },
-      data: { labels: newLabels },
-    });
-
-    this.logger.log(`Labeled email ${emailId} - added: ${labelsToAdd.join(',')}, removed: ${labelsToRemove.join(',')}`);
-
-    const lang = getLocale(context.preferences?.language);
-    let summary: string;
-    if (labelsToAdd.length > 0 && labelsToRemove.length > 0) {
-      summary = t.labelsAddedAndRemoved[lang](labelsToAdd.join(', '), labelsToRemove.join(', '));
-    } else if (labelsToAdd.length > 0) {
-      summary = t.labelsAdded[lang](labelsToAdd.join(', '));
-    } else {
-      summary = t.labelsRemoved[lang](labelsToRemove.join(', '));
-    }
-
-    return {
-      success: true,
-      data: { emailId, labelsAdded: labelsToAdd, labelsRemoved: labelsToRemove, currentLabels: newLabels },
-      summary,
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
   // ===============================
-  // CALENDAR ACTION EXECUTORS
+  // BULK EMAIL ACTION EXECUTORS - Moved to executors/bulk-email-executor.ts (Phase 9d)
   // ===============================
-
-  private async executeCreateEvent(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { title, startTime, endTime, description, location, attendees, providerId, calendarId, isAllDay, timeZone } = action.payload;
-
-    if (!this.calendarService) {
-      this.logger.error('CalendarService not available');
-      throw new AiError('Calendar service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    // Find provider if not specified
-    let actualProviderId = providerId;
-    if (!actualProviderId) {
-      const provider = await this.prisma.providerConfig.findFirst({
-        where: { tenantId: context.tenantId, supportsCalendar: true, isActive: true },
-      });
-      if (!provider) {
-        throw new AiError('No calendar provider available', AiErrorCode.PROVIDER_UNAVAILABLE);
-      }
-      actualProviderId = provider.id;
-    }
-
-    // Create event via CalendarService
-    const event = await this.calendarService.createEvent(context.tenantId, {
-      providerId: actualProviderId,
-      calendarId: calendarId || 'primary',
-      title,
-      description,
-      location,
-      startTime: new Date(startTime),
-      endTime: new Date(endTime),
-      isAllDay: isAllDay || false,
-      timeZone: timeZone || 'UTC',
-      attendees: attendees?.map((a: string | { email: string }) => typeof a === 'string' ? { email: a } : a),
-    });
-
-    this.logger.log(`Created calendar event ${event.id}`);
-
-    const lang = getLocale(context.preferences?.language);
-    const dateStr = formatDateForLocale(new Date(startTime), lang);
-
-    return {
-      success: true,
-      data: { eventId: event.id, externalId: event.externalId, title, startTime, endTime },
-      summary: t.eventCreated[lang](title, dateStr),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeUpdateEvent(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { eventId, title, description, location, startTime, endTime, attendees } = action.payload;
-
-    if (!this.calendarService) {
-      this.logger.error('CalendarService not available');
-      throw new AiError('Calendar service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    // Update event via CalendarService
-    const event = await this.calendarService.updateEvent(context.tenantId, eventId, {
-      title,
-      description,
-      location,
-      startTime: startTime ? new Date(startTime) : undefined,
-      endTime: endTime ? new Date(endTime) : undefined,
-      attendees: attendees?.map((a: string | { email: string }) => typeof a === 'string' ? { email: a } : a),
-    });
-
-    this.logger.log(`Updated calendar event ${eventId}`);
-
-    const lang = getLocale(context.preferences?.language);
-    const eventTitle = title || event.title || t.event[lang];
-
-    return {
-      success: true,
-      data: { eventId, updated: true, event },
-      summary: t.eventUpdated[lang](eventTitle),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeDeleteEvent(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { eventId } = action.payload;
-
-    if (!this.calendarService) {
-      this.logger.error('CalendarService not available');
-      throw new AiError('Calendar service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    // Get event info for summary before deleting
-    const event = await this.prisma.calendarEvent.findFirst({
-      where: { id: eventId, tenantId: context.tenantId },
-      select: { title: true },
-    });
-
-    // Delete event via CalendarService
-    await this.calendarService.deleteEvent(context.tenantId, eventId);
-
-    this.logger.log(`Deleted calendar event ${eventId}`);
-
-    const lang = getLocale(context.preferences?.language);
-    const eventTitle = event?.title || t.event[lang];
-
-    return {
-      success: true,
-      data: { eventId, deleted: true },
-      summary: t.eventDeleted[lang](eventTitle),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeGetEvents(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { startDate, endDate } = action.payload;
-
-    const events = await this.prisma.calendarEvent.findMany({
-      where: {
-        tenantId: context.tenantId,
-        startTime: startDate ? { gte: new Date(startDate) } : undefined,
-        endTime: endDate ? { lte: new Date(endDate) } : undefined,
-      },
-      orderBy: { startTime: 'asc' },
-      take: 50,
-    });
-
-    const lang = getLocale(context.preferences?.language);
-
-    return {
-      success: true,
-      data: { events, count: events.length },
-      summary: t.eventsFound[lang](events.length),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeCheckAvailability(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { date, startDate, endDate } = action.payload;
-
-    const checkStart = new Date(startDate || date);
-    const checkEnd = new Date(endDate || date);
-    checkEnd.setHours(23, 59, 59);
-
-    const busySlots = await this.prisma.calendarEvent.findMany({
-      where: {
-        tenantId: context.tenantId,
-        startTime: { lte: checkEnd },
-        endTime: { gte: checkStart },
-      },
-      select: {
-        id: true,
-        title: true,
-        startTime: true,
-        endTime: true,
-      },
-      orderBy: { startTime: 'asc' },
-    });
-
-    const lang = getLocale(context.preferences?.language);
-    const hasFreeTime = busySlots.length < 8;
-
-    return {
-      success: true,
-      data: { busySlots, hasFreeTime },
-      summary: hasFreeTime
-        ? t.availabilityFree[lang](busySlots.length)
-        : t.availabilityBusy[lang](busySlots.length),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  // ===============================
-  // CONTACT ACTION EXECUTORS
-  // ===============================
-
-  private async executeCreateContact(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { name, firstName, lastName, email, phone, company, jobTitle, notes } = action.payload;
-
-    // Note: Provider check removed for consistency with update/delete (P6 fix)
-    // Contacts can be created locally; external sync happens separately
-
-    const displayName = name || `${firstName || ''} ${lastName || ''}`.trim();
-    const contact = await this.prisma.contact.create({
-      data: {
-        tenantId: context.tenantId,
-        displayName,
-        firstName,
-        lastName,
-        emails: email ? [email] : [],
-        phoneNumbers: phone ? [phone] : [],
-        company,
-        jobTitle,
-        notes,
-      },
-    });
-
-    const lang = getLocale(context.preferences?.language);
-
-    return {
-      success: true,
-      data: { contactId: contact.id, contact },
-      summary: t.contactCreated[lang](displayName),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeUpdateContact(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { contactId, ...updates } = action.payload;
-
-    // Get contact info for summary
-    const existingContact = await this.prisma.contact.findFirst({
-      where: { id: contactId, tenantId: context.tenantId },
-      select: { displayName: true },
-    });
-
-    await this.prisma.contact.update({
-      where: { id_tenantId: { id: contactId, tenantId: context.tenantId } },
-      data: {
-        displayName: updates.name,
-        firstName: updates.firstName,
-        lastName: updates.lastName,
-        emails: updates.email ? [updates.email] : undefined,
-        phoneNumbers: updates.phone ? [updates.phone] : undefined,
-        company: updates.company,
-        jobTitle: updates.jobTitle,
-        notes: updates.notes,
-      },
-    });
-
-    const lang = getLocale(context.preferences?.language);
-    const contactName = updates.name || existingContact?.displayName || t.contact[lang];
-
-    return {
-      success: true,
-      data: { contactId, updated: true },
-      summary: t.contactUpdated[lang](contactName),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeDeleteContact(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { contactId } = action.payload;
-
-    // Get contact info for summary before deleting
-    const contact = await this.prisma.contact.findFirst({
-      where: { id: contactId, tenantId: context.tenantId },
-      select: { displayName: true },
-    });
-
-    await this.prisma.contact.delete({
-      where: { id_tenantId: { id: contactId, tenantId: context.tenantId } },
-    });
-
-    const lang = getLocale(context.preferences?.language);
-    const contactName = contact?.displayName || t.contact[lang];
-
-    return {
-      success: true,
-      data: { contactId, deleted: true },
-      summary: t.contactDeleted[lang](contactName),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeSearchContacts(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { query, limit = 20 } = action.payload;
-
-    const contacts = await this.prisma.contact.findMany({
-      where: {
-        tenantId: context.tenantId,
-        OR: [
-          { displayName: { contains: query, mode: 'insensitive' } },
-          { firstName: { contains: query, mode: 'insensitive' } },
-          { lastName: { contains: query, mode: 'insensitive' } },
-          { company: { contains: query, mode: 'insensitive' } },
-        ],
-      },
-      take: limit,
-      orderBy: { displayName: 'asc' },
-    });
-
-    const lang = getLocale(context.preferences?.language);
-    const summary = contacts.length === 0
-      ? t.contactsSearchNotFound[lang](query)
-      : t.contactsSearchFound[lang](contacts.length, query);
-
-    return {
-      success: true,
-      data: { contacts, count: contacts.length },
-      summary,
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeMergeContacts(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { contactIds, primaryId } = action.payload;
-
-    if (!contactIds || contactIds.length < 2) {
-      throw new AiError('Need at least 2 contacts to merge', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Get all contacts to merge
-    const contacts = await this.prisma.contact.findMany({
-      where: {
-        id: { in: contactIds },
-        tenantId: context.tenantId,
-      },
-    });
-
-    if (contacts.length < 2) {
-      throw new AiError('Could not find enough contacts to merge', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Determine primary contact (first one or specified)
-    const primaryContactId = primaryId || contactIds[0];
-    const primaryContact = contacts.find((c) => c.id === primaryContactId);
-    const secondaryContacts = contacts.filter((c) => c.id !== primaryContactId);
-
-    if (!primaryContact) {
-      throw new AiError('Primary contact not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Merge data from secondary contacts into primary
-    // Note: emails and phoneNumbers are stored as Json arrays in Prisma
-    const primaryEmails = Array.isArray(primaryContact.emails) ? primaryContact.emails as string[] : [];
-    const primaryPhones = Array.isArray(primaryContact.phoneNumbers) ? primaryContact.phoneNumbers as string[] : [];
-
-    const mergedEmails = new Set<string>(primaryEmails);
-    const mergedPhones = new Set<string>(primaryPhones);
-    let mergedNotes = primaryContact.notes || '';
-
-    for (const contact of secondaryContacts) {
-      // Merge emails
-      const contactEmails = Array.isArray(contact.emails) ? contact.emails as string[] : [];
-      contactEmails.forEach((e: string) => mergedEmails.add(e));
-
-      // Merge phone numbers
-      const contactPhones = Array.isArray(contact.phoneNumbers) ? contact.phoneNumbers as string[] : [];
-      contactPhones.forEach((p: string) => mergedPhones.add(p));
-
-      // Merge notes
-      if (contact.notes) {
-        mergedNotes += mergedNotes ? `\n\n--- Merged from ${contact.displayName} ---\n${contact.notes}` : contact.notes;
-      }
-    }
-
-    // Update primary contact with merged data
-    const updatedContact = await this.prisma.contact.update({
-      where: { id_tenantId: { id: primaryContactId, tenantId: context.tenantId } },
-      data: {
-        emails: Array.from(mergedEmails),
-        phoneNumbers: Array.from(mergedPhones),
-        notes: mergedNotes || undefined,
-        // Keep primary contact's name, company, etc. - don't overwrite
-      },
-    });
-
-    // Delete secondary contacts
-    const secondaryIds = secondaryContacts.map((c) => c.id);
-    await this.prisma.contact.deleteMany({
-      where: {
-        id: { in: secondaryIds },
-        tenantId: context.tenantId,
-      },
-    });
-
-    this.logger.log(`Merged ${contacts.length} contacts into ${primaryContactId}, deleted ${secondaryIds.length} duplicates`);
-
-    const lang = getLocale(context.preferences?.language);
-
-    return {
-      success: true,
-      data: {
-        merged: true,
-        primaryId: primaryContactId,
-        mergedCount: secondaryIds.length,
-        deletedIds: secondaryIds,
-        updatedContact,
-      },
-      summary: t.contactsMerged[lang](contacts.length, updatedContact.displayName || t.contact[lang], secondaryIds.length),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  /**
-   * Get a specific contact by ID, email, or name
-   */
-  private async executeGetContact(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { contactId, email, name } = action.payload;
-
-    let contact;
-
-    if (contactId) {
-      // Direct lookup by ID
-      contact = await this.prisma.contact.findFirst({
-        where: { id: contactId, tenantId: context.tenantId },
-        include: { providerContacts: true },
-      });
-    } else if (email) {
-      // Lookup by email - emails is stored as Json array
-      contact = await this.prisma.contact.findFirst({
-        where: {
-          tenantId: context.tenantId,
-          emails: { array_contains: [email] },
-        },
-        include: { providerContacts: true },
-      });
-
-      // Fallback: Search in raw JSON if array_contains doesn't work
-      if (!contact) {
-        const contacts = await this.prisma.contact.findMany({
-          where: { tenantId: context.tenantId },
-          include: { providerContacts: true },
-        });
-        contact = contacts.find((c) => {
-          const emails = Array.isArray(c.emails) ? (c.emails as unknown as string[]) : [];
-          return emails.some((e) => String(e).toLowerCase() === email.toLowerCase());
-        });
-      }
-    } else if (name) {
-      // Lookup by name (partial match)
-      contact = await this.prisma.contact.findFirst({
-        where: {
-          tenantId: context.tenantId,
-          OR: [
-            { displayName: { contains: name, mode: 'insensitive' } },
-            { firstName: { contains: name, mode: 'insensitive' } },
-            { lastName: { contains: name, mode: 'insensitive' } },
-          ],
-        },
-        include: { providerContacts: true },
-      });
-    }
-
-    const lang = getLocale(context.preferences?.language);
-
-    if (!contact) {
-      throw new AiError(t.contactNotFound[lang], AiErrorCode.INVALID_INPUT);
-    }
-
-    return {
-      success: true,
-      data: { contact },
-      summary: t.contactFound[lang](contact.displayName || t.contact[lang]),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  /**
-   * Get unread emails with optional filtering
-   */
-  private async executeGetUnread(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { limit = 10, providerId, folder } = action.payload;
-    const lang = getLocale(context.preferences?.language);
-
-    // Build where clause - exclude SPAM/TRASH by default unless user specifies a folder
-    const whereClause: {
-      tenantId: string;
-      isRead: boolean;
-      isDeleted: boolean;
-      providerId?: string;
-      folder?: string | { notIn: string[] };
-    } = {
-      tenantId: context.tenantId,
-      isRead: false,
-      isDeleted: false,
-    };
-
-    if (providerId) {
-      whereClause.providerId = providerId;
-    }
-
-    if (folder) {
-      // User explicitly requested a specific folder
-      whereClause.folder = folder;
-    } else {
-      // Exclude SPAM and TRASH by default - they're junk
-      whereClause.folder = EXCLUDE_JUNK_FOLDERS;
-    }
-
-    const emails = await this.prisma.email.findMany({
-      where: whereClause,
-      orderBy: { receivedAt: 'desc' },
-      take: limit,
-      select: {
-        id: true,
-        subject: true,
-        from: true,
-        to: true,
-        receivedAt: true,
-        snippet: true,
-        isStarred: true,
-        labels: true,
-        folder: true,
-      },
-    });
-
-    const summary = emails.length === 0
-      ? t.unreadEmailsFound[lang](0)
-      : emails
-        .slice(0, Math.min(5, emails.length))
-        .map((email) => {
-          const sender = email.from || t.unknownSender[lang];
-          const subject = email.subject || t.noSubject[lang];
-          return `${lang === 'it' ? 'Da' : 'From'}: ${sender} — ${subject}`;
-        })
-        .join('\n');
-
-    return {
-      success: true,
-      data: { count: emails.length, emails, summary },
-      summary,
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  /**
-   * Categorize an email with AI-suggested categories/labels
-   */
-  private async executeCategorizeEmail(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailId, categories, labels, category } = action.payload;
-
-    // Get the email
-    const email = await this.prisma.email.findFirst({
-      where: { id: emailId, tenantId: context.tenantId },
-    });
-
-    if (!email) {
-      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Determine labels to apply (support both array and single category)
-    const labelsToApply: string[] = labels || categories || (category ? [category] : []);
-
-    if (labelsToApply.length === 0) {
-      throw new AiError('No categories or labels provided', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Get current labels and merge with new ones
-    const currentLabels = Array.isArray(email.labels) ? (email.labels as unknown as string[]) : [];
-    const newLabels = [...new Set([...currentLabels, ...labelsToApply])];
-
-    // Update email with new labels (tenant-scoped)
-    const updated = await this.prisma.email.updateMany({
-      where: { id: emailId, tenantId: context.tenantId },
-      data: { labels: newLabels },
-    });
-    if (updated.count === 0) {
-      throw new AiError('Email not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    this.logger.log(`Categorized email ${emailId} with: ${labelsToApply.join(', ')}`);
-
-    const lang = getLocale(context.preferences?.language);
-
-    return {
-      success: true,
-      data: {
-        emailId,
-        categorized: true,
-        appliedCategories: labelsToApply,
-        allLabels: newLabels,
-      },
-      summary: t.emailCategorized[lang](labelsToApply.join(', ')),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  /**
-   * Reschedule a calendar event to a new time
-   */
-  private async executeRescheduleEvent(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { eventId, newStartTime, newEndTime, reason } = action.payload;
-
-    if (!this.calendarService) {
-      this.logger.error('CalendarService not available');
-      throw new AiError('Calendar service is not available. Please try again later.', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    // Get the event to verify ownership and get provider info
-    const event = await this.prisma.calendarEvent.findFirst({
-      where: { id: eventId, tenantId: context.tenantId },
-      include: { provider: true },
-    });
-
-    if (!event) {
-      throw new AiError('Event not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Calculate duration if only newStartTime is provided
-    let endTime = newEndTime;
-    if (!endTime && event.startTime && event.endTime) {
-      const duration = new Date(event.endTime).getTime() - new Date(event.startTime).getTime();
-      endTime = new Date(new Date(newStartTime).getTime() + duration).toISOString();
-    }
-
-    // Build update description with reschedule reason
-    let newDescription = event.description || '';
-    if (reason) {
-      newDescription = newDescription
-        ? `${newDescription}\n\n[Rescheduled: ${reason}]`
-        : `[Rescheduled: ${reason}]`;
-    }
-
-    // Update event via CalendarService
-    const updatedEvent = await this.calendarService.updateEvent(
-      context.tenantId,
-      eventId,
-      {
-        startTime: new Date(newStartTime),
-        endTime: endTime ? new Date(endTime) : undefined,
-        description: newDescription,
-      },
-    );
-
-    this.logger.log(`Rescheduled event ${eventId} to ${newStartTime}`);
-
-    const lang = getLocale(context.preferences?.language);
-    const dateStr = formatDateForLocale(new Date(newStartTime), lang);
-    const eventTitle = event.title || t.event[lang];
-
-    return {
-      success: true,
-      data: {
-        eventId,
-        rescheduled: true,
-        newStartTime,
-        newEndTime: endTime,
-        reason,
-        event: updatedEvent,
-      },
-      summary: t.eventRescheduled[lang](eventTitle, dateStr),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  // ===============================
-  // FOLDER ACTION EXECUTORS
-  // ===============================
-
-  private async executeCreateFolder(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { name, providerId, parentPath } = action.payload;
-
-    if (!this.folderSyncService) {
-      this.logger.warn('FolderSyncService not available');
-      throw new AiError('Folder service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    if (!name) {
-      throw new AiError('Folder name is required', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Find provider if not specified
-    let actualProviderId = providerId;
-    if (!actualProviderId) {
-      const provider = await this.prisma.providerConfig.findFirst({
-        where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
-      });
-      if (!provider) {
-        throw new AiError('No email provider available', AiErrorCode.PROVIDER_UNAVAILABLE);
-      }
-      actualProviderId = provider.id;
-    }
-
-    const result = await this.folderSyncService.createFolder(
-      context.tenantId,
-      actualProviderId,
-      name,
-      parentPath,
-    );
-
-    this.logger.log(`Created folder "${name}" with id ${result.id}`);
-
-    const lang = getLocale(context.preferences?.language);
-
-    return {
-      success: true,
-      data: { folderId: result.id, folderPath: result.path, folderName: result.name },
-      summary: t.folderCreated[lang](name),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeRenameFolder(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { folderPath, newName, providerId } = action.payload;
-
-    if (!this.folderSyncService) {
-      this.logger.warn('FolderSyncService not available');
-      throw new AiError('Folder service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    if (!folderPath || !newName) {
-      throw new AiError('Folder path and new name are required', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Find provider if not specified
-    let actualProviderId = providerId;
-    if (!actualProviderId) {
-      const provider = await this.prisma.providerConfig.findFirst({
-        where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
-      });
-      if (!provider) {
-        throw new AiError('No email provider available', AiErrorCode.PROVIDER_UNAVAILABLE);
-      }
-      actualProviderId = provider.id;
-    }
-
-    const result = await this.folderSyncService.renameFolder(
-      context.tenantId,
-      actualProviderId,
-      folderPath,
-      newName,
-    );
-
-    this.logger.log(`Renamed folder to "${newName}" (path: ${result.path})`);
-
-    const lang = getLocale(context.preferences?.language);
-
-    return {
-      success: true,
-      data: { folderId: result.id, folderPath: result.path, folderName: result.name },
-      summary: t.folderRenamed[lang](newName),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  private async executeDeleteFolder(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { folderPath, providerId } = action.payload;
-
-    if (!this.folderSyncService) {
-      this.logger.warn('FolderSyncService not available');
-      throw new AiError('Folder service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    if (!folderPath) {
-      throw new AiError('Folder path is required', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Find provider if not specified
-    let actualProviderId = providerId;
-    if (!actualProviderId) {
-      const provider = await this.prisma.providerConfig.findFirst({
-        where: { tenantId: context.tenantId, supportsEmail: true, isActive: true },
-      });
-      if (!provider) {
-        throw new AiError('No email provider available', AiErrorCode.PROVIDER_UNAVAILABLE);
-      }
-      actualProviderId = provider.id;
-    }
-
-    await this.folderSyncService.deleteFolder(
-      context.tenantId,
-      actualProviderId,
-      folderPath,
-    );
-
-    this.logger.log(`Deleted folder at path "${folderPath}"`);
-
-    const lang = getLocale(context.preferences?.language);
-
-    return {
-      success: true,
-      data: { folderPath, deleted: true },
-      summary: t.folderDeleted[lang](folderPath),
-      executionTimeMs: 0, // Overwritten by execute()
-    };
-  }
-
-  // ===============================
-  // BULK EMAIL ACTION EXECUTORS
-  // ===============================
-
-  /**
-   * Get provider type for bulk operations
-   */
-  private async getProviderType(
-    tenantId: string,
-    providerId: string,
-  ): Promise<'google' | 'microsoft' | 'imap'> {
-    const provider = await this.prisma.providerConfig.findFirst({
-      where: { id: providerId, tenantId },
-      select: { providerType: true },
-    });
-
-    if (!provider) {
-      throw new AiError('Provider not found', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    // Map provider type to bulk operation type
-    const typeMap: Record<string, 'google' | 'microsoft' | 'imap'> = {
-      GOOGLE: 'google',
-      MICROSOFT: 'microsoft',
-      IMAP: 'imap',
-    };
-
-    return typeMap[provider.providerType] || 'imap';
-  }
-
-  /**
-   * Bulk delete emails or empty a folder
-   */
-  private async executeBulkDeleteEmails(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailIds, folder, permanent, count } = action.payload;
-    const lang = getLocale(context.preferences?.language);
-
-    if (!this.bulkOperationsQueue) {
-      throw new AiError('Bulk operations service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    if (!emailIds || emailIds.length === 0) {
-      throw new AiError('No emails to delete', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Get provider from first email
-    const firstEmail = await this.prisma.email.findFirst({
-      where: { id: emailIds[0], tenantId: context.tenantId },
-      select: { providerId: true },
-    });
-
-    if (!firstEmail) {
-      throw new AiError('Emails not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
-
-    // Queue the bulk operation
-    const jobId = await this.bulkOperationsQueue.enqueueBulkOperation({
-      tenantId: context.tenantId,
-      providerId: firstEmail.providerId,
-      providerType,
-      operation: permanent ? 'delete' : 'delete',
-      emailIds,
-      requestedAt: new Date().toISOString(),
-      userId: context.userId,
-      syncToProvider: true,
-    });
-
-    const emailCount = count || emailIds.length;
-    const folderName = folder || 'selected';
-
-    return {
-      success: true,
-      data: { jobId, emailCount, folder: folderName, queued: true },
-      summary: t.bulkDeleteQueued?.[lang]
-        ? t.bulkDeleteQueued[lang](emailCount, folderName)
-        : `Queued deletion of ${emailCount} emails from ${folderName}. Job ID: ${jobId}`,
-      executionTimeMs: 0,
-    };
-  }
-
-  /**
-   * Bulk archive emails
-   */
-  private async executeBulkArchiveEmails(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailIds, count } = action.payload;
-    const lang = getLocale(context.preferences?.language);
-
-    if (!this.bulkOperationsQueue) {
-      throw new AiError('Bulk operations service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    if (!emailIds || emailIds.length === 0) {
-      throw new AiError('No emails to archive', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Get provider from first email
-    const firstEmail = await this.prisma.email.findFirst({
-      where: { id: emailIds[0], tenantId: context.tenantId },
-      select: { providerId: true },
-    });
-
-    if (!firstEmail) {
-      throw new AiError('Emails not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
-
-    // Queue the bulk operation
-    const jobId = await this.bulkOperationsQueue.enqueueBulkOperation({
-      tenantId: context.tenantId,
-      providerId: firstEmail.providerId,
-      providerType,
-      operation: 'archive',
-      emailIds,
-      requestedAt: new Date().toISOString(),
-      userId: context.userId,
-      syncToProvider: true,
-    });
-
-    const emailCount = count || emailIds.length;
-
-    return {
-      success: true,
-      data: { jobId, emailCount, queued: true },
-      summary: t.bulkArchiveQueued?.[lang]
-        ? t.bulkArchiveQueued[lang](emailCount)
-        : `Queued archiving of ${emailCount} emails. Job ID: ${jobId}`,
-      executionTimeMs: 0,
-    };
-  }
-
-  /**
-   * Bulk mark emails as read
-   */
-  private async executeBulkMarkRead(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailIds, count } = action.payload;
-    const lang = getLocale(context.preferences?.language);
-
-    if (!this.bulkOperationsQueue) {
-      throw new AiError('Bulk operations service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    if (!emailIds || emailIds.length === 0) {
-      throw new AiError('No emails to mark as read', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Get provider from first email
-    const firstEmail = await this.prisma.email.findFirst({
-      where: { id: emailIds[0], tenantId: context.tenantId },
-      select: { providerId: true },
-    });
-
-    if (!firstEmail) {
-      throw new AiError('Emails not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
-
-    // Queue the bulk operation
-    const jobId = await this.bulkOperationsQueue.enqueueBulkOperation({
-      tenantId: context.tenantId,
-      providerId: firstEmail.providerId,
-      providerType,
-      operation: 'mark-read',
-      emailIds,
-      requestedAt: new Date().toISOString(),
-      userId: context.userId,
-      syncToProvider: true,
-    });
-
-    const emailCount = count || emailIds.length;
-
-    return {
-      success: true,
-      data: { jobId, emailCount, queued: true },
-      summary: t.bulkMarkReadQueued?.[lang]
-        ? t.bulkMarkReadQueued[lang](emailCount)
-        : `Queued marking ${emailCount} emails as read. Job ID: ${jobId}`,
-      executionTimeMs: 0,
-    };
-  }
-
-  /**
-   * Bulk move emails to a folder
-   */
-  private async executeBulkMoveEmails(
-    action: AgentAction,
-    context: AgentContext,
-  ): Promise<ActionExecutionResult> {
-    const { emailIds, targetFolder, count } = action.payload;
-    const lang = getLocale(context.preferences?.language);
-
-    if (!this.bulkOperationsQueue) {
-      throw new AiError('Bulk operations service not available', AiErrorCode.PROVIDER_UNAVAILABLE);
-    }
-
-    if (!emailIds || emailIds.length === 0) {
-      throw new AiError('No emails to move', AiErrorCode.INVALID_INPUT);
-    }
-
-    if (!targetFolder) {
-      throw new AiError('Target folder is required', AiErrorCode.INVALID_INPUT);
-    }
-
-    // Get provider from first email
-    const firstEmail = await this.prisma.email.findFirst({
-      where: { id: emailIds[0], tenantId: context.tenantId },
-      select: { providerId: true },
-    });
-
-    if (!firstEmail) {
-      throw new AiError('Emails not found', AiErrorCode.INVALID_INPUT);
-    }
-
-    const providerType = await this.getProviderType(context.tenantId, firstEmail.providerId);
-
-    // Queue the bulk operation
-    const jobId = await this.bulkOperationsQueue.enqueueBulkOperation({
-      tenantId: context.tenantId,
-      providerId: firstEmail.providerId,
-      providerType,
-      operation: 'move',
-      emailIds,
-      targetFolderId: targetFolder,
-      requestedAt: new Date().toISOString(),
-      userId: context.userId,
-      syncToProvider: true,
-    });
-
-    const emailCount = count || emailIds.length;
-
-    return {
-      success: true,
-      data: { jobId, emailCount, targetFolder, queued: true },
-      summary: t.bulkMoveQueued?.[lang]
-        ? t.bulkMoveQueued[lang](emailCount, targetFolder)
-        : `Queued moving ${emailCount} emails to ${targetFolder}. Job ID: ${jobId}`,
-      executionTimeMs: 0,
-    };
-  }
 }

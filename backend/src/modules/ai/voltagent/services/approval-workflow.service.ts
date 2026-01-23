@@ -146,7 +146,7 @@ export class ApprovalWorkflowService implements OnModuleInit {
 
   /** Resume a suspended workflow with human decision */
   async resumeApproval(executionId: string, decision: ApprovalResumeData, tenantId?: string): Promise<ApprovalResult> {
-    let suspended = await this.getSerializableSuspended(executionId, tenantId);
+    const suspended = await this.getSerializableSuspended(executionId, tenantId);
 
     if (!suspended) {
       throw new AiError(`Suspended workflow not found: ${executionId}`, AiErrorCode.WORKFLOW_FAILED, { retryable: false });

@@ -606,10 +606,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     let agent: Agent;
     if (suggestedAgent !== 'Supervisor') {
       this.logger.debug(`${logPrefix} Direct routing to ${suggestedAgent}Agent (skipping supervisor)`);
-      agent = this.agentPoolService.getOrCreateAgent(agentParams);
+      agent = await this.agentPoolService.getOrCreateAgent(agentParams);
     } else {
       // Use supervisor for complex multi-agent coordination (cross-domain queries)
-      agent = this.agentPoolService.getOrCreateAgent({ ...agentParams, agentType: 'Supervisor' });
+      agent = await this.agentPoolService.getOrCreateAgent({ ...agentParams, agentType: 'Supervisor' });
     }
 
     // NOTE: tenantUserId was previously used for VoltAgent's native memory (disabled due to bug)
@@ -953,7 +953,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     if (!this.agentPoolService) {
       throw new AiError('AgentPoolService not available', AiErrorCode.INTERNAL_ERROR, { retryable: false });
     }
-    const agent = this.agentPoolService.getOrCreateAgent({
+    const agent = await this.agentPoolService.getOrCreateAgent({
       tenantId: options.tenantId,
       locale,
       modelType: selectedModel,

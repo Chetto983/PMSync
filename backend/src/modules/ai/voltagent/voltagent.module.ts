@@ -13,7 +13,16 @@ import { SubscriptionModule } from '../../subscription/subscription.module';
 
 // Controllers
 import { VoltAgentController } from './voltagent.controller';
-import { DocumentLibraryController } from './controllers/document-library.controller';
+import {
+  MemoryController,
+  FollowUpController,
+  AnalyticsController,
+  KnowledgeController,
+  CrmController,
+  SchedulingController,
+  ConversationController,
+  DocumentLibraryController,
+} from './controllers';
 
 // Core services
 import { VoltAgentService } from './voltagent.service';
@@ -72,7 +81,17 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     forwardRef(() => EmailSyncModule),
     forwardRef(() => SubscriptionModule),
   ],
-  controllers: [VoltAgentController, DocumentLibraryController],
+  controllers: [
+    VoltAgentController,
+    MemoryController,
+    FollowUpController,
+    AnalyticsController,
+    KnowledgeController,
+    CrmController,
+    SchedulingController,
+    ConversationController,
+    DocumentLibraryController,
+  ],
   providers: [
     // Core
     VoltAgentService,

@@ -2,8 +2,10 @@
  * Agent Pool Service - Manages VoltAgent lifecycle with TTL caching and LRU eviction.
  * MEMORY OPTIMIZATION: 1000 tenants share 5 agents = ~25MB instead of 500MB.
  * Created: 2026-01-22 (Refactored from VoltAgentService)
+ * Updated: 2026-01-23 (Added mutex for thread-safe cache operations - Phase 8 race condition fix)
  */
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Mutex } from 'async-mutex';
 import { ConfigService } from '@nestjs/config';
 import type { Agent, Memory, AgentHooks } from '@voltagent/core';
 import { PrismaService } from '../../../../prisma/prisma.service';
@@ -44,7 +46,10 @@ export interface GetOrCreateAgentParams {
 @Injectable()
 export class AgentPoolService {
   private readonly logger = new Logger(AgentPoolService.name);
-  private agents: Map<string, CachedAgent> = new Map();
+  private readonly agents: Map<string, CachedAgent> = new Map();
+
+  /** Mutex for thread-safe cache operations (Phase 8 race condition fix) */
+  private readonly cacheMutex = new Mutex();
 
   /** TTL for cached agents (5 minutes) - balances memory vs code reload */
   private readonly AGENT_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -66,8 +71,11 @@ export class AgentPoolService {
     @Optional() private readonly piiDetectionService?: PiiDetectionService,
   ) {}
 
-  /** Get or create agent with TTL caching. RAG services included when available. */
-  getOrCreateAgent(params: GetOrCreateAgentParams): Agent {
+  /**
+   * Get or create agent with TTL caching. RAG services included when available.
+   * Thread-safe via mutex to prevent race conditions on concurrent requests.
+   */
+  async getOrCreateAgent(params: GetOrCreateAgentParams): Promise<Agent> {
     const {
       tenantId,
       locale,
@@ -84,81 +92,85 @@ export class AgentPoolService {
     const userKey = userContext?.email ?? 'anonymous';
     // Use agentType in cache key to separate Supervisors from specialized agents
     const cacheKey = `${tenantId}:${userKey}:${locale}:${modelType}:${agentType}`;
-    const now = Date.now();
 
-    // Check if cached agent exists and is not expired
-    const cached = this.agents.get(cacheKey);
-    if (cached && (now - cached.createdAt) < this.AGENT_CACHE_TTL_MS) {
-      // Update lastUsed for LRU tracking
-      cached.lastUsed = now;
-      return cached.agent;
-    }
+    // Thread-safe cache access via mutex (Phase 8 race condition fix)
+    return this.cacheMutex.runExclusive(() => {
+      const now = Date.now();
 
-    // LRU eviction if at capacity
-    if (this.agents.size >= this.MAX_CACHED_AGENTS) {
-      this.evictLeastRecentlyUsedAgent();
-    }
+      // Check if cached agent exists and is not expired
+      const cached = this.agents.get(cacheKey);
+      if (cached && (now - cached.createdAt) < this.AGENT_CACHE_TTL_MS) {
+        // Update lastUsed for LRU tracking
+        cached.lastUsed = now;
+        return cached.agent;
+      }
 
-    // Create new agent (or replace expired one)
-    const model = getMistralModel(modelType);
-    let agent: Agent;
+      // LRU eviction if at capacity
+      if (this.agents.size >= this.MAX_CACHED_AGENTS) {
+        this.evictLeastRecentlyUsedAgent();
+      }
 
-    const commonOptions = {
-      model,
-      prisma: this.prisma,
-      locale,
-      tenantId,
-      hooks: hooks ?? undefined,
-      userId,
-      cacheService: this.cacheService,
-    };
+      // Create new agent (or replace expired one)
+      const model = getMistralModel(modelType);
+      let agent: Agent;
 
-    // Phase 3: Agent Consolidation (10 -> 3)
-    switch (agentType) {
-      case 'Actions':
-        agent = createActionsAgent({
-          ...commonOptions,
-          emailSendService: this.emailSendService ?? null,
-          calendarService: this.calendarService ?? null,
-          memory: memory ?? undefined,
-        });
-        break;
-      case 'Intelligence':
-        agent = createIntelligenceAgent({
-          ...commonOptions,
-          mistral: this.mistralService ?? null,
-          embeddingsService: this.embeddingsService ?? null,
-          writingStyle: this.writingStyleService ?? null,
-          memory: memory ?? undefined,
-          piiDetectionService: this.piiDetectionService,
-        });
-        break;
-      case 'Supervisor':
-      default:
-        agent = createSupervisorAgent({
-          ...commonOptions,
-          emailSendService: this.emailSendService ?? null,
-          calendarService: this.calendarService ?? null,
-          memory: memory ?? undefined,
-          mistralService: this.mistralService,
-          embeddingsService: this.embeddingsService,
-          userContext: userContext ?? undefined,
-          configService: this.configService,
-          documentLibraryService: this.documentLibraryService,
-          followUpService: this.followUpService,
-          piiDetectionService: this.piiDetectionService,
-        });
-        break;
-    }
+      const commonOptions = {
+        model,
+        prisma: this.prisma,
+        locale,
+        tenantId,
+        hooks: hooks ?? undefined,
+        userId,
+        cacheService: this.cacheService,
+      };
 
-    // Cache with timestamps for TTL and LRU
-    this.agents.set(cacheKey, { agent, createdAt: now, lastUsed: now });
+      // Phase 3: Agent Consolidation (10 -> 3)
+      switch (agentType) {
+        case 'Actions':
+          agent = createActionsAgent({
+            ...commonOptions,
+            emailSendService: this.emailSendService ?? null,
+            calendarService: this.calendarService ?? null,
+            memory: memory ?? undefined,
+          });
+          break;
+        case 'Intelligence':
+          agent = createIntelligenceAgent({
+            ...commonOptions,
+            mistral: this.mistralService ?? null,
+            embeddingsService: this.embeddingsService ?? null,
+            writingStyle: this.writingStyleService ?? null,
+            memory: memory ?? undefined,
+            piiDetectionService: this.piiDetectionService,
+          });
+          break;
+        case 'Supervisor':
+        default:
+          agent = createSupervisorAgent({
+            ...commonOptions,
+            emailSendService: this.emailSendService ?? null,
+            calendarService: this.calendarService ?? null,
+            memory: memory ?? undefined,
+            mistralService: this.mistralService,
+            embeddingsService: this.embeddingsService,
+            userContext: userContext ?? undefined,
+            configService: this.configService,
+            documentLibraryService: this.documentLibraryService,
+            followUpService: this.followUpService,
+            piiDetectionService: this.piiDetectionService,
+          });
+          break;
+      }
 
-    this.logger.debug(
-      `Created ${agentType} agent for ${cacheKey}, cache size: ${this.agents.size}/${this.MAX_CACHED_AGENTS}`,
-    );
+      // Cache with timestamps for TTL and LRU
+      this.agents.set(cacheKey, { agent, createdAt: now, lastUsed: now });
 
-    return agent;
+      this.logger.debug(
+        `Created ${agentType} agent for ${cacheKey}, cache size: ${this.agents.size}/${this.MAX_CACHED_AGENTS}`,
+      );
+
+      return agent;
+    });
   }
 
   /** Evict the least recently used agent from cache */

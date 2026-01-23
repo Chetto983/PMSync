@@ -298,8 +298,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     userId,
     cacheService,
     documentLibraryService,
-    // longTermMemoryService, deadlineService, actionItemService removed - AI refactor v2.0
-    followUpService: _followUpService,
+    // followUpService, longTermMemoryService, deadlineService, actionItemService removed - AI refactor v2.0
     piiDetectionService,
   } = options;
   // Always use English prompts, locale only affects response language

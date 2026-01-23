@@ -195,7 +195,8 @@
       "Bash(for dir in \"d:\\\\MailAgent\\\\frontend\\\\components\"/*/)",
       "Bash(LOG_LEVEL=warn npx ts-node:*)",
       "Bash(del \"C:\\\\Users\\\\Davide\\\\.claude\\\\plans\\\\sequential-plotting-frog.md\")",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "mcp__claude-flow_alpha__memory_store"
     ],
     "deny": []
   }
