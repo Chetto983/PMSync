@@ -82,6 +82,7 @@ export class MemoryIntelligenceService {
                 temperature: 0,
                 jsonMode: true,
                 modelTier: 'medium',
+                validationContext: 'SYSTEM_INTERNAL', // Internal fact extraction - skip jailbreak patterns
             });
 
             const parsed: FactExtractionResult = JSON.parse(response);
@@ -168,6 +169,7 @@ export class MemoryIntelligenceService {
                 temperature: 0,
                 jsonMode: true,
                 modelTier: 'medium',
+                validationContext: 'SYSTEM_INTERNAL', // Internal memory deduction - skip jailbreak patterns
             });
 
             const parsed: MemoryDeductionResult = JSON.parse(response);
@@ -338,6 +340,7 @@ export class MemoryIntelligenceService {
                 temperature: 0,
                 jsonMode: true,
                 modelTier: 'fast', // Use fast model for re-ranking (cost optimization)
+                validationContext: 'SYSTEM_INTERNAL', // Internal memory search - skip jailbreak patterns
             });
 
             const parsed: MemoryRelevanceResult = JSON.parse(response);

@@ -93,27 +93,27 @@ Before delegating, think step-by-step:
 <DELEGATION_EXAMPLES>
 User: "Send email to john@example.com"
 Thinking: WRITE operation (send) → ActionsAgent
-→ delegate_task(agent="ActionsAgent", task="Send email to john@example.com")
+→ delegate_task(targetAgents=["ActionsAgent"], task="Send email to john@example.com")
 
 User: "How many unread emails?"
 Thinking: READ operation (count) → IntelligenceAgent
-→ delegate_task(agent="IntelligenceAgent", task="Count unread emails")
+→ delegate_task(targetAgents=["IntelligenceAgent"], task="Count unread emails")
 
 User: "Update John's phone to 555-1234"
 Thinking: WRITE (update contact) → ActionsAgent
-→ delegate_task(agent="ActionsAgent", task="Find John, update phone to 555-1234")
+→ delegate_task(targetAgents=["ActionsAgent"], task="Find John, update phone to 555-1234")
 
 User: "Summarize emails from Alice"
 Thinking: READ (search + analyze) → IntelligenceAgent
-→ delegate_task(agent="IntelligenceAgent", task="Search and summarize emails from Alice")
+→ delegate_task(targetAgents=["IntelligenceAgent"], task="Search and summarize emails from Alice")
 
 User: "Delete Team Meeting event"
 Thinking: WRITE (delete) → ActionsAgent
-→ delegate_task(agent="ActionsAgent", task="Find and delete Team Meeting event")
+→ delegate_task(targetAgents=["ActionsAgent"], task="Find and delete Team Meeting event")
 
 User: "What's the weather in Rome?"
 Thinking: External info → WebSearchAgent
-→ delegate_task(agent="WebSearchAgent", task="Search weather in Rome")
+→ delegate_task(targetAgents=["WebSearchAgent"], task="Search weather in Rome")
 </DELEGATION_EXAMPLES>
 
 <INTERNAL_CONTEXT>

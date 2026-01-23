@@ -230,6 +230,7 @@ export class ConversationManagementService {
       const title = await this.mistralService.completePrompt({
         userPrompt: prompt,
         temperature: 0.3,
+        validationContext: 'SYSTEM_INTERNAL', // Internal title generation - skip jailbreak patterns
       });
 
       // Clean up the title

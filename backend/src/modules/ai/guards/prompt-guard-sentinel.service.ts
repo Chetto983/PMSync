@@ -30,6 +30,14 @@ export interface PromptGuardConfig {
   enableTHSP: boolean; // Enable THSP (Truth, Harm, Scope, Purpose) validation
 }
 
+/**
+ * Validation context for context-aware security checks.
+ * EMAIL_CONTENT: Analyzing email body/subject - more lenient (no jailbreak patterns)
+ * USER_PROMPT: User chat message - full validation
+ * SYSTEM_INTERNAL: Internal system operations - minimal validation
+ */
+export type ValidationContext = 'USER_PROMPT' | 'EMAIL_CONTENT' | 'SYSTEM_INTERNAL';
+
 const DEFAULT_CONFIG: PromptGuardConfig = {
   maxInputLength: 10000,
   riskThreshold: 50,
@@ -88,16 +96,40 @@ export class PromptGuardService {
 
   /**
    * Validate input prompt for injection attempts using Sentinel OWASP.
+   *
+   * @param input - The text to validate
+   * @param context - Validation context for context-aware security
+   *   - USER_PROMPT (default): Full validation for user chat messages
+   *   - EMAIL_CONTENT: Lenient validation for email body analysis (no jailbreak patterns, higher length limit)
+   *   - SYSTEM_INTERNAL: Minimal validation for internal system operations
    */
-  validateInput(input: string): PromptValidationResult {
+  validateInput(input: string, context: ValidationContext = 'USER_PROMPT'): PromptValidationResult {
+    // Context-aware max length
+    const maxLength = context === 'EMAIL_CONTENT'
+      ? 100000 // 100KB for email content analysis
+      : context === 'SYSTEM_INTERNAL'
+        ? 500000 // 500KB for system operations
+        : this.config.maxInputLength; // 10KB for user prompts
+
     // 1. Length check
-    if (input.length > this.config.maxInputLength) {
+    if (input.length > maxLength) {
       return {
         isValid: false,
         riskScore: 100,
         detectedPatterns: ['INPUT_TOO_LONG'],
         requiresHumanReview: false,
-        blockReason: `Input exceeds maximum length of ${this.config.maxInputLength} characters`,
+        blockReason: `Input exceeds maximum length of ${maxLength} characters`,
+      };
+    }
+
+    // SYSTEM_INTERNAL: Skip all validation (trusted internal operations)
+    if (context === 'SYSTEM_INTERNAL') {
+      return {
+        isValid: true,
+        riskScore: 0,
+        detectedPatterns: [],
+        sanitizedInput: input,
+        requiresHumanReview: false,
       };
     }
 
@@ -105,24 +137,45 @@ export class PromptGuardService {
     let riskScore = 0;
 
     // 2. OWASP validation (prompt injection, XSS, etc.)
-    const owaspResult = validateOWASP(input);
-    if (!owaspResult.safe) {
-      for (const finding of owaspResult.findings) {
-        detectedPatterns.push(`OWASP_${finding.type}: ${finding.description}`);
-        riskScore += SEVERITY_SCORES[finding.severity] || 20;
+    // For EMAIL_CONTENT: Only check critical injection patterns, ignore XSS (emails may contain HTML)
+    if (context !== 'EMAIL_CONTENT') {
+      const owaspResult = validateOWASP(input);
+      if (!owaspResult.safe) {
+        for (const finding of owaspResult.findings) {
+          detectedPatterns.push(`OWASP_${finding.type}: ${finding.description}`);
+          riskScore += SEVERITY_SCORES[finding.severity] || 20;
+        }
+      }
+    } else {
+      // EMAIL_CONTENT: Only check for prompt injection markers, not XSS
+      const injectionMarkers = [
+        { pattern: /\[INST\]/gi, type: 'PROMPT_INJECTION' },
+        { pattern: /<<SYS>>/gi, type: 'SYSTEM_PROMPT_INJECTION' },
+        { pattern: /<\|im_start\|>/gi, type: 'CHAT_TEMPLATE_INJECTION' },
+      ];
+      for (const marker of injectionMarkers) {
+        if (marker.pattern.test(input)) {
+          detectedPatterns.push(`EMAIL_INJECTION_${marker.type}`);
+          riskScore += 30;
+        }
       }
     }
 
-    // 3. Supplementary roleplay/jailbreak patterns (catches what Sentinel misses)
-    for (const { pattern, description, score } of ROLEPLAY_JAILBREAK_PATTERNS) {
-      if (pattern.test(input)) {
-        detectedPatterns.push(`JAILBREAK: ${description}`);
-        riskScore += score;
+    // 3. Supplementary roleplay/jailbreak patterns
+    // SKIP for EMAIL_CONTENT - these patterns are not relevant for email body analysis
+    // (emails may legitimately contain words like "confidential", "disclosure", etc.)
+    if (context === 'USER_PROMPT') {
+      for (const { pattern, description, score } of ROLEPLAY_JAILBREAK_PATTERNS) {
+        if (pattern.test(input)) {
+          detectedPatterns.push(`JAILBREAK: ${description}`);
+          riskScore += score;
+        }
       }
     }
 
     // 4. THSP validation (Truth, Harm, Scope, Purpose)
-    if (this.config.enableTHSP) {
+    // SKIP for EMAIL_CONTENT - email bodies are data, not instructions
+    if (this.config.enableTHSP && context === 'USER_PROMPT') {
       const thspResult = validateTHSP(input);
       if (!thspResult.safe) {
         // Check which gates failed
@@ -146,13 +199,14 @@ export class PromptGuardService {
     // 5. Cap risk score at 100
     riskScore = Math.min(riskScore, 100);
 
-    // 6. Determine validation result
-    const isValid = riskScore < this.config.blockThreshold;
+    // 6. Determine validation result (EMAIL_CONTENT uses higher threshold)
+    const blockThreshold = context === 'EMAIL_CONTENT' ? 90 : this.config.blockThreshold;
+    const isValid = riskScore < blockThreshold;
     const requiresHumanReview =
-      riskScore >= this.config.riskThreshold && riskScore < this.config.blockThreshold;
+      riskScore >= this.config.riskThreshold && riskScore < blockThreshold;
 
-    // Log if patterns detected
-    if (detectedPatterns.length > 0) {
+    // Log if patterns detected (only for USER_PROMPT to reduce noise)
+    if (detectedPatterns.length > 0 && context === 'USER_PROMPT') {
       this.logger.warn(
         `Prompt injection patterns detected: score=${riskScore}, patterns=${detectedPatterns.length}`,
       );

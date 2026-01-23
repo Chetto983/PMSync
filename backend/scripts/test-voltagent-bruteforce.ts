@@ -537,8 +537,14 @@ async function main() {
       });
     }
 
-    await sleep(300);
+    // Rate limit protection: Mistral has 600K tokens/5min limit
+    // With conversation history growing, we need longer delays
+    // 5 seconds between tests to avoid exhausting token budget
+    await sleep(5000);
   }
+
+  // Rate limit cooldown before special tests
+  await sleep(10000);
 
   // PII roundtrip test (explicit validation)
   const piiMessage = 'My phone is +1 415-555-0199 and my email is alice+test@example.com. Repeat them back.';
@@ -600,6 +606,9 @@ async function main() {
     });
   }
 
+  // Rate limit cooldown
+  await sleep(5000);
+
   // Name test (requires profile name)
   if (user.firstName || user.lastName) {
     const nameStart = Date.now();
@@ -644,6 +653,9 @@ async function main() {
       details: 'User has no first/last name in profile',
     });
   }
+
+  // Rate limit cooldown
+  await sleep(5000);
 
   // Memory test (store then recall)
   const memoryStore = 'Remember: my favorite color is ultramarine.';
@@ -696,6 +708,9 @@ async function main() {
       details: errMsg,
     });
   }
+
+  // Rate limit cooldown
+  await sleep(5000);
 
   // Streaming sanitization test
   const streamStart = Date.now();

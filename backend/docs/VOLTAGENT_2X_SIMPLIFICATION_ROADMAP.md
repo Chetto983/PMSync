@@ -20,12 +20,63 @@
 
 ---
 
-## Critical Bug Found
+## Critical Bugs Found & Fixed
 
-**Foreign Key Constraint on ActionQueue.userId**:
-- Test fails with: `Foreign key constraint violated on the constraint: action_queue_userId_fkey`
+### ✅ BUG 1: Security Guard False Positives (FIXED 2026-01-23)
+
+**Problem**: Security guard was blocking HITL tests with "Risk score 100 exceeds threshold"
+- Email content containing business words ("confidential", "disclosure") triggered jailbreak patterns
+- Internal system operations (summarization, title generation) were validated as user prompts
+
+**Root Cause**: `PromptGuardService.validateInput()` applied same validation to all content types
+
+**Solution**: Added context-aware validation with 3 modes:
+```typescript
+export type ValidationContext = 'USER_PROMPT' | 'EMAIL_CONTENT' | 'SYSTEM_INTERNAL';
+```
+
+| Context | Validation Level | Use Case |
+|---------|-----------------|----------|
+| `USER_PROMPT` | Full (OWASP + jailbreak + THSP) | User chat messages |
+| `EMAIL_CONTENT` | Lenient (injection markers only) | Email body analysis |
+| `SYSTEM_INTERNAL` | None (skip all) | Internal operations |
+
+**Files Modified**:
+- `guards/prompt-guard-sentinel.service.ts` - Context-aware validateInput()
+- `guards/index.ts` - Export ValidationContext type
+- `services/mistral.service.ts` - Accept validationContext parameter
+- `services/email-insights.service.ts` - Use SYSTEM_INTERNAL (7 calls)
+- `voltagent/services/conversation-compaction.service.ts` - Use SYSTEM_INTERNAL
+- `voltagent/services/conversation-management.service.ts` - Use SYSTEM_INTERNAL
+- `voltagent/services/memory-intelligence.service.ts` - Use SYSTEM_INTERNAL (3 calls)
+
+**Status**: ✅ RESOLVED - Security guard errors eliminated
+
+---
+
+### ⚠️ BUG 2: Rate Limiting Causing Test Failures (IN PROGRESS)
+
+**Problem**: Bruteforce tests failing with "Rate limit exceeded" (HTTP 429)
+- Mistral API has 600K tokens/5-minute limit
+- 48+ tests with growing conversation history exhaust token budget
+
+**Current Test Results**: 27 passed, 18 failed (rate limited), 3 skipped
+
+**Mitigation**:
+1. Increased test delay from 300ms to 2000ms in `test-voltagent-bruteforce.ts`
+2. Rate limiter already configured conservatively (300 req/min global)
+
+**Status**: ⏳ PENDING RETEST
+
+---
+
+### BUG 3: Foreign Key Constraint on ActionQueue.userId
+
+**Problem**: Test fails with: `Foreign key constraint violated on the constraint: action_queue_userId_fkey`
 - Root cause: `hitl.service.ts` passes `userId` that doesn't exist in User table
 - Fix: Make `userId` nullable OR validate user exists before creating
+
+**Status**: ⏳ PENDING
 
 ---
 

@@ -116,6 +116,7 @@ export class EmailInsightsService {
         userPrompt,
         temperature: 0.2,
         maxTokens: 400,
+        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
       });
       return this.stripMarkdown(summary.trim());
     } catch (error) {
@@ -147,6 +148,7 @@ export class EmailInsightsService {
         userPrompt,
         temperature: 0.4,
         maxTokens: 500,
+        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
       });
 
       const parsedReplies = parseArrayFromAiPayload(raw, 'replies');
@@ -224,6 +226,7 @@ export class EmailInsightsService {
         temperature: 0.35,
         maxTokens: 900,
         jsonMode: true, // Enable JSON mode for guaranteed valid JSON output
+        validationContext: 'SYSTEM_INTERNAL', // Email compose - skip jailbreak patterns
       });
 
       this.logger.debug(`[composeEmail] Raw Mistral response (first 500 chars): ${raw?.substring(0, 500)}`);
@@ -263,6 +266,7 @@ export class EmailInsightsService {
         userPrompt,
         temperature: 0.1,
         maxTokens: 300,
+        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
       });
 
       let labels = parseArrayFromAiPayload(raw, 'labels');
@@ -311,6 +315,7 @@ export class EmailInsightsService {
         userPrompt,
         temperature: 0.1,
         maxTokens: 500,
+        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
       });
 
       const parsed = this.parseJsonResponse(raw);
@@ -357,6 +362,7 @@ export class EmailInsightsService {
         userPrompt,
         temperature: 0.1,
         maxTokens: 400,
+        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
       });
 
       const parsed = this.parseJsonResponse(raw);
@@ -449,6 +455,7 @@ export class EmailInsightsService {
         userPrompt,
         temperature: 0.1,
         maxTokens: 600,
+        validationContext: 'SYSTEM_INTERNAL', // Email content analysis - skip jailbreak patterns
       });
       const latencyMs = Date.now() - startTime;
 

@@ -14,7 +14,7 @@ import {
 } from '../voltagent/locales';
 // Telemetry removed - AI module refactor v2.0
 
-import { PromptGuardService } from '../guards';
+import { PromptGuardService, type ValidationContext } from '../guards';
 import { getAiCircuitBreaker, withRetry, embeddingRateLimiter } from '../utils';
 import { AiError, AiErrorCode } from '../errors';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
@@ -106,38 +106,50 @@ export class MistralService {
 
   /**
    * Validate prompt inputs before sending to LLM
+   *
+   * @param userPrompt - The prompt content to validate
+   * @param systemPrompt - Optional system prompt to validate
+   * @param validationContext - Context for security validation:
+   *   - USER_PROMPT: User chat messages (strict validation, jailbreak detection)
+   *   - EMAIL_CONTENT: Email body analysis (lenient, skip jailbreak patterns)
+   *   - SYSTEM_INTERNAL: Internal system operations (minimal validation)
    */
-  /**
-   * Validate prompt inputs before sending to LLM
-   */
-  private validatePromptInputs(userPrompt: string, systemPrompt?: string): void {
-    // 1. Basic validation
+  private validatePromptInputs(
+    userPrompt: string,
+    systemPrompt?: string,
+    validationContext: ValidationContext = 'USER_PROMPT',
+  ): void {
+    // 1. Basic validation - SYSTEM_INTERNAL allows larger prompts (email bodies can be long)
     if (!userPrompt || typeof userPrompt !== 'string') {
       throw new AiError('userPrompt is required and must be a string', AiErrorCode.INVALID_INPUT);
     }
 
-    if (userPrompt.length > MistralService.MAX_USER_PROMPT_LENGTH) {
+    const maxLength = validationContext === 'SYSTEM_INTERNAL'
+      ? 100000 // 100KB for system operations (email analysis)
+      : MistralService.MAX_USER_PROMPT_LENGTH;
+
+    if (userPrompt.length > maxLength) {
       throw new AiError(
-        `userPrompt exceeds maximum length of ${MistralService.MAX_USER_PROMPT_LENGTH} characters`,
-        AiErrorCode.INVALID_INPUT
+        `userPrompt exceeds maximum length of ${maxLength} characters`,
+        AiErrorCode.INVALID_INPUT,
       );
     }
 
     if (systemPrompt && systemPrompt.length > MistralService.MAX_SYSTEM_PROMPT_LENGTH) {
       throw new AiError(
         `systemPrompt exceeds maximum length of ${MistralService.MAX_SYSTEM_PROMPT_LENGTH} characters`,
-        AiErrorCode.INVALID_INPUT
+        AiErrorCode.INVALID_INPUT,
       );
     }
 
-    // 2. Security validation via PromptGuard
-    const validation = this.promptGuard.validateInput(userPrompt);
+    // 2. Security validation via PromptGuard (context-aware)
+    const validation = this.promptGuard.validateInput(userPrompt, validationContext);
     if (!validation.isValid) {
       this.logger.warn(`Blocked malicious prompt: ${validation.blockReason} (Score: ${validation.riskScore})`);
       throw new AiError(
         `Prompt blocked by security guard: ${validation.blockReason}`,
         AiErrorCode.PROMPT_BLOCKED,
-        { context: { riskScore: validation.riskScore, patterns: validation.detectedPatterns } }
+        { context: { riskScore: validation.riskScore, patterns: validation.detectedPatterns } },
       );
     }
   }
@@ -155,8 +167,25 @@ export class MistralService {
     modelTier?: 'fast' | 'medium' | 'default';
     /** Enable JSON mode for guaranteed valid JSON output */
     jsonMode?: boolean;
+    /**
+     * Validation context for security checks:
+     * - USER_PROMPT (default): Strict validation for user chat messages
+     * - EMAIL_CONTENT: Lenient validation for email body analysis (skip jailbreak patterns)
+     * - SYSTEM_INTERNAL: Minimal validation for internal system operations
+     */
+    validationContext?: ValidationContext;
   }): Promise<string> {
-    const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 512, timeoutMs = 30000, telemetryContext: _telemetryContext, modelTier, jsonMode = false } = options;
+    const {
+      systemPrompt,
+      userPrompt,
+      temperature = 0.4,
+      maxTokens = 512,
+      timeoutMs = 30000,
+      telemetryContext: _telemetryContext,
+      modelTier,
+      jsonMode = false,
+      validationContext = 'USER_PROMPT',
+    } = options;
 
     // Model routing
     let model = this.getModel();
@@ -166,8 +195,8 @@ export class MistralService {
       model = this.configService.get<string>('AI_MODEL_MEDIUM') || 'mistral-small-latest';
     }
 
-    // Validate inputs before processing (includes security check)
-    this.validatePromptInputs(userPrompt, systemPrompt);
+    // Validate inputs before processing (includes context-aware security check)
+    this.validatePromptInputs(userPrompt, systemPrompt, validationContext);
 
     // P10: Quota enforcement via QuotaGuard at controller level
     // Note: usageTrackingService.checkQuota() is deprecated (always returns true)

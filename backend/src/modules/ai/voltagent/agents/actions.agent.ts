@@ -101,8 +101,8 @@ export function createActionsAgent(options: ActionsAgentOptions): Agent {
     instructions: t.actions.instructions + localeInstruction,
     tools: writeTools,
     hooks,
-    // Disable VoltAgent auto-memory writes to avoid duplicate persistence (we store manually)
-    memory: false,
+    // Use passed memory for conversation persistence (tenant isolation via userId format)
+    memory,
     maxSteps: 5, // Name-to-ID workflow needs: search → get result → manage → get result
   });
 }

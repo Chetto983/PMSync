@@ -8,7 +8,12 @@
  * @see OWASP LLM Top 10 2025
  */
 
-export { PromptGuardService, type PromptValidationResult, type PromptGuardConfig } from './prompt-guard-sentinel.service';
+export {
+  PromptGuardService,
+  type PromptValidationResult,
+  type PromptGuardConfig,
+  type ValidationContext,
+} from './prompt-guard-sentinel.service';
 export {
   PiiDetectionService,
   type PiiDetectionResult,

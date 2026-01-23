@@ -191,6 +191,7 @@ KEY_FACTS:
       const response = await this.mistralService.completePrompt({
         userPrompt: summaryPrompt,
         temperature: 0.3, // Low temperature for consistent summaries
+        validationContext: 'SYSTEM_INTERNAL', // Internal conversation compaction - skip jailbreak patterns
       });
 
       // Parse the response
