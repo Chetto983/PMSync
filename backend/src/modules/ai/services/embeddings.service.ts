@@ -17,6 +17,21 @@ interface SaveEmbeddingOptions {
 }
 
 /**
+ * Sanitize content for PostgreSQL UTF8 encoding.
+ * Removes null bytes (0x00) and other invalid UTF8 sequences that cause:
+ * "invalid byte sequence for encoding UTF8: 0x00"
+ *
+ * @param content - Raw content string
+ * @returns Sanitized content safe for PostgreSQL
+ */
+function sanitizeContentForPostgres(content: string): string {
+  if (!content) return content;
+  // Remove null bytes and other control characters except newlines/tabs
+  // eslint-disable-next-line no-control-regex
+  return content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+}
+
+/**
  * Validates and sanitizes an embedding vector for safe SQL usage.
  * Prevents SQL injection by ensuring all values are finite numbers.
  *
@@ -61,7 +76,7 @@ export class EmbeddingsService {
   async saveEmbedding(options: SaveEmbeddingOptions): Promise<void> {
     const {
       tenantId,
-      content,
+      content: rawContent,
       embedding,
       model,
       documentName = null,
@@ -69,6 +84,10 @@ export class EmbeddingsService {
       emailId = null,
       contactId = null,
     } = options;
+
+    // SECURITY: Sanitize content to prevent PostgreSQL UTF8 encoding errors
+    // Removes null bytes (0x00) and other control characters
+    const content = sanitizeContentForPostgres(rawContent);
 
     // SECURITY: Validate embedding vector before using in raw SQL
     let validatedEmbedding: number[];
