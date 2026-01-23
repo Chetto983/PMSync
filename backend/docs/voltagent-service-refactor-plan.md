@@ -1,7 +1,7 @@
 # VoltAgentService Refactoring Plan
 
 **Last Updated**: 2026-01-23
-**Status**: Phase 8 - Race Condition Fixes Complete
+**Status**: Phase 9 - Executor Extraction Complete
 
 ---
 
@@ -18,20 +18,33 @@
 | 6b | Audit Cleanup | ✅ DONE | 1444 | Dead code, duplicates, locale consolidation |
 | 7 | Comprehensive Audit | ✅ DONE | - | Race conditions, duplication, 500-line violations |
 | 8 | Race Condition Fixes | ✅ DONE | - | Mutex, Redis lock, compound WHERE fixes |
-| 9 | File Splitting | ⏳ PENDING | - | action-executor (1817), controller (2296) |
-| 10 | Integration Testing | ⏳ PENDING | - | HITL scripts need update |
+| 9 | Executor Extraction | ✅ DONE | 396 | 5 executors extracted, action-executor now <500 |
+| 10 | Dead Code Cleanup | ✅ DONE | 1373 | getOptimizationStats simplified, resetRoutingStats removed |
+| 11 | Controller OK | ✅ OK | 688 | Under 700-line threshold |
+| 12 | Integration Testing | ⏳ PENDING | - | HITL scripts need update |
 
-### Current Metrics vs Target
+### Current Metrics vs Target (2026-01-23)
 
 | Metric | Original | Current | Target | Status |
 |--------|----------|---------|--------|--------|
-| VoltAgentService lines | 2302 | 1444 | <500 | 🔄 Reduced by 858 lines (37%) |
+| action-executor.service.ts | 1817 | **396** | <500 | ✅ Target met |
+| voltagent.controller.ts | 2296 | **688** | <700 | ✅ Under 700 threshold |
+| voltagent.service.ts | 2302 | **1373** | <700 | 🔄 Reduced 40%, still >700 |
+| email-executor.ts | - | **648** | <700 | ✅ Under 700 threshold |
 | `chat()` method | ~490 | ~60 | ~50 | ✅ Near target |
 | `streamChat()` method | ~316 | ~80 | ~80 | ✅ Target met |
-| Code duplication | HIGH | MINIMAL | ZERO | ✅ Fixed 6+ duplicates across module |
-| New services created | 0/6 | 6/6 | 6/6 | ✅ Complete |
-| Services wired | 0/6 | 6/6 | 6/6 | ✅ Complete |
-| Fallback code removed | 0/4 | 4/4 | 4/4 | ✅ Complete |
+| Code duplication | HIGH | MINIMAL | ZERO | ✅ Fixed 6+ duplicates |
+
+### Phase 9 Executors Created (2026-01-23)
+
+| Executor | Lines | Methods |
+|----------|-------|---------|
+| folder-executor.ts | 155 | create, rename, delete |
+| calendar-executor.ts | 297 | create, update, delete, get, availability |
+| contact-executor.ts | 338 | create, update, delete, search, merge |
+| bulk-email-executor.ts | 281 | bulkDelete, bulkArchive, bulkMarkRead, bulkMove |
+| email-executor.ts | 648 | send, reply, forward, delete, archive, etc. |
+| **Total extracted** | **1,719** | |
 
 ### Phase 6 Services Created
 

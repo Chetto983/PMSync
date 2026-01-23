@@ -1,16 +1,24 @@
 /**
  * VoltAgent Service
  *
- * NestJS service that provides VoltAgent functionality.
- * Creates and manages agents with proper dependency injection.
+ * NestJS facade for VoltAgent functionality.
+ * Coordinates specialized services for chat, approval workflows, and metrics.
  * Implements tenant isolation via userId namespacing.
- * Uses VoltAgent's native workflow suspend/resume for HITL.
  *
- * Performance Optimizations (2025):
- * - Semantic Caching: 50-60% cost reduction via Redis LangCache
- * - Model Router: Intelligent model selection (40-60% cost savings)
- * - BullMQ Queues: 8x throughput via background job processing
- * - Batch Writes: Metrics buffering for >1000 tenant scalability
+ * Core responsibilities:
+ * - chat() / streamChat(): Message processing with agent coordination
+ * - Approval workflow delegation (HITL)
+ * - Conversation management delegation
+ * - Real-time event emission
+ *
+ * NOTE: Most functionality has been extracted to specialized services:
+ * - ChatRequestProcessorService: Input validation, PII, rate limiting
+ * - ChatContextBuilderService: Memory and context enrichment
+ * - ChatResponseProcessorService: Output processing, HITL extraction
+ * - AgentPoolService: Agent creation and caching
+ * - AgentMetricsService: Observability and metrics
+ * - ApprovalWorkflowService: HITL workflow management
+ * - ConversationManagementService: Chat session CRUD
  */
 import { Injectable, OnModuleInit, OnModuleDestroy, Optional, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -20,32 +28,20 @@ import { PostgreSQLMemoryAdapter } from '@voltagent/postgres';
 import { CacheService } from '../../../common/services/cache.service';
 import { CorrelationContext } from '../../../common/services/correlation-context.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CalendarService } from '../../calendar/services/calendar.service';
-import { EmailSendService } from '../../email/services/email-send.service';
-import { MistralService } from '../services/mistral.service';
-import { EmbeddingsService } from '../services/embeddings.service';
 import { HitlService } from './services/hitl.service';
-import { ActionExecutorService } from './services/action-executor.service';
-import { WritingStyleService } from './services/writing-style.service';
 // ModelRouterService removed - VoltAgent 2.x handles model routing natively
 // Phase 3: Consolidated agents (10 → 3) - now handled by AgentPoolService
 import { type UserContext } from './agents/supervisor.agent';
-import { AiQueueService, type AiJobData } from './services/ai-queue.service';
-import { RateLimiterService } from './services/rate-limiter.service';
+import { AiQueueService } from './services/ai-queue.service';
 import { AiError, AiErrorCode } from '../errors';
-import { MistralBatchService } from './services/mistral-batch.service';
 import { ActionSeverity } from './interfaces/agent-action.interface';
 import { type ConnectedProvider } from './agents';
 import { getLocale, getTranslations, getErrorTranslations } from './locales';
-import { DocumentLibraryService } from './services/document-library.service';
-import { PromptGuardService, PiiDetectionService, PiiResolutionService, type PiiMapping } from '../guards';
+import { PiiResolutionService, type PiiMapping } from '../guards';
 import { RealtimeEventsService } from '../../realtime/services/realtime-events.service';
 import type { AiAgentType } from '../../realtime/types/realtime.types';
-import { FollowUpService } from './services/follow-up.service';
 import { createObservabilityHooks, type AgentMetrics, type DisposableHooks } from './observability';
 import { type MistralModel } from './providers/mistral.provider';
-import { EpisodicMemoryService } from './services/episodic-memory.service';
-import { ConversationCompactionService, /*type ConversationMessage*/ } from './services/conversation-compaction.service';
 import { ConversationManagementService } from './services/conversation-management.service';
 import {
   type ApprovalInput,
@@ -211,26 +207,12 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly emailSendService: EmailSendService,
-    private readonly calendarService: CalendarService,
     private readonly configService: ConfigService,
     @Optional() private readonly cacheService?: CacheService,
     @Optional() private readonly hitlService?: HitlService,
-    @Optional() private readonly actionExecutorService?: ActionExecutorService,
-    @Optional() private readonly mistralService?: MistralService,
-    @Optional() private readonly embeddingsService?: EmbeddingsService,
     @Optional() private readonly aiQueueService?: AiQueueService,
-    @Optional() private readonly rateLimiterService?: RateLimiterService,
-    @Optional() private readonly mistralBatchService?: MistralBatchService,
-    @Optional() private readonly episodicMemoryService?: EpisodicMemoryService,
-    @Optional() private readonly documentLibraryService?: DocumentLibraryService,
-    @Optional() private readonly promptGuardService?: PromptGuardService,
-    @Optional() private readonly piiDetectionService?: PiiDetectionService,
     @Optional() private readonly piiResolutionService?: PiiResolutionService,
     @Optional() private readonly realtimeEventsService?: RealtimeEventsService,
-    @Optional() private readonly followUpService?: FollowUpService,
-    @Optional() private readonly writingStyleService?: WritingStyleService,
-    @Optional() private readonly compactionService?: ConversationCompactionService,
     @Optional() private readonly conversationService?: ConversationManagementService,
     @Optional() private readonly memoryIntelligenceService?: MemoryIntelligenceService,
     @Optional() private readonly usageTrackingService?: UsageTrackingService,
@@ -769,7 +751,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
         // Save user message
         const userMessage = {
-          id: `msg-user-${Date.now()}`,
+          id: `msg-user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           role: 'user' as const,
           parts: [{ type: 'text' as const, text: processedMessage }],
           metadata: { timestamp: new Date().toISOString() },
@@ -778,7 +760,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
         // Save assistant response
         const assistantMessage = {
-          id: `msg-assistant-${Date.now()}`,
+          id: `msg-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           role: 'assistant' as const,
           parts: [{ type: 'text' as const, text: sanitizedText }],
           metadata: { timestamp: new Date().toISOString(), model: selectedModel },
@@ -812,9 +794,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         },
       );
       pendingActions = processed.pendingActions;
-    } else {
+    } else if (result.steps?.length) {
       // Fallback: extract from top-level steps only (original behavior)
-      this.logger.debug(`[HITL DEBUG] result.steps count: ${result.steps?.length || 0}`);
+      this.logger.debug(`[HITL DEBUG] result.steps count: ${result.steps.length}`);
       for (let i = 0; i < result.steps.length; i++) {
         const step = result.steps[i];
         const toolResults = (step as unknown as { toolResults?: Array<{ output?: unknown; toolName?: string }> }).toolResults;
@@ -852,9 +834,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         }
       }
     }
-
-
-    // Responses are never cached to prevent data leakage between tenants
 
     // Emit final response event with the correct persistedConversationId
     // This ensures the frontend can match events even for new conversations
@@ -1046,7 +1025,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
         // Save user message
         const userMessage = {
-          id: `msg-user-${Date.now()}`,
+          id: `msg-user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           role: 'user' as const,
           parts: [{ type: 'text' as const, text: processedMessage }],
           metadata: { timestamp: new Date().toISOString() },
@@ -1056,7 +1035,7 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
         // Save assistant response (sanitized to remove any echoed internal markers)
         const sanitizedResponse = sanitizeLlmResponse(fullResponse);
         const assistantMessage = {
-          id: `msg-assistant-${Date.now()}`,
+          id: `msg-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           role: 'assistant' as const,
           parts: [{ type: 'text' as const, text: sanitizedResponse }],
           metadata: { timestamp: new Date().toISOString(), model: selectedModel },
@@ -1142,239 +1121,35 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ========================================================================
-  // Background Job Processing (BullMQ)
-  // ========================================================================
-
-  /**
-   * Queue a background AI job for async processing.
-   * Provides 8x throughput improvement for non-blocking operations.
-   */
-  async queueBackgroundJob(job: AiJobData): Promise<string | null> {
-    if (!this.aiQueueService?.isEnabled()) {
-      this.logger.debug('AI Queue disabled, job will not be queued');
-      return null;
-    }
-
-    return this.aiQueueService.addJob(job);
-  }
-
-  /**
-   * Queue multiple AI jobs in bulk.
-   * More efficient than individual job additions.
-   */
-  async queueBulkJobs(jobs: AiJobData[]): Promise<string[]> {
-    if (!this.aiQueueService?.isEnabled()) {
-      return [];
-    }
-
-    return this.aiQueueService.addBulkJobs(jobs);
-  }
-
-  /**
-   * Queue email insights analysis as a background job.
-   * Returns immediately while analysis happens in background.
-   */
-  async queueEmailInsights(
-    tenantId: string,
-    emailIds: string[],
-    options?: { userId?: string; priority?: 'high' | 'normal' | 'low' },
-  ): Promise<string | null> {
-    return this.queueBackgroundJob({
-      type: 'email-insights',
-      tenantId,
-      userId: options?.userId,
-      priority: options?.priority || 'normal',
-      payload: { emailIds },
-      dedupKey: `email-insights:${tenantId}:${emailIds.slice(0, 3).join(',')}`,
-    });
-  }
-
-  /**
-   * Queue embedding generation for semantic search.
-   */
-  async queueEmbeddingGeneration(
-    tenantId: string,
-    contentItems: Array<{ id: string; content: string; type: string }>,
-  ): Promise<string | null> {
-    return this.queueBackgroundJob({
-      type: 'embedding-generation',
-      tenantId,
-      priority: 'low',
-      payload: { items: contentItems },
-      dedupKey: `embeddings:${tenantId}:${contentItems.length}`,
-    });
-  }
-
-  // ========================================================================
   // Optimization Statistics
   // ========================================================================
 
   /**
-   * Get comprehensive optimization statistics.
-   * Includes model routing and queue metrics.
-   * NOTE: Semantic cache was REMOVED due to cross-tenant security issues.
+   * Get optimization statistics (queue + agent metrics only).
+   * NOTE: semanticCache and modelRouting REMOVED - kept in response for API compatibility.
    */
-  async getOptimizationStats(_tenantId: string): Promise<{
-    semanticCache: {
-      enabled: boolean;
-      entries: number;
-      totalHits: number;
-      estimatedSavings: number;
-    };
-    modelRouting: {
-      enabled: boolean;
-      totalRequests: number;
-      byModel: Record<string, number>;
-      estimatedSavings: number;
-    };
-    queue: {
-      enabled: boolean;
-      metrics: Array<{
-        queue: string;
-        waiting: number;
-        active: number;
-        completed: number;
-        failed: number;
-        throughputPerMinute: number;
-      }>;
-    };
-    agentMetrics: {
-      totalOperations: number;
-      avgDuration: number;
-      successRate: number;
-      totalTokens: number;
-    };
-  }> {
-
-    const semanticCacheEnabled = false;
-    const cacheStats = { entries: 0, totalHits: 0, avgSimilarity: 0, estimatedSavings: 0 };
-
-    // Model routing stats (removed - VoltAgent 2.x handles natively)
-    const modelRoutingEnabled = false;
-    const routingStats = { totalRequests: 0, byModel: {} as Record<string, number>, avgResponseTime: {}, estimatedSavings: 0 };
-
-    // Queue stats
+  async getOptimizationStats(_tenantId: string) {
     const queueEnabled = this.aiQueueService?.isEnabled() ?? false;
-    const queueMetrics = queueEnabled
-      ? await this.aiQueueService!.getQueueMetrics()
-      : [];
-
-    // Agent metrics
-    const agentMetrics = await this.getMetricsStats();
 
     return {
-      semanticCache: {
-        enabled: semanticCacheEnabled,
-        entries: cacheStats.entries,
-        totalHits: cacheStats.totalHits,
-        estimatedSavings: cacheStats.estimatedSavings,
-      },
-      modelRouting: {
-        enabled: modelRoutingEnabled,
-        totalRequests: routingStats.totalRequests,
-        byModel: routingStats.byModel,
-        estimatedSavings: routingStats.estimatedSavings,
-      },
+      // REMOVED: Semantic cache disabled due to cross-tenant security issues
+      semanticCache: { enabled: false, entries: 0, totalHits: 0, estimatedSavings: 0 },
+      // REMOVED: VoltAgent 2.x handles model routing natively
+      modelRouting: { enabled: false, totalRequests: 0, byModel: {}, estimatedSavings: 0 },
       queue: {
         enabled: queueEnabled,
-        metrics: queueMetrics,
+        metrics: queueEnabled ? await this.aiQueueService!.getQueueMetrics() : [],
       },
-      agentMetrics,
+      agentMetrics: await this.getMetricsStats(),
     };
   }
 
   /**
    * Invalidate semantic cache for a tenant.
-   * NOTE: Semantic cache was REMOVED due to cross-tenant security issues.
-   * This method now does nothing but is kept for API compatibility.
+   * @deprecated Semantic cache REMOVED due to cross-tenant security issues. Kept for API compatibility.
    */
   async invalidateCache(_tenantId: string, _pattern?: string): Promise<number> {
-
     return 0;
-  }
-
-  /**
-   * Reset model routing statistics.
-   * @deprecated Model routing removed in VoltAgent 2.x simplification
-   */
-  resetRoutingStats(): void {
-    // No-op: Model routing removed - VoltAgent 2.x handles natively
-  }
-
-  // ========================================================================
-  // Batch Processing (Mistral Batch API - 50% cost reduction)
-  // ========================================================================
-
-  /**
-   * Batch generate embeddings for multiple texts.
-   * Uses Mistral Batch API for 50% cost reduction.
-   */
-  async batchEmbeddings(
-    tenantId: string,
-    items: Array<{ id: string; text: string }>,
-  ): Promise<string | null> {
-    if (!this.mistralBatchService?.isEnabled()) {
-      this.logger.debug('Mistral Batch API not available');
-      return null;
-    }
-
-    return this.mistralBatchService.batchEmbeddings(tenantId, items);
-  }
-
-  /**
-   * Batch analyze email sentiments.
-   * Uses Mistral Batch API for 50% cost reduction.
-   */
-  async batchSentimentAnalysis(
-    tenantId: string,
-    emails: Array<{ id: string; subject: string; body: string }>,
-  ): Promise<string | null> {
-    if (!this.mistralBatchService?.isEnabled()) {
-      return null;
-    }
-
-    return this.mistralBatchService.batchSentimentAnalysis(tenantId, emails);
-  }
-
-  /**
-   * Get batch job status.
-   */
-  async getBatchJobStatus(jobId: string) {
-    return this.mistralBatchService?.getJobStatus(jobId) ?? null;
-  }
-
-  /**
-   * Get batch job results.
-   */
-  async getBatchJobResults(jobId: string) {
-    return this.mistralBatchService?.getJobResults(jobId) ?? [];
-  }
-
-  // ========================================================================
-  // Rate Limiting (1000+ users scalability)
-  // ========================================================================
-
-  /**
-   * Get rate limit status for a tenant.
-   */
-  async getRateLimitStatus(tenantId: string) {
-    if (!this.rateLimiterService) {
-      return {
-        requestsRemaining: -1,
-        tokensRemaining: -1,
-        requestsResetIn: 0,
-        tokensResetIn: 0,
-      };
-    }
-
-    return this.rateLimiterService.getStatus(tenantId);
-  }
-
-  /**
-   * Reset rate limits for a tenant (admin use).
-   */
-  async resetRateLimits(tenantId: string): Promise<void> {
-    await this.rateLimiterService?.resetLimits(tenantId);
   }
 
   // ========================================================================
