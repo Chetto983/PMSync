@@ -51,6 +51,7 @@
     "@nestjs/websockets": "^11.1.10",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.3.0",
+    "@sentinelseed/voltagent": "^0.2.2",
     "@simplewebauthn/server": "^13.2.2",
     "@voltagent/core": "^2.1.6",
     "@voltagent/logger": "^1.0.4",

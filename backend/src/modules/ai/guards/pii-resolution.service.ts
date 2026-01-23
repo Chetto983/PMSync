@@ -18,7 +18,7 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { CacheService, CacheNamespace } from '../../../common/services/cache.service';
-import { PiiMatch, PiiType } from './pii-detection.service';
+import { PiiMatch, PiiType } from './pii-detection-sentinel.service';
 
 export interface PiiMapping {
   /** Redacted placeholder (e.g., "[EMAIL_REDACTED:abcd1234]") */

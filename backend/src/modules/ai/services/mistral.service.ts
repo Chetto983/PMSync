@@ -14,7 +14,7 @@ import {
 } from '../voltagent/locales';
 // Telemetry removed - AI module refactor v2.0
 
-import { PromptGuardService } from '../guards/prompt-guard.service';
+import { PromptGuardService } from '../guards';
 import { getAiCircuitBreaker, withRetry, embeddingRateLimiter } from '../utils';
 import { AiError, AiErrorCode } from '../errors';
 import { UsageTrackingService } from '../../subscription/services/usage-tracking.service';
@@ -212,6 +212,8 @@ export class MistralService {
             messages,
             temperature,
             maxTokens,
+            // Mistral guardrailing: adds defensive system prompt
+            safePrompt: true,
             // Enable JSON mode for guaranteed valid JSON output
             ...(jsonMode && { responseFormat: { type: 'json_object' as const } }),
           });
@@ -351,6 +353,7 @@ export class MistralService {
         model: this.getModel(),
         temperature: 0.2,
         maxTokens: 32,
+        safePrompt: true, // Mistral guardrailing
         messages: [
           {
             role: 'system',
@@ -681,6 +684,7 @@ export class MistralService {
             messages,
             temperature: 0.7,
             maxTokens: 1024,
+            safePrompt: true, // Mistral guardrailing
           });
 
           const timeoutPromise = new Promise<never>((_, reject) => {

@@ -16,7 +16,7 @@ import {
   getToolTranslations,
   type SupportedLocale,
 } from '../voltagent/locales';
-import { PiiDetectionService } from '../guards/pii-detection.service';
+import { PiiDetectionService } from '../guards';
 
 type LocaleKey = 'en' | 'it';
 type ToneKey = 'formal' | 'casual' | 'technical';

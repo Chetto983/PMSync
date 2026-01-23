@@ -24,6 +24,8 @@ import { createDocumentLibraryAgent } from './document-library.agent';
 import { createAnalyticsAgent } from './analytics.agent';
 import type { FollowUpService } from '../services/follow-up.service';
 import { PiiDetectionService } from '../../guards';
+// Note: VoltAgent guardrails not used - Sentinel protection applied at service level
+// via PromptGuardService and PiiDetectionService in ChatRequestProcessor
 
 export interface SupervisorAgentOptions {
   model: LanguageModel;
@@ -404,5 +406,7 @@ export function createSupervisorAgent(options: SupervisorAgentOptions): Agent {
     memory,
     hooks,
     maxSteps: 5, // Reduced from 10 - faster responses, less LLM calls
+    // Note: Guardrails applied at service level via Sentinel-powered
+    // PromptGuardService and PiiDetectionService in ChatRequestProcessor
   });
 }

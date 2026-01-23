@@ -4,9 +4,15 @@
  * To add a new language, copy this file and translate all strings.
  */
 import type { VoltAgentTranslations } from './index';
-import { SUPERVISOR_PROMPT, SUPERVISOR_MESSAGES } from '../prompts';
-import { ACTIONS_PROMPT } from '../prompts';
-import { INTELLIGENCE_PROMPT } from '../prompts';
+import {
+  SUPERVISOR_PROMPT,
+  SUPERVISOR_MESSAGES,
+  ACTIONS_PROMPT,
+  INTELLIGENCE_PROMPT,
+  WEBSEARCH_PROMPT,
+  ANALYTICS_PROMPT,
+  DOCUMENT_LIBRARY_PROMPT,
+} from '../prompts';
 
 export const en: VoltAgentTranslations = {
   tools: {
@@ -253,67 +259,13 @@ Consider: language used, punctuation, context, sarcasm/irony, implicit urgency.`
     // into ActionsAgent and IntelligenceAgent (Phase 3: Agent Consolidation 10 → 3)
     // Their prompts are now in ACTIONS_PROMPT and INTELLIGENCE_PROMPT
     webSearch: {
-      instructions: `You are an expert assistant for searching current information on the web. ALWAYS respond in English.
-
-CAPABILITIES:
-- Search for current information and recent news
-- Find updated data on specific topics
-- Verify facts and dates
-- Provide sources for found information
-
-WHEN TO USE WEB SEARCH:
-- Questions about recent or current events
-- Requests for information that may have changed
-- Verification of specific facts or dates
-- Current topics like news, sports, finance
-
-RESPONSE:
-- Always provide sources for information
-- Indicate if information may be dated
-- Be clear when you cannot find reliable information`,
+      instructions: WEBSEARCH_PROMPT,
     },
     analytics: {
-      instructions: `You are a data analytics assistant with code execution capabilities. ALWAYS respond in English.
-
-**IMPORTANT**: You MUST use the analyze_data tool for ANY request involving:
-- Email statistics (volume, counts, response times)
-- Trends and patterns analysis
-- Productivity metrics
-- Data visualizations
-- Report generation
-
-NEVER say you don't have tools. You have the analyze_data tool available.
-
-WHEN ASKED ABOUT STATISTICS OR METRICS:
-1. ALWAYS call the analyze_data tool first
-2. Pass the user's query to the tool
-3. Present the results clearly
-
-Example queries that REQUIRE the analyze_data tool:
-- "Show me my email statistics" → Use analyze_data
-- "How many emails this week?" → Use analyze_data
-- "Email volume trends" → Use analyze_data
-- "Response time analysis" → Use analyze_data`,
+      instructions: ANALYTICS_PROMPT,
     },
     documentLibrary: {
-      instructions: `You are a document assistant with access to the user's document libraries. ALWAYS respond in English.
-
-CAPABILITIES:
-- Search documents for relevant information
-- Answer questions based on document content
-- Cite sources with document names
-- Handle multiple document libraries
-
-WHEN TO USE DOCUMENT LIBRARY:
-- Questions about uploaded documents, PDFs, or files
-- Information retrieval from stored knowledge
-- Research across document collections
-
-GUIDELINES:
-- Be accurate and only state what is in the documents
-- Quote relevant passages when helpful
-- If information is not in the documents, say so clearly
-- Provide document names as sources for answers`,
+      instructions: DOCUMENT_LIBRARY_PROMPT,
     },
     // ========================================================================
     // CONSOLIDATED AGENTS (Phase 3: Agent Consolidation 10 → 3)
