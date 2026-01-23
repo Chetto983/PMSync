@@ -11,10 +11,14 @@
  * - Redis-backed for multi-instance deployment
  * - Graceful degradation when Redis unavailable
  *
- * Default Limits:
- * - 60 requests/minute per tenant (1 req/sec burst)
- * - 10,000 requests/minute global (166 req/sec)
- * - 100,000 tokens/hour per tenant
+ * IMPORTANT: Provider-specific limits:
+ * - Mistral API: 6 req/sec = 360 req/min (we use 300 for safety)
+ * - Azure OpenAI: Higher limits via env vars (AI_RATE_LIMIT_GLOBAL_RPM)
+ *
+ * Default Limits (Mistral-safe):
+ * - 30 requests/minute per tenant (fair sharing)
+ * - 300 requests/minute global (5 req/sec < Mistral's 6 req/sec)
+ * - 50,000 tokens/hour per tenant
  */
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { CacheService, CacheNamespace } from '../../../../common/services/cache.service';
@@ -44,9 +48,9 @@ interface RateLimitBucket {
 }
 
 const DEFAULT_CONFIG: RateLimitConfig = {
-  tenantRequestsPerMinute: 60,
-  tenantTokensPerHour: 100000,
-  globalRequestsPerMinute: 10000,
+  tenantRequestsPerMinute: 30, // Fair sharing: 10,000 users → ~300 req/min total
+  tenantTokensPerHour: 50000, // ~14 tokens/sec average per tenant
+  globalRequestsPerMinute: 300, // 5 req/sec (Mistral limit is 6 req/sec)
   enabled: true,
 };
 
