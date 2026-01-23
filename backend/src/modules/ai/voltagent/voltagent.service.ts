@@ -735,43 +735,19 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     // Sanitize response to remove any accidentally echoed internal context markers
     const sanitizedText = sanitizeLlmResponse(result.text);
 
-    // 4. Persist messages to VoltAgent Memory (RE-ADDED after AI refactor v2.0)
-    // This ensures conversation history is available for future requests
-    if (this.memory && result?.text) {
-      try {
-        if (!conversationEnsured) {
-          await this.ensureConversationExists({
-            tenantUserId,
-            sessionId: persistedConversationId,
-            title: processedMessage.substring(0, 100),
-            tenantId: options.tenantId,
-            logPrefix,
-          });
-        }
-
-        // Save user message
-        const userMessage = {
-          id: `msg-user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          role: 'user' as const,
-          parts: [{ type: 'text' as const, text: processedMessage }],
-          metadata: { timestamp: new Date().toISOString() },
-        };
-        await this.memory.addMessage(userMessage, tenantUserId, persistedConversationId);
-
-        // Save assistant response
-        const assistantMessage = {
-          id: `msg-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          role: 'assistant' as const,
-          parts: [{ type: 'text' as const, text: sanitizedText }],
-          metadata: { timestamp: new Date().toISOString(), model: selectedModel },
-        };
-        await this.memory.addMessage(assistantMessage, tenantUserId, persistedConversationId);
-
-        this.logger.debug(`${logPrefix} Persisted conversation messages to VoltAgent Memory`);
-      } catch (error) {
-        // Non-critical: log but don't fail the request
-        this.logger.warn(`${logPrefix} Failed to persist messages to memory: ${error}`);
-      }
+    // VoltAgent auto-persists messages when memory is configured on agents
+    // Manual persistence removed to avoid duplicates (2026-01-23)
+    // Only ensure conversation exists for proper scoping
+    if (this.memory && !conversationEnsured) {
+      await this.ensureConversationExists({
+        tenantUserId,
+        sessionId: persistedConversationId,
+        title: processedMessage.substring(0, 100),
+        tenantId: options.tenantId,
+        logPrefix,
+      }).catch((error) => {
+        this.logger.warn(`${logPrefix} Failed to ensure conversation exists: ${error}`);
+      });
     }
 
     // Extract pending actions from tool results + database (for delegated actions)
@@ -1009,44 +985,19 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     }
 
 
-    // 4. Persist messages to VoltAgent Memory (RE-ADDED after AI refactor v2.0)
-    // This ensures conversation history is available for future requests
-    if (this.memory && fullResponse.length > 0) {
-      try {
-        if (!conversationEnsured) {
-          await this.ensureConversationExists({
-            tenantUserId,
-            sessionId,
-            title: processedMessage.substring(0, 100),
-            tenantId: options.tenantId,
-            logPrefix,
-          });
-        }
-
-        // Save user message
-        const userMessage = {
-          id: `msg-user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          role: 'user' as const,
-          parts: [{ type: 'text' as const, text: processedMessage }],
-          metadata: { timestamp: new Date().toISOString() },
-        };
-        await this.memory.addMessage(userMessage, tenantUserId, sessionId);
-
-        // Save assistant response (sanitized to remove any echoed internal markers)
-        const sanitizedResponse = sanitizeLlmResponse(fullResponse);
-        const assistantMessage = {
-          id: `msg-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          role: 'assistant' as const,
-          parts: [{ type: 'text' as const, text: sanitizedResponse }],
-          metadata: { timestamp: new Date().toISOString(), model: selectedModel },
-        };
-        await this.memory.addMessage(assistantMessage, tenantUserId, sessionId);
-
-        this.logger.debug(`${logPrefix} Persisted conversation messages to VoltAgent Memory`);
-      } catch (error) {
-        // Non-critical: log but don't fail the request
-        this.logger.warn(`${logPrefix} Failed to persist messages to memory: ${error}`);
-      }
+    // VoltAgent auto-persists messages when memory is configured on agents
+    // Manual persistence removed to avoid duplicates (2026-01-23)
+    // Only ensure conversation exists for proper scoping
+    if (this.memory && !conversationEnsured) {
+      await this.ensureConversationExists({
+        tenantUserId,
+        sessionId,
+        title: processedMessage.substring(0, 100),
+        tenantId: options.tenantId,
+        logPrefix,
+      }).catch((error) => {
+        this.logger.warn(`${logPrefix} Failed to ensure conversation exists: ${error}`);
+      });
     }
 
     // P10: Track successful AI call usage (after stream completion)

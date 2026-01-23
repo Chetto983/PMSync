@@ -11,7 +11,6 @@
  * Created: 2026-01-22
  */
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import type { Memory } from '@voltagent/core';
 import { PiiResolutionService, type PiiMapping } from '../../guards';
 import { HitlService } from './hitl.service';
 import { type ActionSeverity, type AgentActionType } from '../interfaces/agent-action.interface';
@@ -83,16 +82,7 @@ export interface ProcessedResponse {
   requiresApproval: boolean;
 }
 
-export interface PersistMessagesOptions {
-  tenantId: string;
-  tenantUserId: string;
-  sessionId: string;
-  userMessage: string;
-  assistantMessage: string;
-  selectedModel?: string;
-  memory: Memory;
-  logPrefix?: string;
-}
+// PersistMessagesOptions removed - VoltAgent handles persistence automatically (2026-01-23)
 
 @Injectable()
 export class ChatResponseProcessorService {
@@ -300,35 +290,5 @@ export class ChatResponseProcessorService {
     return text;
   }
 
-  /**
-   * Persist user and assistant messages to VoltAgent Memory.
-   */
-  async persistMessages(options: PersistMessagesOptions): Promise<void> {
-    const logPrefix = options.logPrefix || `[tenant:${options.tenantId}]`;
-
-    try {
-      // Save user message
-      const userMessage = {
-        id: `msg-user-${Date.now()}`,
-        role: 'user' as const,
-        parts: [{ type: 'text' as const, text: options.userMessage }],
-        metadata: { timestamp: new Date().toISOString() },
-      };
-      await options.memory.addMessage(userMessage, options.tenantUserId, options.sessionId);
-
-      // Save assistant response
-      const assistantMessage = {
-        id: `msg-assistant-${Date.now()}`,
-        role: 'assistant' as const,
-        parts: [{ type: 'text' as const, text: options.assistantMessage }],
-        metadata: { timestamp: new Date().toISOString(), model: options.selectedModel },
-      };
-      await options.memory.addMessage(assistantMessage, options.tenantUserId, options.sessionId);
-
-      this.logger.debug(`${logPrefix} Persisted conversation messages to VoltAgent Memory`);
-    } catch (error) {
-      // Non-critical: log but don't fail the request
-      this.logger.warn(`${logPrefix} Failed to persist messages to memory: ${error}`);
-    }
-  }
+  // persistMessages method removed - VoltAgent handles persistence automatically (2026-01-23)
 }

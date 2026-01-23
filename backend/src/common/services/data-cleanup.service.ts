@@ -12,6 +12,7 @@ import { PrismaService } from '../../prisma/prisma.service';
  * - AgentLearningProfile (90 day retention, auto-renews on update)
  * - AIMemory (variable retention via expiresAt)
  * - ActionQueue (expired pending actions)
+ * - VoltAgent conversations (30 day retention)
  *
  * Runs daily at 3 AM (low traffic period)
  */
@@ -38,6 +39,7 @@ export class DataCleanupService implements OnModuleInit {
       learningProfiles: 0,
       aiMemories: 0,
       expiredActions: 0,
+      conversations: 0,
       duration: 0,
     };
 
@@ -87,17 +89,22 @@ export class DataCleanupService implements OnModuleInit {
       results.expiredActions = actionResult.count;
       this.logger.debug(`Deleted ${actionResult.count} expired pending actions`);
 
+      // 5. Clean old VoltAgent conversations (30 days)
+      results.conversations = await this.cleanupOldConversations(now);
+
       results.duration = Date.now() - startTime;
       const total =
         results.agentFeedback +
         results.learningProfiles +
         results.aiMemories +
-        results.expiredActions;
+        results.expiredActions +
+        results.conversations;
 
       this.logger.log(
         `Data cleanup complete: ${total} records deleted in ${results.duration}ms ` +
           `(feedback: ${results.agentFeedback}, profiles: ${results.learningProfiles}, ` +
-          `memories: ${results.aiMemories}, actions: ${results.expiredActions})`,
+          `memories: ${results.aiMemories}, actions: ${results.expiredActions}, ` +
+          `conversations: ${results.conversations})`,
       );
 
       return results;
@@ -120,8 +127,10 @@ export class DataCleanupService implements OnModuleInit {
    */
   async getExpiredCounts(): Promise<ExpiredCounts> {
     const now = new Date();
+    const conversationCutoff = new Date();
+    conversationCutoff.setDate(conversationCutoff.getDate() - 30);
 
-    const [feedback, profiles, memories, actions] = await Promise.all([
+    const [feedback, profiles, memories, actions, conversations] = await Promise.all([
       this.prisma.agentActionFeedback.count({
         where: { expiresAt: { lt: now } },
       }),
@@ -134,6 +143,7 @@ export class DataCleanupService implements OnModuleInit {
       this.prisma.actionQueue.count({
         where: { status: 'PENDING_APPROVAL', expiresAt: { lt: now } },
       }),
+      this.getOldConversationCount(conversationCutoff),
     ]);
 
     return {
@@ -141,8 +151,87 @@ export class DataCleanupService implements OnModuleInit {
       learningProfiles: profiles,
       aiMemories: memories,
       expiredActions: actions,
-      total: feedback + profiles + memories + actions,
+      conversations,
+      total: feedback + profiles + memories + actions + conversations,
     };
+  }
+
+  /**
+   * Clean up old VoltAgent conversations (30 days).
+   * VoltAgent uses voltagent_memory_* tables with PostgreSQLMemoryAdapter.
+   */
+  private async cleanupOldConversations(now: Date): Promise<number> {
+    const cutoffDate = new Date(now);
+    cutoffDate.setDate(cutoffDate.getDate() - 30);
+
+    try {
+      // Check if VoltAgent tables exist
+      const tableExists = await this.checkVoltAgentTablesExist();
+      if (!tableExists) {
+        this.logger.debug('VoltAgent memory tables not found, skipping conversation cleanup');
+        return 0;
+      }
+
+      // Delete messages first (FK constraint), then conversations
+      await this.prisma.$executeRaw`
+        DELETE FROM voltagent_memory_messages
+        WHERE conversation_id IN (
+          SELECT id FROM voltagent_memory_conversations
+          WHERE updated_at < ${cutoffDate}
+        )
+      `;
+
+      const result = await this.prisma.$executeRaw`
+        DELETE FROM voltagent_memory_conversations
+        WHERE updated_at < ${cutoffDate}
+      `;
+
+      this.logger.debug(`Deleted ${result} old conversations`);
+      return result;
+    } catch (error) {
+      // Table might not exist yet
+      if (String(error).includes('does not exist') || String(error).includes('relation')) {
+        this.logger.debug('VoltAgent memory tables not found, skipping');
+        return 0;
+      }
+      this.logger.error(`Failed to cleanup conversations: ${error}`);
+      return 0;
+    }
+  }
+
+  /**
+   * Check if VoltAgent memory tables exist.
+   */
+  private async checkVoltAgentTablesExist(): Promise<boolean> {
+    try {
+      const result = await this.prisma.$queryRaw<Array<{ exists: boolean }>>`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_name = 'voltagent_memory_conversations'
+        ) as exists
+      `;
+      return result[0]?.exists ?? false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get count of old conversations for statistics.
+   */
+  private async getOldConversationCount(cutoffDate: Date): Promise<number> {
+    try {
+      const tableExists = await this.checkVoltAgentTablesExist();
+      if (!tableExists) return 0;
+
+      const result = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*) as count FROM voltagent_memory_conversations
+        WHERE updated_at < ${cutoffDate}
+      `;
+      return Number(result[0]?.count ?? 0);
+    } catch {
+      return 0;
+    }
   }
 }
 
@@ -151,6 +240,7 @@ interface CleanupResult {
   learningProfiles: number;
   aiMemories: number;
   expiredActions: number;
+  conversations: number;
   duration: number;
 }
 
@@ -159,5 +249,6 @@ interface ExpiredCounts {
   learningProfiles: number;
   aiMemories: number;
   expiredActions: number;
+  conversations: number;
   total: number;
 }
