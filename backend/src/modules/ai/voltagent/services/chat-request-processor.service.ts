@@ -13,7 +13,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PromptGuardService, PiiDetectionService, PiiResolutionService, type PiiMatch } from '../../guards';
 import { RateLimiterService } from './rate-limiter.service';
-import { ModelRouterService, type AgentType } from './model-router.service';
+import type { AgentType } from '../types';
 import type { MistralModel } from '../providers/mistral.provider';
 
 export interface ChatRequestOptions {
@@ -70,7 +70,6 @@ export class ChatRequestProcessorService {
     @Optional() private readonly piiDetectionService: PiiDetectionService | null,
     @Optional() private readonly piiResolutionService: PiiResolutionService | null,
     @Optional() private readonly rateLimiterService: RateLimiterService | null,
-    @Optional() private readonly modelRouterService: ModelRouterService | null,
   ) {}
 
   /**
@@ -201,28 +200,17 @@ export class ChatRequestProcessorService {
 
   /**
    * Route message to optimal model and agent.
+   * VoltAgent 2.x handles model selection natively via agent configuration.
    */
   routeModel(
-    message: string,
+    _message: string,
     options: { model?: MistralModel; preferSpeed?: boolean; preferQuality?: boolean },
   ): ModelRoutingResult {
-    if (!this.modelRouterService) {
-      return {
-        recommendedModel: options.model || 'medium',
-        suggestedAgent: 'Supervisor',
-        estimatedTokens: 500,
-      };
-    }
-
-    const routing = this.modelRouterService.routeMessage(message, {
-      preferSpeed: options.preferSpeed,
-      preferQuality: options.preferQuality,
-    });
-
+    // VoltAgent 2.x native model routing - model configured per agent via env vars
     return {
-      recommendedModel: options.model || routing.recommendedModel,
-      suggestedAgent: routing.suggestedAgent || 'Supervisor',
-      estimatedTokens: routing.estimatedTokens,
+      recommendedModel: options.model || 'medium',
+      suggestedAgent: 'Supervisor',
+      estimatedTokens: 500,
     };
   }
 }

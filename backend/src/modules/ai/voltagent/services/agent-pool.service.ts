@@ -23,7 +23,7 @@ import { createIntelligenceAgent } from '../agents/intelligence.agent';
 import { createSupervisorAgent, type UserContext } from '../agents/supervisor.agent';
 import { getMistralModel, type MistralModel } from '../providers/mistral.provider';
 import type { SupportedLocale } from '../locales';
-import type { AgentType } from './model-router.service';
+import type { AgentType } from '../types';
 
 /** Cached agent with creation timestamp for TTL-based expiration */
 export interface CachedAgent {

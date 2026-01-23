@@ -16,6 +16,6 @@ export {
 export { resolveLocale, type SupportedLocale } from './locales';
 export * from './agents';
 export * from './tools';
-export * from './memory';
+// Memory is handled directly in VoltAgentService with retry logic
 export * from './workflows';
 export * from './providers/mistral.provider';

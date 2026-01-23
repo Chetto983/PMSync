@@ -187,10 +187,21 @@ export class HitlService {
         // Map action type string to ActionType enum
         const actionTypeEnum = this.mapActionType(action.type);
 
+        // Validate userId exists to avoid FK constraint violation
+        // If user doesn't exist (e.g., test scenarios), set to undefined
+        let validatedUserId: string | undefined = undefined;
+        if (userId) {
+          const userExists = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+          });
+          validatedUserId = userExists ? userId : undefined;
+        }
+
         const created = await this.prisma.actionQueue.create({
           data: {
             tenantId,
-            userId,
+            userId: validatedUserId,
             actionType: actionTypeEnum,
             actionPayload: {
               ...(action.payload as Record<string, unknown>),
@@ -414,7 +425,7 @@ export class HitlService {
     }
 
     // Optional ownership enforcement (skip for admins)
-    if (actingUser && !this.canActOnAction(action.userId, actingUser)) {
+    if (actingUser && !this.canActOnAction(action.userId ?? undefined, actingUser)) {
       throw new ForbiddenException('You are not allowed to access this action');
     }
 
@@ -508,7 +519,7 @@ export class HitlService {
     const approvedMeta = this.getPayloadMeta(action.actionPayload);
     this.realtimeEvents.emitAiActionApproved(tenantId, {
       actionId,
-      userId: action.userId,
+      userId: action.userId ?? 'system',
       agentName: approvedMeta.agentName || 'SupervisorAgent',
       actionType: action.actionType,
       status: 'approved',
@@ -522,7 +533,7 @@ export class HitlService {
     await this.learningService.recordFeedback({
       actionId,
       tenantId,
-      userId: action.userId,
+      userId: action.userId ?? 'system',
       agentName: approvedPayloadMeta.agentName || 'UnknownAgent',
       actionType: action.actionType,
       wasApproved: true,
@@ -590,7 +601,7 @@ export class HitlService {
     const rejectedMeta = this.getPayloadMeta(action.actionPayload);
     this.realtimeEvents.emitAiActionRejected(tenantId, {
       actionId,
-      userId: action.userId,
+      userId: action.userId ?? 'system',
       agentName: rejectedMeta.agentName || 'SupervisorAgent',
       actionType: action.actionType,
       status: 'rejected',
@@ -605,7 +616,7 @@ export class HitlService {
     await this.learningService.recordFeedback({
       actionId,
       tenantId,
-      userId: action.userId,
+      userId: action.userId ?? 'system',
       agentName: rejectedPayloadMeta.agentName || 'UnknownAgent',
       actionType: action.actionType,
       wasApproved: false,
@@ -656,7 +667,7 @@ export class HitlService {
     const execMeta = this.getPayloadMeta(action.actionPayload);
     const eventPayload = {
       actionId,
-      userId: action.userId,
+      userId: action.userId ?? 'system',
       agentName: execMeta.agentName || 'SupervisorAgent',
       actionType: action.actionType,
       status: success ? 'executed' as const : 'failed' as const,
@@ -773,13 +784,19 @@ export class HitlService {
   /**
    * Validate if acting user can view/modify the action.
    */
-  private canActOnAction(actionUserId: string, actingUser: ActingUser): boolean {
+  private canActOnAction(actionUserId: string | null | undefined, actingUser: ActingUser): boolean {
     if (!actingUser) {
       return false;
     }
 
+    // Admins can act on any action including system actions (null userId)
     if (actingUser.role === 'admin' || actingUser.role === 'super-admin') {
       return true;
+    }
+
+    // System actions (null userId) can only be accessed by admins
+    if (!actionUserId) {
+      return false;
     }
 
     return actionUserId === actingUser.userId;

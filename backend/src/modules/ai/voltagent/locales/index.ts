@@ -200,32 +200,19 @@ export interface ToolTranslations {
 
 /**
  * Translation structure for agents
+ *
+ * Phase 3: Agent Consolidation (10 → 3)
+ * - Supervisor: Orchestrates and delegates
+ * - ActionsAgent: All WRITE operations (email/calendar/contacts)
+ * - IntelligenceAgent: All READ operations (search/knowledge/analytics)
  */
 export interface AgentTranslations {
   supervisor: {
     instructions: string;
-    delegateEmail: string;
-    delegateCalendar: string;
-    delegateContacts: string;
-    delegateKnowledge: string;
-    delegateGeneral: string;
+    // Delegation messages for consolidated agents
+    delegateActions: string;
+    delegateIntelligence: string;
     delegateWebSearch: string;
-  };
-  email: {
-    instructions: string;
-    confirmBeforeSend: string;
-  };
-  calendar: {
-    instructions: string;
-  };
-  contacts: {
-    instructions: string;
-  };
-  knowledge: {
-    instructions: string;
-  };
-  general: {
-    instructions: string;
   };
   webSearch: {
     instructions: string;

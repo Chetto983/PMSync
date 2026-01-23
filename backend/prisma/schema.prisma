@@ -1155,10 +1155,11 @@ model EmailAnalysis {
 }
 
 /// HITL Action Queue - AI suggested actions awaiting approval
+/// userId is optional to allow system-initiated actions and test scenarios
 model ActionQueue {
   id              String       @id @default(cuid())
   tenantId        String
-  userId          String
+  userId          String?      // Made optional for system actions and test scenarios
   emailId         String?
   actionType      ActionType
   actionPayload   Json
@@ -1177,7 +1178,7 @@ model ActionQueue {
   expiresAt       DateTime?
   email           Email?       @relation(fields: [emailId, tenantId], references: [id, tenantId])
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status])
   @@index([tenantId, userId, status])

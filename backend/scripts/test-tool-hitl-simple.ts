@@ -12,7 +12,6 @@ import { VoltAgentService } from '../src/modules/ai/voltagent/voltagent.service'
 import { HitlService } from '../src/modules/ai/voltagent/services/hitl.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ActionStatus } from '@prisma/client';
-import { ModelRouterService } from '../src/modules/ai/voltagent/services/model-router.service';
 import { ChatRequestProcessorService } from '../src/modules/ai/voltagent/services/chat-request-processor.service';
 
 const TENANT_ID = process.argv[2] || 'cmjgylxkg000054yhnjpkmzd9';
@@ -32,29 +31,13 @@ async function main() {
   const voltAgent = app.get(VoltAgentService);
   const hitlService = app.get(HitlService);
   const prisma = app.get(PrismaService);
-  const modelRouter = app.get(ModelRouterService, { strict: false });
   const chatProcessor = app.get(ChatRequestProcessorService, { strict: false });
 
-  // Debug: Verify routing before chat
+  // Debug: Verify services
   const testMessage = 'Send an email to test@example.com with subject "Test" and body "Hello"';
-  console.log('\n=== ROUTING DEBUG ===');
-  console.log(`Services available: ModelRouter=${!!modelRouter}, ChatProcessor=${!!chatProcessor}`);
-
-  if (modelRouter) {
-    const routingResult = modelRouter.routeMessage(testMessage);
-    console.log(`Model Router result:`);
-    console.log(`  suggestedAgent: ${routingResult.suggestedAgent}`);
-    console.log(`  complexity: ${routingResult.complexity}`);
-    console.log(`  recommendedModel: ${routingResult.recommendedModel}`);
-
-    if (routingResult.suggestedAgent === 'Actions') {
-      console.log('✓ Direct routing to ActionsAgent SHOULD be used');
-    } else {
-      console.log('✗ WARNING: Will route via Supervisor - hooks may not fire!');
-    }
-  } else {
-    console.log('✗ ModelRouterService not available - will default to Supervisor!');
-  }
+  console.log('\n=== SERVICES DEBUG ===');
+  console.log(`Services available: ChatProcessor=${!!chatProcessor}`);
+  console.log('Note: VoltAgent 2.x handles model routing natively (ModelRouterService removed)');
 
   // Clean up any previous test actions
   const sessionId = `test-session-${Date.now()}`;

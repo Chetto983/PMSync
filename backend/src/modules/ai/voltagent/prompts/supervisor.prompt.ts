@@ -89,12 +89,14 @@ Respond naturally.
 
 /**
  * Delegation message templates
+ *
+ * Phase 3: Consolidated agents (10 → 3)
+ * - ActionsAgent: All WRITE operations (email/calendar/contacts)
+ * - IntelligenceAgent: All READ operations (search/knowledge/analytics)
+ * - WebSearchAgent: External/public information
  */
 export const SUPERVISOR_MESSAGES = {
-  delegateEmail: 'Delegating to Email Agent for email operations',
-  delegateCalendar: 'Delegating to Calendar Agent for scheduling',
-  delegateContacts: 'Delegating to Contacts Agent for contact management',
-  delegateKnowledge: 'Delegating to Knowledge Agent for information lookup',
-  delegateGeneral: 'Handling as general conversation',
+  delegateActions: 'Delegating to Actions Agent for write operations',
+  delegateIntelligence: 'Delegating to Intelligence Agent for search and analysis',
   delegateWebSearch: 'Delegating to Web Search Agent for current information',
 } as const;

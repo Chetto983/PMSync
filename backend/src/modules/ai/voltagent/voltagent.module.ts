@@ -33,7 +33,7 @@ import { EmbeddingsService } from '../services/embeddings.service';
 
 // AI services
 import { WritingStyleService } from './services/writing-style.service';
-import { ModelRouterService } from './services/model-router.service';
+// ModelRouterService removed - VoltAgent 2.x handles model routing natively
 import { AiQueueService } from './services/ai-queue.service';
 import { RateLimiterService } from './services/rate-limiter.service';
 import { MistralBatchService } from './services/mistral-batch.service';
@@ -101,7 +101,6 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     EmbeddingsService,
     // AI
     WritingStyleService,
-    ModelRouterService,
     AiQueueService,
     RateLimiterService,
     MistralBatchService,
@@ -142,7 +141,6 @@ import { ApprovalWorkflowService } from './services/approval-workflow.service';
     HitlService,
     ActionExecutorService,
     WritingStyleService,
-    ModelRouterService,
     AiQueueService,
     DailyBriefingService,
     FollowUpService,

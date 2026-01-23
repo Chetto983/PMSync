@@ -240,10 +240,10 @@ export class ApprovalWorkflowService implements OnModuleInit {
         return {
           executionId: action.id,
           tenantId: action.tenantId,
-          userId: action.userId,
+          userId: action.userId ?? 'system',
           action: {
             tenantId: action.tenantId,
-            userId: action.userId,
+            userId: action.userId ?? 'system',
             agentName: p.agentName,
             actionType: action.actionType,
             payload: p.payload,
@@ -266,11 +266,11 @@ export class ApprovalWorkflowService implements OnModuleInit {
     return {
       executionId: action.id,
       tenantId: action.tenantId,
-      userId: action.userId,
+      userId: action.userId ?? 'system',
       sessionId: p.sessionId,
       action: {
         tenantId: action.tenantId,
-        userId: action.userId,
+        userId: action.userId ?? 'system',
         agentName: p.agentName,
         actionType: action.actionType,
         payload: p.payload,

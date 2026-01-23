@@ -27,7 +27,7 @@ import { EmbeddingsService } from '../services/embeddings.service';
 import { HitlService } from './services/hitl.service';
 import { ActionExecutorService } from './services/action-executor.service';
 import { WritingStyleService } from './services/writing-style.service';
-import { ModelRouterService } from './services/model-router.service';
+// ModelRouterService removed - VoltAgent 2.x handles model routing natively
 // Phase 3: Consolidated agents (10 → 3) - now handled by AgentPoolService
 import { type UserContext } from './agents/supervisor.agent';
 import { AiQueueService, type AiJobData } from './services/ai-queue.service';
@@ -219,7 +219,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly actionExecutorService?: ActionExecutorService,
     @Optional() private readonly mistralService?: MistralService,
     @Optional() private readonly embeddingsService?: EmbeddingsService,
-    @Optional() private readonly modelRouterService?: ModelRouterService,
     @Optional() private readonly aiQueueService?: AiQueueService,
     @Optional() private readonly rateLimiterService?: RateLimiterService,
     @Optional() private readonly mistralBatchService?: MistralBatchService,
@@ -793,11 +792,6 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Record latency for model router accuracy
-    if (this.modelRouterService && selectedModel) {
-      this.modelRouterService.recordLatency(selectedModel, Date.now() - startTime);
-    }
-
     // Extract pending actions from tool results + database (for delegated actions)
     // CRITICAL FIX 2026-01-22: When Supervisor delegates to ActionsAgent via delegate_task,
     // the sub-agent's tool results with requiresApproval are captured by onToolEnd hooks
@@ -1255,11 +1249,9 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
     const semanticCacheEnabled = false;
     const cacheStats = { entries: 0, totalHits: 0, avgSimilarity: 0, estimatedSavings: 0 };
 
-    // Model routing stats
-    const modelRoutingEnabled = !!this.modelRouterService;
-    const routingStats = this.modelRouterService
-      ? this.modelRouterService.getStats()
-      : { totalRequests: 0, byModel: {} as Record<string, number>, avgResponseTime: {}, estimatedSavings: 0 };
+    // Model routing stats (removed - VoltAgent 2.x handles natively)
+    const modelRoutingEnabled = false;
+    const routingStats = { totalRequests: 0, byModel: {} as Record<string, number>, avgResponseTime: {}, estimatedSavings: 0 };
 
     // Queue stats
     const queueEnabled = this.aiQueueService?.isEnabled() ?? false;
@@ -1303,9 +1295,10 @@ export class VoltAgentService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Reset model routing statistics.
+   * @deprecated Model routing removed in VoltAgent 2.x simplification
    */
   resetRoutingStats(): void {
-    this.modelRouterService?.resetStats();
+    // No-op: Model routing removed - VoltAgent 2.x handles natively
   }
 
   // ========================================================================
