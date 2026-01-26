@@ -171,7 +171,7 @@ export function useSmartRepliesMutation() {
   });
 }
 
-export default {
+const emailAiHooks = {
   useEmailSummarize,
   useSmartReplies,
   useEmailSentiment,
@@ -179,3 +179,5 @@ export default {
   useEmailSummarizeMutation,
   useSmartRepliesMutation,
 };
+
+export default emailAiHooks;

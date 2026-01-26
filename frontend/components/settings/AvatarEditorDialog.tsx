@@ -148,8 +148,8 @@ export function AvatarEditorDialog({
         await onSave(dataUrl);
       }
       onClose();
-    } catch (error) {
-      console.error('Failed to save avatar:', error);
+    } catch {
+      // Failed to save avatar - error is handled by onSave callback
     } finally {
       setSaving(false);
     }

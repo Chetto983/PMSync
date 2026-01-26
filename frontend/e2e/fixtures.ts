@@ -155,6 +155,7 @@ export const test = base.extend<{ authedPage: Page }>({
       });
     });
 
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- Playwright fixture callback, not a React hook
     await use(page);
   },
 });

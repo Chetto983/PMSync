@@ -100,6 +100,7 @@ export default function EmailPage() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const paginationRef = useRef({ page: 1, total: 0 });
+  const isLoadingMoreRef = useRef(false); // Ref guard to prevent race conditions
   const queryClient = useQueryClient();
 
   // Navigate to compose page
@@ -173,6 +174,7 @@ export default function EmailPage() {
   // Reset pagination when filters change
   useEffect(() => {
     paginationRef.current = { page: 1, total: 0 };
+    isLoadingMoreRef.current = false;
     setAllEmails([]);
     setHasMore(true);
   }, [filterKey]);
@@ -197,8 +199,10 @@ export default function EmailPage() {
 
   // Load more emails (infinite scroll) - uses manual fetchQuery like Contacts
   const handleLoadMore = useCallback(async () => {
-    if (!hasMore || isLoadingMore || isLoading) return;
+    // Use ref guard to prevent race conditions (state may not update in time)
+    if (!hasMore || isLoadingMoreRef.current || isLoading) return;
 
+    isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
     const nextPage = paginationRef.current.page + 1;
 
@@ -227,9 +231,10 @@ export default function EmailPage() {
     } catch {
       // Failed to load more emails - silently fail, user can retry
     } finally {
+      isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [emailQueryParams, hasMore, isLoadingMore, isLoading, queryClient]);
+  }, [emailQueryParams, hasMore, isLoading, queryClient]);
 
   // Fetch single email when selected (desktop 3-panel view)
   const { data: selectedEmail, isLoading: isEmailLoading } = useEmail(selectedThreadId || '');

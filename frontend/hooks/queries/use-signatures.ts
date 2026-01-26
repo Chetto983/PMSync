@@ -32,7 +32,7 @@ export function signaturesListOptions(providerId?: string) {
       } catch (error) {
         // Return empty array if endpoint doesn't exist (404)
         if (is404Error(error)) {
-          console.warn('[Signatures] Endpoint not available, returning empty list');
+          // Silently handle 404 - endpoint may not be available yet
           return [];
         }
         throw error;
